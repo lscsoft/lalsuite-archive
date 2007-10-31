@@ -168,7 +168,7 @@ class coincInspiralTable:
   """
   def __init__(self, inspTriggers = None, stat = None):
     """
-    @param inspTriggese: a metaDataTable containing inspiral triggers 
+    @param inspTriggers: a metaDataTable containing inspiral triggers 
                          from which to construct coincidences
     """
     self.table = []
@@ -243,7 +243,7 @@ class coincInspiralTable:
   def coinctype(self, ifolist):
     """
     Return the coincs which are from ifos.
-    @param ifos: a list of ifos 
+    @param ifolist: a list of ifos 
     """
  
     self = self.coincinclude(ifolist)

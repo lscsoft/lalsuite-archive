@@ -37,7 +37,7 @@ class _arraymethod(object):
     a single array.  Merge metadata of all input Spectra.
     
     __init__ gets called when we define the MetaArray (sub-)class and attach
-        methods.
+    methods.
     __get__ gets called on the object at method call time.
     __call__ is called immediately after __get__.
     """
@@ -65,7 +65,7 @@ class _elementwise_method(object):
     operate upon arrays and apply them to each element of the list.
     
     __init__ gets called when we define the MetaArrayList class and attach
-        methods.
+    methods.
     __get__ gets called on the list object at method call time.
     __call__ is called immediately after __get__.
     """
@@ -321,11 +321,11 @@ class MetaArray(numpy.ndarray):
         purposes. `state` is typically the output of the ``__getstate__``
         output, and is a 5-tuple:
         
-        - class name
-        - a tuple giving the shape of the data
-        - a typecode for the data
-        - a binary string for the data
-        - a binary string for the mask.
+          - class name
+          - a tuple giving the shape of the data
+          - a typecode for the data
+          - a binary string for the data
+          - a binary string for the mask.
         """
         (ver, shp, typ, isf, raw, meta) = state
         if ver != 1: raise NotImplemented
@@ -335,9 +335,9 @@ class MetaArray(numpy.ndarray):
     def __reduce__(self):
         """
         Returns a 3-tuple for pickling a MetaArray
-        - reconstruction function
-        - tuple to pass reconstruction function
-        - state, which will be passed to __setstate__
+          - reconstruction function
+          - tuple to pass reconstruction function
+          - state, which will be passed to __setstate__
         """
         return (_mareconstruct,
                 (self.__class__, self._baseclass, (0,), 'b', ),

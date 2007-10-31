@@ -90,8 +90,8 @@ def init_markup_page( opts):
   Load the markup module, and initialise the HTML document if the opts 
   argument contains enable_ouput option.
   @param  opts : the user arguments 
-  @return page : the HTML document
-  @return extra : the onliner (see markup.py documentation)
+  @return page 
+  @return extra 
   """
   # Initialise the html output file
   if opts.enable_output is True:

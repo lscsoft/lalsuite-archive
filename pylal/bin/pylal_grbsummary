@@ -408,7 +408,7 @@ def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None,
     Based on what information is available, produce plotinspiral plots of
     interest.
     TODO: HTML markup (<a href=""><img src="" alt=""></a>), first vs second
-          stage
+    stage
     """
     args = ["plotinspiral", "--snr-time", "--hist-snr", "--cum-hist-snr",
         "--nbins=20", "--log-y"]

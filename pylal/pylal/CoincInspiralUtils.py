@@ -27,7 +27,7 @@ def get_ifo_combos(ifo_list):
   return ifo_combos
 
 def simpleEThinca(trigger1, trigger2):
-  ''' 
+  """ 
   Return the e-thinca corresponding to the distance in  parameter space between two inspiral triggers.
 
   The average distance defined below  is only an approximation to the true distance and is
@@ -35,11 +35,12 @@ def simpleEThinca(trigger1, trigger2):
   the e-thinca parameter is calculated based on that definition of the distance.
 
   d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
-  then
-  simple_ethinca= d_average^2/4  
+  then simple_ethinca= d_average^2/4  
   
-  @param trigger1, trigger2 are single inspiral triggers.
-  '''
+  @param trigger1: are single inspiral triggers.
+  @param trigger2: are single inspiral triggers.
+  """ 
+  
   #dend_time = (trigger2.end_time - trigger1.end_time) +\
   #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
   #FIX ME end_time for time slides is poorly defined, we should sort it out
@@ -69,7 +70,7 @@ def simpleEThinca(trigger1, trigger2):
 
   simple_ethinca = (average_distance**2)/4.0
   return simple_ethinca
-
+  
 
 def readCoincInspiralFromFiles(fileList,statistic=None):
   """
@@ -310,7 +311,7 @@ class coincInspiralTable:
   def coinctype(self, ifolist):
     """
     Return the coincs which are from ifos.
-    @param ifos: a list of ifos 
+    @param ifolist: a list of ifos 
     """
     coincs = self.coincinclude(ifolist)
     selected_coincs = coincInspiralTable()
@@ -427,8 +428,8 @@ class coincInspiralTable:
   def partition_by_stat(self, threshold):
     """
     Return (triggers with stat < threshold,
-            triggers with stat == threshold,
-            triggers with stat > threshold).
+    triggers with stat == threshold,
+    triggers with stat > threshold).
 
     The set of (stat == threshold) is of zero measure, but often, as when
     doing something like the loudest event statistic, the threshold is taken

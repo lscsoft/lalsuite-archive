@@ -27,7 +27,7 @@ def downloadList( output=None ):
   http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/currentgrbs_html_S5.txt
 
   Usage:
-    downloadList( [filename] )
+  downloadList( [filename] )
 
   If no filename is specified, the output will be placed into
   'recentS5.list'
@@ -514,8 +514,9 @@ class grbCoireTable:
   def addData( self, foundName, missedName ):
     """
     Adds data to this class.
-    @params foundName: name of the COIRE file containing found injections
-    @params missedName: name of the file containing missed injections
+
+    @param foundName: name of the COIRE file containing found injections
+    @param missedName: name of the file containing missed injections
     """
 
     # add found injections
@@ -531,7 +532,7 @@ class grbCoireTable:
     """
     Reading the data from a file 'missedName' and adding the data to the
     internal structures.
-    @params missedName: name of the file containing missed injections
+    @param missedName: name of the file containing missed injections
     """
     # read the file
     missed = self.readMissed( missedName)
@@ -549,7 +550,8 @@ class grbCoireTable:
     """
     Reading the data from a file 'foundName' and adding the data to the
     internal structures.
-    @params foundName: name of the COIRE file containing found injections
+
+    @param foundName: name of the COIRE file containing found injections
     """
 
     # read the file
@@ -623,7 +625,7 @@ class grbCoireTable:
   def readMissed( self, missedName ):
     """
     Reads the sim-inspiral tables for the missed injections
-    @params missedName: name of the file containing missed injections
+    @param missedName: name of the file containing missed injections
     """
     
     # read a xml structure
@@ -648,9 +650,9 @@ class grbCoireTable:
     If no INDEX is specified, all values from the whole
     structure/dictionary are returned.
     
-    @params key:     name of the field, like snr, mass1 or also totalMass
-    @params index:   if specified, returns only values according to this index
-    @params choice:  to take the sim triggers either from the FOUND set
+    @param key:     name of the field, like snr, mass1 or also totalMass
+    @param index:   if specified, returns only values according to this index
+    @param choice:  to take the sim triggers either from the FOUND set
                      or the MISSED set
     """
 
@@ -696,18 +698,18 @@ class grbCoireTable:
     """
     Get a list of values of the found triggers. If 'key' contain the phrase 'end_time',
     then always the end_time related to the specified IFO is used!
-    @params key:   Describes the values to return (e.g. 'mass1','totalMass','h_end_time')
-    @params ifo:   IFO from which the values should be taken
-    @params index: Only the indexed entries are considered. If index=None then all available data will be used. 
+    @param key:   Describes the values to return (e.g. 'mass1','totalMass','h_end_time')
+    @param ifo:   IFO from which the values should be taken
+    @param index: Only the indexed entries are considered. If index=None then all available data will be used. 
     """
 
     #####################################
     def getList( key, ifo, index ):
       """
       Returns a list of the values wanted
-      @params key:   the keyword (like 'mass1','end_time')
-      @params ifo:   the detector from which the value should be taken
-      @params index: the index of the list-items to be used
+      @param key:   the keyword (like 'mass1','end_time')
+      @param ifo:   the detector from which the value should be taken
+      @param index: the index of the list-items to be used
       """
       list=[]
       for i in index:
@@ -840,14 +842,14 @@ class grbCoireTable:
     """
     Function to create a plot showing recovered or injected triggers.
     If 'flagDiff=True' the difference between the x and the y values are plotted.
-    @params xvalue:  the x-value to be plotted
-    @params xifo:    detector of which the data should be plotted. Could also be 'sim'!
-    @params xlog:   plotting x-axis linear of logarithmic (linear/log)
-    @params yvalue: the y-value to be plotted
-    @params yifo:    detector of which the data should be plotted. Could also be 'sim'!
-    @params ylog:   plotting y-axis linear of logarithmic (linear/log)
-    @params filename: filename to store the plot under
-    @params flagDiff: If set to None, the y value is plotted on the y-axis,
+    @param xvalue:  the x-value to be plotted
+    @param xifo:    detector of which the data should be plotted. Could also be 'sim'!
+    @param xlog:   plotting x-axis linear of logarithmic (linear/log)
+    @param yvalue: the y-value to be plotted
+    @param yifo:    detector of which the data should be plotted. Could also be 'sim'!
+    @param ylog:   plotting y-axis linear of logarithmic (linear/log)
+    @param filename: filename to store the plot under
+    @param flagDiff: If set to None, the y value is plotted on the y-axis,
                       if set to 'absolute' the absolute difference is plotted (y-x) 
                       and if set to 'relative' the relative difference is plotted ( (y-x)/x )
     """
@@ -925,13 +927,13 @@ class grbCoireTable:
                    filename=None ):
     """
     Function to create an arbitrary scatter plot
-    @params xvalue:   parameters for the x-axis
-    @params xifo:     IFO for data on x-axis
-    @params yvalue:   parameters for the y-axis
-    @params yifo:     IFO for data on y-axis
-    @params zvalue:   parameters for the z-axis
-    @params zifo:     IFO for data on z-axis    
-    @filename:        name of file 
+    @param xvalue:   parameters for the x-axis
+    @param xifo:     IFO for data on x-axis
+    @param yvalue:   parameters for the y-axis
+    @param yifo:     IFO for data on y-axis
+    @param zvalue:   parameters for the z-axis
+    @param zifo:     IFO for data on z-axis    
+    @param filename:        name of file 
     """
 
     # gather the data
@@ -975,12 +977,12 @@ class grbCoireTable:
                        filename=None ):
     """
     Function to create an arbitrary scatter plot
-    @params xvalue:   parameters for the x-axis
-    @params xifo:     IFO for data on x-axis
-    @params yvalue:   parameters for the y-axis
-    @params yifo:     IFO for data on y-axis
-    @params zvalue:   parameters for the z-axis (combined property)
-    @filename:        name of file 
+    @param xvalue:   parameters for the x-axis
+    @param xifo:     IFO for data on x-axis
+    @param yvalue:   parameters for the y-axis
+    @param yifo:     IFO for data on y-axis
+    @param zvalue:   parameters for the z-axis (combined property)
+    @param filename:        name of file 
     """
 
     # gather the data
@@ -1042,11 +1044,11 @@ class grbCoireTable:
     Function to create a plot of two parameters from the trigger/sim set,
     with a marker used to distinguish between missed and found.
     The axis can be set to linear or log individually.
-    @params xvalue: the x-value to be plotted
-    @params xlog:   plotting x-axis linear of logarithmic (linear/log)
-    @params yvalue: the y-value to be plotted
-    @params ylog:   plotting y-axis linear of logarithmic (linear/log)
-    @params filename: filename to store the plot under
+    @param xvalue: the x-value to be plotted
+    @param xlog:   plotting x-axis linear of logarithmic (linear/log)
+    @param yvalue: the y-value to be plotted
+    @param ylog:   plotting y-axis linear of logarithmic (linear/log)
+    @param filename: filename to store the plot under
     """
    
     ## plot the found injections
@@ -1176,8 +1178,8 @@ class grbCoireTable:
   def printMissed( self, filename=None, htmlFlag=False):
     """
     Prints out a list of missed injections, unsorted...( by the specified parameter)
-    @params filename: file with the results
-    @params htmlFlag: if true creates a html table as output
+    @param filename: file with the results
+    @param htmlFlag: if true creates a html table as output
     """
 
     # open file if required

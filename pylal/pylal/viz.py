@@ -51,8 +51,8 @@ def readcol(table, col_name, ifo=None ):
 
   this function can also read in two values not stored in the sngl_inspiral
   table:
-    snr_chi: read in value of snr/chi
-    s3_snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
+    - snr_chi: read in value of snr/chi
+    - s3_snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
 
   @param table: metaDataTable
   @param col_name: name of column to read in 
@@ -123,11 +123,11 @@ def timeindays(col_data ):
   """
   function to re-express the time in days after the start of the run
   known runs:
-    ligo_virgo: [700000000, 700086400]
-    S2:         [729273613, 734367613]
-    S3:         [751658413, 757699213]
-    S4:         [793130413, 795679213]
-    S5:         [815119213, 883209614]
+    - ligo_virgo: [700000000, 700086400]
+    - S2:         [729273613, 734367613]
+    - S3:         [751658413, 757699213]
+    - S4:         [793130413, 795679213]
+    - S5:         [815119213, 883209614]
   The end of S5 is temporarily set to Jan 1, 2008, 00:00:00 PST, until the
   actual end of the run is known.
   @param col_data: array containing times
@@ -199,7 +199,7 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param col_name_b: name of second column (y-axis)
   @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
   @param plot_sym : Symbol for plot, default 'kx'
-  @param plot_name: Name for the plot in the legend
+  @param plot_label: Name for the plot in the legend
   @param output_name: If given, save the plot, with output_name as prefix
   @param ifo: Name of ifo
   @param x_min: Minimum value of x axis
@@ -1103,11 +1103,11 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   @param ifo: name of ifo (default = None), 
               used in extracting information (e.g. which eff_dist)
   @param plot_type: either 'linear' or 'log' plot on x-axis
-  @param plot_sym:  the symbol to use when plotting, default = 'k-'
+  @param plotsym:  the symbol to use when plotting, default = 'k-'
   @param plot_name: name of the plot (for the legend)
   @param title_string: extra info for title
-  @param errorbars: plot errorbars on the efficiencies (using binomial errors)
-                    default = False
+  @param errors: plot errorbars on the efficiencies (using binomial errors)
+                 default = False
   """
   
   if not ifo and ("ifo" in found.validcolumns.keys()):
@@ -1466,16 +1466,16 @@ def tfplot(*args, **kwargs):
 
   Supported function signatures:
 
-  TFPLOT(x, y) - make a scatter plot of x vs y
+  TFPLOT(x, y)  : make a scatter plot of x vs y
 
-  TFPLOT(x, y, s) - make a scatter plot of x vs y with size in area
-    given by s
+  TFPLOT(x, y, s)  : make a scatter plot of x vs y with size in area
+  given by s
 
-  TFPLOT(x, y, s, c) - make a scatter plot of x vs y with size in area
-    given by s and colors given by c
+  TFPLOT(x, y, s, c) : make a scatter plot of x vs y with size in area
+  given by s and colors given by c
 
-  TFPLOT(x, y, s, c, **kwargs) - control colormapping and scaling
-    with keyword args; see below
+  TFPLOT(x, y, s, c, **kwargs) : control colormapping and scaling
+  with keyword args; see below
 
   Make a scatter plot of x versus y.  s is a size in points^2 a scalar
   or an array of the same length as x or y.  c is a color and can be a

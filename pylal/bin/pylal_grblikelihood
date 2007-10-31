@@ -59,9 +59,7 @@ def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
   """
   Histogram coincTriggers in the mass1-distance plane.
 
-  @param xdata:  array of data for parameter x
   @param xedges: bin boundaries for parameter x
-  @param ydata:  array of data for parameter y
   @param yedges: bin boundaries for parameter y
   @param coincTriggers: data to histogram
   @param simtypeflag: "missed" or "found"
@@ -74,7 +72,9 @@ def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
     if ((simtypeflag == "found" and coinc.stat >= 0) or\
         (simtypeflag == "missed" and coinc.stat < 0)):
       xdata = coinc.sim.mass1
+      """@ivar xdata:  array of data for parameter x"""
       ydata = coinc.sim.distance * calibration
+      """@ivar ydata:  array of data for parameter y"""
       k = int((xdata-xedges[0]) // xstep)
       l = int((ydata-yedges[0]) // ystep)
 

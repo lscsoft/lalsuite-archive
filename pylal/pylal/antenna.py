@@ -110,10 +110,10 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   and declination) which must be given in certain units
   ('radians' or 'degree'). The time is passes as GPS time.
   A positive time delay means the GW arrives first at 'det2', then at 'det1'.
-  
+    
   Example:
-    antenna.timeDelay( 877320548.000, 355.084,31.757, 'degree','H1','L1')
-    0.0011604683260994519
+  antenna.timeDelay( 877320548.000, 355.084,31.757, 'degree','H1','L1')
+  0.0011604683260994519
 
   Given these values, the signal arrives first at detector L1,
   and 1.16 ms later at H2

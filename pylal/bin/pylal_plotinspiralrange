@@ -69,7 +69,6 @@ def plotinspiralrange_histogram(opts):
   Create the histogram of the inspiral range for each ifo available 
   
   @param  opts : the user arguments 
-  @return fname : the HTML document
   """
   global figure_number 
   
