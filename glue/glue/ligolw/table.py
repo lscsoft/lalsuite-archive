@@ -524,9 +524,9 @@ class Table(ligolw.Table, list):
 		Used for validation during parsing, and additional
 		book-keeping.  For internal use only.
 		"""
-		self.columnnames = []
-		self.columntypes = []
-		self.columnpytypes = []
+		del self.columnnames[:]
+		del self.columntypes[:]
+		del self.columnpytypes[:]
 		for child in self.childNodes:
 			if child.tagName != ligolw.Column.tagName:
 				continue
