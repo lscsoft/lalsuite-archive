@@ -409,7 +409,7 @@ WHERE
 ORDER BY
 	sngl_burst.ifo
 			""", (coinc_event_id,)):
-				# reconstruct the burst events
+				# reconstruct the burst event
 				event = database.sngl_burst_table._row_from_cols(values)
 
 				# add to list
