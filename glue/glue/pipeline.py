@@ -81,6 +81,12 @@ class CondorJob:
     """
     return self.__executable
 
+  def set_executable(self, executable):
+    """
+    Set the name of the executable for this job.
+    """
+    self.__executable = executable
+
   def add_condor_cmd(self, cmd, value):
     """
     Add a Condor command to the submit file (e.g. a class add or evironment).
@@ -405,7 +411,7 @@ class CondorDAGManJob:
     """
     Write a submit file for this Condor job.
     """
-    command = "condor_submit_dag -no_submit -usedagdir "
+    command = "condor_submit_dag -f -no_submit -usedagdir "
 
     if self.__options.keys():
       for c in self.__options.keys():
