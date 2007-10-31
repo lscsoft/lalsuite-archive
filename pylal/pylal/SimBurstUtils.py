@@ -203,3 +203,24 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
 	plot.axes.set_title(r"%s Injection Detection Efficiency (%d Injections, Contours at 10\%% Intervals, %g\%% Uncertainty)" % (efficiency.instrument, efficiency.num_injections, 100 * efficiency.error))
 	return plot.fig
+
+
+#
+# =============================================================================
+#
+#                             Source Co-ordinates
+#
+# =============================================================================
+#
+
+
+#
+# Location of the galactic core
+#	ra = 27940.04 s = 7 h 45 m 40.04 s
+#	dec = -29o 00' 28.1"
+#
+
+
+MW_CENTER_J2000_RA_RAD = 2.0318570464121519
+MW_CENTER_J2000_DEC_RAD = -0.50628171572274738
+
