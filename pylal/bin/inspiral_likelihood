@@ -18,6 +18,7 @@ from pylal.tools import XLALCalculateEThincaParameter
 #from pylab import*
 import pylal.itertools
 import numpy
+import pickle
 numpy.seterr("raise")
 
 ################################################################################
@@ -110,6 +111,10 @@ parser.add_option("-L","--likelihood",action="store", type="string",\
 
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="print additional information when running" )
+
+parser.add_option("","--dump",action="store_true",default=False,\
+    help="dumps datat into Likelihood_intermediate file" )
+
 
 parser.add_option("-F","--figure-name",action="store", type = "string",\
     default = None, metavar = "NAME", help="saves figure with NAME.png" )
@@ -810,13 +815,18 @@ if opts.likelihood == 'zerolag-candidates-only':
 # calculate likelihood for zero lag, injections and time slides coincidences
 ##########################################################################################
 if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-vs-background':
-
+  
+  #open files in which the output of calculations will be saved
   BackgroundFractionFile_zerolag = open('BackgroundFraction_zerolag', 'w')
   LikelihoodFile_zerolag = open('Likelihood_zerolag', 'w')
   BackgroundFractionFile_inj = open('BackgroundFraction_inj', 'w')
   LikelihoodFile_inj = open('Likelihood_inj', 'w')
   BackgroundFractionFile_slides = open('BackgroundFraction_slides', 'w')
   LikelihoodFile_slides = open('Likelihood_slides', 'w')
+ 
+  #open files in which all intermediate results will be dump into
+  if opts.dump:
+    IntermediateFile = open('Likelihood_intermediate_results', 'w')
 
   # calculating false alarm probability, detection probability and likelihood for zero lag coincs
   size_zerolag = len(zerolagCoincTriggers)
@@ -859,12 +869,25 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   LikelihoodFile_zerolag.close()
   BackgroundFractionFile_zerolag.close()
 
-  
+  # dumping arrays with probabilities for zerolag into intermediate file
+  if opts.dump:
+    pickle.dump(p0_zerolag_array, IntermediateFile)
+    pickle.dump(bf_zerolag_array, IntermediateFile)
+    pickle.dump(pc_zerolag_array, IntermediateFile)
+    pickle.dump(Likelihood_zerolag, IntermediateFile)
+    pickle.dump(DetectionBackgroundRatio_zerolag, IntermediateFile)
 
   
   (statistic_foreground_zerolag_LKH, x_middle_foreground_zerolag_LKH) = cum_hist(Likelihood_zerolag, opts.bins_cumhist)
   (statistic_foreground_zerolag_DBR, x_middle_foreground_zerolag_DBR) = cum_hist(DetectionBackgroundRatio_zerolag, opts.bins_cumhist)
-
+  
+  #dumping histograms for zerolag into intermediate file 
+  if opts.dump:
+    pickle.dump(statistic_foreground_zerolag_LKH, IntermediateFile)
+    pickle.dump(x_middle_foreground_zerolag_LKH, IntermediateFile)
+    pickle.dump(statistic_foreground_zerolag_DBR, IntermediateFile)
+    pickle.dump(x_middle_foreground_zerolag_DBR, IntermediateFile)  
+  
   # calculating false alarm probability, detection probability and likelihood  for injections
   size_inj = len(injectionCoincTriggers)
   p0_inj_array = numpy.zeros(size_inj)
@@ -906,9 +929,24 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     
   LikelihoodFile_inj.close()
   BackgroundFractionFile_inj.close()
-
+  
+  # dumping arrays with probabilities for injections into intermediate file
+  if opts.dump:
+    pickle.dump(p0_inj_array, IntermediateFile)
+    pickle.dump(bf_inj_array, IntermediateFile)
+    pickle.dump(pc_inj_array, IntermediateFile)
+    pickle.dump(Likelihood_inj, IntermediateFile)
+    pickle.dump(DetectionBackgroundRatio_inj, IntermediateFile)
+ 
   (statistic_foreground_inj_LKH, x_middle_foreground_inj_LKH) = cum_hist(Likelihood_inj, opts.bins_cumhist)
   (statistic_foreground_inj_DBR, x_middle_foreground_inj_DBR) = cum_hist(DetectionBackgroundRatio_inj, opts.bins_cumhist)
+  
+  #dumping histograms for injections into intermediate file 
+  if opts.dump:
+    pickle.dump(statistic_foreground_inj_LKH, IntermediateFile)
+    pickle.dump(x_middle_foreground_inj_LKH, IntermediateFile)
+    pickle.dump(statistic_foreground_inj_DBR, IntermediateFile)
+    pickle.dump(x_middle_foreground_inj_DBR, IntermediateFile)
 
 
   # calculating  the binning to be used for background 
@@ -920,7 +958,11 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     bins_slide = x_middle_foreground_inj_LKH - (x_middle_foreground_inj_LKH[1]-x_middle_foreground_inj_LKH[0])
     bins_DBR = x_middle_foreground_inj_DBR - (x_middle_foreground_inj_DBR[1]-x_middle_foreground_inj_DBR[0])
 
-
+  # dumping bins for slides into intremediate file
+  if opts.dump:
+    pickle.dump(bins_slide, IntermediateFile)
+    pickle.dump(bins_DBR, IntermediateFile)
+  
   # calculating false alarm probability, detection probability and likelihood  for timeslides
   size_slides = len(slidesCoincTriggers)
   p0_slides_array = numpy.zeros(size_slides)
@@ -975,6 +1017,8 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
       i+=1
       j+=1
     
+    
+
     (cumhist_slide, x_middle_slide_LKH) = cum_hist(Likelihood_tmp, bins_slide)
     average_likelihood +=cumhist_slide
     average_sqr_likelihood +=cumhist_slide**2
@@ -982,12 +1026,30 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     (cumhist_slide, x_middle_slide_DBR) = cum_hist(DetectionBackgroundRatio_tmp, bins_DBR)
     average_DBR +=cumhist_slide
     average_sqr_DBR +=cumhist_slide**2
+  
+  # dumping arrays with probabilities for time slides into intermediate file
+  if opts.dump:
+    pickle.dump(p0_slides_array, IntermediateFile)
+    pickle.dump(bf_slides_array, IntermediateFile)
+    pickle.dump(pc_slides_array, IntermediateFile)
+    pickle.dump(Likelihood_slides, IntermediateFile)
+    pickle.dump(DetectionBackgroundRatio_slides, IntermediateFile)
 
   sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
   expect_likelihood = average_likelihood / (2 * opts.numslides)
 
   sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
   expect_DBR = average_DBR / (2 * opts.numslides)
+  
+  # dumping average and variance likelihood for time slides
+  if opts.dump:
+    pickle.dump(sigma_likelihood, IntermediateFile)
+    pickle.dump(expect_likelihood, IntermediateFile)
+    pickle.dump(sigma_DBR, IntermediateFile)
+    pickle.dump(expect_DBR, IntermediateFile)
+  
+  if opts.dump:
+    IntermediateFile.close()
   
   LikelihoodFile_slides.close()
   BackgroundFractionFile_slides.close()
