@@ -681,7 +681,7 @@ class SnglInspiralTable(table.Table):
                 "bank_chisq": "real_4",
                 "bank_chisq_dof": "int_4s",
                 "cont_chisq": "real_4",
-                "cont_chisq_dof": "int_4",
+                "cont_chisq_dof": "int_4s",
 		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
 		"Gamma0": "real_4",
