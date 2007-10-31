@@ -2,10 +2,8 @@
 """
 GRB Summary Information
 
-Generate a set of summary information and plot for on-source and off-source
-segments around a GRB trigger.  Output is placed in the current directory.
-
-TODO: support injections (incomplete), generalize to arbitrary IFOs
+Generate a set of summary information and plots for on-source and off-source
+segments around a GRB trigger.
 """
 from __future__ import division
 
@@ -13,28 +11,21 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+import ConfigParser
 import glob
 import optparse
 import os
 import os.path as p
-import re
-import socket
 import sys
-import time
-import urlparse
-from itertools import *
 
+from lalapps import inspiral
 from glue import lal
+from glue import segments, segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
-from glue import segments, segmentsUtils
-from pylal import SnglInspiralUtils, CoincInspiralUtils
-
-##############################################################################
-# Utility functions
-##############################################################################
+from pylal import grbsummary
 
 def get_options():
     """
@@ -44,856 +35,137 @@ def get_options():
         version="%prog CVS $Id$")
 
     # always required parameters
-    parser.add_option("-f", "--full-segfile",
-        help="segfile containing the full analysis time (on-source + off-source)")
-    parser.add_option("-o", "--on-source-segfile",
-        help="segfile containing the on-source segment")
-    parser.add_option("-O", "--off-source-segfile",
-        help="this option is ignored; retained for backwards compatibility")
+    parser.add_option("-s", "--analyzable-segfile",
+        help="segfile containing all analyzable time (Science Mode segments)")
+    parser.add_option("-e", "--ext_trig_xml",
+        help="LIGO LW XML file containing an ExtTriggersTable with events "\
+             "to analyze")
+    parser.add_option("-c", "--plot-config-file",
+        help="grbsummary ini file with parameters to pass Condor and plotting routines")
+    parser.add_option("-l", "--log-path",
+        help="directory in which to place Condor logs")
+    parser.add_option("-C", "--xml-cache",
+        help="cache file containing all XML outputs from the trigger_hipe pipeline")
 
     # mode parameters - their presence turns on a feature
     parser.add_option("-d", "--dq-file", help="get data quality mask from file")
     parser.add_option("-q", "--query-dq", action="store_true", default=False,
         help="query for data quality flags from CIT daily dump")
-    parser.add_option("-I", "--inspiral-glob", action="append",
-        dest="inspiral_globs", help="generate inspiral plots for files in "\
-        "INSPIRAL_GLOB; provide multiple globs for multiple IFOs")
-    parser.add_option("-T", "--thinca-glob",
-        help="generate thinca/ethinca plots with files in THINCA_GLOB")
-    parser.add_option("-J", "--injection-glob",
-        help="generate injection plots with files in INJECTION_GLOB")
-    parser.add_option("-S", "--slide-glob",
-        help="generate timeslide plots with thinca files in SLIDE_GLOB")
-    parser.add_option("-s", "--sire-inspiral", action="store_true",
-        default=False, help="call lalapps_sire on inspiral triggers")
-    parser.add_option("-C", "--coire-thinca", action="store_true",
-        default=False, help="call lalapps_coire on thinca coincidences")
+
     parser.add_option("-n", "--figure-name", help="tag for plot output")
-    parser.add_option("-b", "--analyze-onsource", action="store_true",
+    parser.add_option("-O", "--analyze-onsource", action="store_true",
         default=False,
         help="open the box and include on-source segments in the summary")
 
     # auxiliary parameters
-    parser.add_option("-t", "--injection-window-ms", type="float",
-        help="coincidence window to associate an injection with a trigger")
-    parser.add_option("-c", "--cluster-time-ms", type="float",
-        help="cluster-time to pass to sire and coire")
-    parser.add_option("-N", "--num-slides", type="int",
-        help="number of timeslides")
-    parser.add_option("-H", "--chisq-threshold", type="float",
-        help="specify the chisq threshold for inspiral plots")
-    parser.add_option("-D", "--chisq-delta", type="float",
-        help="specify the chisq delta for inspiral plots")
-    parser.add_option("-B", "--chisq-bins", type="int",
-        help="specify the chisq bins for inspiral plots")
-
+    parser.add_option("-b", "--search-before-trigger", type=int,
+        help="include SEARCH_BEFORE_TRIGGER seconds before the trigger as on-source time")
+    parser.add_option("-a", "--search-after-trigger", type=int,
+        help="include SEARCH_AFTER_TRIGGER seconds after the trigger as on-source time")
+    parser.add_option("-p", "--padding-time", type=int,
+        help="pad analysis segments by PADDING_TIME seconds")
+    parser.add_option("-m", "--num-trials", type=int,
+        help="number of off-source segments to use for background estimation")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
+        help="print additional information during pipeline construction")
     (opts, args) = parser.parse_args()
 
-    # error checking
-    if opts.full_segfile is None:
-        print >>sys.stderr, "Error: Must specify --full-segfile"
-        sys.exit(2)
-    if opts.on_source_segfile is None:
-        print >>sys.stderr, "Error: Must specify --on-source-segfile"
-        sys.exit(2)
-    if opts.slide_glob is not None and opts.num_slides is None:
-        print >>sys.stderr, "Error: If slide-glob is specified, num-slide "\
-            "must also be specified."
-        sys.exit(2)
-    if not opts.figure_name:
-        print >>sys.stderr, "Warning: no --figure-name specified. No plots "\
-            "will be written."
-
-    # expand segfile paths
-    opts.full_segfile = p.expanduser(opts.full_segfile)
-    opts.on_source_segfile = p.expanduser(opts.on_source_segfile)
-
-    # expand ~ in globs
-    if opts.inspiral_globs is not None:
-        opts.inspiral_globs = [p.expanduser(g) for g in opts.inspiral_globs]
-    for s in ["thinca", "injection", "slide"]:
-        myglob = getattr(opts, "%s_glob" % s)
-        if myglob is not None:
-            myglob = p.expanduser(myglob)
-            setattr(opts, "%s_glob" % s, myglob)
+    error_if_missing = ["analyzable_segfile", "ext_trig_xml", "log_path",
+        "search_before_trigger", "search_after_trigger", "padding_time",
+        "xml_cache"]
+    
+    for opt in error_if_missing:
+        if getattr(opts, opt) is None:
+            raise ValueError, "missing required option: --%s" % opt.replace("_", "-")
 
     return opts
 
-_second_stage_regex = re.compile(r"_((\w\d)+)")
-def is_second_stage(filename):
+def initialize_jobs_nodes_descr(cp):
     """
-    Determine if a filename comes from a second-stage INSPIRAL, THINCA, etc.
+    Return dictionaries of jobs, node classes, and cache descriptions.
     """
-    return (_second_stage_regex.search(filename) is not None)
-
-def ifos_start_dur_from_files(files):
-    """
-    Extract list of IFOs, earliest start, and total duration from a list of
-    files
-    """
-    # IFOs
-    ifocombos = set([p.split(name)[1].split('-')[0] for name in files])
-    ifo_char_stream = chain(*(imap(iter, ifocombos)))
-    ifo_stream = imap(lambda site, num: "%s%s" % (site, num),
-                      ifo_char_stream, ifo_char_stream)
-    ifos = list(set(ifo_stream))
-    ifos.sort()
-
-    # start time and duration
-    time_coverage = segmentsUtils.fromfilenames(files).extent()
-    start = time_coverage[0]
-    dur = abs(time_coverage)
-
-    return ifos, start, dur
-
-def write_lal_cache(cache_file, filenames):
-    """
-    Write the list of files in filenames to the file cache_file. if we are
-    passed a file object, write to it.  Else, create a new one.  The file
-    format is that of a LAL cache.
-    """
-    if not hasattr(cache_file, 'write'):
-        cache_file = open(cache_file, 'w')
-    for f in filenames:
-        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
-        if not basedir or basedir == ".":
-            basedir = os.environ["PWD"]
-        url = os.path.join(os.path.join("file://localhost", basedir), f)
-        cache_file.write(' '.join([ifos, 'GRB', str(start), str(dur), url]) + '\n')
-
-def read_lal_cache(input_file):
-    """
-    Read a list of files from the file input_file.  If we are passed a file
-    object, read from it.  Else, create from filename.
-    """
-    if not hasattr(input_file, 'read'):
-        input_file = open(input_file, 'r')
-    return [lal.CacheEntry(line).path() for line in input_file]
-
-def make_external_call(command, show_stdout=False, show_command=True):
-    """
-    Run a program on the shell and print informative messages on failure.
-    """
-    if show_command: print command
+    job_dict = {}
+    job_dict["inspiral"] = inspiral.PlotInspiralJob(cp)
+    job_dict["thinca"] = inspiral.PlotThincaJob(cp)
+    job_dict["numtemplates"] = inspiral.PlotNumtemplatesJob(cp)
+    job_dict["injnum"] = inspiral.PlotInjnumJob(cp)
+    job_dict["ethinca"] = inspiral.PlotEthincaJob(cp)
+    job_dict["inspmissed"] = inspiral.PlotInspmissedJob(cp)
+    job_dict["inspinj"] = inspiral.PlotInspinjJob(cp)
+    job_dict["snrchi"] = inspiral.PlotSnrchiJob(cp)
     
-    stdin, out, err = os.popen3(command)
-    pid, status = os.wait()
+    node_class_dict = {}
+    node_class_dict["inspiral"] = inspiral.PlotInspiralNode
+    node_class_dict["thinca"] = inspiral.PlotThincaNode
+    node_class_dict["numtemplates"] = inspiral.PlotNumtemplatesNode
+    node_class_dict["injnum"] = inspiral.PlotInjnumNode
+    node_class_dict["ethinca"] = inspiral.PlotEthincaNode
+    node_class_dict["inspmissed"] = inspiral.PlotInspmissedNode
+    node_class_dict["inspinj"] = inspiral.PlotInspinjNode
+    node_class_dict["snrchi"] = inspiral.PlotSnrchiNode
+    
+    descr_dict = {} # sieve on this description to find input files
+    descr_dict["inspiral"] = "SIRE"
+    descr_dict["thinca"] = "COIRE"
+    descr_dict["numtemplates"] = "TMPLTBANK"
+    descr_dict["injnum"] = "INJECTION"
+    descr_dict["ethinca"] = "COIRE"
+    descr_dict["inspmissed"] = "MISSED"
+    descr_dict["inspinj"] = "COIRE"
+    descr_dict["snrchi"] = "COIRE"
+    
+    return job_dict, node_class_dict, descr_dict
 
-    if status != 0:
-        print >>sys.stderr, "External call failed."
-        print >>sys.stderr, "  status: %d" % status
-        print >>sys.stderr, "  stdout: %s" % out.read()
-        print >>sys.stderr, "  stderr: %s" % err.read()
-        print >>sys.stderr, "  command: %s" % command
-        #sys.exit(status)
-    if show_stdout:
-        print out.read()
-    stdin.close()
-    out.close()
-    err.close()
+def write_masked_segments(exttrig_time, exttrig_dir, before_time, after_time):
+    # determine on-source and off-source intervals for the external trigger
+    on_source_seg = segments.segment(exttrig_time-before_time,
+                                     exttrig_time+after_time)
+    full_seg = grbsummary.symmetric_protraction(analyzable_seglist,
+        on_source_seg, opts.padding_time, quantization_time, opts.num_trials)
 
-def filename_to_tuple(path):
+    full_filename = "%s/full_segs.txt" % exttrig_dir
+    segmentsUtils.tosegwizard(open(full_filename, "w"), segments.segmentlist([full_seg]))
+    on_source_filename = "%s/on_source_segs.txt" % exttrig_dir
+    segmentsUtils.tosegwizard(open(on_source_filename, "w"), segments.segmentlist([on_source_seg]))
+
+    # generate on-source and off-source veto segmentlists
+    on_source_veto_segs, off_source_veto_segs = \
+        grbsummary.compute_masked_segments(analyzable_seglist,
+        on_source_seg, veto_seglist=dq_veto_seglist,
+        quantization_time=quantization_time)
+    on_source_veto_filename = "%s/on_source_veto.txt" % exttrig_dir
+    segmentsUtils.tosegwizard(open(on_source_filename, "w"),
+        segments.segmentlist([on_source_seg]))
+    off_source_veto_filename = "%s/off_source_veto.txt" % exttrig_dir
+    segmentsUtils.tosegwizard(open(off_source_veto_filename, "w"),
+        off_source_veto_segs)
+
+    return on_source_veto_filename, on_source_veto_filename
+
+def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
     """
-    Return tuple of (basedir, ifos, basetag, extratag, start, duration, extension).
-    If there is no basedir, take PWD from the environment.
-    start and dur are cast to ints.
-    Ex:
+    Find the entries of source_cache matching description exactly and write
+    them to exttrig_dir/description.cache, then create a node of type
+    node_class, set its figure_name and input, then add it to the DAG.
+    If cache is empty, no node is created.
+    
+    TODO: allow veto files
     """
-    basedir, name = p.split(path)
-    basedir = p.expanduser(basedir) or os.environ['PWD']
-
-    name, ext = p.splitext(name)
-    name, ext2 = p.splitext(name)
-    ext = ext2 + ext  # in case we have double-extensions like .xml.gz
-    del ext2
-
-    ifos, tag, start, dur = name.split('-')
-
-    index = tag.find('_')
-    if index > -1:
-        tag, extratag = tag[:index], tag[index:]
-    else:
-        extratag = ""
-
-    start = int(start)
-    dur = int(dur)
-
-    return (basedir, ifos, tag, extratag, start, dur, ext)
-
-def tuple_to_filename(tup):
-    """
-    Return reconstructed filename from a tuple of (basedir, ifos, tag,
-    extratag, start, duration, extension)
-    """
-    if tup[0] == "":
-        tup = list(tup)
-        tup[0] += "."
-    return "%s/%s-%s%s-%d-%d%s" % tuple(tup)
-
-def lal_cache_name_from_files(files):
-    """
-    Return a good name for a lal cache containing these files.
-    We assume that all files share tag and extension.
-    Place the LAL cache in the local directory.
-    """
-    if files is None or len(files) == 0:
+    cache_filename = "%s/%s.cache" % (exttrig_dir, description)
+    cache = source_cache.sieve(description=description)
+    
+    if len(cache) == 0:
+        print >>sys.stderr, "Warning: No files matching description %s."\
+            " Skipping plotinspiral jobs for them." % description
         return
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
-    ifolist, start, dur = ifos_start_dur_from_files(files)
-
-    return tuple_to_filename(("", "".join(ifolist), tag, extratag, start, dur, ".input"))
-
-##############################################################################
-# Call external programs
-##############################################################################
-
-def call_query_dq(segfile, files):
-    """
-    Retrieve data quality flags enabled during our segment of interest.
-    """
-    print "* Querying for data quality information"
-    ifos, start, dur = ifos_start_dur_from_files(files)
-
-    args = ["pylal_query_dq", "--segfile=%s" % segfile,
-        "-d H1_dq_segments.txt", "-d H2_dq_segments.txt", # XXX: Remove me!!
-        "--ignore-version=99"]
-
-    for ifo in ifos:
-        args.append("--ifo %s" % ifo)
-
-    # determine output name
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(files[0])
-    ifolist, start, dur = ifos_start_dur_from_files(files)
-
-    dq_mask_file = tuple_to_filename(("", ifos, "DQ_VETO_MASK", extratag,
-        start, dur, ".txt"))
-    args.append("--outfile=%s" % dq_mask_file)
-
-    # grab stdout, as well
-    args.append("--verbose")
-    dq_info_file = tuple_to_filename(("", ifos, "DQ_INFO", extratag,
-        start, dur, ".txt"))
-    args.append("> %s" % dq_info_file)
-
-    # make the call
-    make_external_call(" ".join(args))
-
-    return dq_mask_file, dq_info_file
-
-def call_sire(inspiral_globs, cluster_time_ms=None, injection_glob=None,
-    injection_window_ms=None):
-    """
-    Call sire on each glob in inspiral_globs and return sire output filenames.
-    """
-    # separate by ifo and call helper function on each set
-    sire_outputs = []
-    for g in inspiral_globs:
-        sire_outputs.append(_sire_by_ifo(g, cluster_time_ms, injection_glob,
-            injection_window_ms))
-    return sire_outputs
-
-def _sire_by_ifo(inspiral_glob, cluster_time_ms=None, injection_glob=None,
-    injection_window_ms=None):
-    """
-    Call sire on inspiral_glob and return output filename for a single IFO.
-    TODO: support injection files
-    """
-    print "* Running lalapps_sire on each file in the glob \"%s\"" % inspiral_glob
-    inspiral_files = glob.glob(inspiral_glob)
-    ifolist, start, dur = ifos_start_dur_from_files(inspiral_files)
-    assert len(ifolist) == 1
-    ifo = ifolist[0]
-
-    args = ["lalapps_sire", "--data-type=all_data"]
-    if cluster_time_ms is not None:
-        args.append("--cluster-time=%d" % cluster_time_ms)
-        if is_second_stage(inspiral_files[0]):
-            args.append("--cluster-algorithm=snrsq_over_chisq")
-        else:
-            args.append("--cluster-algorithm=snr")
-        
-    if injection_glob is not None:
-        injection_files = glob.glob(injection_glob)
-        assert len(injection_files) == len(inspiral_files)
-        args.append("--injection-window=%d" % injection_window_ms)
-    else:  # no injection files
-        injection_files = repeat(None)  # endless stream of None
-
-    output_files = []
-    for f, inj in zip(inspiral_files, injection_files):
-        tempargs = ["--glob=\"%s\"" % f]
-
-        # handle injections
-        if inj is not None: tempargs.append("--injection-file=%s" % inj)
-
-        # determine output file
-        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
-        output_file = tuple_to_filename(("", ifos, "SIRE", extratag, start, dur, ext))
-        tempargs.append("--output=%s" % output_file)
-
-        # make the call
-        make_external_call(" ".join(args + tempargs))
-
-        # record output file
-        output_files.append(output_file)
-    return output_files
-
-def call_coire(thinca_glob, cluster_time_ms=None, injection_glob=None,
-    injection_window_ms=None, num_slides=None):
-    """
-    Call coire on files in inspiral_globs and return coire output filenames.
-    """
-    print "* Running lalapps_coire on each file in \"%s\"" % thinca_glob
-    thinca_files = glob.glob(thinca_glob)
-
-    # common to all coire calls
-    args = ["lalapps_coire", "--data-type=all_data"]
-    if cluster_time_ms is not None:
-        args.append("--cluster-time=%d" % cluster_time_ms)
-        if is_second_stage(thinca_files[0]):
-            args.append("--coinc-stat=snrsq")
-        else:
-            args.append("--coinc-stat=effective_snrsq")
-    if injection_glob is not None:
-        injection_files = glob.glob(injection_glob)
-        assert len(injection_files) == len(thinca_files)
-        args += ["--injection-window=%d" % injection_window_ms]
-    else:  # no injection files
-        injection_files = repeat(None)  # endless stream of None
-
-    # determine per-call options
-    output_files = []
-    for f,inj in zip(thinca_files, injection_files):
-        tempargs = ["--glob=\"%s\"" % f]
-
-        # handle injections
-        if inj is not None: tempargs += ["--injection-file=%s" % inj]
-
-        # handle slides
-        if "SLIDE" in f: tempargs += ["--num-slides=%d" % num_slides]
-
-        # determine output file
-        basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(f)
-        output_file = tuple_to_filename(("", ifos, "COIRE", extratag, start, dur, ext))
-        tempargs += ["--output=%s" % output_file]
-
-        # make the call
-        make_external_call(" ".join(args + tempargs))
-
-        # record output file
-        output_files += [output_file]
-    return output_files
-
-def call_ligolw_add(thinca_cache):
-    """
-    Call ligolw_add on files in thinca_globs and return the combined
-    output filename.
-    """
-    print "* Running ligolw_add on the input file \"%s\"" \
-        % thinca_cache
-
-    args = ["ligolw_add", "--input=%s" % thinca_cache, "--mangle-sngl-inspiral-ids=int_8s"]
-
-    # output file
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_cache)
-    output_file = tuple_to_filename(("", ifos, tag, extratag, start, dur, ".xml"))
-    args += ["--output=%s" % output_file]
-
-    make_external_call(" ".join(args))
-    return output_file
-
-def call_plotinspiral(inspiral_caches, vetofile=None, figure_name=None,
-    chisq_threshold=None, chisq_delta=None, chisq_bins=None):
-    """
-    Based on what information is available, produce plotinspiral plots of
-    interest.
-    TODO: HTML markup (<a href=""><img src="" alt=""></a>), first vs second
-    stage
-    """
-    args = ["plotinspiral", "--snr-time", "--hist-snr", "--cum-hist-snr",
-        "--nbins=20", "--log-y"]
-
-    if vetofile is not None:
-        args += ["--veto-file=%s" % vetofile]
-    if figure_name is not None:
-        args += ["--figure-name=%s" % figure_name]
-    if chisq_threshold is not None:
-        args += ["--chisq-threshold=%f" % chisq_threshold]
-    if chisq_delta is not None:
-        args += ["--chisq-delta=%f" % chisq_delta]
-    if chisq_bins is not None:
-        args += ["--chisq-bins=%d" % chisq_bins]
-
-    for g in inspiral_caches:
-        print "* Running plotinspiral on the files in the glob %s" % g
-        tempargs = ["--input=%s" % g]
-        if is_second_stage(g):
-            tempargs.extend(["--log-snr-chisq", "--hist-chisq",
-                "--cum-hist-snr-chi", "--hist-snr-chi"])
-        make_external_call(" ".join(args + tempargs))
-
-def call_plotthinca(thinca_file, vetofile=None, figure_name=None,
-    offsource_veto=None):
-    """
-    Based on what information is available, produce plotthinca plots of
-    interest.
-    """
-    print "* Running plotthinca on the file \"%s\"" % thinca_file
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_file)
-
-    args = ["plotthinca", "--snr-snr", "--snr-dist", "--nbins=20",
-        "--glob=%s" % thinca_file]
-
-    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
-        args += ["--%s-triggers" % ifo.lower()]
-    if vetofile is not None:
-        args += ["--veto-file=%s" % vetofile]
-    if figure_name is not None:
-        args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(extratag):
-        args += ["--statistic=effective_snr"]
-    else:
-        args += ["--statistic=snr"]
-    if offsource_veto is not None:
-        args.append("--off-source-glob=%s" % thinca_file)
-        args.append("--ext-trig")
-        args.append("--offsource-veto-file=%s" % offsource_veto)
-
-    make_external_call(" ".join(args))
-
-def call_plotethinca(thinca_file, vetofile=None, figure_name=None):
-    """
-    Based on what information is available, produce plotethinca plots of
-    interest.
-    """
-    print "* Running plotethinca on the file \"%s\"" % thinca_file
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(thinca_file)
-
-    args = ["plotethinca", "--ethinca-vs-stat", "--x-value=snr",
-        "--x-value=mchirp", "--x-value=eta", "--hist",
-        "--inj-glob=%s" % thinca_file, "--num-bins=20",]
-
-    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
-        args += ["--ifo=%s" % ifo]
-    if vetofile is not None:
-        args += ["--veto-file=%s" % vetofile]
-    if figure_name is not None:
-        args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(extratag):
-        args += ["--statistic=effective_snr"]
-    else:
-        args += ["--statistic=snr"]
-
-    make_external_call(" ".join(args))
-
-def call_plotthincaslide(slide_file, num_slides, vetofile=None,
-    figure_name=None, thinca_file=None, offsource_veto=None):
-    """
-    Based on what information is available, produce plotthinca plots of
-    interest.
-    TODO: HTML markup (<a href=""><img src="" alt=""></a>)
-    """
-    print "* Running plotthinca on the file \"%s\"" % slide_file
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(slide_file)
-
-    args = ["plotthinca", "--snr-dist", "--slide-snr",
-        "--slide-dist", "--hist-slide", "--plot-slide", "--nbins=20",
-        "--num-slide=%d" % num_slides, "--glob=%s" % slide_file]
-
-    for ifo in ["".join(ifos[2*i:2*i+2]) for i in range(len(ifos)//2)]:
-        args += ["--%s-triggers" % ifo.lower()]
-    if vetofile is not None:
-        args += ["--veto-file=%s" % vetofile]
-    if figure_name is not None:
-        args += ["--figure-name=%s" % figure_name]
-    if is_second_stage(slide_file):
-        args += ["--statistic=effective_snr"]
-    else:
-        args += ["--statistic=snr"]
-    if thinca_file is not None:
-        args.append("--off-source-glob=%s" % thinca_file)
-        args.append("--ext-trig")
-        if offsource_veto is not None:
-            args.append("--offsource-veto-file=%s" % offsource_veto)
-
-    make_external_call(" ".join(args))
-
-def call_timeslide_stats(slide_file, veto_file=None):
-    """
-    Determine the mean number of triggers per slide per (n seconds / 180 seconds)
-    """
-    print "* Running pylal_grbtimeslide_stats"
-
-    args = ["pylal_grbtimeslide_stats", "--glob=%s" % slide_file,
-        "--fold-time=180"]
-
-    if veto_file is not None:
-        args += ["--veto-file=%s" % veto_file]
-
-    # determine output name
-    basedir, ifos, tag, extratag, start, dur, ext = filename_to_tuple(slide_file)
-    outname = tuple_to_filename(("", ifos, "SLIDE_STATS", extratag, start,
-        dur, ".txt"))
-    args.append("--outfile=%s" % outname)
-
-    make_external_call(" ".join(args))
-
-    return outname
-
-##############################################################################
-# HTML generation
-##############################################################################
-
-class GRBSummarySection(object):
-    def __init__(self, tag, name, content):
-        self.tag = tag
-        self.name = name
-        self.content = content
-
-    def _header(self):
-        return "<a name=\"%s\">\n<h2>%s</h2>" % (self.tag, self.name)
-
-    def _footer(self):
-        return "<b>[<a href=\"#toc\">return to table of contents</a>]</b>"
-
-    def __str__(self):
-        return "\n".join((self._header(), self.content, self._footer()))
-
-    def toc_entry(self):
-        return "  <li><a href=\"#%s\">%s</a></li>" % (self.tag, self.name)
-
-class GRBSectionList(list):
-    def __str__(self):
-        #return "\n".join([str(elem) for elem in self])
-        return "\n".join(map(str, self))
-
-class GRBSummaryDoc(object):
-    """
-    Structure to accumulate pieces of information necessary to generate an
-    HTML summary of this GRB search.
-    """
-    def __init__(self, **kwargs):
-        self.header = """<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html lang="en">
-<head>
-    <meta name="Author" content="Nickolas Fotopoulos">
-    <style type="text/css"><!--
-    div.realbody { background-color: white; padding-left: 0.3ex;
-        padding-right: 0.5ex; font-family: sans-serif; white-space: normal; }
-    h1 { text-align: center; font-family: sans-serif; margin-top: 1em;}
-    h2 { font-family: sans-serif; padding: 0.3em 1em; margin-top: 2em;
-        border-top: 1px solid gray; border-bottom: 1px solid gray;
-        background-color: #FDFCC5; }
-    p { font-size: 90%%; line-height: 1.35; }
-    p + p { text-indent:1em; margin-top:0 }
-    img { border: 1px solid gray; }
-    table { text-align: center; padding: 0.5ex; margin: 0em 1em 0em 1em;
-        white-space: normal; }
-    table th,td { padding: 0.5ex 0.8ex 0.5ex 0.8ex;}
-    table td { background-color: #f1f1f3;}
-    code { font-size: 115%%; }
-    caption { font-family: sans-serif; font-size: 90%%; text-align: left;
-        padding-left: 3em; caption-side: bottom; margin-bottom: 1em; }
-    div.codebox{ font-family: monospace; background-color:#f1f1f3;
-        border:1px dotted gray;  white-space: pre; padding: 0em 1em 1em 1em;
-        margin: 0em 1em 1em 1em; float: left; max-width: 85%% ;
-        overflow: auto; }
-    div.figurebox { text-align: center; max-width: 85%%;
-        border: thin silver solid; margin: 0.5em; padding: 0.5em;
-        float: left; }
-    div.figurecaption{ text-align: left; margin-left: 0.5em; }
-    div.tablebox { text-align: center; max-width: 85%%;
-            margin: 0.5em; padding: 0.5em; float: left; overflow: auto; }
-    div.clearfix:after { content: "."; display: block; height: 0; clear: both;
-        visibility: hidden; }
-    ol { font-size: 90%%; background-color: #FFF8E9;
-        margin: 1em; padding: 1em 1em 0.6em 1em; border: 1px dotted gray; }
-    ol li { line-height: 1.3; margin-left: 1em; margin-bottom: 0.4em; }
-    --> </style>
-    <title>%(title)s</title>
-</head>
-<body>
-<div class="realbody">
-
-<h1>%(title)s</h1>
-<center>%(author)s</center>
-<center>%(timestamp)s</center>
-
-<!-- End generic header -->
-"""
-        self.footer = """
-<!-- Start generic footer -->
-</div>
-</body>
-</html>
-"""
-        self.sections = GRBSectionList([])
-        self.add_section_intro()
-
-        # record some parameters for string substitution in text
-        self.params = {}
-        self.params["title"] = "GRB Summary"
-        self.params["timestamp"] = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
-        self.params["author"] = "%s@%s" % (os.environ["USER"], socket.gethostname())
-
-        # take whatever information is known up front
-        self.params.update(kwargs)
-
-        # set up a figure numberer
-        self.figure_nums = count(1)
-
-    def add_section_intro(self):
-        intro_text = """
-<p>This document was generated by pylal_grbsummary.  The contents are based entirely on second stage inspiral and thinca outputs.  The command that generated this page was:</p>
-
-<div class="clearfix"><div class="codebox">
-%s
-</div></div>
-
-""" % " ".join(sys.argv)
-        self.sections.append(GRBSummarySection("introduction", "Introduction",
-            intro_text))
-
-    def toc(self):
-        """
-        Generate a table of contents section.
-        """
-        toc_text = """
-<h2>Table of Contents</h2>
-<a name="toc"></a>
-
-<ol>
-%s
-</ol>
-
-<!-- End auto-generated TOC -->
-"""
-        toc_entry_fmt = "<li><a href=\"#%s\">%s</a></li>"
-        toc_entries = [section.toc_entry() for section in self.sections]
-        return toc_text % ("\n".join(toc_entries))
-
-    def write_to(self, fileobj):
-        text = "%s\n%s\n%s\n%s" % (self.header % self.params, self.toc(),
-            self.sections, self.footer)
-        fileobj.write(text)
-
-    def add_section_segments(self, full_segfile, onsource_segfile):
-        """
-        Describe the segments used in this analysis.
-        """
-        # read the files
-        full_text = open(full_segfile).read()
-        onsource_text = open(onsource_segfile).read()
-
-        # generate html
-        section_text = """
-<p>The full segment(s) analyzed, including on-source and off-source times, are:</p>
-
-<div class="clearfix"><div class="codebox">
-%s</div></div>
-
-<p>The on-source window (-120s to +60s of the optical trigger time) is:</p>
-
-<div class="clearfix"><div class="codebox">
-%s</div></div>
-""" % (full_text, onsource_text)
-
-        # add section
-        self.sections.append(GRBSummarySection("segments",
-            "Segment Information", section_text))
-
-    def add_section_dataquality(self, dq_info_file):
-        """
-        Describe data quality flags enabled in the region of interest.
-        """
-        # read the file
-        dq_text = open(dq_info_file).read()
-
-        # generate html
-        section_text = """
-<p>The data quality flags raised during the full segment(s), are:</p>
-
-<div class="clearfix"><div class="codebox">
-%s</div></div>
-""" % dq_text
-
-        # add section
-        self.sections.append(GRBSummarySection("dq",
-            "Data Quality Flags", section_text))
-
-    def add_section_inspiral(self, figure_name):
-        """
-        Present the most-looked-at inspiral plots.
-        """
-        # <div class="clearfix"><div class="figurebox">
-        #     <a href="%s_H1_end_time_vs_snr.png"><img src="%s_H1_end_time_vs_snr.png" width="300" height="225" alt="%s_H1_end_time_vs_snr.png"></a>
-        #     <a href="%s_H2_end_time_vs_snr.png"><img src="%s_H2_end_time_vs_snr.png" width="300" height="225" alt="%s_H2_end_time_vs_snr.png"></a>
-        #     <div class="figurecaption">
-        #         Figure %d: SNR vs time
-        #         <br>
-        #         <span style="font-size: 90%% ;">Left: H1, Right: H2</span>
-        #     </div>
-        # </div></div>
-        section_text = """
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_snr_vs_chisq.png"><img src="%s_H1_snr_vs_chisq.png" width="300" height="225" alt="%s_H1_snr_vs_chisq.png"></a>
-    <a href="%s_H2_snr_vs_chisq.png"><img src="%s_H2_snr_vs_chisq.png" width="300" height="225" alt="%s_H2_snr_vs_chisq.png"></a>
-    <div class="figurecaption">
-        Figure %d: SNR vs &chi;<sup>2</sup>
-        <br>
-        <span style="font-size: 90%% ;">Left: H1, Right: H2</span>
-    </div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_snr_histogram.png"><img src="%s_H1_snr_histogram.png" width="300" height="225" alt="%s_H1_snr_histogram.png"></a>
-    <a href="%s_H2_snr_histogram.png"><img src="%s_H2_snr_histogram.png" width="300" height="225" alt="%s_H2_snr_histogram.png"></a>
-    <div class="figurecaption">
-        Figure %d: SNR histogram
-        <br>
-        <span style="font-size: 90%% ;">Left: H1, Right: H2</span>
-    </div>
-</div></div>
-"""
-        # substitute the figure name as many times as necessary
-        substitutions = [self.figure_nums.next() for i in \
-            xrange(section_text.count("%d"))]
-        section_text = section_text.replace("%s", figure_name) % tuple(substitutions)
-
-        # add section
-        self.sections.append(GRBSummarySection("%s_inspiral" % figure_name,
-            "%s Inspiral Summary" % figure_name, section_text))
-
-    def add_section_thinca(self, figure_name, summary_stat_file=None):
-        """
-        Present the most-looked-at thinca plots.
-        """
-        # <div class="clearfix"><div class="figurebox">
-        #     <a href="%s_H1_vs_H2_effective_snr.png"><img src="%s_H1_vs_H2_effective_snr.png" alt="%s_H1_vs_H2_effective_snr.png" width="300" height="225"></a>
-        #     <div class="figurecaption">
-        #     Figure %d: H1_vs_H2_effective_snr
-        #     <br>
-        #     <span style="font-size: 90%% ;">H1_vs_H2_effective_snr</span></div>
-        # </div></div>
-        section_text = ""
-        if summary_stat_file is not None:
-            section_text += """
-<div class="clearfix"><div class="codebox">
-%s</div></div>
-            """ % (open(summary_stat_file).read())
-        
-        section_text += """
-<p>The following plots describe the zero-lag, second coincidence output.</p>
-
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1H2_cum_hist_effective_snr.png"><img src="%s_H1H2_cum_hist_effective_snr.png" alt="%s_H1H2_cum_hist_effective_snr.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1H2_cum_hist_effective_snr</div>
-</div></div>
-"""
-        # substitute the figure name as many times as necessary
-        substitutions = [self.figure_nums.next() for i in \
-            xrange(section_text.count("%d"))]
-        section_text = section_text.replace("%s", figure_name) % tuple(substitutions)
-
-        # add section
-        self.sections.append(GRBSummarySection("%s_thinca" % figure_name,
-            "%s Thinca Summary" % figure_name, section_text))
-
-    def add_section_ethinca(self, figure_name):
-        """
-        Present the most-looked-at ethinca plots.
-        """
-        section_text = """
-<p>The following plots describe the zero-lag, second coincidence output.</p>
-
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_H2_ethinca_hist.png"><img src="%s_H1_H2_ethinca_hist.png" alt="%s_H1_H2_ethinca_hist.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_H2_ethinca_hist</div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_H2_ethinca_vs_H1_eta.png"><img src="%s_H1_H2_ethinca_vs_H1_eta.png" alt="%s_H1_H2_ethinca_vs_H1_eta.png" width="300" height="225"></a>
-    <a href="%s_H1_H2_ethinca_vs_H2_eta.png"><img src="%s_H1_H2_ethinca_vs_H2_eta.png" alt="%s_H1_H2_ethinca_vs_H2_eta.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_H2_ethinca_vs_eta
-    <br>
-    <span style="font-size: 90%% ;">Left: H1, Right: H2</span></div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_H2_ethinca_vs_H1_mchirp.png"><img src="%s_H1_H2_ethinca_vs_H1_mchirp.png" alt="%s_H1_H2_ethinca_vs_H1_mchirp.png" width="300" height="225"></a>
-    <a href="%s_H1_H2_ethinca_vs_H2_mchirp.png"><img src="%s_H1_H2_ethinca_vs_H2_mchirp.png" alt="%s_H1_H2_ethinca_vs_H2_mchirp.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_H2_ethinca_vs_mchirp
-    <br>
-    <span style="font-size: 90%% ;">Left: H1, Right: H2</span></div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_H2_ethinca_vs_H1_snr.png"><img src="%s_H1_H2_ethinca_vs_H1_snr.png" alt="%s_H1_H2_ethinca_vs_H1_snr.png" width="300" height="225"></a>
-    <a href="%s_H1_H2_ethinca_vs_H2_snr.png"><img src="%s_H1_H2_ethinca_vs_H2_snr.png" alt="%s_H1_H2_ethinca_vs_H2_snr.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_H2_ethinca_vs_snr
-    <br>
-    <span style="font-size: 90%% ;">Left: H1, Right: H2</span></div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_H2_ethinca_vs_combined_effective_snr.png"><img src="%s_H1_H2_ethinca_vs_combined_effective_snr.png" alt="%s_H1_H2_ethinca_vs_combined_effective_snr.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_H2_ethinca_vs_combined_effective_snr</div>
-</div></div>
-"""
-        # substitute the figure name as many times as necessary
-        substitutions = [self.figure_nums.next() for i in \
-            xrange(section_text.count("%d"))]
-        section_text = section_text.replace("%s", figure_name) % tuple(substitutions)
-
-        # add section
-        self.sections.append(GRBSummarySection("%s_ethinca" % figure_name,
-            "%s E-Thinca Summary" % figure_name, section_text))
-
-    def add_section_slide(self, figure_name, slide_summary_stat_file):
-        """
-        Present the most-looked-at slide plots.
-        """
-        section_text = """
-<div class="clearfix"><div class="codebox">
-%s</div></div>
-""" % (open(slide_summary_stat_file).read())
-
-        section_text += """
-<p>The following plots describe coincidences found in second stage
-timeslides of the pipeline.</p>
-
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1H2_cum_hist_effective_snr.png"><img src="%s_H1H2_cum_hist_effective_snr.png" alt="%s_H1H2_cum_hist_effective_snr.png" width="300" height="225"></a>
-<div class="figurecaption">
-Figure %d: H1H2_cum_hist_effective_snr</div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_hist_slide_trigs.png"><img src="%s_hist_slide_trigs.png" alt="%s_hist_slide_trigs.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: hist_slide_trigs</div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_plot_slide_trigs.png"><img src="%s_plot_slide_trigs.png" alt="%s_plot_slide_trigs.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: plot_slide_trigs</div>
-</div></div>
-<div class="clearfix"><div class="figurebox">
-    <a href="%s_H1_vs_H2_effective_snr.png"><img src="%s_H1_vs_H2_effective_snr.png" alt="%s_H1_vs_H2_effective_snr.png" width="300" height="225"></a>
-    <div class="figurecaption">
-    Figure %d: H1_vs_H2_effective_snr</div>
-</div></div>
-"""
-        # substitute the figure name as many times as necessary in arbitrary
-        # order
-        substitutions = [self.figure_nums.next() for i in \
-            xrange(section_text.count("%d"))]
-        section_text = section_text.replace("%s", figure_name) \
-            % tuple(substitutions)
-
-        # add section
-        self.sections.append(GRBSummarySection("%s_slide" % figure_name,
-            "%s Slide Summary" % figure_name, section_text))
+    
+    cache.tofile(open(cache_filename, "w"))
+
+    node = node_class(job)
+    node.set_input(cache_filename)
+    node.set_figure_name(description)
+    
+    dag.add_node(node)
 
 ##############################################################################
 # Main
@@ -902,176 +174,63 @@ Figure %d: H1H2_cum_hist_effective_snr</div>
 if __name__ == "__main__":
     # parse input
     opts = get_options()
-
-    # start a fresh HTML document
-    summary_doc = GRBSummaryDoc(title=("%s Summary" % opts.figure_name))
-
-    # load segments
-    if (opts.dq_file is not None) or opts.query_dq:
-        full_segs = segmentsUtils.fromsegwizard(open(opts.full_segfile))
-        full_segs.coalesce()
-        on_source_segs = segmentsUtils.fromsegwizard(open(opts.on_source_segfile))
-        off_source_segs = full_segs - on_source_segs
-
-    # add basic segment information to summary
-    summary_doc.add_section_segments(opts.full_segfile, opts.on_source_segfile)
-
-    # data quality; either read from a given file or query from CIT daily dump
-    dq_mask = segments.segmentlist([])
-    if opts.dq_file is not None:
-        dq_mask |= segmentsUtils.fromsegwizard(open(opts.dq_file))
-        dq_mask_file = opts.dq_file
-        dq_info_file = opts.dq_file
-    elif opts.query_dq:
-        dq_mask_file, dq_info_file = call_query_dq(opts.full_segfile,
-            reduce(lambda a,b: a+b, [glob.glob(g) for g in opts.inspiral_globs]) \
-            or glob.glob(opts.thinca_files) or glob.glob(opts.slides_files))
-        dq_mask |= segmentsUtils.fromsegwizard(open(dq_mask_file))
-    else:
-        dq_mask_file = None
-
-    # mask all flagged times (on_source_segs used as veto for off-source)
-    on_source_mask = off_source_segs | dq_mask
+    quantization_time = opts.search_before_trigger + opts.search_after_trigger
     
-    # create veto files that will get used for post-processing
-    on_source_maskfile = "%s_onsource_mask.txt" % opts.figure_name
-    segmentsUtils.tosegwizard(open(on_source_maskfile, "w"), on_source_mask)
+    # load plotting configuration
+    cp = ConfigParser.ConfigParser()
+    cp.read(opts.plot_config_file)
     
-    # set aside on-source times
-    off_source_mask = on_source_segs | dq_mask
+    # load external trigger times
+    doc = utils.load_url(opts.ext_trig_xml, verbose=opts.verbose,
+                         gz=opts.ext_trig_xml.endswith(".gz"))
+    exttrig_gps_times = grbsummary.ext_trigger_gpstimes_from_xml(doc)
+    if exttrig_gps_times is None:
+        print >>sys.stderr, "No tables named external_trigger:table found in %s" % opts.ext_trig_xml
     
-    # quantize off-source
-    off_source = segments.segmentlist(chain(*[segmentsUtils.segmentlist_range(a, b, 180) for a,b in (full_segs - off_source_mask)]))
-    off_source_mask = full_segs - off_source
+    # load all analyzable segments
+    analyzable_seglist = segmentsUtils.fromsegwizard(open(opts.analyzable_segfile))
     
-    # create veto files that will get used for post-processing
-    off_source_maskfile = "%s_offsource_mask.txt" % opts.figure_name
-    segmentsUtils.tosegwizard(open(off_source_maskfile, "w"), off_source_mask)
-
-    # add data quality information to summary
-    summary_doc.add_section_dataquality(dq_info_file)
+    # get DQ info
+    dq_veto_seglist = segments.segmentlist()  # FIXME
+    dq_veto_filename = "dq_veto.txt"
+    segmentsUtils.tosegwizard(open(dq_veto_filename, "w"), dq_veto_seglist)
     
-    # inspiral
-    if opts.inspiral_globs is not None:
-        # sire together as necessary
-        if opts.sire_inspiral:
-            inspiral_filegroups = call_sire(opts.inspiral_globs,
-                opts.cluster_time_ms, opts.injection_glob,
-                opts.injection_window_ms)
-        else:
-            inspiral_filegroups = [glob.glob(g) for g in opts.inspiral_globs]
-
-        # write lal caches
-        inspiral_caches = [lal_cache_name_from_files(g) for g in inspiral_filegroups]
-        for cachefile, g in zip(inspiral_caches, inspiral_filegroups):
-            write_lal_cache(cachefile, g)
-
-        # plot each inspiral file
-        if opts.figure_name is not None:
-            call_plotinspiral(inspiral_caches, off_source_maskfile,
-                "%s_off" % opts.figure_name, opts.chisq_threshold,
-                opts.chisq_delta, opts.chisq_bins)
-            summary_doc.add_section_inspiral("%s_off" % opts.figure_name)
-
-            if opts.analyze_onsource:
-                call_plotinspiral(inspiral_caches, on_source_maskfile,
-                    "%s_on" % opts.figure_name, opts.chisq_threshold,
-                    opts.chisq_delta, opts.chisq_bins)
-                summary_doc.add_section_inspiral("%s_on" % opts.figure_name)
-
-    # thinca
-    if opts.thinca_glob is not None:
-        # cluster triggers file by file; either way, create input file
-        if opts.coire_thinca:
-            thinca_files = call_coire(opts.thinca_glob, opts.cluster_time_ms,
-                opts.injection_glob, opts.injection_window_ms)
-        else:
-            thinca_files = glob.glob(opts.thinca_glob)
-
-        if len(thinca_files) > 1:
-            # write lal cache
-            thinca_cache = lal_cache_name_from_files(thinca_files)
-            write_lal_cache(thinca_cache, thinca_files)
-
-            # add coincs, handling inspid business; overwrite input file
-            new_thinca_file = call_ligolw_add(thinca_cache)
-        else:
-            new_thinca_file = thinca_files[0]
-
-        # summary stats
-        slide_summary_stat_file = call_timeslide_stats(new_thinca_file,
-            off_source_maskfile)
-
-        # plot
-        if opts.figure_name is not None:
-            # off source plots
-            call_plotthinca(new_thinca_file, off_source_maskfile,
-                "%s_off" % opts.figure_name)
-            summary_doc.add_section_thinca("%s_off" % opts.figure_name,
-                slide_summary_stat_file)
-            
-            call_plotethinca(new_thinca_file, off_source_maskfile,
-                "%s_off" % opts.figure_name)
-            summary_doc.add_section_ethinca("%s_off" % opts.figure_name)
-
-            if opts.analyze_onsource:
-                # on source
-                call_plotthinca(new_thinca_file, on_source_maskfile,
-                    "%s_on" % opts.figure_name)
-                summary_doc.add_section_thinca("%s_on" % opts.figure_name)
-                
-                call_plotethinca(new_thinca_file, on_source_maskfile,
-                    "%s_on" % opts.figure_name)
-                summary_doc.add_section_ethinca("%s_on" % opts.figure_name)
-                
-                # off source with on source overlaid
-                call_plotthinca(new_thinca_file, off_source_maskfile,
-                    "%s_off+on" % opts.figure_name, on_source_maskfile)
-                summary_doc.add_section_thinca("%s_off+on" % opts.figure_name)
-                
-    else:
-        new_thinca_file = None
-
-    # slides
-    if opts.slide_glob is not None:
-        # cluster triggers file by file; either way, create input file
-        if opts.coire_thinca:
-            slide_files = call_coire(opts.slide_glob, opts.cluster_time_ms,
-                opts.injection_glob, opts.injection_window_ms,
-                opts.num_slides)
-        else:
-            slide_files = glob.glob(opts.slide_glob)
-
+    # initialize DAG
+    if opts.verbose:
+        print "Initializing DAG and plotting Jobs"
+    dag = grbsummary.GRBSummaryDAG(opts.plot_config_file, opts.log_path)
+    job_dict, node_class_dict, descr_dict = initialize_jobs_nodes_descr(cp)
+    
+    # FIXME: make all plots for now
+    plots_to_do = job_dict.keys()
+    
+    ### Loop over GRBs
+    for exttrig_time in exttrig_gps_times:
+        exttrig_dir = "GRB%d" % exttrig_time
+        os.mkdir(exttrig_dir)
+        if opts.verbose:
+            print "Designing workflow for %s" % exttrig_dir
         
-        if len(slide_files) > 1:
-            # write lal cache
-            slide_cache = lal_cache_name_from_files(slide_files)
-            write_lal_cache(slide_cache, slide_files)
+        ### Fetch cache of files
+        cache = lal.Cache.fromfilenames(glob.glob(opts.xml_cache),
+                                        coltype=int).unique()
+        
+        ### Determine and write segments
+        on_source_veto_filename, off_source_veto_filename = \
+            write_masked_segments(exttrig_time, exttrig_dir,
+                                  opts.search_before_trigger,
+                                  opts.search_after_trigger)
+        
+        ### Design Workflow
+        for plot_type in plots_to_do:
+            descr = descr_dict[plot_type]
+            node_class = node_class_dict[plot_type]
+            job = job_dict[plot_type]
+            
+            prepare_node(exttrig_dir, cache, descr+"_FIRST", node_class, job, dag)
+            prepare_node(exttrig_dir, cache, descr+"_SECOND", node_class, job, dag)
 
-            # add coincs, handling inspid business; overwrite input file
-            new_slide_file = call_ligolw_add(slide_cache)
-        else:
-            new_slide_file = slide_files[0]
-
-        # summary stats
-        slide_summary_stat_file = call_timeslide_stats(new_slide_file,
-            off_source_maskfile)
-
-        # plot
-        if opts.figure_name is not None:
-            # off source
-            call_plotthincaslide(new_slide_file, opts.num_slides,
-                off_source_maskfile, "%s_slide_off" % opts.figure_name)
-            summary_doc.add_section_slide("%s_slide_off" % opts.figure_name,
-                slide_summary_stat_file)
-
-            if opts.analyze_onsource:
-                # all slides with zero-lag on-source overlaid
-                call_plotthincaslide(new_slide_file, opts.num_slides,
-                    dq_mask_file, "%s_slide_all+zero_lag_on" % opts.figure_name,
-                    new_thinca_file, on_source_maskfile)
-                summary_doc.add_section_slide("%s_slide_all+zero_lag_on" \
-                    % opts.figure_name, slide_summary_stat_file)
-
-    if opts.figure_name is not None:
-        summary_doc.write_to(open('%s.html' % opts.figure_name, 'w'))
+    ### Write DAG
+    dag.write_sub_files()
+    dag.write_dag()
+    dag.write_script()
