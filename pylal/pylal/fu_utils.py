@@ -657,7 +657,7 @@ class followUpList:
 #############################################################################
 # Function to generate a trigbank xml file
 #############################################################################
-def generateXMLfile(ckey,ifo,gpsTime,outputPath=None):
+def generateXMLfile(ckey,ifo,gpsTime,outputPath=None,table_type='pre-bank-veto'):
 
   if outputPath:
     try:
@@ -666,13 +666,21 @@ def generateXMLfile(ckey,ifo,gpsTime,outputPath=None):
 
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
+  trig = getattr(ckey,ifo)
+  # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
+  valid_columns = trig.__slots__
+  columns = []
+  for col in valid_columns:
+    try: 
+      getattr(trig,col)
+      columns.append(col)
+    except: pass
 
   process_params_table = lsctables.New(lsctables.ProcessParamsTable)
   xmldoc.childNodes[-1].appendChild(process_params_table) 
 
-  sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
+  sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
-  trig = getattr(ckey,ifo)
   sngl_inspiral_table.append(trig)
 
   fileName = ifo + '-TRIGBANK_FOLLOWUP_' + gpsTime + ".xml.gz"
@@ -680,6 +688,8 @@ def generateXMLfile(ckey,ifo,gpsTime,outputPath=None):
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
 
+def generateBankVetoBank():
+  pass
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
@@ -702,50 +712,17 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
       fuList = followUpList()
       fuList.add_coincs(ckey)
       fuList.add_page(page)
-      try:
-        getattr(ckey,'H1')
-        fuList.gpsTime["H1"] = (float(getattr(ckey,'H1').end_time_ns)/1000000000)+float(getattr(ckey,'H1').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'H1',str(fuList.gpsTime["H1"]),'trigTemplateBank') 
-          except: print "the trigBank xml file could not be generated for H1 " + str(fuList.eventID)
-      except: fuList.gpsTime["H1"] = None
-      try:
-        getattr(ckey,'H2')
-        fuList.gpsTime["H2"] = (float(getattr(ckey,'H2').end_time_ns)/1000000000)+float(getattr(ckey,'H2').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'H2',str(fuList.gpsTime["H2"]),'trigTemplateBank')
-          except: print "the trigBank xml file could not be generated for H2 " + str(fuList.eventID)
-      except: fuList.gpsTime["H2"] = None
-      try:
-        getattr(ckey,'L1')
-        fuList.gpsTime["L1"] = (float(getattr(ckey,'L1').end_time_ns)/1000000000)+float(getattr(ckey,'L1').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'L1',str(fuList.gpsTime["L1"]),'trigTemplateBank')
-          except: print "the trigBank xml file could not be generated for L1 " + str(fuList.eventID)
-      except: fuList.gpsTime["L1"] = None
-      try:
-        getattr(ckey,'G1')
-        fuList.gpsTime["G1"] = (float(getattr(ckey,'G1').end_time_ns)/1000000000)+float(getattr(ckey,'G1').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'G1',str(fuList.gpsTime["G1"]),'trigTemplateBank')
-          except: print "the trigBank xml file could not be generated for G1 " + str(fuList.eventID)
-      except: fuList.gpsTime["G1"] = None
-      try:
-        getattr(ckey,'V1')
-        fuList.gpsTime["V1"] = (float(getattr(ckey,'V1').end_time_ns)/1000000000)+float(getattr(ckey,'V1').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'V1',str(fuList.gpsTime["V1"]),'trigTemplateBank')
-          except: print "the trigBank xml file could not be generated for V1 " + str(fuList.eventID)
-      except: fuList.gpsTime["V1"] = None
-      try:
-        getattr(ckey,'T1')
-        fuList.gpsTime["T1"] = (float(getattr(ckey,'T1').end_time_ns)/1000000000)+float(getattr(ckey,'T1').end_time)
-        if trigbank_test:
-          try: generateXMLfile(ckey,'T1',str(fuList.gpsTime["T1"]),'trigTemplateBank')
-          except: print "the trigBank xml file could not be generated for T1 " + str(fuList.eventID)
-      except: fuList.gpsTime["T1"] = None
+      ifo_list = ['H1','H2','L1', 'G1', 'V1','T1']
+      for ifo in ifo_list:
+        try:
+          getattr(ckey,ifo)
+          fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
+        except: fuList.gpsTime[ifo] = None
+        if fuList.gpsTime[ifo] and trigbank_test:
+          generateXMLfile(ckey,ifo,str(fuList.gpsTime[ifo]),'trigTemplateBank')
 
-      # now, find the ifoTag associated with the triggers, using the search summary tables...
+      # now, find the ifoTag associated with the triggers, 
+      # using the search summary tables...
       if fuList.ifolist_in_coinc:
         firstIfo = fuList.ifolist_in_coinc[0]
         triggerTime = fuList.gpsTime[firstIfo]
