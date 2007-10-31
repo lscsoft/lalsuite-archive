@@ -4,13 +4,42 @@ import sys
 from numpy import *
 from pylab import *
 
+from glue.ligolw import ligolw
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue import segments
+from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import tools
+
+
+
+#######################################################
+## downloadLust
+#######################################################
+
+def downloadList( output=None ):
+  """
+  downloads the latest list of GRB's from
+  http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/currentgrbs_html_S5.txt
+
+  Usage:
+    downloadList( [filename] )
+
+  If no filename is specified, the output will be placed into
+  'recentS5.list'
+  """
+  if not output:
+    output = "recentS5.list"
+  
+  fetchURL = "http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/"\
+             "currentgrbs_html_S5.txt"
+  command  = "wget -O %s %s" % (output, fetchURL)
+  os.system( command )
+  
 
 
 #######################################################
@@ -37,6 +66,400 @@ def convertMassesToTau( flower, m1, m2 ):
   return tau0, tau3
 
 
+#######################################################
+## tauToMasses
+#######################################################
+def convertTauToMasses( flower, tau0, tau3 ):
+  """
+  Convert the given masses to the appropriate values of tau0 and tau3.
+  Algorithm as above, just reversed
+  """
+  MTSUN=4.925e-6
+
+  mTotal = 40.0*tau3/( 256.0*pi*pi*tau0*flower)
+  eta = 1.0/( 8.0*pow(pi, 2./3.) *pow(flower, 5./3.)*pow(mTotal, 2./3.)*tau3  )
+
+  m1=mTotal*(0.5-sqrt(0.25-eta))
+  m2=mTotal-m1
+
+  return m1/MTSUN, m2/MTSUN
+  
+
+#######################################################
+## calculateFlower
+#######################################################
+def calculateFlower( m1, m2, tau0 ):
+  """
+  Calculates the flower involed in the converting
+  between tau's and m's.
+  Algorithm stolen from 'XLXLALEThincaParameterForInjection'
+  from CoincInspiralEllipsoid.cxs
+  """
+  MTSUN=4.925e-6
+  mTotal = m1+m2
+  eta=m1*m2/(mTotal*mTotal)
+    
+  mTotal = mTotal * LAL_MTSUN_SI
+
+  fLower = 5.0 / (256.0 * eta * pow(mTotal, 5.0/3.0) * tau0 )
+  fLower = pow(fLower, 3.0/8.0) / pi
+  return fLower
+
+##############################################################################
+## class grbCoireTable
+##############################################################################
+class grbTable:
+  """
+  Table to hold a list of GRB's with all additional informations,
+  like time, position, redshift, duration, available segments etc etc.
+  """
+  class row(object):
+    __slots__ = ["identifier", "idRef","gpsTime","rightAscensionDeg","declinationDeg",\
+                 "state","type",\
+                 "duration", "durationErr","durationRef",\
+                 "redshift","redshiftErr","redshiftRef","comments",\
+                 "segs","onSource", "onIFOs","siteNumber","onNumber","pmFlag"]
+    
+    def __init__(self, id="", idRef=-1, gps=-1.0, ra_deg=-1.0, dec_deg=-1.0, state="", type=""):
+      """
+      Initializing a new GRB event
+      """
+
+      # set the identifier
+      self.identifier = id
+      self.idRef      = idRef
+
+      # set the timeand position
+      self.gpsTime    = gps
+      self.rightAscensionDeg = ra_deg
+      self.declinationDeg    = dec_deg
+
+      # set states and types
+      self.state = state # names: POS, REJ, GRB, SGR
+      self.type  = type  # short, long
+
+      # set unknown values to each else
+      self.duration    = -1.0
+      self.durationErr = -1.0      
+      self.durationRef = -1
+      self.redshift    = -1.0
+      self.redshiftErr = -1.0
+      self.redshiftRef = -1
+      self.comments    = ""
+
+      # segment informations
+      self.segs      = None
+      self.onSource  = None
+      self.onIFOs    = None
+      self.onNumber  = 0
+      self.siteNumber= 0
+
+    #----------------------------------------------
+    # setDuration
+    def setDuration(self, dur, durErr, durRef, type = None):
+
+      self.duration    = dur
+      self.durationErr = durErr
+      self.durationRef = durRef
+
+      if type:
+        self.type=type
+      else:
+        if dur<=2.0:
+          self.type="short"
+        else:
+          self.type="long"
+          
+    #----------------------------------------------
+    # setRedshift
+    def setRedshift(self, red, redErr, redRef):
+ 
+      self.redshift    = red
+      self.redshiftErr = redErr
+      self.redshiftRef = redRef
+      
+    #----------------------------------------------
+    # setOnsource
+    def setOnsource(self, left, right):
+      """
+      Sets the on-source segment
+      """
+      
+      timeOffset = self.gpsTime
+      self.onSource = segments.segment( timeOffset-left, timeOffset+right)
+      
+    #----------------------------------------------
+    # setSegments
+    def setSegments(self, segs):
+      """
+      Set the segments and calculates the on-ssource detectors/sites etc
+      """
+      listIFO=['H1','H2','L1','G1','V1']
+      
+      onIFOs = ''
+      pmFlag=''
+      onNumber=0
+      
+      for ifo in listIFO:
+       
+        # check if segment overlaps with on-source
+        if self.onSource in segs[ifo]:
+          onIFOs+=ifo
+          onNumber+=1
+         
+      # determine class
+      pmFlag = ''
+      if ('H1' in onIFOs) and ('H2' in onIFOs):
+        siteNumber=onNumber-1
+        pmFlag = '+'
+      else:
+        siteNumber=onNumber
+        if 'H2' in onIFOs:
+          pmFlag = '-'
+
+      self.segs      = segs
+      self.onIFOs    = onIFOs
+      self.onNumber  = onNumber
+      self.siteNumber= siteNumber
+
+    #----------------------------------------------
+    # setSegments
+    def writeExtTrigTable(self, source_file ):
+      """
+      Creates a XML file containing a ExtTriggersTable with all
+      required data.
+      """
+      
+      # prepare a new XML document
+      xmldoc = ligolw.Document()
+      xmldoc.appendChild(ligolw.LIGO_LW())
+      tbl = lsctables.New(lsctables.ExtTriggersTable)
+      xmldoc.childNodes[-1].appendChild(tbl)
+      
+      # get an empty entry and fill it
+      row = tbl.RowType()      
+      row.process_id    = ''
+      row.det_alts      = ''
+      row.det_band          = ''
+      row.det_fluence       = ''
+      row.det_fluence_int   = ''
+      row.det_name      = ''
+      row.det_peak      = ''
+      row.det_peak_int  = ''
+      row.det_snr       = ''
+      row.email_time    = 0
+      row.event_dec     = self.declinationDeg
+      row.event_dec_err = 0.0
+      row.event_epoch   = ''
+      row.event_err_type= ''
+      row.event_ra      = self.rightAscensionDeg
+      row.event_ra_err  = 0.0
+      row.start_time    = int(self.gpsTime)
+      row.start_time_ns = int((self.gpsTime - int(self.gpsTime))*1.0e+9)
+      row.event_type    = self.type
+      row.event_z       = self.redshift
+      row.event_z_err   = self.redshiftErr
+      row.notice_comments= ''
+      row.notice_id     = ''
+      row.notice_sequence= ''
+      row.notice_time   = 0
+      row.notice_type   = ''
+      row.notice_url    = ''
+      row.obs_fov_dec   = 0.0
+      row.obs_fov_dec_width = 0.0
+      row.obs_fov_ra    = 0.0
+      row.obs_fov_ra_width= 0.0
+      row.obs_loc_ele   = 0.0
+      row.obs_loc_lat   = 0.0
+      row.obs_loc_long  = 0.0
+      row.ligo_fave_lho = 0.0
+      row.ligo_fave_llo = 0.0
+      row.ligo_delay    = 0.0
+      row.event_number_gcn = self.idRef
+      row.event_number_grb = self.identifier
+      row.event_status     = 0
+      
+      # store the entry in the table and write it to file
+      tbl.append(row)
+      utils.write_filename(xmldoc, source_file )
+      
+      
+  # ----------------------------------
+  # __init__
+  def __init__(self, filename = None):
+    """
+    Initializing the class 'grbTable'  
+    """
+    self.listIFO=['H1','H2','L1','G1','V1']
+    self.rows = []
+
+    self.onsourceLeft = 60
+    self.onsourceRight = 120
+
+    if filename:
+      self.read(filename)
+    
+    
+
+  # ----------------------------------
+  # write
+  def write( self, filename ):
+    """
+    Write the current table saved to a file
+    @param filename: filename which is used
+    """
+
+    # open file
+    f = open(filename, 'w')
+    
+    for row in self.rows:
+      #line = "%8s %6d %5s %6s %14.3f %8.3f %8.3f  %8.3f %8.3f %6d %7.3f %7.3f %6d %s\n" % \
+      #       (row.identifier, row.idRef, row.state, row.type, row.gpsTime,
+      #        row.rightAscensionDeg, row.declinationDeg,     
+      #        row.duration, row.durationErr, row.durationRef,
+      #        row.redshift, row.redshiftErr, row.redshiftRef, row.comments)
+      line = "%s,%d,%s,%s,%.0f,%.3f,%.3f,%.3f,%.3f,%d,%.3f,%.3f,%d, %s\n" % \
+             (row.identifier, row.idRef, row.state, row.type, row.gpsTime,
+              row.rightAscensionDeg, row.declinationDeg,     
+              row.duration, row.durationErr, row.durationRef,
+              row.redshift, row.redshiftErr, row.redshiftRef, row.comments)
+      f.write(line)
+
+    f.close()
+
+
+  # ----------------------------------
+  # read
+  def read(self, filename):
+    """
+    Reads a table from a file
+    @param filename: filename which is used
+    """
+    if False:
+      self.rows=[]
+      
+      # open file
+      f = open(filename)
+      for lines in f:
+        words=lines.split()
+        
+        # read the specs from the file
+        id     = words[0]
+        idRef  = int(words[1])
+        state  = words[2]
+        type   = words[3]
+        gps    = float(words[4])
+        ra_deg = float(words[5])
+        dec_deg= float(words[6])
+        dur    = float(words[7])
+        durErr = float(words[8])
+        durRef = int(words[9])
+        z      = float(words[10])
+        zErr   = float(words[11])
+        zRef   = int(words[12])
+
+        # sanity checks
+        if dur>0 and durRef<=0:
+          print "WARNING for GRB %s: duration given (%8.3f) but no reference." % (id, dur)
+        if z>0 and zRef<=0:
+          print "WARNING for GRB %s: redshift given (%8.3f) but no reference." % (id, z)
+        
+        # define a GRB event
+        row = self.row(id, idRef, gps, ra_deg, dec_deg)
+        row.setDuration( dur, durErr, durRef, type)
+        row.setRedshift( z, zErr, zRef )
+        
+        # and add it to the list
+        self.addRow( row )    
+
+      f.close()
+
+    # read file from xml
+    doc = utils.load_filename(filename)    
+    extTrigTable = table.get_table(doc, lsctables.ExtTriggersTable.tableName)
+
+    # put in the data
+    for entry in extTrigTable:
+      gps =  entry.start_time + float(entry.start_time_ns)*1.0e-9
+      row = self.row( entry.event_number_grb, entry.event_number_gcn, gps, entry.event_ra, entry.event_dec)
+      row.setDuration( -1, 0,0, "unknown")
+      row.setRedshift( entry.event_z, entry.event_z_err, 0 )
+    
+      # and add it to the list
+      self.addRow( row ) 
+    
+    
+  # ----------------------------------
+  # setSegments
+  def setSegments( self, verb=False, dir='SegData' ):
+    """
+    Read in the segment files and set the segments, on-source detectors etc
+    """    
+    # loop over each GRB
+    for grb in self.rows:
+      
+      segs={}
+      if verb:
+        print "Reading segments for GRB%s" % (grb.identifier)
+
+      # set on-source segment
+      grb.setOnsource( self.onsourceLeft, self.onsourceRight ) 
+
+      # loop over all IFO's
+      onIFOs=''
+      onNumber=0
+      for ifo in self.listIFO:
+
+        # try to open segment filename
+        filename=dir+'/seg'+grb.identifier+'-'+ifo+'.txt'
+        try:
+          f=open( filename )
+        except IOError:
+          # either file does not exist, or it is empty. In either way: no segments!
+          segs[ifo]=[]
+          continue
+
+        # read segment list and close file
+        segs[ifo] = segmentsUtils.fromsegwizard(f)
+        f.close()
+
+      # set the segment lists
+      grb.setSegments( segs )
+      if verb:
+        print "onIFOs: %s  class: %d-site/%d-detector" % \
+              (grb.onIFOs,  grb.siteNumber, grb.onNumber)
+
+    
+  # ----------------------------------
+  # addRow
+  def addRow( self, row ):
+    """
+    Add a row to the table
+    @param row: row to be added
+    """
+
+    self.rows.append( row )
+
+
+  # ----------------------------------
+  # find
+  def find( self, id ):
+    """
+    Returns row with the appropriate id
+    """
+    # loop over all stored GRB's
+    for row in self.rows:
+      #print "'%s' - '%s'" % (row.identifier, id)
+      if row.identifier==id:
+        return row
+
+    print "WARNING: GRB "+id+" not found. Returning empty object."
+    return None
+  
+
+
+
+  
 ##############################################################################
 ## class grbCoireTable
 ##############################################################################
@@ -149,7 +572,6 @@ class grbCoireTable:
     Reads the coincidences from a COIRE file
     @param foundName: name of the COIRE file containing found injections
     """
-
     # read a xml structure
     doc = utils.load_filename(foundName)
     
@@ -372,6 +794,42 @@ class grbCoireTable:
     elif set=="missed":
       self.markedM=index
     
+
+
+  ## ------------
+  ## sortMasses
+  ## ------------
+  def sortMasses( self ):
+    """
+    Function to sort the masses of the found injections, so to ensure that
+    mass1 corresponds to the higher mass and mass2 to the lower one
+    """
+
+    for i in range(len(self.sim)):
+
+      # retrieve the sim and the coinc entry
+      sim=self.sim[i]
+      coinc=self.found[i]
+
+      # switch around masses for the simulation, if needed
+      if sim.mass2>sim.mass1:
+        temp=sim.mass1
+        sim.mass1=sim.mass2
+        sim.mass2=temp
+
+      # check for any ifo 
+      for ifo in self.listIFO:
+        if hasattr(coinc, ifo):
+          m1= getattr(getattr(coinc,ifo),"mass1")
+          m2= getattr(getattr(coinc,ifo),"mass2")
+
+          # switch around the masses, if needed
+          if m2>m1:
+            setattr(getattr(coinc,ifo),"mass1", m2)
+            setattr(getattr(coinc,ifo),"mass2", m1)
+
+
+            
     
   ## ------------
   ## plotFound
@@ -442,7 +900,7 @@ class grbCoireTable:
       
     xlabel( xvalue+' '+xifo, size='x-large')
     if flagDiff:
-      ylabel( 'Diff '+flagDiff+' '+yvalue+yifo+'-'+xvalue+xifo, size='x-large')
+      ylabel( 'Diff'+flagDiff+': '+yvalue+'_'+yifo+' - '+xvalue+'_'+xifo, size='x-large')
     else:
       ylabel( yvalue+' '+yifo, size='x-large')
     title('Recovered triggers',size='x-large')
