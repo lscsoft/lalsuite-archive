@@ -289,7 +289,7 @@ class Stats(object):
 		pass
 
 
-	def add_background(self, database):
+	def add_background(self, param_func, database):
 		# iterate over non-zero-lag burst<-->burst coincs
 		for (coinc_event_id,) in database.connection.cursor().execute("""
 SELECT coinc_event_id FROM
@@ -336,10 +336,10 @@ ORDER BY
 				# store the time slide offset
 				offsetdict[event.ifo] = values[-1]
 
-			self._add_background(coinc_params, events, offsetdict)
+			self._add_background(param_func, events, offsetdict)
 
 
-	def add_injections(self, database):
+	def add_injections(self, param_func, database):
 		# iterate over burst<-->burst coincs in which at least one
 		# burst was identified as being the result of an injection
 		for values in database.connection.cursor().execute("""
@@ -419,7 +419,7 @@ ORDER BY
 				offsetdict[event.ifo] = values[-1]
 
 			# pass the events to whatever wants them
-			self._add_injections(coinc_params, sim, events, offsetdict)
+			self._add_injections(param_func, sim, events, offsetdict)
 
 	def finish(self):
 		pass

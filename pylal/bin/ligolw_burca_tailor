@@ -180,13 +180,13 @@ for n, filename in enumerate(filenames):
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
-	# the outputs of injection runs, and other aren't.
+	# the outputs of injection runs, and others aren't.
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_background(database)
+		stats.add_background(ligolw_burca_tailor.coinc_params, database)
 	else:
-		stats.add_injections(database)
+		stats.add_injections(ligolw_burca_tailor.coinc_params, database)
 
 	#
 	# Clean up.
