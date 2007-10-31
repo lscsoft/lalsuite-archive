@@ -15,7 +15,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
-from pylab import*
+#from pylab import*
 import pylal.itertools
 import numpy
 numpy.seterr("raise")
@@ -346,19 +346,24 @@ class plotdata:
     Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
     Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
     """
-
+    print "internal check point 1"
+    figure()
     v = [-0.1, 1.1, -0.1, 1.1]
     axis(v)
+    print "internal check point 2"
     l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
     hold(True)
+    print "internal check point 3"
     l2 = plot(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
     hold(True)
+    print "internal check point 4"
     l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
     xlabel(prefix + ', p(c|0)')
     ylabel('Detection Probability, p(c|h)')
     legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
+    print "internal check point 5"
     savefig('All_DetectProb_vs_' + prefix)
-    figure()
+    
 
   def scatter_plot(self, p0, pc):
     ''' 
@@ -567,10 +572,10 @@ class likelihood:
 
 ###############################################################################################
 
-#if not opts.show:
-#  import matplotlib
-#  matplotlib.use('Agg')
-#from pylab import *
+if not opts.show:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
 #from pylal import viz
 
 
@@ -809,9 +814,9 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   BackgroundFractionFile_zerolag = open('BackgroundFraction_zerolag', 'w')
   LikelihoodFile_zerolag = open('Likelihood_zerolag', 'w')
   BackgroundFractionFile_inj = open('BackgroundFraction_inj', 'w')
-  LikelihoodFile_inj = open('Likelihood_zerolag_inj', 'w')
+  LikelihoodFile_inj = open('Likelihood_inj', 'w')
   BackgroundFractionFile_slides = open('BackgroundFraction_slides', 'w')
-  LikelihoodFile_zerolag_slides = open('Likelihood_zerolag_slides', 'w')
+  LikelihoodFile_slides = open('Likelihood_slides', 'w')
 
   # calculating false alarm probability, detection probability and likelihood for zero lag coincs
   size_zerolag = len(zerolagCoincTriggers)
@@ -1011,8 +1016,11 @@ if opts.plot_snr:
 if opts.scatter_plot:
   plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
 
+print "check point 1"
 if opts.scatter_all_plot:
+  print "check point 2"
   plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
+  print "check point 3"
   plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, 'Background_Fraction')
 
 
