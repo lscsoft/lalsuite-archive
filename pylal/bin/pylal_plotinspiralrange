@@ -2,6 +2,38 @@
 """
 Inspiral range plotting tool for TMPLTBANK/INSPIRAL files
 
+Example:
+
+>>> ~/opt/pylal/bin/pylal_plotinspiralrange \
+>>> --inspiral-glob '*-INSPIRAL-*' --tmpltbank-glob '*TMPLTBANK-*' 
+>>> --user-tag playground --range-min 1 --range-max 40 --n 50 
+>>> --range-vs-time --range-hist --verbose -a -b 
+>>> --range-mass --gps-start-time 847555570 --gps-end-time 849974770 
+>>> --output-path playground --enable-output  --ifo-times H1H2L1  
+
+@todo
+  - Use only the TMPLTBANK file and not INSPIRAL anymore
+
+    Right now, the horizon distance are stored within the INSPIRAL files and 
+    used to generate 2 plots : histogram of a 1.4,1.4 horizon distance, and 
+    fluctuations of this horizon distance versus time. 
+    There is also the possibility to generate horizon versus time BUT it 
+    requires  the TMPLTBANK files. For historical reason, we started to generate
+    the 2 first plots using INSPIRAL files, and later the third one using TMPLTBANK
+    files. I think we could have used only the TMPLTBANK files. 
+   
+    For now this code needs both INSPIRAL and TMPLTBANK files to be parsed, which
+    is longer than expected. If someone has the time, we should read only TMPLTBANK 
+    files
+  - Allow cache description to have several arguments
+
+    one can provide both --inspiral-glob and --tmpltbank-glob options to provide the
+    list of requested files. There is also the possiblity to use a cachefile 
+    (--cache-file). A cache file may contain anything, so a cache-description option can
+    be used to specify what are the file to keep. The problem is that if you need both 
+    INSPIRAL and TMPLTBANK files, this option does not handle multiple description for now.
+  - Use ContentHandler function from InspiralUtils
+
 """
 __version__ = "$Revision$"
 __date__ = "$Date$"
@@ -130,7 +162,10 @@ def plotinspiralrange_histogram(opts):
 
 def plotinspiralrange_range_versus_time(opts):
   """
- 
+  Create the range versus time plot (BNS case) 
+  
+  @param  opts : the user arguments 
+  @return fname : the HTML document 
   """
   global figure_number
   prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
@@ -168,7 +203,10 @@ def plotinspiralrange_range_versus_time(opts):
    
 def plotinspiralrange_range_versus_total_mass(opts):
   """
+  Create the range versus total mass (request TMPLTBANK files) 
   
+  @param  opts : the user arguments 
+  @return fname : the HTML document  
   """
   global figure_number
   prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
@@ -226,39 +264,40 @@ def plotinspiralrange_range_versus_total_mass(opts):
 
 def get_filelist(opts):
   """
-  reads INSPIRAL and/or TMPLTBANK files
+  return a list of files using the --glob option OR the cache file (and 
+  possibly a sieve with the --cache-description option)
+ 
+  @param opts: user options. Uses inspiral_glob, tmpltbank_glob AND/OR
+  cache_file and opts.ifo_type and option.cache_description
   """
   inspiralFiles = []
   if opts.inspiral_glob:
     inspiralFiles += glob.glob(opts.inspiral_glob)
+  if opts.tmpltbank_glob:
+    inspiralFiles += glob.glob(opts.tmpltbank_glob)
   if opts.cache_file:
     inspiralFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, \
     description=opts.cache_description).checkfilesexist()[0].pfnlist()
-
-
-#        for line in open(opts.cache_file) if "INSPIRAL" in line]
-#  if opts.cache_file:
-#    inspiralFiles += [lal.CacheEntry(line).path() \
-#        for line in open(opts.cache_file) if "TMPLTBANK" in line]
-
+     
   return inspiralFiles
 
 
 #################################################################
 # help message
 usage = """\
-Usage: %prog [options]
-
-  SUMMARY:  Program for plotting the range of the instruments over a given run.
-            You can make two plots
-
+%prog [options]
+------------------------------------------------------------------------------
+ SUMMARY:  Program for plotting the range of the instruments over a given run.
+           You can make three plots
          1) A plot of the range for each ifo vs time (in days after run start)
-            (--range-vs-time)  
-         
+            (--range-vs-time)           
          2) A histogram of the number of blocks for which a given range 
             was achieved (--range-hist).
-
          3) Mean range versus total mass (--range-mass).
+
+ Request a list of inspiral and template bank files to read the summary value
+ tables
+------------------------------------------------------------------------------
 """
 
 #######################################################################
@@ -272,11 +311,14 @@ def parse_command_line():
       "$Id$\n" +
       "$Name$\n")
   parser.add_option("-I","--inspiral-glob",action="store",type="string",\
-      default=None,metavar="INSP",\
-      help="glob for files containing the string INSP")
+      default=None,metavar="INSPIRAL",\
+      help="glob for INSPIRAL files")
+  parser.add_option("-T","--tmpltbank-glob",action="store",type="string",\
+      default=None,metavar="TMPLTBANK",\
+      help="glob for TMPLTBANK files")
   parser.add_option("-c","--cache-file",action="store",type="string",\
       default=None,metavar="CACHE",\
-      help="name of cache file with details if inspiral files")
+      help="name of a cache file containing INSPIRAL and/or TMPLTBANK files")
   parser.add_option("-m","--range-min",action="store",type="float",\
       metavar="MIN", help="minimum value on range plots", default=-1 )
   parser.add_option("-M","--range-max",action="store",type="float",\
@@ -300,24 +342,21 @@ def parse_command_line():
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None, metavar=" FNAME",\
+      default=None, metavar=" USERTAG",\
       help="" )
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
-      metavar=" FNAME", help="ifo times, also used as prefix " )
-  parser.add_option("-C","--output-cache",action="store_true",\
-      default=False, metavar="CACHE",\
-      help="generate a cache file with the figure names")
+      metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
-  parser.add_option("-o","--enable-output",action="store_true",\
+  parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
-  parser.add_option("-S","--gps-start-time",action="store",\
-      type="int",  metavar="GPSSTART",\
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
       help="gps start time (for naming figure and output files")
-  parser.add_option("-E","--gps-end-time",action="store",\
-      type="int",  metavar=" GPSEND",\
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
       help="gps end time (for naming figure and output files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
@@ -328,16 +367,19 @@ def parse_command_line():
       type="string", default=None,  metavar="IFO_TYPE",\
       help="sieve a cache file according to a particular ifo type")
 
-
-
  
-
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
   # test the input options
   if not options.ifo_times:
     raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
+
+  if options.cache_file and (options.inspiral_glob or options.tmpltbank_glob):
+    raise ValueError, """
+Use either the glob options(inspiral-glob, tmpltbank-glob 
+OR the cachefile options (--cache-file), not both at the same time.
+"""
 
   return options, sys.argv[1:]
 
@@ -346,8 +388,8 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 # -- some initialisation
-figure_number = 0
-output_name = []   # use for the cache file
+figure_number = 0  # used for the figure label (showplot)
+output_cachefile_name = []   # use for the cache file
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -359,13 +401,16 @@ from pylal import viz
 
 
 # ============================================================================
-# -- identify the inspiral files
+# -- identify the inspiral and template bank files
+if opts.verbose:
+  print "Parsing the cache file...wait..."
 inspiralFiles = get_filelist(opts)
 
-# -- Read in the summ values from the inspirals
+# -- Read in the summ values from the inspiral/tmpltbank  files
 inspiralSumm, massInspiralSumm = InspiralUtils.readFiles(inspiralFiles, opts.verbose)
 
-colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
+# -- set the proper color code
+colors = InspiralUtils.colors
 
 # ============================================================================
 # Initialise 
@@ -377,7 +422,7 @@ if opts.enable_output is True:
   # -- filename 
   html_filename = prefix[0:len(prefix)-1] + suffix +".html"
   html_file = file(html_filename, "w")
-  # set output_cache properly: make sure there is a slash 
+  # -- set output_cache properly: make sure there is a slash 
   if len(opts.output_path)>1 :
     opts.output_path = opts.output_path +'/'
 
@@ -399,7 +444,7 @@ if opts.range_vs_time is True:
         alt=text, border="2"), title=text, href=[opts.output_path + fname])
 
     # -- keep track of this filename 
-    output_name.append(fname)
+    output_cachefile_name.append(fname)
 
 # ============================================================================
 # Make histogram of range values
@@ -417,7 +462,7 @@ if opts.range_hist is True:
         alt=text, border="2"), title=text, href=[opts.output_path + fname])
 
     # -- keep track of this filename 
-    output_name.append(fname)
+    output_cachefile_name.append(fname)
 
 
 # ============================================================================
@@ -437,7 +482,7 @@ if opts.range_mass is True:
         alt=text, border="2"), title=text, href=[opts.output_path + fname])
 
     # -- keep track of this filename 
-    output_name.append(fname)
+    output_cachefile_name.append(fname)
 
 
 
@@ -455,7 +500,7 @@ if opts.enable_output is True:
   this = open(output_cache_name, 'w')
   if opts.enable_output is True: 
     this.write(html_filename + '\n')
-  for fname in output_name:
+  for fname in output_cachefile_name:
     this.write(fname + '\n')
   this.close()
   
