@@ -1,7 +1,23 @@
 #!/usr/bin/python
+"""
+Rate of triggers TMPLTBANK files
+
+Example:
+
+>>>   
+
+todo
+  - documentation
+"""
+
+
+
 __version__ = "$Revision$"
+__date__ = "$Date$"
 __name__ = "plotnumtemplates"
 __Id__ = "$Id$"
+__title__ = "Template Bank Size Plots"
+
 
 # $Source$
 
@@ -14,27 +30,57 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue import lal
 
-##############################################################################
 
-##############################################################################
+# ============================================================================
+def plotnumtemplates_tmpltbank_size(opts):
+  """
+
+  """
+  global figure_number 
+  
+  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
+  # iterate figure number 
+  figure_number = figure_number + 1
+  figure(figure_number)
+  
+  for ifo in tmpltSumm.keys():
+    numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
+    startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
+    style = colors[ifo] + 'x'
+    plot(startTime, numTemplates, style, label=ifo+' tmplt',\
+        markersize=12, markeredgewidth=1)
+    if opts.print_numbers:
+      print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+
+  for ifo in trigSumm.keys():
+    numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
+    startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
+    style = colors[ifo] + 'o'
+    plot(startTime, numTrigs, style, label=ifo+' trig',\
+        markersize=12, markeredgewidth=1)
+    if opts.print_numbers:
+      print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
+      
+  xlabel('Days after start of run', size='x-large')
+  ylabel('Number of templates', size='x-large')
+  legend()
+  grid("on")
+
+  if opts.enable_output is True:
+    fname = prefix + "temp" + suffix + ".png"
+    savefig(fname)
+  else:
+    fname = []
+  
+  return fname
+
+# ============================================================================
 # function to read in a list of files
 def isSearchSumm(name, attrs):
   return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
 
 def isProcess(name, attrs):
   return lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
-
-def writeProcessParams(page, command_line):
-  """
-  function to write out the process params that the code was called with
-  """
-  text = "Figures produced with "+ __name__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __name__
-
-  for arg in command_line:
-    text += " " +  arg
-  page.pre( text )
-  return page
-
 
 def readFiles(fList):
   """
@@ -79,80 +125,98 @@ def readFiles(fList):
 #################################################################
 # help message
 usage = """\
-Usage: plotnumtemplates [options]
-
+%prog [options]
+------------------------------------------------------------------------------
   SUMMARY: Makes a plot of the number of templates against time.  The code
            will read in either TMPLTBANK files or TRIGBANK files or both, 
            for as many ifo's as you like.  It will then plot the number of 
            templates vs time for each ifo and each type of bank (TMPLT and 
            TRIG).
-
+------------------------------------------------------------------------------
 """
 
 ##############################################################################
-parser = OptionParser( usage=usage, \
-    version= "%prog CVS\n" +
-    "$Id$\n" +
-    "$Name$\n")
-
-    
-parser.add_option("-t","--tmplt-glob",action="store",type="string",\
-    default=None,metavar="TMPLT",\
-    help="glob for files containing the string TMPLT")
-    
-parser.add_option("-T","--trig-glob",action="store",type="string",\
-    default=None,metavar="TRIG",\
-    help="glob for files containing the string TRIG")
-
-parser.add_option("-c","--cache-file",action="store",type="string",\
-    default=None,metavar="INPUT",\
-    help="supply a bunch of TMPLT files or TRIG files")
-
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
-
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME.png" )
-
-parser.add_option("-p","--print-numbers",action="store_true",default=False,\
-    help="prints each number on the screen" )
-
-parser.add_option("-v","--verbose",action="store_true",default=False,\
-    help="prints verbose information" )
-
-parser.add_option("-W","--output-html",action="store_true",\
-    default=False, metavar="HTML",\
-    help="generate a html page containing the plots")
-
-parser.add_option("-C","--output-cache",action="store_true",\
-    default=False, metavar="CACHE",\
-    help="generate a cache file with the figure names")
-
-parser.add_option("-P","--output-path",action="store",\
-    type="string",default="",  metavar="PATH",\
-    help="path where the figures would be stored")
-
-parser.add_option("-S","--gps-start-time",action="store",\
-    type="int",  metavar="GPSSTART",\
-    help="gps start time (for naming figure and output files")
-
-parser.add_option("-E","--gps-end-time",action="store",\
-    type="int",  metavar=" GPSEND",\
-    help="gps end time (for naming figure and output files")
+def parse_command_line():
+  """
+  Parser function dedicated 
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
+  parser.add_option("-t","--tmpltbank-glob",action="store",type="string",\
+      default=None,metavar="TMPLT",\
+      help="glob for files containing the string TMPLT")
+  parser.add_option("-T","--trigbank-glob",action="store",type="string",\
+      default=None,metavar="TRIG",\
+      help="glob for files containing the string TRIG")
+  parser.add_option("-c","--cache-file",action="store",type="string",\
+      default=None,metavar="INPUT",\
+      help="supply a bunch of TMPLT files or TRIG files")
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-f","--figure-name",action="store",type="string",\
+      default=None, metavar=" FNAME",\
+      help="generate png figures with name FNAME.png" )
+  parser.add_option("-p","--print-numbers",action="store_true",default=False,\
+      help="prints each number on the screen" )
+  parser.add_option("-v","--verbose",action="store_true",default=False,\
+     help="prints verbose information" )
+  parser.add_option("-W","--output-html",action="store_true",\
+      default=False, metavar="HTML",\
+      help="generate a html page containing the plots")
+  parser.add_option("-C","--output-cache",action="store_true",\
+      default=False, metavar="CACHE",\
+      help="generate a cache file with the figure names")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+  parser.add_option("","--ifo-type",action="store",\
+      type="string", default=None,  metavar="IFO_TYPE",\
+      help="sieve a cache file according to a particular ifo type")
 
 
+  command_line = sys.argv[1:]
+  (options,args) = parser.parse_args()
 
-command_line = sys.argv[1:]
-(opts,args) = parser.parse_args()
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
+  if options.cache_file and (options.inspiral_glob or options.tmpltbank_glob):
+    raise ValueError, """
+Use either the glob options(inspiral-glob, tmpltbank-glob 
+OR the cachefile options (--cache-file), not both at the same time.
+"""
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+# -- some initialisation
+figure_number = 0  # used for the figure label (showplot)
+output_cachefile_name = []   # use for the cache file
+
+# to avoid  display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
 
-# identify the template bank files
+
+# ============================================================================
+# -- identify the template bank files
 if opts.tmplt_glob:
   tmpltbankFiles = glob.glob(opts.tmplt_glob)
   if not tmpltbankFiles:
@@ -172,7 +236,6 @@ if opts.trig_glob:
 else:
   trigbankFiles = None
  
-
 if opts.cache_file:
   trig = lal.Cache().fromfile(open(opts.cache_file))
   if not trig:
@@ -183,39 +246,19 @@ if opts.cache_file:
     trigbankFiles = trig.sieve(description = "TRIGBANK").checkfilesexist()[0].pfnlist()
 
 
+# ============================================================================
+# Initialise 
+prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 
-
-#######################################################################
-# Initialise
-# Initialise the png output filenames
-if not opts.figure_name:
-  prefix = __name__ + "_"
-else:
-  prefix = __name__ + "_" + opts.figure_name + "_"
-if opts.gps_start_time and opts.gps_end_time :
-  suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
-else:
-  suffix = "-unspecified-gpstime"
-
-# Initialise the html output file
-if opts.output_html is True:
-  try:
-    import markup
-    from markup import oneliner as e
-  except:
-    raise ImportError("Require markup.py to generate the html page")
-
+if opts.enable_output is True:
+  # -- initialise the web page calling init_page
+  page, extra = InspiralUtils.init_markup_page(opts)
+  # -- filename 
   html_filename = prefix[0:len(prefix)-1] + suffix +".html"
   html_file = file(html_filename, "w")
-  page = markup.page()
-  title = "Template Bank Size"
-  page.init(title=title)
-
-# set output_cache properly: make sure there is a slash
-if len(opts.output_path)>1 :
-  opts.output_path = opts.output_path +'/'
-
-output_name = []
+  # -- set output_cache properly: make sure there is a slash 
+  if len(opts.output_path)>1 :
+    opts.output_path = opts.output_path +'/'
 
 
 #######################################################################
@@ -226,61 +269,47 @@ tmpltSumm = readFiles(tmpltbankFiles)
 print 'Reading files...' + str(len(trigbankFiles))
 trigSumm  = readFiles(trigbankFiles)
 print 'done'
-colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
+
+# -- set the proper color code
+colors = InspiralUtils.colors
 
 
-for ifo in tmpltSumm.keys():
-  numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
-  startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
-  style = colors[ifo] + 'x'
-  plot(startTime, numTemplates, style, label=ifo+' tmplt',\
-      markersize=12, markeredgewidth=1)
-  if opts.print_numbers:
-    print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+# ============================================================================
+# Make plot of tmpltbank size 
+# create a text for the alt and title of html document
+text ="Inspiral horizon distance for a (1.4,1.4)"+\
+    " solar mass system with SNR=8"
+# -- the plot itself --
+fname =  plotnumtemplates_tmpltbank_size(opts)
 
+# -- save results in output files --
+if opts.enable_output is True:
+  # -- create a link and image html tag
+  page.a(extra.img(src=[opts.output_path +fname], width=400, \
+      alt=text, border="2"), title=text, href=[opts.output_path + fname])
+   # -- keep track of this filename 
+  output_cachefile_name.append(fname)
 
-for ifo in trigSumm.keys():
-  numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
-  startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
-  style = colors[ifo] + 'o'
-  plot(startTime, numTrigs, style, label=ifo+' trig',\
-      markersize=12, markeredgewidth=1)
-  if opts.print_numbers:
-    print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
-      
-xlabel('Days after start of run', size='x-large')
-ylabel('Number of templates', size='x-large')
-legend()
-grid("on")
-
-fname = prefix[0:len(prefix)-1]   + suffix + ".png"
-savefig(fname)
-
-if opts.output_html is True:
-  text ="Variation in template and triggered template bank sizes"
-  page.a(e.img(src = [opts.output_path +fname], width = 400, \
-      alt=text, border="2"), title=text, href=[opts.output_path+fname])
-  if opts.output_cache:
-    output_name.append(fname)
-
-
-# Initialise the html output if needed
   
 
-page = writeProcessParams(page, command_line)
-html_file.write(page(False))
-html_file.close()
+# ============================================================================
+# final step: html, cahe file generation
+if opts.enable_output:
+  text = InspiralUtils.writeProcessParams( __name__, __version__, args)
+  page.add(text)
+  html_file.write(page(False))
+  html_file.close()
 
-if opts.output_cache is True:
+if opts.enable_output is True:
   output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
   this = open(output_cache_name, 'w')
-  if opts.output_html is True:
+  if opts.enable_output is True: 
     this.write(html_filename + '\n')
-  for fname in output_name:
+  for fname in output_cachefile_name:
     this.write(fname + '\n')
   this.close()
-
-
+  
+# ============================================================================
 
 if opts.show_plot:
   show()  

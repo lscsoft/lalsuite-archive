@@ -54,8 +54,7 @@ from glue.ligolw import utils
 from glue import lal
 from pylal import InspiralUtils 
 
-
-#######################################################################
+# ============================================================================
 class ContentHandler(ligolw.PartialLIGOLWContentHandler):
   def __init__(self, xmldoc):
     """
@@ -70,8 +69,7 @@ class ContentHandler(ligolw.PartialLIGOLWContentHandler):
 
 utils.ContentHandler = ContentHandler
 
-
-
+# ============================================================================
 def stairs(xVal,yVal):
   """
   Takes in x and y values you want to plot using stairs
@@ -96,6 +94,7 @@ def stairs(xVal,yVal):
 
   return xStairs,yStairs
 
+# ============================================================================
 def plotinspiralrange_histogram(opts):
   """
   Create the histogram of the inspiral range for each ifo available 
@@ -160,6 +159,7 @@ def plotinspiralrange_histogram(opts):
   
   return fname
 
+# ============================================================================
 def plotinspiralrange_range_versus_time(opts):
   """
   Create the range versus time plot (BNS case) 
@@ -200,7 +200,8 @@ def plotinspiralrange_range_versus_time(opts):
     fname = []
   
   return fname
-   
+
+# ============================================================================
 def plotinspiralrange_range_versus_total_mass(opts):
   """
   Create the range versus total mass (request TMPLTBANK files) 
@@ -262,6 +263,7 @@ def plotinspiralrange_range_versus_total_mass(opts):
   
   return fname
 
+# ============================================================================
 def get_filelist(opts):
   """
   return a list of files using the --glob option OR the cache file (and 
@@ -281,8 +283,7 @@ def get_filelist(opts):
      
   return inspiralFiles
 
-
-#################################################################
+# ============================================================================
 # help message
 usage = """\
 %prog [options]
@@ -300,7 +301,8 @@ usage = """\
 ------------------------------------------------------------------------------
 """
 
-#######################################################################
+# ============================================================================
+
 def parse_command_line():
   """
   Parser function dedicated 
@@ -367,7 +369,7 @@ def parse_command_line():
       type="string", default=None,  metavar="IFO_TYPE",\
       help="sieve a cache file according to a particular ifo type")
 
- 
+
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
