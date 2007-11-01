@@ -352,7 +352,6 @@ class plotdata:
     Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
     """
     print "internal check point 1"
-    figure()
     v = [-0.1, 1.1, -0.1, 1.1]
     axis(v)
     print "internal check point 2"
@@ -368,13 +367,33 @@ class plotdata:
     legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
     print "internal check point 5"
     savefig('All_DetectProb_vs_' + prefix)
-    
+    figure()
+
+  def triple_scatter_plot_stat(self, zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr'):
+    """
+    Function that makes scattering plot of  new statistic (likelihood) vs old statistic (effective snr) 
+    for zerolag candidate triggers, injections and background triggers. 
+    """
+    print "internal check point 1"
+    print "internal check point 2"
+    l1 = plot(zerolag_stat, p0_zerolag, marker='o', linestyle='None', color='g')
+    hold(True)
+    print "internal check point 3"
+    l2 = plot(injections_stat, p0_injections, marker='x', linestyle='None', color='r')
+    hold(True)
+    print "internal check point 4"
+    l3 = plot(background_stat, p0_background, marker='x', linestyle='None', color='k')
+    xlabel(old_statistic)
+    ylabel(new_statistic)
+    legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
+    print "internal check point 5"
+    savefig('All_' + new_statistic + '_' + old_statistic)
+    figure()
 
   def scatter_plot(self, p0, pc):
     ''' 
     Makes a scatter plot of points {p(c|0, p(c|h)}
     '''
-  
     v = [-0.1, 1.1, -0.1, 1.1]
     axis(v)
     plot(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
@@ -383,7 +402,15 @@ class plotdata:
     savefig('zerolag_DetectProb_vs_FalseAlarmProb')
     figure()
   
-
+  def scatter_plot_stat(self, stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr'):
+    ''' 
+    Makes a scatter plot of new statistic (likelihood) vs old statistic (effective snr)
+    '''
+    plot(stat_array, p0, marker='o', linestyle='None', color='g')
+    ylabel(new_statistic)
+    xlabel(old_statistic)
+    savefig('zerolag_' + new_statistic + '_' + old_statistic)
+    figure()
 
 
   def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
@@ -784,9 +811,11 @@ if opts.likelihood == 'zerolag-candidates-only':
   BackgroundFraction_array = numpy.zeros(size_zerolag)
   Likelihood = numpy.zeros(size_zerolag)
   DetectionBackgroundRatio = numpy.zeros(size_zerolag)
+  zerolag_stat_array = numpy.zeros(size_zerolag)
   i = 0
   for candidate in zerolagCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
+    zerolag_stat_array[i] = candidate.stat
     FalseAlarmProb_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     DetectionProb_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     BackgroundFraction_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -819,6 +848,7 @@ if opts.likelihood == 'zerolag-candidates-only':
     cPickle.dump(Likelihood, IntermediateFile)
     cPickle.dump(BackgroundFraction_array, IntermediateFile)
     cPickle.dump(DetectionBackgroundRatio, IntermediateFile)
+    cPickle.dump(zerolag_stat_array, IntermediateFile)
 
   LikelihoodFile.close()
   BackgroundFractionFile.close()
@@ -843,12 +873,13 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   bf_zerolag_array = numpy.zeros(size_zerolag)
   Likelihood_zerolag = numpy.zeros(size_zerolag) 
   DetectionBackgroundRatio_zerolag = numpy.zeros(size_zerolag)
-  
+  zerolag_stat_array = numpy.zeros(size_zerolag)
   if opts.verbose:
     print "zero lag coincs"
   i = 0
   for candidate in zerolagCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
+    zerolag_stat_array[i] = candidate.stat
     p0_zerolag_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     pc_zerolag_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     bf_zerolag_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -884,6 +915,7 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     cPickle.dump(pc_zerolag_array, IntermediateFile)
     cPickle.dump(Likelihood_zerolag, IntermediateFile)
     cPickle.dump(DetectionBackgroundRatio_zerolag, IntermediateFile)
+    cPickle.dump(zerolag_stat_array, IntermediateFile)
 
   
   (statistic_foreground_zerolag_LKH, x_middle_foreground_zerolag_LKH) = cum_hist(Likelihood_zerolag, opts.bins_cumhist)
@@ -903,13 +935,14 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   bf_inj_array = numpy.zeros(size_inj)
   Likelihood_inj = numpy.zeros(size_inj)
   DetectionBackgroundRatio_inj = numpy.zeros(size_inj)
-
+  injections_stat_array = numpy.zeros(size_inj)
   if opts.verbose:
     print "injections coincs"
 
   i = 0
   for candidate in injectionCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
+    injections_stat_array[i] = candidate.stat
     p0_inj_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     pc_inj_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     bf_inj_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -945,6 +978,7 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     cPickle.dump(pc_inj_array, IntermediateFile)
     cPickle.dump(Likelihood_inj, IntermediateFile)
     cPickle.dump(DetectionBackgroundRatio_inj, IntermediateFile)
+    cPickle.dump(injections_stat_array, IntermediateFile)
  
   (statistic_foreground_inj_LKH, x_middle_foreground_inj_LKH) = cum_hist(Likelihood_inj, opts.bins_cumhist)
   (statistic_foreground_inj_DBR, x_middle_foreground_inj_DBR) = cum_hist(DetectionBackgroundRatio_inj, opts.bins_cumhist)
@@ -977,6 +1011,7 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   pc_slides_array = numpy.zeros(size_slides)
   bf_slides_array = numpy.zeros(size_slides)
   Likelihood_slides = numpy.zeros(size_slides)
+  slides_stat_array = numpy.zeros(size_slides)
   
   average_likelihood = numpy.zeros(opts.bins_cumhist)
   average_sqr_likelihood = numpy.zeros(opts.bins_cumhist)
@@ -997,6 +1032,7 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     j = 0
     for candidate in slideTriggers:
       c_ifos,ifolist = candidate.get_ifos()
+      slides_stat_array[i] = candidate.stat
       p0_slides_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
       pc_slides_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
       bf_slides_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -1044,6 +1080,7 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     cPickle.dump(pc_slides_array, IntermediateFile)
     cPickle.dump(Likelihood_slides, IntermediateFile)
     cPickle.dump(DetectionBackgroundRatio_slides, IntermediateFile)
+    cPickle.dump(slides_stat_array, IntermediateFile)
 
   sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
   expect_likelihood = average_likelihood / (2 * opts.numslides)
@@ -1087,6 +1124,9 @@ if opts.plot_snr:
 
 if opts.scatter_plot:
   plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
+  plotdata().scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic)
+  plotdata().scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic)
+  plotdata().scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic)
 
 print "check point 1"
 if opts.scatter_all_plot:
@@ -1094,7 +1134,9 @@ if opts.scatter_all_plot:
   plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
   print "check point 3"
   plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, 'Background_Fraction')
-
+  plotdata().triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injections_stat_array, p0_inj_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
+  plotdata().triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injections_stat_array, Likelihood_inj, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
+  plotdata().triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injections_stat_array, DetectionBackgroundRatio_inj, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
 
 
 if opts.likelihood == 'zerolag-candidates-only':
