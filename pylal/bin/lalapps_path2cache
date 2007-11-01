@@ -18,18 +18,38 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 
 import os.path
 import re
 import sys
 from optparse import OptionParser
 
+
+from glue import lal
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
 #
-# Parse command line
+# =============================================================================
 #
+#                                 Command Line
+#
+# =============================================================================
+#
+
 
 def parse_command_line():
 	parser = OptionParser(usage="usage: %prog [options]\n\nExample:\n\tls *.xml | %prog")
@@ -38,12 +58,28 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="turn on verbosity")
 	return parser.parse_args()[0]
 
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Parse command line
+#
+
+
 options = parse_command_line()
 
 
 #
 # Open input and output streams
 #
+
 
 if options.input:
 	input = file(options.input)
@@ -59,6 +95,7 @@ else:
 # Other initializations
 #
 
+
 path_count = 0
 total_duration = 0
 
@@ -67,18 +104,15 @@ total_duration = 0
 # Filter input one line at a time
 #
 
-pattern = re.compile(r"\s*(?P<instrument>[^-]+)-(?P<type>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
 
 for line in input:
 	path, file = os.path.split(line.strip())
-	try:
-		match = pattern.match(file).groupdict()
-	except AttributeError:
-		# match() returned None, which has no groupdict() method
-		raise Exception, "Filename format not recognized"
-	print >>output, match["instrument"][0], match["type"], match["start"], match["duration"], "file://localhost" + os.path.abspath(os.path.join(path, file))
+	cache_entry = lal.CacheEntry.from_T050017(file)
+	#cache_entry.url = "file://localhost%s" % os.path.abspath(os.path.join(path, file)
+	print >>output, str(cache_entry)
 	path_count += 1
-	total_duration += int(match["duration"])
+	total_duration += abs(cache_entry.segment)
+
 
 if options.verbose:
-	print >>sys.stderr, "number of paths: %d\ntotal duration: %d" % (path_count, total_duration)
+	print >>sys.stderr, "number of paths: %d\ntotal duration: %s" % (path_count, str(total_duration))
