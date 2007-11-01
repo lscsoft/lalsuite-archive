@@ -322,6 +322,9 @@ class CacheEntry(object):
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
 	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
+	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/]+)\.[^/]+)\Z")
+	# My old regex from lalapps_path2cache, in case it's needed
+	#_url_regex = re.compile(r"\s*(?P<observatory>[^-]+)-(?P<description>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
 
 	def __init__(self, *args, **kwargs):
 		"""
@@ -438,8 +441,6 @@ class CacheEntry(object):
 			instruments = [self.observatory]
 		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
 
-	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/]+)\.[^/]+)\Z")
-
 	def from_T050017(cls, url, coltype = LIGOTimeGPS):
 		"""
 		Parse a URL a la T050017-00 into a CacheEntry. In short:
@@ -460,7 +461,6 @@ class CacheEntry(object):
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
 	from_T050017 = classmethod(from_T050017)
-
 
 
 class Cache(list):
