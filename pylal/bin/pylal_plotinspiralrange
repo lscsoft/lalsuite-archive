@@ -11,7 +11,7 @@ Example:
 >>> --range-mass --gps-start-time 847555570 --gps-end-time 849974770 
 >>> --output-path playground --enable-output  --ifo-times H1H2L1  
 
-@todo
+todo
   - Use only the TMPLTBANK file and not INSPIRAL anymore
 
     Right now, the horizon distance are stored within the INSPIRAL files and 
@@ -101,7 +101,7 @@ def plotinspiralrange_histogram(opts):
   Create the histogram of the inspiral range for each ifo available 
   
   @param  opts : the user arguments 
-  @return fname : the HTML document
+  @return  fname  the HTML document
   """
   global figure_number 
   
@@ -165,7 +165,7 @@ def plotinspiralrange_range_versus_time(opts):
   Create the range versus time plot (BNS case) 
   
   @param  opts : the user arguments 
-  @return fname : the HTML document 
+  @return fname  the HTML document 
   """
   global figure_number
   prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
@@ -206,7 +206,7 @@ def plotinspiralrange_range_versus_total_mass(opts):
   Create the range versus total mass (request TMPLTBANK files) 
   
   @param  opts : the user arguments 
-  @return fname : the HTML document  
+  @return fname  the HTML document  
   """
   global figure_number
   prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
