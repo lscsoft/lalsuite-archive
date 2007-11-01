@@ -17,15 +17,24 @@ from glue.ligolw import utils
 from glue.ligolw import lsctables
 
 
+# set default color code for inspiral plotting functions
+colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
-def writeProcessParams(name, version, command_line): 
+def writeProcessParams(name, version, command): 
   """
-  function to write out the process params that the code was called with
+  Convert input parameters from the process params that the code was called 
+  with into a formatted string that can be saved within an other document 
+  (e.g., HTML)
+
+  @param name: name of the executable/script
+  @param version:version of the executable/script
+  @param command: command line arguments from a pylal script
+  @return text: a string containing a formatted version of the input parameters
   """
-  text = "Figures produced with "+name+", " \
+  text = "Figures produced with " + name + ", " \
       + version[1:len(version)-1] + ", invoked with arguments:\n\n" \
       + name
-  for arg in command_line:
+  for arg in command:
     text += " " +  arg
   
   return text
@@ -33,6 +42,9 @@ def writeProcessParams(name, version, command_line):
 def AddFileToCache(fname, cache):
   """
   Add the given file to the lal.Cache
+
+  @param fname:
+  @param cache:
   """
   file_name = fname.split('.')[0].split('-')
   cache.append(lal.CacheEntry( file_name[0], file_name[1],
@@ -44,6 +56,9 @@ def AddFileToCache(fname, cache):
 def GenerateCache(fileList):
   """
   Generate a lal.Cache for the list of files
+
+  @param fileList : a list of file
+  @return cache : a lal cache file 
   """
   cache = lal.Cache()
   for file in fileList:
@@ -51,7 +66,6 @@ def GenerateCache(fileList):
   return(cache)
 
 
-#def ContentHandler(ligolw.PartialLIGOLWContentHandler):
 def ContentHandler(PartialLIGOLWContentHandler):
   """
   
@@ -70,9 +84,13 @@ def ContentHandler(PartialLIGOLWContentHandler):
 
 def create_output_name(opts, name):
   """
-  Create the suffix and prefix used for the naming convention.
-  @param  opts : the user arguments (user_tag, gps_end_time 
-        and gps_start_time are used)
+  Create suffix and prefix that will be used to name the output files.
+
+  @param opts : the user arguments (user_tag, gps_end_time and 
+  gps_start_time are used).
+  @param name:
+  @return prefix 
+  @return suffix
   """
   if not opts.user_tag:
     prefix = opts.ifo_times +"-"+ name + "_"
@@ -89,6 +107,7 @@ def init_markup_page( opts):
   """
   Load the markup module, and initialise the HTML document if the opts 
   argument contains enable_ouput option.
+
   @param  opts : the user arguments 
   @return page 
   @return extra 
@@ -112,8 +131,10 @@ def init_markup_page( opts):
 
 def readFiles(fList, verbose=False):
   """
-  read in the SimInspiralTables from a list of files
+  read in the SummValueTables from a list of files
+
   @param fList:       list of input files
+  @param verbose: True of False (default is False)
   """
   output = {}
   massOutput = {}
@@ -121,18 +142,21 @@ def readFiles(fList, verbose=False):
   if len(fList) == 0:
     return output
 
+  # for each file in the list 
   for thisFile in fList:
     if verbose is True:
       print str(count)+"/"+str(len(fList))+" " + thisFile
     count = count+1
     massNum = 0
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
+    # we search for the horizon distance of a BNS (inspiral file only)
     for row in doc.childNodes[0]:
       if row.name == 'inspiral_effective_distance':
         if (row.comment == '1.40_1.40_8.00') or (row.comment == '1.4_1.4_8'):
           if not output.has_key(row.ifo):
             output[row.ifo] = lsctables.New(lsctables.SummValueTable)
           output[row.ifo].append(row)
+    # and any horizon distance available (tmpltbank)
     for row in doc.childNodes[0]:
       if row.name == 'inspiral_effective_distance':
         if not massOutput.has_key(row.ifo):
@@ -145,9 +169,3 @@ def readFiles(fList, verbose=False):
 
 
   return output,massOutput
-
-
-
-
-
-
