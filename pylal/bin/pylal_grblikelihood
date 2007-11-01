@@ -314,8 +314,8 @@ if opts.figure_type in ("ps", "eps"):
   'font.size': 10,
   'axes.labelsize': 10,
   'text.fontsize': 10,
-  'xtick.labelsize': 8,
-  'ytick.labelsize': 8,
+  'xtick.labelsize': 10,
+  'ytick.labelsize': 10,
   'figure.figsize': fig_size}
   rcParams.update(params)
 
@@ -463,6 +463,10 @@ grid(True)
 axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
 xlabel(r"$\rho_{\mathrm{eff}}^2$")
 ylabel(r"Expected \# of events")
+
+min_snr = min([t.stat for t in offsourceTriggers if t.stat >= 0])
+xlim([min_snr**2, xlim()[1]])
+
 savefig("snr_dist.%s" % opts.figure_type)
 
 if not opts.show_plot:
@@ -709,6 +713,10 @@ p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 if opts.known_distance is not None:
   axhline(y=opts.known_distance, color=(0.75, 0.75, 0.75), linewidth=2,
     label='_nolegend_')
+
+# label bin boundaries if it's not ridiculous to do so
+if len(xedges) < 15:
+    xticks(xedges, map(str, xedges))
 
 axis([min(xedges), max(xedges), 0, max(yedges)])
 xlabel(r"$m_2 (M_\odot)$")
