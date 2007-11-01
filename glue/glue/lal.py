@@ -438,6 +438,30 @@ class CacheEntry(object):
 			instruments = [self.observatory]
 		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
 
+	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/]+)\.[^/]+)\Z")
+
+	def from_T050017(cls, url, coltype = LIGOTimeGPS):
+		"""
+		Parse a URL a la T050017-00 into a CacheEntry. In short:
+
+		ifos-description-start-dur.xml
+		"""
+		match = cls._url_regex.search(url)
+		if not match:
+			raise ValueError, "could not convert \"%s\" to CacheEntry" % url
+		observatory = match.group("observatory")
+		description = match.group("description")
+		start = match.group("start")
+		duration = match.group("duration")
+		if start == "-" and duration == "-":
+			# no segment information
+			segment = None
+		else:
+			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
+		return cls(observatory, description, segment, url)
+	from_T050017 = classmethod(from_T050017)
+
+
 
 class Cache(list):
 	"""
@@ -467,7 +491,7 @@ class Cache(list):
 		return cache
 	fromfilenames = classmethod(fromfilenames)
 
-	def from_url_list(cls, urllist, coltype=LIGOTimeGPS):
+	def from_urls(cls, urllist, coltype=LIGOTimeGPS):
 		"""
 		Return a Cache whose entries are inferred from the URLs
 		in urllist, if possible.  PFN lists will also work; for PFNs, the path
@@ -481,9 +505,9 @@ class Cache(list):
 			if scheme == "": path = os.path.abspath(path)
 			return urlparse.urlunsplit((scheme or "file", host or "localhost",
 			                            path, "", ""))
-		return cls([cls.entry_class(pfn_to_url(f), coltype=coltype) \
+		return cls([cls.entry_class.from_T050017(pfn_to_url(f), coltype=coltype) \
 		            for f in urllist])
-	from_url_list = classmethod(from_url_list)
+	from_urls = classmethod(from_urls)
 
 	# some set arithmetic to make life better
 	def __isub__(self, other):
