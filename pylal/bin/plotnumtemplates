@@ -189,9 +189,9 @@ def parse_command_line():
   if not options.ifo_times:
     raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
-  if options.cache_file and (options.inspiral_glob or options.tmpltbank_glob):
+  if options.cache_file and (options.trigbank_glob or options.tmpltbank_glob):
     raise ValueError, """
-Use either the glob options(inspiral-glob, tmpltbank-glob 
+Use either the glob options(trigbank-glob, tmpltbank-glob 
 OR the cachefile options (--cache-file), not both at the same time.
 """
 
