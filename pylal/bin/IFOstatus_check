@@ -114,13 +114,20 @@ if opts.ifo[0] == 'L':
   plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
 plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'#talk.link(plotLink,plotLink)
 
+pngLink = plotLink.replace('.pdf','.png')
+
 os.chdir(opts.output_path)
 plot = commands.getoutput('wget '+plotURL+plotLink)
+if opts.ifo[0] == 'L':
+  convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+else:
+  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
+
 os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
 
 
 utc = xlal.date.XLALGPSToUTC(gps)
@@ -138,14 +145,22 @@ if opts.ifo[0] == 'L':
 plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf' 
 #talk.link(plotLink,plotLink)
 
+pngLink = plotLink.replace('.pdf','.png')
+
 os.chdir(opts.output_path)
 plot = commands.getoutput('wget '+plotURL+plotLink)
+if opts.ifo[0] == 'L':
+  convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+else:
+  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
+
+
+
 os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
-
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
 
 utc = xlal.date.XLALGPSToUTC(gpsplus)
 if utc[1] < 10: month = '0'+str(utc[1])
@@ -161,13 +176,22 @@ if opts.ifo[0] == 'L':
 plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
 #talk.link(plotLink,plotLink)
 
+pngLink = plotLink.replace('.pdf','.png')
+
 os.chdir(opts.output_path)
 plot = commands.getoutput('wget '+plotURL+plotLink)
+if opts.ifo[0] == 'L':
+  convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+else:
+  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
+
+
+
 os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
 
 webPage.cleanWrite('IUL')
 talk.write()
