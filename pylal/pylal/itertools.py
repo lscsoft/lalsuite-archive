@@ -61,8 +61,20 @@ def MultiIter(*sequences):
 	>>> list(x)
 	[(0, 10), (1, 10), (2, 10), (0, 11), (1, 11), (2, 11)]
 
-	The elements in each tuple are in the order of the input sequences,
-	and the left-most input sequence is iterated over first.
+	The elements in each output tuple are in the order of the input
+	sequences, and the left-most input sequence is iterated over first.
+
+	The input sequences are each iterated over only once, so it is safe
+	to pass generators as arguments.  Also, this generator is
+	significantly faster if the longest input sequence is given as the
+	first argument.  For example, this code
+
+	>>> lengths = range(1, 12)
+	>>> for x in MultiIter(*map(range, lengths)):
+	...	pass
+	...
+
+	runs approximately 5 times faster if the lengths list is reversed.
 	"""
 	if sequences:
 		# FIXME:  experiment with a generator expression in Python
