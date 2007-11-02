@@ -64,10 +64,10 @@ def MultiIter(*sequences):
 	The elements in each tuple are in the order of the input sequences,
 	and the left-most input sequence is iterated over first.
 	"""
-	if len(sequences) > 0:
+	if sequences:
 		# FIXME:  experiment with a generator expression in Python
 		# >= 2.5
-		head = [(x,) for x in sequences[0]]
+		head = tuple([(x,) for x in sequences[0]])
 		for t in MultiIter(*sequences[1:]):
 			for h in head:
 				yield h + t
@@ -86,6 +86,21 @@ def choices(vals, n):
 	>>> x = choices(["a", "b", "c"], 2)
 	>>> list(x)
 	[('a', 'b'), ('a', 'c'), ('b', 'c')]
+
+	The order of combinations in the output sequence is always the
+	same, so if choices() is called twice with two different sequences
+	of the same length the first combination in each of the two output
+	sequences will contain elements from the same positions in the two
+	different input sequences, and so on for each subsequent pair of
+	output combinations.
+
+	Example:
+
+	>>> x = choices(["a", "b", "c"], 2)
+	>>> y = choices(["1", "2", "3"], 2)
+	>>> zip(x, y)
+	[(('a', 'b'), ('1', '2')), (('a', 'c'), ('1', '3')), (('b', 'c'),
+	('2', '3'))]
 	"""
 	if n == len(vals):
 		yield tuple(vals)
