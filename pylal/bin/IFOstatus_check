@@ -5,6 +5,7 @@ __date__ = "$Date$"[7:-2]
 
 import os
 import sys
+import commands
 
 import matplotlib
 matplotlib.use('Agg')
@@ -72,6 +73,8 @@ if not opts.page_rel_path:
   print >> sys.stderr, "Use --page-rel-path PATH to specify location."
   sys.exit(1)
 
+currentDir = os.path.abspath('.')
+
 talk = talkBack(opts.output_web_file)
 
 gps = xlal.date.LIGOTimeGPS(opts.gps_time.split('.')[0])
@@ -86,15 +89,62 @@ else: month = str(utc[1])
 if utc[2] < 10: day = '0'+str(utc[2])
 else: day = str(utc[2])
 
-plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+if utc[3] < 10: hour = '0'+str(utc[3])
+else: hour = str(utc[3])
+
+if utc[4] < 10: minute = '0'+str(utc[4])
+else: minute = str(utc[4])
+
+if utc[5] < 10: second = '0'+str(utc[5])
+else: second = str(utc[5])
+
+webPage = WebPage("Ifo status for " + opts.ifo + " @ " + opts.gps_time.split('.')[0] + " (" + str(utc[0]) + "/" + month + "/" + day + " " + hour + ":" + minute + ":" + second + " utc",opts.output_web_file, opts.page+'/'+opts.page_rel_path)
+
+
+utc = xlal.date.XLALGPSToUTC(gpsminus)
+if utc[1] < 10: month = '0'+str(utc[1])
+else: month = str(utc[1])
+
+if utc[2] < 10: day = '0'+str(utc[2])
+else: day = str(utc[2])
+
+if opts.ifo[0] == 'H':
+  plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+if opts.ifo[0] == 'L':
+  plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'#talk.link(plotLink,plotLink)
+
+os.chdir(opts.output_path)
+plot = commands.getoutput('wget '+plotURL+plotLink)
+os.chdir(currentDir)
+print plot
+
+webPage.appendSection("day: " + month+day)
+webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
+
+
+utc = xlal.date.XLALGPSToUTC(gps)
+
+if utc[1] < 10: month = '0'+str(utc[1])
+else: month = str(utc[1])
+
+if utc[2] < 10: day = '0'+str(utc[2])
+else: day = str(utc[2])
+
+if opts.ifo[0] == 'H':
+  plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+if opts.ifo[0] == 'L':
+  plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
 plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf' 
-talk.link(plotLink,plotLink)
+#talk.link(plotLink,plotLink)
 
-plot = os.popen('wget '+plotURL+plotLink)
-os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
+os.chdir(opts.output_path)
+plot = commands.getoutput('wget '+plotURL+plotLink)
+os.chdir(currentDir)
+print plot
 
-for line in plot:
-  print line
+webPage.appendSection("day: " + month+day)
+webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
 
 
 utc = xlal.date.XLALGPSToUTC(gpsplus)
@@ -104,35 +154,22 @@ else: month = str(utc[1])
 if utc[2] < 10: day = '0'+str(utc[2])
 else: day = str(utc[2])
 
-plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+if opts.ifo[0] == 'H':
+  plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
+if opts.ifo[0] == 'L':   
+  plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
 plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
-talk.link(plotLink,plotLink)
+#talk.link(plotLink,plotLink)
 
-plot = os.popen('wget '+plotURL+plotLink)
-os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
+os.chdir(opts.output_path)
+plot = commands.getoutput('wget '+plotURL+plotLink)
+os.chdir(currentDir)
+print plot
 
-for line in plot:
-  print line
+webPage.appendSection("day: " + month+day)
+webPage.lastSection.image('/' + plotLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
 
-utc = xlal.date.XLALGPSToUTC(gpsminus)
-if utc[1] < 10: month = '0'+str(utc[1])
-else: month = str(utc[1])
-
-if utc[2] < 10: day = '0'+str(utc[2])
-else: day = str(utc[2])
-
-plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
-plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
-talk.link(plotLink,plotLink)
-
-plot = os.popen('wget '+plotURL+plotLink)
-os.system('cp '+ plotLink + ' ' + opts.output_path + '/.')
-
-
-for line in plot:
-  print line
-
-
+webPage.cleanWrite('IUL')
 talk.write()
 
 sys.exit(0)
