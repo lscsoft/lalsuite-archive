@@ -65,6 +65,19 @@ def XLALEPGetTimingParameters(window_length, max_tile_length, tile_stride_fracti
 	initialized from some input parameter values.
 	"""
 	#
+	# Check input
+	#
+
+	if not isinstance(window_length, int):
+		raise TypeError, window_length
+
+	if not isinstance(max_tile_length, int):
+		raise TypeError, max_tile_length
+
+	if psd_length is not None and not isinstance(psd_length, int):
+		raise TypeError, psd_length
+
+	#
 	# initialize TimingParameters object
 	#
 
