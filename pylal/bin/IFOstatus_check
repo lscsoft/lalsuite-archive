@@ -127,7 +127,7 @@ os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
 
 
 utc = xlal.date.XLALGPSToUTC(gps)
@@ -160,7 +160,7 @@ os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
 
 utc = xlal.date.XLALGPSToUTC(gpsplus)
 if utc[1] < 10: month = '0'+str(utc[1])
@@ -191,7 +191,7 @@ os.chdir(currentDir)
 print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + plotLink)
 
 webPage.cleanWrite('IUL')
 talk.write()
