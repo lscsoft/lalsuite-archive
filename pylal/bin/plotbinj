@@ -143,7 +143,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 			self.injected_x.append(float(sim.get_geocent_peak()))
 			self.injected_y.append(sim.freq)
 		if contents.coinc_table is not None:
-			for sim in missed_injections(conents, self.instrument):
+			for sim in missed_injections(contents, self.instrument):
 				self.missed_x.append(float(sim.get_geocent_peak()))
 				self.missed_y.append(sim.freq)
 
@@ -400,7 +400,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for values in contents.cursor().execute("""
+		for values in contents.connection.cursor().execute("""
 SELECT
 	coinc_event.*,
 	sim_burst.h_peak_time,
@@ -414,18 +414,18 @@ FROM
 	)
 	JOIN sim_burst ON (
 		coinc_event_map.table_name == 'sim_burst'
-		AND coinc_event_map.even_id == sim_burst.simulation_id
+		AND coinc_event_map.event_id == sim_burst.simulation_id
 	)
 WHERE
 	coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			coinc = contents.coinc_event_table._row_from_cols(values)
+			coinc = contents.coinc_table._row_from_cols(values)
 			sim_h_peak = LIGOTimeGPS(values[-4], values[-3])
 			sim_l_peak = LIGOTimeGPS(values[-2], values[-1])
 			self.found += 1
 			best_conf = 0.0
 			best_dt = None
-			for burst in contents.coinc_sngl_bursts(coinc):
+			for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc):
 				if burst.ifo in ("H1", "H2"):
 					dt = burst.get_peak() - sim_h_peak
 				elif burst.ifo in ("L1",):
@@ -475,7 +475,7 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for values in contents.cursor().execute("""
+		for values in contents.connection.cursor().execute("""
 SELECT
 	coinc_event.*,
 	sim_burst.freq
@@ -491,12 +491,12 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			coinc = contents.coinc_event_table._row_from_cols(values)
+			coinc = contents.coinc_table._row_from_cols(values)
 			sim_freq = values[-1]
 			self.found += 1
 			best_conf = 0.0
 			best_df = None
-			for burst in contents.coinc_sngl_bursts(coinc):
+			for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc):
 				df = burst.peak_frequency - sim_freq
 				try:
 					self.offsets[df] += 1.0
