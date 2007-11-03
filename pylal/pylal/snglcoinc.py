@@ -380,49 +380,6 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 #
 
 
-def Level1Iterator(eventlists, comparefunc, instruments, thresholds):
-	"""
-	First-pass coincidence generator.  Generates a sequence of tuples
-	whose elements are, in order:
-
-	tick:  a progress indicator whose value is in the range [0, ticks)
-	ticks:  the upper bound for tick
-	event:  an event
-	ntuples:  see below
-
-	ntuples is (yet) another generator that produces a sequence of
-	lists of events.  Each list of events, when event is added to it,
-	constitutes a potential coincidence with exactly one event from
-	each instrument.  Each event in the list is guaranteed to be
-	coincident with event, but the mutual coincidence of the events in
-	the list has not yet been established.
-	"""
-	instruments = list(instruments)	# so we can safely modify it
-	eventlists = map(eventlists.__getitem__, instruments)
-	lengths = map(len, eventlists)
-	length = min(lengths)
-	shortest = lengths.index(length)
-	shortestlist = eventlists.pop(shortest)
-	shortestinst = instruments.pop(shortest)
-	thresholds = map(lambda inst: thresholds[(shortestinst, inst)], instruments)
-	for n, event in enumerate(shortestlist):
-		yield n, length, event, itertools.MultiIter(*map(lambda eventlist, threshold: eventlist.get_coincs(event, threshold, comparefunc), eventlists, thresholds))
-
-
-def mutually_coincident(events, comparefunc, thresholds):
-	"""
-	Return True if the all the events in the list are mutually
-	coincident.
-	"""
-	try:
-		for a, b in itertools.choices(events, 2):
-			if comparefunc(a, b, thresholds[(a.ifo, b.ifo)]):
-				return False
-	except KeyError, e:
-		raise KeyError, "no coincidence thresholds provided for instrument pair %s" % str(e)
-	return True
-
-
 def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose = False):
 	"""
 	Given an EventListDict object, a list (or iterator) of instruments,
@@ -431,11 +388,58 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 	coincident events yielded by this generator will contain exactly
 	one event from each of the instruments in the instrument list.
 	"""
-	for tick, ticks, event, ntuples in Level1Iterator(eventlists, comparefunc, instruments, thresholds):
-		if verbose and not (tick % 500):
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * tick / ticks),
-		for ntuple in ntuples:
-			if mutually_coincident(ntuple, comparefunc, thresholds):
-				yield ntuple + (event,)
+	# retrieve the event lists for the requested instrument combination
+
+	eventlists = [(eventlists[instrument], instrument) for instrument in instruments]
+	if not eventlists:
+		# no instruments == nothing to do
+		return
+
+	# sort the list of event lists from longest to shortest, extract
+	# the shortest list, the name of its instrument, and record its length
+
+	eventlists.sort(lambda a, b: cmp(len(a[0]), len(b[0])), reverse = True)
+	shortestlist, shortestinst = eventlists.pop()
+	length = len(shortestlist)
+
+	try:
+		# pre-construct the sequence of thresholds for pairs of the
+		# remaining instruments in the order in which they will be
+		# used by the inner loop
+
+		threshold_sequence = tuple([thresholds[pair] for pair in itertools.choices([instrument for eventlist, instrument in eventlists], 2)])
+
+		# retrieve the thresholds to be used in comparing events
+		# from the shortest list to those in each of the remaining
+		# event lists
+
+		eventlists = tuple([(eventlist, thresholds[(shortestinst, instrument)]) for eventlist, instrument in eventlists])
+	except KeyError, e:
+		raise KeyError, "no coincidence thresholds provided for instrument pair %s" % str(e)
+
+	# for each event in the shortest list
+
+	for n, event in enumerate(shortestlist):
+		if verbose and not (n % 500):
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / length),
+
+		head = (event,)
+
+		# iterate over n-tuples of events from the other lists that
+		# are coincident with the outer event.  each n-tuple
+		# contains one event from each list.
+
+		for tail in itertools.MultiIter(*[eventlist.get_coincs(event, threshold, comparefunc) for eventlist, threshold in eventlists]):
+
+			# if the events in the n-tuple are
+			# mutually-coincident, combine with the outer event
+			# and report as a coincident n-tuple.
+
+			for (a, b), threshold in zip(itertools.choices(tail, 2), threshold_sequence):
+				if comparefunc(a, b, threshold):
+					break
+			else:
+				yield head + tail
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
+
