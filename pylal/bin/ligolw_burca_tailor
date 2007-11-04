@@ -42,10 +42,7 @@ from glue import segments
 from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from pylal import date
-from pylal import inject
 from pylal import ligolw_burca_tailor
-from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 
 
@@ -94,102 +91,9 @@ def parse_command_line():
 			raise ValueError, "invalid description \"%s\"" % options.T010150
 
 	if options.add_from_cache:
-		options.add_from += [c.path() for c in map(CacheEntry, file(options.add_from_cache))]
+		options.add_from += [CacheEntry(line).path() for line in file(options.add_from_cache)]
 
 	return options, filenames
-
-
-#
-# =============================================================================
-#
-#             Generating Coincidence Parameters from Burst Events
-#
-# =============================================================================
-#
-
-
-#
-# All sky version.
-#
-
-
-def coinc_params(events, offsetdict):
-	params = {}
-	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
-	for event1, event2 in itertools.choices(events, 2):
-		if event1.ifo == event2.ifo:
-			# a coincidence is parameterized only by
-			# inter-instrument deltas
-			continue
-
-		prefix = "%s_%s_" % (event1.ifo, event2.ifo)
-
-		# in each of the following, if the list of events contains
-		# more than one event from a given instrument, the smallest
-		# deltas are recorded
-
-		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
-		name = prefix + "dt"
-		if name not in params or abs(params[name]) > abs(dt):
-			params[name] = dt
-
-		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
-		name = prefix + "df"
-		if name not in params or abs(params[name]) > abs(df):
-			params[name] = df
-
-		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
-		name = prefix + "dh"
-		if name not in params or abs(params[name]) > abs(dh):
-			params[name] = dh
-
-		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
-		name = prefix + "dband"
-		if name not in params or abs(params[name]) > abs(dband):
-			params[name] = dband
-
-		ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
-		name = prefix + "ddur"
-		if name not in params or abs(params[name]) > abs(ddur):
-			params[name] = ddur
-
-	return params
-
-
-#
-# Galactic core version.
-#
-
-
-def delay_and_amplitude_correct(event, ra, dec):
-	# retrieve station metadata
-
-	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
-
-	# delay-correct the event to the geocentre.  FIXME:  is the sign
-	# correct?
-
-	peak = event.get_peak()
-	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, peak)
-	event.set_peak(peak - delay)
-	event.set_start(event.get_start() - delay)
-	event.set_ms_start(event.get_ms_start() - delay)
-
-	# amplitude-correct the event using the polarization-averaged
-	# antenna response.  FIXME:  is this correct?
-
-	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, XLALGreenwichMeanSiderealTime(peak))
-	mean_response = math.sqrt(fp**2 + fc**2)
-	event.amplitude /= mean_response
-	event.ms_hrss /= mean_response
-
-	# done
-
-	return event
-
-
-def galactic_core_coinc_params(events, offsetdict):
-	return coinc_params([delay_and_amplitude_correct(event, MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD) for event in events], offsetdict)
 
 
 #
