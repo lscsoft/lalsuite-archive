@@ -330,7 +330,7 @@ def burca2(options, filenames):
 		#
 
 
-		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, verbose = options.verbose)
+		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, ligolw_burca_tailor.coinc_params, verbose = options.verbose)
 
 
 		#

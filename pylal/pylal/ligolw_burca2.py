@@ -33,7 +33,6 @@ import sys
 
 
 from glue.ligolw import lsctables
-from pylal import ligolw_burca_tailor
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -217,7 +216,7 @@ class LikelihoodRatio(Likelihood):
 #
 
 
-def ligolw_burca2(database, likelihood_ratio, verbose = False):
+def ligolw_burca2(database, likelihood_ratio, coinc_params, verbose = False):
 	"""
 	Assigns likelihood ratio values to excess power coincidences.
 	database is pylal.SnglBurstUtils.CoincDatabase instance, and
@@ -248,7 +247,6 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 		print >>sys.stderr, "computing likelihood ratios ..."
 		n_coincs = len(database.coinc_table)
 
-
 	cursor = database.connection.cursor()
 	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id IN (%s)" % ", ".join(["\"%s\"" % str(id) for id in definer_ids]))):
 		if verbose and not n % 200:
@@ -257,7 +255,9 @@ def ligolw_burca2(database, likelihood_ratio, verbose = False):
 		# retrieve sngl_burst events, sorted by instrument
 		# name
 		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""
-SELECT sngl_burst.* FROM
+SELECT
+	sngl_burst.*
+FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
 		coinc_event_map.table_name == 'sngl_burst'
@@ -271,11 +271,13 @@ ORDER BY
 
 		# compute likelihood ratio
 		cursor.execute("""
-UPDATE coinc_event SET
+UPDATE
+	coinc_event
+SET
 	likelihood = ?
 WHERE
 	coinc_event_id == ?
-		""", (likelihood_ratio(ligolw_burca_tailor.coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
+		""", (likelihood_ratio(coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
