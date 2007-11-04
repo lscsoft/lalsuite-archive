@@ -75,11 +75,7 @@ def hrss_in_instrument(sim, instrument):
 	"""
 	if sim.coordinates != "EQUATORIAL":
 		raise ValueError, sim.coordinates
-	detector = inject.cached_detector[{
-		"H1": "LHO_4k",
-		"H2": "LHO_2k",
-		"L1": "LLO_4k"
-	}[instrument]]
+	detector = inject.cached_detector[inject.prefix_to_name[instrument]]
 	gps = {
 		"H1": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
 		"H2": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
@@ -107,22 +103,29 @@ def hrss_in_instrument(sim, instrument):
 def found_injections(contents, instrument):
 	for values in contents.connection.cursor().execute("""
 SELECT
-	DISTINCT sim_burst.*
+	*
 FROM
 	sim_burst
-	JOIN coinc_event_map AS a ON (
-		sim_burst.simulation_id == a.event_id
-		AND a.table_name == 'sim_burst'
-	)
-	JOIN coinc_event_map AS b ON (
-		a.coinc_event_id == b.coinc_event_id
-		AND b.table_name == 'sngl_burst'
-	)
-	JOIN sngl_burst ON (
-		b.event_id == sngl_burst.event_id
-	)
 WHERE
-	sngl_burst.ifo == ?
+	EXISTS (
+		-- Find a link through the coinc_event_map table to a row
+		-- in the sngl_burst table with the correct ifo value.
+		SELECT
+			*
+		FROM
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				a.coinc_event_id == b.coinc_event_id
+			)
+			JOIN sngl_burst ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == sngl_burst.event_id
+			)
+		WHERE
+			a.table_name == 'sim_burst'
+			AND a.event_id == sim_burst.simulation_id
+			AND sngl_burst.ifo == ?
+	)
 	""", (instrument,)):
 		yield contents.sim_burst_table._row_from_cols(values)
 
