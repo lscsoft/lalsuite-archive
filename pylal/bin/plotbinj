@@ -100,25 +100,29 @@ def missed_injections(contents, instrument):
 	Iterate over missed injections.
 	"""
 	for values in contents.connection.cursor().execute("""
-SELECT * FROM
+SELECT
+	*
+FROM
 	sim_burst
 WHERE
-	simulation_id NOT IN (
-		SELECT sim_burst.simulation_id FROM
-			sim_burst
-			JOIN coinc_event_map AS a ON (
-				a.event_id == sim_burst.simulation_id
-				AND a.table_name == 'sim_burst'
-			)
+	NOT EXISTS (
+		-- Find a link through the coinc_event_map table to a row
+		-- in the sngl_burst table with the correct ifo value.
+		SELECT
+			*
+		FROM
+			coinc_event_map AS a
 			JOIN coinc_event_map AS b ON (
 				b.coinc_event_id == a.coinc_event_id
-				AND b.table_name == 'sngl_burst'
 			)
 			JOIN sngl_burst ON (
-				sngl_burst.event_id == b.event_id
+				b.table_name == 'sngl_burst'
+				AND sngl_burst.event_id == b.event_id
 			)
 		WHERE
-			sngl_burst.ifo == ?
+			a.table_name == 'sim_burst'
+			AND a.event_id == sim_burst.simulation_id
+			AND sngl_burst.ifo == ?
 	)
 	""", (instrument,)):
 		yield contents.sim_burst_table._row_from_cols(values)
@@ -216,7 +220,9 @@ class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for nevents, in contents.connection.cursor().execute("""
-SELECT nevents FROM
+SELECT
+	nevents
+FROM
 	coinc_event
 WHERE
 	coinc_def_id == ?
@@ -254,7 +260,11 @@ class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+SELECT
+	sim_burst.*,
+	sngl_burst.peak_frequency,
+	sngl_burst.ms_hrss
+FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -305,7 +315,11 @@ class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+SELECT
+	sim_burst.*,
+	sngl_burst.peak_frequency,
+	sngl_burst.ms_hrss
+FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -349,7 +363,12 @@ class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.bandwidth, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+SELECT
+	sim_burst.*,
+	sngl_burst.bandwidth,
+	sngl_burst.peak_frequency,
+	sngl_burst.ms_hrss
+FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
@@ -420,8 +439,8 @@ WHERE
 	coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
 			coinc = contents.coinc_table._row_from_cols(values)
-			sim_h_peak = LIGOTimeGPS(values[-4], values[-3])
-			sim_l_peak = LIGOTimeGPS(values[-2], values[-1])
+			sim_h_peak = LIGOTimeGPS(*values[-4:-2])
+			sim_l_peak = LIGOTimeGPS(*values[-2:])
 			self.found += 1
 			best_conf = 0.0
 			best_dt = None
@@ -543,7 +562,11 @@ class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		for values in contents.connection.cursor().execute("""
-SELECT sim_burst.*, sngl_burst.peak_frequency, sngl_burst.ms_hrss FROM
+SELECT
+	sim_burst.*,
+	sngl_burst.peak_frequency,
+	sngl_burst.ms_hrss
+FROM
 	sim_burst
 	JOIN coinc_event_map AS a ON (
 		a.table_name == 'sim_burst'
