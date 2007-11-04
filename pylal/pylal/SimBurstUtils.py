@@ -194,7 +194,7 @@ class Efficiency_hrss_vs_freq(object):
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
 		import sys
-		print >>sys.stderr, "The smoothing window for %s is %d x %d bins" % (self.instrument, self.window_size_x, self.window_size_y),
+		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % (self.instrument, self.window_size_x, self.window_size_y),
 		print >>sys.stderr, "which is %g%% x %g%% of the binning" % (100.0 * self.window_size_x / binning[0].n, 100.0 * self.window_size_y / binning[1].n)
 
 		# smooth the efficiency data.
