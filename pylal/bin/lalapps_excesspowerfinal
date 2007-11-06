@@ -144,7 +144,9 @@ SELECT
 	coinc_event.likelihood,
 	multi_burst.confidence,
 	EXISTS (
-		SELECT * FROM
+		SELECT
+			*
+		FROM
 			time_slide
 		WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
@@ -204,7 +206,7 @@ WHERE
 
 		edge = []
 		xcoords, ycoords = self.background_bins.centres()
-		for x in xcoords:
+		for x in xcoords[:-1]:
 			edge += [(x, ycoords[-1])]
 		for y in ycoords:
 			edge += [(xcoords[-1], y)]
@@ -342,6 +344,12 @@ WHERE
 		return [x for x in self.foreground_eff_confidences if x > self.effective_confidence_threshold]
 
 	def is_a_keeper(self, likelihood, confidence):
+		# FIXME:  consider imposing a minimum required likelihood
+		# to prevent a noise event with a ridiculously low
+		# likelihood but a stupidly high amplitude from passing the
+		# test.  has to be accounted for in
+		# get_foreground_above_confidence_threshold() and other
+		# places.
 		return self.effective_confidence(likelihood, confidence) > self.effective_confidence_threshold
 
 
@@ -409,7 +417,6 @@ WHERE
 
 
 def old_Efficiency_hrss_vs_freq_add_contents(self, contents):
-	self.num_injections += len(contents.sim_burst_table)
 	coinc_segs = contents.seglists.intersection(contents.instruments)
 	# FIXME: careful, the check for a coincidence will find any
 	# coincidence, no matter which instruments participate.  For now,
@@ -458,16 +465,14 @@ FROM
 	""", (contents.sb_definer_id, contents.bb_definer_id)):
 		sim = contents.sim_burst_table._row_from_cols(values)
 		found = values[-1]
-		if found:
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
-			self.found_x.append(sim.freq)
-			self.found_y.append(sim.hrss)
 		# FIXME:  this assumes all injections are done at zero lag
 		# (which is correct, for now, but watch out for this)
-		elif SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
+		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
+			if found:
+				self.found_x.append(sim.freq)
+				self.found_y.append(sim.hrss)
 
 
 def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, ifo):
@@ -478,17 +483,26 @@ def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_n
 	# with at least one burst in the coinc lieing within 2 s of the
 	# injection.
 	start = LIGOTimeGPS(start, start_ns)
+	seg = segments.segment(start, start + duration).protract(2)
 	if ifo in ("H1", "H2"):
-		return LIGOTimeGPS(h_peak, h_peak_ns) in segments.segment(start, start + duration).protract(2)
+		return LIGOTimeGPS(h_peak, h_peak_ns) in seg
 	elif ifo in ("L1",):
-		return LIGOTimeGPS(l_peak, l_peak_ns) in segments.segment(start, start + duration).protract(2)
+		return LIGOTimeGPS(l_peak, l_peak_ns) in seg
 	raise ValueError, ifo
 
 
 def Efficiency_hrss_vs_freq_add_contents(self, contents):
 	contents.connection.create_function("burst_matches_injection", 8, burst_matches_injection)
-	self.num_injections += len(contents.sim_burst_table)
+
+	# NOTE:  coinc_segs must be computed the same way the segment list
+	# used to measure live time is computed, otherwise the detection
+	# efficiency is not being measured in the same data as the live
+	# time is being claimed.  that means it must be the simple
+	# intersection, with no attempt to contract it on the grounds that
+	# it's difficult to detect things at the edges of segments.
+
 	coinc_segs = contents.seglists.intersection(contents.instruments)
+
 	# FIXME: careful, the check for a coincidence will find any
 	# coincidence, no matter which instruments participate.  For now,
 	# I'm running fixed networks so this is not a problem, but if
@@ -506,17 +520,19 @@ SELECT
 		-- Find a burst<-->burst coinc containing a burst that
 		-- "matches" this injection, and whose effective
 		-- confidence is above threshold
-		SELECT coinc_event.coinc_event_id FROM
+		SELECT
+			*
+		FROM
 			multi_burst
 			JOIN coinc_event ON (
 				coinc_event.coinc_event_id == multi_burst.coinc_event_id
 			)
 			JOIN coinc_event_map ON (
 				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-				AND coinc_event_map.table_name == 'sngl_burst'
 			)
 			JOIN sngl_burst ON (
-				sngl_burst.event_id == coinc_event_map.event_id
+				coinc_event_map.table_name == 'sngl_burst'
+				AND coinc_event_map.event_id == sngl_burst.event_id
 			)
 		WHERE
 			coinc_event.coinc_def_id == ?
@@ -528,16 +544,14 @@ FROM
 	""", (contents.bb_definer_id,)):
 		sim = contents.sim_burst_table._row_from_cols(values)
 		found = values[-1]
-		if found:
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
-			self.found_x.append(sim.freq)
-			self.found_y.append(sim.hrss)
 		# FIXME:  this assumes all injections are done at zero lag
 		# (which is correct, for now, but watch out for this)
-		elif SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
+		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
 			self.injected_x.append(sim.freq)
 			self.injected_y.append(sim.hrss)
+			if found:
+				self.found_x.append(sim.freq)
+				self.found_y.append(sim.hrss)
 
 
 SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
@@ -567,7 +581,9 @@ FROM
 	time_slide
 WHERE
 	EXISTS (
-		SELECT * FROM
+		SELECT
+			*
+		FROM
 			time_slide AS a
 		WHERE
 			a.time_slide_id == time_slide_id
