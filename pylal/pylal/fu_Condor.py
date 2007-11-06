@@ -33,6 +33,7 @@ from glue import segmentsUtils
 from pylal.webUtils import *
 from pylal.webCondor import *
 from lalapps import inspiral
+from pylal import fu_utils
 
 ###### WRAPPER FOR CONDOR DAG - TO MAKE THE FOLLOWUP DAG WEBIFIABLE ###########
 ###############################################################################
@@ -54,17 +55,19 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
 class followUpInspJob(inspiral.InspiralJob,webTheJob):
+
   def __init__(self,cp,type='plot'):
+
     inspiral.InspiralJob.__init__(self,cp)
+    if type == 'head':
+      self.set_executable(string.strip(cp.get('condor','inspiral_head')))
     self.name = 'followUpInspJob' + type
     self.setupJobWeb(self.name)
-    if type == 'head':
-      self.__executable = string.strip(cp.get('condor','inspiral_head'))
 
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
-  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot'):    
+  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot',sngl_table = None):    
     if 1:
     #try:
       inspiral.InspiralNode.__init__(self, inspJob) 
@@ -84,18 +87,13 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       if injFile: 
         self.set_injections( injFile )
       
-      skipParams = ['minimal-match', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
-
-      if (type == 'plot'): 
-        skipParams.append('bank-file')
-
-      if (type == 'head'): 
-        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size')))
-        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order')))
+      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
 
       for row in procParams:
         param = row.param.strip("-")
         value = row.value
+        if param == 'bank-file':
+          bankFile = value
         if param in skipParams: continue
         self.add_var_opt(param,value)
         if param == 'gps-end-time': self.__end = value
@@ -107,6 +105,17 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           extension = '.xml.gz'
         else:
           extension = '.xml'
+
+      # THIS IS A HACK FOR NOW, THERE IS PROBABLY A BETTER WAY TO DO THIS
+      if (type == 'head'): 
+        subBankSize = string.strip(cp.get('inspiral-head','bank-veto-subbank-size'))
+        if opts.inspiral_head:
+          bankFileName = fu_utils.generateBankVetoBank(trig, ifo, str(trig.gpsTime[ifo]), sngl_table[ifo],int(subBankSize),'BankVetoBank')
+        else: bankFileName = 'none'      
+        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size')))
+        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order')))
+        self.set_bank(bankFileName)
+
 
       # the output_file_name is required by the child job (plotSNRCHISQNode)
       self.output_file_name = inspJob.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension

@@ -29,6 +29,7 @@ import matplotlib
 matplotlib.use('Agg')
 import operator
 from UserDict import UserDict
+import operator
 
 from pylab import *
 from glue import segments
@@ -157,8 +158,9 @@ class getCache(UserDict):
     return(cacheSubSet)
 
 
-  def getProcessParamsFromCache(self, subCache, tag, time):
+  def getProcessParamsFromCache(self, subCache, tag, time, getInsp = False):
     process = self.ifoDict()
+    inspTable = self.ifoDict()
     for ifo in subCache:
       for f in subCache[ifo]:
         path = f.path()
@@ -167,9 +169,13 @@ class getCache(UserDict):
         else: gz = False
         doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+        if getInsp:
+          insp = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
         for row in proc:          
           if str(row.param).find("--ifo-tag") >= 0:
              ifoTag = row.value
+          # The default is to assume that the file matches if there is no tag
+          else: ifoTag = tag
           # this is a hack to handle the "-userTag" string in some xml files...
           if str(row.param).find("-userTag") >= 0:
              row.param = "--user-tag"
@@ -184,11 +190,15 @@ class getCache(UserDict):
             out_end_time_ns = float(row.out_end_time_ns)/1000000000
             if ( (time[ifo] >= (out_start_time+out_start_time_ns)) and (time[ifo] <= (out_end_time+out_end_time_ns)) ):
               process[ifo] = proc
+              if getInsp: inspTable[ifo] = insp
               break
 
-    return process
+    if getInsp:
+      return process, inspTable
+    else:
+      return process
 
-  def processFollowupCache(self, cp, opts, trig):
+  def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_"):
     if cp.has_option('hipe-cache','hipe-intermediate-cache'):
       intermediateCache = string.strip(cp.get('hipe-cache','hipe-intermediate-cache'))
     else:
@@ -198,15 +208,27 @@ class getCache(UserDict):
     else:
       cacheFile = intermediateCache
 
-    try:
-      inspiral_process_params = self.getProcessParamsFromCache( \
-                     self.filesMatchingGPSinCache(cacheFile,\
-                     trig.gpsTime, "INSPIRAL_"), \
-                     trig.ifoTag, trig.gpsTime)
-    except:
-      print "couldn't get inspiral process params for " + str(trig.eventID)
-      inspiral_process_params = []
-    return inspiral_process_params
+    if type == "INSPIRAL_":
+      try:
+        inspiral_process_params = self.getProcessParamsFromCache( \
+                       self.filesMatchingGPSinCache(cacheFile,\
+                       trig.gpsTime, type), \
+                       trig.ifoTag, trig.gpsTime)
+      except:
+        print "couldn't get inspiral process params for " + str(trig.eventID)
+        inspiral_process_params = []
+      return inspiral_process_params
+    else:
+      try:
+        inspiral_process_params, sngl = self.getProcessParamsFromCache( \
+                       self.filesMatchingGPSinCache(cacheFile,\
+                       trig.gpsTime, type), \
+                       trig.ifoTag, trig.gpsTime,True)
+      except:
+        print "couldn't get "+type+" process params for " + str(trig.eventID)
+        inspiral_process_params = []
+        sngl = []
+      return inspiral_process_params, sngl
 
   def readTriggerFiles(self,cp):
 
@@ -688,8 +710,48 @@ def generateXMLfile(ckey,ifo,gpsTime,outputPath=None,table_type='pre-bank-veto')
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
 
-def generateBankVetoBank():
-  pass
+def generateBankVetoBank(fuTrig, ifo,gpsTime,sngl,subBankSize,outputPath=None):
+  
+  trig =  getattr(fuTrig.coincs,ifo)
+  mass = trig.mass1 + trig.mass2
+  if outputPath:
+    try:
+      os.mkdir(outputPath)  
+    except: pass
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+  process_params_table = lsctables.New(lsctables.ProcessParamsTable)
+  xmldoc.childNodes[-1].appendChild(process_params_table)
+  valid_columns = lsctables.SnglInspiralTable.validcolumns
+  columns = []
+  notcolumns = []
+  for col in valid_columns:
+    try:
+      getattr(sngl[0],col)
+      columns.append(col)
+    except:
+      notcolumns.append(col) 
+  sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
+  sngl.sort(lambda a, b: cmp(a.mtotal, b.mtotal))
+  index = sngl.getColumnByName('mtotal').index(mass)
+  fromEnd = len(sngl)-index-int(subBankSize/2)
+  if fromEnd < 0:
+    sngl_sub = sngl[index+fromEnd-int(subBankSize/2):-1]
+  else: 
+    sngl_sub = sngl[index-int(subBankSize/2):index+int(subBankSize/2)]
+    
+  for row in sngl_sub:
+    for col in notcolumns:
+      setattr(row,col,0)
+    sngl_inspiral_table.append(row)
+  xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
+ 
+  fileName = ifo + '-BANKVETO_FOLLOWUP_' + gpsTime + ".xml.gz"
+  if outputPath:
+    fileName = outputPath + '/' + fileName
+  utils.write_filename(xmldoc, fileName, verbose = True, gz = True)
+  return fileName
+
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
