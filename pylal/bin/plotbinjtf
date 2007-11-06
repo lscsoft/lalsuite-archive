@@ -262,6 +262,37 @@ ORDER BY
 # =============================================================================
 #
 
+
+def found_injections(contents, instrument):
+	for values in contents.connection.cursor().execute("""
+SELECT
+	*
+FROM
+	sim_burst
+WHERE
+	EXISTS (
+		-- Find a link through the coinc_event_map table to a row
+		-- in the sngl_burst table with the correct ifo value.
+		SELECT
+			*
+		FROM
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				a.coinc_event_id == b.coinc_event_id
+			)
+			JOIN sngl_burst ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == sngl_burst.event_id
+			)
+		WHERE
+			a.table_name == 'sim_burst'
+			AND a.event_id == sim_burst.simulation_id
+			AND sngl_burst.ifo == ?
+	)
+	""", (instrument,)):
+		yield contents.sim_burst_table._row_from_cols(values)
+
+
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)

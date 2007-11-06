@@ -416,104 +416,39 @@ WHERE
 #
 
 
-def old_Efficiency_hrss_vs_freq_add_contents(self, contents):
-	coinc_segs = contents.seglists.intersection(contents.instruments)
-	# FIXME: careful, the check for a coincidence will find any
-	# coincidence, no matter which instruments participate.  For now,
-	# I'm running fixed networks so this is not a problem, but if
-	# variable configuration networks are adopted in the future, then
-	# this will need to be re-thought to be sure that "found in a
-	# coinc" means "found in a coinc involving the correct set of
-	# instruments".
-	for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	EXISTS (
-		-- Find a burst<-->burst coinc containing a burst that
-		-- participated in this injection, that was found in the
-		-- same time slide as the injection, and whose effective
-		-- confidence is above threshold
-		SELECT burst_coinc_event.coinc_event_id FROM
-			coinc_event_map AS c
-			JOIN coinc_event AS sim_coinc_event ON (
-				sim_coinc_event.coinc_event_id == c.coinc_event_id
-			)
-			JOIN coinc_event_map AS a ON (
-				a.coinc_event_id == c.coinc_event_id
-				AND a.table_name == 'sngl_burst'
-			)
-			JOIN coinc_event_map AS b ON (
-				b.table_name == 'sngl_burst'
-				AND b.event_id == a.event_id
-			)
-			JOIN coinc_event AS burst_coinc_event ON (
-				burst_coinc_event.coinc_event_id == b.coinc_event_id
-				AND burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
-			)
-			JOIN multi_burst ON (
-				multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
-			)
-		WHERE
-			c.table_name == 'sim_burst'
-			AND c.event_id == sim_burst.simulation_id
-			AND sim_coinc_event.coinc_def_id == ?
-			AND burst_coinc_event.coinc_def_id == ?
-			AND is_a_keeper(burst_coinc_event.likelihood, multi_burst.confidence)
-	)
-FROM
-	sim_burst
-	""", (contents.sb_definer_id, contents.bb_definer_id)):
-		sim = contents.sim_burst_table._row_from_cols(values)
-		found = values[-1]
-		# FIXME:  this assumes all injections are done at zero lag
-		# (which is correct, for now, but watch out for this)
-		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
-			if found:
-				self.found_x.append(sim.freq)
-				self.found_y.append(sim.hrss)
+class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
+	def add_contents(self, contents):
+		# NOTE:  we are piggy-backing on other code, so
+		# "instrument" is singular even though it a set of things.
+		if self.instrument is None:
+			self.instrument = set(contents.instruments)
+		elif self.instrument != set(contents.instruments):
+			raise ValueError, "this document contains instruments %s, but have been seeing %s so far" % ("+".join(contents.instruments), "+".join(self.instrument))
 
+		contents.connection.create_function("burst_matches_injection", 8, SimBurstUtils.burst_matches_injection)
 
-def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, ifo):
-	# a burst "matches an injection" if it lies within 2 s of the
-	# injection.  in other words, for the purpose of efficiency
-	# measurements an injection will have been said to be recovered if
-	# a triple coincident event survives to the end of the pipeline
-	# with at least one burst in the coinc lieing within 2 s of the
-	# injection.
-	start = LIGOTimeGPS(start, start_ns)
-	seg = segments.segment(start, start + duration).protract(2)
-	if ifo in ("H1", "H2"):
-		return LIGOTimeGPS(h_peak, h_peak_ns) in seg
-	elif ifo in ("L1",):
-		return LIGOTimeGPS(l_peak, l_peak_ns) in seg
-	raise ValueError, ifo
+		# NOTE:  coinc_segs must be computed the same way the
+		# segment list used to measure live time is computed,
+		# otherwise the detection efficiency is not being measured
+		# in the same data as the live time is being claimed.  that
+		# means it must be the simple intersection, with no attempt
+		# to contract it on the grounds that it's difficult to
+		# detect things at the edges of segments.
 
+		seglist = contents.seglists.intersection(self.instrument)
 
-def Efficiency_hrss_vs_freq_add_contents(self, contents):
-	contents.connection.create_function("burst_matches_injection", 8, burst_matches_injection)
-
-	# NOTE:  coinc_segs must be computed the same way the segment list
-	# used to measure live time is computed, otherwise the detection
-	# efficiency is not being measured in the same data as the live
-	# time is being claimed.  that means it must be the simple
-	# intersection, with no attempt to contract it on the grounds that
-	# it's difficult to detect things at the edges of segments.
-
-	coinc_segs = contents.seglists.intersection(contents.instruments)
-
-	# FIXME: careful, the check for a coincidence will find any
-	# coincidence, no matter which instruments participate.  For now,
-	# I'm running fixed networks so this is not a problem, but if
-	# variable configuration networks are adopted in the future, then
-	# this will need to be re-thought to be sure that "found in a
-	# coinc" means "found in a coinc involving the correct set of
-	# instruments".  Also FIXME:  this doesn't check that the
-	# burst<-->burst coinc is found at the correct time slide, which is
-	# OK for now because in the injection runs only the zero-lag coincs
-	# are identified.
-	for values in contents.connection.cursor().execute("""
+		# FIXME: careful, the check for a coincidence will find any
+		# coincidence, no matter which instruments participate.
+		# For now, I'm running fixed networks so this is not a
+		# problem, but if variable configuration networks are
+		# adopted in the future, then this will need to be
+		# re-thought to be sure that "found in a coinc" means
+		# "found in a coinc involving the correct set of
+		# instruments".  Also FIXME:  this doesn't check that the
+		# burst<-->burst coinc is found at the correct time slide,
+		# which is OK for now because in the injection runs only
+		# the zero-lag coincs are identified.
+		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
 	EXISTS (
@@ -541,20 +476,20 @@ SELECT
 	)
 FROM
 	sim_burst
-	""", (contents.bb_definer_id,)):
-		sim = contents.sim_burst_table._row_from_cols(values)
-		found = values[-1]
-		# FIXME:  this assumes all injections are done at zero lag
-		# (which is correct, for now, but watch out for this)
-		if SimBurstUtils.injection_was_made(sim, coinc_segs, contents.instruments):
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(sim.hrss)
-			if found:
-				self.found_x.append(sim.freq)
-				self.found_y.append(sim.hrss)
-
-
-SimBurstUtils.Efficiency_hrss_vs_freq.add_contents = Efficiency_hrss_vs_freq_add_contents
+		""", (contents.bb_definer_id,)):
+			sim = contents.sim_burst_table._row_from_cols(values)
+			found = values[-1]
+			# FIXME:  this assumes all injections are done at
+			# zero lag (which is correct, for now, but watch
+			# out for this)
+			if SimBurstUtils.injection_was_made(sim, seglist, self.instrument):
+				self.injected_x.append(sim.freq)
+				self.injected_y.append(sim.hrss)
+				if found:
+					self.found_x.append(sim.freq)
+					self.found_y.append(sim.hrss)
+			elif found:
+				print >>sys.stderr, "odd, injection %s was found but not injected..." % sim.simulation_id
 
 
 #
@@ -646,7 +581,7 @@ options, filenames = parse_command_line()
 
 #likelihood_histogram = old_Confidence_Likelihood_Histogram(segments.segment(6.0, 25.0), segments.segment(1e-5, 1e13))
 likelihood_histogram = Confidence_Likelihood_Histogram(options.confidence_contour_slope)
-efficiency = SimBurstUtils.Efficiency_hrss_vs_freq(None, (lambda sim, instrument: sim.hrss), 0.1)
+efficiency = Efficiency_hrss_vs_freq(None, (lambda sim, instrument: sim.hrss), 0.1)
 non_injection_seglists = segments.segmentlistdict()
 injection_seglists = segments.segmentlistdict()
 background_time_slides = []
@@ -826,6 +761,9 @@ print "Number of foreground events above threshold = %d (%g expected)" % (n_surv
 
 print
 print "Writing plots ..."
+efficiency.instrument = list(efficiency.instrument)
+efficiency.instrument.sort()
+efficiency.instrument = "+".join(efficiency.instrument)
 SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency).savefig("lalapps_excesspowerfinal_efficiency.png")
 
 print

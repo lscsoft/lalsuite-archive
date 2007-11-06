@@ -28,6 +28,7 @@
 
 import math
 import numpy
+import sys
 
 
 from pylal import date
@@ -92,19 +93,52 @@ def hrss_in_instrument(sim, instrument):
 #
 # =============================================================================
 #
-#                        Iterate Over Found Injections
+#                             Efficiency Contours
 #
 # =============================================================================
 #
 
 
-def found_injections(contents, instrument):
-	for values in contents.connection.cursor().execute("""
+def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, ifo):
+	"""
+	A burst "matches an injection" if it lies within 2 s of the
+	injection.  In other words, for the purpose of efficiency
+	measurements an injection will have been said to be recovered if a
+	triple coincident event survives to the end of the pipeline with at
+	least one burst in the coinc lieing within 2 s of the injection.
+	This is not the same as asking for bursts that match injections
+	well.
+	"""
+	start = LIGOTimeGPS(start, start_ns)
+	seg = segments.segment(start, start + duration).protract(2)
+	if ifo in ("H1", "H2"):
+		return LIGOTimeGPS(h_peak, h_peak_ns) in seg
+	elif ifo in ("L1",):
+		return LIGOTimeGPS(l_peak, l_peak_ns) in seg
+	raise ValueError, ifo
+
+
+#
+# h_{rss} vs. peak frequency
+#
+
+
+class Efficiency_hrss_vs_freq(object):
+	def __init__(self, instrument, hrss_func, error):
+		self.instrument = instrument
+		self.hrss_func = hrss_func
+		self.error = error
+		self.injected_x = []
+		self.injected_y = []
+		self.found_x = []
+		self.found_y = []
+
+
+	def add_contents(self, contents):
+		seglist = contents.seglists[self.instrument]
+		for values in contents.connection.cursor().execute("""
 SELECT
-	*
-FROM
-	sim_burst
-WHERE
+	sim_burst.*,
 	EXISTS (
 		-- Find a link through the coinc_event_map table to a row
 		-- in the sngl_burst table with the correct ifo value.
@@ -124,42 +158,23 @@ WHERE
 			AND a.event_id == sim_burst.simulation_id
 			AND sngl_burst.ifo == ?
 	)
-	""", (instrument,)):
-		yield contents.sim_burst_table._row_from_cols(values)
-
-
-#
-# =============================================================================
-#
-#                             Efficiency Contours
-#
-# =============================================================================
-#
-
-
-#
-# h_{rss} vs. peak frequency
-#
-
-
-class Efficiency_hrss_vs_freq(object):
-	def __init__(self, instrument, hrss_func, error):
-		self.instrument = instrument
-		self.hrss_func = hrss_func
-		self.error = error
-		self.injected_x = []
-		self.injected_y = []
-		self.found_x = []
-		self.found_y = []
-
-	def add_contents(self, contents):
-		for sim in contents.sim_burst_table:
-			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
+FROM
+	sim_burst
+		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values)
+			found = values[-1]
+			# FIXME:  this assumes all injections are done at
+			# zero lag (which is correct, for now, but watch
+			# out for this)
+			if injection_was_made(sim, seglist, (self.instrument,)):
+				sim.hrss = self.hrss_func(sim, self.instrument)
 				self.injected_x.append(sim.freq)
-				self.injected_y.append(self.hrss_func(sim, self.instrument))
-		for sim in found_injections(contents, self.instrument):
-			self.found_x.append(sim.freq)
-			self.found_y.append(self.hrss_func(sim, self.instrument))
+				self.injected_y.append(sim.hrss)
+				if found:
+					self.found_x.append(sim.freq)
+					self.found_y.append(sim.hrss)
+			elif found:
+				print >>sys.stderr, "odd, injection %s was found but not injected..." % sim.simulation_id
 
 	def finish(self, binning = None):
 		if binning is None:
@@ -188,7 +203,6 @@ class Efficiency_hrss_vs_freq(object):
 			# program will take too long to run
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
-		import sys
 		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % (self.instrument, self.window_size_x, self.window_size_y),
 		print >>sys.stderr, "which is %g%% x %g%% of the binning" % (100.0 * self.window_size_x / binning[0].n, 100.0 * self.window_size_y / binning[1].n)
 
