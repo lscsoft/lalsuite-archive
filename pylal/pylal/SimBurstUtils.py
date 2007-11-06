@@ -55,7 +55,10 @@ def injection_was_made(sim, seglist, instruments):
 	Return True if the peak times for sim for all of the instruments
 	lie within the segment list.
 	"""
-	return False not in map(lambda i: sim.get_peak(i) in seglist, instruments)
+	for instrument in instruments:
+		if sim.get_peak(instrument) not in seglist:
+			return False
+	return True
 
 
 #
@@ -76,18 +79,12 @@ def hrss_in_instrument(sim, instrument):
 	"""
 	if sim.coordinates != "EQUATORIAL":
 		raise ValueError, sim.coordinates
-	detector = inject.cached_detector[inject.prefix_to_name[instrument]]
-	gps = {
-		"H1": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
-		"H2": date.LIGOTimeGPS(sim.h_peak_time, sim.h_peak_time_ns),
-		"L1": date.LIGOTimeGPS(sim.l_peak_time, sim.l_peak_time_ns)
-	}[instrument]
 	fplus, fcross = inject.XLALComputeDetAMResponse(
-		detector.response,
+		inject.cached_detector[inject.prefix_to_name[instrument]].response,
 		sim.longitude,	# ra
 		sim.latitude,	# dec
 		sim.polarization,
-		date.XLALGreenwichMeanSiderealTime(gps)
+		date.XLALGreenwichMeanSiderealTime(sim.get_peak(instrument))
 	)
 	return abs(fplus) * sim.hrss
 
@@ -150,7 +147,6 @@ class Efficiency_hrss_vs_freq(object):
 		self.instrument = instrument
 		self.hrss_func = hrss_func
 		self.error = error
-		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
 		self.found_x = []
@@ -159,7 +155,6 @@ class Efficiency_hrss_vs_freq(object):
 	def add_contents(self, contents):
 		for sim in contents.sim_burst_table:
 			if injection_was_made(sim, contents.seglists[self.instrument], [self.instrument]):
-				self.num_injections += 1
 				self.injected_x.append(sim.freq)
 				self.injected_y.append(self.hrss_func(sim, self.instrument))
 		for sim in found_injections(contents, self.instrument):
@@ -185,7 +180,7 @@ class Efficiency_hrss_vs_freq(object):
 		# on a side in bins.  because the contours tend to run
 		# parallel to the x axis, the window is dilated in that
 		# direction to improve resolution.
-		bins_per_inj = self.efficiency.used() / float(self.num_injections)
+		bins_per_inj = self.efficiency.used() / float(len(self.injected_x))
 		self.window_size_x = self.window_size_y = (bins_per_inj / self.error**2)**0.5
 		self.window_size_x *= math.sqrt(2)
 		self.window_size_y /= math.sqrt(2)
@@ -213,8 +208,9 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 
 	xcoords, ycoords = efficiency.efficiency.centres()
 	zvals = efficiency.efficiency.ratio()
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
-	plot.axes.set_title(r"%s Injection Detection Efficiency (%d Injections, Contours at 10\%% Intervals, %g\%% Uncertainty)" % (efficiency.instrument, efficiency.num_injections, 100 * efficiency.error))
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
+	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % (efficiency.error / 2), colors = "k")
+	plot.axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % (efficiency.instrument, len(efficiency.found_x), len(efficiency.injected_x)))
 	return plot.fig
 
 

@@ -723,21 +723,25 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 	e = efficiencies[0]
 	xcoords, ycoords = e.efficiency.centres()
 	zvals = e.efficiency.ratio()
+	error = e.error
 	for e in efficiencies[1:]:
+		error += e.error
 		other_xcoords, other_ycoords = e.efficiency.centres()
 		if (xcoords != other_xcoords).any() or (ycoords != other_ycoords).any():
 			# binnings don't match, can't compute product of
 			# efficiencies
 			raise ValueError, "binning mismatch"
 		zvals *= e.efficiency.ratio()
+	error /= len(efficiencies)
 
 	instruments = [e.instrument for e in efficiencies]
 	instruments.sort()
 	instruments = "+".join(instruments)
 
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9))
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
+	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % (error / 2), colors = "k")
 
-	plot.axes.set_title(r"%s Estimated Injection Detection Efficiency (Contours at 10\%% Intervals)" % instruments)
+	plot.axes.set_title(r"%s Estimated Injection Detection Efficiency" % instruments)
 
 	return plot.fig
 
