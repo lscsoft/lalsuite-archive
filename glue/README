@@ -18,6 +18,14 @@ There are two LALApps mail lists/archives which are shared with LAL. These are:
 
 This README file explains how to build and install Glue.
 
+GLUE is distributed under the GNU General Public, version 3. See the file
+LICENSE for more information.
+
+If you use GLUE in published scientific work, we request that you include a
+reference in your work as follows:
+
+"Workflows were generated using the Grid LSC User Environment (GLUE) 
+
 ------------------------------------------------------------------------------
 
 1. Determine your Python version
