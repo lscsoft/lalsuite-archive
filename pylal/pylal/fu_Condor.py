@@ -68,8 +68,8 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot',sngl_table = None):    
-    if 1:
-    #try:
+    
+    try:
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
 
@@ -127,17 +127,18 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
       self.add_var_opt("output-path",inspJob.outputPath)
 
-      if opts.inspiral and type == 'plot':
-        dag.addNode(self,'inspiral')
-        self.validate()
-      else: self.invalidate()
-      if opts.inspiral_head and type == 'head':
-        dag.addNode(self,'inspiral-head')
-        self.validate()
-      else: self.invalidate()
+      if type == 'plot':
+        if opts.inspiral:
+          dag.addNode(self,'inspiral')
+          self.validate()
+        else: self.invalidate()
+      if type == 'head'
+        if opts.inspiral_head:
+          dag.addNode(self,'inspiral-head')
+          self.validate()
+        else: self.invalidate()
 
-    else:
-    #except:
+    except:
       self.invalidate()
       print "couldn't add inspiral job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
