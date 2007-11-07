@@ -31,10 +31,12 @@ import numpy
 import sys
 
 
+from glue import segments
 from pylal import date
 from pylal import inject
 from pylal import rate
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
