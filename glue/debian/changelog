@@ -1,8 +1,14 @@
-python-glue (1.15-1) testing; urgency=low
+glue (1.15-3) unstable; urgency=low
 
-  * Initial release of 1.15
+  * make this an "all" package
 
- -- Kipp Cannon <kipp@gravity.phys.uwm.edu>  Wed, 11 Jul 2007 12:00:00 -0700
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed,  7 Nov 2007 14:10:00 +0100
+
+glue (1.15-2) unstable; urgency=low
+
+  * Initial release
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 10 Oct 2007 21:38:00 +0200
 
 python-glue (1.14-1) testing; urgency=low
 
