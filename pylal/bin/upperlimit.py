@@ -14,6 +14,7 @@ import exceptions
 import glob
 import ConfigParser
 
+# just testing
 
 def mkdirsafe( directory ):
   """
