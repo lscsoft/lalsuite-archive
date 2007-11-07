@@ -166,10 +166,7 @@ class DocContents(object):
 			xmldoc.childNodes[0].appendChild(self.coincmaptable)
 
 		#
-		# index the document.  after this, coinc_peak_time_window
-		# is the time, in seconds, separating the peak times of the
-		# most widely-separated event pair of all the burst <-->
-		# burst coincs.
+		# index the document
 		#
 
 		# index sngl_burst table
@@ -187,14 +184,12 @@ class DocContents(object):
 			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.index):
 				self.index[row.coinc_event_id].append(index[row.event_id])
 		del index
-		# sort each event list by peak time, convert to tuples for
-		# speed, and find peak time window
-		self.coinc_peak_time_window = 0
+		# sort each event list by peak time and convert to tuples
+		# for speed
 		for coinc_event_id in self.index.keys():
 			events = self.index[coinc_event_id]
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 			self.index[coinc_event_id] = tuple(events)
-			self.coinc_peak_time_window = max(self.coinc_peak_time_window, float(events[-1].get_peak() - events[0].get_peak()))
 
 		#
 		# sort sngl_burst table by peak time
@@ -208,8 +203,7 @@ class DocContents(object):
 
 		# find the largest difference between the peak time of an
 		# injection at the geocenter, and the peak time of an
-		# injection at either of the Hanford and Livingston sites,
-		# and double it
+		# injection at either of the Hanford and Livingston sites
 		self.burst_peak_time_window = 0
 		for row in self.simbursttable:
 			self.burst_peak_time_window = max(self.burst_peak_time_window, abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L"))))
@@ -221,11 +215,17 @@ class DocContents(object):
 		# set the window for identifying coincs near a peak time
 		#
 
+		# find the time, in seconds, separating the peak times of
+		# the most widely-separated event pair of all the burst
+		# <--> burst coincs (recall each event list is sorted by
+		# peak time)
+		self.coinc_peak_time_window = max([float(events[-1].get_peak() - events[0].get_peak()) for events in self.index.itervalues()])
+		# add the duration of the longest burst
 		self.coinc_peak_time_window += self.burst_peak_time_window
 
 	def bursts_near_peaktime(self, t):
 		"""
-		Return a list of the burst events with peak times are
+		Return a list of the burst events whose peak times are
 		within self.burst_peak_time_window of t.
 		"""
 		return self.snglbursttable[bisect.bisect_left(self.snglbursttable, t - self.burst_peak_time_window):bisect.bisect_right(self.snglbursttable, t + self.burst_peak_time_window)]
@@ -448,10 +448,10 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	for n, sim in enumerate(contents.simbursttable):
 		if kwargs["verbose"] and not (n % (N / 50 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		matches = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
-		if matches:
-			add_sim_burst_coinc(contents, process, sim, matches)
-			injection_burst_ids |= set(map(id, matches))
+		bursts = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
+		if bursts:
+			add_sim_burst_coinc(contents, process, sim, bursts)
+			injection_burst_ids |= set(map(id, bursts))
 	if kwargs["verbose"]:
 		print >>sys.stderr, "\t100.0%"
 
@@ -466,9 +466,9 @@ def ligolw_binjfind(xmldoc, **kwargs):
 		for n, sim in enumerate(contents.simbursttable):
 			if kwargs["verbose"] and not (n % (N / 50 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			matches = find_coinc_matches(contents, sim, kwargs["comparefunc"])
-			if matches:
-				add_sim_coinc_coinc(contents, process, sim, matches)
+			coinc_ids = find_coinc_matches(contents, sim, kwargs["comparefunc"])
+			if coinc_ids:
+				add_sim_coinc_coinc(contents, process, sim, coinc_ids)
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\t100.0%"
 
