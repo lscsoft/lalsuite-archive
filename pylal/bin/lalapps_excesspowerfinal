@@ -425,7 +425,7 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		elif self.instrument != set(contents.instruments):
 			raise ValueError, "this document contains instruments %s, but have been seeing %s so far" % ("+".join(contents.instruments), "+".join(self.instrument))
 
-		contents.connection.create_function("burst_matches_injection", 8, SimBurstUtils.burst_matches_injection)
+		contents.connection.create_function("burst_is_near_injection", 8, SimBurstUtils.burst_is_near_injection)
 
 		# NOTE:  coinc_segs must be computed the same way the
 		# segment list used to measure live time is computed,
@@ -453,7 +453,7 @@ SELECT
 	sim_burst.*,
 	EXISTS (
 		-- Find a burst<-->burst coinc containing a burst that
-		-- "matches" this injection, and whose effective
+		-- is "near" this injection, and whose effective
 		-- confidence is above threshold
 		SELECT
 			*
@@ -472,7 +472,7 @@ SELECT
 		WHERE
 			coinc_event.coinc_def_id == ?
 			AND is_a_keeper(coinc_event.likelihood, multi_burst.confidence)
-			AND burst_matches_injection(sim_burst.h_peak_time, sim_burst.h_peak_time_ns, sim_burst.l_peak_time, sim_burst.l_peak_time_ns, sngl_burst.start_time, sngl_burst.start_time_ns, sngl_burst.duration, sngl_burst.ifo)
+			AND burst_is_near_injection(sim_burst.h_peak_time, sim_burst.h_peak_time_ns, sim_burst.l_peak_time, sim_burst.l_peak_time_ns, sngl_burst.start_time, sngl_burst.start_time_ns, sngl_burst.duration, sngl_burst.ifo)
 	)
 FROM
 	sim_burst

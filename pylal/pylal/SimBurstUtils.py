@@ -101,23 +101,35 @@ def hrss_in_instrument(sim, instrument):
 #
 
 
-def burst_matches_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, ifo):
+burst_is_near_injection_window = 2
+
+
+def burst_is_near_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, instrument):
 	"""
-	A burst "matches an injection" if it lies within 2 s of the
-	injection.  In other words, for the purpose of efficiency
-	measurements an injection will have been said to be recovered if a
-	triple coincident event survives to the end of the pipeline with at
-	least one burst in the coinc lieing within 2 s of the injection.
-	This is not the same as asking for bursts that match injections
-	well.
+	In the low background rate limit, there are two distinct tests used
+	to compare burst events to injections.  A strict test is used to
+	find bursts that represent properly-recovered injections, to assess
+	parameter reconstruction accuracy.  This is the looser test, used
+	after the final coincidence test, to check if an injection has
+	survived the pipeline.  In this test it is only necessary to see if
+	a multi-event coincidence survived somewhere near the injection,
+	without requiring a good match, since in the low-background limit
+	the only coincidences to survive the pipeline at all are
+	injections.
+
+	This function compares one burst to an injection, and has an
+	inconvenient argument list because it is designed to be called from
+	within SQL code.  This function defines a burst to be "near" an
+	injection if the injection's peak time occurs within 2 s of the
+	time interval spanned by the burst event.
 	"""
 	start = LIGOTimeGPS(start, start_ns)
-	seg = segments.segment(start, start + duration).protract(2)
-	if ifo in ("H1", "H2"):
+	seg = segments.segment(start, start + duration).protract(burst_is_near_injection_window)
+	if instrument in ("H1", "H2"):
 		return LIGOTimeGPS(h_peak, h_peak_ns) in seg
-	elif ifo in ("L1",):
+	elif instrument in ("L1",):
 		return LIGOTimeGPS(l_peak, l_peak_ns) in seg
-	raise ValueError, ifo
+	raise ValueError, instrument
 
 
 #
