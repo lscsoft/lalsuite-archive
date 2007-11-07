@@ -218,42 +218,42 @@ class Highest(list):
 
 	Notes:
   
-  - Because the list contains a fixed fraction of the total number of
-    elements, but the length must be an integer, there are times when
-    appending one additional element causes the number of elements
-    retained in the list to increase by 1.  When this occurs, the new
-    element is always the one just added, even if it is smaller than
-    elements that have previously been discarded.  To mitigate this
-    effect, a "guard" element is retained, so the actual number of
-    elements retained is equal to the desired fraction of the total
-    plus 1.  However, pathological input sets can always be
-    constructed that defeats the mechanism, for example
+	- Because the list contains a fixed fraction of the total number of
+	  elements, but the length must be an integer, there are times when
+	  appending one additional element causes the number of elements
+	  retained in the list to increase by 1.  When this occurs, the new
+	  element is always the one just added, even if it is smaller than
+	  elements that have previously been discarded.  To mitigate this
+	  effect, a "guard" element is retained, so the actual number of
+	  elements retained is equal to the desired fraction of the total
+	  plus 1.  However, pathological input sets can always be
+	  constructed that defeats the mechanism, for example
 
-    >>> l = Highest(fraction = 0.5)
-    >>> l.append(1)
-    >>> l.append(1)
-    >>> l.append(.125)
-  	>>> l.append(.125)
-  	>>> l.append(.125)
-  	>>> l.append(.125)
-  	>>> l.append(.125)
-  	>>> l
-  	[1, 0.125, 0.125, 0.125]
+	>>> l = Highest(fraction = 0.5)
+	>>> l.append(1)
+	>>> l.append(1)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l.append(.125)
+	>>> l
+	[1, 0.125, 0.125, 0.125]
 
-    These are not the four highest elements in the sequence, nor are  
-    the first three even the three highest elements (discarding the
-    guard element).
+	  These are not the four highest elements in the sequence, nor are
+	  the first three even the three highest elements (discarding the
+	  guard element).
 
-  - What is true is that the first N elements are guaranteed to be
-    correct where N is the smallest number of elements that have ever
-    been in the list.  In the example above, after the first append()
-    l has just 1 element in it, and so only ever the first element
-    can be guaranteed to be correct (which is the case).  If you will
-    require to know, without error, the 100 highest values in the
-    sequence, then you must be sure to initialize the list with at
-    least 100/fraction elements from the sequence.
+	- What is true is that the first N elements are guaranteed to be
+	  correct where N is the smallest number of elements that have ever
+	  been in the list.  In the example above, after the first append()
+	  l has just 1 element in it, and so only ever the first element
+	  can be guaranteed to be correct (which is the case).  If you will
+	  require to know, without error, the 100 highest values in the
+	  sequence, then you must be sure to initialize the list with at
+	  least 100/fraction elements from the sequence.
 	"""
-	def __init__(self, sequence = [], fraction = 1.0):
+	def __init__(self, sequence = tuple(), fraction = 1.0):
 		list.__init__(self, sequence)
 		self.n = list.__len__(self)
 		self.fraction = fraction
