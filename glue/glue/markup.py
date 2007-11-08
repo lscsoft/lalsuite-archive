@@ -20,7 +20,7 @@ __doc__= """
 This is markup.py - a Python module that attempts to
 make it easier to generate HTML/XML from a Python program
 in an intuitive, lightweight, customizable and pythonic way.
-""" % ( __version__, __date__ )
+"""
 
 import string
 
