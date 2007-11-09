@@ -43,23 +43,25 @@ def plotnumtemplates_tmpltbank_size(opts):
   figure_number = figure_number + 1
   figure(figure_number)
   
-  for ifo in tmpltSumm.keys():
-    numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
-    startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
-    style = colors[ifo] + 'x'
-    plot(startTime, numTemplates, style, label=ifo+' tmplt',\
-        markersize=12, markeredgewidth=1)
-    if opts.print_numbers:
-      print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+  if len(tmpltSumm)!=0:
+    for ifo in tmpltSumm.keys():
+      numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
+      startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
+      style = colors[ifo] + 'x'
+      plot(startTime, numTemplates, style, label=ifo+' tmplt',\
+          markersize=12, markeredgewidth=1)
+      if opts.print_numbers:
+        print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
 
-  for ifo in trigSumm.keys():
-    numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
-    startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
-    style = colors[ifo] + 'o'
-    plot(startTime, numTrigs, style, label=ifo+' trig',\
-        markersize=12, markeredgewidth=1)
-    if opts.print_numbers:
-      print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
+  if len(trigSumm)!=0:
+    for ifo in trigSumm.keys():
+      numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
+      startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
+      style = colors[ifo] + 'o'
+      plot(startTime, numTrigs, style, label=ifo+' trig',\
+          markersize=12, markeredgewidth=1)
+      if opts.print_numbers:
+        print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
       
   xlabel('Days after start of run', size='x-large')
   ylabel('Number of templates', size='x-large')
@@ -215,24 +217,28 @@ from pylal import viz
 
 # ============================================================================
 # -- identify the template bank files
-if opts.tmpltbank_glob:
+tmpltSumm=[]
+trigSumm=[]
+if opts.tmpltbank_glob is not None:
   tmpltbankFiles = glob.glob(opts.tmpltbank_glob)
   if not tmpltbankFiles:
     print >>sys.stderr, "The glob for " + opts.tmpltbank_glob + \
         " returned no files"
     sys.exit(1)
-else:
-  tmpltbankFiles = None
+  else:
+    print 'Reading files...' + str(len(tmpltbankFiles))
+    tmpltSumm = readFiles(tmpltbankFiles)
 
 # identify the trigbank files
-if opts.trigbank_glob:
+if opts.trigbank_glob is not None:
   trigbankFiles = glob.glob(opts.trigbank_glob)
   if not trigbankFiles:
     print >>sys.stderr, "The glob for " + opts.trigbank_glob + \
         " returned no files"
     sys.exit(1)
-else:
-  trigbankFiles = None
+  else:
+    print 'Reading files...' + str(len(trigbankFiles))
+    trigSumm= readFiles(trigbankFiles)
  
 if opts.cache_file:
   trig = lal.Cache().fromfile(open(opts.cache_file))
@@ -242,12 +248,15 @@ if opts.cache_file:
   else:
     tmpltbankFiles = trig.sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist()
     trigbankFiles = trig.sieve(description = "TRIGBANK").checkfilesexist()[0].pfnlist()
+    tmpltSumm = readFiles(tmpltbankFiles)
+    trigSumm= readFiles(trigbankFiles)
 
 
 # ============================================================================
 # Initialise 
 prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 
+# the HTML document and output cache file
 if opts.enable_output is True:
   # -- initialise the web page calling init_page
   page, extra = InspiralUtils.init_markup_page(opts)
@@ -260,14 +269,6 @@ if opts.enable_output is True:
 
 
 #######################################################################
-# Read in the search summaries from the template banks
-
-print 'Reading files...' + str(len(tmpltbankFiles))
-tmpltSumm = readFiles(tmpltbankFiles)
-print 'Reading files...' + str(len(trigbankFiles))
-trigSumm  = readFiles(trigbankFiles)
-print 'done'
-
 # -- set the proper color code
 colors = InspiralUtils.colors
 
