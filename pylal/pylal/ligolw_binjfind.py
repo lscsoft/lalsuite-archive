@@ -64,14 +64,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def sim_burst_get_geocent_peak(self):
-	# use the C type from pylal instead of the Python code in LAL
-	return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
-
-
-def sngl_burst_get_peak(self):
-	# use the C type from pylal instead of the Python code in LAL
-	return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def sngl_burst___cmp__(self, other):
@@ -79,8 +72,6 @@ def sngl_burst___cmp__(self, other):
 	return cmp(self.peak_time, other.seconds) or cmp(self.peak_time_ns, other.nanoseconds)
 
 
-lsctables.SimBurst.get_geocent_peak = sim_burst_get_geocent_peak
-lsctables.SnglBurst.get_peak = sngl_burst_get_peak
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 

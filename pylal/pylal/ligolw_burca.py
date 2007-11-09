@@ -53,23 +53,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def sngl_burst_get_start(self):
-	# get_start() override to use pylal.date.LIGOTimeGPS instead of
-	# glue.lal.LIGOTimeGPS
-	return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-
-def sngl_burst_get_peak(self):
-	# get_peak() override to use pylal.date.LIGOTimeGPS instead of
-	# glue.lal.LIGOTimeGPS
-	return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-
-def sngl_burst_get_period(self):
-	# get_period() override to use pylal.date.LIGOTimeGPS instead of
-	# glue.lal.LIGOTimeGPS
-	start = LIGOTimeGPS(self.start_time, self.start_time_ns)
-	return segments.segment(start, start + self.duration)
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 def sngl_burst___cmp__(self, other):
@@ -77,9 +61,6 @@ def sngl_burst___cmp__(self, other):
 	return cmp(self.peak_time, other.seconds) or cmp(self.peak_time_ns, other.nanoseconds)
 
 
-lsctables.SnglBurst.get_start = sngl_burst_get_start
-lsctables.SnglBurst.get_peak = sngl_burst_get_peak
-lsctables.SnglBurst.get_period = sngl_burst_get_period
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 
 
