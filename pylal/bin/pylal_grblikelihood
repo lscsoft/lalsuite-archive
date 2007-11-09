@@ -50,7 +50,7 @@ from pylal.date.  This speeds up vetoes by an order of magnitude or so,
 about 10\% of the total run time of this program in my tests.
 """
 
-lsctables.lal.LIGOTimeGPS = pylal.date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = pylal.date.LIGOTimeGPS
 
 ##############################################################################
 # Define a Square Array

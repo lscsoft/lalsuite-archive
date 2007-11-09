@@ -59,7 +59,7 @@ lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
 from pylal.date.
 """
 
-lsctables.lal.LIGOTimeGPS = date.LIGOTimeGPS
+lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
 #
 # =============================================================================
