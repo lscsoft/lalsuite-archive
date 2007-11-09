@@ -48,13 +48,9 @@ try:
 except NameError:
 	from sets import Set as set
 
-from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import types
-from glue.ligolw import ilwd
 from pylal import llwapp
-from pylal.date import LIGOTimeGPS
 
 
 #
@@ -66,27 +62,10 @@ from pylal.date import LIGOTimeGPS
 #
 
 
-class SnglBurst(lsctables.SnglBurst):
-	# use pylal.date.LIGOTimeGPS for speed
-	def get_peak(self):
-		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
-
-	def get_start(self):
-		return LIGOTimeGPS(self.start_time, self.start_time_ns)
-
-	def get_stop(self):
-		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
-
-	def get_period(self):
-		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
-		return segments.segment(start, start + self.duration)
-
-
 class CoincDatabase(object):
 	def __init__(self):
 		from glue.ligolw import dbtables
 		self.connection = dbtables.DBTable_get_connection()
-		dbtables.SnglBurstTable.RowType = SnglBurst
 		self.xmldoc = dbtables.DBTable_get_xml()
 
 	def summarize(self, live_time_program, verbose = False):
