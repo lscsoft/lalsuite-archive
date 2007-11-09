@@ -47,8 +47,8 @@ except NameError:
 	from sets import Set as set
 
 
-from glue import lal
 from glue import segments
+from glue.lal import LIGOTimeGPS
 import ligolw
 import table
 import types
@@ -356,7 +356,7 @@ class SearchSummary(object):
 		"""
 		Return the input segment.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), lal.LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
 
 	def set_in(self, seg):
 		"""
@@ -369,7 +369,7 @@ class SearchSummary(object):
 		"""
 		Get the output segment.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), lal.LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
 
 	def set_out(self, seg):
 		"""
@@ -493,25 +493,25 @@ class SnglBurst(object):
 	#
 
 	def get_start(self):
-		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_stop(self):
-		return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns)
+		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
 	def set_stop(self, gps):
 		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_peak(self):
-		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 	def set_peak(self, gps):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_period(self):
-		start = lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
@@ -531,19 +531,19 @@ class SnglBurst(object):
 	#
 
 	def get_ms_start(self):
-		return lal.LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
 
 	def set_ms_start(self, gps):
 		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_ms_stop(self):
-		return lal.LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
+		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
 
 	def set_ms_stop(self, gps):
 		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_ms_period(self):
-		start = lal.LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		start = LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
 		return segments.segment(start, start + self.ms_duration)
 
 	def set_ms_period(self, period):
@@ -786,7 +786,7 @@ class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	def get_end(self):
-		return lal.LIGOTimeGPS(self.end_time, self.end_time_ns)
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
@@ -1060,9 +1060,9 @@ class SimInspiral(object):
 
 	def get_end(self,site = None):
 		if not site:
-			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
+			return LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -1117,7 +1117,7 @@ class SimBurst(object):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
 	def get_geocent_peak(self):
-		return lal.LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
+		return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
 
 	def set_geocent_peak(self, gps):
 		self.geocent_peak_time, self.geocent_peak_time_ns = gps.seconds, gps.nanoseconds
@@ -1125,9 +1125,9 @@ class SimBurst(object):
 	def get_peak(self, instrument):
 		observatory = instrument[0]
 		if observatory == "H":
-			return lal.LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
+			return LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
 		if observatory == "L":
-			return lal.LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
+			return LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
 		raise ValueError, instrument
 
 	def set_peak(self, instrument, gps):
@@ -1486,7 +1486,7 @@ class Segment(object):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
 
 	def set(self, segment):
 		"""
@@ -1919,7 +1919,7 @@ class LIGOLWMon(object):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
 
 	def get_time(self):
-		return lal.LIGOTimeGPS(self.time, self.time_ns)
+		return LIGOTimeGPS(self.time, self.time_ns)
 
 	def set_time(self, gps):
 		self.time, self.time_ns = gps.seconds, gps.nanoseconds
