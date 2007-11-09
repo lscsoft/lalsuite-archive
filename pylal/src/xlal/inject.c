@@ -70,7 +70,7 @@ static PyObject *pylal_XLALComputeDetAMResponse(PyObject *self, PyObject *args)
 	}
 
 	XLALComputeDetAMResponse(&fplus, &fcross, PyArray_DATA(response), ra, dec, psi, gmst);
-	Py_XDECREF(response);
+	Py_DECREF(response);
 
 	/* (double, double) */
 	return Py_BuildValue("(dd)", fplus, fcross);
