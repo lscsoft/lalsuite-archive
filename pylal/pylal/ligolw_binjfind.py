@@ -46,7 +46,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
 from pylal import llwapp
-from pylal import SnglBurstUtils
+from pylal import SimBurstUtils
 from pylal.date import LIGOTimeGPS
 
 
@@ -65,17 +65,17 @@ __date__ = "$Date$"[7:-2]
 
 
 def sim_burst_get_geocent_peak(self):
+	# use the C type from pylal instead of the Python code in LAL
 	return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
 
 
 def sngl_burst_get_peak(self):
+	# use the C type from pylal instead of the Python code in LAL
 	return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 
 def sngl_burst___cmp__(self, other):
-	"""
-	Compare self's peak time to the LIGOTimeGPS instance other.
-	"""
+	# compare self's peak time to the LIGOTimeGPS instance other
 	return cmp(self.peak_time, other.seconds) or cmp(self.peak_time_ns, other.nanoseconds)
 
 
@@ -174,54 +174,54 @@ class DocContents(object):
 		for row in self.snglbursttable:
 			index[row.event_id] = row
 		# find IDs of burst<-->burst coincs
-		self.index = {}
+		self.coincs = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
-				self.index[coinc.coinc_event_id] = []
+				self.coincs[coinc.coinc_event_id] = []
 		# construct event list for each burst<-->burst coinc
 		sngl_burst_table_name = table.StripTableName(lsctables.SnglBurstTable.tableName)
 		for row in self.coincmaptable:
-			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.index):
-				self.index[row.coinc_event_id].append(index[row.event_id])
+			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.coincs):
+				self.coincs[row.coinc_event_id].append(index[row.event_id])
 		del index
 		# sort each event list by peak time and convert to tuples
 		# for speed
-		for coinc_event_id in self.index.keys():
-			events = self.index[coinc_event_id]
+		for coinc_event_id in self.coincs.keys():
+			events = self.coincs[coinc_event_id]
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
-			self.index[coinc_event_id] = tuple(events)
+			self.coincs[coinc_event_id] = tuple(events)
+		# convert dictionary to a list
+		self.coincs = self.coincs.items()
 
 		#
-		# sort sngl_burst table by peak time
+		# sort sngl_burst table by peak time, and sort the coincs
+		# list by the peak time of the first (earliest) event in
+		# each coinc (recall that the event tuple for each coinc
+		# has been time-ordered)
 		#
 
 		self.snglbursttable.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
+		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].peak_time, b[0].peak_time) or cmp(a[0].peak_time_ns, b[0].peak_time_ns))
 
 		#
 		# set the window for bursts_near_peaktime()
 		#
 
-		# find the largest difference between the peak time of an
-		# injection at the geocenter, and the peak time of an
-		# injection at either of the Hanford and Livingston sites
-		self.burst_peak_time_window = 0
-		for row in self.simbursttable:
-			self.burst_peak_time_window = max(self.burst_peak_time_window, abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L"))))
+		# find the largest difference between an injection's peak
+		# time at the geocentre and its peak times at the Hanford
+		# and Livingston sites
+		self.burst_peak_time_window = max([max(abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L")))) for row in self.simbursttable])
+		# add the duration of the longest burst event
 		if len(self.snglbursttable):
-			# add the duration of the longest burst trigger
 			self.burst_peak_time_window += max(self.snglbursttable.getColumnByName("duration"))
 
 		#
 		# set the window for identifying coincs near a peak time
+		# FIXME:  this is kinda specific to the excess power
+		# search.
 		#
 
-		# find the time, in seconds, separating the peak times of
-		# the most widely-separated event pair of all the burst
-		# <--> burst coincs (recall each event list is sorted by
-		# peak time)
-		self.coinc_peak_time_window = max([float(events[-1].get_peak() - events[0].get_peak()) for events in self.index.itervalues()])
-		# add the duration of the longest burst
-		self.coinc_peak_time_window += self.burst_peak_time_window
+		self.coinc_peak_time_window = self.burst_peak_time_window + SimBurstUtils.burst_is_near_injection_window
 
 	def bursts_near_peaktime(self, t):
 		"""
@@ -229,6 +229,14 @@ class DocContents(object):
 		within self.burst_peak_time_window of t.
 		"""
 		return self.snglbursttable[bisect.bisect_left(self.snglbursttable, t - self.burst_peak_time_window):bisect.bisect_right(self.snglbursttable, t + self.burst_peak_time_window)]
+
+	def coincs_near_peaktime(self, t):
+		"""
+		Return a list of the (coinc_event_id, event list) tuples in
+		which at least one burst event's peak time is within
+		self.coinc_peak_time_window of t.
+		"""
+		return [(coinc_event_id, bursts) for coinc_event_id, bursts in self.coincs if (t - self.coinc_peak_time_window <= bursts[-1].get_peak()) and (bursts[0].get_peak() <= t + self.coinc_peak_time_window)]
 
 	def sort_triggers_by_id(self):
 		"""
@@ -287,7 +295,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def StringCuspCompare(sim, burst):
+def StringCuspSnglCompare(sim, burst):
 	"""
 	Return False if the peak time of the injection sim lies within the
 	time interval of burst.
@@ -298,12 +306,19 @@ def StringCuspCompare(sim, burst):
 		return sim.get_peak(burst.ifo) not in burst.get_period()
 
 
-def ExcessPowerCompare(sim, burst):
+def ExcessPowerSnglCompare(sim, burst):
 	"""
 	Return False if the peak time and centre frequency of sim lie
 	within the time-frequency tile of burst.
 	"""
-	return StringCuspCompare(sim, burst) or (sim.freq not in burst.get_band())
+	return StringCuspSnglCompare(sim, burst) or (sim.freq not in burst.get_band())
+
+
+def ExcessPowerCoincCompare(sim, burst):
+	"""
+	Return False if the peak time of the sim is "near" the burst event.
+	"""
+	return not SimBurstUtils.burst_is_near_injection(sim.h_peak_time, sim.h_peak_time_ns, sim.l_peak_time, sim.l_peak_time_ns, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
 
 
 #
@@ -354,37 +369,12 @@ def add_sim_burst_coinc(contents, process, sim, bursts):
 #
 
 
-def cut_noninjection_coincs(contents, injection_burst_ids):
-	"""
-	Using the list of burst events known to be injections, delete
-	entries from the coinc event list that contain bursts not in this
-	list.  Doing this before checking each sim against the coincident
-	events greatly speeds up that search.  Infact, after this step the
-	only coincs remaining are exactly the coincident injections;  all
-	that remains to be done is determine which injection matches which
-	coinc.
-	"""
-	coincs_to_delete = []
-	for coinc, bursts in contents.index.iteritems():
-		for burst in bursts:
-			if id(burst) not in injection_burst_ids:
-				coincs_to_delete.append(coinc)
-				break
-	# can't modify dictionary inside loop
-	for coinc in coincs_to_delete:
-		del contents.index[coinc]
-	
-
 def find_coinc_matches(contents, sim, comparefunc):
 	"""
-	Return a list of the burst<-->burst coincs in which all burst
-	events match sim.
+	Return a list of the coinc_event_ids of the burst<-->burst coincs
+	in which at least one burst event matches sim.
 	"""
-	# the first half of the conditional is a speed hack to reduce the
-	# number of times the real test, which is costly, needs to be run.
-	# perhaps imap() could be used instead of map to provide a simpler
-	# early bail out
-	return [coinc_event_id for coinc_event_id, bursts in contents.index.iteritems() if (abs(float(bursts[0].get_peak() - sim.get_geocent_peak())) <= contents.coinc_peak_time_window) and True not in map(lambda burst: comparefunc(sim, burst), bursts)]
+	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
 
 
 def add_sim_coinc_coinc(contents, process, sim, coinc_event_ids):
@@ -436,22 +426,17 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	N = len(contents.simbursttable)
 
 	#
-	# Find sim_burst <--> sngl_burst coincidences and record them.
-	# injection_burst_ids is a list of the Python "ids" (as returned by
-	# the id() builtin) of the burst events that have been identified
-	# as being the result of injections.
+	# Find sim_burst <--> sngl_burst coincidences.
 	#
 
 	if kwargs["verbose"]:
-		print >>sys.stderr, "constructing injection--burst coincidences:"
-	injection_burst_ids = set()
+		print >>sys.stderr, "constructing sim_burst <--> sngl_burst coincidences:"
 	for n, sim in enumerate(contents.simbursttable):
 		if kwargs["verbose"] and not (n % (N / 50 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		bursts = find_sngl_burst_matches(contents, sim, kwargs["comparefunc"])
+		bursts = find_sngl_burst_matches(contents, sim, kwargs["snglcomparefunc"])
 		if bursts:
 			add_sim_burst_coinc(contents, process, sim, bursts)
-			injection_burst_ids |= set(map(id, bursts))
 	if kwargs["verbose"]:
 		print >>sys.stderr, "\t100.0%"
 
@@ -461,14 +446,13 @@ def ligolw_binjfind(xmldoc, **kwargs):
 
 	if contents.sc_coinc_def_id:
 		if kwargs["verbose"]:
-			print >>sys.stderr, "constructing injection--coinc coincidences:"
-		cut_noninjection_coincs(contents, injection_burst_ids)
+			print >>sys.stderr, "constructing sim_burst <--> coinc_event coincidences:"
 		for n, sim in enumerate(contents.simbursttable):
 			if kwargs["verbose"] and not (n % (N / 50 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coinc_ids = find_coinc_matches(contents, sim, kwargs["comparefunc"])
-			if coinc_ids:
-				add_sim_coinc_coinc(contents, process, sim, coinc_ids)
+			coinc_event_ids = find_coinc_matches(contents, sim, kwargs["coinccomparefunc"])
+			if coinc_event_ids:
+				add_sim_coinc_coinc(contents, process, sim, coinc_event_ids)
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\t100.0%"
 
@@ -477,6 +461,8 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	# metadata.
 	#
 
+	if kwargs["verbose"]:
+		print >>sys.stderr, "finishing ..."
 	contents.sort_triggers_by_id()
 	llwapp.set_process_end_time(process)
 

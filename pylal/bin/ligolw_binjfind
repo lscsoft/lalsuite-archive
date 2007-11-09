@@ -70,13 +70,16 @@ def parse_command_line():
 
 	if options.match_algorithm is None:
 		raise ValueError, "missing required --match-algorithm option"
-	try:
-		options.comparefunc = {
-			"stringcusp": ligolw_binjfind.StringCuspCompare,
-			"excesspower": ligolw_binjfind.ExcessPowerCompare
-		}[options.match_algorithm]
-	except KeyError:
+	if options.match_algorithm not in ("stringcusp", "excesspower"):
 		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
+	options.snglcomparefunc = {
+		"stringcusp": ligolw_binjfind.StringCuspSnglCompare,
+		"excesspower": ligolw_binjfind.ExcessPowerSnglCompare
+	}[options.match_algorithm]
+	options.coinccomparefunc = {
+		"stringcusp": ligolw_binjfind.ExcessPowerCoincCompare,
+		"excesspower": ligolw_binjfind.ExcessPowerCoincCompare
+	}[options.match_algorithm]
 
 	return options, (filenames or [None])
 
