@@ -30,6 +30,7 @@
 
 #include <Python.h>
 #include <lal/LALDetectors.h>
+#include <lal/LIGOMetadataTables.h>
 
 
 /*
@@ -60,3 +61,32 @@ typedef struct {
 	PyObject *location;
 	PyObject *response;
 } pylal_LALDetector;
+
+
+/*
+ * ============================================================================
+ *
+ *                           SnglInspiralTable Type
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Type
+ */
+
+
+extern PyTypeObject pylal_SnglInspiralTable_Type;
+
+
+/*
+ * Structure
+ */
+
+
+typedef struct {
+	PyObject_HEAD
+	SnglInspiralTable sngl_inspiral;
+	EventIDColumn event_id;
+} pylal_SnglInspiralTable;
