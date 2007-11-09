@@ -167,6 +167,9 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	# confidence = minimum of confidences
 	multiburst.confidence = min(event.confidence for event in events)
 
+	# "amplitude" = h_rss of event with highest confidence
+	multiburst.amplitude = max((event.confidence, event.ms_hrss) for event in events)[1]
+
 	# done
 	return multiburst
 
@@ -179,7 +182,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 		try:
 			self.multibursttable = table.get_table(xmldoc, lsctables.MultiBurstTable.tableName)
 		except ValueError:
-			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "coinc_event_id"))
+			self.multibursttable = lsctables.New(lsctables.MultiBurstTable, ("process_id", "duration", "central_freq", "bandwidth", "snr", "confidence", "amplitude", "coinc_event_id"))
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
 	def append_coinc(self, process_id, time_slide_id, events):
@@ -404,7 +407,7 @@ def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
 	for n, time_slide_id in enumerate(time_slide_ids):
 		offsetdict = coinc_tables.get_time_slide(time_slide_id)
 		if kwargs["verbose"]:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ",".join([" %s = %+.16g s" % (i, float(o)) for i, o in offsetdict.iteritems()]))
+			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ", ".join(["%s = %+.16g s" % (i, float(o)) for i, o in offsetdict.iteritems()]))
 		if len(offsetdict.keys()) < 2:
 			if kwargs["verbose"]:
 				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
