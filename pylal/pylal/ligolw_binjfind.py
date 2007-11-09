@@ -236,6 +236,10 @@ class DocContents(object):
 		which at least one burst event's peak time is within
 		self.coinc_peak_time_window of t.
 		"""
+		# FIXME:  this test does not consider the time slide
+		# offsets that should be applied to the coinc, but for now
+		# injections are done at zero lag so this isn't a problem
+		# yet
 		return [(coinc_event_id, bursts) for coinc_event_id, bursts in self.coincs if (t - self.coinc_peak_time_window <= bursts[-1].get_peak()) and (bursts[0].get_peak() <= t + self.coinc_peak_time_window)]
 
 	def sort_triggers_by_id(self):
@@ -374,6 +378,9 @@ def find_coinc_matches(contents, sim, comparefunc):
 	Return a list of the coinc_event_ids of the burst<-->burst coincs
 	in which at least one burst event matches sim.
 	"""
+	# FIXME:  this test does not consider the time slide offsets that
+	# should be applied to the coinc, but for now injections are done
+	# at zero lag so this isn't a problem yet
 	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
 
 
