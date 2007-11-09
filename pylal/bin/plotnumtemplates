@@ -2,12 +2,20 @@
 """
 Rate of triggers TMPLTBANK files
 
-Example:
+Example: 
+you can use a cache file that will be parsed for TMPLTBANK and TRIGBANK glob
 
->>>   
+>>>  /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output --cache-file 
+>>> ../playground/inspiral_hipe_playground_intermediate_data-847555570-849974770.cache
+>>>   --ifo-times H1H2L1 --user-tag plotnumtemplates --verbose
 
-todo
-  - documentation
+or with a two glob options
+
+>>> /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output 
+>>> --tmpltbank-glob '../playground/*TMP*' 
+>>> --trigbank-glob '../playground/*TRIG*' 
+>>> --ifo-times H1H2L1 --user-tag plotnumtemplates --verbose 
+
 """
 
 
