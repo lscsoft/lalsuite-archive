@@ -100,14 +100,23 @@ for(i in 0: (NBands-1)) {
 # 		p("max_dx_pol_", i),
 # 		p("max_dx_ra_", i),
 # 		p("max_dx_dec_", i),
-	Fields<- c(Fields, p("MAX(", MAXFields, ") as ", MAXFields), p("SUM(", SUMFields, ") as ", SUMFields))
+	Fields<- c(Fields, 
+			p("MAX(", MAXFields, ") as ", MAXFields),
+			p("SUM(", SUMFields, ") as ", SUMFields),
+			p("MAX(IF(max_band_", i, "_4='circular', max_band_", i, "_6, NULL)) as max_circ_ul_band_", i, "_2")
+		)
 	}
 
 #data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, " WHERE Band>50 GROUP BY band, spindown ORDER BY band, spindown"))
 data<-dbGetQuery(con, p("SELECT ", p(Fields, collapse=", ")," FROM ", DataSet, " GROUP BY band, spindown"))
 
-BandVars<-data.frame(prefix=c("max_dx_snr_", "max_dx_freq_", "ks_hist_", "max_high_ul_band_", "max_band_", "max_band_", "max_ratio_"),
-		     suffix=c("", "", "_3", "_2", "_5", "_6", "_3"))
+data[,'total_grid_points']<- 0
+for(i in 1:NBands) {
+	data[,'total_grid_points']<-data[,'total_grid_points']+data[, p("grid_points_", BandData[i, 'idx'], "_3")]
+	}
+
+BandVars<-data.frame(prefix=c("max_dx_snr_", "max_dx_freq_", "ks_hist_", "max_high_ul_band_", "max_circ_ul_band_", "max_band_", "max_band_", "max_ratio_"),
+		     suffix=c("", "", "_3", "_2", "_2", "_5", "_6", "_3"))
 
 FormVar<-function(k, i) return(p(BandVars[k, 'prefix'], i, BandVars[k, 'suffix']))
 
@@ -322,11 +331,11 @@ for(i in 1:dim(BandData)[1]) {
 	#circularUL<-max_circ_ul[,4]*circulFactor
 
 	pulsarUL<-vn("max_high_ul_band", skyband, 2)
-	## circularUL<-vn("max_band", skyband, 6)[circ]
+	circularUL<-vn("max_circ_ul_band", skyband, 2)
 	DxMaxBand <- vn("max_band", skyband, 5)
 	
 	pulsarUL <- highulFactor*pulsarUL
-	## circularUL <- circulFactor*circularUL
+	circularUL <- circulFactor*circularUL
 
 	DxMaxBand <- data[, p("max_dx_snr_", skyband)]
 	DxMaxBandCapped <- pmin(DxMaxBand, DxCap)
@@ -340,7 +349,9 @@ for(i in 1:dim(BandData)[1]) {
 	write.csv(data.frame(
 		Frequency=Freq,
 		Spindown=data[,'spindown'],
+		SkyAreaPct=100*data[, p("grid_points_", skyband, "_3")]/data[,"total_grid_points"],
 		UpperLimit=pulsarUL,
+		CircUpperLimit=circularUL,
 		Line60=as.integer(!no60hz),
 		LineWandering=as.integer(highResMaxReduced),
 		KSVeto= as.integer(!ksVetoP)),
@@ -359,15 +370,18 @@ for(i in 1:dim(BandData)[1]) {
 	plot(data[,'band'], vn("grid_points", skyband, 3), ylab="Grid points", xlab="Frequency")
 	dev.off()
 
+	start_plot("grid_points_pct")
+	plot(data[,'band'], 100.0*vn("grid_points", skyband, 3)/data[,'total_grid_points'], ylab="Sky area (percent)", xlab="Frequency")
+	dev.off()
+
 	# Plot of general limits on h0
 	start_plot("h0UL")
 	FancyPlot(log10(pulsarUL), title=h0ULtitle, ylab="Log10 Strain")
 	dev.off()
 	#
-	### TODO Plot of most sensitive polarization - circular
-# 	start_plot("circUL")
-# 	FancyPlot(log10(circularUL), title=circULtitle, ylab="Log10 Strain")
-# 	dev.off()
+ 	start_plot("circUL")
+ 	FancyPlot(log10(circularUL), title=circULtitle, ylab="Log10 Strain")
+ 	dev.off()
 	#
 	# Detection strength plot, over all polarizations sampled
 	start_plot("max_dx")
