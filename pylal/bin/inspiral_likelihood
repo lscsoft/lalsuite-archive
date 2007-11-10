@@ -607,7 +607,7 @@ class likelihood:
 if not opts.show:
   import matplotlib
   matplotlib.use('Agg')
-from pylab import *
+from pylab import*
 #from pylal import viz
 
 
@@ -802,8 +802,6 @@ if opts.dump:
   cPickle.dump(opts, IntermediateFile)
 
 if opts.likelihood == 'zerolag-candidates-only':
-  BackgroundFractionFile = open('BackgroundFraction_tmp', 'w')
-  LikelihoodFile = open('Likelihood_tmp', 'w')
   
   size_zerolag = len(zerolagCoincTriggers)
   FalseAlarmProb_array = numpy.zeros(size_zerolag)
@@ -812,10 +810,14 @@ if opts.likelihood == 'zerolag-candidates-only':
   Likelihood = numpy.zeros(size_zerolag)
   DetectionBackgroundRatio = numpy.zeros(size_zerolag)
   zerolag_stat_array = numpy.zeros(size_zerolag)
+  eventID_zerolag = numpy.zeros(size_zerolag, dtype='int64')
+  zerolag_ifos = []
   i = 0
   for candidate in zerolagCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
     zerolag_stat_array[i] = candidate.stat
+    zerolag_ifos.append(c_ifos)
+    eventID_zerolag[i] = candidate.event_id
     FalseAlarmProb_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     DetectionProb_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     BackgroundFraction_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -833,15 +835,27 @@ if opts.likelihood == 'zerolag-candidates-only':
     
     if opts.verbose:
       print candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]
-    # writing the false alarm probability, the detection probability and the likelihood ration into file
-    LikelihoodFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]))
     
     if opts.verbose:
       print candidate.event_id, c_ifos, BackgroundFraction_array[i], DetectionProb_array[i], DetectionBackgroundRatio[i]
-    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
-    BackgroundFractionFile.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, BackgroundFraction_array[i], DetectionProb_array[i],\
-    DetectionBackgroundRatio[i]))
     i+=1
+   
+  LikelihoodFile = open('Likelihood_zerolag', 'w')
+  BackgroundFractionFile = open('BackgroundFraction_zerolag', 'w')
+  for i in range(size_zerolag):  
+    # writing the false alarm probability, the detection probability and the likelihood ration into file
+    LikelihoodFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]))
+    # writing tckgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+    BackgroundFractionFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], BackgroundFraction_array[i], DetectionProb_array[i],\
+    DetectionBackgroundRatio[i]))
+  LikelihoodFile.close()
+  BackgroundFractionFile.close()
+
+  #save("Likelihood.txt", numpy.vstack((numpy.asarray(eventID_zerolag), numpy.asarray(zerolag_ifos), FalseAlarmProb_array, DetectionProb_array, Likelihood)).T, fmt="%16s")
+
+  # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+  #save("BackgroundFraction.txt", numpy.vstack((numpy.asarray(eventID_zerolag), numpy.asarray(zerolag_ifos), BackgroundFraction_array, DetectionProb_array, DetectionBackgroundRatio)).T, fmt="%s")
+
   if opts.dump:
     cPickle.dump(FalseAlarmProb_array, IntermediateFile)
     cPickle.dump(DetectionProb_array, IntermediateFile)
@@ -849,23 +863,13 @@ if opts.likelihood == 'zerolag-candidates-only':
     cPickle.dump(BackgroundFraction_array, IntermediateFile)
     cPickle.dump(DetectionBackgroundRatio, IntermediateFile)
     cPickle.dump(zerolag_stat_array, IntermediateFile)
+  
 
-  LikelihoodFile.close()
-  BackgroundFractionFile.close()
 ###########################################################################################
 # calculate likelihood for zero lag, injections and time slides coincidences
 ##########################################################################################
 if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-vs-background':
   
-  #open files in which the output of calculations will be saved
-  BackgroundFractionFile_zerolag = open('BackgroundFraction_zerolag', 'w')
-  LikelihoodFile_zerolag = open('Likelihood_zerolag', 'w')
-  BackgroundFractionFile_inj = open('BackgroundFraction_inj', 'w')
-  LikelihoodFile_inj = open('Likelihood_inj', 'w')
-  BackgroundFractionFile_slides = open('BackgroundFraction_slides', 'w')
-  LikelihoodFile_slides = open('Likelihood_slides', 'w')
- 
-
   # calculating false alarm probability, detection probability and likelihood for zero lag coincs
   size_zerolag = len(zerolagCoincTriggers)
   p0_zerolag_array = numpy.zeros(size_zerolag)
@@ -874,12 +878,18 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   Likelihood_zerolag = numpy.zeros(size_zerolag) 
   DetectionBackgroundRatio_zerolag = numpy.zeros(size_zerolag)
   zerolag_stat_array = numpy.zeros(size_zerolag)
+  eventID_zerolag = numpy.zeros(size_zerolag, dtype='int64')
+  zerolag_ifos = []
+
   if opts.verbose:
     print "zero lag coincs"
   i = 0
   for candidate in zerolagCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
     zerolag_stat_array[i] = candidate.stat
+    eventID_zerolag[i] = candidate.event_id
+    zerolag_ifos.append(c_ifos)
+
     p0_zerolag_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     pc_zerolag_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     bf_zerolag_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -895,18 +905,22 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     else:
       DetectionBackgroundRatio_zerolag[i] = -1.0
     
-    # writing the false alarm probability, the detection probability and the likelihood ratio for zerolag events  into file      
-    LikelihoodFile_zerolag.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i]))
-    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for zerolag  into file
-    BackgroundFractionFile_zerolag.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_zerolag_array[i], pc_zerolag_array[i],\
-    DetectionBackgroundRatio_zerolag[i]))
 
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_zerolag_array[i], bf_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i], DetectionBackgroundRatio_zerolag[i] 
     i+=1
 
-  LikelihoodFile_zerolag.close()
-  BackgroundFractionFile_zerolag.close()
+  LikelihoodFile = open('Likelihood_zerolag', 'w')
+  BackgroundFractionFile = open('BackgroundFraction_zerolag', 'w')
+  for i in range(size_zerolag):
+    # writing the false alarm probability, the detection probability and the likelihood ration into file
+    LikelihoodFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], p0_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i]))
+    # writing tckgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
+    BackgroundFractionFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], bf_zerolag_array[i], pc_zerolag_array[i],\
+    DetectionBackgroundRatio_zerolag[i]))
+  LikelihoodFile.close()
+  BackgroundFractionFile.close()
+
 
   # dumping arrays with probabilities for zerolag into intermediate file
   if opts.dump:
@@ -936,6 +950,9 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   Likelihood_inj = numpy.zeros(size_inj)
   DetectionBackgroundRatio_inj = numpy.zeros(size_inj)
   injections_stat_array = numpy.zeros(size_inj)
+  eventID_inj = numpy.zeros(size_inj, dtype='int64')
+  inj_ifos = []
+
   if opts.verbose:
     print "injections coincs"
 
@@ -943,6 +960,8 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   for candidate in injectionCoincTriggers:
     c_ifos,ifolist = candidate.get_ifos()
     injections_stat_array[i] = candidate.stat
+    eventID_inj[i] = candidate.event_id
+    inj_ifos.append(c_ifos)
     p0_inj_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
     pc_inj_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
     bf_inj_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -958,18 +977,11 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     else:
       DetectionBackgroundRatio_inj[i] = -1.0
     
-    # writing the false alarm probability, the detection probability and the likelihood ratio for injections into file
-    LikelihoodFile_inj.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_inj_array[i], pc_inj_array[i], Likelihood_inj[i]))
-    # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for injections into file
-    BackgroundFractionFile_inj.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_inj_array[i], pc_inj_array[i],\
-    DetectionBackgroundRatio_inj[i]))
 
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_inj_array[i], bf_inj_array[i], pc_inj_array[i], Likelihood_inj[i], DetectionBackgroundRatio_inj[i]
     i+=1
-    
-  LikelihoodFile_inj.close()
-  BackgroundFractionFile_inj.close()
+
   
   # dumping arrays with probabilities for injections into intermediate file
   if opts.dump:
@@ -1012,6 +1024,8 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
   bf_slides_array = numpy.zeros(size_slides)
   Likelihood_slides = numpy.zeros(size_slides)
   slides_stat_array = numpy.zeros(size_slides)
+  eventID_slides = numpy.zeros(size_slides, dtype='int64')
+  slides_ifos = []
   
   average_likelihood = numpy.zeros(opts.bins_cumhist)
   average_sqr_likelihood = numpy.zeros(opts.bins_cumhist)
@@ -1033,6 +1047,8 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     for candidate in slideTriggers:
       c_ifos,ifolist = candidate.get_ifos()
       slides_stat_array[i] = candidate.stat
+      eventID_slides[i] = candidate.event_id
+      slides_ifos.append(c_ifos)
       p0_slides_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
       pc_slides_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
       bf_slides_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
@@ -1049,18 +1065,12 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
         DetectionBackgroundRatio_slides[i] = -1.0
       DetectionBackgroundRatio_tmp[j] = DetectionBackgroundRatio_slides[i]
      
-      # writing the false alarm probability, the detection probability and the likelihood ratio for time slides into file
-      LikelihoodFile_slides.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, p0_slides_array[i], pc_slides_array[i], Likelihood_slides[i]))
-      # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio for time slides into file
-      BackgroundFractionFile_slides.write('%d\t%s\t%e\t%e\t%e\n' % (candidate.event_id, c_ifos, bf_slides_array[i], pc_slides_array[i],\
-      DetectionBackgroundRatio_slides[i]))
  
 
       if opts.verbose:
         print i, candidate.event_id,  c_ifos, p0_slides_array[i], bf_slides_array[i], pc_slides_array[i], Likelihood_slides[i], DetectionBackgroundRatio_slides[i]
       i+=1
       j+=1
-    
     
 
     (cumhist_slide, x_middle_slide_LKH) = cum_hist(Likelihood_tmp, bins_slide)
@@ -1070,7 +1080,11 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     (cumhist_slide, x_middle_slide_DBR) = cum_hist(DetectionBackgroundRatio_tmp, bins_DBR)
     average_DBR +=cumhist_slide
     average_sqr_DBR +=cumhist_slide**2
-  
+ 
+      
+
+
+ 
   # dumping arrays with probabilities for time slides into intermediate file
   if opts.dump:
     cPickle.dump(x_middle_slide_LKH, IntermediateFile)
@@ -1095,8 +1109,6 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     cPickle.dump(sigma_DBR, IntermediateFile)
     cPickle.dump(expect_DBR, IntermediateFile)
     
-  LikelihoodFile_slides.close()
-  BackgroundFractionFile_slides.close()
 
 if opts.dump:
   IntermediateFile.close()
