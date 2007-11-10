@@ -92,9 +92,12 @@ while(1) {
 	}
 }
 
+/* we need the structure to be global as a workaround for a bug in condor libraries:
+   this way the pointer is 32bit even on 64bit machines */
+struct flock fl;
+
 static void acquire_lock(char *filename)
 {
-struct flock fl;
 int i;
 
 lock_file=open(filename, O_CREAT | O_RDWR, 0666);
@@ -102,6 +105,7 @@ if(lock_file<0) {
 	fprintf(stderr, "Could not open file \"%s\" for locking\n", filename);
 	return;
 	}
+memset(&fl, 0, sizeof(fl));
 fl.l_type=F_WRLCK;
 fl.l_whence=SEEK_SET;
 fl.l_start=0;
@@ -678,22 +682,30 @@ for(i=0;i<d->free;i++) {
 qsort(p, d->free, sizeof(*p), element_cmp);
 
 bin_re=do_alloc(d->free*d->nbins, sizeof(*bin_re));
+for(i=0;i<d->free;i++) {
+	k=p[i].index;
+	memcpy(&(bin_re[i*d->nbins]), &(d->re[k*d->nbins]), d->nbins*sizeof(*bin_re));
+	}
+free(d->re);
+d->re=bin_re;
+
 bin_im=do_alloc(d->free*d->nbins, sizeof(*bin_im));
+for(i=0;i<d->free;i++) {
+	k=p[i].index;
+	memcpy(&(bin_im[i*d->nbins]), &(d->im[k*d->nbins]), d->nbins*sizeof(*bin_im));
+	}
+free(d->im);
+d->im=bin_im;
+
 gps=do_alloc(d->free, sizeof(*gps));
 for(i=0;i<d->free;i++) {
 	k=p[i].index;
 	gps[i]=d->gps[k];
-	memcpy(&(bin_re[i*d->nbins]), &(d->re[k*d->nbins]), d->nbins*sizeof(*bin_re));
-	memcpy(&(bin_im[i*d->nbins]), &(d->im[k*d->nbins]), d->nbins*sizeof(*bin_im));
 	}
+free(d->gps);
+d->gps=gps;
 
 d->size=d->free;
-free(d->re);
-free(d->im);
-free(d->gps);
-d->re=bin_re;
-d->im=bin_im;
-d->gps=gps;
 
 free(p);
 }
@@ -1096,7 +1108,8 @@ static void expand_sft_array(DATASET *d, int count)
 {
 void *p;
 
-d->size=2*d->size+count;
+if(count<0)return;
+d->size=d->size+count;
 fprintf(stderr, "Growing %s SFT array to %f MB count=%d\n", d->name, d->size*d->nbins*2*sizeof(*d->re)/(1024.0*1024.0), d->free);
 
 p=do_alloc(d->size*d->nbins, sizeof(*(d->re)));
@@ -1149,7 +1162,7 @@ while(1) {
 		}
 
 	if(d->free>=d->size) {
-		expand_sft_array(d, 1);
+		expand_sft_array(d, d->size+1);
 		}
 	d->gps[d->free]=0;
 
@@ -1318,6 +1331,12 @@ if(d_free<1) {
 if(!strncasecmp(line, "detector", 8)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].detector=strndup(&(line[ai]), aj-ai);
+	} else 
+if(!strncasecmp(line, "expand_sft_array", 16)) {
+	int count;
+	locate_arg(line, length, 1, &ai, &aj);
+	count=atoll(&(line[ai]));
+	if(count> 0)expand_sft_array(&(datasets[d_free-1]), count);
 	} else 
 if(!strncasecmp(line, "lock_file", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1772,7 +1791,7 @@ for(i=0;i<3;i++)average_det_velocity[i]/=total_weight;
 
 #define TRACE_EFFECTIVE 0
 
-float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float bin_tolerance, float spindown_tolerance)
+float effective_weight_ratio(float target_ra, float target_dec, float source_ra, float source_dec, float source_spindown, float bin_tolerance, float spindown_tolerance)
 {
 int i, k;
 double total_weight=0.0, w, fdiff, f1, f2, c1, c2;
@@ -1782,6 +1801,7 @@ double offset, fdot;
 double timebase=max_gps()-min_gps()+1800.0;
 double inv_timebase=1.0/timebase;
 double max_fdot;
+double delta_spindown=spindown-source_spindown;
 #if TRACE_EFFECTIVE
 static once=1;
 #endif
@@ -1806,7 +1826,7 @@ for(i=0;i<d_free;i++) {
 				ed[0]*d->detector_velocity[3*k+0]+
 				ed[1]*d->detector_velocity[3*k+1]+
 				ed[2]*d->detector_velocity[3*k+2]
-				);
+				)+(d->gps[k]-spindown_start+d->coherence_time*0.5)*d->coherence_time*delta_spindown;
 		f1+=fdiff*w;
 		#if TRACE_EFFECTIVE
 		if(once)fprintf(LOG, "%8f %8f %8f\n",w,  (d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase, fdiff);
@@ -1855,8 +1875,9 @@ for(i=0;i<d_free;i++) {
 				ed[0]*d->detector_velocity[3*k+0]+
 				ed[1]*d->detector_velocity[3*k+1]+
 				ed[2]*d->detector_velocity[3*k+2]
-				)-
-			offset-fdot*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
+				)
+			+(d->gps[k]-spindown_start+d->coherence_time*0.5)*d->coherence_time*delta_spindown
+			-offset-fdot*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
 		if(fabs(fdiff)<bin_tolerance)f1+=w;
 		}
 	}
