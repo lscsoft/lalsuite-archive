@@ -46,7 +46,7 @@
 /*
  * ============================================================================
  *
- *                           Inline String Helpers
+ *                         Attribute Get/Set Helpers
  *
  * ============================================================================
  */
@@ -62,6 +62,10 @@ static PyObject *pylal_inline_string_get(PyObject *obj, void *data)
 {
 	struct inline_string_description *desc = data;
 	char *s = (void *) obj + desc->offset;
+
+	if(strlen(s) >= desc->length) {
+		/* something's wrong, obj probably isn't a valid address */
+	}
 
 	return PyString_FromString(s);
 }
@@ -83,6 +87,26 @@ static int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
 	strncpy(s, v, desc->length);
 
 	return 0;
+}
+
+
+static PyObject *pylal_longlong_get(PyObject *obj, void *data)
+{
+	size_t offset = (size_t) data;
+	long long *x = (void *) obj + offset;
+
+	return PyLong_FromLongLong(*x);
+}
+
+
+static int pylal_longlong_set(PyObject *obj, PyObject *val, void *data)
+{
+	size_t offset = (size_t) data;
+	long long *x = (void *) obj + offset;
+
+	*x = PyLong_AsLongLong(val);
+
+	return PyErr_Occurred() ? -1 : 0;
 }
 
 
@@ -202,7 +226,6 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 	{"Gamma7", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[7]), 0, "Gamma7"},
 	{"Gamma8", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[8]), 0, "Gamma8"},
 	{"Gamma9", T_FLOAT, offsetof(pylal_SnglInspiralTable, sngl_inspiral.Gamma[9]), 0, "Gamma9"},
-	{"event_id", T_LONG, offsetof(pylal_SnglInspiralTable, event_id.id), 0, "event_id"},
 	{NULL,}
 };
 
@@ -211,6 +234,7 @@ static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
+	{"event_id", pylal_longlong_get, pylal_longlong_set, "event_id", (void *) offsetof(pylal_SnglInspiralTable, event_id.id)},
 	{NULL,}
 };
 
