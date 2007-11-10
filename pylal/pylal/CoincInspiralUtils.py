@@ -586,7 +586,7 @@ class coincInspiralTable:
               tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
               param_counter += 1
 
-        if ( (tmp_d_squared / float(param_counter)) < epsilon^2 ):
+        if ( (tmp_d_squared / float(param_counter)) < epsilon**2 ):
           triggers_within_epsilon.append(trig)
 
     return triggers_within_epsilon
