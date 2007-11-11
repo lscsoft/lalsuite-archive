@@ -288,7 +288,7 @@ def lower_err(y, yerr, deltax):
 def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
 	print >>fileobj, "# ln(A)	e	D[e]"
 	DlnA = bins.bins[0].delta * filterwidth / 2.0
-	for A, e, De in zip(bins.centres[0], eff, yerr):
+	for A, e, De in zip(bins.centres()[0], eff, yerr):
 		print >>fileobj, math.log(A), e, De
 
 

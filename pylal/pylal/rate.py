@@ -85,6 +85,11 @@ class Bins(object):
 		self.n = n
 
 	def __cmp__(self, other):
+		"""
+		Two binnings are the same if they are instances of the same
+		class, have the same lower and upper bounds, and the same
+		count of bins.
+		"""
 		if not isinstance(other, type(self)):
 			return -1
 		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
@@ -101,6 +106,10 @@ class Bins(object):
 		raise NotImplementedError
 
 	def centres(self):
+		"""
+		Return an array containing the locations of the bin
+		centres.
+		"""
 		raise NotImplementedError
 
 
@@ -131,7 +140,7 @@ class LinearBins(Bins):
 			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
 			if x.step is not None:
-				raise NotImplementedError, "slices with steps not yet supported"
+				raise NotImplementedError, x
 			return slice(self[x.start], self[x.stop])
 		if self.min <= x < self.max:
 			return int((x - self.min) / self.delta)
@@ -211,7 +220,7 @@ class NDBins(tuple):
 	(0, slice(0, 1, None))
 	>>> x[1, segment(1, 5)]
 	(0, slice(0, 2, None))
-	>>> x.centres
+	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 	"""
 	def __init__(self, *args):
@@ -219,7 +228,6 @@ class NDBins(tuple):
 		self.min = tuple([b.min for b in self])
 		self.max = tuple([b.max for b in self])
 		self.shape = tuple([b.n for b in self])
-		self.centres = tuple([b.centres() for b in self])
 
 	def __getitem__(self, coords):
 		"""
@@ -247,6 +255,14 @@ class NDBins(tuple):
 			return tuple(map(lambda b, c: b[c], self, coords))
 		else:
 			return tuple.__getitem__(self, coords)
+
+	def centres(self):
+		"""
+		Return a tuple of arrays, where each array contains the
+		locations of the bin centres for the corresponding
+		dimension.
+		"""
+		return tuple([b.centres() for b in self])
 
 
 #
@@ -304,7 +320,7 @@ class BinnedArray(object):
 		# can other's bins be put into ours?
 		if self.bins.min != other.bins.min or self.bins.max != other.bins.max or False in map(lambda a, b: (b % a) == 0, self.bins.shape, other.bins.shape):
 			raise TypeError, "incompatible binning: %s" % repr(other)
-		for coords in itertools.MultiIter(*other.bins.centres):
+		for coords in itertools.MultiIter(*other.bins.centres()):
 			self[coords] += other[coords]
 		return self
 
@@ -313,7 +329,7 @@ class BinnedArray(object):
 		Return a tuple of arrays containing the bin centres for
 		each dimension.
 		"""
-		return self.bins.centres
+		return self.bins.centres()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -409,7 +425,7 @@ class BinnedRatios(object):
 		Return a tuple of arrays containing the bin centres for
 		each dimension.
 		"""
-		return self.numerator.bins.centres
+		return self.numerator.bins.centres()
 
 	def used(self):
 		"""
