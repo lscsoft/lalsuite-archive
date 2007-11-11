@@ -132,7 +132,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           dag.addNode(self,'inspiral')
           self.validate()
         else: self.invalidate()
-      if type == 'head'
+      if type == 'head':
         if opts.inspiral_head:
           dag.addNode(self,'inspiral-head')
           self.validate()
