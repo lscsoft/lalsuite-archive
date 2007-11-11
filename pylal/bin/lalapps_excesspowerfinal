@@ -72,11 +72,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def SearchSummary_get_out(self):
-	return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
-
-
-lsctables.SearchSummary.get_out = SearchSummary_get_out
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -242,7 +238,7 @@ class Confidence_Likelihood_Histogram(object):
 	def __init__(self, effective_confidence_slope):
 		self.effective_confidence_slope = effective_confidence_slope
 		self.slides = []
-		self.background_eff_confidences = itertools.Highest(fraction = 0.01)
+		self.background_eff_confidences = itertools.Highest(max = 5000000)
 		self.foreground_eff_confidences = []
 
 	def effective_confidence(self, likelihood, confidence):
@@ -277,13 +273,11 @@ class Confidence_Likelihood_Histogram(object):
 	def add_non_injections(self, contents):
 		#
 		# Iterate over burst<-->burst coincidences.  Assume there
-		# are no injections in this file.  Note how the background
-		# effective confidences are first accumulated in a separate
-		# list, which is then appended to the real list.  This
-		# lowers the chances of the Highest class making a mistake.
-		# See the comments about this in the itertools module.
+		# are no injections in this file.
 		#
 
+		# accumulate confidences in a separate buffer to avoid slow
+		# calls to the Highest class' append() method.
 		buffer = []
 		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
 SELECT
@@ -425,8 +419,6 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		elif self.instrument != set(contents.instruments):
 			raise ValueError, "this document contains instruments %s, but have been seeing %s so far" % ("+".join(contents.instruments), "+".join(self.instrument))
 
-		contents.connection.create_function("burst_is_near_injection", 8, SimBurstUtils.burst_is_near_injection)
-
 		# NOTE:  coinc_segs must be computed the same way the
 		# segment list used to measure live time is computed,
 		# otherwise the detection efficiency is not being measured
@@ -444,10 +436,7 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		# adopted in the future, then this will need to be
 		# re-thought to be sure that "found in a coinc" means
 		# "found in a coinc involving the correct set of
-		# instruments".  Also FIXME:  this doesn't check that the
-		# burst<-->burst coinc is found at the correct time slide,
-		# which is OK for now because in the injection runs only
-		# the zero-lag coincs are identified.
+		# instruments".
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -458,25 +447,25 @@ SELECT
 		SELECT
 			*
 		FROM
-			multi_burst
+			coinc_event_map AS a
+			JOIN coinc_event_map AS b ON (
+				b.coinc_event_id == a.coinc_event_id
+			)
 			JOIN coinc_event ON (
-				coinc_event.coinc_event_id == multi_burst.coinc_event_id
+				b.table_name == 'coinc_event'
+				AND b.event_id == coinc_event.coinc_event_id
 			)
-			JOIN coinc_event_map ON (
-				coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-			)
-			JOIN sngl_burst ON (
-				coinc_event_map.table_name == 'sngl_burst'
-				AND coinc_event_map.event_id == sngl_burst.event_id
+			JOIN multi_burst ON (
+				multi_burst.coinc_event_id == coinc_event.coinc_event_id
 			)
 		WHERE
-			coinc_event.coinc_def_id == ?
+			a.table_name == 'sim_burst'
+			AND a.event_id == sim_burst.simulation_id
 			AND is_a_keeper(coinc_event.likelihood, multi_burst.confidence)
-			AND burst_is_near_injection(sim_burst.h_peak_time, sim_burst.h_peak_time_ns, sim_burst.l_peak_time, sim_burst.l_peak_time_ns, sngl_burst.start_time, sngl_burst.start_time_ns, sngl_burst.duration, sngl_burst.ifo)
 	)
 FROM
 	sim_burst
-		""", (contents.bb_definer_id,)):
+		"""):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			found = values[-1]
 			# FIXME:  this assumes all injections are done at
