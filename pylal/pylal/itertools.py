@@ -197,15 +197,15 @@ class Highest(list):
 	A class for use when you need to collect the largest in a very long
 	sequence of things, too long a sequence to hold in memory all at
 	once and sort.  This class behaves like a list, in fact it is a
-	Python list, but one that stores only some fixed fraction of all
-	items that have been added to it.  The list is always ordered, so
-	the insert() and __setitem__() methods are not supported, only
-	append() and extend().
+	Python list, but one that stores only some fraction of all items
+	that have been added to it.  The list is always ordered, so the
+	insert() and __setitem__() methods are not supported, only append()
+	and extend().
 
 	Example:
 
 	>>> import random
-	>>> l = Highest(fraction = 0.0002)
+	>>> l = Highest(max = 3)
 	>>> for i in range(10000):
 	...	l.append(random.random())
 	...
@@ -215,50 +215,13 @@ class Highest(list):
 	10000
 	>>> list.__len__(l)
 	3
-
-	Notes:
-  
-	- Because the list contains a fixed fraction of the total number of
-	  elements, but the length must be an integer, there are times when
-	  appending one additional element causes the number of elements
-	  retained in the list to increase by 1.  When this occurs, the new
-	  element is always the one just added, even if it is smaller than
-	  elements that have previously been discarded.  To mitigate this
-	  effect, a "guard" element is retained, so the actual number of
-	  elements retained is equal to the desired fraction of the total
-	  plus 1.  However, pathological input sets can always be
-	  constructed that defeats the mechanism, for example
-
-	>>> l = Highest(fraction = 0.5)
-	>>> l.append(1)
-	>>> l.append(1)
-	>>> l.append(.125)
-	>>> l.append(.125)
-	>>> l.append(.125)
-	>>> l.append(.125)
-	>>> l.append(.125)
-	>>> l
-	[1, 0.125, 0.125, 0.125]
-
-	  These are not the four highest elements in the sequence, nor are
-	  the first three even the three highest elements (discarding the
-	  guard element).
-
-	- What is true is that the first N elements are guaranteed to be
-	  correct where N is the smallest number of elements that have ever
-	  been in the list.  In the example above, after the first append()
-	  l has just 1 element in it, and so only ever the first element
-	  can be guaranteed to be correct (which is the case).  If you will
-	  require to know, without error, the 100 highest values in the
-	  sequence, then you must be sure to initialize the list with at
-	  least 100/fraction elements from the sequence.
 	"""
-	def __init__(self, sequence = tuple(), fraction = 1.0):
+	def __init__(self, sequence = tuple(), max = None):
 		list.__init__(self, sequence)
 		self.n = list.__len__(self)
-		self.fraction = fraction
+		self.max = int(max)
 		list.sort(self, reverse = True)
-		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+		del self[self.max:]
 
 	def __len__(self):
 		return self.n
@@ -274,14 +237,14 @@ class Highest(list):
 				lo = mid + 1
 		list.insert(self, lo, value)
 		self.n += 1
-		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+		del self[self.max:]
 
 	def extend(self, sequence):
 		before = list.__len__(self)
 		list.extend(self, sequence)
 		self.n += list.__len__(self) - before
 		list.sort(self, reverse = True)
-		del self[int(math.ceil(self.fraction * self.n)) + 1:]
+		del self[self.max:]
 
 	#
 	# Stubs to prevent bugs
