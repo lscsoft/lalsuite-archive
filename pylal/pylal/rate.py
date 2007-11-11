@@ -340,12 +340,6 @@ class BinnedArray(object):
 		self.array[self.array <= 0] = epsilon
 		return self
 
-	def used(self):
-		"""
-		Return the number of bins that are non-zero.
-		"""
-		return len(numpy.nonzero(self.array)[0])
-
 
 class BinnedRatios(object):
 	"""
@@ -431,7 +425,7 @@ class BinnedRatios(object):
 		"""
 		Return the number of bins with non-zero denominator.
 		"""
-		return numpy.sum(numpy.where(self.denominator.array, 1, 0))
+		return numpy.sum(self.denominator.array != 0)
 
 
 #
