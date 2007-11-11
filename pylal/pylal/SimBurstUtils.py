@@ -198,19 +198,22 @@ FROM
 
 		self.efficiency = rate.BinnedRatios(binning)
 
-		map(self.efficiency.incdenominator, zip(self.injected_x, self.injected_y))
-		map(self.efficiency.incnumerator, zip(self.found_x, self.found_y))
+		for xy in zip(self.injected_x, self.injected_y):
+			self.efficiency.incdenominator(xy)
+		for xy in zip(self.found_x, self.found_y):
+			self.efficiency.incnumerator(xy)
 
 		# 1 / error^2 is the number of injections that need to be
-		# within the window in order for the uncertainty in that
-		# number to be = error.  multiplying by bins_per_inj tells
-		# us how many bins the window needs to cover, and taking
-		# the square root translates that into the window's length
-		# on a side in bins.  because the contours tend to run
-		# parallel to the x axis, the window is dilated in that
-		# direction to improve resolution.
+		# within the window in order for the fractional uncertainty
+		# in that number to be = error.  multiplying by
+		# bins_per_inj tells us how many bins the window needs to
+		# cover, and taking the square root translates that into
+		# the window's length on a side in bins.  because the
+		# contours tend to run parallel to the x axis, the window
+		# is dilated in that direction to improve resolution.
+
 		bins_per_inj = self.efficiency.used() / float(len(self.injected_x))
-		self.window_size_x = self.window_size_y = (bins_per_inj / self.error**2)**0.5
+		self.window_size_x = self.window_size_y = math.sqrt(bins_per_inj / self.error**2)
 		self.window_size_x *= math.sqrt(2)
 		self.window_size_y /= math.sqrt(2)
 		if self.window_size_x > 100 or self.window_size_y > 100:
