@@ -593,10 +593,10 @@ class coincInspiralTable:
 
   def getTriggersInSegment(self, segment):
     """
-    Return triggers with time of trigger within segment; always use
-    alphabetically first ifo
+    Return a new coincInspiralTable with triggers whose end_times lie within
+    segment; always use alphabetically first ifo's end_time.
     """
-    triggers_within_segment = coincInspiralTable()
+    triggers_within_segment = coincInspiralTable(stat=self.stat)
 
     for trig in self:
       end_time = getattr(trig, trig.get_ifos()[1][0]).end_time
@@ -604,4 +604,3 @@ class coincInspiralTable:
         triggers_within_segment.append(trig)
 
     return triggers_within_segment
-
