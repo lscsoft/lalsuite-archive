@@ -415,8 +415,8 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		# NOTE:  we are piggy-backing on other code, so
 		# "instrument" is singular even though it a set of things.
 		if self.instrument is None:
-			self.instrument = set(contents.instruments)
-		elif self.instrument != set(contents.instruments):
+			self.instrument = contents.instruments
+		elif self.instrument != contents.instruments:
 			raise ValueError, "this document contains instruments %s, but have been seeing %s so far" % ("+".join(contents.instruments), "+".join(self.instrument))
 
 		# NOTE:  coinc_segs must be computed the same way the
