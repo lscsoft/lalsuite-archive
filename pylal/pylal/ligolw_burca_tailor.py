@@ -26,6 +26,7 @@
 #
 
 
+import math
 import numpy
 from scipy.stats import stats
 from xml import sax
@@ -179,6 +180,14 @@ def coinc_params(events, offsetdict):
 		name = "%sddur" % prefix
 		if name not in params or abs(params[name]) > abs(ddur):
 			params[name] = ddur
+	# the "time" is the snr-weighted average of the peak times
+	# neglecting light-travel times.  because LIGOTimeGPS objects have
+	# overflow problems in this sort of a calculation, the first
+	# event's peak time is used as an epoch and the calculations are
+	# done w.r.t. that time.
+	t = events[0].get_peak()
+	t += sum([float(event.get_peak() - t) * event.snr for event in events]) / sum([event.snr for event in events])
+	params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
 
 	return params
 
@@ -544,7 +553,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": 1.0 / 200,
 		"H1_H2_dt": 1.0 / 7000,
 		"H1_L1_dt": 1.0 / 7000,
-		"H2_L1_dt": 1.0 / 7000
+		"H2_L1_dt": 1.0 / 7000,
+		"gmst": (2 * math.pi) / 1000.0
 	}
 
 	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
@@ -568,6 +578,7 @@ class DistributionsStats(Stats):
 			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
 			name = "%s_%s_ddur" % pair
 			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
+		rate_args["gmst"] = (segments.segment(0, 2 * math.pi), self.filter_widths["gmst"])
 		self.distributions = CoincParamsDistributions(**rate_args)
 
 	def _add_background(self, param_func, events, offsetdict):
