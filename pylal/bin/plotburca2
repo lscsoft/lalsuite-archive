@@ -28,7 +28,6 @@
 #
 
 
-import glob
 import math
 import numpy
 from optparse import OptionParser
@@ -111,16 +110,27 @@ def plot_coinc_params(distributions, plottype):
 	# How many instrument pairs are there?
 	#
 
-	pairs = set(tuple(name.split("_")[:2]) for name in distributions.background_rates.keys())
+	pairs = set(tuple(name.split("_")[:2]) for name in distributions.background_rates.keys() if "_" in name)
+
+	#
+	# How many plots in each row?
+	#
+
 	n_horiz = len(pairs)
 
 	#
-	# Each sub plot's aspect ratio is the golden ratio.
+	# How many rows?
+	#
+
+	n_vert = 6
+
+	#
+	# Each of the first len(pairs) sub plot's aspect ratio is the golden
+	# ratio.
 	#
 
 	size = 12.0
-	n_vert = 5
-	fig.set_size_inches(size * n_horiz / n_vert, size / ((1 + math.sqrt(5)) / 2))
+	fig.set_size_inches(n_horiz * size, n_vert / ((1 + math.sqrt(5)) / 2) * size)
 
 	#
 	# Plot layout.
@@ -197,6 +207,15 @@ def plot_coinc_params(distributions, plottype):
 		red_rate = distributions.injection_rates[prefix + "ddur"]
 		black_rate = distributions.background_rates[prefix + "ddur"]
 		add_to_plot(ddur_axes, red_rate, black_rate, plottype)
+
+	#
+	# GMST
+	#
+
+	gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
+	red_rate = distributions.injection_rates["gmst"]
+	black_rate = distributions.background_rates["gmst"]
+	add_to_plot(gmst_axes, red_rate, black_rate, plottype)
 
 	#
 	# Done.
