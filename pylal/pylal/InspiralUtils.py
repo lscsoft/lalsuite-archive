@@ -115,8 +115,8 @@ def init_markup_page( opts):
   # Initialise the html output file
   if opts.enable_output is True:
     try:
-      import markup
-      from markup import oneliner as extra_oneliner
+      from glue import markup
+      from glue.markup import oneliner as extra_oneliner
     except:
       raise ImportError("Require markup.py to generate the html page")
 
