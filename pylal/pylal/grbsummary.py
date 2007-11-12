@@ -23,7 +23,6 @@ from glue.ligolw import utils
 ##############################################################################
 
 class GRBSummaryDAG(pipeline.CondorDAG):
-# class GRBSummaryDAG(pipeline.CondorDAG, webCondor.webTheDAG):
   def __init__(self, config_file, log_path):
     self.basename = config_file.replace(".ini", "") 
     logfile, logfilename = tempfile.mkstemp(prefix=self.basename, suffix=".dag.log", dir=log_path)
@@ -34,13 +33,6 @@ class GRBSummaryDAG(pipeline.CondorDAG):
 ##############################################################################
 # Utility functions
 ##############################################################################
-
-_second_stage_regex = re.compile(r"_((\w\d)+)")
-def is_second_stage(filename):
-    """
-    Determine if a filename comes from a second-stage INSPIRAL, THINCA, etc.
-    """
-    return (_second_stage_regex.search(filename) is not None)
 
 def compute_masked_segments(analyzable_seglist, on_source_segment,
     veto_seglist=None, quantization_time=None):
