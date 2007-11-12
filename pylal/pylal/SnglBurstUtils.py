@@ -176,14 +176,6 @@ def latexnumber(s):
 #
 
 
-class BurstPlotError(Exception):
-	"""
-	Used to relay error messages from plotting routines to
-	applications.
-	"""
-	pass
-
-
 class BurstPlot(object):
 	def __init__(self, x_label, y_label):
 		self.nevents = 0
