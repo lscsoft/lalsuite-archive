@@ -76,7 +76,10 @@ def fromfilenames(filenames, coltype=int):
 	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\w_+#]+\Z")
 	l = segments.segmentlist()
 	for name in filenames:
+                if name.endswith('.gz'):
+                  name = name.rstrip('.gz')
 		[(s, d)] = pattern.findall(name.strip())
+
 		s = coltype(s)
 		d = coltype(d)
 		l.append(segments.segment(s, s + d))
