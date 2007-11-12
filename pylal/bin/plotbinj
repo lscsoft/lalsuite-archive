@@ -409,11 +409,12 @@ WHERE
 
 class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Triggers per Unit Offset")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
+		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
 		self.offsets = rate.Rate(interval, width)
-		self.best = rate.Rate(interval, width)
+		self.coinc_offsets = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
 		# this outer loop assumes each injection can only be found
@@ -441,36 +442,41 @@ WHERE
 			coinc = contents.coinc_table._row_from_cols(values)
 			sim_h_peak = LIGOTimeGPS(*values[-4:-2])
 			sim_l_peak = LIGOTimeGPS(*values[-2:])
+			if self.instrument in ("H1", "H2"):
+				sim_peak = sim_h_peak
+			elif self.instrument in ("L1",):
+				sim_peak = sim_l_peak
+			else:
+				raise ValueError, self.instrument
 			self.found += 1
-			best_conf = 0.0
-			best_dt = None
-			for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc):
+			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc))
+			coinc_dt = 0
+			for burst in bursts:
+				if burst.ifo == self.instrument:
+					dt = burst.get_peak() - sim_peak
+					try:
+						self.offsets[dt] += 1.0
+					except IndexError:
+						# outside plot range
+						pass
 				if burst.ifo in ("H1", "H2"):
-					dt = burst.get_peak() - sim_h_peak
+					coinc_dt += float(burst.get_peak() - sim_h_peak) * burst.snr
 				elif burst.ifo in ("L1",):
-					dt = burst.get_peak() - sim_l_peak
+					coinc_dt += float(burst.get_peak() - sim_l_peak) * burst.snr
 				else:
 					raise ValueError, burst.ifo
-				try:
-					self.offsets[dt] += 1.0
-				except IndexError:
-					# outside plot range
-					pass
-				if burst.confidence > best_conf:
-					best_conf = burst.confidence
-					best_dt = dt
-			if best_dt is not None:
-				try:
-					self.best[best_dt] += 1.0
-				except IndexError:
-					# outside plot range
-					pass
+			coinc_dt /= sum([burst.snr for burst in bursts])
+			try:
+				self.coinc_offsets[coinc_dt] += 1.0
+			except IndexError:
+				# outside plot range
+				pass
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
 		self.axes.plot(self.offsets.xvals(), self.offsets.filter(), "k")
-		self.axes.plot(self.best.xvals(), self.best.filter(), "r")
-		self.axes.legend(["All matching triggers", "Highest confidence match"])
+		self.axes.plot(self.coinc_offsets.xvals(), self.coinc_offsets.filter(), "r")
+		self.axes.legend(["%s residuals" % self.instrument, "SNR-weighted mean of residuals in all instruments"], loc = "lower right")
 
 
 #
@@ -484,11 +490,12 @@ WHERE
 
 class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Offset (Hz)", "Triggers per Unit Offset")
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
+		self.axes.loglog()
 		self.instrument = instrument
 		self.found = 0
 		self.offsets = rate.Rate(interval, width)
-		self.best = rate.Rate(interval, width)
+		self.coinc_offsets = rate.Rate(interval, width)
 
 	def add_contents(self, contents):
 		# this outer loop assumes each injection can only be found
@@ -513,30 +520,33 @@ WHERE
 			coinc = contents.coinc_table._row_from_cols(values)
 			sim_freq = values[-1]
 			self.found += 1
-			best_conf = 0.0
-			best_df = None
-			for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc):
-				df = burst.peak_frequency - sim_freq
-				try:
-					self.offsets[df] += 1.0
-				except IndexError:
-					# outside plot range
-					pass
-				if burst.confidence > best_conf:
-					best_conf = burst.confidence
-					best_df = df
-			if best_df is not None:
-				try:
-					self.best[best_df] += 1.0
-				except IndexError:
-					# outside plot range
-					pass
+			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc))
+			for burst in bursts:
+				if burst.ifo == self.instrument:
+					df = math.log(burst.peak_frequency / sim_freq, 10)
+					try:
+						self.offsets[df] += 1.0
+					except IndexError:
+						# outside plot range
+						pass
+			# snr-weighted mean of peak frequencies
+			coinc_freq = sum([burst.peak_frequency * burst.snr for burst in bursts]) / sum([burst.snr for burst in bursts])
+			df = math.log(coinc_freq / sim_freq, 10)
+			try:
+				self.coinc_offsets[df] += 1.0
+			except IndexError:
+				# outside plot range
+				pass
 
 	def finish(self):
-		self.axes.set_title("Trigger Peak Frequency - Injection Centre Frequency\n(%d Found Injections)" % self.found)
-		self.axes.plot(self.offsets.xvals(), self.offsets.filter(), "k")
-		self.axes.plot(self.best.xvals(), self.best.filter(), "r")
-		self.axes.legend(["All matching triggers", "Highest confidence match"])
+		self.axes.set_title("Trigger Peak Frequency / Injection Centre Frequency\n(%d Found Injections)" % self.found)
+		self.axes.plot(10**self.offsets.xvals(), self.offsets.filter(), "k")
+		self.axes.plot(10**self.coinc_offsets.xvals(), self.coinc_offsets.filter(), "r")
+		self.axes.legend(["%s triggers" % self.instrument, "SNR-weighted mean of all matching triggers"], loc = "lower right")
+		ymin, ymax = self.axes.get_ylim()
+		if ymax / ymin > 1e6:
+			ymin = ymax / 1e6
+			self.axes.set_ylim((ymin, ymax))
 
 
 #
@@ -625,7 +635,7 @@ def new_plots(instrument, hrss_func, plots):
 		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsBandwidth(instrument, hrss_func),
 		RecoveredTimeOffset(instrument, segments.segment(-0.03, +0.03), 0.00015),
-		RecoveredFrequencyOffset(instrument, segments.segment(-50.0, +50.0), .5),
+		RecoveredFrequencyOffset(instrument, segments.segment(-1.0, +1.0), .002),
 		RecoveredVsInjectedFreq(instrument, hrss_func)
 	)
 	return [l[i] for i in plots]
