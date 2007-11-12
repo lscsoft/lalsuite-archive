@@ -105,10 +105,24 @@ class Bins(object):
 		"""
 		raise NotImplementedError
 
+	def lower(self):
+		"""
+		Return an array containing the locations of the lower
+		boundaries of the bins.
+		"""
+		raise NotImplementedError
+
 	def centres(self):
 		"""
 		Return an array containing the locations of the bin
 		centres.
+		"""
+		raise NotImplementedError
+
+	def upper(self):
+		"""
+		Return an array containing the locations of the upper
+		boundaries of the bins.
 		"""
 		raise NotImplementedError
 
@@ -149,8 +163,14 @@ class LinearBins(Bins):
 			return self.n - 1
 		raise IndexError, x
 
+	def lower(self):
+		return self.min + self.delta * numpy.arange(0, self.n)
+
 	def centres(self):
 		return self.min + self.delta * (numpy.arange(0, self.n) + 0.5)
+
+	def upper(self):
+		return self.min + self.delta * numpy.arange(1, self.n + 1)
 
 
 class LogarithmicBins(Bins):
@@ -188,8 +208,14 @@ class LogarithmicBins(Bins):
 			return self.n - 1
 		raise IndexError, x
 
+	def lower(self):
+		return self.min * numpy.exp(self.delta * numpy.arange(0, self.n))
+
 	def centres(self):
 		return self.min * numpy.exp(self.delta * (numpy.arange(0, self.n) + 0.5))
+
+	def upper(self):
+		return self.min * numpy.exp(self.delta * numpy.arange(1, self.n + 1))
 
 
 class NDBins(tuple):
@@ -256,6 +282,14 @@ class NDBins(tuple):
 		else:
 			return tuple.__getitem__(self, coords)
 
+	def lower(self):
+		"""
+		Return a tuple of arrays, where each array contains the
+		locations of the lower boundaries of the bins in the
+		corresponding dimension.
+		"""
+		return tuple([b.lower() for b in self])
+
 	def centres(self):
 		"""
 		Return a tuple of arrays, where each array contains the
@@ -263,6 +297,14 @@ class NDBins(tuple):
 		dimension.
 		"""
 		return tuple([b.centres() for b in self])
+
+	def upper(self):
+		"""
+		Return a tuple of arrays, where each array contains the
+		locations of the upper boundaries of the bins in the
+		corresponding dimension.
+		"""
+		return tuple([b.upper() for b in self])
 
 
 #
@@ -440,11 +482,13 @@ class BinnedRatios(object):
 def gaussian_window(bins):
 	"""
 	Generate a normalized (integral = 1) Gaussian window in 1
-	dimension.  bins sets the width of the window in bin count.
+	dimension.  bins sets the width of the window in bin count.  The
+	vector is created with an odd number of samples, and the Gaussian
+	is peaked on the middle sample.
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = 20 * int(bins / 2.0)
+	l = 16 * int(bins / 2.0)
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 
@@ -461,7 +505,8 @@ def gaussian_window2d(bins_x, bins_y):
 def tophat_window(bins):
 	"""
 	Generate a normalized (integral = 1) top-hat window in 1 dimension.
-	bins sets the width of the window in bin counts.
+	bins sets the width of the window in bin counts, which is rounded
+	up to the nearest odd integer.
 	"""
 	if bins <= 0:
 		raise ValueError, bins
@@ -473,9 +518,10 @@ def tophat_window2d(bins_x, bins_y):
 	"""
 	Generate a normalized (integral = 1) top-hat window in 2
 	dimensions.  bins_x and bins_y set the widths of the window in bin
-	counts.  The result is a rectangular array, with an elliptical
-	pattern of elements set to a constant value centred on the array's
-	mid-point, and all other elements set to 0.
+	counts, which are both rounded up to the nearest odd integer.  The
+	result is a rectangular array, with an elliptical pattern of
+	elements set to a constant value centred on the array's mid-point,
+	and all other elements set to 0.
 	"""
 	if bins_x <= 0:
 		raise ValueError, bins_x
@@ -489,13 +535,12 @@ def tophat_window2d(bins_x, bins_y):
 
 	# fill rectangle with ones, making the number of bins odd in each
 	# direction
-	window = numpy.ones((int(bins_x / 2) * 2 + 1, int(bins_y / 2) * 2 + 1), "Float64")
+	window = numpy.ones((int(bins_x / 2.0) * 2 + 1, int(bins_y / 2.0) * 2 + 1), "Float64")
 
 	# zero the bins outside the window
-	for x in xrange(window.shape[0]):
-		for y in xrange(window.shape[1]):
-			if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
-				window[x, y] = 0.0
+	for x, y in itertools.MultiIter(*map(range, window.shape)):
+		if ((x - window.shape[0] / 2) / float(bins_x) * 2.0)**2 + ((y - window.shape[1] / 2) / float(bins_y) * 2.0)**2 > 1.0:
+			window[x, y] = 0.0
 
 	# normalize
 	window /= numpy.sum(window)
