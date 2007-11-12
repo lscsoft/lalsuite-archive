@@ -717,7 +717,7 @@ for instrument in plots:
 			else:
 				plot.finish()
 				fig = plot.fig
-		except SnglBurstUtils.BurstPlotError, e:
+		except ValueError, e:
 			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
 		else:
 			if options.verbose:
