@@ -789,14 +789,15 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
       if fuList.ifolist_in_coinc:
         firstIfo = fuList.ifolist_in_coinc[0]
         triggerTime = fuList.gpsTime[firstIfo]
-        for chunk in search:
-          out_start_time = float(chunk.out_start_time)
-          out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
-          out_end_time = float(chunk.out_end_time)
-          out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
-          if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
-            fuList.ifoTag = chunk.ifos
-            break 
+        if search:  
+          for chunk in search:
+            out_start_time = float(chunk.out_start_time)
+            out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+            out_end_time = float(chunk.out_end_time)
+            out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
+            if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+              fuList.ifoTag = chunk.ifos
+              break 
       followups.append(fuList)
   # the missed stuff doesnt work yet!!!
   if missed:
