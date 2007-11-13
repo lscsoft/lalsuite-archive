@@ -667,6 +667,9 @@ else:
 
 
 plots = {}
+coincplots = (
+	SimBurstUtils.Efficiency_hrss_vs_freq(("H1", "H2", "L1"), hrss_func, 0.1),
+)
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
@@ -681,6 +684,10 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			if options.verbose:
 				print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
 			plot.add_contents(database)
+	for n, plot in enumerate(coincplots):
+		if options.verbose:
+			print >>sys.stderr, "adding to coinc plot %d ..." % n
+		plot.add_contents(database)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
@@ -724,6 +731,22 @@ for instrument in plots:
 				print >>sys.stderr, "writing %s ..." % filename
 			fig.savefig(filename)
 		n += 1
+
+
+for n, plot in enumerate(coincplots):
+	format = "%%s%s_%%0%dd.%%s" % ("coinc", int(math.log10(len(coincplots))) + 1)
+	filename = format % (options.base, n, options.format)
+	if options.verbose:
+		print >>sys.stderr, "finishing coinc plot %d ..." % n
+	try:
+		plot.finish(binning = binning)
+		fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot)
+	except ValueError, e:
+		print >>sys.stderr, "can't finish coinc plot %d: %s" % (n, str(e))
+	else:
+		if options.verbose:
+			print >>sys.stderr, "writing %s ..." % filename
+		fig.savefig(filename)
 
 
 def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
