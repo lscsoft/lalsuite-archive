@@ -138,8 +138,8 @@ def burst_is_near_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_n
 
 
 class Efficiency_hrss_vs_freq(object):
-	def __init__(self, instrument, hrss_func, error):
-		self.instrument = instrument
+	def __init__(self, instruments, hrss_func, error):
+		self.instruments = set(instruments)
 		self.hrss_func = hrss_func
 		self.error = error
 		self.injected_x = []
@@ -149,46 +149,46 @@ class Efficiency_hrss_vs_freq(object):
 
 
 	def add_contents(self, contents):
-		seglist = contents.seglists[self.instrument]
+		seglist = contents.seglists.intersection(self.instruments)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
-	EXISTS (
-		-- Find a link through the coinc_event_map table to a row
-		-- in the sngl_burst table with the correct ifo value.
-		SELECT
-			*
-		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				a.coinc_event_id == b.coinc_event_id
-			)
-			JOIN sngl_burst ON (
-				b.table_name == 'sngl_burst'
-				AND b.event_id == sngl_burst.event_id
-			)
-		WHERE
-			a.table_name == 'sim_burst'
-			AND a.event_id == sim_burst.simulation_id
-			AND sngl_burst.ifo == ?
+	(
+	-- This can only yield at most 1 coinc_event_id
+	SELECT
+		coinc_event.coinc_event_id
+	FROM
+		coinc_event_map
+		JOIN coinc_event ON (
+			coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+		)
+	WHERE
+		coinc_event_map.table_name == 'sim_burst'
+		AND coinc_event_map.event_id == sim_burst.simulation_id
+		AND coinc_event.coinc_def_id == ?
 	)
 FROM
 	sim_burst
-		""", (self.instrument,)):
+		""", (contents.sb_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
-			found = values[-1]
-			# FIXME:  this assumes all injections are done at
-			# zero lag (which is correct, for now, but watch
-			# out for this)
-			if injection_was_made(sim, seglist, (self.instrument,)):
-				sim.hrss = self.hrss_func(sim, self.instrument)
-				self.injected_x.append(sim.freq)
-				self.injected_y.append(sim.hrss)
-				if found:
-					self.found_x.append(sim.freq)
-					self.found_y.append(sim.hrss)
+			coinc_event_id = values[-1]
+			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
+			instruments = set([burst.ifo for burst in bursts])
+			found = self.instruments.issubset(instruments)
+			# FIXME:  this following assumes all injections are
+			# done at zero lag (which is correct, for now, but
+			# watch out for this)
+			if injection_was_made(sim, seglist, self.instruments):
+				for burst in bursts:
+					if burst.ifo in self.instruments:
+						sim.hrss = self.hrss_func(sim, burst.ifo)
+						self.injected_x.append(sim.freq)
+						self.injected_y.append(sim.hrss)
+						if found:
+							self.found_x.append(sim.freq)
+							self.found_y.append(sim.hrss)
 			elif found:
-				print >>sys.stderr, "odd, injection %s was found but not injected..." % sim.simulation_id
+				print >>sys.stderr, "odd, injection %s was found in %s but not injected..." % (sim.simulation_id, "+".join(self.instruments))
 
 	def finish(self, binning = None):
 		if binning is None:
@@ -220,7 +220,7 @@ FROM
 			# program will take too long to run
 			raise ValueError, "smoothing filter too large (not enough injections)"
 
-		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % (self.instrument, self.window_size_x, self.window_size_y),
+		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % ("+".join(self.instruments), self.window_size_x, self.window_size_y),
 		print >>sys.stderr, "which is %g%% x %g%% of the binning" % (100.0 * self.window_size_x / binning[0].n, 100.0 * self.window_size_y / binning[1].n)
 
 		# smooth the efficiency data.
@@ -245,7 +245,10 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 	zvals = efficiency.efficiency.ratio()
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % efficiency.error, colors = "k")
-	plot.axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % (efficiency.instrument, len(efficiency.found_x), len(efficiency.injected_x)))
+	instruments = list(efficiency.instruments)
+	instruments.sort()
+	instruments = "+".join(instruments)
+	plot.axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % (instruments, len(efficiency.found_x), len(efficiency.injected_x)))
 	return plot.fig
 
 

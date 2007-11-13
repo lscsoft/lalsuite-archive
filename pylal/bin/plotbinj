@@ -449,7 +449,7 @@ WHERE
 			else:
 				raise ValueError, self.instrument
 			self.found += 1
-			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc))
+			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
 			coinc_dt = 0
 			for burst in bursts:
 				if burst.ifo == self.instrument:
@@ -520,7 +520,7 @@ WHERE
 			coinc = contents.coinc_table._row_from_cols(values)
 			sim_freq = values[-1]
 			self.found += 1
-			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc))
+			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
 			for burst in bursts:
 				if burst.ifo == self.instrument:
 					df = math.log(burst.peak_frequency / sim_freq, 10)
@@ -629,7 +629,7 @@ def new_plots(instrument, hrss_func, plots):
 	l = (
 		FreqVsTime(instrument),
 		HrssVsFreqScatter(instrument, hrss_func),
-		SimBurstUtils.Efficiency_hrss_vs_freq(instrument, hrss_func, 0.1),
+		SimBurstUtils.Efficiency_hrss_vs_freq((instrument,), hrss_func, 0.1),
 		TriggerCountHistogram(instrument),
 		RecoveredVsInjectedhrss(instrument, hrss_func),
 		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
@@ -768,9 +768,11 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 	ninjected_guess = int(round(ninjected_guess))
 	nfound_guess = int(round(nfound_guess))
 
-	instruments = [e.instrument for e in efficiencies]
+	instruments = [list(e.instruments) for e in efficiencies]
+	[e.sort() for e in instruments]
+	instruments = ["+".join(e) for e in instruments]
 	instruments.sort()
-	instruments = "+".join(instruments)
+	instruments = r" \& ".join(instruments)
 
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % error, colors = "k")

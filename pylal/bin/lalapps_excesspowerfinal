@@ -392,12 +392,8 @@ def measure_threshold(filenames, slope, n_survivors, live_time_program = "lalapp
 
 class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 	def add_contents(self, contents):
-		# NOTE:  we are piggy-backing on other code, so
-		# "instrument" is singular even though it a set of things.
-		if self.instrument is None:
-			self.instrument = contents.instruments
-		elif self.instrument != contents.instruments:
-			raise ValueError, "this document contains instruments %s, but have been seeing %s so far" % ("+".join(contents.instruments), "+".join(self.instrument))
+		if self.instruments != contents.instruments:
+			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
 
 		# NOTE:  coinc_segs must be computed the same way the
 		# segment list used to measure live time is computed,
@@ -407,7 +403,7 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		# to contract it on the grounds that it's difficult to
 		# detect things at the edges of segments.
 
-		seglist = contents.seglists.intersection(self.instrument)
+		seglist = contents.seglists.intersection(self.instruments)
 
 		# FIXME: careful, the check for a coincidence will find any
 		# coincidence, no matter which instruments participate.
@@ -462,7 +458,8 @@ FROM
 
 
 def measure_efficiency(filenames, is_a_keeper, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
-	efficiency = Efficiency_hrss_vs_freq(None, (lambda sim, instrument: sim.hrss), 0.1)
+	# FIXME:  instrument is hard-coded.  bad bad bad.  sigh...
+	efficiency = Efficiency_hrss_vs_freq(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), 0.1)
 
 	#
 	# Iterate over injection files.
@@ -579,11 +576,7 @@ efficiency.finish()
 print
 print "== Efficiency Summary ==="
 print "Writing lalapps_excesspowerfinal_efficiency.png ..."
-efficiency.instrument = list(efficiency.instrument)
-efficiency.instrument.sort()
-efficiency.instrument = "+".join(efficiency.instrument)
 SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency).savefig("lalapps_excesspowerfinal_efficiency.png")
-efficiency.instrument = set(efficiency.instrument.split("+"))
 
 print
 print "=== Done ==="
