@@ -179,14 +179,13 @@ FROM
 			# done at zero lag (which is correct, for now, but
 			# watch out for this)
 			if injection_was_made(sim, seglist, self.instruments):
-				for burst in bursts:
-					if burst.ifo in self.instruments:
-						sim.hrss = self.hrss_func(sim, burst.ifo)
-						self.injected_x.append(sim.freq)
-						self.injected_y.append(sim.hrss)
-						if found:
-							self.found_x.append(sim.freq)
-							self.found_y.append(sim.hrss)
+				for instrument in self.instruments:
+					hrss = self.hrss_func(sim, instrument)
+					self.injected_x.append(sim.freq)
+					self.injected_y.append(hrss)
+					if found:
+						self.found_x.append(sim.freq)
+						self.found_y.append(hrss)
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found in %s but not injected..." % (sim.simulation_id, "+".join(self.instruments))
 
