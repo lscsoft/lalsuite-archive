@@ -1114,7 +1114,7 @@ class segmentlistdict(dict):
 		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = ~segmentlist()
+		seglist = segmentlist(self[keys.pop()])
 		for key in keys:
 			seglist &= self[key]
 		return seglist
@@ -1124,8 +1124,11 @@ class segmentlistdict(dict):
 		Return the union of the segmentlists associated with the
 		keys in keys.
 		"""
-		seglist = segmentlist()
-		for key in set(keys):
+		keys = set(keys)
+		if not keys:
+			return segmentlist()
+		seglist = segmentlist(self[keys.pop()])
+		for key in keys:
 			seglist |= self[key]
 		return seglist
 
