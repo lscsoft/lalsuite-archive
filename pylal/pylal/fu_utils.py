@@ -755,7 +755,7 @@ def generateBankVetoBank(fuTrig, ifo,gpsTime,sngl,subBankSize,outputPath=None):
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_test=None):
+def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None):
 
   followups = []
   if coincs:
@@ -773,8 +773,9 @@ def getfollowuptrigs(numtrigs,page,coincs=None,missed=None,search=None,trigbank_
         break
       fuList = followUpList()
       fuList.add_coincs(ckey)
-      fuList.add_page(page)
-      ifo_list = ['H1','H2','L1', 'G1', 'V1','T1']
+      if page:
+        fuList.add_page(page)
+      ifo_list = ['H1','H2','L1','G1','V1','T1']
       for ifo in ifo_list:
         try:
           getattr(ckey,ifo)
