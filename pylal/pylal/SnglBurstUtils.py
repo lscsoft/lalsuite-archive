@@ -136,7 +136,7 @@ class CoincDatabase(object):
 		return self
 
 
-def coinc_sngl_bursts(contents, coinc):
+def coinc_sngl_bursts(contents, coinc_event_id):
 	for values in contents.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
@@ -146,7 +146,7 @@ SELECT sngl_burst.* FROM
 	)
 WHERE
 	coinc_event_map.coinc_event_id == ?
-	""", (coinc.coinc_event_id,)):
+	""", (coinc_event_id,)):
 		yield contents.sngl_burst_table._row_from_cols(values)
 
 
