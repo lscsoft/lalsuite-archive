@@ -560,13 +560,17 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
       if param == 'low-frequency-cutoff': lowCut = value
       if param == 'sample-rate': highCut = str(float(value)/2 - 1.0)
       if param == 'channel-name': channel = value
+      if param == 'gps-end-time': chunk_end = value
+      if param == 'gps-start-time': chunk_start = value
+
     # add the arguments that I know now...
     self.add_var_opt("low-cut", lowCut)
     self.add_var_opt("high-cut", highCut)
+    #self.add_var_opt("high-cut", "1800") # Nelson value
     self.add_var_opt("channel-name", channel) # must be STRAIN ?
     # THIS COALESCENCE TIME INFO IS AD HOC AND NEEDS TO BE IMPROVED
     self.add_var_opt("prior-coal-time-mean", str(trig.gpsTime[ifo]))
-    self.add_var_opt("prior-coal-time-marg",time_margin) # what should this be?
+    self.add_var_opt("prior-coal-time-marg",time_margin)
     self.add_var_opt("random-seed-one", str(trig.gpsTime[ifo]).split('.')[0][5:9])
     self.add_var_opt("random-seed-two", str(trig.gpsTime[ifo]).split('.')[1])
     mass1 = getattr(trig.coincs,ifo).mass1
@@ -578,18 +582,20 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     # THESE CAN HAVE LARGE SYSTEMATIC ERRORS THAT WILL NOT
     # BE CAPTURED BY THIS RIGHT??? I am using two sigma instead of 
     # 1.65 which would be right for the 10/90 !!
-    dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
-    dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
+    #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
+    #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
+    dist90 = 57.*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
+    dist10 = dist90 + 5. 
     # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
     if mass1 < mass2:
-      self.add_var_opt("prior-lower-mass", str(mass1*0.9) )
-      self.add_var_opt("prior-upper-mass", str(mass2*1.1) )
+      self.add_var_opt("prior-lower-mass", str(mass1*0.3) )
+      self.add_var_opt("prior-upper-mass", str(mass2*3.) )
     else:
-      self.add_var_opt("prior-lower-mass", str(mass2*0.9) )
-      self.add_var_opt("prior-upper-mass", str(mass1*1.1) )
+      self.add_var_opt("prior-lower-mass", str(mass2*0.3) )
+      self.add_var_opt("prior-upper-mass", str(mass1*3.) )
     self.add_var_opt("prior-distance-10", str(dist10))
     self.add_var_opt("prior-distance-90", str(dist90))
-    self.add_var_opt("before-coal-time", str(duration))
+    self.add_var_opt("before-coal-time", str(duration*1.2))
     
     ########################################################################
     # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
@@ -613,7 +619,24 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("frame-file-suffix",frameFileSuffix)
     self.add_var_opt("frame-file-size",frameFileSize)
     self.add_var_opt("gps-start-time",gpsStartTime)
- 
+
+    if (float(chunk_end) - trig.gpsTime[ifo]) > 512.:
+      psdSegment = segments.segment(trig.gpsTime[ifo]+256.,trig.gpsTime[ifo]+256.)
+    else:
+      psdSegment = segments.segment(trig.gpsTime[ifo]-384.,trig.gpsTime[ifo]-384.)
+    psdCache = frameCache.sieve(ifo[0],ifo[0],psdSegment)
+    psdFrame = psdCache[0].path()
+    psdFilePath = str.join('/',psdFrame.split('/')[0:-1])
+    psdFile = psdFrame.split('/')[-1]
+    psdFilePrefix = str.join('-',psdFile.split('-')[0:2]+[''])
+    psdFileSuffix = str.join('-',['',psdFile.split('-')[-1]])
+    psdStartTime = psdFile.split('-')[-2]
+    psdFileSize = str(psdCache[0]).split(' ')[3]
+    #self.add_var_opt("psd-file-path",psdFilePath)
+    #self.add_var_opt("psd-file-prefix",psdFilePrefix)
+    #self.add_var_opt("psd-file-suffix",psdFileSuffix)
+    #self.add_var_opt("psd-file-size",psdFileSize)
+    self.add_var_opt("psd-start-time",psdStartTime)
 
     self.id = mcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
     self.setupNodeWeb(mcmcJob)
