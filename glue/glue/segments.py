@@ -978,7 +978,7 @@ class segmentlistdict(dict):
 
 	def __invert__(self):
 		new = self.copy()
-		for key, value in new.iteritems():
+		for key, value in new.items():
 			dict.__setitem__(new, key, ~value)
 		return new
 
@@ -1033,7 +1033,7 @@ class segmentlistdict(dict):
 		segmentlist intersects the corresponding segmentlist in the
 		other;  returns False otherwise.
 		"""
-		if set(self.iterkeys()) != set(other.iterkeys()):
+		if set(self.keys()) != set(other.keys()):
 			return False
 		for key, value in self.iteritems():
 			if not other[key].intersects(value):
@@ -1093,8 +1093,8 @@ class segmentlistdict(dict):
 		This method is equivalent to the intersects() method, but
 		without requiring the keys to match.
 		"""
-		keys1 = set(self.iterkeys())
-		keys2 = set(other.iterkeys())
+		keys1 = set(self.keys())
+		keys2 = set(other.keys())
 		if keys is not None:
 			keys = set(keys)
 			keys1 &= keys
