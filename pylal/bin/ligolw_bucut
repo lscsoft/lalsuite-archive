@@ -196,78 +196,78 @@ def append_process(doc, options):
 		params += [("--coinc-only", "lstring", "")]
 	if options.inj_made_only:
 		params += [("--inj-made-only", "lstring", "")]
-	if options.min_amplitude != None:
+	if options.min_amplitude is not None:
 		options.min_amplitude = float(options.min_amplitude)
 		params += [("--min-amplitude", "real_4", options.min_amplitude)]
-	if options.max_amplitude != None:
+	if options.max_amplitude is not None:
 		options.max_amplitude = float(options.max_amplitude)
 		params += [("--max-amplitude", "real_4", options.max_amplitude)]
-	if options.min_bandwidth != None:
+	if options.min_bandwidth is not None:
 		options.min_bandwidth = float(options.min_bandwidth)
 		params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
-	if options.max_bandwidth != None:
+	if options.max_bandwidth is not None:
 		options.max_bandwidth = float(options.max_bandwidth)
 		params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
-	if options.min_central_freq != None:
+	if options.min_central_freq is not None:
 		options.min_central_freq = float(options.min_central_freq)
 		params += [("--min-central-freq", "real_4", options.min_central_freq)]
-	if options.max_central_freq != None:
+	if options.max_central_freq is not None:
 		options.max_central_freq = float(options.max_central_freq)
 		params += [("--max-central-freq", "real_4", options.max_central_freq)]
-	if options.min_confidence != None:
+	if options.min_confidence is not None:
 		options.min_confidence = float(options.min_confidence)
 		params += [("--min-confidence", "real_4", options.min_confidence)]
-	if options.max_confidence != None:
+	if options.max_confidence is not None:
 		options.max_confidence = float(options.max_confidence)
 		params += [("--max-confidence", "real_4", options.max_confidence)]
-	if options.min_duration != None:
+	if options.min_duration is not None:
 		options.min_duration = float(options.min_duration)
 		params += [("--min-duration", "real_4", options.min_duration)]
-	if options.max_duration != None:
+	if options.max_duration is not None:
 		options.max_duration = float(options.max_duration)
 		params += [("--max-duration", "real_4", options.max_duration)]
-	if options.min_fhigh != None:
+	if options.min_fhigh is not None:
 		options.min_fhigh = float(options.min_fhigh)
 		params += [("--min-fhigh", "real_4", options.min_fhigh)]
-	if options.max_fhigh != None:
+	if options.max_fhigh is not None:
 		options.max_fhigh = float(options.max_fhigh)
 		params += [("--max-fhigh", "real_4", options.max_fhigh)]
-	if options.min_flow != None:
+	if options.min_flow is not None:
 		options.min_flow = float(options.min_flow)
 		params += [("--min-flow", "real_4", options.min_flow)]
-	if options.max_flow != None:
+	if options.max_flow is not None:
 		options.max_flow = float(options.max_flow)
 		params += [("--max-flow", "real_4", options.max_flow)]
-	if options.min_hrss != None:
+	if options.min_hrss is not None:
 		options.min_hrss = float(options.min_hrss)
 		params += [("--min-hrss", "real_4", options.min_hrss)]
-	if options.max_hrss != None:
+	if options.max_hrss is not None:
 		options.max_hrss = float(options.max_hrss)
 		params += [("--max-hrss", "real_4", options.max_hrss)]
 	for instrument in options.cut_instrument:
 		params += [("--cut-instrument", "lstring", instrument)]
-	if options.min_peak_time != None:
+	if options.min_peak_time is not None:
 		options.min_peak_time = lal.LIGOTimeGPS(options.min_peak_time)
 		params += [("--min-peak-time", "lstring", options.min_peak_time)]
-	if options.max_peak_time != None:
+	if options.max_peak_time is not None:
 		options.max_peak_time = lal.LIGOTimeGPS(options.max_peak_time)
 		params += [("--max-peak-time", "lstring", options.max_peak_time)]
-	if options.min_snr != None:
+	if options.min_snr is not None:
 		options.min_snr = float(options.min_snr)
 		params += [("--min-snr", "real_4", options.min_snr)]
-	if options.max_snr != None:
+	if options.max_snr is not None:
 		options.max_snr = float(options.max_snr)
 		params += [("--max-snr", "real_4", options.max_snr)]
-	if options.min_start_time != None:
+	if options.min_start_time is not None:
 		options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
 		params += [("--min-start-time", "lstring", options.min_start_time)]
-	if options.max_start_time != None:
+	if options.max_start_time is not None:
 		options.max_start_time = lal.LIGOTimeGPS(options.max_start_time)
 		params += [("--max-start-time", "lstring", options.max_start_time)]
-	if options.min_stop_time != None:
+	if options.min_stop_time is not None:
 		options.min_stop_time = lal.LIGOTimeGPS(options.min_stop_time)
 		params += [("--min-stop-time", "lstring", options.min_stop_time)]
-	if options.max_stop_time != None:
+	if options.max_stop_time is not None:
 		options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
 		params += [("--max-stop-time", "lstring", options.max_stop_time)]
 	if options.program:
@@ -428,55 +428,55 @@ def keep_this_sngl_burst(burst, options = options):
 	Returns True if the sngl_burst row survives the cuts described by
 	the attributes of the options object.
 	"""
-	if (options.min_amplitude != None) and (burst.amplitude < options.min_amplitude):
+	if (options.min_amplitude is not None) and (burst.amplitude < options.min_amplitude):
 		return False
-	if (options.max_amplitude != None) and (burst.amplitude > options.max_amplitude):
+	if (options.max_amplitude is not None) and (burst.amplitude > options.max_amplitude):
 		return False
-	if (options.min_bandwidth != None) and (burst.bandwidth < options.min_bandwidth):
+	if (options.min_bandwidth is not None) and (burst.bandwidth < options.min_bandwidth):
 		return False
-	if (options.max_bandwidth != None) and (burst.bandwidth > options.max_bandwidth):
+	if (options.max_bandwidth is not None) and (burst.bandwidth > options.max_bandwidth):
 		return False
-	if (options.min_central_freq != None) and (burst.central_freq < options.min_central_freq):
+	if (options.min_central_freq is not None) and (burst.central_freq < options.min_central_freq):
 		return False
-	if (options.max_central_freq != None) and (burst.central_freq > options.max_central_freq):
+	if (options.max_central_freq is not None) and (burst.central_freq > options.max_central_freq):
 		return False
-	if (options.min_confidence != None) and (burst.confidence < options.min_confidence):
+	if (options.min_confidence is not None) and (burst.confidence < options.min_confidence):
 		return False
-	if (options.max_confidence != None) and (burst.confidence > options.max_confidence):
+	if (options.max_confidence is not None) and (burst.confidence > options.max_confidence):
 		return False
-	if (options.min_duration != None) and (burst.duration < options.min_duration):
+	if (options.min_duration is not None) and (burst.duration < options.min_duration):
 		return False
-	if (options.max_duration != None) and (burst.duration > options.max_duration):
+	if (options.max_duration is not None) and (burst.duration > options.max_duration):
 		return False
-	if (options.min_fhigh != None) and (burst.fhigh < options.min_fhigh):
+	if (options.min_fhigh is not None) and (burst.fhigh < options.min_fhigh):
 		return False
-	if (options.max_fhigh != None) and (burst.fhigh > options.max_fhigh):
+	if (options.max_fhigh is not None) and (burst.fhigh > options.max_fhigh):
 		return False
-	if (options.min_flow != None) and (burst.flow < options.min_flow):
+	if (options.min_flow is not None) and (burst.flow < options.min_flow):
 		return False
-	if (options.max_flow != None) and (burst.flow > options.max_flow):
+	if (options.max_flow is not None) and (burst.flow > options.max_flow):
 		return False
-	if (options.min_hrss != None) and (burst.hrss < options.min_hrss):
+	if (options.min_hrss is not None) and (burst.hrss < options.min_hrss):
 		return False
-	if (options.max_hrss != None) and (burst.hrss > options.max_hrss):
+	if (options.max_hrss is not None) and (burst.hrss > options.max_hrss):
 		return False
 	if burst.ifo in options.cut_instrument:
 		return False
-	if (options.min_peak_time != None) and (burst.get_peak() < options.min_peak_time):
+	if (options.min_peak_time is not None) and (burst.get_peak() < options.min_peak_time):
 		return False
-	if (options.max_peak_time != None) and (burst.get_peak() > options.max_peak_time):
+	if (options.max_peak_time is not None) and (burst.get_peak() > options.max_peak_time):
 		return False
-	if (options.min_snr != None) and (burst.snr < options.min_snr):
+	if (options.min_snr is not None) and (burst.snr < options.min_snr):
 		return False
-	if (options.max_snr != None) and (burst.snr > options.max_snr):
+	if (options.max_snr is not None) and (burst.snr > options.max_snr):
 		return False
-	if (options.min_start_time != None) and (burst.get_start() < options.min_start_time):
+	if (options.min_start_time is not None) and (burst.get_start() < options.min_start_time):
 		return False
-	if (options.max_start_time != None) and (burst.get_start() > options.max_start_time):
+	if (options.max_start_time is not None) and (burst.get_start() > options.max_start_time):
 		return False
-	if (options.min_stop_time != None) and (burst.get_stop() < options.min_stop_time):
+	if (options.min_stop_time is not None) and (burst.get_stop() < options.min_stop_time):
 		return False
-	if (options.max_stop_time != None) and (burst.get_stop() > options.max_stop_time):
+	if (options.max_stop_time is not None) and (burst.get_stop() > options.max_stop_time):
 		return False
 	return True
 
