@@ -322,7 +322,7 @@ class CacheEntry(object):
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
 	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
-	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/]+)\.[^/]+)\Z")
+	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/\.]+)\.[^/]+)\Z")
 	# My old regex from lalapps_path2cache, in case it's needed
 	#_url_regex = re.compile(r"\s*(?P<observatory>[^-]+)-(?P<description>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
 
@@ -445,7 +445,7 @@ class CacheEntry(object):
 		"""
 		Parse a URL a la T050017-00 into a CacheEntry. In short:
 
-		ifos-description-start-dur.xml
+		ifos-description-start-dur.ext
 		"""
 		match = cls._url_regex.search(url)
 		if not match:
