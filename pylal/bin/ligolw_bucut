@@ -32,13 +32,13 @@ from optparse import OptionParser
 import sys
 
 
-from glue import lal
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
+from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -64,22 +64,22 @@ def parse_command_line():
 	parser.add_option("--coinc-only", action = "store_true", help = "Discard events that are not participating in a coincident event.")
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be recorded in the process table for this job (default = \"\").")
 	parser.add_option("--inj-made-only", action = "store_true", help = "Discard injections outside the search summary out segments.")
-	parser.add_option("--min-amplitude", metavar = "value", help = "Discard events below the given amplitude.")
-	parser.add_option("--max-amplitude", metavar = "value", help = "Discard events above the given amplitude.")
-	parser.add_option("--min-bandwidth", metavar = "Hz", help = "Discard events narrower than the given bandwidth.")
-	parser.add_option("--max-bandwidth", metavar = "Hz", help = "Discard events wider than the given bandwidth.")
-	parser.add_option("--min-central-freq", metavar = "Hz", help = "Discard events with central frequency lower than that given.")
-	parser.add_option("--max-central-freq", metavar = "Hz", help = "Discard events with central frequency higher than that given.")
-	parser.add_option("--min-confidence", metavar = "value", help = "Discard events below the given confidence.")
-	parser.add_option("--max-confidence", metavar = "value", help = "Discard events above the given confidence.")
-	parser.add_option("--min-duration", metavar = "seconds", help = "Discard events shorter than the given duration.")
-	parser.add_option("--max-duration", metavar = "seconds", help = "Discard events longer than the given duration.")
-	parser.add_option("--min-fhigh", metavar = "Hz", help = "Discard events with highest frequency below the given frequency.")
-	parser.add_option("--max-fhigh", metavar = "Hz", help = "Discard events with highest frequency above the given frequency.")
-	parser.add_option("--min-flow", metavar = "Hz", help = "Discard events with lowest frequency below the given frequency.")
-	parser.add_option("--max-flow", metavar = "Hz", help = "Discard events with loest frequency above the given frequency.")
-	parser.add_option("--min-hrss", metavar = "value", help = "Discard events with h_rss below the given value.")
-	parser.add_option("--max-hrss", metavar = "value", help = "Discard events with h_rss above the given value.")
+	parser.add_option("--min-amplitude", metavar = "value", type = "float", help = "Discard events below the given amplitude.")
+	parser.add_option("--max-amplitude", metavar = "value", type = "float", help = "Discard events above the given amplitude.")
+	parser.add_option("--min-bandwidth", metavar = "Hz", type = "float", help = "Discard events narrower than the given bandwidth.")
+	parser.add_option("--max-bandwidth", metavar = "Hz", type = "float", help = "Discard events wider than the given bandwidth.")
+	parser.add_option("--min-central-freq", metavar = "Hz", type = "float", help = "Discard events with central frequency lower than that given.")
+	parser.add_option("--max-central-freq", metavar = "Hz", type = "float", help = "Discard events with central frequency higher than that given.")
+	parser.add_option("--min-confidence", metavar = "value", type = "float", help = "Discard events below the given confidence.")
+	parser.add_option("--max-confidence", metavar = "value", type = "float", help = "Discard events above the given confidence.")
+	parser.add_option("--min-duration", metavar = "seconds", type = "float", help = "Discard events shorter than the given duration.")
+	parser.add_option("--max-duration", metavar = "seconds", type = "float", help = "Discard events longer than the given duration.")
+	parser.add_option("--min-fhigh", metavar = "Hz", type = "float", help = "Discard events with highest frequency below the given frequency.")
+	parser.add_option("--max-fhigh", metavar = "Hz", type = "float", help = "Discard events with highest frequency above the given frequency.")
+	parser.add_option("--min-flow", metavar = "Hz", type = "float", help = "Discard events with lowest frequency below the given frequency.")
+	parser.add_option("--max-flow", metavar = "Hz", type = "float", help = "Discard events with loest frequency above the given frequency.")
+	parser.add_option("--min-hrss", metavar = "value", type = "float", help = "Discard events with h_rss below the given value.")
+	parser.add_option("--max-hrss", metavar = "value", type = "float", help = "Discard events with h_rss above the given value.")
 	parser.add_option("--cut-instrument", metavar = "name", action = "append", default = [], help = "Discard events from given instrument.")
 	parser.add_option("--min-peak-time", metavar = "seconds", help = "Discard events with peak time before the given GPS time.")
 	parser.add_option("--max-peak-time", metavar = "seconds", help = "Discard events with peak time after the given GPS time.")
@@ -87,8 +87,8 @@ def parse_command_line():
 	parser.add_option("--max-start-time", metavar = "seconds", help = "Discard events starting after the given GPS time.")
 	parser.add_option("--min-stop-time", metavar = "seconds", help = "Discard events ending before the given GPS time.")
 	parser.add_option("--max-stop-time", metavar = "seconds", help = "Discard events ending after the given GPS time.")
-	parser.add_option("--min-snr", metavar = "value", help = "Discard events below the given SNR.")
-	parser.add_option("--max-snr", metavar = "value", help = "Discard events above the given SNR.")
+	parser.add_option("--min-snr", metavar = "value", type = "float", help = "Discard events below the given SNR.")
+	parser.add_option("--max-snr", metavar = "value", type = "float", help = "Discard events above the given SNR.")
 	parser.add_option("--program", metavar = "name", help = "Process events generated by the given program.")
 	parser.add_option("--veto-file", metavar = "filename", help = "Veto events using the veto segment list extracted from this XML file.  The file must contain segment tables, and the veto list will be constructed from the segments named \"sngl_burst_veto\".")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -97,6 +97,13 @@ def parse_command_line():
 	if options.inj_made_only and not options.program:
 		raise ValueError, "must set --program when --inj-made-only is set"
 	options.cut_instrument = set(options.cut_instrument)
+
+	options.min_peak_time = LIGOTimeGPS(options.min_peak_time)
+	options.max_peak_time = LIGOTimeGPS(options.max_peak_time)
+	options.min_start_time = LIGOTimeGPS(options.min_start_time)
+	options.max_start_time = LIGOTimeGPS(options.max_start_time)
+	options.min_stop_time = LIGOTimeGPS(options.min_stop_time)
+	options.max_stop_time = LIGOTimeGPS(options.max_stop_time)
 
 	return options, (filenames or [None])
 
@@ -197,78 +204,54 @@ def append_process(doc, options):
 	if options.inj_made_only:
 		params += [("--inj-made-only", "lstring", "")]
 	if options.min_amplitude is not None:
-		options.min_amplitude = float(options.min_amplitude)
 		params += [("--min-amplitude", "real_4", options.min_amplitude)]
 	if options.max_amplitude is not None:
-		options.max_amplitude = float(options.max_amplitude)
 		params += [("--max-amplitude", "real_4", options.max_amplitude)]
 	if options.min_bandwidth is not None:
-		options.min_bandwidth = float(options.min_bandwidth)
 		params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
 	if options.max_bandwidth is not None:
-		options.max_bandwidth = float(options.max_bandwidth)
 		params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
 	if options.min_central_freq is not None:
-		options.min_central_freq = float(options.min_central_freq)
 		params += [("--min-central-freq", "real_4", options.min_central_freq)]
 	if options.max_central_freq is not None:
-		options.max_central_freq = float(options.max_central_freq)
 		params += [("--max-central-freq", "real_4", options.max_central_freq)]
 	if options.min_confidence is not None:
-		options.min_confidence = float(options.min_confidence)
 		params += [("--min-confidence", "real_4", options.min_confidence)]
 	if options.max_confidence is not None:
-		options.max_confidence = float(options.max_confidence)
 		params += [("--max-confidence", "real_4", options.max_confidence)]
 	if options.min_duration is not None:
-		options.min_duration = float(options.min_duration)
 		params += [("--min-duration", "real_4", options.min_duration)]
 	if options.max_duration is not None:
-		options.max_duration = float(options.max_duration)
 		params += [("--max-duration", "real_4", options.max_duration)]
 	if options.min_fhigh is not None:
-		options.min_fhigh = float(options.min_fhigh)
 		params += [("--min-fhigh", "real_4", options.min_fhigh)]
 	if options.max_fhigh is not None:
-		options.max_fhigh = float(options.max_fhigh)
 		params += [("--max-fhigh", "real_4", options.max_fhigh)]
 	if options.min_flow is not None:
-		options.min_flow = float(options.min_flow)
 		params += [("--min-flow", "real_4", options.min_flow)]
 	if options.max_flow is not None:
-		options.max_flow = float(options.max_flow)
 		params += [("--max-flow", "real_4", options.max_flow)]
 	if options.min_hrss is not None:
-		options.min_hrss = float(options.min_hrss)
 		params += [("--min-hrss", "real_4", options.min_hrss)]
 	if options.max_hrss is not None:
-		options.max_hrss = float(options.max_hrss)
 		params += [("--max-hrss", "real_4", options.max_hrss)]
 	for instrument in options.cut_instrument:
 		params += [("--cut-instrument", "lstring", instrument)]
 	if options.min_peak_time is not None:
-		options.min_peak_time = lal.LIGOTimeGPS(options.min_peak_time)
 		params += [("--min-peak-time", "lstring", options.min_peak_time)]
 	if options.max_peak_time is not None:
-		options.max_peak_time = lal.LIGOTimeGPS(options.max_peak_time)
 		params += [("--max-peak-time", "lstring", options.max_peak_time)]
 	if options.min_snr is not None:
-		options.min_snr = float(options.min_snr)
 		params += [("--min-snr", "real_4", options.min_snr)]
 	if options.max_snr is not None:
-		options.max_snr = float(options.max_snr)
 		params += [("--max-snr", "real_4", options.max_snr)]
 	if options.min_start_time is not None:
-		options.min_start_time = lal.LIGOTimeGPS(options.min_start_time)
 		params += [("--min-start-time", "lstring", options.min_start_time)]
 	if options.max_start_time is not None:
-		options.max_start_time = lal.LIGOTimeGPS(options.max_start_time)
 		params += [("--max-start-time", "lstring", options.max_start_time)]
 	if options.min_stop_time is not None:
-		options.min_stop_time = lal.LIGOTimeGPS(options.min_stop_time)
 		params += [("--min-stop-time", "lstring", options.min_stop_time)]
 	if options.max_stop_time is not None:
-		options.max_stop_time = lal.LIGOTimeGPS(options.max_stop_time)
 		params += [("--max-stop-time", "lstring", options.max_stop_time)]
 	if options.program:
 		params += [("--program", "lstring", options.program)]
@@ -276,7 +259,7 @@ def append_process(doc, options):
 		params += [("--veto-file", "lstring", options.veto_file)]
 	llwapp.append_process_params(doc, process, params)
 
-	return process, options
+	return process
 
 
 #
@@ -298,11 +281,11 @@ def remove_events_by_segment(contents, veto_segments):
 	return ids
 
 
-def remove_events_by_parameters(contents):
+def remove_events_by_parameters(contents, testfunc):
 	ids = set()
 	for i in xrange(len(contents.snglbursttable) - 1, -1, -1):
 		burst = contents.snglbursttable[i]
-		if burst.process_id in contents.process_ids and not keep_this_sngl_burst(burst):
+		if burst.process_id in contents.process_ids and not testfunc(burst):
 			ids.add(burst.event_id)
 			del contents.snglbursttable[i]
 	return ids
@@ -364,7 +347,7 @@ def clean_coinc_tables(contents, removed_ids):
 #
 
 
-def apply_filters(contents, veto_segments, del_non_coincs = False, del_skipped_injections = False, verbose = False):
+def apply_filters(contents, burst_test_func, veto_segments, del_non_coincs = False, del_skipped_injections = False, verbose = False):
 	removed_ids = set()
 	if veto_segments:
 		if verbose:
@@ -372,7 +355,7 @@ def apply_filters(contents, veto_segments, del_non_coincs = False, del_skipped_i
 		removed_ids |= remove_events_by_segment(contents, veto_segments)
 	if verbose:
 		print >>sys.stderr, "filtering sngl_burst rows by parameters ..."
-	removed_ids |= remove_events_by_parameters(contents)
+	removed_ids |= remove_events_by_parameters(contents, burst_test_func)
 	if del_skipped_injections:
 		if verbose:
 			print >>sys.stderr, "removing injections that weren't performed ..."
@@ -386,12 +369,12 @@ def apply_filters(contents, veto_segments, del_non_coincs = False, del_skipped_i
 		remove_non_coincidences(contents)
 
 
-def ligolw_bucut(xmldoc, options, veto_segments = segments.segmentlistdict(), program = None, verbose = False):
+def ligolw_bucut(xmldoc, options, burst_test_func, veto_segments = segments.segmentlistdict(), del_non_coincs = False, del_skipped_injections = False, program = None, verbose = False):
 	contents = DocContents(xmldoc, program)
 
-	process, options = append_process(xmldoc, options)
+	process = append_process(xmldoc, options)
 
-	apply_filters(contents, veto_segments, del_non_coincs = options.coinc_only, del_skipped_injections = options.inj_made_only, verbose = verbose)
+	apply_filters(contents, burst_test_func, veto_segments, del_non_coincs = del_non_coincs, del_skipped_injections = del_skipped_injections, verbose = verbose)
 
 	llwapp.set_process_end_time(process)
 
@@ -423,62 +406,68 @@ options, filenames = parse_command_line()
 #
 
 
-def keep_this_sngl_burst(burst, options = options):
-	"""
-	Returns True if the sngl_burst row survives the cuts described by
-	the attributes of the options object.
-	"""
-	if (options.min_amplitude is not None) and (burst.amplitude < options.min_amplitude):
-		return False
-	if (options.max_amplitude is not None) and (burst.amplitude > options.max_amplitude):
-		return False
-	if (options.min_bandwidth is not None) and (burst.bandwidth < options.min_bandwidth):
-		return False
-	if (options.max_bandwidth is not None) and (burst.bandwidth > options.max_bandwidth):
-		return False
-	if (options.min_central_freq is not None) and (burst.central_freq < options.min_central_freq):
-		return False
-	if (options.max_central_freq is not None) and (burst.central_freq > options.max_central_freq):
-		return False
-	if (options.min_confidence is not None) and (burst.confidence < options.min_confidence):
-		return False
-	if (options.max_confidence is not None) and (burst.confidence > options.max_confidence):
-		return False
-	if (options.min_duration is not None) and (burst.duration < options.min_duration):
-		return False
-	if (options.max_duration is not None) and (burst.duration > options.max_duration):
-		return False
-	if (options.min_fhigh is not None) and (burst.fhigh < options.min_fhigh):
-		return False
-	if (options.max_fhigh is not None) and (burst.fhigh > options.max_fhigh):
-		return False
-	if (options.min_flow is not None) and (burst.flow < options.min_flow):
-		return False
-	if (options.max_flow is not None) and (burst.flow > options.max_flow):
-		return False
-	if (options.min_hrss is not None) and (burst.hrss < options.min_hrss):
-		return False
-	if (options.max_hrss is not None) and (burst.hrss > options.max_hrss):
-		return False
-	if burst.ifo in options.cut_instrument:
-		return False
-	if (options.min_peak_time is not None) and (burst.get_peak() < options.min_peak_time):
-		return False
-	if (options.max_peak_time is not None) and (burst.get_peak() > options.max_peak_time):
-		return False
-	if (options.min_snr is not None) and (burst.snr < options.min_snr):
-		return False
-	if (options.max_snr is not None) and (burst.snr > options.max_snr):
-		return False
-	if (options.min_start_time is not None) and (burst.get_start() < options.min_start_time):
-		return False
-	if (options.max_start_time is not None) and (burst.get_start() > options.max_start_time):
-		return False
-	if (options.min_stop_time is not None) and (burst.get_stop() < options.min_stop_time):
-		return False
-	if (options.max_stop_time is not None) and (burst.get_stop() > options.max_stop_time):
-		return False
-	return True
+def make_keep_this_sngl_burst(options):
+	def add_test(func, t):
+		return lambda arg: t and func(arg)
+
+	keep_this_sngl_burst = lambda burst: True
+
+	if options.min_amplitude is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.amplitude >= options.min_amplitude)
+	if options.max_amplitude is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.amplitude <= options.max_amplitude)
+	if options.min_bandwidth is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.bandwidth >= options.min_bandwidth)
+	if options.max_bandwidth is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.bandwidth <= options.max_bandwidth)
+	if options.min_central_freq is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.central_freq >= options.min_central_freq)
+	if options.max_central_freq is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.central_freq <= options.max_central_freq)
+	if options.min_confidence is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.confidence >= options.min_confidence)
+	if options.max_confidence is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.confidence <= options.max_confidence)
+	if options.min_duration is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.duration >= options.min_duration)
+	if options.max_duration is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.duration <= options.max_duration)
+	if options.min_fhigh is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.fhigh >= options.min_fhigh)
+	if options.max_fhigh is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.fhigh <= options.max_fhigh)
+	if options.min_flow is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.flow >= options.min_flow)
+	if options.max_flow is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.flow <= options.max_flow)
+	if options.min_hrss is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.hrss >= options.min_hrss)
+	if options.max_hrss is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.hrss <= options.max_hrss)
+	if options.min_snr is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.snr >= options.min_snr)
+	if options.max_snr is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.snr <= options.max_snr)
+	if options.cut_instrument:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.ifo not in options.cut_instrument)
+	if options.min_peak_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_peak() >= options.min_peak_time)
+	if options.max_peak_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_peak() <= options.max_peak_time)
+	if options.min_start_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_start() >= options.min_start_time)
+	if options.max_start_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_start() <= options.max_start_time)
+	if options.min_stop_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_stop() >= options.min_stop_time)
+	if options.max_stop_time is not None:
+		keep_this_sngl_burst = add_test(keep_this_sngl_burst, lambda burst: burst.get_stop() <= options.max_stop_time)
+
+	return keep_this_sngl_burst
+
+
+keep_this_sngl_burst = make_keep_this_sngl_burst(options)
+
 
 
 #
@@ -500,6 +489,6 @@ else:
 for filename in filenames:
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
 	lsctables.table.InterningRowBuilder.strings.clear()
-	xmldoc = ligolw_bucut(xmldoc, options, veto_segments = veto_segments, program = options.program, verbose = options.verbose)
+	xmldoc = ligolw_bucut(xmldoc, options, keep_this_sngl_burst, veto_segments = veto_segments, del_non_coincs = options.coinc_only, del_skipped_injections = options.inj_made_only, program = options.program, verbose = options.verbose)
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
