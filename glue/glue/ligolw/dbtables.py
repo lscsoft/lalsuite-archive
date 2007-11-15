@@ -650,16 +650,14 @@ class CoincDefTable(DBTable):
 
 	def as_dict(self):
 		"""
-		Return a dictionary mapping coinc_def_id to sorted lists of
+		Return a dictionary mapping coinc_def_id to sets of
 		contributing table names.
 		"""
 		d = {}
 		for id, table_name in self.cursor.execute("SELECT coinc_def_id, table_name FROM coinc_definer"):
 			if id not in d:
-				d[id] = []
-			d[id].append(table_name)
-		for l in d.itervalues():
-			l.sort()
+				d[id] = set()
+			d[id].add(table_name)
 		return d
 
 	def get_coinc_def_id(self, table_names, create_new = True):
@@ -670,9 +668,7 @@ class CoincDefTable(DBTable):
 		one is created and the ID returned, unless create_new is
 		False in which case the KeyError is raised.
 		"""
-		# sort the contributor table names
-		table_names = list(table_names)
-		table_names.sort()
+		table_names = set(table_names)
 
 		# look for the ID
 		for id, names in self.as_dict().iteritems():

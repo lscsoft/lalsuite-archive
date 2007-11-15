@@ -1739,18 +1739,16 @@ class CoincDefTable(table.Table):
 
 	def as_dict(self):
 		"""
-		Return a dictionary mapping coinc_def_id to sorted lists of
+		Return a dictionary mapping coinc_def_id to sets of
 		contributing table names.
 		"""
 		d = {}
 		for row in self:
 			if row.coinc_def_id not in d:
-				d[row.coinc_def_id] = []
+				d[row.coinc_def_id] = set()
 			if row.table_name in d[row.coinc_def_id]:
 				raise KeyError, "%s: duplicate table_name %s" % (row.coinc_def_id, row.table_name)
-			d[row.coinc_def_id].append(row.table_name)
-		for l in d.itervalues():
-			l.sort()
+			d[row.coinc_def_id].add(row.table_name)
 		return d
 
 	def get_coinc_def_id(self, table_names, create_new = True):
@@ -1761,9 +1759,7 @@ class CoincDefTable(table.Table):
 		one is created and the ID returned, unless create_new is
 		False in which case the KeyError is raised.
 		"""
-		# sort the contributor table names
-		table_names = list(table_names)
-		table_names.sort()
+		table_names = set(table_names)
 
 		# look for the ID
 		for id, names in self.as_dict().iteritems():
