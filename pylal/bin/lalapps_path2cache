@@ -107,8 +107,8 @@ total_duration = 0
 
 for line in input:
 	path, file = os.path.split(line.strip())
-	cache_entry = lal.CacheEntry.from_T050017(file)
-	#cache_entry.url = "file://localhost%s" % os.path.abspath(os.path.join(path, file)
+	url = "file://localhost%s" % os.path.abspath(os.path.join(path, file))
+	cache_entry = lal.CacheEntry.from_T050017(url)
 	print >>output, str(cache_entry)
 	path_count += 1
 	total_duration += abs(cache_entry.segment)
