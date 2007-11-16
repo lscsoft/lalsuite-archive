@@ -19,12 +19,12 @@ import os.path as p
 import sys
 
 from lalapps import inspiral
+from lalapps import inspiralutils
 from glue import lal
 from glue import segments, segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-
 from pylal import grbsummary
 
 def get_options():
@@ -45,7 +45,7 @@ def get_options():
     parser.add_option("-l", "--log-path",
         help="directory in which to place Condor logs")
     parser.add_option("-C", "--xml-cache",
-        help="cache file containing all XML outputs from the trigger_hipe pipeline")
+        help="name of the cache file containing all XML outputs from each trigger_hipe pipeline")
 
     # mode parameters - their presence turns on a feature
     parser.add_option("-d", "--dq-file", help="get data quality mask from file")
@@ -117,6 +117,9 @@ def initialize_jobs_nodes_descr(cp):
     return job_dict, node_class_dict, descr_dict
 
 def write_masked_segments(exttrig_time, exttrig_dir, before_time, after_time):
+    # load all analyzable segments
+    analyzable_seglist = segmentsUtils.fromsegwizard(open(opts.analyzable_segfile))
+
     # determine on-source and off-source intervals for the external trigger
     on_source_seg = segments.segment(exttrig_time-before_time,
                                      exttrig_time+after_time)
@@ -127,6 +130,11 @@ def write_masked_segments(exttrig_time, exttrig_dir, before_time, after_time):
     segmentsUtils.tosegwizard(open(full_filename, "w"), segments.segmentlist([full_seg]))
     on_source_filename = "%s/on_source_segs.txt" % exttrig_dir
     segmentsUtils.tosegwizard(open(on_source_filename, "w"), segments.segmentlist([on_source_seg]))
+
+    # get DQ info
+    dq_veto_seglist = segments.segmentlist()  # FIXME
+    dq_veto_filename = "dq_veto.txt"
+    segmentsUtils.tosegwizard(open(dq_veto_filename, "w"), dq_veto_seglist)
 
     # generate on-source and off-source veto segmentlists
     on_source_veto_segs, off_source_veto_segs = \
@@ -151,7 +159,7 @@ def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
     
     TODO: allow veto files
     """
-    cache_filename = "%s/%s.cache" % (exttrig_dir, description)
+    cache_filename = description + ".cache"
     cache = source_cache.sieve(description=description)
     
     if len(cache) == 0:
@@ -187,14 +195,6 @@ if __name__ == "__main__":
     if exttrig_gps_times is None:
         print >>sys.stderr, "No tables named external_trigger:table found in %s" % opts.ext_trig_xml
     
-    # load all analyzable segments
-    analyzable_seglist = segmentsUtils.fromsegwizard(open(opts.analyzable_segfile))
-    
-    # get DQ info
-    dq_veto_seglist = segments.segmentlist()  # FIXME
-    dq_veto_filename = "dq_veto.txt"
-    segmentsUtils.tosegwizard(open(dq_veto_filename, "w"), dq_veto_seglist)
-    
     # initialize DAG
     if opts.verbose:
         print "Initializing DAG and plotting Jobs"
@@ -206,20 +206,22 @@ if __name__ == "__main__":
     
     ### Loop over GRBs
     for exttrig_time in exttrig_gps_times:
+        ### Setup directory
         exttrig_dir = "GRB%d" % exttrig_time
-        os.mkdir(exttrig_dir)
+        inspiralutils.mkdir(exttrig_dir)
+        os.chdir(exttrig_dir)
+        
         if opts.verbose:
             print "Designing workflow for %s" % exttrig_dir
         
         ### Fetch cache of files
-        cache = lal.Cache.fromfilenames(glob.glob(opts.xml_cache),
-                                        coltype=int).unique()
+        cache = lal.Cache.fromfile(open(opts.xml_cache), coltype=int).unique()
         
         ### Determine and write segments
-        on_source_veto_filename, off_source_veto_filename = \
-            write_masked_segments(exttrig_time, exttrig_dir,
-                                  opts.search_before_trigger,
-                                  opts.search_after_trigger)
+        # on_source_veto_filename, off_source_veto_filename = \
+        #     write_masked_segments(exttrig_time, exttrig_dir,
+        #                           opts.search_before_trigger,
+        #                           opts.search_after_trigger)
         
         ### Design Workflow
         for plot_type in plots_to_do:
@@ -227,8 +229,9 @@ if __name__ == "__main__":
             node_class = node_class_dict[plot_type]
             job = job_dict[plot_type]
             
-            prepare_node(exttrig_dir, cache, descr+"_FIRST", node_class, job, dag)
-            prepare_node(exttrig_dir, cache, descr+"_SECOND", node_class, job, dag)
+            prepare_node(cache, descr+"_FIRST", node_class, job, dag)
+            prepare_node(cache, descr+"_SECOND", node_class, job, dag)
+        os.chdir("..")
 
     ### Write DAG
     dag.write_sub_files()
