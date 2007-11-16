@@ -1,9 +1,11 @@
 #!/usr/bin/python
 
-# $Id$
+__Id__ = "$Id$"
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__name__ = "plotinjnum"
+__title__ = "Found and Missed Plots"
 
 import sys
 import os
@@ -18,8 +20,148 @@ from glue import lal
 from pylal import SimInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
+from pylal import InspiralUtils
 
 ##############################################################################
+
+def found_missed(opts,foundFiles,missedFiles):
+  """
+  """
+  statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
+  coincTriggers = CoincInspiralUtils.coincInspiralTable()
+  for file in foundFiles:
+    file = [file]
+    simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
+    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True)
+    # construct the coincs
+    fileCoincTriggers = \
+      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+    fileCoincTriggers.add_sim_inspirals(simFound)
+    for coinc in fileCoincTriggers:
+      coincTriggers.append(coinc)
+
+  missed = [[],[],[],[]]
+  for file in missedFiles:
+    file = [file]
+    simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
+    for sim in simMissed:
+      missed[0].append(sim.mchirp)
+      missed[1].append(sim.end_time_gmst)
+      missed[2].append(sim.eff_dist_h)
+      missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
+  
+  doubles = [[],[],[],[]]
+  triples = [[],[],[],[]]
+  for coinc in coincTriggers:
+    if coinc.numifos == 2:
+      doubles[0].append(coinc.sim.mchirp)
+      doubles[1].append(coinc.sim.end_time_gmst)
+      doubles[2].append(coinc.sim.eff_dist_h)
+      doubles[3].append(coinc.sim.eff_dist_h* \
+                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+    if coinc.numifos == 3:
+      triples[0].append(coinc.sim.mchirp)
+      triples[1].append(coinc.sim.end_time_gmst)
+      triples[2].append(coinc.sim.eff_dist_h)
+      triples[3].append(coinc.sim.eff_dist_h* \
+                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+
+  return missed, doubles, triples
+
+
+def plot_found_missed(opts, missed, doubles, triples):
+  
+  if opts.enable_output is True:
+     output_cachefile_name = []
+     colors = InspiralUtils.colors
+     prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
+     text = InspiralUtils.writeProcessParams( __name__, __version__, args)
+ 
+  figure(1)
+  semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'cx',missed[0],missed[2],'rx')
+  grid()
+  title('Found and Missed Injections')
+  xlabel('mchirp',size='x-large')
+  ylabel('eff_dist',size='x-large')
+  legend(('triples','doubles','missed'),loc=0)
+  if not opts.enable_output is True:
+     fig_mchirp = opts.ifo_type + '_missed_found_vs_mchirp.png'
+     savefig(fig_mchirp)
+  
+  if opts.enable_output is True:
+     fig_mchirp = prefix + suffix + "_missed_found_vs_mchirp" + ".png"
+     savefig(fig_mchirp)
+     output_cachefile_name.append(fig_mchirp)
+
+  figure(2)
+  semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'cx',missed[1],missed[2],'rx')
+  grid()
+  title('Found and Missed Injections')
+  xlabel('end_time_gmst',size='x-large')
+  ylabel('eff_dist',size='x-large')
+  legend(('triples','doubles','missed'),loc=0)
+  if not opts.enable_output is True:
+     fig_endtime = opts.ifo_type + '_missed_found_vs_mchirp.png'
+     savefig(fig_endtime)
+  
+  if opts.enable_output is True:
+     fig_endtime = prefix + suffix + "_missed_found_vs_end_time" + ".png"
+     savefig(fig_endtime)
+     output_cachefile_name.append(fig_endtime)
+     
+  figure(3)
+  semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'cx',missed[0],missed[3],'rx')
+  grid()
+  title('Found and Missed Injections')
+  xlabel('mchirp',size='x-large')
+  ylabel('chirp_dist',size='x-large')
+  legend(('triples','doubles','missed'),loc=0)
+  if not opts.enable_output is True:
+     fig_chirpdist = opts.ifo_type + '_missed_found_vs_mchirp.png'
+     savefig(fig_chirpdist)
+
+  if opts.enable_output is True:
+     fig_chirpdist = prefix + suffix + "_missed_found_chirp_dist_vs_mchirp" + ".png"
+     savefig(fig_chirpdist)
+     output_cachefile_name.append(fig_chirpdist)
+  
+  
+  if opts.enable_output is True:
+     # Initialise the webpage using init page
+     page, extra = InspiralUtils.init_markup_page(opts)
+     # Initialise filename
+     html_filename = prefix[0:len(prefix)-1] + suffix + ".html"
+     html_file = file(html_filename, "w")
+     # set outputc_cache properly: make sure there is a slash
+     if len(opts.output_path)>1:
+       opts.output_path = opts.output_path + '/'
+     for fname in  output_cachefile_name:
+       page.a(extra.img(src=[opts.output_path + fname], width=400, \
+       alt=text, border="2"),title=text, href=[opts.output_path + fname])
+       page.add(text)
+       
+     html_file.write(page(False))
+     html_file.close()
+
+     output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+     this = open(output_cache_name, 'w')
+     this.write(html_filename + '\n')
+     for fname in  output_cachefile_name:
+       this.write(fname + '\n')
+     this.close()
+
+  else:
+     fname = []
+
+  if opts.enable_output is True:
+     return this, page
+  else:
+     return fig_mchirp, fig_endtime, fig_chirpdist
+ 
+##############################################################################
+# Defining a config parser function
+##############################################################################
+
 usage = """
 usage: %prog [options]
 
@@ -27,30 +169,58 @@ Injection Plotting Function
 
 Generates plots showing the number of IFOs an injection is found in
 """
+def parse_command_line():
 
-parser = OptionParser( usage=usage, version="" )
-parser.add_option("-g","--found-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",\
-    help="GLOB of FOUND injection files to read" )
-parser.add_option("-m","--missed-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",\
-    help="GLOB of MISSED injection files to read" )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" )
-parser.add_option("-S","--statistic",action="store",default='snr',\
-    type="string",\
-    help="choice of statistic used in making plots, valid arguments are: "
+  parser = OptionParser( usage=usage, \
+      version="%prog CVS\n" + 
+      "$Id$\n" + 
+      "Name: $\n") 
+  parser.add_option("-g","--found-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",\
+      help="GLOB of FOUND injection files to read" )
+  parser.add_option("-m","--missed-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",\
+      help="GLOB of MISSED injection files to read" )
+  parser.add_option("-S","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
-parser.add_option("-I","--input-file",action="store",type="string",\
-    default=None, metavar=" INPUT",\
-    help="input file to read Cache file" )
-parser.add_option("-i","--ifo-type",action="store",type="string",\
-    default=None,  help="selects the ifo type for sieve for" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
+  parser.add_option("-I","--cache-input",action="store",type="string",\
+      default=None, metavar=" CACHE_INPUT",\
+      help="input file to read Cache file" )
+  parser.add_option("-i","--ifo-type",action="store",type="string",\
+      default=None,  help="selects the ifo type for sieve for" )
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="" )
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("-t","--ifo-times",action="store",\
+      type="string",  metavar=" IFOTIMES",\
+      help="ifo times is used as prefix for the output files ")
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
 
-(opts,args) = parser.parse_args()
+  command_line = sys.argv[1:]
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+
+opts, args = parse_command_line()
+# Initialise figure number for saving figure
+# Creating an empty cache file name list
 
 if not opts.show_plot:
   import matplotlib
@@ -58,95 +228,57 @@ if not opts.show_plot:
 from pylab import *
 from pylal import viz
 
-
+##############################################################################
+# Checking for found files and missed files.
+##############################################################################
 
 
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
-elif opts.input_file:
-  files =  lal.Cache.fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, exact_match=True)
+  if opts.verbose:
+     print " ...reading the following list of found files " + str(foundFiles) + "\n"
+
+elif opts.cache_input:
+  files =  lal.Cache.fromfile(open(opts.cache_input)).sieve(ifos=opts.ifo_type, exact_match=True)
   foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
+  print foundFiles
+  if opts.verbose:
+      print " ...reading the following list of found files " + str(foundFiles) + "\n"
+
 else:
   print >>sys.stderr, "Must specify a glob of FOUND injections"
   sys.exit(1)
 
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
-elif opts.input_file:
-   files =  lal.Cache.fromfile(open(opts.input_file)).sieve(ifos=opts.ifo_type, exact_match=True)
+   if opts.verbose:
+      print " ...reading the following list of missed files " + str(missedFiles) + "\n"
+
+elif opts.cache_input:
+   files =  lal.Cache.fromfile(open(opts.cache_input)).sieve(ifos=opts.ifo_type, exact_match=True)
    missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
+   if opts.verbose:
+      print " ...reading the following list of missed files " + str(missedFiles) + "\n"
+       
 else:
   print >>sys.stderr, "Must specify a glob of MISSED injections"
   sys.exit(1)
 
-statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
-coincTriggers = CoincInspiralUtils.coincInspiralTable()
-for file in foundFiles:
-  file = [file]
-  simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True)
-  # construct the coincs
-  fileCoincTriggers = \
-    CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
-  fileCoincTriggers.add_sim_inspirals(simFound)
-  for coinc in fileCoincTriggers:
-    coincTriggers.append(coinc)
 
-missed = [[],[],[],[]]
-for file in missedFiles:
-  file = [file]
-  simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-  for sim in simMissed:
-    missed[0].append(sim.mchirp)
-    missed[1].append(sim.end_time_gmst)
-    missed[2].append(sim.eff_dist_h)
-    missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
 
-doubles = [[],[],[],[]]
-triples = [[],[],[],[]]
-for coinc in coincTriggers:
-  if coinc.numifos == 2:
-    doubles[0].append(coinc.sim.mchirp)
-    doubles[1].append(coinc.sim.end_time_gmst)
-    doubles[2].append(coinc.sim.eff_dist_h)
-    doubles[3].append(coinc.sim.eff_dist_h* \
-                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-  if coinc.numifos == 3:
-    triples[0].append(coinc.sim.mchirp)
-    triples[1].append(coinc.sim.end_time_gmst)
-    triples[2].append(coinc.sim.eff_dist_h)
-    triples[3].append(coinc.sim.eff_dist_h* \
-                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+##############################################################################
 
-figure(1)
-semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'cx',missed[0],missed[2],'rx')
-grid()
-title('Found and Missed Injections')
-xlabel('mchirp',size='x-large')
-ylabel('eff_dist',size='x-large')
-legend(('triples','doubles','missed'),loc=0)
-if opts.figure_name:
-  savefig(opts.figure_name + '_missed_found_vs_mchirp.png')
+# Generating missed, doubles and triple coincs
 
-figure(2)
-semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'cx',missed[1],missed[2],'rx')
-grid()
-title('Found and Missed Injections')
-xlabel('end_time_gmst',size='x-large')
-ylabel('eff_dist',size='x-large')
-legend(('triples','doubles','missed'),loc=0)
-if opts.figure_name:
-   savefig(opts.figure_name + '_missed_found_vs_end_time.png')
+files_all = found_missed(opts,foundFiles,missedFiles)
 
-figure(3)
-semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'cx',missed[0],missed[3],'rx')
-grid()
-title('Found and Missed Injections')
-xlabel('mchirp',size='x-large')
-ylabel('chirp_dist',size='x-large')
-legend(('triples','doubles','missed'),loc=0)
-if opts.figure_name:
-  savefig(opts.figure_name + '_missed_found_chirp_dist_vs_mchirp.png')
+# Making plot for mchirp vs effdist
+if opts.enable_output is True:
+  cache_out, web_page = plot_found_missed(opts, files_all[0], files_all[1], files_all[2])
+else:
+  Fig_mchirp, Fig_endtime, Fig_chirpdist =  plot_found_missed(opts, files_all[0], files_all[1], files_all[2])
+  
 
+####################
 if opts.show_plot:
-  show()
+    show()
