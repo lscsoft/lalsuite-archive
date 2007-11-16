@@ -33,6 +33,7 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import codecs
 import gzip
+import md5
 import os
 import urllib2
 import urlparse
@@ -109,6 +110,46 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
+class MD5File(file):
+	def __init__(self, fileobj, md5obj = None):
+		self.f = fileobj
+		if md5obj is None:
+			self.md5obj = md5.new()
+		else:
+			self.md5obj = md5obj
+
+	def next(self):
+		buf = self.f.next()
+		self.md5obj.update(buf)
+		return buf
+
+	def read(self, *args, **kwargs):
+		buf = self.f.read(*args, **kwargs)
+		self.md5obj.update(buf)
+		return buf
+
+	def readline(self, *args, **kwargs):
+		buf = self.f.readline(*args, **kwargs)
+		self.md5obj.update(buf)
+		return buf
+
+	def readlines(self, *args, **kwargs):
+		raise NotImplementedError
+
+	def xreadlines(self, *args, **kwargs):
+		raise NotImplementedError
+
+	def seek(self, *args, **kwargs):
+		raise NotImplementedError
+
+	def write(self, buf):
+		self.md5obj.update(buf)
+		return self.f.write(buf)
+
+	def writelines(self, *args, **kwargs):
+		raise NotImplementedError
+
+
 def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	"""
 	Parse the contents of the file identified by filename, and return
@@ -133,6 +174,9 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	# FIXME: enable this when I know it works
+	#fileobj = MD5File(fileobj)
+	#m = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
@@ -179,6 +223,9 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 		fileobj = sys.stdin
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+	# FIXME: enable this when I know it works
+	#fileobj = MD5File(fileobj)
+	#m = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
@@ -228,6 +275,9 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = sys.stdout
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
+	# FIXME: enable this when I know it works
+	#fileobj = MD5File(fileobj)
+	#m = fileobj.md5obj
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
 	xmldoc.write(fileobj)
 	fileobj.flush()
