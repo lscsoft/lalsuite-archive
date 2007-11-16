@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
-# $Id$
+__Id__ = "$Id$"
 __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-
+__name__ = "plotinspmissed"
+__title__ = "Found and Missed plots for triggers"
 
 import sys, os, re, glob, exceptions
 from types    import *
@@ -16,6 +16,7 @@ from glue import segmentsUtils
 from glue import lal
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from pylal import InspiralUtils
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -57,7 +58,7 @@ Generate found and missed trig plots
 
 Example: plotinspmissed --time-dist --show-plot found.xml missed.xml
 """
-parser = OptionParser( usage=usage, version="%prog CVS $Id$" )
+parser = OptionParser( usage=usage, version="%prog CVS $Id$ \n" + "$Name$\n" )
 parser.add_option("-a","--time-dist",action="store_true",default=False,\
     help="plot dist v trig end time" )
 parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
@@ -77,9 +78,6 @@ parser.add_option("-z","--tag3",action="store",type="string",\
     default=None, metavar=" TAG",help="identifier for third input file" )
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
-parser.add_option("-f","--fig-name",action="store",type="string",\
-    default=None, metavar=" NAME",\
-    help="generate png figures with name NAME-fig.png" )
 parser.add_option("-t","--title",action="store",type="string",\
     default="", metavar=" TITLE", help="add more info to standard title" )
 parser.add_option("-l","--legend",action="store_true",default=False,\
@@ -105,6 +103,28 @@ parser.add_option("","--cache-file",action="store",type="string",\
     default=None, metavar=" CACHE_FILE",help="get input triggers from a cache file" )
 parser.add_option("","--ifo-type",action="store",type="string",\
     default=None, metavar=" IFO_TYPE",help="sieves the cache file for a particular ifo type" )
+parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="" )
+parser.add_option("-P","--output-path",action="store",\
+    type="string",default="",  metavar="PATH",\
+    help="path where the figures would be stored")
+parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
+parser.add_option("","--gps-start-time",action="store",\
+    type="int",  metavar="GPSSTARTTIME",\
+    help="gps start time (for naming figure and output files")
+parser.add_option("","--gps-end-time",action="store",\
+    type="int",  metavar=" GPSENDTIME",\
+    help="gps end time (for naming figure and output files")
+parser.add_option("-I","--ifo-times",action="store",\
+    type="string",  metavar=" IFOTIMES",\
+    help="ifo times is used as prefix for the output files ")
+parser.add_option("-v","--verbose",action="store_true",\
+    default=False,help="print information" )
+
+command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
 # Change to Agg back-end if show() will not be called
@@ -119,6 +139,9 @@ from pylal import viz
 if opts.cache_file:
   injFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
   misFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
+  if opts.verbose:
+    print "... reading the following found files " + str(injFiles)
+    print "... reading the following missed files " + str(misFiles)
   if len(injFiles) < 1:
     print >>sys.stderr,"Cache file must be input"
     sys.exit(1)
@@ -285,7 +308,23 @@ plot2symbol=['rx','ro','r+','r^','r>','r<']
 
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
+##############################################################################
+# Initialise all the stuffs 
 
+if opts.enable_output is True:
+  output_cachefile_name = []
+  colors = InspiralUtils.colors
+  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
+  text = InspiralUtils.writeProcessParams( __name__, __version__, sys.argv[1:])
+  # Initialise the webpage using init page
+  page, extra = InspiralUtils.init_markup_page(opts)
+  # Initialise filename
+  html_filename = prefix[0:len(prefix)-1] + suffix + ".html"
+  html_file = file(html_filename, "w")
+  # set outputc_cache properly: make sure there is a slash
+  if len(opts.output_path)>1:
+       opts.output_path = opts.output_path + '/' 
+ 
 # plot time V dist
 if opts.time_dist:  
   figure()
@@ -326,8 +365,14 @@ if opts.time_dist:
   xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   gca().grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_time-dist.png")
+  if opts.enable_output is True:
+    fname = prefix + suffix + "_time-dist-log.png"
+    savefig(fname)
+    output_cachefile_name.append(fname)
+    page.a(extra.img(src=[opts.output_path + fname], width=400, \
+    alt=text, border="2"),title=text, href=[opts.output_path + fname])
+    page.add(text)
+    
 
 
 # plot mchirp V dist log plot
@@ -355,9 +400,14 @@ if opts.mchirp_dist_log:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 1000)
   gca().grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_dist-mchirp.png")
-
+  if opts.enable_output is True:
+    fname =  prefix + suffix + "_dist-mchirp-log.png"
+    savefig(fname)
+    output_cachefile_name.append(fname)
+    page.a(extra.img(src=[opts.output_path + fname], width=400, \
+    alt=text, border="2"),title=text, href=[opts.output_path + fname])
+    page.add(text) 
+    
 
 # plot mchirp V dist linear plot
 if opts.mchirp_dist_linear:  
@@ -384,8 +434,13 @@ if opts.mchirp_dist_linear:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 100)
   gca().grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_dist-mchirp.png")
+  if opts.enable_output is True:
+    fname =  prefix + suffix + "_dist-mchirp-linear.png"
+    savefig(fname)
+    output_cachefile_name.append(fname)
+    page.a(extra.img(src=[opts.output_path + fname], width=400, \
+    alt=text, border="2"),title=text, href=[opts.output_path + fname])
+    page.add(text)
 
 
 # plot mtotal V dist log plot
@@ -413,8 +468,13 @@ if opts.mtotal_dist_log:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 1000)
   gca().grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_dist-mtotal.png")
+  if opts.enable_output is True:
+    fname =  prefix + suffix + "_dist-mtotal-log.png"
+    savefig(fname)
+    output_cachefile_name.append(fname)
+    page.a(extra.img(src=[opts.output_path + fname], width=400, \
+    alt=text, border="2"),title=text, href=[opts.output_path + fname])
+    page.add(text)
 
   
 # plot mtotal V dist linear plot
@@ -442,9 +502,24 @@ if opts.mtotal_dist_linear:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(1, 200)
   gca().grid(True)
-  if opts.fig_name:
-    savefig(opts.fig_name + "_dist-mtotal.png")
+  if opts.enable_output is True:
+    fname =  prefix + suffix + "_dist-mtotal-linear.png"
+    savefig(fname)
+    output_cachefile_name.append(fname)
+    page.a(extra.img(src=[opts.output_path + fname], width=400, \
+    alt=text, border="2"),title=text, href=[opts.output_path + fname])
+    page.add(text)
 
+if opts.enable_output is True:
+  html_file.write(page(False))
+  html_file.close()
+  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+  this = open(output_cache_name, 'w')
+  this.write(html_filename + '\n')
+  for fname in  output_cachefile_name:
+    this.write(fname + '\n')
+  this.close()
 
+#######################################################################################3
 if opts.show_plot:
   show()
