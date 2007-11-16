@@ -82,7 +82,7 @@ def parse_command_line():
 	if not options.plot:
 		options.plot = range(10)
 
-	filenames = filenames or [None]
+	filenames = filenames or []
 	if options.input_cache:
 		filenames += [lal.CacheEntry(line).path() for line in file(options.input_cache)]
 
