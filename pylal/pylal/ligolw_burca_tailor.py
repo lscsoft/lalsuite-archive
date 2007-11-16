@@ -415,19 +415,20 @@ SELECT
 	burst_coinc_event.coinc_event_id
 FROM
 	sim_burst
-	JOIN coinc_event AS burst_coinc_event
-	JOIN coinc_event AS sim_coinc_event ON (
-		sim_coinc_event.time_slide_id == burst_coinc_event.time_slide_id
+	JOIN coinc_event_map ON (
+		-- Each injection can result in at most 1 sim<-->burst
+		-- entry in the coinc_event table, so doing this join in
+		-- the outer select will not result in any injections
+		-- being counted more than once (and it hugely increases
+		-- the speed of the query).
+		coinc_event_map.table_name == 'sim_burst'
+		AND coinc_event_map.event_id == sim_burst.simulation_id
 	)
-	JOIN coinc_event_map AS c ON (
-		-- Each injection can result in at most 1 associated entry
-		-- in the coinc_event table, so doing this join in the
-		-- outer select will not result in any injections being
-		-- counted more than once (and it hugely increases the
-		-- speed of the query).
-		c.coinc_event_id == sim_coinc_event.coinc_event_id
-		AND c.table_name == 'sim_burst'
-		AND c.event_id == sim_burst.simulation_id
+	JOIN coinc_event AS sim_coinc_event ON (
+		sim_coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+	JOIN coinc_event AS burst_coinc_event ON (
+		burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
 	)
 WHERE
 	burst_coinc_event.coinc_def_id == ?
@@ -469,7 +470,7 @@ SELECT sngl_burst.*, time_slide.offset FROM
 	)
 	JOIN time_slide ON (
 		coinc_event.time_slide_id == time_slide.time_slide_id
-		AND sngl_burst.ifo == time_slide.instrument
+		AND time_slide.instrument == sngl_burst.ifo
 	)
 WHERE
 	coinc_event.coinc_event_id == ?
@@ -592,6 +593,13 @@ class DistributionsStats(Stats):
 		# factor of max_frequency_ratio.
 		events = good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)
 		self.distributions.add_injection(param_func, events, offsetdict)
+
+		# FIXME: try this alternative at some point
+		# only include this n-tuple in the statistics if all of the
+		# events in it appear to be good recoveries of the
+		# injection
+		#if len(good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)) == len(events):
+		#	self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
 		self.distributions.finish()
