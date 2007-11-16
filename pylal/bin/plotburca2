@@ -63,9 +63,6 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.plot not in ("LR", "P"):
-		raise ValueError, "unrecognized --plot %s" % options.plot
-
 	return options, (filenames or [None])
 
 
