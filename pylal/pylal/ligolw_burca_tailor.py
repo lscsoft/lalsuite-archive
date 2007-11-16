@@ -290,11 +290,11 @@ class CoincParamsDistributions(object):
 
 	def finish(self):
 		for rate in self.background_rates.itervalues():
-			rate.array /= numpy.sum(rate.array)
 			rate.filter()
+			rate.array /= numpy.sum(rate.array)
 		for rate in self.injection_rates.itervalues():
-			rate.array /= numpy.sum(rate.array)
 			rate.filter()
+			rate.array /= numpy.sum(rate.array)
 		return self
 
 
@@ -316,10 +316,10 @@ def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
 	found injection looks like.  So we remove poor reconstructions from
 	the event list to show it what we're really looking for.
 	"""
-	return [sngl_burst for sngl_burst in events if
-		(1.0 / max_hrss_ratio <= sngl_burst.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, sngl_burst.ifo) <= max_hrss_ratio)
+	return [event for event in events if
+		(1.0 / max_hrss_ratio <= event.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, event.ifo) <= max_hrss_ratio)
 		and
-		(1.0 / max_frequency_ratio <= sngl_burst.peak_frequency / sim.freq <= max_frequency_ratio)
+		(1.0 / max_frequency_ratio <= event.peak_frequency / sim.freq <= max_frequency_ratio)
 	]
 
 
@@ -344,7 +344,7 @@ class Stats(object):
 		whatever it needs to do with a tuple of coincidence events
 		identified as "background".
 		"""
-		pass
+		raise NotImplementedError
 
 
 	def _add_injections(self, param_func, sim, events, timeslide):
@@ -353,18 +353,22 @@ class Stats(object):
 		whatever it needs to do with a tuple of coincidence events
 		identified as "injection".
 		"""
-		pass
+		raise NotImplementedError
 
 
 	def add_background(self, param_func, database):
 		# iterate over non-zero-lag burst<-->burst coincs
 		for (coinc_event_id,) in database.connection.cursor().execute("""
-SELECT coinc_event_id FROM
+SELECT
+	coinc_event_id
+FROM
 	coinc_event
 WHERE
 	coinc_def_id == ?
 	AND EXISTS (
-		SELECT * FROM
+		SELECT
+			*
+		FROM
 			time_slide
 		WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
@@ -376,7 +380,10 @@ WHERE
 			events = []
 			offsetdict = {}
 			for values in database.connection.cursor().execute("""
-SELECT sngl_burst.*, time_slide.offset FROM
+SELECT
+	sngl_burst.*,
+	time_slide.offset
+FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
 		coinc_event_map.table_name == 'sngl_burst'
@@ -416,11 +423,6 @@ SELECT
 FROM
 	sim_burst
 	JOIN coinc_event_map ON (
-		-- Each injection can result in at most 1 sim<-->burst
-		-- entry in the coinc_event table, so doing this join in
-		-- the outer select will not result in any injections
-		-- being counted more than once (and it hugely increases
-		-- the speed of the query).
 		coinc_event_map.table_name == 'sim_burst'
 		AND coinc_event_map.event_id == sim_burst.simulation_id
 	)
@@ -459,7 +461,10 @@ WHERE
 			events = []
 			offsetdict = {}
 			for values in database.connection.cursor().execute("""
-SELECT sngl_burst.*, time_slide.offset FROM
+SELECT
+	sngl_burst.*,
+	time_slide.offset
+FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
 		coinc_event_map.table_name == 'sngl_burst'
@@ -555,8 +560,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": 1.0 / 200,
 		"H1_H2_dt": 1.0 / 7000,
 		"H1_L1_dt": 1.0 / 7000,
-		"H2_L1_dt": 1.0 / 7000#,
-		#"gmst": (2 * math.pi) / 1000.0
+		"H2_L1_dt": 1.0 / 7000,
+		"gmst": (2 * math.pi) / 1000.0
 	}
 
 	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
