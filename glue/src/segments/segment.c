@@ -347,11 +347,11 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"disjoint", disjoint, METH_O, ""},
-	{"intersects", intersects, METH_O, ""},
-	{"protract", protract, METH_O, ""},
-	{"contract", contract, METH_O, ""},
-	{"shift", shift, METH_O, ""},
+	{"disjoint", disjoint, METH_O, "Returns >0 if self covers an interval above other's interval, <0 if self covers an interval below other's, or 0 if the two intervals are not disjoint (intersect or touch).  A return value of 0 indicates the two segments would coalesce."},
+	{"intersects", intersects, METH_O, "Return True if the intersection of self and other is not a null segment."},
+	{"protract", protract, METH_O, "Move both the start and the end of the segment a distance x away from the other."},
+	{"contract", contract, METH_O, "Move both the start and the end of the segment a distance x towards the the other."},
+	{"shift", shift, METH_O, "Return a new segment by adding x to the upper and lower bounds of this segment."},
 	{NULL,}
 };
 
@@ -362,7 +362,36 @@ PyTypeObject segments_Segment_Type = {
 	.tp_as_number = &as_number,
 	.tp_as_sequence = &as_sequence,
 	.tp_doc =
-	"",
+"The segment class defines objects that represent a range of values.\n" \
+"A segment has a start and an end, and is taken to represent the\n" \
+"range of values in the semi-open interval [start, end).  Some\n" \
+"limited arithmetic operations are possible with segments, but\n" \
+"because the set of (single) segments is not closed under the\n" \
+"sensible definitions of the standard arithmetic operations, the\n" \
+"behaviour of the arithmetic operators on segments may not be as you\n" \
+"would expect.  For general arithmetic on segments, use segmentlist\n" \
+"objects.  The methods for this class exist mostly for purpose of\n" \
+"simplifying the implementation of the segmentlist class.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> segment(0, 10) & segment(5, 15)\n" \
+"segment(5, 10)\n" \
+">>> segment(0, 10) | segment(5, 15)\n" \
+"segment(0, 15)\n" \
+">>> segment(0, 10) - segment(5, 15)\n" \
+"segment(0, 5)\n" \
+">>> segment(0, 10) < segment(5, 15)\n" \
+"True\n" \
+">>> segment(1, 2) in segment(0, 10)\n" \
+"True\n" \
+">>> bool(segment(0, 0))\n" \
+"False\n" \
+">>> segment(\"AAA Towing\", \"York University\") & segment(\"Pool\", \"Zoo\")\n" \
+"segment('Pool', 'York University')\n" \
+">>> x = [0, 1]\n" \
+">>> segment(x)\n" \
+"segment(0, 1)",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segment",
