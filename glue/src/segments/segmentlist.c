@@ -82,6 +82,7 @@ static int bisect_left(PyObject *seglist, PyObject *seg, int lo, int hi)
 		result = PyObject_RichCompareBool(item, seg, Py_LT);
 		Py_DECREF(item);
 		if(result < 0)
+			/* error */
 			return -1;
 		else if(result > 0)
 			/* item < seg */
@@ -118,6 +119,7 @@ static int bisect_right(PyObject *seglist, PyObject *seg, int lo, int hi)
 		result = PyObject_RichCompareBool(seg, item, Py_LT);
 		Py_DECREF(item);
 		if(result < 0)
+			/* error */
 			return -1;
 		else if(result > 0)
 			/* seg < item */
@@ -487,12 +489,26 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 
 static int __contains__(PyObject *self, PyObject *other)
 {
-	int n = PyList_GET_SIZE(self);
-	int i;
+	int i = bisect_left(self, other, -1, -1);
+	int result;
 
-	for(i = 0; i < n; i++) {
+	if(i < 0)
+		/* error */
+		return i;
+
+	if(i != 0) {
+		PyObject *seg = PyList_GET_ITEM(self, i - 1);
+		if(!seg)
+			return -1;
+		Py_INCREF(seg);
+		result = PySequence_Contains(seg, other);
+		Py_DECREF(seg);
+		if(result)
+			return result > 0 ? 1 : result;
+	}
+
+	if(i != PyList_GET_SIZE(self)) {
 		PyObject *seg = PyList_GET_ITEM(self, i);
-		int result;
 		if(!seg)
 			return -1;
 		Py_INCREF(seg);
