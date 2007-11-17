@@ -245,7 +245,6 @@ void get_detector_vel(INT64 gps, float *velocity)
 {
 LALStatus status={level:0, statusPtr:NULL};
 REAL8 det_velocity[3];
-INT4 tmp_leapsecs;
 LALGPSandAcc gps_and_acc;
 LALLeapSecFormatAndAcc  leapsec_info={LALLEAPSEC_GPSUTC, LALLEAPSEC_STRICT};
 /* LIGOTimeGPS gps; */
@@ -256,9 +255,7 @@ gps_and_acc.accuracy=leapsec_info.accuracy;
 gps_and_acc.gps.gpsSeconds=gps; 
 gps_and_acc.gps.gpsNanoSeconds=0;
  
-LALLeapSecs(&status, &tmp_leapsecs, &(gps_and_acc.gps), &leapsec_info);
-TESTSTATUS(&status);
-ephemeris.leap = (INT2)tmp_leapsecs; 
+ephemeris.leap = (INT2)XLALLeapSeconds((INT4)gps); 
 
 LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
 TESTSTATUS(&status);
