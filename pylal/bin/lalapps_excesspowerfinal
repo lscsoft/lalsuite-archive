@@ -175,7 +175,9 @@ SELECT
 	coinc_event.likelihood,
 	multi_burst.confidence,
 	EXISTS (
-		SELECT * FROM
+		SELECT
+			*
+		FROM
 			time_slide
 		WHERE
 			time_slide.time_slide_id == coinc_event.time_slide_id
@@ -313,12 +315,11 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 #
 
 
-def measure_threshold(filenames, slope, n_survivors, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
+def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
 	#
 	# Set up book-keeping tools.
 	#
 
-	likelihood_histogram = Confidence_Likelihood_Histogram(slope)
 	non_injection_seglists = segments.segmentlistdict()
 	background_time_slides = []
 
@@ -353,11 +354,9 @@ def measure_threshold(filenames, slope, n_survivors, live_time_program = "lalapp
 		connection.close()
 		dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
-
 	#
 	# Determine likelihood threshold.
 	#
-
 
 	if verbose:
 		print >>sys.stderr, "=== Threshold ==="
@@ -372,7 +371,6 @@ def measure_threshold(filenames, slope, n_survivors, live_time_program = "lalapp
 	if verbose:
 		print >>sys.stderr, "computing effective confidence threshold ..."
 	likelihood_histogram.find_confidence_threshold(n_survivors, foreground_live_time, background_live_time, verbose = verbose)
-
 
 	#
 	# Done.
@@ -519,6 +517,8 @@ options, filenames = parse_command_line()
 if options.verbose:
 	print >>sys.stderr, "=== Threshold ==="
 
+likelihood_histogram = Confidence_Likelihood_Histogram(options.confidence_contour_slope)
+
 if options.threshold is None:
 	#
 	# Measure the threshold from the time slide files
@@ -529,14 +529,11 @@ if options.threshold is None:
 	if not len(filenames):
 		raise ValueError, "error:  no background/foreground files found"
 
-	likelihood_histogram = measure_threshold(filenames, options.confidence_contour_slope, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-	is_a_keeper = likelihood_histogram.is_a_keeper
-
+	measure_threshold(filenames, likelihood_histogram, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
 
 	#
 	# Summary
 	#
-
 
 	n_background = len(likelihood_histogram.background_eff_confidences)
 	n_foreground = len(likelihood_histogram.foreground_eff_confidences)
@@ -552,9 +549,9 @@ if options.threshold is None:
 	print "Number of foreground events above threshold = %d (%g expected)" % (n_survivors, options.foreground_survivors)
 else:
 	# manually configure the thresholding function
-	likelihood_histogram = Confidence_Likelihood_Histogram(options.confidence_contour_slope)
 	likelihood_histogram.effective_confidence_threshold = options.threshold
-	is_a_keeper = likelihood_histogram.is_a_keeper
+
+is_a_keeper = likelihood_histogram.is_a_keeper
 
 
 #
