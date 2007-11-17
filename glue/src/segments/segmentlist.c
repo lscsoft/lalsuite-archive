@@ -49,10 +49,14 @@
  */
 
 
+/* commented out to silence compiler warnings, but it might be needed so I
+ * don't want to just delete it */
+#if 0
 static int segments_SegmentList_Check(PyObject *obj)
 {
 	return obj ? PyObject_TypeCheck(obj, &segments_SegmentList_Type) : 0;
 }
+#endif
 
 
 /* copied from bisect.py */
@@ -1261,14 +1265,14 @@ static PySequenceMethods as_sequence = {
 
 
 static struct PyMethodDef methods[] = {
-	{"extent", extent, METH_NOARGS, ""},
-	{"find", find, METH_O, ""},
-	{"intersects", intersects, METH_O, ""},
-	{"intersects_segment", intersects_segment, METH_O, ""},
-	{"coalesce", coalesce, METH_NOARGS, ""},
-	{"protract", protract, METH_O, ""},
-	{"contract", contract, METH_O, ""},
-	{"shift", shift, METH_O, ""},
+	{"extent", extent, METH_NOARGS, "Return the segment whose end-points denote the maximum and minimum extent of the segmentlist.  Does not require the segmentlist to be coalesced."},
+	{"find", find, METH_O, "Return the smallest i such that i is the index of an element that wholly contains item.  Raises ValueError if no such element exists.  Does not require the segmentlist to be coalesced."},
+	{"intersects", intersects, METH_O, "Returns True if the intersection of self and the segmentlist other is not the null set, otherwise returns False.  The algorithm is O(n), but faster than explicit calculation of the intersection, i.e. by testing len(self & other).  Requires both lists to be coalesced."},
+	{"intersects_segment", intersects_segment, METH_O, "Returns True if the intersection of self and the segment other is not the null set, otherwise returns False.  The algorithm is O(log n).  Requires the list to be coalesced."},
+	{"coalesce", coalesce, METH_NOARGS, "Sort the elements of a list into ascending order, and merge continuous segments into single segments.  This operation is O(n log n)."},
+	{"protract", protract, METH_O, "For each segment in the list, move both the start and the end a distance x away from the other.  Coalesce the result."},
+	{"contract", contract, METH_O, "For each segment in the list, move both the start and the end a distance x towards the other.  Coalesce the result."},
+	{"shift", shift, METH_O, "Shift the segmentlist by adding x to the upper and lower bounds of all segments.  The algorithm is O(n) and does not require the list to be coalesced."},
 	{NULL,}
 };
 
@@ -1279,7 +1283,39 @@ PyTypeObject segments_SegmentList_Type = {
 	.tp_as_number = &as_number,
 	.tp_as_sequence = &as_sequence,
 	.tp_doc =
-	"",
+"The segmentlist class defines a list of segments, and is an\n" \
+"extension of the built-in list class.  This class provides\n" \
+"addtional methods that assist in the manipulation of lists of\n" \
+"segments.  In particular, arithmetic operations such as union and\n" \
+"intersection are provided.  Unlike the segment class, the\n" \
+"segmentlist class is closed under all supported arithmetic\n" \
+"operations.\n" \
+"\n" \
+"All standard Python sequence-like operations are supported, like\n" \
+"slicing, iteration and so on, but the arithmetic and other methods\n" \
+"in this class generally expect the segmentlist to be in what is\n" \
+"refered to as a \"coalesced\" state --- consisting solely of disjoint\n" \
+"segments listed in ascending order.  Using the standard Python\n" \
+"sequence-like operations, a segmentlist can be easily constructed\n" \
+"that is not in this state;  for example by simply appending a\n" \
+"segment to the end of the list that overlaps some other segment\n" \
+"already in the list.  The class provides a coalesce() method that\n" \
+"can be called to put it in the coalesced state.  Following\n" \
+"application of the coalesce method, all arithmetic operations will\n" \
+"function reliably.  All arithmetic methods themselves return\n" \
+"coalesced results, so there is never a need to call the coalesce\n" \
+"method when manipulating segmentlists exclusively via the\n" \
+"arithmetic operators.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> x = segmentlist([segment(-10, 10)])\n" \
+">>> x |= segmentlist([segment(20, 30)])\n" \
+">>> x -= segmentlist([segment(-5, 5)])\n" \
+">>> print x\n" \
+"[segment(-10, -5), segment(5, 10), segment(20, 30)]\n" \
+">>> print ~x\n" \
+"[segment(-infinity, -10), segment(-5, 5), segment(10, 20), segment(30, infinity)]",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES | Py_TPFLAGS_BASETYPE,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".segmentlist",
