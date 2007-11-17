@@ -141,6 +141,20 @@ static int __nonzero__(PyObject *self)
 }
 
 
+static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
+{
+	if(!segments_Segment_Check(other)) {
+		PyObject *sa = PyTuple_GET_ITEM(self, 0);
+		PyObject *result;
+		Py_INCREF(sa);
+		result = PyObject_RichCompare(sa, other, op_id);
+		Py_DECREF(sa);
+		return result;
+	}
+	return PyTuple_Type.tp_richcompare(self, other, op_id);
+}
+
+
 static PyObject *intersects(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
@@ -398,4 +412,5 @@ PyTypeObject segments_Segment_Type = {
 	.tp_new = __new__,
 	.tp_repr = __repr__,
 	.tp_str = __str__,
+	.tp_richcompare = richcompare,
 };
