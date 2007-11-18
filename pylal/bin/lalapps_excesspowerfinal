@@ -35,6 +35,7 @@ Excess power upper limit final result tool.
 
 import glob
 import math
+from matplotlib import patches
 import numpy
 from optparse import OptionParser
 try:
@@ -129,7 +130,7 @@ class Confidence_Likelihood_Histogram(object):
 	def __init__(self, effective_confidence_slope):
 		self.effective_confidence_slope = effective_confidence_slope
 		self.slides = []
-		self.background_eff_confidences = itertools.Highest(max = 1000000)
+		self.background_eff_confidences = itertools.Highest(max = 10000000)
 		self.foreground_eff_confidences = []
 
 	def effective_confidence(self, likelihood, confidence):
@@ -382,6 +383,62 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 #
 # =============================================================================
 #
+#                              Rate vs. Threshold
+#
+# =============================================================================
+#
+
+
+def plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, background_live_time):
+	plot = SnglBurstUtils.BurstPlot(r"Combined Threshold $\ln b$", r"Mean Event Rate (Hz)")
+	plot.axes.semilogy()
+
+	xcoords = numpy.array(likelihood_histogram.background_eff_confidences)
+	ycoords = numpy.arange(1, len(xcoords) + 1, dtype = "double")
+	ycoords /= background_live_time
+	# ycoords is the expected event rate, times foreground_live_time is
+	# the expected event count at zero lag, the square root of which is
+	# the 1 sigma Poisson fluctuation in the count, divided by
+	# foreground_live_time converts the count fluctuation to a rate
+	# fluctuation.
+	ysigmas = numpy.sqrt(ycoords * foreground_live_time) / foreground_live_time
+
+	# warning:  the error bar polygon is not *really* clipped to the
+	# axes' bounding box, the result will be incorrect if the number of
+	# sample points is small.
+	ymin = 1e-9
+	ymax = 1e0
+	poly_x = numpy.concatenate((xcoords, xcoords[::-1]))
+	poly_y = numpy.concatenate((ycoords + 1 * ysigmas, (ycoords - 1 * ysigmas)[::-1]))
+	plot.axes.add_patch(patches.Polygon(numpy.column_stack((poly_x, numpy.clip(poly_y, ymin, ymax))), edgecolor = "k", facecolor = "k", alpha = 0.3))
+
+	line1 = plot.axes.plot(xcoords, ycoords, "k-")
+
+	foreground_eff_confidences = list(likelihood_histogram.foreground_eff_confidences)
+	for i in xrange(len(foreground_eff_confidences)):
+		if foreground_eff_confidences[i] < likelihood_histogram.background_eff_confidences[-1]:
+			del foreground_eff_confidences[i:]
+			break
+	xcoords = numpy.array(foreground_eff_confidences)
+	ycoords = numpy.arange(1, len(xcoords) + 1, dtype = "double")
+	ycoords /= foreground_live_time
+	line2 = plot.axes.plot(xcoords, ycoords, "r-")
+
+	plot.axes.axvline(likelihood_histogram.effective_confidence_threshold, color = "k")
+
+	#plot.axes.set_ylim((ymin, ymax))
+	#plot.axes.xaxis.grid(True, which="minor")
+	#plot.axes.yaxis.grid(True, which="minor")
+
+	plot.axes.legend((line1, line2), (r"Time Slides", r"Zero lag"))
+
+	plot.axes.set_title(r"Mean Event Rate vs.\ Combined Final Threshold")
+	return plot.fig
+
+
+#
+# =============================================================================
+#
 #                                  Efficiency
 #
 # =============================================================================
@@ -547,6 +604,23 @@ if options.threshold is None:
 	print "Average number of background events per foreground live time = %.16g" % (n_background / background_live_time * foreground_live_time)
 	print "Number of events in foreground = %d" % n_foreground
 	print "Number of foreground events above threshold = %d (%.16g expected)" % (n_survivors, options.foreground_survivors)
+
+	if options.verbose:
+		print >>sys.stderr, "plotting event rate ..."
+	f = file("background_eff_confidences.txt", "w")
+	for x in likelihood_histogram.background_eff_confidences:
+		print >>f, "%.16g" % x
+	f.flush()
+	del f
+	f = file("foreground_eff_confidences.txt", "w")
+	for x in likelihood_histogram.foreground_eff_confidences:
+		print >>f, "%.16g" % x
+	f.flush()
+	del f
+	fig = plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, background_live_time)
+	if options.verbose:
+		print >>sys.stderr, "writing rate_vs_threshold.png ..."
+	fig.savefig("rate_vs_threshold.png")
 else:
 	# manually configure the thresholding function
 	likelihood_histogram.effective_confidence_threshold = options.threshold
