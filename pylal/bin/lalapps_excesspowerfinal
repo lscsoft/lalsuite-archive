@@ -198,7 +198,7 @@ WHERE
 		self.background_eff_confidences.extend(buffer)
 
 	def finish_non_injections(self):
-		pass
+		self.foreground_eff_confidences.sort(reverse = True)
 
 	def find_confidence_threshold(self, events_per_foreground, foreground_live_time, background_live_time, verbose = False):
 		"""
@@ -225,7 +225,7 @@ WHERE
 		self.effective_confidence_threshold = self.background_eff_confidences[n_background]
 
 		if verbose:
-			print >>sys.stderr, "\tln likelihood > %g ln confidence + %g" % (self.effective_confidence_slope, self.effective_confidence_threshold)
+			print >>sys.stderr, "\tln likelihood > %.16g ln confidence + %.16g" % (self.effective_confidence_slope, self.effective_confidence_threshold)
 
 	def get_foreground_above_confidence_threshold(self):
 		return [x for x in self.foreground_eff_confidences if x > self.effective_confidence_threshold]
@@ -376,7 +376,7 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 	# Done.
 	#
 
-	return likelihood_histogram
+	return foreground_live_time, background_live_time
 
 
 #
@@ -445,7 +445,7 @@ FROM
 			# FIXME:  this assumes all injections are done at
 			# zero lag (which is correct, for now, but watch
 			# out for this)
-			if SimBurstUtils.injection_was_made(sim, seglist, self.instrument):
+			if SimBurstUtils.injection_was_made(sim, seglist, self.instruments):
 				self.injected_x.append(sim.freq)
 				self.injected_y.append(sim.hrss)
 				if found:
@@ -529,7 +529,7 @@ if options.threshold is None:
 	if not len(filenames):
 		raise ValueError, "error:  no background/foreground files found"
 
-	measure_threshold(filenames, likelihood_histogram, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+	foreground_live_time, background_live_time = measure_threshold(filenames, likelihood_histogram, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
 
 	#
 	# Summary
@@ -541,12 +541,12 @@ if options.threshold is None:
 
 	print
 	print "=== Threshold Summary ==="
-	print "Total live time in background = %s s" % background_live_time
-	print "Total live time in foreground = %s s" % foreground_live_time
+	print "Total live time in background = %.16g s" % background_live_time
+	print "Total live time in foreground = %.16g s" % foreground_live_time
 	print "Number of events in background = %d" % n_background
-	print "Average number of background events per foreground live time = %g" % (n_background / background_live_time * foreground_live_time)
+	print "Average number of background events per foreground live time = %.16g" % (n_background / background_live_time * foreground_live_time)
 	print "Number of events in foreground = %d" % n_foreground
-	print "Number of foreground events above threshold = %d (%g expected)" % (n_survivors, options.foreground_survivors)
+	print "Number of foreground events above threshold = %d (%.16g expected)" % (n_survivors, options.foreground_survivors)
 else:
 	# manually configure the thresholding function
 	likelihood_histogram.effective_confidence_threshold = options.threshold
