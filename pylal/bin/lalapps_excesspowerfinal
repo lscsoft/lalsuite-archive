@@ -47,13 +47,10 @@ import sys
 
 
 from glue import segments
-from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from glue.ligolw import utils
 from pylal import itertools
 from pylal import ligolw_tisi
-from pylal import rate
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
