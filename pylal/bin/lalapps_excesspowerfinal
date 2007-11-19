@@ -598,10 +598,10 @@ if options.threshold is None:
 	print "=== Threshold Summary ==="
 	print "Total live time in background = %.16g s" % background_live_time
 	print "Total live time in foreground = %.16g s" % foreground_live_time
-	print "Number of events in background = %d" % n_background
-	print "Average number of background events per foreground live time = %.16g" % (n_background / background_live_time * foreground_live_time)
-	print "Number of events in foreground = %d" % n_foreground
-	print "Number of foreground events above threshold = %d (%.16g expected)" % (n_survivors, options.foreground_survivors)
+	print "Number of coincs in background = %d" % n_background
+	print "Average number of background coincs per foreground live time = %.16g" % (n_background / background_live_time * foreground_live_time)
+	print "Number of coincs in foreground = %d" % n_foreground
+	print "Number of foreground coincs above threshold = %d (%.16g expected)" % (n_survivors, options.foreground_survivors)
 
 	if options.verbose:
 		print >>sys.stderr, "plotting event rate ..."
