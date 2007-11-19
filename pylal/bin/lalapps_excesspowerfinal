@@ -605,16 +605,6 @@ if options.threshold is None:
 
 	if options.verbose:
 		print >>sys.stderr, "plotting event rate ..."
-	f = file("background_eff_confidences.txt", "w")
-	for x in likelihood_histogram.background_eff_confidences:
-		print >>f, "%.16g" % x
-	f.flush()
-	del f
-	f = file("foreground_eff_confidences.txt", "w")
-	for x in likelihood_histogram.foreground_eff_confidences:
-		print >>f, "%.16g" % x
-	f.flush()
-	del f
 	fig = plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, background_live_time)
 	if options.verbose:
 		print >>sys.stderr, "writing rate_vs_threshold.png ..."
