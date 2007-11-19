@@ -1183,7 +1183,7 @@ class AnalysisNode(CondorDAGNode):
     self.__trig_end = 0
     self.__ifo = None
     self.__ifo_tag = None
-    self.__usertag = None
+    self.__user_tag = None
     self.__input = None
     self.__output = None
     self.__calibration = None
@@ -1353,7 +1353,7 @@ class AnalysisNode(CondorDAGNode):
     """
     Returns the usertag string
     """
-    return self.__usertag
+    return self.__user_tag
 
   def set_cache(self,file):
     """
