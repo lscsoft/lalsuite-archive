@@ -463,12 +463,12 @@ WHERE
 						# outside plot range
 						pass
 				if burst.ifo in ("H1", "H2"):
-					coinc_dt += float(burst.get_peak() - sim_h_peak) * burst.snr
+					coinc_dt += float(burst.get_peak() - sim_h_peak) * burst.ms_snr
 				elif burst.ifo in ("L1",):
-					coinc_dt += float(burst.get_peak() - sim_l_peak) * burst.snr
+					coinc_dt += float(burst.get_peak() - sim_l_peak) * burst.ms_snr
 				else:
 					raise ValueError, burst.ifo
-			coinc_dt /= sum([burst.snr for burst in bursts])
+			coinc_dt /= sum([burst.ms_snr for burst in bursts])
 			try:
 				self.coinc_offsets[coinc_dt] += 1.0
 			except IndexError:
@@ -533,7 +533,7 @@ WHERE
 						# outside plot range
 						pass
 			# snr-weighted mean of peak frequencies
-			coinc_freq = sum([burst.peak_frequency * burst.snr for burst in bursts]) / sum([burst.snr for burst in bursts])
+			coinc_freq = sum([burst.peak_frequency * burst.ms_snr for burst in bursts]) / sum([burst.ms_snr for burst in bursts])
 			df = math.log(coinc_freq / sim_freq, 10)
 			try:
 				self.coinc_offsets[df] += 1.0
