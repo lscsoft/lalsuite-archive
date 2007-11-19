@@ -62,33 +62,40 @@ def compute_masked_segments(analyzable_seglist, on_source_segment,
 
     return on_source_mask, off_source_mask
 
-def symmetric_protraction(analyzable, on_source, padding_time=0,
-    quantization_time=1, num_quanta=None):
+def compute_offsource_segment(analyzable, on_source, padding_time=0,
+    max_trials=None, symmetric=True):
     """
     Return the longest symmetric protraction of the on_source, constrained
     to fall inside analyzable times, with the proctraction time minus
-    padding_time divisible by quantization_time.  Return a protraction of
-    exactly (num_quanta//2) * quantization_time if num_quanta is specified.
-    Return None if there are less than num_quanta quantization_times available.
+    padding_time divisible by quantization_time (the length of on_source).
+    Return a protraction of exactly (max_trials//2) * quantization_time if
+    max_trials is specified. Return None if there are less than max_trials
+    quantization_times available.
     """
+    quantization_time = abs(on_source)
+    
     try:
         super_seg = analyzable[analyzable.find(on_source)].contract(padding_time)
     except ValueError:
-        raise ValueError, "on_source time %s not found in analyzable times" % str(on_source)
+        return None
     
+    # check again after taking padding into account
     if on_source not in super_seg:
         return None
     
     nplus = (super_seg[1] - on_source[1]) // quantization_time
     nminus = (on_source[0] - super_seg[0]) // quantization_time
-    nsegs = min(nplus, nminus)
     
-    if num_quanta is not None:
-        if nsegs < num_quanta // 2:  # not enough analyzable data
-            return None
-        nsegs = num_quanta // 2
+    if symmetric:
+        nplus = min(nplus, nminus)
+        nminus = nplus
     
-    return on_source.protract(nsegs * quantization_time + padding_time)
+    if max_trials is not None:
+        nplus = min(nplus, max_trials // 2)
+        nminus = min(nminus, max_trials // 2)
+    
+    return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
+                             on_source[1] + nplus*quantization_time + padding_time))
 
 def ext_trigger_gpstimes_from_xml(doc):
     """
