@@ -390,7 +390,8 @@ def plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, backgroun
 	plot = SnglBurstUtils.BurstPlot(r"Combined Threshold $\ln b$", r"Mean Event Rate (Hz)")
 	plot.axes.semilogy()
 
-	xcoords = numpy.array(likelihood_histogram.background_eff_confidences)
+	# have to not trick array() with the fake element count
+	xcoords = numpy.fromiter(likelihood_histogram.background_eff_confidences, dtype = "double", count = list.__len__(likelihood_histogram.background_eff_confidences))
 	ycoords = numpy.arange(1, len(xcoords) + 1, dtype = "double")
 	ycoords /= background_live_time
 	# ycoords is the expected event rate, times foreground_live_time is
