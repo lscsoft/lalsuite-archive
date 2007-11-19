@@ -132,16 +132,16 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst.coinc_event_id = coinc_event_id
 
 	# snr = sum of snrs
-	multiburst.snr = sum(event.snr for event in events)
+	multiburst.snr = sum(event.ms_snr for event in events)
 
 	# duration = snr-weighted average of durations
-	multiburst.duration = sum(event.snr * event.duration for event in events) / multiburst.snr
+	multiburst.duration = sum(event.ms_snr * event.duration for event in events) / multiburst.snr
 
 	# central_freq = snr-weighted average of peak frequencies
-	multiburst.central_freq = sum(event.snr * event.peak_frequency for event in events) / multiburst.snr
+	multiburst.central_freq = sum(event.ms_snr * event.peak_frequency for event in events) / multiburst.snr
 
 	# bandwidth = snr-weighted average of bandwidths
-	multiburst.bandwidth = sum(event.snr * event.bandwidth for event in events) / multiburst.snr
+	multiburst.bandwidth = sum(event.ms_snr * event.bandwidth for event in events) / multiburst.snr
 
 	# confidence = arithmetic mean of confidences
 	#multiburst.confidence = sum(event.confidence for event in events) / len(events)
