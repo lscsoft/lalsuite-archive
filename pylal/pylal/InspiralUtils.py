@@ -92,15 +92,23 @@ def create_output_name(opts, name):
   @return prefix 
   @return suffix
   """
-  if not opts.user_tag:
-    prefix = opts.ifo_times +"-"+ name
-  else:
-    prefix = opts.ifo_times +"-"+ name + "_" + opts.user_tag
+
+  # compose prefix
+  prefix = name
+
+  if opts.ifo_times:
+    prefix = opts.ifo_times +"-"+ prefix
+  if opts.user_tag:
+    prefix = prefix + "_" + opts.user_tag
+  if opts.output_path:
+    prefix = opts.output_path+'/'+prefix
+
+  # compose suffix
   if opts.gps_start_time and opts.gps_end_time :
     suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
   else:
     suffix = "-unspecified-gpstime"
-
+  
   return prefix, suffix
 
 def init_markup_page( opts):
