@@ -77,7 +77,10 @@ def plotnumtemplates_tmpltbank_size(opts):
   grid("on")
 
   if opts.enable_output is True:
-    fname = prefix +  suffix + ".png"
+    if opts.output_path:
+      fname = opts.output_path + '/'+prefix +  suffix + ".png"
+    else:
+      fname = prefix +  suffix + ".png"
     savefig(fname)
   else:
     fname = []
@@ -189,8 +192,8 @@ def parse_command_line():
       help="sieve a cache file according to a particular ifo type")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
-
-
+  parser.add_option("-I", "--ifo-tag", action="store", type="string",\
+      metavar="IFOTAG", help="just a dummy argument, so to work with plot_hipe" )
 
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -270,6 +273,8 @@ if opts.enable_output is True:
   page, extra = InspiralUtils.init_markup_page(opts)
   # -- filename 
   html_filename = prefix[0:len(prefix)-1] + suffix +".html"
+  if opts.output_path:
+     html_filename = opts.output_path+'/'+html_filename
   html_file = file(html_filename, "w")
   # -- set output_cache properly: make sure there is a slash 
   if len(opts.output_path)>1 :
@@ -300,7 +305,7 @@ if opts.enable_output is True:
   
 
 # ============================================================================
-# final step: html, cahe file generation
+# final step: html, cache file generation
 if opts.enable_output:
   text = InspiralUtils.writeProcessParams( __name__, __version__, args)
   page.add(text)
@@ -309,6 +314,8 @@ if opts.enable_output:
 
 if opts.enable_output is True:
   output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+  if opts.output_path:
+     output_cache_name = opts.output_path+'/'+output_cache_name
   this = open(output_cache_name, 'w')
   if opts.enable_output is True: 
     this.write(html_filename + '\n')
