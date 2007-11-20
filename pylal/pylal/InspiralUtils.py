@@ -93,9 +93,9 @@ def create_output_name(opts, name):
   @return suffix
   """
   if not opts.user_tag:
-    prefix = opts.ifo_times +"-"+ name + "_"
+    prefix = opts.ifo_times +"-"+ name
   else:
-    prefix = opts.ifo_times +"-"+ name + "_" + opts.user_tag + "_"
+    prefix = opts.ifo_times +"-"+ name + "_" + opts.user_tag
   if opts.gps_start_time and opts.gps_end_time :
     suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
   else:
