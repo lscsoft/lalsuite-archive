@@ -352,7 +352,10 @@ def selectSignificance(table,chan,opts):
   return z_list
 
 
-def makeScatteredPlot(chan,opts,distribution,list11,list12,list21,list22,list31,list32,figNumber,output=None):
+def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None,list22=None,list31=None,list32=None,figNumber=None,output=None):
+  p1 = None
+  p2 = None
+  p3 = None
   parameter = distribution.split('-')[0]
   figure(figNumber)
 
@@ -360,25 +363,39 @@ def makeScatteredPlot(chan,opts,distribution,list11,list12,list21,list22,list31,
   ax.set_xscale('log')
   ax.set_yscale('log')
 
-  p1 = plot(list11,list12,linestyle='None', marker='o',\
+  if list11 and list12:
+    p1 = plot(list11,list12,linestyle='None', marker='o',\
                markerfacecolor='k', markeredgecolor='k',\
                markersize=4, markeredgewidth=0)
 
-  p2 = plot(list21,list22,linestyle='None', marker='v',\
+  if list21 and list22:
+    p2 = plot(list21,list22,linestyle='None', marker='v',\
                markerfacecolor='r', markeredgecolor='r',\
                markersize=4, markeredgewidth=0)
 
-  p3 = plot(list31,list32,linestyle='None', marker='s',\
+  if list31 and list32:
+    p3 = plot(list31,list32,linestyle='None', marker='s',\
                markerfacecolor='r', markeredgecolor='r',\
                markersize=8, markeredgewidth=0)
 
   grid()
   xlabel('Z in ' + chan,size='x-large')
   ylabel('Z in ' + 'DARM_ERR',size='x-large')
-  title('Background versus foreground for channel: ' + chan)
-  legend((p1,p2,p3),('background','foreground','candidate'),loc = 'upper right')
+  title('Scattered plot of significance for channel: ' + chan)
 
-  lim = max(max(list11),max(list12),max(list21),max(list22),max(list31),max(list32))
+  if p1 and p2 and p3:
+    legend((p1,p2,p3),('background','foreground','candidate'),loc = 'upper right')
+    lim = max(max(list11),max(list12),max(list21),max(list22),max(list31),max(list32))
+  if p1 and p2 and not p3:
+    legend((p1,p2),('background','foreground'),loc = 'upper right')
+    lim = max(max(list11),max(list12),max(list21),max(list22))
+  if p1 and not p2 and p3:
+    legend((p1,p3),('background','candidate'),loc = 'upper right')
+    lim = max(max(list11),max(list12),max(list31),max(list32))    
+  if p1 and not p2 and not p3:
+#    legend((p1),('background'),loc='upper right')
+    lim = max(max(list11),max(list12))
+
   ax.set_xlim(1e0, lim*2)
   ax.set_ylim(1e0, lim*2)
 
@@ -669,7 +686,7 @@ if not opts.process_background_only:
       zCandidate = candidateTable['peak_significance'][i]
       timeCandidate = candidateTable['qscan_time'][i]
       tpeakCandidate = candidateTable['peak_time'][i]
-      if zCandidate == 0.0:
+      if not zCandidate > opts.z_threshold:
         continue
       # first check that the channel is found in the background
       try:
@@ -754,27 +771,80 @@ if opts.create_param_list:
 
 
 if opts.process_background_only:
-  
-  # prepare and plot the distribution of delta t
-  if opts.plot_dt_distribution:
-    for channel in channelList:
+
+  if opts.output_web_file:
+    outputWebFile = opts.output_web_file
+  else:
+    outputWebFile = opts.output_path + '/' + "index.html" 
+  webpage = WebPage("Qscan background study",outputWebFile, opts.page + '/')
+
+  channel_counter = len(channelList)
+  n_rows = channel_counter + 1
+  webpage.appendTable(n_rows,3,1)
+  webpage.table[0].row[0].cell[0].text("Channel")
+  webpage.table[0].row[0].cell[1].text("z significance")
+  webpage.table[0].row[0].cell[2].text("dt (peak-time - central time)")
+
+  row_number = 0
+
+  #loop over the list of channels
+  for channel in channelList:
+    print channel
+    zList = selectSignificance(backgroundTable,channel,opts)
+    if not len(zList) > 0:
+      continue 
+    # prepare and plot the distribution of significance
+    if opts.plot_z_distribution:
+      # be careful: the function findPercentile is currently dangerous, as it sorts the list... this is the reason for the deepcopy
+      listTempo = copy.deepcopy(zList)
+      percentile_50th = findPercentile(listTempo,0.50)
+      percentile_90th = findPercentile(listTempo,0.90)
+      percentile_97th = findPercentile(listTempo,0.97)
+      percentiles = [percentile_50th,percentile_90th,percentile_97th]
+      try:
+        zHisto,zBin = makeHistogram(zList,'z-distribution',opts,percentiles)
+      except:
+        print >> sys.stderr, 'could not make the z histogram for channel ' + channel
+        continue
+      figNumber = figNumber + 1
+      zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber,percentiles,None,None,None)
+
+    # plot the significance scattered plot
+    if opts.plot_z_scattered:
+      aux_list_back,darm_list_back = getAuxVsDarmList(backgroundTable,channel,opts)
+      figNumber = figNumber + 1
+      scatteredFigure = makeScatteredPlot(channel,opts,'z-distribution',aux_list_back,darm_list_back,None,None,None,None,figNumber)
+
+    # prepare and plot the distribution of delta t
+    if opts.plot_dt_distribution:
       dtList = computeDeltaT(backgroundTable,channel,opts,None)
+      absoluteList = absList(dtList)
+      dtpercentile_50th = findPercentileForDt(absoluteList,0.50)
+      dtpercentile_90th = findPercentileForDt(absoluteList,0.90)
+      dtpercentile_97th = findPercentileForDt(absoluteList,0.97)
+      dtpercentiles = [dtpercentile_50th,dtpercentile_90th,dtpercentile_97th]
       try:
         dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',opts)
       except:
         print >> sys.stderr, 'could not make the dt histogram for channel ' + channel 
         continue
       figNumber = figNumber + 1
-      plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber)
+      dtFigure = plotHistogram(channel,opts,'dt-distribution',dtHisto,dtBin,figNumber,dtpercentiles)
 
-  # prepare and plot the distribution of significance
-  if opts.plot_z_distribution:
-    for channel in channelList:
-      zList = selectSignificance(backgroundTable,channel,opts)
-      try:
-        zHisto,zBin = makeHistogram(zList,'z-distribution',opts)
-      except:
-        print >> sys.stderr, 'could not make the z histogram for channel ' + channel
-        continue
-      figNumber = figNumber + 1
-      plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber)
+    #append the html page
+    row_number = row_number + 1
+    webpage.table[0].row[row_number].cell[0].text(channel)
+    if opts.plot_z_distribution:
+      webpage.table[0].row[row_number].cell[1].text('background median = ' + '%.3f' % percentiles[0])
+      webpage.table[0].row[row_number].cell[1].text('background 90% = ' + '%.3f' % percentiles[1])
+      webpage.table[0].row[row_number].cell[1].text('background 97% = ' + '%.3f' % percentiles[2])
+      webpage.table[0].row[row_number].cell[1].link(opts.page + '/' + zFigure,"Z distribution,")
+    if opts.plot_z_scattered:
+      webpage.table[0].row[row_number].cell[1].link(opts.page + '/' + scatteredFigure,"Scattered plot")
+    if opts.plot_dt_distribution:
+      webpage.table[0].row[row_number].cell[2].text('background median = ' + '%.3f' % dtpercentiles[0])
+      webpage.table[0].row[row_number].cell[2].text('background 90% = ' + '%.3f' % dtpercentiles[1])
+      webpage.table[0].row[row_number].cell[2].text('background 97% = ' + '%.3f' % dtpercentiles[2])
+      webpage.table[0].row[row_number].cell[2].link(opts.page + '/' + dtFigure,"Delta t distribution")
+
+  webpage.cleanWrite('IUL')
