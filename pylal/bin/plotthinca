@@ -24,6 +24,7 @@ from glue.ligolw import utils
 import pylal.itertools
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
+from pylal import InspiralUtils
 
 
 ##############################################################################
@@ -76,24 +77,81 @@ If the zero lag data only contains playground, the number of triggers in the
 """
 
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+
+
+# options related to input and output
 parser.add_option("-g","--glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-parser.add_option("-I", "--input", help="read thinca filenames from cache input file")
+#parser.add_option("-I", "--input", help="read thinca filenames from cache input file")
+parser.add_option("-I", "--cache-input", help="read thinca filenames from cache input file")
+
 parser.add_option("-o","--off-source-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB off-source thinca files to read" )
+
+parser.add_option("-V","--veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="discard triggers in segments from FNAME (segwizard format)")
+
+parser.add_option("","--offsource-veto-file",action="store",type="string",\
+    default=None,metavar=" FNAME",\
+    help="discard off-source triggers in segments from FNAME (segwizard format)")
+
+parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+
+parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
+
+parser.add_option("","--gps-start-time",action="store", type="int", metavar="GPSSTARTTIME",\
+    help="gps start time used in the figure and output file names")
+
+parser.add_option("","--gps-end-time",action="store", type= "int", metavar="GPSENDTIME",\
+    help="gps end time used in the figure and output file names")
+
+parser.add_option("-P","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+
+parser.add_option("","--ifo-times",action="store",type="string",\
+    default=None,metavar="IFOS",\
+    help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
+
+parser.add_option("","--cache-description", action="store",type="string",\
+    default="COIRE_", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
+
+parser.add_option("","--add-description", action="store",type="string",\
+    default="SLIDE", metavar="ADDDESCRIPTION", help="additional description pattern the cache entries will be sieved with" )
+
+parser.add_option("","--match",action="store",type="string",\
+    default=None,metavar="MATCH",\
+    help="To sieve exactly according to a pattern, if its set True" )
+
+
+parser.add_option("-s","--show-plot",action="store_true",default=False,\
+    help="display the figures on the terminal" )
+
+parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+
+
+#options that set parameters specific to the plots 
+
 parser.add_option("-E","--ext-trig",action="store_true",default=False,\
     help="external trigger search, so should have off-source triggers" )
+
 parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" )
+#parser.add_option("-f","--figure-name",action="store",type="string",\
+#    default=None, metavar=" FNAME",\
+#    help="generate png figures with name FNAME-fig.png" )
+
 parser.add_option("-x","--min-snr",action="store",type="float",\
     default=0, metavar=" MIN_SNR",help="minimum value of snr on plot" )
 parser.add_option("-X","--max-snr",action="store",type="float",\
     default=0, metavar=" MAX_SNR",help="maximum value of snr on plot" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
 parser.add_option("-A","--g1-triggers",action="store_true",default=False,\
     help="input files contain triggers from G1" )
 parser.add_option("-B","--h1-triggers",action="store_true",default=False,\
@@ -124,10 +182,10 @@ parser.add_option("-i","--hist-slides",action="store_true",default=False,\
     help="plot histograms of number of triggers in time slides")
 parser.add_option("-j","--plot-slides",action="store_true",default=False,\
     help="plot of number of triggers vs slide number")
-parser.add_option("-J","--gps-start-time",action="store",default="",\
-    help="gps start tiem used in the figure and output file names")
-parser.add_option("-P","--duration",action="store",default="",\
-    help="gps start tiem used in the figure and output file names")
+
+#parser.add_option("-P","--duration",action="store",default="",\
+#    help="gps start tiem used in the figure and output file names")
+
 parser.add_option("-z","--add-zero-lag",action="store_true",default=False,\
     help="add the zero lag info to slide plots")
 parser.add_option("-Z","--zero-lag-playground",action="store_true",\
@@ -148,38 +206,26 @@ parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
 parser.add_option("-t","--plot-type",action="store",type="string",\
     default="linear",metavar=" PLOT_TYPE", \
     help="make either linear or log plots" )
-parser.add_option("-V","--veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="discard triggers in segments from FNAME (segwizard format)")
-parser.add_option("-v","--offsource-veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="discard off-source triggers in segments from FNAME (segwizard format)")
-#############################################
-#options added for plotting dag
-#############################################
-parser.add_option("","--cache-description", action="store",type="string",\
-    default="COIRE_", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
 
-parser.add_option("","--add-description", action="store",type="string",\
-    default="SLIDE", metavar="ADDDESCRIPTION", help="additional description pattern the cache entries will be sieved with" )
-
-parser.add_option("","--ifo-times",action="store",type="string",\
-    default=None,metavar="IFOS",\
-    help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
-
-parser.add_option("","--match",action="store",type="string",\
-    default=None,metavar="MATCH",\
-    help="To sieve exactly according to a pattern, if its set True" )
-
+command_line = sys.argv[1:]
 
 (opts,args) = parser.parse_args()
+
+  # test the input options
+if not opts.ifo_times:
+  raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
+
+if opts.cache_input and opts.glob:
+    raise ValueError, """ Use either the glob options(--glob OR the cachefile options (--cache-input), not both at the same time.
+"""
+
 
 if opts.plot_type not in ['log', 'linear']:
   print >>sys.stderr, "plot-type must be either \"log\" or \"linear\""
   sys.exit(1)
 
-if not opts.glob and not opts.input:
-  print >>sys.stderr, "Must specify a --glob of files or --input file to read"
+if not opts.glob and not opts.cache_input:
+  print >>sys.stderr, "Must specify a --glob of files or --cache-input file to read"
   print >>sys.stderr, "Enter 'plotthinca --help' for usage"
   sys.exit(1)
 
@@ -212,13 +258,32 @@ if 'bitten_l' in opts.statistic:
    if (not opts.bittenl_a or not opts.bittenl_b): 	 
      print >>sys.stderr, "--bittenl_a and --bittenl_b must be specified" 	 
      sys.exit(1)
+#####################################################################
+# -- some initialisation
+figure_number = 0  # used for the figure label (showplot)
+output_cachefile_name = []   # use for the cache file
 
-# Change to Agg back-end if show() will not be called
+# Change to Agg back-end if show() will not be called thus avoiding display problem
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+# -- set the proper color code
+colors = InspiralUtils.colors
+# Initialise
+prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
+
+if opts.enable_output is True:
+  # -- initialise the web page calling init_page
+  page, extra = InspiralUtils.init_markup_page(opts)
+  # -- filename
+  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
+  html_file = file(html_filename, "w")
+  # -- set output_cache properly: make sure there is a slash
+  if len(opts.output_path)>1 :
+    opts.output_path = opts.output_path +'/'
+####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
      opts.bittenl_b )
@@ -229,7 +294,7 @@ addsym = ['k+','kx','k1']
 
 xlow = 20
 xhigh = 0
-f_name = opts.figure_name
+#f_name = opts.user_tag
 if opts.cluster_window and f_name:
   f_name += '_clust_' + str(opts.cluster_window) + 'sec'
 
@@ -252,7 +317,7 @@ if opts.mass_range is not None:
 
 ###################################
 # glob the list of files to read in
-if opts.glob is not None or opts.input is not None:
+if opts.glob is not None or opts.cache_input is not None:
   if opts.glob is not None:
     allfiles = []
     for gl in opts.glob.split(" "):
@@ -271,18 +336,18 @@ if opts.glob is not None or opts.input is not None:
       else:
         coincfiles.append(file)
 
-  elif opts.input is not None:
-    allfilesCache = lal.Cache.fromfile(open(opts.input))    
+  elif opts.cache_input is not None:
+    allfilesCache = lal.Cache.fromfile(open(opts.cache_input))    
     allfiles = []
-    allfiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = opts.cache_description, exact_match=opts.match).pfnlist()
+    allfiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = opts.cache_description, exact_match=opts.match).checkfilesexist()[0].pfnlist()
     if len(allfiles) < 1:
-      print >>sys.stderr, "The file" + opts.input + " contains no" + opts.cache_description + " files"
+      print >>sys.stderr, "The file" + opts.cache_input + " contains no" + opts.cache_description + " files"
       sys.exit(1)
 
     offsourcefiles = []
     slidefiles = []
     coincfiles = []
-    slidefiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = (opts.cache_description + opts.add_description)).pfnlist()
+    slidefiles = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = (opts.cache_description + opts.add_description)).checkfilesexist()[0].pfnlist()
 
     for file in allfiles:
       if file not in slidefiles:
@@ -425,15 +490,15 @@ if opts.mass_dependent:
         tmp_this_slide["coinc_trigs"] = slideTriggers[j]["coinc_trigs"]
       slideTriggersByMass[i].append( tmp_this_slide )
 
-fig_num = 1
-
 ################################
 # plot of h1 vs h2 stat
 
 if opts.snr_snr or opts.slide_snr:
   if 'H1' in ifo_list and 'H2' in ifo_list:
-    figure(fig_num)
-    fig_num += 1
+    # create a text for the alt and title of html document
+    text=" Plot of H1 vs H2 " + snglStat.replace("_"," ") + " statistic"
+    figure(figure_number)
+    figure_number += 1
     hold(True)
     if opts.slide_snr:
       for slide in slideTriggers:
@@ -467,15 +532,22 @@ if opts.snr_snr or opts.slide_snr:
       ylim(ymax=opts.max_snr)
     else:
       viz.square_axis()
-    if f_name:
-      savefig(__name__ +"_"+ opts.figure_name + "_H1_vs_H2_" + snglStat + "-"\
-	+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + "H1_vs_H2_" + snglStat  + suffix + ".png"
+      savefig(opts.output_path  + fname)
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400, \
+      alt = text, border="2"), title=text, href=[opts.output_path + fname])
+
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
     if 'H1' in ifo_list and 'H2' in ifo_list:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       hold(True)
       if opts.slide_snr:
         for slide in slideTriggersByMass[i]:
@@ -501,18 +573,25 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         ylim(ymax=opts.max_snr)
       else:
         viz.square_axis()
-      if f_name:
-        savefig(__name__ +"_"+ opts.figure_name + "_H1_vs_H2_" + snglStat +str(mass_range[i]) \
-          + "_" + str(mass_range[i+1]) +"-"+ opts.gps_start_time + "-"+opts.duration+".png")
-
+      if opts.enable_output is True:
+        text = "Plot of H1 vs H2 " + snglStat.replace("_"," ") + " for " + str(mass_range[i]) + str(mass_range[i+1]) +  " mass range"
+        fname = prefix + "H1_vs_H2_" + snglStat +str(mass_range[i])\
+          + "_" + str(mass_range[i+1]) + suffix + ".png"
+        savefig(opts.output_path + fname)
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+  
 ################################
 # plot of hanford vs other snr
 
 if opts.snr_snr or opts.slide_snr:
   if 'H1' in ifo_list or 'H2' in ifo_list:
     for ifo in ifo_non_h:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       hold(True)
       if opts.slide_snr:
         for slide in slideTriggers:
@@ -576,16 +655,23 @@ if opts.snr_snr or opts.slide_snr:
         ylim(ymax=opts.max_snr)
       else:
         viz.square_axis()
-      if f_name:
-        savefig(__name__ + "_"+opts.figure_name + "_H_vs_" + ifo +"_" +snglStat + "-"\
-	+opts.gps_start_time + "-"+opts.duration+".png")
+      if opts.enable_output is True:
+        fname = prefix + "H_vs_" + ifo +"_" +snglStat  + suffix + ".png"
+        text = "Plot of Hanford vs " + ifo + " " + snglStat.replace("_"," ") + " statistic" 
+        savefig(opts.output_path + fname)
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+ 
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
     if 'H1' in ifo_list or 'H2' in ifo_list:
       for ifo in ifo_non_h:
-        figure(fig_num)
-        fig_num += 1
+        figure(figure_number)
+        figure_number += 1
         hold(True)
         if opts.slide_snr:
           for slide in slideTriggersByMass[i]:
@@ -651,19 +737,24 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
           ylim(ymax=opts.max_snr)
         else:
           viz.square_axis()
-        if f_name:
-          savefig(__name__ +"_"+ opts.figure_name + "_H_vs_" + ifo +"_"+ snglStat + "-"+\
-              str(mass_range[i]) + "_" + str(mass_range[i+1]) + \
-              +"-"+opts.gps_start_time + "-"+opts.duration+".png")
-
+        if opts.enable_output is True:
+          text = "Plot of Hanford vs " + ifo + " " + snglStat.replace("_"," ") + " statistic" + " for " + str(mass_range[i]) + "-" + str(mass_range[i+1]) + " mass range"
+          fname = prefix + "H_vs_" + ifo +"_"+ snglStat + "-"+\
+              str(mass_range[i]) + "_" + str(mass_range[i+1]) + suffix+".png"
+          savefig(opts.output_path + fname)          
+          # -- create a link and image html tag
+          page.a(extra.img(src=[opts.output_path +fname], width=400,\
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+          # -- keep track of this filename
+          output_cachefile_name.append(fname)
 
 ################################
 # plot of non hanford snr
 
 if opts.snr_snr or opts.slide_snr:
   if len(ifo_non_h) >= 2:
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
     hold(True)
     if opts.slide_snr:
       for slide in slideTriggers:
@@ -689,15 +780,23 @@ if opts.snr_snr or opts.slide_snr:
       ylim(ymax=opts.max_snr)
     else:
       viz.square_axis()
-    if f_name:
-      savefig(__name__ +"_"+ opts.figure_name + "_" + ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
-          +snglStat+ "-"+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "-"\
+          + snglStat + suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Plot of " + ifo_non_h[0] + " vs " +ifo_non_h[1] +  snglStat.replace("_"," ") + " statistic"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400,\
+      alt=text, border="2"), title=text, href=[opts.output_path + fname])
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
     if len(ifo_non_h) >= 2:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       hold(True)
       if opts.slide_snr:
         for slide in slideTriggersByMass[i]:
@@ -724,17 +823,25 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         ylim(ymax=opts.max_snr)
       else:
         viz.square_axis()
-      if f_name:
-        savefig(__name__ +"_"+ opts.figure_name + "_" + ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
+      if opts.enable_output is True:
+        fname = prefix + ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
             +snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1]) +\
-            "-"+opts.gps_start_time + "-"+opts.duration+".png")
+             suffix +".png"
+        savefig(opts.output_path + fname)
+        text = "Plot of " + ifo_non_h[0] +" vs " + ifo_non_h[1] +  " " + snglStat.replace("_"," ") + " statistic" + " for " + str(mass_range[i]) + "-" + str(mass_range[i+1]) + " mass range"
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400,\
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+
 
 ################################
 # plot of h1 vs h2 eff dist
 if opts.dist_dist:
   if 'H1' in ifo_list and 'H2' in ifo_list:
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
     hold(True)
     if opts.slide_dist:
       for slide in slideTriggers:
@@ -769,15 +876,21 @@ if opts.dist_dist:
       ylim(ymax=opts.max_snr)
     else:
       viz.square_axis()
-    if f_name:
-        savefig(__name__ +"_"+ opts.figure_name + "_" + "_H1_vs_H2_dist"\
-            "-"+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix +  "H1_vs_H2_dist" + suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Plot of H1 vs H2 effective dostance"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400,\
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
 
 if opts.dist_dist and opts.mass_dependent:
   for i in range(len(mass_range)-1):
     if 'H1' in ifo_list and 'H2' in ifo_list:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       hold(True)
       if opts.slide_dist:
         for slide in slideTriggersByMass[i]:
@@ -805,16 +918,24 @@ if opts.dist_dist and opts.mass_dependent:
         ylim(ymax=opts.max_snr)
       else:
         viz.square_axis()
-      if f_name:
-        savefig(__name__ +"_"+ opts.figure_name + "_" + "_H1_vs_H2_dist_"+str(mass_range[i])\
-            +"_"+str(mass_range[i+1])+"-"+opts.gps_start_time + "-"+opts.duration+".png")
+      if opts.enable_output is True:
+        fname = prefix +  "H1_vs_H2_dist_"+str(mass_range[i])\
+            +"_"+str(mass_range[i+1])+ suffix + ".png"
+        savefig(opts.output_path + fname)
+        text = "Plot of H1 vs H2 effective distance for " + str(mass_range[i]) + ' to ' + str(mass_range[i+1]) + " mass range"
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400,\
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+ 
 
 
 ####################################
 # plot of statistic vs time (for each ifo)
 if opts.snr_time:
-  figure(fig_num)
-  fig_num += 1
+  figure(figure_number)
+  figure_number += 1
   hold(True)
   sym = 0
   for ifo in ifo_list:
@@ -838,14 +959,20 @@ if opts.snr_time:
       if opts.max_snr:
         ylim(ymax=opts.max_snr)
     
-  if f_name:
-    savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat\
-        +"_vs_time-"+opts.gps_start_time + "-"+opts.duration+".png")
+  if opts.enable_output is True:
+    fname = prefix + snglStat + "_vs_time" + suffix + ".png"
+    savefig(opts.output_path + fname)
+    text = "Plot of " + snglStat.replace("_"," ") + " vs time for each of the IFOs"
+    # -- create a link and image html tag
+    page.a(extra.img(src=[opts.output_path +fname], width=400,\
+      alt=text, border="2"), title=text, href=[opts.output_path + fname])  
+    # -- keep track of this filename
+    output_cachefile_name.append(fname)
 
 if opts.snr_time and opts.mass_dependent:
   for i in range(len(mass_range)-1):
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
     hold(True)
     sym = 0
     for ifo in ifo_list:
@@ -871,10 +998,16 @@ if opts.snr_time and opts.mass_dependent:
         if opts.max_snr:
           ylim(ymax=opts.max_snr)
 
-    if f_name:
-      savefig(__name__ +"_"+ opts.figure_name + "_" + snglStat + \
-          "_vs_time-"+ str(mass_range[i]) +   "_" + str(mass_range[i+1]) + \
-          "-"+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + snglStat + "_vs_time-"+ str(mass_range[i]) +   "_" + str(mass_range[i+1]) + suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Plot of " + snglStat.replace("_"," ") + " vs time for each of the IFOs in " + str(mass_range[i]) + ' to ' + str(mass_range[i+1]) + " mass range"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400,\
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+
 
 
 
@@ -887,45 +1020,72 @@ if opts.hist_slides or opts.plot_slides:
     coincTrigs = None
 
   if opts.hist_slides:
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
     viz.histslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
-    if f_name:
-      savefig(__name__ +"_"+ opts.figure_name + "_hist_slide_trigs" + \
-          "-"+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + "hist_slide_trigs" + suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Histogram of number of coincident triggers per time slide"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
 
   if opts.plot_slides:
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
     viz.plotslides(slideTriggers,coincTrigs,scalebkg=opts.zero_lag_playground)
-    if f_name:
-      savefig(__name__ + "_"+opts.figure_name + "_plot_slide_trigs" + \
-          "-"+opts.gps_start_time + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + "plot_slide_trigs" + suffix +".png"
+      savefig(opts.output_path + fname)
+      text = "Plot of number of coincident triggers per time slide"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+
 
   for ifos in ifo_coincs:
     if opts.hist_slides:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       viz.histslides(slideTriggers,coincTrigs,ifos)
-      if f_name:
-        output_name=__name__ +"_"+ opts.figure_name+"_" 
+      if opts.enable_output is True:
+        fname = prefix
+        ifo_concat = "" 
         for ifo in ifos:
-          output_name += ifo
-        output_name += "_hist_slide_trigs"
-        output_name += "-" + opts.gps_start_time + "-" + opts.duration +".png"
-        savefig(output_name)
+          ifo_concat += ifo
+        fname += ifo_concat + "_hist_slide_trigs"
+        fname += suffix + ".png"
+        savefig(opts.output_path + fname)
+        text = "Histogram of " + ifo_concat + " triggers per time slide" 
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
 
     if opts.plot_slides:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       viz.plotslides(slideTriggers,coincTrigs,ifos)
-      if f_name:
-        output_name=__name__ + "_"+opts.figure_name +"_"
+      if opts.enable_output is True:
+        fname = prefix
+        ifo_concat = ""
         for ifo in ifos:
-          output_name += ifo
-        output_name += "_plot_slide_trigs"
-        output_name += "-"+opts.gps_start_time + "-"+opts.duration+".png"
-        savefig(output_name)
+          ifo_concat += ifo
+        fname += ifo_concat + "_plot_slide_trigs"
+        fname += suffix +".png"
+        savefig(opts.output_path + fname)
+        text = "Plot of " + ifo_concat + " triggers per time slide"
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
 
 if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -935,123 +1095,208 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
       coincTrigs = None
     
     if opts.hist_slides:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       viz.histslides(slideTriggersByMass[i],coincTrigs, \
         scalebkg=opts.zero_lag_playground)
-      if f_name:
-        savefig(__name__ + "_" +opts.figure_name+ "_hist_slide_trigs" + \
+      if opts.enable_output is True:
+        fname = prefix + "hist_slide_trigs" + \
             str(mass_range[i]) + "_" +  str(mass_range[i+1]) + \
-            "-"+opts.gps_start_time + "-"+opts.duration+".png")
+            suffix + ".png"
+        savefig(opts.output_path + fname)
+        text = "Histogram of number of coincident triggers per time slide for " + str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+
       
     if opts.plot_slides:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       viz.plotslides(slideTriggersByMass[i],coincTrigs, \
         scalebkg=opts.zero_lag_playground)
-      if f_name:
-        savefig(__name__ + "_" +opts.figure_name+ "_plot_slide_trigs" + \
+      if opts.enable_output is True:
+        fname = prefix + "plot_slide_trigs" + \
             str(mass_range[i]) + "_" +     str(mass_range[i+1]) + \
-            "-"+opts.gps_start_time + "-"+opts.duration+".png")
-     
+            suffix + ".png"
+        savefig(opts.output_path + fname)
+        text = "Plot of number of coincident triggers per time slide for " + str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"  
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+
     for ifos in ifo_coincs:
       if opts.hist_slides:
-        figure(fig_num)
-        fig_num += 1
+        figure(figure_number)
+        figure_number += 1
         viz.histslides(slideTriggersByMass[i],coincTrigs,ifos)
-        if f_name:
-          output_name = __name__ + "_" +opts.figure_name+"_"
-          
+        if opts.enable_output is True:
+          fname = prefix
+          ifo_concat = ""          
           for ifo in ifos:
-            output_name += ifo 
-          output_name += "_hist_slide_trigs" + str(mass_range[i]) +\
-              "-"+opts.gps_start_time + "-"+opts.duration+".png"
-          savefig(output_name)
+            ifo_concat += ifo 
+          fname += ifo_concat + "_hist_slide_trigs" + str(mass_range[i]) + suffix + ".png"
+          savefig(opts.output_path + fname)
+          text = "Histogram of " + ifo_concat + " triggers per time slide" +  str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
+ 
+          # -- create a link and image html tag
+          page.a(extra.img(src=[opts.output_path +fname], width=400, \
+            alt=text, border="2"), title=text, href=[opts.output_path + fname])
+          # -- keep track of this filename
+          output_cachefile_name.append(fname)
+          
 
       if opts.plot_slides:
-        figure(fig_num)
-        fig_num += 1
+        figure(figure_number)
+        figure_number += 1
         viz.plotslides(slideTriggersByMass[i],coincTrigs,ifos)
-        if f_name:
-          output_name = __name__ + "_" +opts.figure_name+"_"
-          
+        if opts.enable_output is True:
+          fname = prefix
+          ifo_concat = ""
           for ifo in ifos:
-            output_name += ifo
-          output_name += "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
-            str(mass_range[i+1]) +"-"+opts.gps_start_time + "-"+opts.duration+".png"
-          savefig(output_name)
+            ifo_concat += ifo
+          fname += ifo_concat + "_plot_slide_trigs" + str(mass_range[i]) + "_" + \
+            str(mass_range[i+1]) + suffix + ".png"
+          savefig(opts.output_path + fname)
+          text = "Plot of " + ifo_concat + " triggers per time slide" +  str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
+
+          #  -- create a link and image html tag
+          page.a(extra.img(src=[opts.output_path +fname], width=400, \
+            alt=text, border="2"), title=text, href=[opts.output_path + fname])
+          # -- keep track of this filename
+          output_cachefile_name.append(fname)
+
 
 
 ################################################
 # make histogram of stat distribution
 if opts.snr_hist:
-  figure(fig_num)
-  fig_num += 1
+  figure(figure_number)
+  figure_number += 1
 
   viz.histstat(coincTriggers, slideTriggers, None, opts.min_snr, \
       opts.max_snr, opts.nbins, statistic.name)
   xlim(xmin=opts.min_snr**2.0)
   xlim(xmax=opts.max_snr**2.0)
   grid(True)
-  if f_name:
-    savefig(__name__ + "_" +opts.figure_name+ "_hist_" + \
-         statistic.name +"-"+opts.gps_start_time + "-"+opts.duration+".png")
+  if opts.enable_output is True:
+    fname = prefix + "hist_" + statistic.name + suffix +".png"
+    savefig(opts.output_path + fname)
+    text = "Histogram of " + statistic.name + " distribution"
+    # -- create a link and image html tag
+    page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
 
+    # -- keep track of this filename
+    output_cachefile_name.append(fname)
+ 
 if opts.snr_dist:
-  figure(fig_num) 
-  fig_num += 1
+  figure(figure_number) 
+  figure_number += 1
 
   viz.cumhiststat(coincTriggers, slideTriggers, None, opts.min_snr, \
       opts.max_snr, opts.nbins, statistic.name)
   ylim(ymin=1.0e-02)
   ylim(ymax=20)
   grid(True)
-  if f_name:  
-    savefig(__name__ + "_" +opts.figure_name+ "_cum_hist_" + \
-         statistic.name +"-"+opts.gps_start_time + "-"+opts.duration+".png")
+  if opts.enable_output is True:  
+    fname = prefix + "cum_hist_" + statistic.name + suffix + ".png"
+    savefig(opts.output_path + fname)
+    text = "Cumulative histogram of " + statistic.name + " distribution"
+    # -- create a link and image html tag
+    page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+
+    # -- keep track of this filename
+    output_cachefile_name.append(fname)
 
   for ifos in ifo_coincs:
-    figure(fig_num) 
-    fig_num += 1
+    figure(figure_number) 
+    figure_number += 1
     viz.cumhiststat(coincTriggers, slideTriggers, ifos, opts.min_snr, \
         opts.max_snr, opts.nbins, statistic.name)
-    if f_name:
-      output_name =__name__ + "_" +opts.figure_name+ "_" 
+    if opts.enable_output is True:
+      fname = prefix
+      ifo_concat = "" 
       for ifo in ifos:
-        output_name += ifo
-      output_name += "_cum_hist_" + statistic.name +"-"+opts.gps_start_time \
-          + "-"+opts.duration+".png"
-      savefig(output_name)
+        ifo_concat += ifo
+      fname += ifo_concat + "_cum_hist_" + statistic.name +suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Cumulative histogram of " + statistic.name + " distribution for " + ifo_concat + " triggers"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+
 
 if opts.snr_dist and opts.mass_dependent:
   for i in range(len(mass_range)-1):
-    figure(fig_num)
-    fig_num += 1
+    figure(figure_number)
+    figure_number += 1
 
     viz.cumhiststat(coincTriggersByMass[i], slideTriggersByMass[i], None, \
       opts.min_snr, opts.max_snr, opts.nbins, statistic.name)
     ylim(ymin=1.0e-01)
     ylim(ymax=20)
-    if f_name:
-      savefig(__name__+"_"+opt.figure_name + "_cum_hist_" + statistic.name +
-          str(mass_range[i]) + "_" + str(mass_range[i+1]) + "-"+opts.gps_start_time \
-          + "-"+opts.duration+".png")
+    if opts.enable_output is True:
+      fname = prefix + "cum_hist_" + statistic.name + \
+        str(mass_range[i]) + "_" + str(mass_range[i+1]) + suffix + ".png"
+      savefig(opts.output_path + fname)
+      text = "Cumulative histogram of " + statistic.name + " distribution for triggers in " + str(mass_range[i]) + " to " + str(mass_range[i+1]) +" mass range"
+      # -- create a link and image html tag
+      page.a(extra.img(src=[opts.output_path +fname], width=400, \
+        alt=text, border="2"), title=text, href=[opts.output_path + fname])
 
+      # -- keep track of this filename
+      output_cachefile_name.append(fname)
+ 
 
 
     for ifos in ifo_coincs:
-      figure(fig_num)
-      fig_num += 1
+      figure(figure_number)
+      figure_number += 1
       viz.cumhiststat(coincTriggersByMass[i], slideTriggersByMass[i], ifos, \
         opts.min_snr, opts.max_snr, opts.nbins, statistic.name)
-      if f_name:
-        output_name = __name__ + '_'+opts.figure_name + "_"
+      if opts.enable_output is True:
+        fname = prefix
+        ifo_concat = ""
         for ifo in ifos:
-          output_name += ifo
-        output_name += "_cum_hist_" + statistic.name + str(mass_range[i]) \
-            + "_" + str(mass_range[i+1]) + "-"+opts.gps_start_time \
-            + "-"+opts.duration+".png"
-        savefig(output_name)
+          ifo_concat+= ifo
+        fname += ifo_concat + "_cum_hist_" + statistic.name + str(mass_range[i]) \
+            + "_" + str(mass_range[i+1]) + suffix + ".png"
+        savefig(opts.output_path + fname)
+        text = "Cumulative histogram of " + statistic.name + " distribution of " + ifo_concat + " triggers in " + str(mass_range[i]) + " to " + str(mass_range[i+1]) +" mass range"
+        # -- create a link and image html tag
+        page.a(extra.img(src=[opts.output_path +fname], width=400, \
+          alt=text, border="2"), title=text, href=[opts.output_path + fname])
+
+        # -- keep track of this filename
+        output_cachefile_name.append(fname)
+
+# ============================================================================
+# final step: html, cahe file generation
+if opts.enable_output:
+  text = InspiralUtils.writeProcessParams( __name__, __version__, command_line)
+  page.add(text)
+  html_file.write(page(False))
+  html_file.close()
+
+if opts.enable_output is True:
+  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+  this = open(output_cache_name, 'w')
+  if opts.enable_output is True:
+    this.write(html_filename + '\n')
+  for fname in output_cachefile_name:
+    this.write(fname + '\n')
+  this.close()
+
+# ============================================================================
 
 
 if opts.show_plot:
