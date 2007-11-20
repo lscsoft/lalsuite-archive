@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 """
-MetaArray - a subclass of ndarray that holds metadata and preserves it across
+  MetaArray - a subclass of ndarray that holds metadata and preserves it across
             array operations.
-Metadata - a class for metadata stored in MetaArray
-MetaArrayList - a subclass of list that ollows element-wise MetaArray
+  Metadata - a class for metadata stored in MetaArray
+  MetaArrayList - a subclass of list that ollows element-wise MetaArray
                 operations
 
-Spectrum - a subclass of MetaArray as demonstration
-SpectrumMetadata - a subclass of MetaData that strictly checks for metadata
+  Spectrum - a subclass of MetaArray as demonstration
+  SpectrumMetadata - a subclass of MetaData that strictly checks for metadata
                    compatibility between two Spectra
-SpectrumList - subclass of MetaArrayList that has some nice features specific
+  SpectrumList - subclass of MetaArrayList that has some nice features specific
                to SpectrumMetadata
 
-$Id$
+  $Id$
 """
 from __future__ import division
 

@@ -29,7 +29,7 @@ def writeProcessParams(name, version, command):
   @param name: name of the executable/script
   @param version:version of the executable/script
   @param command: command line arguments from a pylal script
-  @return text: a string containing a formatted version of the input parameters
+  @return text
   """
   text = "Figures produced with " + name + ", " \
       + version[1:len(version)-1] + ", invoked with arguments:\n\n" \
@@ -58,7 +58,7 @@ def GenerateCache(fileList):
   Generate a lal.Cache for the list of files
 
   @param fileList : a list of file
-  @return cache : a lal cache file 
+  @return cache
   """
   cache = lal.Cache()
   for file in fileList:
@@ -88,7 +88,7 @@ def create_output_name(opts, name):
 
   @param opts : the user arguments (user_tag, gps_end_time and 
   gps_start_time are used).
-  @param name:
+  @param name: name of the calling function/executable
   @return prefix 
   @return suffix
   """

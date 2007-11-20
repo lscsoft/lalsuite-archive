@@ -1460,9 +1460,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
    
 ######################################################################
 def tfplot(*args, **kwargs):
-  """\
+  """
   tfplot(x, y, s=20, c='b', marker='o', cmap=None, norm=None,
-      vmin=None, vmax=None, alpha=1.0)
+    vmin=None, vmax=None, alpha=1.0)
 
   Supported function signatures:
 
