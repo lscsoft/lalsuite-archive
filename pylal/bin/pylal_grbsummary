@@ -18,8 +18,8 @@ import os
 import os.path as p
 import sys
 
-from lalapps import inspiral
-from lalapps import inspiralutils
+import inspiral
+import inspiralutils
 from glue import lal
 from glue import segments, segmentsUtils
 from glue.ligolw import table
@@ -37,13 +37,21 @@ def get_options():
     # always required parameters
     parser.add_option("-s", "--analyzable-segfile",
         help="segfile containing all analyzable time (Science Mode segments)")
-    parser.add_option("-e", "--ext_trig_xml",
-        help="LIGO LW XML file containing an ExtTriggersTable with events "\
-             "to analyze")
+    # the various config files
     parser.add_option("-c", "--plot-config-file",
-        help="grbsummary ini file with parameters to pass Condor and plotting routines")
-    parser.add_option("-l", "--log-path",
+        help="plotting ini-file with parameters to pass to plotting routines")
+    parser.add_option("-f","--config-file",action="store",type="string",\
+      default=None, metavar=" FILE", help="use configuration file FILE" )
+    parser.add_option("-g","--injection-config",action="store",type="string",\
+      default=None, metavar=" FILE", help="use configuration file FILE" )
+
+    parser.add_option("-l","--list",action="store",type="string",\
+        default=None, metavar=" GRB LIST",\
+        help="path to the file with GRB data stored")
+
+    parser.add_option("-P", "--log-path",
         help="directory in which to place Condor logs")
+
     parser.add_option("-C", "--xml-cache",
         help="name of the cache file containing all XML outputs from each trigger_hipe pipeline")
 
@@ -58,20 +66,30 @@ def get_options():
         help="open the box and include on-source segments in the summary")
 
     # auxiliary parameters
-    parser.add_option("-b", "--search-before-trigger", type=int,
-        help="include SEARCH_BEFORE_TRIGGER seconds before the trigger as on-source time")
-    parser.add_option("-a", "--search-after-trigger", type=int,
-        help="include SEARCH_AFTER_TRIGGER seconds after the trigger as on-source time")
     parser.add_option("-p", "--padding-time", type=int,
         help="pad analysis segments by PADDING_TIME seconds")
     parser.add_option("-m", "--num-trials", type=int,
         help="number of off-source segments to use for background estimation")
+    parser.add_option("-a","--onsource-left",action="store",type="int",\
+        default=120, metavar=" ONLEFT",\
+        help="Specifies the left onsource time window (default: 120)")
+    parser.add_option("-b","--onsource-right",action="store",type="int",\
+        default=60, metavar=" ONRIGHT",\
+        help="Specifies the right onsource time window (default:60)")
+
+    ## ??
+    parser.add_option("-o", "--overwrite-dir", action="store_true",default=False,\
+      help="overwrite contents in already existing directories" )
+
+
     parser.add_option("-v", "--verbose", action="store_true", default=False,
         help="print additional information during pipeline construction")
+
+
     (opts, args) = parser.parse_args()
 
-    error_if_missing = ["analyzable_segfile", "ext_trig_xml", "log_path",
-        "search_before_trigger", "search_after_trigger", "padding_time",
+    error_if_missing = ["analyzable_segfile", "list", "log_path",
+        "onsource_left", "onsource_right", "padding_time",
         "xml_cache"]
     
     for opt in error_if_missing:
@@ -160,19 +178,33 @@ def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
     TODO: allow veto files
     """
     cache_filename = description + ".cache"
+
+    # sieve for files matching 'description' in the source_cache
     cache = source_cache.sieve(description=description)
     
     if len(cache) == 0:
         print >>sys.stderr, "Warning: No files matching description %s."\
             " Skipping plotinspiral jobs for them." % description
         return
-    
+
+    # write the sieved files to a new cache-file named 'cache-filename'
     cache.tofile(open(cache_filename, "w"))
 
+    # set the nodes and all parameters
     node = node_class(job)
-    node.set_input(cache_filename)
-    node.set_figure_name(description)
-    
+    #node.set_cache(cache_filename)
+    node.set_ifo_tag('')  # IFO tags needs to be removed. How?
+    #node.set_output( exttrig_dir )
+
+    # set important things by hand...
+    node.add_var_opt('cache-file', exttrig_dir +'/'+cache_filename)
+    node.add_input_file( exttrig_dir +'/'+cache_filename)
+    node.add_var_opt('output-path', exttrig_dir)
+    node.add_input_file( exttrig_dir )
+
+
+    #node.set_figure_name(description)
+
     dag.add_node(node)
 
 ##############################################################################
@@ -182,18 +214,19 @@ def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
 if __name__ == "__main__":
     # parse input
     opts = get_options()
-    quantization_time = opts.search_before_trigger + opts.search_after_trigger
+    quantization_time = opts.onsource_left + opts.onsource_right
     
     # load plotting configuration
     cp = ConfigParser.ConfigParser()
     cp.read(opts.plot_config_file)
     
-    # load external trigger times
-    doc = utils.load_url(opts.ext_trig_xml, verbose=opts.verbose,
-                         gz=opts.ext_trig_xml.endswith(".gz"))
-    exttrig_gps_times = grbsummary.ext_trigger_gpstimes_from_xml(doc)
-    if exttrig_gps_times is None:
-        print >>sys.stderr, "No tables named external_trigger:table found in %s" % opts.ext_trig_xml
+    # load external trigger table
+    doc = utils.load_filename( opts.list, verbose=opts.verbose )
+    try:
+       exttrig_table = table.get_table(doc, lsctables.ExtTriggersTable.tableName)
+    except:
+      print >>sys.stderr, "No tables named external_trigger:table found in %s" % opts.list
+      sys.exit(1)
     
     # initialize DAG
     if opts.verbose:
@@ -205,9 +238,13 @@ if __name__ == "__main__":
     plots_to_do = job_dict.keys()
     
     ### Loop over GRBs
-    for exttrig_time in exttrig_gps_times:
-        ### Setup directory
-        exttrig_dir = "GRB%d" % exttrig_time
+    for trigger in exttrig_table:
+
+        # get the GPS time of the trigger
+        exttrig_time = trigger.start_time
+
+        ### Setup directory with human readable GRB number
+        exttrig_dir = "GRB%s_plot" % trigger.event_number_grb
         inspiralutils.mkdir(exttrig_dir)
         os.chdir(exttrig_dir)
         
@@ -224,13 +261,13 @@ if __name__ == "__main__":
         #                           opts.search_after_trigger)
         
         ### Design Workflow
-        for plot_type in plots_to_do:
+        for plot_type in plots_to_do: # e.g. 'inspiral' 'thinca' 'ethinca' ...
             descr = descr_dict[plot_type]
             node_class = node_class_dict[plot_type]
             job = job_dict[plot_type]
             
-            prepare_node(cache, descr+"_FIRST", node_class, job, dag)
-            prepare_node(cache, descr+"_SECOND", node_class, job, dag)
+            prepare_node(exttrig_dir, cache, descr+"", node_class, job, dag)
+            prepare_node(exttrig_dir, cache, descr+"_H1H2", node_class, job, dag)
         os.chdir("..")
 
     ### Write DAG
