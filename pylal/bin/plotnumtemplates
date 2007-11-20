@@ -271,8 +271,10 @@ prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 if opts.enable_output is True:
   # -- initialise the web page calling init_page
   page, extra = InspiralUtils.init_markup_page(opts)
+  print prefix 
+
   # -- filename 
-  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
+  html_filename = prefix + suffix +".html"
   if opts.output_path:
      html_filename = opts.output_path+'/'+html_filename
   html_file = file(html_filename, "w")
@@ -313,7 +315,7 @@ if opts.enable_output:
   html_file.close()
 
 if opts.enable_output is True:
-  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+  output_cache_name = prefix + suffix +'.cache'
   if opts.output_path:
      output_cache_name = opts.output_path+'/'+output_cache_name
   this = open(output_cache_name, 'w')
