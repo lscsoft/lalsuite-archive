@@ -48,6 +48,8 @@ import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
 
+
+import iterutils
 import ligolw
 import tokenizer
 import types
@@ -153,17 +155,7 @@ def get_array(xmldoc, name):
 
 
 def IndexIter(shape):
-	# Adapted from Nick F.'s MultiIter generator in pylal
-	if len(shape) > 1:
-		head = shape[0]
-		for t in IndexIter(shape[1:]):
-			for h in xrange(head):
-				yield (h,) + t
-	elif len(shape) == 1:
-		for h in xrange(shape[0]):
-			yield (h,)
-	else:
-		yield ()
+	return iterutils.MultiIter(*map(range, shape))
 
 
 class ArrayStream(ligolw.Stream):
