@@ -422,7 +422,7 @@ if opts.enable_output is True:
   # -- initialise the web page calling init_page
   page, extra = InspiralUtils.init_markup_page(opts)
   # -- filename 
-  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
+  html_filename = prefix[0:len(prefix)] + suffix +".html"
   html_file = file(html_filename, "w")
   # -- set output_cache properly: make sure there is a slash 
   if len(opts.output_path)>1 :
@@ -498,7 +498,7 @@ if opts.enable_output:
   html_file.close()
 
 if opts.enable_output is True:
-  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
+  output_cache_name = prefix[0:len(prefix)] + suffix +'.cache'
   this = open(output_cache_name, 'w')
   if opts.enable_output is True: 
     this.write(html_filename + '\n')
