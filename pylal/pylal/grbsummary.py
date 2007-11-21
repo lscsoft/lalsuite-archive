@@ -1,3 +1,5 @@
+from __future__ import division
+
 import os
 import re
 import socket
@@ -5,7 +7,7 @@ import sys
 import tempfile
 import time
 import urlparse
-from itertools import *
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 from lalapps import inspiral
 
@@ -87,8 +89,7 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     nminus = (on_source[0] - super_seg[0]) // quantization_time
     
     if symmetric:
-        nplus = min(nplus, nminus)
-        nminus = nplus
+        nplus = nminus = min(nplus, nminus)
     
     if max_trials is not None:
         nplus = min(nplus, max_trials // 2)
@@ -99,14 +100,19 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
 
 def ext_trigger_gpstimes_from_xml(doc):
     """
-    Return a list of GPS times of external triggers found in the
-    ExtTriggersTables present in doc.  If there are no ExtTriggersTables
-    in doc, return None.
+    Return a dictionary of GPS times of external triggers keyed by the GRB
+    name found in the ExtTriggersTables present in doc.  If there are no
+    ExtTriggersTables in doc, return None.
     """
     ext_triggers_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
     if ext_triggers_tables is None:
         return None
-    ext_triggers_times = []
+    ext_triggers = {}
     for tab in ext_triggers_tables:
-        ext_triggers_times.extend(tab.getColumnByName("start_time"))
-    return ext_triggers_times
+        for name, time in itertools.izip(tab.getColumnByName("event_number_grb"),
+                                         tab.getColumnByName("start_time")):
+            if name in ext_triggers:
+                print >>sys.stderr, "warning: GRB %s appears twice in document; taking second definition"
+            ext_triggers[name] = time
+    return ext_triggers
+    
