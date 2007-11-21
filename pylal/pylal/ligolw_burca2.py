@@ -76,7 +76,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def interp1d(interpolate.interp1d):
+class interp1d(interpolate.interp1d):
 	def __init__(self, x, y):
 		# Extrapolate x and y arrays by one element at each end.
 		# This is done because the Rate class in pylal.rate returns
