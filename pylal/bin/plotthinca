@@ -277,12 +277,12 @@ prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 if opts.enable_output is True:
   # -- initialise the web page calling init_page
   page, extra = InspiralUtils.init_markup_page(opts)
-  # -- filename
-  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
-  html_file = file(html_filename, "w")
   # -- set output_cache properly: make sure there is a slash
   if len(opts.output_path)>1 :
     opts.output_path = opts.output_path +'/'
+  # -- filename
+  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
+  html_file = file(opts.output_path + html_filename, "w")
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
@@ -468,7 +468,8 @@ if slidefiles:
     
     # add slide to list
     slideTriggers.append(this_slide)
-    print (str(slide) + ' ' + str(len(this_slide["sngl_trigs"])))
+    if opts.verbose:
+      print (str(slide) + ' ' + str(len(this_slide["sngl_trigs"])))
   
   if inspSlide:
     slide_high = max( inspSlide.get_column(snglStat) )
@@ -1289,9 +1290,9 @@ if opts.enable_output:
 
 if opts.enable_output is True:
   output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
-  this = open(output_cache_name, 'w')
+  this = open(opts.output_path + output_cache_name, 'w')
   if opts.enable_output is True:
-    this.write(html_filename + '\n')
+    this.write(opts.output_path + html_filename + '\n')
   for fname in output_cachefile_name:
     this.write(fname + '\n')
   this.close()
