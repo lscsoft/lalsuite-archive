@@ -72,27 +72,50 @@ __date__ = "$Date$"[7:-2]
 
 
 #
-# How to make an interpolator
+# Interpolator wrapper.
 #
 
 
-def make_interp(x, y):
-	# extrapolate x and y arrays by one element at each end.  this has
-	# to be done because the Rate class in pylal.rate returns the x
-	# co-ordinates as the bin centres, which is correct, but it means
-	# that an event can have a set of parameter values that lie beyond
-	# the end of the x co-ordinate array (the parameters are still in
-	# the bin, but in the outer half), meanwhile the scipy interpolator
-	# insists on only interpolating (go figger) so it throws an error
-	# when such an event is encountered.  Note that because the y
-	# values are assumed to be probabilities they cannot be negative
-	# but that constraint is not imposed here so it must be imposed
-	# elsewhere.
+def interp1d(interpolate.interp1d):
+	def __init__(self, x, y):
+		# Extrapolate x and y arrays by one element at each end.
+		# This is done because the Rate class in pylal.rate returns
+		# the x co-ordinates as the bin centres, which is correct,
+		# but it means that an event can have a set of parameter
+		# values that lie beyond the end of the x co-ordinate
+		# array.  The parameters are still in the last bin, but in
+		# the outer half of it.
 
-	x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
-	y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
+		x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
+		y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
 
-	return interpolate.interp1d(x, y)
+		# Because the y values are assumed to be probability
+		# densities they cannot be negative.  This constraint is
+		# imposed by clipping the y array to 0, and using a linear
+		# interpolator below.  Assuming the input is valid, the
+		# only reason the y array could have negative numbers in it
+		# is the extrapolation that has just been done.
+
+		y = numpy.clip(y, 0.0, float("inf"))
+
+		# The scipy interpolator insists on only interpolating (go
+		# figger) so it normally throws an error when an x
+		# co-ordinate is encountered outside of the interpolator
+		# domain.  Instead of an error, return this value.
+
+		fill_value = (y[0] + y[-1]) / 2.0
+
+		# Build the interpolator.
+		# FIXME:  the fill_value feature is disabled until I know
+		# this is what I want to be doing.  Obviously turning the
+		# fill_value feature on yields an improperly-normalized
+		# probability density, but the resulting likelihood ratios
+		# are probably more plausible than assuming values of 1.0
+		# in this regime (which is what discarding the parameter
+		# altogether is equivalent to doing)
+
+		#interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
+		interpolate.interp1d.__init__(self, x, y, kind = "linear")
 
 
 #
@@ -107,9 +130,9 @@ class Likelihood(object):
 		self.background_rates = {}
 		self.injection_rates = {}
 		for name, rate in coinc_param_distributions.background_rates.iteritems():
-			self.background_rates[name] = make_interp(rate.centres()[0], rate.array)
+			self.background_rates[name] = interp1d(rate.centres()[0], rate.array)
 		for name, rate in coinc_param_distributions.injection_rates.iteritems():
-			self.injection_rates[name] = make_interp(rate.centres()[0], rate.array)
+			self.injection_rates[name] = interp1d(rate.centres()[0], rate.array)
 
 	def set_P_gw(self, P):
 		self.P_gw = P
@@ -119,12 +142,8 @@ class Likelihood(object):
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
 			try:
-				# the interpolators might return negative
-				# values for the probabilities.  the
-				# constraint that probabilities be
-				# non-negative is imposed here.
-				P_b = max(0, self.background_rates[name](value)[0])
-				P_i = max(0, self.injection_rates[name](value)[0])
+				P_b = self.background_rates[name](value)[0]
+				P_i = self.injection_rates[name](value)[0]
 			except ValueError:
 				# param value is outside an interpolator
 				# domain, so skip on the reasoning that
