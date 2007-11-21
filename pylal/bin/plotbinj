@@ -71,16 +71,31 @@ def parse_command_line():
 	parser.add_option("--hrss", metavar = "wave|det", default = "wave", help = "Select which h_rss will be shown on the plots.  \"wave\" = the h_rss of the wave, \"det\" = the h_rss in the detector (injected).")
 	parser.add_option("--input-cache", metavar = "filename", help = "Get list of trigger files from this LAL cache file.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\").")
-	parser.add_option("--plot", metavar = "number", type = "int", action = "append", default = None, help = "Generate the given plot number.")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number (default = make all plots).  Use \"none\" to disable plots.")
+	parser.add_option("--coinc-plot", metavar = "number", action = "append", default = None, help = "Generate the given coinc plot number (default = make all coinc plots).  Use \"none\" to disable coinc plots.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.hrss not in ("wave", "det"):
+	if options.hrss == "wave":
+		options.hrss = lambda sim, instrument: sim.hrss
+	elif options.hrss == "det":
+		options.hrss = SimBurstUtils.hrss_in_instrument
+	else:
 		raise ValueError, "unrecognized --hrss %s" % options.hrss
 
-	if not options.plot:
+	if options.plot is None:
 		options.plot = range(10)
+	elif "none" in options.plot:
+		options.plot = []
+	else:
+		options.plot = map(int, options.plot)
+	if options.coinc_plot is None:
+		options.coinc_plot = range(2)
+	elif "none" in options.coinc_plot:
+		options.coinc_plot = []
+	else:
+		options.coinc_plot = map(int, options.coinc_plot)
 
 	filenames = filenames or []
 	if options.input_cache:
@@ -614,6 +629,71 @@ WHERE
 		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
 
 
+class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
+	def __init__(self, instruments, hrss_func):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
+		self.axes.loglog()
+		self.fig.set_size_inches(8, 8)
+		self.instruments = set(instruments)
+		self.hrss_func = hrss_func
+		self.matches = 0
+		self.x = []
+		self.y = []
+		self.c = []
+
+	def add_contents(self, contents):
+		# FIXME: this query doesn't check for the correct
+		# instruments (should be done via coinc_def_id), nor does
+		# it select only the highest-ranked coinc (should be done
+		# via effective_confidence() function).
+		for values in contents.connection.cursor().execute("""
+SELECT
+	sim_burst.*,
+	multi_burst.central_freq,
+	multi_burst.amplitude
+FROM
+	sim_burst
+	JOIN sim_coinc_map ON (
+		sim_coinc_map.simulation_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN multi_burst ON (
+		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	coinc_event.likelihood == (
+		SELECT
+			MAX(coinc_event.likelihood)
+		FROM
+			sim_coinc_map
+			JOIN coinc_event ON (
+				coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
+			)
+		WHERE
+			sim_coinc_map.simulation_id == sim_burst.simulation_id
+	)
+		"""):
+			sim = contents.sim_burst_table._row_from_cols(values)
+			freq_rec, hrss_rec = values[-2:]
+			self.matches += 1
+			self.x.append(sim.freq)
+			self.y.append(freq_rec)
+			self.c.append(math.log(hrss_rec / sim.hrss))
+
+	def finish(self):
+		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
+		xmin, xmax = min(self.x), max(self.x)
+		ymin, ymax = min(self.y), max(self.y)
+		xmin = ymin = min(xmin, ymin)
+		xmax = ymax = max(xmax, ymax)
+		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
+		self.axes.set_xlim([xmin, xmax])
+		self.axes.set_ylim([ymin, ymax])
+		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
+
+
 #
 # =============================================================================
 #
@@ -644,24 +724,22 @@ def new_plots(instrument, hrss_func, plots):
 	return [l[i] for i in plots]
 
 
+def new_coinc_plots(instruments, hrss_func, plots):
+	l = (
+		SimBurstUtils.Efficiency_hrss_vs_freq(instruments, hrss_func, 0.1),
+		CoincRecoveredVsInjectedFreq(instruments, hrss_func)
+	)
+	return [l[i] for i in plots]
+
+
 #
 # Parse command line
 #
 
 
 options, filenames = parse_command_line()
-
-
-#
-# Set hrss_func
-#
-
-
-if options.hrss == "wave":
-	def hrss_func(sim, instrument):
-		return sim.hrss
-else:
-	hrss_func = SimBurstUtils.hrss_in_instrument
+if not options.plot and not options.coinc_plot or not filenames:
+	print >>sys.stderr, "Nothing to do!"
 
 
 #
@@ -670,9 +748,8 @@ else:
 
 
 plots = {}
-coincplots = (
-	SimBurstUtils.Efficiency_hrss_vs_freq(("H1", "H2", "L1"), hrss_func, 0.1),
-)
+coincplots = new_coinc_plots(("H1", "H2", "L1"), options.hrss, options.coinc_plot)
+
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
@@ -680,22 +757,43 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
-	for instrument in database.instruments:
-		if instrument not in plots:
-			plots[instrument] = new_plots(instrument, hrss_func, options.plot)
-		for n, plot in zip(options.plot, plots[instrument]):
+	if options.plot:
+		for instrument in database.instruments:
+			if instrument not in plots:
+				plots[instrument] = new_plots(instrument, options.hrss, options.plot)
+			for n, plot in zip(options.plot, plots[instrument]):
+				if options.verbose:
+					print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
+				plot.add_contents(database)
+	if options.coinc_plot:
+		database.connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_coinc_map
+AS
+	SELECT
+		a.event_id AS simulation_id,
+		b.event_id AS coinc_event_id
+	FROM
+		coinc_event_map AS a
+		JOIN coinc_event_map AS b ON (
+			a.table_name == 'sim_burst'
+			AND b.table_name == 'coinc_event'
+			AND b.coinc_event_id == a.coinc_event_id
+		)
+		""")
+		for n, plot in enumerate(coincplots):
 			if options.verbose:
-				print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
+				print >>sys.stderr, "adding to coinc plot %d ..." % n
 			plot.add_contents(database)
-	for n, plot in enumerate(coincplots):
-		if options.verbose:
-			print >>sys.stderr, "adding to coinc plot %d ..." % n
-		plot.add_contents(database)
 	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
+#
 # compute the binning for the efficiency contour plots
+#
+
+
 def make_binning(plots):
 	plots = [plot for instrument in plots.keys() for plot in plots[instrument] if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq)]
 	if not plots:
@@ -704,12 +802,17 @@ def make_binning(plots):
 	maxx = max([max(plot.injected_x) for plot in plots])
 	miny = min([min(plot.injected_y) for plot in plots])
 	maxy = max([max(plot.injected_y) for plot in plots])
-	return rate.NDBins((rate.LogarithmicBins(minx, maxx, 256), rate.LogarithmicBins(miny, maxy, 256)))
+	return rate.NDBins((rate.LogarithmicBins(minx, maxx, 512), rate.LogarithmicBins(miny, maxy, 512)))
+
 
 binning = make_binning(plots)
 
 
-# delete the plots as we go to save memory
+#
+# finish and write regular plots, deleting them as we go to save memory
+#
+
+
 efficiencies = []
 for instrument in plots:
 	n = 0
@@ -736,20 +839,34 @@ for instrument in plots:
 		n += 1
 
 
+#
+# finish and write coinc plots, deleting them as we go to save memory
+#
+
+
 for n, plot in enumerate(coincplots):
-	format = "%%s%s_%%0%dd.%%s" % ("coinc", int(math.log10(len(coincplots))) + 1)
-	filename = format % (options.base, n, options.format)
+	format = "%%s%s_%%0%dd.%%s" % ("coinc", int(math.log10(max(options.coinc_plot) or 1)) + 1)
+	filename = format % (options.base, options.coinc_plot[n], options.format)
 	if options.verbose:
-		print >>sys.stderr, "finishing coinc plot %d ..." % n
+		print >>sys.stderr, "finishing coinc plot %d ..." % options.coinc_plot[n]
 	try:
-		plot.finish(binning = binning)
-		fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot)
+		if isinstance(plot, SimBurstUtils.Efficiency_hrss_vs_freq):
+			plot.finish(binning = binning)
+			fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(plot)
+		else:
+			plot.finish()
+			fig = plot.fig
 	except ValueError, e:
-		print >>sys.stderr, "can't finish coinc plot %d: %s" % (n, str(e))
+		print >>sys.stderr, "can't finish coinc plot %d: %s" % (options.coinc_plot[n], str(e))
 	else:
 		if options.verbose:
 			print >>sys.stderr, "writing %s ..." % filename
 		fig.savefig(filename)
+
+
+#
+# generate and write theoretical coincident detection efficiency
+#
 
 
 def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
@@ -806,6 +923,7 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 	plot.axes.set_title(r"%s Estimated Injection Detection Efficiency ($\sim$%d of $\sim$%d Found)" % (instruments, nfound_guess, ninjected_guess))
 
 	return plot.fig
+
 
 if efficiencies:
 	if options.verbose:
