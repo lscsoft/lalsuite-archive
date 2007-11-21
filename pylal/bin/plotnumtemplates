@@ -271,7 +271,6 @@ prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 if opts.enable_output is True:
   # -- initialise the web page calling init_page
   page, extra = InspiralUtils.init_markup_page(opts)
-  print prefix 
 
   # -- filename 
   html_filename = prefix + suffix +".html"
