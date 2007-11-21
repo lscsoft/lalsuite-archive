@@ -39,10 +39,10 @@ except NameError:
 	from sets import Set as set
 
 
+from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
-from pylal import itertools
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 
@@ -407,7 +407,7 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 		# remaining instruments in the order in which they will be
 		# used by the inner loop
 
-		threshold_sequence = tuple([thresholds[pair] for pair in itertools.choices([instrument for eventlist, instrument in eventlists], 2)])
+		threshold_sequence = tuple([thresholds[pair] for pair in iterutils.choices([instrument for eventlist, instrument in eventlists], 2)])
 
 		# retrieve the thresholds to be used in comparing events
 		# from the shortest list to those in each of the remaining
@@ -429,13 +429,13 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 		# are coincident with the outer event.  each n-tuple
 		# contains one event from each list.
 
-		for tail in itertools.MultiIter(*[eventlist.get_coincs(event, threshold, comparefunc) for eventlist, threshold in eventlists]):
+		for tail in iterutils.MultiIter(*[eventlist.get_coincs(event, threshold, comparefunc) for eventlist, threshold in eventlists]):
 
 			# if the events in the n-tuple are
 			# mutually-coincident, combine with the outer event
 			# and report as a coincident n-tuple.
 
-			for (a, b), threshold in zip(itertools.choices(tail, 2), threshold_sequence):
+			for (a, b), threshold in zip(iterutils.choices(tail, 2), threshold_sequence):
 				if comparefunc(a, b, threshold):
 					break
 			else:

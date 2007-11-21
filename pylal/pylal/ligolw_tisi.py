@@ -34,10 +34,10 @@ except NameError:
 	from sets import Set as set
 
 
+from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from pylal import itertools
 from pylal import llwapp
 
 
@@ -195,7 +195,7 @@ def SlidesIter(slides):
 	0}]
 	"""
 	instruments = slides.keys()
-	for slide in itertools.MultiIter(*slides.values()):
+	for slide in iterutils.MultiIter(*slides.values()):
 		yield dict(zip(instruments, slide))
 
 

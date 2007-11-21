@@ -33,6 +33,7 @@ from xml import sax
 import warnings
 
 
+from glue import iterutils
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
@@ -43,7 +44,6 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import date
 from pylal import inject
-from pylal import itertools
 from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import rate
@@ -144,7 +144,7 @@ def dbget_thresholds(connection):
 def coinc_params(events, offsetdict):
 	params = {}
 	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
-	for event1, event2 in itertools.choices(events, 2):
+	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
 			# inter-instrument deltas

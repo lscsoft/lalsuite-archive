@@ -46,10 +46,10 @@ except ImportError:
 import sys
 
 
+from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
-from pylal import itertools
 from pylal import ligolw_tisi
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
@@ -127,7 +127,7 @@ class Confidence_Likelihood_Histogram(object):
 	def __init__(self, effective_confidence_slope):
 		self.effective_confidence_slope = effective_confidence_slope
 		self.slides = []
-		self.background_eff_confidences = itertools.Highest(max = 10000000)
+		self.background_eff_confidences = iterutils.Highest(max = 10000000)
 		self.foreground_eff_confidences = []
 
 	def effective_confidence(self, likelihood, confidence):
