@@ -49,7 +49,7 @@ import sys
 from xml.sax.saxutils import escape as xmlescape
 
 
-import iterutils
+from glue import iterutils
 import ligolw
 import tokenizer
 import types
