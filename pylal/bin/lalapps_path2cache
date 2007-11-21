@@ -52,10 +52,13 @@ __date__ = "$Date$"[7:-2]
 
 
 def parse_command_line():
-	parser = OptionParser(usage="usage: %prog [options]\n\nExample:\n\tls *.xml | %prog")
-	parser.add_option("-i", "--input", metavar="INPUT", default="", help="read input from INPUT [stdin]")
-	parser.add_option("-o", "--output", metavar="OUTPUT", default="", help="write output to OUTPUT [stdout]")
-	parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="turn on verbosity")
+	parser = OptionParser(
+		usage = "usage: %prog [options]\n\nExample:\n\tls *.xml | %prog"
+	)
+	parser.add_option("-i", "--input", metavar="filename", help="Read input from this file (default = stdin).")
+	parser.add_option("-o", "--output", metavar="filename", help="Write output to this file (default = stdout).")
+	parser.add_option("-f", "--force", action = "store_true", help = "Ignore errors.  Unparseable file names are silently removed from the output.")
+	parser.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
 	return parser.parse_args()[0]
 
 
@@ -81,12 +84,12 @@ options = parse_command_line()
 #
 
 
-if options.input:
+if options.input is not None:
 	input = file(options.input)
 else:
 	input = sys.stdin
 
-if options.output:
+if options.output is not None:
 	output = file(options.output)
 else:
 	output = sys.stdout
@@ -108,7 +111,11 @@ total_duration = 0
 for line in input:
 	path, file = os.path.split(line.strip())
 	url = "file://localhost%s" % os.path.abspath(os.path.join(path, file))
-	cache_entry = lal.CacheEntry.from_T050017(url)
+	try:
+		cache_entry = lal.CacheEntry.from_T050017(url)
+	except ValueError, e:
+		if not options.force:
+			raise e
 	print >>output, str(cache_entry)
 	path_count += 1
 	total_duration += abs(cache_entry.segment)
