@@ -104,7 +104,6 @@ def plotinspiralrange_histogram(opts):
   """
   global figure_number 
   
-  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
   # iterate figure number 
   figure_number = figure_number + 1
   figure(figure_number)
@@ -151,11 +150,9 @@ def plotinspiralrange_histogram(opts):
   ylabel('Number of 2048 sec. blocks', size='x-large')
   grid()
   
-  if opts.enable_output is True:
-    fname = prefix + "range_hist" + suffix + ".png"
-    savefig(fname)
-  else:
-    fname = []
+  fname = []
+  fname = InspiralUtils.set_figure_name(opts, "range_hist")
+  if opts.enable_output: savefig(fname)
   
   return fname
 
@@ -168,7 +165,6 @@ def plotinspiralrange_range_versus_time(opts):
   @return fname  the HTML document 
   """
   global figure_number
-  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
   
   # iterate figure number 
   figure_number = figure_number + 1
@@ -193,11 +189,10 @@ def plotinspiralrange_range_versus_time(opts):
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
 
-  if opts.enable_output is True:
-    fname = prefix + "range_plot" + suffix + ".png"
-    savefig(fname)
-  else:
-    fname = []
+  fname = []
+  fname = InspiralUtils.set_figure_name(opts, "range_plot")
+  if opts.enable_output: savefig(fname)
+
   
   return fname
 
@@ -210,7 +205,6 @@ def plotinspiralrange_range_versus_total_mass(opts):
   @return fname  the HTML document  
   """
   global figure_number
-  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
   # iterate figure number 
   figure_number = figure_number + 1
   figure(figure_number)
@@ -255,11 +249,10 @@ def plotinspiralrange_range_versus_total_mass(opts):
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
   
-  if opts.enable_output is True:
-    fname = prefix + "range_mass" + suffix + ".png"
-    savefig(fname)
-  else:
-    fname = []
+  fname = []
+  fname = InspiralUtils.set_figure_name(opts, "range_mass")
+  if opts.enable_output: savefig(fname)
+  
   
   return fname
 
@@ -386,12 +379,10 @@ OR the cachefile options (--cache-file), not both at the same time.
   return options, sys.argv[1:]
 
 
+
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
-# -- some initialisation
-figure_number = 0  # used for the figure label (showplot)
-output_cachefile_name = []   # use for the cache file
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -399,6 +390,20 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+
+
+# ============================================================================
+# Initialise
+#-- add prefix and suffix to the opts strucutre. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+
 
 
 
@@ -411,23 +416,6 @@ inspiralFiles = get_filelist(opts)
 # -- Read in the summ values from the inspiral/tmpltbank  files
 inspiralSumm, massInspiralSumm = InspiralUtils.readFiles(inspiralFiles, opts.verbose)
 
-# -- set the proper color code
-colors = InspiralUtils.colors
-
-# ============================================================================
-# Initialise 
-prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
-
-if opts.enable_output is True:
-  # -- initialise the web page calling init_page
-  page, extra = InspiralUtils.init_markup_page(opts)
-  # -- filename 
-  html_filename = prefix[0:len(prefix)] + suffix +".html"
-  html_file = file(html_filename, "w")
-  # -- set output_cache properly: make sure there is a slash 
-  if len(opts.output_path)>1 :
-    opts.output_path = opts.output_path +'/'
-
 
 # ============================================================================
 # Make plot of range vs time
@@ -438,15 +426,10 @@ if opts.range_vs_time is True:
       " solar mass system with SNR=8"
   # -- the plot itself --
   fname = plotinspiralrange_range_versus_time(opts)
-
   # -- save results in output files --
-  if opts.enable_output is True:
-    # -- create a link and image html tag
-    page.a(extra.img(src=[opts.output_path +fname], width=400, \
-        alt=text, border="2"), title=text, href=[opts.output_path + fname])
+  fnameList.append(fname)
+  tagList.append("Horizon distance versus time")
 
-    # -- keep track of this filename 
-    output_cachefile_name.append(fname)
 
 # ============================================================================
 # Make histogram of range values
@@ -456,15 +439,10 @@ if opts.range_hist is True:
       "mass system with SNR = 8"
   # -- the plot itself --
   fname = plotinspiralrange_histogram(opts)
-  
   # -- save results in output files --
-  if opts.enable_output is True:
-    # -- create a link and image html tag
-    page.a(extra.img(src=[opts.output_path +fname], width=400, \
-        alt=text, border="2"), title=text, href=[opts.output_path + fname])
-
-    # -- keep track of this filename 
-    output_cachefile_name.append(fname)
+  fnameList.append(fname)
+  tagList.append("Histogram of horizon distance")
+  
 
 
 # ============================================================================
@@ -477,34 +455,18 @@ if opts.range_mass is True:
   # -- the plot itself --
   fname = plotinspiralrange_range_versus_total_mass(opts)
   # -- save results in output files --
+  fnameList.append(fname)
+  tagList.append("Horizon distance versus mass")
 
-  if opts.enable_output is True:
-    # -- create a link and image html tag
-    page.a(extra.img(src=[opts.output_path +fname], width=400, \
-        alt=text, border="2"), title=text, href=[opts.output_path + fname])
-
-    # -- keep track of this filename 
-    output_cachefile_name.append(fname)
-
-
-
+    
 
 # ============================================================================
-# final step: html, cahe file generation
-if opts.enable_output:
-  text = InspiralUtils.writeProcessParams( __name__, __version__, args)
-  page.add(text)
-  html_file.write(page(False))
-  html_file.close()
-
+# final step: html, cache file generation
 if opts.enable_output is True:
-  output_cache_name = prefix[0:len(prefix)] + suffix +'.cache'
-  this = open(output_cache_name, 'w')
-  if opts.enable_output is True: 
-    this.write(html_filename + '\n')
-  for fname in output_cachefile_name:
-    this.write(fname + '\n')
-  this.close()
+  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+
+
   
 # ============================================================================
 
