@@ -114,8 +114,9 @@ for line in input:
 	try:
 		cache_entry = lal.CacheEntry.from_T050017(url)
 	except ValueError, e:
-		if not options.force:
-			raise e
+		if options.force:
+			continue
+		raise e
 	print >>output, str(cache_entry)
 	path_count += 1
 	total_duration += abs(cache_entry.segment)
