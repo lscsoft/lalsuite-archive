@@ -91,7 +91,7 @@ def writeProcessParams(name, version, command):
   @return text
   """
   text = "Figure(s) produced with " + name + ", " \
-      + version[1:len(version)-1] + ", invoked with arguments:\n\n" \
+      + version + ", invoked with arguments:\n\n" \
       + name
   for arg in command:
     text += " " +  arg
