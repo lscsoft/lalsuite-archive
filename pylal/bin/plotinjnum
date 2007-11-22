@@ -69,94 +69,111 @@ def found_missed(opts,foundFiles,missedFiles):
   return missed, doubles, triples
 
 
-def plot_found_missed(opts, missed, doubles, triples):
-  
-  if opts.enable_output is True:
-     output_cachefile_name = []
-     colors = InspiralUtils.colors
-     prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
-     text = InspiralUtils.writeProcessParams( __name__, __version__, args)
- 
+def plot_found_missed_mchirp(opts, missed, doubles, triples):
+  """
+
+  """
   figure(1)
-  semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'cx',missed[0],missed[2],'rx')
+  if len(triples[0])>0:
+    semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
+    legend_text=("triple", "double", "coincs")
+  elif len(doubles[0])>0:
+    semilogy(doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
+    legend_text=( "double", "coincs")
+  elif len(missed[0])>0:
+    semilogy(missed[0],missed[2],'rx')
+    legend_text=("missed")
+  else:
+    ValueError,"double, triple and missed are empty..."
+  
   grid()
   title('Found and Missed Injections')
   xlabel('mchirp',size='x-large')
-  ylabel('eff_dist',size='x-large')
-  legend(('triples','doubles','missed'),loc=0)
+  ylabel('effective distance',size='x-large')
+  legend(legend_text,loc=0)
+
   if not opts.enable_output is True:
      fig_mchirp = opts.ifo_type + '_missed_found_vs_mchirp.png'
      savefig(fig_mchirp)
-  
-  if opts.enable_output is True:
-     fig_mchirp = prefix + suffix + "_missed_found_vs_mchirp" + ".png"
-     savefig(fig_mchirp)
-     output_cachefile_name.append(fig_mchirp)
 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "_missed_found_vs_mchirp")
+    savefig(fname)
+    return fname
+  else:
+    return  fig_mchirp
+ 
+def plot_found_missed_end_time(opts, missed, doubles, triples):
+  """
+
+  """
   figure(2)
-  semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'cx',missed[1],missed[2],'rx')
+  if len(triples[1])>0:
+    semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
+    legend_text=("triple", "double", "coincs")
+  elif len(doubles[1])>0:
+    semilogy(doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
+    legend_text=( "double", "coincs")
+  elif len(missed[1])>0:
+    semilogy(missed[1],missed[2],'rx')
+    legend_text=("missed")
+  else:
+    ValueError,"double, triple and missed are empty..."
+  
+
   grid()
   title('Found and Missed Injections')
-  xlabel('end_time_gmst',size='x-large')
-  ylabel('eff_dist',size='x-large')
-  legend(('triples','doubles','missed'),loc=0)
+  xlabel('end time gmst',size='x-large')
+  ylabel('eff dist',size='x-large')
+  legend(legend_text,loc=0)
+  
   if not opts.enable_output is True:
      fig_endtime = opts.ifo_type + '_missed_found_vs_mchirp.png'
      savefig(fig_endtime)
   
-  if opts.enable_output is True:
-     fig_endtime = prefix + suffix + "_missed_found_vs_end_time" + ".png"
-     savefig(fig_endtime)
-     output_cachefile_name.append(fig_endtime)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "_missed_found_vs_end_time")
+    savefig(fname)
+    return fname
+  else:
+    return  fig_endtime
      
+  
+def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples):
+  """
+
+  """
+ 
   figure(3)
-  semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'cx',missed[0],missed[3],'rx')
+  if len(triples[0])>0:
+    semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
+    legend_text=("triple", "double", "coincs")
+  elif len(doubles[0])>0:
+    semilogy(doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
+    legend_text=( "double", "coincs")
+  elif len(missed[0])>0:
+    semilogy(missed[0],missed[3],'rx')
+    legend_text=("missed")
+  else:
+    ValueError,"double, triple and missed are empty..."
+  
   grid()
   title('Found and Missed Injections')
   xlabel('mchirp',size='x-large')
-  ylabel('chirp_dist',size='x-large')
-  legend(('triples','doubles','missed'),loc=0)
+  ylabel('chirp distance',size='x-large')
+  legend(legend_text,loc=0)
+  
   if not opts.enable_output is True:
      fig_chirpdist = opts.ifo_type + '_missed_found_vs_mchirp.png'
      savefig(fig_chirpdist)
-
-  if opts.enable_output is True:
-     fig_chirpdist = prefix + suffix + "_missed_found_chirp_dist_vs_mchirp" + ".png"
-     savefig(fig_chirpdist)
-     output_cachefile_name.append(fig_chirpdist)
   
-  
-  if opts.enable_output is True:
-     # Initialise the webpage using init page
-     page, extra = InspiralUtils.init_markup_page(opts)
-     # Initialise filename
-     html_filename = prefix[0:len(prefix)-1] + suffix + ".html"
-     html_file = file(html_filename, "w")
-     # set outputc_cache properly: make sure there is a slash
-     if len(opts.output_path)>1:
-       opts.output_path = opts.output_path + '/'
-     for fname in  output_cachefile_name:
-       page.a(extra.img(src=[opts.output_path + fname], width=400, \
-       alt=text, border="2"),title=text, href=[opts.output_path + fname])
-       page.add(text)
-       
-     html_file.write(page(False))
-     html_file.close()
 
-     output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
-     this = open(output_cache_name, 'w')
-     this.write(html_filename + '\n')
-     for fname in  output_cachefile_name:
-       this.write(fname + '\n')
-     this.close()
-
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "_missed_found_chirp_dist_vs_mchirp")
+    savefig(fname)
+    return fname
   else:
-     fname = []
-
-  if opts.enable_output is True:
-     return this, page
-  else:
-     return fig_mchirp, fig_endtime, fig_chirpdist
+     return  fig_chirpdist
  
 ##############################################################################
 # Defining a config parser function
@@ -185,16 +202,15 @@ def parse_command_line():
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
-  parser.add_option("-I","--cache-input",action="store",type="string",\
-      default=None, metavar=" CACHE_INPUT",\
+  parser.add_option("-I","--cache-file",action="store",type="string",\
+      default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
   parser.add_option("-i","--ifo-type",action="store",type="string",\
       default=None,  help="selects the ifo type for sieve for" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None, metavar=" USERTAG",\
-      help="" )
+      default=None,metavar=" USERTAG",  help="" )
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -212,34 +228,51 @@ def parse_command_line():
       help="ifo times is used as prefix for the output files ")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
+  parser.add_option("","--cache-description", action="store",type="string",\
+      default="SIRE", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
 
-  command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
+
 
   return options, sys.argv[1:]
 
+# ============================================================================
+# -- get command line arguments
 opts, args = parse_command_line()
-# Initialise figure number for saving figure
-# Creating an empty cache file name list
 
+# to avoid  display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
 
+
 ##############################################################################
+# Initialise
+#-- add prefix and suffix to the opts strucutre. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
 # Checking for found files and missed files.
 ##############################################################################
-
+print opts.ifo_type
 
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
   if opts.verbose:
      print " ...reading the following list of found files " + str(foundFiles) + "\n"
 
-elif opts.cache_input:
-  files =  lal.Cache.fromfile(open(opts.cache_input)).sieve(ifos=opts.ifo_type, exact_match=True)
+elif opts.cache_file:
+  files =  lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
   foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
   print foundFiles
   if opts.verbose:
@@ -254,8 +287,8 @@ if opts.missed_glob:
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
 
-elif opts.cache_input:
-   files =  lal.Cache.fromfile(open(opts.cache_input)).sieve(ifos=opts.ifo_type, exact_match=True)
+elif opts.cache_file:
+   files =  lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
    missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
@@ -270,14 +303,33 @@ else:
 
 # Generating missed, doubles and triple coincs
 
-files_all = found_missed(opts,foundFiles,missedFiles)
+missed, doubles, triples = found_missed(opts,foundFiles,missedFiles)
 
-# Making plot for mchirp vs effdist
+
+
+# ============================================================================
+# final step: html, cache file generation
 if opts.enable_output is True:
-  cache_out, web_page = plot_found_missed(opts, files_all[0], files_all[1], files_all[2])
-else:
-  Fig_mchirp, Fig_endtime, Fig_chirpdist =  plot_found_missed(opts, files_all[0], files_all[1], files_all[2])
+  fname = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples)
+  fnameList.append(fname)
+  tagList.append("Found Chirp distance versus chirp mass")
+  fname = plot_found_missed_end_time(opts, missed, doubles, triples)
+  fnameList.append(fname)
+  tagList.append("Missed versus end time")
+  fname = plot_found_missed_mchirp(opts, missed, doubles, triples)
+  fnameList.append(fname)
+  tagList.append("Found and missed versus chirp mass")
+else: # we can probably remove the else and put the function calls before the if 
+  Fig_chirpdist  = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples)
+  Fig_endtime = plot_found_missed_end_time(opts, missed, doubles, triples)
+  Fig_mchirp = plot_found_missed_mchirp(opts, missed, doubles, triples)
   
+if opts.enable_output is True:
+  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+
+
+
 
 ####################
 if opts.show_plot:
