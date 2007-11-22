@@ -103,19 +103,11 @@ class interp1d(interpolate.interp1d):
 		# co-ordinate is encountered outside of the interpolator
 		# domain.  Instead of an error, return this value.
 
-		fill_value = (y[0] + y[-1]) / 2.0
+		fill_value = 0
 
 		# Build the interpolator.
-		# FIXME:  the fill_value feature is disabled until I know
-		# this is what I want to be doing.  Obviously turning the
-		# fill_value feature on yields an improperly-normalized
-		# probability density, but the resulting likelihood ratios
-		# are probably more plausible than assuming values of 1.0
-		# in this regime (which is what discarding the parameter
-		# altogether is equivalent to doing)
 
-		#interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
-		interpolate.interp1d.__init__(self, x, y, kind = "linear")
+		interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
 
 
 #
@@ -141,16 +133,8 @@ class Likelihood(object):
 		P_background = 1.0
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
-			try:
-				P_b = self.background_rates[name](value)[0]
-				P_i = self.injection_rates[name](value)[0]
-			except ValueError:
-				# param value is outside an interpolator
-				# domain, so skip on the reasoning that
-				# this parameter provides no information
-				continue
-			P_background *= P_b
-			P_injection *= P_i
+			P_background *= self.background_rates[name](value)[0]
+			P_injection *= self.injection_rates[name](value)[0]
 		return P_background, P_injection
 
 	def __call__(self, param_func, events, offsetdict):
@@ -262,26 +246,28 @@ def ligolw_burca2(database, likelihood_ratio, coinc_params, verbose = False):
 		n_coincs = len(database.coinc_table)
 
 	cursor = database.connection.cursor()
+	cursor.execute("""
+CREATE TEMPORARY VIEW
+	coinc_burst_map
+AS
+	SELECT
+		*
+	FROM
+		sngl_burst
+		JOIN coinc_event_map ON (
+			coinc_event_map.table_name == 'sngl_burst'
+			AND coinc_event_map.event_id == sngl_burst.event_id
+		)
+	ORDER BY
+		sngl_burst.ifo
+	""")
 	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id IN (%s)" % definer_ids)):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
 		# retrieve sngl_burst events, sorted by instrument
 		# name
-		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""
-SELECT
-	sngl_burst.*
-FROM
-	sngl_burst
-	JOIN coinc_event_map ON (
-		coinc_event_map.table_name == 'sngl_burst'
-		AND sngl_burst.event_id == coinc_event_map.event_id
-	)
-WHERE
-	coinc_event_map.coinc_event_id == ?
-ORDER BY
-	sngl_burst.ifo
-		""", (coinc_event_id,)))
+		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
 
 		# compute likelihood ratio
 		cursor.execute("""
@@ -294,6 +280,8 @@ WHERE
 		""", (likelihood_ratio(coinc_params, events, time_slides[time_slide_id]), coinc_event_id))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
+
+	cursor.execute("""DROP VIEW coinc_burst_map""")
 
 	#
 	# Done
