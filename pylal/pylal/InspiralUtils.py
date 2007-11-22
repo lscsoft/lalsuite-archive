@@ -20,6 +20,65 @@ from glue.ligolw import lsctables
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
+
+def set_figure_name(opts, text):
+  """
+  return a string containing a standard output name for pylal 
+  plotting functions.
+  """
+  fname = opts.prefix + "_"+text + opts.suffix + ".png"
+
+  return fname
+
+
+def html_write_output(opts, args, fnameList, tagLists):
+  """
+
+  """
+  # -- the HTML document and output cache file
+  # -- initialise the web page calling init_page
+  page, extra = init_markup_page(opts)
+  page.h1(opts.name + " results")
+  page.hr()
+  # -- filename
+  html_filename = opts.prefix + opts.suffix +".html"
+  html_file = file(html_filename, "w")
+  # -- set output_cache properly: make sure there is a slash
+  if len(opts.output_path)>1 :
+    opts.output_path = opts.output_path +'/'
+
+  for tag,fname in zip(tagLists,fnameList):
+    page.a(extra.img(src=[fname], width=400, \
+        alt=tag, border="2"), title=tag, href=[ fname])
+
+
+  page.add("<hr/>")
+
+
+  if opts.enable_output is True:
+    text = writeProcessParams( opts.name, opts.version,  args)
+    page.add(text)
+    html_file.write(page(False))
+    html_file.close()
+
+  return html_filename
+
+def write_output_cache(opts, html_filename,fnameList):
+  """
+  write the output cache file of theplotting functions
+  """
+
+  output_cache_name = opts.prefix + opts.suffix +'.cache'
+#  if opts.output_path:
+#    output_cache_name = opts.output_path+'/'+output_cache_name
+  this = open(output_cache_name, 'w')
+  if opts.enable_output is True:
+    this.write(html_filename + '\n')
+  for fname in fnameList:
+    this.write(fname + '\n')
+  this.close()
+
+
 def writeProcessParams(name, version, command): 
   """
   Convert input parameters from the process params that the code was called 
@@ -31,7 +90,7 @@ def writeProcessParams(name, version, command):
   @param command: command line arguments from a pylal script
   @return text
   """
-  text = "Figures produced with " + name + ", " \
+  text = "Figure(s) produced with " + name + ", " \
       + version[1:len(version)-1] + ", invoked with arguments:\n\n" \
       + name
   for arg in command:
@@ -82,7 +141,16 @@ def ContentHandler(PartialLIGOLWContentHandler):
     PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
 
 
-def create_output_name(opts, name):
+def set_version(opts, name, version):
+  """
+  
+  """
+  opts.name = name
+  opts.version =version
+
+  return opts
+
+def set_prefix_and_suffix(opts, name):
   """
   Create suffix and prefix that will be used to name the output files.
 
@@ -95,7 +163,6 @@ def create_output_name(opts, name):
 
   # compose prefix
   prefix = name
-
   if opts.ifo_times:
     prefix = opts.ifo_times +"-"+ prefix
   if opts.user_tag:
@@ -108,8 +175,10 @@ def create_output_name(opts, name):
     suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
   else:
     suffix = "-unspecified-gpstime"
-  
-  return prefix, suffix
+  opts.prefix = prefix
+  opts.suffix = suffix
+ 
+  return opts
 
 def init_markup_page( opts):
   """
