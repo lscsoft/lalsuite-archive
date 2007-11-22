@@ -326,8 +326,8 @@ def ExcessPowerCoincCompare(a, b, thresholds):
 	dt += inject.light_travel_time(a.ifo, b.ifo)
 
 	# convert fractional deltas to absolute deltas
-	df = df * (a.peak_frequency + b.peak_frequency) / 2
-	dhrss = dhrss * (a.ms_hrss + b.ms_hrss) / 2
+	df *= (a.peak_frequency + b.peak_frequency) / 2
+	dhrss *= (a.ms_hrss + b.ms_hrss) / 2
 
 	# return False if events are coincident, True if they aren't
 	return abs(float(a.get_peak() - b.get_peak())) > dt or abs(a.peak_frequency - b.peak_frequency) > df or abs(a.ms_hrss - b.ms_hrss) > dhrss
