@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
-Rate of triggers TMPLTBANK files
+plotting routines to show TMPLTBANK and TRIGBANK bank sizes
 
 Example: 
 you can use a cache file that will be parsed for TMPLTBANK and TRIGBANK glob
@@ -42,7 +42,8 @@ from pylal import InspiralUtils
 # ============================================================================
 def plotnumtemplates_tmpltbank_size(opts):
   """
-
+  @param opts: the user arguments
+  @return: fname, the filename in which the picture was save
   """
   global figure_number 
   
@@ -75,10 +76,10 @@ def plotnumtemplates_tmpltbank_size(opts):
   legend()
   grid("on")
   
-  fname = InspiralUtils.set_figure_name(opts, "banksize")
-  if opts.enable_output: savefig(fname)
-  
-  return fname
+  if opts.enable_output: 
+    savefig(fname)
+    fname = InspiralUtils.set_figure_name(opts, "banksize")
+    return fname
 
 # ============================================================================
 # function to read in a list of files
@@ -189,7 +190,6 @@ def parse_command_line():
       default=None, metavar="CACHE_DESCRIPTION", \
       help="read a file of a particular description  from cache file" )
 
-  command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
   # test the input options
