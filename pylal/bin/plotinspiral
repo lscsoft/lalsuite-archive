@@ -341,10 +341,11 @@ if opts.missed_inj:
 
     viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
                    x_min=opts.x_min,x_max=opts.x_max)
-    fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
-    if opts.enable_output: savefig(fname)
-    fnameList.append(fname)
-    tagList.append("End time versus SNR")
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append("End time versus SNR")
 
 ###################################
 # plot of snr vs time
@@ -366,10 +367,11 @@ if opts.snr_time:
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',\
                    y_min=opts.y_min, y_max=opts.y_max)
-  fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR versus time")
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR versus time")
 
 
 ###################################
@@ -385,10 +387,11 @@ if opts.snr_chisq:
     hold(True)
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
-  fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR versus Chisquare")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR versus Chisquare")
 
 ###################################
 # plot of snr vs chisq
@@ -403,10 +406,11 @@ if opts.log_snr_chisq:
     hold(True)
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-  fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR versus Chisquare")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR versus Chisquare")
 
 
 ###################################
@@ -428,10 +432,11 @@ if opts.cum_hist_snr:
   else:
     viz.cumhistcol(inspTriggers,'snr', xlimit=xlimits)
   
-  fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR cumulative histogram")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR cumulative histogram")
 
 
 
@@ -462,10 +467,11 @@ if opts.norm_hist_snr:
     ax = subplot(111)
     ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs)
-  fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR normalised histogram")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR normalised histogram")
 #
   
 ###################################
@@ -477,10 +483,11 @@ if opts.hist_chisq:
     ax = subplot(111)
     ax.set_yscale('log')
   viz.histcol(inspTriggers,'chisq',opts.nbins,None)
-  fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("Chisquare  histogram")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("Chisquare  histogram")
 
 
 ###################################
@@ -492,10 +499,11 @@ if opts.cum_hist_snr_chi:
     ax = subplot(111)
     ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr_over_chi')
-  fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR over Chisquare cumulative histogram")
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR over Chisquare cumulative histogram")
 
 
 ###################################
@@ -507,10 +515,11 @@ if opts.hist_snr_chi:
     ax = subplot(111)
     ax.set_yscale('log')
   viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None)
-  fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("SNR over Chisquare cumulative histogram")
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("SNR over Chisquare cumulative histogram")
 
 
 ###################################
@@ -522,10 +531,11 @@ if opts.template_bank:
   viz.plot_a_v_b(tmpltbank,'mass1','mass2','linear',plot_sym = 'rx')
   viz.plot_a_v_b(inspTriggers,'mass1','mass2','linear',plot_sym = 'ro',\
       output_name = outputname)
-  fname = InspiralUtils.set_figure_name(opts, "mass1_vs_mass2")
-  if opts.enable_output: savefig(fname)
-  fnameList.append(fname)
-  tagList.append("Template bank and inspiral triggers overlayed")
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "mass1_vs_mass2")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("Template bank and inspiral triggers overlayed")
 
 
 
