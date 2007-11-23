@@ -51,15 +51,23 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 
-##############################################################################
-# Speed hack
-##############################################################################
-"""
-lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
-from pylal.date.
-"""
+#
+# =============================================================================
+#
+#                                  Speed Hack
+#
+# =============================================================================
+#
+
+
+#
+# lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
+# from pylal.date.
+#
+
 
 lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+
 
 #
 # =============================================================================
@@ -73,7 +81,7 @@ lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog --int-to-ilwd|--ilwd-to-int [options] [file [file ...]]",
+		usage = "%prog --int-to-ilwd|--ilwd-to-int [options] [file ...]",
 		description = "Converts the event_id column in a sngl_inspiral table from int_8s to ilwd:char and vice-versa.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
 	)
 	parser.add_option("--int-to-ilwd", action = "store_true", default = False, help = "Convert int_8s IDs to ilwd:char IDs.")
@@ -195,6 +203,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
 	# find the summvars table, then add and populate a summvar_id column
 	#
+
 	summvars = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
 	try:
 		summvars.appendColumn("search_summvar_id")
@@ -205,7 +214,6 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 		for row in summvars:
 			row.search_summvar_id = summvars.ids.next()
 
-
 	#
 	# find the sngl_inspiral table
 	#
@@ -213,9 +221,8 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	try:
 		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print "Error reading sngl_inspiral table, will try to continue ..."
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return xmldoc
-		
 
 	#
 	# convert the event_id attribute on every row object
@@ -250,8 +257,8 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	try:
 		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print "Error reading sngl_inspiral table, will try to continue ..."
-		return
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
+		return xmldoc
 
 	#
 	# convert the event_id attribute on every row object
@@ -279,7 +286,19 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 		summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
 		summ_value.removeChild(summ_value.getColumnByName("summ_value_id"))
 	except (ValueError, KeyError):
-	    pass
+		# no such table, or it doesn't have the column
+		pass
+
+	#
+	# find the summ_vars table, and remove the search_summvar_id column
+	#
+
+	try:
+		summvars = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
+		summvars.removeChild(summvars.getColumnByName("search_summvar_id"))
+	except (ValueError, KeyError):
+		# no such table, or it doesn't have the column
+		pass
 
 	#
 	# done
@@ -315,6 +334,29 @@ def populate_time_slide(xmldoc):
 
 
 #
+# Globally unique inspiral search types
+#
+# FIXME:  these definitions should be moved to some central location, e.g.
+# LAL or a pyLAL module, so that other code can be kept synchronized.  It
+# is here ONLY as an example of the information that needs to be provided.
+#
+
+
+class InspiralCoincType(object):
+	search = "inspiral"
+
+	def __init__(self, search_coinc_type, description):
+		self.search_coinc_type = search_coinc_type
+		self.description = description
+
+
+InspiralCoincTypes = {
+	"sngl--sngl": InspiralCoincType(0, "sngl_inspiral<-->sngl_inspiral coincidences"),
+	"sim--sngl": InspiralCoincType(1, "sim_inspiral<-->sngl_inspiral coincidences")
+}
+
+
+#
 # For sngl_inspiral <--> sngl_inspiral coincidences
 #
 
@@ -327,7 +369,7 @@ def populate_coinc_event_sngls(xmldoc):
 	try:
 		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print "Error reading sngl_inspiral table, will try to continue ..."
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
 
 	#
@@ -335,7 +377,8 @@ def populate_coinc_event_sngls(xmldoc):
 	# coincidences, or create one if needed
 	#
 
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglInspiralTable.tableName], create_new = True)
+	coinc_type = InspiralCoincTypes["sngl--sngl"]
+	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_type.search, coinc_type.search_coinc_type, create_new = True, description = coinc_type.description)
 
 	#
 	# find the coinc_event table or create one if needed
@@ -369,7 +412,10 @@ def populate_coinc_event_sngls(xmldoc):
 	for event_id, events in itertools.groupby(sngl_inspiral, lambda row: row.event_id):
 		events = tuple(events)
 		if len(events) < 2:
-			# not a coincidence, just a single
+			# not a coincidence, just a single.  assign a new,
+			# unique, event_id and continue.
+			for event in events:
+				event.event_id = sngl_inspiral.ids.next()
 			continue
 
 		#
@@ -384,7 +430,7 @@ def populate_coinc_event_sngls(xmldoc):
 		# of the event_id
 		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)]
 		coinc.nevents = len(events)
-		coinc.likelihood = 1.0
+		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
 
 		#
@@ -414,7 +460,7 @@ def populate_coinc_event_sims(xmldoc):
 	try:
 		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print "Error reading sngl_inspiral table, will try to continue ..."
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
 
 	sim_inspiral = table.get_table(xmldoc, lsctables.SimInspiralTable.tableName)
@@ -424,7 +470,8 @@ def populate_coinc_event_sims(xmldoc):
 	# coincidences, or create one if needed
 	#
 
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglInspiralTable.tableName, lsctables.SimInspiralTable.tableName], create_new = True)
+	coinc_type = InspiralCoincTypes["sim--sngl"]
+	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_type.search, coinc_type.search_coinc_type, create_new = True, description = coinc_type.description)
 
 	#
 	# find the coinc_event table or create one if needed
@@ -470,7 +517,7 @@ def populate_coinc_event_sims(xmldoc):
 		# of the event_id
 		coinc.time_slide_id = lsctables.TimeSlideTable.ids[(ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)]
 		coinc.nevents = len(events)
-		coinc.likelihood = 1.0
+		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
 
 		#
@@ -510,12 +557,13 @@ def depopulate_sngl_inspiral(xmldoc):
 	try:
 		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print "Error reading sngl_inspiral table, will try to continue ..."
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
 
 	#
 	# delete duplicates, recording replacement event_ids
 	#
+
 	trigger_id_dict = {}
 	id_mapping = {}
 	for i, trigger in enumerate(sngl_inspiral):
@@ -526,6 +574,7 @@ def depopulate_sngl_inspiral(xmldoc):
 			trigger_id_dict[trigger] = trigger.event_id
 
 	print id_mapping
+
 	#
 	# update coinc_event_map table
 	#
