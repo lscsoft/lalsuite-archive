@@ -29,6 +29,13 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from numpy import histogram
 
+import itertools
+
+from glue.ligolw import ligolw, table as tab, lsctables, utils
+
+from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+
 
 ##############################################################################
 usage = """
@@ -266,6 +273,9 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+from numpy import histogram
+rc('text', usetex=True)
+
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \

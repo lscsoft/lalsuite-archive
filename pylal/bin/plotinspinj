@@ -171,7 +171,7 @@ def parse_command_line():
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
-  parser.add_option("","--cache-file",action="store",type="string",\
+  parser.add_option("","--injection-cache-file",action="store",type="string",\
       default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
   parser.add_option("","--cache-description",action="store",type="string",\
       default=None, metavar=" CACHE-DESCRIPTION",help=" sieves a file of a particular description" )
@@ -235,8 +235,8 @@ rc('text', usetex=True)
 
 
 # check at least one trig file was specified
-if opts.cache_file:
-  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, description = opts.cache_description). \
+if opts.injection_cache_file:
+  injGlobs = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, description = opts.cache_description). \
   sieve(description="FOUND").checkfilesexist()[0].pfnlist()
   
   tags = []

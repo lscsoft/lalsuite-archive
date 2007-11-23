@@ -117,6 +117,10 @@ def parse_command_line():
   parser.add_option("-u","--user-tag",action="store",type="string",\
         default=None, metavar=" USERTAG",\
         help="" )
+  parser.add_option("","--cache-description", action="store",type="string",\
+      default="COIRE_", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
+  parser.add_option("","--add-description", action="store",type="string",\
+      default="SLIDE", metavar="ADDDESCRIPTION", help="additional description pattern the cache entries will be sieved with" )
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -171,8 +175,8 @@ from pylal import viz
 # check at least one trig file was specified
 
 if opts.injection_cache_file:
-  injFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
-  misFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
+  injFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
+  misFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
   if opts.verbose:
     print "... reading the following found files " + str(injFiles)
     print "... reading the following missed files " + str(misFiles)
