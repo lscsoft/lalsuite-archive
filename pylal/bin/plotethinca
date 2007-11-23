@@ -1,5 +1,7 @@
 #!/usr/bin/python
-
+"""
+routine to look at  ethinca parameter
+"""
 # $Id$
 
 from __future__ import division
@@ -8,6 +10,7 @@ __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 __name__="plotethinca"
+__Id__ = "$Id$"
 
 import sys
 import os
@@ -47,124 +50,117 @@ Generate plots of ethinca parameter vs time or mass or snr with --x-value
 or histogram the ethinca values with --hist.
 """
 
-parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
-# options related to input and output
-parser.add_option("-g","--inj-glob",action="append",type="string",\
-  default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
 
-parser.add_option("-I", "--inj-input", action="append", default=[],
-  help="read injection thinca filenames from input file")
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
 
-parser.add_option("-t","--slide-glob",action="append",type="string",\
-  default=[], metavar=" GLOB",help="GLOB of time slide thinca files to read" )
 
-parser.add_option("-O","--enable-output",action="store_true",\
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+  # options related to input and output
+  parser.add_option("-g","--injection-glob",action="append",type="string",\
+      default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
+  parser.add_option("-I", "--injection-input", action="append", default=[],
+      help="read injection thinca filenames from input file")
+  parser.add_option("-t","--slide-glob",action="append",type="string",\
+      default=[], metavar=" GLOB",help="GLOB of time slide thinca files to read" )
+  parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
-
-parser.add_option("-u","--user-tag",action="store",type="string",\
+  parser.add_option("-u","--user-tag",action="store",type="string",\
       default=None, metavar=" USERTAG",\
       help="The user tag used in the name of the figures" )
-
-parser.add_option("","--gps-start-time",action="store", type="int", metavar="GPSSTARTTIME",\
-    help="gps start time used in the figure and output file names")
-
-parser.add_option("","--gps-end-time",action="store", type= "int", metavar="GPSENDTIME",\
-    help="gps end time used in the figure and output file names")
-
-parser.add_option("-P","--output-path",action="store",\
+  parser.add_option("","--gps-start-time",action="store", type="int", metavar="GPSSTARTTIME",\
+      help="gps start time used in the figure and output file names")
+  parser.add_option("","--gps-end-time",action="store", type= "int", metavar="GPSENDTIME",\
+      help="gps end time used in the figure and output file names")
+  parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
-
-parser.add_option("","--ifo-times",action="store",type="string",\
-  default=None,metavar="IFOS",\
-  help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
-
-parser.add_option("-V","--veto-file",action="store",type="string",\
-  default=None,metavar=" FNAME",\
-  help="read in segments from FNAME (assumed segwizard format)")
-
-parser.add_option("", "--cache-input", action="store", type="string", default=None, metavar="CACHEFILE",\
-    help="output cache file for injections, zerolag or playground  COIRE(THINCA) files")
-
-parser.add_option("","--cache-description", action="store",type="string",\
-    metavar="CACHEDESCRIPTION", default="COIRE_", help="description pattern the cache entries will be sieved with" )
-
-parser.add_option("","--add-description", action="store",type="string",\
-    metavar="ADDDESCRIPTION", default="SLIDE", help="additional description pattern the cache entries will be sieved with" )
-
-
-parser.add_option("","--time-slides", action="store_true", default=False,\
-    help="add time slides to the plots" )
-
-
-parser.add_option("","--match", action="store", default=None,type="string",\
-    metavar="MATCH",help="sieves exactly to a given pattern, if set True" )
-
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-  help="display the figures on the terminal" )
-
-parser.add_option("-v","--verbose",action="store_true",\
+  parser.add_option("","--ifo-times",action="store",type="string",\
+      default=None,metavar="IFOS",\
+      help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
+  parser.add_option("-V","--veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="read in segments from FNAME (assumed segwizard format)")
+  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
+      help="output cache file for injections, zerolag or playground  COIRE(THINCA) files")
+  parser.add_option("","--cache-description", action="store",type="string",\
+      metavar="CACHEDESCRIPTION", default="COIRE_", help="description pattern the cache entries will be sieved with" )
+  parser.add_option("","--add-description", action="store",type="string",\
+      metavar="ADDDESCRIPTION", default="SLIDE", help="additional description pattern the cache entries will be sieved with" )
+  parser.add_option("","--time-slides", action="store_true", default=False,\
+      help="add time slides to the plots" )
+  parser.add_option("","--match", action="store", default=None,type="string",\
+      metavar="MATCH",help="sieves exactly to a given pattern, if set True" )
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
+  # options that sets parameters for ploting
+  parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
+      metavar=" SEC", help="length of time over which to cluster triggers" )
+  parser.add_option("-i","--ifo",action="append",type="string",\
+      metavar="IFO",dest="ifo_list",\
+      help="look at triggers for specified ifo (append to list)" )
+  parser.add_option("-e", "--ethinca-vs-stat", action="store_true",
+      help="plot ethinca parameters vs the combined statistics")
+  parser.add_option("-x","--x-value",action="append",type="string",\
+      metavar="COL_NAME", dest="columns", default=[], help=\
+      "plot ethinca parameter against this sngl_inspiral column (add to list)" )
+  parser.add_option("-S","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
+      "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+  parser.add_option("-X", "--log-x", action="store_true",
+      help="for ethinca vs ... make x axis log")
+  parser.add_option("-H","--hist",action="store_true",default=False,\
+      help="make a histogram of the e-thinca values" )
+  parser.add_option("","--hist-stat",action="store_true",default=False,\
+      help="make a histogram of the combined statistics" )
+  parser.add_option("-n","--num-bins",action="store",type='int',\
+      default=20, metavar=" NUM",\
+      help="number of bins used in histogram" )
+  parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
+      metavar="NUM_SLIDES",help="number of time slides performed" )
+  parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
+      metavar="SEC",help="time slid for H1 per slide number" )
+  parser.add_option("","--h2-slide-time",action="store",type="int",default=10,\
+      metavar="SEC",help="time slid for H2 per slide number" )
+  parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
+      metavar="SEC",help="time slid for L1 per slide number" )
+  parser.add_option("","--injection-window",action="store",type="float",\
+      default=None,metavar="SEC",\
+      help="injection window used for found injections" )
+  parser.add_option("","--second-stage",action="store_true",\
+      default=False,metavar="SECONDSTAGE",\
+      help="specify stage of the analysis" )
+  
+  
+  (options,args) = parser.parse_args()
+  
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
-# options that sets parameters for ploting
-parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
-  metavar=" SEC", help="length of time over which to cluster triggers" )
 
-parser.add_option("-i","--ifo",action="append",type="string",\
-  metavar="IFO",dest="ifo_list",\
-  help="look at triggers for specified ifo (append to list)" )
+  return options, sys.argv[1:]
 
-parser.add_option("-e", "--ethinca-vs-stat", action="store_true",
-  help="plot ethinca parameters vs the combined statistics")
 
-parser.add_option("-x","--x-value",action="append",type="string",\
-  metavar="COL_NAME", dest="columns", default=[], help=\
-  "plot ethinca parameter against this sngl_inspiral column (add to list)" )
 
-parser.add_option("-S","--statistic",action="store",default='snr',\
-  type="string",\
-  help="choice of statistic used in making plots, valid arguments are: "
-    "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
 
-parser.add_option("-X", "--log-x", action="store_true",
-  help="for ethinca vs ... make x axis log")
 
-parser.add_option("-H","--hist",action="store_true",default=False,\
-  help="make a histogram of the e-thinca values" )
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
 
-parser.add_option("","--hist-stat",action="store_true",default=False,\
-  help="make a histogram of the combined statistics" )
-
-parser.add_option("-n","--num-bins",action="store",type='int',\
-  default=20, metavar=" NUM",\
-  help="number of bins used in histogram" )
-
-parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
-    metavar="NUM_SLIDES",help="number of time slides performed" )
-
-parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
-    metavar="SEC",help="time slid for H1 per slide number" )
-
-parser.add_option("","--h2-slide-time",action="store",type="int",default=10,\
-    metavar="SEC",help="time slid for H2 per slide number" )
-
-parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
-    metavar="SEC",help="time slid for L1 per slide number" )
-
-parser.add_option("","--injection-window",action="store",type="float",\
-    default=None,metavar="SEC",\
-    help="injection window used for found injections" )
-
-command_line = sys.argv[1:]
-
-(opts,args) = parser.parse_args()
 
 # test the input options
 if not opts.ifo_times:
   raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
-if opts.cache_input and (opts.inj_glob or opts.slide_glob):
+if opts.cache_file and (opts.injection_glob or opts.slide_glob):
     raise ValueError, """ Use either the glob options(--inj-glob OR the cachefile options (--cache-input), not both at the same time.
 """
 
@@ -178,62 +174,63 @@ if opts.slide_glob or opts.time_slides:
     print >>sys.stderr, "--num-slides and --ifo-times must be specified if"
     print >>sys.stderr, "working with time slides"
     sys.exit(1)
-#################################################################################
-# -- some initialisation
-figure_number = 0  # used for the figure label (showplot)
-output_cachefile_name = []   # use for the cache file
 
-# If show() is not required, use Agg backend to prevent X display dependency
+# -- some initialisation
+#-- add prefix and suffix to the opts strucutre. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+# Change to Agg back-end if show() will not be called thus avoiding display problem
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
-from numpy import histogram
+from pylal import viz
 
-# -- set the proper color code
-colors = InspiralUtils.colors
-# Initialise
-prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
 
-if opts.enable_output is True:
-  # -- initialise the web page calling init_page
-  page, extra = InspiralUtils.init_markup_page(opts)
-  # -- set output_cache properly: make sure there is a slash
-  if len(opts.output_path)>1 :
-    opts.output_path = opts.output_path +'/'
-  # -- filename
-  html_filename = prefix[0:len(prefix)-1] + suffix +".html"
-  html_file = file(opts.output_path + html_filename, "w")
 ####################################################################
-
 rc('font', size='x-large')
 if not opts.show_plot:
   rc('text', usetex=True)
 
 bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
-if opts.cache_input  is not None:
-  allfilesCache = lal.Cache.fromfile(open(opts.cache_input))
-  cache_allfilelist = []
-  cache_allfilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description, exact_match=opts.match).checkfilesexist()[0].pfnlist()
-  if len(cache_allfilelist) < 1:
-    print >>sys.stderr, "The file" + opts.cache_input + " contains no" + opts.cache_description + " files"
-    sys.exit(1)
-
-  cache_slidefilelist = []
+if opts.cache_file  is not None:
   cache_coincfilelist = []
-  cache_slidefilelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = (opts.cache_description + opts.add_description)).checkfilesexist()[0].pfnlist()
+  cache_slidefilelist = []
+  if opts.second_stage is True:
+    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+    allfileList = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
+    for file in allfileList:
+      if "SLIDE_" in file:
+        cache_slidefilelist.append(file)
+      elif "COIRE_" in file and "SLIDE-" not in file:
+        cache_coincfilelist.append(file)
+  else :
+    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+    filelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description, exact_match=opts.match).checkfilesexist()[0].pfnlist()
+    for file in filelist:
+      if "COIRE-" in file:
+        cache_coincfilelist.append(file)
 
-  for file in cache_allfilelist:
-    if file not in cache_slidefilelist:
-      cache_coincfilelist.append(file)
-  
+    allfileList = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
+
+    for file in allfileList:
+      if "SLIDE-" in file:
+        cache_slidefilelist.append(file)
  
 
 
-if opts.inj_glob:
-  filelists = [glob.glob(g) for g in opts.inj_glob]
-elif opts.cache_input:
+ 
+
+
+if opts.injection_glob:
+  filelists = [glob.glob(g) for g in opts.injection_glob]
+elif opts.cache_file:
   filelists = [cache_coincfilelist]
   
 if opts.slide_glob:
@@ -249,7 +246,7 @@ coincTriggersList = []
 for filegroup in filelists:
   for file in filegroup:
     # read raw triggers
-    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file]) 
+    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], verbose=opts.verbose) 
     # perform the veto
     if opts.veto_file is not None:
       seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
@@ -263,11 +260,12 @@ for filegroup in filelists:
 
     # append them to our list
     coincTriggersList.append(newCoincs)
+
 slideTriggersList = []
 if slidefilelists:
   for filegroup in slidefilelists:
     # read raw triggers
-    slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup)
+    slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
 
@@ -334,7 +332,68 @@ if len(filelists) > min(len(symbol_list), len(color_list)):
   print >>sys.stderr, "Warning: Only the first %d globs being used.  Extend "\
     "symbol_list or color_list to handle more of them."
 
-# For each pair of IFOs:
+# For each pair of IFOs, plot snr versus ethinca versus total mass
+for ifos in pylal_itertools.choices(opts.ifo_list, 2):
+  coincs_list = [x.coincinclude(ifos) for x in coincTriggersList]
+  numInjections = 0
+  for coincs in coincs_list:
+    numInjections += len(coincs)
+  ethinca_list = [x.getEThincaValues(ifos) for x in coincs_list]
+  if slideTriggersList:
+    slides_list = [x.coincinclude(ifos) for x in slideTriggersList]
+    ethinca_slide_list = [x.getEThincaValues(ifos) for x in slides_list]
+  else:
+    slides_list = []
+    ethinca_slide_list = []
+  col = 'snr'
+  for ifo in ifos:
+    figure(figure_numbers.next())
+    for coincs, ethincaVals, symbol in \
+        zip(coincs_list, ethinca_list, symbol_list):
+      xValsSNR = coincs.getsngls(ifo).get_column('snr')
+      totMass = coincs.getsngls(ifo).get_column('mass1')+ coincs.getsngls(ifo).get_column('mass2')
+
+      label=ifo+' : ' + str(len(xValsSNR))+' coincidences'
+      scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False)
+      ax = axes()
+      ax.set_xscale('log')
+#      ax.set_yscale('log')
+      colorbar()
+        
+#    if slideTriggersList:
+#      hold(True)
+#      for slides, ethincaSlideVals, symbolSlide in \
+#          zip(slides_list, ethinca_slide_list, symbol_slide_list):
+#        xSlideVals = slides.getsngls(ifo).get_column(col)
+#        if opts.log_x:
+#          semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
+#            markeredgewidth=1, markersize=6)
+#        else:
+    grid(True)
+    if coincTriggersList:
+      if len(ethincaVals) == 0 or max(ethincaVals) < 1:
+        ylim((0,1))
+    elif slideTriggersList:
+      if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < 1:
+        ylim((0,1))
+    xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
+    ylabel("E-thinca parameter ")
+    title("E-thinca parameter vs %s for %s and %s triggers" % \
+      (col.replace('_', r'\_'), ifos[0], ifos[1]))
+      
+    xlim(xmin=5.5, xmax=1000)
+    ylim(ymin=0, ymax=1)
+    #ax.set_yscale('log')
+#    legend()
+
+    if opts.enable_output:
+      name = "%s_%s_%s_ethinca_vs_%s_%s_andtotMass.png" % \
+        (opts.user_tag, ifos[0], ifos[1], ifo, col.replace('_', r'\_'))
+      fname = InspiralUtils.set_figure_name(opts, name)
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append("Ethinca versus total mass")
+
 for ifos in pylal_itertools.choices(opts.ifo_list, 2):
   # Pick out relevant double coincs and calculate ethinca parameters
   coincs_list = [x.coincinclude(ifos) for x in coincTriggersList]
@@ -355,14 +414,25 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
       for coincs, ethincaVals, symbol in \
           zip(coincs_list, ethinca_list, symbol_list):
         xVals = coincs.getsngls(ifo).get_column(col)
-        plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6)
+        label=ifo+' : ' + str(len(xVals))+' coincidences'
+        if opts.log_x:
+          semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+        else:
+          plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+        
       if slideTriggersList:
         hold(True)
         for slides, ethincaSlideVals, symbolSlide in \
             zip(slides_list, ethinca_slide_list, symbol_slide_list):
           xSlideVals = slides.getsngls(ifo).get_column(col)
-          plot(xSlideVals, ethincaSlideVals, symbolSlide,
+          if opts.log_x:
+            semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
               markeredgewidth=1, markersize=6)
+          else:
+            plot(xSlideVals, ethincaSlideVals, symbolSlide,
+              markeredgewidth=1, markersize=6)
+
+      
 
       grid(True)
       if coincTriggersList:
@@ -372,21 +442,23 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
         if len(ethincaSlideVals) == 0 or max(ethincaSlideVals) < 1:
           ylim((0,1))
       xlabel("%s %s" % (ifo, col.replace('_', r'\_')))
-      ylabel("E-thinca parameter")
+      ylabel("E-thinca parameter ")
       title("E-thinca parameter vs %s for %s and %s triggers" % \
         (col.replace('_', r'\_'), ifos[0], ifos[1]))
       
+      xlim(xmin=5.5, xmax=1000)
+      ylim(ymin=0, ymax=1)
+      legend()
+
       if opts.enable_output:
-        fname = prefix + "%s_%s_ethinca_vs_%s_%s" % (ifos[0], ifos[1], ifo, col) + suffix + ".png"   
-        savefig(opts.output_path + fname)
-        text = "E-thinca parameter vs %s for %s and %s triggers" % (col.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-        # -- create a link and image html tag
-        page.a(extra.img(src=[opts.output_path +fname], width=400, alt = text, border="2"), title=text, href=[opts.output_path + fname])
-        # -- keep track of this filename
-        output_cachefile_name.append(fname)
+        name = "%s_%s_ethinca_vs_%s_%s" % (ifos[0], ifos[1], ifo, col)  
+        fname = InspiralUtils.set_figure_name(opts, name)
+        savefig(fname)
+        fnameList.append(fname)
+        text = "E-thinca parameter vs %s for %s and %s triggers" % \
+            (col.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+        tagList.append(text)
         
-      if not opts.show_plot:
-        close()
   
   if opts.ethinca_vs_stat:  # ethinca-param vs combined statistic
     figure(figure_numbers.next())
@@ -421,20 +493,18 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     title("E-thinca parameter vs combined %s for %s and %s triggers" % \
       (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
 
+    xlim(xmin=5.5, xmax=1000)
+    ylim(ymin=0, ymax=1)
+    legend()
     if opts.enable_output:
-      fname = prefix + "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic) + suffix + ".png"   
-      savefig(opts.output_path + fname)
+      name = "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic)  
+      fname = InspiralUtils.set_figure_name(opts, name)
+      savefig(fname)
+      fnameList.append(fname)
       text = "E-thinca parameter vs combined %s for %s and %s triggers" % \
         (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-      # -- create a link and image html tag
-      page.a(extra.img(src=[opts.output_path +fname], width=400, \
-        alt = text, border="2"), title=text, href=[opts.output_path + fname])
-
-      # -- keep track of this filename
-      output_cachefile_name.append(fname)
-      
-    if not opts.show_plot:
-      close()
+      tagList.append(text)
+        
 
   if opts.hist_stat:  # hist combined statistic
     figure(figure_numbers.next())
@@ -475,18 +545,14 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
       (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
 
     if opts.enable_output:
-      fname = prefix + "%s_%s_hist_combined_%s" % (ifos[0], ifos[1], opts.statistic) + suffix + ".png"   
-      savefig(opts.output_path  + fname)
+      name = "%s_%s_hist_combined_%s" % (ifos[0], ifos[1], opts.statistic) 
       text = "Histogram of combined %s for %s and %s triggers" % \
-      (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
-      # -- create a link and image html tag
-      page.a(extra.img(src=[opts.output_path +fname], width=400, \
-      alt = text, border="2"), title=text, href=[opts.output_path + fname])
-      # -- keep track of this filename
-      output_cachefile_name.append(fname)
-      
-    if not opts.show_plot:
-      close()
+          (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append(text)
+        
  
   if opts.hist:
     figure(figure_numbers.next())
@@ -495,7 +561,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     ep_max = max([max(eps) for eps in ethinca_list+ethinca_slide_list \
         if len(eps)] + [0.1])
     if coincTriggersList:
-      y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
+      y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,\
           range=[0, ep_max]) for eps in ethinca_list])
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
@@ -521,35 +587,24 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     xlabel("E-thinca parameter")
     title("E-thinca parameter Histogram for " + ifos[0] + \
           " and " + ifos[1] + " triggers")
+    
     if opts.enable_output:
-      fname = prefix + ifos[0] + "_" + ifos[1] + "_ethinca_hist" + suffix + ".png"   
-      savefig(opts.output_path  + fname)
+      name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
       text = "E-thinca parameter Histogram for " + ifos[0] + \
           " and " + ifos[1] + " triggers in " + opts.ifo_times + " times"
-      # -- create a link and image html tag
-      page.a(extra.img(src=[opts.output_path +fname], width=400, \
-      alt = text, border="2"), title=text, href=[opts.output_path + fname])
-      # -- keep track of this filename
-      output_cachefile_name.append(fname)
-      
-    if not opts.show_plot:
-      close()
+      fname = InspiralUtils.set_figure_name(opts, name)
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append(text)
+        
+
 # ============================================================================
 # final step: html, cache file generation
-if opts.enable_output:
-  text = InspiralUtils.writeProcessParams( __name__, __version__, command_line)
-  page.add(text)
-  html_file.write(page(False))
-  html_file.close()
-
 if opts.enable_output is True:
-  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
-  this = open(opts.output_path + output_cache_name, 'w')
-  if opts.enable_output is True:
-    this.write(opts.output_path + html_filename + '\n')
-  for fname in output_cachefile_name:
-    this.write(fname + '\n')
-  this.close()
+  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+
+
 
 # ============================================================================
 
