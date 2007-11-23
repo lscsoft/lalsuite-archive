@@ -153,27 +153,24 @@ class Efficiency_hrss_vs_freq(object):
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
-	(
-	-- This can only yield at most 1 coinc_event_id
-	SELECT
-		coinc_event.coinc_event_id
-	FROM
-		coinc_event_map
-		JOIN coinc_event ON (
-			coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
-		)
-	WHERE
-		coinc_event_map.table_name == 'sim_burst'
-		AND coinc_event_map.event_id == sim_burst.simulation_id
-		AND coinc_event.coinc_def_id == ?
-	)
+	coinc_event.coinc_event_id
 FROM
 	sim_burst
+	-- The rest of this join can yield at most 1 row for each sim_burst
+	-- row
+	LEFT OUTER JOIN coinc_event_map ON (
+		coinc_event_map.table_name == 'sim_burst'
+		AND coinc_event_map.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			coinc_event_id = values[-1]
-			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
-			instruments = set([burst.ifo for burst in bursts])
+			instruments = set([burst.ifo for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id)])
 			found = self.instruments.issubset(instruments)
 			# FIXME:  this following assumes all injections are
 			# done at zero lag (which is correct, for now, but
