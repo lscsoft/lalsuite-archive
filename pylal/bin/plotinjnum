@@ -97,7 +97,7 @@ def plot_found_missed_mchirp(opts, missed, doubles, triples):
      savefig(fig_mchirp)
 
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "_missed_found_vs_mchirp")
+    fname = InspiralUtils.set_figure_name(opts, "missed_found_vs_mchirp")
     savefig(fname)
     return fname
   else:
@@ -132,7 +132,7 @@ def plot_found_missed_end_time(opts, missed, doubles, triples):
      savefig(fig_endtime)
   
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "_missed_found_vs_end_time")
+    fname = InspiralUtils.set_figure_name(opts, "missed_found_vs_end_time")
     savefig(fname)
     return fname
   else:
@@ -169,7 +169,7 @@ def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples):
   
 
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "_missed_found_chirp_dist_vs_mchirp")
+    fname = InspiralUtils.set_figure_name(opts, "missed_found_chirp_dist_vs_mchirp")
     savefig(fname)
     return fname
   else:
