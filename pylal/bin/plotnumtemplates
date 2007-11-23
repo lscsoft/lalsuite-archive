@@ -77,8 +77,8 @@ def plotnumtemplates_tmpltbank_size(opts):
   grid("on")
   
   if opts.enable_output: 
-    savefig(fname)
     fname = InspiralUtils.set_figure_name(opts, "banksize")
+    savefig(fname)
     return fname
 
 # ============================================================================
