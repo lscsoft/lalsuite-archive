@@ -20,7 +20,12 @@ from glue.ligolw import lsctables
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
+def message(opts, text):
+  """
 
+  """
+  if opts.verbose is True:
+    print text
 def set_figure_name(opts, text):
   """
   return a string containing a standard output name for pylal 
