@@ -202,7 +202,7 @@ def parse_command_line():
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
-  parser.add_option("-I","--cache-file",action="store",type="string",\
+  parser.add_option("-I","--injection-cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
   parser.add_option("-i","--ifo-type",action="store",type="string",\
@@ -271,9 +271,12 @@ if opts.found_glob:
   if opts.verbose:
      print " ...reading the following list of found files " + str(foundFiles) + "\n"
 
-elif opts.cache_file:
-  files =  lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
+elif opts.injection_cache_file:
+  files =  lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
   foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
+
+#  foundFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
+
   print foundFiles
   if opts.verbose:
       print " ...reading the following list of found files " + str(foundFiles) + "\n"
@@ -287,9 +290,10 @@ if opts.missed_glob:
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
 
-elif opts.cache_file:
-   files =  lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
+elif opts.injection_cache_file:
+   files =  lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
    missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
+   #foundFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
        

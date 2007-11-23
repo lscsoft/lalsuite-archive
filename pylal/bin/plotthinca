@@ -27,6 +27,7 @@ import pylal.itertools
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
+from numpy import histogram
 
 
 ##############################################################################
@@ -330,10 +331,8 @@ if opts.glob is not None or opts.cache_file is not None:
         #  even though not specified by the user. 
         if opts.add_description in file:
           slidefiles.append(file)
-          print 'Keep ------------- '+file
       else :
         coincfiles.append(file)
-        print 'Keep ------------- '+file
 
 
 # Off Source Files
