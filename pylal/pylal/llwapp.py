@@ -131,21 +131,12 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 	return zero_lag_offset_dicts
 
 
-def get_coinc_def_id(xmldoc, table_names, create_new = True):
+def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description = u""):
 	"""
-	Return the coinc_def_id corresponding to coincidences consisting
-	exclusively of events from the given table names.  If no matching
-	coinc_def_id is found, then the default behaviour is to create a
-	new one initialized to the given table names and return the new ID.
-	If the document does not contain a coinc_definer table, then the
-	default behaviour is to add one, create a new coinc_def_id
-	initialized to the given table names, and return the new ID.
-
-	If, however, the optional create_new parameter is False, and for
-	any reason the ID isn't found then ValueError is raised if the
-	reason is that the document doesn't contain a coinc_definer table,
-	or KeyError is raised if the reason is that the table doesn't
-	contain the desired coinc definition.
+	Wrapper for the get_coinc_def_id() method of the CoincDefiner table
+	class in glue.ligolw.lsctables.  This wrapper will optionally
+	create a new coinc_definer table in the document if one does not
+	already exist.
 	"""
 	try:
 		coincdeftable = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
@@ -157,7 +148,7 @@ def get_coinc_def_id(xmldoc, table_names, create_new = True):
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
-	return coincdeftable.get_coinc_def_id(table_names, create_new = create_new)
+	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
 
 
 def segmenttable_get_by_name(xmldoc, name, activity = True):
