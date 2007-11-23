@@ -3,10 +3,12 @@
 #include <lal/LALStdio.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
+#include <lal/CoincInspiralEllipsoid.h>
 #include <lal/TimeDelay.h>
 #include <lal/DetectorSite.h>
 #include <lal/DetResponse.h>
 #include <lal/Date.h>
+#include <lal/EllipsoidOverlapTools.h>
 
 SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     /* Convert a Python SnglInspiral (row) to a C SnglInspiralTable.
