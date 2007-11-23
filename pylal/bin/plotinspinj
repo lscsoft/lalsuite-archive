@@ -4,10 +4,19 @@
 __author__ = "Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__name__ = "plotinspinj"
+__Id__ = "$Id$"
+__title__ = "Injection Plots"
 
 
-import sys, os, re, exceptions, glob, optparse, itertools
+import sys
+import os
+import re
+import exceptions
+import glob
+import itertools
 from types import *
+from optparse import *
 
 from glue import segmentsUtils
 from glue.ligolw import ligolw, table as tab, lsctables, utils
@@ -15,6 +24,7 @@ from glue import lal
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+from pylal import InspiralUtils
 
 ##############################################################################
 
@@ -69,98 +79,160 @@ The width of these plots is set using --dist-axis
   b) histogram, using --hist-ethinca
 
 """
-parser = optparse.OptionParser( usage=usage, version="%prog CVS $Id$")
+
+#################################################################
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
+
     
-parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
-    help="plot the chirp mass accuracy" )
-parser.add_option("-M","--hist-mchirp",action="store_true",default=False,\
-    help="histogram of the chirp mass accuracy" )
-parser.add_option("-o","--chirp-dist",action="store_true",default=False,\
-    help="plot of chirp mass accuracy vs effective dist" )
-parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
-    help="plot of chirp mass accuracy vs snr" )
-parser.add_option("-C","--chirp-axis",action="store",type="float",\
-    default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
-parser.add_option("","--mchirp-mchirp",action="store_true",default=False,\
-    help="plot of injected vs recovered mchirp" )
+  parser.add_option("-m","--plot-mchirp",action="store_true",default=False,\
+      help="plot the chirp mass accuracy" )
+  parser.add_option("-M","--hist-mchirp",action="store_true",default=False,\
+      help="histogram of the chirp mass accuracy" )
+  parser.add_option("-Z","--chirp-dist",action="store_true",default=False,\
+      help="plot of chirp mass accuracy vs effective dist" )
+  parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
+      help="plot of chirp mass accuracy vs snr" )
+  parser.add_option("-C","--chirp-axis",action="store",type="float",\
+      default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
+  parser.add_option("","--mchirp-mchirp",action="store_true",default=False,\
+     help="plot of injected vs recovered mchirp" )
+ 
+  parser.add_option("-e","--plot-eta",action="store_true",default=False,\
+      help="plot the eta accuracy" )
+  parser.add_option("-E","--hist-eta",action="store_true",default=False,\
+      help="histogram of the eta accuracy" ) 
+  parser.add_option("-a","--eta-snr",action="store_true",default=False,\
+      help="plot of eta accuracy vs snr" )
+  parser.add_option("-F","--eta-axis",action="store",type="float",\
+      default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
+  
+  parser.add_option("-t","--plot-time",action="store_true",default=False,\
+      help="plot of the timing accuracy" )
+  parser.add_option("-T","--hist-time",action="store_true",default=False,\
+      help="histogram of the timing accuracy" )
+  parser.add_option("-p","--time-dist",action="store_true",default=False,\
+      help="plot of timing accuracy vs effective dist" )
+  parser.add_option("-r","--time-snr",action="store_true",default=False,\
+      help="plot of timing accuracy vs snr" )
+  parser.add_option("-S","--time-axis",action="store",type="float",\
+      default=0, metavar=" SEC",help="width of timing accuracy in plots" )
+  
+  parser.add_option("","--plot-dist",action="store_true",default=False,\
+      help="plot of the effective distance accuracy" )
+  parser.add_option("-I","--hist-dist",action="store_true",default=False,\
+      help="histogram of the effective distance accuracy" )
+  parser.add_option("-k","--dist-dist",action="store_true",default=False,\
+      help="plot of injected vs recovered distance" )
+  parser.add_option("-D","--dist-axis",action="store",type="float",\
+      default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots")
+  
+  parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
+      action='append', default=[], \
+      help="plot maximum ethinca parameter for which "\
+      "the trigger's ellipse encloses the true injection params "\
+      "vs difference in given column between injection and trigger")
+  parser.add_option("", "--ethinca-vs-snr", action="store_true", \
+      default=False, help="plot minimum ethinca parameter for which "\
+      "the trigger's ellipse encloses the true injection params "\
+      "vs the inverse of the snr of the trigger")
+  
+  parser.add_option("", "--log-x", action="store_true", default=False,\
+      help="plot the x-axis on a log scale (only implemented for ethinca "
+      " plots)")
+  parser.add_option("", "--log-y", action="store_true", default=False,\
+      help="plot the y-axis on a log scale (only implemented for ethinca "
+      " plots)")
+  parser.add_option("", "--hist-ethinca", action="store_true", default=False,\
+      help="histogram ethinca parameters between injections and recovered triggers")
+  
+  parser.add_option("-c", "--coire-split", action="store_true", default=False,\
+      help="split coired triggers into sire-like single ifo triggers")
+  
+  parser.add_option("-1","--tag1",action="store",type="string",\
+      default=None, metavar=" TAG",help="identifier for first input file" )
+  parser.add_option("-2","--tag2",action="store",type="string",\
+      default=None, metavar=" TAG",help="identifier for second input file" )
+  parser.add_option("-3","--tag3",action="store",type="string",\
+      default=None, metavar=" TAG",help="identifier for third input file" )
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-n","--nbins",action="store",type="int",default=10,\
+      metavar=" NBINS", help="number of bins for the histogram plots (default 10)" )
+  parser.add_option("-x","--title-text",action="store",type="string",\
+      default=None, metavar=" TEXT",\
+      help="add TEXT at start of plot titles" ) 
+  parser.add_option("-V","--veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="read in segments from FNAME (assumed segwizard format)")
+  parser.add_option("","--cache-file",action="store",type="string",\
+      default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
+  parser.add_option("","--cache-description",action="store",type="string",\
+      default=None, metavar=" CACHE-DESCRIPTION",help=" sieves a file of a particular description" )
+  parser.add_option("","--ifo-type",action="store",type="string",\
+      default=None, metavar=" IFO-TYPE",help=" sieves a file according to ifo type" )
 
-parser.add_option("-e","--plot-eta",action="store_true",default=False,\
-    help="plot the eta accuracy" )
-parser.add_option("-E","--hist-eta",action="store_true",default=False,\
-    help="histogram of the eta accuracy" ) 
-parser.add_option("-a","--eta-snr",action="store_true",default=False,\
-    help="plot of eta accuracy vs snr" )
-parser.add_option("-F","--eta-axis",action="store",type="float",\
-    default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
+  # output related
+  parser.add_option("-z","--user-tag",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="a user tag for the output filenames" )
+  parser.add_option("-o","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("-i", "--ifo-times", action="store", type="string",\
+      default=None,\
+      metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
 
-parser.add_option("-t","--plot-time",action="store_true",default=False,\
-    help="plot of the timing accuracy" )
-parser.add_option("-T","--hist-time",action="store_true",default=False,\
-    help="histogram of the timing accuracy" )
-parser.add_option("-p","--time-dist",action="store_true",default=False,\
-    help="plot of timing accuracy vs effective dist" )
-parser.add_option("-r","--time-snr",action="store_true",default=False,\
-    help="plot of timing accuracy vs snr" )
-parser.add_option("-S","--time-axis",action="store",type="float",\
-    default=0, metavar=" SEC",help="width of timing accuracy in plots" )
 
-parser.add_option("-i","--plot-dist",action="store_true",default=False,\
-    help="plot of the effective distance accuracy" )
-parser.add_option("-I","--hist-dist",action="store_true",default=False,\
-    help="histogram of the effective distance accuracy" )
-parser.add_option("-k","--dist-dist",action="store_true",default=False,\
-    help="plot of injected vs recovered distance" )
-parser.add_option("-D","--dist-axis",action="store",type="float",\
-    default=0,metavar=" FRAC_DIFF",help="width of distance accuracy in plots")
 
-parser.add_option("", "--ethinca-vs-diff", dest="ethinca_vs_diff", \
-    action='append', default=[], \
-    help="plot maximum ethinca parameter for which "\
-    "the trigger's ellipse encloses the true injection params "\
-    "vs difference in given column between injection and trigger")
-parser.add_option("", "--ethinca-vs-snr", action="store_true", \
-    default=False, help="plot minimum ethinca parameter for which "\
-    "the trigger's ellipse encloses the true injection params "\
-    "vs the inverse of the snr of the trigger")
 
-parser.add_option("", "--log-x", action="store_true", default=False,\
-    help="plot the x-axis on a log scale (only implemented for ethinca "
-    " plots)")
-parser.add_option("", "--log-y", action="store_true", default=False,\
-    help="plot the y-axis on a log scale (only implemented for ethinca "
-    " plots)")
-parser.add_option("", "--hist-ethinca", action="store_true", default=False,\
-    help="histogram ethinca parameters between injections and recovered triggers")
+  (options,args) = parser.parse_args()
 
-parser.add_option("-c", "--coire-split", action="store_true", default=False,\
-    help="split coired triggers into sire-like single ifo triggers")
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times must be provided in (H1, H2, L1, V1, G1)"
 
-parser.add_option("-1","--tag1",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for first input file" )
-parser.add_option("-2","--tag2",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for second input file" )
-parser.add_option("-3","--tag3",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for third input file" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
-parser.add_option("-n","--nbins",action="store",type="int",default=10,\
-    metavar=" NBINS", help="number of bins for the histogram plots (default 10)" )
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME-fig.png" ) 
-parser.add_option("-x","--title-text",action="store",type="string",\
-    default=None, metavar=" TEXT",\
-    help="add TEXT at start of plot titles" ) 
-parser.add_option("-V","--veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("","--cache-file",action="store",type="string",\
-    default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
-parser.add_option("","--cache-description",action="store",type="string",\
-    default=None, metavar=" CACHE-DESCRIPTION",help=" sieves a file of a particular description" )
-parser.add_option("","--ifo-type",action="store",type="string",\
-    default=None, metavar=" IFO-TYPE",help=" sieves a file according to ifo type" )
-(opts,args) = parser.parse_args()
+  return options, sys.argv[1:]
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+# ============================================================================
+# Initialise
+#-- add prefix and suffix to the opts strucutre. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+# to avoid  display problem when show plot is not used
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+from numpy import histogram
+rc('text', usetex=True)
+
+
 
 # check at least one trig file was specified
 if opts.cache_file:
@@ -186,16 +258,6 @@ else:
       tags.append(opts.tag2)
       if opts.tag3:
         tags.append(opts.tag3)
-
-# Do the pylab import in such a way that doesn't require an X display
-# if show() won't be invoked.
-if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import *
-from pylal import viz
-from numpy import histogram
-rc('text', usetex=True)
 
 # get veto segment list
 if opts.veto_file:
@@ -254,7 +316,13 @@ if opts.mchirp_mchirp:
                 'mchirp', 'lin', plot_symbols[sym] )
     sym+=1
   viz.labelval('mchirp', '$M_{\odot}$', [0,0,0,0],'Injected','Recovered',\
-    tags,opts.title_text, opts.figure_name)
+    tags,opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_plot")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
+
 
 ################################
 # plot of mchirp error vs mchirp
@@ -268,7 +336,12 @@ if opts.plot_mchirp:
     sym+=1
   viz.labeldiff('mchirp', '$M_{\odot}$', \
       [0,0,-opts.chirp_axis,opts.chirp_axis],\
-      tags,opts.title_text, opts.figure_name)
+      tags,opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
   
 ###############################  
 # histogram of chirp mass error
@@ -281,8 +354,12 @@ if opts.hist_mchirp:
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.chirp_axis,opts.chirp_axis])
     sym+=1
-  viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text,\
-                    opts.figure_name)
+  viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
   
  
 ################################
@@ -296,7 +373,12 @@ if opts.plot_eta:
                  'eta', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('eta', None, [0,0,-opts.eta_axis,opts.eta_axis],\
-    tags,opts.title_text, opts.figure_name) 
+    tags,opts.title_text) 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eta_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
  
  
 ###############################  
@@ -311,7 +393,12 @@ if opts.hist_eta:
                  [-opts.eta_axis,opts.eta_axis])
     sym+=1
   viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text, \
-                    opts.figure_name)
+                    )
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eta_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 
 ################################
@@ -325,7 +412,12 @@ if opts.plot_time:
                  'end_time', 'linear', plot_symbols[sym] )
     sym+=1
   viz.labeldiff('end_time', 'days', [0,0,-opts.time_axis,opts.time_axis],\
-    tags,opts.title_text, opts.figure_name) 
+    tags,opts.title_text) 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "end_time_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 
 ###############################  
@@ -339,8 +431,13 @@ if opts.hist_time:
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.time_axis,opts.time_axis])
     sym+=1
-  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text, \
-                    opts.figure_name)
+  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text \
+                    )
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "end_time_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 
 ################################
@@ -354,7 +451,12 @@ if opts.plot_dist:
                      'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelfracdiff('eff_dist', 'Mpc', [0,0,-opts.dist_axis,opts.dist_axis],\
-    tags,opts.title_text, opts.figure_name) 
+    tags,opts.title_text) 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eff_dist_frac_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 ###############################  
 # histogram of dist error
@@ -367,8 +469,12 @@ if opts.hist_dist:
                  'frac_hist', sym, len(injSets), opts.nbins, 
                  [-opts.dist_axis,opts.dist_axis])
     sym+=1
-  viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text, \
-                    opts.figure_name)
+  viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eff_dist_histogram")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 #######################################
 # plot of injected vs detected distamce    
@@ -381,7 +487,12 @@ if opts.dist_dist:
                 'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelval('eff_dist', 'Mpc', [0,0,0,0],'Injected','Recovered',\
-    tags,opts.title_text, opts.figure_name) 
+    tags,opts.title_text) 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eff_dist_plot")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 ################################
 # plot of mchirp error vs eff_dist
@@ -394,8 +505,12 @@ if opts.chirp_dist:
                  'mchirp', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}','Mpc', \
-    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
-    opts.figure_name)
+    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 ################################
 # plot of mchirp error vs mchirp
@@ -408,8 +523,12 @@ if opts.time_dist:
                  'end_time', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'eff_dist','$M_{\odot}$','Mpc', \
-    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
-    opts.figure_name)
+    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 
 ################################
@@ -423,8 +542,12 @@ if opts.chirp_snr:
                  'mchirp', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
-    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text,\
-    opts.figure_name)
+    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 
 ################################
@@ -438,8 +561,12 @@ if opts.time_snr:
                  'end_time', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
-    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text,\
-    opts.figure_name)
+    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 ################################
 # plot of eta error vs snr
@@ -452,8 +579,12 @@ if opts.eta_snr:
                  'eta', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('eta', 'snr',None,None, \
-    [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text,\
-    opts.figure_name)
+    [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
 
 ################################
 # plot of ethinca parameter vs the difference between any parameter's
@@ -492,11 +623,11 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
     if opts.title_text is not None:
       ax.set_title(opts.title_text, size='x-large', weight='bold')
     
-    if opts.figure_name:
-      fig.savefig('%s_ethinca_vs_%s_accuracy.png' % \
-        (opts.figure_name, ethinca_vs_diff))
-    if not opts.show_plot:
-      close()
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_ethinca_vs_diff_accuracy")
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append("fix me in plotinspinj")
 
 # Plot of ethinca values vs snr
 if opts.ethinca_vs_snr:
@@ -530,11 +661,11 @@ if opts.ethinca_vs_snr:
     if opts.title_text is not None:
       ax.set_title(opts.title_text, size='x-large', weight='bold')
 
-    if opts.figure_name:
-      fig.savefig('%s_ethinca_vs_snr.png' % \
-        (opts.figure_name))
-    if not opts.show_plot:
-      close()
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_snr")
+      savefig(fname)
+      fnameList.append(fname)
+      tagList.append("fix me in plotinspinj")
 
 # Histogram of ethinca values
 if opts.hist_ethinca:
@@ -563,10 +694,28 @@ if opts.hist_ethinca:
   if opts.title_text is not None:
     ax.set_title(opts.title_text, size='x-large', weight='bold')
   
-  if opts.figure_name:
-    fig.savefig(opts.figure_name + "_inj-trig_ethinca_hist.png")
-  if not opts.show_plot:
-    close()
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "inj_trig_ethinca_hist")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("fix me in plotinspinj")
+
+
+
+
+# ============================================================================
+# final step: html, cache file generation
+if opts.enable_output is True:
+  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+
+
+
+
+
+
+
+
 
 if opts.show_plot:
   show()
