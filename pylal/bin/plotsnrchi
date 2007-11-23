@@ -4,7 +4,7 @@ Plots involving injections and background (for second stage only)
 """
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotinspiral"
+__name__ = "plotsnrchi"
 __Id__ = "$Id$"
 __title__ = "Inspiral Plots"
 
@@ -211,7 +211,7 @@ def parse_command_line():
   parser.add_option("","--rsq-pow",action="store",type="float",\
       default=0,metavar="POW",help="set rsq veto power to POW" )
   #options added for plotting dag
-  parser.add_option("", "--inj-cache-files", action="store", type="string", default=None, metavar="INJCACHEFILE",\
+  parser.add_option("", "--injection-cache-file", action="store", type="string", default=None, metavar="INJCACHEFILE",\
       help="list of cache files for injections given as a string with comma delimeters")
   parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="ZEROLAGCACHEFILE",\
       help="cache file for zero-lag",dest="zerolag_cache_file")
@@ -220,7 +220,7 @@ def parse_command_line():
   parser.add_option("","--cache-description", action="store",type="string",\
       default="SIRE_", metavar="CACHEDESCRIPTION", \
       help="description pattern the cache entries  will be sieved with" )
-  parser.add_option("","--inj-cache-description", action="store",type="string",\
+  parser.add_option("","--injection-cache-description", action="store",type="string",\
       default="FOUND_", metavar="INJDESCRIPTION", \
       help="additional description pattern for injections  the cache entries will be sieved with" )
   parser.add_option("","--single-ifo",action="store",type="string",\
@@ -306,14 +306,14 @@ if opts.inj_glob:
   if not len(injFiles):
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
-elif opts.inj_cache_files:
-  cachefileslist =  opts.inj_cache_files.split(",")
+elif opts.injection_cache_file:
+  cachefileslist =  opts.injection_cache_file.split(",")
   injFiles = []
   for cachefile in cachefileslist:
     injCache = lal.Cache.fromfile(open(cachefile))
-    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).sieve(description = opts.inj_cache_description).pfnlist())
+    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).sieve(description = opts.injection_cache_description).pfnlist())
   if not len(injFiles):
-    print >>sys.stderr, opts.inj_cache_files + " contains no files with " + opts.cache_description +  inj_cache_description + " description"
+    print >>sys.stderr, opts.injection_cache_file + " contains no files with " + opts.cache_description +  injection_cache_description + " description"
     sys.exit(1)
 
  
@@ -323,7 +323,7 @@ if not opts.denominator_constant and not opts.denominator_variable:
   sys.exit(1)
 
 if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
-    (opts.inj_glob or opts.inj_cache_files):
+    (opts.inj_glob or opts.injection_cache_file):
   print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
   print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
   sys.exit(1)
@@ -345,7 +345,7 @@ max_rsq = max(rsq)
 # input injections:
 inj_snr = None
 inj_chisq = None
-if opts.inj_glob or opts.inj_cache_files:
+if opts.inj_glob or opts.injection_cache_file:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=True)
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
@@ -361,7 +361,7 @@ print 'Read '+str(len(inj_rsq))+ ' from inspiral injection files'
 nevents = len(inspTriggers)
 snr = inspTriggers.get_column('snr')
 
-if opts.inj_glob or opts.inj_cache_files:
+if opts.inj_glob or opts.injection_cache_file:
   max_snr = max(inj_snr)
 else:
   max_snr = max(snr)
@@ -470,7 +470,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
       snr_kept.append(snr[i])
       rsq_kept.append(rsq[i])
 
-  if opts.inj_glob or opts.inj_cache_files:
+  if opts.inj_glob or opts.injection_cache_file:
     inj_snr_cut = []
     inj_rsq_cut = []
     inj_snr_kept = []
@@ -778,7 +778,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   figure(fig_num)
   loglog(snr_kept,rsq_kept,'bx',snr_cut,rsq_cut,'bo')
   hold(True)
-  if opts.inj_glob or opts.inj_cache_files:
+  if opts.inj_glob or opts.injection_cache_file:
     loglog(inj_snr_kept,inj_rsq_kept,'ro',inj_snr_cut,inj_rsq_cut,'ko')
   loglog(rsq_cut_line_x,rsq_cut_line_y,'k',linewidth=2)
 
@@ -796,7 +796,7 @@ elif opts.snr_rsq:
 
   loglog(snr,rsq,'bx')
   hold(True)
-  if opts.inj_glob or opts.inj_cache_files:
+  if opts.inj_glob or opts.injection_cache_file:
     loglog(inj_snr,inj_rsq,'ro', 'marker')
 
   xlim(min_snr, max_snr)

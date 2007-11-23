@@ -110,7 +110,7 @@ def parse_command_line():
   parser.add_option("-q","--y-max",action="store",type="float",\
       default=None,metavar="YMAX",\
       help="set the y max range to YMAX")
-  parser.add_option("","--cache-file",action="store",type="string",\
+  parser.add_option("","--injection-cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",help="get input triggers from a cache file" )
   parser.add_option("","--ifo-type",action="store",type="string",\
       default=None, metavar=" IFO_TYPE",help="sieves the cache file for a particular ifo type" )
@@ -170,9 +170,9 @@ from pylal import viz
 
 # check at least one trig file was specified
 
-if opts.cache_file:
-  injFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
-  misFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
+if opts.injection_cache_file:
+  injFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
+  misFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
   if opts.verbose:
     print "... reading the following found files " + str(injFiles)
     print "... reading the following missed files " + str(misFiles)

@@ -191,7 +191,6 @@ def parse_command_line():
   parser.add_option("-M","--missed-inj",action="store",type="string",\
       default=None, metavar=" FILE",help="missed inejction file")
 
-  command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
   # test the input options
@@ -210,6 +209,7 @@ OR the cachefile options (--cache-file), not both at the same time.
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
+InspiralUtils.message(opts, "reading data...")
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -246,9 +246,7 @@ if not len(trigFiles):
   sys.exit(1)
 print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 # an instance of the snglInspiralTable
-print "reading files ..."
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
-print "done"
 plotsymbols= ['r+','bx','ko']
 
 # read in the template bank if supplied
@@ -330,6 +328,8 @@ tagList= []   # use for the cache file
 
 ###################################
 # plot of snr vs time for missed injections
+text = "End time versus SNR (missed injections)"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.missed_inj:
   for injTime,triggers in zip(followupMissed["mis_time"],
        followupMissed["mis_triggers"]):
@@ -345,10 +345,12 @@ if opts.missed_inj:
       fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
       savefig(fname)
       fnameList.append(fname)
-      tagList.append("End time versus SNR")
+      tagList.append(text)
 
 ###################################
 # plot of snr vs time
+text = "SNR versus end time"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.snr_time:
   figure_number += 1
   figure(figure_number)
@@ -371,11 +373,13 @@ if opts.snr_time:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR versus time")
+    tagList.append(text)
 
 
 ###################################
 # plot of snr vs chisq
+text = "SNR versus chisq-square (linear)"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.snr_chisq:
   figure_number += 1
   figure(figure_number)
@@ -391,10 +395,12 @@ if opts.snr_chisq:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR versus Chisquare")
+    tagList.append(text)
 
 ###################################
 # plot of snr vs chisq
+text = "SNR versus chisq-square (log)"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.log_snr_chisq:
   figure_number += 1
   figure(figure_number)
@@ -410,11 +416,13 @@ if opts.log_snr_chisq:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR versus Chisquare")
+    tagList.append(text)
 
 
 ###################################
 # cumulative histogram of snr
+text = "SNR,cumulative histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.cum_hist_snr:
   figure_number += 1
   figure(figure_number)
@@ -436,12 +444,14 @@ if opts.cum_hist_snr:
     fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR cumulative histogram")
+    tagList.append(text)
 
 
 
 ###################################
 # histogram of snr
+text = "SNR histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.hist_snr:
   figure_number += 1
   figure(figure_number)
@@ -452,12 +462,14 @@ if opts.hist_snr:
   fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
   if opts.enable_output: savefig(fname)
   fnameList.append(fname)
-  tagList.append("SNR histogram")
+  tagList.append(text)
 
 
 
 ###################################
 # normalized histogram of snr
+text = "SNR normalised histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.norm_hist_snr:
   max_poss_trigs = (1000 / float (opts.maximization_interval)) * \
     opts.analyzed_time
@@ -471,11 +483,13 @@ if opts.norm_hist_snr:
     fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR normalised histogram")
+    tagList.append(text)
 #
   
 ###################################
 # histogram of chisq values
+text = "Chisquare  histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.hist_chisq:
   figure_number += 1
   figure(figure_number)
@@ -486,12 +500,14 @@ if opts.hist_chisq:
   if opts.enable_output: 
     fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
     savefig(fname)
+    tagList.append(text)
     fnameList.append(fname)
-    tagList.append("Chisquare  histogram")
 
 
 ###################################
 # cumulative histogram of snr
+text = "SNR over Chisquare cumulative histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.cum_hist_snr_chi:
   figure_number += 1
   figure(figure_number)
@@ -503,11 +519,13 @@ if opts.cum_hist_snr_chi:
     fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR over Chisquare cumulative histogram")
+    tagList.append(text)
 
 
 ###################################
 # histogram of snr
+text = "SNR over Chisquare cumulative histogram"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.hist_snr_chi:
   figure_number += 1
   figure(figure_number)
@@ -519,11 +537,13 @@ if opts.hist_snr_chi:
     fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("SNR over Chisquare cumulative histogram")
+    tagList.append(text)
 
 
 ###################################
 # plot the template bank and overlay the triggers
+text = "Template bank and inspiral triggers overlayed"
+InspiralUtils.message(opts, "plotting..."+text)
 if opts.template_bank:
   figure_number += 1
   figure(figure_number)
@@ -535,7 +555,7 @@ if opts.template_bank:
     fname = InspiralUtils.set_figure_name(opts, "mass1_vs_mass2")
     savefig(fname)
     fnameList.append(fname)
-    tagList.append("Template bank and inspiral triggers overlayed")
+    tagList.append(text)
 
 
 
