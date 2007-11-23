@@ -24,7 +24,7 @@ def isSummValue(name, attrs):
 
 def readFiles(fList):
   """
-  read in the SimInspiralTables from a list of files
+  read in the SummInspiralTables from a list of files
   @param fList:       list of input files
   """
   output = {}
@@ -58,81 +58,115 @@ Generate found and missed trig plots
 
 Example: plotinspmissed --time-dist --show-plot found.xml missed.xml
 """
-parser = OptionParser( usage=usage, version="%prog CVS $Id$ \n" + "$Name$\n" )
-parser.add_option("-a","--time-dist",action="store_true",default=False,\
-    help="plot dist v trig end time" )
-parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
-    help="plot dist v mchirp (log dist axis)" )
-parser.add_option("-c","--mtotal-dist-log",action="store_true",default=False,\
-    help="plot dist v mtotal (log dist axis)" )
-parser.add_option("-d","--mchirp-dist-linear",action="store_true",default=False,\
-    help="plot dist v mchirp (linear dist axis)" )
-parser.add_option("-e","--mtotal-dist-linear",action="store_true",default=False,\
-    help="plot dist v mtotal (linear dist axis)" )
-parser.add_option("-x","--tag",action="append",type="string",\
-    dest="tags", metavar=" TAG",
-    help="identifier for input file (append to list)" )
-parser.add_option("-y","--tag2",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for second input file" )
-parser.add_option("-z","--tag3",action="store",type="string",\
-    default=None, metavar=" TAG",help="identifier for third input file" )
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
-parser.add_option("-t","--title",action="store",type="string",\
-    default="", metavar=" TITLE", help="add more info to standard title" )
-parser.add_option("-l","--legend",action="store_true",default=False,\
-    help="include legend on plot" )  
-parser.add_option("-V","--veto-file",action="store",type="string",\
-    default=None,metavar=" FNAME",\
-    help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-i","--ifo",action="store",type="string",default=None,\
-    help="specify the ifo (otherwise will be read from the found file")
-parser.add_option("-M","--min-distance",action="store",type="int",\
-    default=None, metavar=" MIN_DIST",\
-    help="provide time and dist of all missed injections closer than MIN_DIST")
-parser.add_option("-r","--add-horizon",action="store",type="string",\
-    default=None,metavar="INSP",\
-    help="show the inspiral horizon obtained from files matching the glob INSP")
-parser.add_option("-p","--y-min",action="store",type="float",\
-    default=None,metavar="YMIN",\
-    help="set the y min range to YMIN")
-parser.add_option("-q","--y-max",action="store",type="float",\
-    default=None,metavar="YMAX",\
-    help="set the y max range to YMAX")
-parser.add_option("","--cache-file",action="store",type="string",\
-    default=None, metavar=" CACHE_FILE",help="get input triggers from a cache file" )
-parser.add_option("","--ifo-type",action="store",type="string",\
-    default=None, metavar=" IFO_TYPE",help="sieves the cache file for a particular ifo type" )
-parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None, metavar=" USERTAG",\
-      help="" )
-parser.add_option("-P","--output-path",action="store",\
-    type="string",default="",  metavar="PATH",\
-    help="path where the figures would be stored")
-parser.add_option("-O","--enable-output",action="store_true",\
-    default="false",  metavar="OUTPUT",\
-    help="enable the generation of the html and cache documents")
-parser.add_option("","--gps-start-time",action="store",\
-    type="int",  metavar="GPSSTARTTIME",\
-    help="gps start time (for naming figure and output files")
-parser.add_option("","--gps-end-time",action="store",\
-    type="int",  metavar=" GPSENDTIME",\
-    help="gps end time (for naming figure and output files")
-parser.add_option("-I","--ifo-times",action="store",\
-    type="string",  metavar=" IFOTIMES",\
-    help="ifo times is used as prefix for the output files ")
-parser.add_option("-v","--verbose",action="store_true",\
-    default=False,help="print information" )
 
-command_line = sys.argv[1:]
-(opts,args) = parser.parse_args()
 
-# Change to Agg back-end if show() will not be called
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
+
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ \n" + "$Name$\n" )
+  parser.add_option("-a","--time-dist",action="store_true",default=False,\
+      help="plot dist v trig end time" )
+  parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
+      help="plot dist v mchirp (log dist axis)" )
+  parser.add_option("-c","--mtotal-dist-log",action="store_true",default=False,\
+      help="plot dist v mtotal (log dist axis)" )
+  parser.add_option("-d","--mchirp-dist-linear",action="store_true",default=False,\
+      help="plot dist v mchirp (linear dist axis)" )
+  parser.add_option("-e","--mtotal-dist-linear",action="store_true",default=False,\
+      help="plot dist v mtotal (linear dist axis)" )
+  parser.add_option("-x","--tag",action="append",type="string",\
+      dest="tags", metavar=" TAG",
+      help="identifier for input file (append to list)" )
+  parser.add_option("-y","--tag2",action="store",type="string",\
+      default=None, metavar=" TAG",help="identifier for second input file" )
+  parser.add_option("-z","--tag3",action="store",type="string",\
+      default=None, metavar=" TAG",help="identifier for third input file" )
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-t","--title",action="store",type="string",\
+      default="", metavar=" TITLE", help="add more info to standard title" )
+  parser.add_option("-l","--legend",action="store_true",default=False,\
+      help="include legend on plot" )  
+  parser.add_option("-V","--veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="read in segments from FNAME (assumed segwizard format)")
+  parser.add_option("-i","--ifo",action="store",type="string",default=None,\
+      help="specify the ifo (otherwise will be read from the found file")
+  parser.add_option("-M","--min-distance",action="store",type="int",\
+      default=None, metavar=" MIN_DIST",\
+      help="provide time and dist of all missed injections closer than MIN_DIST")
+  parser.add_option("-r","--add-horizon",action="store",type="string",\
+      default=None,metavar="INSP",\
+      help="show the inspiral horizon obtained from files matching the glob INSP")
+  parser.add_option("-p","--y-min",action="store",type="float",\
+      default=None,metavar="YMIN",\
+      help="set the y min range to YMIN")
+  parser.add_option("-q","--y-max",action="store",type="float",\
+      default=None,metavar="YMAX",\
+      help="set the y max range to YMAX")
+  parser.add_option("","--cache-file",action="store",type="string",\
+      default=None, metavar=" CACHE_FILE",help="get input triggers from a cache file" )
+  parser.add_option("","--ifo-type",action="store",type="string",\
+      default=None, metavar=" IFO_TYPE",help="sieves the cache file for a particular ifo type" )
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+        default=None, metavar=" USERTAG",\
+        help="" )
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+        help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("-I","--ifo-times",action="store",\
+        type="string",  metavar=" IFOTIMES",\
+      help="ifo times is used as prefix for the output files ")
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+  
+  command_line = sys.argv[1:]
+  (options,args) = parser.parse_args()
+
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times must be provided in (H1, H2, L1, V1, G1)"
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+# ============================================================================
+# Initialise
+#-- add prefix and suffix to the opts strucutre. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+# to avoid  display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+
 
 # check at least one trig file was specified
 
@@ -311,20 +345,6 @@ xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")
 ##############################################################################
 # Initialise all the stuffs 
 
-if opts.enable_output is True:
-  output_cachefile_name = []
-  colors = InspiralUtils.colors
-  prefix, suffix = InspiralUtils.create_output_name(opts, __name__)
-  text = InspiralUtils.writeProcessParams( __name__, __version__, sys.argv[1:])
-  # Initialise the webpage using init page
-  page, extra = InspiralUtils.init_markup_page(opts)
-  # Initialise filename
-  html_filename = prefix[0:len(prefix)-1] + suffix + ".html"
-  html_file = file(html_filename, "w")
-  # set outputc_cache properly: make sure there is a slash
-  if len(opts.output_path)>1:
-       opts.output_path = opts.output_path + '/' 
- 
 # plot time V dist
 if opts.time_dist:  
   figure()
@@ -365,15 +385,12 @@ if opts.time_dist:
   xlabel('Injected End Time (days after start of run)', size='x-large')
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   gca().grid(True)
-  if opts.enable_output is True:
-    fname = prefix + suffix + "_time-dist-log.png"
-    savefig(fname)
-    output_cachefile_name.append(fname)
-    page.a(extra.img(src=[opts.output_path + fname], width=400, \
-    alt=text, border="2"),title=text, href=[opts.output_path + fname])
-    page.add(text)
-    
 
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "time-dist-log")
+    savefig(fname)
+    fnameList.append(fname)
+    tagList.append("End time versus distance")
 
 # plot mchirp V dist log plot
 if opts.mchirp_dist_log:  
@@ -400,13 +417,11 @@ if opts.mchirp_dist_log:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 1000)
   gca().grid(True)
-  if opts.enable_output is True:
-    fname =  prefix + suffix + "_dist-mchirp-log.png"
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "time-mchirp-log")
     savefig(fname)
-    output_cachefile_name.append(fname)
-    page.a(extra.img(src=[opts.output_path + fname], width=400, \
-    alt=text, border="2"),title=text, href=[opts.output_path + fname])
-    page.add(text) 
+    fnameList.append(fname)
+    tagList.append("End time versus chirp mass ")
     
 
 # plot mchirp V dist linear plot
@@ -434,14 +449,11 @@ if opts.mchirp_dist_linear:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 100)
   gca().grid(True)
-  if opts.enable_output is True:
-    fname =  prefix + suffix + "_dist-mchirp-linear.png"
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "time-mchirp-linear")
     savefig(fname)
-    output_cachefile_name.append(fname)
-    page.a(extra.img(src=[opts.output_path + fname], width=400, \
-    alt=text, border="2"),title=text, href=[opts.output_path + fname])
-    page.add(text)
-
+    fnameList.append(fname)
+    tagList.append("End time versus chirp mass (linear) ")
 
 # plot mtotal V dist log plot
 if opts.mtotal_dist_log:
@@ -468,13 +480,11 @@ if opts.mtotal_dist_log:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(10, 1000)
   gca().grid(True)
-  if opts.enable_output is True:
-    fname =  prefix + suffix + "_dist-mtotal-log.png"
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-log")
     savefig(fname)
-    output_cachefile_name.append(fname)
-    page.a(extra.img(src=[opts.output_path + fname], width=400, \
-    alt=text, border="2"),title=text, href=[opts.output_path + fname])
-    page.add(text)
+    fnameList.append(fname)
+    tagList.append("Distnace versus total mass ")
 
   
 # plot mtotal V dist linear plot
@@ -502,23 +512,21 @@ if opts.mtotal_dist_linear:
   ylabel('Injected Effective Distance (Mpc)', size='x-large')
   #ylim(1, 200)
   gca().grid(True)
-  if opts.enable_output is True:
-    fname =  prefix + suffix + "_dist-mtotal-linear.png"
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-linear")
     savefig(fname)
-    output_cachefile_name.append(fname)
-    page.a(extra.img(src=[opts.output_path + fname], width=400, \
-    alt=text, border="2"),title=text, href=[opts.output_path + fname])
-    page.add(text)
+    fnameList.append(fname)
+    tagList.append("Distnace versus total mass (linear)")
 
+
+# ============================================================================
+# final step: html, cache file generation
 if opts.enable_output is True:
-  html_file.write(page(False))
-  html_file.close()
-  output_cache_name = prefix[0:len(prefix)-1] + suffix +'.cache'
-  this = open(output_cache_name, 'w')
-  this.write(html_filename + '\n')
-  for fname in  output_cachefile_name:
-    this.write(fname + '\n')
-  this.close()
+  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+
+
+
 
 #######################################################################################3
 if opts.show_plot:
