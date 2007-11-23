@@ -1731,55 +1731,48 @@ class CoincDefTable(table.Table):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
-		"table_name": "char_v",
+		"search": "lstring",
+		"search_coinc_type": "int_4u",
 		"description": "lstring"
 	}
-	constraints = "PRIMARY KEY (coinc_def_id, table_name)"
+	constraints = "PRIMARY KEY (coinc_def_id)"
 	ids = CoincDefIDs()
+	how_to_index = {
+		"cd_ssct_index": ("search", "search_coinc_type")
+	}
 
-	def as_dict(self):
+	def get_coinc_def_id(self, search, coinc_type, create_new = True, description = u""):
 		"""
-		Return a dictionary mapping coinc_def_id to sets of
-		contributing table names.
+		Return the coinc_def_id for the row in the table whose
+		search string and search_coinc_type integer have the values
+		given.  If a matching row is not found, the default
+		behaviour is to create a new row and return the ID assigned
+		to the new row.  If, instead, create_new is False then
+		KeyError is raised when a matching row is not found.  The
+		optional description parameter can be used to set the
+		description string assigned to the new row if one is
+		created, otherwise the new row is left with an empty
+		description.
 		"""
-		d = {}
-		for row in self:
-			if row.coinc_def_id not in d:
-				d[row.coinc_def_id] = set()
-			if row.table_name in d[row.coinc_def_id]:
-				raise KeyError, "%s: duplicate table_name %s" % (row.coinc_def_id, row.table_name)
-			d[row.coinc_def_id].add(row.table_name)
-		return d
-
-	def get_coinc_def_id(self, table_names, create_new = True):
-		"""
-		Return the coinc_def_id corresponding to coincidences
-		consisting exclusively of events from the given table
-		names.  If no matching coinc_def_id is found, then a new
-		one is created and the ID returned, unless create_new is
-		False in which case the KeyError is raised.
-		"""
-		table_names = set(table_names)
-
 		# look for the ID
-		for id, names in self.as_dict().iteritems():
-			if names == table_names:
+		for row in self:
+			if (row.search, row.search_coinc_type) == (search, coinc_type):
 				# found it
-				return id
+				return row.coinc_def_id
 
-		# contributor list not found in table
+		# coinc type not found in table
 		if not create_new:
-			raise KeyError, table_names
+			raise KeyError, (search, coinc_type)
 		id = self.sync_ids().next()
-		for name in table_names:
-			row = self.RowType()
-			row.coinc_def_id = id
-			row.table_name = name
-			row.description = u""
-			self.append(row)
+		row = self.RowType()
+		row.coinc_def_id = id
+		row.search = search
+		row.search_coinc_type = coinc_type
+		row.description = u""
+		self.append(row)
 
 		# return new ID
-		return id
+		return row.coinc_def_id
 
 	def get_description(self, coinc_def_id):
 		"""
@@ -1797,6 +1790,7 @@ class CoincDefTable(table.Table):
 		for row in self:
 			if row.coinc_def_id == coinc_def_id:
 				row.description = description
+				break
 
 
 class CoincDef(object):
