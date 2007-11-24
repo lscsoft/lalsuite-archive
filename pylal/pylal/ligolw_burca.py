@@ -126,7 +126,7 @@ def dbget_thresholds(connection):
 #
 
 
-ExcessPowerCoincDef = lsctables.CoincDef(search = "excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+ExcessPowerCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 def make_multi_burst(process_id, coinc_event_id, events):
@@ -180,7 +180,7 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 #
 
 
-StringCuspCoincDef = lsctables.CoincDef(search = "StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
+StringCuspCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 0, description = u"sngl_burst<-->sngl_burst coincidences")
 
 
 #
