@@ -131,7 +131,7 @@ nearcoinccomparefunc = {
 #
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose)):
+for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
