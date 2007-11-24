@@ -45,6 +45,7 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import ilwd
+from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.date import LIGOTimeGPS
@@ -84,11 +85,27 @@ lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
 #
 
 
+ExcessPowerSBCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+ExcessPowerSCCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+ExcessPowerSCNearCoincDef = lsctables.CoincDef(search = u"excesspower", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+
+
+StringCuspSBCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 1, description = u"sim_burst<-->sngl_burst coincidences")
+StringCuspSCCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 2, description = u"sim_burst<-->coinc_event coincidences (exact)")
+StringCuspSCNearCoincDef = lsctables.CoincDef(search = u"StringCusp", search_coinc_type = 3, description = u"sim_burst<-->coinc_event coincidences (nearby)")
+
+
 class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, process):
+	def __init__(self, xmldoc, bbdef, sbdef, scdef, scndef, process):
+		#
+		# store the process row
+		#
+
+		self.process = process
+
 		#
 		# locate the sngl_burst and sim_burst tables
 		#
@@ -118,22 +135,24 @@ class DocContents(object):
 		# doesn't have one
 		#
 
-		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName])
+		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
-		# sim_burst <--> coinc coincs.  set both to None if this
-		# document does not contain any sngl_burst <--> sngl_burst
-		# coincs.
+		# both kinds of sim_burst <--> coinc coincs.  set all to
+		# None if this document does not contain any sngl_burst
+		# <--> sngl_burst coincs.
 		#
 
 		try:
-			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.SnglBurstTable.tableName], create_new = False)
+			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			self.bb_coinc_def_id = None
 			self.sc_coinc_def_id = None
+			self.scn_coinc_def_id = None
 		else:
-			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, [lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName])
+			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scdef.search, scdef.search_coinc_type, create_new = True, description = scdef.description)
+			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
 		# get coinc table, create one if needed
@@ -164,7 +183,7 @@ class DocContents(object):
 		index = {}
 		for row in self.snglbursttable:
 			index[row.event_id] = row
-		# find IDs of burst<-->burst coincs
+		# find IDs of zero-lag burst<-->burst coincs
 		self.coincs = {}
 		for coinc in self.coinctable:
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
@@ -195,14 +214,28 @@ class DocContents(object):
 		self.coincs.sort(lambda (id_a, a), (id_b, b): cmp(a[0].peak_time, b[0].peak_time) or cmp(a[0].peak_time_ns, b[0].peak_time_ns))
 
 		#
-		# set the window for bursts_near_peaktime()
+		# set the window for bursts_near_peaktime().  this window
+		# is the amount of time such that if an injection's peak
+		# time and a burst event's peak time differ by more than
+		# this it is *impossible* for them to match one another.
 		#
 
 		# find the largest difference between an injection's peak
 		# time at the geocentre and its peak times at the Hanford
-		# and Livingston sites
-		self.burst_peak_time_window = max([max(abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L")))) for row in self.simbursttable])
-		# add the duration of the longest burst event
+		# and Livingston sites (the most an injection's peak time
+		# column can differ from the time it peaks in an
+		# instrument)
+		if len(self.simbursttable):
+			self.burst_peak_time_window = max([max(abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L")))) for row in self.simbursttable])
+		else:
+			# max() doesn't like empty lists.  if there are no
+			# injections, then it doesn't matter what this is
+			# set to
+			self.burst_peak_time_window = 0
+
+		# add the duration of the longest burst event (the most an
+		# event's peak time could differ from either the start of
+		# stop time of the event)
 		if len(self.snglbursttable):
 			self.burst_peak_time_window += max(self.snglbursttable.getColumnByName("duration"))
 
@@ -240,19 +273,19 @@ class DocContents(object):
 		"""
 		self.snglbursttable.sort(lambda a, b: cmp(ilwd.ILWDID(a.event_id), ilwd.ILWDID(b.event_id)))
 
-	def new_coinc(self, process, coinc_def_id):
+	def new_coinc(self, coinc_def_id):
 		"""
 		Construct a new coinc_event row attached to the given
 		process, and belonging to the set of coincidences defined
 		by the given coinc_def_id.
 		"""
 		coinc = lsctables.Coinc()
-		coinc.process_id = process.process_id
+		coinc.process_id = self.process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.ids.next()
 		coinc.time_slide_id = self.tisi_id
 		coinc.nevents = 0
-		coinc.likelihood = 1.0
+		coinc.likelihood = float("nan")
 		self.coinctable.append(coinc)
 		return coinc
 
@@ -269,13 +302,13 @@ class DocContents(object):
 process_program_name = "ligolw_binjfind"
 
 
-def append_process(xmldoc, **kwargs):
+def append_process(xmldoc, match_algorithm, comment):
 	"""
 	Convenience wrapper for adding process metadata to the document.
 	"""
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
 
-	params = [("--match-algorithm", "lstring", kwargs["match_algorithm"])]
+	params = [("--match-algorithm", "lstring", match_algorithm)]
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
@@ -309,7 +342,7 @@ def ExcessPowerSnglCompare(sim, burst):
 	return StringCuspSnglCompare(sim, burst) or (sim.freq not in burst.get_band())
 
 
-def ExcessPowerCoincCompare(sim, burst):
+def NearCoincCompare(sim, burst):
 	"""
 	Return False if the peak time of the sim is "near" the burst event.
 	"""
@@ -332,13 +365,13 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	return [burst for burst in contents.bursts_near_peaktime(sim.get_geocent_peak()) if not comparefunc(sim, burst)]
 
 
-def add_sim_burst_coinc(contents, process, sim, bursts):
+def add_sim_burst_coinc(contents, sim, bursts):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	sngl_burst rows to the new coinc_event row.
 	"""
-	coinc = contents.new_coinc(process, contents.sb_coinc_def_id)
+	coinc = contents.new_coinc(contents.sb_coinc_def_id)
 	coinc.nevents = len(bursts)
 
 	coincmap = lsctables.CoincMap()
@@ -367,6 +400,17 @@ def add_sim_burst_coinc(contents, process, sim, bursts):
 def find_coinc_matches(contents, sim, comparefunc):
 	"""
 	Return a list of the coinc_event_ids of the burst<-->burst coincs
+	in which all burst events match sim.
+	"""
+	# FIXME:  this test does not consider the time slide offsets that
+	# should be applied to the coinc, but for now injections are done
+	# at zero lag so this isn't a problem yet
+	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if True not in [bool(comparefunc(sim, burst)) for burst in bursts]]
+
+
+def find_near_coinc_matches(contents, sim, comparefunc):
+	"""
+	Return a list of the coinc_event_ids of the burst<-->burst coincs
 	in which at least one burst event matches sim.
 	"""
 	# FIXME:  this test does not consider the time slide offsets that
@@ -375,13 +419,13 @@ def find_coinc_matches(contents, sim, comparefunc):
 	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
 
 
-def add_sim_coinc_coinc(contents, process, sim, coinc_event_ids):
+def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	coinc_event rows to the new coinc_event row.
 	"""
-	coinc = contents.new_coinc(process, contents.sc_coinc_def_id)
+	coinc = contents.new_coinc(coinc_def_id)
 	coinc.nevents = len(coinc_event_ids)
 
 	coincmap = lsctables.CoincMap()
@@ -407,35 +451,49 @@ def add_sim_coinc_coinc(contents, process, sim, coinc_event_ids):
 #
 
 
-def ligolw_binjfind(xmldoc, **kwargs):
-	#
-	# Add process metadata to document.
-	#
-
-	process = append_process(xmldoc, **kwargs)
-
+def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = False):
 	#
 	# Analyze the document's contents.
 	#
 
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "indexing ..."
-	contents = DocContents(xmldoc, process)
+
+	contents = DocContents(
+		xmldoc = xmldoc,
+		bbdef = {
+			"StringCusp": ligolw_burca.StringCuspCoincDef,
+			"excesspower": ligolw_burca.ExcessPowerCoincDef
+		}[search],
+		sbdef = {
+			"StringCusp": StringCuspSBCoincDef,
+			"excesspower": ExcessPowerSBCoincDef
+		}[search],
+		scdef = {
+			"StringCusp": StringCuspSCCoincDef,
+			"excesspower": ExcessPowerSCCoincDef
+		}[search],
+		scndef = {
+			"StringCusp": StringCuspSCNearCoincDef,
+			"excesspower": ExcessPowerSCNearCoincDef
+		}[search],
+		process = process
+	)
 	N = len(contents.simbursttable)
 
 	#
 	# Find sim_burst <--> sngl_burst coincidences.
 	#
 
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "constructing sim_burst <--> sngl_burst coincidences:"
 	for n, sim in enumerate(contents.simbursttable):
-		if kwargs["verbose"] and not (n % (N / 50 or 1)):
+		if verbose and not (n % (N / 50 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		bursts = find_sngl_burst_matches(contents, sim, kwargs["snglcomparefunc"])
+		bursts = find_sngl_burst_matches(contents, sim, snglcomparefunc)
 		if bursts:
-			add_sim_burst_coinc(contents, process, sim, bursts)
-	if kwargs["verbose"]:
+			add_sim_burst_coinc(contents, sim, bursts)
+	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
 	#
@@ -443,26 +501,27 @@ def ligolw_binjfind(xmldoc, **kwargs):
 	#
 
 	if contents.sc_coinc_def_id:
-		if kwargs["verbose"]:
+		if verbose:
 			print >>sys.stderr, "constructing sim_burst <--> coinc_event coincidences:"
 		for n, sim in enumerate(contents.simbursttable):
-			if kwargs["verbose"] and not (n % (N / 50 or 1)):
+			if verbose and not (n % (N / 50 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coinc_event_ids = find_coinc_matches(contents, sim, kwargs["coinccomparefunc"])
+			coinc_event_ids = find_near_coinc_matches(contents, sim, nearcoinccomparefunc)
 			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, process, sim, coinc_event_ids)
-		if kwargs["verbose"]:
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
+			coinc_event_ids = find_coinc_matches(contents, sim, snglcomparefunc)
+			if coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sc_coinc_def_id)
+		if verbose:
 			print >>sys.stderr, "\t100.0%"
 
 	#
-	# Restore the original event order, and close out the process
-	# metadata.
+	# Restore the original event order
 	#
 
-	if kwargs["verbose"]:
+	if verbose:
 		print >>sys.stderr, "finishing ..."
 	contents.sort_triggers_by_id()
-	llwapp.set_process_end_time(process)
 
 	#
 	# Done.

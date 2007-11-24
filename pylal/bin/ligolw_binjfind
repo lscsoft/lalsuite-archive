@@ -72,14 +72,6 @@ def parse_command_line():
 		raise ValueError, "missing required --match-algorithm option"
 	if options.match_algorithm not in ("stringcusp", "excesspower"):
 		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
-	options.snglcomparefunc = {
-		"stringcusp": ligolw_binjfind.StringCuspSnglCompare,
-		"excesspower": ligolw_binjfind.ExcessPowerSnglCompare
-	}[options.match_algorithm]
-	options.coinccomparefunc = {
-		"stringcusp": ligolw_binjfind.ExcessPowerCoincCompare,
-		"excesspower": ligolw_binjfind.ExcessPowerCoincCompare
-	}[options.match_algorithm]
 
 	return options, (filenames or [None])
 
@@ -117,6 +109,22 @@ ligolw_binjfind.table.RowBuilder = ligolw_binjfind.table.InterningRowBuilder
 
 options, filenames = parse_command_line()
 
+# must match columns in sngl_burst table
+search = {
+	"stringcusp": "StringCusp",
+	"excesspower": "excesspower"
+}[options.match_algorithm]
+
+snglcomparefunc = {
+	"stringcusp": ligolw_binjfind.StringCuspSnglCompare,
+	"excesspower": ligolw_binjfind.ExcessPowerSnglCompare
+}[options.match_algorithm]
+
+nearcoinccomparefunc = {
+	"stringcusp": ligolw_binjfind.NearCoincCompare,
+	"excesspower": ligolw_binjfind.NearCoincCompare
+}[options.match_algorithm]
+
 
 #
 # loop over files
@@ -137,6 +145,28 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			continue
 		if options.verbose:
 			print >>sys.stderr, "continuing by --force"
-	ligolw_binjfind.ligolw_binjfind(xmldoc, **options.__dict__)
+
+	#
+	# add process metadata to document
+	#
+
+	process = append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
+
+	#
+	# run binjfind algorithm
+	#
+
+	ligolw_binjfind.ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefunc, verbose = options.verbose)
+
+	#
+	# close out the process metadata
+	#
+
+	llwapp.set_process_end_time(process)
+
+	#
+	# done
+	#
+
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
