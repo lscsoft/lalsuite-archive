@@ -342,17 +342,9 @@ def populate_time_slide(xmldoc):
 #
 
 
-class InspiralCoincType(object):
-	search = "inspiral"
-
-	def __init__(self, search_coinc_type, description):
-		self.search_coinc_type = search_coinc_type
-		self.description = description
-
-
 InspiralCoincTypes = {
-	"sngl--sngl": InspiralCoincType(0, "sngl_inspiral<-->sngl_inspiral coincidences"),
-	"sim--sngl": InspiralCoincType(1, "sim_inspiral<-->sngl_inspiral coincidences")
+	"sngl--sngl": lsctables.CoincDef(search = "inspiral", search_coinc_type = 0, description = "sngl_inspiral<-->sngl_inspiral coincidences"),
+	"sim--sngl": lsctables.CoincDef(search = "inspiral", search_coinc_type = 1, description = "sim_inspiral<-->sngl_inspiral coincidences")
 }
 
 
