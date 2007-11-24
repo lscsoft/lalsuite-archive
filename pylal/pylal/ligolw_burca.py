@@ -33,7 +33,6 @@ import sys
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from pylal import inject
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
@@ -87,14 +86,11 @@ def append_process(xmldoc, **kwargs):
 		params += [("--stringcusp-params", "lstring", kwargs["stringcusp_params"])]
 	if "force" in kwargs:
 		params += [("--force", "lstring", "")]
-	# FIXME: this loop doesn't actually reproduce the original command
-	# line arguments correctly.  The information stored in the table is
-	# correct and complete, it's just that you have to understand how
-	# burca works, internally, to know how to turn the table's contents
-	# back into a valid command line.
-	for key, value in kwargs["thresholds"].iteritems():
-		if key[0] < key[1]:
-			params += [("--thresholds", "lstring", "%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
+	if kwargs["coincidence_algorithm"] in ("stringcusp",):
+		for key, value in kwargs["thresholds"].iteritems():
+			if key[0] < key[1]:
+				params += [("--thresholds", "lstring", "%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
+
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return process
@@ -202,11 +198,10 @@ def ExcessPowerMaxSegmentGap(xmldoc, thresholds):
 	Determine the maximum allowed segment gap for use with the excess
 	power coincidence test.
 	"""
-	# largest delta t allowed in a coincidence
-	max_dt = max([abs(dt) + inject.light_travel_time(a, b) for (a, b), (dt, df, dhrss) in thresholds.items()])
-
-	# double for safety
-	return 2 * max_dt
+	# force triggers from all processes in the input file to be
+	# considered:  the pipeline script solves the problem of assembling
+	# coincident trigger files for processing by burca.
+	return float("inf")
 
 
 class ExcessPowerEventList(snglcoinc.EventList):
@@ -225,6 +220,15 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# sort by peak time
 		self.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 
+		# for the events in this list, record the largest
+		# difference between an event's peak time and either its
+		# start or stop times
+		if self:
+			self.max_edge_peak_delta = max([max(float(event.get_peak() - event.get_start()), float(event.get_start() + event.duration - event.get_peak())) for event in self])
+		else:
+			# max() doesn't like empty lists
+			self.max_edge_peak_delta = 0
+
 	def _add_offset(self, delta):
 		"""
 		Add an amount to the peak time of each event.
@@ -232,21 +236,35 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		for event in self:
 			event.set_peak(event.get_peak() + delta)
 
-	def get_coincs(self, event_a, threshold, comparefunc):
-		# max allowed delta t between event_a and an event in this
-		# list
-		dt = threshold[0] + inject.light_travel_time(event_a.ifo, self.ifo)
+	def get_coincs(self, event_a, light_travel_time, comparefunc):
+		# location of event_a's peak time
+		min_peak = max_peak = dt = event_a.get_peak()
 
-		# translate to the minimum and maximum allowed peak times
-		# for events in this list
-		min_peak = event_a.get_peak() - dt
-		max_peak = event_a.get_peak() + dt
+		# event_a's start time
+		s = event_a.get_start()
+
+		# largest difference between event_a's peak time and either
+		# its start or stop times
+		dt = max(float(dt - s), float(s + event_a.duration - dt))
+
+		# add our own max_edge_peak_delta and the light travel time
+		# between the two instruments (when done, if event_a's peak
+		# time differs by more than this much from the peak time of
+		# an event in this list then it is *impossible* for them to
+		# be coincident)
+		dt += self.max_edge_peak_delta + light_travel_time
+
+		# add to and subtract from event_a's peak time to get the
+		# earliest and latest peak times of events in this list
+		# that could possibly be coincident with event_a
+		min_peak -= dt
+		max_peak += dt
 
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed peak times to quickly
 		# identify a subset of the full list)
-		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
+		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, light_travel_time)]
 
 
 #
@@ -259,11 +277,10 @@ def StringMaxSegmentGap(xmldoc, thresholds):
 	Determine the maximum allowed segment gap for use with the string
 	coincidence test.
 	"""
-	# largest delta t allowed in a coincidence
-	max_dt = max([abs(dt) for dt, kappa, epsilon in thresholds.itervalues()])
-
-	# double for safety
-	return 2 * max_dt
+	# force triggers from all processes in the input file to be
+	# considered:  the pipeline script solves the problem of assembling
+	# coincident trigger files for processing by burca.
+	return float("inf")
 
 
 class StringEventList(snglcoinc.EventList):
@@ -289,8 +306,9 @@ class StringEventList(snglcoinc.EventList):
 			event.set_peak(event.get_peak() + delta)
 
 	def get_coincs(self, event_a, threshold, comparefunc):
-		min_peak = event_a.get_peak() - threshold[0]
-		max_peak = event_a.get_peak() + threshold[0]
+		min_peak = max_peak = event_a.get_peak()
+		min_peak -= threshold[0]
+		max_peak += threshold[0]
 		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, threshold)]
 
 
@@ -303,45 +321,15 @@ class StringEventList(snglcoinc.EventList):
 #
 
 
-def ExcessPowerCoincCompare(a, b, thresholds):
+def ExcessPowerCoincCompare(a, b, light_travel_time):
 	"""
-	There are three thresholds, dt, df, and dhrss, setting,
-	respectively, the maximum allowed fractional difference in peak
-	times, the maximum allowed fractional difference in peak
-	frequencies, and the maximum allowed fractional difference in
-	h_{rss}.
-
-	In the case of the peak times, the difference is taken as a
-	fraction of the average of the durations of the two events' most
-	significant contributing tile.  For example, dt = 0 means the peak
-	times must be exactly equal, while dt = 1 is roughly equivalent to
-	requiring the events' most significant contributing tile's time
-	intervals to intersect, and dt -> \infty is equivalent to no
-	constraint.
-
-	For the peak frequencies and h_{rss}, the difference is taken as a
-	fraction of the average of the two values from the events.  For
-	h_{rss}, in particular, the value taken is the h_{rss} is the most
-	significant tile in each cluster.  For example, dhrss = 0 means the
-	two events' h_{rss}s must be exactly equal, while dhrss = 2 is
-	equivalent to no constraint on h_{rss} (h_{rss} cannot be negative,
-	so no two values can differ by more than twice their average).
+	The events are coincident if their time-frequency tiles intersect
+	after considering the light travel time between instruments.
 
 	Returns False (a & b are coincident) if the two events match within
 	the tresholds.  Retruns non-zero otherwise.
 	"""
-	# unpack thresholds
-	dt, df, dhrss = thresholds
-
-	# add light tavel time to dt
-	dt += inject.light_travel_time(a.ifo, b.ifo)
-
-	# convert fractional deltas to absolute deltas
-	df *= (a.peak_frequency + b.peak_frequency) / 2
-	dhrss *= (a.ms_hrss + b.ms_hrss) / 2
-
-	# return False if events are coincident, True if they aren't
-	return abs(float(a.get_peak() - b.get_peak())) > dt or abs(a.peak_frequency - b.peak_frequency) > df or abs(a.ms_hrss - b.ms_hrss) > dhrss
+	return a.get_period().protract(light_travel_time).disjoint(b.get_period()) or a.get_band().disjoint(b.get_band())
 
 
 def StringCoincCompare(a, b, thresholds):
@@ -375,7 +363,7 @@ def StringCoincCompare(a, b, thresholds):
 #
 
 
-def ligolw_burca(xmldoc, CoincTables, CoincDef, comparefunc, **kwargs):
+def ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **kwargs):
 	# add an entry in the process table
 	process = append_process(xmldoc, **kwargs)
 
@@ -387,7 +375,7 @@ def ligolw_burca(xmldoc, CoincTables, CoincDef, comparefunc, **kwargs):
 
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
-	eventlists = snglcoinc.make_eventlists(xmldoc, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])
 
 	# iterate over time slides
 	time_slide_ids = coinc_tables.time_slide_ids()

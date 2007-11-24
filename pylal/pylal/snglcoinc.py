@@ -66,23 +66,22 @@ def parse_thresholds(thresholdstrings):
 	"""
 	Turn a list of strings of the form
 	inst1,inst2=threshold1[,threshold2,...] into a dictionary with
-	(inst1, inst2) 2-tuples as keys and the thresholds parsed into
-	lists of individual strings as the values, with their order
-	preserved.
+	(inst1, inst2) 2-tuples as keys and the values being the thresholds
+	parsed into lists of strings split on the "," character.
 
-	For each pair of instruments represented among the input strings,
-	the two possible orders are considered independent:  the input
-	strings are allowed to contain one set of thresholds for (inst1,
-	inst2), and a different set of thresholds for (inst2, inst1).  Be
-	aware that no input checking is done to ensure the user has not
-	provided duplicate, incompatible, thresholds;  this is considered
-	the responsibility of the application program to verify.
+	For each pair of instruments present among the input strings, the
+	two possible orders are considered independent:  the input strings
+	are allowed to contain one set of thresholds for (inst1, inst2),
+	and a different set of thresholds for (inst2, inst1).  Be aware
+	that no input checking is done to ensure the user has not provided
+	duplicate, incompatible, thresholds.  This is considered the
+	responsibility of the application program to verify.
 
 	The output dictionary contains threshold sets for both instrument
-	orders regardless of whether or not they were supplied,
-	independently, by the input strings.  If the input strings
-	specified thresholds for only one of the two orders, the thresholds
-	for the other order are copied from the one that was provided.
+	orders.  If, for some pair of instruments, the input strings
+	specified thresholds for only one of the two possible orders, the
+	thresholds for the other order are copied from the one that was
+	provided.
 
 	Whitespace is removed from the start and end of all strings.
 
@@ -92,16 +91,16 @@ def parse_thresholds(thresholdstrings):
 	Example:
 
 	>>> from pylal.snglcoinc import parse_thresholds
-	>>> parse_thresholds(["H1,H2=0.1,100", "H1,L1=.2,100"])
-	{('H1', 'H2'): ['0.1', '100'], ('H1', 'L1'): ['.2', '100'], ('H2', 'H1'): ['0.1', '100'], ('L1', 'H1'): ['.2', '100']}
+	>>> parse_thresholds(["H1,H2=X=0.1,Y=100", "H1,L1=X=.2,Y=100"])
+	{('H1', 'H2'): ['X=0.1', 'Y=100'], ('H1', 'L1'): ['X=.2', 'Y=100'], ('H2', 'H1'): ['X=0.1', 'Y=100'], ('L1', 'H1'): ['X=.2', 'Y=100']}
 	"""
 	thresholds = {}
-	for pair, delta in map(lambda w: str.split(w, "="), thresholdstrings):
+	for pair, delta in [s.split("=", 1) for s in thresholdstrings]:
 		try:
-			A, B = map(str.strip, pair.split(","))
+			A, B = [s.strip() for s in pair.split(",")]
 		except Exception:
-			raise ValueError, "cannot parse instruments %s" % pair
-		thresholds[(A, B)] = map(str.strip, delta.split(","))
+			raise ValueError, "cannot parse instruments '%s'" % pair
+		thresholds[(A, B)] = [s.strip() for s in delta.split(",")]
 	for (A, B), value in thresholds.items():
 		if (B, A) not in thresholds:
 			thresholds[(B, A)] = value
@@ -192,6 +191,55 @@ class CoincTables(object):
 #
 # =============================================================================
 #
+#                                Process Filter
+#
+# =============================================================================
+#
+
+
+def coincident_process_ids(xmldoc, max_segment_gap, program):
+	"""
+	Take an XML document tree and determine the set of process IDs
+	that will participate in coincidences identified by the time slide
+	table therein.  It is OK for xmldoc to contain time slides
+	involving instruments not represented in the list of processes:
+	these time slides are ignored.  max_segment_gap is the largest gap
+	(in seconds) that can exist between two segments and it still be
+	possible for the two to provide events coincident with one another.
+	"""
+	# get the list of all process IDs for the given program
+	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+	if not proc_ids:
+		# hmm... that program's output is not in this file.
+		raise KeyError, program
+
+	# extract a segmentlistdict;  protract by half the largest
+	# coincidence window so as to not miss edge effects
+	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_segment_gap / 2)
+	avail_instruments = set(seglistdict.keys())
+
+	# determine which time slides are possible given the instruments in
+	# the search summary table
+	timeslides = [time_slide for time_slide in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(time_slide.keys()).issubset(avail_instruments)]
+
+	# determine the coincident segments for each instrument
+	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
+
+	# find the IDs of the processes which contributed to the coincident
+	# segments
+	coinc_proc_ids = set()
+	for row in search_summ_table:
+		if row.process_id not in proc_ids or row.process_id in coinc_proc_ids:
+			continue
+		if seglistdict[row.ifos].intersects_segment(row.get_out()):
+			coinc_proc_ids.add(row.process_id)
+	return coinc_proc_ids
+
+
+#
+# =============================================================================
+#
 #                             Event List Interface
 #
 # =============================================================================
@@ -202,14 +250,13 @@ class EventList(list):
 	"""
 	A parent class for managing a list of events:  applying time
 	offsets, and retrieving subsets of the list selected by time
-	interval.  Each search must provide a subclass of this class, and
-	set the EventListType attribute of the EventListDict class to their
-	own private subclass.  The only methods that *must* be overridden
-	in a subclass are the _add_offset() and get_coincs() methods.  The
-	make_index() method can be overridden if needed.  None of the other
-	methods inherited from the list parent class need to be overridden,
-	indeed they probably should not be unless you know what you're
-	doing.
+	interval.  To be useful, this class must be subclassed with
+	overrides provided for certain methods.  The only methods that
+	*must* be overridden in a subclass are the _add_offset() and
+	get_coincs() methods.  The make_index() method can be overridden if
+	needed.  None of the other methods inherited from the list parent
+	class need to be overridden, indeed they probably should not be
+	unless you know what you're doing.
 	"""
 	def __init__(self, ifo):
 		self.offset = LIGOTimeGPS(0)
@@ -279,26 +326,28 @@ class EventListDict(dict):
 	"""
 	A dictionary of EventList objects, indexed by instrument,
 	initialized from an XML trigger table and a list of process IDs
-	whose events should be included.  The EventListType attribute must
-	be set to a subclass of the EventList class.
+	whose events should be included.
 	"""
-	EventListType = None
-
-	def __new__(self, *args):
+	def __new__(self, *args, **kwargs):
+		# wrapper to shield dict.__new__() from our arguments.
 		return dict.__new__(self)
 
-	def __init__(self, event_table, process_ids):
+	def __init__(self, EventListType, event_table, process_ids = None):
 		"""
-		Initialize a newly-created instance.  event_table is a list
-		of events (e.g., an instance of a glue.ligolw.table.Table
-		subclass), and process_ids is a list or set of the
-		process_ids whose events should be considered in the
-		coincidence analysis.
+		Initialize a newly-created instance.  EventListType is a
+		subclass of EventList (the class, not an instance of the
+		class).  event_table is a list of events (e.g., an instance
+		of a glue.ligolw.table.Table subclass).  If the optional
+		process_ids arguments is not None, then it is assumed to be
+		a list or set or other thing implementing the "in" operator
+		which is used to define the set of process_ids whose events
+		should be considered in the coincidence analysis, otherwise
+		all events are considered.
 		"""
 		for event in event_table:
-			if event.process_id in process_ids:
+			if process_ids is None or event.process_id in process_ids:
 				if event.ifo not in self:
-					self[event.ifo] = self.EventListType(event.ifo)
+					self[event.ifo] = EventListType(event.ifo)
 				self[event.ifo].append(event)
 		for l in self.itervalues():
 			l.make_index()
@@ -322,60 +371,14 @@ class EventListDict(dict):
 			l.set_offset(0)
 
 
-def make_eventlists(xmldoc, event_table_name, max_segment_gap, program_name):
+def make_eventlists(xmldoc, EventListType, event_table_name, max_segment_gap, program_name):
 	"""
 	Convenience wrapper for constructing a dictionary of event lists
 	from an XML document tree, the name of a table from which to get
 	the events, a maximum allowed time window, and the name of the
 	program that generated the events.
 	"""
-	return EventListDict(table.get_table(xmldoc, event_table_name), coincident_process_ids(xmldoc, max_segment_gap, program_name))
-
-
-#
-# =============================================================================
-#
-#                                Process Filter
-#
-# =============================================================================
-#
-
-
-def coincident_process_ids(xmldoc, max_segment_gap, program):
-	"""
-	Take an XML document tree and determine the set of process IDs
-	that will participate in coincidences identified by the time slide
-	table therein.  It is OK for xmldoc to contain time slides
-	involving instruments not represented in the list of processes:
-	these time slides are ignored.  max_segment_gap is the largest gap
-	(in seconds) that can exist between two segments and it still be
-	possible for the two to provide events coincident with one another.
-	"""
-	# get the list of all process IDs for the given program
-	proc_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
-
-	# extract a segmentlistdict;  protract by half the largest
-	# coincidence window so as to not miss edge effects
-	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_segment_gap / 2)
-	avail_instruments = set(seglistdict.keys())
-
-	# determine which time slides are possible given the instruments in
-	# the search summary table
-	timeslides = [time_slide for time_slide in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(time_slide.keys()).issubset(avail_instruments)]
-
-	# determine the coincident segments for each instrument
-	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
-
-	# find the IDs of the processes which contributed to the coincident
-	# segments
-	coinc_proc_ids = set()
-	for row in search_summ_table:
-		if row.process_id not in proc_ids or row.process_id in coinc_proc_ids:
-			continue
-		if seglistdict[row.ifos].intersects_segment(row.get_out()):
-			coinc_proc_ids.add(row.process_id)
-	return coinc_proc_ids
+	return EventListDict(EventListType, table.get_table(xmldoc, event_table_name), process_ids = coincident_process_ids(xmldoc, max_segment_gap, program_name))
 
 
 #

@@ -34,6 +34,7 @@ import sys
 
 
 from glue.lal import CacheEntry
+from pylal import inject
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 
@@ -54,7 +55,8 @@ __date__ = "$Date$"[7:-2]
 
 def parse_thresholds(options):
 	#
-	# parse --thresholds options into instrument pairs and components
+	# parse --thresholds options into a dictionary of instrument pairs
+	# and components
 	#
 
 	try:
@@ -68,20 +70,14 @@ def parse_thresholds(options):
 
 	if options.coincidence_algorithm == "excesspower":
 		#
-		# parse threshold components into dt, df, dh_rss triples
-		# for excesspower coincidence algorithm
+		# excess power does not use adjustable thresholds, but for
+		# speed it helps to pre-compute the light travel time
+		# between the instruments involved in the analysis
 		#
 
-		try:
-			#
-			# don't use iteritems because we're going to modify
-			# the dictionary while we go
-			#
+		for pair in thresholds.keys():
+			thresholds[pair] = inject.light_travel_time(*pair)
 
-			for instrumentpair, (dt, df, dhrss) in thresholds.items():
-				thresholds[instrumentpair] = (float(dt), float(df), float(dhrss))
-		except Exception, e:
-			raise ValueError, "error parsing --thresholds: %s" % str(e)
 	elif options.coincidence_algorithm == "stringcusp":
 		#
 		# parse threshold components into dt, kappa, epsilon
@@ -96,6 +92,7 @@ def parse_thresholds(options):
 			thresholds = dict((instrumentpair, (float(dt), kappa, epsilon)) for instrumentpair, (dt,) in thresholds.iteritems())
 		except Exception, e:
 			raise ValueError, "error parsing --thresholds: %s" % str(e)
+
 	else:
 		#
 		# unrecognized coincidence algorithm
@@ -113,7 +110,7 @@ def parse_thresholds(options):
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [file [file ...]]",
+		usage = "%prog [options] [file ...]",
 		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
 	)
 	parser.add_option("-c", "--comment", metavar = "text", default = "", help = "Set comment string in process table (default is \"\").")
@@ -122,7 +119,7 @@ def parse_command_line():
 	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use.")
 	parser.add_option("--likelihood-data", metavar = "filename", default = [], action = "append", help = "Read likelihood data from this XML file.  (use ligolw_burca_tailor to generate these files)")
 	parser.add_option("--likelihood-data-cache", metavar = "filename", help = "Read likelihood data from the XML files described by this LAL cache.  For each trigger file, the live time of the trigger file is established and all likelihood data files whose segments intersect the trigger file's live time are loaded and merged into a single distribution data set.  (use ligolw_burca_tailor to generate these files)")
-	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower the threshold format is dt,df,dhrss.  For stringcusp the threshold format is dt.  One set of thresholds must be provided for each instrument combination that will be compared")
+	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=threshold1[,threshold2,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower there are no thresholds.  For stringcusp, each instrument pair has a single threshold setting dt.  One set of thresholds must be provided for each instrument combination that will be compared")
 	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	# FIXME:  split this next one into two arguments
 	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "Set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5).")
@@ -154,6 +151,11 @@ def parse_command_line():
 
 	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
 		options.thresholds = parse_thresholds(options)
+	elif options.thresholds:
+		raise ValueError, "--coincidence-algorithm %s does not use --thresholds" % options.coincidence_algorithm
+	else:
+		# empty thresholds
+		options.thresholds = {}
 
 	# success
 	return options, (filenames or [None])
@@ -194,13 +196,13 @@ def burca1(options, filenames):
 
 
 	if options.coincidence_algorithm == "excesspower":
-		snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
+		EventListType = ligolw_burca.ExcessPowerEventList
 		comparefunc = ligolw_burca.ExcessPowerCoincCompare
 		CoincTables = ligolw_burca.ExcessPowerCoincTables
 		CoincDef = ligolw_burca.ExcessPowerCoincDef
 		options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
 	elif options.coincidence_algorithm == "stringcusp":
-		snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
+		EventListType = ligolw_burca.StringEventList
 		comparefunc = ligolw_burca.StringCoincCompare
 		CoincTables = snglcoinc.CoincTables
 		CoincDef = ligolw_burca.StringCuspCoincDef
@@ -236,13 +238,13 @@ def burca1(options, filenames):
 					print >>sys.stderr, "skipping"
 				continue
 			if options.verbose:
-				print >>sys.stderr, "continuing anyway"
+				print >>sys.stderr, "continuing by --force"
 
 		#
 		# Run coincidence algorithm.
 		#
 
-		ligolw_burca.ligolw_burca(xmldoc, CoincTables, CoincDef, comparefunc, **options.__dict__)
+		ligolw_burca.ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **options.__dict__)
 
 		#
 		# Write back to disk, and clean up.
@@ -310,7 +312,7 @@ def burca2(options, filenames):
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 		connection = sqlite3.connect(working_filename)
-		connection.execute("PRAGMA synchronous = OFF;")
+		#connection.execute("PRAGMA synchronous = OFF;")
 		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
 		dbtables.DBTable_set_connection(connection)
 		database = SnglBurstUtils.CoincDatabase().summarize(options.program, options.verbose)
