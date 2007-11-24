@@ -330,7 +330,7 @@ def ExcessPowerCoincCompare(a, b, light_travel_time):
 	Returns False (a & b are coincident) if the two events match within
 	the tresholds.  Retruns non-zero otherwise.
 	"""
-	return a.get_period().protract(light_travel_time).disjoint(b.get_period()) or a.get_band().disjoint(b.get_band())
+	return a.get_band().disjoint(b.get_band()) or a.get_period().protract(light_travel_time).disjoint(b.get_period())
 
 
 def StringCoincCompare(a, b, thresholds):
