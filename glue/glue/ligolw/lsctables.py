@@ -1796,6 +1796,10 @@ class CoincDefTable(table.Table):
 class CoincDef(object):
 	__slots__ = CoincDefTable.validcolumns.keys()
 
+	def __init__(self, **kwargs):
+		for name, value in kwargs.items():
+			setattr(self, name, value)
+
 
 CoincDefTable.RowType = CoincDef
 
