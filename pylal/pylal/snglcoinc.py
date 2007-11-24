@@ -31,6 +31,7 @@ Generic coincidence engine for use with time-based event lists in LIGO
 Light Weight XML documents.
 """
 
+
 import sys
 # Python 2.3 compatibility
 try:
@@ -45,6 +46,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import ilwd
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -120,10 +122,12 @@ class CoincTables(object):
 	A convenience interface to the XML document's coincidence tables,
 	allowing for easy addition of coincidence events.
 	"""
-	def __init__(self, xmldoc, contributor_table_names, description = None):
-		# get the coinc_def_id for coincidences involving the given
-		# list of contributing tables
-		self.coinc_def_id = llwapp.get_coinc_def_id(xmldoc, contributor_table_names)
+	def __init__(self, xmldoc, coinc_definer_row_type):
+		# get the coinc_def_id for the coincidence type we will be
+		# constructing.  the coinc_definer_row type class should
+		# have the search, search_coinc_type, and description
+		# attributes set as default attributes.
+		self.coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row_type.search, coinc_definer_row_type.search_coinc_type, create_new = True, description = coinc_definer_row_type.description)
 
 		# find the coinc table or create one if not found
 		try:
@@ -174,7 +178,7 @@ class CoincTables(object):
 		coinc.coinc_event_id = self.coinctable.ids.next()
 		coinc.time_slide_id = time_slide_id
 		coinc.nevents = len(events)
-		coinc.likelihood = 1.0
+		coinc.likelihood = float("nan")
 		self.coinctable.append(coinc)
 		for event in events:
 			coincmap = lsctables.CoincMap()
@@ -238,8 +242,16 @@ class EventList(list):
 		"""
 		Set an offset on the times of all events in the list.
 		"""
+		# cast offset to LIGOTimeGPS to avoid repeated conversion
+		# when applying the offset to each event
+		offset = LIGOTimeGPS(offset)
+
+		# check for no-op
 		if offset != self.offset:
+			# apply the delta
 			self._add_offset(offset - self.offset)
+
+			# record the new offset
 			self.offset = offset
 
 	def get_coincs(self, event_a, threshold, comparefunc):
@@ -307,7 +319,7 @@ class EventListDict(dict):
 		Remove the offsets from all event lists (reset them to 0).
 		"""
 		for l in self.itervalues():
-			l.set_offset(LIGOTimeGPS(0))
+			l.set_offset(0)
 
 
 def make_eventlists(xmldoc, event_table_name, max_segment_gap, program_name):
@@ -431,14 +443,17 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 
 		for tail in iterutils.MultiIter(*[eventlist.get_coincs(event, threshold, comparefunc) for eventlist, threshold in eventlists]):
 
-			# if the events in the n-tuple are
+			# if the events in the inner n-tuple are
 			# mutually-coincident, combine with the outer event
 			# and report as a coincident n-tuple.
 
 			for (a, b), threshold in zip(iterutils.choices(tail, 2), threshold_sequence):
 				if comparefunc(a, b, threshold):
+					# not coincident
 					break
 			else:
+				# made it through the loop, all pairs are
+				# coincident
 				yield head + tail
 	if verbose:
 		print >>sys.stderr, "\t100.0%"

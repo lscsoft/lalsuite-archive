@@ -126,6 +126,12 @@ def dbget_thresholds(connection):
 #
 
 
+class ExcessPowerCoincDefiner(lsctables.CoincDefiner):
+	search = "excesspower"
+	search_coinc_type = 0
+	description = u"sngl_burst<-->sngl_burst coincidences"
+
+
 def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst = lsctables.MultiBurst()
 	multiburst.process_id = process_id
@@ -156,8 +162,8 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 
 class ExcessPowerCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, contributor_table_names):
-		snglcoinc.CoincTables.__init__(self, xmldoc, contributor_table_names)
+	def __init__(self, xmldoc, coinc_definer_row_type):
+		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_row_type)
 
 		# find the multi_burst table or create one if not found
 		try:
@@ -170,6 +176,17 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
 		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
 		return coinc
+
+
+#
+# For use with string cusp
+#
+
+
+class StringCuspCoincDefiner(lsctables.CoincDefiner):
+	search = "StringCusp"
+	search_coinc_type = 0
+	description = u"sngl_burst<-->sngl_burst coincidences"
 
 
 #
@@ -364,7 +381,7 @@ def StringCoincCompare(a, b, thresholds):
 #
 
 
-def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
+def ligolw_burca(xmldoc, CoincTables, CoincDefiner, comparefunc, **kwargs):
 	# add an entry in the process table
 	process = append_process(xmldoc, **kwargs)
 
@@ -372,12 +389,7 @@ def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
 		print >>sys.stderr, "indexing ..."
 
 	# prepare the coincidence table interface
-	coinc_tables = CoincTables(xmldoc, [lsctables.SnglBurstTable.tableName])
-
-	# cast offsets in time_slide table to LIGOTimeGPS (avoids repeated
-	# conversion when applying the time slide to each trigger)
-	for row in coinc_tables.time_slide_table:
-		row.offset = LIGOTimeGPS(row.offset)
+	coinc_tables = CoincTables(xmldoc, CoincDefiner)
 
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
@@ -403,7 +415,7 @@ def ligolw_burca(xmldoc, CoincTables, comparefunc, **kwargs):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\tsearching ..."
 		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offsetdict.iterkeys(), kwargs["thresholds"], kwargs["verbose"]):
+		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offsetdict.keys(), kwargs["thresholds"], kwargs["verbose"]):
 			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
 	# clean up and finish
