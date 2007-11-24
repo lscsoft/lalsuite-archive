@@ -150,7 +150,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	# add process metadata to document
 	#
 
-	process = append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
+	process = ligolw_binjfind.append_process(xmldoc, match_algorithm = options.match_algorithm, comment = options.comment)
 
 	#
 	# run binjfind algorithm
