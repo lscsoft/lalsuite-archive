@@ -75,20 +75,20 @@ def parse_slidespec(slidespec):
 	try:
 		instrument, rangespec = slidespec.split("=")
 	except ValueError:
-		raise ValueError, "cannot parse time slide \"%s\"" % slidespec
+		raise ValueError, "cannot parse time slide '%s'" % slidespec
 	offsets = set()
-	for range in rangespec.split(","):
+	for range in [s.strip() for s in rangespec.split(",")]:
 		try:
 			first, last, step = map(float, range.split(":"))
 		except ValueError:
-			raise ValueError, "malformed range \"%s\" in \"%s\"" % (range, rangespec)
+			raise ValueError, "malformed range '%s' in '%s'" % (range, rangespec)
 		if step == 0:
 			if first != last:
-				raise ValueError, "divide by zero in range \"%s\"" % range
+				raise ValueError, "divide by zero in range '%s'" % range
 			offsets.add(first)
 			continue
 		if (last - first) / step < 0.0:
-			raise ValueError, "step has wrong sign in range \"%s\"" % range
+			raise ValueError, "step has wrong sign in range '%s'" % range
 		i = 0
 		while True:
 			x = first + i * step
@@ -252,7 +252,7 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 			delta = offsetdict1[instrument] - offset
 			# add it to the offsets in the working copy of
 			# offsetdict2
-			for instrument in offsetdict2.iterkeys():
+			for instrument in offsetdict2.keys():
 				offsetdict2[instrument] += delta
 	# either the offsets have now been normalized to one another, or it
 	# was discovered that the two offset dictionaries have different
@@ -362,7 +362,7 @@ def time_slide_normalize(time_slide, **kwargs):
 	for instrument, offset in kwargs.iteritems():
 		if instrument in time_slide:
 			delta = offset - time_slide[instrument]
-			for instrument in time_slide.iterkeys():
+			for instrument in time_slide.keys():
 				time_slide[instrument] += delta
 			break
 	return time_slide
