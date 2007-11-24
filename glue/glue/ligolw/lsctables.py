@@ -1768,7 +1768,7 @@ class CoincDefTable(table.Table):
 		row.coinc_def_id = id
 		row.search = search
 		row.search_coinc_type = coinc_type
-		row.description = u""
+		row.description = description
 		self.append(row)
 
 		# return new ID

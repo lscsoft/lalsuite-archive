@@ -675,7 +675,7 @@ class CoincDefTable(DBTable):
 		row.coinc_def_id = id
 		row.search = search
 		row.search_coinc_type = coinc_type
-		row.description = u""
+		row.description = description
 		self.append(row)
 
 	def get_description(self, coinc_def_id):
