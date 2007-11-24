@@ -258,9 +258,9 @@ class EventList(list):
 	class need to be overridden, indeed they probably should not be
 	unless you know what you're doing.
 	"""
-	def __init__(self, ifo):
+	def __init__(self, instrument):
 		self.offset = LIGOTimeGPS(0)
-		self.ifo = ifo
+		self.instrument = instrument
 
 	def make_index(self):
 		"""
@@ -290,7 +290,11 @@ class EventList(list):
 		Set an offset on the times of all events in the list.
 		"""
 		# cast offset to LIGOTimeGPS to avoid repeated conversion
-		# when applying the offset to each event
+		# when applying the offset to each event.  also prevents
+		# round-off errors since addition and subtraction of
+		# LIGOTimeGPS objects are exact, so by recording the offset
+		# as a LIGOTimeGPS it should be possible to return the
+		# events to exactly their original times before exiting.
 		offset = LIGOTimeGPS(offset)
 
 		# check for no-op
@@ -345,11 +349,11 @@ class EventListDict(dict):
 		all events are considered.
 		"""
 		for event in event_table:
-			if process_ids is None or event.process_id in process_ids:
+			if (process_ids is None) or (event.process_id in process_ids):
 				if event.ifo not in self:
 					self[event.ifo] = EventListType(event.ifo)
 				self[event.ifo].append(event)
-		for l in self.itervalues():
+		for l in self.values():
 			l.make_index()
 
 	def set_offsetdict(self, offsetdict):
@@ -360,14 +364,14 @@ class EventListDict(dict):
 		instrument/offset pairs contains a key (instrument) that
 		this dictionary does not.
 		"""
-		for instrument, offset in offsetdict.iteritems():
+		for instrument, offset in offsetdict.items():
 			self[instrument].set_offset(offset)
 
 	def remove_offsetdict(self):
 		"""
 		Remove the offsets from all event lists (reset them to 0).
 		"""
-		for l in self.itervalues():
+		for l in self.values():
 			l.set_offset(0)
 
 

@@ -376,18 +376,20 @@ def ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **kw
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
 	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])
+	avail_instruments = set(eventlists.keys())
 
 	# iterate over time slides
 	time_slide_ids = coinc_tables.time_slide_ids()
 	for n, time_slide_id in enumerate(time_slide_ids):
 		offsetdict = coinc_tables.get_time_slide(time_slide_id)
+		offset_instruments = set(offsetdict.keys())
 		if kwargs["verbose"]:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ", ".join(["%s = %+.16g s" % (i, float(o)) for i, o in offsetdict.iteritems()]))
-		if len(offsetdict.keys()) < 2:
+			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ", ".join(["%s = %+.16g s" % (i, o) for i, o in offsetdict.items()]))
+		if len(offset_instruments) < 2:
 			if kwargs["verbose"]:
 				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
 			continue
-		if False in map(eventlists.__contains__, offsetdict.keys()):
+		if not offset_instruments.issubset(avail_instruments):
 			if kwargs["verbose"]:
 				print >>sys.stderr, "\twarning: skipping due to insufficient data"
 			continue
@@ -397,7 +399,7 @@ def ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **kw
 		if kwargs["verbose"]:
 			print >>sys.stderr, "\tsearching ..."
 		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offsetdict.keys(), kwargs["thresholds"], kwargs["verbose"]):
+		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offset_instruments, kwargs["thresholds"], kwargs["verbose"]):
 			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
 	# clean up and finish
