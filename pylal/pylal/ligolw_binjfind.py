@@ -397,7 +397,7 @@ def add_sim_burst_coinc(contents, sim, bursts):
 #
 
 
-def find_coinc_matches(contents, sim, comparefunc):
+def find_coinc_matches(coincs, sim, comparefunc):
 	"""
 	Return a list of the coinc_event_ids of the burst<-->burst coincs
 	in which all burst events match sim.
@@ -405,10 +405,10 @@ def find_coinc_matches(contents, sim, comparefunc):
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if True not in [bool(comparefunc(sim, burst)) for burst in bursts]]
+	return [coinc_event_id for coinc_event_id, bursts in coincs if True not in [bool(comparefunc(sim, burst)) for burst in bursts]]
 
 
-def find_near_coinc_matches(contents, sim, comparefunc):
+def find_near_coinc_matches(coincs, sim, comparefunc):
 	"""
 	Return a list of the coinc_event_ids of the burst<-->burst coincs
 	in which at least one burst event matches sim.
@@ -416,7 +416,7 @@ def find_near_coinc_matches(contents, sim, comparefunc):
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, bursts in contents.coincs_near_peaktime(sim.get_geocent_peak()) if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
+	return [coinc_event_id for coinc_event_id, bursts in coincs if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
 
 
 def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
@@ -506,12 +506,13 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		for n, sim in enumerate(contents.simbursttable):
 			if verbose and not (n % (N / 50 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coinc_event_ids = find_near_coinc_matches(contents, sim, nearcoinccomparefunc)
-			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
-			coinc_event_ids = find_coinc_matches(contents, sim, snglcomparefunc)
+			coincs = contents.coincs_near_peaktime(sim.get_geocent_peak())
+			coinc_event_ids = find_coinc_matches(coincs, sim, snglcomparefunc)
 			if coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sc_coinc_def_id)
+			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
+			if coinc_event_ids:
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
 		if verbose:
 			print >>sys.stderr, "\t100.0%"
 
