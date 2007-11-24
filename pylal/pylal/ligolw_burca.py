@@ -235,6 +235,7 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		"""
 		for event in self:
 			event.set_peak(event.get_peak() + delta)
+			event.set_start(event.get_start() + delta)
 
 	def get_coincs(self, event_a, light_travel_time, comparefunc):
 		# location of event_a's peak time
