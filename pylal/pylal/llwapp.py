@@ -148,7 +148,7 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
-	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = unicode(description))
+	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
 
 
 def segmenttable_get_by_name(xmldoc, name, activity = True):
