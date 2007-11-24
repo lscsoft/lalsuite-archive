@@ -358,16 +358,11 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# coincidence window so as to not miss edge effects
 	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_segment_gap / 2)
+	avail_instruments = set(seglistdict.keys())
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	timeslides = time_slide_table.as_dict().values()
-	for i in xrange(len(timeslides) - 1, -1, -1):
-		for instrument in timeslides[i].iterkeys():
-			if instrument not in seglistdict:
-				del timeslides[i]
-				break
+	timeslides = [time_slide for time_slide in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(time_slide.keys()).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
