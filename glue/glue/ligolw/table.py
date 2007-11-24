@@ -409,7 +409,7 @@ class TableStream(ligolw.Stream):
 			# FIXME: in Python 2.5, use attrgetter(*colnames)
 			# for attribute tuplizing
 			file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
-			rowfmt = unicode(self.getAttribute("Delimiter") + "\n" + rowfmt)
+			rowfmt = unicode(self.getAttribute("Delimiter") + u"\n" + rowfmt)
 			while True:
 				row = rowiter.next()
 				file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
