@@ -192,20 +192,6 @@ def get_table(xmldoc, name):
 	return tables[0]
 
 
-def new_ilwd(table_elem):
-	"""
-	From the table element, return a compatible ID generator instance
-	initialized to the next unique ID following those found in the
-	table.
-	"""
-	if table_elem.ids is None:
-		raise ValueError, table_elem
-	n = 0
-	for id in table_elem.getColumnByName(table_elem.ids.column_name):
-		n = max(n, ilwd.ILWDID(id) + 1)
-	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
-
-
 def reassign_ids(elem):
 	"""
 	Recurse over all tables below elem which possess ID generators, and
