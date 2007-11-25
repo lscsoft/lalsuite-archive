@@ -101,7 +101,7 @@ class ILWD(object):
 	subclassed in order to provide specific values of the class
 	variables "table_name", "column_name", and "index_offset".
 	"""
-	__slots__ = ("table_name", "column_name", "n", "index_offset")
+	__slots__ = ("n",)
 	table_name = None
 	column_name = None
 	index_offset = None
