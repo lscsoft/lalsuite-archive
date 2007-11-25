@@ -204,20 +204,20 @@ def DBTable_idmap_reset():
 	DBTable.connection.cursor().execute("DELETE FROM _idmap_")
 
 
-def DBTable_idmap_get_new(old, cls):
+def DBTable_idmap_get_new(old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
 	grabbing it from the _idmap_ table if one has already been assigned
-	to the old ID, or by creating a new one with the given ILWD
-	generator.  In the latter case, the newly-generated ID is recorded
-	in the _idmap_ table.  For internal use only.
+	to the old ID, or by using the current value of the Table
+	instance's next_id class attribute.  In the latter case, the new ID
+	is recorded in the _idmap_ table, and the class attribute
+	incremented by 1.  For internal use only.
 	"""
 	cursor = DBTable.connection.cursor()
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		return new[0]
-	new = unicode(cls.next_id)
-	cls.next_id += 1
+	new = unicode(table.next_id(tbl))
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -427,7 +427,7 @@ class DBTable(table.Table):
 		if self.next_id is not None:
 			# assign (and record) a new ID before inserting the
 			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(getattr(row, self.next_id.column_name), type(self)))
+			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(getattr(row, self.next_id.column_name), self))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))

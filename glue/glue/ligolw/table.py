@@ -192,6 +192,17 @@ def get_table(xmldoc, name):
 	return tables[0]
 
 
+def next_id(table_instance):
+	"""
+	Accepts an instance of a subclass of Table, and returns the current
+	value of the next_id class attribute, and increments the next_id
+	class attribute by 1.
+	"""
+	id = table_instance.next_id
+	type(table_instance).next_id += 1
+	return id
+
+
 def reassign_ids(elem):
 	"""
 	Recurses over all tables below elem whose next_id attributes are
