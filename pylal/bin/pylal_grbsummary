@@ -17,9 +17,10 @@ import optparse
 import os
 import os.path as p
 import sys
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
-import inspiral
-import inspiralutils
+from lalapps import inspiral
+from lalapps import inspiralutils
 from glue import lal
 from glue import segments, segmentsUtils
 from glue.ligolw import table
@@ -35,13 +36,8 @@ def get_options():
         version="%prog CVS $Id$")
 
     # always required parameters
-    parser.add_option("-s", "--analyzable-segfile",
-        help="segfile containing all analyzable time (Science Mode segments)")
-    # the various config files
     parser.add_option("-c", "--plot-config-file",
         help="plotting ini-file with parameters to pass to plotting routines")
-    parser.add_option("-f","--config-file",action="store",type="string",\
-      default=None, metavar=" FILE", help="use configuration file FILE" )
     parser.add_option("-g","--injection-config",action="store",type="string",\
       default=None, metavar=" FILE", help="use configuration file FILE" )
 
@@ -51,9 +47,6 @@ def get_options():
 
     parser.add_option("-P", "--log-path",
         help="directory in which to place Condor logs")
-
-    parser.add_option("-C", "--xml-cache",
-        help="name of the cache file containing all XML outputs from each trigger_hipe pipeline")
 
     # mode parameters - their presence turns on a feature
     parser.add_option("-d", "--dq-file", help="get data quality mask from file")
@@ -77,20 +70,14 @@ def get_options():
         default=60, metavar=" ONRIGHT",\
         help="Specifies the right onsource time window (default:60)")
 
-    ## ??
-    parser.add_option("-o", "--overwrite-dir", action="store_true",default=False,\
-      help="overwrite contents in already existing directories" )
-
-
     parser.add_option("-v", "--verbose", action="store_true", default=False,
         help="print additional information during pipeline construction")
 
 
     (opts, args) = parser.parse_args()
 
-    error_if_missing = ["analyzable_segfile", "list", "log_path",
-        "onsource_left", "onsource_right", "padding_time",
-        "xml_cache"]
+    error_if_missing = ["list", "log_path", "plot_config_file",
+        "onsource_left", "onsource_right", "padding_time"]
     
     for opt in error_if_missing:
         if getattr(opts, opt) is None:
@@ -177,7 +164,7 @@ def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
     
     TODO: allow veto files
     """
-    cache_filename = description + ".cache"
+    cache_filename = "%s/%s.cache" % (exttrig_dir, description)
 
     # sieve for files matching 'description' in the source_cache
     cache = source_cache.sieve(description=description)
@@ -192,16 +179,12 @@ def prepare_node(exttrig_dir, source_cache, description, node_class, job, dag):
 
     # set the nodes and all parameters
     node = node_class(job)
-    #node.set_cache(cache_filename)
-    node.set_ifo_tag('')  # IFO tags needs to be removed. How?
-    #node.set_output( exttrig_dir )
 
     # set important things by hand...
-    node.add_var_opt('cache-file', exttrig_dir +'/'+cache_filename)
-    node.add_input_file( exttrig_dir +'/'+cache_filename)
+    node.add_var_opt('cache-file', cache_filename)
+    node.add_input_file(cache_filename)
     node.add_var_opt('output-path', exttrig_dir)
-    node.add_input_file( exttrig_dir )
-
+    node.add_input_file(exttrig_dir)
 
     #node.set_figure_name(description)
 
@@ -220,13 +203,13 @@ if __name__ == "__main__":
     cp = ConfigParser.ConfigParser()
     cp.read(opts.plot_config_file)
     
-    # load external trigger table
-    doc = utils.load_filename( opts.list, verbose=opts.verbose )
-    try:
-       exttrig_table = table.get_table(doc, lsctables.ExtTriggersTable.tableName)
-    except:
-      print >>sys.stderr, "No tables named external_trigger:table found in %s" % opts.list
-      sys.exit(1)
+    # load external trigger times
+    doc = utils.load_filename(opts.list, verbose=opts.verbose,
+                              gz=opts.list.endswith(".gz"))
+    ext_trigger_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
+    if ext_trigger_tables is None:
+        print >>sys.stderr, "No tables named external_trigger:table found in " + opts.list
+    ext_triggers = itertools.chain(*ext_trigger_tables)
     
     # initialize DAG
     if opts.verbose:
@@ -238,37 +221,42 @@ if __name__ == "__main__":
     plots_to_do = job_dict.keys()
     
     ### Loop over GRBs
-    for trigger in exttrig_table:
+    for trigger in ext_triggers:
 
         # get the GPS time of the trigger
         exttrig_time = trigger.start_time
 
         ### Setup directory with human readable GRB number
-        exttrig_dir = "GRB%s_plot" % trigger.event_number_grb
-        inspiralutils.mkdir(exttrig_dir)
-        os.chdir(exttrig_dir)
+        exttrig_dir = "GRB%s" % trigger.event_number_grb
+        plot_dir = exttrig_dir + "_plot"
+        inspiralutils.mkdir(plot_dir)
         
         if opts.verbose:
-            print "Designing workflow for %s" % exttrig_dir
-        
-        ### Fetch cache of files
-        cache = lal.Cache.fromfile(open(opts.xml_cache), coltype=int).unique()
-        
-        ### Determine and write segments
-        # on_source_veto_filename, off_source_veto_filename = \
-        #     write_masked_segments(exttrig_time, exttrig_dir,
-        #                           opts.search_before_trigger,
-        #                           opts.search_after_trigger)
-        
-        ### Design Workflow
-        for plot_type in plots_to_do: # e.g. 'inspiral' 'thinca' 'ethinca' ...
-            descr = descr_dict[plot_type]
-            node_class = node_class_dict[plot_type]
-            job = job_dict[plot_type]
+            print "Designing workflow for %s" % plot_dir
+
+        for run_dir in glob.glob(exttrig_dir + "/*/"):
             
-            prepare_node(exttrig_dir, cache, descr+"", node_class, job, dag)
-            prepare_node(exttrig_dir, cache, descr+"_H1H2", node_class, job, dag)
-        os.chdir("..")
+            ### Fetch cache of files
+            file_list = glob.glob(run_dir + "/*.xml") + \
+                        glob.glob(run_dir + "/*.xml.gz")
+            # XXX: Consider renaming the HL-INJECTIONS.xml or storing it elsewhere
+            file_list = [fn for fn in file_list if fn != "HL-INJECTIONS.xml"]
+            cache = lal.Cache.from_urls(file_list, coltype=int)
+            
+            ### Determine and write segments
+            # on_source_veto_filename, off_source_veto_filename = \
+            #     write_masked_segments(exttrig_time, exttrig_dir,
+            #                           opts.search_before_trigger,
+            #                           opts.search_after_trigger)
+            
+            ### Design Workflow
+            for plot_type in plots_to_do: # e.g. 'inspiral' 'thinca' 'ethinca' ...
+                descr = descr_dict[plot_type]
+                node_class = node_class_dict[plot_type]
+                job = job_dict[plot_type]
+                
+                prepare_node(plot_dir, cache, descr+"_FIRST", node_class, job, dag)
+                prepare_node(plot_dir, cache, descr+"_SECOND", node_class, job, dag)
 
     ### Write DAG
     dag.write_sub_files()
