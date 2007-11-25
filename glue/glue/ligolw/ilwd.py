@@ -97,24 +97,25 @@ def ILWDID(ilwdchar):
 
 class ILWD(object):
 	"""
-	Unique ILWD generator.
+	Unique ILWD generator parent class.  This is only useful when
+	subclassed in order to provide specific values of the class
+	variables "table_name", "column_name", and "index_offset".
 	"""
-	def __init__(self, table_name, column_name, n = 0):
+	__slots__ = ("table_name", "column_name", "n", "index_offset")
+	table_name = None
+	column_name = None
+	index_offset = None
+
+	def __init__(self, n = 0):
 		"""
-		Initialize an ILWD object.  table_name and column_name are
-		the names of the table and column within the table for
-		which these will be used as IDs, eg., "process" and
-		"process_id".  The optional n parameter sets the starting
-		value for the numeric suffix in the ilwd:char
+		Initialize an ILWD object.  The optional n parameter sets
+		the starting value for the numeric suffix in the ilwd:char
 		representation of ID (default is 0).  An initialized ILWD
 		generator instance has the attribute index_offset
 		containing the location of the numeric index portion of the
 		ID within the string.
 		"""
-		self.table_name = table.StripTableName(table_name)
-		self.column_name = table.StripColumnName(column_name)
 		self.n = n
-		self.index_offset = len(self.table_name) + len(self.column_name) + 2
 
 	def __str__(self):
 		"""

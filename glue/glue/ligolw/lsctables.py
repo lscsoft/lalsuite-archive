@@ -140,8 +140,10 @@ def HasNonLSCTables(elem):
 
 
 class ProcessIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "process", "process_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "process"
+	column_name = "process_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class ProcessTable(table.Table):
@@ -191,8 +193,10 @@ ProcessTable.RowType = Process
 
 
 class LfnIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "lfn", "lfn_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "lfn"
+	column_name = "lfn_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class LfnTable(table.Table):
@@ -392,8 +396,10 @@ SearchSummaryTable.RowType = SearchSummary
 
 
 class SearchSummVarsIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "search_summvars", "search_summvar_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "search_summvars"
+	column_name = "search_summvar_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SearchSummVarsTable(table.Table):
@@ -426,8 +432,10 @@ SearchSummVarsTable.RowType = SearchSummVars
 
 
 class SnglBurstIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_burst", "event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sngl_burst"
+	column_name = "event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SnglBurstTable(table.Table):
@@ -630,8 +638,10 @@ class SnglInspiralIDs_old(object):
 
 
 class SnglInspiralIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sngl_inspiral"
+	column_name = "event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SnglInspiralTable(table.Table):
@@ -831,8 +841,10 @@ SnglInspiralTable.RowType = SnglInspiral
 
 
 class SnglRingDownIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sngl_ringdown"
+	column_name = "event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SnglRingDownTable(table.Table):
@@ -879,8 +891,10 @@ SnglRingDownTable.RowType = SnglRingDown
 
 
 class MultiInspiralIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "multi_inspiral", "event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "multi_inspiral"
+	column_name = "event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class MultiInspiralTable(table.Table):
@@ -957,8 +971,10 @@ MultiInspiralTable.RowType = MultiInspiral
 
 
 class SimInspiralIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sim_inspiral"
+	column_name = "simulation_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SimInspiralTable(table.Table):
@@ -1078,8 +1094,10 @@ SimInspiralTable.RowType = SimInspiral
 
 
 class SimBurstIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_burst", "simulation_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sim_burst"
+	column_name = "simulation_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SimBurstTable(table.Table):
@@ -1152,8 +1170,10 @@ SimBurstTable.RowType = SimBurst
 
 
 class SimRingDownIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sim_ringdown"
+	column_name = "simulation_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SimRingDownTable(table.Table):
@@ -1208,8 +1228,10 @@ SimRingDownTable.RowType = SimRingDown
 
 
 class SummValueIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "summ_value", "summ_value_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "summ_value"
+	column_name = "summ_value_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SummValueTable(table.Table):
@@ -1252,8 +1274,10 @@ SummValueTable.RowType = SummValue
 
 
 class SimInstParamsIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "sim_inst_params"
+	column_name = "simulation_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SimInstParamsTable(table.Table):
@@ -1420,8 +1444,10 @@ ExtTriggersTable.RowType = ExtTriggers
 
 
 class FilterIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "filter", "filter_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "filter"
+	column_name = "filter_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class FilterTable(table.Table):
@@ -1456,8 +1482,10 @@ FilterTable.RowType = Filter
 
 
 class SegmentIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment", "segment_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "segment"
+	column_name = "segment_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SegmentTable(table.Table):
@@ -1538,8 +1566,10 @@ SegmentTable.RowType = Segment
 
 
 class SegmentDefMapIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "segment_def_map"
+	column_name = "seg_def_map_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SegmentDefMapTable(table.Table):
@@ -1577,8 +1607,10 @@ SegmentDefMapTable.RowType = SegmentDefMap
 
 
 class SegmentDefIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment_definer", "segment_def_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "segment_definer"
+	column_name = "segment_def_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class SegmentDefTable(table.Table):
@@ -1618,8 +1650,10 @@ SegmentDefTable.RowType = SegmentDef
 
 
 class TimeSlideIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "time_slide", "time_slide_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "time_slide"
+	column_name = "time_slide_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class TimeSlideTable(table.Table):
@@ -1723,8 +1757,10 @@ TimeSlideTable.RowType = TimeSlide
 
 
 class CoincDefIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "coinc_definer"
+	column_name = "coinc_def_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class CoincDefTable(table.Table):
@@ -1814,8 +1850,10 @@ CoincDefTable.RowType = CoincDef
 
 
 class CoincIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "coinc_event"
+	column_name = "coinc_event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class CoincTable(table.Table):
@@ -1888,8 +1926,10 @@ CoincMapTable.RowType = CoincMap
 
 
 class LIGOLWMonIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "ligolw_mon", "event_id", n)
+	__slots__ = ilwd.ILWD.__slots__
+	table_name = "ligolw_mon"
+	column_name = "event_id"
+	index_offset = len(table_name) + len(column_name) + 2
 
 
 class LIGOLWMonTable(table.Table):
