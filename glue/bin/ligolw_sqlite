@@ -56,7 +56,7 @@ from glue.ligolw.utils import ligolw_add
 if dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] == "ilwd:char":
 	raise Exception, "FIXME: yay, the sngl_inspiral:event_id hack is no longer required!!  (ask Kipp to remove)"
 dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
-dbtables.lsctables.SnglInspiralTable.ids = dbtables.lsctables.SnglInspiralIDs()
+dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -187,7 +187,7 @@ target = dbtables.get_connection_filename(options.database, tmp_path = will_use_
 connection = sqlite3.connect(target)
 dbtables.DBTable_set_connection(connection)
 for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
-	table.sync_ids()
+	table.sync_next_id()
 
 
 #

@@ -194,14 +194,15 @@ def get_table(xmldoc, name):
 
 def reassign_ids(elem):
 	"""
-	Recurse over all tables below elem which possess ID generators, and
-	use the generators to assign new IDs to the rows in each table,
-	recording the modifications in a mapping of old row keys to new row
-	keys.  Finally, apply the mapping to all rows of all tables.
+	Recurses over all tables below elem whose next_id attributes are
+	not none, and uses the next_id attribute to assign new IDs to the
+	rows in each table.  The modifications are recorded in a mapping of
+	old row keys to new row keys.  Finally, applies the mapping to all
+	rows of all tables to update cross references.
 	"""
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
-		if tbl.ids is not None:
+		if tbl.next_id is not None:
 			tbl.updateKeyMapping(mapping)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
@@ -441,7 +442,7 @@ class Table(ligolw.Table, list):
 	constraints = None
 	how_to_index = None
 	RowType = TableRow
-	ids = None
+	next_id = None
 
 	def __init__(self, *attrs):
 		"""
@@ -582,53 +583,60 @@ class Table(ligolw.Table, list):
 	# Row ID manipulation
 	#
 
-	def sync_ids(self):
+	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
-		the counter for the table's row ID generator so as to cause
-		it to yield the next ID in the sequence and higher.  If the
-		generator is already set to yield an ID greater than the
-		max found, then it is left unmodified.  The return value is
-		the row ID generator object.  If the table does not possess
-		a row ID generator, then this function is a no-op.
+		the table's next_id attribute to the next highest ID in
+		sequence.  If the next_id attribute is already set to a
+		value greater than the max found, then it is left
+		unmodified.  The return value is the ID identified by this
+		method.  If the table's next_id attribute is None, then
+		this function is a no-op.
 
-		Note that tables of the same name typically share
-		references to the same ID generator so that IDs can be
-		generated that are unique across all tables.  To set the
-		generator to produce an ID greater than that in any table,
-		sync_ids() needs to be run on every table sharing the
-		generator.
+		Note that tables of the same name typically share a common
+		next_id attribute (it is a class attribute, not an
+		attribute of each instance).  This is enforced so that IDs
+		can be generated that are unique across all tables in the
+		document.  Running sync_next_id() on all the tables in a
+		document that are of the same type will has the effect of
+		setting the ID to the next ID higher than any ID in any of
+		the those tables.
 		"""
-		if self.ids is not None:
-			n = 0
-			for id in self.getColumnByName(self.ids.column_name):
-				n = max(n, ilwd.ILWDID(id) + 1)
-			if n > self.ids.n:
-				self.ids.n = n
-		return self.ids
+		if self.next_id is not None:
+			if len(self):
+				n = max(map(ilwd.ILWDID, self.getColumnByName(self.next_id.column_name))) + 1
+			else:
+				n = 0
+			if n > int(self.next_id):
+				# the left-hand-side is the way it is to
+				# ensure we assign to the class attribute
+				# instead of creating an instance attribute
+				type(self).next_id = type(self.next_id)(n)
+		return self.next_id
 
 	def updateKeyMapping(self, mapping):
 		"""
 		Used as the first half of the row key reassignment
 		algorithm.  Accepts a dictionary mapping old key --> new
 		key.  Iterates over the rows in this table, using the
-		table's own row ID generator to assign a new key to each
-		row, recording the changes in the mapping.  Returns the
-		mapping.  Raises ValueError if the table has no ID
-		generator.
+		table's next_id attribute to assign a new ID to each row,
+		recording the changes in the mapping.  Returns the mapping.
+		Raises ValueError if the table's next_id attribute is None.
 		"""
-		if self.ids is None:
+		if self.next_id is None:
 			raise ValueError, self
 		try:
-			column = self.getColumnByName(self.ids.column_name)
+			column = self.getColumnByName(self.next_id.column_name)
 		except KeyError:
-			# table is missing its ID column
+			# table is missing its ID column, this is a no-op
 			return mapping
+		cls = type(self)
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = self.ids.next()
+				column[i] = mapping[old] = unicode(cls.next_id)
+				cls.next_id += 1
 		return mapping
 
 	def applyKeyMapping(self, mapping):
@@ -638,7 +646,7 @@ class Table(ligolw.Table, list):
 		old row keys with the new values from the mapping.
 		"""
 		for coltype, colname in zip(self.columntypes, self.columnnames):
-			if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name):
+			if coltype in types.IDTypes and (self.next_id is None or colname != self.next_id.column_name):
 				column = self.getColumnByName(colname)
 				for i, old in enumerate(column):
 					if old in mapping:

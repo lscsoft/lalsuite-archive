@@ -204,7 +204,7 @@ def DBTable_idmap_reset():
 	DBTable.connection.cursor().execute("DELETE FROM _idmap_")
 
 
-def DBTable_idmap_get_new(old, ids):
+def DBTable_idmap_get_new(old, cls):
 	"""
 	From the old ID string, obtain a replacement ID string by either
 	grabbing it from the _idmap_ table if one has already been assigned
@@ -216,7 +216,8 @@ def DBTable_idmap_get_new(old, ids):
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		return new[0]
-	new = ids.next()
+	new = unicode(cls.next_id)
+	cls.next_id += 1
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -342,21 +343,23 @@ class DBTable(table.Table):
 		if self.connection is None:
 			raise ligolw.ElementError, "connection attribute not set"
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
-		try:
-			# try to find info in lsctables module
-			cls = lsctables.TableByName[self.dbtablename]
-		except KeyError:
-			# unknown table
-			pass
-		else:
-			# copy metadata from lsctables
-			self.tableName = cls.tableName
-			self.validcolumns = cls.validcolumns
-			self.loadcolumns = cls.loadcolumns
-			self.constraints = cls.constraints
-			self.ids = cls.ids
-			self.RowType = cls.RowType
-			self.how_to_index = cls.how_to_index
+		# has the table metadata been set?
+		if self.tableName is None:
+			# nope, try to find info in lsctables module
+			try:
+				cls = lsctables.TableByName[self.dbtablename]
+			except KeyError:
+				# unknown table
+				pass
+			else:
+				# found it, copy metadata from lsctables
+				self.tableName = cls.tableName
+				self.validcolumns = cls.validcolumns
+				self.loadcolumns = cls.loadcolumns
+				self.constraints = cls.constraints
+				self.next_id = cls.next_id
+				self.RowType = cls.RowType
+				self.how_to_index = cls.how_to_index
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
@@ -388,14 +391,14 @@ class DBTable(table.Table):
 		table.Table._end_of_rows(self)
 		self.connection.commit()
 
-	def sync_ids(self):
-		if self.ids is not None:
-			last = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.ids.column_name, self.ids.index_offset + 1, self.dbtablename)).fetchone()[0]
+	def sync_next_id(self):
+		if self.next_id is not None:
+			last = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.next_id.column_name, self.next_id.index_offset + 1, self.dbtablename)).fetchone()[0]
 			if last is None:
-				self.ids.set_next(0)
+				type(self).next_id = type(self.next_id)(0)
 			else:
-				self.ids.set_next(last + 1)
-		return self.ids
+				type(self).next_id = type(self.next_id)(last + 1)
+		return self.next_id
 
 	def maxrowid(self):
 		return self.cursor.execute("SELECT MAX(ROWID) FROM %s" % self.dbtablename).fetchone()[0]
@@ -421,10 +424,10 @@ class DBTable(table.Table):
 		modified, so it needs to be done prior to insertion.  This
 		method is intended for internal use only.
 		"""
-		if self.ids is not None:
+		if self.next_id is not None:
 			# assign (and record) a new ID before inserting the
 			# row to avoid collisions with existing rows
-			setattr(row, self.ids.column_name, DBTable_idmap_get_new(getattr(row, self.ids.column_name), self.ids))
+			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(getattr(row, self.next_id.column_name), type(self)))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
@@ -454,7 +457,7 @@ class DBTable(table.Table):
 		old row keys with the new values from the _idmap_ table.
 		"""
 		assignments = []
-		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name)]:
+		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in types.IDTypes and (self.next_id is None or colname != self.next_id.column_name)]:
 			assignments.append("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
 		if not assignments:
 			# table has no columns to update
@@ -483,7 +486,7 @@ class ProcessTable(DBTable):
 	tableName = lsctables.ProcessTable.tableName
 	validcolumns = lsctables.ProcessTable.validcolumns
 	constraints = lsctables.ProcessTable.constraints
-	ids = lsctables.ProcessTable.ids
+	next_id = lsctables.ProcessTable.next_id
 	RowType = lsctables.ProcessTable.RowType
 	how_to_index = lsctables.ProcessTable.how_to_index
 
@@ -499,7 +502,7 @@ class ProcessParamsTable(DBTable):
 	tableName = lsctables.ProcessParamsTable.tableName
 	validcolumns = lsctables.ProcessParamsTable.validcolumns
 	constraints = lsctables.ProcessParamsTable.constraints
-	ids = lsctables.ProcessParamsTable.ids
+	next_id = lsctables.ProcessParamsTable.next_id
 	RowType = lsctables.ProcessParamsTable.RowType
 	how_to_index = lsctables.ProcessParamsTable.how_to_index
 
@@ -513,7 +516,7 @@ class SearchSummaryTable(DBTable):
 	tableName = lsctables.SearchSummaryTable.tableName
 	validcolumns = lsctables.SearchSummaryTable.validcolumns
 	constraints = lsctables.SearchSummaryTable.constraints
-	ids = lsctables.SearchSummaryTable.ids
+	next_id = lsctables.SearchSummaryTable.next_id
 	RowType = lsctables.SearchSummaryTable.RowType
 	how_to_index = lsctables.SearchSummaryTable.how_to_index
 
@@ -541,7 +544,7 @@ class SnglBurstTable(DBTable):
 	tableName = lsctables.SnglBurstTable.tableName
 	validcolumns = lsctables.SnglBurstTable.validcolumns
 	constraints = lsctables.SnglBurstTable.constraints
-	ids = lsctables.SnglBurstTable.ids
+	next_id = lsctables.SnglBurstTable.next_id
 	RowType = lsctables.SnglBurstTable.RowType
 	how_to_index = lsctables.SnglBurstTable.how_to_index
 
@@ -549,7 +552,7 @@ class SimBurstTable(DBTable):
 	tableName = lsctables.SimBurstTable.tableName
 	validcolumns = lsctables.SimBurstTable.validcolumns
 	constraints = lsctables.SimBurstTable.constraints
-	ids = lsctables.SimBurstTable.ids
+	next_id = lsctables.SimBurstTable.next_id
 	RowType = lsctables.SimBurstTable.RowType
 	how_to_index = lsctables.SimBurstTable.how_to_index
 
@@ -557,7 +560,7 @@ class SnglInspiralTable(DBTable):
 	tableName = lsctables.SnglInspiralTable.tableName
 	validcolumns = lsctables.SnglInspiralTable.validcolumns
 	constraints = lsctables.SnglInspiralTable.constraints
-	ids = lsctables.SnglInspiralTable.ids
+	next_id = lsctables.SnglInspiralTable.next_id
 	RowType = lsctables.SnglInspiralTable.RowType
 	how_to_index = lsctables.SnglInspiralTable.how_to_index
 
@@ -565,7 +568,7 @@ class SimInspiralTable(DBTable):
 	tableName = lsctables.SimInspiralTable.tableName
 	validcolumns = lsctables.SimInspiralTable.validcolumns
 	constraints = lsctables.SimInspiralTable.constraints
-	ids = lsctables.SimInspiralTable.ids
+	next_id = lsctables.SimInspiralTable.next_id
 	RowType = lsctables.SimInspiralTable.RowType
 	how_to_index = lsctables.SimInspiralTable.how_to_index
 
@@ -573,7 +576,7 @@ class TimeSlideTable(DBTable):
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
 	constraints = lsctables.TimeSlideTable.constraints
-	ids = lsctables.TimeSlideTable.ids
+	next_id = lsctables.TimeSlideTable.next_id
 	RowType = lsctables.TimeSlideTable.RowType
 	how_to_index = lsctables.TimeSlideTable.how_to_index
 
@@ -621,7 +624,8 @@ class TimeSlideTable(DBTable):
 		# time slide not found in table
 		if create_new is None:
 			raise KeyError, offsetdict
-		id = self.sync_ids().next()
+		id = unicode(self.sync_next_id())
+		type(self).next_id += 1
 		for instrument, offset in offsetdict.iteritems():
 			row = self.RowType()
 			row.process_id = create_new.process_id
@@ -644,7 +648,7 @@ class CoincDefTable(DBTable):
 	tableName = lsctables.CoincDefTable.tableName
 	validcolumns = lsctables.CoincDefTable.validcolumns
 	constraints = lsctables.CoincDefTable.constraints
-	ids = lsctables.CoincDefTable.ids
+	next_id = lsctables.CoincDefTable.next_id
 	RowType = lsctables.CoincDefTable.RowType
 	how_to_index = lsctables.CoincDefTable.how_to_index
 
@@ -670,7 +674,8 @@ class CoincDefTable(DBTable):
 		# coinc type not found in table
 		if not create_new:
 			raise KeyError, (search, coinc_type)
-		id = self.sync_ids().next()
+		id = unicode(self.sync_next_id())
+		type(self).next_id += 1
 		row = self.RowType()
 		row.coinc_def_id = id
 		row.search = search
@@ -695,7 +700,7 @@ class CoincTable(DBTable):
 	tableName = lsctables.CoincTable.tableName
 	validcolumns = lsctables.CoincTable.validcolumns
 	constraints = lsctables.CoincTable.constraints
-	ids = lsctables.CoincTable.ids
+	next_id = lsctables.CoincTable.next_id
 	RowType = lsctables.CoincTable.RowType
 	how_to_index = lsctables.CoincTable.how_to_index
 
@@ -704,7 +709,7 @@ class CoincMapTable(DBTable):
 	tableName = lsctables.CoincMapTable.tableName
 	validcolumns = lsctables.CoincMapTable.validcolumns
 	constraints = lsctables.CoincMapTable.constraints
-	ids = lsctables.CoincMapTable.ids
+	next_id = lsctables.CoincMapTable.next_id
 	RowType = lsctables.CoincMapTable.RowType
 	how_to_index = lsctables.CoincMapTable.how_to_index
 
@@ -713,7 +718,7 @@ class MultiBurstTable(DBTable):
 	tableName = lsctables.MultiBurstTable.tableName
 	validcolumns = lsctables.MultiBurstTable.validcolumns
 	constraints = lsctables.MultiBurstTable.constraints
-	ids = lsctables.MultiBurstTable.ids
+	next_id = lsctables.MultiBurstTable.next_id
 	RowType = lsctables.MultiBurstTable.RowType
 	how_to_index = lsctables.MultiBurstTable.how_to_index
 
@@ -722,7 +727,7 @@ class SegmentTable(DBTable):
 	tableName = lsctables.SegmentTable.tableName
 	validcolumns = lsctables.SegmentTable.validcolumns
 	constraints = lsctables.SegmentTable.constraints
-	ids = lsctables.SegmentTable.ids
+	next_id = lsctables.SegmentTable.next_id
 	RowType = lsctables.SegmentTable.RowType
 	how_to_index = lsctables.SegmentTable.how_to_index
 
@@ -731,7 +736,7 @@ class SegmentDefMapTable(DBTable):
 	tableName = lsctables.SegmentDefMapTable.tableName
 	validcolumns = lsctables.SegmentDefMapTable.validcolumns
 	constraints = lsctables.SegmentDefMapTable.constraints
-	ids = lsctables.SegmentDefMapTable.ids
+	next_id = lsctables.SegmentDefMapTable.next_id
 	RowType = lsctables.SegmentDefMapTable.RowType
 	how_to_index = lsctables.SegmentDefMapTable.how_to_index
 
@@ -740,7 +745,7 @@ class SegmentDefTable(DBTable):
 	tableName = lsctables.SegmentDefTable.tableName
 	validcolumns = lsctables.SegmentDefTable.validcolumns
 	constraints = lsctables.SegmentDefTable.constraints
-	ids = lsctables.SegmentDefTable.ids
+	next_id = lsctables.SegmentDefTable.next_id
 	RowType = lsctables.SegmentDefTable.RowType
 	how_to_index = lsctables.SegmentDefTable.how_to_index
 

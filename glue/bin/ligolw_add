@@ -124,13 +124,13 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 		cols.append("end_time")
 	if comment is not None:
 		cols.append("comment")
-	# look for an existing LFN table.  while at it, sync the ID
-	# generator and collect the process IDs that already have entries
+	# look for an existing LFN table.  while at it, sync the next_id
+	# attribute and collect the process IDs that already have entries
 	# in the tables
 	lfn_table = None
 	existing_pids = set()
 	for lfn_table in lsctables.getTablesByType(xmldoc, lsctables.LfnTable):
-		lfn_table.sync_ids()
+		lfn_table.sync_next_id()
 		existing_pids.update(lfn_table.getColumnByName("process_id"))
 	if lfn_table is None:
 		# didn't find an LFN table, add one
@@ -151,7 +151,8 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 				continue
 			row = lsctables.Lfn()
 			row.process_id = pid
-			row.lfn_id = lfn_table.ids.next()
+			row.lfn_id = unicode(lfn_table.next_id)
+			type(lfn_table).next_id += 1
 			row.name = pathname
 			row.start_time = start_time
 			row.end_time = end_time
@@ -186,9 +187,9 @@ options, urls = parse_command_line()
 
 
 if options.mangle_sngl_inspiral_ids == "int_8s":
-	lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs_old()
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old()
 elif options.mangle_sngl_inspiral_ids == "ilwd:char":
-	lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs()
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
 
 

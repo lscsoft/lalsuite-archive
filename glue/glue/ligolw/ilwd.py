@@ -95,59 +95,123 @@ def ILWDID(ilwdchar):
 		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
 
-class ILWD(object):
+class ILWD(int):
 	"""
-	Unique ILWD generator parent class.  This is only useful when
-	subclassed in order to provide specific values of the class
-	variables "table_name", "column_name", and "index_offset".
+	Row ID parent class.  This is only useful when subclassed in order
+	to provide specific values of the class variables "table_name",
+	"column_name", and "index_offset".
 	"""
-	__slots__ = ("n",)
+	__slots__ = ()
 	table_name = None
 	column_name = None
 	index_offset = None
 
-	def __init__(self, n = 0):
-		"""
-		Initialize an ILWD object.  The optional n parameter sets
-		the starting value for the numeric suffix in the ilwd:char
-		representation of ID (default is 0).  An initialized ILWD
-		generator instance has the attribute index_offset
-		containing the location of the numeric index portion of the
-		ID within the string.
-		"""
-		self.n = n
+	# Wow, all these over rides suck
 
-	def __str__(self):
-		"""
-		Return an ilwd:char string representation of this ID.
-		"""
-		return "%s:%s:%d" % (self.table_name, self.column_name, self.n)
+	def __add__(self, other):
+		return self.__class__(int.__add__(self, other))
+
+	def __and__(self, other):
+		return self.__class__(int.__and__(self, other))
 
 	def __cmp__(self, other):
-		"""
-		Compare IDs first by the base string, then by n.
-		"""
-		if isinstance(other, ILWD):
-			return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
-		return NotImplemented
+		try:
+			return cmp((self.table_name, self.column_name, int(self)), (other.table_name, other.column_name, int(other)))
+		except:
+			return NotImplemented
 
-	def __getitem__(self, n):
-		return "%s:%s:%d" % (self.table_name, self.column_name, n)
+	def __coerce__(self, other):
+		try:
+			return self, self.__class__(other)
+		except:
+			return None
 
-	def __iter__(self):
-		return self
+	def __div__(self, other):
+		return self.__class__(int.__div__(self, other))
 
-	def set_next(self, n):
-		"""
-		Set the current value of the numeric suffix.
-		"""
-		self.n = n
+	def __divmod__(self, other):
+		return self.__class__(int.__divmod__(self, other))
 
-	def next(self):
-		"""
-		Return the current value of the generator as a string, and
-		increment the numeric suffix.
-		"""
-		s = str(self)
-		self.n += 1
-		return s
+	def __floordiv__(self, other):
+		return self.__class__(int.__floordiv__(self, other))
+
+	def __invert__(self, other):
+		return self.__class__(int.__invert__(self, other))
+
+	def __lshift__(self, other):
+		return self.__class__(int.__lshift__(self, other))
+
+	def __mod__(self, other):
+		return self.__class__(int.__mod__(self, other))
+
+	def __mul__(self, other):
+		return self.__class__(int.__mul__(self, other))
+
+	def __neg__(self):
+		return self.__class__(int.__neg__(self))
+
+	def __or__(self, other):
+		return self.__class__(int.__or__(self, other))
+
+	def __pos__(self, other):
+		return self.__class__(int.__pos__(self))
+
+	def __pow__(self, *args):
+		return self.__class__(int.__pow__(self, *args))
+
+	def __radd__(self, other):
+		return self.__class__(int.__radd__(self, other))
+
+	def __rand__(self, other):
+		return self.__class__(int.__rand__(self, other))
+
+	def __rdiv__(self, other):
+		return self.__class__(int.__rdiv__(self, other))
+
+	def __rdivmod__(self, other):
+		return self.__class__(int.__rdivmod__(self, other))
+
+	def __rfloordiv__(self, other):
+		return self.__class__(int.__rfloordiv__(self, other))
+
+	def __rlshift__(self, other):
+		return self.__class__(int.__rlshift__(self, other))
+
+	def __rmod__(self, other):
+		return self.__class__(int.__rmod__(self, other))
+
+	def __rmul__(self, other):
+		return self.__class__(int.__rmul__(self, other))
+
+	def __ror__(self, other):
+		return self.__class__(int.__ror__(self, other))
+
+	def __rpow__(self, *args):
+		return self.__class__(int.__rpow__(self, *args))
+
+	def __rrshift__(self, other):
+		return self.__class__(int.__rrshift__(self, other))
+
+	def __rshift__(self, other):
+		return self.__class__(int.__rshift__(self, other))
+
+	def __rsub__(self, other):
+		return self.__class__(int.__rsub__(self, other))
+
+	def __rtruediv__(self, other):
+		return self.__class__(int.__rtruediv__(self, other))
+
+	def __rxor__(self, other):
+		return self.__class__(int.__rxor__(self, other))
+
+	def __str__(self):
+		return "%s:%s:%d" % (self.table_name, self.column_name, self)
+
+	def __sub__(self, other):
+		return self.__class__(int.__sub__(self, other))
+
+	def __truediv__(self, other):
+		return self.__class__(int.__truediv__(self, other))
+
+	def __xor__(self, other):
+		return self.__class__(int.__xor__(self, other))

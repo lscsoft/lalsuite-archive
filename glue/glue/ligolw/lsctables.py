@@ -139,7 +139,7 @@ def HasNonLSCTables(elem):
 #
 
 
-class ProcessIDs(ilwd.ILWD):
+class ProcessID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "process"
 	column_name = "process_id"
@@ -166,7 +166,7 @@ class ProcessTable(table.Table):
 		"process_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (process_id)"
-	ids = ProcessIDs()
+	next_id = ProcessID(0)
 
 	def get_ids_by_program(self, program):
 		"""
@@ -192,7 +192,7 @@ ProcessTable.RowType = Process
 #
 
 
-class LfnIDs(ilwd.ILWD):
+class LfnID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "lfn"
 	column_name = "lfn_id"
@@ -210,7 +210,7 @@ class LfnTable(table.Table):
 		"end_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (lfn_id)"
-	ids = LfnIDs()
+	next_id = LfnID(0)
 
 
 class Lfn(object):
@@ -395,7 +395,7 @@ SearchSummaryTable.RowType = SearchSummary
 #
 
 
-class SearchSummVarsIDs(ilwd.ILWD):
+class SearchSummVarsID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "search_summvars"
 	column_name = "search_summvar_id"
@@ -412,7 +412,7 @@ class SearchSummVarsTable(table.Table):
 		"value": "real_8"
 	}
 	constraints = "PRIMARY KEY (search_summvar_id)"
-	ids = SearchSummVarsIDs()
+	next_id = SearchSummVarsID(0)
 
 
 class SearchSummVars(object):
@@ -431,7 +431,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 
 
-class SnglBurstIDs(ilwd.ILWD):
+class SnglBurstID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sngl_burst"
 	column_name = "event_id"
@@ -489,7 +489,7 @@ class SnglBurstTable(table.Table):
 		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	ids = SnglBurstIDs()
+	next_id = SnglBurstID(0)
 	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
@@ -618,9 +618,9 @@ MultiBurstTable.RowType = MultiBurst
 #
 
 
-class SnglInspiralIDs_old(object):
+class SnglInspiralID_old(object):
 	"""
-	Custom ID generator for sngl_inspiral tables with int_8s event IDs.
+	Custom row ID thing for sngl_inspiral tables with int_8s event IDs.
 	"""
 	# FIXME: remove this class when the event_id column has been
 	# converted to ilwd:char
@@ -634,10 +634,10 @@ class SnglInspiralIDs_old(object):
 		x, slidenum, y = row.get_id_parts()
 		x = 100000000 + (self.n // 100000)
 		y = self.n % 100000
-		return (1000000000 * x + slidenum * 100000 + y)
+		return x * 1000000000 + slidenum * 100000 + y
 
 
-class SnglInspiralIDs(ilwd.ILWD):
+class SnglInspiralID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sngl_inspiral"
 	column_name = "event_id"
@@ -709,15 +709,15 @@ class SnglInspiralTable(table.Table):
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  uncomment the next line when the event_id column is
 	# converted to ilwd:char
-	#ids = SnglInspiralIDs()
+	#next_id = SnglInspiralID(0)
 
 	def updateKeyMapping(self, mapping):
 		# FIXME: remove this method when the event_id column is
 		# converted to ilwd:char
-		if self.ids is not None:
+		if self.next_id is not None:
 			for row in self:
 				if row.event_id not in mapping:
-					mapping[row.event_id] = self.ids.new(row)
+					mapping[row.event_id] = self.next_id.new(row)
 				row.event_id = mapping[row.event_id]
 		return mapping
 
@@ -840,7 +840,7 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 
 
-class SnglRingDownIDs(ilwd.ILWD):
+class SnglRingDownID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sngl_ringdown"
 	column_name = "event_id"
@@ -871,7 +871,7 @@ class SnglRingDownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#ids = SnglRingDownIDs()
+	#next_id = SnglRingDownID(0)
 
 
 class SnglRingDown(object):
@@ -890,7 +890,7 @@ SnglRingDownTable.RowType = SnglRingDown
 #
 
 
-class MultiInspiralIDs(ilwd.ILWD):
+class MultiInspiralID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "multi_inspiral"
 	column_name = "event_id"
@@ -951,7 +951,7 @@ class MultiInspiralTable(table.Table):
 		"t1quad_im": "real_4"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	ids = MultiInspiralIDs()
+	next_id = MultiInspiralID(0)
 
 
 class MultiInspiral(object):
@@ -970,7 +970,7 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 
 
-class SimInspiralIDs(ilwd.ILWD):
+class SimInspiralID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sim_inspiral"
 	column_name = "simulation_id"
@@ -1034,7 +1034,7 @@ class SimInspiralTable(table.Table):
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
-	ids = SimInspiralIDs()
+	next_id = SimInspiralID(0)
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
@@ -1093,7 +1093,7 @@ SimInspiralTable.RowType = SimInspiral
 #
 
 
-class SimBurstIDs(ilwd.ILWD):
+class SimBurstID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sim_burst"
 	column_name = "simulation_id"
@@ -1127,7 +1127,7 @@ class SimBurstTable(table.Table):
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
-	ids = SimBurstIDs()
+	next_id = SimBurstID(0)
 	interncolumns = ("process_id", "waveform", "coordinates")
 
 
@@ -1169,7 +1169,7 @@ SimBurstTable.RowType = SimBurst
 #
 
 
-class SimRingDownIDs(ilwd.ILWD):
+class SimRingDownID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sim_ringdown"
 	column_name = "simulation_id"
@@ -1208,7 +1208,7 @@ class SimRingDownTable(table.Table):
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
-	ids = SimRingDownIDs()
+	next_id = SimRingDownID(0)
 
 
 class SimRingDown(object):
@@ -1227,7 +1227,7 @@ SimRingDownTable.RowType = SimRingDown
 #
 
 
-class SummValueIDs(ilwd.ILWD):
+class SummValueID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "summ_value"
 	column_name = "summ_value_id"
@@ -1254,7 +1254,7 @@ class SummValueTable(table.Table):
 		"comment": "lstring"
 	}
 	constraints = "PRIMARY KEY (summ_value_id)"
-	ids = SummValueIDs()
+	next_id = SummValueID(0)
 
 
 class SummValue(object):
@@ -1273,7 +1273,7 @@ SummValueTable.RowType = SummValue
 #
 
 
-class SimInstParamsIDs(ilwd.ILWD):
+class SimInstParamsID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "sim_inst_params"
 	column_name = "simulation_id"
@@ -1288,7 +1288,7 @@ class SimInstParamsTable(table.Table):
 		"comment": "lstring",
 		"value": "real_8"
 	}
-	ids = SimInstParamsIDs()
+	next_id = SimInstParamsID(0)
 
 
 class SimInstParams(object):
@@ -1443,7 +1443,7 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 
 
-class FilterIDs(ilwd.ILWD):
+class FilterID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "filter"
 	column_name = "filter_id"
@@ -1462,7 +1462,7 @@ class FilterTable(table.Table):
 		"comment": "lstring"
 	}
 	constraints = "PRIMARY KEY (filter_id)"
-	ids = FilterIDs()
+	next_id = FilterID(0)
 
 
 class Filter(object):
@@ -1481,7 +1481,7 @@ FilterTable.RowType = Filter
 #
 
 
-class SegmentIDs(ilwd.ILWD):
+class SegmentID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "segment"
 	column_name = "segment_id"
@@ -1503,7 +1503,7 @@ class SegmentTable(table.Table):
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_id)"
-	ids = SegmentIDs()
+	next_id = SegmentID(0)
 	interncolumns = ("process_id",)
 
 
@@ -1565,7 +1565,7 @@ SegmentTable.RowType = Segment
 #
 
 
-class SegmentDefMapIDs(ilwd.ILWD):
+class SegmentDefMapID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "segment_def_map"
 	column_name = "seg_def_map_id"
@@ -1586,7 +1586,7 @@ class SegmentDefMapTable(table.Table):
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (seg_def_map_id)"
-	ids = SegmentDefMapIDs()
+	next_id = SegmentDefMapID(0)
 	interncolumns = ("process_id", "segment_def_id")
 
 
@@ -1606,7 +1606,7 @@ SegmentDefMapTable.RowType = SegmentDefMap
 #
 
 
-class SegmentDefIDs(ilwd.ILWD):
+class SegmentDefID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "segment_definer"
 	column_name = "segment_def_id"
@@ -1629,7 +1629,7 @@ class SegmentDefTable(table.Table):
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_def_id)"
-	ids = SegmentDefIDs()
+	next_id = SegmentDefID(0)
 	interncolumns = ("process_id",)
 
 
@@ -1649,7 +1649,7 @@ SegmentDefTable.RowType = SegmentDef
 #
 
 
-class TimeSlideIDs(ilwd.ILWD):
+class TimeSlideID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "time_slide"
 	column_name = "time_slide_id"
@@ -1665,7 +1665,7 @@ class TimeSlideTable(table.Table):
 		"offset": "real_8"
 	}
 	constraints = "PRIMARY KEY (time_slide_id, instrument)"
-	ids = TimeSlideIDs()
+	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
 	def get_offset_dict(self, id):
@@ -1717,7 +1717,8 @@ class TimeSlideTable(table.Table):
 		# time slide not found in table
 		if create_new is None:
 			raise KeyError, offsetdict
-		id = self.sync_ids().next()
+		id = unicode(self.sync_next_id())
+		type(self).next_id += 1
 		for instrument, offset in offsetdict.iteritems():
 			row = self.RowType()
 			row.process_id = create_new.process_id
@@ -1756,7 +1757,7 @@ TimeSlideTable.RowType = TimeSlide
 #
 
 
-class CoincDefIDs(ilwd.ILWD):
+class CoincDefID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "coinc_definer"
 	column_name = "coinc_def_id"
@@ -1772,7 +1773,7 @@ class CoincDefTable(table.Table):
 		"description": "lstring"
 	}
 	constraints = "PRIMARY KEY (coinc_def_id)"
-	ids = CoincDefIDs()
+	next_id = CoincDefID(0)
 	how_to_index = {
 		"cd_ssct_index": ("search", "search_coinc_type")
 	}
@@ -1799,7 +1800,8 @@ class CoincDefTable(table.Table):
 		# coinc type not found in table
 		if not create_new:
 			raise KeyError, (search, coinc_type)
-		id = self.sync_ids().next()
+		id = unicode(self.sync_next_id())
+		type(self).next_id += 1
 		row = self.RowType()
 		row.coinc_def_id = id
 		row.search = search
@@ -1849,7 +1851,7 @@ CoincDefTable.RowType = CoincDef
 #
 
 
-class CoincIDs(ilwd.ILWD):
+class CoincID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "coinc_event"
 	column_name = "coinc_event_id"
@@ -1867,7 +1869,7 @@ class CoincTable(table.Table):
 		"likelihood": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
-	ids = CoincIDs()
+	next_id = CoincID(0)
 	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
 	how_to_index = {
 		"ce_cdi_index": ("coinc_def_id",),
@@ -1925,7 +1927,7 @@ CoincMapTable.RowType = CoincMap
 #
 
 
-class LIGOLWMonIDs(ilwd.ILWD):
+class LIGOLWMonID(ilwd.ILWD):
 	__slots__ = ilwd.ILWD.__slots__
 	table_name = "ligolw_mon"
 	column_name = "event_id"
@@ -1946,7 +1948,7 @@ class LIGOLWMonTable(table.Table):
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	ids = LIGOLWMonIDs()
+	next_id = LIGOLWMonID(0)
 
 
 class LIGOLWMon(object):
