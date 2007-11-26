@@ -615,7 +615,7 @@ class Table(ligolw.Table, list):
 		"""
 		if self.next_id is not None:
 			if len(self):
-				n = max(map(ilwd.ILWDID, self.getColumnByName(self.next_id.column_name))) + 1
+				n = max([ilwd.ILWDID(str(id)) for id in self.getColumnByName(self.next_id.column_name)]) + 1
 			else:
 				n = 0
 			if n > int(self.next_id):
