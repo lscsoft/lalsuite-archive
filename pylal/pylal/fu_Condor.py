@@ -82,8 +82,6 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.set_trig_start( int(trig.gpsTime[ifo]) - 1)
         self.set_trig_end( int(trig.gpsTime[ifo]) + 1 )
 
-      self.set_user_tag("FOLLOWUP_" + str(trig.gpsTime[ifo]))
-      self.__usertag = "FOLLOWUP_" + str(trig.gpsTime[ifo])
       if injFile: 
         self.set_injections( injFile )
       
@@ -106,6 +104,14 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         else:
           extension = '.xml'
 
+      if not ifo == self.inputIfo:
+        second_user_tag = "_" + ifo + "tmplt"
+      else:
+        second_user_tag = ""
+      self.set_user_tag("FOLLOWUP_" + str(trig.gpsTime[ifo]) + second_user_tag)
+      self.__usertag = "FOLLOWUP_" + str(trig.gpsTime[ifo]) + second_user_tag
+
+
       # THIS IS A HACK FOR NOW, THERE IS PROBABLY A BETTER WAY TO DO THIS
       if (type == 'head'): 
         subBankSize = string.strip(cp.get('inspiral-head','bank-veto-subbank-size'))
@@ -122,7 +128,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       self.set_id(self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)))
 
-      self.outputCache = ifo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + ifo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
+      self.outputCache = self.inputIfo + ' ' + 'INSPIRAL' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name  + '\n' + self.inputIfo + ' ' + 'INSPIRAL-FRAME' + ' ' + str(self.__start) + ' ' + str(int(self.__end)-int(self.__start)) + ' ' + self.output_file_name.replace(extension,".gwf") + '\n'
 
       self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
       self.add_var_opt("output-path",inspJob.outputPath)
@@ -140,7 +146,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
     except:
       self.invalidate()
-      print "couldn't add inspiral job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
 
 
   def checkInjections(self,cp):
@@ -176,11 +182,14 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotSNRCHISQ followup job
   """
-  def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts):
+  def __init__(self,job,ifo,fileName,trig,page,dag,inspiralNode,opts,ifoString=None):
     """
     job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
     """
-    time = trig.gpsTime[ifo]
+    if ifoString:
+      time = trig.gpsTime[ifoString]
+    else:
+      time = trig.gpsTime[ifo]
     self.friendlyName = 'Plot SNR/CHISQ/PSD'
     try:
       pipeline.CondorDAGNode.__init__(self,job)
@@ -188,7 +197,12 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("frame-file",fileName.replace(".xml",".gwf"))
       self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
-      self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      if ifoString:
+        self.add_var_opt("user-tag",ifo+"_"+ifoString+'tmplt')
+        self.id = job.name + '-' + ifo + '-' + ifoString + 'tmplt' + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      else:
+        self.add_var_opt("user-tag",ifo)
+        self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
       try: 
         if inspiralNode.validNode: self.add_parent(inspiralNode)
@@ -199,7 +213,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       else: self.invalidate()
     except: 
       self.invalidate()
-      print "couldn't add plot job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      print "couldn't add plot job for " + str(ifo) + "@ "+ str(time)
 
 ############### QSCAN CLASSES #################################################
 ###############################################################################
@@ -584,7 +598,8 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     # 1.65 which would be right for the 10/90 !!
     #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
     #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
-    dist90 = 57.*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
+    #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
+    dist90 = 56.5
     dist10 = dist90 + 5. 
     # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
     if mass1 < mass2:
@@ -596,6 +611,7 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("prior-distance-10", str(dist10))
     self.add_var_opt("prior-distance-90", str(dist90))
     self.add_var_opt("before-coal-time", str(duration*1.2))
+    self.add_var_opt("before-coal-time", str(30.0))
     
     ########################################################################
     # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
