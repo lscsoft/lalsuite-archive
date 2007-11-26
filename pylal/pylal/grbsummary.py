@@ -67,12 +67,26 @@ def compute_masked_segments(analyzable_seglist, on_source_segment,
 def compute_offsource_segment(analyzable, on_source, padding_time=0,
     max_trials=None, symmetric=True):
     """
-    Return the longest symmetric protraction of the on_source, constrained
-    to fall inside analyzable times, with the proctraction time minus
-    padding_time divisible by quantization_time (the length of on_source).
-    Return a protraction of exactly (max_trials//2) * quantization_time if
-    max_trials is specified. Return None if there are less than max_trials
-    quantization_times available.
+    Compute and return the maximal off-source segment subject to the
+    following constraints:
+    
+    1) The off-source segment is constrained to lie within a segment from the
+       analyzable segment list and to contain the on_source segment.  If
+       no such segment exists, return None.
+    2) The off-source segment length is a multiple of the on-source segment
+       length.  This multiple (minus one for the on-source segment) is called
+       the number of trials.  By default, the number of trials is bounded
+       only by the availability of analyzable time.
+
+    Optionally:
+    3) padding_time is subtracted from the analyzable segments, but added
+       back to the off-source segment.  This represents time that is thrown
+       away as part of the filtering process.
+    4) max_trials caps the number of trials that the off-source segment
+       can contain.  The truncation is performed so that the resulting
+       off-source segment is as symmetric as possible.
+    5) symmetric being True will simply truncate the off-source segment to
+       be the symmetric about the on-source segment.
     """
     quantization_time = abs(on_source)
     
@@ -89,18 +103,19 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     nminus = (on_source[0] - super_seg[0]) // quantization_time
     
     if (max_trials is not None) and (nplus + nminus > max_trials):
-        # try to make this as centered as possible
         half_max = max_trials // 2
-        if nplus < half_max:  # cut left
+        if nplus < half_max:
+            # left sticks out, so cut it
             remainder = max_trials - nplus
             nminus = min(remainder, nminus)
-        elif nminus < half_max:  # cut right
+        elif nminus < half_max:
+            # right sticks out, so cut it
             remainder = max_trials - nminus
             nplus = min(remainder, nplus)
-        else:  # cut both
-            nplus = min(half_max, nplus)
-            nminus = min(half_max, nminus)
-    
+        else:
+            # both sides stick out, so cut symmetrically
+            nplus = nminus = half_max
+
     if symmetric:
         nplus = nminus = min(nplus, nminus)
     
