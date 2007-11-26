@@ -144,6 +144,15 @@ def dbget_thresholds(connection):
 def coinc_params(events, offsetdict):
 	params = {}
 	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+	if events:
+		# the "time" is the ms_snr-weighted average of the peak
+		# times neglecting light-travel times.  because LIGOTimeGPS
+		# objects have overflow problems in this sort of a
+		# calculation, the first event's peak time is used as an
+		# epoch and the calculations are done w.r.t. that time.
+		t = events[0].get_peak()
+		t += sum([float(event.get_peak() - t) * event.ms_snr for event in events]) / sum([event.ms_snr for event in events])
+		#params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
 	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
@@ -180,16 +189,6 @@ def coinc_params(events, offsetdict):
 		name = "%sddur" % prefix
 		if name not in params or abs(params[name]) > abs(ddur):
 			params[name] = ddur
-	if events:
-		# the "time" is the snr-weighted average of the peak times
-		# neglecting light-travel times.  because LIGOTimeGPS
-		# objects have overflow problems in this sort of a
-		# calculation, the first event's peak time is used as an
-		# epoch and the calculations are done w.r.t. that time.
-		t = events[0].get_peak()
-		t += sum([float(event.get_peak() - t) * event.snr for event in events]) / sum([event.snr for event in events])
-		#params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
-
 	return params
 
 
