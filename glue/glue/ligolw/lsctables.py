@@ -1649,7 +1649,7 @@ class TimeSlideTable(table.Table):
 		# time slide not found in table
 		if create_new is None:
 			raise KeyError, offsetdict
-		id = unicode(table.next_id(self))
+		id = table.next_id(self)
 		for instrument, offset in offsetdict.iteritems():
 			row = self.RowType()
 			row.process_id = create_new.process_id
@@ -1727,9 +1727,8 @@ class CoincDefTable(table.Table):
 		# coinc type not found in table
 		if not create_new:
 			raise KeyError, (search, coinc_type)
-		id = unicode(table.next_id(self))
 		row = self.RowType()
-		row.coinc_def_id = id
+		row.coinc_def_id = table.next_id(self)
 		row.search = search
 		row.search_coinc_type = coinc_type
 		row.description = description
