@@ -33,6 +33,7 @@ from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import itertools as pylal_itertools
 from pylal import InspiralUtils
+from numpy import histogram
 
 ##############################################################################
 usage = """%prog [options] 
@@ -154,7 +155,24 @@ def parse_command_line():
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
+InspiralUtils.message(opts, "Initialisation...")
+# -- get command line arguments
 
+# -- some initialisation
+#-- add prefix and suffix to the opts structure. To be used for filenames
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
+opts = InspiralUtils.set_version(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+# Change to Agg back-end if show() will not be called thus avoiding display problem
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 # test the input options
 if not opts.ifo_times:
@@ -175,24 +193,9 @@ if opts.slide_glob or opts.time_slides:
     print >>sys.stderr, "working with time slides"
     sys.exit(1)
 
-# -- some initialisation
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
-# -- set the proper color code
-colors = InspiralUtils.colors
-fnameList = []   # use for the cache file
-tagList= []   # use for the cache file
+# ============================================================================
+InspiralUtils.message(opts, "reading data...")
 
-# Change to Agg back-end if show() will not be called thus avoiding display problem
-if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import *
-from pylal import viz
-
-
-####################################################################
 rc('font', size='x-large')
 if not opts.show_plot:
   rc('text', usetex=True)
@@ -223,11 +226,6 @@ if opts.cache_file  is not None:
       if "SLIDE-" in file:
         cache_slidefilelist.append(file)
  
-
-
- 
-
-
 if opts.injection_glob:
   filelists = [glob.glob(g) for g in opts.injection_glob]
 elif opts.cache_file:
@@ -323,6 +321,9 @@ if slidefilelists:
     slideTriggersList.append(newSlides)
 
 # Plot
+text = "End time versus SNR (missed injections)"
+InspiralUtils.message(opts, "plotting..."+text)
+
 figure_numbers = itertools.count(1) # Infinite "list" of numbers starting at 1
 symbol_list = ('rx', 'b+', 'k^', 'gv')
 color_list = ('r', 'b', 'k', 'g')
@@ -347,6 +348,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     ethinca_slide_list = []
   col = 'snr'
   for ifo in ifos:
+    text = "Eithinca versus total mass ("+ifo+")"
+    InspiralUtils.message(opts, "plotting..."+text)
     figure(figure_numbers.next())
     for coincs, ethincaVals, symbol in \
         zip(coincs_list, ethinca_list, symbol_list):
@@ -392,7 +395,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
       fname = InspiralUtils.set_figure_name(opts, name)
       savefig(fname)
       fnameList.append(fname)
-      tagList.append("Ethinca versus total mass")
+      tagList.append(text)
 
 for ifos in pylal_itertools.choices(opts.ifo_list, 2):
   # Pick out relevant double coincs and calculate ethinca parameters
@@ -410,6 +413,9 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
 
   for col in opts.columns:  # ethinca-param vs col
     for ifo in ifos:
+      text = "E-thinca parameter vs %s for %s and %s triggers" % \
+            (col.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+      InspiralUtils.message(opts, "plotting..."+text)
       figure(figure_numbers.next())
       for coincs, ethincaVals, symbol in \
           zip(coincs_list, ethinca_list, symbol_list):
@@ -455,12 +461,13 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
         fname = InspiralUtils.set_figure_name(opts, name)
         savefig(fname)
         fnameList.append(fname)
-        text = "E-thinca parameter vs %s for %s and %s triggers" % \
-            (col.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
         tagList.append(text)
         
   
   if opts.ethinca_vs_stat:  # ethinca-param vs combined statistic
+    text = "E-thinca parameter vs combined %s for %s and %s triggers" % \
+        (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+    InspiralUtils.message(opts, "plotting..."+text)
     figure(figure_numbers.next())
     for coincs, ethincaVals, symbol in \
         zip(coincs_list, ethinca_list, symbol_list):
@@ -501,12 +508,13 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
       fname = InspiralUtils.set_figure_name(opts, name)
       savefig(fname)
       fnameList.append(fname)
-      text = "E-thinca parameter vs combined %s for %s and %s triggers" % \
-        (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
       tagList.append(text)
         
 
   if opts.hist_stat:  # hist combined statistic
+    text = "Histogram of combined %s for %s and %s triggers" % \
+          (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
+    InspiralUtils.message(opts, "plotting..."+text)
     figure(figure_numbers.next())
     stat_max = max([max([y.stat for y in x]) for x in coincs_list+slides_list \
         if len(x)] + [0.1])
@@ -546,8 +554,6 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
 
     if opts.enable_output:
       name = "%s_%s_hist_combined_%s" % (ifos[0], ifos[1], opts.statistic) 
-      text = "Histogram of combined %s for %s and %s triggers" % \
-          (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
       fname = InspiralUtils.set_figure_name(opts, name)
       savefig(fname)
       fnameList.append(fname)
@@ -555,6 +561,9 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
         
  
   if opts.hist:
+    text = "E-thinca parameter Histogram for " + ifos[0] + \
+        " and " + ifos[1] + " triggers in " + opts.ifo_times + " times"
+    InspiralUtils.message(opts, "plotting..."+text)
     figure(figure_numbers.next())
     
     # Histogram all datasets with the same bins
@@ -590,8 +599,6 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     
     if opts.enable_output:
       name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
-      text = "E-thinca parameter Histogram for " + ifos[0] + \
-          " and " + ifos[1] + " triggers in " + opts.ifo_times + " times"
       fname = InspiralUtils.set_figure_name(opts, name)
       savefig(fname)
       fnameList.append(fname)
