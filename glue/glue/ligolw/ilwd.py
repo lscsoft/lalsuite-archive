@@ -219,7 +219,7 @@ class ILWD(int):
 		return self.__class__(int.__rxor__(self, other))
 
 	def __str__(self):
-		return u"%s:%s:%d" % (self.table_name, self.column_name, self)
+		return "%s:%s:%d" % (self.table_name, self.column_name, self)
 
 	def __sub__(self, other):
 		return self.__class__(int.__sub__(self, other))
@@ -244,6 +244,9 @@ IDClassCache = {}
 
 
 def get_id_class(tbl_name, col_name):
+	tbl_name = unicode(tbl_name)
+	col_name = unicode(col_name)
+
 	#
 	# if the class already exists, retrieve it
 	#
@@ -258,8 +261,8 @@ def get_id_class(tbl_name, col_name):
 
 	class cached_id_class(ILWD):
 		__slots__ = ()
-		table_name = unicode(tbl_name)
-		column_name = unicode(col_name)
+		table_name = tbl_name
+		column_name = col_name
 		index_offset = len(u"%s:%s:" % key)
 
 	#
