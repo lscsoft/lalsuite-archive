@@ -16,7 +16,7 @@ from pylal import SimInspiralUtils
 from pylal.tools import XLALCalculateEThincaParameter
 
 #from pylab import*
-import pylal.itertools
+import glue.iterutils
 import numpy
 import cPickle
 numpy.seterr("raise")
@@ -303,9 +303,9 @@ class plotdata:
                 hist_check_inj = 0  
             
             if (hist_check_slides == 1) and (hist_check_inj == 1): 
-              slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
+              slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
 	      hold(True)
-              inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
+              inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
 	      legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
               coinc_label=''
 	      for ifo in ifolist:
@@ -319,7 +319,7 @@ class plotdata:
 	      figure()
             else:
               if hist_check_slides == 1:
-                slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
+                slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
                 legend([slide_val[0]],["Background"],loc=0)
                 coinc_label=''
                 for ifo in ifolist:
@@ -333,7 +333,7 @@ class plotdata:
                 figure()
               else:
                 if hist_check_inj == 1:
-                  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
+                  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
                   legend([inj_val[0]],["Injections"],loc=0)
                   coinc_label=''
                   for ifo in ifolist:
@@ -411,7 +411,36 @@ class plotdata:
     xlabel(old_statistic)
     savefig('zerolag_' + new_statistic + '_' + old_statistic)
     figure()
-
+  
+  def scatter_plot_param_2D(self, ifos, coinc_slides, coinc_inj, param):
+    '''
+    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
+    '''
+    for ifolist in ifos:
+     for i in range(len(ifolist)):
+       for j in range(len(ifolist)):
+         if i < j:
+           hist_check_slides = 1
+           hist_check_inj = 1
+           coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+           coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+           coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+           coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+           l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+           hold(True)
+           l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+           coinc_label=''
+           for ifo in ifolist:
+             coinc_label+=ifo
+           title(str(param) + " in " + ifolist[j] + " vs " + str(param) + " in " + ifolist[i] + " for " + coinc_label + " triggers") 
+           legend((l2, l1), ("Injections","Background"))
+           xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
+           ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
+           savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) + "_scatterplot")
+           figure()
+           
+                 
+ 
 
   def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
     ''' 
@@ -1123,6 +1152,7 @@ if opts.plot_simethinca:
 if opts.plot_distcut:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)  
+  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'eff_distance')
 if opts.plot_mchirp:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
@@ -1134,11 +1164,19 @@ if opts.plot_snr:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)   
 
+
+
+
+
 if opts.scatter_plot:
   plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
   plotdata().scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic)
   plotdata().scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic)
   plotdata().scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic)
+
+
+
+
 
 print "check point 1"
 if opts.scatter_all_plot:
