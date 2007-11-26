@@ -11,6 +11,7 @@ __Id__ = "$Id$"
 from glue import lal
 from glue import segments
 import socket, os
+import sys
 
 from glue.ligolw import utils
 
@@ -19,6 +20,17 @@ from glue.ligolw import lsctables
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
+
+
+def ErrorMessagePlotting(opts, thisplot):
+   """
+
+   """
+   text = "---Error in "+opts.name+"in plotting functions "+thisplot
+   if "chi" in thisplot:
+     text += "\n---possible reasons related to chi-square (are you reading first stage triggers ?)"
+   print >> sys.stderr, text
+
 
 def message(opts, text):
   """
@@ -172,6 +184,17 @@ def set_prefix_and_suffix(opts, name):
     prefix = opts.ifo_times +"-"+ prefix
   if opts.user_tag:
     prefix = prefix + "_" + opts.user_tag
+  try:
+    if opts.second_stage_only is True:
+      prefix = prefix + "_second_stage"
+  except:
+    pass
+  try:
+    if opts.first_stage_only is True:
+      prefix = prefix + "_first_stage"
+  except:
+    pass
+  
   if opts.output_path:
     prefix = opts.output_path+'/'+prefix
 
