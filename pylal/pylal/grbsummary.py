@@ -88,12 +88,21 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     nplus = (super_seg[1] - on_source[1]) // quantization_time
     nminus = (on_source[0] - super_seg[0]) // quantization_time
     
+    if (max_trials is not None) and (nplus + nminus > max_trials):
+        # try to make this as centered as possible
+        half_max = max_trials // 2
+        if nplus < half_max:  # cut left
+            remainder = max_trials - nplus
+            nminus = min(remainder, nminus)
+        elif nminus < half_max:  # cut right
+            remainder = max_trials - nminus
+            nplus = min(remainder, nplus)
+        else:  # cut both
+            nplus = min(half_max, nplus)
+            nminus = min(half_max, nminus)
+    
     if symmetric:
         nplus = nminus = min(nplus, nminus)
-    
-    if max_trials is not None:
-        nplus = min(nplus, max_trials // 2)
-        nminus = min(nminus, max_trials // 2)
     
     return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
                              on_source[1] + nplus*quantization_time + padding_time))
