@@ -205,7 +205,7 @@ class ILWD(int):
 		return self.__class__(int.__rxor__(self, other))
 
 	def __str__(self):
-		return "%s:%s:%d" % (self.table_name, self.column_name, self)
+		return u"%s:%s:%d" % (self.table_name, self.column_name, self)
 
 	def __sub__(self, other):
 		return self.__class__(int.__sub__(self, other))
