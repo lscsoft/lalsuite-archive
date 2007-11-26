@@ -73,7 +73,7 @@ def ILWDTableName(ilwdchar):
 	raised if the ID cannot be parsed.
 	"""
 	try:
-		return ILWDPattern.search(ilwdchar).group("Table")
+		return ILWDPattern.match(ilwdchar).group("Table")
 	except AttributeError:
 		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
@@ -84,7 +84,7 @@ def ILWDColumnName(ilwdchar):
 	raised if the ID cannot be parsed.
 	"""
 	try:
-		return ILWDPattern.search(ilwdchar).group("Column")
+		return ILWDPattern.match(ilwdchar).group("Column")
 	except AttributeError:
 		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
@@ -95,7 +95,7 @@ def ILWDID(ilwdchar):
 	the ID cannot be parsed.
 	"""
 	try:
-		return int(ILWDPattern.search(ilwdchar).group("ID"))
+		return int(ILWDPattern.match(ilwdchar).group("ID"))
 	except AttributeError:
 		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
 
@@ -119,6 +119,25 @@ class ILWD(int):
 	table_name = None
 	column_name = None
 	index_offset = None
+
+	def __new__(cls, arg):
+		if isinstance(arg, (str, unicode)):
+			# try parsing strings as ilwd:char formated
+			# strings
+			try:
+				tbl, col, i = ILWDPattern.match(arg).groups()
+			except ValueError:
+				# not a properly-formated ilwd:char string,
+				# let it go and see if int's __new__() can
+				# do something with it
+				pass
+			else:
+				# check that it's our kind of ID
+				if (tbl, col) != (cls.table_name, cls.column_name):
+					raise TypeError, "table and/or column mismatch '%s'" % arg
+				# initialize from the int portion
+				return int.__new__(cls, i)
+		return int.__new__(cls, arg)
 
 	# Wow, all these over rides suck
 
