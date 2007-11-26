@@ -54,7 +54,7 @@ class getCache(UserDict):
     self.dir = os.listdir(os.getcwd())
     self.options = options
     self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
-                 'INSPIRAL_', 'THINCA-', 'THINCA_']
+                 'INSPIRAL_H', 'THINCA-', 'THINCA_']
     self.iniNames = ['tmpltbank-path', 'trigbank-path', 'first-inspiral-path', \
          'second-inspiral-path', 'first-coinc-path', 'second-coinc-path']
     self.iniNameMaps = map(None, self.iniNames, self.types)
@@ -133,7 +133,7 @@ class getCache(UserDict):
       list = list + cache[ifo].pfnlist()
     return list
 
-  def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None):
+  def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None, ifo_tag=None, ifo_in_coinc=None):
     cacheSubSet = self.ifoDict()
     try: 
       cacheList = Cache.fromfile(open(cacheString))
@@ -145,8 +145,16 @@ class getCache(UserDict):
       for ifo in self.ifoTypes:
         try:
           if time:
-            seg1 = segments.segment(time[ifo],time[ifo]+1)
-            seg2 = segments.segment(time[ifo]-1,time[ifo])
+            if time[ifo]:
+              time_ifo = time[ifo]
+            else:
+              #if ifo found in the analysed times, but not in coinc...
+              if ifo_tag and len(ifo)==2 and re.search(ifo,ifo_tag):
+                time_ifo = time[ifo_in_coinc[0]]
+              else:
+                continue
+            seg1 = segments.segment(time_ifo,time_ifo+1)
+            seg2 = segments.segment(time_ifo-1,time_ifo)
           else:
             seg1 = None
             seg2 = None
@@ -158,7 +166,7 @@ class getCache(UserDict):
     return(cacheSubSet)
 
 
-  def getProcessParamsFromCache(self, subCache, tag, time, getInsp = False):
+  def getProcessParamsFromCache(self, subCache, tag, time, getInsp = False, ifo_in_coinc=None):
     process = self.ifoDict()
     inspTable = self.ifoDict()
     for ifo in subCache:
@@ -179,16 +187,21 @@ class getCache(UserDict):
           # this is a hack to handle the "-userTag" string in some xml files...
           if str(row.param).find("-userTag") >= 0:
              row.param = "--user-tag"
-          # end of the hack...     
-        
+          # end of the hack...
+
         if ifoTag == tag:
+          if time[ifo]:
+            time_ifo = time[ifo]
+          else:
+            # if time[ifo] is not defined (happens for a double coinc in triple times) then use the end_time in the first ifo of the coinc
+            time_ifo = time[ifo_in_coinc[0]]
           search = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
           for row in search:
             out_start_time = float(row.out_start_time)
             out_start_time_ns = float(row.out_start_time_ns)/1000000000
             out_end_time = float(row.out_end_time)
             out_end_time_ns = float(row.out_end_time_ns)/1000000000
-            if ( (time[ifo] >= (out_start_time+out_start_time_ns)) and (time[ifo] <= (out_end_time+out_end_time_ns)) ):
+            if ( (time_ifo >= (out_start_time+out_start_time_ns)) and (time_ifo <= (out_end_time+out_end_time_ns)) ):
               process[ifo] = proc
               if getInsp: inspTable[ifo] = insp
               break
@@ -212,8 +225,8 @@ class getCache(UserDict):
       try:
         inspiral_process_params = self.getProcessParamsFromCache( \
                        self.filesMatchingGPSinCache(cacheFile,\
-                       trig.gpsTime, type), \
-                       trig.ifoTag, trig.gpsTime)
+                       trig.gpsTime, type, trig.ifoTag, trig.ifolist_in_coinc), \
+                       trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
         inspiral_process_params = []
