@@ -182,11 +182,14 @@ def burca1(options, filenames):
 
 
 	#
-	# Use interning row builder to save memory.
+	# Use interning row builder to save memory.  Also parse ilwd:char
+	# columns directly into glue.ligolw.ilwd.ILWD instances instead of
+	# strings to save memory.
 	#
 
 
 	ligolw_burca.table.RowBuilder = ligolw_burca.table.InterningRowBuilder
+	ligolw_burca.lsctables.types.ToPyType["ilwd:char"] = ligolw_burca.lsctables.ilwd.get_id
 
 
 	#
