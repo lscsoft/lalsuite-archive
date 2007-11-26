@@ -265,7 +265,7 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	#
 
 	for row in sngl_inspiral:
-		row.event_id = ilwd.ILWDID(row.event_id)
+		row.event_id = ilwd.ILWDID(str(row.event_id))
 
 	#
 	# update the table's list of valid column types, and the Type
@@ -420,7 +420,7 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc.coinc_event_id = unicode(table.next_id(coinc_event))
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)))
+		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(str(events[0].event_id)) / long(1e9)) % long(1e4)))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -435,7 +435,7 @@ def populate_coinc_event_sngls(xmldoc):
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
-			coincmap.table_name = ilwd.ILWDTableName(coincmap.event_id)
+			coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
 			coinc_event_map.append(coincmap)
 
 
@@ -507,7 +507,7 @@ def populate_coinc_event_sims(xmldoc):
 		coinc.coinc_event_id = unicode(table.next_id(coinc_event))
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(events[0].event_id) / long(1e9)) % long(1e4)))
+		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(str(events[0].event_id)) / long(1e9)) % long(1e4)))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -519,7 +519,7 @@ def populate_coinc_event_sims(xmldoc):
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.event_id = sim.simulation_id
-		coincmap.table_name = ilwd.ILWDTableName(coincmap.event_id)
+		coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
 		coinc_event_map.append(coincmap)
 
 		for event in events:
@@ -528,7 +528,7 @@ def populate_coinc_event_sims(xmldoc):
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
-			coincmap.table_name = ilwd.ILWDTableName(coincmap.event_id)
+			coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
 			coinc_event_map.append(coincmap)
 
 

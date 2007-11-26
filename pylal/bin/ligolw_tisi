@@ -168,7 +168,7 @@ if options.verbose:
 
 
 time_slides = time_slides.items()
-time_slides.sort(lambda a, b: cmp(ilwd.ILWDID(a[0]), ilwd.ILWDID(b[0])), reverse = True)
+time_slides.sort(lambda a, b: cmp(ilwd.ILWDID(str(a[0])), ilwd.ILWDID(str(b[0]))), reverse = True)
 
 
 #

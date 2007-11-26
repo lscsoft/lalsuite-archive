@@ -271,7 +271,7 @@ class DocContents(object):
 		Sort the sngl_burst table's rows by ID (tidy-up document
 		for output).
 		"""
-		self.snglbursttable.sort(lambda a, b: cmp(ilwd.ILWDID(a.event_id), ilwd.ILWDID(b.event_id)))
+		self.snglbursttable.sort(lambda a, b: cmp(ilwd.ILWDID(str(a.event_id)), ilwd.ILWDID(str(b.event_id))))
 
 	def new_coinc(self, coinc_def_id):
 		"""
@@ -376,14 +376,14 @@ def add_sim_burst_coinc(contents, sim, bursts):
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
-	coincmap.table_name = ilwd.ILWDTableName(sim.simulation_id)
+	coincmap.table_name = ilwd.ILWDTableName(str(sim.simulation_id))
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
 	for event in bursts:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.table_name = ilwd.ILWDTableName(event.event_id)
+		coincmap.table_name = ilwd.ILWDTableName(str(event.event_id))
 		coincmap.event_id = event.event_id
 		contents.coincmaptable.append(coincmap)
 
@@ -430,14 +430,14 @@ def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 
 	coincmap = lsctables.CoincMap()
 	coincmap.coinc_event_id = coinc.coinc_event_id
-	coincmap.table_name = ilwd.ILWDTableName(sim.simulation_id)
+	coincmap.table_name = ilwd.ILWDTableName(str(sim.simulation_id))
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
 	for coinc_event_id in coinc_event_ids:
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
-		coincmap.table_name = ilwd.ILWDTableName(coinc_event_id)
+		coincmap.table_name = ilwd.ILWDTableName(str(coinc_event_id))
 		coincmap.event_id = coinc_event_id
 		contents.coincmaptable.append(coincmap)
 
