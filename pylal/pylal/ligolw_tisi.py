@@ -147,7 +147,7 @@ def load_time_slides(filename, verbose = False, gz = False):
 	"""
 	time_slide_table = table.get_table(utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin")[-3:] == ".gz"), lsctables.TimeSlideTable.tableName)
 	time_slides = time_slide_table.as_dict()
-	time_slide_table.sync_ids()
+	time_slide_table.sync_next_id()
 	return time_slides
 
 

@@ -265,7 +265,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = proctable.sync_ids().next()
+	process.process_id = unicode(proctable.sync_next_id())
 	proctable.append(process)
 	return process
 
@@ -289,9 +289,9 @@ def append_process_params(doc, process, params):
 		row = lsctables.ProcessParams()
 		row.program = process.program
 		row.process_id = process.process_id
-		row.param = str(name)
-		row.type = str(type)
-		row.value = str(value)
+		row.param = unicode(name)
+		row.type = unicode(type)
+		row.value = unicode(value)
 		paramtable.append(row)
 	return process
 

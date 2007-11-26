@@ -134,7 +134,7 @@ class CoincTables(object):
 		except ValueError:
 			self.coinctable = lsctables.New(lsctables.CoincTable)
 			xmldoc.childNodes[0].appendChild(self.coinctable)
-		self.coinctable.sync_ids()
+		self.coinctable.sync_next_id()
 
 		# find the coinc_map table or create one if not found
 		try:
@@ -174,7 +174,7 @@ class CoincTables(object):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = self.coinc_def_id
-		coinc.coinc_event_id = self.coinctable.ids.next()
+		coinc.coinc_event_id = unicode(table.next_id(self.coinctable))
 		coinc.time_slide_id = time_slide_id
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")

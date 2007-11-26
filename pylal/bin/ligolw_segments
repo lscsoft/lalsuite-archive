@@ -65,7 +65,7 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [filename [filename ...]]",
+		usage = "%prog [options] [filename ...]",
 		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations.  If a file name is given on the command line, then it is loaded, the segments are added to the segment tables therein, and the file overwritten with the new document.  If multiple file names are given, then the same transformation is performed to each one.  If no file names are given, then a new document is created and written to stdout.  If the --output option is set, then output is written to that file, instead."
 	)
 	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process and segment_definer tables.")
@@ -147,17 +147,17 @@ def append_process(xmldoc, options):
 #
 
 
-def segment_def(ifos, name, comment, ids, process):
+def segment_def(ifos, name, comment, tbl, process):
 	row = lsctables.SegmentDef()
 	row.process_id = process.process_id
-	row.segment_def_id = ids.next()
+	row.segment_def_id = unicode(table.next_id(tbl))
 	row.ifos = ifos
 	row.name = name
 	row.comment = comment
 	return row
 
 
-def segment_table_rows(active, inactive, unknown, ids, process):
+def segment_table_rows(active, inactive, unknown, tbl, process):
 	if active.intersects(inactive):
 		raise ValueError, "active and inactive intersect"
 
@@ -195,18 +195,18 @@ def segment_table_rows(active, inactive, unknown, ids, process):
 
 	# assign IDs
 	for row in rows:
-		row.segment_id = ids.next()
+		row.segment_id = unicode(table.next_id(tbl))
 
 	# done
 	return rows
 
 
-def seg_def_map(seg, seg_def, ids, process):
+def seg_def_map(seg, seg_def, tbl, process):
 	row = lsctables.SegmentDefMap()
 	row.process_id = process.process_id
 	row.segment_id = seg.segment_id
 	row.segment_def_id = seg_def.segment_def_id
-	row.seg_def_map_id = ids.next()
+	row.seg_def_map_id = unicode(table.next_id(tbl))
 	return row
 
 
@@ -223,9 +223,9 @@ def insert_from_segwizard(filename, segdef, segtable, segdefmaptable, process):
 	active = segmentsUtils.fromsegwizard(file(filename), coltype = LIGOTimeGPS).coalesce()
 	inactive = segments.segmentlist()
 	unknown = segments.segmentlist()
-	for row in segment_table_rows(active, inactive, unknown, segtable.ids, process):
+	for row in segment_table_rows(active, inactive, unknown, segtable, process):
 		segtable.append(row)
-		segdefmaptable.append(seg_def_map(row, segdef, segdefmaptable.ids, process))
+		segdefmaptable.append(seg_def_map(row, segdef, segdefmaptable, process))
 
 
 def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", verbose = False):
@@ -243,18 +243,18 @@ def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", ve
 
 
 	segdeftable = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
-	segdeftable.ids.set_next(0)
-	segdeftable.sync_ids()
+	segdeftable.next_id = type(segdeftable.next_id)(0)
+	segdeftable.sync_next_id()
 
 
 	segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-	segtable.ids.set_next(0)
-	segtable.sync_ids()
+	segtable.next_id = type(segtable.next_id)(0)
+	segtable.sync_next_id()
 
 
 	segdefmaptable = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
-	segdefmaptable.ids.set_next(0)
-	segdefmaptable.sync_ids()
+	segdefmaptable.next_id = type(segdefmaptable.next_id)(0)
+	segdefmaptable.sync_next_id()
 
 
 	#
@@ -272,7 +272,7 @@ def ligolw_segments(xmldoc, process, segwizard = {}, name = "", comment = "", ve
 		#
 
 
-		segdef = segment_def(instrument, name, comment, segdeftable.ids, process)
+		segdef = segment_def(instrument, name, comment, segdeftable, process)
 		segdeftable.append(segdef)
 
 

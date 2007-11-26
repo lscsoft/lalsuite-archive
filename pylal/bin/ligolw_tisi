@@ -58,7 +58,7 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [filename [filename [...]]]",
+		usage = "%prog [options] [filename ...]",
 		description = "%prog constructs time_slide tables, writing the result to one or more files.  The time slide table to be constructed is described by specifying one or more ranges of offsets for each instrument.  If more than one instrument and set of offsets is given, then the time slide table will contain entries corresponding to all combinations of offsets, one each from the different instuments.  If no file names are given on the command line, output is written to stdout.  If more than one file name is given on the command line, then the time slides are distributed uniformly between files with each file being given a disjoint subset of the time slides.  Output files whose names end in \".gz\" will be gzip compressed."
 	)
 	parser.add_option("-a", "--add-to", metavar = "filename", default = None, help = "Add the time slides from this file to the newly-generated time slides.  If the name ends in \".gz\" it will be gzip-decompressed on input.")
@@ -138,7 +138,9 @@ if options.verbose:
 
 # dictionary mapping time_slide_id --> (dictionary mapping insrument --> offset)
 
-time_slides.update(dict(zip(lsctables.TimeSlideTable.ids, ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)))))
+for time_slide in ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)):
+	time_slides[unicode(lsctables.TimeSlideTable.next_id)] = time_slide
+	lsctables.TimeSlideTable.next_id += 1
 
 if options.verbose:
 	print >>sys.stderr, "Total of %d time slides." % len(time_slides)
