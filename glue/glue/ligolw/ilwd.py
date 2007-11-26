@@ -63,7 +63,7 @@ ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
 
 
 #
-# Utility functions to extra ID parts.
+# Utility functions to extract ID parts.
 #
 
 
@@ -296,8 +296,12 @@ def get_id(string):
 	Convert an ilwd:char string into an instance of the matching
 	subclass of ILWD.
 	"""
+	# try parsing the string as an ilwd:char formated string
 	m = ILWDPattern.match(string)
 	if m is None:
+		# nope, didn't work
 		raise ValueError, string
+	# retrieve the matching class from the ID class cache, and return
+	# an instance initialized to the desired value
 	tbl, col, i = m.groups()
 	return get_id_class(tbl, col)(int(i))
