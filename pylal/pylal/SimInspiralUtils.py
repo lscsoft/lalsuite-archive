@@ -37,14 +37,16 @@ from glue.ligolw import utils
 #
 
 
-def ReadSimInspiralFromFiles(fileList):
+def ReadSimInspiralFromFiles(fileList, verbose=False):
   """
   Read the simInspiral tables from a list of files
+
   @param fileList: list of input files
+  @param verbose: print ligolw_add progress
   """
   simInspiralTriggers = None
   for thisFile in fileList:
-    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"))
+    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"), verbose=verbose)
     # extract the sim inspiral table
     try: simInspiralTable = \
       table.get_table(doc, lsctables.SimInspiralTable.tableName)
@@ -55,5 +57,4 @@ def ReadSimInspiralFromFiles(fileList):
       simInspiralTriggers = simInspiralTable
 
   return simInspiralTriggers
-
 

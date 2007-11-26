@@ -21,7 +21,7 @@ from glue import segments
 from glue.ligolw import utils
 from pylal import llwapp
 
-def GetSegListFromSearchSummaries(fileList):
+def GetSegListFromSearchSummaries(fileList, verbose=None):
   """
   Read segment lists from search summary tables
   @param fileList: list of input files.
@@ -29,7 +29,9 @@ def GetSegListFromSearchSummaries(fileList):
   segList = segments.segmentlistdict()
 
   for thisFile in fileList:
-    doc = utils.load_filename(thisFile)
+    if verbose is not None:
+      print thisFile
+    doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
     try: 
       segs = llwapp.segmentlistdict_fromsearchsummary(doc)
     except:
