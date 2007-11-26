@@ -174,7 +174,7 @@ class CoincTables(object):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = self.coinc_def_id
-		coinc.coinc_event_id = str(table.next_id(self.coinctable))
+		coinc.coinc_event_id = table.next_id(self.coinctable)
 		coinc.time_slide_id = time_slide_id
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
