@@ -240,7 +240,7 @@ if __name__ == "__main__":
             file_list = glob.glob(run_dir + "/*.xml") + \
                         glob.glob(run_dir + "/*.xml.gz")
             # XXX: Consider renaming the HL-INJECTIONS.xml or storing it elsewhere
-            file_list = [fn for fn in file_list if fn != "HL-INJECTIONS.xml"]
+            file_list.remove("HL-INJECTIONS.xml")
             cache = lal.Cache.from_urls(file_list, coltype=int)
             
             ### Determine and write segments
