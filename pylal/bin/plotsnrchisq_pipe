@@ -37,7 +37,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFileName,page):
+def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFileName,page,user_tag=None):
  
     rsqThreshold = 0;
 
@@ -73,6 +73,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     webPage = webUtils.WebPage("Plot SNR / CHISQ / PSD for " + ifoName[0] + " @ " + str(trigStart),tableFileName, page+'/'+pageRelPath)
     talkBack = webUtils.talkBack(tableFileName)
 
+    if user_tag:
+      ifo_string = user_tag
+    else:
+      ifo_string = ifoName[0]
 
     segLenSec = segLen / sampleRate
     segOverlapSec = segOverlap / sampleRate
@@ -161,7 +165,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'PSD',size='x-large')
     xlim(flow, ASD_freq[-1])
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_PSD.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_PSD.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("Power Spectral Density")
     webPage.lastSection.image('/' + figName, page+'/'+pageRelPath + '/' + figName)   
@@ -179,7 +183,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_snr.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR time series")
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
@@ -194,7 +198,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR time series (zoom)")
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
@@ -215,7 +219,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
     savefig(outputPath +"/" + figName) 
     webPage.appendSection("r squared time series")
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
@@ -232,7 +236,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
     savefig(outputPath +"/" + figName)
     webPage.appendSection("r squared time series (zoom)")
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
@@ -249,7 +253,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR weighted r squared time series")    
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
@@ -265,14 +269,14 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifoName[0] + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png'
+    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png'
     savefig(outputPath +"/" + figName)
     webPage.appendSection("SNR weighted r squared time series (zoom)")        
     webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
 
     webPage.cleanWrite('IUL')
     talkBack.write()
-    
+
 ##############################################################################
 #
 #  MAIN PROGRAM
@@ -303,6 +307,9 @@ parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
 
 parser.add_option("-c","--output-web-file", action="store",type="string", \
     metavar=" XML",help="file to append html tables to")
+
+parser.add_option("-T","--user-tag", action="store",type="string", \
+    default=None, metavar=" TAG",help="user tag for the png files")
 
 #parser.add_option("-C","--output-html-file2", action="store",type="string", \
 #    metavar=" XML",help="file to append html tables to (for PSD)")
@@ -355,10 +362,12 @@ if not opts.inspiral_xml_file:
   print >> sys.stderr, "Use --inspiral-xml-file XML to specify a file"
   sys.exit(1)
 
-
-doc = utils.load_filename(opts.inspiral_xml_file,None)
+extension = opts.inspiral_xml_file.split('.')[-1]
+if extension == 'gz': gz = True
+else: gz = False
+doc = utils.load_filename(opts.inspiral_xml_file,None,gz)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,opts.page_rel_path,proc,opts.output_web_file,opts.page)
+plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,opts.page_rel_path,proc,opts.output_web_file,opts.page,opts.user_tag)
 
 
