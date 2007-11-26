@@ -748,8 +748,10 @@ def plotcoinchanford(coinctable, col_name, ifo, \
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histcol(table1, col_name,nbins = None, width = None, output_name = None):
- 
+def histcol(table1, col_name,nbins = None, width = None, output_name = None, xlimit=[0,0], plot_type='normal'):
+  """
+
+  """ 
   if ("ifo" in table1.validcolumns.keys()):
     ifo = table1[0].ifo
   else:
@@ -767,13 +769,37 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
   xlabel(col_name.replace("_"," "), size='x-large')
   ylabel('Number', size='x-large')
 
+  # creates the histogram and take plot_type into account  
+  if plot_type == 'loglog' or plot_type=='logx':
+    data = log10(data)
+    xlabel(col_name.replace("_"," ")+"(log). Fix this xtick to be readable (viz.histcol)", size='x-large')
+
   if bins:
     out = hist(data,bins)
   else:
     out = hist(data,nbins)
 
   width = out[1][1] - out[1][0]
+  
+  if plot_type == 'loglog' or plot_type=='logy':
+    ylabel('Number (fix me in viz.histcol requested log not impletemtend) ', size='x-large')
+
   bar(out[1],out[0],width)
+
+  #set the x axis limits taking into account if we use log10(data) 
+  if xlimit[0] and  xlimit[1]:
+    xlim(xlimit)
+  if plot_type == 'loglog' or plot_type=='logx':
+    xlimit[0] = log10(xlimit[0])
+    if xlimit[1] < xlimit[0]:
+      xlimit[1] = max(data)
+      xlim(xlimit)
+  else:
+    if xlimit[1] < xlimit[0]:
+      xlimit[1] = max(data)
+      xlim(xlimit)
+  
+  
   
   if ifo:
     title(ifo + ' ' + col_name.replace("_"," ") + ' histogram', size='x-large')
@@ -817,8 +843,11 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
   else:
     plot(data_sort, y_data,'k-',linewidth=1)
 
-
+  # set the x-axis limits
   if xlimit[0] and  xlimit[1]:
+    xlim(xlimit)
+  if xlimit[1] < xlimit[0]:
+    xlimit[1] = max(data)
     xlim(xlimit)
 
   xlabel(col_name.replace("_"," "), size='x-large')
