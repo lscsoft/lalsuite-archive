@@ -124,19 +124,17 @@ class ILWD(int):
 		if isinstance(arg, (str, unicode)):
 			# try parsing strings as ilwd:char formated
 			# strings
-			try:
-				tbl, col, i = ILWDPattern.match(arg).groups()
-			except ValueError:
-				# not a properly-formated ilwd:char string,
-				# let it go and see if int's __new__() can
-				# do something with it
-				pass
-			else:
-				# check that it's our kind of ID
+			m = ILWDPattern.match(arg)
+			if m is not None:
+				# seems to have worked, check that it's our
+				# kind of ID
+				tbl, col, i = m.groups()
 				if (tbl, col) != (cls.table_name, cls.column_name):
 					raise TypeError, "table and/or column mismatch '%s'" % arg
 				# initialize from the int portion
 				return int.__new__(cls, i)
+		# it's not a string, or not a string in ilwd:char format,
+		# maybe int's __new__() can do something with it
 		return int.__new__(cls, arg)
 
 	# Wow, all these over rides suck
@@ -291,3 +289,15 @@ def get_id_class(tbl_name, col_name):
 	IDClassCache[key] = cached_id_class
 
 	return cached_id_class
+
+
+def get_id(string):
+	"""
+	Convert an ilwd:char string into an instance of the matching
+	subclass of ILWD.
+	"""
+	m = ILWDPattern.match(string)
+	if m is None:
+		raise ValueError, string
+	tbl, col, i = m.groups()
+	return get_id_class(tbl, col)(int(i))
