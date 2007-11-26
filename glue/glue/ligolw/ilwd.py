@@ -244,8 +244,8 @@ IDClassCache = {}
 
 
 def get_id_class(tbl_name, col_name):
-	tbl_name = unicode(tbl_name)
-	col_name = unicode(col_name)
+	tbl_name = str(tbl_name)
+	col_name = str(col_name)
 
 	#
 	# if the class already exists, retrieve it
@@ -263,7 +263,7 @@ def get_id_class(tbl_name, col_name):
 		__slots__ = ()
 		table_name = tbl_name
 		column_name = col_name
-		index_offset = len(u"%s:%s:" % key)
+		index_offset = len("%s:%s:" % key)
 
 	#
 	# cache the new class and return it

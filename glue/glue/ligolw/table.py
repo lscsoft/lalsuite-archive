@@ -646,7 +646,7 @@ class Table(ligolw.Table, list):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = unicode(cls.next_id)
+				column[i] = mapping[old] = str(cls.next_id)
 				cls.next_id += 1
 		return mapping
 
