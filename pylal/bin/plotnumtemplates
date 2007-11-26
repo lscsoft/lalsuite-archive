@@ -208,6 +208,7 @@ OR the cachefile options (--cache-file), not both at the same time.
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
+InspiralUtils.message(opts, "Reading data...")
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -267,9 +268,11 @@ tagList= []   # use for the cache file
 
 # ============================================================================
 # Make plot of tmpltbank size 
+text= "Template bank size"
+InspiralUtils.message(opts, "text")
 fname =  plotnumtemplates_tmpltbank_size(opts)
 fnameList.append(fname)
-tagList.append("Template bank size")
+tagList.append(text)
 
 # ============================================================================
 # final step: html, cache file generation
