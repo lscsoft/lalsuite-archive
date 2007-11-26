@@ -62,6 +62,11 @@ __version__ = "$Revision$"[11:-2]
 ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
 
 
+#
+# Utility functions to extra ID parts.
+#
+
+
 def ILWDTableName(ilwdchar):
 	"""
 	Return the table name part of the row ID ilwdchar.  ValueError is
@@ -93,6 +98,15 @@ def ILWDID(ilwdchar):
 		return int(ILWDPattern.search(ilwdchar).group("ID"))
 	except AttributeError:
 		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
+
+
+#
+# =============================================================================
+#
+#                               ID Parent Class
+#
+# =============================================================================
+#
 
 
 class ILWD(int):
@@ -215,3 +229,43 @@ class ILWD(int):
 
 	def __xor__(self, other):
 		return self.__class__(int.__xor__(self, other))
+
+
+#
+# =============================================================================
+#
+#                                Cached Classes
+#
+# =============================================================================
+#
+
+
+IDClassCache = {}
+
+
+def get_id_class(tbl_name, col_name):
+	#
+	# if the class already exists, retrieve it
+	#
+
+	key = (tbl_name, col_name)
+	if key in IDClassCache:
+		return IDClassCache[key]
+
+	#
+	# define a new class
+	#
+
+	class cached_id_class(ILWD):
+		__slots__ = ()
+		table_name = unicode(tbl_name)
+		column_name = unicode(col_name)
+		index_offset = len(u"%s:%s:" % key)
+
+	#
+	# cache the new class and return it
+	#
+
+	IDClassCache[key] = cached_id_class
+
+	return cached_id_class
