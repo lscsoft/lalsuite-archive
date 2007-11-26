@@ -714,11 +714,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists = None):
 #
 
 
-class ParamDistDefinerIDs(ilwd.ILWD):
-	__slots__ = ilwd.ILWD.__slots__
-	table_name = "param_dist_definer"
-	column_name = "param_dist_def_id"
-	index_offset = len(table_name) + len(column_name) + 2
+ParamDistDefinerID = ilwd.get_id_class(u"param_dist_definer", u"param_dist_def_id")
 
 
 class ParamDistDefinerTable(table.Table):
