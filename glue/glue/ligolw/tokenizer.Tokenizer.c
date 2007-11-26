@@ -418,10 +418,7 @@ static PyObject *next(PyObject *self)
 	} else if(type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromUnicode(start, end - start, 0);
 	} else {
-		/* shouldn't get here:  set_types() is supposed to validate
-		 * its input */
-		PyErr_BadArgument();
-		token = NULL;
+		token = PyObject_CallFunction(type, "(u#)", start, end - start);
 	}
 
 	/*
@@ -448,17 +445,7 @@ static PyObject *set_types(PyObject *self, PyObject *list)
 
 	if(!PyList_Check(list))
 		goto type_error;
-
-	/*
-	 * Make sure it contains only allowed types.
-	 */
-
 	length = PyList_GET_SIZE(list);
-	for(i = 0; i < length; i++) {
-		PyObject *type = PyList_GET_ITEM(list, i);
-		if((type != (PyObject *) &PyUnicode_Type) && (type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
-			goto type_error;
-	}
 
 	/*
 	 * Clear the current internal type list.
@@ -493,7 +480,7 @@ static PyObject *set_types(PyObject *self, PyObject *list)
 	 */
 
 type_error:
-	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list whose values are chosen from the types unicode, str, int, and float, or None");
+	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list whose elements are chosen from the types unicode, str, int, and float, or None, or are callable objeccts");
 	return NULL;
 }
 
@@ -527,7 +514,7 @@ PyTypeObject ligolw_Tokenizer_Type = {
 		"[str, int] causes the first token to be returned as a string, the second as an\n" \
 		"int, then the third as a string again, and so on.  The default is to extract\n" \
 		"all tokens as strings.  Note that the last token will not be extracted until\n" \
-		"a delimiter character is seen.\n" \
+		"a delimiter character is seen to terminate it.\n" \
 		"\n" \
 		"Example:\n" \
 		"\n" \
