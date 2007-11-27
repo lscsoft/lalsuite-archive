@@ -35,6 +35,11 @@ Cut pieces out of LIGO LW XML files containing LSC tables.
 
 from optparse import OptionParser
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 
 from glue.ligolw import ligolw
@@ -70,23 +75,21 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	# strip column names
-	# FIXME: remove duplicates
-	options.delete_column = map(table.StripColumnName, options.delete_column)
+	options.delete_column = set(map(table.StripColumnName, options.delete_column))
 
 	# parse element specs
-	# FIXME: remove duplicates
 	def parse_delete_element(arg):
 		arg = arg.split(",")
 		attrs = {}
 		for i in range(1, len(arg)):
-			[name, value] = arg[i].split("=")
+			name, value = arg[i].split("=")
 			attrs[name] = value
 		return arg[0], attrs
+	# FIXME: remove duplicates
 	options.delete_element = map(parse_delete_element, options.delete_element)
 
 	# strip table names
-	# FIXME: remove duplicates
-	options.delete_table = map(table.StripTableName, options.delete_table)
+	options.delete_table = set(map(table.StripTableName, options.delete_table))
 
 	return options, (filenames or [None])
 
