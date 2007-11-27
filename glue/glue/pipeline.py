@@ -1188,10 +1188,7 @@ class AnalysisNode(CondorDAGNode):
     self.__calibration = None
     self.__calibration_cache = None
     self.__LHO2k = re.compile(r'H2')
-    try:
-      self.__user_tag = self.job().get_opts()["user-tag"]
-    except:
-      self.__user_tag = None
+    self.__user_tag = self.job().get_opts().get("user-tag", None)
 
   def set_start(self,time):
     """
