@@ -32,12 +32,14 @@
 Print things from LIGO LW XML files.  Inspired by lwtprint from LIGOTools.
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
 
 from optparse import OptionParser
+
 
 from glue.lal import CacheEntry
 from glue import segmentsUtils
