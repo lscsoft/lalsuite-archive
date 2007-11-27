@@ -692,7 +692,7 @@ class followUpList:
 #############################################################################
 # Function to generate a trigbank xml file
 #############################################################################
-def generateXMLfile(ckey,ifo,gpsTime,outputPath=None,table_type='pre-bank-veto'):
+def generateXMLfile(ckey,ifo,outputPath=None,table_type='pre-bank-veto'):
 
   if outputPath:
     try:
@@ -718,12 +718,12 @@ def generateXMLfile(ckey,ifo,gpsTime,outputPath=None,table_type='pre-bank-veto')
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   sngl_inspiral_table.append(trig)
 
-  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + gpsTime + ".xml.gz"
+  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + str(ckey.event_id) + ".xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
 
-def generateBankVetoBank(fuTrig, ifo,gpsTime,sngl,subBankSize,outputPath=None):
+def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
   
   trig =  getattr(fuTrig.coincs,ifo)
   mass = trig.mass1 + trig.mass2
@@ -759,7 +759,7 @@ def generateBankVetoBank(fuTrig, ifo,gpsTime,sngl,subBankSize,outputPath=None):
     sngl_inspiral_table.append(row)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
  
-  fileName = ifo + '-BANKVETO_FOLLOWUP_' + gpsTime + ".xml.gz"
+  fileName = ifo + '-BANKVETO_FOLLOWUP_' + str(fuTrig.eventID) + ".xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)
@@ -795,7 +795,7 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
           fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
         except: fuList.gpsTime[ifo] = None
         if fuList.gpsTime[ifo] and trigbank_test:
-          generateXMLfile(ckey,ifo,str(fuList.gpsTime[ifo]),'trigTemplateBank')
+          generateXMLfile(ckey,ifo,'trigTemplateBank')
 
       # now, find the ifoTag associated with the triggers, 
       # using the search summary tables...
