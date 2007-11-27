@@ -615,14 +615,14 @@ class Table(ligolw.Table, list):
 		"""
 		if self.next_id is not None:
 			if len(self):
-				n = max([ilwd.ILWDID(str(id)) for id in self.getColumnByName(self.next_id.column_name)]) + 1
+				n = max(self.getColumnByName(self.next_id.column_name)) + 1
 			else:
-				n = 0
-			if n > int(self.next_id):
+				n = type(self.next_id)(0)
+			if n > self.next_id:
 				# the left-hand-side is the way it is to
 				# ensure we assign to the class attribute
 				# instead of creating an instance attribute
-				type(self).next_id = type(self.next_id)(n)
+				type(self).next_id = n
 		return self.next_id
 
 	def updateKeyMapping(self, mapping):
