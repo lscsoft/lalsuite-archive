@@ -233,7 +233,7 @@ class DocContents(object):
 			self.burst_peak_time_window = 0
 
 		# add the duration of the longest burst event (the most an
-		# event's peak time could differ from either the start of
+		# event's peak time could differ from either the start or
 		# stop time of the event)
 		if len(self.snglbursttable):
 			self.burst_peak_time_window += max(self.snglbursttable.getColumnByName("duration"))
@@ -516,7 +516,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			print >>sys.stderr, "\t100.0%"
 
 	#
-	# Restore the original event order
+	# Restore the original event order.
 	#
 
 	if verbose:

@@ -38,7 +38,7 @@
 /*
  * ============================================================================
  *
- *                                 ILWD Type
+ *                               ilwdchar Type
  *
  * ============================================================================
  */
@@ -52,13 +52,13 @@
 typedef struct {
 	PyObject_HEAD
 	long i;
-} ligolw_ILWD;
+} ligolw_ilwdchar;
 
 
 /* for resolving forward references */
 
 
-PyTypeObject ligolw_ILWD_Type;
+PyTypeObject ligolw_ilwdchar_Type;
 
 
 /*
@@ -66,7 +66,7 @@ PyTypeObject ligolw_ILWD_Type;
  */
 
 
-static PyObject *ligolw_ILWD___add__(PyObject *self, PyObject *other)
+static PyObject *ligolw_ilwdchar___add__(PyObject *self, PyObject *other)
 {
 	long delta = PyInt_AsLong(other);
 	PyObject *new;
@@ -74,23 +74,28 @@ static PyObject *ligolw_ILWD___add__(PyObject *self, PyObject *other)
 	if(PyErr_Occurred())
 		return NULL;
 
+	if(!delta) {
+		Py_INCREF(self);
+		return self;
+	}
+
 	new = PyType_GenericNew(self->ob_type, NULL, NULL);
 
 	if(new)
-		((ligolw_ILWD *) new)->i = ((ligolw_ILWD *) self)->i + delta;
+		((ligolw_ilwdchar *) new)->i = ((ligolw_ilwdchar *) self)->i + delta;
 
 	return new;
 }
 
 
-static long ligolw_ILWD___hash__(PyObject *self)
+static long ligolw_ilwdchar___hash__(PyObject *self)
 {
 	PyObject *tbl = PyObject_GetAttrString(self, "table_name");
 	PyObject *col = PyObject_GetAttrString(self, "column_name");
 	long hash;
 
 	if(tbl && col) {
-		hash = PyObject_Hash(tbl) ^ PyObject_Hash(col) ^ ((ligolw_ILWD *) self)->i;
+		hash = PyObject_Hash(tbl) ^ PyObject_Hash(col) ^ ((ligolw_ilwdchar *) self)->i;
 		if(hash == -1)
 			/* -1 is reserved for error conditions */
 			hash = -2;
@@ -105,7 +110,13 @@ static long ligolw_ILWD___hash__(PyObject *self)
 }
 
 
-static PyObject *ligolw_ILWD___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+static PyObject *ligolw_ilwdchar___int__(PyObject *self)
+{
+	return PyInt_FromLong(((ligolw_ilwdchar *) self)->i);
+}
+
+
+static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	/* call the generic __new__() */
 	PyObject *new = PyType_GenericNew(type, NULL, NULL);
@@ -115,7 +126,7 @@ static PyObject *ligolw_ILWD___new__(PyTypeObject *type, PyObject *args, PyObjec
 		return NULL;
 
 	/* initialize to default value */
-	((ligolw_ILWD *) new)->i = 0;
+	((ligolw_ilwdchar *) new)->i = 0;
 
 	if(PyArg_ParseTuple(args, "s", &s)) {
 		/* we've been passed a string, see if we can parse
@@ -125,11 +136,11 @@ static PyObject *ligolw_ILWD___new__(PyTypeObject *type, PyObject *args, PyObjec
 		char *table_name = NULL, *column_name = NULL;
 
 		/* can we parse it as an ilwd:char string? */
-		sscanf(s, "%a[^:]:%a[^:]:%ld%n", &table_name, &column_name, &((ligolw_ILWD *) new)->i, &converted_len);
+		sscanf(s, "%a[^:]:%a[^:]:%ld%n", &table_name, &column_name, &((ligolw_ilwdchar *) new)->i, &converted_len);
 		if(converted_len < len) {
 			/* nope, how 'bout just an int? */
 			converted_len = -1;
-			sscanf(s, "%ld%n", &((ligolw_ILWD *) new)->i, &converted_len);
+			sscanf(s, "%ld%n", &((ligolw_ilwdchar *) new)->i, &converted_len);
 			if(converted_len < len) {
 				/* nope */
 				PyErr_Format(PyExc_ValueError, "'%s'", s);
@@ -160,7 +171,7 @@ static PyObject *ligolw_ILWD___new__(PyTypeObject *type, PyObject *args, PyObjec
 		free(column_name);
 	} else {
 		PyErr_Clear();
-		if(!PyArg_ParseTuple(args, "|l", &((ligolw_ILWD *) new)->i)) {
+		if(!PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
 			/* we weren't passed a string or an int:  type
 			 * error */
 			Py_DECREF(new);
@@ -172,13 +183,13 @@ static PyObject *ligolw_ILWD___new__(PyTypeObject *type, PyObject *args, PyObjec
 }
 
 
-static PyObject *ligolw_ILWD___richcompare__(PyObject *self, PyObject *other, int op)
+static PyObject *ligolw_ilwdchar___richcompare__(PyObject *self, PyObject *other, int op)
 {
 	PyObject *tbl_s, *col_s;
 	PyObject *tbl_o, *col_o;
 	PyObject *result;
 
-	switch(PyObject_IsInstance(other, (PyObject *) &ligolw_ILWD_Type)) {
+	switch(PyObject_IsInstance(other, (PyObject *) &ligolw_ilwdchar_Type)) {
 	case -1:
 		/* function call failed, it will have set the exception */
 		return NULL;
@@ -212,7 +223,7 @@ static PyObject *ligolw_ILWD___richcompare__(PyObject *self, PyObject *other, in
 		if(!r)
 			r = strcmp(PyString_AsString(col_s), PyString_AsString(col_o));
 		if(!r)
-			r = ((ligolw_ILWD *) self)->i - ((ligolw_ILWD *) other)->i;
+			r = ((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i;
 
 		switch(op) {
 		case Py_LT:
@@ -256,9 +267,9 @@ static PyObject *ligolw_ILWD___richcompare__(PyObject *self, PyObject *other, in
 }
 
 
-static PyObject *ligolw_ILWD___str__(PyObject *self)
+static PyObject *ligolw_ilwdchar___str__(PyObject *self)
 {
-	ligolw_ILWD *ilwd = (ligolw_ILWD *) self;
+	ligolw_ilwdchar *ilwd = (ligolw_ilwdchar *) self;
 	PyObject *tbl = PyObject_GetAttrString(self, "table_name");
 	PyObject *col = PyObject_GetAttrString(self, "column_name");
 	PyObject *result;
@@ -268,8 +279,7 @@ static PyObject *ligolw_ILWD___str__(PyObject *self)
 		 * plus a possible "-" sign) + 2 ":" characters + a null
 		 * terminator */
 		char buff[PyString_Size(tbl) + PyString_Size(col) + 23];
-		sprintf(buff, "%s:%s:%ld", PyString_AsString(tbl), PyString_AsString(col), ilwd->i);
-		result = PyString_FromString(buff);
+		result = PyString_FromStringAndSize(buff, sprintf(buff, "%s:%s:%ld", PyString_AsString(tbl), PyString_AsString(col), ilwd->i));
 	} else
 		result = NULL;
 
@@ -280,7 +290,7 @@ static PyObject *ligolw_ILWD___str__(PyObject *self)
 }
 
 
-static PyObject *ligolw_ILWD___sub__(PyObject *self, PyObject *other)
+static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 {
 	long delta = PyInt_AsLong(other);
 	PyObject *new;
@@ -288,10 +298,15 @@ static PyObject *ligolw_ILWD___sub__(PyObject *self, PyObject *other)
 	if(PyErr_Occurred())
 		return NULL;
 
+	if(!delta) {
+		Py_INCREF(self);
+		return self;
+	}
+
 	new = PyType_GenericNew(self->ob_type, NULL, NULL);
 
 	if(new)
-		((ligolw_ILWD *) new)->i = ((ligolw_ILWD *) self)->i - delta;
+		((ligolw_ilwdchar *) new)->i = ((ligolw_ilwdchar *) self)->i - delta;
 
 	return new;
 }
@@ -302,17 +317,17 @@ static PyObject *ligolw_ILWD___sub__(PyObject *self, PyObject *other)
  */
 
 
-PyTypeObject ligolw_ILWD_Type = {
+PyTypeObject ligolw_ilwdchar_Type = {
 	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(ligolw_ILWD),
-	.tp_name = MODULE_NAME ".ILWD",
+	.tp_basicsize = sizeof(ligolw_ilwdchar),
+	.tp_name = MODULE_NAME ".ilwdchar",
 	.tp_doc =
 "RAM-efficient row ID parent class.  This is only useful when subclassed in\n" \
 "order to provide specific values of the class attributes \"table_name\",\n" \
 "\"column_name\", and \"index_offset\".\n" \
 "\n" \
 "Example:\n" \
-">>> class ID(ILWD):\n" \
+">>> class ID(ilwdchar):\n" \
 "...     __slots__ = ()\n" \
 "...     table_name = \"table_a\"\n" \
 "...     column_name = \"column_b\"\n" \
@@ -333,14 +348,15 @@ PyTypeObject ligolw_ILWD_Type = {
 "Note that the two instances have the same hash value, and so only one of\n" \
 "them remains in the set.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
-	.tp_hash = ligolw_ILWD___hash__,
-	.tp_richcompare = ligolw_ILWD___richcompare__,
-	.tp_str = ligolw_ILWD___str__,
+	.tp_hash = ligolw_ilwdchar___hash__,
+	.tp_richcompare = ligolw_ilwdchar___richcompare__,
+	.tp_str = ligolw_ilwdchar___str__,
 	.tp_as_number = &(PyNumberMethods) {
-		.nb_add = ligolw_ILWD___add__,
-		.nb_subtract = ligolw_ILWD___sub__
+		.nb_add = ligolw_ilwdchar___add__,
+		.nb_int = ligolw_ilwdchar___int__,
+		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
-	.tp_new = ligolw_ILWD___new__,
+	.tp_new = ligolw_ilwdchar___new__,
 };
 
 
@@ -360,15 +376,15 @@ void init__ilwd(void)
 	 */
 
 	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
-"C extension module providing the ILWD parent class for row ID classes."
+"C extension module providing the ilwdchar parent class for row ID classes."
 	);
 
 	/*
-	 * Add the ILWD class.
+	 * Add the ilwdchar class.
 	 */
 
-	if(PyType_Ready(&ligolw_ILWD_Type) < 0)
+	if(PyType_Ready(&ligolw_ilwdchar_Type) < 0)
 		return;
-	Py_INCREF(&ligolw_ILWD_Type);
-	PyModule_AddObject(module, "ILWD", (PyObject *) &ligolw_ILWD_Type);
+	Py_INCREF(&ligolw_ilwdchar_Type);
+	PyModule_AddObject(module, "ilwdchar", (PyObject *) &ligolw_ilwdchar_Type);
 }

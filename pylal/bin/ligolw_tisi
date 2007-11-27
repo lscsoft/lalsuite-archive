@@ -35,7 +35,6 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import ligolw_tisi
 from pylal import llwapp
@@ -168,7 +167,7 @@ if options.verbose:
 
 
 time_slides = time_slides.items()
-time_slides.sort(lambda a, b: cmp(ilwd.ILWDID(str(a[0])), ilwd.ILWDID(str(b[0]))), reverse = True)
+time_slides.sort(reverse = True)
 
 
 #

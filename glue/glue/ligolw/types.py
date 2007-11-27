@@ -66,6 +66,9 @@ References:
 """
 
 
+import ilwd
+
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
@@ -85,8 +88,6 @@ StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
 IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
 FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
 TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
-
-
 Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
 
@@ -114,7 +115,7 @@ ToFormat = {
 ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
-	u"ilwd:char": str,
+	u"ilwd:char": ilwd.get_ilwdchar,
 	u"ilwd:char_u": str,
 	u"lstring": unicode,
 	u"string": unicode,
@@ -133,6 +134,7 @@ ToPyType = {
 
 
 FromPyType = {
+	ilwd.ilwdchar: u"ilwd:char",
 	str: u"lstring",
 	unicode: u"lstring",
 	int: u"int_4s",

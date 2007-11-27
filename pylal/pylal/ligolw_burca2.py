@@ -232,7 +232,7 @@ def ligolw_burca2(database, likelihood_ratio, coinc_params, verbose = False):
 	if None in (database.coinc_def_table, database.coinc_table, database.time_slide_table):
 		raise ValueError, "database appears to be missing coinc tables"
 
-	definer_ids = ", ".join(["\"%s\"" % str(id) for id in [database.bb_definer_id, database.sb_definer_id] if id is not None])
+	definer_ids = ", ".join(["\"%s\"" % id for id in (database.bb_definer_id, database.sb_definer_id) if id is not None])
 	time_slides = database.time_slide_table.as_dict()
 
 	#

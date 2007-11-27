@@ -139,7 +139,7 @@ def HasNonLSCTables(elem):
 #
 
 
-ProcessID = ilwd.get_id_class(u"process", u"process_id")
+ProcessID = ilwd.get_ilwdchar_class(u"process", u"process_id")
 
 
 class ProcessTable(table.Table):
@@ -188,7 +188,7 @@ ProcessTable.RowType = Process
 #
 
 
-LfnID = ilwd.get_id_class(u"lfn", u"lfn_id")
+LfnID = ilwd.get_ilwdchar_class(u"lfn", u"lfn_id")
 
 
 class LfnTable(table.Table):
@@ -387,7 +387,7 @@ SearchSummaryTable.RowType = SearchSummary
 #
 
 
-SearchSummVarsID = ilwd.get_id_class(u"search_summvars", u"search_summvar_id")
+SearchSummVarsID = ilwd.get_ilwdchar_class(u"search_summvars", u"search_summvar_id")
 
 
 class SearchSummVarsTable(table.Table):
@@ -419,7 +419,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 
 
-SnglBurstID = ilwd.get_id_class(u"sngl_burst", u"event_id")
+SnglBurstID = ilwd.get_ilwdchar_class(u"sngl_burst", u"event_id")
 
 
 class SnglBurstTable(table.Table):
@@ -621,7 +621,7 @@ class SnglInspiralID_old(object):
 		return x * 1000000000 + slidenum * 100000 + y
 
 
-SnglInspiralID = ilwd.get_id_class(u"sngl_inspiral", u"event_id")
+SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 
 
 class SnglInspiralTable(table.Table):
@@ -820,7 +820,7 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 
 
-SnglRingDownID = ilwd.get_id_class(u"sngl_ringdown", u"event_id")
+SnglRingDownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
 
 
 class SnglRingDownTable(table.Table):
@@ -866,7 +866,7 @@ SnglRingDownTable.RowType = SnglRingDown
 #
 
 
-MultiInspiralID = ilwd.get_id_class(u"multi_inspiral", u"event_id")
+MultiInspiralID = ilwd.get_ilwdchar_class(u"multi_inspiral", u"event_id")
 
 
 class MultiInspiralTable(table.Table):
@@ -942,7 +942,7 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 
 
-SimInspiralID = ilwd.get_id_class(u"sim_inspiral", u"simulation_id")
+SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"simulation_id")
 
 
 class SimInspiralTable(table.Table):
@@ -1064,7 +1064,7 @@ SimInspiralTable.RowType = SimInspiral
 #
 
 
-SimBurstID = ilwd.get_id_class(u"sim_burst", u"simulation_id")
+SimBurstID = ilwd.get_ilwdchar_class(u"sim_burst", u"simulation_id")
 
 
 class SimBurstTable(table.Table):
@@ -1136,7 +1136,7 @@ SimBurstTable.RowType = SimBurst
 #
 
 
-SimRingDownID = ilwd.get_id_class(u"sim_ringdown", u"simulation_id")
+SimRingDownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
 
 
 class SimRingDownTable(table.Table):
@@ -1190,7 +1190,7 @@ SimRingDownTable.RowType = SimRingDown
 #
 
 
-SummValueID = ilwd.get_id_class(u"summ_value", u"summ_value_id")
+SummValueID = ilwd.get_ilwdchar_class(u"summ_value", u"summ_value_id")
 
 
 class SummValueTable(table.Table):
@@ -1232,7 +1232,7 @@ SummValueTable.RowType = SummValue
 #
 
 
-SimInstParamsID = ilwd.get_id_class(u"sim_inst_params", u"simulation_id")
+SimInstParamsID = ilwd.get_ilwdchar_class(u"sim_inst_params", u"simulation_id")
 
 
 class SimInstParamsTable(table.Table):
@@ -1398,7 +1398,7 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 
 
-FilterID = ilwd.get_id_class(u"filter", u"filter_id")
+FilterID = ilwd.get_ilwdchar_class(u"filter", u"filter_id")
 
 
 class FilterTable(table.Table):
@@ -1432,7 +1432,7 @@ FilterTable.RowType = Filter
 #
 
 
-SegmentID = ilwd.get_id_class(u"segment", u"segment_id")
+SegmentID = ilwd.get_ilwdchar_class(u"segment", u"segment_id")
 
 
 class SegmentTable(table.Table):
@@ -1512,7 +1512,7 @@ SegmentTable.RowType = Segment
 #
 
 
-SegmentDefMapID = ilwd.get_id_class(u"segment_def_map", u"seg_def_map_id")
+SegmentDefMapID = ilwd.get_ilwdchar_class(u"segment_def_map", u"seg_def_map_id")
 
 
 class SegmentDefMapTable(table.Table):
@@ -1549,7 +1549,7 @@ SegmentDefMapTable.RowType = SegmentDefMap
 #
 
 
-SegmentDefID = ilwd.get_id_class(u"segment_definer", u"segment_def_id")
+SegmentDefID = ilwd.get_ilwdchar_class(u"segment_definer", u"segment_def_id")
 
 
 class SegmentDefTable(table.Table):
@@ -1588,7 +1588,7 @@ SegmentDefTable.RowType = SegmentDef
 #
 
 
-TimeSlideID = ilwd.get_id_class(u"time_slide", u"time_slide_id")
+TimeSlideID = ilwd.get_ilwdchar_class(u"time_slide", u"time_slide_id")
 
 
 class TimeSlideTable(table.Table):
@@ -1691,7 +1691,7 @@ TimeSlideTable.RowType = TimeSlide
 #
 
 
-CoincDefID = ilwd.get_id_class(u"coinc_definer", u"coinc_def_id")
+CoincDefID = ilwd.get_ilwdchar_class(u"coinc_definer", u"coinc_def_id")
 
 
 class CoincDefTable(table.Table):
@@ -1779,7 +1779,7 @@ CoincDefTable.RowType = CoincDef
 #
 
 
-CoincID = ilwd.get_id_class(u"coinc_event", u"coinc_event_id")
+CoincID = ilwd.get_ilwdchar_class(u"coinc_event", u"coinc_event_id")
 
 
 class CoincTable(table.Table):
@@ -1847,7 +1847,7 @@ CoincMapTable.RowType = CoincMap
 #
 
 
-LIGOLWMonID = ilwd.get_id_class(u"ligolw_mon", u"event_id")
+LIGOLWMonID = ilwd.get_ilwdchar_class(u"ligolw_mon", u"event_id")
 
 
 class LIGOLWMonTable(table.Table):

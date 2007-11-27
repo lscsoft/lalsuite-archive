@@ -35,7 +35,6 @@ import sys
 from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS

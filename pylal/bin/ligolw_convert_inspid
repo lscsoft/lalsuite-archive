@@ -40,7 +40,6 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import ilwd
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import date
@@ -198,7 +197,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 		pass
 	else:
 		for row in summ_value:
-			row.summ_value_id = unicode(table.next_id(summ_value))
+			row.summ_value_id = table.next_id(summ_value)
 
 	#
 	# find the summvars table, then add and populate a summvar_id column
@@ -212,7 +211,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 		pass
 	else:
 		for row in summvars:
-			row.search_summvar_id = unicode(table.next_id(summvars))
+			row.search_summvar_id = table.next_id(summvars)
 
 	#
 	# find the sngl_inspiral table
@@ -265,7 +264,7 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	#
 
 	for row in sngl_inspiral:
-		row.event_id = ilwd.ILWDID(str(row.event_id))
+		row.event_id = int(row.event_id)
 
 	#
 	# update the table's list of valid column types, and the Type
@@ -407,7 +406,7 @@ def populate_coinc_event_sngls(xmldoc):
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				event.event_id = unicode(table.next_id(sngl_inspiral))
+				event.event_id = table.next_id(sngl_inspiral)
 			continue
 
 		#
@@ -417,10 +416,10 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = unicode(table.next_id(coinc_event))
+		coinc.coinc_event_id = table.next_id(coinc_event)
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(str(events[0].event_id)) / long(1e9)) % long(1e4)))
+		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -431,11 +430,11 @@ def populate_coinc_event_sngls(xmldoc):
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = unicode(table.next_id(sngl_inspiral))
+			event.event_id = table.next_id(sngl_inspiral)
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
-			coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
+			coincmap.table_name = coincmap.event_id.table_name
 			coinc_event_map.append(coincmap)
 
 
@@ -504,10 +503,10 @@ def populate_coinc_event_sims(xmldoc):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = unicode(table.next_id(coinc_event))
+		coinc.coinc_event_id = table.next_id(coinc_event)
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id
-		coinc.time_slide_id = unicode(type(lsctables.TimeSlideTable.next_id)((ilwd.ILWDID(str(events[0].event_id)) / long(1e9)) % long(1e4)))
+		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -519,16 +518,16 @@ def populate_coinc_event_sims(xmldoc):
 		coincmap = lsctables.CoincMap()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.event_id = sim.simulation_id
-		coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
+		coincmap.table_name = coincmap.event_id.table_name
 		coinc_event_map.append(coincmap)
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = unicode(table.next_id(sngl_inspiral))
+			event.event_id = table.next_id(sngl_inspiral)
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
-			coincmap.table_name = ilwd.ILWDTableName(str(coincmap.event_id))
+			coincmap.table_name = coincmap.event_id.table_name
 			coinc_event_map.append(coincmap)
 
 

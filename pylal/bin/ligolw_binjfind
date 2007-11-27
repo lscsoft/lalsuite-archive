@@ -86,14 +86,11 @@ def parse_command_line():
 
 
 #
-# Use interning row builder to save memory.  Also parse ilwd:char columns
-# directly into glue.ligolw.ilwd.ILWD instances instead of strings to save
-# memory.
+# Use interning row builder to save memory.
 #
 
 
 ligolw_binjfind.table.RowBuilder = ligolw_binjfind.table.InterningRowBuilder
-ligolw_binjfind.lsctables.types.ToPyType["ilwd:char"] = ligolw_binjfind.lsctables.ilwd.get_id
 
 
 #

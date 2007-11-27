@@ -198,7 +198,6 @@ elif options.mangle_sngl_inspiral_ids == "ilwd:char":
 
 
 lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
-lsctables.types.ToPyType["ilwd:char"] = lsctables.ilwd.get_id
 
 
 xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, non_lsc_tables_ok = options.non_lsc_tables_ok, verbose = options.verbose)

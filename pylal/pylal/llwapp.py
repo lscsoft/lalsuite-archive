@@ -250,6 +250,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	HH:MM:SS".  is_online should be a boolean, jobid an integer.
 	"""
 	proctable = table.get_table(doc, lsctables.ProcessTable.tableName)
+	proctable.sync_next_id()
 	process = lsctables.Process()
 	process.program = program
 	process.version = version
@@ -265,7 +266,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = unicode(proctable.sync_next_id())
+	process.process_id = table.next_id(proctable)
 	proctable.append(process)
 	return process
 
@@ -313,6 +314,7 @@ WHERE
 	program == ?
 	AND param == ?
 	""", (program, param)):
+		# FIXME:  should the process_ids be ilwdchar-ified?
 		process_ids.add(process_id)
 		values.append(value)
 	if len(process_ids) != 1:

@@ -630,11 +630,7 @@ def coinc_params_distributions_to_xml(process, coinc_params_distributions, name)
 
 def coinc_params_distributions_from_xml(xml, name):
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
-	try:
-		process_id = param.get_pyvalue(xml, u"process_id")
-	except ValueError:
-		warnings.warn("obsolete document:  no process_id Param element found in CoincParamsDistributions sub-tree.  please update your code and re-construct this document.")
-		process_id = None
+	process_id = ilwd.get_ilwdchar(param.get_pyvalue(xml, u"process_id"))
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
 	c = CoincParamsDistributions()
 	for name in names:
@@ -646,10 +642,7 @@ def coinc_params_distributions_from_xml(xml, name):
 def coinc_params_distributions_from_filename(filename, name, verbose = False):
 	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
 	result, process_id = coinc_params_distributions_from_xml(xmldoc, name)
-	if process_id is not None:
-		seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
-	else:
-		seglists = segments.segmentlistdict()
+	seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
 	xmldoc.unlink()
 	return result, seglists
 
@@ -713,7 +706,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists = None):
 #
 
 
-ParamDistDefinerID = ilwd.get_id_class(u"param_dist_definer", u"param_dist_def_id")
+ParamDistDefinerID = ilwd.get_ilwdchar_class(u"param_dist_definer", u"param_dist_def_id")
 
 
 class ParamDistDefinerTable(table.Table):

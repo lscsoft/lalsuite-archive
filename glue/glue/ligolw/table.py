@@ -58,7 +58,6 @@ from xml.sax.xmlreader import AttributesImpl
 import ligolw
 import tokenizer
 import types
-import ilwd
 
 
 #
