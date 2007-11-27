@@ -43,7 +43,6 @@ except NameError:
 from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import ilwd
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 
@@ -153,7 +152,7 @@ class CoincTables(object):
 		increasing order by ID number.
 		"""
 		ids = list(set([row.time_slide_id for row in self.time_slide_table]))
-		ids.sort(lambda a, b: cmp(ilwd.ILWDID(str(a)), ilwd.ILWDID(str(b))))
+		ids.sort()
 		return ids
 
 
@@ -182,7 +181,7 @@ class CoincTables(object):
 		for event in events:
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
-			coincmap.table_name = ilwd.ILWDTableName(str(event.event_id))
+			coincmap.table_name = event.event_id.table_name
 			coincmap.event_id = event.event_id
 			self.coincmaptable.append(coincmap)
 		return coinc
