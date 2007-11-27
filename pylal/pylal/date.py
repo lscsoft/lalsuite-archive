@@ -36,6 +36,7 @@ importing xlal.date directly.
 
 import math
 
+
 from glue import segments
 from xlal.date import *
 
@@ -95,6 +96,9 @@ def UTCMidnights(start, end):
 	"""
 	Iterator for generating LIGOTimeGPS objects for UTC midnights.
 	"""
+	# 86402 == more seconds than there are in 1 day, but less than
+	# there are in 2 days.  Can 1 day have more than 1 leap second?  If
+	# so, this constant should be increased.
 	midnight = utc_midnight(start)
 	if midnight < start:
 		midnight = utc_midnight(midnight + 86402)
@@ -130,7 +134,7 @@ def GMST_0hs(start, end):
 #
 # =============================================================================
 #
-# Segment Lists
+#                                Segment Lists
 #
 # =============================================================================
 #
@@ -143,7 +147,8 @@ def gmst_days(gps_start, gps_stop):
 	output times are all GPS seconds.
 	"""
 	# construct an iterator for computing sequential 0h GMST in
-	# LIGOTimeGPS
+	# LIGOTimeGPS.  86402 == same constant seen above in in
+	# UTCMidnights.
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
 
 	# initialize a segmentlist with the first sidereal day
