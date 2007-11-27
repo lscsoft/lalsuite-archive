@@ -197,8 +197,8 @@ def parse_command_line():
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       default=None,\
       metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
-  parser.add_option("-", "--verbose", action="store_true", default=False,\
-      metavar="IFOTIMES", help="verbose option")
+  parser.add_option("", "--verbose", action="store_true", default=False,\
+      metavar="VERBOSE", help="verbose option")
 
 
 
