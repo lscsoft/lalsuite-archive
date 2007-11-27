@@ -641,13 +641,11 @@ class Table(ligolw.Table, list):
 		except KeyError:
 			# table is missing its ID column, this is a no-op
 			return mapping
-		cls = type(self)
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = str(cls.next_id)
-				cls.next_id += 1
+				column[i] = mapping[old] = next_id(self)
 		return mapping
 
 	def applyKeyMapping(self, mapping):
