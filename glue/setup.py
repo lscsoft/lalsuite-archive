@@ -116,6 +116,13 @@ setup(
       include_dirs = [ "glue/ligolw" ]
     ),
     Extension(
+      "glue.ligolw.__ilwd",
+      [
+        "glue/ligolw/ilwd.c"
+      ],
+      include_dirs = [ "glue/ligolw" ]
+    ),
+    Extension(
       "glue.__segments",
       [
         "src/segments/segments.c",
