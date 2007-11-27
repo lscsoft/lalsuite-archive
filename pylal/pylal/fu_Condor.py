@@ -74,7 +74,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       injFile = self.checkInjections(cp)      
 
       if type == 'plot':
-        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.gpsTime[ifo]) + '.xml.gz'
+        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
         self.add_var_opt("write-snrsq","")
         self.add_var_opt("write-chisq","")
         self.add_var_opt("write-spectrum","")
@@ -108,8 +108,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         second_user_tag = "_" + ifo + "tmplt"
       else:
         second_user_tag = ""
-      self.set_user_tag("FOLLOWUP_" + str(trig.gpsTime[ifo]) + second_user_tag)
-      self.__usertag = "FOLLOWUP_" + str(trig.gpsTime[ifo]) + second_user_tag
+      self.set_user_tag("FOLLOWUP_" + str(trig.eventID) + second_user_tag)
+      self.__usertag = "FOLLOWUP_" + str(trig.eventID) + second_user_tag
 
 
       # THIS IS A HACK FOR NOW, THERE IS PROBABLY A BETTER WAY TO DO THIS
@@ -198,10 +198,10 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
       if ifoString:
-        self.add_var_opt("user-tag",ifo+"_"+ifoString+'tmplt')
+        self.add_var_opt("user-tag",ifo+"_"+ifoString+'tmplt_'+str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + ifoString + 'tmplt' + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       else:
-        self.add_var_opt("user-tag",ifo)
+        self.add_var_opt("user-tag",ifo+'_'+str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
       try: 
@@ -599,19 +599,25 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
     #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
     #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
-    dist90 = 56.5
-    dist10 = dist90 + 5. 
+    #dist90 = 56.5
+    #dist10 = dist90 + 5. 
+    dist90 = 100.0
+    dist10 = 105.0
     # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
     if mass1 < mass2:
-      self.add_var_opt("prior-lower-mass", str(mass1*0.3) )
-      self.add_var_opt("prior-upper-mass", str(mass2*3.) )
+      self.add_var_opt("prior-lower-mass", str(0.9) )
+      self.add_var_opt("prior-upper-mass", str(10.0) )
+      #self.add_var_opt("prior-lower-mass", str(mass1*0.3) )
+      #self.add_var_opt("prior-upper-mass", str(mass2*3.) )
     else:
-      self.add_var_opt("prior-lower-mass", str(mass2*0.3) )
-      self.add_var_opt("prior-upper-mass", str(mass1*3.) )
+      self.add_var_opt("prior-lower-mass", str(0.9) )
+      self.add_var_opt("prior-upper-mass", str(10.0) )
+      #self.add_var_opt("prior-lower-mass", str(mass2*0.3) )
+      #self.add_var_opt("prior-upper-mass", str(mass1*3.) )
     self.add_var_opt("prior-distance-10", str(dist10))
     self.add_var_opt("prior-distance-90", str(dist90))
-    self.add_var_opt("before-coal-time", str(duration*1.2))
-    self.add_var_opt("before-coal-time", str(30.0))
+    #self.add_var_opt("before-coal-time", str(duration*1.2))
+    self.add_var_opt("before-coal-time", str(28.0))
     
     ########################################################################
     # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
