@@ -31,6 +31,7 @@ __version__ = "$Revision$"
 
 import re
 import urlparse
+import operator
 import os
 from glue import segments
 
@@ -603,10 +604,10 @@ class Cache(list):
 		segment patterns must match exactly.
 		"""
 		if exact_match:
-			string_cmp = str.__eq__
-			segment_cmp = segments.segment.__eq__
+			string_cmp = operator.eq
+			segment_cmp = operator.eq
 		else:
-			string_cmp = str.__contains__
+			string_cmp = operator.contains
 			segment_cmp = segments.segment.intersects
 
 		c = self
