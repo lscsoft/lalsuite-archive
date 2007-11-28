@@ -110,12 +110,6 @@ static long ligolw_ilwdchar___hash__(PyObject *self)
 }
 
 
-static PyObject *ligolw_ilwdchar___int__(PyObject *self)
-{
-	return PyInt_FromLong(((ligolw_ilwdchar *) self)->i);
-}
-
-
 static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	/* call the generic __new__() */
@@ -295,8 +289,16 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 	long delta = PyInt_AsLong(other);
 	PyObject *new;
 
-	if(PyErr_Occurred())
-		return NULL;
+	if(PyErr_Occurred()) {
+		/* can't be converted to int, maybe it's an ilwd:char of
+		 * the same type as us */
+		if(other->ob_type != self->ob_type)
+			/* nope, type error */
+			return NULL;
+
+		/* yes it is, return the ID difference as an int */
+		return PyInt_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
+	}
 
 	if(!delta) {
 		Py_INCREF(self);
@@ -353,7 +355,6 @@ PyTypeObject ligolw_ilwdchar_Type = {
 	.tp_str = ligolw_ilwdchar___str__,
 	.tp_as_number = &(PyNumberMethods) {
 		.nb_add = ligolw_ilwdchar___add__,
-		.nb_int = ligolw_ilwdchar___int__,
 		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
 	.tp_new = ligolw_ilwdchar___new__,
