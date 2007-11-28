@@ -173,7 +173,7 @@ FromNumPyType = {
 ToSQLiteType = {
 	u"char_s": "TEXT",
 	u"char_v": "TEXT",
-	u"ilwd:char": "ILWDCHAR",
+	u"ilwd:char": "TEXT",
 	u"ilwd:char_u": "TEXT",
 	u"lstring": "TEXT",
 	u"string": "TEXT",
@@ -192,7 +192,6 @@ ToSQLiteType = {
 
 
 FromSQLiteType = {
-	"ILWDCHAR": u"ilwd:char",
 	"TEXT": u"lstring",
 	"STRING": u"lstring",
 	"INTEGER": u"int_4s",

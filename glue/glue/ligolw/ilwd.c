@@ -286,22 +286,6 @@ static PyObject *ligolw_ilwdchar___str__(PyObject *self)
 }
 
 
-static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
-{
-	/* this method is how pysqlite converts an instance of this class
-	 * into something it can put in the database.  this mechanism is
-	 * the "PrepareProtocol" mechanism, which GvR has declared to blow
-	 * and will not be added to Python.  so this code is broken by
-	 * construction, but it's still gotta be here because for the
-	 * moment it's the only way to get ID objects into a database
-	 * without putting str() all over the place.  correctly, this
-	 * function should confirm that protocol is an instance of
-	 * pysqlite2.dbapi2.PrepareProtocol, but checking that from inside
-	 * this C code is a pita, so screw it:  buyer beware. */
-	return ligolw_ilwdchar___str__(self);
-}
-
-
 static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 {
 	long delta = PyInt_AsLong(other);
@@ -331,12 +315,6 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 
 	return new;
 }
-
-
-static struct PyMethodDef ligolw_ilwdchar_methods[] = {
-	{"__conform__", ligolw_ilwdchar___conform__, METH_O, "pysqlite adapter function.  This is *ugly*, but what can I do?"},
-	{NULL,}
-};
 
 
 /*
@@ -386,7 +364,6 @@ PyTypeObject ligolw_ilwdchar_Type = {
 		.nb_add = ligolw_ilwdchar___add__,
 		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
-	.tp_methods = ligolw_ilwdchar_methods,
 	.tp_new = ligolw_ilwdchar___new__,
 };
 
