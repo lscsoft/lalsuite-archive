@@ -72,9 +72,11 @@ static PyObject *ligolw_ilwdchar___add__(PyObject *self, PyObject *other)
 	PyObject *new;
 
 	if(PyErr_Occurred())
+		/* argument is not int-like --> type error */
 		return NULL;
 
 	if(!delta) {
+		/* no change in value */
 		Py_INCREF(self);
 		return self;
 	}
@@ -284,6 +286,22 @@ static PyObject *ligolw_ilwdchar___str__(PyObject *self)
 }
 
 
+static PyObject *ligolw_ilwdchar___conform__(PyObject *self, PyObject *protocol)
+{
+	/* this method is how pysqlite converts an instance of this class
+	 * into something it can put in the database.  this mechanism is
+	 * the "PrepareProtocol" mechanism, which GvR has declared to blow
+	 * and will not be added to Python.  so this code is broken by
+	 * construction, but it's still gotta be here because for the
+	 * moment it's the only way to get ID objects into a database
+	 * without putting str() all over the place.  correctly, this
+	 * function should confirm that protocol is an instance of
+	 * pysqlite2.dbapi2.PrepareProtocol, but checking that from inside
+	 * this C code is a pita, so screw it:  buyer beware. */
+	return ligolw_ilwdchar___str__(self);
+}
+
+
 static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 {
 	long delta = PyInt_AsLong(other);
@@ -293,7 +311,7 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 		/* can't be converted to int, maybe it's an ilwd:char of
 		 * the same type as us */
 		if(other->ob_type != self->ob_type)
-			/* nope, type error */
+			/* nope --> type error */
 			return NULL;
 
 		/* yes it is, return the ID difference as an int */
@@ -301,6 +319,7 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 	}
 
 	if(!delta) {
+		/* no change in value */
 		Py_INCREF(self);
 		return self;
 	}
@@ -314,6 +333,12 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 }
 
 
+static struct PyMethodDef ligolw_ilwdchar_methods[] = {
+	{"__conform__", ligolw_ilwdchar___conform__, METH_O, "pysqlite adapter function.  This is *ugly*, but what can I do?"},
+	{NULL,}
+};
+
+
 /*
  * Type
  */
@@ -325,10 +350,11 @@ PyTypeObject ligolw_ilwdchar_Type = {
 	.tp_name = MODULE_NAME ".ilwdchar",
 	.tp_doc =
 "RAM-efficient row ID parent class.  This is only useful when subclassed in\n" \
-"order to provide specific values of the class attributes \"table_name\",\n" \
-"\"column_name\", and \"index_offset\".\n" \
+"order to provide specific values of the class attributes \"table_name\"\n" \
+"and \"column_name\".\n" \
 "\n" \
 "Example:\n" \
+"\n" \
 ">>> class ID(ilwdchar):\n" \
 "...     __slots__ = ()\n" \
 "...     table_name = \"table_a\"\n" \
@@ -340,6 +366,8 @@ PyTypeObject ligolw_ilwdchar_Type = {
 ">>> print x + 35\n" \
 "table_a:column_b:45\n" \
 ">>> y = ID(\"table_a:column_b:10\")\n" \
+">>> print x - y\n" \
+"0\n" \
 ">>> x == y\n" \
 "True\n" \
 ">>> x is y\n" \
@@ -347,8 +375,9 @@ PyTypeObject ligolw_ilwdchar_Type = {
 ">>> set([x, y])\n" \
 "set([<__main__.ID object at 0x2b880379e6e0>])\n" \
 "\n" \
-"Note that the two instances have the same hash value, and so only one of\n" \
-"them remains in the set.",
+"Note that the two instances have the same hash value and compare as equal,\n" \
+"and so only one of them remains in the set although they are not the same\n" \
+"object.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_hash = ligolw_ilwdchar___hash__,
 	.tp_richcompare = ligolw_ilwdchar___richcompare__,
@@ -357,6 +386,7 @@ PyTypeObject ligolw_ilwdchar_Type = {
 		.nb_add = ligolw_ilwdchar___add__,
 		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
+	.tp_methods = ligolw_ilwdchar_methods,
 	.tp_new = ligolw_ilwdchar___new__,
 };
 
