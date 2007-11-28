@@ -52,7 +52,7 @@ from glue.ligolw.utils import ligolw_add
 
 
 # so they can be inserted into a database
-dbtables.type.ToPyType["ilwd:char"] = str
+dbtables.types.ToPyType["ilwd:char"] = str
 
 
 # FIXME: this is a hack to allow documents w/ "valid" sngl_inspiral tables
