@@ -1708,7 +1708,7 @@ class CoincDefTable(table.Table):
 		"cd_ssct_index": ("search", "search_coinc_type")
 	}
 
-	def get_coinc_def_id(self, search, coinc_type, create_new = True, description = u""):
+	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = u""):
 		"""
 		Return the coinc_def_id for the row in the table whose
 		search string and search_coinc_type integer have the values
@@ -1723,7 +1723,7 @@ class CoincDefTable(table.Table):
 		"""
 		# look for the ID
 		for row in self:
-			if (row.search, row.search_coinc_type) == (search, coinc_type):
+			if (row.search, row.search_coinc_type) == (search, search_coinc_type):
 				# found it
 				return row.coinc_def_id
 
@@ -1733,7 +1733,7 @@ class CoincDefTable(table.Table):
 		row = self.RowType()
 		row.coinc_def_id = table.next_id(self)
 		row.search = search
-		row.search_coinc_type = coinc_type
+		row.search_coinc_type = search_coinc_type
 		row.description = description
 		self.append(row)
 
