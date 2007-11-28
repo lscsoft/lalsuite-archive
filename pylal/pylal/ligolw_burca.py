@@ -36,6 +36,10 @@ from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
+from pylal.xlal import tools
+
+
+lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
