@@ -42,6 +42,7 @@ I'm still figuring out how this should work.
 import os
 import re
 import shutil
+import signal
 import sys
 import tempfile
 from xml.sax.xmlreader import AttributesImpl
@@ -163,11 +164,43 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	return target
 
 
+class IOTrappedSignal(Exception):
+	"""
+	Raised by put_connection_filename() upon completion if it trapped a
+	signal during the operation
+	"""
+	def __init__(self, signum):
+		self.signum = signum
+
+	def __str__(self):
+		return "trapped signal %d" % self.signum
+
+
 def put_connection_filename(filename, working_filename, verbose = False):
 	if working_filename != filename:
+		# initialize SIGTERM and SIGTSTP trap
+		global __llwapp_write_filename_got_sig
+		__llwapp_write_filename_got_sig = []
+		def newsigterm(signum, frame):
+			global __llwapp_write_filename_got_sig
+			__llwapp_write_filename_got_sig.append(signum)
+		oldhandlers = {}
+		for sig in (signal.SIGTERM, signal.SIGTSTP):
+			oldhandlers[sig] = signal.getsignal(sig)
+			signal.signal(sig, newsigterm)
+
+		# replace document
 		if verbose:
 			print >>sys.stderr, "moving %s to %s ..." % (working_filename, filename)
 		shutil.move(working_filename, filename)
+
+		# restore original handlers, and report the most recently
+		# trapped signal if any were
+		for sig, oldhandler in oldhandlers.iteritems():
+			signal.signal(sig, oldhandler)
+		if __llwapp_write_filename_got_sig:
+			raise
+			IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
