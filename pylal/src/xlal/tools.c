@@ -154,7 +154,7 @@ PyTypeObject pylal_LALDetector_Type = {
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
 	.tp_members = pylal_LALDetector_members,
 	.tp_name = MODULE_NAME ".LALDetector",
-	.tp_new = PyType_GenericNew
+	.tp_new = PyType_GenericNew,
 };
 
 
@@ -272,7 +272,147 @@ PyTypeObject pylal_SnglInspiralTable_Type = {
 	.tp_members = pylal_SnglInspiralTable_members,
 	.tp_getset = pylal_SnglInspiralTable_getset,
 	.tp_name = MODULE_NAME ".SnglInspiralTable",
-	.tp_new = pylal_SnglInspiralTable___new__
+	.tp_new = pylal_SnglInspiralTable___new__,
+};
+
+
+/*
+ * ============================================================================
+ *
+ *                               CoincMap Type
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Structure
+ */
+
+
+static PyObject *coinc_event_id_type = NULL;
+
+
+typedef struct {
+	PyObject_HEAD
+	PyObject *event_id_type;
+	long event_id_i;
+	long coinc_event_id_i;
+} ligolw_CoincMap;
+
+
+/*
+ * Attributes
+ */
+
+
+static int ligolw_CoincMap_event_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+
+	Py_XDECREF(coinc_map->event_id_type);
+
+	Py_INCREF(val->ob_type);
+	coinc_map->event_id_type = (PyObject *) val->ob_type;
+
+	coinc_map->event_id_i = PyInt_AsLong(val);
+
+	return PyErr_Occurred() ? -1 : 0;
+}
+
+
+static PyObject *ligolw_CoincMap_event_id_get(PyObject *obj, void *data)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+
+	if(!coinc_map->event_id_type) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyObject_CallFunction(coinc_map->event_id_type, "l", coinc_map->event_id_i);
+}
+
+
+static int ligolw_CoincMap_table_name_set(PyObject *obj, PyObject *val, void *data)
+{
+	/* ignored */
+	return 0;
+}
+
+
+static PyObject *ligolw_CoincMap_table_name_get(PyObject *obj, void *data)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+
+	if(!coinc_map->event_id_type) {
+		Py_INCREF(Py_None);
+		return Py_None;
+	}
+
+	return PyObject_GetAttrString(coinc_map->event_id_type, "table_name");
+}
+
+
+static int ligolw_CoincMap_coinc_event_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+
+	if((PyObject *) val->ob_type != coinc_event_id_type) {
+		PyErr_SetObject(PyExc_TypeError, val);
+		return -1;
+	}
+
+	coinc_map->coinc_event_id_i = PyInt_AsLong(val);
+
+	return PyErr_Occurred() ? -1 : 0;
+}
+
+
+static PyObject *ligolw_CoincMap_coinc_event_id_get(PyObject *obj, void *data)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+
+	return PyObject_CallFunction(coinc_event_id_type, "l", coinc_map->coinc_event_id_i);
+}
+
+
+static struct PyGetSetDef ligolw_CoincMap_getset[] = {
+	{"event_id", ligolw_CoincMap_event_id_get, ligolw_CoincMap_event_id_set, "event_id", NULL},
+	{"table_name", ligolw_CoincMap_table_name_get, ligolw_CoincMap_table_name_set, "table_name", NULL},
+	{"coinc_event_id", ligolw_CoincMap_coinc_event_id_get, ligolw_CoincMap_coinc_event_id_set, "coinc_event_id", NULL},
+	{NULL,}
+};
+
+
+/*
+ * Methods
+ */
+
+
+static void ligolw_CoincMap___del__(PyObject *self)
+{
+	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) self;
+
+	Py_XDECREF(coinc_map->event_id_type);
+
+	self->ob_type->tp_free(self);
+}
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject ligolw_CoincMap_Type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(ligolw_CoincMap),
+	.tp_dealloc = ligolw_CoincMap___del__,
+	.tp_flags = Py_TPFLAGS_DEFAULT,
+	.tp_name = MODULE_NAME ".CoincMap",
+	.tp_new = PyType_GenericNew,
+	.tp_getset = ligolw_CoincMap_getset,
 };
 
 
@@ -370,4 +510,21 @@ void inittools(void)
 		return;
 	Py_INCREF(&pylal_SnglInspiralTable_Type);
 	PyModule_AddObject(module, "SnglInspiralTable", (PyObject *) &pylal_SnglInspiralTable_Type);
+
+	/* CoincMap */
+	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
+		return;
+	Py_INCREF(&ligolw_CoincMap_Type);
+	PyModule_AddObject(module, "CoincMap", (PyObject *) &ligolw_CoincMap_Type);
+
+	{
+	PyObject *name = PyString_FromString("glue.ligolw.ilwd");
+	PyObject *ilwd_module = PyImport_Import(name);
+	PyObject *get_ilwdchar_class;
+	Py_DECREF(name);
+	get_ilwdchar_class = PyMapping_GetItemString(PyModule_GetDict(ilwd_module), "get_ilwdchar_class");
+	coinc_event_id_type = PyObject_CallFunction(get_ilwdchar_class, "ss", "coinc_event", "coinc_event_id");
+	Py_DECREF(get_ilwdchar_class);
+	Py_DECREF(ilwd_module);
+	}
 }
