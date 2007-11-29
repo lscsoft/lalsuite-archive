@@ -55,7 +55,7 @@ __date__ = "$Date$"[7:-2]
 dbtables.types.ToPyType["ilwd:char"] = str
 
 
-# so these tables aren't loaded into the database
+# so they aren't inserted into a database
 dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
 
