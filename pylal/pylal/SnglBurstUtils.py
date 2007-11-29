@@ -99,23 +99,29 @@ class CoincDatabase(object):
 		self.instruments = set(self.seglists.keys())
 
 		# determine a few coinc_definer IDs
+		# FIXME:  don't hard-code the strings and numbers
 		if self.coinc_def_table is not None:
 			try:
-				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName], create_new = False)
+				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 0, create_new = False)
 			except KeyError:
 				self.bb_definer_id = None
 			try:
-				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.SnglBurstTable.tableName, lsctables.SimBurstTable.tableName], create_new = False)
+				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 1, create_new = False)
 			except KeyError:
 				self.sb_definer_id = None
 			try:
-				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id([lsctables.CoincTable.tableName, lsctables.SimBurstTable.tableName], create_new = False)
+				self.sce_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 2, create_new = False)
 			except KeyError:
-				self.sc_definer_id = None
+				self.sce_definer_id = None
+			try:
+				self.scn_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 3, create_new = False)
+			except KeyError:
+				self.scn_definer_id = None
 		else:
 			self.bb_definer_id = None
 			self.sb_definer_id = None
-			self.sc_definer_id = None
+			self.sce_definer_id = None
+			self.scn_definer_id = None
 
 		# verbosity
 		if verbose:
@@ -129,8 +135,10 @@ class CoincDatabase(object):
 				print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
 			if self.sb_definer_id is not None:
 				print >>sys.stderr, "\tinjection + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
-			if self.sc_definer_id is not None:
-				print >>sys.stderr, "\tinjection + (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sc_definer_id,)).fetchone()[0]
+			if self.sce_definer_id is not None:
+				print >>sys.stderr, "\tinjection + exact (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sce_definer_id,)).fetchone()[0]
+			if self.scn_definer_id is not None:
+				print >>sys.stderr, "\tinjection + nearby (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.scn_definer_id,)).fetchone()[0]
 
 		# done
 		return self
