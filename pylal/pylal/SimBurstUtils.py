@@ -162,7 +162,7 @@ FROM
 		coinc_event_map.table_name == 'sim_burst'
 		AND coinc_event_map.event_id == sim_burst.simulation_id
 	)
-	JOIN coinc_event ON (
+	LEFT OUTER JOIN coinc_event ON (
 		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
 	)
 WHERE
