@@ -461,7 +461,7 @@ WHERE
 			else:
 				raise ValueError, self.instrument
 			self.found += 1
-			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
+			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
 			coinc_dt = 0
 			for burst in bursts:
 				if burst.ifo == self.instrument:
@@ -532,7 +532,7 @@ WHERE
 			coinc = contents.coinc_table._row_from_cols(values)
 			sim_freq = values[-1]
 			self.found += 1
-			bursts = list(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
+			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
 			for burst in bursts:
 				if burst.ifo == self.instrument:
 					df = math.log(burst.peak_frequency / sim_freq, 10)
@@ -643,14 +643,14 @@ FROM
 	JOIN sim_coinc_map ON (
 		sim_coinc_map.simulation_id == sim_burst.simulation_id
 	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
+	JOIN coinc_event AS sim_coinc_event ON (
+		sim_coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
 	)
 	JOIN multi_burst ON (
-		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+		multi_burst.coinc_event_id == sim_coinc_map.event_id
 	)
 WHERE
-	coinc_event.coinc_def_id == ?
+	sim_coinc_event.coinc_def_id == ?
 		""", (contents.sce_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
@@ -741,6 +741,7 @@ CREATE TEMPORARY VIEW
 AS
 	SELECT
 		a.event_id AS simulation_id,
+		a.coinc_event_id AS coinc_event_id,
 		b.event_id AS event_id
 	FROM
 		coinc_event_map AS a
@@ -764,7 +765,8 @@ CREATE TEMPORARY VIEW
 AS
 	SELECT
 		a.event_id AS simulation_id,
-		b.event_id AS coinc_event_id
+		a.coinc_event_id AS coinc_event_id,
+		b.event_id AS event_id
 	FROM
 		coinc_event_map AS a
 		JOIN coinc_event_map AS b ON (
