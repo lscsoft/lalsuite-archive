@@ -560,7 +560,16 @@ class SearchSummaryTable(DBTable):
 		rows with matching IDs are included otherwise all rows are
 		included.
 		"""
+		# make sure the process IDs are strs for the comparison,
+		# 'cause that's how they'll come out of this table
+		if process_ids is not None:
+			process_ids = set([str(process_id) for process_id in process_ids])
+
+		# start a segment list dictionary
 		seglists = segments.segmentlistdict()
+
+		# add segments from appropriate rows to segment list
+		# dictionary
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
 				if "," in row.ifos:
@@ -568,8 +577,10 @@ class SearchSummaryTable(DBTable):
 				elif "+" in row.ifos:
 					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
 				else:
-					ifos = [row.ifos]
+					ifos = [row.ifos.strip()]
 				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+
+		# done
 		return seglists
 
 
