@@ -51,10 +51,15 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 
-T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
+# so they can be inserted into a database
+dbtables.types.ToPyType["ilwd:char"] = str
 
 
+# so these tables aren't loaded into the database
 dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
+
+
+T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
 
 
 #
