@@ -44,10 +44,8 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import date
 from pylal import inject
-from pylal import ligolw_burca
 from pylal import llwapp
 from pylal import rate
-from pylal import SimBurstUtils
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -65,66 +63,6 @@ __date__ = "$Date$"[7:-2]
 
 
 lsctables.LIGOTimeGPS = date.LIGOTimeGPS
-
-
-#
-# =============================================================================
-#
-#                             Thresholds Recovery
-#
-# =============================================================================
-#
-
-
-def dbget_thresholds(connection):
-	"""
-	Extract ligolw_burca's --thresholds arguments from the
-	process_params table, and munge into the form desired by the rest
-	of the code in this module.
-	"""
-
-	#
-	# Retrieve the --thresholds arguments from the process_params
-	# table.
-	#
-
-	thresholds = ligolw_burca.dbget_thresholds(connection)
-
-	#
-	# Convert to symmetric intervals
-	#
-
-	for (inst1, inst2), (dt, df, dh) in thresholds.items():
-		# break order degeneracy by requiring instrument pairs to
-		# be in alphabetical order
-		if inst1 > inst2:
-			continue
-
-		# now retrieve the thresholds for the other order
-		dt_other, df_other, dh_other = thresholds[(inst2, inst1)]
-
-		# determine the smallest intervals enclosing both intervals
-		dt = segments.segment(-dt, +dt) | segments.segment(-dt_other, +dt_other)
-		df = segments.segment(-df, +df) | segments.segment(-df_other, +df_other)
-		dh = segments.segment(-dh, +dh) | segments.segment(-dh_other, +dh_other)
-
-		# record the result
-		thresholds[(inst1, inst2)] = thresholds[(inst2, inst1)] = (dt, df, dh)
-
-	#
-	# Remove duplicates.  Leave only instrument pairs in which the
-	# instruments are listed in alphabetical order.
-	#
-
-	for pair in thresholds.keys():
-		if pair[0] > pair[1]:
-			del thresholds[pair]
-
-	#
-	# Done.
-	#
-
-	return thresholds
 
 
 #
@@ -300,31 +238,6 @@ class CoincParamsDistributions(object):
 #
 # =============================================================================
 #
-#                               Injection Filter
-#
-# =============================================================================
-#
-
-
-def good_injection_matches(sim, events, max_hrss_ratio, max_frequency_ratio):
-	"""
-	Return a list of the sngl_burst events from the events list that
-	are "good" matches for the sim_burst.  binjfind will any old thing
-	that happens to be at the same time and frequency of an injection,
-	but we want to teach the Bayesian coincidence filter what a "good"
-	found injection looks like.  So we remove poor reconstructions from
-	the event list to show it what we're really looking for.
-	"""
-	return [event for event in events if
-		(1.0 / max_hrss_ratio <= event.ms_hrss / SimBurstUtils.hrss_in_instrument(sim, event.ifo) <= max_hrss_ratio)
-		and
-		(1.0 / max_frequency_ratio <= event.peak_frequency / sim.freq <= max_frequency_ratio)
-	]
-
-
-#
-# =============================================================================
-#
 #                                  Interface
 #
 # =============================================================================
@@ -413,44 +326,28 @@ ORDER BY
 
 
 	def add_injections(self, param_func, database):
-		# iterate over burst<-->burst coincs in which at least one
-		# burst was identified as being the result of an injection
+		# iterate over burst<-->burst coincs matching injections
+		# "exactly"
 		for values in database.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
-	burst_coinc_event.coinc_event_id
+	burst_coinc_event_map.event_id
 FROM
 	sim_burst
-	JOIN coinc_event_map ON (
-		coinc_event_map.table_name == 'sim_burst'
-		AND coinc_event_map.event_id == sim_burst.simulation_id
+	JOIN coinc_event_map AS sim_coinc_event_map ON (
+		sim_coinc_event_map.table_name == 'sim_burst'
+		AND sim_coinc_event_map.event_id == sim_burst.simulation_id
+	)
+	JOIN coinc_event_map AS burst_coinc_event_map ON (
+		burst_coinc_event_map.coinc_event_id == sim_coinc_event_map.coinc_event_id
+		AND burst_coinc_event_map.table_name == 'coinc_event'
 	)
 	JOIN coinc_event AS sim_coinc_event ON (
-		sim_coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
-	)
-	JOIN coinc_event AS burst_coinc_event ON (
-		burst_coinc_event.time_slide_id == sim_coinc_event.time_slide_id
+		sim_coinc_event.coinc_event_id == sim_coinc_event_map.coinc_event_id
 	)
 WHERE
-	burst_coinc_event.coinc_def_id == ?
-	AND sim_coinc_event.coinc_def_id == ?
-	AND EXISTS (
-		-- Find a link from the sim coinc to the burst coinc
-		-- through the coinc_event_map table
-		SELECT
-			*
-		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				a.table_name == 'sngl_burst'
-				AND b.table_name == 'sngl_burst'
-				AND b.event_id == a.event_id
-			)
-		WHERE
-			a.coinc_event_id == burst_coinc_event.coinc_event_id
-			AND b.coinc_event_id == sim_coinc_event.coinc_event_id
-	)
-		""", (database.bb_definer_id, database.sb_definer_id)):
+	sim_coinc_event.coinc_def_id == ?
+		""", (database.sce_definer_id,)):
 			# retrieve the injection and the coinc_event_id
 			sim = database.sim_burst_table._row_from_cols(values)
 			coinc_event_id = values[-1]
@@ -544,6 +441,25 @@ class DistributionsStats(Stats):
 	ligolw_burca and ligolw_binjfind.
 	"""
 
+	intervals = {
+		"H1_H2_dband": segments.segment(-2.0, +2.0),
+		"H1_L1_dband": segments.segment(-2.0, +2.0),
+		"H2_L1_dband": segments.segment(-2.0, +2.0),
+		"H1_H2_ddur": segments.segment(-2.0, +2.0),
+		"H1_L1_ddur": segments.segment(-2.0, +2.0),
+		"H2_L1_ddur": segments.segment(-2.0, +2.0),
+		"H1_H2_df": segments.segment(-2.0, +2.0),
+		"H1_L1_df": segments.segment(-2.0, +2.0),
+		"H2_L1_df": segments.segment(-2.0, +2.0),
+		"H1_H2_dh": segments.segment(-2.0, +2.0),
+		"H1_L1_dh": segments.segment(-2.0, +2.0),
+		"H2_L1_dh": segments.segment(-2.0, +2.0),
+		"H1_H2_dt": segments.segment(-.5, +.5),
+		"H1_L1_dt": segments.segment(-.5, +.5),
+		"H2_L1_dt": segments.segment(-.5, +.5),
+		"gmst": segments.segment(0.0, 2 * math.pi)
+	}
+
 	filter_widths = {
 		"H1_H2_dband": 1.0 / 400,
 		"H1_L1_dband": 1.0 / 400,
@@ -563,47 +479,31 @@ class DistributionsStats(Stats):
 		"gmst": (2 * math.pi) / 1000.0
 	}
 
-	def __init__(self, max_hrss_ratio, max_frequency_ratio, thresholds):
+	def __init__(self):
 		Stats.__init__(self)
-		self.max_hrss_ratio = max_hrss_ratio
-		self.max_frequency_ratio = max_frequency_ratio
-		# careful, the intervals have to be unpacked in the order
-		# in which they were packed by dbget_thresholds(); also
-		# each instrument pair must list the instruments in
-		# alphabetical order, or the parameters returned by
-		# coinc_params() won't match Rate instances
+		# careful, each instrument pair must list the instruments
+		# in alphabetical order, or the parameters returned by
+		# coinc_params() won't match the Rate instances
 		rate_args = {}
-		for pair, (dtinterval, dfinterval, dhinterval) in thresholds.items():
+		for pair in iterutils.choices(("H1", "H2", "L1"), 2):
 			name = "%s_%s_dt" % pair
-			rate_args[name] = (dtinterval.protract(inject.light_travel_time(*pair)), self.filter_widths[name])
+			rate_args[name] = (self.intervals[name].protract(inject.light_travel_time(*pair)), self.filter_widths[name])
 			name = "%s_%s_df" % pair
-			rate_args[name] = (dfinterval, self.filter_widths[name])
+			rate_args[name] = (self.intervals[name], self.filter_widths[name])
 			name = "%s_%s_dh" % pair
-			rate_args[name] = (dhinterval, self.filter_widths[name])
+			rate_args[name] = (self.intervals[name], self.filter_widths[name])
 			name = "%s_%s_dband" % pair
-			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
+			rate_args[name] = (self.intervals[name], self.filter_widths[name])
 			name = "%s_%s_ddur" % pair
-			rate_args[name] = (segments.segment(-2.0, +2.0), self.filter_widths[name])
-		#rate_args["gmst"] = (segments.segment(0, 2 * math.pi), self.filter_widths["gmst"])
+			rate_args[name] = (self.intervals[name], self.filter_widths[name])
+		#rate_args["gmst"] = (self.intervals[name], self.filter_widths["gmst"])
 		self.distributions = CoincParamsDistributions(**rate_args)
 
 	def _add_background(self, param_func, events, offsetdict):
 		self.distributions.add_background(param_func, events, offsetdict)
 
 	def _add_injections(self, param_func, sim, events, offsetdict):
-		# remove events whose h_rss differs from the correct value
-		# by more than a factor of max_hrss_ratio, and whose
-		# frequency differs from the correct value by more than a
-		# factor of max_frequency_ratio.
-		events = good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)
 		self.distributions.add_injection(param_func, events, offsetdict)
-
-		# FIXME: try this alternative at some point
-		# only include this n-tuple in the statistics if all of the
-		# events in it appear to be good recoveries of the
-		# injection
-		#if len(good_injection_matches(sim, events, self.max_hrss_ratio, self.max_frequency_ratio)) == len(events):
-		#	self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
 		self.distributions.finish()

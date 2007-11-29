@@ -74,8 +74,6 @@ def parse_command_line():
 	)
 	parser.add_option("--add-from", metavar = "filename", default = [], action = "append", help = "Also add likelihood data from this XML file.")
 	parser.add_option("--add-from-cache", metavar = "filename", help = "Also add likelihood data from all XML files listed in this LAL cache.")
-	parser.add_option("--max-hrss-ratio", metavar = "ratio", type = "float", default = 4.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured h_rss differs from the correct value for that instrument by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 4.0")
-	parser.add_option("--max-frequency-ratio", metavar = "ratio", type = "float", default = 2.0, help = "When measuring the distribution of coincidence parameters associated with injections, discard any sngl_burst events from the coincs whose measured peak frequency differs from the correct value by more than this factor.  This helps ensure that the injection distributions are not being measured from accidentals.  Default = 2.0")
 	parser.add_option("-o", "--output", metavar = "filename", default = None, help = "Set the name of the likelihood control file to write (default = stdout).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("--T010150", metavar = "description", default = None, help = "Write the output to a file whose name is compatible with the file name format described in LIGO-T010150-00-E, \"Naming Convention for Frame Files which are to be Processed by LDAS\".  The description string will be used to form the second field in the file name.")
@@ -169,14 +167,13 @@ for n, filename in enumerate(filenames):
 	segs |= database.seglists
 
 	#
-	# If not already done, recover the --thresholds arguments, and
-	# construct a DistributionsStats instance to populate a
-	# CoincParamsDistributions book-keeping object from the information
-	# in the input files.
+	# If not already done, construct a DistributionsStats instance to
+	# populate a CoincParamsDistributions book-keeping object from the
+	# information in the input files.
 	#
 
 	if stats is None:
-		stats = ligolw_burca_tailor.DistributionsStats(options.max_hrss_ratio, options.max_frequency_ratio, ligolw_burca_tailor.dbget_thresholds(connection))
+		stats = ligolw_burca_tailor.DistributionsStats()
 
 	#
 	# Record statistics.  Assume all files with sim_burst tables are
