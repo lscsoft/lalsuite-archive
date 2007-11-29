@@ -113,39 +113,6 @@ def parse_command_line():
 #
 
 
-def missed_injections(contents, instrument):
-	"""
-	Iterate over missed injections.
-	"""
-	for values in contents.connection.cursor().execute("""
-SELECT
-	*
-FROM
-	sim_burst
-WHERE
-	NOT EXISTS (
-		-- Find a link through the coinc_event_map table to a row
-		-- in the sngl_burst table with the correct ifo value.
-		SELECT
-			*
-		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				b.coinc_event_id == a.coinc_event_id
-			)
-			JOIN sngl_burst ON (
-				b.table_name == 'sngl_burst'
-				AND sngl_burst.event_id == b.event_id
-			)
-		WHERE
-			a.table_name == 'sim_burst'
-			AND a.event_id == sim_burst.simulation_id
-			AND sngl_burst.ifo == ?
-	)
-	""", (instrument,)):
-		yield contents.sim_burst_table._row_from_cols(values)
-
-
 class FreqVsTime(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
@@ -159,15 +126,36 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		self.seglist = segments.segmentlist()
 
 	def add_contents(self, contents):
-		self.num_injections += len(contents.sim_burst_table)
-		self.seglist |= contents.seglists[self.instrument]
-		for sim in contents.sim_burst_table:
-			self.injected_x.append(float(sim.get_geocent_peak()))
-			self.injected_y.append(sim.freq)
-		if contents.coinc_table is not None:
-			for sim in missed_injections(contents, self.instrument):
-				self.missed_x.append(float(sim.get_geocent_peak()))
-				self.missed_y.append(sim.freq)
+		seglist = contents.seglists[self.instrument]
+		self.seglist |= seglist
+		for values in contents.connection.cursor().execute("""
+SELECT
+	*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			sim_burst_map
+			JOIN sngl_burst ON (
+				sngl_burst.event_id == sim_burst_map.event_id
+			)
+		WHERE
+			sim_burst_map.simulation_id == sim_burst.simulation_id
+			AND sngl_burst.ifo == ?
+	)
+FROM
+	sim_burst
+		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values)
+			found = values[-1]
+			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
+				self.num_injections += 1
+				peak = float(sim.get_peak(self.instrument))
+				self.injected_x.append(peak)
+				self.injected_y.append(sim.freq)
+				if not found:
+					self.missed_x.append(peak)
+					self.missed_y.append(sim.freq)
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -201,14 +189,35 @@ class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
 		self.missed_y = []
 
 	def add_contents(self, contents):
-		self.num_injections += len(contents.sim_burst_table)
-		for sim in contents.sim_burst_table:
-			self.injected_x.append(sim.freq)
-			self.injected_y.append(self.hrss_func(sim, self.instrument))
-		if contents.coinc_table is not None:
-			for sim in missed_injections(contents, self.instrument):
-				self.missed_x.append(sim.freq)
-				self.missed_y.append(self.hrss_func(sim, self.instrument))
+		seglist = contents.seglists[self.instrument]
+		for values in contents.connection.cursor().execute("""
+SELECT
+	*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			sim_burst_map
+			JOIN sngl_burst ON (
+				sngl_burst.event_id == sim_burst_map.event_id
+			)
+		WHERE
+			sim_burst_map.simulation_id == sim_burst.simulation_id
+			AND sngl_burst.ifo == ?
+	)
+FROM
+	sim_burst
+		""", (self.instrument,)):
+			sim = contents.sim_burst_table._row_from_cols(values)
+			found = values[-1]
+			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
+				self.num_injections += 1
+				hrss = self.hrss_func(sim, self.instrument)
+				self.injected_x.append(sim.freq)
+				self.injected_y.append(hrss)
+				if not found:
+					self.missed_x.append(sim.freq)
+					self.missed_y.append(hrss)
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -284,16 +293,11 @@ SELECT
 	sngl_burst.ms_hrss
 FROM
 	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == 'sim_burst'
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		a.coinc_event_id == b.coinc_event_id
+	JOIN sim_burst_map ON (
+		sim_burst_map.simulation_id == sim_burst.simulation_id
 	)
 	JOIN sngl_burst ON (
-		b.table_name == 'sngl_burst'
-		AND b.event_id == sngl_burst.event_id
+		sngl_burst.event_id == sim_burst_map.event_id
 	)
 WHERE
 	sngl_burst.ifo == ?
@@ -339,16 +343,11 @@ SELECT
 	sngl_burst.ms_hrss
 FROM
 	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == 'sim_burst'
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
+	JOIN sim_burst_map ON (
+		sim_burst_map.simulation_id == sim_burst.simulation_id
 	)
 	JOIN sngl_burst ON (
-		b.table_name == 'sngl_burst'
-		AND b.event_id == sngl_burst.event_id
+		sngl_burst.event_id == sim_burst_map.event_id
 	)
 WHERE
 	sngl_burst.ifo == ?
@@ -388,16 +387,11 @@ SELECT
 	sngl_burst.ms_hrss
 FROM
 	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == 'sim_burst'
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
+	JOIN sim_burst_map ON (
+		sim_burst_map.simulation_id == sim_burst.simulation_id
 	)
 	JOIN sngl_burst ON (
-		b.table_name == 'sngl_burst'
-		AND b.event_id == sngl_burst.event_id
+		sngl_burst.event_id == sim_burst_map.event_id
 	)
 WHERE
 	sngl_burst.ifo == ?
@@ -596,16 +590,11 @@ SELECT
 	sngl_burst.ms_hrss
 FROM
 	sim_burst
-	JOIN coinc_event_map AS a ON (
-		a.table_name == 'sim_burst'
-		AND a.event_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event_map AS b ON (
-		b.coinc_event_id == a.coinc_event_id
+	JOIN sim_burst_map ON (
+		sim_burst_map.simulation_id == sim_burst.simulation_id
 	)
 	JOIN sngl_burst ON (
-		b.table_name == 'sngl_burst'
-		AND b.event_id == sngl_burst.event_id
+		sngl_burst.event_id == sim_burst_map.event_id
 	)
 WHERE
 	sngl_burst.ifo == ?
@@ -643,9 +632,7 @@ class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
 
 	def add_contents(self, contents):
 		# FIXME: this query doesn't check for the correct
-		# instruments (should be done via coinc_def_id), nor does
-		# it select only the highest-ranked coinc (should be done
-		# via effective_confidence() function).
+		# instruments (should be done via coinc_def_id)
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -663,18 +650,8 @@ FROM
 		multi_burst.coinc_event_id == coinc_event.coinc_event_id
 	)
 WHERE
-	coinc_event.likelihood == (
-		SELECT
-			MAX(coinc_event.likelihood)
-		FROM
-			sim_coinc_map
-			JOIN coinc_event ON (
-				coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
-			)
-		WHERE
-			sim_coinc_map.simulation_id == sim_burst.simulation_id
-	)
-		"""):
+	coinc_event.coinc_def_id == ?
+		""", (contents.sce_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
@@ -758,6 +735,21 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
 	if options.plot:
+		database.connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_burst_map
+AS
+	SELECT
+		a.event_id AS simulation_id,
+		b.event_id AS event_id
+	FROM
+		coinc_event_map AS a
+		JOIN coinc_event_map AS b ON (
+			a.table_name == 'sim_burst'
+			AND b.table_name == 'sngl_burst'
+			AND b.coinc_event_id == a.coinc_event_id
+		)
+		""")
 		for instrument in database.instruments:
 			if instrument not in plots:
 				plots[instrument] = new_plots(instrument, options.hrss, options.plot)
