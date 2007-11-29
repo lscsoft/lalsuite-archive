@@ -560,11 +560,6 @@ class SearchSummaryTable(DBTable):
 		rows with matching IDs are included otherwise all rows are
 		included.
 		"""
-		# make sure the process IDs are strs for the comparison,
-		# 'cause that's how they'll come out of this table
-		if process_ids is not None:
-			process_ids = set([str(process_id) for process_id in process_ids])
-
 		# start a segment list dictionary
 		seglists = segments.segmentlistdict()
 
