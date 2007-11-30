@@ -448,24 +448,16 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		if self.instruments != contents.instruments:
 			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
 
-		# NOTE:  coinc_segs must be computed the same way the
-		# segment list used to measure live time is computed,
-		# otherwise the detection efficiency is not being measured
-		# in the same data as the live time is being claimed.  that
-		# means it must be the simple intersection, with no attempt
-		# to contract it on the grounds that it's difficult to
-		# detect things at the edges of segments.
+		# NOTE:  seglist must be computed the same way the segment
+		# list used to measure live time is computed, otherwise the
+		# detection efficiency is not being measured in the same
+		# data as the live time is being claimed.  that means it
+		# must be the simple intersection, with no attempt to
+		# contract it on the grounds that it's difficult to detect
+		# things at the edges of segments.
 
 		seglist = contents.seglists.intersection(self.instruments)
 
-		# FIXME: careful, the check for a coincidence will find any
-		# coincidence, no matter which instruments participate.
-		# For now, I'm running fixed networks so this is not a
-		# problem, but if variable configuration networks are
-		# adopted in the future, then this will need to be
-		# re-thought to be sure that "found in a coinc" means
-		# "found in a coinc involving the correct set of
-		# instruments".
 		contents.connection.cursor().execute("""
 CREATE TEMPORARY VIEW
 	sim_coinc_map
