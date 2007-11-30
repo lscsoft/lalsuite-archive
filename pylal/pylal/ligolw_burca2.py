@@ -77,8 +77,8 @@ __date__ = "$Date$"[7:-2]
 
 
 class interp1d(interpolate.interp1d):
-	def __init__(self, x, y):
-		# Extrapolate x and y arrays by one element at each end.
+	def __init__(self, x, y, fill_value = 0.0):
+		# Extrapolate x and y arrays by half a bin at each end.
 		# This is done because the Rate class in pylal.rate returns
 		# the x co-ordinates as the bin centres, which is correct,
 		# but it means that an event can have a set of parameter
@@ -86,8 +86,8 @@ class interp1d(interpolate.interp1d):
 		# array.  The parameters are still in the last bin, but in
 		# the outer half of it.
 
-		x = numpy.hstack((x[0] + (x[0] - x[1]), x, x[-1] + (x[-1] - x[-2])))
-		y = numpy.hstack((y[0] + (y[0] - y[1]), y, y[-1] + (y[-1] - y[-2])))
+		x = numpy.hstack((x[0] + (x[0] - x[1]) / 2.0, x, x[-1] + (x[-1] - x[-2]) / 2.0))
+		y = numpy.hstack((y[0] + (y[0] - y[1]) / 2.0, y, y[-1] + (y[-1] - y[-2]) / 2.0))
 
 		# Because the y values are assumed to be probability
 		# densities they cannot be negative.  This constraint is
@@ -98,14 +98,9 @@ class interp1d(interpolate.interp1d):
 
 		y = numpy.clip(y, 0.0, float("inf"))
 
-		# The scipy interpolator insists on only interpolating (go
-		# figger) so it normally throws an error when an x
-		# co-ordinate is encountered outside of the interpolator
-		# domain.  Instead of an error, return this value.
-
-		fill_value = 0
-
-		# Build the interpolator.
+		# Build the interpolator.  Note the use of fill_value as
+		# the return value for x co-ordinates outside the domain of
+		# the interpolator.
 
 		interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
 
@@ -130,6 +125,8 @@ class Likelihood(object):
 		self.P_gw = P
 
 	def P(self, param_func, events, offsetdict):
+		# FIXME: the reduce might be faster
+		#return reduce(lambda (a0, a1), (b0, b1): (a0 * b0, a1 * b1), [(self.background_rates[name](value)[0], self.injection_rates[name](value)[0]) for name, value in param_func(events, offsetdict).items()], (1.0, 1.0))
 		P_background = 1.0
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
@@ -140,7 +137,7 @@ class Likelihood(object):
 	def __call__(self, param_func, events, offsetdict):
 		"""
 		Compute the likelihood that the coincident n-tuple of
-		events are the result of a gravitational wave:  the
+		events is the result of a gravitational wave:  the
 		probability that the hypothesis "the events are a
 		gravitational wave" is correct, in the context of the
 		measured background and foreground distributions, and the
@@ -189,7 +186,7 @@ class LikelihoodRatio(Likelihood):
 		a prior probability to be provided.
 		"""
 		P_bak, P_inj = self.P(param_func, events, offsetdict)
-		if P_bak == 0 and P_inj == 0:
+		if P_bak == 0.0 and P_inj == 0.0:
 			# this can happen.  "correct" answer is 0, not NaN,
 			# because if a tuple of events has been found in a
 			# region of parameter space where the probability
@@ -201,7 +198,7 @@ class LikelihoodRatio(Likelihood):
 			# increasing function of the probability that an
 			# event tuple is a gravitational wave, which is 0
 			# in this part of the parameter space.
-			return 0
+			return 0.0
 		return  P_inj / P_bak
 
 
