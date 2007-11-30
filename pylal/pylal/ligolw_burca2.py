@@ -260,7 +260,7 @@ AS
 	ORDER BY
 		sngl_burst.ifo
 	""")
-	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id == ?)", (database.bb_definer_id,))):
+	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id == ?", (database.bb_definer_id,))):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
