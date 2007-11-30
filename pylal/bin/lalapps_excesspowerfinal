@@ -290,7 +290,7 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	For each of the time slides, which are instrument --> offset
 	mappings, compute the live time, and return the sum.
 	"""
-	livetime = 0
+	livetime = 0.0
 	old_offsets = seglists.offsets.copy()
 	N = len(time_slides)
 	for n, time_slide in enumerate(time_slides):
@@ -341,7 +341,7 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 		# Process database contents.
 		#
 
-		background_time_slides = ligolw_tisi.time_slide_list_merge(background_time_slides, get_background_time_slides(database).itervalues())
+		background_time_slides = ligolw_tisi.time_slide_list_merge(background_time_slides, get_background_time_slides(database).values())
 		likelihood_histogram.add_non_injections(database)
 		non_injection_seglists |= database.seglists
 
@@ -363,7 +363,7 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 	background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides)
 
 	if verbose:
-		print >>sys.stderr, "filtering background likelihood histograms ..."
+		print >>sys.stderr, "finishing background likelihood histograms ..."
 	likelihood_histogram.finish_non_injections()
 
 	if verbose:
@@ -466,31 +466,46 @@ class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
 		# re-thought to be sure that "found in a coinc" means
 		# "found in a coinc involving the correct set of
 		# instruments".
+		contents.connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_coinc_map
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		burst_coinc_event.coinc_event_id AS burst_coinc_event_id
+	FROM
+		sim_burst
+		JOIN coinc_event_map AS a ON (
+			a.table_name == 'sim_burst'
+			AND a.event_id == sim_burst.simulation_id
+		)
+		JOIN coinc_event AS sim_coinc_event ON (
+			sim_coinc_event.coinc_event_id == a.coinc_event_id
+		)
+		JOIN coinc_event_map AS b ON (
+			b.coinc_event_id == a.coinc_event_id
+		)
+		JOIN coinc_event AS burst_coinc_event ON (
+			b.table_name == 'coinc_event'
+			AND b.event_id == burst_coinc_event.coinc_event_id
+		)
+		JOIN multi_burst ON (
+			multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
+		)
+	WHERE
+		sim_coinc_event.coinc_def_id == ?
+		AND is_a_keeper(burst_coinc_event.likelihood, multi_burst.confidence)
+		""", (contents.scn_definer_id,))
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
 	EXISTS (
-		-- Find a burst<-->burst coinc containing a burst that
-		-- is "near" this injection, and whose effective
-		-- confidence is above threshold
 		SELECT
 			*
 		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				b.coinc_event_id == a.coinc_event_id
-			)
-			JOIN coinc_event ON (
-				b.table_name == 'coinc_event'
-				AND b.event_id == coinc_event.coinc_event_id
-			)
-			JOIN multi_burst ON (
-				multi_burst.coinc_event_id == coinc_event.coinc_event_id
-			)
+			sim_coinc_map
 		WHERE
-			a.table_name == 'sim_burst'
-			AND a.event_id == sim_burst.simulation_id
-			AND is_a_keeper(coinc_event.likelihood, multi_burst.confidence)
+			sim_coinc_map.simulation_id == sim_burst.simulation_id
 	)
 FROM
 	sim_burst
@@ -507,7 +522,7 @@ FROM
 					self.found_x.append(sim.freq)
 					self.found_y.append(sim.hrss)
 			elif found:
-				print >>sys.stderr, "odd, injection %s was found but not injected..." % sim.simulation_id
+				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 
 def measure_efficiency(filenames, is_a_keeper, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
