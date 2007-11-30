@@ -232,7 +232,6 @@ def ligolw_burca2(database, likelihood_ratio, coinc_params, verbose = False):
 	if None in (database.coinc_def_table, database.coinc_table, database.time_slide_table):
 		raise ValueError, "database appears to be missing coinc tables"
 
-	definer_ids = ", ".join(["\"%s\"" % id for id in (database.bb_definer_id, database.sb_definer_id) if id is not None])
 	time_slides = database.time_slide_table.as_dict()
 
 	#
@@ -261,7 +260,7 @@ AS
 	ORDER BY
 		sngl_burst.ifo
 	""")
-	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id IN (%s)" % definer_ids)):
+	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id == ?)", (database.bb_definer_id,))):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
