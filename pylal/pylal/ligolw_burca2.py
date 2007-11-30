@@ -125,8 +125,6 @@ class Likelihood(object):
 		self.P_gw = P
 
 	def P(self, param_func, events, offsetdict):
-		# FIXME: the reduce might be faster
-		#return reduce(lambda (a0, a1), (b0, b1): (a0 * b0, a1 * b1), [(self.background_rates[name](value)[0], self.injection_rates[name](value)[0]) for name, value in param_func(events, offsetdict).items()], (1.0, 1.0))
 		P_background = 1.0
 		P_injection = 1.0
 		for name, value in param_func(events, offsetdict).iteritems():
