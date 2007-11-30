@@ -51,7 +51,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
   """
   # turn on ID remapping if necessary
   if mangle_event_id:
-    lsctables.SnglInspiralTable.ids = lsctables.SnglInspiralIDs_old()
+    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
 
   # ligolw_add will merge all tables, which is overkill, but merge time is
   # much less than I/O time.
@@ -65,7 +65,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
     snglInspiralTriggers = None
 
   # return ID remapping to its normal state (off)
-  lsctables.SnglInspiralTable.ids = None
+  lsctables.SnglInspiralTable.next_id = None
 
   return snglInspiralTriggers
 
