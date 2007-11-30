@@ -252,18 +252,15 @@ AS
 			coinc_event_map.table_name == 'sngl_burst'
 			AND coinc_event_map.event_id == sngl_burst.event_id
 		)
-	ORDER BY
-		sngl_burst.ifo
 	""")
 	for n, (coinc_event_id, time_slide_id) in enumerate(database.connection.cursor().execute("SELECT coinc_event_id, time_slide_id FROM coinc_event WHERE coinc_def_id == ?", (database.bb_definer_id,))):
 		if verbose and not n % 200:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / n_coincs),
 
-		# retrieve sngl_burst events, sorted by instrument
-		# name
+		# retrieve sngl_burst events
 		events = map(database.sngl_burst_table._row_from_cols, cursor.execute("""SELECT * FROM coinc_burst_map WHERE coinc_event_id == ?""", (coinc_event_id,)))
 
-		# compute likelihood ratio
+		# compute and store likelihood ratio
 		cursor.execute("""
 UPDATE
 	coinc_event
