@@ -74,9 +74,7 @@ static PyObject *append(PyObject *self, PyObject *iter)
 {
 	ligolw_RowBuilder *rowbuilder = (ligolw_RowBuilder *) self;
 
-	if(rowbuilder->iter) {
-		Py_DECREF(rowbuilder->iter);
-	}
+	Py_XDECREF(rowbuilder->iter);
 	rowbuilder->iter = PyObject_GetIter(iter);
 	if(!rowbuilder->iter)
 		return NULL;
@@ -98,11 +96,8 @@ static void __del__(PyObject *self)
 	Py_DECREF(rowbuilder->rowtype);
 	Py_DECREF(rowbuilder->attributes);
 	Py_DECREF(rowbuilder->interns);
-	if(rowbuilder->iter) {
-		Py_DECREF(rowbuilder->iter);
-		rowbuilder->iter = NULL;
-	}
 	Py_DECREF(rowbuilder->row);
+	Py_XDECREF(rowbuilder->iter);
 
 	self->ob_type->tp_free(self);
 }
@@ -122,26 +117,20 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 		return -1;
 
 	rowbuilder->attributes = PySequence_Tuple(rowbuilder->attributes);
-	if(!rowbuilder->attributes)
-		return -1;
 	if(rowbuilder->interns)
 		rowbuilder->interns = PySequence_Tuple(rowbuilder->interns);
 	else
 		rowbuilder->interns = PyTuple_New(0);
-	if(!rowbuilder->interns) {
-		Py_DECREF(rowbuilder->attributes);
+
+	if(!rowbuilder->attributes || !rowbuilder->interns) {
+		Py_XDECREF(rowbuilder->attributes);
+		Py_XDECREF(rowbuilder->interns);
 		return -1;
 	}
 
 	Py_INCREF(rowbuilder->rowtype);
-	rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
-	if(!rowbuilder->row) {
-		Py_DECREF(rowbuilder->attributes);
-		Py_DECREF(rowbuilder->interns);
-		Py_DECREF(rowbuilder->rowtype);
-		return -1;
-	}
-
+	rowbuilder->row = Py_None;
+	Py_INCREF(rowbuilder->row);
 	rowbuilder->i = 0;
 	rowbuilder->iter = NULL;
 
@@ -177,6 +166,15 @@ static PyObject *next(PyObject *self)
 		return NULL;
 	}
 
+	if(rowbuilder->row == Py_None) {
+		rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
+		if(!rowbuilder->row) {
+			rowbuilder->row = Py_None;
+			return NULL;
+		}
+		Py_DECREF(Py_None);
+	}
+
 	while((item = PyIter_Next(rowbuilder->iter))) {
 		result = PyObject_SetAttr(rowbuilder->row, PyTuple_GET_ITEM(rowbuilder->attributes, rowbuilder->i), item);
 		Py_DECREF(item);
@@ -184,7 +182,8 @@ static PyObject *next(PyObject *self)
 			return NULL;
 		if(++rowbuilder->i >= PyTuple_GET_SIZE(rowbuilder->attributes)) {
 			PyObject *row = rowbuilder->row;
-			rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
+			rowbuilder->row = Py_None;
+			Py_INCREF(rowbuilder->row);
 			rowbuilder->i = 0;
 			return row;
 		}
@@ -254,7 +253,7 @@ PyTypeObject ligolw_RowBuilder_Type = {
 "...\n"\
 ">>> t = tokenizer.Tokenizer(u\",\")\n"\
 ">>> t.set_types([int, float])\n"\
-">>> rows = RowBuilder(Row, [\"time\", \"snr\"])\n"\
+">>> rows = tokenizer.RowBuilder(Row, [\"time\", \"snr\"])\n"\
 ">>> l = list(rows.append(t.append(u\"10,6.8,15,29.1,\")))\n"\
 ">>> l[0].snr\n"\
 "6.7999999999999998\n"\
