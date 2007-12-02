@@ -93,6 +93,12 @@ parser.add_option("-m","--plot-chisq",action="store_true",\
 parser.add_option("","--plot-snr",action="store_true",\
     default=False, help ="Shows the plot of snr  difference based on distance cut")
 
+parser.add_option("","--plot-snr-vs-chisq",action="store_true",\
+    default=False, help ="Shows the plot of snr vs chisq for timeslides and injections")
+
+parser.add_option("","--plot-snr-vs-mchirp",action="store_true",\
+    default=False, help ="Shows the plot of snr vs mchirp for timeslides and injections")
+
 parser.add_option("-t","--scatter-plot",action="store_true",\
     default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
 
@@ -443,8 +449,116 @@ class plotdata:
            savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) + "_scatterplot")
            figure()
            
+  def scatter_plot_param_2D_with_zerolag(self, ifos, coinc_slides, coinc_inj, coinc_zerolag, param, logscale=False):
+    '''
+    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
+    '''
+    for ifolist in ifos:
+     for i in range(len(ifolist)):
+       for j in range(len(ifolist)):
+         if i < j:
+           coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+           coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+           coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+           coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+           coinc_zerolag_fir = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
+           coinc_zerolag_sec = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
+
+           if not logscale:
+             l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+             hold(True) 
+             l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+             hold(True)
+             l3 = plot(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
+           else:
+             l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+             hold(True)
+             l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+             hold(True)
+             l3 = loglog(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
+
+           coinc_label=''
+           for ifo in ifolist:
+             coinc_label+=ifo
+           title(str(param) + " in " + ifolist[j] + " vs " + str(param) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
+           legend((l3, l2, l1), ("candidate events", "Injections","Background"))
+           xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
+           ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
+           savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) +"_with_zerolag" + "_scatterplot")
+           figure()
                  
- 
+  def scatter_plot_param1_vs_param2(self, ifos, coinc_slides, coinc_inj, param1, param2, logscale=False, ylogscale=False):
+    '''
+    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
+    '''
+    for ifolist in ifos:
+      for i in range(len(ifolist)):
+        coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
+        coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
+        coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
+        coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
+        if not (logscale or ylogscale):
+          l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+        elif logscale:
+          l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+        elif ylogscale:
+          l1 = semilogy(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = semilogy(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+        coinc_label=''
+        for ifo in ifolist:
+          coinc_label+=ifo
+        title(str(param2) + " in " + ifolist[i] + " vs " + str(param1) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
+        legend((l2, l1), ("Injections","Background"))
+        xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
+        ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
+        savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_scatterplot")
+        figure()
+   
+  def scatter_plot_param1_vs_param2_with_zerolag(self, ifos, coinc_slides, coinc_inj, coinc_zerolag, param1, param2, logscale=False, ylogscale=False):
+    '''
+    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
+    '''
+    for ifolist in ifos:
+      for i in range(len(ifolist)):
+        coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
+        coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
+        coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
+        coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
+        coinc_zerolag_fir = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
+        coinc_zerolag_sec = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
+        if not (logscale or ylogscale):
+          l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+          hold(True)
+          l3 = plot(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
+        elif logscale:
+          l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+          hold(True)
+          l3 = loglog(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')       
+        elif ylogscale:
+          l1 = semilogy(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
+          hold(True)
+          l2 = semilogy(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
+          hold(True)
+          l3 = semilogy(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
+        coinc_label=''
+        for ifo in ifolist:
+          coinc_label+=ifo
+        title(str(param2) + " in " + ifolist[i] + " vs " + str(param1) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
+        legend((l3, l2, l1), ("candidate events", "Injections", "Background"))
+        xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
+        ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
+        savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_with_zerolag" + "_scatterplot")
+        figure()
+
 
   def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
     ''' 
@@ -780,17 +894,20 @@ injectionTriggers = None
 
 injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles,mangle_event_id=True)
 
-simTriggers = None
 
-simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
+
+
+#simTriggers = None
+
+#simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
 
 
 #construct injection coincs and add sim inspirals
 
 injectionCoincTriggers= \
-CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
+CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(['H1', 'H2', 'L1'])
 
-injectionCoincTriggers.add_sim_inspirals(simTriggers)
+#injectionCoincTriggers.add_sim_inspirals(simTriggers)
 
 
 
@@ -858,14 +975,20 @@ if opts.likelihood == 'zerolag-candidates-only':
     if FalseAlarmProb_array[i] > 0:
       Likelihood[i] = DetectionProb_array[i] / FalseAlarmProb_array[i]
     else:
-      Likelihood[i] = -1.0
+      #Likelihood[i] = -1.0
+      # below is a temporary fix for the case of vanishing false alarm probability
+       FalseAlarmProb_array[i] = 1 / float(4.0*opts.numslides)
+       Likelihood[i] = DetectionProb_array[i] / FalseAlarmProb_array[i]
      
     # Calculating the ratio of DetectionProb to BackgroundFraction
     if BackgroundFraction_array[i] > 0:
-      DetectionBackgroundRatio[i]= DetectionProb_array[i]/BackgroundFraction_array[i]
+      DetectionBackgroundRatio[i]= DetectionProb_array[i] / BackgroundFraction_array[i]
     else:
-      DetectionBackgroundRatio[i] = -1.0
-    
+      #DetectionBackgroundRatio[i] = -1.0
+      # below is a temporary fix for the case of vanishing false alarm probability
+      BackgroundFraction_array[i] = 1 / float(2.0*len(slidesCoincTriggers))
+      DetectionBackgroundRatio[i]= DetectionProb_array[i] / BackgroundFraction_array[i]
+
     if opts.verbose:
       print candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]
     
@@ -930,14 +1053,19 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     if p0_zerolag_array[i] > 0:
       Likelihood_zerolag[i] = pc_zerolag_array[i] / p0_zerolag_array[i]
     else:
-      Likelihood_zerolag[i] = -1.0
+      #Likelihood_zerolag[i] = -1.0
+      # below is a temporary fix for the case of vanishing false alarm probability
+      p0_zerolag_array[i] = 1 / float(4.0*opts.numslides)
+      Likelihood_zerolag[i] = pc_zerolag_array[i] / p0_zerolag_array[i]
 
     # Calculating the ratio of DetectionProb to BackgroundFraction
     if bf_zerolag_array[i] > 0:
       DetectionBackgroundRatio_zerolag[i]= pc_zerolag_array[i] / bf_zerolag_array[i]
     else:
-      DetectionBackgroundRatio_zerolag[i] = -1.0
-    
+      #DetectionBackgroundRatio_zerolag[i] = -1.0
+      # below is a temporary fix for the case of vanishing background fraction
+      bf_zerolag_array[i] = 1 / float(2*len(slidesCoincTriggers))
+      DetectionBackgroundRatio_zerolag[i]= pc_zerolag_array[i] / bf_zerolag_array[i]
 
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_zerolag_array[i], bf_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i], DetectionBackgroundRatio_zerolag[i] 
@@ -1002,14 +1130,19 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
     if p0_inj_array[i] > 0:
       Likelihood_inj[i] = pc_inj_array[i] / p0_inj_array[i]
     else:
-      Likelihood_inj[i] = -1.0
+      #Likelihood_inj[i] = -1.0
+      # below is a temporary fix for the case of vanishing false alarm probability
+      p0_inj_array[i] = 1/float(4.0*opts.numslides)
+      Likelihood_inj[i] = pc_inj_array[i] / p0_inj_array[i]
 
     # Calculating the ratio of DetectionProb to BackgroundFraction
     if bf_inj_array[i] > 0:
       DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
     else:
-      DetectionBackgroundRatio_inj[i] = -1.0
-    
+      #DetectionBackgroundRatio_inj[i] = -1.0
+      # below is a temporary fix for the case of vanishing background fraction
+      bf_inj_array[i] = 1/float(2.0*len(slidesCoincTriggers))
+      DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
 
     if opts.verbose:
       print i, candidate.event_id, c_ifos, p0_inj_array[i], bf_inj_array[i], pc_inj_array[i], Likelihood_inj[i], DetectionBackgroundRatio_inj[i]
@@ -1089,13 +1222,22 @@ if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-
       if p0_slides_array[i] > 0:
         Likelihood_slides[i] = pc_slides_array[i] / p0_slides_array[i]
       else:
-        Likelihood_slides[i] = -1.0
+        #Likelihood_slides[i] = -1.0
+        # below is a temporary fix for the case of vanishing false alarm probability
+        p0_slides_array[i] = 1/float(4.0*opts.numslides)
+        Likelihood_slides[i] = pc_slides_array[i] / p0_slides_array[i]
+
+
       Likelihood_tmp[j] = Likelihood_slides[i]
       # Calculating the ratio of DetectionProb to BackgroundFraction
       if bf_slides_array[i] > 0:
         DetectionBackgroundRatio_slides[i]= pc_slides_array[i]/bf_slides_array[i]
       else:
-        DetectionBackgroundRatio_slides[i] = -1.0
+        #DetectionBackgroundRatio_slides[i] = -1.0
+        # below is a temporary fix for the case of vanishing background fraction
+        bf_slides_array[i] = 1 / float(2.0*len(slidesCoincTriggers))
+        DetectionBackgroundRatio_slides[i]= pc_slides_array[i] / bf_slides_array[i]
+
       DetectionBackgroundRatio_tmp[j] = DetectionBackgroundRatio_slides[i]
      
  
@@ -1157,10 +1299,15 @@ if opts.plot_distcut:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)  
   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'eff_distance')
+  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'eff_distance')
+
 if opts.plot_mchirp:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp')
+  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp')
+
+
 if opts.plot_chisq:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins) 
@@ -1169,8 +1316,16 @@ if opts.plot_chisq:
 if opts.plot_snr:
   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)
   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)   
+  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', logscale=True)
+  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', logscale=True) 
 
+if opts.plot_snr_vs_chisq:
+  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', 'chisq', logscale=True) 
+  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', 'chisq', logscale=True) 
 
+if opts.plot_snr_vs_mchirp:
+  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp', 'snr', ylogscale=True)
+  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp', 'snr', ylogscale=True)
 
 
 
