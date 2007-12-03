@@ -95,6 +95,12 @@ static long ligolw_ilwdchar___hash__(PyObject *self)
 }
 
 
+static PyObject *ligolw_ilwdchar___int__(PyObject *self)
+{
+	return PyInt_FromLong(((ligolw_ilwdchar *) self)->i);
+}
+
+
 static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	/* call the generic __new__() */
@@ -357,6 +363,7 @@ PyTypeObject ligolw_ilwdchar_Type = {
 	.tp_str = ligolw_ilwdchar___str__,
 	.tp_as_number = &(PyNumberMethods) {
 		.nb_add = ligolw_ilwdchar___add__,
+		.nb_int = ligolw_ilwdchar___int__,
 		.nb_subtract = ligolw_ilwdchar___sub__,
 	},
 	.tp_new = ligolw_ilwdchar___new__,
