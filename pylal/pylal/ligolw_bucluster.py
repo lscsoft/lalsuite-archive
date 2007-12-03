@@ -222,9 +222,6 @@ def ExcessPowerClusterFunc(a, b):
 
 	#
 	# The confidence is the confidence of the most significant tile.
-	# FIXME:  correctly, this should be computed from some sort of
-	# joint distribution, but it's not currently used anywhere so
-	# there's no point in obsessing over it right now.
 	#
 
 	a.confidence = a.ms_confidence
