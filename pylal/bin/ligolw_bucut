@@ -97,12 +97,18 @@ def parse_command_line():
 		raise ValueError, "must set --program when --inj-made-only is set"
 	options.cut_instrument = set(options.cut_instrument)
 
-	options.min_peak_time = LIGOTimeGPS(options.min_peak_time)
-	options.max_peak_time = LIGOTimeGPS(options.max_peak_time)
-	options.min_start_time = LIGOTimeGPS(options.min_start_time)
-	options.max_start_time = LIGOTimeGPS(options.max_start_time)
-	options.min_stop_time = LIGOTimeGPS(options.min_stop_time)
-	options.max_stop_time = LIGOTimeGPS(options.max_stop_time)
+	if options.min_peak_time is not None:
+		options.min_peak_time = LIGOTimeGPS(options.min_peak_time)
+	if options.max_peak_time is not None:
+		options.max_peak_time = LIGOTimeGPS(options.max_peak_time)
+	if options.min_start_time is not None:
+		options.min_start_time = LIGOTimeGPS(options.min_start_time)
+	if options.max_start_time is not None:
+		options.max_start_time = LIGOTimeGPS(options.max_start_time)
+	if options.min_stop_time is not None:
+		options.min_stop_time = LIGOTimeGPS(options.min_stop_time)
+	if options.max_stop_time is not None:
+		options.max_stop_time = LIGOTimeGPS(options.max_stop_time)
 
 	return options, (filenames or [None])
 
