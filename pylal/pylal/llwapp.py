@@ -148,6 +148,9 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 		# database.
 		coincdeftable = lsctables.New(lsctables.CoincDefTable)
 		xmldoc.childNodes[0].appendChild(coincdeftable)
+	# make sure the next_id attribute is correct
+	coincdeftable.sync_next_id()
+	# get the id
 	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
 
 
