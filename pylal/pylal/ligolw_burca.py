@@ -134,25 +134,23 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst.process_id = process_id
 	multiburst.coinc_event_id = coinc_event_id
 
-	# snr = sum of ms_snrs
-	multiburst.snr = sum(event.ms_snr for event in events)
+	# snr = root sum of ms_snr squares
+	multiburst.snr = math.sqrt(sum(event.ms_snr**2.0 for event in events))
 
-	# duration = ms_snr-weighted average of durations
-	multiburst.duration = sum(event.ms_snr * event.duration for event in events) / multiburst.snr
+	# duration = ms_snr squared weighted average of durations
+	multiburst.duration = sum(event.ms_snr**2.0 * event.duration for event in events) / multiburst.snr**2.0
 
-	# central_freq = ms_snr-weighted average of peak frequencies
-	multiburst.central_freq = sum(event.ms_snr * event.peak_frequency for event in events) / multiburst.snr
+	# central_freq = ms_snr squared weighted average of peak frequencies
+	multiburst.central_freq = sum(event.ms_snr**2.0 * event.peak_frequency for event in events) / multiburst.snr**2.0
 
-	# bandwidth = ms_snr-weighted average of bandwidths
-	multiburst.bandwidth = sum(event.ms_snr * event.bandwidth for event in events) / multiburst.snr
+	# bandwidth = ms_snr squared weighted average of bandwidths
+	multiburst.bandwidth = sum(event.ms_snr**2.0 * event.bandwidth for event in events) / multiburst.snr**2.0
 
-	# confidence = arithmetic mean of confidences
-	#multiburst.confidence = sum(event.confidence for event in events) / len(events)
 	# confidence = minimum of confidences
 	multiburst.confidence = min(event.confidence for event in events)
 
 	# "amplitude" = h_rss of event with highest confidence
-	multiburst.amplitude = max((event.confidence, event.ms_hrss) for event in events)[1]
+	multiburst.amplitude = max((event.ms_confidence, event.ms_hrss) for event in events)[1]
 
 	# done
 	return multiburst

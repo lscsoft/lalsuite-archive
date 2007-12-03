@@ -26,6 +26,7 @@
 #
 
 
+import math
 import sys
 
 
@@ -193,32 +194,32 @@ def ExcessPowerClusterFunc(a, b):
 	#
 
 	if b.ms_confidence > a.ms_confidence:
-		a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr, b.get_ms_period(), b.snr))
-		a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr, b.get_ms_band(), b.snr))
+		a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
+		a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
 		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 		a.ms_confidence = b.ms_confidence
 
 	#
-	# Compute the SNR-weighted peak time and frequency (recall that the
-	# peak times have been converted to floats relative to epoch, and
-	# stored in the peak_time column).
+	# Compute the SNR squared weighted peak time and frequency (recall
+	# that the peak times have been converted to floats relative to
+	# epoch, and stored in the peak_time column).
 	#
 
-	a.peak_time = (a.snr * a.peak_time + b.snr * b.peak_time) / (a.snr + b.snr)
-	a.peak_frequency = (a.snr * a.peak_frequency + b.snr * b.peak_frequency) / (a.snr + b.snr)
+	a.peak_time = (a.snr**2.0 * a.peak_time + b.snr**2.0 * b.peak_time) / (a.snr**2.0 + b.snr**2.0)
+	a.peak_frequency = (a.snr**2.0 * a.peak_frequency + b.snr**2.0 * b.peak_frequency) / (a.snr**2.0 + b.snr**2.0)
 
 	#
-	# Compute the combined hrss and snr by summing the original ones.
+	# Compute the combined h_rss and SNR by summing the original ones.
 	# Note that no accounting of the overlap of the events is made, so
 	# these parameters are being horribly overcounted, but the SNR in
 	# particular must be summed like this in order to carry the
-	# information needed to continue computing the SNR-weighted peak
-	# time and frequencies.
+	# information needed to continue computing the SNR squared weighted
+	# peak time and frequencies.
 	#
 
 	a.amplitude += b.amplitude
-	a.snr += b.snr
+	a.snr = math.sqrt(a.snr**2.0 + b.snr**2.0)
 
 	#
 	# The confidence is the confidence of the most significant tile.
