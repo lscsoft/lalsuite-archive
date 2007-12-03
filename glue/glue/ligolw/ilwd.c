@@ -101,8 +101,7 @@ static long ligolw_ilwdchar___hash__(PyObject *self)
 		if(hash == -1)
 			/* -1 is reserved for error conditions */
 			hash = -2;
-	}
-	else
+	} else
 		hash = -1;
 
 	Py_XDECREF(tbl);
