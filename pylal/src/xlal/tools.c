@@ -247,15 +247,17 @@ static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 static PyObject *pylal_SnglInspiralTable___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
 	/* call the generic __new__() */
-	PyObject *new = PyType_GenericNew(type, args, kwds);
+	pylal_SnglInspiralTable *new = (pylal_SnglInspiralTable *) PyType_GenericNew(type, args, kwds);
+
+	if(!new)
+		return NULL;
 
 	/* link the event_id pointer in the sngl_inspiral table structure
 	 * to the event_id structure */
-	pylal_SnglInspiralTable *sngl_inspiral = (pylal_SnglInspiralTable *) new;
-	sngl_inspiral->sngl_inspiral.event_id = &sngl_inspiral->event_id;
+	new->sngl_inspiral.event_id = &new->event_id;
 
 	/* done */
-	return new;
+	return (PyObject *) new;
 }
 
 
