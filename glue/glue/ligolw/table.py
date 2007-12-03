@@ -365,23 +365,23 @@ class TableStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.__tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
-		self.__rowbuilder = None
+		self._tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
+		self._rowbuilder = None
 
 	def config(self, parentNode):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
 		# function.
-		self.__tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		self._tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
 		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
 		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
-		self.__rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		self._rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
 	def appendData(self, content):
 		# tokenize buffer, pack into row objects, and append to
 		# table
-		for row in self.__rowbuilder.append(self.__tokenizer.append(content)):
+		for row in self._rowbuilder.append(self._tokenizer.append(content)):
 			self.parentNode.append(row)
 
 	def unlink(self):
@@ -389,8 +389,8 @@ class TableStream(ligolw.Stream):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.__tokenizer = None
-		self.__rowbuilder = None
+		self._tokenizer = None
+		self._rowbuilder = None
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
