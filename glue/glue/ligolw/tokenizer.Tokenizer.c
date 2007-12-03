@@ -507,6 +507,19 @@ static PyObject *set_types(PyObject *self, PyObject *sequence)
 
 
 /*
+ * Attribute access.
+ */
+
+
+static PyObject *attribute_get_data(PyObject *obj, void *data)
+{
+	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) obj;
+
+	return PyUnicode_FromUnicode(tokenizer->data, tokenizer->length - tokenizer->data);
+}
+
+
+/*
  * Type information
  */
 
@@ -514,6 +527,12 @@ static PyObject *set_types(PyObject *self, PyObject *sequence)
 static struct PyMethodDef methods[] = {
 	{"append", append, METH_O, "Append a unicode object to the tokenizer's internal buffer.  Also accepts str objects as input."},
 	{"set_types", set_types, METH_O, "Set the types to be used cyclically for token parsing.  This function accepts an iterable of callables.  Each callabled will be passed the token to be converted as a unicode string.  Special fast-paths are included to handle the Python builtin types float, int, long, str, and unicode.  The default is to return all tokens as unicode objects."},
+	{NULL,}
+};
+
+
+static struct PyGetSetDef getset[] = {
+	{"data", attribute_get_data, NULL, "The current contents of the internal buffer.", NULL},
 	{NULL,}
 };
 
@@ -550,6 +569,7 @@ PyTypeObject ligolw_Tokenizer_Type = {
 	.tp_init = __init__,
 	.tp_iter = __iter__,
 	.tp_iternext = next,
+	.tp_getset = getset,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".Tokenizer",
 	.tp_new = PyType_GenericNew,
