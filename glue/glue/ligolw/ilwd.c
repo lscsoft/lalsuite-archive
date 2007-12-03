@@ -99,6 +99,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 {
 	/* call the generic __new__() */
 	PyObject *new = PyType_GenericNew(type, NULL, NULL);
+	PyObject *obj;
 	char *s;
 
 	if(!new)
@@ -148,14 +149,24 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 
 		free(table_name);
 		free(column_name);
-	} else {
+	} else if(PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
+		/* we were passed nothing or an int:  i has either been set
+		 * from the int, or we'll use the default value of 0.
+		 * clear the error from the earlier ParseTuple failures */
 		PyErr_Clear();
-		if(!PyArg_ParseTuple(args, "|l", &((ligolw_ilwdchar *) new)->i)) {
-			/* we weren't passed a string or an int:  type
-			 * error */
-			Py_DECREF(new);
-			new = NULL;
-		}
+	} else if(PyArg_ParseTuple(args, "O!", type, &obj)) {
+		/* we've been passed an instance of our own type, just
+		 * incref and return it.  clear the error from the earlier
+		 * ParseTuple failures  */
+		PyErr_Clear();
+		Py_DECREF(new);
+		new = obj;
+		Py_INCREF(new);
+	} else {
+		/* we weren't passed a string or an int or an ilwdchar
+		 * instances:  type error */
+		Py_DECREF(new);
+		new = NULL;
 	}
 
 	return new;
@@ -282,6 +293,7 @@ static PyObject *ligolw_ilwdchar___sub__(PyObject *self, PyObject *other)
 			return NULL;
 
 		/* yes it is, return the ID difference as an int */
+		PyErr_Clear();
 		return PyInt_FromLong(((ligolw_ilwdchar *) self)->i - ((ligolw_ilwdchar *) other)->i);
 	}
 
