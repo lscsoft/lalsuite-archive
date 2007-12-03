@@ -129,7 +129,7 @@ def get_ilwdchar_class(tbl_name, col_name):
 		return cached_ilwdchar_class
 
 
-def get_ilwdchar(string):
+def get_ilwdchar(s):
 	"""
 	Convert an ilwd:char string into an instance of the matching
 	subclass of ilwdchar.
@@ -138,9 +138,9 @@ def get_ilwdchar(string):
 	# try parsing the string as an ilwd:char formated string
 	#
 
-	m = ilwdchar_pattern.match(string)
+	m = ilwdchar_pattern.match(s)
 	if m is None:
-		raise ValueError, string
+		raise ValueError, repr(s)
 
 	#
 	# retrieve the matching class from the ID class cache, and return
