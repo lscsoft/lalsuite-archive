@@ -112,25 +112,21 @@ def get_ilwdchar_class(tbl_name, col_name):
 	#
 
 	key = (str(tbl_name), str(col_name))
-	if key in ilwdchar_class_cache:
+	try:
 		return ilwdchar_class_cache[key]
+	except KeyError:
+		#
+		# define a new class, and add it to the cache
+		#
 
-	#
-	# define a new class
-	#
+		class cached_ilwdchar_class(ilwdchar):
+			__slots__ = ()
+			table_name, column_name = key
+			index_offset = len("%s:%s:" % key)
 
-	class cached_ilwdchar_class(ilwdchar):
-		__slots__ = ()
-		table_name, column_name = key
-		index_offset = len("%s:%s:" % key)
+		ilwdchar_class_cache[key] = cached_ilwdchar_class
 
-	#
-	# cache the new class and return it
-	#
-
-	ilwdchar_class_cache[key] = cached_ilwdchar_class
-
-	return cached_ilwdchar_class
+		return cached_ilwdchar_class
 
 
 def get_ilwdchar(string):
