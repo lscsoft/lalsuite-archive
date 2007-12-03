@@ -235,6 +235,11 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 			goto stop_iteration;
 	}
 
+	/*
+	 * After this, tokenizer->pos points to the first character after
+	 * the delimiter that terminated this current token.
+	 */
+
 	tokenizer->pos = ++pos;
 
 	/*
@@ -245,7 +250,11 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 		tokenizer->type = tokenizer->types;
 
 	/*
-	 * Done
+	 * Done.  *start points to the first character of the token, *end
+	 * points to the first character following the token,
+	 * tokenizer->pos and tokenizer->type have been advanced in
+	 * readiness for the next token, and the return value is the python
+	 * type to which the current token is to be converted.
 	 */
 
 	return type;
@@ -434,37 +443,44 @@ static PyObject *next(PyObject *self)
  */
 
 
-static PyObject *set_types(PyObject *self, PyObject *list)
+static PyObject *set_types(PyObject *self, PyObject *sequence)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	int length, i;
 
 	/*
-	 * The argument must be a list.
+	 * Simplify the sequence access.
 	 */
 
-	if(!PyList_Check(list))
-		goto type_error;
-	length = PyList_GET_SIZE(list);
+	sequence = PySequence_Tuple(sequence);
+	if(!sequence)
+		return NULL;
+	length = PyTuple_GET_SIZE(sequence);
 
 	/*
-	 * Clear the current internal type list.
+	 * Free the current internal type list.
 	 */
 
 	unref_types(tokenizer);
 
 	/*
-	 * Copy the new list's contents into the internal type list.
+	 * Allocate a new internal type list.
 	 */
 
 	tokenizer->types = malloc(length * sizeof(*tokenizer->types));
-	if(!tokenizer->types)
+	if(!tokenizer->types) {
+		Py_DECREF(sequence);
 		return PyErr_NoMemory();
-	tokenizer->types_length = &tokenizer->types[length];
+	}
 	tokenizer->type = tokenizer->types;
+	tokenizer->types_length = &tokenizer->types[length];
+
+	/*
+	 * Copy the input sequence's contents into the internal type list.
+	 */
 
 	for(i = 0; i < length; i++) {
-		tokenizer->types[i] = PyList_GET_ITEM(list, i);
+		tokenizer->types[i] = PyTuple_GET_ITEM(sequence, i);
 		Py_INCREF(tokenizer->types[i]);
 	}
 
@@ -472,16 +488,9 @@ static PyObject *set_types(PyObject *self, PyObject *list)
 	 * Done.
 	 */
 
+	Py_DECREF(sequence);
 	Py_INCREF(Py_None);
 	return Py_None;
-
-	/*
-	 * Errors.
-	 */
-
-type_error:
-	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list whose elements are chosen from the types unicode, str, int, and float, or None, or are callable objeccts");
-	return NULL;
 }
 
 
