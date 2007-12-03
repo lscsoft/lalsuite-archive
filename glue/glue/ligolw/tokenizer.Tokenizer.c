@@ -406,16 +406,26 @@ static PyObject *next(PyObject *self)
 	*end = 0;
 
 	/*
-	 * Extract token as desired type.
+	 * Extract token as desired type.  The commented out code would
+	 * cause empty tokens to be returned as None instead of causing
+	 * parse errors.  Since the writing code doesn't know what to do
+	 * with None values yet, this is commented out because it has the
+	 * potential to create bugs, but eventually this is the intended
+	 * behaviour.
 	 */
 
-	if(type == (PyObject *) &PyFloat_Type) {
+	/*if(start == end) {
+		Py_INCREF(Py_None);
+		token = Py_None;
+	} else*/ if(type == (PyObject *) &PyFloat_Type) {
 		char ascii_buffer[end - start + 1];
 		char *ascii_end;
 		if(PyUnicode_EncodeDecimal(start, end - start, ascii_buffer, NULL))
 			return NULL;
 		token = PyFloat_FromDouble(strtod(ascii_buffer, &ascii_end));
 		if(ascii_end == ascii_buffer || *ascii_end != 0) {
+			/* strtod() couldn't convert the token, emulate
+			 * float()'s error message */
 			Py_DECREF(token);
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", ascii_buffer);
 			token = NULL;
