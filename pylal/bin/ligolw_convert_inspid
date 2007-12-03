@@ -260,14 +260,12 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 		return xmldoc
 
 	#
-	# convert the event_id attribute on every row object.  row ID
-	# objects are like C pointers:  the difference between two of them
-	# is the count separating them, so an ID is "converted" to an int
-	# by subtracting ID=0 from it.
+	# convert the event_id attribute on every row object.  the integer
+	# ID index is extract with the __int__() method.
 	#
 
 	for row in sngl_inspiral:
-		row.event_id = row.event_id - type(row.event_id)(0)
+		row.event_id = int(row.event_id)
 
 	#
 	# update the table's list of valid column types, and the Type
@@ -421,9 +419,8 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = table.next_id(coinc_event)
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
-		# of the event_id.  subtract ID=0 from the event_id to get
-		# the offset as an integer.
-		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)(((events[0].event_id - type(events[0].event_id)(0)) / long(1e9)) % long(1e4))
+		# of the event_id.
+		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -511,7 +508,7 @@ def populate_coinc_event_sims(xmldoc):
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id.  subtract ID=0 from the event_id to
 		# obtain the offset as an integer
-		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)(((events[0].event_id - type(events[0].event_id)(0)) / long(1e9)) % long(1e4))
+		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
