@@ -166,16 +166,15 @@ static PyObject *next(PyObject *self)
 		return NULL;
 	}
 
-	if(rowbuilder->row == Py_None) {
-		rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
-		if(!rowbuilder->row) {
-			rowbuilder->row = Py_None;
-			return NULL;
-		}
-		Py_DECREF(Py_None);
-	}
-
 	while((item = PyIter_Next(rowbuilder->iter))) {
+		if(rowbuilder->row == Py_None) {
+			rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
+			if(!rowbuilder->row) {
+				rowbuilder->row = Py_None;
+				return NULL;
+			}
+			Py_DECREF(Py_None);
+		}
 		result = PyObject_SetAttr(rowbuilder->row, PyTuple_GET_ITEM(rowbuilder->attributes, rowbuilder->i), item);
 		Py_DECREF(item);
 		if(result < 0)
@@ -194,6 +193,7 @@ static PyObject *next(PyObject *self)
 		Py_DECREF(rowbuilder->iter);
 		rowbuilder->iter = NULL;
 	}
+
 	return NULL;
 }
 
