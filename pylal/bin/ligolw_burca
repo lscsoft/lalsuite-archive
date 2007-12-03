@@ -244,10 +244,22 @@ def burca1(options, filenames):
 				print >>sys.stderr, "continuing by --force"
 
 		#
+		# Add an entry to the process table
+		#
+
+		process = ligolw_burca.append_process(xmldoc, **options.__dict__)
+
+		#
 		# Run coincidence algorithm.
 		#
 
-		ligolw_burca.ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **options.__dict__)
+		ligolw_burca.ligolw_burca(xmldoc, options.program, process.process_id, EventListType, CoincTables, CoincDef, comparefunc, options.thresholds, get_max_segment_gap = options.get_max_segment_gap, verbose = options.verbose)
+
+		#
+		# Finish process table entry
+		#
+
+		llwapp.set_process_end_time(process)
 
 		#
 		# Write back to disk, and clean up.

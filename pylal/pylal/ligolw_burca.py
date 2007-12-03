@@ -170,9 +170,9 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
 	def append_coinc(self, process_id, time_slide_id, events):
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
+		result = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
 		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
-		return coinc
+		return result
 
 
 #
@@ -368,46 +368,89 @@ def StringCoincCompare(a, b, thresholds):
 #
 
 
-def ligolw_burca(xmldoc, EventListType, CoincTables, CoincDef, comparefunc, **kwargs):
-	# add an entry in the process table
-	process = append_process(xmldoc, **kwargs)
-
-	if kwargs["verbose"]:
-		print >>sys.stderr, "indexing ..."
-
+def ligolw_burca(
+	xmldoc,
+	program,
+	process_id,
+	EventListType,
+	CoincTables,
+	coinc_definer_row,
+	event_comparefunc,
+	thresholds,
+	ntuple_comparefunc = lambda events: False,
+	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
+	verbose = False
+):
+	#
 	# prepare the coincidence table interface
-	coinc_tables = CoincTables(xmldoc, CoincDef)
+	#
 
+	if verbose:
+		print >>sys.stderr, "indexing ..."
+	coinc_tables = CoincTables(xmldoc, coinc_definer_row)
+
+	#
 	# build the event list accessors, populated with events from those
 	# processes that can participate in a coincidence
-	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName, kwargs["get_max_segment_gap"](xmldoc, kwargs["thresholds"]), kwargs["program"])
+	#
+
+	eventlists = snglcoinc.make_eventlists(xmldoc, EventListType, lsctables.SnglBurstTable.tableName, get_max_segment_gap(xmldoc, thresholds), program)
 	avail_instruments = set(eventlists.keys())
 
+	#
 	# iterate over time slides
+	#
+
 	time_slide_ids = coinc_tables.time_slide_ids()
 	for n, time_slide_id in enumerate(time_slide_ids):
+		#
+		# retrieve the current time slide
+		#
+
 		offsetdict = coinc_tables.get_time_slide(time_slide_id)
 		offset_instruments = set(offsetdict.keys())
-		if kwargs["verbose"]:
+		if verbose:
 			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ", ".join(["%s = %+.16g s" % (i, o) for i, o in offsetdict.items()]))
+
+		#
+		# can we do it?
+		#
+
 		if len(offset_instruments) < 2:
-			if kwargs["verbose"]:
+			if verbose:
 				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
 			continue
 		if not offset_instruments.issubset(avail_instruments):
-			if kwargs["verbose"]:
+			if verbose:
 				print >>sys.stderr, "\twarning: skipping due to insufficient data"
 			continue
-		if kwargs["verbose"]:
+
+		#
+		# apply offsets to events
+		#
+
+		if verbose:
 			print >>sys.stderr, "\tapplying time offsets ..."
 		eventlists.set_offsetdict(offsetdict)
-		if kwargs["verbose"]:
-			print >>sys.stderr, "\tsearching ..."
-		# search for and record coincidences
-		for ntuple in snglcoinc.CoincidentNTuples(eventlists, comparefunc, offset_instruments, kwargs["thresholds"], kwargs["verbose"]):
-			coinc_tables.append_coinc(process.process_id, time_slide_id, ntuple)
 
-	# clean up and finish
+		#
+		# search for and record coincidences
+		#
+
+		if verbose:
+			print >>sys.stderr, "\tsearching ..."
+		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
+			if not ntuple_comparefunc(ntuple):
+				coinc_tables.append_coinc(process_id, time_slide_id, ntuple)
+
+	#
+	# remove time offsets from events
+	#
+
 	eventlists.remove_offsetdict()
-	llwapp.set_process_end_time(process)
+
+	#
+	# done
+	#
+
 	return xmldoc
