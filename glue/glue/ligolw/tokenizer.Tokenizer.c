@@ -415,7 +415,7 @@ static PyObject *next(PyObject *self)
 		if(PyUnicode_EncodeDecimal(start, end - start, ascii_buffer, NULL))
 			return NULL;
 		token = PyFloat_FromDouble(strtod(ascii_buffer, &ascii_end));
-		if(*ascii_end != 0) {
+		if(ascii_end == ascii_buffer || *ascii_end != 0) {
 			Py_DECREF(token);
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", ascii_buffer);
 			token = NULL;
