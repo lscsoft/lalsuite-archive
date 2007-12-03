@@ -426,6 +426,8 @@ static PyObject *next(PyObject *self)
 		token = PyUnicode_Encode(start, end - start, NULL, NULL);
 	} else if(type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromUnicode(start, end - start, 0);
+	} else if(type == (PyObject *) &PyLong_Type) {
+		token = PyLong_FromUnicode(start, end - start, 0);
 	} else {
 		token = PyObject_CallFunction(type, "u#", start, end - start);
 	}
@@ -500,8 +502,8 @@ static PyObject *set_types(PyObject *self, PyObject *sequence)
 
 
 static struct PyMethodDef methods[] = {
-	{"append", append, METH_O, "Append a string to the tokenizer's contents."},
-	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing."},
+	{"append", append, METH_O, "Append a unicode object to the tokenizer's internal buffer.  Also accepts str objects as input."},
+	{"set_types", set_types, METH_O, "Set the types to be used cyclically for token parsing.  This function accepts an iterable of callables.  Each callabled will be passed the token to be converted as a unicode string.  Special fast-paths are included to handle the Python builtin types float, int, long, str, and unicode.  The default is to return all tokens as unicode objects."},
 	{NULL,}
 };
 
@@ -511,29 +513,29 @@ PyTypeObject ligolw_Tokenizer_Type = {
 	.tp_basicsize = sizeof(ligolw_Tokenizer),
 	.tp_dealloc = __del__,
 	.tp_doc =
-		"A tokenizer for LIGO Light Weight XML Stream and Array elements.  Converts\n" \
-		"(usually comma-) delimited text streams into sequences of Python objects.  An\n" \
-		"instance is created by calling the class with the delimiter character as the\n" \
-		"single argument.  Text is appended to the internal buffer by passing it to the\n" \
-		"append() method.  Tokens are extracted by iterating over the instance.  The\n" \
-		"Tokenizer is able to directly extract tokens as various Python types.  The\n" \
-		"set_types() method is passed a list of the types to which tokens are to be\n" \
-		"converted.  The types will be used in order, cyclically.  For example, passing\n" \
-		"[int] to set_types() causes all tokens to be converted to ints, while\n" \
-		"[str, int] causes the first token to be returned as a string, the second as an\n" \
-		"int, then the third as a string again, and so on.  The default is to extract\n" \
-		"all tokens as strings.  Note that the last token will not be extracted until\n" \
-		"a delimiter character is seen to terminate it.\n" \
-		"\n" \
-		"Example:\n" \
-		"\n" \
-		">>> from glue.ligolw import tokenizer\n" \
-		">>> t = tokenizer.Tokenizer(\",\")\n" \
-		">>> t.set_types([str, int])\n" \
-		">>> list(t.append(\"a,10,b,2\"))\n" \
-		"['a', 10, 'b']\n" \
-		">>> list(t.append(\"0,\"))\n" \
-		"[20]\n",
+"A tokenizer for LIGO Light Weight XML Stream and Array elements.  Converts\n" \
+"(usually comma-) delimited text streams into sequences of Python objects.  An\n" \
+"instance is created by calling the class with the delimiter character as the\n" \
+"single argument.  Text is appended to the internal buffer by passing it to the\n" \
+"append() method.  Tokens are extracted by iterating over the instance.  The\n" \
+"Tokenizer is able to directly extract tokens as various Python types.  The\n" \
+"set_types() method is passed a sequence of the types to which tokens are to be\n" \
+"converted.  The types will be used in order, cyclically.  For example, passing\n" \
+"[int] to set_types() causes all tokens to be converted to ints, while\n" \
+"[str, int] causes the first token to be returned as a string, the second as an\n" \
+"int, then the third as a string again, and so on.  The default is to extract\n" \
+"all tokens as strings.  Note that the last token will not be extracted until\n" \
+"a delimiter character is seen to terminate it.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> from glue.ligolw import tokenizer\n" \
+">>> t = tokenizer.Tokenizer(\",\")\n" \
+">>> t.set_types([str, int])\n" \
+">>> list(t.append(\"a,10,b,2\"))\n" \
+"['a', 10, 'b']\n" \
+">>> list(t.append(\"0,\"))\n" \
+"[20]",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
