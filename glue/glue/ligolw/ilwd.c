@@ -30,6 +30,7 @@
 
 #include <Python.h>
 #include <stdlib.h>
+#include <ilwd.h>
 
 
 #define MODULE_NAME "glue.ligolw.__ilwd"
@@ -42,23 +43,6 @@
  *
  * ============================================================================
  */
-
-
-/*
- * Structure
- */
-
-
-typedef struct {
-	PyObject_HEAD
-	long i;
-} ligolw_ilwdchar;
-
-
-/* for resolving forward references */
-
-
-PyTypeObject ligolw_ilwdchar_Type;
 
 
 /*
