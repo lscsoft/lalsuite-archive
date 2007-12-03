@@ -427,7 +427,7 @@ static PyObject *next(PyObject *self)
 	} else if(type == (PyObject *) &PyInt_Type) {
 		token = PyInt_FromUnicode(start, end - start, 0);
 	} else {
-		token = PyObject_CallFunction(type, "(u#)", start, end - start);
+		token = PyObject_CallFunction(type, "u#", start, end - start);
 	}
 
 	/*
