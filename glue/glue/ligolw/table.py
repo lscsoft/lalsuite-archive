@@ -692,10 +692,12 @@ def startStream(self, attrs):
 
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
-	# add a final delimiter to induce the last token to get parsed.
-	# Also call _end_of_rows() hook.
+	# add a final delimiter to induce the last token to get parsed but
+	# only if there's something other than whitespace left in the
+	# tokenizer's buffer.  Also call _end_of_rows() hook.
 	if self.current.parentNode.tagName == ligolw.Table.tagName:
-		self.current.appendData(self.current.getAttribute("Delimiter"))
+		if not self.current._tokenizer.data.isspace():
+			self.current.appendData(self.current.getAttribute("Delimiter"))
 		self.current.parentNode._end_of_rows()
 	else:
 		__parent_endStream(self)
