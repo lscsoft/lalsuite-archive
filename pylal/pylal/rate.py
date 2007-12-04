@@ -218,6 +218,60 @@ class LogarithmicBins(Bins):
 		return self.min * numpy.exp(self.delta * numpy.arange(1, self.n + 1))
 
 
+class ATanBins(Bins):
+	"""
+	Bins spaced uniformly in tan^-1 x.  Provides approximately linear
+	binning in the middle portion, with the bin density dropping
+	asymptotically to 0 as x goes to +/- \infty.  The min and max
+	parameters set the bounds of the region of approximately
+	uniformly-spaced bins.  In a sense, these are where the roll-over
+	from uniformly-spaced bins to asymptotically diminishing bin
+	density occurs.  There are a total of n bins.
+
+	Example:
+
+	>>> x = ATanBins(-1.0, +1.0, 11)
+	>>> x[0]
+	5
+	>>> x[float("-inf")]
+	0
+	>>> x[float("+inf")]
+	10
+	>>> x.centres()
+	array([-6.95515277, -2.18969456, -1.15406152, -0.64266098, -0.29362649,
+	        0.        ,  0.29362649,  0.64266098,  1.15406152,  2.18969456,
+	        6.95515277])
+	"""
+	def __init__(self, min, max, n):
+		Bins.__init__(self, min, max, n)
+		self.mid = (min + max) / 2.0
+		self.scale = math.pi / float(max - min)
+		self.delta = 1.0 / n
+
+	def __getitem__(self, x):
+		if isinstance(x, segments.segment):
+			return slice(self[x[0]], self[x[1]] + 1)
+		if isinstance(x, slice):
+			if x.step is not None:
+				raise NotImplementedError, x
+			return slice(self[x.start], self[x.stop])
+		# map to the domain [0, 1]
+		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
+		if x < 1:
+			return int(x / self.delta)
+		# x == 1, special "measure zero" corner case
+		return self.n - 1
+
+	def lower(self):
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n))
+
+	def centres(self):
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(0, self.n) + 0.5))
+
+	def upper(self):
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1))
+
+
 class NDBins(tuple):
 	"""
 	Multi-dimensional co-ordinate binning.  An instance of this object
@@ -771,7 +825,8 @@ def bins_to_xml(bins):
 		row.order = order
 		row.type = {
 			LinearBins: "lin",
-			LogarithmicBins: "log"
+			LogarithmicBins: "log",
+			ATanBins: "atan"
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
@@ -792,7 +847,8 @@ def bins_from_xml(xml):
 	for row in xml:
 		binnings[row.order] = {
 			"lin": LinearBins,
-			"log": LogarithmicBins
+			"log": LogarithmicBins,
+			"atan": ATanBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
 		raise ValueError, "incomplete bin spec"
