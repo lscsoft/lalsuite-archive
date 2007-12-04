@@ -168,9 +168,9 @@ class ExcessPowerCoincTables(snglcoinc.CoincTables):
 			xmldoc.childNodes[0].appendChild(self.multibursttable)
 
 	def append_coinc(self, process_id, time_slide_id, events):
-		result = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, events)
 		self.multibursttable.append(make_multi_burst(process_id, coinc.coinc_event_id, events))
-		return result
+		return coinc
 
 
 #
