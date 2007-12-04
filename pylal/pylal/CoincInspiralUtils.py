@@ -50,29 +50,22 @@ def simpleEThinca(trigger1, trigger2):
   #FIX ME end_time for time slides is poorly defined, we should sort it out
   #dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
 
-  dend_time = 0
+  dt = 0
   dtau0 = trigger2.tau0-trigger1.tau0
-  
-
   dtau3 = trigger2.tau3-trigger1.tau3
+
+  dist1 = dt * (dt * trigger1.Gamma0 + dtau0 * trigger1.Gamma1 + dtau3 * trigger1.Gamma2) + \
+       dtau0 * (dt * trigger1.Gamma1 + dtau0 * trigger1.Gamma3 + dtau3 * trigger1.Gamma4) + \
+       dtau3 * (dt * trigger1.Gamma2 + dtau0 * trigger1.Gamma4 + dtau3 * trigger1.Gamma5)
   
+  dist2 = dt * (dt * trigger2.Gamma0 + dtau0 * trigger2.Gamma1 + dtau3 * trigger2.Gamma2) + \
+       dtau0 * (dt * trigger2.Gamma1 + dtau0 * trigger2.Gamma3 + dtau3 * trigger2.Gamma4) + \
+       dtau3 * (dt * trigger2.Gamma2 + dtau0 * trigger2.Gamma4 + dtau3 * trigger2.Gamma5)
 
-  delta_x = numpy.array([dend_time, dtau0, dtau3])
+  average_distance = 0.5 * (numpy.sqrt(dist1) + numpy.sqrt(dist2))
+
+  simple_ethinca = (average_distance * average_distance) / 4.0
   
-  Gamma1 = numpy.array( [[trigger1.Gamma0, trigger1.Gamma1, trigger1.Gamma2],\
-                 [trigger1.Gamma1, trigger1.Gamma3, trigger1.Gamma4],\
-                 [trigger1.Gamma2, trigger1.Gamma4, trigger1.Gamma5]])
-  
-
-  Gamma2 = numpy.array( [[trigger2.Gamma0, trigger2.Gamma1, trigger2.Gamma2],\
-                 [trigger2.Gamma1, trigger2.Gamma3, trigger2.Gamma4],\
-                 [trigger2.Gamma2, trigger2.Gamma4, trigger2.Gamma5]])
- 
-
-  average_distance = 0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma1, delta_x))) + \
-                    0.5*numpy.sqrt(numpy.dot(delta_x, numpy.dot(Gamma2, delta_x)))
-
-  simple_ethinca = (average_distance**2)/4.0
   return simple_ethinca
   
 
@@ -536,6 +529,7 @@ class coincInspiralTable:
     """
     c_ifos,ifolist = candidate.get_ifos()
     triggers_within_epsilon = coincInspiralTable()
+    epsilon_sq = epsilon * epsilon
 
     for trig in self:
       trig_ifos,tmplist = trig.get_ifos()
@@ -543,39 +537,39 @@ class coincInspiralTable:
       param_counter = 0
       if c_ifos == trig_ifos:
         for ifo1 in ifolist: 
+          c = getattr(candidate,ifo1)
+          t = getattr(trig,ifo1)
+          
           # distance^2 apart in effective snr
-          c_lambda = getattr(candidate,ifo1).snr
-          t_lambda = getattr(trig,ifo1).snr
+          c_lambda = c.snr
+          t_lambda = t.snr
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
           # distance^2 apart in chi squared
-          c_lambda = getattr(candidate,ifo1).chisq
-          t_lambda = getattr(trig,ifo1).chisq
+          c_lambda = c.chisq
+          t_lambda = t.chisq
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
           # distance^2 apart in mchirp
-          c_lambda = getattr(candidate,ifo1).mchirp
-          t_lambda = getattr(trig,ifo1).mchirp
+          c_lambda = c.mchirp
+          t_lambda = t.mchirp
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
           # distance^2 apart in effective distance
-          c_lambda = getattr(candidate,ifo1).eff_distance
-          t_lambda = getattr(trig,ifo1).eff_distance
+          c_lambda = c.eff_distance
+          t_lambda = t.eff_distance
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
           param_counter += 1
 
           # distance^2 apart in ethinca
           for ifo2 in ifolist:
             if ifo1 < ifo2:
-              c_lambda = simpleEThinca(\
-                getattr(candidate,ifo1),\
-                getattr(candidate,ifo2) )
-              t_lambda = simpleEThinca(\
-                getattr(trig,ifo1),\
-                getattr(trig,ifo2) )
+              c_lambda = simpleEThinca(c, getattr(candidate, ifo2))
+              t_lambda = simpleEThinca(t, getattr(trig, ifo2))
+              
               # check if the ethinca parameter of the candidate is not zero
               if c_lambda > 0.0:
                 sEThinca_scale = c_lambda
@@ -586,7 +580,7 @@ class coincInspiralTable:
               tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
               param_counter += 1
 
-        if ( (tmp_d_squared / float(param_counter)) < epsilon**2 ):
+        if ( (tmp_d_squared / float(param_counter)) < epsilon_sq ):
           triggers_within_epsilon.append(trig)
 
     return triggers_within_epsilon
