@@ -238,9 +238,9 @@ class ATanBins(Bins):
 	>>> x[float("+inf")]
 	10
 	>>> x.centres()
-	array([-6.95515277, -2.18969456, -1.15406152, -0.64266098, -0.29362649,
-	        0.        ,  0.29362649,  0.64266098,  1.15406152,  2.18969456,
-	        6.95515277])
+	array([-4.42778777, -1.39400285, -0.73469838, -0.40913068, -0.18692843,
+	        0.        ,  0.18692843,  0.40913068,  0.73469838,  1.39400285,
+                4.42778777])
 	"""
 	def __init__(self, min, max, n):
 		Bins.__init__(self, min, max, n)
@@ -263,13 +263,13 @@ class ATanBins(Bins):
 		return self.n - 1
 
 	def lower(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n))
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n)) / self.scale + self.mid
 
 	def centres(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(0, self.n) + 0.5))
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(0, self.n) + 0.5)) / self.scale + self.mid
 
 	def upper(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1))
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1)) / self.scale + self.mid
 
 
 class NDBins(tuple):
