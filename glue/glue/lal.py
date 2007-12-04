@@ -29,6 +29,7 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
+import fnmatch
 import re
 import urlparse
 import operator
@@ -599,25 +600,34 @@ class Cache(list):
 		exact_match=False):
 		"""
 		Return a Cache object with those CacheEntries that contain the
-		given inputs (overlap, in the case of segment).  If
+		given patterns (or overlap, in the case of segment).  If
 		exact_match is True, then non-None ifos, description, and
 		segment patterns must match exactly.
+		
+		Bash-style wildcards (*?) are allowed for ifos and description.
 		"""
 		if exact_match:
-			string_cmp = operator.eq
-			segment_cmp = operator.eq
+			segment_func = lambda e: e.segment == segment
 		else:
-			string_cmp = operator.contains
-			segment_cmp = segments.segment.intersects
-
+			if ifos is not None: ifos = "*" + ifos + "*"
+			if description is not None: description = "*" + description + "*"
+			segment_func = lambda e: segment.intersects(e.segment)
+		
 		c = self
+		
 		if ifos is not None:
-			c = [entry for entry in c if string_cmp(entry.observatory, ifos)]
+			ifos_regexp = re.compile(fnmatch.translate(ifos))
+			match_func = lambda entry: ifos_regexp.match(entry.observatory) is not None
+			c = [entry for entry in c if match_func(entry)]
+		
 		if description is not None:
-			c = [entry for entry in c if string_cmp(entry.description, description)]
+			descr_regexp = re.compile(fnmatch.translate(description))
+			match_func = lambda entry: descr_regexp.match(entry.description) is not None
+			c = [entry for entry in c if match_func(entry)]
+		
 		if segment is not None:
-			c = [entry for entry in c if segment_cmp(entry.segment, segment)]
-
+			c = [entry for entry in c if segment_func(entry)]
+		
 		return self.__class__(c)
 
 	def pfnlist(self):
