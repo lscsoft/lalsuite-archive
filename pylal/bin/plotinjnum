@@ -33,39 +33,46 @@ def found_missed(opts,foundFiles,missedFiles):
     file = [file]
     simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True)
+    if simFound and inspTriggers:
     # construct the coincs
-    fileCoincTriggers = \
-      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
-    fileCoincTriggers.add_sim_inspirals(simFound)
-    for coinc in fileCoincTriggers:
-      coincTriggers.append(coinc)
-
+      fileCoincTriggers = \
+        CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+      fileCoincTriggers.add_sim_inspirals(simFound)
+      for coinc in fileCoincTriggers:
+        coincTriggers.append(coinc)
+     
   missed = [[],[],[],[]]
   for file in missedFiles:
     file = [file]
+    
     simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-    for sim in simMissed:
-      missed[0].append(sim.mchirp)
-      missed[1].append(sim.end_time_gmst)
-      missed[2].append(sim.eff_dist_h)
-      missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
+    if simMissed:
+      for sim in simMissed:
+        missed[0].append(sim.mchirp)
+        missed[1].append(sim.end_time_gmst)
+        missed[2].append(sim.eff_dist_h)
+        missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
   
   doubles = [[],[],[],[]]
   triples = [[],[],[],[]]
-  for coinc in coincTriggers:
-    if coinc.numifos == 2:
-      doubles[0].append(coinc.sim.mchirp)
-      doubles[1].append(coinc.sim.end_time_gmst)
-      doubles[2].append(coinc.sim.eff_dist_h)
-      doubles[3].append(coinc.sim.eff_dist_h* \
+  if len(coincTriggers) > 0:
+    for coinc in coincTriggers:
+      if coinc.numifos == 2:
+        doubles[0].append(coinc.sim.mchirp)
+        doubles[1].append(coinc.sim.end_time_gmst)
+        doubles[2].append(coinc.sim.eff_dist_h)
+        doubles[3].append(coinc.sim.eff_dist_h* \
                       (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-    if coinc.numifos == 3:
-      triples[0].append(coinc.sim.mchirp)
-      triples[1].append(coinc.sim.end_time_gmst)
-      triples[2].append(coinc.sim.eff_dist_h)
-      triples[3].append(coinc.sim.eff_dist_h* \
-                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-
+      if coinc.numifos == 3:
+        triples[0].append(coinc.sim.mchirp)
+        triples[1].append(coinc.sim.end_time_gmst)
+        triples[2].append(coinc.sim.eff_dist_h)
+        triples[3].append(coinc.sim.eff_dist_h* \
+                     (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+  
+      print "doubles[0]",doubles[0]
+      print "triples[0]",triples[0]
+      print "missed[0]", missed[0] 
   return missed, doubles, triples
 
 
@@ -74,20 +81,10 @@ def plot_found_missed_mchirp(opts, missed, doubles, triples):
 
   """
   figure(1)
-  if len(triples[0])>0:
-    semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
-    legend_text=("triple", "double", "coincs")
-  elif len(doubles[0])>0:
-    semilogy(doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
-    legend_text=( "double", "coincs")
-  elif len(missed[0])>0:
-    semilogy(missed[0],missed[2],'rx')
-    legend_text=("missed")
-  else:
-    ValueError,"double, triple and missed are empty..."
-  
+  semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
+  legend_text=("triple", "double", "coincs")
   grid()
-  title('Found and Missed Injections')
+  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('mchirp',size='x-large')
   ylabel('effective distance',size='x-large')
   legend(legend_text,loc=0)
@@ -108,21 +105,9 @@ def plot_found_missed_end_time(opts, missed, doubles, triples):
 
   """
   figure(2)
-  if len(triples[1])>0:
-    semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
-    legend_text=("triple", "double", "coincs")
-  elif len(doubles[1])>0:
-    semilogy(doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
-    legend_text=( "double", "coincs")
-  elif len(missed[1])>0:
-    semilogy(missed[1],missed[2],'rx')
-    legend_text=("missed")
-  else:
-    ValueError,"double, triple and missed are empty..."
-  
-
-  grid()
-  title('Found and Missed Injections')
+  semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
+  legend_text=("triple", "double", "coincs")
+  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('end time gmst',size='x-large')
   ylabel('eff dist',size='x-large')
   legend(legend_text,loc=0)
@@ -145,20 +130,10 @@ def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples):
   """
  
   figure(3)
-  if len(triples[0])>0:
-    semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
-    legend_text=("triple", "double", "coincs")
-  elif len(doubles[0])>0:
-    semilogy(doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
-    legend_text=( "double", "coincs")
-  elif len(missed[0])>0:
-    semilogy(missed[0],missed[3],'rx')
-    legend_text=("missed")
-  else:
-    ValueError,"double, triple and missed are empty..."
-  
+  semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
+  legend_text=("triple", "double", "coincs")
   grid()
-  title('Found and Missed Injections')
+  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('mchirp',size='x-large')
   ylabel('chirp distance',size='x-large')
   legend(legend_text,loc=0)
@@ -202,7 +177,7 @@ def parse_command_line():
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
-  parser.add_option("-I","--injection-cache-file",action="store",type="string",\
+  parser.add_option("-I","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
   parser.add_option("-i","--ifo-type",action="store",type="string",\
@@ -223,22 +198,27 @@ def parse_command_line():
   parser.add_option("","--gps-end-time",action="store",\
       type="int",  metavar=" GPSENDTIME",\
       help="gps end time (for naming figure and output files")
-  parser.add_option("-t","--ifo-times",action="store",\
+  parser.add_option("-t","--ifo-tag",action="store",\
+      type="string",  metavar=" IFOTAG",\
+      help="ifo tag gives the information about ifo times and stage")
+  parser.add_option("-T","--ifo-times",action="store",\
       type="string",  metavar=" IFOTIMES",\
-      help="ifo times is used as prefix for the output files ")
+      help="ifo times e.g H1H2, H1L1, H1H2L1 etc.")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
-  parser.add_option("","--cache-description", action="store",type="string",\
-      default="SIRE", metavar="CACHEDESCRIPTION", help="description pattern the cache entries will be sieved with" )
+  parser.add_option("","--inj-found-pattern", action="store",type="string",\
+      default="", metavar="INJECTIONSPATTERN", help="sieving the cache file with injection pattern description" )
+  parser.add_option("","--inj-missed-pattern", action="store",type="string",\
+      default="", metavar="MISSEDPATTERN", help="sieving the cache file with missed pattern description" )
 
   (options,args) = parser.parse_args()
   # test the input options
-  if not options.ifo_times:
-    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
 
   return options, sys.argv[1:]
 
+# Alphabets used
+# 
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
@@ -264,36 +244,42 @@ tagList= []   # use for the cache file
 
 # Checking for found files and missed files.
 ##############################################################################
-print opts.ifo_type
 
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
   if opts.verbose:
      print " ...reading the following list of found files " + str(foundFiles) + "\n"
-
-elif opts.injection_cache_file:
-  files =  lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
-  foundFiles = files.sieve(description= "FOUND").checkfilesexist()[0].pfnlist()
-
-#  foundFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="FOUND").checkfilesexist()[0].pfnlist()
-
+elif opts.cache_file:
+  foundFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_found_pattern).checkfilesexist()[0].pfnlist()
+  
   print foundFiles
   if opts.verbose:
       print " ...reading the following list of found files " + str(foundFiles) + "\n"
 
-else:
-  print >>sys.stderr, "Must specify a glob of FOUND injections"
+
+
+else:  
+  print >>sys.stderr, "Must specify a glob of FOUND injections or cache file"
   sys.exit(1)
 
+
+if not foundFiles:
+  print >>sys.stdout, "List of found files for " + opts.ifo_times + " is empty"
+  sys.exit(0)
+
+
+
+
+  
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
 
-elif opts.injection_cache_file:
-   files =  lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, exact_match=True).sieve(description=opts.cache_description)
-   missedFiles = files.sieve(description="MISSED" ).checkfilesexist()[0].pfnlist()
-   #foundFiles = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type,description="MISSED").checkfilesexist()[0].pfnlist()
+elif opts.cache_file:
+   missedFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_missed_pattern).checkfilesexist()[0].pfnlist()
+   
+   print missedFiles
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
        
@@ -301,14 +287,15 @@ else:
   print >>sys.stderr, "Must specify a glob of MISSED injections"
   sys.exit(1)
 
-
+if not missedFiles:
+  print >>sys.stdout, "List of missed files for " + opts.ifo_times + " is empty"
+  sys.exit(0)
 
 ##############################################################################
 
 # Generating missed, doubles and triple coincs
-
+  
 missed, doubles, triples = found_missed(opts,foundFiles,missedFiles)
-
 
 
 # ============================================================================
