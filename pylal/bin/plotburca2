@@ -169,30 +169,27 @@ def plot_coinc_params(distributions, plottype):
 		dband_axes.set_xlabel(r"$(\Delta f_{\mathrm{%s}} - \Delta f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
 		ddur_axes.set_xlabel(r"$(\Delta t_{\mathrm{%s}} - \Delta t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
 
+		# this must match the mapping used in burca_tailor to bin
+		# the \Delta t's.
+		ticks = numpy.array((float("-inf"), -0.08, -0.04, -0.02, -0.01, 0, 0.01, 0.02, 0.04, 0.08, float("inf")), dtype = "double")
+		dt_axes.set_xticks(numpy.arctan((ticks / 0.05) * (math.pi / 2)) / (math.pi / 2))
+		dt_axes.set_xticklabels([r"$-\infty$"] + map(lambda x: "$%.2g$" % x, ticks[1:-1]) + [r"$\infty$"])
+
 		#
 		# Plot the data on them.
 		#
 
 		prefix = "%s_%s_" % pair
-		red_rate = distributions.injection_rates[prefix + "dt"]
-		black_rate = distributions.background_rates[prefix + "dt"]
-		add_to_plot(dt_axes, red_rate, black_rate, plottype)
+		for axes, suffix in zip((dt_axes, df_axes, dh_axes, dband_axes, ddur_axes), ("dt", "df", "dh", "dband", "ddur")):
+			red_rate = distributions.injection_rates[prefix + suffix]
+			black_rate = distributions.background_rates[prefix + suffix]
+			add_to_plot(axes, red_rate, black_rate, plottype)
 
-		red_rate = distributions.injection_rates[prefix + "df"]
-		black_rate = distributions.background_rates[prefix + "df"]
-		add_to_plot(df_axes, red_rate, black_rate, plottype)
+		#
+		# Force ranges
+		#
 
-		red_rate = distributions.injection_rates[prefix + "dh"]
-		black_rate = distributions.background_rates[prefix + "dh"]
-		add_to_plot(dh_axes, red_rate, black_rate, plottype)
-
-		red_rate = distributions.injection_rates[prefix + "dband"]
-		black_rate = distributions.background_rates[prefix + "dband"]
-		add_to_plot(dband_axes, red_rate, black_rate, plottype)
-
-		red_rate = distributions.injection_rates[prefix + "ddur"]
-		black_rate = distributions.background_rates[prefix + "ddur"]
-		add_to_plot(ddur_axes, red_rate, black_rate, plottype)
+		dt_axes.set_xlim((-1.0, +1.0))
 
 	#
 	# GMST

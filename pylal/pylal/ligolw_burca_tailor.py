@@ -104,6 +104,21 @@ def coinc_params(events, offsetdict):
 		# deltas are recorded
 
 		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
+		# map dt into a finite interval.  the mapping
+		#
+		#	x --> atan(x * pi/2) / (pi/2)
+		#
+		# is approximately an identity map near x = 0 (where the
+		# slope of atan is 1), but asymptotes to +/- 1 as |x| -->
+		# \infty.  One can say the roll-over from linear to
+		# asymptotic behaviour occurs at about x = +/- 1.  dt is
+		# converted to a dimensionless quantity, x, by taking the
+		# ratio of it to the time difference where it makes sense
+		# for the linear-to-asymptotic roll-over to occur.  From
+		# software injections this is found to be approximately
+		# |dt| = 50 ms (inside 50 ms is where the interesting
+		# structure in the parameter distributions is found).
+		dt = math.atan((dt / 0.05) * (math.pi / 2)) / (math.pi / 2)
 		name = "%sdt" % prefix
 		if name not in params or abs(params[name]) > abs(dt):
 			params[name] = dt
@@ -454,9 +469,9 @@ class DistributionsStats(Stats):
 		"H1_H2_dh": segments.segment(-2.0, +2.0),
 		"H1_L1_dh": segments.segment(-2.0, +2.0),
 		"H2_L1_dh": segments.segment(-2.0, +2.0),
-		"H1_H2_dt": segments.segment(-.5, +.5),
-		"H1_L1_dt": segments.segment(-.5, +.5),
-		"H2_L1_dt": segments.segment(-.5, +.5),
+		"H1_H2_dt": segments.segment(-1.0, +1.0),
+		"H1_L1_dt": segments.segment(-1.0, +1.0),
+		"H2_L1_dt": segments.segment(-1.0, +1.0),
 		"gmst": segments.segment(0.0, 2 * math.pi)
 	}
 
@@ -473,9 +488,9 @@ class DistributionsStats(Stats):
 		"H1_H2_dh": 1.0 / 200,
 		"H1_L1_dh": 1.0 / 200,
 		"H2_L1_dh": 1.0 / 200,
-		"H1_H2_dt": 1.0 / 35000,
-		"H1_L1_dt": 1.0 / 35000,
-		"H2_L1_dt": 1.0 / 35000,
+		"H1_H2_dt": 1.0 / 2000,
+		"H1_L1_dt": 1.0 / 2000,
+		"H2_L1_dt": 1.0 / 2000,
 		"gmst": (2 * math.pi) / 1000.0
 	}
 
