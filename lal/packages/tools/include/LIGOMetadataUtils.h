@@ -941,6 +941,12 @@ XLALCoincInspiralIfosCut(
     char                *ifos    
     );
 
+int
+XLALCoincInspiralIfosDiscard(
+    CoincInspiralTable **coincHead,
+    char                *ifos
+    );
+
 UINT8
 XLALCoincInspiralIdNumber (
     CoincInspiralTable  *coincInspiral
