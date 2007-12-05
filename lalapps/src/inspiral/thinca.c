@@ -309,6 +309,7 @@ int main( int argc, char *argv[] )
   UINT4  numTrigs[LAL_NUM_IFO];
   UINT4  N = 0;
   UINT4  outCompress = 0;
+  UINT4  slideH1H2Together = 0;
 
   LALDetector          aDet;
 
@@ -1382,6 +1383,7 @@ int main( int argc, char *argv[] )
               "The time slide specified for ifo %s is %f\n"
               "The time slide specified for ifo %s is also %f\n",
               ifoA, slideStep[ifoNumber], ifoB, slideStep[ifoTwo]);
+            slideH1H2Together = 1;
           }
           else
           {
@@ -2053,6 +2055,18 @@ int main( int argc, char *argv[] )
       /* count the coincs, scroll to end of list */
       if( slideNum )
       {  
+
+        /* keep only the requested coincs */
+        if( slideH1H2Together )
+        {
+          if ( vrbflg ) fprintf( stdout,
+              "Throwing out slide coincs found only as H1H2 doubles.\n" );
+          numCoincInSlide = XLALCoincInspiralIfosDiscard(
+              &coincInspiralList, "H1H2" );
+          if ( vrbflg ) fprintf( stdout,
+              "Kept %d non-H1H2 coincs in slide.\n", numCoincInSlide );
+        }
+
         for (numCoincInSlide = 1, thisCoinc = coincInspiralList; 
             thisCoinc->next; ++numCoincInSlide, thisCoinc = thisCoinc->next );
         
