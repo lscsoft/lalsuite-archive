@@ -743,7 +743,19 @@ def plotcoinchanford(coinctable, col_name, ifo, \
         markeredgewidth=1)
 
     
+######################################################################
+# helper function to get the axes right when plotting logarithmic data
+def setAxisForLog( ax , limit):
+  """
+  Helper function to get the axes right when plotting logarithmic data
+  """
 
+  # get the range
+  ticks = range( int(limit[0]+0.5), int(limit[1])+1)
+
+  # set the ticks and the ticklabels
+  ax.set_ticks(ticks)
+  ax.set_ticklabels(power(10.0,ticks))
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
@@ -766,25 +778,24 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     for i in range(-nbins,nbins):
       bins.append(width * i/nbins)
   
-  xlabel(col_name.replace("_"," "), size='x-large')
-  ylabel('Number', size='x-large')
-
   # creates the histogram and take plot_type into account  
   if plot_type == 'loglog' or plot_type=='logx':
     data = log10(data)
-    xlabel(col_name.replace("_"," ")+"(log). Fix this xtick to be readable (viz.histcol)", size='x-large')
 
   if bins:
-    out = hist(data,bins)
+    ydata, xdata, patches = hist(data,bins)
   else:
-    out = hist(data,nbins)
+    ydata, xdata, patches = hist(data,nbins)
 
-  width = out[1][1] - out[1][0]
-  
+  width = xdata[1] - xdata[0]
+
   if plot_type == 'loglog' or plot_type=='logy':
-    ylabel('Number (fix me in viz.histcol requested log not impletemtend) ', size='x-large')
+    indexPositive = find(ydata>0)
+    ydata = log10( ydata[indexPositive] )
+    xdata = xdata[indexPositive]
 
-  bar(out[1],out[0],width)
+  clf()
+  bar( xdata, ydata, width )
 
   #set the x axis limits taking into account if we use log10(data) 
   if xlimit[0] and  xlimit[1]:
@@ -798,8 +809,20 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     if xlimit[1] < xlimit[0]:
       xlimit[1] = max(data)
       xlim(xlimit)
-  
-  
+
+  # set the axis labels
+  xlabel(col_name.replace("_"," "), size='x-large')
+  ylabel('Number', size='x-large')
+ 
+  ax=axes()
+  if plot_type == 'loglog' or plot_type=='logx':
+    xlabel(col_name.replace("_"," ")+" (log)", size='x-large')
+    setAxisForLog( ax.get_xaxis() , ax.get_xlim() )
+
+  if plot_type == 'loglog' or plot_type=='logy':
+    ylabel('Number', size='x-large')
+    setAxisForLog( ax.get_yaxis() , ax.get_ylim() )
+ 
   
   if ifo:
     title(ifo + ' ' + col_name.replace("_"," ") + ' histogram', size='x-large')
@@ -867,7 +890,6 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
   title(title_string, size='x-large')
 
   grid(True)
-
   if output_name:
     if ifo:
       output_name += '_' + ifo
