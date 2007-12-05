@@ -111,7 +111,8 @@ setup(
       [
         "glue/ligolw/tokenizer.c",
         "glue/ligolw/tokenizer.Tokenizer.c",
-        "glue/ligolw/tokenizer.RowBuilder.c"
+        "glue/ligolw/tokenizer.RowBuilder.c",
+        "glue/ligolw/tokenizer.RowDumper.c"
       ],
       include_dirs = [ "glue/ligolw" ]
     ),

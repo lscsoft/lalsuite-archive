@@ -41,3 +41,12 @@
 
 extern PyTypeObject ligolw_Tokenizer_Type;
 extern PyTypeObject ligolw_RowBuilder_Type;
+extern PyTypeObject ligolw_RowDumper_Type;
+
+
+/*
+ * Functions
+ */
+
+PyObject *_build_attributes(PyObject *sequence);
+PyObject *_build_formats(PyObject *sequence);

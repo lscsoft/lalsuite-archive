@@ -116,7 +116,7 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	if(!PyArg_ParseTuple(args, "OO|O", &rowbuilder->rowtype, &rowbuilder->attributes, &rowbuilder->interns))
 		return -1;
 
-	rowbuilder->attributes = PySequence_Tuple(rowbuilder->attributes);
+	rowbuilder->attributes = _build_attributes(rowbuilder->attributes);
 	if(rowbuilder->interns)
 		rowbuilder->interns = PySequence_Tuple(rowbuilder->interns);
 	else
@@ -205,7 +205,7 @@ static PyObject *next(PyObject *self)
 
 static struct PyMemberDef members[] = {
 	{"rowtype", T_OBJECT, offsetof(ligolw_RowBuilder, rowtype), 0, "row class"},
-	{"attributes", T_OBJECT, offsetof(ligolw_RowBuilder, attributes), 0, "in-order tuple of attribute names"},
+	{"attributes", T_OBJECT, offsetof(ligolw_RowBuilder, attributes), READONLY, "in-order tuple of attribute names"},
 	{"interns", T_OBJECT, offsetof(ligolw_RowBuilder, interns), 0, "names of attributes suitable for interning"},
 	{"row", T_OBJECT, offsetof(ligolw_RowBuilder, row), 0, "current row object"},
 	{"i", T_INT, offsetof(ligolw_RowBuilder, i), 0, "current attribute index"},
