@@ -121,6 +121,15 @@ def initialize_jobs_nodes_descr(cp):
     
     return job_dict, node_class_dict, descr_dict
 
+def load_external_triggers(filename, verbose=False):
+    doc = utils.load_filename(filename, verbose=verbose,
+                              gz=filename.endswith(".gz"))
+    ext_trigger_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
+    if ext_trigger_tables is None:
+        print >>sys.stderr, "No tables named external_trigger:table found in " + filename
+    ext_triggers = itertools.chain(*ext_trigger_tables)
+    return ext_triggers
+
 def write_masked_segments(exttrig_time, exttrig_dir, before_time, after_time):
     # load all analyzable segments
     analyzable_seglist = segmentsUtils.fromsegwizard(open(opts.analyzable_segfile))
@@ -204,12 +213,7 @@ if __name__ == "__main__":
     cp.read(opts.plot_config_file)
     
     # load external trigger times
-    doc = utils.load_filename(opts.list, verbose=opts.verbose,
-                              gz=opts.list.endswith(".gz"))
-    ext_trigger_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
-    if ext_trigger_tables is None:
-        print >>sys.stderr, "No tables named external_trigger:table found in " + opts.list
-    ext_triggers = itertools.chain(*ext_trigger_tables)
+    ext_triggers = load_external_triggers(opts.list, verbose=opts.verbose)
     
     # initialize DAG
     if opts.verbose:
