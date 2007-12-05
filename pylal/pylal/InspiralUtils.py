@@ -182,18 +182,10 @@ def set_prefix_and_suffix(opts, name):
   prefix = name
   if opts.ifo_times:
     prefix = opts.ifo_times +"-"+ prefix
+  if opts.ifo_tag:
+    prefix = prefix + "_" + opts.ifo_tag
   if opts.user_tag:
     prefix = prefix + "_" + opts.user_tag
-  try:
-    if opts.second_stage_only is True:
-      prefix = prefix + "_second_stage"
-  except:
-    pass
-  try:
-    if opts.first_stage_only is True:
-      prefix = prefix + "_first_stage"
-  except:
-    pass
   
   if opts.output_path:
     prefix = opts.output_path+'/'+prefix
