@@ -93,10 +93,10 @@ static void __del__(PyObject *self)
 {
 	ligolw_RowBuilder *rowbuilder = (ligolw_RowBuilder *) self;
 
-	Py_DECREF(rowbuilder->rowtype);
-	Py_DECREF(rowbuilder->attributes);
-	Py_DECREF(rowbuilder->interns);
-	Py_DECREF(rowbuilder->row);
+	Py_XDECREF(rowbuilder->rowtype);
+	Py_XDECREF(rowbuilder->attributes);
+	Py_XDECREF(rowbuilder->interns);
+	Py_XDECREF(rowbuilder->row);
 	Py_XDECREF(rowbuilder->iter);
 
 	self->ob_type->tp_free(self);
@@ -158,7 +158,6 @@ static PyObject *__iter__(PyObject *self)
 static PyObject *next(PyObject *self)
 {
 	ligolw_RowBuilder *rowbuilder = (ligolw_RowBuilder *) self;
-	int result;
 	PyObject *item;
 
 	if(!rowbuilder->iter) {
@@ -167,6 +166,7 @@ static PyObject *next(PyObject *self)
 	}
 
 	while((item = PyIter_Next(rowbuilder->iter))) {
+		int result;
 		if(rowbuilder->row == Py_None) {
 			rowbuilder->row = PyType_GenericNew(rowbuilder->rowtype, NULL, NULL);
 			if(!rowbuilder->row) {
@@ -286,7 +286,7 @@ PyTypeObject ligolw_RowBuilder_Type = {
 "from hints stored in the Table class definitions, and will have been\n"\
 "filtered so that only names corresponding to columns actually in the table\n"\
 "will be listed.",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
 	.tp_iternext = next,
