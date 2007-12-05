@@ -2093,6 +2093,51 @@ XLALCoincInspiralIfosCut(
 
 
 /* <lalVerbatim file="CoincInspiralUtilsCP"> */
+int
+XLALCoincInspiralIfosDiscard(
+    CoincInspiralTable **coincHead,
+    char                *ifos
+    )
+/* </lalVerbatim> */
+{
+  CoincInspiralTable    *prevCoinc = NULL;
+  CoincInspiralTable    *thisCoinc = NULL;
+  int                    numCoinc = 0;
+
+  thisCoinc = *coincHead;
+  *coincHead = NULL;
+
+  while ( thisCoinc )   {
+    CoincInspiralTable *tmpCoinc = thisCoinc;
+    thisCoinc = thisCoinc->next;
+
+    if ( XLALCoincInspiralIfos( tmpCoinc, ifos ) )
+    {
+      /* ifos match so discard tmpCoinc */
+      XLALFreeCoincInspiral( &tmpCoinc );
+    }
+    else
+    {
+      /* keep tmpCoinc */
+      if ( ! *coincHead  )
+      {
+        *coincHead = tmpCoinc;
+      }
+      else
+      {
+        prevCoinc->next = tmpCoinc;
+      }
+      tmpCoinc->next = NULL;
+      prevCoinc = tmpCoinc;
+      ++numCoinc;
+    }
+  }
+
+  return( numCoinc );
+}
+
+
+/* <lalVerbatim file="CoincInspiralUtilsCP"> */
 UINT8
 XLALCoincInspiralIdNumber (
     CoincInspiralTable  *coincInspiral
