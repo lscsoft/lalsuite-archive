@@ -21,6 +21,44 @@ from glue.ligolw import lsctables
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
+def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dpi_thumb=50):
+  """
+  @param filename: filename in which to save the figure
+  @param filename_thumb: filename into which save a thumbnail of the figure
+  @param doThumb: save the thumbnail or not (True/False)
+  @param dpi: resolution of the figure
+  @param dpi_thumn: resolution of the thumbnail (dpi=50 by default)
+  @return filename_thumb if a thumbnail was created (None otherwise)
+
+  """
+  # save picture into a file
+  if filename is not None:
+    # with the appropriate resolution
+    if dpi is None:
+      savefig(filename)
+    else:
+      savefig(filename, dpi=dpi)
+
+  # if thumbnail are requested, save a small picture into a file
+  if doThumb is True:
+    # if a filename is provided
+    if filename_thumb is not None:
+      savefig(filename_thumb, dpi=dpi_thumb)
+    else:
+    # if no filename for the thumbnail is provided, then
+    # we can use the filename argument and add a "thumbnail"
+    # string at the end. However, filename must be provided.
+      if filename is not None:
+        index = filename.rindex('.')
+        filename_thumb = filename[0:index]
+        filename_thumb += '_thumb' + filename[index:]
+        print filename_thumb
+        savefig(filename_thumb, dpi=dpi_thumb)
+      else:
+        print >> sys.stderr, "filename for the thumbnail is not correct. Fix me"
+
+  return filename_thumb
+
 
 def ErrorMessagePlotting(opts, thisplot):
    """
@@ -197,7 +235,8 @@ def set_prefix_and_suffix(opts, name):
     suffix = "-unspecified-gpstime"
   opts.prefix = prefix
   opts.suffix = suffix
- 
+  opts.name = name
+   
   return opts
 
 def init_markup_page( opts):
