@@ -233,7 +233,31 @@ PyTypeObject ligolw_RowDumper_Type = {
 	.tp_basicsize = sizeof(ligolw_RowDumper),
 	.tp_dealloc = __del__,
 	.tp_doc =
-"",
+"An iterator for converting row objects into string tokens.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> class Row(object):\n" \
+"...     pass\n" \
+"... \n" \
+">>> rows = [Row(), Row(), Row()]\n" \
+">>> rows[0].snr = 10.1\n" \
+">>> rows[1].snr = 15.2\n" \
+">>> rows[2].snr = 20.3\n" \
+">>> rows[0].status = \"bad\"\n" \
+">>> rows[1].status = \"bad\"\n" \
+">>> rows[2].status = \"good\"\n" \
+">>> rowdumper = RowDumper((\"snr\", \"status\"), (\"%.16g\", \"\\\"%s\\\"\"), \",\", rows)\n" \
+">>> print \",\\n\".join(rowdumper)\n" \
+"10.1,\"bad\",\n" \
+"15.2,\"bad\",\n" \
+"20.3,\"good\"\n" \
+"\n" \
+"An instance of RowDumper is initialized with four arguments.  The first\n" \
+"argument is a sequence of attribute names.  The second argument is a\n" \
+"sequence of Python format strings.  The third argument is a delimiter\n" \
+"character.  And the final argument is an iterable object that provides row\n" \
+"objects one-by-one.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
