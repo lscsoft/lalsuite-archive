@@ -60,9 +60,8 @@ typedef struct {
 	PyObject *iter;
 	/* number of rows converted so far */
 	int rows_converted;
-	/* tuple of unicode representations of values in most recently
-	 * converted row */
-	PyObject *representations;
+	/* tuple of unicode tokens from most recently converted row */
+	PyObject *tokens;
 } ligolw_RowDumper;
 
 
@@ -79,7 +78,7 @@ static void __del__(PyObject *self)
 	Py_XDECREF(rowdumper->attributes);
 	Py_XDECREF(rowdumper->formats);
 	Py_XDECREF(rowdumper->iter);
-	Py_XDECREF(rowdumper->representations);
+	Py_XDECREF(rowdumper->tokens);
 
 	self->ob_type->tp_free(self);
 }
@@ -119,8 +118,8 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 
 	rowdumper->rows_converted = 0;
-	rowdumper->representations = Py_None;
-	Py_INCREF(rowdumper->representations);
+	rowdumper->tokens = Py_None;
+	Py_INCREF(rowdumper->tokens);
 
 	return 0;
 }
@@ -154,11 +153,11 @@ static PyObject *next(PyObject *self)
 		PyObject *result;
 		int i;
 
-		Py_DECREF(rowdumper->representations);
-		rowdumper->representations = PyTuple_New(n);
-		if(!rowdumper->representations) {
-			rowdumper->representations = Py_None;
-			Py_INCREF(rowdumper->representations);
+		Py_DECREF(rowdumper->tokens);
+		rowdumper->tokens = PyTuple_New(n);
+		if(!rowdumper->tokens) {
+			rowdumper->tokens = Py_None;
+			Py_INCREF(rowdumper->tokens);
 			Py_DECREF(row);
 			return NULL;
 		}
@@ -168,9 +167,9 @@ static PyObject *next(PyObject *self)
 			PyObject *r;
 
 			if(!val) {
-				Py_DECREF(rowdumper->representations);
-				rowdumper->representations = Py_None;
-				Py_INCREF(rowdumper->representations);
+				Py_DECREF(rowdumper->tokens);
+				rowdumper->tokens = Py_None;
+				Py_INCREF(rowdumper->tokens);
 				Py_DECREF(row);
 				return NULL;
 			}
@@ -187,17 +186,17 @@ static PyObject *next(PyObject *self)
 			Py_DECREF(val);
 
 			if(!r) {
-				Py_DECREF(rowdumper->representations);
-				rowdumper->representations = Py_None;
-				Py_INCREF(rowdumper->representations);
+				Py_DECREF(rowdumper->tokens);
+				rowdumper->tokens = Py_None;
+				Py_INCREF(rowdumper->tokens);
 				Py_DECREF(row);
 				return NULL;
 			}
 
-			PyTuple_SET_ITEM(rowdumper->representations, i, r);
+			PyTuple_SET_ITEM(rowdumper->tokens, i, r);
 		}
 
-		result = PyUnicode_Join(rowdumper->delimiter, rowdumper->representations);
+		result = PyUnicode_Join(rowdumper->delimiter, rowdumper->tokens);
 
 		Py_DECREF(row);
 
@@ -223,7 +222,7 @@ static struct PyMemberDef members[] = {
 	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names."},
 	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of format strings."},
 	{"rows_converted", T_INT, offsetof(ligolw_RowDumper, rows_converted), READONLY, "Number of rows converted."},
-	{"representations", T_OBJECT, offsetof(ligolw_RowDumper, representations), READONLY, "In-order tuple of unicode representations of values in most recently converted row."},
+	{"tokens", T_OBJECT, offsetof(ligolw_RowDumper, tokens), READONLY, "In-order tuple of unicode tokens from most recently converted row."},
 	{NULL,}
 };
 
