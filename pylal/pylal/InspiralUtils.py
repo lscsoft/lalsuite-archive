@@ -16,7 +16,7 @@ import sys
 from glue.ligolw import utils
 
 from glue.ligolw import lsctables
-
+from pylab import *
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
@@ -52,7 +52,6 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dp
         index = filename.rindex('.')
         filename_thumb = filename[0:index]
         filename_thumb += '_thumb' + filename[index:]
-        print filename_thumb
         savefig(filename_thumb, dpi=dpi_thumb)
       else:
         print >> sys.stderr, "filename for the thumbnail is not correct. Fix me"
@@ -210,21 +209,44 @@ def initialise(opts, name, version):
 
   # compose prefix
   prefix = name
-  if opts.ifo_times:
-    prefix = opts.ifo_times +"-"+ prefix
-  if opts.ifo_tag:
-    prefix = prefix + "_" + opts.ifo_tag
-  if opts.user_tag:
-    prefix = prefix + "_" + opts.user_tag
+  try:
+    if opts.ifo_times:
+      prefix = opts.ifo_times +"-"+ prefix
+  except:
+     print >> sys.stderr, "--ifo-time option not implemented in the "+name +"executable. skipping..."
+     pass
+  try:
+    if opts.ifo_tag:
+      prefix = prefix + "_" + opts.ifo_tag
+  except: 
+     print >> sys.stderr, "--ifo-tag option not implemented in the "+name +" executable skipping..."
+     pass
+  try:
+    if opts.user_tag:
+      prefix = prefix + "_" + opts.user_tag
+  except: 
+     print >> sys.stderr, "--user-tag option not implemented in the "+name +" executable skipping..."
+     pass
+  try:
+    if opts.output_path:
+      prefix = opts.output_path+'/'+prefix
+  except: 
+     print >> sys.stderr, "--output-path option not implemented in the "+name +" executable skipping ..."
+     pass 
   
-  if opts.output_path:
-    prefix = opts.output_path+'/'+prefix
 
   # compose suffix
-  if opts.gps_start_time and opts.gps_end_time :
-    suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
-  else:
-    suffix = "-unspecified-gpstime"
+  try:
+    if opts.gps_start_time and opts.gps_end_time :
+      suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
+    else:
+      suffix = "-unspecified-gpstime"
+  except:
+     suffix = "-unspecified-gpstime"
+     print >> sys.stderr, "--gps-start-time and/or --gps-end-time  option not implemented in the "+name +" executable skipping..."
+     pass
+  
+
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
