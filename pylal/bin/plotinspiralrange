@@ -108,6 +108,8 @@ def plotinspiralrange_histogram(opts):
   figure_number = figure_number + 1
   figure(figure_number)
   
+  colors = InspiralUtils.colors
+  
   if opts.range_min < 0 or opts.range_max < 0:
     print >>sys.stderr, \
         "Must specify --range-min and --range-max for range hist"
@@ -151,10 +153,12 @@ def plotinspiralrange_histogram(opts):
   grid()
   
   fname = []
-  fname = InspiralUtils.set_figure_name(opts, "range_hist")
-  if opts.enable_output: savefig(fname)
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "range_hist")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
   
-  return fname
+  return fname,fname_thumb
 
 # ============================================================================
 def plotinspiralrange_range_versus_time(opts):
@@ -169,6 +173,8 @@ def plotinspiralrange_range_versus_time(opts):
   # iterate figure number 
   figure_number = figure_number + 1
   figure(figure_number)
+
+  colors = InspiralUtils.colors
 
   for ifo in inspiralSumm.keys():
     Range = inspiralSumm[ifo].getColumnByName('value').asarray()
@@ -190,11 +196,12 @@ def plotinspiralrange_range_versus_time(opts):
   grid()
 
   fname = []
-  fname = InspiralUtils.set_figure_name(opts, "range_plot")
-  if opts.enable_output: savefig(fname)
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "range_plot")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
 
-  
-  return fname
+  return fname,fname_thumb
 
 # ============================================================================
 def plotinspiralrange_range_versus_total_mass(opts):
@@ -208,6 +215,8 @@ def plotinspiralrange_range_versus_total_mass(opts):
   # iterate figure number 
   figure_number = figure_number + 1
   figure(figure_number)
+
+  colors = InspiralUtils.colors
 
   mass = {}
   massRange = {}
@@ -249,12 +258,14 @@ def plotinspiralrange_range_versus_total_mass(opts):
   ylabel('Inspiral Horizon distance (Mpc)', size='x-large')
   grid()
   
+  
   fname = []
-  fname = InspiralUtils.set_figure_name(opts, "range_mass")
-  if opts.enable_output: savefig(fname)
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "range_mass")
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname, doThumb=True, \
+      dpi_thumb=opts.figure_resolution)
   
-  
-  return fname
+  return fname,fname_thumb
 
 # ============================================================================
 def get_filelist(opts):
@@ -273,6 +284,9 @@ def get_filelist(opts):
   if opts.cache_file:
     inspiralFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, \
     description=opts.cache_description).checkfilesexist()[0].pfnlist()
+    if opts.range_mass is True:
+      inspiralFiles += lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, \
+      description="TMPLTBANK").checkfilesexist()[0].pfnlist()
      
   return inspiralFiles
 
@@ -361,6 +375,9 @@ def parse_command_line():
   parser.add_option("","--ifo-type",action="store",\
       type="string", default=None,  metavar="IFO_TYPE",\
       help="sieve a cache file according to a particular ifo type")
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
 
   command_line = sys.argv[1:]
@@ -383,6 +400,12 @@ OR the cachefile options (--cache-file), not both at the same time.
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
+# -- Initialise
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+# -- set the proper color code
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -392,25 +415,12 @@ from pylab import *
 from pylal import viz
 
 
-# ============================================================================
-# Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
-# -- set the proper color code
-colors = InspiralUtils.colors
-figure_number = 0  # used for the figure label (showplot)
-fnameList = []   # use for the cache file
-tagList= []   # use for the cache file
-
-
 
 
 
 # ============================================================================
 # -- identify the inspiral and template bank files
-if opts.verbose:
-  print "Parsing the cache file...wait..."
+InspiralUtils.message(opts, "Parsing the cache file...wait...")
 inspiralFiles = get_filelist(opts)
 
 # -- Read in the summ values from the inspiral/tmpltbank  files
@@ -425,7 +435,7 @@ if opts.range_vs_time is True:
   text ="Inspiral horizon distance for a (1.4,1.4)"+\
       " solar mass system with SNR=8"
   # -- the plot itself --
-  fname = plotinspiralrange_range_versus_time(opts)
+  fname,fname_thumb = plotinspiralrange_range_versus_time(opts)
   # -- save results in output files --
   fnameList.append(fname)
   tagList.append("Horizon distance versus time")
@@ -438,7 +448,7 @@ if opts.range_hist is True:
   text = "Histogram of inspiral horizon distance for a (1.4,1.4) solar "+\
       "mass system with SNR = 8"
   # -- the plot itself --
-  fname = plotinspiralrange_histogram(opts)
+  fname,fname_thumb = plotinspiralrange_histogram(opts)
   # -- save results in output files --
   fnameList.append(fname)
   tagList.append("Histogram of horizon distance")
@@ -453,7 +463,7 @@ if opts.range_mass is True:
   text = "Inspiral Horizon Distance versus Mass "+\
       "at a SNR = 8"
   # -- the plot itself --
-  fname = plotinspiralrange_range_versus_total_mass(opts)
+  fname,fname_thumb = plotinspiralrange_range_versus_total_mass(opts)
   # -- save results in output files --
   fnameList.append(fname)
   tagList.append("Horizon distance versus mass")
@@ -463,8 +473,8 @@ if opts.range_mass is True:
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
   
