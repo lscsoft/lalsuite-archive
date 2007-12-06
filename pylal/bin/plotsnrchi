@@ -247,6 +247,9 @@ def parse_command_line():
       metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
   (options,args) = parser.parse_args()
 
@@ -273,9 +276,7 @@ from pylal import viz
 
 # ============================================================================
 # Initialise
-# -- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -517,7 +518,7 @@ if opts.snr_chisq:
   ylim(min_chisq, max_chisq)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -534,7 +535,7 @@ if opts.trig_contour:
   ylim(min_chisq, max_chisq)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -556,7 +557,7 @@ if opts.contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "contour_const_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -574,7 +575,7 @@ if opts.contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "contour_var_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -592,7 +593,7 @@ if opts.trig_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_const_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -607,7 +608,7 @@ if opts.trig_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_var_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -626,7 +627,7 @@ if opts.trig_inj_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_const_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -642,7 +643,7 @@ if opts.trig_inj_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_var_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -660,7 +661,7 @@ if opts.trig_inj_contour:
   ylim(min_chisq,max_chisq)  
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_contour")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -679,7 +680,7 @@ if opts.trig_contour_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour_const_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -695,7 +696,7 @@ if opts.trig_contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour_var_lines")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -711,7 +712,7 @@ if opts.hist_snr:
   ylabel('pdf', size='x-large')
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_efficiency")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
   
@@ -726,8 +727,9 @@ if opts.hist_snr_chi:
   xlabel('snr/chi', size='x-large')
   ylabel('pdf', size='x-large')
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_chi_efficiency")
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_chi_efficiency")
     savefig(fname)
+    savefig(fname_small, dpi=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -749,8 +751,9 @@ if opts.hist_stat:
     xlabel('variable den. statistic', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "var_den_efficiency")
+      fname,fname_small = InspiralUtils.set_figure_name(opts, "var_den_efficiency")
       savefig(fname)
+      savefig(fname_small, dpi=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
  
@@ -768,8 +771,9 @@ if opts.hist_stat:
     xlabel(r'$\rho^4 / (\chi^2 [\rho^2 +250])$', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "const_den_efficiency")
+      fname,fname_small = InspiralUtils.set_figure_name(opts, "const_den_efficiency")
       savefig(fname)
+      savefig(fname_small, dpi=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -787,8 +791,9 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   xlim(min_snr, max_snr)
   #ylim(1e-5, 10)
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
     savefig(fname)
+    savefig(fname_small, dpi=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -806,8 +811,9 @@ elif opts.snr_rsq:
 
 
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
     savefig(fname)
+    savefig(fname_small, dpi=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -815,8 +821,8 @@ elif opts.snr_rsq:
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
 
