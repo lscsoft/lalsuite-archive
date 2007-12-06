@@ -224,15 +224,11 @@ def ligolw_burca2(database, likelihood_ratio, coinc_params, verbose = False):
 	# Find document parts.
 	#
 
-	if None in (database.coinc_def_table, database.coinc_table, database.time_slide_table):
-		raise ValueError, "database appears to be missing coinc tables"
-
 	time_slides = database.time_slide_table.as_dict()
 
 	#
 	# Iterate over all coincs, assigning likelihood ratios to
-	# burst+burst coincs, and sim+burst coincs if the document contains
-	# them.
+	# burst+burst coincs if the document contains them.
 	#
 
 	if verbose:
