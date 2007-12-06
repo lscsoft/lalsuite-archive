@@ -165,10 +165,13 @@ def parse_command_line():
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None, metavar=" USERTAG",\
+      default=None, metavar="USERTAG",\
+      help="" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+      default=None, metavar="IFOTAG",\
       help="" )
   parser.add_option("-P","--output-path",action="store",\
-      type="string",default="",  metavar="PATH",\
+      type="string",default=None,  metavar="PATH",\
       help="path where the figures would be stored")
   parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
@@ -181,14 +184,17 @@ def parse_command_line():
       help="gps end time (for naming figure and output files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
-  parser.add_option("","--ifo-type",action="store",\
-      type="string", default=None,  metavar="IFO_TYPE",\
-      help="sieve a cache file according to a particular ifo type")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
-  parser.add_option("-W", "--cache-description",action="store",type="string",\
-      default=None, metavar="CACHE_DESCRIPTION", \
+  parser.add_option("", "--ifo-pattern",action="store",type="string",\
+      default=None, metavar="IFO_PATTERN", \
       help="read a file of a particular description  from cache file" )
+  parser.add_option("-W", "--bank-pattern",action="store",type="string",\
+      default=None, metavar="BANK_PATTERN", \
+      help="read a file of a particular description  from cache file" )
+  parser.add_option("", "--match",action="store",type="string",\
+      default=None, metavar="MATCH", \
+      help="To seive exactly according to a pattern, if its set True" )
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
@@ -257,8 +263,8 @@ if opts.cache_file:
     print >>sys.stderr, "Must supply a list of input files"
     sys.exit(1) 
   else:
-    tmpltbankFiles = trig.sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist()
-    trigbankFiles = trig.sieve(description = "TRIGBANK").checkfilesexist()[0].pfnlist()
+    tmpltbankFiles = trig.sieve(description = "TMPLTBANK").sieve(description = (opts.bank_pattern), exact_match = opts.match).sieve(ifos = (opts.ifo_pattern), exact_match = opts.match).checkfilesexist()[0].pfnlist()
+    trigbankFiles = trig.sieve(description = "TRIGBANK").sieve(description = (opts.bank_pattern), exact_match = opts.match).sieve(ifos = (opts.ifo_pattern), exact_match = opts.match).checkfilesexist()[0].pfnlist()
     tmpltSumm = readFiles(tmpltbankFiles)
     trigSumm= readFiles(trigbankFiles)
 
