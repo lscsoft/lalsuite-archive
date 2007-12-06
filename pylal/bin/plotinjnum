@@ -233,9 +233,7 @@ from pylal import viz
 
 ##############################################################################
 # Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.set_prefix_and_suffix(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -316,8 +314,8 @@ else: # we can probably remove the else and put the function calls before the if
   Fig_mchirp = plot_found_missed_mchirp(opts, missed, doubles, triples)
   
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
 

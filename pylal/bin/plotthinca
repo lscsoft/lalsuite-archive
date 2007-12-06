@@ -257,9 +257,7 @@ if 'bitten_l' in opts.statistic:
      sys.exit(1)
 #####################################################################
 # -- some initialisation
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -1208,8 +1206,8 @@ if opts.snr_dist and opts.mass_dependent:
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 # ============================================================================
 
