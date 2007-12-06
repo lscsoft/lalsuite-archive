@@ -138,6 +138,9 @@ def parse_command_line():
       help="ifo times is used as prefix for the output files ")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
   
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -156,8 +159,7 @@ opts, args = parse_command_line()
 # ============================================================================
 # Initialise
 #-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -392,7 +394,7 @@ if opts.time_dist:
 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "time-dist-log")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("End time versus distance")
 
@@ -423,7 +425,7 @@ if opts.mchirp_dist_log:
   gca().grid(True)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "time-mchirp-log")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("End time versus chirp mass ")
     
@@ -455,7 +457,7 @@ if opts.mchirp_dist_linear:
   gca().grid(True)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "time-mchirp-linear")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("End time versus chirp mass (linear) ")
 
@@ -486,7 +488,7 @@ if opts.mtotal_dist_log:
   gca().grid(True)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-log")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Distnace versus total mass ")
 
@@ -518,16 +520,15 @@ if opts.mtotal_dist_linear:
   gca().grid(True)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-linear")
-    savefig(fname)
-    fnameList.append(fname)
-    tagList.append("Distnace versus total mass (linear)")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    tagList.append("Distance versus total mass (linear)")
 
 
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache(opts, html_filename, fnameList)
 
 
 
