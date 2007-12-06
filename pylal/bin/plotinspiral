@@ -154,17 +154,10 @@ def parse_command_line():
       help="only look at missed injections closer than EFFDIST")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
-  parser.add_option("","--first-stage-only",action="store_true",\
-      default=False,help="used with cache-file option" )
-  parser.add_option("","--second-stage-only",action="store_true",\
-      default=False,help="used with cache-file option" )
 
 
   
   # output related
-  parser.add_option("-r","--user-tag",action="store",type="string",\
-      default=None,metavar=" FNAME",\
-      help="a user tag for the output filenames" )
   parser.add_option("-o","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -177,9 +170,8 @@ def parse_command_line():
   parser.add_option("","--gps-end-time",action="store",\
       type="int",  metavar=" GPSENDTIME",\
       help="gps end time (for naming figure and output files")
-  parser.add_option("-i", "--ifo-times", action="store", type="string",\
-      default=None,\
-      metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+  parser.add_option("", "--ifo-tag", help="ifotag for naming output")
+  parser.add_option("", "--user-tag", help="usertag for naming output")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
@@ -189,17 +181,18 @@ def parse_command_line():
       default=None, metavar=" FILE",help="name of a template bank file")
   parser.add_option("-U","--inspiral-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of inspiral trigger files to read" )
-  parser.add_option("-w", "--cache-file",action="store",type="string",   
-      default=None,metavar="CACHE-FILE", \
-      help="read trigger filenames from cache file")
-  parser.add_option("-W", "--cache-description",action="store",type="string",\
-      default=None, metavar="CACHE_DESCRIPTION", \
-      help="read a file of a particular description  from cache file" )
-  parser.add_option("", "--cache-missedfile",action="store",type="string",\
-      default=None,metavar="CACHE_MISSEDFILE", \
-      help="read a missed file from cache file" ) 
+  parser.add_option("-w", "--cache-file",
+    help="read trigger filenames from cache file")
+  parser.add_option("", "--trig-pattern",
+    help="sieve trigger files of a particular description pattern from cache file" )
+  parser.add_option("", "--bank-pattern",
+    help="sieve template bank files of a particular description pattern from cache file" )
+  parser.add_option("", "--missed-pattern",
+    help="sieve missed injection files of a particular description pattern from cache file" ) 
+  parser.add_option("-i", "--ifo-times",
+    help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
-      default=None, metavar=" FILE",help="missed inejction file")
+      default=None, metavar=" FILE",help="missed injection file")
 
   (options,args) = parser.parse_args()
 
@@ -253,67 +246,36 @@ if opts.missed_inj and not opts.min_distance:
   print >>sys.stderr, "up nearby missed injections"
   sys.exit(1)
 
+# load cache
+if opts.cache_file is not None:
+  cache = lal.Cache.fromfile(open(opts.cache_file))
+  if opts.ifo_times:
+    cache = cache.sieve(ifos=opts.ifo_times, exact_match=True)
 
 # determine trigger files
 trigFiles = []
 if opts.inspiral_glob is not None:
-    trigFiles += glob.glob(opts.inspiral_glob)
-if opts.cache_file is not None:
-    # if we only want the second stage SIRe files    
-    if opts.second_stage_only is True: 
-      tmpList  = lal.Cache.fromfile(open(opts.cache_file))\
-        .sieve(ifos=opts.ifo_times, exact_match=True)\
-        .sieve(description="SIRE")\
-        .checkfilesexist()[0].pfnlist()
-      for file in tmpList:
-        if "SIRE_" in file:
-          trigFiles.append(file)
-    # if we only want the first stage SIRE files    
-    elif opts.first_stage_only:
-      tmpList  = lal.Cache.fromfile(open(opts.cache_file))\
-        .sieve(ifos=opts.ifo_times, exact_match=True)\
-        .sieve(description="SIRE")\
-        .checkfilesexist()[0].pfnlist()
-      for file in tmpList:
-        if "SIRE-" in file:
-          trigFiles.append(file)
-      # if first stage only, we can reset the chi-square related options
-      if opts.snr_chisq is True : 
-        opts.snr_chisq = False
-        print >> sys.stderr, "reset chisq options since first-stage only is requested!"
-      if opts.log_snr_chisq is True : 
-        opts.log_snr_chisq = False
-        print >> sys.stderr, "reset chisq options since first-stage only is requested!"
-      if opts.hist_chisq is True : 
-        opts.hist_chisq = False
-        print >> sys.stderr, "reset chisq options since first-stage only is requested!"
-      if opts.cum_hist_snr_chisq is True : 
-        opts.cum_hist_snr_chisq = False
-        print >> sys.stderr, "reset chisq options since first-stage only is requested!"
-      if opts.hist_snr_chisq is True : 
-        opts.hist_snr_chisq = False
-        print >> sys.stderr, "reset chisq options since first-stage only is requested!"
-        
-    # if no special first or second stage request, we get all files from cache description
-    else:
-      trigFiles  = lal.Cache.fromfile(open(opts.cache_file))\
-        .sieve(ifos=opts.ifo_times, exact_match=True)\
-        .sieve(description=opts.cache_description)\
-        .checkfilesexist()[0].pfnlist()
-    
-    
-if not len(trigFiles):
-  print >>sys.stderr, "There are no files in your glob and/or cache"
+  trigFiles.extend(glob.glob(opts.inspiral_glob))
+if opts.trig_pattern is not None:
+  trig_cache = cache.sieve(description=opts.trig_pattern)
+  trigFiles.extend(trig_cache.checkfilesexist()[0].pfnlist())
+
+if len(trigFiles) == 0:
+  print >>sys.stderr, "There are no files in your glob and/or cache or they do not exist."
   sys.exit(1)
-if opts.verbose is True:
+if opts.verbose:
   print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
-# an instance of the snglInspiralTable
+
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
 
 # read in the template bank if supplied
-if opts.template_bank:
-  tmpltfiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(description = "TMPLTBANK").checkfilesexist()[0].pfnlist() 
-  tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles([ opts.template_bank ] + tmpltfiles, verbose=opts.verbose) 
+bank_files = []
+if opts.bank_pattern is not None:
+  bank_cache = cache.sieve(description=opts.bank_pattern)
+  bank_files = bank_cache.checkfilesexist()[0].pfnlist()
+if opts.template_bank is not None:
+  bank_files.append(opts.template_bank)
+tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts.verbose)
 
 # apply veto if there is one
 if opts.veto_file:
@@ -321,16 +283,22 @@ if opts.veto_file:
   inspTriggers = inspTriggers.veto(seglist)
 
 # determine missed injection file
-if opts.missed_inj:
-  lal.Cache.fromfile(open(opts.cache_missedfile)).sieve(ifos=opts.ifo_times, exact_match=True).sieve(description = "MISSED").checkfilesexist()[0].pfnlist()
+missed_files = []
+if opts.missed_inj is not None:
+  missed_files.append(opts.missed_inj)
+if opts.missed_pattern is not None:
+  missed_cache = cache.sieve(description=opts.missed_pattern)
+  missed_files.extend(missed_cache.checkfilesexist()[0].pfnlist())
+
+# load missed injections
+if len(missed_files) > 0:
   analyzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
 
   inspDict = {}
   inspDict["ifo"] = inspTriggers[0].ifo
   missedDict = {}
 
-  missedDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(\
-      [ opts.missed_inj ])
+  missedDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(missed_files)
   missedDict["mis_time"] = viz.readcol(missedDict["sim_inspiral"], \
     "end_time", inspDict["ifo"] )
   missedDict["mis_dist"] = viz.readcol(missedDict["sim_inspiral"], "eff_dist", \
@@ -377,7 +345,7 @@ if opts.funky_threshold:
 # ============================================================================
 ###################################
 # plot of snr vs time for missed injections
-if opts.missed_inj:
+if opts.snr_time:
   text = "End time versus SNR (missed injections)"
   InspiralUtils.message(opts, "plotting..."+text)
   for injTime,triggers in zip(followupMissed["mis_time"],
@@ -391,8 +359,8 @@ if opts.missed_inj:
     viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
                    x_min=opts.x_min,x_max=opts.x_max)
     if opts.enable_output is True:
-      fname,fname_small = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 
@@ -419,8 +387,8 @@ if opts.snr_time is True:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',\
                    y_min=opts.y_min, y_max=opts.y_max)
   if opts.enable_output is True:
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_time")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -441,8 +409,8 @@ if opts.snr_chisq is True:
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
   if opts.enable_output is True: 
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -463,8 +431,8 @@ try:
       
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     if opts.enable_output is True: 
-      fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -497,8 +465,8 @@ if opts.cum_hist_snr is True:
     viz.cumhistcol(inspTriggers,'snr', xlimit=xlimits)
   
   if opts.enable_output is True: 
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -523,8 +491,8 @@ if opts.hist_snr is True:
   viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits, plot_type='loglog')
 
   if opts.enable_output is True: 
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_histogram")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -544,8 +512,8 @@ if opts.norm_hist_snr is True:
     ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs)
   if opts.enable_output is True: 
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 #
@@ -562,8 +530,8 @@ if opts.hist_chisq is True:
 #    ax.set_yscale('log')
   viz.histcol(inspTriggers,'chisq',opts.nbins,None)
   if opts.enable_output is True: 
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "chisq_histogram")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     tagList.append(text)
     fnameList.append(fname)
 
@@ -581,8 +549,8 @@ try:
       ax.set_yscale('log')
     viz.cumhistcol(inspTriggers,'snr_over_chi')
     if opts.enable_output is True:
-      fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -604,7 +572,7 @@ try:
     viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None)
     if opts.enable_output is True:
       fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -625,7 +593,7 @@ if opts.template_bank is True :
       output_name = outputname)
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "mass1_vs_mass2")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
