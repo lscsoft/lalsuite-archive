@@ -55,6 +55,7 @@ def found_missed(opts,foundFiles,missedFiles):
   
   doubles = [[],[],[],[]]
   triples = [[],[],[],[]]
+  quadruples = [[],[],[],[]]
   if len(coincTriggers) > 0:
     for coinc in coincTriggers:
       if coinc.numifos == 2:
@@ -69,20 +70,27 @@ def found_missed(opts,foundFiles,missedFiles):
         triples[2].append(coinc.sim.eff_dist_h)
         triples[3].append(coinc.sim.eff_dist_h* \
                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-  
+      if coinc.numifos == 4:
+        quadruples[0].append(coinc.sim.mchirp)
+        quadruples[1].append(coinc.sim.end_time_gmst)
+        quadruples[2].append(coinc.sim.eff_dist_h)
+        quadruples[3].append(coinc.sim.eff_dist_h* \
+                     (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+
       print "doubles[0]",doubles[0]
       print "triples[0]",triples[0]
+      print "quadruples[0]",quadruples[0]
       print "missed[0]", missed[0] 
-  return missed, doubles, triples
+  return missed, doubles, triples, quadruples
 
 
-def plot_found_missed_mchirp(opts, missed, doubles, triples):
+def plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples):
   """
 
   """
   figure(1)
-  semilogy(triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
-  legend_text=("triple", "double", "coincs")
+  semilogy(quadruples[0],quadruples[2],'mx',triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
+  legend_text=("quadruple","triple", "double", "coincs")
   grid()
   title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('mchirp',size='x-large')
@@ -100,13 +108,13 @@ def plot_found_missed_mchirp(opts, missed, doubles, triples):
   else:
     return  fig_mchirp
  
-def plot_found_missed_end_time(opts, missed, doubles, triples):
+def plot_found_missed_end_time(opts, missed, doubles, triples, quadruples):
   """
 
   """
   figure(2)
-  semilogy(triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
-  legend_text=("triple", "double", "coincs")
+  semilogy(quadruples[1],quadruples[2],'mx',triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
+  legend_text=("quadruple", "triple", "double", "coincs")
   title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('end time gmst',size='x-large')
   ylabel('eff dist',size='x-large')
@@ -124,14 +132,14 @@ def plot_found_missed_end_time(opts, missed, doubles, triples):
     return  fig_endtime
      
   
-def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples):
+def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples):
   """
 
   """
  
   figure(3)
-  semilogy(triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
-  legend_text=("triple", "double", "coincs")
+  semilogy(quadruples[0],quadruples[3],'mx',triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
+  legend_text=("quadruple","triple", "double", "coincs")
   grid()
   title('Found and Missed Injections in ' + opts.ifo_times + ' times')
   xlabel('mchirp',size='x-large')
@@ -293,25 +301,25 @@ if not missedFiles:
 
 # Generating missed, doubles and triple coincs
   
-missed, doubles, triples = found_missed(opts,foundFiles,missedFiles)
+missed, doubles, triples, quadruples = found_missed(opts,foundFiles,missedFiles)
 
 
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  fname = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples)
+  fname = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples)
   fnameList.append(fname)
   tagList.append("Found Chirp distance versus chirp mass")
-  fname = plot_found_missed_end_time(opts, missed, doubles, triples)
+  fname = plot_found_missed_end_time(opts, missed, doubles, triples, quadruples)
   fnameList.append(fname)
   tagList.append("Missed versus end time")
-  fname = plot_found_missed_mchirp(opts, missed, doubles, triples)
+  fname = plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples)
   fnameList.append(fname)
   tagList.append("Found and missed versus chirp mass")
 else: # we can probably remove the else and put the function calls before the if 
-  Fig_chirpdist  = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples)
-  Fig_endtime = plot_found_missed_end_time(opts, missed, doubles, triples)
-  Fig_mchirp = plot_found_missed_mchirp(opts, missed, doubles, triples)
+  Fig_chirpdist  = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples)
+  Fig_endtime = plot_found_missed_end_time(opts, missed, doubles, triples, quadruples)
+  Fig_mchirp = plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples)
   
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
