@@ -86,7 +86,7 @@ def set_figure_name(opts, text):
   return fname
 
 
-def html_write_output(opts, args, fnameList, tagLists):
+def write_html_output(opts, args, fnameList, tagLists):
   """
 
   """
@@ -118,7 +118,7 @@ def html_write_output(opts, args, fnameList, tagLists):
 
   return html_filename
 
-def write_output_cache(opts, html_filename,fnameList):
+def write_cache_output(opts, html_filename,fnameList):
   """
   write the output cache file of theplotting functions
   """
@@ -196,16 +196,8 @@ def ContentHandler(PartialLIGOLWContentHandler):
     PartialLIGOLWContentHandler.__init__(self, xmldoc, element_filter)
 
 
-def set_version(opts, name, version):
-  """
-  
-  """
-  opts.name = name
-  opts.version =version
 
-  return opts
-
-def set_prefix_and_suffix(opts, name):
+def initialise(opts, name, version):
   """
   Create suffix and prefix that will be used to name the output files.
 
@@ -236,6 +228,7 @@ def set_prefix_and_suffix(opts, name):
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
+  opts.version = version
    
   return opts
 
