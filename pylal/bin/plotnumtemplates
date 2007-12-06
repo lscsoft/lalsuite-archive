@@ -19,7 +19,6 @@ or with a two glob options
 """
 
 
-
 __version__ = "$Revision$"
 __date__ = "$Date$"
 __name__ = "plotnumtemplates"
@@ -45,7 +44,9 @@ def plotnumtemplates_tmpltbank_size(opts):
   @param opts: the user arguments
   @return: fname, the filename in which the picture was save
   """
-  global figure_number 
+  global figure_number
+
+  colors = InspiralUtils.colors
   
   # iterate figure number 
   figure_number = figure_number + 1
@@ -58,7 +59,7 @@ def plotnumtemplates_tmpltbank_size(opts):
       style = colors[ifo] + 'x'
       plot(startTime, numTemplates, style, label=ifo+' tmplt',\
           markersize=12, markeredgewidth=1)
-      if opts.print_numbers:
+      if opts.verbose is  True:
         print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
 
   if len(trigSumm)!=0:
@@ -68,18 +69,19 @@ def plotnumtemplates_tmpltbank_size(opts):
       style = colors[ifo] + 'o'
       plot(startTime, numTrigs, style, label=ifo+' trig',\
           markersize=12, markeredgewidth=1)
-      if opts.print_numbers:
+      if opts.verbose is True:
         print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
       
   xlabel('Days after start of run', size='x-large')
   ylabel('Number of templates', size='x-large')
-  legend()
+  legend(loc=0)
   grid("on")
   
   if opts.enable_output: 
     fname = InspiralUtils.set_figure_name(opts, "banksize")
-    savefig(fname)
-    return fname
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    return fname,fname_thumb
+  else: return [], []
 
 # ============================================================================
 # function to read in a list of files
@@ -162,8 +164,6 @@ def parse_command_line():
       help="supply a bunch of TMPLT files or TRIG files")
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
-  parser.add_option("-p","--print-numbers",action="store_true",default=False,\
-      help="prints each number on the screen" )
   parser.add_option("-u","--user-tag",action="store",type="string",\
       default=None, metavar=" USERTAG",\
       help="" )
@@ -189,6 +189,9 @@ def parse_command_line():
   parser.add_option("-W", "--cache-description",action="store",type="string",\
       default=None, metavar="CACHE_DESCRIPTION", \
       help="read a file of a particular description  from cache file" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
   (options,args) = parser.parse_args()
 
@@ -208,7 +211,11 @@ OR the cachefile options (--cache-file), not both at the same time.
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
-InspiralUtils.message(opts, "Reading data...")
+# -- Initialise
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -220,6 +227,7 @@ from pylal import viz
 
 # ============================================================================
 # -- identify the template bank files
+InspiralUtils.message(opts, "Reading data...")
 tmpltSumm=[]
 trigSumm=[]
 if opts.tmpltbank_glob is not None:
@@ -255,30 +263,17 @@ if opts.cache_file:
     trigSumm= readFiles(trigbankFiles)
 
 # ============================================================================
-# Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
-# -- set the proper color code
-colors = InspiralUtils.colors
-figure_number = 0  # used for the figure label (showplot)
-fnameList = []   # use for the cache file
-tagList= []   # use for the cache file
-
-
-# ============================================================================
 # Make plot of tmpltbank size 
-text= "Template bank size"
-InspiralUtils.message(opts, "text")
-fname =  plotnumtemplates_tmpltbank_size(opts)
+fname, fname_thumb =  plotnumtemplates_tmpltbank_size(opts)
 fnameList.append(fname)
-tagList.append(text)
+fnameList.append(fname_thumb)
+tagList.append("Template Bank Size")
 
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #============================================================================
 
