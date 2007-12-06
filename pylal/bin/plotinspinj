@@ -199,6 +199,9 @@ def parse_command_line():
       metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
   parser.add_option("", "--verbose", action="store_true", default=False,\
       metavar="VERBOSE", help="verbose option")
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
 
 
@@ -216,9 +219,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 # ============================================================================
 # Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__,__version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -321,7 +322,7 @@ if opts.mchirp_mchirp:
     tags,opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_plot")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -341,7 +342,7 @@ if opts.plot_mchirp:
       tags,opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
   
@@ -359,7 +360,7 @@ if opts.hist_mchirp:
   viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_histogram")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
   
@@ -378,7 +379,7 @@ if opts.plot_eta:
     tags,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
  
@@ -398,7 +399,7 @@ if opts.hist_eta:
                     )
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_histogram")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -417,7 +418,7 @@ if opts.plot_time:
     tags,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -437,7 +438,7 @@ if opts.hist_time:
                     )
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_histogram")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -456,7 +457,7 @@ if opts.plot_dist:
     tags,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_frac_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -474,7 +475,7 @@ if opts.hist_dist:
   viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_histogram")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -492,7 +493,7 @@ if opts.dist_dist:
     tags,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_plot")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -510,7 +511,7 @@ if opts.chirp_dist:
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -528,7 +529,7 @@ if opts.time_dist:
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -547,7 +548,7 @@ if opts.chirp_snr:
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -566,7 +567,7 @@ if opts.time_snr:
     [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -584,7 +585,7 @@ if opts.eta_snr:
     [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -627,7 +628,7 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
     
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_ethinca_vs_diff_accuracy")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotinspinj")
 
@@ -665,7 +666,7 @@ if opts.ethinca_vs_snr:
 
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_snr")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotinspinj")
 
@@ -698,7 +699,7 @@ if opts.hist_ethinca:
   
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "inj_trig_ethinca_hist")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
@@ -708,14 +709,8 @@ if opts.hist_ethinca:
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
-
-
-
-
-
-
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
 
