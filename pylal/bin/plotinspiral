@@ -180,6 +180,9 @@ def parse_command_line():
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       default=None,\
       metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
   #input
   parser.add_option("-u","--template-bank",action="store",type="string",\
@@ -219,9 +222,7 @@ opts, args = parse_command_line()
 InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -390,8 +391,8 @@ if opts.missed_inj:
     viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
                    x_min=opts.x_min,x_max=opts.x_max)
     if opts.enable_output is True:
-      fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
-      savefig(fname)
+      fname,fname_small = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 
@@ -418,8 +419,8 @@ if opts.snr_time is True:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',\
                    y_min=opts.y_min, y_max=opts.y_max)
   if opts.enable_output is True:
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_time")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -440,8 +441,8 @@ if opts.snr_chisq is True:
     
   viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
   if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -462,8 +463,8 @@ try:
       
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
     if opts.enable_output is True: 
-      fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
-      savefig(fname)
+      fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -496,8 +497,8 @@ if opts.cum_hist_snr is True:
     viz.cumhistcol(inspTriggers,'snr', xlimit=xlimits)
   
   if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -522,8 +523,8 @@ if opts.hist_snr is True:
   viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits, plot_type='loglog')
 
   if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_histogram")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -543,8 +544,8 @@ if opts.norm_hist_snr is True:
     ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs)
   if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 #
@@ -561,8 +562,8 @@ if opts.hist_chisq is True:
 #    ax.set_yscale('log')
   viz.histcol(inspTriggers,'chisq',opts.nbins,None)
   if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
-    savefig(fname)
+    fname,fname_small = InspiralUtils.set_figure_name(opts, "chisq_histogram")
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     tagList.append(text)
     fnameList.append(fname)
 
@@ -580,8 +581,8 @@ try:
       ax.set_yscale('log')
     viz.cumhistcol(inspTriggers,'snr_over_chi')
     if opts.enable_output is True:
-      fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
-      savefig(fname)
+      fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_over_chi_cum_hist")
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -603,7 +604,7 @@ try:
     viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None)
     if opts.enable_output is True:
       fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 except:
@@ -624,7 +625,7 @@ if opts.template_bank is True :
       output_name = outputname)
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "mass1_vs_mass2")
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
@@ -633,8 +634,8 @@ if opts.template_bank is True :
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
 
