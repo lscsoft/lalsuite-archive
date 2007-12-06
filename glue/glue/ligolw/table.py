@@ -394,26 +394,26 @@ class TableStream(ligolw.Stream):
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
-		rowfmt = unicode(indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]))
+		rowfmt = unicode(u"\n" + indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]))
 		colnames = self.parentNode.columnnames
 
 		# loop over parent's rows.  This is complicated because we
 		# need to not put a delimiter at the end of the last row.
-		file.write(self.start_tag(indent) + u"\n")
+		file.write(self.start_tag(indent))
 		rowiter = iter(self.parentNode)
 		try:
 			row = rowiter.next()
-			# FIXME: in Python 2.5, use attrgetter(*colnames)
-			# for attribute tuplizing
-			file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
-			rowfmt = unicode(self.getAttribute("Delimiter") + u"\n" + rowfmt)
-			while True:
-				row = rowiter.next()
-				file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
 		except StopIteration:
-			if len(self.parentNode) > 0:
-				file.write(u"\n")
-		file.write(self.end_tag(indent) + u"\n")
+			# table is empty
+			pass
+		else:
+			# write first row
+			file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
+			# now add delimiter and write the remaining rows
+			rowfmt = unicode(self.getAttribute("Delimiter")) + rowfmt
+			for row in rowiter:
+				file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
+		file.write(u"\n" + self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function
