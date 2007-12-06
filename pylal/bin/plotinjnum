@@ -233,7 +233,7 @@ from pylal import viz
 
 ##############################################################################
 # Initialise
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
