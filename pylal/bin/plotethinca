@@ -137,6 +137,9 @@ def parse_command_line():
   parser.add_option("","--second-stage",action="store_true",\
       default=False,metavar="SECONDSTAGE",\
       help="specify stage of the analysis" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
   
   
   (options,args) = parser.parse_args()
@@ -159,9 +162,7 @@ InspiralUtils.message(opts, "Initialisation...")
 # -- get command line arguments
 
 # -- some initialisation
-#-- add prefix and suffix to the opts structure. To be used for filenames
-opts = InspiralUtils.set_prefix_and_suffix(opts, __name__)
-opts = InspiralUtils.set_version(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 fnameList = []   # use for the cache file
@@ -392,8 +393,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     if opts.enable_output:
       name = "%s_%s_%s_ethinca_vs_%s_%s_andtotMass.png" % \
         (opts.user_tag, ifos[0], ifos[1], ifo, col.replace('_', r'\_'))
-      fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
 
@@ -458,8 +459,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
 
       if opts.enable_output:
         name = "%s_%s_ethinca_vs_%s_%s" % (ifos[0], ifos[1], ifo, col)  
-        fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname, = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
         fnameList.append(fname)
         tagList.append(text)
         
@@ -505,8 +506,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     legend()
     if opts.enable_output:
       name = "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic)  
-      fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
         
@@ -554,8 +555,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
 
     if opts.enable_output:
       name = "%s_%s_hist_combined_%s" % (ifos[0], ifos[1], opts.statistic) 
-      fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
         
@@ -599,8 +600,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     
     if opts.enable_output:
       name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
-      fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
         
@@ -608,8 +609,8 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.html_write_output(opts, args, fnameList, tagList)
-  InspiralUtils.write_output_cache(opts, html_filename, fnameList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
 
