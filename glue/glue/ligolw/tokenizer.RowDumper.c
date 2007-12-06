@@ -52,11 +52,11 @@ typedef struct {
 	PyObject_HEAD
 	/* delimiter */
 	PyObject *delimiter;
-	/* tuple of attribute names */
+	/* tuple of attribute names as Python strings */
 	PyObject *attributes;
-	/* tuple of format strings */
+	/* tuple of format strings as Python unicodes */
 	PyObject *formats;
-	/* the source of row objects to be turned to strings */
+	/* the source of row objects to be turned to unicode strings */
 	PyObject *iter;
 	/* number of rows converted so far */
 	int rows_converted;
@@ -145,70 +145,68 @@ static PyObject *__iter__(PyObject *self)
 static PyObject *next(PyObject *self)
 {
 	ligolw_RowDumper *rowdumper = (ligolw_RowDumper *) self;
+	const int n = PyTuple_GET_SIZE(rowdumper->attributes);
 	PyObject *row;
+	PyObject *result;
+	int i;
 
 	row = PyIter_Next(rowdumper->iter);
-	if(row) {
-		const int n = PyTuple_GET_SIZE(rowdumper->attributes);
-		PyObject *result;
-		int i;
 
-		Py_DECREF(rowdumper->tokens);
-		rowdumper->tokens = PyTuple_New(n);
-		if(!rowdumper->tokens) {
+	if(!row) {
+		if(!PyErr_Occurred())
+			PyErr_SetNone(PyExc_StopIteration);
+		return NULL;
+	}
+
+	Py_DECREF(rowdumper->tokens);
+	rowdumper->tokens = PyTuple_New(n);
+	if(!rowdumper->tokens) {
+		rowdumper->tokens = Py_None;
+		Py_INCREF(rowdumper->tokens);
+		Py_DECREF(row);
+		return NULL;
+	}
+
+	for(i = 0; i < n; i++) {
+		PyObject *val = PyObject_GetAttr(row, PyTuple_GET_ITEM(rowdumper->attributes, i));
+		PyObject *token;
+
+		if(!val) {
+			Py_DECREF(rowdumper->tokens);
 			rowdumper->tokens = Py_None;
 			Py_INCREF(rowdumper->tokens);
 			Py_DECREF(row);
 			return NULL;
 		}
 
-		for(i = 0; i < n; i++) {
-			PyObject *val = PyObject_GetAttr(row, PyTuple_GET_ITEM(rowdumper->attributes, i));
-			PyObject *r;
-
-			if(!val) {
-				Py_DECREF(rowdumper->tokens);
-				rowdumper->tokens = Py_None;
-				Py_INCREF(rowdumper->tokens);
-				Py_DECREF(row);
-				return NULL;
-			}
-
-			/* the commented out bits would enable support for
-			 * writing None values as empty entries in the
-			 * table. */
+		/* the commented out bits would enable support for writing
+		 * None values as empty entries in the table. */
 #if 0
-			if(val == Py_None)
-				r = PyUnicode_FromUnicode(NULL, 0); /* u"" */
-			else
+		if(val == Py_None)
+			token = PyUnicode_FromUnicode(NULL, 0); /* u"" */
+		else
 #endif
-				r = PyNumber_Remainder(PyTuple_GET_ITEM(rowdumper->formats, i), val);
-			Py_DECREF(val);
+			token = PyNumber_Remainder(PyTuple_GET_ITEM(rowdumper->formats, i), val);
+		Py_DECREF(val);
 
-			if(!r) {
-				Py_DECREF(rowdumper->tokens);
-				rowdumper->tokens = Py_None;
-				Py_INCREF(rowdumper->tokens);
-				Py_DECREF(row);
-				return NULL;
-			}
-
-			PyTuple_SET_ITEM(rowdumper->tokens, i, r);
+		if(!token) {
+			Py_DECREF(rowdumper->tokens);
+			rowdumper->tokens = Py_None;
+			Py_INCREF(rowdumper->tokens);
+			Py_DECREF(row);
+			return NULL;
 		}
 
-		result = PyUnicode_Join(rowdumper->delimiter, rowdumper->tokens);
-
-		Py_DECREF(row);
-
-		rowdumper->rows_converted += result != NULL;
-
-		return result;
+		PyTuple_SET_ITEM(rowdumper->tokens, i, token);
 	}
 
-	if(!PyErr_Occurred())
-		PyErr_SetNone(PyExc_StopIteration);
+	Py_DECREF(row);
 
-	return NULL;
+	result = PyUnicode_Join(rowdumper->delimiter, rowdumper->tokens);
+
+	rowdumper->rows_converted += result != NULL;
+
+	return result;
 }
 
 
@@ -219,8 +217,8 @@ static PyObject *next(PyObject *self)
 
 static struct PyMemberDef members[] = {
 	{"delimiter", T_OBJECT, offsetof(ligolw_RowDumper, delimiter), READONLY, "The delimiter character."},
-	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names."},
-	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of format strings."},
+	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names as strings."},
+	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of unicode format strings."},
 	{"rows_converted", T_INT, offsetof(ligolw_RowDumper, rows_converted), READONLY, "Number of rows converted."},
 	{"tokens", T_OBJECT, offsetof(ligolw_RowDumper, tokens), READONLY, "In-order tuple of unicode tokens from most recently converted row."},
 	{NULL,}
