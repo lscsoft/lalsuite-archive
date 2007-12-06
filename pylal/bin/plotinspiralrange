@@ -282,11 +282,10 @@ def get_filelist(opts):
   if opts.tmpltbank_glob:
     inspiralFiles += glob.glob(opts.tmpltbank_glob)
   if opts.cache_file:
-    inspiralFiles = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, \
-    description=opts.cache_description).checkfilesexist()[0].pfnlist()
+    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+    inspiralFiles = allfilesCache.sieve(description = (opts.inspiral_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
     if opts.range_mass is True:
-      inspiralFiles += lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_type, \
-      description="TMPLTBANK").checkfilesexist()[0].pfnlist()
+      inspiralFiles += allfilesCache.sieve(description = (opts.bank_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
      
   return inspiralFiles
 
@@ -350,11 +349,14 @@ def parse_command_line():
       default=100)
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
-  parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None, metavar=" USERTAG",\
-      help="" )
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+      default=None, metavar=" IFOTAG",\
+      help="The ifo tag used in the name of the figures (e.g. SECOND_H1H2L1)")
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -378,6 +380,16 @@ def parse_command_line():
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
+
+   # options used in sieving the cache file, in case it is given
+  parser.add_option("","--inspiral-pattern", action="store",type="string",\
+      default="INSPIRAL", metavar="INSPIRALPATTERN", help="pattern for inspiral files, the cache file will be sieved with" )
+  parser.add_option("","--bank-pattern", action="store",type="string",\
+      default="TMPLTBANK", metavar="BANKPATTERN", help="pattern for inspiral files, the cache file will be sieved with" )
+  parser.add_option("","--match",action="store",type="string",\
+      default=None,metavar="MATCH",\
+      help="To sieve exactly according to a pattern, if its set True" )
+
 
 
   command_line = sys.argv[1:]
@@ -422,6 +434,7 @@ from pylal import viz
 # -- identify the inspiral and template bank files
 InspiralUtils.message(opts, "Parsing the cache file...wait...")
 inspiralFiles = get_filelist(opts)
+ 
 
 # -- Read in the summ values from the inspiral/tmpltbank  files
 inspiralSumm, massInspiralSumm = InspiralUtils.readFiles(inspiralFiles, opts.verbose)
