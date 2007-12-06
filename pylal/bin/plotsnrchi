@@ -157,16 +157,33 @@ def parse_command_line():
       "$Id$\n" +
       "$Name$\n")
 
-  parser.add_option("-f","--figure-name",action="store",type="string",\
-      default=None,metavar=" FNAME",\
-      help="generate png figures with name FNAME-fig.png")
+  ## arguments for data reading
   parser.add_option("-g","--glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
   parser.add_option("-I","--inj-glob",action="store",type="string",\
       default=None, metavar=" INJGLOB",
       help="GLOB of injection trigger files to read" )
-  parser.add_option("-t","--title",action="store",type="string",default=None,\
-      metavar=" STRING",help="title string for plots")
+  parser.add_option("", "--injection-cache-file", action="store", type="string", default=None, metavar="INJCACHEFILE",\
+      help="list of cache files for injections given as a string with comma delimeters")
+  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="ZEROLAGCACHEFILE",\
+      help="cache file for zero-lag",dest="zerolag_cache_file")
+  # cache description. Note that because we are interesting in second
+  # stage only, FOUND and SIRE tag should be followed by underscore
+  parser.add_option("","--single-ifo",action="store",type="string",\
+    default=None,metavar="IFOS", help="ifo" )
+
+  parser.add_option("","--trig-pattern", action="store",type="string",\
+      default=None, metavar="TRIGPTTRN", help="sieve pattern for trig-files" )
+  parser.add_option("","--coinc-pattern", action="store",type="string",\
+      default=None, metavar="COINCPTTRN", help="sieve pattern for coinc-files" )
+  parser.add_option("","--slide-pattern", action="store",type="string",\
+      default=None, metavar="SLIDEPTTRN", help="sieve pattern for trig-files" )
+  parser.add_option("","--inj-pattern", action="store",type="string",\
+      default=None, metavar="INJPTTRN", help="sieve pattern for trig-files" )
+  parser.add_option("","--bank-pattern", action="store",type="string",\
+      default=None, metavar="BANKPTTRN", help="sieve pattern for trig-files" )
+
+  ## arguments for plot creation
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
@@ -210,21 +227,6 @@ def parse_command_line():
       default=10,metavar="COEFF",help="set rsq veto coefficient to COEFF" )
   parser.add_option("","--rsq-pow",action="store",type="float",\
       default=0,metavar="POW",help="set rsq veto power to POW" )
-  #options added for plotting dag
-  parser.add_option("", "--injection-cache-file", action="store", type="string", default=None, metavar="INJCACHEFILE",\
-      help="list of cache files for injections given as a string with comma delimeters")
-  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="ZEROLAGCACHEFILE",\
-      help="cache file for zero-lag",dest="zerolag_cache_file")
-  # cache description. Note that because we are interesting in second 
-  # stage only, FOUND and SIRE tag should be followed by underscore 
-  parser.add_option("","--cache-description", action="store",type="string",\
-      default="SIRE_", metavar="CACHEDESCRIPTION", \
-      help="description pattern the cache entries  will be sieved with" )
-  parser.add_option("","--injection-cache-description", action="store",type="string",\
-      default="FOUND_", metavar="INJDESCRIPTION", \
-      help="additional description pattern for injections  the cache entries will be sieved with" )
-  parser.add_option("","--single-ifo",action="store",type="string",\
-    default=None,metavar="IFOS", help="ifo" )
   
   # output related
   parser.add_option("-Z","--user-tag",action="store",type="string",\
@@ -242,6 +244,9 @@ def parse_command_line():
   parser.add_option("","--gps-end-time",action="store",\
       type="int",  metavar=" GPSENDTIME",\
       help="gps end time (for naming figure and output files")
+  parser.add_option("", "--ifo-tag", action="store", type="string",\
+      default=None,\
+      metavar="IFOTAG", help="sets the IFO tag")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       default=None,\
       metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
@@ -277,12 +282,12 @@ from pylal import viz
 # ============================================================================
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
-
 
 
 # check at least one trig file was specified
@@ -291,6 +296,7 @@ if not opts.glob and  not opts.zerolag_cache_file:
   print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
   sys.exit(1)
 
+## compile a list of trigger-files
 if opts.glob:
   trigFiles = glob.glob(opts.glob)
   if not len(trigFiles):
@@ -299,11 +305,13 @@ if opts.glob:
 
 else:
   zerolagAllCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
-  trigFiles = zerolagAllCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).pfnlist()
+  print opts.ifo_times
+  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.trig_pattern).pfnlist()
   if not len(trigFiles):
-    print >>sys.stderr, opts.zerolag_cache_file + " contains no files with " + opts.cache_description + " description"
+    print >>sys.stderr, opts.zerolag_cache_file + " contains no files with " + opts.trig_pattern + " description"
     sys.exit(1)
 
+# compile a list of injection-files
 if opts.inj_glob:
   injFiles = glob.glob(opts.inj_glob)
   if not len(injFiles):
@@ -314,9 +322,10 @@ elif opts.injection_cache_file:
   injFiles = []
   for cachefile in cachefileslist:
     injCache = lal.Cache.fromfile(open(cachefile))
-    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.cache_description).sieve(description = opts.injection_cache_description).pfnlist())
+    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.inj_pattern).\
+	pfnlist())
   if not len(injFiles):
-    print >>sys.stderr, opts.injection_cache_file + " contains no files with " + opts.cache_description +  injection_cache_description + " description"
+    print >>sys.stderr, opts.injection_cache_file + " contains no files with " + opts.inj_pattern + " description"
     sys.exit(1)
 
  
@@ -427,7 +436,6 @@ low_chisq = array(low_chisq)
 # calculate the contours
 if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
   or opts.trig_inj_lines:
-  
   cont = reshape(zeros(20*20), (20,20))
   for i in range(20):  
     for j in range(20):
@@ -518,7 +526,7 @@ if opts.snr_chisq:
   ylim(min_chisq, max_chisq)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -535,7 +543,7 @@ if opts.trig_contour:
   ylim(min_chisq, max_chisq)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -557,7 +565,7 @@ if opts.contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "contour_const_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -575,7 +583,7 @@ if opts.contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "contour_var_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -593,7 +601,7 @@ if opts.trig_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_const_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -608,7 +616,7 @@ if opts.trig_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_var_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -627,7 +635,7 @@ if opts.trig_inj_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_const_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -643,7 +651,7 @@ if opts.trig_inj_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_var_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -661,7 +669,7 @@ if opts.trig_inj_contour:
   ylim(min_chisq,max_chisq)  
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_contour")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
 
@@ -680,7 +688,7 @@ if opts.trig_contour_lines:
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour_const_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -696,7 +704,7 @@ if opts.trig_contour_lines:
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour_var_lines")
-      fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me in plotsnrchi")
 
@@ -712,7 +720,7 @@ if opts.hist_snr:
   ylabel('pdf', size='x-large')
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_efficiency")
-    fname_thumb = InspiralUtils.savefg_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me in plotsnrchi")
   
@@ -727,11 +735,11 @@ if opts.hist_snr_chi:
   xlabel('snr/chi', size='x-large')
   ylabel('pdf', size='x-large')
   if opts.enable_output:
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_chi_efficiency")
-    savefig(fname)
-    savefig(fname_small, dpi=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_chi_efficiency")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotsnrchi")
+    tagList.append("snr_chi_efficiency")
+
 
 ###################################
 # histogram of funky snr chi
@@ -751,11 +759,11 @@ if opts.hist_stat:
     xlabel('variable den. statistic', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.enable_output:
-      fname,fname_small = InspiralUtils.set_figure_name(opts, "var_den_efficiency")
-      savefig(fname)
-      savefig(fname_small, dpi=opts.figure_resolution)
+      fname = InspiralUtils.set_figure_name(opts, "var_den_efficiency")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append("fix me in plotsnrchi")
+      tagList.append("var_den_efficiency")
+
  
   if opts.denominator_constant:
     fig_num +=1
@@ -771,11 +779,11 @@ if opts.hist_stat:
     xlabel(r'$\rho^4 / (\chi^2 [\rho^2 +250])$', size='x-large')
     ylabel('pdf', size='x-large')
     if opts.enable_output:
-      fname,fname_small = InspiralUtils.set_figure_name(opts, "const_den_efficiency")
-      savefig(fname)
-      savefig(fname_small, dpi=opts.figure_resolution)
+      fname = InspiralUtils.set_figure_name(opts, "const_den_efficiency")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append("fix me in plotsnrchi")
+      tagList.append("const_den_efficiency")
+
 
 ###################################
 # plot of snr vs rsq
@@ -791,11 +799,10 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   xlim(min_snr, max_snr)
   #ylim(1e-5, 10)
   if opts.enable_output:
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
-    savefig(fname)
-    savefig(fname_small, dpi=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotsnrchi")
+    tagList.append("SNR versus RSQ")
 
 elif opts.snr_rsq:
   fig_num +=1
@@ -808,14 +815,12 @@ elif opts.snr_rsq:
 
   xlim(min_snr, max_snr)
   #ylim(1e-5, 10)
-
-
   if opts.enable_output:
-    fname,fname_small = InspiralUtils.set_figure_name(opts, "snr_vs_rsq")
-    savefig(fname)
-    savefig(fname_small, dpi=opts.figure_resolution)
+    fname = InspiralUtils.set_figure_name(opts, "snr_vs>rsp")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotsnrchi")
+    tagList.append("SNR versus RSQ")
+
 
 
 # ============================================================================
