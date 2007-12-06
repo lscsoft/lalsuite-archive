@@ -29,9 +29,9 @@ from pylal import InspiralUtils
 ##############################################################################
 
 def filestrip(file):
-  x = file[0].rfind('_')
-  y = file[0].rfind('-8')
-  return file[0][x+1:y]
+  x = file.rfind('D_')
+  y = file.rfind('_INJ')
+  return file[x+2:y]
 #############################################################################
 
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -171,12 +171,10 @@ def parse_command_line():
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
-  parser.add_option("","--injection-cache-file",action="store",type="string",\
+  parser.add_option("","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
-  parser.add_option("","--cache-description",action="store",type="string",\
-      default=None, metavar=" CACHE-DESCRIPTION",help=" sieves a file of a particular description" )
-  parser.add_option("","--ifo-type",action="store",type="string",\
-      default=None, metavar=" IFO-TYPE",help=" sieves a file according to ifo type" )
+  parser.add_option("","--inj-found-pattern",action="store",type="string",\
+      default=None, metavar=" INJECTION_PATTERN",help=" sieves a file for found injections of a particular type" )
 
   # output related
   parser.add_option("-z","--user-tag",action="store",type="string",\
@@ -196,7 +194,10 @@ def parse_command_line():
       help="gps end time (for naming figure and output files")
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
       default=None,\
-      metavar="IFOTIMES", help="sieve a cache file according to a particular ifo type")
+      metavar="IFOTIMES", help="sieve a cache file according to a particular ifo times")
+  parser.add_option("","--ifo-tag",action="store",\
+      type="string",  metavar=" IFOTAG",\
+      help="ifo tag gives the information about ifo times and stage")
   parser.add_option("", "--verbose", action="store_true", default=False,\
       metavar="VERBOSE", help="verbose option")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
@@ -238,13 +239,20 @@ rc('text', usetex=True)
 
 
 # check at least one trig file was specified
-if opts.injection_cache_file:
-  injGlobs = lal.Cache.fromfile(open(opts.injection_cache_file)).sieve(ifos=opts.ifo_type, description = opts.cache_description). \
-  sieve(description="FOUND").checkfilesexist()[0].pfnlist()
-  
+if opts.cache_file:
+  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, description = opts.inj_found_pattern).checkfilesexist()[0].pfnlist()
+  if not injGlobs:
+    print >>sys.stdout, "List of found files " + " for ifo tag: " + opts.ifo_tag  + " is empty."
+    sys.exit(0)
+  print injGlobs
+
+
   tags = []
   for inj  in injGlobs:
     tags.append(filestrip(inj))
+  print tags
+  if opts.verbose:
+    print "...reading the following list of found files  " + injGlobs
 
 else:
   if not args:
@@ -271,12 +279,15 @@ injSets = []
 
 for injGlob in injGlobs:
   injDict = {}
-  
   # read in triggers
   flist = glob.glob(injGlob)
   assert flist != [], "empty glob: \"%s\"" % injGlob
   injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
   injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
+ 
+  if (injDict['sngl_inspiral'] is None) or \
+     (injDict['sim_inspiral'] is None):
+    continue   
   
   # veto if supplied
   if opts.veto_file:
@@ -287,7 +298,7 @@ for injGlob in injGlobs:
   if opts.coire_split:
     new_sim_table = tab.new_from_template(injDict["sim_inspiral"])
     
-    # iterator over consecutive triggers with matching event_ids
+  # iterator over consecutive triggers with matching event_ids
     coincs = itertools.groupby(injDict["sngl_inspiral"],
                                lambda row: row.event_id)
     for coinc, inj in itertools.izip(coincs, injDict["sim_inspiral"]):
@@ -295,15 +306,15 @@ for injGlob in injGlobs:
       num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
       new_sim_table.extend([inj] * num_coincs)
     injDict['sim_inspiral'] = new_sim_table
-  
-  # test sire/coire sanity
-  assert len(injDict['sngl_inspiral']) == len(injDict['sim_inspiral']), \
-    "number of triggers and found injections must be equal"
+
+  if len(injDict['sngl_inspiral']) != len(injDict['sim_inspiral']):
+    raise ValueError, "number of triggers and found injections must be equal"
   
   injSets.append(injDict)
-  
+ 
+ 
 # set lists of plot symbols
-plot_symbols = ['rx','b+','ko','rx','b+','ko']
+plot_symbols = ['rx','b+','ko','D','h','p','rx','b+','ko','D','h','p']
 plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
@@ -423,7 +434,7 @@ if opts.plot_time:
     tagList.append("fix me in plotinspinj")
 
 
-###############################  
+############################### 
 # histogram of timing error
 if opts.hist_time:
   figure(plot_num.next())
