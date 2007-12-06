@@ -80,7 +80,10 @@ def set_figure_name(opts, text):
   return a string containing a standard output name for pylal 
   plotting functions.
   """
-  fname = opts.prefix + "_"+text + opts.suffix + ".png"
+  fname = "Images/" + opts.prefix + "_"+text + opts.suffix + ".png"
+  
+  if opts.output_path is not None:
+    fname = opts.output_path + fname
 
   return fname
 
@@ -94,18 +97,17 @@ def write_html_output(opts, args, fnameList, tagLists):
   page, extra = init_markup_page(opts)
   page.h1(opts.name + " results")
   page.hr()
+  
   # -- filename
   html_filename = opts.prefix + opts.suffix +".html"
+  if opts.output_path:
+    html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
-  # -- set output_cache properly: make sure there is a slash
-  if len(opts.output_path)>1 :
-    opts.output_path = opts.output_path +'/'
 
-  for tag,fname in zip(tagLists,fnameList):
+  for tag,filename in zip(tagLists,fnameList):
+    fname = "Images/"+os.path.basename(filename) # set the correct name for linking
     page.a(extra.img(src=[fname], width=400, \
         alt=tag, border="2"), title=tag, href=[ fname])
-
-
   page.add("<hr/>")
 
 
@@ -123,12 +125,13 @@ def write_cache_output(opts, html_filename,fnameList):
   """
 
   output_cache_name = opts.prefix + opts.suffix +'.cache'
-#  if opts.output_path:
-#    output_cache_name = opts.output_path+'/'+output_cache_name
+  if opts.output_path:
+    output_cache_name = opts.output_path + output_cache_name
   this = open(output_cache_name, 'w')
   if opts.enable_output is True:
-    this.write(html_filename + '\n')
-  for fname in fnameList:
+    this.write(os.path.basename(html_filename) + '\n')
+  for filename in fnameList:
+    fname = "Images/"+os.path.basename(filename) # set the correct name for linking
     this.write(fname + '\n')
   this.close()
 
@@ -219,20 +222,14 @@ def initialise(opts, name, version):
     if opts.ifo_tag:
       prefix = prefix + "_" + opts.ifo_tag
   except: 
-     print >> sys.stderr, "--ifo-tag option not implemented in the "+name +" executable skipping..."
+     print >> sys.stderr, "--ifo-tag option not implemented in the "+name +" executable. skipping..."
      pass
   try:
     if opts.user_tag:
       prefix = prefix + "_" + opts.user_tag
   except: 
-     print >> sys.stderr, "--user-tag option not implemented in the "+name +" executable skipping..."
+     print >> sys.stderr, "--user-tag option not implemented in the "+name +" executable. skipping..."
      pass
-  try:
-    if opts.output_path:
-      prefix = opts.output_path+'/'+prefix
-  except: 
-     print >> sys.stderr, "--output-path option not implemented in the "+name +" executable skipping ..."
-     pass 
   
 
   # compose suffix
@@ -243,7 +240,8 @@ def initialise(opts, name, version):
       suffix = "-unspecified-gpstime"
   except:
      suffix = "-unspecified-gpstime"
-     print >> sys.stderr, "--gps-start-time and/or --gps-end-time  option not implemented in the "+name +" executable skipping..."
+     print >> sys.stderr, "--gps-start-time and/or --gps-end-time  option not implemented in the "+\
+           name +" executable. skipping..."
      pass
   
 
@@ -251,7 +249,24 @@ def initialise(opts, name, version):
   opts.suffix = suffix
   opts.name = name
   opts.version = version
-   
+
+  # make sure output_path is set correctly
+  if opts.output_path is not None:
+    opts.output_path = opts.output_path +'/'
+
+    # create output file if required
+    if not os.path.exists( opts.output_path ):
+      os.mkdir (opts.output_path)
+
+    if not os.path.exists( opts.output_path+"Images" ):
+      os.mkdir (opts.output_path+"Images")
+      
+  else:
+    if not os.path.exists( "Images" ):
+      os.mkdir( "Images")
+
+
+  
   return opts
 
 def init_markup_page( opts):
