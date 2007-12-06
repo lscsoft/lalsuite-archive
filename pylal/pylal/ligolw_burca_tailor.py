@@ -353,12 +353,12 @@ FROM
 		sim_coinc_event_map.table_name == 'sim_burst'
 		AND sim_coinc_event_map.event_id == sim_burst.simulation_id
 	)
+	JOIN coinc_event AS sim_coinc_event ON (
+		sim_coinc_event.coinc_event_id == sim_coinc_event_map.coinc_event_id
+	)
 	JOIN coinc_event_map AS burst_coinc_event_map ON (
 		burst_coinc_event_map.coinc_event_id == sim_coinc_event_map.coinc_event_id
 		AND burst_coinc_event_map.table_name == 'coinc_event'
-	)
-	JOIN coinc_event AS sim_coinc_event ON (
-		sim_coinc_event.coinc_event_id == sim_coinc_event_map.coinc_event_id
 	)
 WHERE
 	sim_coinc_event.coinc_def_id == ?
