@@ -157,6 +157,11 @@ class Confidence_Likelihood_Histogram(object):
 			# should surely be negative enough to ensure that
 			# this coinc is not retained.
 			return -1e400
+		if 1.0 / likelihood <= 0:
+			# this time likelihood == +inf, which can happen
+			# when there are regions of parameter space where
+			# no noise is ever *ever* seen.
+			return +1e400
 		return math.log(likelihood) - self.effective_confidence_slope * math.log(confidence)
 
 	def add_non_injections(self, contents):
