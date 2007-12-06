@@ -64,82 +64,116 @@ def parse_command_line():
       default=[], metavar=" GLOB",help="GLOB of injection thinca files to read" )
   parser.add_option("-I", "--injection-input", action="append", default=[],
       help="read injection thinca filenames from input file")
+
   parser.add_option("-t","--slide-glob",action="append",type="string",\
       default=[], metavar=" GLOB",help="GLOB of time slide thinca files to read" )
   parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
+
   parser.add_option("-u","--user-tag",action="store",type="string",\
       default=None, metavar=" USERTAG",\
       help="The user tag used in the name of the figures" )
+
   parser.add_option("","--gps-start-time",action="store", type="int", metavar="GPSSTARTTIME",\
       help="gps start time used in the figure and output file names")
+
   parser.add_option("","--gps-end-time",action="store", type= "int", metavar="GPSENDTIME",\
       help="gps end time used in the figure and output file names")
+
   parser.add_option("-P","--output-path",action="store",\
-      type="string",default="",  metavar="PATH",\
+      type="string",default=None,  metavar="PATH",\
       help="path where the figures would be stored")
+
   parser.add_option("","--ifo-times",action="store",type="string",\
       default=None,metavar="IFOS",\
       help="Which ifo times are being looked at for slides (e.g. H1H2L1)" )
+
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
+
   parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
       help="output cache file for injections, zerolag or playground  COIRE(THINCA) files")
-  parser.add_option("","--cache-description", action="store",type="string",\
-      metavar="CACHEDESCRIPTION", default="COIRE_", help="description pattern the cache entries will be sieved with" )
-  parser.add_option("","--add-description", action="store",type="string",\
-      metavar="ADDDESCRIPTION", default="SLIDE", help="additional description pattern the cache entries will be sieved with" )
+
+#  parser.add_option("","--coinc-pattern", action="store", type="string", default=None,metavar="COINCPATTERN")
+
+  parser.add_option("","--slide-pattern", action="store", type="string", default= None,metavar="SLIDEPATTERN")
+
+  parser.add_option("","--inj-pattern", action="store", type="string", default=None,metavar="INJPATTERN")
+
+#  parser.add_option("","--bank-pattern", action="store", type="string", default= None,metavar="BANKPATTERN")
+
+#  parser.add_option("","--trig-pattern", action="store", type="string", default= None,metavar="TRIGPATTERN")
+
   parser.add_option("","--time-slides", action="store_true", default=False,\
       help="add time slides to the plots" )
+
   parser.add_option("","--match", action="store", default=None,type="string",\
       metavar="MATCH",help="sieves exactly to a given pattern, if set True" )
+
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
+
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   # options that sets parameters for ploting
+
   parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
       metavar=" SEC", help="length of time over which to cluster triggers" )
-  parser.add_option("-i","--ifo",action="append",type="string",\
-      metavar="IFO",dest="ifo_list",\
-      help="look at triggers for specified ifo (append to list)" )
+
+  parser.add_option("-i","--ifo-tag",action="store",type="string",\
+      metavar="IFO",\
+      help="look at triggers for specified ifos [H1H2L1]" )
+
   parser.add_option("-e", "--ethinca-vs-stat", action="store_true",
       help="plot ethinca parameters vs the combined statistics")
+
   parser.add_option("-x","--x-value",action="append",type="string",\
       metavar="COL_NAME", dest="columns", default=[], help=\
       "plot ethinca parameter against this sngl_inspiral column (add to list)" )
+
   parser.add_option("-S","--statistic",action="store",default='snr',\
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
       "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+
   parser.add_option("-X", "--log-x", action="store_true",
       help="for ethinca vs ... make x axis log")
+
   parser.add_option("-H","--hist",action="store_true",default=False,\
       help="make a histogram of the e-thinca values" )
+
   parser.add_option("","--hist-stat",action="store_true",default=False,\
       help="make a histogram of the combined statistics" )
+
   parser.add_option("-n","--num-bins",action="store",type='int',\
       default=20, metavar=" NUM",\
       help="number of bins used in histogram" )
+
   parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
       metavar="NUM_SLIDES",help="number of time slides performed" )
+
   parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
       metavar="SEC",help="time slid for H1 per slide number" )
+
   parser.add_option("","--h2-slide-time",action="store",type="int",default=10,\
       metavar="SEC",help="time slid for H2 per slide number" )
+
   parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
       metavar="SEC",help="time slid for L1 per slide number" )
+
   parser.add_option("","--injection-window",action="store",type="float",\
       default=None,metavar="SEC",\
       help="injection window used for found injections" )
+
   parser.add_option("","--second-stage",action="store_true",\
       default=False,metavar="SECONDSTAGE",\
       help="specify stage of the analysis" )
+
   parser.add_option("", "--figure-resolution",action="store",type="int",\
-      default=50, metavar="resolution of the thumbnails (50 by default)", \
-      help="read a file of a particular description  from cache file" )
+      default=50, metavar="FIGURERESOLUTION", \
+      help="resolution of the thumbnails (50 by default)" )
   
   
   (options,args) = parser.parse_args()
@@ -158,7 +192,7 @@ def parse_command_line():
 # ============================================================================
 # -- get command line arguments
 opts, args = parse_command_line()
-InspiralUtils.message(opts, "Initialisation...")
+if opts.verbose: InspiralUtils.message(opts, "Initialisation...")
 # -- get command line arguments
 
 # -- some initialisation
@@ -183,6 +217,12 @@ if opts.cache_file and (opts.injection_glob or opts.slide_glob):
     raise ValueError, """ Use either the glob options(--inj-glob OR the cachefile options (--cache-input), not both at the same time.
 """
 
+#parse the ifos from the ifo tag
+opts.ifo_list = []
+temp_ifo_list = ['H1','H2','L1','G1','V1','T1']
+for ifo in temp_ifo_list:
+  if opts.ifo_tag.count(ifo): opts.ifo_list.append(ifo)
+
 if len(opts.ifo_list) < 2:
   print >>sys.stderr, "Must specify at least 2 ifos with triggers"
   print >>sys.stderr, "Enter 'plotethinca --help' for usage"
@@ -204,33 +244,20 @@ if not opts.show_plot:
 bins = [i/opts.num_bins for i in range(opts.num_bins+1)]
 
 if opts.cache_file  is not None:
-  cache_coincfilelist = []
+  print 'reading cache'
+  cache_injfilelist = []
   cache_slidefilelist = []
-  if opts.second_stage is True:
-    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
-    allfileList = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
-    for file in allfileList:
-      if "SLIDE_" in file:
-        cache_slidefilelist.append(file)
-      elif "COIRE_" in file and "SLIDE-" not in file:
-        cache_coincfilelist.append(file)
-  else :
-    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
-    filelist = allfilesCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.cache_description, exact_match=opts.match).checkfilesexist()[0].pfnlist()
-    for file in filelist:
-      if "COIRE-" in file:
-        cache_coincfilelist.append(file)
+  allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+  print opts.slide_pattern
+  if opts.slide_pattern:
+    cache_slidefilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.slide_pattern).checkfilesexist()[0].pfnlist()
+  if opts.inj_pattern:
+    cache_injfilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.inj_pattern).checkfilesexist()[0].pfnlist()
 
-    allfileList = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.cache_description).checkfilesexist()[0].pfnlist()
-
-    for file in allfileList:
-      if "SLIDE-" in file:
-        cache_slidefilelist.append(file)
- 
 if opts.injection_glob:
   filelists = [glob.glob(g) for g in opts.injection_glob]
 elif opts.cache_file:
-  filelists = [cache_coincfilelist]
+  filelists = [cache_injfilelist]
   
 if opts.slide_glob:
   slidefilelists = [glob.glob(g) for g in opts.slide_glob]
@@ -393,7 +420,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     if opts.enable_output:
       name = "%s_%s_%s_ethinca_vs_%s_%s_andtotMass.png" % \
         (opts.user_tag, ifos[0], ifos[1], ifo, col.replace('_', r'\_'))
-      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
@@ -506,7 +533,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     legend()
     if opts.enable_output:
       name = "%s_%s_ethinca_vs_combined_%s" % (ifos[0], ifos[1], opts.statistic)  
-      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
@@ -600,7 +627,7 @@ for ifos in pylal_itertools.choices(opts.ifo_list, 2):
     
     if opts.enable_output:
       name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
-      fname, = InspiralUtils.set_figure_name(opts, name)
+      fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
