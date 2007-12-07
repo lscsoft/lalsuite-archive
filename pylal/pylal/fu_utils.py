@@ -137,7 +137,8 @@ class getCache(UserDict):
     cacheSubSet = self.ifoDict()
     try: 
       cacheList = Cache.fromfile(open(cacheString))
-      cacheListTest = 0   
+      
+      cacheListTest = 0
     except: 
       print >> sys.stderr, "could not open the file " + cacheString
       cacheListTest = 1
@@ -158,7 +159,8 @@ class getCache(UserDict):
           else:
             seg1 = None
             seg2 = None
-          list = cacheList.sieve(ifo,cacheType,seg1)
+          list = cacheList.sieve(ifo,cacheType,None,True)
+          list = list.sieve(None,None,seg1)
           list = list.sieve(None,None,seg2)
           cacheSubSet[ifo] = list
         except:
@@ -222,6 +224,7 @@ class getCache(UserDict):
       cacheFile = intermediateCache
 
     if type == "INSPIRAL_":
+      type = type + trig.ifoTag
       try:
         inspiral_process_params = self.getProcessParamsFromCache( \
                        self.filesMatchingGPSinCache(cacheFile,\
@@ -261,6 +264,7 @@ class getCache(UserDict):
       triggerCache = self.filesMatchingGPSinCache(triggerCacheString,None,triggerTag)
       triggerList = self.getListFromCache(triggerCache)
       xml_glob = triggerList[0]
+      print xml_glob
 
     numtrigs = string.strip(cp.get('triggers','num-trigs'))
     statistic =  string.strip(cp.get('triggers','statistic'))
