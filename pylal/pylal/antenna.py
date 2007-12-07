@@ -34,6 +34,8 @@ from math import *
 from pylal.xlal import date
 from pylal import date
 from pylal.xlal import inject
+from pylal.xlal import tools
+
 
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
 __version__ = "$Revision$"[11:-2]
@@ -42,15 +44,21 @@ __date__ = "$Date$"[7:-2]
     
 
 
-def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
+def response( gpsTime, rightAscension, declination, inclination,
+              polarization, unit, detector ):
 
   """
-  Calculates the antenna factors for a detector 'det' (e.g. 'H1')
+  response( gpsTime, rightAscension, declination, inclination,
+              polarization, unit, detector )
+  
+  Calculates the antenna factors for a detector 'detector' (e.g. 'H1')
   at a given gps time (as integer) for a given sky location
-  (ra_deg, dec_deg) [degree]. This computation also takes into account
-  a specific inclination iota_deg and polarization psi_deg, all given
-  in degree. 
-  The returned values are: (f-plus, f-cross, f-average, q-value). 
+  (rightAscension, declination) in some unit (degree/radians).
+  This computation also takes into account a specific inclination
+  and polarization.
+  
+  The returned values are: (f-plus, f-cross, f-average, q-value).
+  
   Example: antenna.response( 854378604.780, 11.089, 42.308, 0, 0, 'H1' )
   """
   
@@ -60,6 +68,20 @@ def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
           % (gpsTime)
     sys.exit(1)
 
+  if unit =='radians':
+    ra_rad = rightAscension
+    de_rad = declination
+    psi_rad = polarization
+    iota_rad = inclination
+  elif unit =='degree':
+    ra_rad = rightAscension/180.0*pi
+    de_rad = declination/180.0*pi
+    psi_rad = polarization/180.0*pi
+    iota_rad = inclination/180.0*pi
+  else:
+    print "Unknown unit %s" % unit
+    sys.exit(1)
+    
   # calculate GMST if the GPS time
   gps=date.LIGOTimeGPS( gpsTime )
   gmst_rad = date.XLALGreenwichMeanSiderealTime(gps)
@@ -75,14 +97,14 @@ def response( gpsTime, ra_rad, de_rad, iota_rad, psi_rad, det ):
     sys.exit(0)
 
   # get detector
-  if detector not in inject.cached_detector.keys():
+  if detector not in tools.cached_detector.keys():
     print >>sys.stderr, "%s is not a cached detector.  "\
           "Cached detectors are: %s" \
-          % (det, inject.cached_detector.keys())
+          % (det, tools.cached_detector.keys())
     sys.exit(1)
 
   # get the correct response data
-  response = inject.cached_detector[detector].response
+  response = tools.cached_detector[detector].response
 
   # actual computation of antenna factors
   f_plus, f_cross = inject.XLALComputeDetAMResponse(response, ra_rad, de_rad,
@@ -131,7 +153,10 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   elif unit =='degree':
     ra_rad = rightAscension/180.0*pi
     de_rad = declination/180.0*pi
-
+  else:
+    print "Unknown unit %s" % unit
+    sys.exit(1)
+    
   # check input values
   if ra_rad<0.0 or ra_rad> 2*pi:
     print >>sys.stderr, "ERROR. right ascension=%f "\
@@ -153,8 +178,8 @@ def timeDelay( gpsTime, rightAscension, declination, unit, det1, det2 ):
   detMap = {'H1': 'LHO_4k', 'H2': 'LHO_2k', 'L1': 'LLO_4k',
             'G1': 'GEO_600', 'V1': 'VIRGO', 'T1': 'TAMA_300'}
   
-  x1 = inject.cached_detector[detMap[det1]].location
-  x2 = inject.cached_detector[detMap[det2]].location
+  x1 = tools.cached_detector[detMap[det1]].location
+  x2 = tools.cached_detector[detMap[det2]].location
   timedelay=date.XLALArrivalTimeDiff(list(x1), list(x2), ra_rad, de_rad, gps)
 
   return timedelay
