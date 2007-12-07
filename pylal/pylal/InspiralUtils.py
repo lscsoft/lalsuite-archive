@@ -16,7 +16,7 @@ import sys
 from glue.ligolw import utils
 
 from glue.ligolw import lsctables
-from pylab import *
+#from pylab import *
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
@@ -31,6 +31,8 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dp
   @return filename_thumb if a thumbnail was created (None otherwise)
 
   """
+  from pylab import *
+  
   # save picture into a file
   if filename is not None:
     # with the appropriate resolution

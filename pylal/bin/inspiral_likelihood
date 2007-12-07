@@ -214,7 +214,7 @@ class plotdata:
       for ifo in ifolist:
         hist_check_slides = 1
         hist_check_inj = 1
-        coinc_slides_sim = coinc_slides.coinctype(ifolist).getsngls(ifo).get_column(param)
+        coinc_slides_sim = coinc_slides.coinctype(ifolist).getsngls(ifo).get_columnet_column(param)
         coinc_inj_sim = coinc_inj.coinctype(ifolist).getsngls(ifo).get_column(param)
         if len(coinc_slides_sim) > 1:
           (y_slide, x_slide) = normalized_hist(coinc_slides_sim, slide_bins)
@@ -352,7 +352,7 @@ class plotdata:
                     savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
                   figure()
  
-  def triple_scatter_plot(self, p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, prefix='False_Alarm_Probability'):
+  def triple_scatter_plot(self, p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, prefix='False\_Alarm\_Probability'):
     """
     Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
     Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
@@ -1290,100 +1290,100 @@ if opts.dump:
 ###################################################################################
 # Plot the various parameters for time slides and injections
 ###################################################################################
-
-
-if opts.plot_simethinca:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'simethinca', opts.slide_bins, opts.injection_bins)
-
-if opts.plot_distcut:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)  
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'eff_distance')
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'eff_distance')
-
-if opts.plot_mchirp:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp')
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp')
-
-
-if opts.plot_chisq:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins) 
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'chisq', logscale=True)
-
-if opts.plot_snr:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)   
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', logscale=True)
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', logscale=True) 
-
-if opts.plot_snr_vs_chisq:
-  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', 'chisq', logscale=True) 
-  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', 'chisq', logscale=True) 
-
-if opts.plot_snr_vs_mchirp:
-  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp', 'snr', ylogscale=True)
-  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp', 'snr', ylogscale=True)
-
-
-
-if opts.scatter_plot:
-  plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
-  plotdata().scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic)
-  plotdata().scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic)
-  plotdata().scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic)
-
-
-
-
-
-print "check point 1"
-if opts.scatter_all_plot:
-  print "check point 2"
-  plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
-  print "check point 3"
-  plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, 'Background_Fraction')
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injections_stat_array, p0_inj_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injections_stat_array, Likelihood_inj, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injections_stat_array, DetectionBackgroundRatio_inj, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
-
-
-if opts.likelihood == 'zerolag-candidates-only':
-  plotdata().plot_likelihood(Likelihood, opts.bins_cumhist, prefix='likelihood_zerolag')
-  plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, prefix='DBR_zerolag',label_x='DBR')   
-elif  opts.likelihood == 'zerolag-vs-background':
-  postfix = '_zerolag_vs_background'
-  plotdata().plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = '_zerolag_vs_background' + '_DBR'
-  plotdata().plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, prefix='likelihood_zerolag')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, prefix='DBR_zerolag', label_x='DBR')
-  if opts.inj_vs_slides_hist:
-     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
-     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
-elif opts.likelihood == 'injections-vs-background':
-  postfix = '_injections_vs_background' 
-  plotdata().plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = '_injections_vs_background' + '_DBR'
-  plotdata().plot_cumhist(statistic_foreground_inj_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, prefix='likelihood_injections')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, prefix='DBR_injections', label_x='DBR')
-  if opts.inj_vs_slides_hist:
-     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
-     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
-
- 
-if opts.show:
-  show()
-
-
-
-
-
-
-
-
-
-
+# 
+# 
+# if opts.plot_simethinca:
+#   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'simethinca', opts.slide_bins, opts.injection_bins)
+# 
+# if opts.plot_distcut:
+#   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
+#   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)  
+#   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'eff_distance')
+#   plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, r'eff\_distance')
+# 
+# if opts.plot_mchirp:
+#   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
+#   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
+#   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp')
+#   plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp')
+# 
+# 
+# if opts.plot_chisq:
+#   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins)
+#   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins) 
+#   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'chisq', logscale=True)
+# 
+# if opts.plot_snr:
+#   plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)
+#   plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)   
+#   plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', logscale=True)
+#   plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', logscale=True) 
+# 
+# if opts.plot_snr_vs_chisq:
+#   plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', 'chisq', logscale=True) 
+#   plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', 'chisq', logscale=True) 
+# 
+# if opts.plot_snr_vs_mchirp:
+#   plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp', 'snr', ylogscale=True)
+#   plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp', 'snr', ylogscale=True)
+# 
+# 
+# 
+# if opts.scatter_plot:
+#   plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
+#   plotdata().scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic)
+#   plotdata().scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic)
+#   plotdata().scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic)
+# 
+# 
+# 
+# 
+# 
+# print "check point 1"
+# if opts.scatter_all_plot:
+#   print "check point 2"
+#   plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
+#   print "check point 3"
+#   plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, r'Background\_Fraction')
+#   plotdata().triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injections_stat_array, p0_inj_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
+#   plotdata().triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injections_stat_array, Likelihood_inj, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
+#   plotdata().triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injections_stat_array, DetectionBackgroundRatio_inj, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
+# 
+# 
+# if opts.likelihood == 'zerolag-candidates-only':
+#   plotdata().plot_likelihood(Likelihood, opts.bins_cumhist, prefix='likelihood_zerolag')
+#   plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, prefix='DBR_zerolag',label_x='DBR')   
+# elif  opts.likelihood == 'zerolag-vs-background':
+#   postfix = '_zerolag_vs_background'
+#   plotdata().plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
+#   postfix = '_zerolag_vs_background' + '_DBR'
+#   plotdata().plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
+#   plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, prefix='likelihood_zerolag')
+#   plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, prefix='DBR_zerolag', label_x='DBR')
+#   if opts.inj_vs_slides_hist:
+#      plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
+#      plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
+# elif opts.likelihood == 'injections-vs-background':
+#   postfix = '_injections_vs_background' 
+#   plotdata().plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
+#   postfix = '_injections_vs_background' + '_DBR'
+#   plotdata().plot_cumhist(statistic_foreground_inj_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
+#   plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, prefix='likelihood_injections')
+#   plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, prefix='DBR_injections', label_x='DBR')
+#   if opts.inj_vs_slides_hist:
+#      plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
+#      plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
+# 
+#  
+# if opts.show:
+#   show()
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# 
