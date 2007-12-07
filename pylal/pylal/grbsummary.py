@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 import urlparse
-itertools = __import__("itertools", level=0)  # absolute import of system-wide itertools
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 from lalapps import inspiral
 
@@ -122,11 +122,21 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
                              on_source[1] + nplus*quantization_time + padding_time))
 
-def load_external_triggers(filename, verbose=False):
-    doc = utils.load_filename(filename, verbose=verbose,
-                              gz=filename.endswith(".gz"))
-    ext_trigger_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
-    if ext_trigger_tables is None:
-        print >>sys.stderr, "No tables named external_trigger:table found in " + filename
-    ext_triggers = itertools.chain(*ext_trigger_tables)
+def ext_trigger_gpstimes_from_xml(doc):
+    """
+    Return a dictionary of GPS times of external triggers keyed by the GRB
+    name found in the ExtTriggersTables present in doc.  If there are no
+    ExtTriggersTables in doc, return None.
+    """
+    ext_triggers_tables = lsctables.getTablesByType(doc, lsctables.ExtTriggersTable)
+    if ext_triggers_tables is None:
+        return None
+    ext_triggers = {}
+    for tab in ext_triggers_tables:
+        for name, time in itertools.izip(tab.getColumnByName("event_number_grb"),
+                                         tab.getColumnByName("start_time")):
+            if name in ext_triggers:
+                print >>sys.stderr, "warning: GRB %s appears twice in document; taking second definition"
+            ext_triggers[name] = time
     return ext_triggers
+    
