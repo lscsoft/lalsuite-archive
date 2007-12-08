@@ -45,18 +45,15 @@ elements also provide list-like access to the values in the corresponding
 columns of the table.
 """
 
-
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
-
 
 import copy
 import re
 import sys
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
-
 
 import ligolw
 import tokenizer
@@ -397,32 +394,25 @@ class TableStream(ligolw.Stream):
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
+		rowfmt = unicode(u"\n" + indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)]))
+		colnames = self.parentNode.columnnames
+
 		# loop over parent's rows.  This is complicated because we
-		# need to not put a delimiter at the end of the last row
-		# unless it ends with a null token
+		# need to not put a delimiter at the end of the last row.
 		file.write(self.start_tag(indent))
-		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [types.ToFormat[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
-		rowdumper.dump(self.parentNode)
+		rowiter = iter(self.parentNode)
 		try:
-			line = rowdumper.next()
+			row = rowiter.next()
 		except StopIteration:
 			# table is empty
 			pass
 		else:
 			# write first row
-			newline = u"\n" + indent + ligolw.Indent
-			file.write(newline)
-			file.write(xmlescape(line))
+			file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
 			# now add delimiter and write the remaining rows
-			newline = rowdumper.delimiter + newline
-			for line in rowdumper:
-				file.write(newline)
-				file.write(xmlescape(line))
-			if rowdumper.tokens and rowdumper.tokens[-1] == u"":
-				# the last token of the last row was null:
-				# add a final delimiter to indicate that a
-				# token is present
-				file.write(rowdumper.delimiter)
+			rowfmt = unicode(self.getAttribute("Delimiter")) + rowfmt
+			for row in rowiter:
+				file.write(xmlescape(rowfmt % tuple([getattr(row, name) for name in colnames])))
 		file.write(u"\n" + self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
