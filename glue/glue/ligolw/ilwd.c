@@ -129,7 +129,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 			sscanf(s, "%ld%n", &((ligolw_ilwdchar *) new)->i, &converted_len);
 			if(converted_len < len) {
 				/* nope */
-				PyErr_Format(PyExc_ValueError, "'%s'", s);
+				PyErr_Format(PyExc_ValueError, "invalid literal for ilwdchar(): '%s'", s);
 				Py_DECREF(new);
 				new = NULL;
 			}
@@ -144,7 +144,7 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 
 			if(!tbl_attr || !col_attr || strcmp(PyString_AsString(tbl_attr), table_name) || strcmp(PyString_AsString(col_attr), column_name)) {
 				/* mismatch */
-				PyErr_Format(PyExc_ValueError, "'%s'", s);
+				PyErr_Format(PyExc_TypeError, "ilwdchar type mismatch: '%s'", s);
 				Py_DECREF(new);
 				new = NULL;
 			}
