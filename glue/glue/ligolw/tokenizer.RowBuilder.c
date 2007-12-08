@@ -116,6 +116,8 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	if(!PyArg_ParseTuple(args, "OO|O", &rowbuilder->rowtype, &rowbuilder->attributes, &rowbuilder->interns))
 		return -1;
 
+	Py_INCREF(rowbuilder->rowtype);
+
 	rowbuilder->attributes = _build_attributes(rowbuilder->attributes);
 	if(rowbuilder->interns)
 		rowbuilder->interns = PySequence_Tuple(rowbuilder->interns);
@@ -125,7 +127,6 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	if(!rowbuilder->attributes || !rowbuilder->interns)
 		return -1;
 
-	Py_INCREF(rowbuilder->rowtype);
 	rowbuilder->row = Py_None;
 	Py_INCREF(rowbuilder->row);
 	rowbuilder->i = 0;
