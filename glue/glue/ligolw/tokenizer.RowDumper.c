@@ -243,7 +243,7 @@ static struct PyMemberDef members[] = {
 	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names as strings."},
 	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of unicode format strings."},
 	{"iter", T_OBJECT, offsetof(ligolw_RowDumper, iter), 0, "The iterator being used to provide rows for conversion."},
-	{"rows_converted", T_LONG, offsetof(ligolw_RowDumper, rows_converted), READONLY, "Count of rows converted."},
+	{"rows_converted", T_LONG, offsetof(ligolw_RowDumper, rows_converted), 0, "Count of rows converted."},
 	{"tokens", T_OBJECT, offsetof(ligolw_RowDumper, tokens), READONLY, "In-order tuple of unicode tokens from most recently converted row."},
 	{NULL,}
 };
