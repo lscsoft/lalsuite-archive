@@ -44,85 +44,81 @@
 
 /*
  * Convert a sequence of unicode and/or strings to a tuple of strings.
+ * Creates a reference to a new object, does not decref its argument.
  */
 
 
 PyObject *_build_attributes(PyObject *sequence)
 {
-	PyObject *attributes;
+	PyObject *result;
+	int i;
 
-	sequence = PySequence_Tuple(sequence);
+	/* guaranteed to produce a new object */
+	sequence = PySequence_List(sequence);
 	if(!sequence)
 		return NULL;
 
-	attributes = PyTuple_New(PyTuple_GET_SIZE(sequence));
-	if(attributes) {
-		int i;
-		for(i = 0; i < PyTuple_GET_SIZE(sequence); i++) {
-			PyObject *item = PyTuple_GET_ITEM(sequence, i);
-			if(item) {
-				PyObject *str;
-				if(PyString_Check(item)) {
-					str = item;
-					Py_INCREF(str);
-				} else
-					str = PyUnicode_AsEncodedString(item, NULL, "strict");
-				if(str) {
-					PyTuple_SET_ITEM(attributes, i, str);
-					continue;
-				}
+	for(i = 0; i < PyList_GET_SIZE(sequence); i++) {
+		PyObject *item = PyList_GET_ITEM(sequence, i);
+		if(!item) {
+			Py_DECREF(sequence);
+			return NULL;
+		}
+		if(!PyString_Check(item)) {
+			PyObject *str = PyUnicode_AsEncodedString(item, NULL, "strict");
+			if(!str) {
+				Py_DECREF(sequence);
+				return NULL;
 			}
-			Py_DECREF(attributes);
-			attributes = NULL;
-			break;
+			Py_DECREF(item);
+			PyList_SET_ITEM(sequence, i, str);
 		}
 	}
 
+	result = PySequence_Tuple(sequence);
 	Py_DECREF(sequence);
 
-	return attributes;
+	return result;
 }
 
 
 /*
  * Convert a sequence of unicode and/or strings to a tuple of unicodes.
+ * Creates a reference to a new object, does not decref its argument.
  */
 
 
 PyObject *_build_formats(PyObject *sequence)
 {
-	PyObject *formats;
+	PyObject *result;
+	int i;
 
-	sequence = PySequence_Tuple(sequence);
+	/* guaranteed to produce a new object */
+	sequence = PySequence_List(sequence);
 	if(!sequence)
 		return NULL;
 
-	formats = PyTuple_New(PyTuple_GET_SIZE(sequence));
-	if(formats) {
-		int i;
-		for(i = 0; i < PyTuple_GET_SIZE(sequence); i++) {
-			PyObject *item = PyTuple_GET_ITEM(sequence, i);
-			if(item) {
-				PyObject *unicd;
-				if(PyUnicode_Check(item)) {
-					unicd = item;
-					Py_INCREF(unicd);
-				} else
-					unicd = PyUnicode_FromObject(item);
-				if(unicd) {
-					PyTuple_SET_ITEM(formats, i, unicd);
-					continue;
-				}
+	for(i = 0; i < PyList_GET_SIZE(sequence); i++) {
+		PyObject *item = PyList_GET_ITEM(sequence, i);
+		if(!item) {
+			Py_DECREF(sequence);
+			return NULL;
+		}
+		if(!PyUnicode_Check(item)) {
+			PyObject *unicd = PyUnicode_FromObject(item);
+			if(!unicd) {
+				Py_DECREF(sequence);
+				return NULL;
 			}
-			Py_DECREF(formats);
-			formats = NULL;
-			break;
+			Py_DECREF(item);
+			PyList_SET_ITEM(sequence, i, unicd);
 		}
 	}
 
+	result = PySequence_Tuple(sequence);
 	Py_DECREF(sequence);
 
-	return formats;
+	return result;
 }
 
 
