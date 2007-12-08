@@ -250,7 +250,7 @@ def DBTable_idmap_get_new(old, tbl):
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		return new[0]
-	new = unicode(table.next_id(tbl))
+	new = unicode(tbl.get_next_id())
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
 
@@ -663,8 +663,8 @@ class TimeSlideTable(DBTable):
 		# time slide not found in table
 		if create_new is None:
 			raise KeyError, offsetdict
-		id = self.sync_next_id()
-		type(self).next_id += 1
+		self.sync_next_id()
+		id = self.get_next_id()
 		for instrument, offset in offsetdict.iteritems():
 			row = self.RowType()
 			row.process_id = create_new.process_id
@@ -713,10 +713,9 @@ class CoincDefTable(DBTable):
 		# coinc type not found in table
 		if not create_new:
 			raise KeyError, (search, coinc_type)
-		id = self.sync_next_id()
-		type(self).next_id += 1
+		self.sync_next_id()
 		row = self.RowType()
-		row.coinc_def_id = id
+		row.coinc_def_id = self.get_next_id()
 		row.search = search
 		row.search_coinc_type = coinc_type
 		row.description = description

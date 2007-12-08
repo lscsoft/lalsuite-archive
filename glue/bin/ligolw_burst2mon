@@ -126,7 +126,7 @@ process.end_time = 0
 process.jobid = 0
 process.domain = ""
 process.ifos = ""
-process.process_id = table.next_id(proctable)
+process.process_id = proctable.get_next_id()
 
 proctable.append(process)
 
@@ -164,7 +164,7 @@ seglist = table.get_table(indoc, lsctables.SearchSummaryTable.tableName).get_out
 for seg in seglist:
 	row = lsctables.Segment()
 	row.process_id = process.process_id
-	row.segment_id = table.next_id(segtable)
+	row.segment_id = segtable.get_next_id()
 	row.active = 1
 	row.set(seg)
 	segtable.append(row)
@@ -182,7 +182,7 @@ for seg in seglist:
 for burst in table.get_table(indoc, lsctables.SnglBurstTable.tableName).rows:
 	ligolwmon = lsctables.LIGOLWMon()
 	ligolwmon.process_id = process.process_id
-	ligolwmon.event_id = table.next_id(ligolwmontable)
+	ligolwmon.event_id = ligolwmontable.get_next_id()
 	ligolwmon.set_time(burst.get_peak())
 	ligolwmon.amplitude = burst.amplitude
 	ligolwmon.confidence = -burst.confidence

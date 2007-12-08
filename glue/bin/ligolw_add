@@ -151,7 +151,7 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 				continue
 			row = lsctables.Lfn()
 			row.process_id = pid
-			row.lfn_id = lsctables.table.next_id(lfn_table)
+			row.lfn_id = lfn_table.get_next_id()
 			row.name = pathname
 			row.start_time = start_time
 			row.end_time = end_time
