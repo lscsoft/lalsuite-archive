@@ -59,7 +59,7 @@ typedef struct {
 	/* the source of row objects to be turned to unicode strings */
 	PyObject *iter;
 	/* number of rows converted so far */
-	int rows_converted;
+	long rows_converted;
 	/* tuple of unicode tokens from most recently converted row */
 	PyObject *tokens;
 } ligolw_RowDumper;
@@ -92,36 +92,54 @@ static void __del__(PyObject *self)
 static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_RowDumper *rowdumper = (ligolw_RowDumper *) self;
+	Py_UNICODE default_delimiter = ',';
 
-	if(!PyArg_ParseTuple(args, "OOOO", &rowdumper->attributes, &rowdumper->formats, &rowdumper->delimiter, &rowdumper->iter))
+	rowdumper->delimiter = NULL;
+	if(!PyArg_ParseTuple(args, "OO|O", &rowdumper->attributes, &rowdumper->formats, &rowdumper->delimiter))
 		return -1;
 
-	rowdumper->delimiter = PyUnicode_FromObject(rowdumper->delimiter);
+	if(rowdumper->delimiter)
+		rowdumper->delimiter = PyUnicode_FromObject(rowdumper->delimiter);
+	else
+		rowdumper->delimiter = PyUnicode_FromUnicode(&default_delimiter, 1);
 	rowdumper->attributes = _build_attributes(rowdumper->attributes);
 	rowdumper->formats = _build_formats(rowdumper->formats);
-	rowdumper->iter = PyObject_GetIter(rowdumper->iter);
-	if(!rowdumper->delimiter || !rowdumper->attributes || !rowdumper->formats || !rowdumper->iter) {
-		Py_XDECREF(rowdumper->delimiter);
-		Py_XDECREF(rowdumper->attributes);
-		Py_XDECREF(rowdumper->formats);
-		Py_XDECREF(rowdumper->iter);
+	if(!rowdumper->delimiter || !rowdumper->attributes || !rowdumper->formats)
 		return -1;
-	}
 
 	if(PyTuple_GET_SIZE(rowdumper->attributes) != PyTuple_GET_SIZE(rowdumper->formats)) {
-		Py_DECREF(rowdumper->delimiter);
-		Py_DECREF(rowdumper->attributes);
-		Py_DECREF(rowdumper->formats);
-		Py_DECREF(rowdumper->iter);
 		PyErr_SetString(PyExc_ValueError, "len(attributes) != len(formats)");
 		return -1;
 	}
 
 	rowdumper->rows_converted = 0;
+	rowdumper->iter = Py_None;
+	Py_INCREF(rowdumper->iter);
 	rowdumper->tokens = Py_None;
 	Py_INCREF(rowdumper->tokens);
 
 	return 0;
+}
+
+
+/*
+ * dump() method
+ */
+
+
+static PyObject *dump(PyObject *self, PyObject *iterable)
+{
+	ligolw_RowDumper *rowdumper = (ligolw_RowDumper *) self;
+	PyObject *iter = PyObject_GetIter(iterable);
+
+	if(!iter)
+		return NULL;
+
+	Py_DECREF(rowdumper->iter);
+	rowdumper->iter = iter;
+
+	Py_INCREF(self);
+	return self;
 }
 
 
@@ -150,11 +168,18 @@ static PyObject *next(PyObject *self)
 	PyObject *result;
 	int i;
 
+	if(!PyIter_Check(rowdumper->iter)) {
+		PyErr_SetObject(PyExc_TypeError, rowdumper->iter);
+		return NULL;
+	}
 	row = PyIter_Next(rowdumper->iter);
-
 	if(!row) {
-		if(!PyErr_Occurred())
+		if(!PyErr_Occurred()) {
+			Py_DECREF(rowdumper->iter);
+			rowdumper->iter = Py_None;
+			Py_INCREF(rowdumper->iter);
 			PyErr_SetNone(PyExc_StopIteration);
+		}
 		return NULL;
 	}
 
@@ -216,11 +241,18 @@ static PyObject *next(PyObject *self)
 
 
 static struct PyMemberDef members[] = {
-	{"delimiter", T_OBJECT, offsetof(ligolw_RowDumper, delimiter), READONLY, "The delimiter character."},
+	{"delimiter", T_OBJECT, offsetof(ligolw_RowDumper, delimiter), READONLY, "The delimiter as a unicode string."},
 	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names as strings."},
 	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of unicode format strings."},
-	{"rows_converted", T_INT, offsetof(ligolw_RowDumper, rows_converted), READONLY, "Number of rows converted."},
+	{"iter", T_OBJECT, offsetof(ligolw_RowDumper, iter), 0, "The iterator being used to provide rows for conversion."},
+	{"rows_converted", T_LONG, offsetof(ligolw_RowDumper, rows_converted), READONLY, "Count of rows converted."},
 	{"tokens", T_OBJECT, offsetof(ligolw_RowDumper, tokens), READONLY, "In-order tuple of unicode tokens from most recently converted row."},
+	{NULL,}
+};
+
+
+static struct PyMethodDef methods[] = {
+	{"dump", dump, METH_O, "Set the Python iterable from which row objects will be retrieved for dumping."},
 	{NULL,}
 };
 
@@ -244,22 +276,32 @@ PyTypeObject ligolw_RowDumper_Type = {
 ">>> rows[0].status = \"bad\"\n" \
 ">>> rows[1].status = \"bad\"\n" \
 ">>> rows[2].status = \"good\"\n" \
-">>> rowdumper = RowDumper((\"snr\", \"status\"), (\"%.16g\", \"\\\"%s\\\"\"), \",\", rows)\n" \
-">>> print \",\\n\".join(rowdumper)\n" \
-"10.1,\"bad\",\n" \
-"15.2,\"bad\",\n" \
+">>> rowdumper = RowDumper((\"snr\", \"status\"), (\"%.16g\", \"\\\"%s\\\"\"))\n" \
+">>> for line in rowdumper.dump(rows):\n" \
+"...     print line\n" \
+"... \n" \
+"10.1,\"bad\"\n" \
+"15.2,\"bad\"\n" \
 "20.3,\"good\"\n" \
 "\n" \
-"An instance of RowDumper is initialized with four arguments.  The first\n" \
-"argument is a sequence of attribute names.  The second argument is a\n" \
-"sequence of Python format strings.  The third argument is a delimiter\n" \
-"character.  And the final argument is an iterable object that provides row\n" \
-"objects one-by-one.",
+"An instance of RowDumper is initialized with two arguments and an optional\n" \
+"third argument.  The first argument is a sequence of attribute names.  The\n" \
+"second argument is a sequence of Python format strings.  The third, optional,\n" \
+"argument is the unicode string to use as the delimiter between tokens (the\n" \
+"default is u\",\").  The row dumper is started by calling the .dump() method\n" \
+"which takes a Python iterable as its single argument.  After the .dump()\n" \
+"method has been called, when a RowDumper instance is iterated over it\n" \
+"retrieves objects, one-by-one, from the iterable passed to the .dump() method\n" \
+"and yields a sequence of unicode strings containing the delimited string\n" \
+"representations of the values of the attributes of those objects.  The\n" \
+"The attribute values are printed in the order specified when the RowDumper\n" \
+"was created, and using the formats specified.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
 	.tp_iternext = next,
 	.tp_members = members,
+	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".RowDumper",
 	.tp_new = PyType_GenericNew,
 };
