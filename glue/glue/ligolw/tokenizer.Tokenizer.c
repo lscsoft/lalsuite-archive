@@ -338,20 +338,16 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 {
 	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	PyObject *arg;
-	int delimiter_length;
 
-	if(!PyArg_ParseTuple(args, "O", &arg))
+	if(!PyArg_ParseTuple(args, "U", &arg))
 		return -1;
-	if(!(arg = PyUnicode_FromObject(arg)))
-		return -1;
-	delimiter_length = PyUnicode_GET_SIZE(arg);
-	tokenizer->delimiter = *PyUnicode_AS_UNICODE(arg);
-	Py_DECREF(arg);
-	if(delimiter_length != 1) {
-		PyErr_SetString(PyExc_ValueError, "delimiter must have length 1");
+
+	if(PyUnicode_GET_SIZE(arg) != 1) {
+		PyErr_SetString(PyExc_ValueError, "len(delimiter) != 1");
 		return -1;
 	}
 
+	tokenizer->delimiter = *PyUnicode_AS_UNICODE(arg);
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
 	tokenizer->types[0] = (PyObject *) &PyUnicode_Type;
@@ -406,18 +402,14 @@ static PyObject *next(PyObject *self)
 	*end = 0;
 
 	/*
-	 * Extract token as desired type.  The commented out code would
-	 * cause empty tokens to be returned as None instead of causing
-	 * parse errors.  Since the writing code doesn't know what to do
-	 * with None values yet, this is commented out because it has the
-	 * potential to create bugs, but eventually this is the intended
-	 * behaviour.
+	 * Extract token as desired type.
 	 */
 
-	/*if(start == end) {
+	if(start == end) {
+		/* unquoted zero-length string == None */
 		Py_INCREF(Py_None);
 		token = Py_None;
-	} else*/ if(type == (PyObject *) &PyFloat_Type) {
+	} else if(type == (PyObject *) &PyFloat_Type) {
 		char ascii_buffer[end - start + 1];
 		char *ascii_end;
 		if(PyUnicode_EncodeDecimal(start, end - start, ascii_buffer, NULL))

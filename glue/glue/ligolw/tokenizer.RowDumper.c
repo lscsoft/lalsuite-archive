@@ -204,13 +204,9 @@ static PyObject *next(PyObject *self)
 			return NULL;
 		}
 
-		/* the commented out bits would enable support for writing
-		 * None values as empty entries in the table. */
-#if 0
 		if(val == Py_None)
 			token = PyUnicode_FromUnicode(NULL, 0); /* u"" */
 		else
-#endif
 			token = PyNumber_Remainder(PyTuple_GET_ITEM(rowdumper->formats, i), val);
 		Py_DECREF(val);
 
