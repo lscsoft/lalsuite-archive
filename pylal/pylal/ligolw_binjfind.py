@@ -188,9 +188,8 @@ class DocContents(object):
 			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
 				self.coincs[coinc.coinc_event_id] = []
 		# construct event list for each burst<-->burst coinc
-		sngl_burst_table_name = table.StripTableName(lsctables.SnglBurstTable.tableName)
 		for row in self.coincmaptable:
-			if (row.table_name == sngl_burst_table_name) and (row.coinc_event_id in self.coincs):
+			if row.coinc_event_id in self.coincs:
 				self.coincs[row.coinc_event_id].append(index[row.event_id])
 		del index
 		# sort each event list by peak time and convert to tuples
