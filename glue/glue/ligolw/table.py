@@ -474,20 +474,6 @@ class Table(ligolw.Table, list):
 		self.columnpytypes = []
 
 	#
-	# Sequence methods
-	#
-
-	def filterRows(self, func):
-		"""
-		Delete all rows for which func(row) evaluates to False.
-		"""
-		for i in xrange(len(self) - 1, -1, -1):
-			if not func(self[i]):
-				del self[i]
-		return self
-
-
-	#
 	# Column access
 	#
 
