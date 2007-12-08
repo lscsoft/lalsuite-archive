@@ -197,7 +197,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 		pass
 	else:
 		for row in summ_value:
-			row.summ_value_id = table.next_id(summ_value)
+			row.summ_value_id = summ_value.get_next_id()
 
 	#
 	# find the summvars table, then add and populate a summvar_id column
@@ -211,7 +211,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 		pass
 	else:
 		for row in summvars:
-			row.search_summvar_id = table.next_id(summvars)
+			row.search_summvar_id = summvars.get_next_id()
 
 	#
 	# find the sngl_inspiral table
@@ -407,7 +407,7 @@ def populate_coinc_event_sngls(xmldoc):
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				event.event_id = table.next_id(sngl_inspiral)
+				event.event_id = sngl_inspiral.get_next_id()
 			continue
 
 		#
@@ -417,7 +417,7 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = table.next_id(coinc_event)
+		coinc.coinc_event_id = coinc_event.get_next_id()
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id.
 		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
@@ -431,7 +431,7 @@ def populate_coinc_event_sngls(xmldoc):
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = table.next_id(sngl_inspiral)
+			event.event_id = sngl_inspiral.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
@@ -504,7 +504,7 @@ def populate_coinc_event_sims(xmldoc):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = table.next_id(coinc_event)
+		coinc.coinc_event_id = coinc_event.get_next_id()
 		# time_slide_id is digits 9--12 (inclusively, zero-origin)
 		# of the event_id.  subtract ID=0 from the event_id to
 		# obtain the offset as an integer
@@ -525,7 +525,7 @@ def populate_coinc_event_sims(xmldoc):
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = table.next_id(sngl_inspiral)
+			event.event_id = sngl_inspiral.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id

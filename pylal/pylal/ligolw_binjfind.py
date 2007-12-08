@@ -280,7 +280,7 @@ class DocContents(object):
 		coinc = lsctables.Coinc()
 		coinc.process_id = self.process.process_id
 		coinc.coinc_def_id = coinc_def_id
-		coinc.coinc_event_id = table.next_id(self.coinctable)
+		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = self.tisi_id
 		coinc.nevents = 0
 		coinc.likelihood = float("nan")

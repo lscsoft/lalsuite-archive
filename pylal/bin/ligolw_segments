@@ -150,7 +150,7 @@ def append_process(xmldoc, options):
 def segment_def(ifos, name, comment, tbl, process):
 	row = lsctables.SegmentDef()
 	row.process_id = process.process_id
-	row.segment_def_id = unicode(table.next_id(tbl))
+	row.segment_def_id = unicode(tbl.get_next_id())
 	row.ifos = ifos
 	row.name = name
 	row.comment = comment
@@ -195,7 +195,7 @@ def segment_table_rows(active, inactive, unknown, tbl, process):
 
 	# assign IDs
 	for row in rows:
-		row.segment_id = unicode(table.next_id(tbl))
+		row.segment_id = unicode(tbl.get_next_id())
 
 	# done
 	return rows
@@ -206,7 +206,7 @@ def seg_def_map(seg, seg_def, tbl, process):
 	row.process_id = process.process_id
 	row.segment_id = seg.segment_id
 	row.segment_def_id = seg_def.segment_def_id
-	row.seg_def_map_id = unicode(table.next_id(tbl))
+	row.seg_def_map_id = unicode(tbl.get_next_id())
 	return row
 
 

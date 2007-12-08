@@ -269,7 +269,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
-	process.process_id = table.next_id(proctable)
+	process.process_id = proctable.get_next_id()
 	proctable.append(process)
 	return process
 
