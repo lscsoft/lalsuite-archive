@@ -290,8 +290,9 @@ PyTypeObject ligolw_RowDumper_Type = {
 "retrieves objects, one-by-one, from the iterable passed to the .dump() method\n" \
 "and yields a sequence of unicode strings containing the delimited string\n" \
 "representations of the values of the attributes of those objects.  The\n" \
-"The attribute values are printed in the order specified when the RowDumper\n" \
-"was created, and using the formats specified.",
+"attribute values are printed in the order specified when the RowDumper was\n" \
+"created, and using the formats specified.  An attribute whose value is None\n" \
+"is printed as an empty string regardless of the requested format.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
 	.tp_init = __init__,
 	.tp_iter = __iter__,

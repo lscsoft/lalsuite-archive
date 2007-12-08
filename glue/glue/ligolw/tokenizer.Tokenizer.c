@@ -518,7 +518,7 @@ static PyObject *attribute_get_data(PyObject *obj, void *data)
 
 static struct PyMethodDef methods[] = {
 	{"append", append, METH_O, "Append a unicode object to the tokenizer's internal buffer.  Also accepts str objects as input."},
-	{"set_types", set_types, METH_O, "Set the types to be used cyclically for token parsing.  This function accepts an iterable of callables.  Each callabled will be passed the token to be converted as a unicode string.  Special fast-paths are included to handle the Python builtin types float, int, long, str, and unicode.  The default is to return all tokens as unicode objects."},
+	{"set_types", set_types, METH_O, "Set the types to be used cyclically for token parsing.  This function accepts an iterable of callables.  Each callable will be passed the token to be converted as a unicode string.  Special fast-paths are included to handle the Python builtin types float, int, long, str, and unicode.  The default is to return all tokens as unicode objects."},
 	{NULL,}
 };
 
@@ -545,8 +545,7 @@ PyTypeObject ligolw_Tokenizer_Type = {
 "[int] to set_types() causes all tokens to be converted to ints, while\n" \
 "[str, int] causes the first token to be returned as a string, the second as an\n" \
 "int, then the third as a string again, and so on.  The default is to extract\n" \
-"all tokens as strings.  Note that the last token will not be extracted until\n" \
-"a delimiter character is seen to terminate it.\n" \
+"all tokens as strings.\n" \
 "\n" \
 "Example:\n" \
 "\n" \
@@ -556,7 +555,14 @@ PyTypeObject ligolw_Tokenizer_Type = {
 ">>> list(t.append(\"a,10,b,2\"))\n" \
 "['a', 10, 'b']\n" \
 ">>> list(t.append(\"0,\"))\n" \
-"[20]",
+"[20]\n" \
+"\n" \
+"Notes.  The last token will not be extracted until a delimiter character is\n" \
+"seen to terminate it.  Tokens can be quoted with '\"' characters, which will\n" \
+"removed before conversion to the target type.  An empty token (two delimiters\n" \
+"with only whitespace between them) is returned as None regardless of the\n" \
+"requested type.  To prevent a zero-length string token from being interpreted\n" \
+"as None, place it in quotes.",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
 	.tp_init = __init__,
 	.tp_iter = __iter__,
