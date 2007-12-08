@@ -6,7 +6,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
-import pylal.itertools
+import glue.iterutils
 import numpy
 
 ########################################
@@ -23,7 +23,7 @@ def uniq(list):
 def get_ifo_combos(ifo_list):
   ifo_combos = []
   for num_ifos in range(2, len(ifo_list) + 1):
-    ifo_combos.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
+    ifo_combos.extend(list(glue.iterutils.choices(ifo_list, num_ifos)))
 
   return ifo_combos
 
