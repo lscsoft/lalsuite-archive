@@ -14,7 +14,7 @@ import os
 import re
 import exceptions
 import glob
-import itertools
+import glue.iterutils
 from types import *
 from optparse import *
 
@@ -300,9 +300,9 @@ for injGlob in injGlobs:
     new_sim_table = tab.new_from_template(injDict["sim_inspiral"])
     
   # iterator over consecutive triggers with matching event_ids
-    coincs = itertools.groupby(injDict["sngl_inspiral"],
+    coincs = glue.iterutils.groupby(injDict["sngl_inspiral"],
                                lambda row: row.event_id)
-    for coinc, inj in itertools.izip(coincs, injDict["sim_inspiral"]):
+    for coinc, inj in glue.iterutils.izip(coincs, injDict["sim_inspiral"]):
       # coinc is tuple of (key, iterator); count length of iterator
       num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
       new_sim_table.extend([inj] * num_coincs)
@@ -319,7 +319,7 @@ plot_symbols = ['rx','b+','ko','D','h','p','rx','b+','ko','D','h','p']
 plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
-plot_num = itertools.count(1)
+plot_num = glue.iterutils.count(1)
 #####################################
 # plot of injected vs detected mchirp
 if opts.mchirp_mchirp:
@@ -492,7 +492,7 @@ if opts.hist_dist:
     tagList.append("fix me in plotinspinj")
 
 #######################################
-# plot of injected vs detected distamce    
+# plot of injected vs detected distance    
 if opts.dist_dist:  
   figure(plot_num.next())
   hold(True)
@@ -516,10 +516,10 @@ if opts.chirp_dist:
   hold(True) 
   sym=0
   for injSet in injSets:
-    viz.plotdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
+    viz.plotfracdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'mchirp', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}','Mpc', \
+  viz.labelfracdiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}$','Mpc', \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist")
@@ -528,7 +528,7 @@ if opts.chirp_dist:
     tagList.append("fix me in plotinspinj")
 
 ################################
-# plot of mchirp error vs mchirp
+# plot of end time error vs eff_dist
 if opts.time_dist:
   figure(plot_num.next())
   hold(True)
@@ -545,7 +545,6 @@ if opts.time_dist:
     fnameList.append(fname)
     tagList.append("fix me in plotinspinj")
 
-
 ################################
 # plot of mchirp error vs snr
 if opts.chirp_snr:
@@ -553,10 +552,10 @@ if opts.chirp_snr:
   hold(True)
   sym=0
   for injSet in injSets:
-    viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
+    viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'mchirp', 'snr', 'log', plot_symbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
+  viz.labelfracdiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
     [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy")
@@ -566,7 +565,7 @@ if opts.chirp_snr:
 
 
 ################################
-# plot of mchirp error vs snr
+# plot of end time error vs snr
 if opts.time_snr:
   figure(plot_num.next())
   hold(True)
@@ -590,10 +589,10 @@ if opts.eta_snr:
   hold(True)
   sym=0
   for injSet in injSets:
-    viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
+    viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'eta', 'snr', 'log', plot_symbols[sym])
     sym+=1
-  viz.labeldiffa_vs_b('eta', 'snr',None,None, \
+  viz.labelfracdiffa_vs_b('eta', 'snr',None,None, \
     [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy")
