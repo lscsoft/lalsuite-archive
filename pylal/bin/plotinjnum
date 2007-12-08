@@ -23,7 +23,6 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 
 ##############################################################################
-
 def found_missed(opts,foundFiles,missedFiles):
   """
   """
@@ -41,126 +40,92 @@ def found_missed(opts,foundFiles,missedFiles):
       for coinc in fileCoincTriggers:
         coincTriggers.append(coinc)
      
-  missed = [[],[],[],[]]
+  missed = {}
+  missed['mchirp'] = []
+  missed['end_time_gmst'] = []
+  missed['eff_dist_h'] = []
+  missed['chirp_dist_h'] = []
   for file in missedFiles:
     file = [file]
     
     simMissed = SimInspiralUtils.ReadSimInspiralFromFiles(file)
     if simMissed:
       for sim in simMissed:
-        missed[0].append(sim.mchirp)
-        missed[1].append(sim.end_time_gmst)
-        missed[2].append(sim.eff_dist_h)
-        missed[3].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
-  
-  doubles = [[],[],[],[]]
-  triples = [[],[],[],[]]
-  quadruples = [[],[],[],[]]
+        missed['mchirp'].append(sim.mchirp)
+        missed['end_time_gmst'].append(sim.end_time_gmst)
+        missed['eff_dist_h'].append(sim.eff_dist_h)
+        missed['chirp_dist_h'].append(sim.eff_dist_h*(2.8*.25**(3.0/5.0)/sim.mchirp)**(5.0/6.0))
+
+  found = []
   if len(coincTriggers) > 0:
     for coinc in coincTriggers:
-      if coinc.numifos == 2:
-        doubles[0].append(coinc.sim.mchirp)
-        doubles[1].append(coinc.sim.end_time_gmst)
-        doubles[2].append(coinc.sim.eff_dist_h)
-        doubles[3].append(coinc.sim.eff_dist_h* \
-                      (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-      if coinc.numifos == 3:
-        triples[0].append(coinc.sim.mchirp)
-        triples[1].append(coinc.sim.end_time_gmst)
-        triples[2].append(coinc.sim.eff_dist_h)
-        triples[3].append(coinc.sim.eff_dist_h* \
-                     (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
-      if coinc.numifos == 4:
-        quadruples[0].append(coinc.sim.mchirp)
-        quadruples[1].append(coinc.sim.end_time_gmst)
-        quadruples[2].append(coinc.sim.eff_dist_h)
-        quadruples[3].append(coinc.sim.eff_dist_h* \
-                     (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
+      if coinc.numifos > len(found):
+        while coinc.numifos > len(found):
+          found.append({'mchirp':[],'end_time_gmst':[],'eff_dist_h':[],
+              'chirp_dist_h':[]})
+      found[coinc.numifos - 1]['mchirp'].append(coinc.sim.mchirp)
+      found[coinc.numifos - 1]['end_time_gmst'].append(coinc.sim.end_time_gmst)
+      found[coinc.numifos - 1]['eff_dist_h'].append(coinc.sim.eff_dist_h)
+      found[coinc.numifos - 1]['chirp_dist_h'].append(coinc.sim.eff_dist_h* \
+          (2.8*.25**(3.0/5.0)/coinc.sim.mchirp)**(5.0/6.0))
 
-      print "doubles[0]",doubles[0]
-      print "triples[0]",triples[0]
-      print "quadruples[0]",quadruples[0]
-      print "missed[0]", missed[0] 
-  return missed, doubles, triples, quadruples
+  return missed, found
 
 
-def plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples):
+def plot_found_missed(figNum, opts, missed, found, xtype, ytype):
   """
-
   """
-  figure(1)
-  semilogy(quadruples[0],quadruples[2],'mx',triples[0],triples[2],'bx',doubles[0],doubles[2],'og',missed[0],missed[2],'rx')
-  legend_text=("quadruple","triple", "double", "coincs")
+  figure(figNum,figsize=(8,8))
+  ax = axes([0.15, 0.15, 0.7, 0.7])
+
+  typeNames = ['Missed', 'Doubles', 'Triples', 'Quadruples', 'Quintuples']
+  colors = ['rx','cx','bx','mx','gx']
+
+  if xtype == 'mchirp':
+    xStr = '$M_{chirp}(M_{\odot})$'
+  elif xtype == 'end_time_gmst':
+    xStr = 'GMST End Time'
+
+  if ytype == 'eff_dist_h':
+    yStr = 'Hanford Effective Distance (Mpc)'
+  elif ytype == 'chirp_dist_h':
+    yStr = 'Hanford Chirp Distance'
+
+  legend_text = []
+  for idx in range(len(found)):
+    idx = len(found) - 1 - idx
+    if idx > 0:
+      semilogy(found[idx][xtype], found[idx][ytype], colors[idx])
+      legend_text.append(typeNames[idx])
+      hold(True)
+
+  semilogy(missed[xtype], missed[ytype], colors[0])
+  legend_text.append(typeNames[0])
   grid()
-  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
-  xlabel('mchirp',size='x-large')
-  ylabel('effective distance',size='x-large')
-  legend(legend_text,loc=0)
 
-  if not opts.enable_output is True:
-     fig_mchirp = opts.ifo_type + '_missed_found_vs_mchirp.png'
-     savefig(fig_mchirp)
+  title('Found and Missed Injections in ' + opts.ifo_times + ' times',
+      size='xx-large')
+  xlabel(xStr,size='xx-large')
+  ylabel(yStr,size='xx-large')
+  xticks(fontsize='xx-large')
+  yticks(fontsize='xx-large')
+  leg = legend(legend_text,loc=0)
+  leg_text=leg.get_texts()
+  setp(leg_text,fontsize='x-large')
 
   if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "missed_found_vs_mchirp")
+    fname = InspiralUtils.set_figure_name(opts, 'found_missed_' + \
+        ytype + '_vs_' + xtype)
     savefig(fname)
     return fname
   else:
-    return  fig_mchirp
+    figName = opts.ifo_type + 'found_missed_' + ytype + '_vs_' + xtype + '.png'
+    savefig(figName)
+    return figName
  
-def plot_found_missed_end_time(opts, missed, doubles, triples, quadruples):
-  """
-
-  """
-  figure(2)
-  semilogy(quadruples[1],quadruples[2],'mx',triples[1],triples[2],'bx',doubles[1],doubles[2],'og',missed[1],missed[2],'rx')
-  legend_text=("quadruple", "triple", "double", "coincs")
-  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
-  xlabel('end time gmst',size='x-large')
-  ylabel('eff dist',size='x-large')
-  legend(legend_text,loc=0)
-  
-  if not opts.enable_output is True:
-     fig_endtime = opts.ifo_type + '_missed_found_vs_mchirp.png'
-     savefig(fig_endtime)
-  
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "missed_found_vs_end_time")
-    savefig(fname)
-    return fname
-  else:
-    return  fig_endtime
-     
-  
-def plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples):
-  """
-
-  """
- 
-  figure(3)
-  semilogy(quadruples[0],quadruples[3],'mx',triples[0],triples[3],'bx',doubles[0],doubles[3],'og',missed[0],missed[3],'rx')
-  legend_text=("quadruple","triple", "double", "coincs")
-  grid()
-  title('Found and Missed Injections in ' + opts.ifo_times + ' times')
-  xlabel('mchirp',size='x-large')
-  ylabel('chirp distance',size='x-large')
-  legend(legend_text,loc=0)
-  
-  if not opts.enable_output is True:
-     fig_chirpdist = opts.ifo_type + '_missed_found_vs_mchirp.png'
-     savefig(fig_chirpdist)
-  
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "missed_found_chirp_dist_vs_mchirp")
-    savefig(fname)
-    return fname
-  else:
-     return  fig_chirpdist
- 
-##############################################################################
+###################################
 # Defining a config parser function
-##############################################################################
+###################################
 
 usage = """
 usage: %prog [options]
@@ -225,12 +190,15 @@ def parse_command_line():
 
   return options, sys.argv[1:]
 
+################
 # Alphabets used
 # 
-# ============================================================================
-# -- get command line arguments
+
+############################
+# get command line arguments
 opts, args = parse_command_line()
 
+######################################################
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
   import matplotlib
@@ -239,7 +207,7 @@ from pylab import *
 from pylal import viz
 
 
-##############################################################################
+############
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
@@ -248,47 +216,34 @@ figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
 
+############################################
 # Checking for found files and missed files.
-##############################################################################
-
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
   if opts.verbose:
      print " ...reading the following list of found files " + str(foundFiles) + "\n"
 elif opts.cache_file:
-  foundFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_found_pattern).checkfilesexist()[0].pfnlist()
-  
+  foundFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_found_pattern).checkfilesexist()[0].pfnlist()  
   print foundFiles
   if opts.verbose:
-      print " ...reading the following list of found files " + str(foundFiles) + "\n"
-
-
-
+    print " ...reading the following list of found files " + str(foundFiles) + "\n"
 else:  
   print >>sys.stderr, "Must specify a glob of FOUND injections or cache file"
   sys.exit(1)
-
 
 if not foundFiles:
   print >>sys.stdout, "List of found files for " + opts.ifo_times + " is empty"
   sys.exit(0)
 
-
-
-
-  
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
-
 elif opts.cache_file:
    missedFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_missed_pattern).checkfilesexist()[0].pfnlist()
-   
    print missedFiles
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
-       
 else:
   print >>sys.stderr, "Must specify a glob of MISSED injections"
   sys.exit(1)
@@ -297,36 +252,33 @@ if not missedFiles:
   print >>sys.stdout, "List of missed files for " + opts.ifo_times + " is empty"
   sys.exit(0)
 
-##############################################################################
-
+##############################################
 # Generating missed, doubles and triple coincs
-  
-missed, doubles, triples, quadruples = found_missed(opts,foundFiles,missedFiles)
+missed, found = found_missed(opts,foundFiles,missedFiles)
 
+#########################################
+# final step: plot, html, cache file generation
+figNum = 0
 
-# ============================================================================
-# final step: html, cache file generation
-if opts.enable_output is True:
-  fname = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples)
-  fnameList.append(fname)
-  tagList.append("Found Chirp distance versus chirp mass")
-  fname = plot_found_missed_end_time(opts, missed, doubles, triples, quadruples)
-  fnameList.append(fname)
-  tagList.append("Missed versus end time")
-  fname = plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples)
-  fnameList.append(fname)
-  tagList.append("Found and missed versus chirp mass")
-else: # we can probably remove the else and put the function calls before the if 
-  Fig_chirpdist  = plot_found_chirp_dist_vs_mchirp(opts, missed, doubles, triples, quadruples)
-  Fig_endtime = plot_found_missed_end_time(opts, missed, doubles, triples, quadruples)
-  Fig_mchirp = plot_found_missed_mchirp(opts, missed, doubles, triples, quadruples)
-  
+figNum += 1
+fname = plot_found_missed(figNum, opts, missed, found, 'mchirp', 'chirp_dist_h')
+fnameList.append(fname)
+tagList.append("Found Chirp distance versus chirp mass")
+
+figNum += 1
+fname = plot_found_missed(figNum, opts, missed, found, 'end_time_gmst',
+    'eff_dist_h')
+fnameList.append(fname)
+tagList.append("Missed versus end time")
+
+figNum += 1
+fname = plot_found_missed(figNum, opts, missed, found, 'mchirp', 'eff_dist_h')
+fnameList.append(fname)
+tagList.append("Found and missed versus chirp mass")
+
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-
-
 
 ####################
 if opts.show_plot:
