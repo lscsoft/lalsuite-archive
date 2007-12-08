@@ -194,17 +194,6 @@ def get_table(xmldoc, name):
 	return tables[0]
 
 
-def next_id(table_instance):
-	"""
-	Accepts an instance of a subclass of Table, and returns the current
-	value of the next_id class attribute, and increments the next_id
-	class attribute by 1.
-	"""
-	id = table_instance.next_id
-	type(table_instance).next_id += 1
-	return id
-
-
 def reassign_ids(elem):
 	"""
 	Recurses over all tables below elem whose next_id attributes are
@@ -589,6 +578,16 @@ class Table(ligolw.Table, list):
 	# Row ID manipulation
 	#
 
+	def get_next_id(cls):
+		"""
+		Returns the current value of the next_id class attribute,
+		and increments the next_id class attribute by 1.
+		"""
+		id = cls.next_id
+		cls.next_id += 1
+		return id
+	get_next_id = classmethod(get_next_id)
+
 	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
@@ -612,12 +611,12 @@ class Table(ligolw.Table, list):
 			if len(self):
 				n = max(self.getColumnByName(self.next_id.column_name)) + 1
 			else:
-				n = type(self.next_id)(0)
+				n = self.next_id.__class__(0)
 			if n > self.next_id:
 				# the left-hand-side is the way it is to
 				# ensure we assign to the class attribute
 				# instead of creating an instance attribute
-				type(self).next_id = n
+				self.__class__.next_id = n
 		return self.next_id
 
 	def updateKeyMapping(self, mapping):
@@ -640,7 +639,7 @@ class Table(ligolw.Table, list):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = next_id(self)
+				column[i] = mapping[old] = self.get_next_id()
 		return mapping
 
 	def applyKeyMapping(self, mapping):
