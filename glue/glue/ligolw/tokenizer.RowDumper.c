@@ -98,7 +98,9 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	if(!PyArg_ParseTuple(args, "OO|U", &rowdumper->attributes, &rowdumper->formats, &rowdumper->delimiter))
 		return -1;
 
-	if(!rowdumper->delimiter)
+	if(rowdumper->delimiter)
+		Py_INCREF(rowdumper->delimiter);
+	else
 		rowdumper->delimiter = PyUnicode_FromUnicode(&default_delimiter, 1);
 	rowdumper->attributes = _build_attributes(rowdumper->attributes);
 	rowdumper->formats = _build_formats(rowdumper->formats);
