@@ -16,7 +16,6 @@ import sys
 from glue.ligolw import utils
 
 from glue.ligolw import lsctables
-from pylab import *
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
