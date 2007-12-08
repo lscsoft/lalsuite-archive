@@ -122,11 +122,8 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	else
 		rowbuilder->interns = PyTuple_New(0);
 
-	if(!rowbuilder->attributes || !rowbuilder->interns) {
-		Py_XDECREF(rowbuilder->attributes);
-		Py_XDECREF(rowbuilder->interns);
+	if(!rowbuilder->attributes || !rowbuilder->interns)
 		return -1;
-	}
 
 	Py_INCREF(rowbuilder->rowtype);
 	rowbuilder->row = Py_None;
