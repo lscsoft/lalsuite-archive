@@ -47,7 +47,7 @@ def parse_args():
         help="File containing data quality flags of interest with expansion windows")
     parser.add_option("-o", "--outfile",
         help="Output file; if unspecified, print to stdout")
-    parser.add_option("-n", "--keep-version", action="append", default=[],
+    parser.add_option("-n", "--keep-version", action="append",
         dest="keep_versions",
         help="Ignore flags of a particular version (repeat option to specify multiple versions)")
     parser.add_option("-v", "--verbose", action="count", default=0,
