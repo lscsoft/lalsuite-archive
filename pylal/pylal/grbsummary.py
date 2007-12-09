@@ -27,14 +27,14 @@ from glue.ligolw import utils
 
 class GRBSummaryDAG(pipeline.CondorDAG):
   def __init__(self, config_file, log_path):
-    self.basename = config_file.replace(".ini", "") 
+    self.basename = config_file.replace(".ini", "")
     logfile, logfilename = tempfile.mkstemp(prefix=self.basename, suffix=".dag.log", dir=log_path)
     os.close(logfile)
     pipeline.CondorDAG.__init__(self, logfilename)
     self.set_dag_file(self.basename)
 
 ##############################################################################
-# Utility functions
+# Segment-manipulation functions
 ##############################################################################
 
 def compute_masked_segments(analyzable_seglist, on_source_segment,
@@ -123,6 +123,10 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
                              on_source[1] + nplus*quantization_time + padding_time))
 
+##############################################################################
+# XML convenience code
+##############################################################################
+
 def load_external_triggers(filename, verbose=False):
     doc = utils.load_filename(filename, verbose=verbose,
                               gz=filename.endswith(".gz"))
@@ -131,6 +135,17 @@ def load_external_triggers(filename, verbose=False):
         print >>sys.stderr, "No tables named external_trigger:table found in " + filename
     ext_triggers = itertools.chain(*ext_trigger_tables)
     return ext_triggers
+
+def fix_numrel_columns(sims):
+    """
+    Due to a mismatch between our LAL tag and the LAL HEAD, against which
+    we compile pylal, there are missing columns that cannot be missing.
+    Just put in nonsense values so that glue.ligolw code won't barf.
+    """
+    for sim in sims:
+        sim.numrel_data="nan"
+        sim.numrel_mode_max = 0
+        sim.numrel_mode_min = 0
 
 def write_rows(rows, table_type, filename):
     """
