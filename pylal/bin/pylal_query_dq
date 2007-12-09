@@ -9,19 +9,18 @@ from __future__ import division
 import glob
 import optparse
 import os
-import re
 import sys
-import urllib
 
 from glue.segments import segmentlistdict, segment, segmentlist
-from glue.__segments import segment, segmentlist
 from glue import segmentsUtils
+from glue import iterutils
+
+from pylal import dqutils
 
 __author__ = "Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
-dq_url_pattern = "http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
 all_ifos = ('H1', 'H2', 'G1', 'L1', 'V1')
 
 ##############################################################################
@@ -29,184 +28,106 @@ all_ifos = ('H1', 'H2', 'G1', 'L1', 'V1')
 ##############################################################################
 
 def parse_args():
-    parser = optparse.OptionParser(usage=__doc__, version="$Id$")
-    parser.add_option("-i", "--ifo", dest="ifos", action="append",
-        help="IFO whose DQ flags should be analyzed")
+    parser = optparse.OptionParser(usage=__doc__,
+      version="$Id$")
+    parser.add_option("-i", "--ifo", dest="ifos", metavar="IFO",
+        action="append", help="IFO whose DQ flags should be analyzed "\
+        "(provide this option multiple times for multiple IFOs)")
     parser.add_option("-d", "--dq-segfile", dest="dq_segfiles",
         action="append", help="File containing data quality flags with "\
-        "segments for an IFO (default: download from ldas-cit); --dq-segfile "\
-        "options must have the same order as --ifo options")
+        "segments for an IFO; if it does not exist, it will be downloaded "\
+        "from ldas-cit; if omitted, the file will be downloaded from CIT, "\
+        "but not retained; --dq-segfile options must have the same order as "\
+        "--ifo options")
     parser.add_option("-p", "--at-point", type="int",
         help="Discover what DQ flags were active at a point in time")
     parser.add_option("-s", "--segfile",
         help="File containing segments of interest")
     parser.add_option("-f", "--flagfile",
-        help="File containing data quality flags of interest")
+        help="File containing data quality flags of interest with expansion windows")
     parser.add_option("-o", "--outfile",
         help="Output file; if unspecified, print to stdout")
-    parser.add_option("-n", "--ignore-version", action="append", default=[],
-        dest="ignore_versions",
+    parser.add_option("-n", "--keep-version", action="append", default=[],
+        dest="keep_versions",
         help="Ignore flags of a particular version (repeat option to specify multiple versions)")
     parser.add_option("-v", "--verbose", action="count", default=0,
         help="Print extra information; specify twice for extra verbosity")
     opts, args = parser.parse_args()
 
+    if opts.ifos is None:
+        raise ValueError, "Must provide IFOs on which to operate."
+
     if not ((opts.segfile is None) ^ (opts.at_point is None)):
         raise ValueError, "Must specify either --segfile or --at-point"
 
-    if opts.segfile is not None:
-        assert os.path.exists(opts.segfile)
-    if opts.dq_segfiles is not None:
-        for f in opts.dq_segfiles:
-            assert os.path.exists(f)
+    if (opts.segfile is not None) and (not os.path.exists(opts.segfile)):
+        raise ValueError, "segfile does not exist"
 
     for ifo in opts.ifos:
-        assert ifo in all_ifos, "%s not in %s" % (ifo, all_ifos)
+        if ifo not in all_ifos:
+          raise ValueError, "%s not in %s" % (ifo, all_ifos)
 
     return opts, args
 
-def get_dq_file(ifo, verbose=False):
-    """
-    Connect to a server and download the dq_segments.txt file for each IFO to
-    a temporary file.  The path to this temporary file is returned.
-    """
-    if verbose:
-        print "Downloading %s" % (dq_url_pattern % ifo)
-
-    dest, info = urllib.urlretrieve(dq_url_pattern % ifo)
-
-    if verbose >= 2:
-        print info
-    return dest
-
-def fromDQsegments(file, coltype=int, discard_disabled=True, ignore_versions=[]):
-    """
-    Given a data quality segment file, return a segmentlistdict containing a
-    segmentlist for each DQ flag.  Column 0 is the flag name and channel 1
-    is the version of that flag.  %(name)s_v%(version)s will be the key on the
-    segmentlistdict and columns 2 and 3 will be cast to coltype and used as
-    start and end times for segments.
-
-    If discard_disabled==True, then check that the enabled flag (column) is >0.
-    """
-    commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
-    fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
-    d = segmentlistdict({})
-
-    for line in file:
-        line = commentpat.split(line)[0]
-        if not len(line):
-            continue
-        try:
-            [tokens] = fivecolsegpat.findall(line)
-            name = "%s_v%s" % (tokens[0], tokens[1])
-            seg = segment(map(coltype, tokens[2:4]))
-            enabled = coltype(tokens[4])
-        except ValueError:
-            break
-        if discard_disabled and not enabled:
-            continue
-        if tokens[1] in ignore_versions:
-            continue
-        if name not in d.keys():
-            d[name] = segmentlist([])
-        d[name].append(seg)
-    return d
-
-def generate_veto_segments(seg_dict, veto_file, verbose):
-    """
-    Generate a list of veto segments from a segment dictionary and a list
-    of vetoes.  Each line in the veto file should contain the flag name and 
-    the windows to be added to the start and end times.
-    """
-    veto_dict = segmentlistdict({})
-    if verbose > 1:
-        print "Keeping segments for the following flags:"
-
-    for line in veto_file:
-        line = line.split()
-        if len(line) == 0: continue
-        flag = line[0]
-        if verbose > 1: print flag + ", ",
-        window = [int(line[1]), int(line[2])]
-        # FIXME: For now we assume that we want the v99 flags
-        segs = segmentlist([segment(s[0]+window[0], s[1]+window[1]) 
-                for s in seg_dict[flag + "_v99"]])
-        veto_dict[flag] = segs
-
-    if verbose >1: print "  done"
-
-    return veto_dict
- 
 ##############################################################################
 # Main
 ##############################################################################
 
-if __name__ == "__main__":
-    opts, args = parse_args()
-    
-    # download DQ flag segfiles if necessary
-    if opts.dq_segfiles is None:
-        opts.dq_segfiles = [get_dq_file(ifo, opts.verbose) for ifo in opts.ifos]
+opts, args = parse_args()
 
-    # construct segmentdict
-    dq_dict = segmentlistdict({})
-    for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
-        new_dict = fromDQsegments(open(dq_file),
-            ignore_versions=opts.ignore_versions)
+# download DQ flag segfiles if necessary -- time-consuming
+for i, (dq_segfile, ifo) in enumerate(zip(opts.dq_segfiles, opts.ifos)):
+    if (dq_segfile is None) or (not os.path.isfile(dq_segfile)):
+        opts.dq_segfiles[i] = dqutils.get_dq_file(ifo, dq_segfile, opts.verbose)
 
-        # rename flags to keep track of IFO
-        for flag,val in new_dict.iteritems():
-            dq_dict["%s:%s" % (ifo, flag)] = val
+# construct DQ flag segments -- time-consuming
+dq_dict = segmentlistdict({})
+for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
+    if opts.verbose >= 1: print "Parsing DQ flags for", ifo, "from", dq_file, "..."
+    new_dict = dqutils.fromDQsegments(open(dq_file),
+        keep_versions=opts.keep_versions)
 
-    # keep only flags in the flagfile, expand/contract according to windows
-    if opts.flagfile is not None:
-        dq_dict = generate_veto_segments(dq_dict, open(opts.flagfile), 
-                opts.verbose)
+    # rename flags to keep track of IFO
+    for flag,val in new_dict.iteritems():
+        dq_dict["%s:%s" % (ifo, flag)] = val
 
-    # do math; remove everything not in the segfile segments
-    if opts.segfile is not None:
-        window = segmentsUtils.fromsegwizard(open(opts.segfile))
-        mask = ~window
-        dq_dict = dq_dict.map(lambda l: l - mask)
-    elif opts.at_point is not None:
-        def find(seglist):
-            try:
-                ind = seglist.find(opts.at_point)
-                return segmentlist([seglist[ind]])
-            except ValueError:
-                return segmentlist([])
-        dq_dict = dq_dict.map(find)
+# keep only flags in the flagfile, expand/contract according to windows
+if opts.flagfile is not None:
+    veto_windows = from_veto_file(open(opts.flagfile))
+    dq_dict = dqutils.apply_veto_windows(dq_dict, veto_windows)
 
-    # separate into zero-length and non-zero-length piles
-    nocontrib_flags = []
-    contrib_flags_segdict = segmentlistdict({})
-    for key, val in dq_dict.iteritems():
-        if len(val):
-            contrib_flags_segdict[key] = val
-        else:
-            nocontrib_flags.append(key)
-    contrib_flags_order = contrib_flags_segdict.keys()
-    contrib_flags_order.sort()
-    contrib_flags_union = contrib_flags_segdict.union(contrib_flags_order)
-    nocontrib_flags.sort()
+# do math; remove everything not in the segfile segments
+if opts.segfile is not None:
+    analyzable = segmentsUtils.fromsegwizard(open(opts.segfile))
+    dq_dict = dqutils.determine_vetoes(dq_dict, analyzable)
+elif opts.at_point is not None:
+    dq_dict = dqutils.segmentlistdict_at_point(dq_dict, opts.at_point)
 
-    # output information in a useful manner
-    if opts.verbose:
-        if opts.verbose >= 2:
-            print "These DQ flag versions were ignored: %s" \
-                % str(opts.ignore_versions)
-            print "These DQ flags were checked, but were not active in the "\
-                "segment(s) of interest: %s" % ", ".join(nocontrib_flags)
-        print "These DQ flags were raised:"
-        for key in contrib_flags_order:
-            print "%s: %s" % (key, contrib_flags_segdict[key])
-        if len(contrib_flags_order) == 0:
-            print "None"
-        print "Total time flagged: %d" % abs(contrib_flags_union)
-    
-    if opts.outfile is not None:
-        outpipe = file(opts.outfile, "w")
-    else:
-        outpipe = sys.stdout
-    segmentsUtils.tosegwizard(outpipe, contrib_flags_union)
+# separate into zero-length and non-zero-length piles
+contrib_flags, nocontrib_flags = dqutils.separate_contributing_flags(dq_dict)
+contrib_flags.sort()
+nocontrib_flags.sort()
+
+# construct new segdict of flags that contributed
+contrib_flags_segdict = segmentlistdict([(key, dq_dict[key]) for key in contrib_flags])
+contrib_flags_union = contrib_flags_segdict.union(contrib_flags)
+
+# output information in a useful manner
+if opts.verbose >= 2:
+    print "These DQ flag versions were the only ones kept: %s" \
+        % str(opts.keep_versions)
+    print "These DQ flags were checked, but were not active in the "\
+        "segment(s) of interest: %s" % ", ".join(nocontrib_flags)
+if opts.verbose >= 1:
+    print "These DQ flags were raised:"
+    for key in contrib_flags:
+        print "%s: %s" % (key, contrib_flags_segdict[key])
+    if len(contrib_flags) == 0:
+        print "None"
+    print "Total time flagged: %d" % abs(contrib_flags_union)
+
+if opts.outfile is not None:
+    outpipe = file(opts.outfile, "w")
+else:
+    outpipe = sys.stdout
+segmentsUtils.tosegwizard(outpipe, contrib_flags_union)
