@@ -62,7 +62,7 @@ def parse_vertices(ra_dec_string):
         except ValueError:
             return numpy.array([(hms2rad(ra), dms2rad(dec)) for ra, dec in \
                 zip(ra_dec_list[::2], ra_dec_list[1::2])], dtype=float)
-    except ValueError:
+    except IndexError:
         return numpy.array([(hm2rad(ra), dm2rad(dec)) for ra, dec in \
             zip(ra_dec_list[::2], ra_dec_list[1::2])], dtype=float)
 
@@ -73,14 +73,19 @@ def parse_args():
         help="comma-delimited vertices RA1,dec1,RA2,dec2,... in radians or colon-delimited sexagesimal")
     parser.add_option("-C", "--catalog", help="galaxy catalog")
     parser.add_option("-v", "--verbose", action="store_true", default=False,
-        help="output additional information")    
+        help="output additional information")
+    parser.add_option("-k", "--load-columns",
+        help="load only the columns of this comma-delimited list (default: load all)")
     opts, args = parser.parse_args()
+    
+    if opts.load_columns is not None:
+        opts.load_columns = opts.load_columns.split(",")
     
     return opts
 
 ##############################################################################
 # main program
-#############################################################################
+##############################################################################
 
 opts = parse_args()
 
@@ -92,7 +97,7 @@ if opts.verbose:
     print
     print "Parsing galaxy catalog..."
 
-catalog = GalaxyCatalog.from_file(open(opts.catalog))
+catalog = GalaxyCatalog.from_file(open(opts.catalog), load_columns=opts.load_columns)
 
 if opts.verbose:
     print len(catalog), "galaxies parsed."
