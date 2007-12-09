@@ -93,7 +93,7 @@ for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
 
 # keep only flags in the flagfile, expand/contract according to windows
 if opts.flagfile is not None:
-    veto_windows = from_veto_file(open(opts.flagfile))
+    veto_windows = dqutils.from_veto_file(open(opts.flagfile))
     dq_dict = dqutils.apply_veto_windows(dq_dict, veto_windows)
 
 # do math; remove everything not in the segfile segments
