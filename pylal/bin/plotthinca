@@ -103,9 +103,6 @@ def parse_command_line():
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="discard triggers in segments from FNAME (segwizard format)")
-  parser.add_option("","--offsource-veto-file",action="store",type="string",\
-      default=None,metavar=" FNAME",\
-      help="discard off-source triggers in segments from FNAME (segwizard format)")
   parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
@@ -130,18 +127,30 @@ def parse_command_line():
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
+  # options needed for exttrig analysis
+  parser.add_option("-E","--ext-trig",action="store_true",default=False,\
+      help="external trigger search, so should have off-source triggers" )
+  parser.add_option("","--offsource-veto-file",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="discard off-source triggers in segments from FNAME (segwizard format)")
+  parser.add_option("","--padding-time",action="store",type="int",\
+      metavar=" PADDING_TIME",default=-1,help="setting the padding time (for exttrig)" )
+  parser.add_option("","--segment-file",action="store",type="string",\
+      metavar=" SEGMENT_FILE",default=None,help="setting the segment file (for exttrig)" )
+
   # options used in sieving the cache file, in case it is given    
   parser.add_option("","--zerolag-pattern", action="store",type="string",\
-      default="", metavar="ZEROLAGPATTERN", help="pattern for zerolag files the cache input file  will be sieved with" )
+      default="", metavar="ZEROLAGPATTERN", help="pattern for zerolag files the cache "\
+                    "input file  will be sieved with" )
   parser.add_option("","--slide-pattern", action="store",type="string",\
-      default="", metavar="SLIDEPATTERN", help="pattern for time slides files  the cache input file will be sieved with" )
+      default="", metavar="SLIDEPATTERN", help="pattern for time slides files  the cache"\
+                    " input file will be sieved with" )
   parser.add_option("","--match",action="store",type="string",\
       default=None,metavar="MATCH",\
       help="To sieve exactly according to a pattern, if its set True" )
 
   #options that set parameters specific to the plots 
-  parser.add_option("-E","--ext-trig",action="store_true",default=False,\
-      help="external trigger search, so should have off-source triggers" )
+
   parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
       metavar=" SEC", help="length of time over which to cluster triggers" )
   parser.add_option("-x","--min-snr",action="store",type="float",\
@@ -274,6 +283,12 @@ from pylal import viz
 from numpy import histogram
 rc('text', usetex=True)
 
+
+## mangle the event-IDs in the case of the exttrig analysis
+mangleEventID = False
+if opts.ext_trig:
+  mangleEventID = True
+
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
@@ -330,8 +345,10 @@ if opts.glob is not None or opts.cache_file is not None:
     offsourcefiles = []
     slidefiles = []
     coincfiles = []
-    coincfiles = allfilesCache.sieve(description = (opts.zerolag_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
-    slidefiles = allfilesCache.sieve(description = (opts.slide_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
+    coincfiles = allfilesCache.sieve(description = (opts.zerolag_pattern), \
+                                     exact_match=opts.match).checkfilesexist()[0].pfnlist()
+    slidefiles = allfilesCache.sieve(description = (opts.slide_pattern), \
+                                     exact_match=opts.match).checkfilesexist()[0].pfnlist()
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "The coincfiles or slidefiles lists are empty for " + opts.ifo_tag + " IFO tag."
@@ -351,13 +368,25 @@ if opts.off_source_glob:
   for file in allfiles: 
     offsourcefiles.append(file)
 
+
+# there are no time-slides in the exttrig analysis
+if opts.ext_trig:
+  slidefiles=[]
+
+  # In the ext-trig search the coincfiles correspond to zero-lag data
+  if not opts.add_zero_lag:
+    coincfiles = []
+
 ########################
 # read in coinc triggers
 inspTriggers = None
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
 
 if coincfiles:
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles, verbose=opts.verbose)
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(coincfiles,
+                                           mangle_event_id = mangleEventID,
+                                           verbose=opts.verbose)
   
   # perform the veto
   if opts.veto_file:
@@ -395,12 +424,29 @@ if opts.mass_dependent:
     else:
       coincTriggersByMass.append( coincTriggers )
 
+
 ########################
 # read in off-source triggers
 offsourceTriggers = None
 
+# need to specify this variable here,
+# since it might be filled with slides OR offsource triggers
+slideTriggers = []  
+
 if offsourcefiles:
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(offsourcefiles)
+  # need: segmentfile as argument, need padding as argument
+  #seglist = segmentsUtils.fromsegwizard(open('segments.txt'))
+  seglist = segmentsUtils.fromsegwizard(open(opts.segment_file))
+  offSourcePadding = opts.padding_time
+  offSourceSegLength = opts.gps_end_time - opts.gps_start_time
+  offSourceSegLeft = (opts.gps_start_time -offSourcePadding - seglist[0][0]) // offSourceSegLength
+  offSourceSegRight = (seglist[0][1] - opts.gps_end_time - offSourcePadding) // offSourceSegLength
+
+  # read the off-source triggers
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(offsourcefiles,
+                                           mangle_event_id = mangleEventID,
+                                           verbose=opts.verbose)
   # perform the veto
   if opts.offsource_veto_file:
     seglist = segmentsUtils.fromsegwizard(open(opts.offsource_veto_file, "r"))
@@ -409,21 +455,48 @@ if offsourcefiles:
     seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
     inspTriggers = inspTriggers.veto(seglist)
 
-  # construct the coincs
-  offsourceTriggers = \
-      CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+  # now create
+  for segnr in range(-offSourceSegLeft, offSourceSegRight):
+    # skip the onsource segment
+    if segnr==0:
+      continue
 
-  # cluster them
-  if opts.cluster_window:
-    offsourceTriggers = offsourceTriggers.cluster(opts.cluster_window)
-else:
-  offsourceTriggers = None
+    # calculate the start- and end-time of the actual segment
+    t0 = opts.gps_start_time+segnr*offSourceSegLength
+    t1 = t0+offSourceSegLength
+
+    # prepare a new segment
+    this_seg = {}
+    this_seg["slide_num"]=segnr
+    this_seg["sngl_trigs"] = [trig for trig in inspTriggers if trig.end_time>t0 and trig.end_time<=t1]
+    this_seg["coinc_trigs"] = CoincInspiralUtils.coincInspiralTable(this_seg["sngl_trigs"],statistic)
+
+    # cluster triggers if required
+    if opts.cluster_window:
+      this_seg["coinc_trigs"] = \
+        this_seg["coinc_trigs"].cluster(opts.cluster_window)
+
+
+    # append this segment to the whole collection
+    slideTriggers.append(this_seg)
+  
+  if inspTriggers:
+    slide_high = max( inspTriggers.get_column(snglStat) )
+    slide_low = min( inspTriggers.get_column(snglStat) )
+  else:
+    slide_high = 50.0
+    slide_low = 1.0
+
+
 
 ########################
 # read in slide triggers
-slideTriggers = []
 if slidefiles:
-  inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidefiles, verbose=opts.verbose)
+  inspSlide = SnglInspiralUtils.\
+              ReadSnglInspiralFromFiles(slidefiles,
+                                        mangle_event_id = mangleEventID,
+                                        verbose=opts.verbose)
+  
   # perform the veto
   if opts.veto_file:
     seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
@@ -516,7 +589,7 @@ if opts.snr_snr or opts.slide_snr:
       viz.square_axis()
     if opts.enable_output is True:
       fname = InspiralUtils.set_figure_name(opts, "H1_vs_H2_"+snglStat)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -557,7 +630,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         text = "Plot of H1 vs H2 " + snglStat.replace("_"," ") + " for " + str(mass_range[i]) + str(mass_range[i+1]) +  " mass range"
         name = "H1_vs_H2_"+snglStat+"_"+(mass_range[i]) + "_" + str(mass_range[i+1]) 
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -637,7 +710,7 @@ if opts.snr_snr or opts.slide_snr:
         name =  "H_vs_" + ifo +"_" +snglStat 
         text = "Plot of Hanford vs " + ifo + " " + snglStat.replace("_"," ") + " statistic" 
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
  
@@ -718,7 +791,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
           name = "H_vs_" + ifo +"_"+ snglStat + "-"+\
               str(mass_range[i]) + "_" + str(mass_range[i+1]) 
           fname = InspiralUtils.set_figure_name(opts, name)
-          savefig(fname)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
 
@@ -759,7 +832,7 @@ if opts.snr_snr or opts.slide_snr:
       text = "Plot of " + ifo_non_h[0] + " vs " +ifo_non_h[1] +  snglStat.replace("_"," ") + " statistic"
       name = ifo_non_h[0] + "_vs_" + ifo_non_h[1] + "-" + snglStat 
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -803,7 +876,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         name = ifo_non_h[0] +"_vs_" +ifo_non_h[1] + "-"\
             +snglStat + str(mass_range[i]) + "_" + str(mass_range[i+1])
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
   
@@ -855,7 +928,7 @@ if opts.dist_dist:
       text = "Plot of H1 vs H2 effective distance"
       name =  "H1_vs_H2_dist" 
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
   
@@ -896,7 +969,7 @@ if opts.dist_dist and opts.mass_dependent:
         text = "Plot of H1 vs H2 effective distance for " + str(mass_range[i]) + ' to ' + str(mass_range[i+1]) + " mass range"
         name =  "H1_vs_H2_dist_"+str(mass_range[i])  +"_"+str(mass_range[i+1])
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -932,7 +1005,7 @@ if opts.snr_time:
     name =  snglStat + "_vs_time"
     text = "Plot of " + snglStat.replace("_"," ") + " vs time for each of the IFOs in the zero-lag data"
     fname = InspiralUtils.set_figure_name(opts, name)
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
 
@@ -970,7 +1043,7 @@ if opts.snr_time and opts.mass_dependent:
       text = "Plot of " + snglStat.replace("_"," ") + " vs time for each of the IFOs in " \
           + str(mass_range[i]) + ' to ' + str(mass_range[i+1]) + " mass range"
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -991,7 +1064,7 @@ if opts.hist_slides or opts.plot_slides:
       name =  "hist_slide_trigs" 
       text = "Histogram of number of coincident triggers per time slide"
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -1004,7 +1077,7 @@ if opts.hist_slides or opts.plot_slides:
       name = "plot_slide_trigs" 
       text = "Plot of number of coincident triggers per time slide"
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -1021,7 +1094,7 @@ if opts.hist_slides or opts.plot_slides:
         name = ifo_concat + "_hist_slide_trigs"
         text = "Histogram of " + ifo_concat + " triggers per time slide" 
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -1040,7 +1113,7 @@ if opts.hist_slides or opts.plot_slides:
         name = ifo_concat + "_plot_slide_trigs"
         text = "Plot of " + ifo_concat + " triggers per time slide"
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -1060,7 +1133,7 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         text = "Histogram of number of coincident triggers per time slide for " +\
             str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -1075,7 +1148,7 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         text = "Plot of number of coincident triggers per time slide for " +\
              str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"  
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
@@ -1092,7 +1165,7 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
           text = "Histogram of " + ifo_concat + " triggers per time slide" +  \
             str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
           fname = InspiralUtils.set_figure_name(opts, name)
-          savefig(fname)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
 
@@ -1108,7 +1181,7 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
               str(mass_range[i+1]) 
           text = "Plot of " + ifo_concat + " triggers per time slide" +  str(mass_range[i]) + " to " +  str(mass_range[i+1]) + " mass range"
           fname = InspiralUtils.set_figure_name(opts, name)
-          savefig(fname)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
 
@@ -1128,7 +1201,7 @@ if opts.snr_hist:
     name = "hist_" + statistic.name 
     text = "Histogram of " + statistic.name + " distribution"
     fname = InspiralUtils.set_figure_name(opts, name)
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
  
@@ -1144,7 +1217,7 @@ if opts.snr_dist:
     name = "cum_hist_" + statistic.name 
     text = "Cumulative histogram of " + statistic.name + " distribution"
     fname = InspiralUtils.set_figure_name(opts, name)
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
 
@@ -1160,7 +1233,7 @@ if opts.snr_dist:
       name = ifo_concat + "_cum_hist_" + statistic.name 
       text = "Cumulative histogram of " + statistic.name + " distribution for " + ifo_concat + " triggers"
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
 
@@ -1179,7 +1252,7 @@ if opts.snr_dist and opts.mass_dependent:
       text = "Cumulative histogram of " + statistic.name + " distribution for triggers in " +\
           str(mass_range[i]) + " to " + str(mass_range[i+1]) +" mass range"
       fname = InspiralUtils.set_figure_name(opts, name)
-      savefig(fname)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
  
@@ -1199,7 +1272,7 @@ if opts.snr_dist and opts.mass_dependent:
         text = "Cumulative histogram of " + statistic.name + " distribution of " + \
             ifo_concat + " triggers in " + str(mass_range[i]) + " to " + str(mass_range[i+1]) +" mass range"
         fname = InspiralUtils.set_figure_name(opts, name)
-        savefig(fname)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
 
