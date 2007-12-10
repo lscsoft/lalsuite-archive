@@ -116,9 +116,9 @@ def coinc_params(events, offsetdict):
 		# ratio of it to the time difference where it makes sense
 		# for the linear-to-asymptotic roll-over to occur.  From
 		# software injections this is found to be approximately
-		# |dt| = 50 ms (inside 50 ms is where the interesting
+		# |dt| = 30 ms (inside 30 ms is where the interesting
 		# structure in the parameter distributions is found).
-		dt = math.atan((dt / 0.05) * (math.pi / 2)) / (math.pi / 2)
+		dt = math.atan((dt / 0.03) * (math.pi / 2)) / (math.pi / 2)
 		name = "%sdt" % prefix
 		if name not in params or abs(params[name]) > abs(dt):
 			params[name] = dt
@@ -488,9 +488,9 @@ class DistributionsStats(Stats):
 		"H1_H2_dh": 1.0 / 200,
 		"H1_L1_dh": 1.0 / 200,
 		"H2_L1_dh": 1.0 / 200,
-		"H1_H2_dt": 1.0 / 2000,
-		"H1_L1_dt": 1.0 / 2000,
-		"H2_L1_dt": 1.0 / 2000,
+		"H1_H2_dt": 1.0 / 1200,
+		"H1_L1_dt": 1.0 / 1200,
+		"H2_L1_dt": 1.0 / 1200,
 		"gmst": (2 * math.pi) / 1000.0
 	}
 
