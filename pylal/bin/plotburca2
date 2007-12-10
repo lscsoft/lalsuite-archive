@@ -172,7 +172,7 @@ def plot_coinc_params(distributions, plottype):
 		# this must match the mapping used in burca_tailor to bin
 		# the \Delta t's.
 		ticks = numpy.array((float("-inf"), -0.08, -0.04, -0.02, -0.01, 0, 0.01, 0.02, 0.04, 0.08, float("inf")), dtype = "double")
-		dt_axes.set_xticks(numpy.arctan((ticks / 0.03) * (math.pi / 2)) / (math.pi / 2))
+		dt_axes.set_xticks(numpy.arctan((ticks / 0.02) * (math.pi / 2)) / (math.pi / 2))
 		dt_axes.set_xticklabels([r"$-\infty$"] + map(lambda x: "$%.2g$" % x, ticks[1:-1]) + [r"$\infty$"])
 
 		#
