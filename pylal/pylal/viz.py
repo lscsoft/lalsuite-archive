@@ -1637,7 +1637,7 @@ def plotCont( dataX, dataY, dataZ ):
 
   # create the plot
   clf()
-  contourf(matrix)
+  contourf(matrix,40)
   colorbar()
 
   # set the axes
