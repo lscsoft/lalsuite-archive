@@ -1477,7 +1477,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
     slides.append(slide["slide_num"])
 
   mean_events = mean(nevents)
-  std_events = std(nevents)
+  std_events = sqrt(mean_events)
 
   if scalebkg:
     for i in range(len(nevents)):
@@ -1488,7 +1488,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
   bar(slides, nevents, 0.8, 0, color='b', align="center") 
   axhline(mean_events,color='k',linewidth=2)
   axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
-  axhline(mean_events - std_events,color='k',linestyle='--',linewidth=2)
+  axhline(max(mean_events - std_events,0),color='k',linestyle='--',linewidth=2)
  
   if zerolag_trigs:
     hold(True)
