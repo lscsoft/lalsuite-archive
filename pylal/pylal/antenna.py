@@ -45,7 +45,7 @@ __date__ = "$Date$"[7:-2]
 
 
 def response( gpsTime, rightAscension, declination, inclination,
-              polarization, unit, detector ):
+              polarization, unit, det ):
 
   """
   response( gpsTime, rightAscension, declination, inclination,
