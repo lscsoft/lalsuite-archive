@@ -30,6 +30,8 @@ def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dp
   @return filename_thumb if a thumbnail was created (None otherwise)
 
   """
+  from pylab import savefig
+
   # save picture into a file
   if filename is not None:
     # with the appropriate resolution
