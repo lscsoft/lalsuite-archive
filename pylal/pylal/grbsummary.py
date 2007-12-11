@@ -12,6 +12,7 @@ itertools = __import__("itertools", level=0)  # absolute import of system-wide i
 from lalapps import inspiral
 
 from glue import lal
+from glue import iterutils
 from glue import pipeline
 from glue import segments, segmentsUtils
 from glue.ligolw import ligolw
@@ -122,6 +123,35 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
     
     return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
                              on_source[1] + nplus*quantization_time + padding_time))
+
+def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
+    """
+    Return the off-source segment determined for multiple IFO times along with
+    the IFO combo that determined that segment.  Calls
+    compute_offsource_segment as necessary, passing all kwargs as necessary.
+    """
+    # sieve down to relevant segments
+    new_analyzable_dict = segments.segmentlistdict()
+    for ifo, seglist in analyzable_dict.iteritems():
+        try:
+            ind = seglist.find(on_source)
+        except ValueError:
+            continue
+        new_analyzable_dict[ifo] = segments.segmentlist([seglist[ind]])
+    analyzable_ifos = new_analyzable_dict.keys()
+
+    # now try getting off-source segments; start trying with all IFOs, then
+    # work our way to smaller and smaller subsets; exclude single IFOs.
+    off_source_segment = None
+    make_ifo_combos = lambda n: iterutils.choices(analyzable_ifos, n)
+    countdown = xrange(len(analyzable_ifos), 1, -1)
+    for ifo_combo in itertools.chain(*itertools.imap(make_ifo_combos, countdown)):
+      trial_seglist = new_analyzable_dict.union(list(ifo_combo))
+      off_source_segment = compute_offsource_segment(trial_seglist, on_source, **kwargs)
+      if off_source_segment is not None:
+          break
+    
+    return off_source_segment, list(ifo_combo)
 
 ##############################################################################
 # XML convenience code
