@@ -10,6 +10,7 @@ import glob
 import optparse
 import os
 import sys
+itertools = __import__("itertools")
 
 from glue.segments import segmentlistdict, segment, segmentlist
 from glue import segmentsUtils
@@ -66,6 +67,9 @@ def parse_args():
     for ifo in opts.ifos:
         if ifo not in all_ifos:
           raise ValueError, "%s not in %s" % (ifo, all_ifos)
+    
+    if opts.dq_segfile is None:
+      opts.dq_segfile = itertools.repeat(None)
 
     return opts, args
 
