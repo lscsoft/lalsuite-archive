@@ -554,13 +554,19 @@ class CondorDAGNode:
     """
     Return list of input files for this DAG node and it's job.
     """
-    return self.__input_files + self.__job.get_input_files()
+    input_files = list(self.__input_files)
+    if isinstance(self.job(), CondorDAGJob):
+      input_files = input_files + self.job().get_input_files()
+    return input_files
 
   def get_output_files(self):
     """
     Return list of output files for this DAG node and it's job.
     """
-    return self.__output_files + self.__job.get_output_files()
+    output_files = list(self.__output_files)
+    if isinstance(self.job(), CondorDAGJob):
+      output_files = output_files + self.job().get_output_files()
+    return output_files
 
   def set_vds_group(self,group):
     """
