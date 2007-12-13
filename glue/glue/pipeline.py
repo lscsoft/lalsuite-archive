@@ -462,6 +462,8 @@ class CondorDAGNode:
           "A DAG node must correspond to a Condor DAG job or Condor DAGMan job"
     self.__name = None
     self.__job = job
+    self.__category = None
+    self.__priority = None
     self.__pre_script = None
     self.__pre_script_args = []
     self.__post_script = None
@@ -533,6 +535,30 @@ class CondorDAGNode:
     Get the name for this node in the DAG.
     """
     return self.__name
+
+  def set_category(self,category):
+    """
+    Set the category for this node in the DAG.
+    """
+    self.__category = str(category)
+
+  def get_category(self):
+    """
+    Get the category for this node in the DAG.
+    """
+    return self.__category
+
+  def set_priority(self,priority):
+    """
+    Set the priority for this node in the DAG.
+    """
+    self.__priority = str(priority)
+
+  def get_priority(self):
+    """
+    Get the priority for this node in the DAG.
+    """
+    return self.__priority
 
   def add_input_file(self, filename):
     """
@@ -671,6 +697,20 @@ class CondorDAGNode:
     """
     fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() +  '\n' )
     fh.write( 'RETRY ' + self.__name + ' ' + str(self.__retry) + '\n' )
+
+  def write_category(self,fh):
+    """
+    Write the DAG entry for this node's category to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    """
+    fh.write( 'CATEGORY ' + self.__name + ' ' + self.__category +  '\n' )
+
+  def write_priority(self,fh):
+    """
+    Write the DAG entry for this node's priority to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    """
+    fh.write( 'PRIORITY ' + self.__name + ' ' + self.__priority +  '\n' )
 
   def write_vars(self,fh):
     """
@@ -833,6 +873,7 @@ class CondorDAG:
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+    self.__maxjobs_categories = []
     self.__integer_node_names = 0
     self.__node_count = 0
     self.__nodes_finalized = 0
@@ -903,6 +944,22 @@ class CondorDAG:
     if node.job() not in self.__jobs:
       self.__jobs.append(node.job())
 
+  def add_maxjobs_category(self,categoryName,maxJobsNum):
+    """
+    Add a category to this DAG called categoryName with a maxjobs of maxJobsNum.
+    @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
+    """
+    self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def write_maxjobs(self,fh,category):
+    """
+    Write the DAG entry for this category's maxjobs to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    @param category: tuple containing type of jobs to set a maxjobs limit for
+        and the maximum number of jobs of that type to run at once.
+    """
+    fh.write( 'MAXJOBS ' + str(category[0]) + ' ' + str(category[1]) +  '\n' )
+
   def write_sub_files(self):
     """
     Write all the submit files used by the dag to disk. Each submit file is
@@ -928,11 +985,17 @@ class CondorDAG:
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
+      if node.get_category():
+        node.write_category(dagfile)
+      if node.get_priority():
+        node.write_priority(dagfile)
       node.write_pre_script(dagfile)
       node.write_post_script(dagfile)
       node.write_input_files(dagfile)
     for node in self.__nodes:
       node.write_parents(dagfile)
+    for category in self.__maxjobs_categories:
+      self.write_maxjobs(dagfile, category)
     dagfile.close()
 
   def write_abstract_dag(self):
