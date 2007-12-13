@@ -23,7 +23,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-import pylal.itertools
+import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
@@ -310,7 +310,7 @@ ifo_non_h = [ifo for ifo in ifo_list if ifo[0] != "H"]
 
 ifo_coincs = []
 for num_ifos in range(2, len(ifo_list) + 1):
-  ifo_coincs.extend(list(pylal.itertools.choices(ifo_list, num_ifos)))
+  ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, num_ifos)))
 
 #######################################################
 # turn the mass range from a string to a list of floats
