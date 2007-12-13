@@ -14,7 +14,7 @@ import os
 import re
 import exceptions
 import glob
-import glue.iterutils
+itertools = __import__("itertools")  # system-wide itertools
 from types import *
 from optparse import *
 
@@ -300,9 +300,9 @@ for injGlob in injGlobs:
     new_sim_table = tab.new_from_template(injDict["sim_inspiral"])
     
   # iterator over consecutive triggers with matching event_ids
-    coincs = glue.iterutils.groupby(injDict["sngl_inspiral"],
+    coincs = itertools.groupby(injDict["sngl_inspiral"],
                                lambda row: row.event_id)
-    for coinc, inj in glue.iterutils.izip(coincs, injDict["sim_inspiral"]):
+    for coinc, inj in itertools.izip(coincs, injDict["sim_inspiral"]):
       # coinc is tuple of (key, iterator); count length of iterator
       num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
       new_sim_table.extend([inj] * num_coincs)
@@ -319,7 +319,7 @@ plot_symbols = ['rx','b+','ko','D','h','p','rx','b+','ko','D','h','p']
 plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
-plot_num = glue.iterutils.count(1)
+plot_num = itertools.count(1)
 #####################################
 # plot of injected vs detected mchirp
 if opts.mchirp_mchirp:
