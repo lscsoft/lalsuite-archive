@@ -51,7 +51,7 @@ usage = """Usage: %prog [options] [trigs1 missed1 trigs2 missed2]
 
 Generate found and missed trig plots
 
-plotinspmissed --mtotal-dist-linear --verbose  --output-path plots/ --mchirp-dist-log  --time-dist  --user-tag all_injections --gps-start-time 866088014 --mchirp-dist-linear --gps-end-time 866109614 --cache-file ihope.cache --enable-output  --mtotal-dist-log  --ifo H1 --legend --found-pattern COIRE_INJECTIONS_*_FOUND_SECOND_*_INJ* --missed-pattern COIRE_INJECTIONS_*_MISSED_SECOND_*_INJ*
+plotinspmissed --mtotal-dist-linear --verbose  --output-path plots/ --mchirp-dist-log  --time-dist  --gps-start-time 866088014 --mchirp-dist-linear --gps-end-time 866109614 --cache-file ihope.cache --enable-output  --mtotal-dist-log  --ifo H1 --legend --found-pattern COIRE_INJECTIONS_*_FOUND_SECOND_*_INJ* --missed-pattern COIRE_INJECTIONS_*_MISSED_SECOND_*_INJ*
 """
 
 
@@ -98,9 +98,6 @@ def parse_command_line():
   parser.add_option("-q","--y-max",action="store",type="float",\
       default=None,metavar="YMAX",\
       help="set the y max range to YMAX")
-  parser.add_option("-u","--user-tag",action="store",type="string",\
-        default=None, metavar=" USERTAG",\
-        help="" )
   parser.add_option("","--found-pattern", action="store",type="string",\
       default="", metavar=" FOUND_PATTERN", help=" sieves a file for found injections of a particular type" ) 
   parser.add_option("","--missed-pattern", action="store",type="string",\
@@ -351,10 +348,6 @@ gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
 ##############################################################################
 # Initialise all the stuffs 
-
-
-for injSet,missedSet in zip(injSets["found"],injSets["missed"]):
-  print injSet['injections']["ifotimeslabel"],missedSet["missedinjs"]["ifotimeslabel"]
 
 # plot time V dist
 if opts.time_dist:  
