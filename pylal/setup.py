@@ -188,6 +188,7 @@ setup(
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
+		os.path.join("bin", "plotcohsnr"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotsiminspiral"),
