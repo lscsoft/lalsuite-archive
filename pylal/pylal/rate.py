@@ -762,7 +762,7 @@ class Rate(BinnedArray):
 		"""
 		Convolve the binned counts with the window to smooth them,
 		then divide each bin by its size to convert to a density
-		(rate).  Return the numpy.array result.
+		(rate).
 		"""
 		filter_array(self.array, self.filterdata, cyclic = cyclic)
 		self.to_density()
