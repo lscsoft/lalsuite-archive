@@ -41,16 +41,21 @@ def ReadMultiInspiralFromFiles(fileList):
   Read the multiInspiral tables from a list of files
   @param fileList: list of input files
   """
-  multiInspiralTriggers = None
-  for thisFile in fileList:
-    doc = utils.load_filename(thisFile, gz=(thisFile or "stdin").endswith(".gz"))
-    # extract the multi inspiral table
-    try: multiInspiralTable = \
-      table.get_table(doc, lsctables.MultiInspiralTable.tableName)
-    except: multiInspiralTable = None
-    if multiInspiralTriggers and multiInspiralTable: 
-      multiInspiralTriggers.extend(multiInspiralTable)
-    elif not multiInspiralTriggers:
-      multiInspiralTriggers = multiInspiralTable
+  if not fileList:
+    return multiInspiralTable(), None
 
-  return multiInspiralTriggers
+  multis = None
+
+  for thisFile in fileList:
+    doc = utils.load_filename(thisFile,
+        gz=(thisFile or "stdin").endswith(".gz"))
+    # extract the multi inspiral table
+    try:
+      multiInspiralTable = table.get_table(doc,
+          lsctables.MultiInspiralTable.tableName)
+      if multis: multis.extend(multiInspiralTable)
+      else: multis = multiInspiralTable
+    except: multiInspiralTable = None
+  return multis
+
+
