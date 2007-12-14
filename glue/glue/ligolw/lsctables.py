@@ -899,7 +899,11 @@ class MultiInspiralTable(table.Table):
 		"ifo2_snr": "real_4",
 		"snr": "real_4",
 		"chisq": "real_4",
-		"chisq_dof": "real_4",
+		"chisq_dof": "int_4s",
+		"bank_chisq": "real_4",
+		"bank_chisq_dof": "int_4s",
+		"cont_chisq": "real_4",
+		"cont_chisq_dof": "int_4s",
 		"sigmasq": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
@@ -907,7 +911,7 @@ class MultiInspiralTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char",
+		"event_id": "int_8s",
 		"null_statistic": "real_4",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
@@ -925,6 +929,47 @@ class MultiInspiralTable(table.Table):
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
 
+	def get_column(self,column):
+		return self.getColumnByName(column).asarray()
+
+	def veto(self,seglist):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
+
+	def getslide(self,slide_num):
+		"""
+		Return the triggers with a specific slide number.
+		@param slide_num: the slide number to recover (contained in the event_id)
+		"""
+		slideTrigs = table.new_from_template(self)
+		if slide_num < 0:
+			slide_num = 5000 - slide_num
+		for row in self:
+			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+				slideTrigs.append(row)
+		return slideTrigs
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
