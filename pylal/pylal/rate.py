@@ -360,6 +360,20 @@ class NDBins(tuple):
 		"""
 		return tuple([b.upper() for b in self])
 
+	def volumes(self):
+		"""
+		Return an n-dimensional array of the bin volumes.
+		"""
+		# FIXME:  works for 1 and 2 dimensions, but goes funny
+		# after that.  always returns a 2 dimensional array no
+		# matter what...
+		bounds = iter(zip(self.upper(), self.lower()))
+		u, l = bounds.next()
+		volumes = u - l
+		for u, l in bounds:
+			volumes = numpy.outer(volumes, u - l)
+		return volumes
+
 
 #
 # =============================================================================
@@ -426,6 +440,12 @@ class BinnedArray(object):
 		each dimension.
 		"""
 		return self.bins.centres()
+
+	def to_density(self):
+		"""
+		Divide each bin's value by the volume of the bin.
+		"""
+		self.array /= self.bins.volumes()
 
 	def logregularize(self, epsilon = 2**-1074):
 		"""
@@ -737,17 +757,20 @@ class Rate(BinnedArray):
 		# generate the filter data
 		#
 
-		self.filterdata = windowfunc(self.filterwidth / binsize) / binsize
+		self.filterdata = windowfunc(self.filterwidth / binsize)
 
 	def xvals(self):
 		return self.centres()[0]
 
 	def filter(self, cyclic = False):
 		"""
-		Convolve the binned weights with the window to generate the
-		rate data.
+		Convolve the binned counts with the window to smooth them,
+		then divide each bin by its size to convert to a density
+		(rate).  Return the numpy.array result.
 		"""
-		return filter_array(self.array, self.filterdata, cyclic = cyclic)
+		filter_array(self.array, self.filterdata, cyclic = cyclic)
+		self.to_density()
+		return self.array
 
 
 #
