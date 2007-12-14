@@ -488,7 +488,7 @@ if opts.hist_snr is True:
   if opts.threshold>0:
     xlimits = [opts.threshold, 0]
 
-  viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits, plot_type='loglog')
+  viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits)
 
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_histogram")

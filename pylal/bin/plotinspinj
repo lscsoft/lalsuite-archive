@@ -253,7 +253,8 @@ if opts.cache_file:
     tags.append(filestrip(inj))
   print tags
   if opts.verbose:
-    print "...reading the following list of found files  " + injGlobs
+    for inj in injGlobs:
+      print "...reading the following list of found files  " + inj
 
 else:
   if not args:
@@ -320,6 +321,7 @@ plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
 plot_num = itertools.count(1)
+tags=""
 #####################################
 # plot of injected vs detected mchirp
 if opts.mchirp_mchirp:
@@ -365,10 +367,12 @@ if opts.hist_mchirp:
   hold(True) 
   sym=0
   for injSet in injSets:
-    viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'mchirp', \
+    try:
+      viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'mchirp', \
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.chirp_axis,opts.chirp_axis])
-    sym+=1
+      sym+=1
+    except:pass
   viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_histogram")
