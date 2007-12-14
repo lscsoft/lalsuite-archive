@@ -759,9 +759,6 @@ class Rate(BinnedArray):
 
 		self.filterdata = windowfunc(self.filterwidth / binsize)
 
-	def xvals(self):
-		return self.centres()[0]
-
 	def filter(self, cyclic = False):
 		"""
 		Convolve the binned counts with the window to smooth them,
