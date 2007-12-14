@@ -737,38 +737,10 @@ class Rate(BinnedArray):
 		# generate the filter data
 		#
 
-		self.set_filter(filterwidth, windowfunc)
+		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
 
 	def xvals(self):
 		return self.centres()[0]
-
-	def set_filter(self, filterwidth, windowfunc):
-		"""
-		Update the filter function.  Note that this is less ideal
-		than specifying the correct filter function at object
-		creation time because the binning may not be appropriate
-		for this new filter (too many bins or too few).  Returns
-		self.
-		"""
-		#
-		# safety-check filter width
-		#
-
-		if filterwidth / self.binsize < 3:
-			raise ValueError, "filter too narrow (less than 3 bins)"
-		self.filterwidth = filterwidth
-
-		#
-		# Construct and store the window function
-		#
-
-		self.filterdata = windowfunc(self.filterwidth / self.binsize) / self.binsize
-
-		#
-		# Done
-		#
-
-		return self
 
 	def filter(self, cyclic = False):
 		"""
