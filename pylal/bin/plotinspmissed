@@ -84,7 +84,7 @@ def parse_command_line():
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
-  parser.add_option("-i","--ifo",action="store",type="string",default=None,\
+  parser.add_option("-i","--ifo",
       help="specify the ifo (otherwise will be read from the found file")
   parser.add_option("-M","--min-distance",action="store",type="int",\
       default=None, metavar=" MIN_DIST",\
@@ -119,8 +119,9 @@ def parse_command_line():
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("", "--figure-resolution",action="store",type="int",\
-      default=50, metavar="resolution of the thumbnails (50 by default)", \
-      help="read a file of a particular description  from cache file" )
+      default=50, help="resolution of the thumbnails (50 by default)")
+  parser.add_option("", "--user-tag", help="usertag for output files")
+  parser.add_option("", "--ifo-tag", help="ifotag for output files")
   
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -157,17 +158,21 @@ from pylal import viz
 # check at least one trig file was specified
 
 if opts.cache_file:
-  cache = lal.Cache.fromfile(open(opts.cache_file))
-  injcache = cache.sieve(description = opts.found_pattern).sieve(ifos=opts.ifo)
-  miscache = cache.sieve(description = opts.missed_pattern).sieve(ifos=opts.ifo)
+  cache = lal.Cache.fromfile(open(opts.cache_file))\
+    .sieve(ifos=opts.ifo)
+  injcache = cache.sieve(description = opts.found_pattern)
+  miscache = cache.sieve(description = opts.missed_pattern)
   injFiles = injcache.checkfilesexist()[0].pfnlist()
   misFiles = miscache.checkfilesexist()[0].pfnlist()
 
   if opts.verbose:
     print "... reading the following found files " + str(injFiles)
     print "... reading the following missed files " + str(misFiles)
-  if len(injFiles) < 1:
-    print >>sys.stderr,"Cache file must be input"
+  if len(injFiles) == 0:
+    print >>sys.stderr,"No files in cache match --found-pattern"
+    sys.exit(1)
+  if len(misFiles) == 0:
+    print >>sys.stderr,"No files in cache match --missed-pattern"
     sys.exit(1)
   
   if opts.title != "":
