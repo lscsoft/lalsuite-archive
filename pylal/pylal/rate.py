@@ -263,13 +263,17 @@ class ATanBins(Bins):
 		return self.n - 1
 
 	def lower(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n)) / self.scale + self.mid
+		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n)) / self.scale + self.mid
+		x[0] = float("-inf")
+		return x
 
 	def centres(self):
 		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(0, self.n) + 0.5)) / self.scale + self.mid
 
 	def upper(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1)) / self.scale + self.mid
+		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1)) / self.scale + self.mid
+		x[-1] = float("+inf")
+		return x
 
 
 class NDBins(tuple):
