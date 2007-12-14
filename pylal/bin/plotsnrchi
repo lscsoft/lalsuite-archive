@@ -163,10 +163,8 @@ def parse_command_line():
   parser.add_option("-I","--inj-glob",action="store",type="string",\
       default=None, metavar=" INJGLOB",
       help="GLOB of injection trigger files to read" )
-  parser.add_option("", "--injection-cache-file", action="store", type="string", default=None, metavar="INJCACHEFILE",\
-      help="list of cache files for injections given as a string with comma delimeters")
-  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="ZEROLAGCACHEFILE",\
-      help="cache file for zero-lag",dest="zerolag_cache_file")
+  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
+      help="cache file for zero-lag and injecions",dest="cache_file")
   # cache description. Note that because we are interesting in second
   # stage only, FOUND and SIRE tag should be followed by underscore
   parser.add_option("","--single-ifo",action="store",type="string",\
@@ -291,7 +289,7 @@ tagList= []   # use for the cache file
 
 
 # check at least one trig file was specified
-if not opts.glob and  not opts.zerolag_cache_file:
+if not opts.glob and  not opts.cache_file:
   print >>sys.stderr, "Must specify a GLOB of files to read or a cache input file"
   print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
   sys.exit(1)
@@ -304,11 +302,13 @@ if opts.glob:
     sys.exit(1)
 
 else:
-  zerolagAllCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
-  print opts.ifo_times
+  zerolagAllCache = lal.Cache.fromfile(open(opts.cache_file))
+  if opts.verbose is True:
+    print opts.ifo_times
   trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.trig_pattern).pfnlist()
+  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = False).sieve(description = opts.trig_pattern).pfnlist()
   if not len(trigFiles):
-    print >>sys.stderr, opts.zerolag_cache_file + " contains no files with " + opts.trig_pattern + " description"
+    print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
     sys.exit(1)
 
 # compile a list of injection-files
@@ -317,12 +317,14 @@ if opts.inj_glob:
   if not len(injFiles):
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
-elif opts.injection_cache_file:
-  cachefileslist =  opts.injection_cache_file.split(",")
+elif opts.cache_file:
+  cachefileslist =  opts.cache_file.split(",")
   injFiles = []
   for cachefile in cachefileslist:
     injCache = lal.Cache.fromfile(open(cachefile))
     injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.inj_pattern).\
+	pfnlist())
+    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = False).sieve(description = opts.inj_pattern).\
 	pfnlist())
   if not len(injFiles):
     print >>sys.stderr, opts.injection_cache_file + " contains no files with " + opts.inj_pattern + " description"
@@ -335,7 +337,7 @@ if not opts.denominator_constant and not opts.denominator_variable:
   sys.exit(1)
 
 if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
-    (opts.inj_glob or opts.injection_cache_file):
+    (opts.inj_glob or opts.cache_file):
   print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
   print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
   sys.exit(1)
@@ -357,7 +359,7 @@ max_rsq = max(rsq)
 # input injections:
 inj_snr = None
 inj_chisq = None
-if opts.inj_glob or opts.injection_cache_file:
+if opts.inj_glob or opts.cache_file:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=True)
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
@@ -373,7 +375,7 @@ print 'Read '+str(len(inj_rsq))+ ' from inspiral injection files'
 nevents = len(inspTriggers)
 snr = inspTriggers.get_column('snr')
 
-if opts.inj_glob or opts.injection_cache_file:
+if opts.inj_glob or opts.cache_file:
   max_snr = max(inj_snr)
 else:
   max_snr = max(snr)
@@ -481,7 +483,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
       snr_kept.append(snr[i])
       rsq_kept.append(rsq[i])
 
-  if opts.inj_glob or opts.injection_cache_file:
+  if opts.inj_glob or opts.cache_file:
     inj_snr_cut = []
     inj_rsq_cut = []
     inj_snr_kept = []
@@ -792,7 +794,7 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   figure(fig_num)
   loglog(snr_kept,rsq_kept,'bx',snr_cut,rsq_cut,'bo')
   hold(True)
-  if opts.inj_glob or opts.injection_cache_file:
+  if opts.inj_glob or opts.cache_file:
     loglog(inj_snr_kept,inj_rsq_kept,'ro',inj_snr_cut,inj_rsq_cut,'ko')
   loglog(rsq_cut_line_x,rsq_cut_line_y,'k',linewidth=2)
 
@@ -810,7 +812,7 @@ elif opts.snr_rsq:
 
   loglog(snr,rsq,'bx')
   hold(True)
-  if opts.inj_glob or opts.injection_cache_file:
+  if opts.inj_glob or opts.cache_file:
     loglog(inj_snr,inj_rsq,'ro', 'marker')
 
   xlim(min_snr, max_snr)
