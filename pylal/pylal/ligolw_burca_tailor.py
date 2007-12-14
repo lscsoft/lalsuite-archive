@@ -222,7 +222,7 @@ class CoincParamsDistributions(object):
 		for param, value in param_func(events, timeslide).iteritems():
 			rate = self.background_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value,] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
@@ -231,7 +231,7 @@ class CoincParamsDistributions(object):
 		for param, value in param_func(events, timeslide).iteritems():
 			rate = self.injection_rates[param]
 			try:
-				rate[value] += 1.0
+				rate[value,] += 1.0
 			except IndexError:
 				# param value out of range
 				pass

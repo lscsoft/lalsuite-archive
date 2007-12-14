@@ -739,12 +739,6 @@ class Rate(BinnedArray):
 
 		self.set_filter(filterwidth, windowfunc)
 
-	def __getitem__(self, x):
-		return self.array[self.bins[x,]]
-
-	def __setitem__(self, x, value):
-		self.array[self.bins[x,]] = value
-
 	def xvals(self):
 		return self.centres()[0]
 
