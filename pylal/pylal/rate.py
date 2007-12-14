@@ -226,7 +226,7 @@ class ATanBins(Bins):
 	parameters set the bounds of the region of approximately
 	uniformly-spaced bins.  In a sense, these are where the roll-over
 	from uniformly-spaced bins to asymptotically diminishing bin
-	density occurs.  There are a total of n bins.
+	density occurs.  There is a total of n bins.
 
 	Example:
 
@@ -306,6 +306,9 @@ class NDBins(tuple):
 	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
+
+	Note that the co-ordinates to be converted must be a tuple, even if
+	it is only a 1-dimensional co-ordinate.
 	"""
 	def __init__(self, *args):
 		tuple.__init__(self, *args)
@@ -317,10 +320,9 @@ class NDBins(tuple):
 		"""
 		When coords is a tuple, it is interpreted as an
 		N-dimensional co-ordinate which is converted to an N-tuple
-		of bin indices by the Bins subclass instances in this
-		object.  Otherwise coords is interpeted as an index into
-		the tuple, and the corresponding Bins subclass instance is
-		returned.
+		of bin indices by the Bins instances in this object.
+		Otherwise coords is interpeted as an index into the tuple,
+		and the corresponding Bins instance is returned.
 
 		Example:
 
@@ -330,8 +332,10 @@ class NDBins(tuple):
 		<pylal.rate.LinearBins object at 0xb5cfa9ac>
 
 		When used to convert co-ordinates to bin indices, each
-		co-ordinate can be anything the corresponding Bins subclass
-		instance will accept.
+		co-ordinate can be anything the corresponding Bins instance
+		will accept.  Note that the co-ordinates to be converted
+		must be a tuple, even if it is only a 1-dimensional
+		co-ordinate.
 		"""
 		if isinstance(coords, tuple):
 			if len(coords) != len(self):
@@ -733,6 +737,55 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 #
 
 
+def to_moving_mean_density(binned_array, filterdata, cyclic = False):
+	"""
+	Convolve a BinnedArray with a filter function, then divide all bins
+	by their volumes.  The result is the density function smoothed by
+	the filter.  The default is to assume 0 values beyond the ends of
+	the array when convolving with the filter function.  Set the
+	optional cyclic parameter to True for periodic boundaries.
+
+	Example:
+
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
+	>>> x[5.0,] = 1
+	>>> x.array
+	array([ 0.,  0.,  1.,  0.,  0.])
+	>>> to_moving_mean_density(x, tophat_window(3))
+	>>> x.array
+	array([ 0.        ,  0.16666667,  0.16666667,  0.16666667,  0.
+	])
+
+	Explanation.  There are five bins spanning the interval [0, 10],
+	making each bin 2 "units" in size.  A single count is placed at
+	5.0, which is bin number 2.  The averaging filter is a top-hat
+	window 3 bins wide.  The single count in bin #2, when averaged over
+	the three bins around it, is equivalent to a mean density of 1/6
+	events / unit.
+
+	Example:
+
+	>>> x = BinnedArray(NDBins((LinearBins(0, 10, 5),)))
+	>>> x[1,] = 1
+	>>> x[3,] = 1
+	>>> x[5,] = 1
+	>>> x[7,] = 1
+	>>> x[9,] = 1
+	>>> x.array
+	array([ 1.,  1.,  1.,  1.,  1.])
+	>>> to_moving_mean_density(x, tophat_window(3))
+	>>> x.array
+	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
+
+	We have "uniformly" distributed events at 2 unit intervals (the
+	first is at 1, the second at 3, etc.).  The computed event density
+	is 0.5 events / unit, except at the edges where the smoothing
+	window has picked up zero values from beyond the ends of the array.
+	"""
+	filter_array(binned_array.array, filterdata, cyclic = cyclic)
+	binned_array.to_density()
+
+
 class Rate(BinnedArray):
 	"""
 	An object for binning and smoothing impulsive data in 1 dimension,
@@ -764,12 +817,11 @@ class Rate(BinnedArray):
 
 	def filter(self, cyclic = False):
 		"""
-		Convolve the binned counts with the window to smooth them,
-		then divide each bin by its size to convert to a density
-		(rate).
+		Apply the to_moving_mean_density() function to this object
+		using the data stored in the filterdata attribute as the
+		filter function.
 		"""
-		filter_array(self.array, self.filterdata, cyclic = cyclic)
-		self.to_density()
+		to_moving_mean_density(self, self.filterdata, cyclic = cyclic)
 
 
 #
@@ -890,13 +942,16 @@ def rate_from_xml(xml, name):
 	rate.array = array.get_array(xml, u"array").array
 	rate.filterdata = array.get_array(xml, u"filterdata").array
 	try:
-		# adjust normalization of filter data stored in old-style
-		# documents
+		# check for a binsize parameter
 		binsize = param.get_pyvalue(xml, u"binsize")
-		rate.filterdata *= binsize
 	except ValueError:
-		# new-style document, no adjustment required
+		# no binsize parameter == new-style document, no adjustment
+		# required
 		pass
+	else:
+		# old-style document, adjust normalization of filter data
+		# to new convention
+		rate.filterdata *= binsize
 	return rate
 
 
@@ -921,6 +976,6 @@ def binned_ratios_from_xml(xml, name):
 	ratios = BinnedRatios(NDBins())
 	ratios.numerator = binned_array_from_xml(xml, u"numerator")
 	ratios.denominator = binned_array_from_xml(xml, u"denominator")
-	# normally they share a single Bins instance
+	# normally they share a single NDBins instance
 	ratios.denominator.bins = ratios.numerator.bins
 	return ratios
