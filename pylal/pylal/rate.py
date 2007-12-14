@@ -756,7 +756,7 @@ class Rate(BinnedArray):
 		# generate the filter data
 		#
 
-		self.filterdata = windowfunc(self.filterwidth / binsize)
+		self.filterdata = windowfunc(filterwidth / binsize)
 
 	def filter(self, cyclic = False):
 		"""
@@ -868,7 +868,6 @@ def rate_to_xml(rate, name):
 	Retrun an XML document tree describing a rate.BinnedArray object.
 	"""
 	xml = binned_array_to_xml(rate, name)
-	xml.appendChild(param.from_pyvalue(u"filterwidth", rate.filterwidth))
 	xml.appendChild(array.from_array(u"filterdata", rate.filterdata))
 	return xml
 
@@ -885,8 +884,15 @@ def rate_from_xml(xml, name):
 	rate = Rate(segments.segment(0, 1), 1)
 	rate.bins = bins_from_xml(xml)
 	rate.array = array.get_array(xml, u"array").array
-	rate.filterwidth = param.get_pyvalue(xml, u"filterwidth")
 	rate.filterdata = array.get_array(xml, u"filterdata").array
+	try:
+		# adjust normalization of filter data stored in old-style
+		# documents
+		binsize = param.get_pyvalue(xml, u"binsize")
+		rate.filterdata *= binsize
+	except ValueError:
+		# new-style document, no adjustment required
+		pass
 	return rate
 
 
