@@ -236,10 +236,6 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def set_filter(self, param, filterwidth, windowfunc):
-		self.background_rates[param].set_filter(filterwidth, windowfunc)
-		self.injection_rates[param].set_filter(filterwidth, windowfunc)
-
 	def finish(self):
 		for rate in self.background_rates.itervalues():
 			rate.filter()
