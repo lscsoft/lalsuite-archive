@@ -489,8 +489,10 @@ WHERE
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		self.axes.plot(self.offsets.centres()[0] self.offsets.filter(), "k")
-		self.axes.plot(self.coinc_offsets.centres()[0] self.coinc_offsets.filter(), "r")
+		self.offsets.filter()
+		self.coinc_offsets.filter()
+		self.axes.plot(self.offsets.centres()[0], self.offsets.array, "k")
+		self.axes.plot(self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
 		self.axes.legend(["%s residuals" % self.instrument, "SNR-weighted mean of residuals in all instruments"], loc = "lower right")
 
 
@@ -555,8 +557,10 @@ WHERE
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Frequency / Injection Centre Frequency\n(%d Found Injections)" % self.found)
-		self.axes.plot(10**self.offsets.centres()[0] self.offsets.filter(), "k")
-		self.axes.plot(10**self.coinc_offsets.centres()[0] self.coinc_offsets.filter(), "r")
+		self.offsets.filter()
+		self.coinc_offsets.filter()
+		self.axes.plot(10**self.offsets.centres()[0], self.offsets.array, "k")
+		self.axes.plot(10**self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
 		self.axes.legend(["%s triggers" % self.instrument, "SNR-weighted mean of all matching triggers"], loc = "lower right")
 		ymin, ymax = self.axes.get_ylim()
 		if ymax / ymin > 1e6:

@@ -732,8 +732,7 @@ def filter_binned_ratios(ratios, window, cyclic = False):
 class Rate(BinnedArray):
 	"""
 	An object for binning and smoothing impulsive data in 1 dimension,
-	normalized so as to measure events (or event weight) per filter
-	width.
+	normalized so as to measure event density.
 	"""
 	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
 		"""
@@ -767,7 +766,6 @@ class Rate(BinnedArray):
 		"""
 		filter_array(self.array, self.filterdata, cyclic = cyclic)
 		self.to_density()
-		return self.array
 
 
 #

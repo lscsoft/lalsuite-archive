@@ -204,8 +204,9 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
+		self.rate.filter()
 		xvals = self.rate.centres()[0]
-		self.axes.plot(xvals, self.rate.filter(), "k")
+		self.axes.plot(xvals, self.rate.array, "k")
 		self.axes.semilogy()
 		self.axes.set_xlim((min(xvals), max(xvals)))
 
@@ -271,11 +272,11 @@ class Delays(SnglBurstUtils.BurstPlot):
 		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
 
 		xvals = self.bins.centres()[0]
-		yvals = self.bins.filter()
-		self.axes.plot(xvals, yvals, "k")
+		self.bins.filter()
+		self.axes.plot(xvals, self.bins.array, "k")
 
 		self.axes.set_xlim((0, xvals[-1]))
-		self.axes.set_ylim((1, 10.0**(int(math.log10(max(yvals))) + 1)))
+		self.axes.set_ylim((1, 10.0**(int(math.log10(max(self.bins.array))) + 1)))
 
 
 #
