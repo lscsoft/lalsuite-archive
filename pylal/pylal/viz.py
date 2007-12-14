@@ -1282,7 +1282,10 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     left.append(val)
  
  
-  bar(left,height,width,color=histcolors[hist_num])
+  try:
+    bar(left,height,width,color=histcolors[hist_num])
+  except:
+    print 'problem in histdiff, using bar. skipped'
 
   # figtext(0.13,0.8 - 0.1* hist_num," mean = %6.3e" % mean(tmp_diff))
   # figtext(0.13,0.75 - 0.1 * hist_num,'sigma = %6.3e' % std(tmp_diff))
@@ -1350,7 +1353,7 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
     nbins = 10
   
   bins = []
-  if width:
+  if width and width[0]!=width[1]:
     for i in range(-nbins,nbins):
       bins.append(width * i/nbins)
 
