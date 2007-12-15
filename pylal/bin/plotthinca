@@ -1198,8 +1198,6 @@ if opts.snr_hist:
 
   viz.histstat(coincTriggers, slideTriggers, None, opts.min_snr, \
       opts.max_snr, opts.nbins, statistic.name)
-  xlim(xmin=opts.min_snr**2.0)
-  xlim(xmax=opts.max_snr**2.0)
   grid(True)
   if opts.enable_output is True:
     name = "hist_" + statistic.name 
