@@ -492,16 +492,12 @@ class coincInspiralTable:
     Return ethinca values for the coincidences
     @param ifos: a list of the 2 ifos
     """
-    ethinca = []
-    for coinc in self:
-      if ( hasattr(coinc,ifos[0]) == False ) or \
-          ( hasattr(coinc,ifos[1]) == False ):
-        ethinca.append(0.0)
-      else:
-        ethinca.append( XLALCalculateEThincaParameter(getattr(coinc,ifos[0]), 
-            getattr(coinc,ifos[1]) ) )
-    
-    return numpy.asarray(ethinca)
+    ethinca = numpy.zeros(len(self), dtype=float)
+    for i,coinc in enumerate(self):
+      if hasattr(coinc, ifos[0]) and hasattr(coinc, ifos[1]):
+        ethinca[i] = XLALCalculateEThincaParameter(getattr(coinc, ifos[0]),
+                                                   getattr(coinc, ifos[1]))
+    return ethinca
 
   def getSimpleEThincaValues(self, ifos):
     """
