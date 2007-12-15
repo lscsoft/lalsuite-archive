@@ -303,9 +303,9 @@ else:
   zerolagAllCache = lal.Cache.fromfile(open(opts.cache_file))
   if opts.verbose is True:
     print opts.ifo_times
-  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.trig_pattern).pfnlist()
+  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.slide_pattern).pfnlist()
   if not len(trigFiles):
-    print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
+    print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
     sys.exit(1)
 
 # compile a list of injection-files

@@ -192,7 +192,7 @@ def parse_command_line():
   parser.add_option("-W", "--bank-pattern",action="store",type="string",\
       default=None, metavar="BANK_PATTERN", \
       help="read a file of a particular description  from cache file" )
-  parser.add_option("-Z", "--trig-pattern",action="store",type="string",\
+  parser.add_option("-Z", "--trigbank-pattern",action="store",type="string",\
       default=None, metavar="TRIG_PATTERN", \
       help="read a file of a particular description  from cache file" )
   parser.add_option("", "--figure-resolution",action="store",type="int",\
@@ -272,7 +272,7 @@ if opts.ifo_pattern:
 
 if opts.cache_file:
   tmpltbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.bank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
-  trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trig_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
+  trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trigbank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
 
   if opts.verbose is True:
     print tmpltbankFiles

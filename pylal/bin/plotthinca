@@ -498,8 +498,8 @@ if slidefiles:
                                         verbose=opts.verbose)
   
   # if there are no triggers, skip remaining slide stuff
-  slidefiles = []
-  inspSlide = []
+#  slidefiles = []
+#  inspSlide = []
   
   # perform the veto
   if opts.veto_file:
