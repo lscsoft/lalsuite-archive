@@ -232,7 +232,7 @@ else:
   sys.exit(1)
 
 if not foundFiles:
-  print >>sys.stdout, "List of found files for " + opts.ifo_times + " is empty"
+  print >>sys.stdout, "List of found files for given pattern is empty"
   sys.exit(0)
 
 if opts.missed_glob:
@@ -245,7 +245,7 @@ elif opts.cache_file:
    if opts.verbose:
       print " ...reading the following list of missed files " + str(missedFiles) + "\n"
 else:
-  print >>sys.stderr, "Must specify a glob of MISSED injections"
+  print >>sys.stderr, "Must specify a glob or sieve pattern of MISSED injections"
   sys.exit(1)
 
 if not missedFiles:

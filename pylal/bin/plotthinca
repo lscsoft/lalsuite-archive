@@ -351,7 +351,7 @@ if opts.glob is not None or opts.cache_file is not None:
                                      exact_match=opts.match).checkfilesexist()[0].pfnlist()
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
-    print >>sys.stdout, "The coincfiles or slidefiles lists are empty for " + opts.ifo_tag + " IFO tag."
+    print >>sys.stdout, "No files match your description."
     sys.exit(0) 
          
 # Off Source Files
@@ -496,6 +496,10 @@ if slidefiles:
               ReadSnglInspiralFromFiles(slidefiles,
                                         mangle_event_id = mangleEventID,
                                         verbose=opts.verbose)
+  
+  # if there are no triggers, skip remaining slide stuff
+  slidefiles = []
+  inspSlide = []
   
   # perform the veto
   if opts.veto_file:

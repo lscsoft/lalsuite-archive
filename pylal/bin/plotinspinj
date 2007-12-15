@@ -173,8 +173,8 @@ def parse_command_line():
       help="read in segments from FNAME (assumed segwizard format)")
   parser.add_option("","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
-  parser.add_option("","--inj-found-pattern",action="store",type="string",\
-      default=None, metavar=" INJECTION_PATTERN",help=" sieves a file for found injections of a particular type" )
+  parser.add_option("","--found-pattern", metavar=" INJECTION_PATTERN",
+    help="sieves a file for found injections of a particular type" )
 
   # output related
   parser.add_option("-z","--user-tag",action="store",type="string",\
@@ -201,8 +201,7 @@ def parse_command_line():
   parser.add_option("", "--verbose", action="store_true", default=False,\
       metavar="VERBOSE", help="verbose option")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
-      default=50, metavar="resolution of the thumbnails (50 by default)", \
-      help="read a file of a particular description  from cache file" )
+      default=50, help="dpi of the thumbnails (50 by default)")
 
 
 
@@ -241,12 +240,10 @@ rc('text', usetex=True)
 
 # check at least one trig file was specified
 if opts.cache_file:
-  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, description = opts.inj_found_pattern).checkfilesexist()[0].pfnlist()
+  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, description = opts.found_pattern).checkfilesexist()[0].pfnlist()
   if not injGlobs:
-    print >>sys.stdout, "List of found files " + " for ifo tag: " + opts.ifo_tag  + " is empty."
+    print >>sys.stdout, "List of found files empty."
     sys.exit(0)
-  print injGlobs
-
 
   tags = []
   for inj  in injGlobs:

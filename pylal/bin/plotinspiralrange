@@ -283,7 +283,7 @@ def get_filelist(opts):
     inspiralFiles += glob.glob(opts.tmpltbank_glob)
   if opts.cache_file:
     allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
-    inspiralFiles = allfilesCache.sieve(description = (opts.inspiral_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
+    inspiralFiles = allfilesCache.sieve(description = (opts.trig_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
     if opts.range_mass is True:
       inspiralFiles += allfilesCache.sieve(description = (opts.bank_pattern), exact_match=opts.match).checkfilesexist()[0].pfnlist()
      
@@ -378,14 +378,13 @@ def parse_command_line():
       type="string", default=None,  metavar="IFO_TYPE",\
       help="sieve a cache file according to a particular ifo type")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
-      default=50, metavar="resolution of the thumbnails (50 by default)", \
-      help="read a file of a particular description  from cache file" )
+      default=50, help="dpi of the thumbnails (50 by default)")
 
    # options used in sieving the cache file, in case it is given
-  parser.add_option("","--inspiral-pattern", action="store",type="string",\
-      default="INSPIRAL", metavar="INSPIRALPATTERN", help="pattern for inspiral files, the cache file will be sieved with" )
-  parser.add_option("","--bank-pattern", action="store",type="string",\
-      default="TMPLTBANK", metavar="BANKPATTERN", help="pattern for inspiral files, the cache file will be sieved with" )
+  parser.add_option("","--trig-pattern",
+      help="sieve pattern for trigger files")
+  parser.add_option("","--bank-pattern", metavar="BANKPATTERN",
+      help="sieve pattern for inspiral files")
   parser.add_option("","--match",action="store",type="string",\
       default=None,metavar="MATCH",\
       help="To sieve exactly according to a pattern, if its set True" )

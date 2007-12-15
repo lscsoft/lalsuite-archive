@@ -163,8 +163,8 @@ def parse_command_line():
   parser.add_option("-I","--inj-glob",action="store",type="string",\
       default=None, metavar=" INJGLOB",
       help="GLOB of injection trigger files to read" )
-  parser.add_option("", "--cache-file", action="store", type="string", default=None, metavar="CACHEFILE",\
-      help="cache file for zero-lag and injecions",dest="cache_file")
+  parser.add_option("", "--cache-file", metavar="CACHEFILE",\
+      help="cache pointing to files of interest")
   # cache description. Note that because we are interesting in second
   # stage only, FOUND and SIRE tag should be followed by underscore
   parser.add_option("","--single-ifo",action="store",type="string",\
@@ -176,10 +176,8 @@ def parse_command_line():
       default=None, metavar="COINCPTTRN", help="sieve pattern for coinc-files" )
   parser.add_option("","--slide-pattern", action="store",type="string",\
       default=None, metavar="SLIDEPTTRN", help="sieve pattern for trig-files" )
-  parser.add_option("","--inj-pattern", action="store",type="string",\
-      default=None, metavar="INJPTTRN", help="sieve pattern for trig-files" )
-  parser.add_option("","--bank-pattern", action="store",type="string",\
-      default=None, metavar="BANKPTTRN", help="sieve pattern for trig-files" )
+  parser.add_option("","--found-pattern",
+      metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
 
   ## arguments for plot creation
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
@@ -306,7 +304,6 @@ else:
   if opts.verbose is True:
     print opts.ifo_times
   trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = True).sieve(description = opts.trig_pattern).pfnlist()
-  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = False).sieve(description = opts.trig_pattern).pfnlist()
   if not len(trigFiles):
     print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
     sys.exit(1)
@@ -318,16 +315,10 @@ if opts.inj_glob:
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
 elif opts.cache_file:
-  cachefileslist =  opts.cache_file.split(",")
-  injFiles = []
-  for cachefile in cachefileslist:
-    injCache = lal.Cache.fromfile(open(cachefile))
-    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.inj_pattern).\
-	pfnlist())
-    injFiles.extend(injCache.sieve(ifos = opts.single_ifo, exact_match = False).sieve(description = opts.inj_pattern).\
-	pfnlist())
+  injCache = lal.Cache.fromfile(open(opts.cache_file))
+  injFiles = injCache.sieve(ifos = opts.single_ifo, exact_match = True).sieve(description = opts.found_pattern).pfnlist()
   if not len(injFiles):
-    print >>sys.stderr, opts.injection_cache_file + " contains no files with " + opts.inj_pattern + " description"
+    print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
     sys.exit(1)
 
  
