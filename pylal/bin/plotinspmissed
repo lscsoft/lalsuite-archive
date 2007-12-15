@@ -81,6 +81,15 @@ def parse_command_line():
       default="", metavar=" TITLE", help="add more info to standard title" )
   parser.add_option("-l","--legend",action="store_true",default=False,\
       help="include legend on plot" )  
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+      default=None, metavar=" IFOTAG",\
+      help="The ifo tag used in the name of the figures (e.g. SECOND_H1H2L1)")      
+  parser.add_option("","--ifo-times",action="store",type="string",\
+      default=None,metavar="IFOS",\
+      help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
