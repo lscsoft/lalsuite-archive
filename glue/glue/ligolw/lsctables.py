@@ -932,6 +932,9 @@ class MultiInspiralTable(table.Table):
 	def get_column(self,column):
 		return self.getColumnByName(column).asarray()
 
+	def getstat(self):
+		return self.get_column('snr')
+
 	def veto(self,seglist):
 		vetoed = table.new_from_template(self)
 		keep = table.new_from_template(self)
