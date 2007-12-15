@@ -923,7 +923,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if trigs:
     if ifolist:
       trigs = trigs.coinctype(ifolist)
-    snr = trigs.getstat()  
+    snr = trigs.getstat()
     if len(snr):
       if not min_val:
         min_val = min(snr)
@@ -1010,10 +1010,11 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
     
-  xlab='Statistic'
-  xlabel(r'Combined ' + xlab, size='x-large')
+  if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  else: xlab = 'Combined Statistic'
+  xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs Statistic'
+  title_text = 'Cumulative histogram of Number of events vs ' + xlab
   if ifolist:
     title_text += ' for ' 
     for ifo in ifolist:
@@ -1128,10 +1129,11 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
 
-  xlab='Statistic'
-  xlabel(r'Combined ' + xlab, size='x-large')
+  if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  else: xlab = 'Combined Statistic'
+  xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Histogram of Number of events vs Statistic'
+  title_text = 'Cumulative histogram of Number of events vs ' + xlab
   if ifolist:
     title_text += ' for '
     for ifo in ifolist:
