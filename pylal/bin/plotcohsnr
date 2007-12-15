@@ -11,7 +11,7 @@ you can use a cache file that will be parsed INSPIRAL files
 
 or with a glob option
 
->>> plotcohsnr --enable-output --inspiral-glob '../playground/*COHER*'
+>>> plotcohsnr --enable-output --inspiral-glob '*COHERENT-* *COHERENT_SLIDE-* '
 >>> --ifo-times H1H2L1 --user-tag test --verbose
 
 """
@@ -20,7 +20,7 @@ or with a glob option
 
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotinspiral"
+__name__ = "plotcohsnr"
 __Id__ = "$Id$"
 __title__ = "Coherent Inspiral Plots"
 
@@ -80,6 +80,8 @@ def parse_command_line():
       help="histogram of the snr" )
 
   #axis and plotting related
+  parser.add_option("", "--add-zero-lag", action="store_true", default=False,
+      help="add zero-lag triggers to the histogram and --null-snr plots")
   parser.add_option("-G","--add-vertical-line",action="store",default=None,
       metavar=" GPS_TIME",type="float",
       help="add a vertical line at GPS_TIME to the snr vs time plot" )
@@ -89,6 +91,8 @@ def parse_command_line():
       help="set the SNR threshold used in the analysis")
   parser.add_option("-n","--nbins",action="store",type="int",default=20,
       metavar=" NBINS", help="number of bins for the histogram plots" )
+  parser.add_option("-N","--num-slides",action="store",type="int",default=0,\
+      metavar=" NUM_SLIDES",help="number of time slides performed" )
   parser.add_option("-t","--title",action="store",type="string",default=None,
       metavar=" STRING",help="title string for plots")
   parser.add_option("","--min-snr",action="store",type="float",
@@ -142,6 +146,8 @@ def parse_command_line():
     help="read trigger filenames from cache file")
   parser.add_option("", "--trig-pattern", metavar="PAT",
     help="sieve trigger files of containing PAT from cache file" )
+  parser.add_option("", "--slide-pattern", metavar="PAT",
+    help="sieve slide files of containing PAT from cache file" )
   parser.add_option("-i", "--ifo-times",
     help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
@@ -185,7 +191,7 @@ from pylal import viz
 # check at least one trig file was specified
 if opts.glob is None and opts.cache_file is None:
   print >>sys.stderr, "Must specify a GLOB of files to read or a LAL cache"
-  print >>sys.stderr, "Enter 'plotinspiral --help' for usage"
+  print >>sys.stderr, "Enter 'plotcohsnr --help' for usage"
   sys.exit(1)
 
 # load cache
@@ -196,24 +202,57 @@ if opts.cache_file is not None:
 
 # determine trigger files
 trigFiles = []
+slideFiles = []
 if opts.glob is not None:
-  trigFiles.extend(glob.glob(opts.glob))
+  allFiles = []
+  for gl in opts.glob.split(" "):
+    allFiles.extend(glob.glob(gl))
+  for file in allFiles:
+    if 'SLIDE' in file:
+      slideFiles.append(file)
+    else:
+      trigFiles.append(file)
+
 if opts.trig_pattern is not None:
   trig_cache = cache.sieve(description=opts.trig_pattern)
   trigFiles.extend(trig_cache.checkfilesexist()[0].pfnlist())
 
-if len(trigFiles) == 0:
-  print >>sys.stderr, "There are no files in your glob and/or cache or they do not exist."
+  slide_cache = cache.sieve(description=opts.slide_pattern)
+  slideFiles.extend(slide_cache.checkfilesexist()[0].pfnlist())
+
+# check if the file lists are not empty
+if not (trigFiles or slideFiles):
+  print >>sys.stdout, "The trigger files or slide files lists are empty."
   sys.exit(1)
-if opts.verbose:
+
   print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 
 inspTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+
+slideTriggers = []
+if slideFiles:
+  inspSlide = MultiInspiralUtils.ReadMultiInspiralFromFiles(slideFiles)
+
+  # perform the veto
+  if opts.veto_file:
+    seglist = segmentsUtils.fromsegwizard(open(opts.veto_file, "r"))
+    inspSlide = inspSlide.veto(seglist)
+
+  slide_num = range(1 , opts.num_slides + 1)
+  slide_num.extend(range(-opts.num_slides, 0))
+
+  for slide in slide_num:
+    this_slide = {}
+    this_slide["slide_num"] = slide
+    this_slide["coinc_trigs"] = inspSlide.getslide(slide)
+    slideTriggers.append(this_slide)
 
 # apply veto if there is one
 if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
   inspTriggers = inspTriggers.veto(seglist)
+  for slide in slideTriggers:
+    slide = slide.veto(seglist)
 
 max_snr = max(inspTriggers.get_column('snr'))
 min_snr = min(inspTriggers.get_column('snr'))
@@ -260,9 +299,15 @@ if opts.null_snr is True:
     ax = subplot(111)
     ax.set_xscale('log')
     ax.set_yscale('log')
-  viz.plot_a_v_b(inspTriggers,'snr','null_statistic','linear','kx',
-      x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
-      y_max=opts.max_null)
+  for slide in slideTriggers:
+    viz.plot_a_v_b(slide["coinc_trigs"],'snr','null_statistic','linear','kx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
+  if opts.add_zero_lag:
+    hold(True)
+    viz.plot_a_v_b(inspTriggers,'snr','null_statistic','linear','bx',
+        x_min=opts.min_snr, x_max=opts.max_snr, y_min=opts.min_null,
+        y_max=opts.max_null)
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "null_vs_snr")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
@@ -278,20 +323,15 @@ if opts.cum_hist_snr is True:
   InspiralUtils.message(opts, "plotting..."+text)
   figure_number += 1
   figure(figure_number)
-  if opts.log:
-    ax = subplot(111)
-    ax.set_yscale('log')
+  xlimits = [0,0]
   if opts.min_snr and opts.max_snr:
     xlimits = [opts.min_snr, opts.max_snr]
-  else :
-    xlimits=[0,0]
   if opts.threshold>0:
-    xlimits = [opts.threshold, 0]
+    xlimits[0] = opts.threshold
 
-  if opts.log is True:
-    viz.cumhistcol(inspTriggers,'snr', plot_type='loglog', xlimit=xlimits)
-  else:
-    viz.cumhistcol(inspTriggers,'snr', xlimit=xlimits)
+  viz.cumhiststat(trigs=inspTriggers, slide_trigs=slideTriggers,
+      stat='coherent_snr', min_val=xlimits[0], max_val=xlimits[1],
+      nbins=opts.nbins)
   
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
@@ -308,24 +348,20 @@ if opts.hist_snr is True:
   InspiralUtils.message(opts, "plotting..."+text)
   figure_number += 1
   figure(figure_number)
-  
+  xlimits = [0,0]
   if opts.min_snr and opts.max_snr:
     xlimits = [opts.min_snr, opts.max_snr]
-  else :
-    xlimits=[0,0]
-
   if opts.threshold>0:
     xlimits = [opts.threshold, 0]
 
-  if opts.log is True:
-    viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits,
-      plot_type='loglog')
-  else:
-    viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits)
+  viz.histstat(trigs=inspTriggers, slide_trigs=slideTriggers,
+      min_val=opts.min_snr, max_val=opts.max_snr, nbins=opts.nbins,
+      stat='coherent_snr')
 
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,
+        dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
 
