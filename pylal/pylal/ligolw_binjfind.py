@@ -283,7 +283,7 @@ class DocContents(object):
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = self.tisi_id
 		coinc.nevents = 0
-		coinc.likelihood = float("nan")
+		coinc.likelihood = None
 		self.coinctable.append(coinc)
 		return coinc
 

@@ -176,7 +176,7 @@ class CoincTables(object):
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = time_slide_id
 		coinc.nevents = len(events)
-		coinc.likelihood = float("nan")
+		coinc.likelihood = None
 		self.coinctable.append(coinc)
 		for event in events:
 			coincmap = lsctables.CoincMap()
