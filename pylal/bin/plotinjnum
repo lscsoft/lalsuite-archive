@@ -158,7 +158,8 @@ def parse_command_line():
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-u","--user-tag",action="store",type="string",\
-      default=None,metavar=" USERTAG",  help="" )
+      default=None,metavar=" USERTAG",  \
+      help="a user tag for the output filenames" )
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
