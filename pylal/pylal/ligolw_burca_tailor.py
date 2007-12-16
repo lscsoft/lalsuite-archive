@@ -127,7 +127,8 @@ def coinc_params(events, offsetdict):
 		name = "%sddur" % prefix
 		if name not in params or abs(params[name]) > abs(ddur):
 			params[name] = ddur
-	return params
+	# convert values to 1-D tuples
+	return dict([(name, (value,)) for name, value in params.items()])
 
 
 #
@@ -150,7 +151,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 	event.set_ms_start(event.get_ms_start() - delay)
 
 	# amplitude-correct the event using the polarization-averaged
-	# antenna response.  FIXME:  is this correct?
+	# antenna response.
 
 	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, XLALGreenwichMeanSiderealTime(peak))
 	mean_response = math.sqrt(fp**2 + fc**2)
@@ -207,7 +208,7 @@ class CoincParamsDistributions(object):
 		for param, value in param_func(events, timeslide).iteritems():
 			rate = self.background_rates[param]
 			try:
-				rate[value,] += 1.0
+				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
@@ -216,23 +217,23 @@ class CoincParamsDistributions(object):
 		for param, value in param_func(events, timeslide).iteritems():
 			rate = self.injection_rates[param]
 			try:
-				rate[value,] += 1.0
+				rate[value] += 1.0
 			except IndexError:
 				# param value out of range
 				pass
 
-	def finish(self):
+	def finish(self, filters = {}):
+		default_filter = rate.gaussian_window(21)
 		# normalizing each array so that its sum is 1 has the
 		# effect of making the integral of P(x) dx equal 1 after
 		# the array is transformed to an array of densities (which
 		# is done by dividing each bin by dx).
-		filter = rate.gaussian_window(21)
-		for binnedarray in self.background_rates.itervalues():
+		for name, binnedarray in self.background_rates.items():
 			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filter)
-		for binnedarray in self.injection_rates.itervalues():
+			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
+		for name, binnedarray in self.injection_rates.items():
 			binnedarray.array /= numpy.sum(binnedarray.array)
-			rate.to_moving_mean_density(binnedarray, filter)
+			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
 		return self
 
 
@@ -437,7 +438,7 @@ class Covariance(Stats):
 
 def dt_binning(instrument1, instrument2):
 	dt = 0.01 + inject.light_travel_time(instrument1, instrument2)
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 32000),))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 32001),))
 
 
 class DistributionsStats(Stats):
@@ -448,22 +449,41 @@ class DistributionsStats(Stats):
 	"""
 
 	binnings = {
-		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
-		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
-		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
-		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H2_L1_dt": dt_binning("H2", "L1")#,
-		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 20000),))
+		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 20001),))
+	}
+
+	filters = {
+		"H1_H2_dband": rate.gaussian_window(21),
+		"H1_L1_dband": rate.gaussian_window(21),
+		"H2_L1_dband": rate.gaussian_window(21),
+		"H1_H2_ddur": rate.gaussian_window(21),
+		"H1_L1_ddur": rate.gaussian_window(21),
+		"H2_L1_ddur": rate.gaussian_window(21),
+		"H1_H2_df": rate.gaussian_window(21),
+		"H1_L1_df": rate.gaussian_window(21),
+		"H2_L1_df": rate.gaussian_window(21),
+		"H1_H2_dh": rate.gaussian_window(21),
+		"H1_L1_dh": rate.gaussian_window(21),
+		"H2_L1_dh": rate.gaussian_window(21),
+		"H1_H2_dt": rate.gaussian_window(21),
+		"H1_L1_dt": rate.gaussian_window(21),
+		"H2_L1_dt": rate.gaussian_window(21)#,
+		#"gmst": rate.gaussian_window(21)
 	}
 
 	def __init__(self):
@@ -477,7 +497,7 @@ class DistributionsStats(Stats):
 		self.distributions.add_injection(param_func, events, offsetdict)
 
 	def finish(self):
-		self.distributions.finish()
+		self.distributions.finish(filters = self.filters)
 
 
 #
