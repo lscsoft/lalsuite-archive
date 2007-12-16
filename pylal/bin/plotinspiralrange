@@ -29,9 +29,8 @@ todo
 
     one can provide both --inspiral-glob and --tmpltbank-glob options to provide the
     list of requested files. There is also the possiblity to use a cachefile 
-    (--cache-file). A cache file may contain anything, so a cache-description option can
-    be used to specify what are the file to keep. The problem is that if you need both 
-    INSPIRAL and TMPLTBANK files, this option does not handle multiple description for now.
+    (--cache-file). A cache file may contain anything, so a pattern for INSPIRAL 
+    and TMPLTBANK files is required (trig-pattern and bank-pattern options).
   - Use ContentHandler function from InspiralUtils
 
 """
@@ -371,9 +370,6 @@ def parse_command_line():
       help="gps end time (for naming figure and output files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
-  parser.add_option("","--cache-description",action="store",\
-      type="string", default=None,  metavar="CACHE-DESCRIPTION",\
-      help="sieve a cache file according to description")
   parser.add_option("","--ifo-type",action="store",\
       type="string", default=None,  metavar="IFO_TYPE",\
       help="sieve a cache file according to a particular ifo type")
