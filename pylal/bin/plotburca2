@@ -75,12 +75,12 @@ def parse_command_line():
 #
 
 
-def add_to_plot(axes, red_rate, black_rate, plottype):
+def add_to_plot(axes, red, black, plottype):
 	if plottype == "P":
-		axes.plot(numpy.compress(black_rate.array > 0, black_rate.centres()[0]), numpy.compress(black_rate.array > 0, black_rate.array), "k")
-		axes.plot(numpy.compress(red_rate.array > 0, red_rate.centres()[0]), numpy.compress(red_rate.array > 0, red_rate.array), "r")
+		axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
+		axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
 	elif plottype == "LR":
-		axes.plot(numpy.compress((red_rate.array > 0) & (black_rate.array > 0), black_rate.centres()[0]), numpy.compress((red_rate.array > 0) & (black_rate.array > 0), red_rate.array / black_rate.array), "k")
+		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), black.centres()[0]), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
 	else:
 		raise ValueError, plottype
 
@@ -88,6 +88,27 @@ def add_to_plot(axes, red_rate, black_rate, plottype):
 	if ymax / ymin > 1e6:
 		ymin = ymax / 1e6
 		axes.set_ylim((ymin, ymax))
+
+
+def add_to_dtplot(axes, red, black, plottype):
+	x = numpy.arange(len(black.array), dtype = "double")
+	if plottype == "P":
+		axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
+		axes.plot(numpy.compress(red.array > 0, x), numpy.compress(red.array > 0, red.array), "r")
+	elif plottype == "LR":
+		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), x), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
+	else:
+		raise ValueError, plottype
+
+	ymin, ymax = axes.get_ylim()
+	if ymax / ymin > 1e6:
+		ymin = ymax / 1e6
+		axes.set_ylim((ymin, ymax))
+
+	xticks = numpy.array((float("-inf"), -0.08, -0.04, -0.02, -0.01, 0, 0.01, 0.02, 0.04, 0.08, float("inf")), dtype = "double")
+	xticklabels = [r"$-\infty$"] + map(lambda x: "$%.2g$" % x, xticks[1:-1]) + [r"$\infty$"]
+	dt_axes.set_xticks(map(lambda x: black.bins[x,][0], xticks))
+	dt_axes.set_xticklabels(xticklabels)
 
 
 #
@@ -169,21 +190,21 @@ def plot_coinc_params(distributions, plottype):
 		dband_axes.set_xlabel(r"$(\Delta f_{\mathrm{%s}} - \Delta f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
 		ddur_axes.set_xlabel(r"$(\Delta t_{\mathrm{%s}} - \Delta t_{\mathrm{%s}}) / \left< \Delta t \right>$" % pair)
 
-		# this must match the mapping used in burca_tailor to bin
-		# the \Delta t's.
-		ticks = numpy.array((float("-inf"), -0.08, -0.04, -0.02, -0.01, 0, 0.01, 0.02, 0.04, 0.08, float("inf")), dtype = "double")
-		dt_axes.set_xticks(numpy.arctan((ticks / 0.02) * (math.pi / 2)) / (math.pi / 2))
-		dt_axes.set_xticklabels([r"$-\infty$"] + map(lambda x: "$%.2g$" % x, ticks[1:-1]) + [r"$\infty$"])
-
 		#
 		# Plot the data on them.
 		#
 
 		prefix = "%s_%s_" % pair
-		for axes, suffix in zip((dt_axes, df_axes, dh_axes, dband_axes, ddur_axes), ("dt", "df", "dh", "dband", "ddur")):
-			red_rate = distributions.injection_rates[prefix + suffix]
-			black_rate = distributions.background_rates[prefix + suffix]
-			add_to_plot(axes, red_rate, black_rate, plottype)
+		for axes, suffix in zip((df_axes, dh_axes, dband_axes, ddur_axes), ("df", "dh", "dband", "ddur")):
+			red = distributions.injection_rates[prefix + suffix]
+			black = distributions.background_rates[prefix + suffix]
+			add_to_plot(axes, red, black, plottype)
+
+		prefix = "%s_%s_" % pair
+		suffix = "dt"
+		red = distributions.injection_rates[prefix + suffix]
+		black = distributions.background_rates[prefix + suffix]
+		add_to_dtplot(dt_axes, red, black, plottype)
 
 		#
 		# Force ranges
@@ -196,9 +217,9 @@ def plot_coinc_params(distributions, plottype):
 	#
 
 	#gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
-	#red_rate = distributions.injection_rates["gmst"]
-	#black_rate = distributions.background_rates["gmst"]
-	#add_to_plot(gmst_axes, red_rate, black_rate, plottype)
+	#red = distributions.injection_rates["gmst"]
+	#black = distributions.background_rates["gmst"]
+	#add_to_plot(gmst_axes, red, black, plottype)
 
 	#
 	# Done.
