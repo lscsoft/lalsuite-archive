@@ -79,12 +79,12 @@ __date__ = "$Date$"[7:-2]
 class interp1d(interpolate.interp1d):
 	def __init__(self, x, y, fill_value = 0.0):
 		# Extrapolate x and y arrays by half a bin at each end.
-		# This is done because the Rate class in pylal.rate returns
-		# the x co-ordinates as the bin centres, which is correct,
-		# but it means that an event can have a set of parameter
-		# values that lie beyond the end of the x co-ordinate
-		# array.  The parameters are still in the last bin, but in
-		# the outer half of it.
+		# This is done because the BinnedArray class in pylal.rate
+		# returns x co-ordinates as the bin centres, which is
+		# correct but it means that an event can have a set of
+		# parameter values that lie beyond the end of the x
+		# co-ordinate array.  The parameters are still in the last
+		# bin, but in the outer half of it.
 
 		x = numpy.hstack((x[0] + (x[0] - x[1]) / 2.0, x, x[-1] + (x[-1] - x[-2]) / 2.0))
 		y = numpy.hstack((y[0] + (y[0] - y[1]) / 2.0, y, y[-1] + (y[-1] - y[-2]) / 2.0))
@@ -116,10 +116,10 @@ class Likelihood(object):
 		# construct interpolators from the distribution data
 		self.background_rates = {}
 		self.injection_rates = {}
-		for name, rate in coinc_param_distributions.background_rates.iteritems():
-			self.background_rates[name] = interp1d(rate.centres()[0], rate.array)
-		for name, rate in coinc_param_distributions.injection_rates.iteritems():
-			self.injection_rates[name] = interp1d(rate.centres()[0], rate.array)
+		for name, binnedarray in coinc_param_distributions.background_rates.iteritems():
+			self.background_rates[name] = interp1d(binnedarray.centres()[0], binnedarray.array)
+		for name, binnedarray in coinc_param_distributions.injection_rates.iteritems():
+			self.injection_rates[name] = interp1d(binnedarray.centres()[0], binnedarray.array)
 
 	def set_P_gw(self, P):
 		self.P_gw = P

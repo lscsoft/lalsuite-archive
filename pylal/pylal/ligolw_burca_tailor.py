@@ -191,7 +191,7 @@ def galactic_core_coinc_params(events, offsetdict):
 
 
 #
-# A class for measuring 1-D parameter distributions
+# A class for measuring parameter distributions
 #
 
 
@@ -199,9 +199,9 @@ class CoincParamsDistributions(object):
 	def __init__(self, **kwargs):
 		self.background_rates = {}
 		self.injection_rates = {}
-		for param, rateargs in kwargs.iteritems():
-			self.background_rates[param] = rate.Rate(*rateargs)
-			self.injection_rates[param] = rate.Rate(*rateargs)
+		for param, binning in kwargs.iteritems():
+			self.background_rates[param] = rate.BinnedArray(binning)
+			self.injection_rates[param] = rate.BinnedArray(binning)
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
@@ -237,12 +237,17 @@ class CoincParamsDistributions(object):
 				pass
 
 	def finish(self):
-		for rate in self.background_rates.itervalues():
-			rate.filter()
-			rate.array /= numpy.sum(rate.array)
-		for rate in self.injection_rates.itervalues():
-			rate.filter()
-			rate.array /= numpy.sum(rate.array)
+		# normalizing each array so that its sum is 1 has the
+		# effect of making the integral of P(x) dx equal 1 after
+		# the array is transformed to an array of densities (which
+		# is done by dividing each bin by dx).
+		filter = rate.gaussian_window(21)
+		for binnedarray in self.background_rates.itervalues():
+			binnedarray.array /= numpy.sum(binned_array.array)
+			rate.to_moving_mean_density(binnedarray, filter)
+		for binnedarray in self.injection_rates.itervalues():
+			binnedarray.array /= numpy.sum(binnedarray.array)
+			rate.to_moving_mean_density(binnedarray, filter)
 		return self
 
 
@@ -452,63 +457,28 @@ class DistributionsStats(Stats):
 	ligolw_burca and ligolw_binjfind.
 	"""
 
-	intervals = {
-		"H1_H2_dband": segments.segment(-2.0, +2.0),
-		"H1_L1_dband": segments.segment(-2.0, +2.0),
-		"H2_L1_dband": segments.segment(-2.0, +2.0),
-		"H1_H2_ddur": segments.segment(-2.0, +2.0),
-		"H1_L1_ddur": segments.segment(-2.0, +2.0),
-		"H2_L1_ddur": segments.segment(-2.0, +2.0),
-		"H1_H2_df": segments.segment(-2.0, +2.0),
-		"H1_L1_df": segments.segment(-2.0, +2.0),
-		"H2_L1_df": segments.segment(-2.0, +2.0),
-		"H1_H2_dh": segments.segment(-2.0, +2.0),
-		"H1_L1_dh": segments.segment(-2.0, +2.0),
-		"H2_L1_dh": segments.segment(-2.0, +2.0),
-		"H1_H2_dt": segments.segment(-1.0, +1.0),
-		"H1_L1_dt": segments.segment(-1.0, +1.0),
-		"H2_L1_dt": segments.segment(-1.0, +1.0),
-		"gmst": segments.segment(0.0, 2 * math.pi)
-	}
-
-	filter_widths = {
-		"H1_H2_dband": 1.0 / 400,
-		"H1_L1_dband": 1.0 / 400,
-		"H2_L1_dband": 1.0 / 400,
-		"H1_H2_ddur": 1.0 / 400,
-		"H1_L1_ddur": 1.0 / 400,
-		"H2_L1_ddur": 1.0 / 400,
-		"H1_H2_df": 1.0 / 400,
-		"H1_L1_df": 1.0 / 400,
-		"H2_L1_df": 1.0 / 400,
-		"H1_H2_dh": 1.0 / 200,
-		"H1_L1_dh": 1.0 / 200,
-		"H2_L1_dh": 1.0 / 200,
-		"H1_H2_dt": 1.0 / 800,
-		"H1_L1_dt": 1.0 / 800,
-		"H2_L1_dt": 1.0 / 800,
-		"gmst": (2 * math.pi) / 1000.0
+	binnings = {
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32000),)),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16000),)),
+		"H1_H2_dt": rate.NDBins((rate.LinearBins(-1.0, +1.0, 32000),)),
+		"H1_L1_dt": rate.NDBins((rate.LinearBins(-1.0, +1.0, 32000),)),
+		"H2_L1_dt": rate.NDBins((rate.LinearBins(-1.0, +1.0, 32000),))#,
+		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 20000),))
 	}
 
 	def __init__(self):
 		Stats.__init__(self)
-		# careful, each instrument pair must list the instruments
-		# in alphabetical order, or the parameters returned by
-		# coinc_params() won't match the Rate instances
-		rate_args = {}
-		for pair in iterutils.choices(("H1", "H2", "L1"), 2):
-			name = "%s_%s_dt" % pair
-			rate_args[name] = (self.intervals[name].protract(inject.light_travel_time(*pair)), self.filter_widths[name])
-			name = "%s_%s_df" % pair
-			rate_args[name] = (self.intervals[name], self.filter_widths[name])
-			name = "%s_%s_dh" % pair
-			rate_args[name] = (self.intervals[name], self.filter_widths[name])
-			name = "%s_%s_dband" % pair
-			rate_args[name] = (self.intervals[name], self.filter_widths[name])
-			name = "%s_%s_ddur" % pair
-			rate_args[name] = (self.intervals[name], self.filter_widths[name])
-		#rate_args["gmst"] = (self.intervals[name], self.filter_widths["gmst"])
-		self.distributions = CoincParamsDistributions(**rate_args)
+		self.distributions = CoincParamsDistributions(**self.binnings)
 
 	def _add_background(self, param_func, events, offsetdict):
 		self.distributions.add_background(param_func, events, offsetdict)
@@ -532,10 +502,10 @@ class DistributionsStats(Stats):
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-	for name, rateobj in coinc_params_distributions.background_rates.iteritems():
-		xml.appendChild(rate.rate_to_xml(rateobj, "background:%s" % name))
-	for name, rateobj in coinc_params_distributions.injection_rates.iteritems():
-		xml.appendChild(rate.rate_to_xml(rateobj, "injection:%s" % name))
+	for name, binnedarray in coinc_params_distributions.background_rates.iteritems():
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, "background:%s" % name))
+	for name, binnedarray in coinc_params_distributions.injection_rates.iteritems():
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, "injection:%s" % name))
 	return xml
 
 
@@ -545,8 +515,8 @@ def coinc_params_distributions_from_xml(xml, name):
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
 	c = CoincParamsDistributions()
 	for name in names:
-		c.background_rates[name] = rate.rate_from_xml(xml, "background:%s" % name)
-		c.injection_rates[name] = rate.rate_from_xml(xml, "injection:%s" % name)
+		c.background_rates[name] = rate.binned_array_from_xml(xml, "background:%s" % name)
+		c.injection_rates[name] = rate.binned_array_from_xml(xml, "injection:%s" % name)
 	return c, process_id
 
 
