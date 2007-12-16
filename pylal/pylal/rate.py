@@ -919,42 +919,6 @@ def binned_array_from_xml(xml, name):
 	return binnedarray
 
 
-def rate_to_xml(rate, name):
-	"""
-	Retrun an XML document tree describing a rate.BinnedArray object.
-	"""
-	xml = binned_array_to_xml(rate, name)
-	xml.appendChild(array.from_array(u"filterdata", rate.filterdata))
-	return xml
-
-
-def rate_from_xml(xml, name):
-	"""
-	Search for the description of a rate.Rate object named "name" in
-	the XML document tree rooted at xml, and construct and return a new
-	rate.Rate instance initialized from the data contained therein.
-	"""
-	# FIXME:  figure out how to not duplicate code from
-	# binned_array_from_xml()
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
-	rate = Rate(segments.segment(0, 1), 1)
-	rate.bins = bins_from_xml(xml)
-	rate.array = array.get_array(xml, u"array").array
-	rate.filterdata = array.get_array(xml, u"filterdata").array
-	try:
-		# check for a binsize parameter
-		binsize = param.get_pyvalue(xml, u"binsize")
-	except ValueError:
-		# no binsize parameter == new-style document, no adjustment
-		# required
-		pass
-	else:
-		# old-style document, adjust normalization of filter data
-		# to new convention
-		rate.filterdata *= binsize
-	return rate
-
-
 def binned_ratios_to_xml(ratios, name):
 	"""
 	Return an XML document tree describing a rate.BinnedRatios object.
