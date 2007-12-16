@@ -228,7 +228,7 @@ class CoincParamsDistributions(object):
 		# is done by dividing each bin by dx).
 		filter = rate.gaussian_window(21)
 		for binnedarray in self.background_rates.itervalues():
-			binnedarray.array /= numpy.sum(binned_array.array)
+			binnedarray.array /= numpy.sum(binnedarray.array)
 			rate.to_moving_mean_density(binnedarray, filter)
 		for binnedarray in self.injection_rates.itervalues():
 			binnedarray.array /= numpy.sum(binnedarray.array)

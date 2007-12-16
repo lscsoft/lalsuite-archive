@@ -104,11 +104,12 @@ def add_to_dtplot(axes, red, black, plottype):
 	if ymax / ymin > 1e6:
 		ymin = ymax / 1e6
 		axes.set_ylim((ymin, ymax))
+	axes.set_xlim((0, len(black.array) - 1))
 
-	xticks = numpy.array((float("-inf"), -0.08, -0.04, -0.02, -0.01, 0, 0.01, 0.02, 0.04, 0.08, float("inf")), dtype = "double")
-	xticklabels = [r"$-\infty$"] + map(lambda x: "$%.2g$" % x, xticks[1:-1]) + [r"$\infty$"]
-	dt_axes.set_xticks(map(lambda x: black.bins[x,][0], xticks))
-	dt_axes.set_xticklabels(xticklabels)
+	xticks = (float("-inf"), -0.04, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.04, float("inf"))
+	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % x for x in xticks[1:-1]] + [r"$\infty$"]
+	axes.set_xticks([black.bins[x,][0] for x in xticks])
+	axes.set_xticklabels(xticklabels)
 
 
 #
@@ -200,17 +201,10 @@ def plot_coinc_params(distributions, plottype):
 			black = distributions.background_rates[prefix + suffix]
 			add_to_plot(axes, red, black, plottype)
 
-		prefix = "%s_%s_" % pair
 		suffix = "dt"
 		red = distributions.injection_rates[prefix + suffix]
 		black = distributions.background_rates[prefix + suffix]
 		add_to_dtplot(dt_axes, red, black, plottype)
-
-		#
-		# Force ranges
-		#
-
-		dt_axes.set_xlim((-1.0, +1.0))
 
 	#
 	# GMST
