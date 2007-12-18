@@ -155,8 +155,6 @@ def parse_command_line():
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
-
-  
   # output related
   parser.add_option("-o","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
@@ -173,8 +171,8 @@ def parse_command_line():
   parser.add_option("", "--ifo-tag", help="ifotag for naming output")
   parser.add_option("", "--user-tag", help="usertag for naming output")
   parser.add_option("", "--figure-resolution",action="store",type="int",\
-      default=50, metavar="resolution of the thumbnails (50 by default)", \
-      help="read a file of a particular description  from cache file" )
+      default=50, metavar="FIGURERESOLUTION", \
+      help="set the resoultion of the thumbnail (50 dpi by default)" )
 
   #input
   parser.add_option("-u","--template-bank",action="store",type="string",\
@@ -396,23 +394,25 @@ if opts.snr_time is True:
 ###################################
 # plot of snr vs chisq
 if opts.snr_chisq is True:
-  text = "SNR versus chisq-square (linear)"
-  InspiralUtils.message(opts, "plotting..."+text)
-  figure_number += 1
-  figure(figure_number)
-  if opts.chisq_threshold:
-    plot(snr_range, chisq_thresh)
-    hold(True)
-  if opts.funky_threshold:
-    plot(snr_range, s3_snr_chi_stat, 'r-')
-    hold(True)
-    
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
-  if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(text)
+  ifo = inspTriggers[0].ifo
+  col_a = viz.readcol(inspTriggers, 'chisq', ifo )
+  if col_a[0]!=0:
+    text = "SNR versus chisq-square (linear)"
+    InspiralUtils.message(opts, "plotting..."+text)
+    figure_number += 1
+    figure(figure_number)
+    if opts.chisq_threshold:
+      plot(snr_range, chisq_thresh)
+      hold(True)
+    if opts.funky_threshold:
+      plot(snr_range, s3_snr_chi_stat, 'r-')
+      hold(True)
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
+    if opts.enable_output is True: 
+      fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
 
 ###################################
 # plot of snr vs chisq
@@ -521,19 +521,22 @@ if opts.norm_hist_snr is True:
 ###################################
 # histogram of chisq values
 if opts.hist_chisq is True:
-  text = "Chisquare  histogram"
-  InspiralUtils.message(opts, "plotting..."+text)
-  figure_number += 1
-  figure(figure_number)
-#  if opts.log_y:
-#    ax = subplot(111)
-#    ax.set_yscale('log')
-  viz.histcol(inspTriggers,'chisq',opts.nbins,None)
-  if opts.enable_output is True: 
-    fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    tagList.append(text)
-    fnameList.append(fname)
+  ifo = inspTriggers[0].ifo
+  col_a = viz.readcol(inspTriggers, 'chisq', ifo )
+  if col_a[0]!=0:
+    text = "Chisquare  histogram"
+    InspiralUtils.message(opts, "plotting..."+text)
+    figure_number += 1
+    figure(figure_number)
+  #  if opts.log_y:
+  #    ax = subplot(111)
+  #    ax.set_yscale('log')
+    viz.histcol(inspTriggers,'chisq',opts.nbins,None)
+    if opts.enable_output is True: 
+      fname = InspiralUtils.set_figure_name(opts, "chisq_histogram")
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      tagList.append(text)
+      fnameList.append(fname)
 
 
 ###################################
@@ -562,19 +565,22 @@ except:
 # histogram of snr
 try:
   if opts.hist_snr_chisq is True:
-    text = "SNR over Chisquare cumulative histogram"
-    InspiralUtils.message(opts, "plotting..."+text)
-    figure_number += 1
-    figure(figure_number)
-#    if opts.log_y:
-#      ax = subplot(111)
-#      ax.set_yscale('log')
-    viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None)
-    if opts.enable_output is True:
-      fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
+    ifo = inspTriggers[0].ifo
+    col_a = viz.readcol(inspTriggers, 'chisq', ifo )
+    if col_a[0]!=0:
+      text = "SNR over Chisquare cumulative histogram"
+      InspiralUtils.message(opts, "plotting..."+text)
+      figure_number += 1
+      figure(figure_number)
+  #    if opts.log_y:
+  #      ax = subplot(111)
+  #      ax.set_yscale('log')
+      viz.histcol(inspTriggers,'snr_over_chi',opts.nbins,None)
+      if opts.enable_output is True:
+        fname = InspiralUtils.set_figure_name(opts, "snr_over_chi_histogram")
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append(text)
 except:
   InspiralUtils.ErrorMessagePlotting(opts, "histsnrchisq")
   pass
