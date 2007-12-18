@@ -46,6 +46,29 @@
 
 
 /*
+ * Some notes.  LIGO Light Weight XML "ilwd:char" IDs are strings of the
+ * form "table:column:integer", for example "process:process_id:10".  Large
+ * complex documents can have many millions of these strings, and their
+ * storage represents a significant RAM burden.  At the same time, however,
+ * while there can be millions of ID strings in use there may be only a
+ * small number (e.g. 10 or fewer) ID prefixes in use (the table name and
+ * column name part).  This C extension module implements a class that
+ * tries to reduce the storage requirements of these ID strings by storing
+ * only one copy of each prefix.  The book keeping associated with the
+ * construction of new subclasses on the fly, and caching
+ * previously-constructed classes is handled by Python code that can be
+ * found elsewhere.  The code here is only the underlying C engine to make
+ * the manipulation of these objects quick.
+ *
+ * The objects, like strings, are (considered to be) immutable.  For this
+ * reason references to them can be shared, and so initialization is
+ * performed in the __new__() method instead of the __init__() method as is
+ * normal.  This allows references to existing objects to be returned
+ * instead of unconditionally constructing new instances.
+ */
+
+
+/*
  * Methods
  */
 
@@ -163,14 +186,14 @@ static PyObject *ligolw_ilwdchar___new__(PyTypeObject *type, PyObject *args, PyO
 	} else if(PyArg_ParseTuple(args, "O!", type, &obj)) {
 		/* we've been passed an instance of our own type, just
 		 * incref and return it.  clear the error from the earlier
-		 * ParseTuple failures  */
+		 * ParseTuple failures. */
 		PyErr_Clear();
 		Py_DECREF(new);
 		new = obj;
 		Py_INCREF(new);
 	} else {
 		/* we weren't passed a string or an int or an ilwdchar
-		 * instances:  type error */
+		 * instance:  type error */
 		Py_DECREF(new);
 		new = NULL;
 	}
