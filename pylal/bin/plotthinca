@@ -345,10 +345,14 @@ if opts.glob is not None or opts.cache_file is not None:
     offsourcefiles = []
     slidefiles = []
     coincfiles = []
-    coincfiles = allfilesCache.sieve(description=opts.coinc_pattern, \
-                                     exact_match=opts.match).checkfilesexist()[0].pfnlist()
-    slidefiles = allfilesCache.sieve(description = (opts.slide_pattern), \
-                                     exact_match=opts.match).checkfilesexist()[0].pfnlist()
+    coincfiles = allfilesCache.sieve(description=opts.coinc_pattern, exact_match=opts.match).\
+        sieve(ifos=opts.ifo_times,exact_match=True).\
+        checkfilesexist()[0].pfnlist()
+        #sieve(description=opts.ifo_times, exact_match=False).\
+    slidefiles = allfilesCache.sieve(description = (opts.slide_pattern), exact_match=opts.match).\
+        sieve(ifos=opts.ifo_times, exact_match=True).\
+        checkfilesexist()[0].pfnlist()
+#        sieve(description=opts.ifo_times, exact_match=False).\
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "No files match your description."
@@ -486,7 +490,6 @@ if offsourcefiles:
   else:
     slide_high = 50.0
     slide_low = 1.0
-
 
 
 ########################
@@ -638,7 +641,9 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         fnameList.append(fname)
         tagList.append(text)
 
-  
+ 
+
+
 ################################
 # plot of hanford vs other snr
 
@@ -1090,36 +1095,33 @@ if opts.hist_slides or opts.plot_slides:
       figure(figure_number)
       figure_number += 1
       if len(slideTriggers)>0:
-        viz.histslides(slideTriggers,coincTrigs,ifos)
-      if opts.enable_output is True:
-        ifo_concat = "" 
-        for ifo in ifos:
-          ifo_concat += ifo
-        name = ifo_concat + "_hist_slide_trigs"
-        text = "Histogram of " + ifo_concat + " triggers per time slide" 
-        fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-        fnameList.append(fname)
-        tagList.append(text)
-
-
-
+        viz.histslides(slideTriggers,coincTrigs,ifos, scalebkg=opts.zero_lag_playground)
+        if opts.enable_output is True:
+          ifo_concat = "" 
+          for ifo in ifos:
+            ifo_concat += ifo
+          name = ifo_concat + "_hist_slide_trigs"
+          text = "Histogram of " + ifo_concat + " triggers per time slide" 
+          fname = InspiralUtils.set_figure_name(opts, name)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+          fnameList.append(fname)
+          tagList.append(text)
 
     if opts.plot_slides:
       figure(figure_number)
       figure_number += 1
       if len(slideTriggers)>0:
-        viz.plotslides(slideTriggers,coincTrigs,ifos)
-      if opts.enable_output is True:
-        ifo_concat = ""
-        for ifo in ifos:
-          ifo_concat += ifo
-        name = ifo_concat + "_plot_slide_trigs"
-        text = "Plot of " + ifo_concat + " triggers per time slide"
-        fname = InspiralUtils.set_figure_name(opts, name)
-        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-        fnameList.append(fname)
-        tagList.append(text)
+        viz.plotslides(slideTriggers,coincTrigs,ifos, scalebkg=opts.zero_lag_playground)
+        if opts.enable_output is True:
+          ifo_concat = ""
+          for ifo in ifos:
+            ifo_concat += ifo
+          name = ifo_concat + "_plot_slide_trigs"
+          text = "Plot of " + ifo_concat + " triggers per time slide"
+          fname = InspiralUtils.set_figure_name(opts, name)
+          fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+          fnameList.append(fname)
+          tagList.append(text)
 
 if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -1160,7 +1162,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
       if opts.hist_slides:
         figure(figure_number)
         figure_number += 1
-        viz.histslides(slideTriggersByMass[i],coincTrigs,ifos)
+        viz.histslides(slideTriggersByMass[i],coincTrigs,ifos,\
+        scalebkg=opts.zero_lag_playground)
         if opts.enable_output is True:
           ifo_concat = ""          
           for ifo in ifos:
@@ -1176,7 +1179,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
       if opts.plot_slides:
         figure(figure_number)
         figure_number += 1
-        viz.plotslides(slideTriggersByMass[i],coincTrigs,ifos)
+        viz.plotslides(slideTriggersByMass[i],coincTrigs,ifos,\
+        scalebkg=opts.zero_lag_playground)
         if opts.enable_output is True:
           ifo_concat = ""
           for ifo in ifos:
