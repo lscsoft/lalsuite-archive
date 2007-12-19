@@ -1413,7 +1413,6 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
 
   mean_events = mean(nevents)
   std_events = std(nevents)
-
   if scalebkg:
     for i in range(len(nevents)):
       nevents[i] = nevents[i] * ( 600.0 / 6370.0 )
@@ -1435,7 +1434,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
 
   v = axis()
   
-  if scalebkg:
+  if scalebkg and mean_events>0:
     x_gauss = []
     y_gauss = []
     min_events = min(nevents)
@@ -1449,7 +1448,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
         ( 2.0 * ( std_events ** ( 2.0 ) ) ) ) * normalization )
     plot(x_gauss,y_gauss,'b',linewidth=2)
     axis(v)
-
+  
   xlabel('Number of triggers',size='x-large')
   title_text = 'Histogram of number coincident '
   if ifolist:
