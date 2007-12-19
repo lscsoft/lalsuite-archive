@@ -155,7 +155,8 @@ setup(
     (
       'etc',
       [
-        os.path.join('etc','vdsproperties'),
+        os.path.join('etc','ldg-sites.xml'),
+        os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','lscsegfindserver.ini'),

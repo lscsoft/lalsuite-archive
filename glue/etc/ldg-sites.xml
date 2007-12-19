@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!-- generated: 2007-10-02T08:39:04-0700 -->
+<!-- gen. user: bdaudert -->
+<!-- generator: GriPhyN::SC::xml 78 -->
+<sitecatalog xmlns="http://vds.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://vds.isi.edu/schema/sitecatalog http://vds.isi.edu/schema/sc-2.0.xsd" version="2.0">
+
+<!-- [LDG 1] CIT @ ldas-grid.ligo.caltech.edu : 50 -->
+  <site handle="CIT" sysinfo="INTEL32::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
+    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+    <lrc url="rlsn://smarty.isi.edu"/>
+    <gridftp url="gsiftp://ldas-grid.ligo.caltech.edu" storage="/san/scratch/grid/grid-tmp/grid-data" major="4" minor="0" patch="4"/>
+    <jobmanager universe="vanilla" url="ldas-grid.ligo.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
+    <jobmanager universe="transfer" url="ldas-grid.ligo.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
+    <workdirectory>/archive/home/bdaudert/pegasus-scratch</workdirectory>
+  </site>
+
+<!-- [LDG 2] LHO @ ldas-grid.ligo-wa.caltech.edu : 50 -->
+  <site handle="LHO" sysinfo="INTEL32::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
+    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+    <lrc url="rlsn://smarty.isi.edu"/>
+    <gridftp url="gsiftp://ldas-grid.ligo-wa.caltech.edu" storage="/san/scratch/grid/grid-tmp/grid-data" major="4" minor="0" patch="4"/>
+    <jobmanager universe="vanilla" url="ldas-grid.ligo-wa.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
+    <jobmanager universe="transfer" url="ldas-grid.ligo-wa.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
+    <workdirectory>/archive/home/bdaudert/pegasus-scratch</workdirectory>
+  </site>
+
+<!-- [LDG 3] LLO @ ldas-grid.ligo-la.caltech.edu : 50 -->
+  <site handle="LLO" sysinfo="INTEL32::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
+    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+    <lrc url="rlsn://smarty.isi.edu"/>
+    <gridftp url="gsiftp://ldas-grid.ligo-la.caltech.edu" storage="/san/scratch/grid/grid-tmp/grid-data" major="4" minor="0" patch="4"/>
+    <jobmanager universe="vanilla" url="ldas-grid.ligo-la.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
+    <jobmanager universe="transfer" url="ldas-grid.ligo-la.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
+    <workdirectory>/archive/home/bdaudert/pegasus-scratch</workdirectory>
+  </site>
+
+<!-- [LDG 4] NEMO @ hydra.phys.uwm.edu : 50 -->
+  <site handle="NEMO" sysinfo="INTEL32::LINUX" gridlaunch="/opt/ldg-4.4/vdt/vds/bin/kickstart">
+    <profile namespace="env" key="GLOBUS_LOCATION">/opt/ldg-4.4/vdt/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/ldg-4.4/vdt/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/opt/ldg-4.4/vdt/vds</profile>
+    <lrc url="rlsn://smarty.isi.edu"/>
+    <gridftp url="gsiftp://hydra.phys.uwm.edu" storage="/san/scratch/grid/grid-tmp/grid-data" major="4" minor="0" patch="4"/>
+    <jobmanager universe="vanilla" url="hydra.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
+    <jobmanager universe="transfer" url="hydra.phys.uwm.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
+    <workdirectory>/home/bdaudert/pegasus-scratch</workdirectory>
+  </site>
+
+<!-- [LDG 5] NEMO2 @ marlin.phys.uwm.edu : 50 -->
+  <site handle="NEMO2" sysinfo="INTEL32::LINUX" gridlaunch="/opt/ldg-4.4/vdt/vds/bin/kickstart">
+    <profile namespace="env" key="GLOBUS_LOCATION">/opt/ldg-4.4/vdt/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/ldg-4.4/vdt/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/opt/ldg-4.4/vdt/vds</profile>
+    <lrc url="rlsn://smarty.isi.edu"/>
+    <gridftp url="gsiftp://marlin.phys.uwm.edu" storage="/san/scratch/grid/grid-tmp/grid-data" major="4" minor="0" patch="4"/>
+    <jobmanager universe="vanilla" url="marlin.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
+    <jobmanager universe="transfer" url="marlin.phys.uwm.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
+    <workdirectory>/home/bdaudert/pegasus-scratch</workdirectory>
+  </site>
+
+</sitecatalog>

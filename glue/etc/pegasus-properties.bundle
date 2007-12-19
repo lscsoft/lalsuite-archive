@@ -1,0 +1,35 @@
+############################################################################
+# PEGASUS USER PROPERTIES GENERATED FROM VDS PROPERTY FILE 
+# ( properties.bundle.AGLT2 ) 
+# GENERATED AT 2007-07-12T09:16:13-07:00
+############################################################################
+pegasus.catalog.replica = RLS
+pegasus.catalog.replica.cache.asrc = true
+pegasus.catalog.replica.lrc.ignore = rls://ldas.ligo-la.caltech.edu,rls://ldas.ligo-wa.caltech.edu,rls://ygraine.aei.mpg.de,rls://store.apac.edu.au,rls://dc1.apac.edu.au,rls://ldas.mit.edu,rls://charlie.amp.uni-hannover.de,rls://ldas-cit.ligo.caltech.edu,rls://ligo-ldr.aset.psu.edu
+pegasus.catalog.replica.lrc.restrict = rls://ldas.ligo-la.caltech.edu,rls://ldas.ligo-wa.caltech.edu
+pegasus.catalog.replica.url = rls://ldas-cit.ligo.caltech.edu
+pegasus.catalog.site = xml
+pegasus.catalog.site.file = ./sites.xml
+pegasus.catalog.transformation = File
+pegasus.catalog.transformation.file = ./tc.data
+pegasus.catalog.transformation.mapper = Submit
+pegasus.catalog.provenance = InvocationSchema
+pegasus.catalog.*.db.driver = MySQL
+pegasus.catalog.*.db.url = jdbc:mysql://devrandom.isi.edu/ligo_pegasus
+pegasus.catalog.*.db.user = ligo
+pegasus.catalog.*.db.password = caltech
+pegasus.condor.arguments.quote = false
+#pegasus.dir.exec = 
+pegasus.dir.storage =./results
+pegasus.exitcode.arguments = -e
+pegasus.exitcode.impl = exitcode
+pegasus.exitcode.scope = all
+pegasus.gridstart.kickstart.stat = false
+pegasus.selector.replica.*.ignore.stagein.sites = lho,llo
+#pegasus.transfer.*.thirdparty.sites = CIT
+pegasus.transfer.force = true
+pegasus.transfer.links = true
+pegasus.transfer.refiner = Bundle
+pegasus.transfer.throttle.streams = 4
+pegasus.transfer.arguments = -v -P 1
+
