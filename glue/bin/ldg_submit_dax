@@ -109,12 +109,14 @@ if opts.ini_file:
 cwd = os.getcwd()
 
 plan_args = ["pegasus-plan"]
-plan_args.append("-Dpegasus.user.properties=%s" % opts.properties_file)
+plan_args.append("-Dpegasus.catalog.site.file=" + opts.sites_file)
+plan_args.append("-Dpegasus.user.properties=" + opts.properties_file)
+plan_args.append("-Dpegasus.catalog.transformation.file=tc.data")
 plan_args.append("-Dpegasus.dir.storage=%s" % cwd)
-plan_args.append("--dir ./submit_files")
-plan_args.append("--sites %s" % site)
+plan_args.append("--dir=./submit_files")
+plan_args.append("--sites=" + site)
 plan_args.append("--output local")
-plan_args.append("--dax %s" % dax_file)
+plan_args.append("--dax=" + dax_file)
 plan_args.append("--nocleanup")
 plan_args.append("--verbose")
 plan_command = " ".join(plan_args)
