@@ -438,7 +438,7 @@ class Covariance(Stats):
 
 def dt_binning(instrument1, instrument2):
 	dt = 0.01 + inject.light_travel_time(instrument1, instrument2)
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 32001),))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 24001),))
 
 
 class DistributionsStats(Stats):
@@ -449,22 +449,22 @@ class DistributionsStats(Stats):
 	"""
 
 	binnings = {
-		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 32001),)),
-		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
-		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
-		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 16001),)),
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H2_L1_dt": dt_binning("H2", "L1")#,
-		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 20001),))
+		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 24001),))
 	}
 
 	filters = {
