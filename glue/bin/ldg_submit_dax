@@ -54,7 +54,7 @@ class PegasusTransformationCatalog(list):
             tx.PhysicalTX = urlparse.urlunsplit(("gsiftp", hostname,
                 os.path.abspath(path), None, None))
             tx.Type = "STATIC_BINARY"
-            tx.SystemInfo = "INTEL32::LINUX"
+            tx.SystemInfo = "INTEL64::LINUX"
             tx.Profiles = ""
             catalog.append(tx)
         return catalog
