@@ -139,6 +139,7 @@ setup(
     os.path.join('bin','LSCsegFind'),
     os.path.join('bin','LSCfileAdd'),
     os.path.join('bin','ldbdc'),
+    os.path.join('bin','ldg_submit_dax'),
     os.path.join('bin','dmtdq_seg_insert'),
     os.path.join('bin','ligolw_add'),
     os.path.join('bin','ligolw_cut'),

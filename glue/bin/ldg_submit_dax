@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+# $Id$
+#
+# Copyright (C) 2006  Nickolas Fotopoulos, Chad Hanna
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+"""
+%prog [options] dax_file site
+
+dax_file: DAX file to submit
+site: site at which to run DAX; choose from {CIT, LHO, LLO, NEMO}
+
+Specifying --ini-file is probably required unless you already have a tc.data
+for this workflow.
+"""
+
+import ConfigParser
+import optparse
+import os
+import socket
+import sys
+import urllib
+import urlparse
+
+default_sites = os.environ["GLUE_PREFIX"] + "/etc/ldg-sites.xml"
+default_properties = os.environ["GLUE_PREFIX"] + "/etc/pegasus-properties.bundle"
+
+class PegasusTransformationCatalog(list):
+    def write_tc_data(self, file_obj):
+        file_obj.write("\n".join(map(str, self)) + "\n")
+    
+    def from_hipe_ini(cls, ini_fileobj):
+        cp = ConfigParser.ConfigParser()
+        cp.readfp(ini_fileobj)
+        hostname = socket.getfqdn()
+
+        catalog = cls()
+        for prog, path in cp.items("condor"):
+            tx = PegasusTransformation()
+            tx.siteID = "local"
+            tx.LogicalTX = "ligo::%s:1.0" % os.path.split(path)[1]
+            tx.PhysicalTX = urlparse.urlunsplit(("gsiftp", hostname,
+                os.path.abspath(path), None, None))
+            tx.Type = "STATIC_BINARY"
+            tx.SystemInfo = "INTEL32::LINUX"
+            tx.Profiles = ""
+            catalog.append(tx)
+        return catalog
+    from_hipe_ini = classmethod(from_hipe_ini)
+
+class PegasusTransformation(object):
+    __slots__ = ["siteID", "LogicalTX", "PhysicalTX", "Type", "SystemInfo",
+        "Profiles"]
+    
+    def __str__(self):
+        return " ".join([getattr(self, key) for key in self.__slots__])
+
+def parse_args():
+    parser = optparse.OptionParser(version="$Id$", usage=__doc__)
+    parser.add_option("-s", "--sites-file", default=default_sites,
+        help="site.xml describing the desired sites (a default is installed with glue)")
+    parser.add_option("-p", "--properties-file", default=default_properties,
+        help="property bundle with pegasus preferences (a default is installed with glue)")
+    parser.add_option("-i", "--ini-file",
+        help="inspiral_hipe's ini file with which to create tc.data")
+    parser.add_option("-n", "--no-submit", action="store_true", default=False,
+        help="concretize the DAG and generate a sub file for it; do not submit to cluster")
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
+        help="print informative messages")
+    
+    opts, args = parser.parse_args()
+    
+    if len(args) < 2:
+        print >>sys.stderr, "not enough arguments"
+    
+    return opts, args
+
+#
+# Main
+#
+
+# commandline
+opts, args = parse_args()
+dax_file = args[0]
+site = args[1]
+
+# create tc.data if necessary
+if opts.ini_file:
+    catalog = PegasusTransformationCatalog.from_hipe_ini(open(opts.ini_file))
+    catalog.write_tc_data(open("tc.data", "w"))
+
+#
+# run Pegasus stuff
+#
+
+# do pegasus-plan
+cwd = os.getcwd()
+
+plan_args = ["pegasus-plan"]
+plan_args.append("-Dpegasus.user.properties=%s" % opts.properties_file)
+plan_args.append("-Dpegasus.dir.storage=%s" % cwd)
+plan_args.append("--dir ./submit_files")
+plan_args.append("--sites %s" % site)
+plan_args.append("--output local")
+plan_args.append("--dax %s" % dax_file)
+plan_args.append("--nocleanup")
+plan_args.append("--verbose")
+plan_command = " ".join(plan_args)
+
+if opts.verbose: print "Executing: " + plan_command
+plan_in, plan_out, plan_err = os.popen3(plan_command)
+pid, status = os.wait()
+
+if status != 0:
+    print >>sys.stderr, "External call failed."
+    print >>sys.stderr, "  status: %d" % status
+    print >>sys.stderr, "  stdout: %s" % plan_out.read()
+    print >>sys.stderr, "  stderr: %s" % plan_err.read()
+    print >>sys.stderr, "  command: %s" % plan_command
+    sys.exit(status)
+plan_out_lines = plan_out.readlines()
+
+# do pegasus-run
+run_commands = [line.strip() for line in plan_out_lines if line.startswith("pegasus-run")]
+if len(run_commands) == 0:
+    print >>sys.stderr, "Where is the run command?  I couldn't find it in the following:"
+    print >>sys.stderr, plan_out_lines
+    sys.exit(1)
+elif len(run_commands) > 1:
+    print >>sys.stderr, "I are t3h confus3d.  Why do I find more than one command to run?"
+    print >>sys.stderr, "Matching lines:"
+    print >>sys.stderr, run_commands
+    print >>sys.stderr, "All lines:"
+    print >>sys.stderr, "".join(plan_out_lines)
+    sys.exit(1)
+run_command = run_commands[0]
+run_args = run_command.split(" ")
+
+if opts.no_submit:
+    dag_filename = os.path.join(run_args[-1], dax_base + ".dag")
+    os.execvp("condor_submit_dag", ("condor_submit_dag", "-nosubmit", dag_filename))
+else:
+    os.execvp(run_args[0], run_args)
