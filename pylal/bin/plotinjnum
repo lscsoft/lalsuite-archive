@@ -222,13 +222,13 @@ tagList= []   # use for the cache file
 if opts.found_glob:
   foundFiles = glob.glob(opts.found_glob)
   if opts.verbose:
-    print " ...reading the following list of found files " + str(foundFiles) + "\n"
+    print __name__+" ...reading the following list of found files " + str(foundFiles) + "\n"
 elif opts.cache_file:
   foundFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_found_pattern).\
       sieve(ifos=opts.ifo_times, exact_match=True).\
       checkfilesexist()[0].pfnlist()  
   if opts.verbose:
-    print "\n...reading the following list of found files: \n" 
+    print __name__+"...reading the following list of found files: \n" 
     for file in foundFiles:
       print file
 
@@ -243,13 +243,13 @@ if not foundFiles:
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
    if opts.verbose:
-      print " ...reading the following list of missed files " + str(missedFiles) + "\n"
+      print __name__+" ...reading the following list of missed files " + str(missedFiles) + "\n"
 elif opts.cache_file:
   missedFiles =  lal.Cache.fromfile(open(opts.cache_file)).sieve(description = opts.inj_missed_pattern).\
       sieve(ifos=opts.ifo_times, exact_match=True).\
       checkfilesexist()[0].pfnlist()
   if opts.verbose:
-    print "\n...reading the following list of missed files \n"
+    print __name__+"...reading the following list of missed files \n"
     for file in missedFiles:
       print file
 else:

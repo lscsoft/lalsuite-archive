@@ -173,8 +173,12 @@ if opts.cache_file:
   misFiles = miscache.checkfilesexist()[0].pfnlist()
 
   if opts.verbose:
-    print "... reading the following found files " + str(injFiles)
-    print "... reading the following missed files " + str(misFiles)
+    print __name__+"... reading the following found files \n" 
+    for file in injFiles:
+      print file
+    print __name__+"... reading the following missed files \n"
+    for file in misFiles:
+      print file
   if len(injFiles) < 1:
     print >>sys.stderr,"Cache file must be input"
     sys.exit(1)
@@ -353,6 +357,9 @@ if inspiralFiles:
 plot1symbol=['bx','bo','b+','b^','b>','b<']
 plot2symbol=['rx','ro','r+','r^','r>','r<']
 
+foundSymbol = {'H1H2':'bx', 'H1L1':'bo', 'H2L1':'b+', 'H1H2L1':'b^'}
+missedSymbol = {'H1H2':'rx', 'H1L1':'ro', 'H2L1':'r+', 'H1H2L1':'r^'}
+
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
 ##############################################################################
@@ -365,14 +372,25 @@ if opts.time_dist:
 
   # plot found
   for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
+    try:
+      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for found injections not found; uses default one'
+      symbolf = 'bx'
+    try:
+      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for missed injections not found; uses default one'
+      symbolm = 'bx'
+    
     semilogy(foundSet['injections']['inj_time'],foundSet['injections']['inj_dist'],\
-             plot1symbol[t], label=foundSet['injections']["ifotimeslabel"]+" found",\
+             symbolf, label=foundSet['injections']['ifotimeslabel']+" found",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
 
     semilogy(missedSet['missedinjs']['mis_time'],missedSet['missedinjs']['mis_dist'],\
-        plot2symbol[t],label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
+        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
         markerfacecolor=None,markeredgecolor='r',markersize=10,\
         markeredgewidth=1)
     t+=1
@@ -407,14 +425,24 @@ if opts.mchirp_dist_log:
   sym=0
   t=0
   for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
+    try:
+      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for found injections not found; uses default one'
+      symbolf = 'bx'
+    try:
+      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for missed injections not found; uses default one'
+      symbolm = 'bx'
 
     semilogy(foundSet['injections']['inj_chirp'],foundSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=foundSet["injections"]["ifotimeslabel"]+" found",\
+             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
     semilogy(missedSet['missedinjs']['mis_chirp'],missedSet['missedinjs']['mis_dist'],\
-        plot2symbol[sym],label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
+        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
         markerfacecolor=None,markeredgecolor='r',markersize=10,\
         markeredgewidth=1)
     hold(True) 
@@ -439,15 +467,25 @@ if opts.mchirp_dist_linear:
   figure()
   sym=0
   t=0
+  try:
+    symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
+  except:
+    print 'symbol for found injections not found; uses default one'
+    symbolf = 'bx'
+  try:
+    symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
+  except:
+    print 'symbol for missed injections not found; uses default one'
+    symbolm = 'bx'
   for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
 
     plot(foundSet['injections']['inj_chirp'],foundSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=foundSet["injections"]["ifotimeslabel"]+" found",\
+             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
     plot(missedSet['missedinjs']['mis_chirp'],missedSet['missedinjs']['mis_dist'],\
-        plot2symbol[sym],label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
+        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
         markerfacecolor=None,markeredgecolor='r',markersize=10,\
         markeredgewidth=1)
     hold(True) 
@@ -472,14 +510,24 @@ if opts.mtotal_dist_log:
   sym=0
   t=0
   for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
+    try:
+      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for found injections not found; uses default one'
+      symbolf = 'bx'
+    try:
+      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for missed injections not found; uses default one'
+      symbolm = 'bx'
 
     semilogy(foundSet['injections']['inj_mtotal'],foundSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=foundSet["injections"]["ifotimeslabel"]+" found",\
+             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
     semilogy(missedSet['missedinjs']['mis_mtotal'],missedSet['missedinjs']['mis_dist'],\
-             plot2symbol[sym],label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
+             symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
              markerfacecolor=None,markeredgecolor='r',markersize=10,\
              markeredgewidth=1)
     hold(True)
@@ -505,14 +553,23 @@ if opts.mtotal_dist_linear:
   sym=0
   t=0
   for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
+    try:
+      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for found injections not found; uses default one'
+      symbolf = 'bx'
+    try:
+      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
+    except:
+      print 'symbol for missed injections not found; uses default one'
 
     plot(foundSet['injections']['inj_mtotal'],foundSet['injections']['inj_dist'],\
-             plot1symbol[sym],label=foundSet["injections"]["ifotimeslabel"]+" found",\
+             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
              markerfacecolor=None,markeredgecolor='b',markersize=10,\
              markeredgewidth=1)
     hold(True)
     plot(missedSet['missedinjs']['mis_mtotal'],missedSet['missedinjs']['mis_dist'],\
-             plot2symbol[sym],label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
+             symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
              markerfacecolor=None,markeredgecolor='r',markersize=10,\
              markeredgewidth=1)
     hold(True)
