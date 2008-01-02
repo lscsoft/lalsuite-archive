@@ -43,6 +43,10 @@
  */
 
 
+#define STREAM_QUOTE '"'
+#define STREAM_ESCAPE '\\'
+
+
 /*
  * Structure
  */
@@ -194,7 +198,8 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	 * any amount of white-space + non-quote, non-white-space,
 	 * non-delimiter characters + any amount of white-space + delimiter
 	 *
-	 * The middle bit is returned as the token.
+	 * The middle bit is returned as the token.  '"' characters can be
+	 * escaped by preceding them with a '\' character.
 	 */
 
 	/*
@@ -211,19 +216,22 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	while(Py_UNICODE_ISSPACE(*pos))
 		if(++pos >= bailout)
 			goto stop_iteration;
-	if(*pos == '"') {
+	if(*pos == STREAM_QUOTE) {
+		int escaped = 0;
 		*start = ++pos;
 		if(pos >= bailout)
 			goto stop_iteration;
-		while(*pos != '"')
+		while((*pos != STREAM_QUOTE) || escaped) {
+			escaped = (*pos == STREAM_ESCAPE) && !escaped;
 			if(++pos >= bailout)
 				goto stop_iteration;
+		}
 		*end = pos;
 		if(++pos >= bailout)
 			goto stop_iteration;
 	} else {
 		*start = pos;
-		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
+		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter) && (*pos != STREAM_QUOTE))
 			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
