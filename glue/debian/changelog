@@ -1,10 +1,10 @@
-glue (1.15-3) unstable; urgency=low
+python-glue (1.15-3) unstable; urgency=low
 
   * make this an "all" package
 
  -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed,  7 Nov 2007 14:10:00 +0100
 
-glue (1.15-2) unstable; urgency=low
+python-glue (1.15-2) unstable; urgency=low
 
   * Initial release
 

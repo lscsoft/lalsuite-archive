@@ -61,7 +61,7 @@ clean:
 	-python setup.py clean
 	-rm -rf build
 	-rm -f etc/glue-user-env.*sh
-	
+#	-rm -rf debian/$(PACKAGE)
 	dh_clean 
 
 
@@ -80,8 +80,8 @@ install: build
 	mkdir -p debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)
 	python setup.py install \
 	    --root=$(CURDIR)/debian/$(PACKAGE) \
-	    --prefix=${PREFIX} \
-	    --install-data=${DATAPREFIX} \
+	    --prefix=$(PREFIX) \
+	    --install-data=$(DATAPREFIX) \
 	    --record=debian/$(PACKAGE)/usr/share/doc/$(PACKAGE)/INSTALLED_FILES
 
 
