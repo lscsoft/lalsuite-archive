@@ -104,7 +104,6 @@ def segmentlistdict_normalize(seglistdict, origin):
 	for seglist in seglistdict.itervalues():
 		for i, seg in enumerate(seglist):
 			seglist[i] = segments.segment(float(seg[0] - origin), float(seg[1] - origin))
-	return seglistdict
 
 
 def segmentlistdict_unnormalize(seglistdict, origin):
@@ -116,7 +115,6 @@ def segmentlistdict_unnormalize(seglistdict, origin):
 	for seglist in seglistdict.itervalues():
 		for i, seg in enumerate(seglist):
 			seglist[i] = segments.segment(origin + seg[0], origin + seg[1])
-	return seglistdict
 
 
 #
@@ -285,9 +283,9 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 	# contribute to a coincidence analysis.
 	#
 
-	seglists = segmentlistdict_normalize(seglists, LIGOTimeGPS(800000000))
+	segmentlistdict_normalize(seglists, LIGOTimeGPS(800000000))
 	seglists = llwapp.get_coincident_segmentlistdict(seglists, time_slides)
-	seglists = segmentlistdict_unnormalize(seglists, LIGOTimeGPS(800000000))
+	segmentlistdict_unnormalize(seglists, LIGOTimeGPS(800000000))
 
 	#
 	# Remove files that will not participate in a coincidence.  Take
