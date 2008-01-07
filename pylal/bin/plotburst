@@ -195,7 +195,10 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo, interval, width):
 		SnglBurstUtils.BurstPlot.__init__(self, "Peak Frequency (Hz)", "Trigger Rate Spectral Density (triggers / s / Hz)")
 		self.ifo = ifo
-		self.rate = rate.Rate(interval, width)
+		# 21 bins per filter width
+		bins = int(float(abs(interval)) / width) * 21
+		binning = rate.NDBins((LinearBins(interval[0], interval[1], bins),))
+		self.rate = rate.BinnedArray(binning)
 
 	def add_contents(self, contents, seglists):
 		self.nevents += contents[self.ifo].nevents
@@ -204,7 +207,8 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 
 	def finish(self):
 		self.axes.set_title("Trigger Rate vs. Peak Frequency\n(%d Triggers)" % self.nevents)
-		self.rate.filter()
+		# 21 bins per filter width
+		rate.to_moving_mean_density(self.rate, rate.gaussian_window(21))
 		xvals = self.rate.centres()[0]
 		self.axes.plot(xvals, self.rate.array, "k")
 		self.axes.semilogy()
@@ -253,7 +257,9 @@ class Delays(SnglBurstUtils.BurstPlot):
 	def __init__(self, ifo, width, max):
 		SnglBurstUtils.BurstPlot.__init__(self, "Delay (s)", "Count / Delay")
 		self.ifo = ifo
-		self.bins = rate.Rate(segments.segment(0, max + 2), width)
+		# 21 bins per filter width
+		interval = segments.segment(0, max + 2)
+		self.bins = rate.BinnedArray(rate.NDBins((LinearBins(interval[0], interval[1], int(float(abs(interval)) / width) * 21),)))
 		self.axes.semilogy()
 
 	def add_contents(self, contents, seglists):
@@ -272,7 +278,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 		self.axes.set_title("Time Between Triggers\n(%d Triggers)" % self.nevents)
 
 		xvals = self.bins.centres()[0]
-		self.bins.filter()
+		rate.to_moving_mean_density(self.bins, rate.gaussian_window(21))
 		self.axes.plot(xvals, self.bins.array, "k")
 
 		self.axes.set_xlim((0, xvals[-1]))
