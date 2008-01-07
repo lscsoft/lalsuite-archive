@@ -435,9 +435,9 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for values in contents.connection.cursor().execute("""
+		for coinc_event_id, h, hns, l, lns in contents.connection.cursor().execute("""
 SELECT
-	coinc_event.*,
+	coinc_event.coinc_event_id,
 	sim_burst.h_peak_time,
 	sim_burst.h_peak_time_ns,
 	sim_burst.l_peak_time,
@@ -454,9 +454,8 @@ FROM
 WHERE
 	coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			coinc = contents.coinc_table._row_from_cols(values)
-			sim_h_peak = LIGOTimeGPS(*values[-4:-2])
-			sim_l_peak = LIGOTimeGPS(*values[-2:])
+			sim_h_peak = LIGOTimeGPS(h, hns)
+			sim_l_peak = LIGOTimeGPS(l, lns)
 			if self.instrument in ("H1", "H2"):
 				sim_peak = sim_h_peak
 			elif self.instrument in ("L1",):
@@ -464,7 +463,7 @@ WHERE
 			else:
 				raise ValueError, self.instrument
 			self.found += 1
-			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
+			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
 			coinc_dt = 0
 			for burst in bursts:
 				if burst.ifo == self.instrument:
@@ -518,9 +517,9 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for values in contents.connection.cursor().execute("""
+		for coinc_event_id, sim_freq in contents.connection.cursor().execute("""
 SELECT
-	coinc_event.*,
+	coinc_event.coinc_event_id,
 	sim_burst.freq
 FROM
 	coinc_event
@@ -534,10 +533,8 @@ FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			coinc = contents.coinc_table._row_from_cols(values)
-			sim_freq = values[-1]
 			self.found += 1
-			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
+			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
 			for burst in bursts:
 				if burst.ifo == self.instrument:
 					df = math.log(burst.peak_frequency / sim_freq, 10)
