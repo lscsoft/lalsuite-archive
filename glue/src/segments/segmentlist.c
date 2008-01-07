@@ -213,11 +213,26 @@ static PyObject *make_segment(PyObject *lo, PyObject *hi)
 }
 
 
+static int pylist_extend(PyListObject *l, PyObject *v)
+{
+#if 0
+	/* faster version Python 2.4 and later */
+	PyObject *result = _PyList_Extend(l, v);
+#else
+	PyObject *result = PyObject_CallMethod((PyObject *) l, "extend", "O", v);
+#endif
+	if(!result)
+		return -1;
+	Py_DECREF(result);
+	return 0;
+}
+
+
 static PyListObject *segments_SegmentList_New(PyTypeObject *type, PyObject *sequence)
 {
 	PyListObject *new = (PyListObject *) type->tp_alloc(type, 0);
 	if(new && sequence)
-		if(!_PyList_Extend(new, sequence)) {
+		if(pylist_extend(new, sequence)) {
 			Py_DECREF(new);
 			new = NULL;
 		}
@@ -649,11 +664,10 @@ static PyObject *__ior__(PyObject *self, PyObject *other)
 	int result;
 	int i, j, n;
 
-	/* OK to ignore errors returned from size functions because either
-	 * way it will likely just cause the code to fall back to the
-	 * implementation below */
+	/* Faster algorithm when the two lists have very different sizes.
+	 * OK to not test size functions for error return values */
 	if(PySequence_Size(other) > PyList_GET_SIZE(self) / 2) {
-		if(!_PyList_Extend((PyListObject *) self, other))
+		if(pylist_extend((PyListObject *) self, other))
 			return NULL;
 		return coalesce(self, NULL);
 	}
@@ -812,7 +826,7 @@ static PyObject *__xor__(PyObject *self, PyObject *other)
 		Py_XDECREF(other);
 		return NULL;
 	}
-	if(!_PyList_Extend((PyListObject *) new, other)) {
+	if(pylist_extend((PyListObject *) new, other)) {
 		Py_DECREF(new);
 		Py_DECREF(other);
 		return NULL;
