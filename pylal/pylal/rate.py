@@ -786,44 +786,6 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	binned_array.to_density()
 
 
-class Rate(BinnedArray):
-	"""
-	An object for binning and smoothing impulsive data in 1 dimension,
-	normalized so as to measure event density.
-	"""
-	def __init__(self, segment, filterwidth, windowfunc = gaussian_window):
-		"""
-		Initialize the bins for the given segment and filter width.
-		"""
-		#
-		# bin size is 1/20th of the filter's width, but adjusted so
-		# that there is an integer number of bins in the interval
-		#
-
-		BinnedArray.__init__(self, NDBins((LinearBins(segment[0], segment[1], int(abs(segment) / (filterwidth / 20.0)) + 1),)))
-
-		#
-		# determine the true bin size from the final integer bin
-		# count and the interval's length
-		#
-
-		binsize = float(abs(segment)) / self.bins.shape[0]
-
-		#
-		# generate the filter data
-		#
-
-		self.filterdata = windowfunc(filterwidth / binsize)
-
-	def filter(self, cyclic = False):
-		"""
-		Apply the to_moving_mean_density() function to this object
-		using the data stored in the filterdata attribute as the
-		filter function.
-		"""
-		to_moving_mean_density(self, self.filterdata, cyclic = cyclic)
-
-
 #
 # =============================================================================
 #
