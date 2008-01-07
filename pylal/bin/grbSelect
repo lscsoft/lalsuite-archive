@@ -1,0 +1,526 @@
+#!/usr/bin/python
+
+__Id__ = "$Id$"
+__author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__name__ = "grbSelect"
+__title__ = "grb selection tool"
+
+
+import os
+import sys
+import matplotlib
+from optparse import *
+matplotlib.use('Agg')
+from pylab import *
+from glue.ligolw import ligolw
+from glue.ligolw import utils
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue import segments
+from glue import segmentsUtils
+from pylal import antenna
+from pylal import date
+from numpy import *
+
+##############################################
+usage = """
+usage: %prog [options]
+
+Injection Plotting Function
+
+Generates plots showing the number of IFOs an injection is found in
+"""
+
+htmlHeader='''
+<table border="1" cellpadding="2" cellspacing="2">
+  <tbody>
+<tr>
+      <td style="vertical-align: top; background-color: rgb(255, 153, 0);"><span style="color: rgb(51, 51, 255); font-weight: bold;">Nr</span><br>
+
+      </td>
+      <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">GRB</td>
+      <td style="vertical-align: top; color: rgb(51, 51, 255); font-weight: bold; font-style: italic; background-color: rgb(255, 153, 0);">GPS<br>
+
+      </td>
+
+      <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">Date<br>
+      </td>
+
+      <td style="vertical-align: top; font-style: italic; color: rgb(51, 51, 255); font-weight: bold; background-color: rgb(255, 153, 0);">redshift<br>
+
+      </td>
+      <td style="vertical-align: top; font-weight: bold; background-color: rgb(255, 153, 0);"><span style="color: rgb(51, 51, 255);">duration [s]</span><br>
+      </td>
+      <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">RA<br>
+      </td>
+      <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">DEC<br>
+
+      </td>
+ <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">H1<br>
+      </td>
+ <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">H2<br>
+      </td>
+ <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">L1<br>
+      </td>
+
+ <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">G1<br>
+      </td>
+ <td style="vertical-align: top; font-weight: bold; font-style: italic; color: rgb(51, 51, 255); background-color: rgb(255, 153, 0);">V1<br>
+      </td>'''
+
+##############################################
+def parse_command_line():
+
+  parser = OptionParser( usage=usage, \
+      version="%prog CVS\n" + 
+      "$Id$\n" + 
+      "Name: $\n") 
+  parser.add_option("-i","--input",action="store",type="string",\
+      default=None, metavar=" INPUT",\
+      help="XML input file containing the list of GRBs to read" )
+  parser.add_option("-S","--segments",action="store",\
+      type="string",  metavar=" SEGMENTS",\
+      help="directory containing the segment files")
+  parser.add_option("","--l1-vetosegs",action="store",\
+      type="string",  metavar="L1-VETOSEGS", default = None,\
+      help="specifies veto segments for L1")
+  parser.add_option("","--h1-vetosegs",action="store",\
+      type="string",  metavar="H1-VETOSEGS", default = None,\
+      help="specifies veto segments for H1")
+  parser.add_option("","--h2-vetosegs",action="store",\
+      type="string",  metavar="H2-VETOSEGS", default = None,\
+      help="specifies veto segments for H2")
+  parser.add_option("","--g1-vetosegs",action="store",\
+      type="string",  metavar="G1-VETOSEGS", default = None,\
+      help="specifies veto segments for G1")
+  parser.add_option("","--v1-vetosegs",action="store",\
+      type="string",  metavar="V1-VETOSEGS", default = None,\
+      help="specifies veto segments for V1")
+  parser.add_option("-H","--output-html",action="store",type="string",\
+      default=None, metavar=" OUTPUT_HTML",\
+      help="Output file for html output" )
+  parser.add_option("-o","--output-xml",action="store",type="string",\
+      help="Output file for xml")
+  parser.add_option("-s","--stats",action="store_true",\
+      default=False, metavar=" STATS",\
+      help="Printing statistical informations" )
+  parser.add_option("-t","--type",action="store",\
+      type="string",default="",  metavar=" SELECT_TYPE",\
+      help="Selection of the type (short, long, all)")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for selection purposes)")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for selection purposes)")
+  parser.add_option("-T","--ifo-times",action="store",\
+      type="string",  metavar=" IFOTIMES",\
+      help="ifo times e.g H1H2, H1L1, H1H2L1, all etc.")
+  parser.add_option("-l","--onsource-left",action="store",\
+      type="int",  default=0, metavar=" ONSOURCE_LEFT",\
+      help="onsource time left of the trigger")
+  parser.add_option("-r","--onsource-right",action="store",\
+      type="int",  default=0, metavar=" ONSOURCE_LEFT",\
+      help="onsource time right of the trigger")
+  parser.add_option("-n","--num-offsource",action="store",\
+      type="int",  default=-1, metavar=" NUM_OFFSOURCE",\
+      help="number of offsource segments required")
+  parser.add_option("-a","--algorithm",action="store",\
+      type="string",  metavar=" ALGORITHM",\
+      help="segment selection (symmetric, unsymmetric)")
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+
+  (opts,args) = parser.parse_args()
+
+  
+  # test the input options
+  if opts.onsource_right==0 or opts.onsource_left==0 :
+    print >> sys.stderr, "left and right onsource segment must be specified"
+    print >> sys.stderr, "use --onsource-left and --onsource-right"
+    sys.exit(1)
+
+  if not opts.algorithm:
+    print >> sys.stderr, "Needs to specify the offsource selection algorithm:"
+    print >> sys.stderr, "either symmetric or unsymmetric"
+    sys.exit(1)
+
+  if not opts.input:    
+    print >> sys.stderr, "Must specify XML input file with --input"
+    sys.exit(1)
+
+  if not opts.segments:       
+    print >> sys.stderr, "Must specify segments directory with --segments"
+    sys.exit(1)
+
+  if not opts.type:
+    print >> sys.stderr,"Must select type, either short, long or all"
+    sys.exit(1)
+
+  if not opts.ifo_times:
+    print >> sys.stderr,"Must sspecify ifo-times, either the IFOs or 'all'"
+    sys.exit(1)         
+    
+  if opts.num_offsource<0:  
+    print >> sys.stderr,"Number of offcource segments must e >=0"
+    sys.exit(1)         
+
+  if opts.algorithm!='symmetric' and opts.algorithm!='unsymmetric':
+    print >> sys.stderr,"Algorithm must be either 'symmetric' or 'unsymmetric'"
+    sys.exit(1)
+
+  return opts, sys.argv[1:]
+
+##############################################
+def checkSelection( grb, opts):
+
+  if opts.gps_start_time:
+    if grb.start_time<opts.gps_start_time:
+      return False
+
+  if opts.gps_end_time:
+    if grb.start_time>opts.gps_end_time:
+      return False
+
+  if opts.type!="all":
+    if opts.type!=grb.event_type:
+      return False
+
+  return True
+
+##############################################
+def checkIFO( list1, list2):
+
+  if list1=='all' or list2=='all':
+    return True
+
+  if len(list1)!=len(list2):
+    return False
+
+  l1 = []
+  for i in range(len(list1)/2):
+    l1.append(list1[2*i:2*i+2])
+
+  l2 = []
+  for i in range(len(list2)/2):
+    l2.append(list2[2*i:2*i+2])
+
+  flag=True
+
+  for item in l1:
+    if item not in l2:
+      flag=False
+
+  for item in l2:
+    if item not in l1:
+      flag=False
+
+  return flag
+
+##############################################
+## Main Program
+##############################################
+
+# get the command arguments
+opts, name =  parse_command_line()
+
+
+# read the table
+doc = utils.load_filename( opts.input )
+table = table.get_table(doc, lsctables.ExtTriggersTable.tableName)
+
+
+# defined some useless variables
+vectorDur = []
+vectorZ   = []
+vectorTime= []
+numberShort = 0
+numberLong  = 0
+numberShortZ= 0
+numberLongZ = 0
+numberTotal = 0
+
+# loop over all GRBs in the list
+for grb in table:
+  if grb.event_type=='short':
+    numberShort+=1
+    if grb.event_z>0:
+      numberShortZ+=1
+  elif grb.event_type=='long':    
+    numberLong+=1
+    if grb.event_z>0:
+      numberLongZ+=1
+  else:
+    print "unknown type: ", grb.event_type
+
+
+  if grb.event_z>0:
+    vectorZ.append( grb.event_z)
+  if float(grb.event_epoch)>0:
+    vectorDur.append( float(grb.event_epoch) )
+
+  numberTotal+=1
+  vectorTime.append( grb.start_time)
+  
+
+
+if opts.stats:
+  print "Total number of GRBs in the list: ", numberTotal
+  print "Number of short: %d (%d), number of long: %d (%d)" %\
+        (numberShort, numberShortZ, numberLong, numberLongZ )
+  
+  print "shortest: %f  longest: %f" % (min(vectorDur),max(vectorDur))
+  print "closest: %f  farthest: %f" % (min(vectorZ),max(vectorZ))
+
+
+################################
+## create table for html (enote)
+################################
+  
+# calculate onsource times
+onSourceLeft = opts.onsource_left
+onSourceRight = opts.onsource_right
+onSourceLength = onSourceLeft+onSourceRight
+
+
+if opts.algorithm=="symmetric":
+  symmetricSegs = True
+else:
+  symmetricSegs = False
+
+
+if True:
+
+  # open the html output file if requested
+  if opts.output_html:
+    htmlfile=open(opts.output_html, 'w')
+    htmlfile.write(htmlHeader)
+
+
+  # prepare the xml output file if requested
+  if opts.output_xml:
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    tbl = lsctables.New(lsctables.ExtTriggersTable)
+    xmldoc.childNodes[-1].appendChild(tbl)
+    
+  ## create HTML table of all GRB's
+  month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
+         'Sep','Oct','Nov','Dec']
+
+  # read the data segments
+  ifoList=['H1','H2','L1','G1','V1']
+  ifoList2=['H2','V1','G1']
+  segs={}
+  for ifo in ifoList:
+
+    # read the segment lists
+    filename = opts.segments+'/S5%s_selectedsegs.txt' % ifo
+    f=open( filename )
+    segs[ifo] = segmentsUtils.fromsegwizard(f)
+    f.close()
+
+    # check for a veto file
+    if getattr( opts, ifo.lower()+'_vetosegs'):
+      f = open( getattr( opts, ifo.lower()+'_vetosegs')  )
+      segsVeto = segmentsUtils.fromsegwizard(f)
+      f.close()
+
+      # remove vetoed times
+      print "Veto-file specified for IFO %s" % ifo
+      segs[ifo]-=segsVeto
+      
+  # sort the triggers first
+  index = argsort( vectorTime )
+
+  # just some counters
+  c=1
+  n=0
+  numberSelected=0
+
+  # loop over all GRBs
+  for ind in index:
+    grb = table[ind]
+
+    # check if thie GRB is selected
+    if not checkSelection( grb, opts):
+      continue
+
+    # some counters
+    c*=-1
+    n+=1
+
+    # set the background color
+    line=''
+    if c==1:
+      line ='<tr style="background-color: rgb(153, 255, 255);">'
+    else:
+      line = '<tr style="background-color: rgb(204, 255, 255);">'
+
+    if grb.event_type == 'short':
+      line = '<tr style="background-color: rgb(255, 200, 200);">'
+
+    # set the number and the GCN link
+    line+='<td> %d </td>' % n
+    line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">%s</a>'\
+           '  </td>' % \
+           (grb.event_number_gcn, grb.event_number_grb)
+
+    # set the time
+    line+='<td> %d </a></td>' % grb.start_time    
+    gps = date.LIGOTimeGPS(grb.start_time )
+    d = date.XLALGPSToUTC(gps)
+    line+='<td> %s %02d %d %02d:%02d:%02d  </td>' % \
+           (month[d[1]-1], d[2], d[0], d[3], d[4], d[5])
+
+    # put in the redshift
+    if grb.event_z>0:
+      if int(grb.notice_time)>0:
+        line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">'\
+               '%.3f</a> </td>' % \
+               ( int(grb.notice_time), grb.event_z)
+      else:
+        line+='<td> %.3f </td>' %  grb.event_z
+    else:
+      line+='<td> n/a </td>'
+
+    # put in the duration
+    if float(grb.event_epoch)>0:
+      if int(grb.email_time)>0:
+        line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">'\
+               '%.3f</a> </td>'%\
+               ( int(grb.email_time), float(grb.event_epoch) )
+      else:
+        line+='<td> %.3f </td>' %  float(grb.event_epoch)
+    else: 
+      line+='<td> n/a </td>'
+
+    # position
+    line+='<td> %f </td><td> %f</td>' % (grb.event_ra, grb.event_dec)
+
+    # check segments
+    onSource =  segments.segment( grb.start_time-onSourceLeft,
+                                  grb.start_time+onSourceRight )
+
+    # check for containement
+    selectedSegs = {}
+    antennaFactor = {}
+    for ifo in ifoList:
+      if onSource in segs[ifo]:
+
+        # compute the antenna factor for this time and position on the sky
+        f_plus, f_cross, f_ave, f_q = antenna.response( grb.start_time,
+                                                        grb.event_ra,\
+                                                        grb.event_dec, \
+                                                        0.0, 0.0, 'degree',
+                                                        ifo )
+        antennaFactor[ifo]=f_q
+
+        # get the segment that include the onSource
+        # and get its length
+        index = segs[ifo].find(onSource)
+        offSourceSeg = segs[ifo][index]
+        offSourceLength = offSourceSeg[1]-offSourceSeg[0]
+        
+        # check begin and end of the (symmetrical) segment,
+        # so to have at least 50
+        # onsoure-times on EITHER side of the trigger
+        segStart = grb.start_time - opts.num_offsource*onSourceLength - onSourceLeft
+        segEnd   = grb.start_time + opts.num_offsource*onSourceLength + onSourceRight
+
+        # check condition on segment length
+        if symmetricSegs:
+          if offSourceSeg[0]<=segStart and offSourceSeg[1]>=segEnd:
+             selectedSegs[ifo]=offSourceSeg
+        else:
+          selectedSegs[ifo]=offSourceSeg
+ 
+    
+    ## now check the result in a combined analysis
+    detectorsData='' # create the detector string
+    if symmetricSegs:
+      
+      # case of symmetric segments
+      for ifo in ifoList:
+        if onSource in segs[ifo]:
+          if selectedSegs.has_key(ifo):
+            detectorsData+=ifo
+            line+='<td> <b>%.2f</b> </td>' % antennaFactor[ifo]
+          else:
+             line+='<td> %.2f </td>' % antennaFactor[ifo]
+        else:
+           line+='<td> -- </td>'
+
+    else:
+
+      ## case of unsymmetric segments
+      # total length of offsource segments (including the onsource)
+      minLength = (2*opts.num_offsource+1)*onSourceLength
+      
+      # check H1, L1 first
+      if selectedSegs.has_key('H1') or selectedSegs.has_key('L1'):
+        
+        # do this ONLY if H1 or L1 is present
+        if  selectedSegs.has_key('H1') and selectedSegs.has_key('L1'):
+          totalSeg = selectedSegs['H1'] &  selectedSegs['L1']
+          detectorsData='H1L1'
+          if abs(totalSeg)<minLength:
+            if  abs(selectedSegs['H1'])> abs(selectedSegs['L1']):
+              totalSeg =  selectedSegs['H1']
+              detectorsData='H1'
+            else:
+              totalSeg =  selectedSegs['L1']
+              detectorsData='L1'
+        else:
+          if selectedSegs.has_key('H1'):
+            totalSeg = selectedSegs['H1']
+            detectorsData='H1'
+          else:
+            totalSeg = selectedSegs['L1']
+            detectorsData='L1'
+
+        # now totalSeg contains a 'beginning' segment
+        # either it is H1 or L1 or (H1&L1)
+        # Now its time to check for the other detectors
+        for ifo in ifoList2:
+          if selectedSegs.has_key(ifo):
+            testSeg = totalSeg &  selectedSegs[ifo]
+            if abs(testSeg)>=minLength:
+              detectorsData+=ifo
+              totalSeg = testSeg
+
+      # put together the html entries
+      for ifo in ifoList:
+        if onSource in segs[ifo]:
+          if ifo in detectorsData:
+            line+='<td> <b>%.2f</b> </td>' % antennaFactor[ifo]
+          else:
+            line+='<td> %.2f </td>' % antennaFactor[ifo]
+        else:
+           line+='<td> -- </td>'
+          
+
+    # Now finally check if we got the IFO times that was requested
+    if checkIFO(opts.ifo_times, detectorsData):
+      numberSelected+=1
+
+      # append to html table
+      if opts.output_html:
+        htmlfile.write(line+'</tr>')
+
+        # append to xml file
+      if opts.output_xml:
+        tbl.append(grb)
+
+  # close-out the files
+  if opts.output_html:
+    htmlfile.close()
+  if opts.output_xml:
+    utils.write_filename(xmldoc, opts.output_xml )
+
+
+  print "%d GRBs were selected " % numberSelected
+
+    
