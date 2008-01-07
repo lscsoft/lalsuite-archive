@@ -428,8 +428,11 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.axes.semilogy()
 		self.instrument = instrument
 		self.found = 0
-		self.offsets = rate.Rate(interval, width)
-		self.coinc_offsets = rate.Rate(interval, width)
+		# 21 bins per filter width
+		bins = int(float(abs(interval)) / width) * 21
+		binning = rate.NDBins((LinearBins(interval[0], interva[1], bins),))
+		self.offsets = rate.BinnedArray(binning)
+		self.coinc_offsets = rate.BinnedArray(binning)
 
 	def add_contents(self, contents):
 		# this outer loop assumes each injection can only be found
@@ -488,8 +491,10 @@ WHERE
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		self.offsets.filter()
-		self.coinc_offsets.filter()
+		# 21 bins per filter width
+		filter = rate.gaussian_window(21)
+		rate.to_moving_mean_density(self.offsets, filter)
+		rate.to_moving_mean_density(self.coinc_offsets, filter)
 		self.axes.plot(self.offsets.centres()[0], self.offsets.array, "k")
 		self.axes.plot(self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
 		self.axes.legend(["%s residuals" % self.instrument, "SNR-weighted mean of residuals in all instruments"], loc = "lower right")
@@ -510,8 +515,11 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 		self.instrument = instrument
 		self.found = 0
-		self.offsets = rate.Rate(interval, width)
-		self.coinc_offsets = rate.Rate(interval, width)
+		# 21 bins per filter width
+		bins = int(float(abs(interval)) / width) * 21
+		binning = rate.NDBins((LinearBins(interval[0], interva[1], bins),))
+		self.offsets = rate.BinnedArray(binning)
+		self.coinc_offsets = rate.BinnedArray(binning)
 
 	def add_contents(self, contents):
 		# this outer loop assumes each injection can only be found
@@ -554,8 +562,10 @@ WHERE
 
 	def finish(self):
 		self.axes.set_title("Trigger Peak Frequency / Injection Centre Frequency\n(%d Found Injections)" % self.found)
-		self.offsets.filter()
-		self.coinc_offsets.filter()
+		# 21 bins per filter width
+		filter = rate.gaussian_window(21)
+		rate.to_moving_mean_density(self.offsets, filter)
+		rate.to_moving_mean_density(self.coinc_offsets, filter)
 		self.axes.plot(10**self.offsets.centres()[0], self.offsets.array, "k")
 		self.axes.plot(10**self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
 		self.axes.legend(["%s triggers" % self.instrument, "SNR-weighted mean of all matching triggers"], loc = "lower right")
