@@ -426,7 +426,7 @@ class DBTable(table.Table):
 
 	def sync_next_id(self):
 		if self.next_id is not None:
-			last = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.next_id.column_name, self.next_id.index_offset + 1, self.dbtablename)).fetchone()[0]
+			last, = self.cursor.execute("SELECT MAX(CAST(SUBSTR(%s, %d, 10) AS INTEGER)) FROM %s" % (self.next_id.column_name, self.next_id.index_offset + 1, self.dbtablename)).fetchone()
 			if last is None:
 				type(self).next_id = type(self.next_id)(0)
 			else:
