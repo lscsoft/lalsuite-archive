@@ -159,9 +159,12 @@ def insert(filenames, preserve_ids = True, verbose = False):
 
 
 def extract(filename, verbose = False):
-	doc = ligolw.Document()
-	doc.appendChild(dbtables.DBTable_get_xml())
-	utils.write_filename(doc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(dbtables.DBTable_get_xml())
+	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
+
+	# delete cursors
+	xmldoc.unlink()
 
 
 #
@@ -173,16 +176,21 @@ def extract(filename, verbose = False):
 #
 
 
+#
+# Command line
+#
+
+
 options, filenames = parse_command_line()
 
 
 will_write_to_file = (options.extract is None) or (filenames != [None])
-will_replace_file = will_write_to_file and options.replace is True
-will_use_tmp_space = will_write_to_file and options.tmp_space is not None
+will_replace_file = will_write_to_file and options.replace
+will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
 
 #
-# Open database, and synchronize ID generators with its contents
+# Open database
 #
 
 
@@ -190,6 +198,13 @@ target = dbtables.get_connection_filename(options.database, tmp_path = will_use_
 
 connection = sqlite3.connect(target)
 dbtables.DBTable_set_connection(connection)
+
+
+#
+# Synchronize ID generators with table contents
+#
+
+
 for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
 	table.sync_next_id()
 
