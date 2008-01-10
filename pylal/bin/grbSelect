@@ -25,12 +25,44 @@ from pylal import date
 from numpy import *
 
 ##############################################
+## global variables
+##############################################
+
+ifoList=['H1','H2','L1','G1','V1']
+
+
+##############################################
 usage = """
 usage: %prog [options]
 
-Injection Plotting Function
+GRB selection script.
 
-Generates plots showing the number of IFOs an injection is found in
+Selects specified GRBs from the basic list and generates a xml-file and/or a html-file.
+
+Needs the following files:
+listGRB.xml
+S5[IFO]_selectedsegs.txt #for all five IFOs, in directory specified by --segments
+
+Optional but useful files:
+[ifo]cat1.list          # for all five IFOs. Contain the category1-veto segment lists, in same directory
+
+Example call:
+
+grbSelect \
+  --onsource-left 120 \
+  --onsource-right 20 \
+  --input listGRB.xml \
+  --segments Segments \
+  --algorithm unsymmetric \
+  --type short \
+  --ifo-times H1H2 \
+  --select sub \
+  --num-offsource 50 \
+  --output-html S5_any_yr12.html\
+  --output-xml S5_any_yr12.xml \
+  --stats \
+  --gps-start-time 815011213 \
+  --gps-end-time 847555570
 """
 
 htmlHeader='''
@@ -82,7 +114,7 @@ def parse_command_line():
       help="XML input file containing the list of GRBs to read" )
   parser.add_option("-S","--segments",action="store",\
       type="string",  metavar=" SEGMENTS",\
-      help="directory containing the segment files")
+      help="directory containing the segment files in format: S5[IFO]_selectedsegs.txt")
   parser.add_option("","--l1-vetosegs",action="store",\
       type="string",  metavar="L1-VETOSEGS", default = None,\
       help="specifies veto segments for L1")
@@ -105,7 +137,7 @@ def parse_command_line():
       help="Output file for xml")
   parser.add_option("-s","--stats",action="store_true",\
       default=False, metavar=" STATS",\
-      help="Printing statistical informations" )
+      help="Printing statistical informations to screen (using all GRBs in list)" )
   parser.add_option("-t","--type",action="store",\
       type="string",default="",  metavar=" SELECT_TYPE",\
       help="Selection of the type (short, long, all)")
@@ -117,7 +149,12 @@ def parse_command_line():
       help="gps end time (for selection purposes)")
   parser.add_option("-T","--ifo-times",action="store",\
       type="string",  metavar=" IFOTIMES",\
-      help="ifo times e.g H1H2, H1L1, H1H2L1, all etc.")
+      help="ifo times e.g H1H2, H1L1, H1H2L1, etc., all (all GRBs), "\
+                    "any (any GRB with data from >=2 detectors only)")
+  parser.add_option("-e","--select",action="store",\
+      type="string",  metavar=" SELECT",\
+      help="selecting 'exact' to match the ifos exactly or 'sub' to match a "\
+                    "subset only (e.g. H1H2 as subset of H1H2L1)")
   parser.add_option("-l","--onsource-left",action="store",\
       type="int",  default=0, metavar=" ONSOURCE_LEFT",\
       help="onsource time left of the trigger")
@@ -129,7 +166,7 @@ def parse_command_line():
       help="number of offsource segments required")
   parser.add_option("-a","--algorithm",action="store",\
       type="string",  metavar=" ALGORITHM",\
-      help="segment selection (symmetric, unsymmetric)")
+      help="segment selection (symmetric, unsymmetric) around the trigger time")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
@@ -175,6 +212,9 @@ def parse_command_line():
 
 ##############################################
 def checkSelection( grb, opts):
+  """
+  Checks if the GRB lies in thme tie specified, and if the type is correct
+  """
 
   if opts.gps_start_time:
     if grb.start_time<opts.gps_start_time:
@@ -191,33 +231,61 @@ def checkSelection( grb, opts):
   return True
 
 ##############################################
-def checkIFO( list1, list2):
+def checkIFO( ifo_times, selectedDet, select):
+  """
+  Check if the ifos in both lists are the same, regardless of their order.
+  """
 
-  if list1=='all' or list2=='all':
-    return True
-
-  if len(list1)!=len(list2):
+  # return True if a special flag is selected
+  if ifo_times=='any' or ifo_times=='all':
     return False
 
+  # if we want to have exact match, the lengths must be the same
+  if select=='exact' and len(ifo_times)!=len(selectedDet):
+    return False
+
+  # decompose both strings
   l1 = []
-  for i in range(len(list1)/2):
-    l1.append(list1[2*i:2*i+2])
+  for i in range(len(ifo_times)/2):
+    l1.append(ifo_times[2*i:2*i+2])
 
   l2 = []
-  for i in range(len(list2)/2):
-    l2.append(list2[2*i:2*i+2])
+  for i in range(len(selectedDet)/2):
+    l2.append(selectedDet[2*i:2*i+2])
 
   flag=True
 
+  # check that every item from ifo_times is in the list of selectedDet
   for item in l1:
     if item not in l2:
       flag=False
 
-  for item in l2:
-    if item not in l1:
-      flag=False
+  # if we require exact match, check the other way around as well:
+  if select=='exact':
+    for item in l2:
+      if item not in l1:
+        flag=False
 
+        
   return flag
+
+
+
+##############################################################################
+def applyDataQuality(segments, vetofile):
+  """
+  Applying the veto-segments specified in 'vetofile'
+  to 'segments'
+  """
+  
+  # read it back in and apply
+  try:
+    veto_segs = segmentsUtils.fromsegwizard(open(vetofile))
+    segments -= veto_segs
+  except:
+    print "Unable to read veto segments from file  %s" % \
+          (vetofile)
+    
 
 ##############################################
 ## Main Program
@@ -318,26 +386,26 @@ if True:
 
     # read the segment lists
     filename = opts.segments+'/S5%s_selectedsegs.txt' % ifo
-    f=open( filename )
-    segs[ifo] = segmentsUtils.fromsegwizard(f)
-    f.close()
+    segs[ifo] = segmentsUtils.fromsegwizard(open(filename))
+    segmentsUtils.tosegwizard(open("testB.txt","w"), segs[ifo])
+
+    # apply category-1 vetoes in any case
+    applyDataQuality(segs[ifo], opts.segments+"/"+ifo + "cat1.list")
 
     # check for a veto file
     if getattr( opts, ifo.lower()+'_vetosegs'):
-      f = open( getattr( opts, ifo.lower()+'_vetosegs')  )
-      segsVeto = segmentsUtils.fromsegwizard(f)
-      f.close()
-
-      # remove vetoed times
-      print "Veto-file specified for IFO %s" % ifo
-      segs[ifo]-=segsVeto
       
+      applyDataQuality(segs[ifo], ifo.lower()+'_vetosegs') 
+      print "Veto-file specified for IFO %s" % ifo
+
+    segmentsUtils.tosegwizard(open("test.txt","w"), segs[ifo])
+
   # sort the triggers first
   index = argsort( vectorTime )
 
   # just some counters
   c=1
-  n=0
+  n=1
   numberSelected=0
 
   # loop over all GRBs
@@ -347,11 +415,7 @@ if True:
     # check if thie GRB is selected
     if not checkSelection( grb, opts):
       continue
-
-    # some counters
-    c*=-1
-    n+=1
-
+    
     # set the background color
     line=''
     if c==1:
@@ -427,8 +491,10 @@ if True:
         # check begin and end of the (symmetrical) segment,
         # so to have at least 50
         # onsoure-times on EITHER side of the trigger
-        segStart = grb.start_time - opts.num_offsource*onSourceLength - onSourceLeft
-        segEnd   = grb.start_time + opts.num_offsource*onSourceLength + onSourceRight
+        segStart = grb.start_time - opts.num_offsource*onSourceLength\
+                   - onSourceLeft
+        segEnd   = grb.start_time + opts.num_offsource*onSourceLength\
+                   + onSourceRight
 
         # check condition on segment length
         if symmetricSegs:
@@ -503,9 +569,17 @@ if True:
           
 
     # Now finally check if we got the IFO times that was requested
-    if checkIFO(opts.ifo_times, detectorsData):
-      numberSelected+=1
+    if opts.ifo_times=='all' or \
+       (opts.ifo_times=='any' and len(detectorsData)>=4) or \
+       checkIFO(opts.ifo_times, detectorsData, opts.select):
 
+      print "selected GRB %s: %s %s %s" % (grb.event_number_grb, opts.ifo_times, detectorsData, opts.select)
+
+      # increase counters
+      numberSelected+=1
+      c*=-1
+      n+=1
+      
       # append to html table
       if opts.output_html:
         htmlfile.write(line+'</tr>')
