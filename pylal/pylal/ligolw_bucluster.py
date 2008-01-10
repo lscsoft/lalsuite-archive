@@ -183,22 +183,25 @@ def ExcessPowerTestFunc(a, b):
 
 def ExcessPowerClusterFunc(a, b):
 	"""
-	Replace a with a cluster constructed from a and b.  The cluster's
-	time-frequency tile is the smallest tile that contains the original
-	two tiles, and the "most signficiant" contributor for the cluster
-	is the most confident of the two input tiles most significant
-	contributors.  The event a is returned.
+	Modify a in place to be a cluster constructed from a and b.  The
+	cluster's time-frequency tile is the smallest tile that contains
+	the original two tiles, and the "most signficiant" contributor for
+	the cluster is the tile whose boundaries are the SNR^{2} weighted
+	average boundaries of the two contributing tiles.  The "most
+	signficiant" contributor's h_{rss}, SNR, and confidence, are copied
+	verbatim from whichever of the two contributing tiles has the
+	highest confidence.  The modified event a is returned.
 	"""
 	#
-	# Save the properties of the most significant contributor
+	# Compute the properties of the "most significant contributor"
 	#
 
 	if b.ms_confidence > a.ms_confidence:
-		a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
-		a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
 		a.ms_hrss = b.ms_hrss
 		a.ms_snr = b.ms_snr
 		a.ms_confidence = b.ms_confidence
+	a.set_ms_period(weighted_average_seg(a.get_ms_period(), a.snr**2.0, b.get_ms_period(), b.snr**2.0))
+	a.set_ms_band(weighted_average_seg(a.get_ms_band(), a.snr**2.0, b.get_ms_band(), b.snr**2.0))
 
 	#
 	# Compute the SNR squared weighted peak time and frequency (recall
