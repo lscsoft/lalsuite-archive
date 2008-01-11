@@ -68,7 +68,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot',sngl_table = None):    
-    
+
     try:
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
@@ -459,6 +459,112 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       self.validNode = False
       print "couldn't add " + name + " analyseQscan job for " + ifo + "@ "+ repr(time)
 
+##############################################################################
+# class for h1h2 qevent jobs
+
+class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A h1h2 qevent job
+  """
+  def __init__(self, opts, cp):
+    """
+    """
+    self.name = 'h1h2QeventJob'
+    self.__executable = string.strip(cp.get('condor','qevent'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setup_cachecat()
+    
+    self.setupJobWeb(self.name)
+
+  def setup_cachecat(self):
+    # create a shell script to cat all the required cache files
+    cat_script = open(self.name + '/cachecat.sh','w')
+    cat_script.write("""#!/bin/bash
+    cat ${1} ${2} > ${3}
+    """)
+    cat_script.close()
+    os.chmod(self.name + '/cachecat.sh',0755)
+
+#############################################################################
+# class for h1h2 qevent Node
+
+class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a qscan job
+  """
+  def __init__(self,job,dNode,times,ifoList,name,cp,opts,dag,qeventCommand):
+    """
+    job = A CondorDAGJob that can run an instance of H1H2 qevent.
+    """
+
+    ifoString = ''
+    for ifo in ifoList:
+      ifoString = ifoString + ifo
+
+    page = string.strip(cp.get('output','page'))
+    self.friendlyName = name
+    self.id = ifoString + '-' + name + '-' + str(times[ifoList[0]])
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_var_arg(repr(times[ifoList[0]]))
+    eventDuration = string.strip(cp.get(name, 'duration'))
+    self.add_var_arg(eventDuration)
+    qeventConfig = string.strip(cp.get(name, ifoString + '-config-file'))
+    self.add_file_arg(qeventConfig)
+
+    cache_type_temp = dNode[ifoList[0]].outputFileName.split('-')[1]
+    cache_type = cache_type_temp[3:len(cache_type_temp)]
+    cache_start = []
+    cache_end = []
+    for ifo in ifoList:
+      cache_temp = dNode[ifo].outputFileName.split('.')[0]
+      cache_start.append(cache_temp.split('-')[2])
+      cache_end.append(cache_temp.split('-')[-1])
+    cache_start_time = max(cache_start)
+
+    qeventcache = job.name + '/' + ifoString + '_' + cache_type + '-' + \
+    str(max(cache_start)) + '-' + str(min(cache_end)) + '.qcache'
+
+    self.add_file_arg(qeventcache)
+
+    output = string.strip(cp.get(name, ifoString + '-output'))
+    self.add_var_arg(output)
+    self.set_pre_script(job.name + "/cachecat.sh %s %s %s" \
+    %(dNode[ifoList[0]].outputFileName, dNode[ifoList[1]].outputFileName, \
+    qeventcache))
+
+    #get the absolute output path whatever the path might be in the ini file
+    currentPath = os.path.abspath('.')
+    try:
+      os.chdir(output)
+      absoutput = os.path.abspath('.')
+      os.chdir(currentPath)
+    except:
+      print >> sys.stderr, 'invalid path for qevent output in the ini file'
+      sys.exit(1)
+    self.outputName = absoutput + '/' + repr(times[ifoList[0]]) # redirect output name
+
+    #prepare the string for the output cache
+    self.outputCache = ifoString + ' ' + name + ' ' + repr(times[ifoList[0]]) + ' ' + self.outputName + '\n'
+
+    #try to extract web output from the ini file, else ignore it
+    try:
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifoString+'web'))+repr(times[ifoList[0]]),dag.cache)
+    except:
+      self.setupNodeWeb(job,False,None,None,None,dag.cache)
+
+
+    for ifo in ifoList:
+      if dNode[ifo].validNode: self.add_parent(dNode[ifo])
+      else: pass
+
+    if eval('opts.' + qeventCommand):
+      dag.addNode(self,self.friendlyName)
+      self.validNode = True
+    else: self.validNode = False
+
+
 ###############################################################################
 # FrCheck Jobs and Nodes
 
@@ -579,8 +685,7 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
 
     # add the arguments that I know now...
     self.add_var_opt("low-cut", lowCut)
-    self.add_var_opt("high-cut", highCut)
-    #self.add_var_opt("high-cut", "1800") # Nelson value
+    self.add_var_opt("high-cut", str(min(1800,float(highCut))))
     self.add_var_opt("channel-name", channel) # must be STRAIN ?
     # THIS COALESCENCE TIME INFO IS AD HOC AND NEEDS TO BE IMPROVED
     self.add_var_opt("prior-coal-time-mean", str(trig.gpsTime[ifo]))
@@ -599,25 +704,21 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
     #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
     #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
     #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
-    #dist90 = 56.5
-    #dist10 = dist90 + 5. 
-    dist90 = 100.0
-    dist10 = 105.0
+    dist90 = 56.5
+    dist10 = dist90 + 5. 
     # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
-    if mass1 < mass2:
-      self.add_var_opt("prior-lower-mass", str(0.9) )
-      self.add_var_opt("prior-upper-mass", str(10.0) )
-      #self.add_var_opt("prior-lower-mass", str(mass1*0.3) )
-      #self.add_var_opt("prior-upper-mass", str(mass2*3.) )
-    else:
-      self.add_var_opt("prior-lower-mass", str(0.9) )
-      self.add_var_opt("prior-upper-mass", str(10.0) )
-      #self.add_var_opt("prior-lower-mass", str(mass2*0.3) )
-      #self.add_var_opt("prior-upper-mass", str(mass1*3.) )
+    #if mass1 < mass2:
+    #  self.add_var_opt("prior-lower-mass", str(0.9) )
+    #  self.add_var_opt("prior-upper-mass", str(10.0) )
+    #else:
+    #  self.add_var_opt("prior-lower-mass", str(0.9) )
+    #  self.add_var_opt("prior-upper-mass", str(10.0) )
+    self.add_var_opt("prior-lower-mass", str(0.5) )
+    self.add_var_opt("prior-upper-mass", str(34.5) )
     self.add_var_opt("prior-distance-10", str(dist10))
     self.add_var_opt("prior-distance-90", str(dist90))
-    #self.add_var_opt("before-coal-time", str(duration*1.2))
-    self.add_var_opt("before-coal-time", str(28.0))
+    self.add_var_opt("before-coal-time", str(duration*1.5))
+    #self.add_var_opt("before-coal-time", str(28))
     
     ########################################################################
     # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
