@@ -7,7 +7,7 @@ import sys
 import tempfile
 import time
 import urlparse
-itertools = __import__("itertools", level=0)  # absolute import of system-wide itertools
+itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 from lalapps import inspiral
 
