@@ -23,9 +23,11 @@ Incomplete<-sort(as.integer(as.character(LabelCount[F, "label.1"])))
 
 cat(file=LOG, length(Missing), "missing instances:", p(Missing, collapse=" "), "\n")
 cat(file=LOG, length(Incomplete), "incomplete instances:", p(Incomplete, collapse=" "), "\n")
-cat(file=LOG, "----------------------- dag.redo ----------------------\n")
 redo<-sort(c(Missing, Incomplete))
-cat(file=LOG, p("JOB A", redo, " condor\nVARS A", redo, " PID=\"", redo, "\"", collapse="\n"))
+if(length(redo)>0) {
+	cat(file=LOG, "----------------------- dag.redo ----------------------\n")
+	cat(file=LOG, p("JOB A", redo, " condor\nVARS A", redo, " PID=\"", redo, "\"", collapse="\n"))
+	}
 close(LOG)
 
 
