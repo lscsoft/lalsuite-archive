@@ -12,14 +12,6 @@ import numpy
 ########################################
 # helper functions
 
-def uniq(list):
-  """
-  Return the unique items of a list, preserving order.
-  http://mail.python.org/pipermail/tutor/2002-March/012930.html
-  """
-  temp_dict = {}
-  return [temp_dict.setdefault(e,e) for e in list if e not in temp_dict]
-
 def get_ifo_combos(ifo_list):
   ifo_combos = []
   for num_ifos in range(2, len(ifo_list) + 1):
@@ -252,10 +244,7 @@ class coincInspiralTable:
     return self.rows[i]
 
   def getstat(self):
-    stat = []
-    for coinc in self.rows:
-      stat.append(coinc.stat)
-    return numpy.asarray(stat)
+    return numpy.array([c.stat for c in self.rows], dtype=float)
 
   def sort(self, descending = True):
     """
@@ -272,7 +261,7 @@ class coincInspiralTable:
     """
     Return all the slides numbers present in the table.
     """
-    nums = uniq([c.slide_num for c in self.rows])
+    nums = list(glue.iterutils.uniq([c.slide_num for c in self.rows]))
     nums.sort()
     return nums
 
@@ -351,11 +340,10 @@ class coincInspiralTable:
           end_time = getattr(coinc,ifo).end_time
           break
       cluster_times.append(cluster_window * (end_time//cluster_window) )
-    cluster_times = uniq(cluster_times)
     
     cluster_triggers = coincInspiralTable(stat = self.stat)
     cluster_triggers.sngl_table = self.sngl_table
-    for cluster_time in cluster_times:
+    for cluster_time in glue.iterutils.uniq(cluster_times):
       # find all triggers at that time
       cluster = coincInspiralTable()
       for coinc in self:
