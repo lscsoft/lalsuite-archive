@@ -118,6 +118,9 @@ class MD5File(file):
 		else:
 			self.md5obj = md5obj
 
+	def flush(self):
+		self.f.flush()
+
 	def next(self):
 		buf = self.f.next()
 		self.md5obj.update(buf)
@@ -164,7 +167,7 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	Example:
 
 	>>> from glue.ligolw import utils
-	>>> xmldoc = utils.load_filename(name, verbose = True, gz = (name or "stdin")[-3:] == ".gz")
+	>>> xmldoc = utils.load_filename(name, verbose = True, gz = (name or "stdin").endswidth(".gz"))
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
@@ -176,7 +179,7 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	# FIXME: enable this when I know it works
 	#fileobj = MD5File(fileobj)
-	#m = fileobj.md5obj
+	#md5obj = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
@@ -225,7 +228,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	# FIXME: enable this when I know it works
 	#fileobj = MD5File(fileobj)
-	#m = fileobj.md5obj
+	#md5obj = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
@@ -277,7 +280,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	# FIXME: enable this when I know it works
 	#fileobj = MD5File(fileobj)
-	#m = fileobj.md5obj
+	#md5obj = fileobj.md5obj
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
 	xmldoc.write(fileobj)
 	fileobj.flush()
