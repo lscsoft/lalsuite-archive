@@ -329,6 +329,7 @@ ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
 # Read in all the segment lists
 fullseglist = segmentsUtils.fromsegwizard(open(opts.full_segs))
 onsourceseglist = segmentsUtils.fromsegwizard(open(opts.on_source_segs))
+trial_length = abs(onsourceseglist)
 
 # take padding into account
 fullseglist &= segments.segmentlist([fullseglist.extent().contract(72)])
@@ -341,14 +342,15 @@ if opts.veto_file:
 # define off-source segments
 offsourceseglist = fullseglist - onsourceseglist
 
-# make a list of 180s off source segments
+# make a list of off source trials
 trial_segs = segments.segmentlist()
 for seg in offsourceseglist:
-  trial_segs.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], 180))
+  trial_segs.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], trial_length))
+num_trials = len(trial_segs)
 
 if opts.verbose:
-  print "The number of trial segments is %i" % len(trial_segs)
-numtrials = len(trial_segs)
+  print "The length of each trial is %d" % trial_length
+  print "The number of trial segments is %i" % num_trials
 
 #####################################################################
 # read in on-source triggers
