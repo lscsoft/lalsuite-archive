@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2007  Patrick Brady
+# Copyright (C) 2007  Patrick Brady, Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -31,7 +31,6 @@ numpy.seterr('raise')  # throw an exception on floating point errors
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import lsctables
-import pylal.itertools
 import pylal.date
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
@@ -240,18 +239,14 @@ parser.add_option("-i", "--max-distance", type="float", default=20.0,\
   help="maximum value for the distance range in Mpc")
 parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
   help="number of bins for the distance range")
+
 # efficiency errors
 parser.add_option("-H","--h-calibration",action="store",type="float",
     default=None,metavar=" H_CAL",
     help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
-    
 parser.add_option("-L","--l-calibration",action="store",type="float",
     default=None,metavar=" L_CAL",
     help="systematic error in y calibration, rescale distances D->(1+/-CAL)*D")
-    
-parser.add_option("-w","--waveform-systematic",action="store",type="float",
-    default=None, metavar=" WAV",
-    help="systematic errors in waveform, rescale distances by D->(1+WAV)*D")
 
 parser.add_option("-k","--known-distance",action="store",type="float",
     default=None, metavar=" KD",
