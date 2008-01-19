@@ -36,25 +36,37 @@ from glue.segmentsUtils import segmentlist_range
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
+        ##############################################################################
+# utility functions
+
+def get_num_slides(xmldoc):
+    # don't be too picky what program had --num-slides
+    slide_params = [int(row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.param == "--num-slides")] + [0]
+    return max(slide_params)
 
 ##############################################################################
 # handle user input
 parser = optparse.OptionParser(version="%prog CVS $Id$ ")
 parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
-parser.add_option("-i", "--input",
+parser.add_option("-i", "--cache-file",
     help="lal cache of zero-lag thinca or thinca slide files to read")
+parser.add_option("-p", "--coinc-pattern",
+    help="sieve pattern for coincidences of interest (slide or zerolag)")
 parser.add_option("-o", "--outfile", default="stdout",
     help="write results to output file (default: stdout)")
 parser.add_option("-V", "--veto-file",
     help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="int",
-    help="express result in terms of segments of length FOLD_TIME seconds")
+    help="express result in terms of trials of length FOLD_TIME seconds")
+parser.add_option("-v", "--verbose", action="store_true", default=False,
+    help="print extra information to stdout")
 (opts, args) = parser.parse_args()
 
-if not ((opts.glob is None) ^ (opts.input is None)):
+if not ((opts.glob is None) ^ (opts.cache_file is None)):
     print >>sys.stderr, "A glob or input file is required (but not both)"
     sys.exit(2)
 
@@ -67,11 +79,18 @@ if opts.outfile.lower() == "stdout":
 else:
     opts.outfile = open(opts.outfile, 'w')
 
-# discover files containing coincs-
+# discover files containing coincs
 if opts.glob is not None:
     files = glob.glob(opts.glob)
 else:
-    files = [lal.CacheEntry(line).path() for line in open(opts.input)]
+    cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
+    cache = cache.sieve(description=opts.coinc_pattern)
+    if len(cache) == 0:
+        raise ValueError, "no files in cache match coinc pattern"
+    present, missing = cache.checkfilesexist()
+    if len(missing) > 0:
+        raise ValueError, "at least one file in cache does not exist on disk"
+    files = present.pfnlist()
 
 ##############################################################################
 # segment computation
@@ -99,7 +118,11 @@ nsegs = abs(segs) // opts.fold_time
 # NB: The coalesce() call makes a large speed difference also because of the
 #     numerous 0 second gaps.
 veto_segs = (~segs).coalesce()
-triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files)
+
+lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+doc = ligolw_add.ligolw_add(ligolw.Document(), files, verbose=opts.verbose)
+
+triggers = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
 triggers = [trig for trig in triggers if trig.end_time not in veto_segs]
 
 dummy_stat = CoincInspiralUtils.coincStatistic('snr')
@@ -107,8 +130,8 @@ coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
 
 ##############################################################################
 # count coincidences in each opts.fold_time second segment
-num_slides = len(coincTable.get_slide_numbers())
-trials = numpy.zeros((num_slides, nsegs), dtype=int)
+num_slides = get_num_slides(doc)
+trials = numpy.zeros((2*num_slides + 1, nsegs), dtype=int)
 for c in coincTable:
     # NB: c.slide_num indexing OK with current inspiral slide implementation
     trials[c.slide_num, segs.find(getattr(c, c.get_ifos()[1][0]).end_time)] += 1
@@ -118,12 +141,21 @@ assert len(coincTable) == trials.sum()
 
 ##############################################################################
 # output statistics
-print >>opts.outfile, "Total number of slides: %d" % num_slides
+if num_slides == 0:
+    mean = trials[0] / nsegs
+    stdev = 0.
+else:
+    trials[0] = 0 # just in case we have mixed zerolag in there
+    mean = trials.sum() / (2 * num_slides * nsegs)
+    stdev = numpy.sqrt(((trials - mean)**2).sum() / (2 * num_slides - 1) / nsegs)
+
+print >>opts.outfile, "Number of positive slides: %d" % num_slides
 print >>opts.outfile, "Total time analyzed: %f" % abs(segs)
 print >>opts.outfile, "Number of %d second segments per slide: %d" % (opts.fold_time, nsegs)
-print >>opts.outfile, "Total number of coincidences: %d" % trials.sum()
-print >>opts.outfile, "Mean coincidences per slide per segment: %f" % trials.mean()
-print >>opts.outfile, "Stdev of trials: %f" % trials.std()
+print >>opts.outfile, "Total number of coincidences: %d" % len(coincTable)
+print >>opts.outfile, "Mean coincidences per slide per segment: %f" % mean
+print >>opts.outfile, "Stdev of trials: %f" % stdev
 
-for i in range(min(10, trials.max())):
-  print >>opts.outfile, "p(%d|0): %f" % (i, (trials == i).mean())
+for i in range(min(10, trials.max() + 1)):
+    prob = (trials == i).sum() / ((2 * num_slides) or 1) / nsegs
+    print >>opts.outfile, "p(%d|0): %f" % (i, prob)
