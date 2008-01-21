@@ -218,18 +218,17 @@ class DocContents(object):
 		# this it is *impossible* for them to match one another.
 		#
 
-		# find the largest difference between an injection's peak
-		# time at the geocentre and its peak times at the Hanford
-		# and Livingston sites (the most an injection's peak time
-		# column can differ from the time it peaks in an
-		# instrument)
-		if len(self.simbursttable):
-			self.burst_peak_time_window = max([max(abs(float(row.get_geocent_peak() - row.get_peak("H"))), abs(float(row.get_geocent_peak() - row.get_peak("L")))) for row in self.simbursttable])
-		else:
-			# max() doesn't like empty lists.  if there are no
-			# injections, then it doesn't matter what this is
-			# set to
-			self.burst_peak_time_window = 0
+		# the radius of Earth in light seconds.  (the most an
+		# injection's peak time column can differ from the time it
+		# peaks in an instrument)  6.378140e6 = mean radius of
+		# earth at equator, 299792458 = c, 1.5 = add 50% for good
+		# luck.  (constants copied from LALConstants.h)
+		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.5
+
+		# add the duration of the longest injection
+		# FIXME:  needed for string search?
+		#if len(self.simbursttable):
+		#	self.burst_peak_time_window += max(self.simbursttable.getColumnByName("duration"))
 
 		# add the duration of the longest burst event (the most an
 		# event's peak time could differ from either the start or
