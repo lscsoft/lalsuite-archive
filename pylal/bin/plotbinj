@@ -430,7 +430,7 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		self.found = 0
 		# 21 bins per filter width
 		bins = int(float(abs(interval)) / width) * 21
-		binning = rate.NDBins((LinearBins(interval[0], interval[1], bins),))
+		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
 		self.offsets = rate.BinnedArray(binning)
 		self.coinc_offsets = rate.BinnedArray(binning)
 
@@ -517,7 +517,7 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		self.found = 0
 		# 21 bins per filter width
 		bins = int(float(abs(interval)) / width) * 21
-		binning = rate.NDBins((LinearBins(interval[0], interval[1], bins),))
+		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
 		self.offsets = rate.BinnedArray(binning)
 		self.coinc_offsets = rate.BinnedArray(binning)
 

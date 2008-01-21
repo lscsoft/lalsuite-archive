@@ -197,7 +197,7 @@ class RateVsPeakFreq(SnglBurstUtils.BurstPlot):
 		self.ifo = ifo
 		# 21 bins per filter width
 		bins = int(float(abs(interval)) / width) * 21
-		binning = rate.NDBins((LinearBins(interval[0], interval[1], bins),))
+		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
 		self.rate = rate.BinnedArray(binning)
 
 	def add_contents(self, contents, seglists):
@@ -259,7 +259,7 @@ class Delays(SnglBurstUtils.BurstPlot):
 		self.ifo = ifo
 		# 21 bins per filter width
 		interval = segments.segment(0, max + 2)
-		self.bins = rate.BinnedArray(rate.NDBins((LinearBins(interval[0], interval[1], int(float(abs(interval)) / width) * 21),)))
+		self.bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(interval[0], interval[1], int(float(abs(interval)) / width) * 21),)))
 		self.axes.semilogy()
 
 	def add_contents(self, contents, seglists):

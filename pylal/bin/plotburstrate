@@ -115,7 +115,7 @@ options, filenames = parse_command_line()
 
 # 21 bins per filter width
 bins = int(float(abs(options.read_segment)) / options.window) * 21
-binning = rate.NDBins((LinearBins(options.read_segment[0], options.read_segment[1], bins),))
+binning = rate.NDBins((rate.LinearBins(options.read_segment[0], options.read_segment[1], bins),))
 trigger_rate = rate.BinnedArray(binning)
 
 num_triggers = 0
