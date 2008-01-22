@@ -472,10 +472,9 @@ class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
     self.name = 'h1h2QeventJob'
     self.__executable = string.strip(cp.get('condor','qevent'))
     self.__universe = "vanilla"
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setup_cachecat()
-    
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)    
     self.setupJobWeb(self.name)
+    self.setup_cachecat()
 
   def setup_cachecat(self):
     # create a shell script to cat all the required cache files
