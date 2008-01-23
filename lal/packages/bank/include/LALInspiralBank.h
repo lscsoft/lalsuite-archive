@@ -259,6 +259,19 @@ Input and ouput structures to function LALRectangleVertices.
 </lalLaTeX>  */
 
 
+/* <lalVerbatim file="LALComputeMomentsH"> */
+typedef enum
+{
+  disable,
+  enable
+}
+ComputeMoments;
+/*  </lalVerbatim>  */
+/*  <lalLaTeX> 
+\idx[Type]{ComputeMoments} 
+</lalLaTeX>  */
+
+
 /* <lalVerbatim file="LALCoordinateSpaceH"> */
 typedef enum
 {
@@ -500,7 +513,12 @@ tagInspiralCoarseBankIn
   GridSpacing                   gridSpacing;
   Order                         order;        
   Approximant                   approximant;  
-  InsidePolygon                 insidePolygon;  
+  InsidePolygon                 insidePolygon; 
+  ComputeMoments                computeMoments;
+  /* ComputeMoments tells whether to re-compute the moments
+   * using an upper limit defined by flso; This is done after 
+   * the template bank is gnerated
+   */
 }
 InspiralCoarseBankIn;
 /* </lalVerbatim>  */
