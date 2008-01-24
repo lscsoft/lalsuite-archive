@@ -1120,56 +1120,37 @@ class SimBurstTable(table.Table):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
-		"geocent_peak_time": "int_4s",
-		"geocent_peak_time_ns": "int_4s",
-		"h_peak_time": "int_4s",
-		"h_peak_time_ns": "int_4s",
-		"l_peak_time": "int_4s",
-		"l_peak_time_ns": "int_4s",
-		"peak_time_gmst": "real_8",
-		"dtminus": "real_4",
-		"dtplus": "real_4",
-		"longitude": "real_4",
-		"latitude": "real_4",
-		"coordinates": "lstring",
-		"polarization": "real_4",
-		"hrss": "real_4",
-		"hpeak": "real_4",
-		"distance": "real_4",
-		"freq": "real_4",
-		"tau": "real_4",
-		"zm_number": "int_4s",
+		"ra": "real_8",
+		"dec": "real_8",
+		"psi": "real_8",
+		"time_geocent_gps": "int_4s",
+		"time_geocent_gps_ns": "int_4s",
+		"time_geocent_gmst": "real_8",
+		"duration": "real_8",
+		"frequency": "real_8",
+		"bandwidth": "real_8",
+		"q": "real_8",
+		"pol_ellipse_angle": "real_8",
+		"pol_ellipse_e": "real_8",
+		"amplitude": "real_8",
+		"hrss": "real_8",
+		"egw_over_rsquared": "real_8",
+		"waveform_number": "int_8u",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
 	next_id = SimBurstID(0)
-	interncolumns = ("process_id", "waveform", "coordinates")
+	interncolumns = ("process_id", "waveform")
 
 
 class SimBurst(object):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
-	def get_geocent_peak(self):
-		return LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
 
-	def set_geocent_peak(self, gps):
-		self.geocent_peak_time, self.geocent_peak_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_peak(self, instrument):
-		observatory = instrument[0]
-		if observatory == "H":
-			return LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
-		if observatory == "L":
-			return LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
-		raise ValueError, instrument
-
-	def set_peak(self, instrument, gps):
-		observatory = instrument[0]
-		if observatory == "H":
-			self.h_peak_time, self.h_peak_time_ns = gps.seconds, gps.nanoseconds
-		if observatory == "L":
-			self.l_peak_time, self.l_peak_time_ns = gps.seconds, gps.nanoseconds
-		raise ValueError, instrument
+	def set_time_geocent(self, gps):
+		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 
 
 SimBurstTable.RowType = SimBurst
@@ -1777,7 +1758,7 @@ class CoincDefTable(table.Table):
 
 		# coinc type not found in table
 		if not create_new:
-			raise KeyError, (search, coinc_type)
+			raise KeyError, (search, search_coinc_type)
 		row = self.RowType()
 		row.coinc_def_id = self.get_next_id()
 		row.search = search
