@@ -92,7 +92,7 @@ def hrss_in_instrument(sim, instrument):
 	# semimajor and semiminor axes of polarization ellipse
 
 	a = 1.0 / math.sqrt(2.0 - sim.pol_ellipse_e**2)
-	b = a / math.sqrt(1.0 - sim.pol_ellipse_e**2)
+	b = a * math.sqrt(1.0 - sim.pol_ellipse_e**2)
 
 	# hrss in plus and cross polarizations
 
