@@ -186,7 +186,8 @@ def load_filename(filename, int_to_ilwd, verbose = False, gz = False):
 
 def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
-	# find the summ_value table, then add and populate a summ_value_id column
+	# find the summ_value table, then add and populate a summ_value_id
+	# column
 	#
 
 	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)

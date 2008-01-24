@@ -153,12 +153,12 @@ FROM
 			found = values[-1]
 			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
 				self.num_injections += 1
-				peak = float(sim.get_peak(self.instrument))
+				peak = float(SimBurstUtils.time_at_instrument(sim, self.instrument))
 				self.injected_x.append(peak)
-				self.injected_y.append(sim.freq)
+				self.injected_y.append(sim.frequency)
 				if not found:
 					self.missed_x.append(peak)
-					self.missed_y.append(sim.freq)
+					self.missed_y.append(sim.frequency)
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -216,10 +216,10 @@ FROM
 			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
 				self.num_injections += 1
 				hrss = self.hrss_func(sim, self.instrument)
-				self.injected_x.append(sim.freq)
+				self.injected_x.append(sim.frequency)
 				self.injected_y.append(hrss)
 				if not found:
-					self.missed_x.append(sim.freq)
+					self.missed_x.append(sim.frequency)
 					self.missed_y.append(hrss)
 
 	def finish(self):
@@ -358,7 +358,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
-			self.x.append(sim.freq)
+			self.x.append(sim.frequency)
 			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
 			self.c.append(math.log(freq_rec))
 
@@ -438,13 +438,10 @@ class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for coinc_event_id, h, hns, l, lns in contents.connection.cursor().execute("""
+		for values in contents.connection.cursor().execute("""
 SELECT
-	coinc_event.coinc_event_id,
-	sim_burst.h_peak_time,
-	sim_burst.h_peak_time_ns,
-	sim_burst.l_peak_time,
-	sim_burst.l_peak_time_ns
+	sim_burst.*,
+	coinc_event.coinc_event_id
 FROM
 	coinc_event
 	JOIN coinc_event_map ON (
@@ -457,31 +454,21 @@ FROM
 WHERE
 	coinc_def_id == ?
 		""", (contents.sb_definer_id,)):
-			sim_h_peak = LIGOTimeGPS(h, hns)
-			sim_l_peak = LIGOTimeGPS(l, lns)
-			if self.instrument in ("H1", "H2"):
-				sim_peak = sim_h_peak
-			elif self.instrument in ("L1",):
-				sim_peak = sim_l_peak
-			else:
-				raise ValueError, self.instrument
+			sim = contents.sim_burst_table._row_from_cols(values)
+			coinc_event_id = values[-1]
+			sim_peak = SimBurstUtils.time_at_instrument(sim, self.instrument)
 			self.found += 1
 			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
 			coinc_dt = 0
 			for burst in bursts:
+				dt = float(burst.get_peak() - sim_peak)
 				if burst.ifo == self.instrument:
-					dt = burst.get_peak() - sim_peak
 					try:
 						self.offsets[dt,] += 1.0
 					except IndexError:
 						# outside plot range
 						pass
-				if burst.ifo in ("H1", "H2"):
-					coinc_dt += float(burst.get_peak() - sim_h_peak) * burst.ms_snr
-				elif burst.ifo in ("L1",):
-					coinc_dt += float(burst.get_peak() - sim_l_peak) * burst.ms_snr
-				else:
-					raise ValueError, burst.ifo
+				coinc_dt += dt * burst.ms_snr
 			coinc_dt /= sum([burst.ms_snr for burst in bursts])
 			try:
 				self.coinc_offsets[coinc_dt,] += 1.0
@@ -525,10 +512,10 @@ class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
 		# this outer loop assumes each injection can only be found
 		# in at most one coinc, otherwise the "found" count is
 		# wrong.
-		for coinc_event_id, sim_freq in contents.connection.cursor().execute("""
+		for coinc_event_id, sim_frequency in contents.connection.cursor().execute("""
 SELECT
 	coinc_event.coinc_event_id,
-	sim_burst.freq
+	sim_burst.frequency
 FROM
 	coinc_event
 	JOIN coinc_event_map ON (
@@ -545,7 +532,7 @@ WHERE
 			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
 			for burst in bursts:
 				if burst.ifo == self.instrument:
-					df = math.log(burst.peak_frequency / sim_freq, 10)
+					df = math.log(burst.peak_frequency / sim_frequency, 10)
 					try:
 						self.offsets[df,] += 1.0
 					except IndexError:
@@ -616,7 +603,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
-			self.x.append(sim.freq)
+			self.x.append(sim.frequency)
 			self.y.append(freq_rec)
 			self.c.append(math.log(hrss_rec / self.hrss_func(sim, self.instrument)))
 
@@ -669,7 +656,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
-			self.x.append(sim.freq)
+			self.x.append(sim.frequency)
 			self.y.append(freq_rec)
 			self.c.append(math.log(hrss_rec / sim.hrss))
 

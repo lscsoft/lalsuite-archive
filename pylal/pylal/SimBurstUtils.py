@@ -53,13 +53,22 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+def time_at_instrument(sim, instrument):
+	"""
+	Return the "time" of the injection, delay corrected for the
+	displacement from the geocentre to the given instrument.
+	"""
+	t_geocent = sim.get_time_geocent()
+	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, sim.ra, sim.dec, t_geocent)
+
+
 def injection_was_made(sim, seglist, instruments):
 	"""
-	Return True if the peak times for sim for all of the instruments
-	lie within the segment list.
+	Return True if the "time" of the injection as seen at each of the
+	named instruments lies within the segment list.
 	"""
 	for instrument in instruments:
-		if sim.get_peak(instrument) not in seglist:
+		if time_at_instrument(sim, instrument) not in seglist:
 			return False
 	return True
 
@@ -80,16 +89,29 @@ def hrss_in_instrument(sim, instrument):
 	project the waveform onto the instrument, and return the root
 	integrated strain squared.
 	"""
-	if sim.coordinates != "EQUATORIAL":
-		raise ValueError, sim.coordinates
+	# semimajor and semiminor axes of polarization ellipse
+
+	a = 1.0 / math.sqrt(2.0 - sim.pol_ellipse_e**2)
+	b = a / math.sqrt(1.0 - sim.pol_ellipse_e**2)
+
+	# hrss in plus and cross polarizations
+
+	hplusrss  = sim.hrss * (a * math.cos(sim.pol_ellipse_angle) - b * math.sin(sim.pol_ellipse_angle))
+	hcrossrss = sim.hrss * (b * math.cos(sim.pol_ellipse_angle) + a * math.sin(sim.pol_ellipse_angle))
+
+	# antenna response factors
+
 	fplus, fcross = inject.XLALComputeDetAMResponse(
 		inject.cached_detector[inject.prefix_to_name[instrument]].response,
-		sim.longitude,	# ra
-		sim.latitude,	# dec
-		sim.polarization,
-		date.XLALGreenwichMeanSiderealTime(sim.get_peak(instrument))
+		sim.ra,
+		sim.dec,
+		sim.psi,
+		date.XLALGreenwichMeanSiderealTime(time_at_instrument(sim, instrument))
 	)
-	return abs(fplus) * sim.hrss
+
+	# hrss in detector
+
+	return math.sqrt((fplus * hplusrss)**2 + (fcross * hcrossrss)**2)
 
 
 #
@@ -178,10 +200,10 @@ WHERE
 			if injection_was_made(sim, seglist, self.instruments):
 				for instrument in self.instruments:
 					hrss = self.hrss_func(sim, instrument)
-					self.injected_x.append(sim.freq)
+					self.injected_x.append(sim.frequency)
 					self.injected_y.append(hrss)
 					if found:
-						self.found_x.append(sim.freq)
+						self.found_x.append(sim.frequency)
 						self.found_y.append(hrss)
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found in %s but not injected..." % (sim.simulation_id, "+".join(self.instruments))

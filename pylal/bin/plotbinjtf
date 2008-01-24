@@ -40,12 +40,16 @@ except ImportError:
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
 
+
 from glue import segments
 from glue.ligolw import dbtables
-from glue.ligolw import utils
-from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
+
+
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -91,11 +95,13 @@ def time_freq_plot(database, instrument, sim):
 	# top plot --- triggers that matched injection
 	#
 
+	t_sim = SimBurstUtils.time_at_instrument(sim, instrument)
+
 	axes = fig.add_subplot(211)
 	axes.grid(True)
 	#axes.set_xlabel("$t - t_{\mathrm{injection}}$ (s)")
 	axes.set_ylabel("$f - f_{\mathrm{injection}}$ (Hz)")
-	axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.freq, sim.get_peak(instrument)))
+	axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.frequency, t_sim))
 
 	xmin = xmax = 0.0
 	ymin = ymax = 0.0
@@ -127,36 +133,36 @@ ORDER BY
 		match_ids.append(burst.event_id)
 
 		# Add time-frequency tile to collection
-		tmin = float(burst.get_start() - sim.get_peak(instrument))
-		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
-		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
-		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
+		tmin = float(burst.get_start() - t_sim)
+		tmax = float(burst.get_start() + burst.duration - t_sim)
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
 		colours.append(burst.confidence)
 
 		try:
 			# draw most significant tile if there is one
-			tmin = float(burst.get_ms_start() - sim.get_peak(instrument))
-			tmax = float(burst.get_ms_start() + burst.ms_duration - sim.get_peak(instrument))
-			fmin = burst.ms_flow - sim.freq
-			fmax = burst.ms_flow + burst.ms_bandwidth - sim.freq
+			tmin = float(burst.get_ms_start() - t_sim)
+			tmax = float(burst.get_ms_start() + burst.ms_duration - t_sim)
+			fmin = burst.ms_flow - sim.frequency
+			fmax = burst.ms_flow + burst.ms_bandwidth - sim.frequency
 			verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
 			colours.append(burst.ms_confidence)
 		except AttributeError:
 			pass
 
-		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
+		peakx.append(float(burst.get_peak() - t_sim))
 		try:
 			# use peak_frequency col if it exists
-			peaky.append(burst.peak_frequency - sim.freq)
+			peaky.append(burst.peak_frequency - sim.frequency)
 		except AttributeError:
-			peaky.append(burst.central_freq - sim.freq)
+			peaky.append(burst.central_freq - sim.frequency)
 
 		# update bounding box
-		tmin = float(burst.get_start() - sim.get_peak(instrument))
-		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
-		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
-		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
+		tmin = float(burst.get_start() - t_sim)
+		tmax = float(burst.get_start() + burst.duration - t_sim)
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		xmin = min(xmin, tmin)
 		xmax = max(xmax, tmax)
 		ymin = min(ymin, fmin)
@@ -186,7 +192,6 @@ ORDER BY
 	axes.grid(True)
 	axes.set_xlabel("$t - t_{\mathrm{injection}}$ (s)")
 	axes.set_ylabel("$f - f_{\mathrm{injection}}$ (Hz)")
-	#axes.set_title("%s Triggers Matching %g Hz Injection at GPS %s" % (instrument, sim.freq, sim.get_peak(instrument)))
 
 	xmin = xmax = 0.0
 	ymin = ymax = 0.0
@@ -207,12 +212,12 @@ WHERE
 	AND central_freq BETWEEN ? AND ?
 ORDER BY
 	sngl_burst.confidence ASC
-	""", (instrument, int(sim.get_peak(instrument) - 2), int(sim.get_peak(instrument) + 2), sim.freq - 300, sim.freq + 300))):
+	""", (instrument, int(t_sim - 2), int(t_sim + 2), sim.frequency - 300, sim.frequency + 300))):
 		# Add time-frequency tile to collection
-		tmin = float(burst.get_start() - sim.get_peak(instrument))
-		tmax = float(burst.get_start() + burst.duration - sim.get_peak(instrument))
-		fmin = burst.central_freq - burst.bandwidth / 2 - sim.freq
-		fmax = burst.central_freq + burst.bandwidth / 2 - sim.freq
+		tmin = float(burst.get_start() - t_sim)
+		tmax = float(burst.get_start() + burst.duration - t_sim)
+		fmin = burst.central_freq - burst.bandwidth / 2 - sim.frequency
+		fmax = burst.central_freq + burst.bandwidth / 2 - sim.frequency
 		verts.append(((tmin, fmin), (tmax, fmin), (tmax, fmax), (tmin, fmax)))
 		colours.append(burst.confidence)
 		if burst.event_id in match_ids:
@@ -220,12 +225,12 @@ ORDER BY
 		else:
 			edgecolours.append("k")
 
-		peakx.append(float(burst.get_peak() - sim.get_peak(instrument)))
+		peakx.append(float(burst.get_peak() - t_sim))
 		try:
 			# use peak_frequency col if it exists
-			peaky.append(burst.peak_frequency - sim.freq)
+			peaky.append(burst.peak_frequency - sim.frequency)
 		except:
-			peaky.append(burst.central_freq - sim.freq)
+			peaky.append(burst.central_freq - sim.frequency)
 
 		# update bounding box
 		xmin = min(xmin, tmin)
@@ -248,7 +253,6 @@ ORDER BY
 	# set the bounding box
 	axes.set_xlim([1.4 * xmin, 1.4 * xmax])
 	axes.set_ylim([1.4 * ymin, 1.4 * ymax])
-
 
 
 	return fig
@@ -293,15 +297,15 @@ WHERE
 		yield contents.sim_burst_table._row_from_cols(values)
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize("lalapps_power", options.verbose)
 	for instrument in database.instruments:
-		for sim in SimBurstUtils.found_injections(database, instrument):
-			plotname = "%s%d_%s.%s" % (options.base, sim.get_peak(instrument).seconds, instrument, options.format)
+		for sim in found_injections(database, instrument):
+			plotname = "%s%d_%s.%s" % (options.base, SimBurstUtils.time_at_instrument(sim, instrument).seconds, instrument, options.format)
 			if options.verbose:
 				print >>sys.stderr, "--> %s" % plotname
 			time_freq_plot(database, instrument, sim).savefig(plotname)

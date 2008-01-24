@@ -325,10 +325,7 @@ def StringCuspSnglCompare(sim, burst):
 	Return False if the peak time of the injection sim lies within the
 	time interval of burst.
 	"""
-	if sim.coordinates == "ZENITH":
-		return sim.get_geocent_peak() not in burst.get_period()
-	else:
-		return sim.get_peak(burst.ifo) not in burst.get_period()
+	return SimBurstUtils.time_at_instrument(sim, burst.ifo) not in burst.get_period()
 
 
 def ExcessPowerSnglCompare(sim, burst):
@@ -336,7 +333,7 @@ def ExcessPowerSnglCompare(sim, burst):
 	Return False if the peak time and centre frequency of sim lie
 	within the time-frequency tile of burst.
 	"""
-	return StringCuspSnglCompare(sim, burst) or (sim.freq not in burst.get_band())
+	return StringCuspSnglCompare(sim, burst) or (sim.frequency not in burst.get_band())
 
 
 def NearCoincCompare(sim, burst):
@@ -359,7 +356,7 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	"""
 	Scan the burst table for triggers matching sim.
 	"""
-	return [burst for burst in contents.bursts_near_peaktime(sim.get_geocent_peak()) if not comparefunc(sim, burst)]
+	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent()) if not comparefunc(sim, burst)]
 
 
 def add_sim_burst_coinc(contents, sim, bursts):
