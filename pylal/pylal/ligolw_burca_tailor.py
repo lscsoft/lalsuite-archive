@@ -29,15 +29,11 @@
 import math
 import numpy
 from scipy.stats import stats
-from xml import sax
-import warnings
 
 
 from glue import iterutils
-from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import ilwd
-from glue.ligolw import array
 from glue.ligolw import param
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -141,8 +137,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 
 	detector = inject.cached_detector[inject.prefix_to_name[event.ifo]]
 
-	# delay-correct the event to the geocentre.  FIXME:  is the sign
-	# correct?
+	# delay-correct the event to the geocentre
 
 	peak = event.get_peak()
 	delay = date.XLALTimeDelayFromEarthCenter(detector.location, ra, dec, peak)
@@ -151,7 +146,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 	event.set_ms_start(event.get_ms_start() - delay)
 
 	# amplitude-correct the event using the polarization-averaged
-	# antenna response.
+	# antenna response
 
 	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, XLALGreenwichMeanSiderealTime(peak))
 	mean_response = math.sqrt(fp**2 + fc**2)
@@ -568,7 +563,7 @@ def append_process(xmldoc, **kwargs):
 #
 
 
-def gen_likelihood_control(coinc_params_distributions, seglists = None):
+def gen_likelihood_control(coinc_params_distributions, seglists):
 	xmldoc = ligolw.Document()
 	node = xmldoc.appendChild(ligolw.LIGO_LW())
 
@@ -576,10 +571,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists = None):
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
 	process = append_process(xmldoc, comment = u"")
-	if seglists is None:
-		warnings.warn("gen_likelihood_control() now has a seglists argument, please update your code.")
-	else:
-		llwapp.append_search_summary(xmldoc, process, ifos = "+".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
+	llwapp.append_search_summary(xmldoc, process, ifos = "+".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
 
