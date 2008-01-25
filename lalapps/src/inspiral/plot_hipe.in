@@ -1,0 +1,765 @@
+#!/usr/bin/env python
+"""
+plot_inspiral_hipe.in - generates plots from ihope output
+
+$Id$
+
+This script generates a condor DAG to make plots that summarize the
+results of an inspiral search
+"""
+
+__author__ = 'Patrick Brady <patrick@gravity.phys.uwm.edu>'
+__date__ = '$Date$'
+__version__ = '$Revision$'[11:-2]
+
+##############################################################################
+# import standard modules and append the lalapps prefix to the python path
+import sys, os, copy, math
+import socket, time
+import re, string
+from optparse import *
+import tempfile
+import ConfigParser
+import urlparse
+from pylal import CoincInspiralUtils
+from glue import iterutils
+sys.path.append('@PYTHONLIBDIR@')
+##############################################################################
+# import the modules we need to build the pipeline
+from glue import pipeline
+
+from lalapps import inspiral
+from lalapps.inspiralutils import determine_sieve_patterns
+from lalapps import inspiralutils
+##############################
+# Convert ifo list to string
+def combo2str(combo):
+  ifo_list = ""
+  for ifo in combo:
+    ifo_list += ifo
+  return ifo_list
+
+def set_common_options(cp, this_section):
+  """
+  """
+  common_options = ["cache-file", "gps-start-time", "gps-end-time", "enable-output", "output-path", "verbose", "user-tag"]
+  for common_option in common_options:
+    try:
+      cp.set(this_section, common_option,  string.strip(cp.get('common',common_option)))
+    except:
+      print "warning:", common_option, "is strongly recommended in the [common] section of your ini file"
+      pass
+
+  return cp 
+
+
+
+
+#############################################################################
+#
+#  MAIN PROGRAM
+#
+##############################################################################
+usage = """usage: %prog [options] 
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-v", "--version",action="store_true",default=False,\
+    help="print version information and exit")
+    
+parser.add_option("-u", "--user-tag",action="store",type="string",\
+    default=None,metavar=" USERTAG",\
+    help="tag the jobs with USERTAG (overrides value in ini file)")
+
+parser.add_option("-G", "--g1-data",action="store_true",default=False,\
+    help="analyze g1 data")
+
+parser.add_option("-H", "--h1-data",action="store_true",default=False,\
+    help="analyze h1 data")
+
+parser.add_option("-B", "--h2-data",action="store_true",default=False,\
+    help="analyze h2 data")
+
+parser.add_option("-L", "--l1-data",action="store_true",default=False,\
+    help="analyze l1 data")
+
+parser.add_option("-V", "--v1-data",action="store_true",default=False,\
+    help="analyze v1 data")
+
+parser.add_option("-S", "--one-ifo",action="store_true",default=False,\
+    help="analyze single ifo data (not usable for GEO)")
+
+parser.add_option("-D", "--two-ifo",action="store_true",default=False,\
+    help="analyze two interferometer data")
+
+parser.add_option("-T", "--three-ifo",action="store_true",default=False,\
+    help="analyze three interferometer data")
+
+parser.add_option("-Q", "--four-ifo",action="store_true",default=False,\
+    help="analyze four intereferometer data")
+  
+parser.add_option("-R", "--five-ifo",action="store_true",default=False,\
+    help="analyze five intereferometer data")
+
+parser.add_option("-a", "--analyze-all",action="store_true",default=False,\
+    help="analyze all ifos and all data (over-rides above)")
+
+parser.add_option("-i", "--plotinspiral" ,action="store_true",default=False,\
+    help="run plotinspiral to summarize filtering output")
+
+parser.add_option("-t", "--plotthinca" ,action="store_true",default=False,\
+    help="run plotthina to summarize coincidence")
+
+parser.add_option("-n", "--plotnumtemplates" ,action="store_true",default=False,\
+    help="run plotnumtemplates to plot trigbanks and templtbanks")
+
+parser.add_option("-r", "--plotinjnum" ,action="store_true",default=False,\
+    help="run plotinj")
+
+parser.add_option("-e", "--plotethinca" ,action="store_true",default=False,\
+    help="run plotethinca parameter for a pair of ifo combos")
+
+parser.add_option("-M", "--plotinspmissed" ,action="store_true",default=False,\
+    help="run plotinspmissed to plot missed triggers")
+
+parser.add_option("-j", "--plotinspinj" ,action="store_true",default=False,\
+    help="run plotinspinj to plot inspiral injections.")
+
+parser.add_option("-s", "--plotsnrchi" ,action="store_true",default=False,\
+    help="run plotsnrchi to plot  snr vs chisq for a glob of triggers.")
+
+parser.add_option("-z", "--plotinspiralrange" ,action="store_true",default=False,\
+    help="run plotinspiralrange to plot range of inspiral (Mpc) vs end time (in days).")
+
+parser.add_option("-f", "--config-file",action="store",type="string",\
+    metavar=" FILE",help="use configuration file FILE")
+
+parser.add_option("-p", "--log-path",action="store",type="string",\
+    metavar=" PATH",help="directory to write condor log file")
+parser.add_option("", "--first-stage",action="store_true", default=False,\
+    metavar="FIRSTSTAGE",help="to make plots for output of the first inspiral stage")
+parser.add_option("", "--second-stage",action="store_true", default=False,\
+    metavar="SECONDSTAGE",help="to make plots for output of the second inspiral stage")
+
+
+#################################
+
+parser.add_option("-w", "--write-script", action="store_true", default=False,
+      help="write the workflow to a locally executable script")
+
+
+
+command_line = sys.argv[1:]
+(opts,args) = parser.parse_args()
+
+#################################
+#ALPHABETS USED IN THIS CODE.
+# a, b, e, f, g, i, I, j, l, M, n, p ,P , s, t, u, v, A, D, R, S, T, Q
+
+#################################
+# if --version flagged
+if opts.version:
+  print "$Id$"
+  sys.exit(0)
+
+#################################
+# Sanity check of input arguments
+################################
+
+# Checks for config file
+if not opts.config_file:
+  print >> sys.stderr, "No configuration file specified."
+  print >> sys.stderr, "Use --config-file FILE to specify location."
+  sys.exit(1)
+
+# Checks for log path
+if not opts.log_path:
+  print >> sys.stderr, "No log file path specified."
+  print >> sys.stderr, "Use --log-path PATH to specify a location."
+  sys.exit(1)
+
+# Checks for atleast one ifo is specified  
+if not opts.g1_data and not opts.h1_data and not opts.h2_data and \
+    not opts.l1_data and not opts.analyze_all:
+  print >> sys.stderr, "No ifos specified.  Please specify at least one of"
+  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data"
+  print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
+  sys.exit(1)
+
+# Checks for ifos dependind on plotting routine.
+# Checks for plots which require more than two ifos.
+if ((opts.plotthinca or opts.plotethinca or opts.plotinspmissed or opts.plotinjnum or opts.plotinspinj \
+    or opts.plotsnrchi ) and not (opts.two_ifo or opts.three_ifo or opts.four_ifo or opts.analyze_all)):
+  print >> sys.stderr, "No number of ifos given. Please specify at least two"
+  print >> sys.stderr, "--two-ifo, --three-ifo, --four-ifo"
+  print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
+  sys.exit(1)
+ 
+
+if ((opts.plotnumtemplates or opts.plotinspiral or opts.plotinspiralrange) and not (opts.g1_data or opts.h1_data or opts.h2_data or\
+    opts.l1_data)):
+  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data"
+  sys.exit(1)
+
+
+##############################################################################
+# create the config parser object and read in the ini file
+cp = ConfigParser.ConfigParser()
+cp.read(opts.config_file)
+ 
+# Checks if the directory as given by output path exists or not. If it exists, it skips else it creates the directory.
+this_section="common"
+config = set_common_options(cp, this_section)
+dir = config.get('common','output-path') 
+
+if not os.path.isdir(dir):
+  os.mkdir(dir)
+
+# Checks if input-user-tag is specified.
+tag = cp.get('pipeline','input-user-tag')
+if tag=="":
+  input_user_tag = None
+else: 
+  input_user_tag = tag + '_'
+
+###############################
+# Construct list based on ifos supplied at command line
+
+ifolist = [ifo for ifo in ('G1','H1', 'H2', 'L1', 'V1') \
+            if getattr(opts, "%s_data" % ifo.lower())]
+
+if opts.two_ifo:
+   ifo_combo=list(iterutils.choices(ifolist,2))
+if opts.three_ifo:
+   ifo_combo=list(iterutils.choices(ifolist,2)) + list(iterutils.choices(ifolist,3))
+if opts.four_ifo:
+   ifo_combo=list(iterutils.choices(ifolist,2)) + list(iterutils.choices(ifolist,3)) + \
+             list(iterutils.choices(ifolist,4))
+if opts.analyze_all: 
+   ifo_combo=CoincInspiralUtils.get_ifo_combos(ifolist)
+
+
+##############################################################################
+# try to make a directory to store the cache files and job logs
+try: os.mkdir('logs')
+except: pass
+
+##############################################################################
+# create the config parser object and read in the ini file
+#cp = ConfigParser.ConfigParser()
+#cp.read(opts.config_file)
+
+##############################################################################
+# if a usertag has been specified, override the config file
+if opts.user_tag is not None:
+  usertag = opts.user_tag
+  cp.set('pipeline','user-tag', usertag)
+elif cp.has_option("pipeline", "user-tag"):
+  usertag = string.strip(cp.get('pipeline','user-tag'))
+else:
+  usertag = None
+  
+##############################################################################
+# create a log file that the Condor jobs will write to
+basename = re.sub(r'\.ini',r'',opts.config_file)
+tempfile.tempdir = opts.log_path
+if usertag is not None:
+  tempfile.template = basename + '.' + usertag + '.dag.log.'
+else:
+  tempfile.template = basename + '.dag.log.'
+logfile = tempfile.mktemp()
+fh = open( logfile, "w" )
+fh.close()
+
+##############################################################################
+# create the DAG writing the log to the specified directory
+dag = pipeline.CondorDAG(logfile)
+if usertag is not None:
+  dag.set_dag_file(basename + '.' + usertag )
+else:
+  dag.set_dag_file(basename )
+
+# set better submit file names than the default
+if usertag is not None:
+  subsuffix = '.' + usertag + '.sub'
+else:
+  subsuffix = '.sub'
+
+##############################################################################
+# create the Condor jobs that will be used in the DAG
+all_jobs = []
+
+
+
+# inspiral:
+if opts.plotinspiral:
+  
+  """ Plotinspiral is looped over all single ifos. Plotinspiral 
+      has now an option called opts.description, which sieves the 
+      cache file by description "SIRE" and an ifo by ifo-type namely 
+      "H1", "H2" or "L1". For a particular ifo file corresponding 
+      all times are sieved.
+  """
+  plotinspiral_jobs = {}
+  this_section = "plotinspiral"
+  cp = set_common_options(cp, this_section)   
+  cp_second = copy.deepcopy(cp)
+  for ifo in ifolist:
+    if opts.first_stage:
+      if cp.has_option('plotinspiral','snr-chisq'):cp.remove_option('plotinspiral','snr-chisq')
+      if cp.has_option('plotinspiral','log-snr-chisq'):cp.remove_option('plotinspiral','log-snr-chisq')
+      if cp.has_option('plotinspiral','hist-chisq'):cp.remove_option('plotinspiral','hist-chisq')
+      if cp.has_option('plotinspiral','cum-hist-snr-chi'):cp.remove_option('plotinspiral','cum-hist-snr-chi')
+      if cp.has_option('plotinspiral','hist-snr-chi'):cp.remove_option('plotinspiral','hist-snr-chi')    
+      job = inspiral.PlotInspiralJob(cp)
+      job.add_opt("ifo-times", ifo)
+      job.add_opt("ifo-tag", "FIRST_" + ifo)
+      job.set_sub_file( basename + '.plotinspiral_FIRST_' + ifo + subsuffix )
+      pattern_dict = inspiralutils.determine_sieve_patterns(cp, "plotinspiral", "FIRST", input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        val = val.replace("CAT_4","")
+        val = val.replace("CAT_2","")
+        val = val.replace("CAT_3","")
+        job.add_opt(opt, val)
+      plotinspiral_jobs[ifo + "FIRST"] = job
+      all_jobs.extend(plotinspiral_jobs.values())
+    if opts.second_stage:
+      job = inspiral.PlotInspiralJob(cp_second)
+      job.add_opt("ifo-times", ifo)
+      job.add_opt("ifo-tag", "SECOND_" + ifo)
+      job.set_sub_file( basename + '.plotinspiral_SECOND_' + ifo + subsuffix )
+      pattern_dict = inspiralutils.determine_sieve_patterns(cp_second, "plotinspiral", "SECOND", input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        job.add_opt(opt, val)
+      plotinspiral_jobs[ifo + "SECOND"] = job
+      all_jobs.extend(plotinspiral_jobs.values())
+ 
+
+
+#plotthinca
+if opts.plotthinca:
+  plotthinca_jobs = {}
+  this_section = "plotthinca"
+  cp = set_common_options(cp, this_section)
+  for ifos in  ifo_combo:
+    combostring = combo2str(ifos)
+    if opts.first_stage:
+      pattern_dict = determine_sieve_patterns(cp, "plotthinca", "FIRST",
+        input_user_tag)
+      plotthinca_jobs[combostring + "FIRST"] = inspiral.PlotThincaJob(cp)
+      for ifo in ifos:
+        plotthinca_jobs[combostring + "FIRST"].add_opt(ifo.lower() + "-triggers","  ")
+        plotthinca_jobs[combostring + "FIRST"].add_opt("ifo-times", combostring)
+        plotthinca_jobs[combostring + "FIRST"].add_opt("ifo-tag", "FIRST_" + combostring)
+        plotthinca_jobs[combostring + "FIRST"].add_opt("statistic", "snr")
+        for opt, val in pattern_dict.iteritems():
+          val = val.replace("_CAT_4","")
+          val = val.replace("_CAT_2","")
+          val = val.replace("_CAT_3","")
+          plotthinca_jobs[combostring + "FIRST"].add_opt(opt, val)
+        plotthinca_jobs[combostring + "FIRST"].set_sub_file( basename + '.plotthinca_FIRST_' + combostring + subsuffix )
+    if opts.second_stage:
+      pattern_dict = determine_sieve_patterns(cp, "plotthinca",
+        "SECOND_" + combostring, input_user_tag)
+      plotthinca_jobs[combostring + "SECOND"] = inspiral.PlotThincaJob(cp)
+      for ifo in ifos:
+        plotthinca_jobs[combostring + "SECOND"].add_opt(ifo.lower() + "-triggers","  ")
+        plotthinca_jobs[combostring + "SECOND"].add_opt("ifo-times", combostring)
+        plotthinca_jobs[combostring + "SECOND"].add_opt("ifo-tag", "SECOND_" + combostring)
+        plotthinca_jobs[combostring + "SECOND"].add_opt("statistic", "effective_snr")
+        for opt, val in pattern_dict.iteritems():
+          plotthinca_jobs[combostring + "SECOND"].add_opt(opt, val)
+        plotthinca_jobs[combostring + "SECOND"].set_sub_file( basename + '.plotthinca_SECOND_' + combostring + subsuffix )
+
+
+  all_jobs.extend(plotthinca_jobs.values())  
+
+#plotnumtemplates
+if opts.plotnumtemplates:
+  """ Plotnumtemplates needs no looping. This code now separates cache files
+      either by description = "TMPLTBANK" or "TRIGBANK". In this way TMPLTBANKS 
+      and TRIGBANKS for all ifos namely "H1", "H2" and "L1" are sieved together.
+  """
+  plotnumtemplates_jobs = {}
+  this_section = "plotnumtemplates"
+  cp = set_common_options(cp, this_section)
+  plotnumtemplates_jobs = inspiral.PlotNumtemplatesJob(cp)
+  plotnumtemplates_jobs.set_sub_file( basename + '.plotnumtemplates_' + subsuffix)
+  pattern_dict = determine_sieve_patterns(cp, this_section, "", input_user_tag)
+  for opt, val in pattern_dict.iteritems():
+    if opt=="bank-pattern": val = val.replace("_*_","_")
+    plotnumtemplates_jobs.add_opt(opt, val)
+  
+
+  all_jobs.append(plotnumtemplates_jobs)
+
+
+#plotinjnum
+if opts.plotinjnum:
+  """ Plotinjnum is now looped over all ifo times. Hence the figure names
+      are for times but they can be interchanged with coinc type because 
+      plotinjnum now has an option ( ifoexactmatch=True ) which can separate 
+      out COIRE files, according to double coincs in  double times, or triple 
+      coincs in triple times.
+
+      Example: sieve(ifos="H1H2",description="FOUND").sieve(ifoexactmatch=True)
+      will return files of type: H1H2-COIRE_INJECTIONS_1_FOUND_H1H2-866088014-2592000.xml etc.
+      and similarly sieve(ifos="H1H2L1",description="FOUND").sieve(ifoexactmatch=True) 
+      will return file: H1H2L1-COIRE_INJECTIONS_1_FOUND_H1H2L1-866088014-2592000.xml
+
+  """
+  plotinjnum_jobs = {}
+  this_section = "plotinjnum"
+  cp = set_common_options(cp, this_section)
+  this_user_tag = input_user_tag
+  if this_user_tag is None: this_user_tag="" 
+  for ifos in  ifo_combo:
+    combostring = combo2str(ifos)
+    if opts.first_stage:
+      prog_tag = cp.get('plotinjnum-meta','inj-program-tag')
+      suffix = cp.get('pipeline','inj-suffix')
+      suffix = suffix.replace("CAT_4","")
+      suffix = suffix.replace("CAT_2","")
+      suffix = suffix.replace("CAT_3","")
+      plotinjnum_jobs[combostring + "FIRST"] = inspiral.PlotInjnumJob(cp)
+      plotinjnum_jobs[combostring + "FIRST"].add_opt("ifo-type",combostring)
+      plotinjnum_jobs[combostring + "FIRST"].add_opt("ifo-times",combostring)
+      plotinjnum_jobs[combostring + "FIRST"].add_opt("inj-found-pattern", str(prog_tag) + "_*_FOUND_FIRST_" + \
+         this_user_tag + str(suffix))
+      plotinjnum_jobs[combostring + "FIRST"].add_opt("inj-missed-pattern", str(prog_tag) + "_*_MISSED_FIRST_" + \
+         this_user_tag + str(suffix))
+      plotinjnum_jobs[combostring + "FIRST"].add_opt("ifo-tag", "FIRST") 
+      plotinjnum_jobs[combostring + "FIRST"].set_sub_file( basename + '.plotinjnum_FIRST_' +  combostring + subsuffix )
+    if opts.second_stage:
+      prog_tag = cp.get('plotinjnum-meta','inj-program-tag')
+      suffix = cp.get('pipeline','inj-suffix')
+      plotinjnum_jobs[combostring + "SECOND"] = inspiral.PlotInjnumJob(cp)
+      plotinjnum_jobs[combostring + "SECOND"].add_opt("ifo-type",combostring)
+      plotinjnum_jobs[combostring + "SECOND"].add_opt("ifo-times",combostring)
+      plotinjnum_jobs[combostring + "SECOND"].add_opt("inj-found-pattern", str(prog_tag) + "_*_FOUND_SECOND_" + \
+      combostring + '_' + this_user_tag + str(suffix))
+      plotinjnum_jobs[combostring + "SECOND"].add_opt("inj-missed-pattern", str(prog_tag) + "_*_MISSED_SECOND_" + \
+      combostring + '_' + this_user_tag + str(suffix))
+      plotinjnum_jobs[combostring + "SECOND"].add_opt("ifo-tag", "SECOND_" + combostring)
+      plotinjnum_jobs[combostring + "SECOND"].set_sub_file( basename + '.plotinjnum_SECOND_' +  combostring + subsuffix )
+
+  
+  all_jobs.extend(plotinjnum_jobs.values())  
+
+
+# plotethinca
+if opts.plotethinca:
+
+  plotethinca_jobs = {}
+  this_section = "plotethinca"
+  cp = set_common_options(cp, this_section)
+
+  for ifos in  ifo_combo:
+    combostring = combo2str(ifos)
+    ifosoption=ifos[0]
+    for i in range(1,len(ifos)):
+      ifosoption+=' --ifo '+ ifos[i]
+      if opts.first_stage:
+        plotethinca_jobs[combostring + "FIRST"] = inspiral.PlotEthincaJob(cp)
+        plotethinca_jobs[combostring + "FIRST"].add_opt("ifo-times", combostring)
+        plotethinca_jobs[combostring + "FIRST"].add_opt("ifo-tag", "FIRST_" + combostring)
+        pattern_dict = determine_sieve_patterns(cp, "plotethinca",
+                "FIRST", input_user_tag)
+        for opt, val in pattern_dict.iteritems():
+          val = val.replace("_CAT_4","")
+          val = val.replace("_CAT_2","")
+          val = val.replace("_CAT_3","")
+          plotethinca_jobs[combostring + "FIRST"].add_opt(opt, val)
+        plotethinca_jobs[combostring + "FIRST"].set_sub_file( basename + '.plotethinca_FIRST_' + combostring + subsuffix )
+      if opts.second_stage:
+        plotethinca_jobs[combostring + "SECOND"] = inspiral.PlotEthincaJob(cp)
+        plotethinca_jobs[combostring + "SECOND"].add_opt("ifo-times", combostring)
+        plotethinca_jobs[combostring + "SECOND"].add_opt("ifo-tag", "SECOND_" + combostring)
+        pattern_dict = determine_sieve_patterns(cp, "plotethinca",
+                "SECOND_" + combostring, input_user_tag)
+        for opt, val in pattern_dict.iteritems():
+          plotethinca_jobs[combostring + "SECOND"].add_opt(opt, val)
+        plotethinca_jobs[combostring + "SECOND"].set_sub_file( basename + '.plotethinca_SECOND_' + combostring + subsuffix )
+
+  all_jobs.extend(plotethinca_jobs.values())
+
+
+#plotinspmissed
+if opts.plotinspmissed:
+
+  plotinspmissed_jobs = {}
+  this_section = "plotinspmissed"
+  cp = set_common_options(cp, this_section)
+  
+  for ifo in ifolist:
+    if opts.first_stage:
+      plotinspmissed_jobs[ifo +"FIRST"] = inspiral.PlotInspmissedJob(cp)
+      plotinspmissed_jobs[ifo +"FIRST"].add_opt("ifo", ifo)
+      pattern_dict = determine_sieve_patterns(cp, this_section,
+        "FIRST", input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        val = val.replace("CAT_4","")
+        val = val.replace("CAT_2","")
+        val = val.replace("CAT_3","")
+        plotinspmissed_jobs[ifo + "FIRST"].add_opt(opt, val)
+      plotinspmissed_jobs[ifo + "FIRST"].add_opt("ifo-times", ifo)
+      plotinspmissed_jobs[ifo + "FIRST"].add_opt("ifo-tag", "FIRST_" + ifo)
+      plotinspmissed_jobs[ifo +"FIRST"].set_sub_file( basename + '.plotinspmissed_FIRST_' + ifo + subsuffix )
+    if opts.second_stage:
+      plotinspmissed_jobs[ifo +"SECOND"] = inspiral.PlotInspmissedJob(cp)
+      plotinspmissed_jobs[ifo + "SECOND"].add_opt("ifo-times", ifo)
+      plotinspmissed_jobs[ifo +"SECOND"].add_opt("ifo", ifo)
+      pattern_dict = determine_sieve_patterns(cp, this_section,
+        "SECOND", input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        plotinspmissed_jobs[ifo + "SECOND"].add_opt(opt, val)
+      plotinspmissed_jobs[ifo +"SECOND"].add_opt("ifo-tag", "SECOND_" + ifo)
+      plotinspmissed_jobs[ifo +"SECOND"].set_sub_file( basename + '.plotinspmissed_SECOND_' + ifo + subsuffix )
+
+  all_jobs.extend(plotinspmissed_jobs.values())
+
+
+#plotinspinj
+if opts.plotinspinj:
+  plotinspinj_jobs = {}
+  this_section = "plotinspinj"
+  cp = set_common_options(cp, this_section)
+
+  for ifo in ifolist:
+    if opts.first_stage:
+      plotinspinj_jobs[ifo + "FIRST"] = inspiral.PlotInspinjJob(cp)
+      pattern_dict = determine_sieve_patterns(cp, this_section, "FIRST", 
+          input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        val = val.replace("CAT_4","")
+        val = val.replace("CAT_2","")
+        val = val.replace("CAT_3","")
+        plotinspinj_jobs[ifo + "FIRST"].add_opt(opt, val)
+      plotinspinj_jobs[ifo + "FIRST"].add_opt("ifo-times", ifo)
+      plotinspinj_jobs[ifo + "FIRST"].add_opt("ifo-tag", "FIRST_" + ifo)
+      plotinspinj_jobs[ifo + "FIRST"].set_sub_file( basename + '.plotinspinj_FIRST_' + ifo + subsuffix )
+    if opts.second_stage:
+      plotinspinj_jobs[ifo + "SECOND"] = inspiral.PlotInspinjJob(cp)
+      pattern_dict = determine_sieve_patterns(cp, this_section, "SECOND", 
+          input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        val = val.replace("CAT_4","")
+        val = val.replace("CAT_2","")
+        val = val.replace("CAT_3","")
+        plotinspinj_jobs[ifo + "SECOND"].add_opt(opt, val)
+      plotinspinj_jobs[ifo + "SECOND"].add_opt("ifo-times", ifo)
+      plotinspinj_jobs[ifo + "SECOND"].add_opt("ifo-tag", "SECOND_" + ifo)
+      plotinspinj_jobs[ifo + "SECOND"].set_sub_file( basename + '.plotinspinj_SECOND_' + ifo + subsuffix )
+
+  all_jobs.extend(plotinspinj_jobs.values())
+
+#plotsnrchi
+if opts.plotsnrchi:
+  plotsnrchi_jobs = {}
+  this_section = "plotsnrchi"
+  cp = set_common_options(cp, this_section)
+
+  if opts.first_stage:
+    print >>sys.stderr, "warning: plotsnrchi can only run with second stage inputs.  Skipping..."
+  if opts.second_stage:
+    for ifo in ifolist:   
+      plotsnrchi_jobs[ifo] = inspiral.PlotSnrchiJob(cp)
+      plotsnrchi_jobs[ifo].add_opt("single-ifo", ifo)
+      plotsnrchi_jobs[ifo].add_opt("ifo-times", ifo)
+      pattern_dict = determine_sieve_patterns(cp, this_section, "", 
+          input_user_tag)
+      for opt, val in pattern_dict.iteritems():
+        val = val.replace("CAT_4","")
+        val = val.replace("CAT_2","")
+        val = val.replace("CAT_3","")
+        plotsnrchi_jobs[ifo].add_opt(opt, val)
+      plotsnrchi_jobs[ifo].set_sub_file( basename + '.plotsnrchi_SECOND_' + ifo + subsuffix )
+
+  all_jobs.extend(plotsnrchi_jobs.values())
+
+#plotinspiralrange
+if opts.plotinspiralrange:
+  """ Plotnumtemplates needs no looping. This code now separates cache files
+      either by description = "TMPLTBANK" or "INSPIRAL". In this way TMPLTBANKS
+      and TRIGBANKS for all ifos namely "H1", "H2" and "L1" are sieved together.
+  """
+  plotinspiralrange_jobs = {}
+  this_section = "plotinspiralrange"
+  cp = set_common_options(cp, this_section)
+  
+  pattern_dict = determine_sieve_patterns(cp, this_section, "", input_user_tag)
+  plotinspiralrange_jobs["FIRST"] = inspiral.PlotInspiralrangeJob(cp)
+  plotinspiralrange_jobs["FIRST"].set_sub_file( basename + '.plotinspiralrange_' + subsuffix)
+  for opt, val in pattern_dict.iteritems():
+    val = val.replace("_*_","_")
+    plotinspiralrange_jobs["FIRST"].add_opt(opt, val)
+  all_jobs.extend(plotinspiralrange_jobs.values())
+
+
+#############################################################################
+# set the usertag in the jobs
+if usertag is not None:
+  for job in all_jobs:
+    job.add_opt('user-tag',usertag)
+
+##############################################################################
+#  The meat of the DAG generation comes below
+#
+##############################################################################
+
+if opts.plotinspiral:
+  if opts.first_stage:
+    for ifo in ifolist:
+    # add an plotinspiral job
+      plotinspiral_node=inspiral.PlotInspiralNode(plotinspiral_jobs[ifo + "FIRST"])
+      dag.add_node(plotinspiral_node)
+  if opts.second_stage:
+    for ifo in ifolist:
+    # add an plotinspiral job
+      plotinspiral_node=inspiral.PlotInspiralNode(plotinspiral_jobs[ifo + "SECOND"])
+      dag.add_node(plotinspiral_node)
+ 
+
+if opts.plotnumtemplates:
+  # add an plotnumtemplates job
+  plotnumtemplates_node=inspiral.PlotNumtemplatesNode(plotnumtemplates_jobs)
+  dag.add_node(plotnumtemplates_node)
+
+
+if opts.plotthinca:
+  # add an plotthinca job
+  if opts.first_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotthinca_node=inspiral.PlotThincaNode(plotthinca_jobs[combostring + "FIRST"])
+      dag.add_node(plotthinca_node)
+  if opts.second_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotthinca_node=inspiral.PlotThincaNode(plotthinca_jobs[combostring + "SECOND"])
+      dag.add_node(plotthinca_node)
+   
+
+
+if opts.plotinjnum:
+  if opts.first_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotinjnum_node=inspiral.PlotInjnumNode(plotinjnum_jobs[combostring + "FIRST"])
+      dag.add_node(plotinjnum_node)
+  if opts.second_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotinjnum_node=inspiral.PlotInjnumNode(plotinjnum_jobs[combostring + "SECOND"])
+      dag.add_node(plotinjnum_node)
+
+
+
+if opts.plotethinca:
+  if opts.first_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotethinca_node =inspiral.PlotEthincaNode(plotethinca_jobs[combostring + "FIRST"])
+      dag.add_node(plotethinca_node)
+  if opts.second_stage:
+    for ifos in ifo_combo:
+      combostring = combo2str(ifos)
+      plotethinca_node =inspiral.PlotEthincaNode(plotethinca_jobs[combostring + "SECOND"])
+      dag.add_node(plotethinca_node)
+
+
+if opts.plotinspmissed:
+  if opts.first_stage:
+    for ifo in ifolist:
+      plotinspmissed_node =inspiral.PlotInspmissedNode(plotinspmissed_jobs[ifo + "FIRST"])
+      dag.add_node(plotinspmissed_node)
+  if opts.second_stage:
+    for ifo in ifolist:
+      plotinspmissed_node =inspiral.PlotInspmissedNode(plotinspmissed_jobs[ifo + "SECOND"])
+      dag.add_node(plotinspmissed_node)
+
+
+
+if opts.plotinspinj:
+  if opts.first_stage:
+    for ifo in ifolist:
+    # add an plotinspinj job
+      plotinspinj_node =inspiral.PlotInspinjNode(plotinspinj_jobs[ifo + "FIRST"])
+      dag.add_node(plotinspinj_node)
+  if opts.second_stage:
+    for ifo in ifolist:
+    # add an plotinspinj job
+      plotinspinj_node =inspiral.PlotInspinjNode(plotinspinj_jobs[ifo + "SECOND"])
+      dag.add_node(plotinspinj_node)
+
+
+if opts.plotsnrchi:
+   for ifo in ifolist:
+  # add an plotinspinj job
+    plotsnrchi_node =inspiral.PlotSnrchiNode(plotsnrchi_jobs[ifo])
+    dag.add_node(plotsnrchi_node)
+
+if opts.plotinspiralrange:
+  # add an plotnumtemplates job
+ # if opts.first_stage:
+  plotinspiralrange_node=inspiral.PlotInspiralrangeNode(plotinspiralrange_jobs["FIRST"])
+  dag.add_node(plotinspiralrange_node)
+  #if opts.second_stage:
+  #  plotinspiralrange_node=inspiral.PlotInspiralrangeNode(plotinspiralrange_jobs["SECOND"])
+  #  dag.add_node(plotinspiralrange_node)
+
+
+##############################################################################
+# Step 10: Write out the DAG, help message and log file
+dag.write_sub_files()
+dag.write_dag()
+
+if opts.write_script:
+  dag.write_script()
+
+##############################################################################  
+# write a message telling the user that the DAG has been written
+print "\nCreated a DAG file which can be submitted by executing"
+print "\n   condor_submit_dag", dag.get_dag_file()
+print """\nfrom a condor submit machine (e.g. hydra.phys.uwm.edu)\n
+If you are running LSCdataFind jobs, do not forget to initialize your grid 
+proxy certificate on the condor submit machine by running the commands
+
+  unset X509_USER_PROXY
+  grid-proxy-init -hours 72
+
+Enter your pass phrase when promted. The proxy will be valid for 72 hours. 
+If you expect the LSCdataFind jobs to take longer to complete, increase the
+time specified in the -hours option to grid-proxy-init. You can check that 
+the grid proxy has been sucessfully created by executing the command:
+
+  grid-cert-info -all -file /tmp/x509up_u`id -u`
+
+This will also give the expiry time of the proxy. 
+"""
+
+##############################################################################
+# write out a log file for this script
+if usertag:
+  log_fh = open(basename + '.plotter.' + usertag + '.log', 'w')
+else:
+  log_fh = open(basename + '.plotter.log', 'w')
+  
+log_fh.write( "$Id$" + "\n" )
+log_fh.write( "$Name$" + "\n\n" )
+log_fh.write( "Invoked with arguments:" )
+for arg in command_line:
+  if arg[0] == '-':
+    log_fh.write( "\n" )
+  log_fh.write( arg + ' ')
+
+log_fh.write( "\n" )
+log_fh.write( "Config file has CVS strings:\n" )
+#log_fh.write( cp.get('pipeline','version') + "\n" )
+#log_fh.write( cp.get('pipeline','cvs-tag') + "\n\n" )
+
+log_fh.close()
+
+sys.exit(0)
+
