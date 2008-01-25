@@ -4,10 +4,11 @@ inspiral_hipe.in - standalone inspiral pipeline driver script
 
 $Id$
 
-This script generates the condor DAG necessary to analyze LIGO and GEO data 
-through the inspiral pipeline.  The DAG does datafind, tmpltbank, inspiral, 
-inca and sire steps of the pipeline.  It analyzes the single, double, triple 
-and quadro ifo times accordingly.  It can also be run with injections.
+This script generates the condor DAG necessary to analyze LIGO and GEO
+data through the inspiral pipeline.  The DAG does datafind, tmpltbank,
+inspiral, inca and sire/coire steps of the pipeline.  It analyzes the
+single, double, triple and quadro ifo times accordingly.  It can also be
+run with injections.
 """
 
 __author__ = 'Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>'
@@ -28,6 +29,8 @@ sys.path.append('@PYTHONLIBDIR@')
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import pipeline
+from glue import segments as glue_segments
+from glue import lal
 import inspiral
 
 ##############################################################################
@@ -66,6 +69,7 @@ def create_static_pfn_cache(cp):
   Function to create a static PFN cache for any files needed by not in RLS.
   """
   pass
+
 
 ##############################################################################
 # some functions to make life easier later
@@ -118,7 +122,7 @@ def generate_segments(ifo1_data, ifo2_data, ifo3_data, ifo4_data):
 ##############################################################################
 # function to set up datafind, template bank and inspiral jobs for an ifo  
 def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
-  prev_df,dag, grbInjections, usertag=None):
+  prev_df,dag, exttrigInjections, usertag=None):
   """
   Analyze the data from a single IFO.  Since the way we treat all this data is
   the same, this function is the same for all interferometers. Returns the last
@@ -132,15 +136,21 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
   df_job = the condor job to find the data
   prev_df = the previous LSCdataFind job that was executed
   dag = the DAG to attach the nodes to
-  grbInjections = specifies the number of GRB injections in the same data seg.
+  exttrigInjections = specifies the number of external trigger injections 
+                      in the same data seg.
   usertag = the usertag to add to the job names
   """
 
   # add the non veto inspiral options
-  insp_job.add_ini_opts(cp,'no-veto-inspiral')
+  if cp.has_section('no-veto-inspiral'): 
+    insp_job.add_ini_opts(cp,'no-veto-inspiral')
   
   # add the ifo specific options
-  insp_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
+  if cp.has_section(ifo_name.lower() + '-inspiral'): 
+    insp_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
+
+  if cp.has_section(ifo_name.lower() + '-tmpltbank'):
+    tmplt_job.add_ini_opts(cp,ifo_name.lower() + '-tmpltbank')
 
   GeoBank = None
   if ifo_name == 'G1':
@@ -152,6 +162,11 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
     try: GeoBank = cp.get('input','geo-bank')
     except: GeoBank = None
     if GeoBank: print "For G1 we use bank ", GeoBank
+  elif ifo_name == 'V1':
+    data_opts = 'virgo-data'
+    try: type = cp.get('input','virgo-type')
+    except: type = None
+    channel = cp.get('input','virgo-channel')
   else:
     data_opts = 'ligo-data'
     try: 
@@ -161,20 +176,27 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
     except: type = None
     channel = cp.get('input','ligo-channel')
   
-  tmplt_job.add_ini_opts(cp,data_opts)
-  tmplt_job.add_ini_opts(cp, 'tmpltbank-1')
-  insp_job.add_ini_opts(cp,data_opts)
+  if cp.has_section('tmpltbank-1'):
+    tmplt_job.add_ini_opts(cp, 'tmpltbank-1')
+  if cp.has_section(data_opts):
+    tmplt_job.add_ini_opts(cp,data_opts)
+    insp_job.add_ini_opts(cp,data_opts)
 
   tmplt_job.set_channel(channel)
   insp_job.set_channel(channel)
 
   # see if we are using calibrated data
-  calibrated = False
-  for opt in cp.options(data_opts):
-    if (opt.find('calibrated') >-1):
-      calibrated = True
-  if calibrated: print "we use calibrated data for ", ifo_name  
- 
+  if cp.has_section(data_opts) and cp.has_option(data_opts,'calibrated-data'):
+    calibrated = True
+    print "we use calibrated data for ", ifo_name 
+  else: calibrated = False
+
+  # prepare the exttrig injection filename
+  if ifo_data:
+    exttrigStart = ifo_data[0].start()
+    exttrigDuration = ifo_data[-1].end()-exttrigStart
+    injectionFileTemplate = "HL-INJECTION_%%s-%d-%d.xml" % \
+      (exttrigStart, exttrigDuration)
 
   chunks_analyzed = []
   # loop over the master science segments
@@ -182,27 +204,32 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
 
     # loop over the master analysis chunks in the science segment
     for chunk in seg:
-      done_this_chunk = 0
+      done_this_chunk = False
 
       # now loop over all the data that we need to filter
       for seg_to_do in ifo_to_do:
 
         # if the current chunk is in one of the segments we need to filter
-        if inspiral.overlap_test(chunk,seg_to_do) and not done_this_chunk:
+        if not done_this_chunk and inspiral.overlap_test(chunk,seg_to_do):
 
           # make sure we only filter the master chunk once
-          done_this_chunk = 1
+          done_this_chunk = True
 
           # make sure we have done one and only one datafind for the segment
           if not opts.read_cache:
             if not seg.get_df_node():
               df = pipeline.LSCDataFindNode(df_job)
+              if not opts.disable_dag_categories:
+                df.set_category('datafind')
+              if not opts.disable_dag_priorities:
+                df.set_priority(100)
               df.set_observatory(ifo_name[0])
               df.set_start(seg.start())
               df.set_end(seg.end())
               seg.set_df_node(df)
               if type: df.set_type(type)
-              if prev_df: df.add_parent(prev_df)
+              if prev_df and opts.disable_dag_categories:
+                df.add_parent(prev_df)
               if opts.datafind: dag.add_node(df)
               prev_df = df
           else:
@@ -210,6 +237,10 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
 
           # make a template bank job for the master chunk
           bank = inspiral.TmpltBankNode(tmplt_job)
+          if not opts.disable_dag_categories:
+            bank.set_category('tmpltbank')
+          if not opts.disable_dag_priorities:
+            bank.set_priority(1)
           bank.set_start(chunk.start())
           bank.set_end(chunk.end())
           bank.set_ifo(ifo_name)
@@ -220,12 +251,12 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
           if opts.datafind: bank.add_parent(df)
           if (opts.template_bank and not GeoBank): dag.add_node(bank)
                   
-          # loop ober the GRB injections
-          for inj in range(grbInjections[0], grbInjections[1]+1):
+          # loop over the ext-trig injections
+          for inj in range(exttrigInjections[0], exttrigInjections[1]+1):
              if inj>0: 
                 # set the appropriate user-tag and the injection filename
-                grbUserTag=usertag+str(inj)
-                injectionFile='HL-INJECTION.'+str(inj)+'.xml' 
+                exttrigUserTag = usertag + "_" + str(inj)
+                injectionFile = injectionFileTemplate % exttrigUserTag
 
                 # check if the inspinj job has already be made
                 inspinj=inspinj_job.check_node(inj)              
@@ -233,9 +264,15 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
 
                    # create an inspinj node for the master chunk (once!)
                    inspinj = inspiral.InspInjNode(inspinj_job)
+                   if not opts.disable_dag_categories:
+                     inspinj.set_category('inspinj')
+                   if not opts.disable_dag_priorities:
+                     inspinj.set_priority(100)
+                   inspinj.set_end(chunk.start())
                    inspinj.set_end(chunk.end())
+                   inspinj.set_ifo(ifo_name)
                    inspinj.set_seed(inj)
-                   inspinj.add_var_opt('user-tag',grbUserTag)
+                   inspinj.add_var_opt('user-tag',exttrigUserTag)
                    inspinj.set_output(injectionFile)
                    if opts.datafind: inspinj.add_parent(df)                 
                    if (opts.template_bank and not GeoBank):
@@ -247,14 +284,19 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
 
              # make an inspiral job for the master chunk
              insp = inspiral.InspiralNode(insp_job)
+             if not opts.disable_dag_categories:
+               insp.set_category('inspiral1')
+             if not opts.disable_dag_priorities:
+               insp.set_priority(2)
              if inj>0:
-                insp.add_var_opt('injection-file',injectionFile)
-                insp.set_user_tag(grbUserTag)
+               insp.set_injections(injectionFile)
+               insp.set_user_tag(exttrigUserTag)
              insp.set_start(chunk.start())
              insp.set_end(chunk.end())
              insp.set_trig_start(chunk.trig_start())
              insp.set_trig_end(chunk.trig_end())
              insp.set_ifo(ifo_name)
+             insp.set_ifo_tag("FIRST")
              insp.set_vds_group(ifo_name[0] + str(chunk.start()))
              if not opts.read_cache: insp.set_cache(df.get_output())
              else:  insp.set_cache(cp.get('datafind',ifo_name+"-cache"))
@@ -265,7 +307,7 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
                 insp.set_bank(bank.get_output())
              if opts.datafind: insp.add_parent(df)
              if (opts.template_bank and not GeoBank): insp.add_parent(bank)
-             if inj>0:  
+             if inj>0:
                 insp.add_parent(inspinj)
              if opts.inspiral: dag.add_node(insp)
 
@@ -293,6 +335,10 @@ def single_coinc(ifo_analyzed,ifo_name,ifo_single,single_coinc_job,dag,
   single_coinc_analyzed = []
   for seg in ifo_single:
     sinca = inspiral.IncaNode(single_coinc_job)
+    if not opts.disable_dag_categories:
+      sinca.set_category('inca')
+    if not opts.disable_dag_priorities:
+      sinca.set_priority(100)
     sinca.set_start(seg.start())
     sinca.set_end(seg.end())
     sinca.set_ifo_a(ifo_name)
@@ -312,8 +358,8 @@ def single_coinc(ifo_analyzed,ifo_name,ifo_single,single_coinc_job,dag,
 ##############################################################################
 # function to do thinca on coincident IFO data  
 def thinca_coinc(ifos,single_data_analyzed,coinc_segs,coinc_job,
-    dag,do_coinc,do_insp,grbInjections,usertag=None,
-    ifotag=None,slides=None):
+    dag,do_coinc,do_insp, exttrigInjections, usertag=None, coire_job=None,
+    do_coire=None,ifotag=None,slides=None):
   """
   Run thinca on the coincident times from each of the sets of IFOs. 
   Since the way we treat all this data is the same, this function is the same 
@@ -324,58 +370,69 @@ def thinca_coinc(ifos,single_data_analyzed,coinc_segs,coinc_job,
   coinc_segs = the double coincident IFO science segments 
   coinc_job = the condor job to do two IFO thinca
   dag = the DAG to attach the nodes to
-  do_coinc = whether we should add these jobs to the dag
+  do_coinc = whether we should add the thinca jobs to the dag
   do_insp  = whether previous inspiral jobs are in the dag
-  grbInjections = specifies the number of GRB injections in the same data seg.
+  exttrigInjections = specifies the number of external trigger injections 
+                      in the same data seg.
   usertag = the usertag to add to the output file name
+  coire_job = coire node to join to the output of each thinca node
+  do_coire  = whether we should add the coire jobs to the dag
   ifotag = the ifotag to add to the output file name
   slides = number of time slides req'd, used as a boolean
   """
 
   # add time slide arguments if doing a slide
-  if slides:
+  if slides and cp.has_section('thinca-slide') :
     coinc_job.add_ini_opts(cp,'thinca-slide')
     
   coinc_analyzed = []
 
-  # set grb flag
-  #doGRB=0;
-  #if grbInjections>0: doGRB=1
+  # loop over the exttrig injections
+  for inj in range(exttrigInjections[0], exttrigInjections[1]+1):
+    if inj>0:
+      # set the appropriate user-tag and the injection filename
+      exttrigUserTag = usertag + "_" + str(inj)
 
-  # loop ober the GRB injections
-  for inj in range(grbInjections[0], grbInjections[1]+1):
-      if inj>0:
-         # set the appropriate user-tag and the injection filename
-         grbUserTag=usertag+str(inj)
+    for seg in coinc_segs:
+      thinca = inspiral.ThincaNode(coinc_job)
+      if not opts.disable_dag_categories: 
+        thinca.set_category('thinca')
+      if not opts.disable_dag_priorities:
+        thinca.set_priority(3)
+      if inj>0: thinca.set_user_tag(exttrigUserTag)
+      thinca.set_start(seg.start())
+      thinca.set_end(seg.end())
+      if ifotag:
+        thinca.set_ifo_tag("SECOND_" + ifotag)
+      else:
+        thinca.set_ifo_tag("FIRST")
+      if slides: thinca.set_num_slides(slides)
 
-      for seg in coinc_segs:
-         thinca = inspiral.ThincaNode(coinc_job)
-         if inj>0: thinca.set_user_tag(grbUserTag)
-         thinca.set_start(seg.start())
-         thinca.set_end(seg.end())
-         if ifotag:
-           thinca.set_ifo_tag(ifotag)
-         if slides:
-           thinca.set_num_slides(slides)
-    
-         # scroll through ifos, adding the appropriate ones
-         for ifo in ifo_list:
-           if ifo in ifos:
-              thinca.set_ifo(ifo)
+      # scroll through ifos, adding the appropriate ones
+      for ifo in ifo_list:
+        if ifo in ifos:
+          thinca.set_ifo(ifo)
                 
-              # add all IFO A master chunks that overlap with segment to input
-              for done in single_data_analyzed[ifo]:
-                if inspiral.overlap_test(done.get_chunk(),seg) and \
-                    (done.get_inj()==0 or done.get_inj()==inj):
+          # add all IFO A master chunks that overlap with segment to input
+          for done in single_data_analyzed[ifo]:
+            done_inj = done.get_inj()
+            if (done_inj==0 or done_inj==inj) and \
+                inspiral.overlap_test(done.get_chunk(),seg):
+              # set special user-tag first
+              thinca.add_file_arg(done.get_dag_node().get_output())
+              if do_insp: thinca.add_parent(done.get_dag_node())
 
-                  # set special user-tag first
-                  thinca.add_file_arg(done.get_dag_node().get_output())
-                  if do_insp: thinca.add_parent(done.get_dag_node())
+              # set the injection file for this coire
+              inj_file = done.get_dag_node().get_injections()
 
-         if do_coinc: dag.add_node(thinca)
-         coinc_analyzed.append(AnalyzedIFOData(seg,thinca,inj))
+      if do_coinc: dag.add_node(thinca)
+      coinc_analyzed.append(AnalyzedIFOData(seg,thinca,inj))
 
-        
+      if do_coire and inj > 0: 
+        coire_segs([AnalyzedIFOData(seg,thinca,inj)],
+            coire_job, dag, do_coinc, ifos, inj_file=inj_file, 
+            num_slides=slides, ifotag=ifotag, usertag=exttrigUserTag)
+
   return coinc_analyzed
 
 
@@ -383,7 +440,7 @@ def thinca_coinc(ifos,single_data_analyzed,coinc_segs,coinc_job,
 ##############################################################################
 # function to set up trigbank and inspiral jobs for an ifo  
 def trig_inspiral(ifo_data,ifo_name,coinc_data,coinc_ifos,trig_job,\
-                  insp_veto_job,dag, grbInjections, usertag=None):
+                  insp_veto_job,dag, exttrigInjections, usertag=None):
 
   """
   Perform the trigbank and second inspiral steps for the single ifo data.  
@@ -397,46 +454,59 @@ def trig_inspiral(ifo_data,ifo_name,coinc_data,coinc_ifos,trig_job,\
   trig_job = the triggered bank job we should use 
   insp_veto_job = the condor job that we should use to analyze data
   dag = the DAG to attach the nodes to
-  grbInjections = specifies the number of GRB injections in the same data seg.
+  exttrigInjections = specifies the number of external trigger injections  
+                      in the same data seg.
   usertag = the usertag to add to the job names
   """
 
   # add the veto option
-  insp_veto_job.add_ini_opts(cp,'veto-inspiral')
+  if cp.has_section('veto-inspiral'): 
+    insp_veto_job.add_ini_opts(cp,'veto-inspiral')
   # add ifo specific options
-  insp_veto_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
+  if cp.has_section(ifo_name.lower() + '-inspiral'):
+    insp_veto_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
   
   if ifo == 'G1':
     data_opts = 'geo-data'
     channel = cp.get('input','geo-channel')
+  elif ifo == 'V1':
+    data_opts = 'virgo-data'
+    channel = cp.get('input','virgo-channel')
   else:
     data_opts = 'ligo-data'
     channel = cp.get('input','ligo-channel')
  
-  insp_veto_job.add_ini_opts(cp,data_opts)
+  if cp.has_section(data_opts): insp_veto_job.add_ini_opts(cp,data_opts)
   insp_veto_job.set_channel(channel)
   
      
-  calibrated = False
-  for opt in cp.options(data_opts):
-    if (opt.find('calibrated') >-1):
-      calibrated = True
-  
+  # see if we are using calibrated data
+  if cp.has_section(data_opts) and cp.has_option(data_opts,'calibrated-data'):
+    calibrated = True
+  else: calibrated = False
+
+  # prepare the exttrig injection filename
+  if ifo_data:
+    exttrigStart = ifo_data[0].start()
+    exttrigDuration = ifo_data[-1].end()-exttrigStart
+    injectionFileTemplate = "HL-INJECTION_%%s-%d-%d.xml" % \
+      (exttrigStart, exttrigDuration)
 
   trig_chunks_analyzed = []
 
-  # loop ober the GRB injections
-  for inj in range(grbInjections[0], grbInjections[1]+1):
-    if inj>0:
-      grbUserTag=usertag+str(inj)
-      injectionFile='HL-INJECTION.'+str(inj)+'.xml' 
-  
-    # loop over the master science segments
-    for seg in ifo_data:
+  # loop over the master science segments
+  for seg in ifo_data:
 
-      # loop over the master analysis chunks in the science segment
-      for chunk in seg:
+    # loop over the master analysis chunks in the science segment
+    for chunk in seg:
+
+      # loop over the exttrig injections
+      for inj in range(exttrigInjections[0], exttrigInjections[1]+1):
         done_this_chunk = 0
+        
+        if inj>0:
+          exttrigUserTag=usertag + "_" + str(inj)
+          injectionFile = injectionFileTemplate % exttrigUserTag
 
         # now loop over all the data that we need to filter
         for coinc_done in coinc_data:
@@ -450,8 +520,12 @@ def trig_inspiral(ifo_data,ifo_name,coinc_data,coinc_ifos,trig_job,\
               done_this_chunk = 1
 
               # make a trigbank job for the master chunk
-              trigbank = inspiral.TrigToTmpltNode(trig_job)
-              if inj>0: trigbank.set_user_tag(grbUserTag)
+              trigbank = inspiral.TrigbankNode(trig_job)
+              if not opts.disable_dag_categories:
+                trigbank.set_category('trigbank')
+              if not opts.disable_dag_priorities: 
+                trigbank.set_priority(4)
+              if inj>0: trigbank.set_user_tag(exttrigUserTag)
               trigbank.set_ifo_tag(coinc_ifos)
               trigbank.set_output_ifo(ifo_name)
               trigbank.set_input_ifo(ifo_name)
@@ -461,21 +535,25 @@ def trig_inspiral(ifo_data,ifo_name,coinc_data,coinc_ifos,trig_job,\
         
               # make an inspiral job for the master chunk
               insp = inspiral.InspiralNode(insp_veto_job)
+              if not opts.disable_dag_categories:
+                insp.set_category('inspiral2')
+              if not opts.disable_dag_priorities:
+                insp.set_priority(5)
               if inj>0:
-                insp.add_var_opt('injection-file',injectionFile)
-                insp.set_user_tag(grbUserTag)
+                insp.set_injections(injectionFile)
+                insp.set_user_tag(exttrigUserTag)
               insp.set_start(chunk.start())
               insp.set_end(chunk.end())
               insp.set_trig_start(chunk.trig_start())
               insp.set_trig_end(chunk.trig_end())
               insp.set_ifo(ifo_name)
-              insp.set_ifo_tag(coinc_ifos)
+              insp.set_ifo_tag("SECOND_" + coinc_ifos)
               insp.set_vds_group(ifo_name[0] + str(chunk.start()))
               if not opts.read_cache: 
                 insp.set_cache(seg.get_df_node().get_output())
               else: insp.set_cache(cp.get('datafind',ifo_name+'-cache')) 
               if not calibrated: insp.calibration()
-              insp.set_bank(trigbank.get_trig_out())
+              insp.set_bank(trigbank.get_output())
               if opts.datafind: insp.add_parent(seg.get_df_node())
               if opts.trigbank: insp.add_parent(trigbank)
               if opts.inspiral_veto: dag.add_node(insp)
@@ -516,29 +594,35 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
   bankList = {} 
 
   # add the veto option
-  insp_veto_job.add_ini_opts(cp,'veto-inspiral')
+  if cp.has_section('veto-inspiral'):
+    insp_veto_job.add_ini_opts(cp,'veto-inspiral')
   # add ifo specific options
-  insp_veto_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
+  if cp.has_section(ifo_name.lower() + '-inspiral'):
+    insp_veto_job.add_ini_opts(cp,ifo_name.lower() + '-inspiral')
   
   if ifo == 'G1':
     data_opts = 'geo-data'
     channel = cp.get('input','geo-channel')
+  elif ifo == 'V1':
+    data_opts = 'virgo-data'  
+    channel = cp.get('input','virgo-channel')
   else:
     data_opts = 'ligo-data'
     channel = cp.get('input','ligo-channel')
  
-  insp_veto_job.add_ini_opts(cp,data_opts)
-  tmplt_follow_job.add_ini_opts(cp, data_opts)
-  tmplt_follow_job.add_ini_opts(cp, 'tmpltbank-2')
+  if cp.has_section(data_opts): 
+    insp_veto_job.add_ini_opts(cp,data_opts)
+    tmplt_follow_job.add_ini_opts(cp, data_opts)
+  if cp.has_section('tmpltbank-2'):
+    tmplt_follow_job.add_ini_opts(cp, 'tmpltbank-2')
   insp_veto_job.set_channel(channel)
   tmplt_follow_job.set_channel(channel)
   
      
-  calibrated = False
-  for opt in cp.options(data_opts):
-    if (opt.find('calibrated') >-1):
-      calibrated = True
-  
+  # see if we are using calibrated data
+  if cp.has_section(data_opts) and cp.has_option(data_opts,'calibrated-data'):
+    calibrated = True
+  else: calibrated = False
 
   follow_chunks_analyzed = []
   # loop over the master science segments
@@ -563,6 +647,10 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
             if not banks:
               # make a template bank job for the master chunk
               bank = inspiral.TmpltBankNode(tmplt_follow_job)
+              if not opts.disable_dag_categories:
+                bank.set_category('tmpltbank')
+              if not opts.disable_dag_priorities:
+                bank.set_priority(1)
               bank.set_start(chunk.start())
               bank.set_end(chunk.end())
               bank.set_ifo(ifo_name)
@@ -583,6 +671,10 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
 
             # make an inspiral job for the master chunk
             insp = inspiral.InspiralNode(insp_veto_job)
+            if not opts.disable_dag_categories:
+              insp.set_category('inspiral2')
+            if not opts.disable_dag_priorities:
+              insp.set_priority(5)
             insp.set_start(chunk.start())
             insp.set_end(chunk.end())
             insp.set_trig_start(chunk.trig_start())
@@ -606,7 +698,8 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
             # jobs already set up, just add the var_arg and parent to trigbank
             # and inspiral-veto 
           if 'macrotdfollowup' in insp.get_opts().keys():
-            insp.add_var_opt('td-follow-up', insp.get_opts()['macrotdfollowup'] +
+            insp.add_var_opt('td-follow-up', 
+                insp.get_opts()['macrotdfollowup'] +
                 ' ' + coinc_done.get_dag_node().get_output())
           else:
             insp.add_var_opt('td-follow-up',
@@ -614,7 +707,8 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
 
           if not banks: 
             if 'macrotdfollowup' in bank.get_opts().keys():
-              bank.add_var_opt('td-follow-up', bank.get_opts()['macrotdfollowup'] +
+              bank.add_var_opt('td-follow-up', 
+                  bank.get_opts()['macrotdfollowup'] +
                   ' ' + coinc_done.get_dag_node().get_output())
             else:
               bank.add_var_opt('td-follow-up',
@@ -624,59 +718,92 @@ def follow_up(ifo_data,ifo_name,coinc_data,coinc_ifos,tmplt_follow_job,\
   return follow_chunks_analyzed, bankList
 
 ##############################################################################
-# function to sweep up data using sire  
-def sire_segs(segments,output,file_name,sire_job,dag,do_input,
-  usertag=None,cluster=None,ifo_cut=None):
-
+# function to sweep up data using sire
+def sire_segs(segments, sire_job, dag, do_input, ifo,
+  inj_file=None, ifotag=None, usertag=None):
   """
   Do a sire to sweep up all the triggers of a specific kind
   
-  segments  = list of inca segments to use
-  output    = which output of inca/inspiral to use
-  file_name = output file name
+  segments  = list of thinca segments to use
   sire_job  = sire job to use for the analysis
   dag       = name of the dag
   do_input  = whether the files to be sired were produced by this dag
+  ifo       = which ifo triggers to keep
+  inj_file  = name of injection file
+  ifotag    = ifotag used in naming the file
   usertag   = the usertag to add to the output file name
-  cluster   = whether we should add the cluster arguments
-  ifo_cut   = keep triggers from only this ifo (if None, keep all)
   """
-  
-  sire = inspiral.SireNode(sire_job)
-
-  if ifo_cut:
-    sire.add_var_opt('ifo-cut',ifo_cut)
-
-  # set the sire file name
-  fname = file_name
-  if usertag:
-    fname += '_' + usertag
-  fname += '.input'
- 
- 
-  # add all the input files
-  f = open(fname, 'w')
   for seg in segments:
-    if do_input: sire.add_parent(seg.get_dag_node())
-    if output == 'output':
-      f.write('%s\n' % seg.get_dag_node().get_output())
-    if output == 'output_a':
-      f.write('%s\n' % seg.get_dag_node().get_output_a())
-    if output == 'output_b':
-      f.write('%s\n' % seg.get_dag_node().get_output_b())
-  f.close()
- 
-  # add the input file name to sire
-  sire.add_var_opt('input',fname)
-  
-  # set the output files names for sire
-  if inj_coinc:
-    sire.set_inj_outputs(file_name,inj_coinc,usertag)
-    
-  else:
-    sire.set_outputs(file_name,usertag)
+    sire = inspiral.SireNode(sire_job)
+    if not opts.disable_dag_categories:
+      sire.set_category('sire')
+    if not opts.disable_dag_priorities:
+      sire.set_priority(100)
 
-  if do_input: dag.add_node(sire) 
+    # set the options:
+    sire.set_ifo(ifo)
+    if inj_file: 
+      sire.set_inj_file(inj_file)
+    if ifotag: sire.set_ifo_tag(ifotag)
+    if usertag: sire.set_user_tag(usertag)
+
+    # set the segment
+    sire.set_start(seg.get_chunk().start())
+    sire.set_end(seg.get_chunk().end())
+
+    # set the glob file for sire
+    if do_input: sire.add_parent(seg.get_dag_node())
+    if seg.get_dag_node().get_output():
+      sire.set_glob(seg.get_dag_node().get_output())
+    else: 
+      sire.set_glob(seg.get_dag_node().get_output_a())
+
+    dag.add_node(sire) 
+
+##############################################################################
+# function to sweep up data using coire  
+def coire_segs(segments, coire_job, dag, do_input, ifos,
+  inj_file=None, num_slides=0, ifotag=None, usertag=None):
+  """
+  Do a coire to sweep up all the triggers of a specific kind
+  
+  segments  = list of thinca segments to use
+  coire_job = coire job to use for the analysis
+  dag       = name of the dag
+  do_input  = whether the files to be coired were produced by this dag
+  ifos      = which ifos were analyzed
+  inj_file  = name of injection file
+  cluster   = whether we should add the cluster arguments
+  num_slides = the number of time slides
+  usertag   = the usertag to add to the output file name
+  """
+
+  for seg in segments:
+    coire = inspiral.CoireNode(coire_job)
+    if not opts.disable_dag_categories:
+      coire.set_category('coire')
+    if not opts.disable_dag_priorities:
+      coire.set_priority(100)
+
+    # set the options:
+    coire.set_ifos(ifos)
+    if inj_file:
+      coire.set_inj_file(inj_file)
+    if ifotag is not None: coire.set_ifo_tag(ifotag)
+    if num_slides: coire.set_slides(num_slides)
+    if usertag: coire.set_user_tag(usertag)
+ 
+    # set the segment
+    coire.set_start(seg.get_chunk().start())
+    coire.set_end(seg.get_chunk().end())
+ 
+    # set the glob file for coire 
+    if do_input: coire.add_parent(seg.get_dag_node())
+    coire.set_glob(seg.get_dag_node().get_output())
+  
+    coire.finalize()
+    dag.add_node(coire) 
+
 
 ##############################################################################
 # function to set up the cohbank and cohinspiral jobs for a network of ifos
@@ -701,17 +828,24 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
     if ifo in ifos:
       # set up the trigbanks
       
-      trig_coh_jobs[ifo].add_ini_opts(cp,'coh-trig')
+      if cp.has_section('coh-trig'):
+        trig_coh_jobs[ifo].add_ini_opts(cp,'coh-trig')
       # set up inspirals:
-      insp_coh_jobs[ifo].add_ini_opts(cp,'no-veto-inspiral')
-      insp_coh_jobs[ifo].add_ini_opts(cp,ifo.lower() + '-inspiral')
+      if cp.has_section('coherent-inspiral'):
+        insp_coh_jobs[ifo].add_ini_opts(cp,'coherent-inspiral')
+      if cp.has_section(ifo.lower() + '-inspiral'): 
+        insp_coh_jobs[ifo].add_ini_opts(cp,ifo.lower() + '-inspiral')
       if ifo == 'G1':
         data_opts[ifo] = 'geo-data'
         chan = cp.get('input','geo-channel')
+      elif ifo == 'V1':
+        data_opts[ifo] = 'virgo-data'
+        chan = cp.get('input','virgo-channel')
       else:
         data_opts[ifo] = 'ligo-data'
         chan = cp.get('input','ligo-channel')
-      insp_coh_jobs[ifo].add_ini_opts(cp,data_opts[ifo])
+      if cp.has_section(data_opts[ifo]):
+        insp_coh_jobs[ifo].add_ini_opts(cp,data_opts[ifo])
       insp_coh_jobs[ifo].set_channel(chan)
 
       
@@ -720,6 +854,10 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
   for coinc_done in coinc_nodes:
     # set up cohbank
     cohbank = inspiral.CohBankNode( cb_job )
+    if not opts.disable_dag_categories:
+      cohbank.set_category('cohbank')
+    if not opts.disable_dag_priorities:
+      cohbank.set_priority(6)
     cohbank.set_bank(coinc_done.get_dag_node().get_output())
     cohbank.set_start(coinc_done.get_chunk().start())
     cohbank.set_end(coinc_done.get_chunk().end())
@@ -729,6 +867,10 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
     
     # set up cohinsp
     cohinsp = inspiral.ChiaNode(cohinsp_job)
+    if not opts.disable_dag_categories:
+      cohinsp.set_category('cohinsp')
+    if not opts.disable_dag_priorities:
+      cohinsp.set_priority(7)
     cohinsp.set_bank(cohbank.get_output())
     cohinsp.set_start(coinc_done.get_chunk().start())
     cohinsp.set_end(coinc_done.get_chunk().end())
@@ -739,6 +881,10 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
       if ifo in ifos:
         # set up the frjoin job
         frjoin = inspiral.FrJoinNode(frjoin_job)
+        if not opts.disable_dag_categories:
+          frjoin.set_category('frjoin')
+        if not opts.disable_dag_priorities:
+          frjoin.set_priority(8)
         outputName = ifo + '-INSPIRAL_'
         if usertag: outputName += usertag + '_'
         outputName += ifotag + '-' + str(coinc_done.get_chunk().start()) + \
@@ -752,7 +898,11 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
             if inspiral.overlap_test(coinc_done.get_chunk(),chunk):
               
               # set up the trigbank
-              trigbank = inspiral.TrigToTmpltNode(trig_coh_jobs[ifo])
+              trigbank = inspiral.TrigbankNode(trig_coh_jobs[ifo])
+              if not opts.disable_dag_categories:
+                trigbank.set_category('trigbank2')
+              if not opts.disable_dag_priorities:
+                trigbank.set_priority(9)
               trigbank.set_ifo_tag(ifotag)
               trigbank.set_output_ifo(ifo)
               trigbank.set_input_ifo(ifo)
@@ -764,20 +914,23 @@ def coherent_analysis(ifos,single_ifo_segments,coinc_nodes,cb_job,
 
               # set up the inspiral
               insp = inspiral.InspiralNode(insp_coh_jobs[ifo])
+              if not opts.disable_dag_categories:
+                insp.set_category('inspiral3')
+              if not opts.disable_dag_priorities:
+                insp.set_priority(10)
               insp.set_start(chunk.start())
               insp.set_end(chunk.end())
               insp.set_ifo(ifo)
               insp.set_ifo_tag(ifotag)
               insp.add_var_opt('write-cdata','')
-              calibrated = False
-              for opt in cp.options(data_opts[ifo]):
-                if (opt.find('calibrated') >-1):
-                  calibrated = True
-              if not calibrated: insp.calibration()
+              # see if we are using calibrated data
+              if not cp.has_section(data_opts[ifo]) or \
+                  not cp.has_option(data_opts[ifo],'calibrated-data'):
+                insp.calibration()
               if not opts.read_cache: 
                 insp.set_cache(seg.get_df_node().get_output())
               else: insp.set_cache(cp.get('datafind',ifo + "-cache"))
-              insp.set_bank(trigbank.get_trig_out())
+              insp.set_bank(trigbank.get_output())
               frjoin.add_file_arg( insp.get_froutput() )
 
               if opts.coherent_bank: insp.add_parent(trigbank)
@@ -817,6 +970,8 @@ parser.add_option("-b", "--h2-data",action="store_true",default=False,\
     help="analyze h2 data")
 parser.add_option("-l", "--l1-data",action="store_true",default=False,\
     help="analyze l1 data")
+parser.add_option("-n", "--v1-data",action="store_true",default=False,\
+    help="analyze v1 data")
 
 parser.add_option("-S", "--one-ifo",action="store_true",default=False,\
     help="analyze single ifo data (not usable for GEO)")
@@ -828,7 +983,8 @@ parser.add_option("-Q", "--four-ifo",action="store_true",default=False,\
     help="analyze four intereferometer data")
   
 parser.add_option("-A", "--analyze-all",action="store_true",default=False,\
-    help="analyze all ifos and all data (over-rides above)")
+    help="analyze all ifos and all data (over-rides above) (option not available since there are 5 instruments and the code only supports quadruple coincidence)")
+
 
 parser.add_option("-d", "--datafind",action="store_true",default=False,\
     help="run LSCdataFind to create frame cache files")
@@ -836,26 +992,32 @@ parser.add_option("-t", "--template-bank",action="store_true",default=False,\
     help="run lalapps_tmpltbank to generate template banks")
 parser.add_option("-i", "--inspiral" ,action="store_true",default=False,\
     help="run lalapps_inspiral (or lalapps_ring) to generate triggers")
+parser.add_option("-s", "--sire-inspiral",action="store_true",default=False,\
+    help="do sires to sweep up triggers")
 parser.add_option("-r", "--ringdown" ,action="store_true",default=False,\
     help="run lalapps_ring insted of lalapps_inspiral")
 parser.add_option("-c", "--coincidence",action="store_true",default=False,\
     help="run lalapps_thinca to test for coincidence")
+parser.add_option("-e", "--coire-coincidence",action="store_true",
+    default=False, help="do coires to sweep up triggers")
 parser.add_option("-U", "--td-follow-bank", action="store_true",default=False,\
     help="Run tmpltbank for TD follow-up")
 parser.add_option("-B", "--trigbank",action="store_true",default=False,\
     help="run lalapps_trigbank for banks of coinc triggers")
 parser.add_option("-V", "--inspiral-veto",action="store_true",default=False,\
     help="run lalapps_inspiral with vetos")
+parser.add_option("-m", "--sire-inspiral-veto",action="store_true",
+    default=False, help="do sires to sweep up triggers")
 parser.add_option("-W", "--td-follow-inspiral",action="store_true",\
     default=False,help="run lalapps_inspiral for TD follow-up")
 parser.add_option("-C", "--second-coinc" ,action="store_true",default=False,\
     help="run lalapps_thinca on the inspiral veto triggers")
+parser.add_option("-E", "--coire-second-coinc",action="store_true",
+    default=False, help="do coires to sweep up triggers")
 parser.add_option("-j", "--coherent-bank",action="store_true",default=False,\
     help="run lalapps_coherentbank to make coherent bank")
 parser.add_option("-k", "--coherent-inspiral",action="store_true",
     default=False,help="run lalapps_coherent_inspiral for coherent analysis")
-parser.add_option("-s", "--sire",action="store_true",default=False,\
-    help="do sires to sweep up triggers")
 
 parser.add_option("-R", "--read-cache",action="store_true",default=False,\
     help="read cache file from ini-file (if LSCDataFind is broken)")
@@ -863,7 +1025,11 @@ parser.add_option("-R", "--read-cache",action="store_true",default=False,\
 parser.add_option("-P", "--priority",action="store",type="int",\
     metavar=" PRIO",help="run jobs with condor priority PRIO")
 
-  
+parser.add_option("", "--disable-dag-categories",action="store_true",
+    default=False,help="disable the internal dag category maxjobs")
+parser.add_option("", "--disable-dag-priorities",action="store_true",
+    default=False,help="disable the depth first priorities")
+ 
 parser.add_option("-f", "--config-file",action="store",type="string",\
     metavar=" FILE",help="use configuration file FILE")
 
@@ -875,6 +1041,9 @@ parser.add_option("-o", "--output-segs",action="store_true",default=False,\
 
 parser.add_option("-x","--dax", action="store_true", default=False,\
     help="create a dax instead of a dag")
+
+parser.add_option("-w", "--write-script", action="store_true", default=False,
+      help="write the workflow to a locally executable script")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -899,12 +1068,21 @@ if not opts.log_path:
   print >> sys.stderr, "Use --log-path PATH to specify a location."
   sys.exit(1)
 
-  
 if not opts.g1_data and not opts.h1_data and not opts.h2_data and \
-    not opts.l1_data and not opts.analyze_all:
+    not opts.l1_data and not opts.v1_data and not opts.analyze_all:
   print >> sys.stderr, "No ifos specified.  Please specify at least one of"
-  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data"
+  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data, --v1-data"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
+  sys.exit(1)
+elif opts.analyze_all:
+  print >> sys.stderr, "The --analyze-all flag is currently not available."
+  print >> sys.stderr, "The code supports quadruple coincidence, so you can"
+  print >> sys.stderr, "choose at most four instruments to analyze."
+  sys.exit(1)
+
+if opts.g1_data and opts.h1_data and opts.h2_data and opts.l1_data \
+    and opts.v1_data:
+  print >> sys.stderr, "Too many IFOs specified. Please choose up to four IFOs, but not five."
   sys.exit(1)
 
 if not opts.one_ifo and not opts.two_ifo and not opts.three_ifo and \
@@ -913,30 +1091,56 @@ if not opts.one_ifo and not opts.two_ifo and not opts.three_ifo and \
   print >> sys.stderr, "--one-ifo, --two-ifo, --three-ifo, --four-ifo"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
   sys.exit(1)
- 
+elif opts.analyze_all:
+  print >> sys.stderr, "The --analyze-all flag can not be used to specify the"
+  print >> sys.stderr, "number of ifos to analyze. The code supports quadruple"
+  print >> sys.stderr, "coincidence, so you can choose at most four instruments"
+  print >> sys.stderr, "to analyze."
+  sys.exit(1)
+
 if opts.inspiral_veto and opts.td_follow_inspiral:
   print >> sys.stderr, "Please specify only one of"
   print >> sys.stderr, "--inspiral-veto, --td-follow-inspiral."
  
 if not opts.datafind and not opts.template_bank and \
-     not opts.inspiral and not opts.coincidence and \
+     not opts.inspiral and not opts.sire_inspiral and \
+     not opts.coincidence and not opts.coire_coincidence and \
      not opts.trigbank and not opts.inspiral_veto and \
-     not opts.td_follow_bank and not opts.td_follow_inspiral and \
-     not opts.second_coinc and not opts.coherent_bank and \
-     not opts.coherent_inspiral:
-  print >> sys.stderr, "No steps of the pipeline specified."
-  print >> sys.stderr, "Please specify at least one of"
-  print >> sys.stderr, "--datafind, --template-bank, --inspiral,"
-  print >> sys.stderr, "--coincidence, --trigbank, --inspiral-veto,"
-  print >> sys.stderr, "--td-follow-bank, --td-follow-inspiral,"
-  print >> sys.stderr, "--second-coinc, --coherent-bank or --coherent-inspiral"
+     not opts.sire_inspiral_veto and not opts.td_follow_bank and \
+     not opts.td_follow_inspiral and not opts.second_coinc and \
+     not opts.coire_second_coinc and not opts.coherent_bank and \
+     not opts.coherent_inspiral: 
+  print >> sys.stderr, """  No steps of the pipeline specified.
+  Please specify at least one of
+  --datafind, --template-bank, --inspiral, --sire-inspiral, --coincidence, 
+  --coire-coincidence, --trigbank, --inspiral-veto, --sire-inspiral-veto,
+  --td-follow-bank, --td-follow-inspiral, --second-coinc, 
+  --coire-second-coinc, --coherent-bank, --coherent-inspiral"""
   sys.exit(1)
    
-ifo_list = ['H1','H2','L1','G1']
+ifo_list = ['H1','H2','L1','V1','G1']
+
+#################################################################
+# If using G1 data, rearrange ifo_list since it only uses
+# the first four ifos named in ifo_list for quadruple coincidence
+
+if opts.g1_data:
+  if not opts.h1_data and ifo_list[4]=='G1':
+    ifo_list[0]='G1'
+    ifo_list[4]='H1'
+  if not opts.h2_data and ifo_list[4]=='G1':
+    ifo_list[1]='G1'
+    ifo_list[4]='H2'
+  if not opts.l1_data and ifo_list[4]=='G1':
+    ifo_list[2]='G1'
+    ifo_list[4]='L1'
+  if not opts.v1_data and ifo_list[4]=='G1':
+    ifo_list[3]='G1'
+    ifo_list[4]='V1'
+
+  ifo_list = ifo_list[:4]
 
 ifotag = None
-inj_coinc = 0
-do_clust = True
 #################################
 # store the values
 do = {}
@@ -944,6 +1148,13 @@ do['G1'] = opts.g1_data
 do['H1'] = opts.h1_data
 do['H2'] = opts.h2_data
 do['L1'] = opts.l1_data
+do['V1'] = opts.v1_data
+
+ifo_analyze = []
+for ifo in ifo_list:
+  if do[ifo]: 
+    ifo_analyze.append(ifo)
+ifo_analyze.sort()
 
 #################################
 # analyze everything if --analyze-all set
@@ -1048,15 +1259,27 @@ else:
 ##############################################################################
 # create the Condor jobs that will be used in the DAG
 
-# check number of GRB injections
+# check number of exttrig injections
 try:
-  startGRB=int(cp.get('pipeline','exttrig-inj-start'))
-  stopGRB=int(cp.get('pipeline','exttrig-inj-stop'))
-  grbInjections=[startGRB, stopGRB]
-except:
-  grbInjections=[0,0]
+  startExttrig=int(cp.get('pipeline','exttrig-inj-start'))
+  stopExttrig=int(cp.get('pipeline','exttrig-inj-stop'))
+  exttrigInjections=[startExttrig, stopExttrig]
 
- 
+  # check the values given
+  if startExttrig < 1:
+    print >> sys.stderr, "exttrig-inj-start must be larger than 0."
+    sys.exit(1)
+  if startExttrig > stopExttrig:
+    print >> sys.stderr, "exttrig-inj-stop must be larger than "\
+                         "exttrig-inj-start."
+    sys.exit(1)
+
+  doExtTrig = True
+except:
+  exttrigInjections=[0,0]
+  doExtTrig = False
+
+
 # datafind:
 df_job = pipeline.LSCDataFindJob('cache','logs',cp,opts.dax)
 df_job.set_sub_file( basename + '.datafind'+ subsuffix )
@@ -1069,7 +1292,7 @@ for ifo in ifo_list:
     tmplt_jobs[ifo] = inspiral.TmpltBankJob(cp,opts.dax,'RINGBANK')
   else:
     tmplt_jobs[ifo] = inspiral.TmpltBankJob(cp,opts.dax)
-  tmplt_jobs[ifo].set_sub_file( basename + '.tmpltbank' + subsuffix )
+  tmplt_jobs[ifo].set_sub_file( basename + '.tmpltbank_' + ifo + subsuffix )
 
 # inspinj:
 inspinj_job = inspiral.InspInjJob(cp) 
@@ -1120,7 +1343,7 @@ for ifo in ifo_list:
       subsuffix )
 
 # trigbank:
-trig_job = inspiral.TrigToTmpltJob(cp)
+trig_job = inspiral.TrigbankJob(cp)
 trig_job.set_sub_file( basename + '.trigbank' + subsuffix )
 
 # inspiral veto:
@@ -1128,7 +1351,7 @@ insp_veto_jobs = {}
 
 for ifo in ifo_list:
   insp_veto_jobs[ifo] = inspiral.InspiralJob(cp,opts.dax)
-  insp_veto_jobs[ifo].set_sub_file( basename + '.inspiral_veto' + ifo +
+  insp_veto_jobs[ifo].set_sub_file( basename + '.inspiral_veto_' + ifo +
     subsuffix )
 
 # thinca:
@@ -1155,7 +1378,7 @@ cb_job.set_sub_file( basename + '.cohbank' + subsuffix )
 trig_coh_jobs = {}
 
 for ifo in ifo_list:
-  trig_coh_jobs[ifo] = inspiral.TrigToTmpltJob(cp)
+  trig_coh_jobs[ifo] = inspiral.TrigbankJob(cp)
   trig_coh_jobs[ifo].set_sub_file( basename + '.trigbank_coherent_' + ifo + 
       subsuffix )
 
@@ -1182,12 +1405,15 @@ for ifos in ifo_coincs:
 sire_job = inspiral.SireJob(cp)
 sire_job.set_sub_file( basename + '.sire' + subsuffix )
 
-sire_clust_job = inspiral.SireJob(cp)
-sire_clust_job.set_sub_file( basename + '.sire_clust' + subsuffix )
+# coire:
+coire_job = inspiral.CoireJob(cp)
+coire_job.set_sub_file( basename + '.coire' + subsuffix )
+coire_slide_job = inspiral.CoireJob(cp)
+coire_slide_job.set_sub_file( basename + '.coire_slide' + subsuffix )
 
 
 all_jobs = [inspinj_job, single_inca_job, trig_job, cb_job, sire_job, 
-  sire_clust_job]
+  coire_job, coire_slide_job]
 all_jobs.extend(tmplt_jobs.values())
 all_jobs.extend(insp_jobs.values())
 all_jobs.extend(thinca_jobs.values())
@@ -1204,15 +1430,17 @@ all_jobs.extend(cohinsp_jobs.values())
 # set the usertag in the jobs
 if usertag:
   for job in all_jobs:
-    job.add_opt('user-tag',usertag)
+    if not job.get_opts().has_key('user-tag'):
+      job.add_opt('user-tag',usertag)
 
 all_jobs.append(df_job)
 all_jobs.append(frjoin_job)
+
 ##############################################################################
 # set the condor job priority
 if opts.priority:
   for job in all_jobs:
-    job.add_condor_cmd('priority',opts.priority)
+    job.add_condor_cmd('priority',str(opts.priority))
 
 ##############################################################################
 # read in the injection-file from the ini file 
@@ -1223,14 +1451,13 @@ except:
   inj_file = None
   
 if inj_file:
-  inj_jobs = [sire_job, sire_clust_job]
+  inj_jobs = [sire_job, coire_job, coire_slide_job]
   inj_jobs.extend(insp_jobs.values())
   inj_jobs.extend(insp_veto_jobs.values())
   inj_jobs.extend(insp_coh_jobs.values())
 
-  for job in inj_jobs:
-    job.add_file_opt('injection-file',inj_file)
-
+  for job in inj_jobs:  
+     job.add_file_opt('injection-file',inj_file)
 
 ##############################################################################
 # read in the number of time-slides from the ini file 
@@ -1239,6 +1466,8 @@ try:
 except:
   num_slides = None
 
+if num_slides:
+  coire_slide_job.add_opt('num-slides', str(num_slides))
 
 ##############################################################################
 # read in the maximum length of a science segment for thinca from the ini file
@@ -1246,7 +1475,20 @@ try:
   max_thinca_segment = int(cp.get('input','max-thinca-segment'))
 except:
   max_thinca_segment = None
+     
+##############################################################################
+# read in the GPS start and end times from the ini file
+# Only used to set the cache files and coire files.
+# XXX Should we use this to cut segments??
+try:
+  gps_start_time = cp.getint('input','gps-start-time')
+except:
+  gps_start_time = None
 
+try:
+  gps_end_time = cp.getint('input','gps-end-time')
+except:
+  gps_end_time = None
 
 #############################################################################
 # read in playground data mask from ini file 
@@ -1256,7 +1498,7 @@ try:
 except:
   play_data_mask = None
 
-play_jobs = [trig_job]
+play_jobs = [trig_job, sire_job, coire_job, coire_slide_job]
 play_jobs.extend(thinca_jobs.values())
 play_jobs.extend(thinca_slide_jobs.values())
 play_jobs.extend(thinca2_jobs.values())
@@ -1267,9 +1509,6 @@ if play_data_mask == 'playground_only':
   playground_only = 2
   
   single_inca_job.add_opt('playground-only',' ')
-  sire_job.add_opt('playground-only',' ')
-  sire_clust_job.add_opt('playground-only',' ')
-
   for job in play_jobs:
     job.add_opt('data-type','playground_only')
 
@@ -1277,9 +1516,6 @@ elif play_data_mask == 'exclude_playground':
   playground_only = 0
   
   single_inca_job.add_opt('no-playground',' ')
-  sire_job.add_opt('exclude-playground',' ')
-  sire_clust_job.add_opt('exclude-playground',' ')
-  
   for job in play_jobs:
     job.add_opt('data-type','exclude_play')
 
@@ -1288,9 +1524,6 @@ elif play_data_mask == 'all_data':
   playground_only = 0
 
   single_inca_job.add_opt('all-data',' ')
-  sire_job.add_opt('all-data',' ')
-  sire_clust_job.add_opt('all-data',' ')
-  
   for job in play_jobs:
     job.add_opt('data-type','all_data')
 
@@ -1299,16 +1532,17 @@ else:
   sys.exit(1)
 
 ##############################################################################
-if inj_file:
+if inj_file or doExtTrig:
   # add the injection coincidence to the sire jobs
-  sire_job.add_ini_opts(cp,'sire-inj')
-  sire_clust_job.add_ini_opts(cp,'sire-inj')
- 
- 
-############################################################################## 
-# add the clustering info to sire clust 
-sire_clust_job.add_ini_opts(cp,'sire-cluster')
+  try: sire_job.add_ini_opts(cp,'sire-inj')
+  except: pass
 
+  try: 
+    coire_job.add_ini_opts(cp,'coire-inj')
+    coire_slide_job.add_ini_opts(cp,'coire-inj')
+  except: pass
+ 
+ 
 ##############################################################################
 # get the pad and chunk lengths from the values in the ini file
 pad = int(cp.get('data', 'pad-data'))
@@ -1395,6 +1629,22 @@ print "done"
 ##############################################################################
 #   Step 2: determine analyzable times
 
+# Select on-source vs off-source (for triggered searches)
+try:
+  exttrig_analyze = cp.get('input', 'exttrig-analyze')
+except:
+  exttrig_analyze = None
+
+# Read segments for external trigger analysis
+exttrig_segments = pipeline.ScienceData()
+try:
+  exttrig_segments.read(cp.get('input', 'exttrig-segments'), 0)
+except:
+  assert (exttrig_analyze == 'all') or (exttrig_analyze is None), \
+    "To use exttrig-analyze, exttrig-segments must point to a valid "\
+    "segment file."
+
+
 data_out = {}
 not_data_out = {}
 for ifo in ifo_list:
@@ -1407,6 +1657,24 @@ for ifo in ifo_list:
 
   if playground_only:
     data_out[ifo].play()
+
+  # set the exttrig segments
+  if exttrig_analyze is None or exttrig_analyze == "all":
+    pass  # Explicitly do nothing
+  elif exttrig_analyze == "on_source":
+    for seg in data_out[ifo]:
+      print 'before',seg
+    data_out[ifo].intersection(exttrig_segments)
+    for seg in data_out[ifo]:
+      print 'after',seg
+
+  elif exttrig_analyze == "off_source":
+    temp = copy.deepcopy(exttrig_segments)  # don't mutate exttrig_segments
+    temp.invert()
+    data_out[ifo].intersection(temp)
+  else:
+    raise ValueError, "exttrig-analyze has been set to a bad value.  It "\
+      "must be {on_source | off_source | all} or omitted."
 
   not_data_out[ifo] = copy.deepcopy(data_out[ifo])
   not_data_out[ifo].coalesce()
@@ -1430,7 +1698,6 @@ for ifos in ifo_combinations:
 
     if max_thinca_segment:
       analyzed_data[ifos].split(max_thinca_segment)
-
   
 ##############################################################################
 # Step 3: Compute the Science Segments to analyze
@@ -1456,13 +1723,13 @@ for ifo in ifo_list:
   sys.stdout.flush()
 
   (prev_df,chunks_analyzed[ifo]) = analyze_ifo(ifo,data[ifo],data_to_do[ifo],  
-      tmplt_jobs[ifo],insp_jobs[ifo],df_job,prev_df,dag,grbInjections,
+      tmplt_jobs[ifo],insp_jobs[ifo],df_job,prev_df,dag,exttrigInjections,
       usertag)
   
   # Step 4S: Run sire on the single ifo triggers
-  if opts.sire and len(chunks_analyzed[ifo]):   
-    sire_segs(chunks_analyzed[ifo],'output',ifo + '-INSPIRAL',sire_clust_job,
-        dag,opts.inspiral,usertag,do_clust,ifo)
+  if opts.sire_inspiral and len(chunks_analyzed[ifo]):
+    sire_segs(chunks_analyzed[ifo], sire_job, dag, opts.inspiral, ifo,
+        inj_file = inj_file, ifotag="FIRST", usertag = usertag)
 
   print "done" 
 
@@ -1478,11 +1745,11 @@ for ifo in ifo_list:
   single_coinc_nodes[ifo] = []
   single_coinc_nodes[ifo] = single_coinc(chunks_analyzed[ifo],ifo,
      analyzed_data[ifo],single_inca_job,dag,usertag)
-  
+   
   # Step 5S: Run sire on the single ifo triggers
-  if opts.sire and do[ifo] and len(analyzed_data[ifo]):
-    sire_segs(single_coinc_nodes[ifo],'output_a',ifo + '-SIRE_SINGLE_IFO',
-        sire_clust_job,dag,opts.coincidence,usertag,do_clust,ifo)
+  if opts.coire_coincidence and len(single_coinc_nodes[ifo]):
+    sire_segs(single_coinc_nodes[ifo], sire_job, dag, opts.inspiral, ifo,
+        inj_file=inj_file, usertag=usertag, ifotag="FIRST")
 
 print "done"
   
@@ -1497,30 +1764,35 @@ for ifos in ifo_coincs:
   print "setting up thinca jobs on " + ifos + " data...",
   sys.stdout.flush()
 
-  thinca_jobs[ifos].add_ini_opts(cp, 'thinca-1')
+  if cp.has_section('thinca-1'): thinca_jobs[ifos].add_ini_opts(cp, 'thinca-1')
   coinc_nodes[ifos] = thinca_coinc(ifos,chunks_analyzed,analyzed_data[ifos],
-      thinca_jobs[ifos],dag,opts.coincidence,opts.inspiral,grbInjections,
-      usertag)
+      thinca_jobs[ifos],dag,opts.coincidence,opts.inspiral,exttrigInjections,
+      usertag, coire_job=coire_job, do_coire=opts.coire_coincidence)
+
+  # Step 6 coire: Run coire on coinc triggers
+  if opts.coire_coincidence and len(coinc_nodes[ifos])\
+         and not doExtTrig:
+    coire_segs(coinc_nodes[ifos], coire_job, dag, opts.coincidence, 
+        ifos, inj_file=inj_file, ifotag="FIRST", usertag=usertag) 
+  
+
 
   # Step 6 slide: Time slides 
   coinc_slide_nodes[ifos] = []
   if num_slides:
-    thinca_slide_jobs[ifos].add_ini_opts(cp, 'thinca-1')
+    if cp.has_section('thinca-1'): 
+      thinca_slide_jobs[ifos].add_ini_opts(cp, 'thinca-1')
     coinc_slide_nodes[ifos] = thinca_coinc(ifos,chunks_analyzed,
         analyzed_data[ifos],thinca_slide_jobs[ifos],dag,opts.coincidence,
-        opts.inspiral,grbInjections,usertag,ifotag,num_slides)
+        opts.inspiral,exttrigInjections, usertag, coire_job=coire_slide_job, 
+        do_coire=opts.coire_coincidence, ifotag=ifotag, slides=num_slides )
 
-  
-  # Step 6 sire: Run sire triggers
-  # Do sire with all coincidenct triggers, and clustered sires for each ifo
-  if opts.sire and len(analyzed_data[ifos]):
-    sire_segs(coinc_nodes[ifos],'output',ifos + '-SIRE',sire_job,dag,
-        opts.coincidence,usertag)
-    for ifo in ifo_list: 
-      if ifo in ifos:
-        sire_segs(coinc_nodes[ifos],'output',ifo + '-SIRE_' + ifos,sire_job,
-            dag,opts.coincidence,usertag,ifo)
-  
+    if opts.coire_coincidence and len(coinc_slide_nodes[ifos]) \
+           and not doExtTrig:
+      coire_segs(coinc_slide_nodes[ifos], coire_slide_job, dag, 
+          opts.coincidence, ifos, inj_file = inj_file, num_slides = num_slides,
+          ifotag="FIRST", usertag=usertag)
+
   # Concatenate the zerolag and slide nodes
   coinc_nodes[ifos] = coinc_nodes[ifos] + coinc_slide_nodes[ifos]
   
@@ -1575,7 +1847,12 @@ for ifos in ifo_coincs:
       else:
         analyzed_coinc_data[ifos][ifo] = trig_inspiral(data[ifo],ifo,
             coinc_nodes[ifos],ifos,trig_job,insp_veto_jobs[ifo],dag,
-            grbInjections,usertag)
+            exttrigInjections,usertag)
+      
+        if opts.sire_inspiral_veto and len(analyzed_coinc_data[ifos][ifo]):   
+          sire_segs(analyzed_coinc_data[ifos][ifo], sire_job, dag, 
+              opts.inspiral_veto, ifo, inj_file = inj_file, usertag = usertag, 
+              ifotag="SECOND_" + ifo)
 
       print "done"
 
@@ -1590,48 +1867,57 @@ for ifos in ifo_coincs:
   print "setting up second thinca jobs on " + ifos + " data...",
   sys.stdout.flush()
 
-  thinca2_jobs[ifos].add_ini_opts(cp, 'thinca-2')
+  if cp.has_section('thinca-2'):
+    thinca2_jobs[ifos].add_ini_opts(cp, 'thinca-2')
   if opts.td_follow_inspiral:
     for this_approx in approximants:
       this_approx = this_approx.strip()
-      coinc2_nodes[ifos] = thinca_coinc(ifos,analyzed_coinc_data[ifos],
-          analyzed_data[ifos],thinca2_jobs[ifos],dag,opts.second_coinc,
-          opts.td_follow_inspiral,grbInjections,usertag,
-          ifos+"_"+this_approx)
+      coinc2_nodes[ifos] = thinca_coinc(ifos, analyzed_coinc_data[ifos],
+          analyzed_data[ifos], thinca2_jobs[ifos], dag, opts.second_coinc,
+          opts.td_follow_inspiral, exttrigInjections, usertag=usertag,
+          coire_job=coire_job, do_coire=opts.coire_second_coinc, 
+          ifotag=ifos + "_" + this_approx)
+
   else:
-    coinc2_nodes[ifos] = thinca_coinc(ifos,analyzed_coinc_data[ifos],
-      analyzed_data[ifos],thinca2_jobs[ifos],dag,opts.second_coinc,
-      opts.inspiral_veto,grbInjections,usertag,ifos)
+    coinc2_nodes[ifos] = thinca_coinc(ifos, analyzed_coinc_data[ifos],
+      analyzed_data[ifos], thinca2_jobs[ifos], dag, opts.second_coinc,
+      opts.inspiral_veto, exttrigInjections, usertag=usertag,
+      coire_job=coire_job, do_coire=opts.coire_second_coinc, ifotag=ifos)
+
+    if opts.coire_second_coinc and len(coinc2_nodes[ifos])\
+           and not doExtTrig :
+      coire_segs(coinc2_nodes[ifos], coire_job, dag, opts.second_coinc, 
+          ifos, inj_file=inj_file, ifotag="SECOND_" + ifos, usertag=usertag)
 
   # Step 8slide: Time slides on the data
   if num_slides:
-    thinca2_slide_jobs[ifos].add_ini_opts(cp, 'thinca-2')
+    if cp.has_section('thinca-2'): 
+      thinca2_slide_jobs[ifos].add_ini_opts(cp, 'thinca-2')
   
     if opts.td_follow_inspiral:
       for this_approx in approximants:
         this_approx = this_approx.strip()
         coinc2_slide_nodes[ifos] = thinca_coinc(ifos,
-          analyzed_coinc_data[ifos],analyzed_data[ifos],
-          thinca2_slide_jobs[ifos],dag,opts.second_coinc,opts.inspiral_veto,
-          grbInjections,usertag,ifos+'_'+this_approx,num_slides)
-    else:
-      coinc2_slide_nodes[ifos] = thinca_coinc(ifos,
-        analyzed_coinc_data[ifos],analyzed_data[ifos],thinca2_slide_jobs[ifos],
-        dag,opts.second_coinc,opts.inspiral_veto,grbInjections,usertag,
-        ifos,num_slides)
+          analyzed_coinc_data[ifos], analyzed_data[ifos],
+          thinca2_slide_jobs[ifos], dag, opts.second_coinc,
+          opts.inspiral_veto, exttrigInjections, usertag=usertag,
+          coire_job=coire_slide_job, do_coire=opts.coire_second_coinc, 
+          ifotag=ifos+'_'+this_approx, slides=num_slides)
+    else: 
+     coinc2_slide_nodes[ifos] = thinca_coinc(ifos,
+        analyzed_coinc_data[ifos], analyzed_data[ifos],
+        thinca2_slide_jobs[ifos], dag, opts.second_coinc, opts.inspiral_veto,
+        exttrigInjections, usertag=usertag, coire_job=coire_slide_job,
+        do_coire=opts.coire_second_coinc, ifotag=ifos, slides=num_slides)
 
-  # Step 8 sire: Run sire triggers
-  # Do sire with all coincidenct triggers, and clustered sires for each ifo
-  if opts.sire and len(analyzed_data[ifos]):
-    sire_segs(coinc_nodes[ifos],'output',ifos + '-SIRE_VETO_',sire_job,dag,
-    opts.second_coinc,usertag)
-  
-    for ifo in ifo_list: 
-      if ifo in ifos:
-        sire_segs(coinc_nodes[ifos],'output',ifo + '-SIRE_VETO_' + ifos,
-            sire_job,dag,opts.second_coinc,usertag,ifo)
-  
+     if opts.coire_second_coinc and len(coinc2_slide_nodes[ifos])\
+            and not doExtTrig:
+       coire_segs(coinc2_slide_nodes[ifos], coire_slide_job, dag, 
+           opts.second_coinc, ifos, inj_file = inj_file, 
+           num_slides=num_slides, ifotag="SECOND_" + ifos, usertag=usertag)
+
   print "done"
+
 
 
 ##############################################################################
@@ -1646,10 +1932,62 @@ for ifos in ifo_coincs:
 
   print "done"
 
+
 ##############################################################################
-# Step 10: Write out the DAG, help message and log file
+# Step 10: Write out the LAL cache files for the various output data
+
+if gps_start_time is not None and gps_end_time is not None:
+  print "generating cache files for output data products...",
+  cache_fname = ''
+  for ifo in ifo_analyze: 
+    cache_fname += ifo
+  cache_fname += '-INSPIRAL_HIPE' 
+  if usertag: cache_fname += '_' + usertag
+  cache_fname += '-' + str(gps_start_time) + '-' + \
+    str(gps_end_time - gps_start_time) + '.cache'
+  output_data_cache = lal.Cache()
+
+  for node in dag.get_nodes():
+    if isinstance(node,pipeline.LSCDataFindNode):
+      # ignore datafind nodes, as their output is a cache file
+      continue
+
+    # add the data generated by the job to the output data cache
+    output_file = node.get_output()
+
+    output_data_cache.append(lal.Cache.from_urls([output_file])[0])
+    if (isinstance(node,inspiral.CoireNode) or \
+        isinstance(node,inspiral.SireNode)) and \
+        node.get_missed():
+      output_data_cache.append(lal.Cache.from_urls([node.get_missed()])[0])
+
+  output_data_cache.tofile(open(cache_fname, "w"))
+  print "done"
+else:
+  print "gps start and stop times not specified: cache files not generated"
+
+
+##############################################################################
+# Step 11: Setup the Maximum number of jobs for different categories
+if not opts.disable_dag_categories:
+  if opts.datafind:
+    dag.add_maxjobs_category('datafind',10)
+  if opts.coincidence or opts.second_coinc:
+    dag.add_maxjobs_category('thinca',20)
+  if opts.trigbank:
+    dag.add_maxjobs_category('trigbank',20)
+  if opts.coire_coincidence or opts.coire_second_coinc:
+    dag.add_maxjobs_category('coire',20)
+  if opts.sire_inspiral or opts.sire_inspiral_veto:
+    dag.add_maxjobs_category('sire',20)
+
+##############################################################################
+# Step 12: Write out the DAG, help message and log file
 dag.write_sub_files()
 dag.write_dag()
+
+if opts.write_script:
+  dag.write_script()
 
 ##############################################################################  
 # write a message telling the user that the DAG has been written
@@ -1671,7 +2009,7 @@ else:
     unset X509_USER_PROXY
     grid-proxy-init -hours 72
 
-  Enter your pass phrase when promted. The proxy will be valid for 72 hours. 
+  Enter your pass phrase when prompted. The proxy will be valid for 72 hours. 
   If you expect the LSCdataFind jobs to take longer to complete, increase the
   time specified in the -hours option to grid-proxy-init. You can check that 
   the grid proxy has been sucessfully created by executing the command:
