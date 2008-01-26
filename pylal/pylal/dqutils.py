@@ -1,5 +1,6 @@
 from __future__ import division
 
+import os
 import re
 import urllib
 
@@ -20,6 +21,9 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
 dq_url_pattern = "http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
+
+##############################################################################
+# I/O functions
 
 def get_dq_file(ifo, dest=None, verbose=False):
     """
@@ -77,6 +81,9 @@ def from_veto_file(fileobj):
                          in veto_window_lines])
     return veto_windows
 
+##############################################################################
+# segmentlist/segmentdict utility functions
+
 def apply_veto_windows(seg_dict, veto_window_dict):
     """
     For each DQ flag, widen each flagged segment by the amount specified
@@ -118,7 +125,7 @@ def subtract_segmentlist_from_segmentlistdict(seglist, segdict):
     """
     def _subtract_from_sublist(sublist):
         return sublist - seglist
-    return segdict.map(_subtract_from_sublist)
+    return segmentlistdict(segdict.map(_subtract_from_sublist))
 
 def segmentlistdict_at_point(segdict, point):
     """
@@ -134,10 +141,47 @@ def segmentlistdict_at_point(segdict, point):
             return segmentlist()
     return segdict.map(find)
 
-def determine_vetoes(dq_segdict, analyzable_seglist):
+##############################################################################
+# higher-level functions
+
+def download_and_parse_dq_segs(dq_segfile, ifo, verbose=False):
     """
-    Return a new segmentlistdict like dq_segdict, but whose segmentlists
-    are within analyzable times.  These are generally the relevant vetoes.
+    Download and parse v99 DQ segments into a segmentlistdict.  Rename DQ flags
+    to have the prefix of the ifo and a colon.  Return said segmentlistdict.
     """
-    mask = ~analyzable_seglist
-    return subtract_segmentlist_from_segmentlistdict(mask, dq_segdict)
+    dq_segdict = segmentlistdict()
+    
+    # download DQ segment dump
+    if os.path.isfile(dq_segfile):
+      if verbose:
+        print "using existing DQ segments file", dq_segfile
+    else:
+      get_dq_file(ifo, dest=dq_segfile, verbose=verbose)
+  
+    # parse DQ segments; rename flags to keep track of IFO
+    if verbose:
+      print "parsing", ifo, "DQ segments..."
+    new_dict = fromDQsegments(open(dq_segfile), keep_versions=["99"])
+    for flag, val in new_dict.iteritems():
+        dq_segdict["%s:%s" % (ifo, flag)] = val
+    
+    # sort each list; important property for segment arithmetic to work
+    # correctly
+    for seglist in dq_segdict.itervalues():
+        seglist.sort()
+  
+    return dq_segdict
+
+def determine_vetoes(veto_windows, dq_segdict, analyzable):
+    """
+    Determine all vetoable segments, then reduce to actual segments vetoed.
+    Return this list of segments.
+    """
+    dq_veto_segdict = apply_veto_windows(dq_segdict, veto_windows)
+    
+    mask = ~analyzable
+    vetoed_segdict = subtract_segmentlist_from_segmentlistdict(mask,
+      dq_veto_segdict)
+    vetoed_segs = vetoed_segdict.union(vetoed_segdict.iterkeys())
+    
+    return vetoed_segs
