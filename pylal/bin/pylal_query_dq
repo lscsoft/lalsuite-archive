@@ -79,20 +79,10 @@ def parse_args():
 opts, args = parse_args()
 
 # download DQ flag segfiles if necessary -- time-consuming
-for i, (dq_segfile, ifo) in enumerate(zip(opts.dq_segfiles, opts.ifos)):
-    if (dq_segfile is None) or (not os.path.isfile(dq_segfile)):
-        opts.dq_segfiles[i] = dqutils.get_dq_file(ifo, dq_segfile, opts.verbose)
-
-# construct DQ flag segments -- time-consuming
-dq_dict = segmentlistdict({})
-for ifo, dq_file in zip(opts.ifos, opts.dq_segfiles):
-    if opts.verbose >= 1: print "Parsing DQ flags for", ifo, "from", dq_file, "..."
-    new_dict = dqutils.fromDQsegments(open(dq_file),
-        keep_versions=opts.keep_versions)
-
-    # rename flags to keep track of IFO
-    for flag,val in new_dict.iteritems():
-        dq_dict["%s:%s" % (ifo, flag)] = val
+dq_dict = segmentlistdict()
+for dq_segfile, ifo in zip(opts.dq_segfiles, opts.ifos):
+    dq_dict.update(dqutils.download_and_parse_dq_segs(dq_segfile, ifo,
+                                                      verbose=opts.verbose))
 
 # keep only flags in the flagfile, expand/contract according to windows
 if opts.flagfile is not None:
@@ -102,7 +92,8 @@ if opts.flagfile is not None:
 # do math; remove everything not in the segfile segments
 if opts.segfile is not None:
     analyzable = segmentsUtils.fromsegwizard(open(opts.segfile))
-    dq_dict = dqutils.determine_vetoes(dq_dict, analyzable)
+    mask = ~analyzable
+    dq_dict = dqutils.subtract_segmentlist_from_segmentlistdict(mask, dq_dict)
 elif opts.at_point is not None:
     dq_dict = dqutils.segmentlistdict_at_point(dq_dict, opts.at_point)
 
