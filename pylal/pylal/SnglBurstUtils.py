@@ -126,7 +126,8 @@ class CoincDatabase(object):
 		# verbosity
 		if verbose:
 			print >>sys.stderr, "database stats:"
-			print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
+			if self.sngl_burst_table is not None:
+				print >>sys.stderr, "\tburst events: %d" % len(self.sngl_burst_table)
 			if self.sim_burst_table is not None:
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			if self.time_slide_table is not None:
