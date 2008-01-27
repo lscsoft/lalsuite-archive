@@ -197,6 +197,14 @@ static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *
 	if(!PyArg_ParseTuple(args, "O|L", &seconds, &nanoseconds))
 		return -1;
 
+	if(PyUnicode_Check(seconds)) {
+		/* convert to ascii string */
+		PyObject *str = PyUnicode_AsASCIIString(seconds);
+		if(!str)
+			return -1;
+		Py_DECREF(seconds);
+		seconds = str;
+	}
 	if(PyString_Check(seconds)) {
 		char *end, *str = PyString_AsString(seconds);
 		int result = XLALStrToGPS(gps, str, &end);
