@@ -540,7 +540,7 @@ WHERE
 						pass
 			# snr-weighted mean of peak frequencies
 			coinc_freq = sum([burst.peak_frequency * burst.ms_snr for burst in bursts]) / sum([burst.ms_snr for burst in bursts])
-			df = math.log(coinc_freq / sim_freq, 10)
+			df = math.log(coinc_freq / sim_frequency, 10)
 			try:
 				self.coinc_offsets[df,] += 1.0
 			except IndexError:
