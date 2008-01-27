@@ -736,7 +736,8 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	dbtables.DBTable_set_connection(connection)
 	database = SnglBurstUtils.CoincDatabase().summarize(options.live_time_program, options.verbose)
 	if options.plot:
-		database.connection.cursor().execute("""
+		if database.coinc_table is not None:
+			database.connection.cursor().execute("""
 CREATE TEMPORARY VIEW
 	sim_burst_map
 AS
@@ -751,7 +752,7 @@ AS
 			AND b.table_name == 'sngl_burst'
 			AND b.coinc_event_id == a.coinc_event_id
 		)
-		""")
+			""")
 		for instrument in database.instruments:
 			if instrument not in plots:
 				plots[instrument] = new_plots(instrument, options.hrss, options.plot)
