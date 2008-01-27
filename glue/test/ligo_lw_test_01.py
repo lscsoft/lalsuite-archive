@@ -5,9 +5,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy
 
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import array
-from glue.ligolw import param
 
 print "Loading ligo_lw_test_01.xml..."
 doc = ligolw.Document()
