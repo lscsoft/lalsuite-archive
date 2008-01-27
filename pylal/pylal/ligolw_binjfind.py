@@ -500,7 +500,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		for n, sim in enumerate(contents.simbursttable):
 			if verbose and not (n % (N / 50 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-			coincs = contents.coincs_near_peaktime(sim.get_geocent_peak())
+			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
 			coinc_event_ids = find_coinc_matches(coincs, sim, snglcomparefunc)
 			if coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sc_coinc_def_id)

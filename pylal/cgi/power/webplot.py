@@ -150,7 +150,7 @@ def gettriggers(plotdesc):
 
 	# remove triggers and injections that lie outside the required segment
 	bursttable.filterRows(lambda row: row.get_peak() in plotdesc.trig_segment())
-	simtable.filterRows(lambda row: row.get_geocent_peak() in plotdesc.trig_segment())
+	simtable.filterRows(lambda row: row.get_time_geocent() in plotdesc.trig_segment())
 
 	return bursttable, simtable
 
