@@ -7,9 +7,12 @@ import glob
 import re
 
 from glue import lal
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw import ilwd
+from glue.ligolw import types
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
@@ -18,53 +21,146 @@ from pylal.tools import XLALCalculateEThincaParameter
 #from pylab import*
 import glue.iterutils
 import numpy
-import cPickle
 numpy.seterr("raise")
 
+#######################################################################################
+# Definitions of some of the classes and functions that are used in the main program.
+#######################################################################################
+class InspiralLikelihoodTable(table.Table):
+  tableName = "Inspiral_Likelihood:table"
+  validcolumns = {
+	"ifo": "lstring",
+	"false_alarm_prob": "real_4",
+	"detect_prob": "real_4",
+	"likelihood": "real_4",
+	"bg_frac": "real_4",
+	"detect_bg_frac_ratio": "real_4",
+	"event_id": "int_8s"
+  }
+  def get_column(self,column):
+    return self.getColumnByName(column).asarray()
+	
+  def getslide(self,slide_num):
+	  """
+	  Return the triggers with a specific slide number.
+	  @param slide_num: the slide number to recover (contained in the event_id)
+	  """
+	  slideTrigs = table.new_from_template(self)
+	  if slide_num < 0:
+		  slide_num = 5000 - slide_num
+	  for row in self:
+		  if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+			  slideTrigs.append(row)
+	  return slideTrigs
+
+class InspiralLikelihood(object):
+  __slots__ = InspiralLikelihoodTable.validcolumns.keys()
+  
+InspiralLikelihoodTable.RowType = InspiralLikelihood
+
+def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="", user_tag="", gps_start_time=0, gps_end_time=0):
+  """
+  Generates the string according to inspiral pipeline conventions, that can be used as a name of a file.
+  """ 
+  prefix = program_name
+  if ifo_times:
+    prefix = ifo_times + "-" + prefix
+  if ifo_tag:
+    prefix = prefix + "_" + ifo_tag
+  if user_tag:
+    prefix = prefix + "_" + user_tag
+	
+  if gps_start_time > 0 and gps_end_time > 0:
+    suffix = "_" +str(gps_start_time) + "-" + str(gps_end_time - gps_start_time)
+  else:
+    suffix = ""
+  return prefix, suffix
+   			
+def false_alarm_prob(candidate, backgroundTriggers, Nslides, epsilon):
+  '''
+  Return false alarm probability of a candidate.
+  @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
+  the false alarm probability should be calculated.
+  @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background coincs.
+  @param Nslides: number of timeslides performed.
+  @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
+  it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
+  ''' 
+  c_ifos,ifolist=candidate.get_ifos()
+  # calculating the false alarm probability
+  slide_array=numpy.zeros(2*Nslides)
+  slides_within_epsilon = backgroundTriggers.getTriggersWithinEpsilon(candidate,epsilon)
+
+  for slide in range(1, Nslides+1):
+	#slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
+	#slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
+	slideTriggers_forward = slides_within_epsilon.getslide(slide)
+	slideTriggers_backward = slides_within_epsilon.getslide(-slide)
+	if len(slideTriggers_forward) >= 1:
+	  slide_array[slide - 1] = 1.0
+	if len(slideTriggers_backward) >= 1:
+	  slide_array[Nslides-1+slide] = 1.0
+
+  FalseAlarmProb = sum(slide_array)/float(2*Nslides)
+  return FalseAlarmProb
+################################################################################
+# Main program.
 ################################################################################
 usage= """
 usage: %prog [options]
 
-Calculate likelihood ratio and assign ranking based on it to each 
-candidate trigger.
+Calculates likelihood ratio and assigns rank based on it to each 
+candidate event.
 """
 ###############################################################################
-# Options to read in Input
+# Options for input
 ###############################################################################
 parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
-parser.add_option("-z","--zerolag-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB zero lag  thinca files to read" )
-parser.add_option("-s","--slides-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB time slides thinca files to read" )
-parser.add_option("-i","--inj-glob",action="store",type="string",\
-    default=None, metavar=" GLOB",help="GLOB thinca files with injections to read" )
-
-parser.add_option("-c","--zerolag-cache-file",action="store",type="string",\
-    default=None, metavar="ZEROLAGCACHEFILE",help="name of the cache file including the path" )
-parser.add_option("-I","--injection-cache-file",action="store",type="string",\
-    default=None, metavar="INJECTIONCACHEFILE",help="name of the injection cache files including the path given as a string with comma delimeters" )
-
-# Options to select ifo types.
-
-parser.add_option("-B", "--h1-triggers",action="store_true", default=False,\
-    help="input files contain triggers from H1")
-
-parser.add_option("-C", "--h2-triggers",action="store_true", default=False,\
-    help="input files contain triggers from H2")
-
-parser.add_option("-D", "--l1-triggers",action="store_true", default=False,\
-    help="input files contain triggers from L1")
-
-parser.add_option("-E", "--g1-triggers",action="store_true", default=False,\
-    help="input files contain triggers from G1")
-
-
-# Options to select paramters for calculation of p(c|0), p(c|h) and likelihood ratio. 
-
-parser.add_option("-S","--statistic",action="store",default='snr',\
-    type="string",\
-    help="choice of statistic used in making plots, valid arguments are: "             "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, " 
-    "bitten_l, bitten_lsq")
+parser.add_option("","--candidate-events-glob",action="store",type="string",\
+    default=None, metavar="CANDIDATEEVENTSGLOB",help="GLOB thinca (coire) files containing candidate events for which the likelihood is going to be calculated" )
+parser.add_option("","--background-glob",action="store",type="string",\
+    default=None, metavar="SLIDESGLOB",help="GLOB time slides thinca (coire) files that are going to be used to estimate the background" )
+parser.add_option("","--found-injections-glob",action="store",type="string",\
+    default=None, metavar="INJGLOB",help="GLOB thinca (coire) files with found software injections that are going to be used to estimate the foreground" )
+parser.add_option("","--missed-injections-glob",action="store",type="string",\
+    default=None, metavar="INJGLOB",help="GLOB thinca (coire) files with missed software injections that are going to be used to estimate the foreground" )
+	
+		
+parser.add_option("-c","--candidate-events-cache-file",action="store",type="string",\
+    default=None, metavar="CANDIDATEEVENTSCACHEFILE",help="name of the cache file (including the path) that points to thinca (coire) files containing candidate events for which the likelihood is going to be calculated " )
+parser.add_option("-I","--background-foreground-cache-files",action="store",type="string",\
+    default=None, metavar="INJECTIONCACHEFILE",help="names of the cache files (including the path) separated by commas that points to thinca (coire) files that are going to be used to estimate the background/foregorund (timeslides/injections) " )
+parser.add_option("","--candidate-events-pattern",\
+    default="", metavar="CANDIDATEEVENTSPATTERN", help="the candidate events files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--background-pattern",\
+    default="", metavar="BACKGROUNDPATTERN", help="the background events files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--found-injections-pattern",\
+    default="", metavar="FOUNDINJECTIONSPATTERN", help="the found injections files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--missed-injections-pattern",\
+    default="", metavar="MISSEDINJECTIONSPATTERN", help="the missed injections files pattern the corresponding cache file will be seived with.")
+#################################################################################
+# Options for output
+##################################################################################
+parser.add_option("-u","--user-tag",action="store",type="string",\
+	default="", metavar=" USERTAG",\
+	help="The user tag used in the name of the name of the output file " )
+parser.add_option("","--ifo-tag",action="store",type="string",\
+	default="", metavar=" IFOTAG",\
+	help="The ifo tag used in the name of the output file (e.g. SECOND_H1H2L1)")      
+parser.add_option("","--gps-start-time",action="store", type="int", default=0, metavar="GPSSTARTTIME",\
+	help="gps start time used in the name of the output file")
+parser.add_option("","--gps-end-time",action="store", type= "int", default=0, metavar="GPSENDTIME",\
+	help="gps end time used in the name of the output file")
+parser.add_option("","--ifo-times",action="store",type="string",\
+    default="", metavar="IFOS",\
+	help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
+parser.add_option("-v","--verbose",action="store_true",\
+	default=False,help="print information" )
+####################################################################################	
+# Options to select parameters for calculation of p(c|0), p(c|h) and likelihood ratio. 
+####################################################################################
+parser.add_option("-S","--statistic",action="store",default='snr', type="string",\
+    help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
 
 parser.add_option("-e","--epsilon",action="store",type="float",\
     default=0.3, metavar=" EPSILON", help="radius of the hypersphere in the parameter space that defines closeness of events" )
@@ -75,842 +171,114 @@ parser.add_option("-N","--numslides", action="store",type="int",\
 parser.add_option("-k","--kappa", action="store",type="float",\
     default = 0, metavar="KAPPA", help="The value of kappa to be supplied to perform distance cut" )
 
-# Plotting options
-
-parser.add_option("-P","--plot-simethinca",action="store_true",\
-    default=False, help ="Shows the plot of simple ethinca param for different coincs")
-
-
-parser.add_option("-p","--plot-distcut",action="store_true",\
-    default=False, help ="Shows the plot of effective distance difference based on distance cut")
-
-
-parser.add_option("-M","--plot-mchirp",action="store_true",\
-    default=False, help ="Shows the plot of chirp mass difference based on distance cut")
-
-parser.add_option("-m","--plot-chisq",action="store_true",\
-    default=False, help ="Shows the plot of chi squared  difference based on distance cut")
-parser.add_option("","--plot-snr",action="store_true",\
-    default=False, help ="Shows the plot of snr  difference based on distance cut")
-
-parser.add_option("","--plot-snr-vs-chisq",action="store_true",\
-    default=False, help ="Shows the plot of snr vs chisq for timeslides and injections")
-
-parser.add_option("","--plot-snr-vs-mchirp",action="store_true",\
-    default=False, help ="Shows the plot of snr vs mchirp for timeslides and injections")
-
-parser.add_option("-t","--scatter-plot",action="store_true",\
-    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
-
-parser.add_option("-a","--scatter-all-plot",action="store_true",\
-    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of all coincidences")
-
-parser.add_option("-Y","--inj-vs-slides-hist",action="store_true",\
-    default=False, help ="Shows the injections vs. time slides likelihood histogram")
-
-
-
-
-parser.add_option("-L","--likelihood",action="store", type="string",\
-    default=None, help ="Must be zerolag-candidates-only or full-likelihood-analysis. Calculates the Likelihood for either zero lag candidates only or for zero lag, injections and timeslides triggers, respectively")
-
-
-parser.add_option("-V","--verbose",action="store_true",default=False,\
-    help="print additional information when running" )
-
-parser.add_option("","--dump",action="store_true",default=False,\
-    help="dumps datat into Likelihood_intermediate file" )
-
-
-parser.add_option("-F","--figure-name",action="store", type = "string",\
-    default = None, metavar = "NAME", help="saves figure with NAME.png" )
-
-parser.add_option("-o","--show",action="store_true",default=False,\
-    help="Display the plots on the screen" )
-
-parser.add_option("-b","--slide-bins",action="store",type="int",\
-    default=10, metavar="BINS", help="Number of bins in the histogram of background")
-
-parser.add_option("-j","--injection-bins",action="store",type="int",\
-    default=10, metavar="BINS", help="Number of bins in the histogram of injections")
-
-parser.add_option("-x","--bins-cumhist", action="store",type="int",\
-    default=10, metavar="BINS", help="Number of bins in the combined statistic histogram of foreground vs. background")
-
-parser.add_option("-y","--bins-inj-vs-slides", action="store",type="int",\
-    default=10, metavar="BINS", help="Number of bins in the injections vs. time slides likelihood histogram")
-
-
-
 (opts,args) = parser.parse_args()
-
-######################################################################
-# Construct IFO pairs
-
-
-ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1") \
-            if getattr(opts, "%s_triggers" % ifo.lower())]
-
-ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
-
-########################################################################
-# Class to hold slides and triggers and generate relevant plots.
-########################################################################
-def distcut(coinc_a,coinc_b):
-  '''
-  Return the numpy array -  the relative difference of two one-dimensional arrays, 
-  presumably of the same length, weighted by their average.
-  @param coinc_a, coincb: numpy arrays of equal length. 
-  '''        
-  dist_cut_array=(coinc_b -  coinc_a)*2.0/(coinc_a +  coinc_b)
-  return dist_cut_array
-
-def normalized_hist(Unormalised_array, bins=10):
-  '''
-  Return normalized histogram; 
-  y_norm is a numpy array containing normilized number of events in the corresponding bin;
-  x_norm is a numpy array containing bins (namely left side, limit of each bin).
-  @param Unormalized_array: numpy array containing the quatities for which the histogram will be generated.
-  The length of the array defines the total number of the events - normalization.
-  @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
-  '''  
-  
-  (y_param, x_param, patches) = hist(Unormalised_array, bins)
-  clf()
-  y_norm = y_param*1.0/sum(y_param)
-  return (y_norm, x_param)
-
-
-
-def cum_hist(likelihood, bins):
-  '''
-  Function that generates the histogram of the cumulative (e.g. likelihood) statistic histogram.
-  Return cumulative histogram; cumhist is a numpy array each entry of which is equal to the total number of the events
-  contained in the bins to the right (in increasing order) of the current one;
-  x_middle is a numpy array that defines the bins by their middle point.
-  @param likelihood: the array to be binned that contains  statistic (e.g. likelihood) calculated for each coinc (event).
-  @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
-  '''  
-  # get rid of events with likelihood = -1
-  likelihood_cleared = numpy.compress(numpy.greater(likelihood, -1.0), likelihood)
-
-  (y, x, patches) = hist(likelihood_cleared, bins)
-  clf()     
-  x_middle = numpy.zeros(len(x))
-  bin_size = x[1] - x[0]
-  for i in range(len(x)):
-    x_middle[i] = x[i] + 0.5*bin_size
-  cumhist = y[::-1].cumsum()[::-1]
-  return cumhist, x_middle
-
-
-class plotdata:
-  """
-   Class containing various plotting routines.
-  """
-  def plotparam(self, ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
-    
-    for ifolist in ifos:
-      for ifo in ifolist:
-        hist_check_slides = 1
-        hist_check_inj = 1
-        coinc_slides_sim = coinc_slides.coinctype(ifolist).getsngls(ifo).get_column(param)
-        coinc_inj_sim = coinc_inj.coinctype(ifolist).getsngls(ifo).get_column(param)
-        if len(coinc_slides_sim) > 1:
-          (y_slide, x_slide) = normalized_hist(coinc_slides_sim, slide_bins)
-        else:
-          hist_check_slides = 0
-
-        if len(coinc_inj_sim) > 1:
-          (y_inj, x_inj) = normalized_hist(coinc_inj_sim, inj_bins)
-        else:
-          hist_check_inj = 0
-        if (hist_check_slides == 1) and (hist_check_inj == 1):
-          slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
-          hold(True)
-          inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
-          legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
-          coinc_label=''
-          for ifo1 in ifolist:
-            coinc_label+=ifo1
-          xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifo))
-          savefig(coinc_label + '-' + str(param) + "_" + str(ifo) )
-          figure()
-        else:
-          if hist_check_slides == 1:
-            slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]),color="k")
-            legend([slide_val[0]],["Background"],loc=0)
-            coinc_label=''
-            for ifo1 in ifolist:
-              coinc_label+=ifo1
-            xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifo))
-            savefig(coinc_label + '-' + str(param) + "_" + str(ifo))
-            figure()
-          else:
-            if hist_check_inj == 1:
-              inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]),color="r")
-              legend([inj_val[0]],["Injections"],loc=0)
-              coinc_label=''
-              for ifo1 in ifolist:
-                coinc_label+=ifo1
-              xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + str(ifo))
-              savefig(coinc_label + '-' + str(param) + "_" + str(ifo))
-              figure()
- 
-     
-  def plotroutine(self, ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
-    """ 
-    Function that makes histograms of a relative difference of a given parameter (or of parameter itself in case of simple ethinca)
-    in  each pair of ifos specified. It does it for both injections and timeslides.
-    @param  ifos:  a list whose elements are the lists of ifos such as ['H1', 'H2'].
-    @param  coinc_a, coinc_b:  are instances of CoincInspiralUtils.CoincInspiralTable() class that contain
-    time slide and injection triggers respectively.
-    @params param: is a name of the parameter to be plotted.
-    if param is 'simethinca' the histograms of its value are produced for each pair of interferometers
-    otherwise the histogram of (param(ifo2)-param(ifo1))*2/(param(ifo2) + param(ifo1)) are produced
-    @param slide_bins, inj_bins:  are number of bins in the histogram for time slides and injections respectively
-    """ 
-        
-    for ifolist in ifos:
-      for i in range(len(ifolist)):
-        for j in range(len(ifolist)):
-          if i < j:
-            hist_check_slides = 1
-            hist_check_inj = 1
-	    if param == 'simethinca':
-              coinc_slides_sim = coinc_slides.coinctype(ifolist).getSimpleEThincaValues([ifolist[i], ifolist[j]])
-	      coinc_inj_sim = coinc_inj.coinctype(ifolist).getSimpleEThincaValues([ifolist[i], ifolist[j]])
-
-              if len(coinc_slides_sim) > 1:  
-	        (y_slide, x_slide) = normalized_hist(coinc_slides_sim, slide_bins)
-              else:
-                hist_check_slides = 0
-
-              if len(coinc_inj_sim) > 1:  
-	        (y_inj, x_inj) = normalized_hist(coinc_inj_sim, inj_bins)
-              else:
-                hist_check_inj = 0
-
-	    else:
-	      coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-	      coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-	      coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-              coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-              dist_cut_slide = distcut(coinc_slides_fir, coinc_slides_sec)
-	      dist_cut_inj = distcut(coinc_inj_fir, coinc_inj_sec)
-	      if len(dist_cut_slide) > 1:
-	        (y_slide, x_slide) = normalized_hist(dist_cut_slide, slide_bins)
-              else:
-                hist_check_slides = 0 
- 
-	      if len(dist_cut_inj) > 1:
-	        (y_inj, x_inj) = normalized_hist(dist_cut_inj, inj_bins) 
-              else:
-                hist_check_inj = 0  
-            
-            if (hist_check_slides == 1) and (hist_check_inj == 1): 
-              slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
-	      hold(True)
-              inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
-	      legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
-              coinc_label=''
-	      for ifo in ifolist:
-	        coinc_label+=ifo
-              if param == 'simethinca':
-	        xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
-	        savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-              else:
-	        xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
-	        savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-	      figure()
-            else:
-              if hist_check_slides == 1:
-                slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
-                legend([slide_val[0]],["Background"],loc=0)
-                coinc_label=''
-                for ifo in ifolist:
-                  coinc_label+=ifo
-                if param == 'simethinca':
-                  xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
-                  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-                else:
-                  xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
-                  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-                figure()
-              else:
-                if hist_check_inj == 1:
-                  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
-                  legend([inj_val[0]],["Injections"],loc=0)
-                  coinc_label=''
-                  for ifo in ifolist:
-                    coinc_label+=ifo
-                  if param == 'simethinca':
-                    xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
-                    savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-                  else:
-                    xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
-                    savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-                  figure()
- 
-  def triple_scatter_plot(self, p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, prefix='False_Alarm_Probability'):
-    """
-    Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
-    Detection probability, p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
-    """
-    print "internal check point 1"
-    v = [-0.1, 1.1, -0.1, 1.1]
-    axis(v)
-    print "internal check point 2"
-    l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
-    hold(True)
-    print "internal check point 3"
-    l2 = plot(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
-    hold(True)
-    print "internal check point 4"
-    l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
-    xlabel(prefix + ', p(c|0)')
-    ylabel('Detection Probability, p(c|h)')
-    legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-    print "internal check point 5"
-    savefig('All_DetectProb_vs_' + prefix)
-    figure()
-
-  def triple_scatter_plot_stat(self, zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr'):
-    """
-    Function that makes scattering plot of  new statistic (likelihood) vs old statistic (effective snr) 
-    for zerolag candidate triggers, injections and background triggers. 
-    """
-    print "internal check point 1"
-    print "internal check point 2"
-    l1 = plot(zerolag_stat, p0_zerolag, marker='o', linestyle='None', color='g')
-    hold(True)
-    print "internal check point 3"
-    l2 = plot(injections_stat, p0_injections, marker='x', linestyle='None', color='r')
-    hold(True)
-    print "internal check point 4"
-    l3 = plot(background_stat, p0_background, marker='x', linestyle='None', color='k')
-    xlabel(old_statistic)
-    ylabel(new_statistic)
-    legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-    print "internal check point 5"
-    savefig('All_' + new_statistic + '_' + old_statistic)
-    figure()
-
-  def scatter_plot(self, p0, pc):
-    ''' 
-    Makes a scatter plot of points {p(c|0, p(c|h)}
-    '''
-    v = [-0.1, 1.1, -0.1, 1.1]
-    axis(v)
-    plot(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
-    xlabel('False Alarm Probability, p(c|0)')
-    ylabel('Detection Probability, p(c|h)')
-    savefig('zerolag_DetectProb_vs_FalseAlarmProb')
-    figure()
-  
-  def scatter_plot_stat(self, stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr'):
-    ''' 
-    Makes a scatter plot of new statistic (likelihood) vs old statistic (effective snr)
-    '''
-    plot(stat_array, p0, marker='o', linestyle='None', color='g')
-    ylabel(new_statistic)
-    xlabel(old_statistic)
-    savefig('zerolag_' + new_statistic + '_' + old_statistic)
-    figure()
-  
-  def scatter_plot_param_2D(self, ifos, coinc_slides, coinc_inj, param, logscale=False):
-    '''
-    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-    '''
-    for ifolist in ifos:
-     for i in range(len(ifolist)):
-       for j in range(len(ifolist)):
-         if i < j:
-           coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-           coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-           coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-           coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-           if not logscale:
-             l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-             hold(True)
-             l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-           else:
-             l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-             hold(True)
-             l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-
-           coinc_label=''
-           for ifo in ifolist:
-             coinc_label+=ifo
-           title(str(param) + " in " + ifolist[j] + " vs " + str(param) + " in " + ifolist[i] + " for " + coinc_label + " triggers") 
-           legend((l2, l1), ("Injections","Background"))
-           xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
-           ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
-           savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) + "_scatterplot")
-           figure()
-           
-  def scatter_plot_param_2D_with_zerolag(self, ifos, coinc_slides, coinc_inj, coinc_zerolag, param, logscale=False):
-    '''
-    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-    '''
-    for ifolist in ifos:
-     for i in range(len(ifolist)):
-       for j in range(len(ifolist)):
-         if i < j:
-           coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-           coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-           coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-           coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-           coinc_zerolag_fir = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
-           coinc_zerolag_sec = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[j]).get_column(param)
-
-           if not logscale:
-             l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-             hold(True) 
-             l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-             hold(True)
-             l3 = plot(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
-           else:
-             l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-             hold(True)
-             l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-             hold(True)
-             l3 = loglog(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
-
-           coinc_label=''
-           for ifo in ifolist:
-             coinc_label+=ifo
-           title(str(param) + " in " + ifolist[j] + " vs " + str(param) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
-           legend((l3, l2, l1), ("candidate events", "Injections","Background"))
-           xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
-           ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
-           savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) +"_with_zerolag" + "_scatterplot")
-           figure()
-                 
-  def scatter_plot_param1_vs_param2(self, ifos, coinc_slides, coinc_inj, param1, param2, logscale=False, ylogscale=False):
-    '''
-    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-    '''
-    for ifolist in ifos:
-      for i in range(len(ifolist)):
-        coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
-        coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
-        coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
-        coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
-        if not (logscale or ylogscale):
-          l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-        elif logscale:
-          l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-        elif ylogscale:
-          l1 = semilogy(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = semilogy(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-        coinc_label=''
-        for ifo in ifolist:
-          coinc_label+=ifo
-        title(str(param2) + " in " + ifolist[i] + " vs " + str(param1) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
-        legend((l2, l1), ("Injections","Background"))
-        xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
-        ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
-        savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_scatterplot")
-        figure()
-   
-  def scatter_plot_param1_vs_param2_with_zerolag(self, ifos, coinc_slides, coinc_inj, coinc_zerolag, param1, param2, logscale=False, ylogscale=False):
-    '''
-    Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-    '''
-    for ifolist in ifos:
-      for i in range(len(ifolist)):
-        coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
-        coinc_slides_sec = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
-        coinc_inj_fir = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
-        coinc_inj_sec = coinc_inj.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
-        coinc_zerolag_fir = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
-        coinc_zerolag_sec = coinc_zerolag.coinctype(ifolist).getsngls(ifolist[i]).get_column(param2)
-        if not (logscale or ylogscale):
-          l1 = plot(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = plot(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-          hold(True)
-          l3 = plot(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
-        elif logscale:
-          l1 = loglog(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = loglog(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-          hold(True)
-          l3 = loglog(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')       
-        elif ylogscale:
-          l1 = semilogy(coinc_slides_fir, coinc_slides_sec, marker='x', linestyle='None', color='k')
-          hold(True)
-          l2 = semilogy(coinc_inj_fir, coinc_inj_sec,  marker='x', linestyle='None', color='r')
-          hold(True)
-          l3 = semilogy(coinc_zerolag_fir, coinc_zerolag_sec,  marker='o', linestyle='None', color='g')
-        coinc_label=''
-        for ifo in ifolist:
-          coinc_label+=ifo
-        title(str(param2) + " in " + ifolist[i] + " vs " + str(param1) + " in " + ifolist[i] + " for " + coinc_label + " triggers")
-        legend((l3, l2, l1), ("candidate events", "Injections", "Background"))
-        xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
-        ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
-        savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_with_zerolag" + "_scatterplot")
-        figure()
-
-
-  def plot_cumhist(self, statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
-    ''' 
-    Plots the cumulative histogram (cum_hist)  of foreground (injections or zerolag candidates)  and background 
-    (time slides). The entries in the latter are  normalized by the number of time slides performed. In addition, 
-    the one sigma variance of the cumulative histogram  of  the time slides is plotted.
-    @param statistic_foreground: an array containing the cum_hist values of the foreground
-    @param sigma: an array containing the variance of the cum_hist for time slides
-    @param expect: an array containing the cum_hist values of the background (time slides)
-    @param x_middle: an array containing the central positions of the bins used to generate given cum_hist histograms.
-    @param postfix: a string that sets the ending of the figure name
-    @poram label_x: a string to label x axes.
-    '''       
-    coord = gca()
-    coord.set_yscale('log')
-    l1 = plot(x_middle, statistic_foreground, marker='o', linestyle='None', color='g')
-    hold(True)
-    xerr = (x_middle[1] - x_middle[0]) / 2.0
-    l2 = errorbar(x_middle, expect, sigma, xerr, marker='o', color='k',linestyle='None', ecolor='b')  
-    grid(True)
-    xlabel(label_x)
-    ylabel('number of events')
-    legend('Combined statistic '+ postfix)
-    legend((l1,l2),('foreground', 'background'))
-    savefig('Combined_statistic' + postfix)
-    figure()
- 
-  def plot_likelihood(self, likelihood_foreground, bins, prefix, label_x='likelihood'):
-    '''
-    Plots a single cum_hist histogram.
-    @param likelihood: an array that contains the statistic (e.g. likelihood) calculated for each event.
-    @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
-    @param prefix: a string that sets the begining of the figure name.
-    @param label_x: a string to label x axes.
-    '''      
-    likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
-    (y_foreground, x_foreground, patches) = hist(likelihood_foreground_cleared, bins)
-    clf()
-    x_middle = numpy.zeros(len(x_foreground))
-    bin_size = x_foreground[1] - x_foreground[0]
-    for i in range(len(x_foreground)):
-      x_middle[i] = x_foreground[i] + 0.5*bin_size 
-    
-    statistic_foreground = y_foreground[::-1].cumsum()[::-1]
-    ylim(ymin=-1)
-    l1 = semilogy(x_middle, statistic_foreground, marker='o', linestyle='None', color='g', label=prefix)
-    grid(True)
-    xlabel(label_x)
-    ylabel('number of events')
-    legend()
-    savefig(prefix+'_statistic')
-    figure()
-
-  def inj_vs_slides_hist(self, likelihood_foreground, likelihood_background, bins, prefix='likelihood'):
-    ''' 
-    Plots normilzed histograms of statistic for injections and time slides.
-    @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the foreground (injections).
-    @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the background (time slides).
-    @param bins: either integer that sets the number of bins in the histogram or a numpy array containing bins.
-    @param prefix: a string that sets the begining of the figure name and a label for x axes.
-    '''
-
-
-    likelihood_foreground_cleared = numpy.compress(numpy.greater(likelihood_foreground, -1.0), likelihood_foreground)
-    likelihood_background_cleared = numpy.compress(numpy.greater(likelihood_background, -1.0), likelihood_background)
-    max_foreground = max(likelihood_foreground_cleared)
-    max_background = max(likelihood_background_cleared)
-    min_foreground = min(likelihood_foreground_cleared)
-    min_background = min(likelihood_background_cleared)
-    if max_foreground > max_background:
-      max_global = max_foreground
-    else:
-      max_global = max_background
-    if min_foreground > min_background:
-      min_global = min_foreground
-    else:
-      min_global = min_background
-
-    range_hist = max_global - min_global
-    step = range_hist/bins 
-    bin_array=numpy.arange(min_global, max_global, step)
-
-    (y_foreground, x_foreground) = normalized_hist(likelihood_foreground, bin_array)
-    (y_background, x_background) = normalized_hist(likelihood_background, bin_array)
-    bar(x_foreground + step/2.0, y_foreground, width=step/2.0, color='r')
-    hold(True)
-    bar(x_background, y_background, width=step/2.0 , color='k')
-    xlim(min_global, max_global)
-    xlabel(prefix)
-    savefig(prefix+'_inj_vs_slides_hist')
-    figure()
- 
- 
- 
-   
-     
-############################################################################################
-# Class that does essential calculations for likelihood ratio
-#############################################################################################
-class likelihood:
-  '''
-  Class containing the essential functions for likelihood analysis such as the detection probability,
-  false alarm probability etc...
-  '''
-
-  def false_alarm_prob(self, candidate, backgroundTriggers, Nslides, epsilon):
-    '''
-    Return false alarm probability of a candidate.
-    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
-    the false alarm probability should be calculated.
-    @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background coincs.
-    @param Nslides: number of timeslides performed.
-    @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
-    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
-    ''' 
-    c_ifos,ifolist=candidate.get_ifos()
-    # calculating the false alarm probability
-    slide_array=numpy.zeros(2*Nslides)
-    slides_within_epsilon = backgroundTriggers.getTriggersWithinEpsilon(candidate,epsilon)
-
-    for slide in range(1, Nslides+1):
-      #slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
-      #slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
-      slideTriggers_forward = slides_within_epsilon.getslide(slide)
-      slideTriggers_backward = slides_within_epsilon.getslide(-slide)
-      if len(slideTriggers_forward) >= 1:
-        slide_array[slide - 1] = 1.0
-      if len(slideTriggers_backward) >= 1:
-        slide_array[Nslides-1+slide] = 1.0
-
-    FalseAlarmProb = sum(slide_array)/float(2*Nslides)
-    return FalseAlarmProb
-
-  def detection_prob(self, candidate, foregroundTriggers, epsilon): 
-    '''
-    Return the detection probability of a candidate.
-    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
-    the detection probability should be calculated.
-    @param foregroundTriggers: an instance of CoincInspiralTable() class that contains the foreground events (found injections).
-    @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
-    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
-    '''
-    Ntotal_inj=0
-    for trigger in foregroundTriggers:
-      trig_ifos,trig_ifolist = trigger.get_ifos()
-      if c_ifos == trig_ifos:
-        Ntotal_inj += 1
-
-    injections_within_epsilon = foregroundTriggers.getTriggersWithinEpsilon(candidate, epsilon)
-
-    nevents_inj = len(injections_within_epsilon)
-
-    if Ntotal_inj > 0:
-      DetectionProb = float(nevents_inj) / float(Ntotal_inj)
-    else:
-      DetectionProb = 0.0
-    return DetectionProb
-
-  def background_fraction(self, candidate, backgroundTriggers, epsilon):
-    '''
-    Return the fraction of backgorund events that lies within  epsilon ball of the candidate.
-    @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
-    the background_fraction should be calculated.
-    @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background events.
-    @param epsilon: the parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
-    it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
-    '''
-    Ntotal_noise=0
-    for trigger in backgroundTriggers:
-      trig_ifos,trig_ifolist = trigger.get_ifos()
-      if c_ifos == trig_ifos:
-        Ntotal_noise+=1
-
-    slides_within_epsilon =CoincInspiralUtils.coincInspiralTable()
-    slides_within_epsilon=backgroundTriggers.getTriggersWithinEpsilon(candidate, epsilon)
-
-    nevents_noise = len(slides_within_epsilon)
-
-    if Ntotal_noise > 0:
-       BackgroundFraction = float(nevents_noise)/float(Ntotal_noise)
-    else:
-       #BackgroundFraction = -1.0
-       BackgroundFraction = 0.0
-    return BackgroundFraction
-
-
-
-
-
 
 ###############################################################################################
 
-if not opts.show:
-  import matplotlib
-  matplotlib.use('Agg')
-from pylab import*
-#from pylal import viz
+
+# read in the candidate events files
+if opts.candidate_events_cache_file:
+  CandidateEventsFiles = []
+  CandidateEventsCache = lal.Cache.fromfile(open(opts.candidate_events_cache_file))
+  CandidateEventsFiles = CandidateEventsCache.sieve(description = opts.candidate_events_pattern).checkfilesexist()[0].pfnlist()
+elif opts.candidate_events_glob:
+  CandidateEventsFiles = []
+  CandidateEventsFiles = glob.glob(opts.candidate_events_glob)
+else: 
+  print >>sys.stderr, "either " + opts.candidate_events_cache_file + " or " + opts.candidate_events_glob + "must be given"
+  sys.exit(1)  
+
+if len(CandidateEventsFiles) < 1:
+  print >>sys.stderr, "The " +  opts.candidate_events_cache_file +  "contains no candidate events files"
+  sys.exit(1)
 
 
 
 
-# read in the zero lag  and time slides cache file
-if opts.zerolag_cache_file:
-  trigCache = lal.Cache.fromfile(open(opts.zerolag_cache_file))
-  slides_cache = trigCache.sieve(description = 'COIRE_SLIDE')
-  zero_lag_cache = trigCache.sieve(description = 'COIRE_H')
-  # zero lag files
-  zerolagfiles = []
-  zerolagfiles = zero_lag_cache.pfnlist()
-  print zerolagfiles
-  if len(zerolagfiles) < 1:
-    print >>sys.stderr, "The " +  opts.zerolag_cache_file +  "contains no zero lag files"
-    sys.exit(1)
-
-  # time slides files  
-  slidesfiles = []
-  slidesfiles =  slides_cache.pfnlist()
-  print slidesfiles
-  if len(zerolagfiles) < 1:
-    print >>sys.stderr, "The " + opts.zerolag_cache_file  + "contains no time slides files "
-    sys.exit(1)
-# read in the injections cache file
-
-if opts.injection_cache_file:
-  list_cache_files=opts.injection_cache_file.split(",")
-  injfiles = []
-  for cache_file in list_cache_files:
-    trigCache = lal.Cache.fromfile(open(cache_file))
-    trigCache1 = trigCache.sieve(description = 'COIRE')
-    trigCache2 = trigCache1.sieve(description = 'FOUND')
-    injfiles += trigCache2.pfnlist()
-    
-  print injfiles
-  if len(injfiles) < 1:
-    print >>sys.stderr, "The " + opts.injection_cache_file  + " contain(s) no injection files "
-    sys.exit(1)
+if opts.background_foreground_cache_files:
+  BackgroundFiles = []
+  FoundInjectionsFiles = []
+  MissedInjectionsFiles = []
+  BackgroundForegroundCacheFiles = opts.background_foreground_cache_files.split(",")
+  for cachefile in BackgroundForegroundCacheFiles:  
+    BackgroundForegroundCache = lal.Cache.fromfile(open(cachefile))
+    BackgroundFiles += BackgroundForegroundCache.sieve(description = opts.background_pattern).checkfilesexist()[0].pfnlist()
+    FoundInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[0].pfnlist()
+    MissedInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.missed_injections_pattern).checkfilesexist()[0].pfnlist() 	
+elif opts.background_glob and opts.found_injections_glob and opts.missed_injections_glob:
+  BackgroundFiles = []
+  FoundInjectionsFiles = []
+  MissedInjectionsFiles = []    
+  BackgroundFiles = glob.glob(opts.background_glob)
+  FoundInjectionsFiles = glob.glob(opts.found_injections_glob)
+  MissedInjectionsFiles = glob.glob(opts.missed_injections_glob)
+else:	
+ print >>sys.stderr, "either " + opts.background_foreground_cache_file + " or " + opts.background_glob + " and " + opts.found_injections_glob + " and " + opts.missed_injections_glob + "must be given"
+ sys.exit(1)
  
+if len(BackgroundFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no time slides files "
+  sys.exit(1)
 
-   
-    
+if len(FoundInjectionsFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no found injections files "
+  sys.exit(1)
+  
+if len(MissedInjectionsFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no missed injections files "
+  sys.exit(1)
 
-
-
-
-
-
-
-
-
-
-
-####################################################################
-#glob the list of files to read in
-
-# Zero lag  Files
-if opts.zerolag_glob:
-  zerolagfiles = []      
-  zerolagfiles = glob.glob(opts.zerolag_glob)  
-  if len(zerolagfiles) < 1:    
-    print >>sys.stderr, "The glob for " + opts.zerolag_glob + " returned no files"
-    sys.exit(1)  
-
-# Time slides Files
-if opts.slides_glob:      
-  slidesfiles = []  
-  slidesfiles = glob.glob(opts.slides_glob)  
-  if len(slidesfiles) < 1:    
-    print >>sys.stderr, "The glob for " + opts.slides_glob + " returned no files" 
-    sys.exit(1)    
-   
+if not len(FoundInjectionsFiles) == len(MissedInjectionsFiles):
+  print >>sys.stderr, " The number of found injections files does not match the number of missed injections files"
+  sys.exit(1)
+  
+# check if number of slides is given
+if opts.numslides == 0:
+  print >> sys.stderr, "--numslides must be specified"
+  sys.exit(1)
  
-# Injection Files
-if opts.inj_glob:
-  injfiles = []
-  injfiles = glob.glob(opts.inj_glob)
-  if len(injfiles) < 1:
-    print >>sys.stderr, "The glob for " + opts.inj_glob + "returned no files " 
-    sys.exit(1)
-
 # check that statistic is OK:
 if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat', 'effective_snr', 'bitten_lsq', 'bitten_l'):
   print >>sys.stderr, "--statistic must be one of"  
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
   sys.exit(1)
 
-# check if number of slides is given
-if opts.numslides == 0:
-  print >> sys.stderr, "--numslides must be specified"
-  sys.exit(1)
-
-# check if the correct option for likelihood calculation is given
-
-if opts.likelihood not in [None, 'zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background']:
-  print  >> sys.stderr, "--likelihood  must be equal to one of 'zerolag-candidates-only', 'zerolag-vs-background', 'injections-vs-background' "
-  sys.exit(1)
- 
-
-
-
-statistic = CoincInspiralUtils.coincStatistic( opts.statistic) 
-
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
 
 ###############################################################################
-# read in zero lag coinc triggers
+# read in candidate events coincident triggers
 
-zerolagTriggers = None
+CandidateEventsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(CandidateEventsFiles, mangle_event_id=False)
 
-zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles,mangle_event_id=False)
-
-# construct the zero lag coincs 
-zerolagCoincTriggers= \
-CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
-
-# construct zero lag coincs of type:
-
-#zerolagCoincType = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic).coinctype(["H1","L1"])
-#print zerolagCoincType
-
+# construct the candidate events coincs 
+CandidateEventsCoincTriggers = CoincInspiralUtils.coincInspiralTable(CandidateEventsTriggers, statistic)
 
 # read in time slides triggers 
 
-slidesTriggers = None
-
-slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles,mangle_event_id=True)
+#SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(BackgroundFiles, mangle_event_id=True)
 
 # construct the time slides coincs
-slidesCoincTriggers= \
-CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
-
-# read in injections sngl and sim inspirals
-
-injectionTriggers = None
-
-injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles,mangle_event_id=True)
+#SlidesCoincTriggers= \
+#CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
 
 
+# read in found injections sngl and sim inspirals
 
+#FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(FoundInjectionsFiles, mangle_event_id=True)
 
-#simTriggers = None
-
-#simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
+ #FoundSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(FoundInjectionsFiles)   
 
 
 #construct injection coincs and add sim inspirals
 
-injectionCoincTriggers= \
-CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(['H1', 'H2', 'L1'])
+#FoundInjectionsCoincTriggers= \
+#CoincInspiralUtils.coincInspiralTable(FoundInjectionsTriggers, statistic)
 
-#injectionCoincTriggers.add_sim_inspirals(simTriggers)
+#FoundInjectionsCoincTriggers.add_sim_inspirals(FoundSimTriggers)
 
+# read in missed injections sim inspirals
 
-
+#MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(MissedInjectionsFiles)   
 
 
 ######################################
@@ -925,11 +293,21 @@ CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(['
 #print str(counter)
 #file.close()
 
-#for candidate in slidesCoincTriggers:
+#for candidate in injectionTestCoincTriggers:
   #  ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
   #c_ifo, ifolist = candidate.get_ifos()
-  #if c_ifo=='H1L1':
-  #  simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+  #if c_ifo=='H1H2L1':
+    #print candidate.event_id
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
+    #print 'H1L1', ethinca, simethinca
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H2, candidate.L1)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H2, candidate.L1)
+    #print 'H2L1', ethinca, simethinca
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.H2)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.H2)
+    #print 'H1H2', ethinca, simethinca
+ 
   #  if simethinca > 100.0:
   #    CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
   #    print simethinca
@@ -944,446 +322,118 @@ CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(['
 # Likelihood calculation
 ###########################################################################################################
 ##########################################################################################
-# calculate likelihood for zero lag candidates only 
+# calculate likelihood for candidate events 
 #########################################################################################
-#open files in which all intermediate results will be dump into
-if opts.dump:
-  IntermediateFile = open('Likelihood_intermediate_results', 'w')
-  cPickle.dump(opts, IntermediateFile)
-
-if opts.likelihood == 'zerolag-candidates-only':
   
-  size_zerolag = len(zerolagCoincTriggers)
-  FalseAlarmProb_array = numpy.zeros(size_zerolag)
-  DetectionProb_array = numpy.zeros(size_zerolag)
-  BackgroundFraction_array = numpy.zeros(size_zerolag)
-  Likelihood = numpy.zeros(size_zerolag)
-  DetectionBackgroundRatio = numpy.zeros(size_zerolag)
-  zerolag_stat_array = numpy.zeros(size_zerolag)
-  eventID_zerolag = numpy.zeros(size_zerolag, dtype='int64')
-  zerolag_ifos = []
+# Calculate False Alarm Probability and Background Fraction
+array_size = len(CandidateEventsCoincTriggers)
+FAProduct = numpy.zeros(array_size) + 1.0
+Ntotal_noise = 0
+Nnoise_events_within_epsilon = numpy.zeros(array_size)
+# loop over time slides files
+for file in BackgroundFiles:
+  if opts.verbose:
+    print file
+  # read in time slides triggers
+  SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  # construct the time slides coincs
+  SlidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
+  # False Alarm Probability for the current time slides file
+  if SlidesCoincTriggers:
+    if opts.verbose:
+	  print len(SlidesCoincTriggers)
+    Ntotal_noise += len(SlidesCoincTriggers)
   i = 0
-  for candidate in zerolagCoincTriggers:
-    c_ifos,ifolist = candidate.get_ifos()
-    zerolag_stat_array[i] = candidate.stat
-    zerolag_ifos.append(c_ifos)
-    eventID_zerolag[i] = candidate.event_id
-    FalseAlarmProb_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
-    DetectionProb_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
-    BackgroundFraction_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
-    # Calculating likelihood ratio
-    if FalseAlarmProb_array[i] > 0:
-      Likelihood[i] = DetectionProb_array[i] / FalseAlarmProb_array[i]
-    else:
-      #Likelihood[i] = -1.0
-      # below is a temporary fix for the case of vanishing false alarm probability
-       FalseAlarmProb_array[i] = 1 / float(4.0*opts.numslides)
-       Likelihood[i] = DetectionProb_array[i] / FalseAlarmProb_array[i]
-     
-    # Calculating the ratio of DetectionProb to BackgroundFraction
-    if BackgroundFraction_array[i] > 0:
-      DetectionBackgroundRatio[i]= DetectionProb_array[i] / BackgroundFraction_array[i]
-    else:
-      #DetectionBackgroundRatio[i] = -1.0
-      # below is a temporary fix for the case of vanishing false alarm probability
-      BackgroundFraction_array[i] = 1 / float(2.0*len(slidesCoincTriggers))
-      DetectionBackgroundRatio[i]= DetectionProb_array[i] / BackgroundFraction_array[i]
-
+  for candidate in CandidateEventsCoincTriggers:
+    FAProb = false_alarm_prob(candidate, SlidesCoincTriggers, opts.numslides, opts.epsilon)
+    FAProduct[i] = FAProduct[i] * (1.0 - FAProb)
+    # accumulating statistic for Background Fraction 
+    Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    i += 1
+FalseAlarmProb = 1.0 - FAProduct 
+  
+if Ntotal_noise > 0:
+  BackgroundFraction = Nnoise_events_within_epsilon / float(Ntotal_noise)
+else:
+  BackgroundFraction = numpy.zeros(array_size)
+	 
+# Calculate Detection Probability
+Ntotal_found_injections = 0
+N_injections_within_epsilon = numpy.zeros(array_size)
+# loop over found injections files 	
+for file in FoundInjectionsFiles:
+  if opts.verbose:
+    print file
+  FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  FoundInjectionsCoincTriggers = CoincInspiralUtils.coincInspiralTable(FoundInjectionsTriggers, statistic)
+  if FoundInjectionsCoincTriggers:
     if opts.verbose:
-      print candidate.event_id, c_ifos, FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]
-    
+      print len(FoundInjectionsCoincTriggers)
+    Ntotal_found_injections += len(FoundInjectionsCoincTriggers)
+  i = 0
+  for candidate in CandidateEventsCoincTriggers:
+    # accumulating statistic for Detection Probability
+    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    i += 1
+	
+Ntotal_missed_injections = 0
+# loop over missed injections files
+for file in MissedInjectionsFiles:
+  if opts.verbose:
+	print file
+  MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles([file])
+  if MissedSimTriggers:
     if opts.verbose:
-      print candidate.event_id, c_ifos, BackgroundFraction_array[i], DetectionProb_array[i], DetectionBackgroundRatio[i]
-    i+=1
+      print len(MissedSimTriggers)   
+    Ntotal_missed_injections += len(MissedSimTriggers)
+	
+DetectionProb = N_injections_within_epsilon / float(Ntotal_found_injections + Ntotal_missed_injections)
+  
+# Calculating likelihood ratio
+for i in range(array_size):  
+  if FalseAlarmProb[i] > 0:
+    pass
+  else:
+	#Likelihood[i] = -1.0
+	# below is a temporary fix for the case of vanishing false alarm probability
+	FalseAlarmProb[i] = 1.0 / float(4.0*opts.numslides)
+	 
+Likelihood = DetectionProb / FalseAlarmProb
    
-  LikelihoodFile = open('Likelihood_zerolag', 'w')
-  BackgroundFractionFile = open('BackgroundFraction_zerolag', 'w')
-  for i in range(size_zerolag):  
-    # writing the false alarm probability, the detection probability and the likelihood ration into file
-    LikelihoodFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], FalseAlarmProb_array[i], DetectionProb_array[i], Likelihood[i]))
-    # writing tckgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
-    BackgroundFractionFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], BackgroundFraction_array[i], DetectionProb_array[i],\
-    DetectionBackgroundRatio[i]))
-  LikelihoodFile.close()
-  BackgroundFractionFile.close()
+# Calculating the ratio of DetectionProb to BackgroundFraction
+for i in range(array_size):  
+  if BackgroundFraction[i] > 0:
+	pass
+  else:
+	#DetectionBackgroundRatio[i] = -1.0
+	# below is a temporary fix for the case of vanishing false alarm probability
+	BackgroundFraction[i] = 1.0 / float(2.0 * Ntotal_noise)
+	
+DetectionBackgroundRatio= DetectionProb / BackgroundFraction
 
-  #save("Likelihood.txt", numpy.vstack((numpy.asarray(eventID_zerolag), numpy.asarray(zerolag_ifos), FalseAlarmProb_array, DetectionProb_array, Likelihood)).T, fmt="%16s")
-
-  # writing the BackgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
-  #save("BackgroundFraction.txt", numpy.vstack((numpy.asarray(eventID_zerolag), numpy.asarray(zerolag_ifos), BackgroundFraction_array, DetectionProb_array, DetectionBackgroundRatio)).T, fmt="%s")
-
-  if opts.dump:
-    cPickle.dump(FalseAlarmProb_array, IntermediateFile)
-    cPickle.dump(DetectionProb_array, IntermediateFile)
-    cPickle.dump(Likelihood, IntermediateFile)
-    cPickle.dump(BackgroundFraction_array, IntermediateFile)
-    cPickle.dump(DetectionBackgroundRatio, IntermediateFile)
-    cPickle.dump(zerolag_stat_array, IntermediateFile)
+#populating InspiralLikelihoodTable
+LikelihoodTable = lsctables.New(InspiralLikelihoodTable)
+i = 0
+for candidate in CandidateEventsCoincTriggers:
+  inspLikelihood = InspiralLikelihood()
+  c_ifos,ifolist = candidate.get_ifos()
+  inspLikelihood.ifo = c_ifos
+  inspLikelihood.event_id = candidate.event_id 	
+  inspLikelihood.false_alarm_prob = FalseAlarmProb[i]
+  inspLikelihood.detect_prob = DetectionProb[i]
+  inspLikelihood.likelihood = Likelihood[i]
+  inspLikelihood.bg_frac = BackgroundFraction[i]
+  inspLikelihood.detect_bg_frac_ratio = DetectionBackgroundRatio[i]
+  LikelihoodTable.append(inspLikelihood)
+  i += 1
   
+# writing InspiralLikelihoodTable into a file
+prefix, suffix = generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
+output_file_name = prefix + suffix + ".xml"
+LikelihoodFile = open(output_file_name, "w")
+LikelihoodTable.write(LikelihoodFile)
+LikelihoodFile.close()
 
-###########################################################################################
-# calculate likelihood for zero lag, injections and time slides coincidences
-##########################################################################################
-if opts.likelihood == 'zerolag-vs-background' or opts.likelihood == 'injections-vs-background':
-  
-  # calculating false alarm probability, detection probability and likelihood for zero lag coincs
-  size_zerolag = len(zerolagCoincTriggers)
-  p0_zerolag_array = numpy.zeros(size_zerolag)
-  pc_zerolag_array = numpy.zeros(size_zerolag)
-  bf_zerolag_array = numpy.zeros(size_zerolag)
-  Likelihood_zerolag = numpy.zeros(size_zerolag) 
-  DetectionBackgroundRatio_zerolag = numpy.zeros(size_zerolag)
-  zerolag_stat_array = numpy.zeros(size_zerolag)
-  eventID_zerolag = numpy.zeros(size_zerolag, dtype='int64')
-  zerolag_ifos = []
-
-  if opts.verbose:
-    print "zero lag coincs"
-  i = 0
-  for candidate in zerolagCoincTriggers:
-    c_ifos,ifolist = candidate.get_ifos()
-    zerolag_stat_array[i] = candidate.stat
-    eventID_zerolag[i] = candidate.event_id
-    zerolag_ifos.append(c_ifos)
-
-    p0_zerolag_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
-    pc_zerolag_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
-    bf_zerolag_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
-    # Calculating likelihood ratio
-    if p0_zerolag_array[i] > 0:
-      Likelihood_zerolag[i] = pc_zerolag_array[i] / p0_zerolag_array[i]
-    else:
-      #Likelihood_zerolag[i] = -1.0
-      # below is a temporary fix for the case of vanishing false alarm probability
-      p0_zerolag_array[i] = 1 / float(4.0*opts.numslides)
-      Likelihood_zerolag[i] = pc_zerolag_array[i] / p0_zerolag_array[i]
-
-    # Calculating the ratio of DetectionProb to BackgroundFraction
-    if bf_zerolag_array[i] > 0:
-      DetectionBackgroundRatio_zerolag[i]= pc_zerolag_array[i] / bf_zerolag_array[i]
-    else:
-      #DetectionBackgroundRatio_zerolag[i] = -1.0
-      # below is a temporary fix for the case of vanishing background fraction
-      bf_zerolag_array[i] = 1 / float(2*len(slidesCoincTriggers))
-      DetectionBackgroundRatio_zerolag[i]= pc_zerolag_array[i] / bf_zerolag_array[i]
-
-    if opts.verbose:
-      print i, candidate.event_id, c_ifos, p0_zerolag_array[i], bf_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i], DetectionBackgroundRatio_zerolag[i] 
-    i+=1
-
-  LikelihoodFile = open('Likelihood_zerolag', 'w')
-  BackgroundFractionFile = open('BackgroundFraction_zerolag', 'w')
-  for i in range(size_zerolag):
-    # writing the false alarm probability, the detection probability and the likelihood ration into file
-    LikelihoodFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], p0_zerolag_array[i], pc_zerolag_array[i], Likelihood_zerolag[i]))
-    # writing tckgroundFraction, DetectionProb and DetectionBackgroundRatio  into file
-    BackgroundFractionFile.write('%s\t%s\t%e\t%e\t%e\n' % (str(eventID_zerolag[i]), numpy.asarray(zerolag_ifos)[i], bf_zerolag_array[i], pc_zerolag_array[i],\
-    DetectionBackgroundRatio_zerolag[i]))
-  LikelihoodFile.close()
-  BackgroundFractionFile.close()
-
-
-  # dumping arrays with probabilities for zerolag into intermediate file
-  if opts.dump:
-    cPickle.dump(p0_zerolag_array, IntermediateFile)
-    cPickle.dump(bf_zerolag_array, IntermediateFile)
-    cPickle.dump(pc_zerolag_array, IntermediateFile)
-    cPickle.dump(Likelihood_zerolag, IntermediateFile)
-    cPickle.dump(DetectionBackgroundRatio_zerolag, IntermediateFile)
-    cPickle.dump(zerolag_stat_array, IntermediateFile)
-
-  
-  (statistic_foreground_zerolag_LKH, x_middle_foreground_zerolag_LKH) = cum_hist(Likelihood_zerolag, opts.bins_cumhist)
-  (statistic_foreground_zerolag_DBR, x_middle_foreground_zerolag_DBR) = cum_hist(DetectionBackgroundRatio_zerolag, opts.bins_cumhist)
-  
-  #dumping histograms for zerolag into intermediate file 
-  if opts.dump:
-    cPickle.dump(statistic_foreground_zerolag_LKH, IntermediateFile)
-    cPickle.dump(x_middle_foreground_zerolag_LKH, IntermediateFile)
-    cPickle.dump(statistic_foreground_zerolag_DBR, IntermediateFile)
-    cPickle.dump(x_middle_foreground_zerolag_DBR, IntermediateFile)  
-  
-  # calculating false alarm probability, detection probability and likelihood  for injections
-  size_inj = len(injectionCoincTriggers)
-  p0_inj_array = numpy.zeros(size_inj)
-  pc_inj_array = numpy.zeros(size_inj)
-  bf_inj_array = numpy.zeros(size_inj)
-  Likelihood_inj = numpy.zeros(size_inj)
-  DetectionBackgroundRatio_inj = numpy.zeros(size_inj)
-  injections_stat_array = numpy.zeros(size_inj)
-  eventID_inj = numpy.zeros(size_inj, dtype='int64')
-  inj_ifos = []
-
-  if opts.verbose:
-    print "injections coincs"
-
-  i = 0
-  for candidate in injectionCoincTriggers:
-    c_ifos,ifolist = candidate.get_ifos()
-    injections_stat_array[i] = candidate.stat
-    eventID_inj[i] = candidate.event_id
-    inj_ifos.append(c_ifos)
-    p0_inj_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
-    pc_inj_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
-    bf_inj_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
-    # Calculating likelihood ratio
-    if p0_inj_array[i] > 0:
-      Likelihood_inj[i] = pc_inj_array[i] / p0_inj_array[i]
-    else:
-      #Likelihood_inj[i] = -1.0
-      # below is a temporary fix for the case of vanishing false alarm probability
-      p0_inj_array[i] = 1/float(4.0*opts.numslides)
-      Likelihood_inj[i] = pc_inj_array[i] / p0_inj_array[i]
-
-    # Calculating the ratio of DetectionProb to BackgroundFraction
-    if bf_inj_array[i] > 0:
-      DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
-    else:
-      #DetectionBackgroundRatio_inj[i] = -1.0
-      # below is a temporary fix for the case of vanishing background fraction
-      bf_inj_array[i] = 1/float(2.0*len(slidesCoincTriggers))
-      DetectionBackgroundRatio_inj[i]= pc_inj_array[i]/bf_inj_array[i]
-
-    if opts.verbose:
-      print i, candidate.event_id, c_ifos, p0_inj_array[i], bf_inj_array[i], pc_inj_array[i], Likelihood_inj[i], DetectionBackgroundRatio_inj[i]
-    i+=1
-
-  
-  # dumping arrays with probabilities for injections into intermediate file
-  if opts.dump:
-    cPickle.dump(p0_inj_array, IntermediateFile)
-    cPickle.dump(bf_inj_array, IntermediateFile)
-    cPickle.dump(pc_inj_array, IntermediateFile)
-    cPickle.dump(Likelihood_inj, IntermediateFile)
-    cPickle.dump(DetectionBackgroundRatio_inj, IntermediateFile)
-    cPickle.dump(injections_stat_array, IntermediateFile)
- 
-  (statistic_foreground_inj_LKH, x_middle_foreground_inj_LKH) = cum_hist(Likelihood_inj, opts.bins_cumhist)
-  (statistic_foreground_inj_DBR, x_middle_foreground_inj_DBR) = cum_hist(DetectionBackgroundRatio_inj, opts.bins_cumhist)
-  
-  #dumping histograms for injections into intermediate file 
-  if opts.dump:
-    cPickle.dump(statistic_foreground_inj_LKH, IntermediateFile)
-    cPickle.dump(x_middle_foreground_inj_LKH, IntermediateFile)
-    cPickle.dump(statistic_foreground_inj_DBR, IntermediateFile)
-    cPickle.dump(x_middle_foreground_inj_DBR, IntermediateFile)
-
-
-  # calculating  the binning to be used for background 
-  if opts.likelihood == 'zerolag-vs-background':
-    # calculating  the binning to be used for background 
-    bins_slide = x_middle_foreground_zerolag_LKH - (x_middle_foreground_zerolag_LKH[1]-x_middle_foreground_zerolag_LKH[0])
-    bins_DBR = x_middle_foreground_zerolag_DBR - (x_middle_foreground_zerolag_DBR[1]-x_middle_foreground_zerolag_DBR[0])
-  if opts.likelihood == 'injections-vs-background':
-    bins_slide = x_middle_foreground_inj_LKH - (x_middle_foreground_inj_LKH[1]-x_middle_foreground_inj_LKH[0])
-    bins_DBR = x_middle_foreground_inj_DBR - (x_middle_foreground_inj_DBR[1]-x_middle_foreground_inj_DBR[0])
-
-  # dumping bins for slides into intremediate file
-  if opts.dump:
-    cPickle.dump(bins_slide, IntermediateFile)
-    cPickle.dump(bins_DBR, IntermediateFile)
-  
-  # calculating false alarm probability, detection probability and likelihood  for timeslides
-  size_slides = len(slidesCoincTriggers)
-  p0_slides_array = numpy.zeros(size_slides)
-  pc_slides_array = numpy.zeros(size_slides)
-  bf_slides_array = numpy.zeros(size_slides)
-  Likelihood_slides = numpy.zeros(size_slides)
-  slides_stat_array = numpy.zeros(size_slides)
-  eventID_slides = numpy.zeros(size_slides, dtype='int64')
-  slides_ifos = []
-  
-  average_likelihood = numpy.zeros(opts.bins_cumhist)
-  average_sqr_likelihood = numpy.zeros(opts.bins_cumhist)
-  average_DBR = numpy.zeros(opts.bins_cumhist)
-  average_sqr_DBR = numpy.zeros(opts.bins_cumhist)
-
-
-  DetectionBackgroundRatio_slides = numpy.zeros(size_slides)
-  if opts.verbose:
-    print "time slides coincs"
-  i = 0
-  range_slides = range(-opts.numslides, opts.numslides + 1)
-  range_slides.remove(0)
-  for slide in range_slides:
-    slideTriggers = slidesCoincTriggers.getslide(slide)
-    Likelihood_tmp = numpy.zeros(len(slideTriggers))
-    DetectionBackgroundRatio_tmp = numpy.zeros(len(slideTriggers))
-    j = 0
-    for candidate in slideTriggers:
-      c_ifos,ifolist = candidate.get_ifos()
-      slides_stat_array[i] = candidate.stat
-      eventID_slides[i] = candidate.event_id
-      slides_ifos.append(c_ifos)
-      p0_slides_array[i] = likelihood().false_alarm_prob(candidate, slidesCoincTriggers, opts.numslides, opts.epsilon)
-      pc_slides_array[i] = likelihood().detection_prob(candidate, injectionCoincTriggers, opts.epsilon)
-      bf_slides_array[i] = likelihood().background_fraction(candidate, slidesCoincTriggers, opts.epsilon)
-      # Calculating likelihood ratio
-      if p0_slides_array[i] > 0:
-        Likelihood_slides[i] = pc_slides_array[i] / p0_slides_array[i]
-      else:
-        #Likelihood_slides[i] = -1.0
-        # below is a temporary fix for the case of vanishing false alarm probability
-        p0_slides_array[i] = 1/float(4.0*opts.numslides)
-        Likelihood_slides[i] = pc_slides_array[i] / p0_slides_array[i]
-
-
-      Likelihood_tmp[j] = Likelihood_slides[i]
-      # Calculating the ratio of DetectionProb to BackgroundFraction
-      if bf_slides_array[i] > 0:
-        DetectionBackgroundRatio_slides[i]= pc_slides_array[i]/bf_slides_array[i]
-      else:
-        #DetectionBackgroundRatio_slides[i] = -1.0
-        # below is a temporary fix for the case of vanishing background fraction
-        bf_slides_array[i] = 1 / float(2.0*len(slidesCoincTriggers))
-        DetectionBackgroundRatio_slides[i]= pc_slides_array[i] / bf_slides_array[i]
-
-      DetectionBackgroundRatio_tmp[j] = DetectionBackgroundRatio_slides[i]
-     
- 
-
-      if opts.verbose:
-        print i, candidate.event_id,  c_ifos, p0_slides_array[i], bf_slides_array[i], pc_slides_array[i], Likelihood_slides[i], DetectionBackgroundRatio_slides[i]
-      i+=1
-      j+=1
-    
-
-    (cumhist_slide, x_middle_slide_LKH) = cum_hist(Likelihood_tmp, bins_slide)
-    average_likelihood +=cumhist_slide
-    average_sqr_likelihood +=cumhist_slide**2
-
-    (cumhist_slide, x_middle_slide_DBR) = cum_hist(DetectionBackgroundRatio_tmp, bins_DBR)
-    average_DBR +=cumhist_slide
-    average_sqr_DBR +=cumhist_slide**2
- 
-      
-
-
- 
-  # dumping arrays with probabilities for time slides into intermediate file
-  if opts.dump:
-    cPickle.dump(x_middle_slide_LKH, IntermediateFile)
-    cPickle.dump(x_middle_slide_DBR, IntermediateFile)
-    cPickle.dump(p0_slides_array, IntermediateFile)
-    cPickle.dump(bf_slides_array, IntermediateFile)
-    cPickle.dump(pc_slides_array, IntermediateFile)
-    cPickle.dump(Likelihood_slides, IntermediateFile)
-    cPickle.dump(DetectionBackgroundRatio_slides, IntermediateFile)
-    cPickle.dump(slides_stat_array, IntermediateFile)
-
-  sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
-  expect_likelihood = average_likelihood / (2 * opts.numslides)
-
-  sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
-  expect_DBR = average_DBR / (2 * opts.numslides)
-  
-  # dumping average and variance likelihood for time slides
-  if opts.dump:
-    cPickle.dump(sigma_likelihood, IntermediateFile)
-    cPickle.dump(expect_likelihood, IntermediateFile)
-    cPickle.dump(sigma_DBR, IntermediateFile)
-    cPickle.dump(expect_DBR, IntermediateFile)
-    
-
-if opts.dump:
-  IntermediateFile.close()
-###################################################################################
-# Plot the various parameters for time slides and injections
-###################################################################################
-
-
-if opts.plot_simethinca:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'simethinca', opts.slide_bins, opts.injection_bins)
-
-if opts.plot_distcut:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'eff_distance', opts.slide_bins, opts.injection_bins)  
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'eff_distance')
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'eff_distance')
-
-if opts.plot_mchirp:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'mchirp', opts.slide_bins, opts.injection_bins)
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp')
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp')
-
-
-if opts.plot_chisq:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'chisq', opts.slide_bins, opts.injection_bins) 
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'chisq', logscale=True)
-
-if opts.plot_snr:
-  plotdata().plotroutine(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)
-  plotdata().plotparam(ifo_combos,slidesCoincTriggers,injectionCoincTriggers,'snr', opts.slide_bins, opts.injection_bins)   
-  plotdata().scatter_plot_param_2D(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', logscale=True)
-  plotdata().scatter_plot_param_2D_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', logscale=True) 
-
-if opts.plot_snr_vs_chisq:
-  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'snr', 'chisq', logscale=True) 
-  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'snr', 'chisq', logscale=True) 
-
-if opts.plot_snr_vs_mchirp:
-  plotdata().scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp', 'snr', ylogscale=True)
-  plotdata().scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp', 'snr', ylogscale=True)
-
-
-
-if opts.scatter_plot:
-  plotdata().scatter_plot(FalseAlarmProb_array, DetectionProb_array)
-  plotdata().scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic)
-  plotdata().scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic)
-  plotdata().scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic)
-
-
-
-
-
-print "check point 1"
-if opts.scatter_all_plot:
-  print "check point 2"
-  plotdata().triple_scatter_plot(p0_zerolag_array, pc_zerolag_array, p0_inj_array, pc_inj_array, p0_slides_array, pc_slides_array)
-  print "check point 3"
-  plotdata().triple_scatter_plot(bf_zerolag_array, pc_zerolag_array, bf_inj_array, pc_inj_array, bf_slides_array, pc_slides_array, 'Background_Fraction')
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injections_stat_array, p0_inj_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injections_stat_array, Likelihood_inj, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
-  plotdata().triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injections_stat_array, DetectionBackgroundRatio_inj, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
-
-
-if opts.likelihood == 'zerolag-candidates-only':
-  plotdata().plot_likelihood(Likelihood, opts.bins_cumhist, prefix='likelihood_zerolag')
-  plotdata().plot_likelihood(DetectionBackgroundRatio, opts.bins_cumhist, prefix='DBR_zerolag',label_x='DBR')   
-elif  opts.likelihood == 'zerolag-vs-background':
-  postfix = '_zerolag_vs_background'
-  plotdata().plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = '_zerolag_vs_background' + '_DBR'
-  plotdata().plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_zerolag, opts.bins_cumhist, prefix='likelihood_zerolag')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_zerolag, opts.bins_cumhist, prefix='DBR_zerolag', label_x='DBR')
-  if opts.inj_vs_slides_hist:
-     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
-     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
-elif opts.likelihood == 'injections-vs-background':
-  postfix = '_injections_vs_background' 
-  plotdata().plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
-  postfix = '_injections_vs_background' + '_DBR'
-  plotdata().plot_cumhist(statistic_foreground_inj_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
-  plotdata().plot_likelihood(Likelihood_inj, opts.bins_cumhist, prefix='likelihood_injections')
-  plotdata().plot_likelihood(DetectionBackgroundRatio_inj, opts.bins_cumhist, prefix='DBR_injections', label_x='DBR')
-  if opts.inj_vs_slides_hist:
-     plotdata().inj_vs_slides_hist(Likelihood_inj, Likelihood_slides, opts.bins_inj_vs_slides)
-     plotdata().inj_vs_slides_hist(DetectionBackgroundRatio_inj, DetectionBackgroundRatio_slides, opts.bins_inj_vs_slides, prefix='DBR')
-
- 
-if opts.show:
-  show()
-
-
-
-
-
-
-
-
-
-
+if opts.verbose:
+  for row in LikelihoodTable:
+    print row.ifo, row.event_id, row.false_alarm_prob, row.detect_prob, row.likelihood, row.bg_frac, row.detect_bg_frac_ratio
