@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.22-64-reviewed
+VERSION=1.4.23-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -13,11 +13,13 @@ OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
 #OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
-	$(LALINCLUDE)
+	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
 
-OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o powerflux.o  \
-	png.o polarization.o intervals.o statistics.o dataset.o candidates.o util.o 
+PYTHON_OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o \
+	png.o polarization.o intervals.o statistics.o dataset.o candidates.o
+
+OBJS=$(PYTHON_OBJS) powerflux.o
 
 FILES=sky_marks.txt all_sky_marks_*.txt
 
@@ -236,13 +238,13 @@ test5: powerflux
 		--fake-orientation=0.5 --fake-ra=5.785685 --fake-dec=-1.563849
 
 test5c: powerflux-mt
-	./powerflux-mt --dataset=random.dst -f 180002 -n 501 \
+	 ./powerflux-mt --dataset=random.dst -f 180002 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
-		--dump-points=0 \
+		--dump-points=0 --no-secondary-skymaps=1 \
 		--sky-marks-file=all_sky_marks.txt \
 	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
         	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
@@ -313,30 +315,40 @@ WL=-Wl,--rpath -Wl,/home/volodya/LIGO/LAL/support-lib/.libs -Wl,--rpath -Wl,/hom
 dat2skymap: grid.o rastermagic.o dat2skymap.o png.o
 	$(CC) grid.o rastermagic.o dat2skymap.o png.o -o dat2skymap -static $(LDFLAGS)
 
-powerflux: $(OBJS) jobs.o
-	$(CC) $(OBJS) jobs.o -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas -lm
+python.o: python.c *.h
+	$(CC) -c `python-config --includes` python.c
+
+powerflux.so: $(PYTHON_OBJS) jobs-mt.o util.o python.o
+	$(CC) -shared $(PYTHON_OBJS) jobs-mt.o util.o python.o -o powerflux.so $(LALLDFLAGS) /usr/lib/libpng.so -lgsl -lgslcblas -lm
+	ls -l powerflux.so
+
+powerflux: $(OBJS) jobs.o util.o
+	$(CC) $(OBJS) jobs.o util.o -o powerflux -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux
 
-powerflux-mt: $(OBJS) jobs-mt.o
-	$(CC) $(OBJS) jobs-mt.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
+powerflux-mt: $(OBJS) jobs-mt.o util.o
+	$(CC) $(OBJS) jobs-mt.o util.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
 	ls -l powerflux
 
-powerflux.dyn: $(OBJS)
-	$(CC) $(OBJS) -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
+powerflux.dyn: $(OBJS) jobs.o util.o
+	$(CC) $(OBJS) jobs.o util.o -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
 	ls -l powerflux.dyn
 
-powerflux-condor: $(OBJS) jobs.o
-	 condor_compile $(CC) $(OBJS) jobs.o -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
+powerflux-condor: $(OBJS) jobs.o util-condor.o
+	 condor_compile $(CC) $(OBJS) jobs.o util-condor.o -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux-condor
 
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
 
+util-condor.o: util.c util.h
+	$(CC) $(CFLAGS) -DCONDOR -c util.c -o util-condor.o
+
 test_rm: test_rm.c rastermagic.o
 	$(CC) test_rm.c rastermagic.o -lm -o test_rm
 
 cmdline.c: powerflux.ggo
-	gengetopt  --conf-parser < powerflux.ggo
+	gengetopt  --string-parser --conf-parser < powerflux.ggo
 
 clean:
 	rm -f core *.bck *.o

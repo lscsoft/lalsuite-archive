@@ -57,5 +57,6 @@ typedef struct {
 void init_candidates(void);
 void identify_candidates(void);
 void output_candidates(FILE *fout);
+void compute_scores(CANDIDATE *cand, int debug);
 
 #endif

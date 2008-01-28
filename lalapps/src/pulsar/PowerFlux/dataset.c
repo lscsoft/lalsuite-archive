@@ -46,6 +46,7 @@
 #include "rastermagic.h"
 #include "hookup.h"
 #include "util.h"
+#include "jobs.h"
 
 #include <lal/GeneratePulsarSignal.h>
 
@@ -73,6 +74,8 @@ DATASET * datasets=NULL;
 int d_free=0;
 int d_size=0;
 
+extern int do_CutOff;
+
 int lock_file=-1;
 
 /* this is a busy wait.. as condor does not allow sleep() */
@@ -94,17 +97,14 @@ while(1) {
 
 /* we need the structure to be global as a workaround for a bug in condor libraries:
    this way the pointer is 32bit even on 64bit machines */
-struct flock fl;
 
 static void acquire_lock(char *filename)
 {
 int i;
+struct flock fl;
 
 lock_file=open(filename, O_CREAT | O_RDWR, 0666);
-if(lock_file<0) {
-	fprintf(stderr, "Could not open file \"%s\" for locking\n", filename);
-	return;
-	}
+
 memset(&fl, 0, sizeof(fl));
 fl.l_type=F_WRLCK;
 fl.l_whence=SEEK_SET;
@@ -112,12 +112,17 @@ fl.l_start=0;
 fl.l_len=1;
 errno=0;
 i=0;
-while(fcntl(lock_file, F_SETLK, &fl)<0){
-	if(i>100) {
+while((lock_file<0) || (direct_fcntl(lock_file, F_SETLK, &fl)<0)){
+	if(lock_file<0) {
+		fprintf(stderr, "Could not open file \"%s\" for locking\n", filename);
+		}
+	if(i>10) {
 		fprintf(stderr, "Waiting for lock: %s\n", strerror(errno));
 		i=0;
 		}
+	if(lock_file>=0)close(lock_file);
 	condor_safe_sleep(10);
+	lock_file=open(filename, O_CREAT | O_RDWR, 0666);
 	i++;
 	}
 }
@@ -730,10 +735,38 @@ int i;
 for(i=0;i<d_free;i++)compute_power(&(datasets[i]));
 }
 
+typedef struct {
+	int point;
+	DATASET *d;
+	
+	} CUTOFF_DATA;
+
+void cutoff_cruncher(int thread_id, CUTOFF_DATA *data)
+{
+int j, m;
+float *tm;
+tm=do_alloc(data->d->free, sizeof(*tm));
+for(m=0;m<ntotal_polarizations;m++) {
+/*	if(patch_grid->band[i]<0){
+		d->polarizations[m].patch_CutOff[i]=0.0;
+		continue;
+		}*/
+	if(!do_CutOff) {
+		data->d->polarizations[m].patch_CutOff[data->point]=1e30;
+		continue;
+		}
+	for(j=0;j<data->d->free;j++)tm[j]=1.0/(sqrt(data->d->expTMedians[j])*AM_response(j, patch_grid, data->point, data->d->polarizations[m].AM_coeffs));
+	data->d->polarizations[m].patch_CutOff[data->point]=FindCutOff(tm, data->d->free);
+	}
+free(tm);
+}
+
 static int validate_dataset(DATASET *d)
 {
-int i,j, m;
+int i,j, m, k;
 float *tm;
+CUTOFF_DATA *cd;
+
 if(d->validated)return 1;
 fprintf(stderr, "Validating dataset \"%s\"\n", d->name);
 fprintf(stderr, "Found %d segments\n", d->free);
@@ -848,10 +881,18 @@ for(i=0;i<ntotal_polarizations;i++){
 fprintf(stderr,"Computing cutoff values for dataset %s\n", d->name);
 /* compute CutOff values for each patch */
 
-tm=do_alloc(d->free, sizeof(*tm));
+//tm=do_alloc(d->free, sizeof(*tm));
+
+cd=do_alloc(patch_grid->npoints, sizeof(*cd));
+reset_jobs_done_ratio();
 
 for(i=0;i<patch_grid->npoints;i++) {
+	cd[i].point=i;
+	cd[i].d=d;
+
+	submit_job(cutoff_cruncher, &(cd[i]));
 	
+	#if 0
 	for(m=0;m<ntotal_polarizations;m++) {
 /*		if(patch_grid->band[i]<0){
 			d->polarizations[m].patch_CutOff[i]=0.0;
@@ -860,9 +901,20 @@ for(i=0;i<patch_grid->npoints;i++) {
 		for(j=0;j<d->free;j++)tm[j]=1.0/(sqrt(d->expTMedians[j])*AM_response(j, patch_grid, i, d->polarizations[m].AM_coeffs));
 		d->polarizations[m].patch_CutOff[i]=FindCutOff(tm, d->free);
 		}
+	#endif
 	}
 
-free(tm);
+k=0;
+while(do_single_job(-1)) {
+	if(k % 100 == 0)fprintf(stderr, "% 3.1f ", jobs_done_ratio()*100);
+	k++;
+	}
+wait_for_all_done();
+
+fprintf(stderr, " 100\n");
+free(cd);
+
+//free(tm);
 
 characterize_dataset(d);
 d->validated=1;
@@ -982,11 +1034,9 @@ fread(&b, sizeof(b), 1, fin);
 *gps=b;
 
 if(!check_intervals(d->segment_list, *gps)){
-	fclose(fin);
 	return -1;
 	}
 if(check_intervals(d->veto_segment_list, *gps)>0){
-	fclose(fin);
 	return -1;
 	}
 
@@ -1058,12 +1108,10 @@ fread(&ht, sizeof(ht), 1, fin);
 *gps=ht.gps_sec;
 
 if(!check_intervals(d->segment_list, *gps)){
-	fclose(fin);
-	return -1;
+	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 if(check_intervals(d->veto_segment_list, *gps)>0){
-	fclose(fin);
-	return -1;
+	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 
 
@@ -1073,6 +1121,16 @@ bin_start=ht.first_frequency_index;
 nbins=ht.nsamples;
 
 tmp=do_alloc(count*2, sizeof(*tmp));
+
+if(startbin<bin_start) {
+	fprintf(stderr, "Requested frequency range is below region covered by SFT %s gps=%lld bin_start=%d requested=%d\n", filename, *gps, bin_start, startbin);
+	return -(48+ht.nsamples*8+ht.comment_length);
+	}
+
+if(startbin+count>bin_start+ht.nsamples) {
+	fprintf(stderr, "Requested frequency range is above region covered by SFT %s gps=%lld SFT end=%d requested=%d\n", filename, *gps, bin_start+ht.nsamples, startbin+count);
+	return -(48+ht.nsamples*8+ht.comment_length);
+	}
 
 fseek(fin, ht.comment_length+(startbin-bin_start)*8,SEEK_CUR);
 if(fread(tmp,4,count*2,fin)<count*2){
@@ -1178,13 +1236,16 @@ while(1) {
 		} else
 	if(a==2.0) {
 		i=get_sftv2_range(d, filename, fin,  d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]));
-		if(i<0) {
+		if((i<0) && (i> -48)) {
 			fclose(fin);
 			fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
 			return;
 			}
-		header_offset+=i;
-		d->free++;
+		if(i>0) {
+			header_offset+=i;
+			d->free++;
+			} else 
+			header_offset+=-i;
 		} else {
 		if(!header_offset)fprintf(stderr,"Cannot read file \"%s\": wrong endianness or invalid data\n", filename);
 		fclose(fin);
@@ -1826,7 +1887,7 @@ for(i=0;i<d_free;i++) {
 				ed[0]*d->detector_velocity[3*k+0]+
 				ed[1]*d->detector_velocity[3*k+1]+
 				ed[2]*d->detector_velocity[3*k+2]
-				)+(d->gps[k]-spindown_start+d->coherence_time*0.5)*d->coherence_time*delta_spindown;
+				)*args_info.doppler_multiplier_arg+(d->gps[k]-spindown_start+d->coherence_time*0.5)*d->coherence_time*delta_spindown;
 		f1+=fdiff*w;
 		#if TRACE_EFFECTIVE
 		if(once)fprintf(LOG, "%8f %8f %8f\n",w,  (d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase, fdiff);
@@ -1875,7 +1936,7 @@ for(i=0;i<d_free;i++) {
 				ed[0]*d->detector_velocity[3*k+0]+
 				ed[1]*d->detector_velocity[3*k+1]+
 				ed[2]*d->detector_velocity[3*k+2]
-				)
+				)*args_info.doppler_multiplier_arg
 			+(d->gps[k]-spindown_start+d->coherence_time*0.5)*d->coherence_time*delta_spindown
 			-offset-fdot*(d->gps[k]-spindown_start+d->coherence_time*0.5)*inv_timebase;
 		if(fabs(fdiff)<bin_tolerance)f1+=w;
@@ -1907,7 +1968,7 @@ for(i=0;i<d_free;i++) {
 				e[0]*d->detector_velocity[3*k+0]+
 				e[1]*d->detector_velocity[3*k+1]+
 				e[2]*d->detector_velocity[3*k+2]
-				)
+				)*args_info.doppler_multiplier_arg
 			+d->coherence_time*spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
 		f1+=fdiff*w;
 		}
@@ -1929,7 +1990,7 @@ for(i=0;i<d_free;i++) {
 				e[0]*d->detector_velocity[3*k+0]+
 				e[1]*d->detector_velocity[3*k+1]+
 				e[2]*d->detector_velocity[3*k+2]
-				)
+				)*args_info.doppler_multiplier_arg
 			+d->coherence_time*spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5)
 			-offset;
 
@@ -1984,7 +2045,7 @@ if(fout==NULL) {
 	perror("");
 	return;
 	}
-fprintf(fout, "Dataset\tDetector\tGPS");
+fprintf(fout, "Dataset\tDetector\tGPS\tdopplerX\tdopplerY\tdopplerZ");
 for(k=0;k<nbins;k++) fprintf(fout, "\tR%d", k+first_bin);
 for(k=0;k<nbins;k++) fprintf(fout, "\tI%d", k+first_bin);
 for(k=0;k<nbins;k++) fprintf(fout, "\tP%d", k+first_bin);
@@ -1993,7 +2054,11 @@ fprintf(fout, "\n");
 for(i=0;i<d_free;i++) {
 	d=&(datasets[i]);
 	for(j=0;j<d->free;j++) {
-		fprintf(fout, "%s\t%s\t%lld", d->name, d->detector, d->gps[j]);
+		fprintf(fout, "%s\t%s\t%lld\t%8g\t%8g\t%8g", d->name, d->detector, d->gps[j],
+			d->detector_velocity[3*j],
+			d->detector_velocity[3*j+1],
+			d->detector_velocity[3*j+2]
+			);
 		for(k=0;k<d->nbins;k++) {
 			fprintf(fout, "\t%8g", d->re[j*d->nbins+k]*args_info.strain_norm_factor_arg/(0.5*1800.0*16384.0));
 			}

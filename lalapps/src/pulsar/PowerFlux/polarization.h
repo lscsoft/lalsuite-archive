@@ -73,7 +73,7 @@ typedef struct {
 	struct {
 		SUM_TYPE *total_weight;
 		SUM_TYPE *max_sub_weight;
-		COUNT_TYPE *total_count;
+		SUM_TYPE *total_count;
 		SUM_TYPE *max_dx;
 		SUM_TYPE *M_map;
 		SUM_TYPE *S_map;

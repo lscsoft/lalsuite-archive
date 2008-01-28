@@ -71,6 +71,7 @@ int do_single_job(int thread_id);
 int all_done(void);
 void wait_for_more_jobs(void);
 void wake_crunchers(void);
+void reset_jobs_done_ratio(void);
 float jobs_done_ratio(void);
 void print_jobs_stats(void);
 void wait_for_all_done(void);

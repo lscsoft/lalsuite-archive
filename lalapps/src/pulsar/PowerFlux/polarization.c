@@ -150,8 +150,11 @@ fprintf(LOG, "Spectral plot arrays size: %f KB\n", ntotal_polarizations*7.0*usef
 		
 for(i=0;i<ntotal_polarizations;i++) {
 
+	#define SECONDARY  args_info.no_secondary_skymaps_arg ? NULL :
+
 	#ifdef WEIGHTED_SUM
 	polarization_results[i].skymap.total_weight=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].skymap.total_weight));
+	polarization_results[i].skymap.total_count= SECONDARY do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].skymap.total_count));
 	#else
 	polarization_results[i].skymap.total_count=do_alloc(fine_grid->npoints,sizeof(*polarization_results[i].skymap.total_count));
 	#endif
@@ -159,15 +162,15 @@ for(i=0;i<ntotal_polarizations;i++) {
 	/* Output arrrays - skymaps*/
 	polarization_results[i].skymap.max_sub_weight=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarization_results[i].skymap.max_dx=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarization_results[i].skymap.M_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarization_results[i].skymap.S_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarization_results[i].skymap.M_map= SECONDARY do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarization_results[i].skymap.S_map= SECONDARY do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarization_results[i].skymap.max_upper_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarization_results[i].skymap.max_lower_limit=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarization_results[i].skymap.freq_map=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarization_results[i].skymap.cor1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarization_results[i].skymap.cor2=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarization_results[i].skymap.cor1= SECONDARY do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarization_results[i].skymap.cor2= SECONDARY do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 	polarization_results[i].skymap.ks_test=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
-	polarization_results[i].skymap.ks_count=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
+	polarization_results[i].skymap.ks_count= SECONDARY do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
 
 	if(args_info.compute_betas_arg){
 		polarization_results[i].skymap.beta1=do_alloc(fine_grid->npoints, sizeof(SUM_TYPE));
@@ -197,11 +200,12 @@ for(i=0;i<max_cruncher_threads;i++)aar[i]=new_accumulation_arrays();
 void free_polarization_arrays(void)
 {
 int i;
-#define FREE(var) { free(var); var=NULL; }
+#define FREE(var) { if(var!=NULL)free(var); var=NULL; }
 for(i=0;i<ntotal_polarizations;i++){
 
 	#ifdef WEIGHTED_SUM
 	FREE(polarization_results[i].skymap.total_weight);
+	FREE(polarization_results[i].skymap.total_count);
 	#else
 	FREE(polarization_results[i].skymap.total_count);
 	#endif
@@ -253,17 +257,18 @@ int i,k;
 for(i=0;i<ntotal_polarizations;i++){
 	for(k=0;k<fine_grid->npoints;k++){
 		polarization_results[i].skymap.max_dx[k]=-1.0;
-		polarization_results[i].skymap.M_map[k]=-1.0;
-		polarization_results[i].skymap.S_map[k]=-1.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.M_map[k]=-1.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.S_map[k]=-1.0;
 		polarization_results[i].skymap.max_upper_limit[k]=-1.0;
 		polarization_results[i].skymap.max_lower_limit[k]=-1.0;
 		polarization_results[i].skymap.freq_map[k]=-1.0;
-		polarization_results[i].skymap.cor1[k]=-1.0;
-		polarization_results[i].skymap.cor2[k]=-1.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.cor1[k]=-1.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.cor2[k]=-1.0;
 		polarization_results[i].skymap.ks_test[k]=-1.0;
-		polarization_results[i].skymap.ks_count[k]=-1.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.ks_count[k]=-1.0;
 		#ifdef WEIGHTED_SUM
 		polarization_results[i].skymap.total_weight[k]=0.0;
+		if(!args_info.no_secondary_skymaps_arg)polarization_results[i].skymap.total_count[k]=0;
 		#else
 		polarization_results[i].skymap.total_count[k]=0;
 		#endif
@@ -302,6 +307,7 @@ total+=ntotal_polarizations*sizeof(*r[0].fine_grid_sq_sum);
 
 #ifdef WEIGHTED_SUM
 total+=ntotal_polarizations*sizeof(*r[0].fine_grid_sum);
+total+=ntotal_polarizations*sizeof(*r[0].fine_grid_count);
 #else
 total+=ntotal_polarizations*sizeof(*r[0].fine_grid_count);
 #endif
@@ -333,6 +339,7 @@ for(i=0;i<ntotal_polarizations;i++){
 
 	#ifdef WEIGHTED_SUM
 	r[i].fine_grid_weight=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_weight));
+	r[i].fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_count));
 	#else
 	r[i].fine_grid_count=do_alloc(stored_fine_bins*useful_bins,sizeof(*r[i].fine_grid_count));
 	#endif
@@ -343,7 +350,7 @@ return(r);
 void free_accumulation_arrays(ACCUMULATION_ARRAYS *r)
 {
 int i;
-#define FREE(var) { free(var); var=NULL; }
+#define FREE(var) { if(var!=NULL)free(var); var=NULL; }
 for(i=0;i<ntotal_polarizations;i++){
 	/* Accumulation arrays */
 	FREE(r[i].total_weight);
@@ -357,6 +364,7 @@ for(i=0;i<ntotal_polarizations;i++){
 
 	#ifdef WEIGHTED_SUM
 	FREE(r[i].fine_grid_weight);
+	FREE(r[i].fine_grid_count);
 	#else
 	FREE(r[i].fine_grid_count);
 	#endif
@@ -399,6 +407,7 @@ for(k=0;k<ntotal_polarizations;k++){
 
 		#ifdef WEIGHTED_SUM	
 		r[k].fine_grid_weight[i]=0.0;
+		r[k].fine_grid_count[i]=0;
 		#else	
 		r[k].fine_grid_count[i]=0;
 		#endif

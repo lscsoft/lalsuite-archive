@@ -121,9 +121,15 @@ struct gengetopt_args_info
   char * detector_arg;	/* detector location (i.e. LHO or LLO), passed to detresponse.  */
   char * detector_orig;	/* detector location (i.e. LHO or LLO), passed to detresponse original value given at command line.  */
   const char *detector_help; /* detector location (i.e. LHO or LLO), passed to detresponse help description.  */
+  double doppler_multiplier_arg;	/* a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) (default='1.0').  */
+  char * doppler_multiplier_orig;	/* a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) original value given at command line.  */
+  const char *doppler_multiplier_help; /* a constant to multiply Doppler shifts by (1.0 corresponds to standard physics) help description.  */
   double spindown_start_time_arg;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default.  */
   char * spindown_start_time_orig;	/* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default original value given at command line.  */
   const char *spindown_start_time_help; /* specify spindown start time in GPS sec. Assumed to be the first SFT segment by default help description.  */
+  double frequency_offset_arg;	/* (small) frequency offset - used to achieve fractional bin shifts (default='0.0').  */
+  char * frequency_offset_orig;	/* (small) frequency offset - used to achieve fractional bin shifts original value given at command line.  */
+  const char *frequency_offset_help; /* (small) frequency offset - used to achieve fractional bin shifts help description.  */
   double spindown_start_arg;	/* first spindown value to process (default='0.0').  */
   char * spindown_start_orig;	/* first spindown value to process original value given at command line.  */
   const char *spindown_start_help; /* first spindown value to process help description.  */
@@ -133,6 +139,9 @@ struct gengetopt_args_info
   int spindown_count_arg;	/* how many separate spindown values to process (default='1').  */
   char * spindown_count_orig;	/* how many separate spindown values to process original value given at command line.  */
   const char *spindown_count_help; /* how many separate spindown values to process help description.  */
+  double fdotdot_arg;	/* second frequency derivative (default='0.0').  */
+  char * fdotdot_orig;	/* second frequency derivative original value given at command line.  */
+  const char *fdotdot_help; /* second frequency derivative help description.  */
   double orientation_arg;	/* additional orientation phase, specifying 0.7853 will turn plus into cross (default='0').  */
   char * orientation_orig;	/* additional orientation phase, specifying 0.7853 will turn plus into cross original value given at command line.  */
   const char *orientation_help; /* additional orientation phase, specifying 0.7853 will turn plus into cross help description.  */
@@ -151,6 +160,9 @@ struct gengetopt_args_info
   int no_am_response_arg;	/* force AM_response() function to return 1.0 irrespective of the arguments (default='0').  */
   char * no_am_response_orig;	/* force AM_response() function to return 1.0 irrespective of the arguments original value given at command line.  */
   const char *no_am_response_help; /* force AM_response() function to return 1.0 irrespective of the arguments help description.  */
+  int no_secondary_skymaps_arg;	/* do not store values not essential for upper limits and followup (default='0').  */
+  char * no_secondary_skymaps_orig;	/* do not store values not essential for upper limits and followup original value given at command line.  */
+  const char *no_secondary_skymaps_help; /* do not store values not essential for upper limits and followup help description.  */
   char * averaging_mode_arg;	/* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter (default='1').  */
   char * averaging_mode_orig;	/* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter original value given at command line.  */
   const char *averaging_mode_help; /* 1 - use one bin, 3 - average 3, matched - use 7 bin matched filter help description.  */
@@ -216,9 +228,9 @@ struct gengetopt_args_info
   double fake_psi_arg;	/* orientation of fake signal to inject (default='0.0').  */
   char * fake_psi_orig;	/* orientation of fake signal to inject original value given at command line.  */
   const char *fake_psi_help; /* orientation of fake signal to inject help description.  */
-  double fake_phi_arg;	/* iota of fake signal to inject (default='0.0').  */
-  char * fake_phi_orig;	/* iota of fake signal to inject original value given at command line.  */
-  const char *fake_phi_help; /* iota of fake signal to inject help description.  */
+  double fake_phi_arg;	/* phase of fake signal to inject (default='0.0').  */
+  char * fake_phi_orig;	/* phase of fake signal to inject original value given at command line.  */
+  const char *fake_phi_help; /* phase of fake signal to inject help description.  */
   double fake_spindown_arg;	/* spindown of fake signal to inject (default='0.0').  */
   char * fake_spindown_orig;	/* spindown of fake signal to inject original value given at command line.  */
   const char *fake_spindown_help; /* spindown of fake signal to inject help description.  */
@@ -283,16 +295,20 @@ struct gengetopt_args_info
   int expected_timebase_given ;	/* Whether expected-timebase was given.  */
   int hist_bins_given ;	/* Whether hist-bins was given.  */
   int detector_given ;	/* Whether detector was given.  */
+  int doppler_multiplier_given ;	/* Whether doppler-multiplier was given.  */
   int spindown_start_time_given ;	/* Whether spindown-start-time was given.  */
+  int frequency_offset_given ;	/* Whether frequency-offset was given.  */
   int spindown_start_given ;	/* Whether spindown-start was given.  */
   int spindown_step_given ;	/* Whether spindown-step was given.  */
   int spindown_count_given ;	/* Whether spindown-count was given.  */
+  int fdotdot_given ;	/* Whether fdotdot was given.  */
   int orientation_given ;	/* Whether orientation was given.  */
   int nlinear_polarizations_given ;	/* Whether nlinear-polarizations was given.  */
   int no_demodulation_given ;	/* Whether no-demodulation was given.  */
   int no_decomposition_given ;	/* Whether no-decomposition was given.  */
   int no_candidates_given ;	/* Whether no-candidates was given.  */
   int no_am_response_given ;	/* Whether no-am-response was given.  */
+  int no_secondary_skymaps_given ;	/* Whether no-secondary-skymaps was given.  */
   int averaging_mode_given ;	/* Whether averaging-mode was given.  */
   int subtract_background_given ;	/* Whether subtract-background was given.  */
   int do_cutoff_given ;	/* Whether do-cutoff was given.  */
@@ -351,6 +367,12 @@ void cmdline_parser_free (struct gengetopt_args_info *args_info);
 
 int cmdline_parser_configfile (char * const filename,
   struct gengetopt_args_info *args_info,
+  int override, int initialize, int check_required);
+
+int cmdline_parser_string (const char *cmdline, struct gengetopt_args_info *args_info,
+  const char *prog_name);
+int cmdline_parser_string2 (const char *cmdline, struct gengetopt_args_info *args_info,
+  const char *prog_name,
   int override, int initialize, int check_required);
 
 int cmdline_parser_required (struct gengetopt_args_info *args_info,

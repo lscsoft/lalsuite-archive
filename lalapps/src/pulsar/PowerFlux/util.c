@@ -22,6 +22,8 @@
 #include <math.h>
 #include <string.h>
 #include <sys/select.h>
+#include <unistd.h>
+#include <sys/syscall.h>
 
 #include <gsl/gsl_sf_trig.h>
 
@@ -36,6 +38,25 @@ struct timeval timeout;
 timeout.tv_sec=seconds;
 timeout.tv_usec=1;
 select(0, NULL, NULL, NULL, &timeout);
+}
+
+
+int direct_fcntl(int fd, int cmd, void *arg)
+{
+    int ret = -1;
+    int unmapped_fd;
+
+#ifdef CONDOR
+    /* This call would normally go through the file table. However, we want
+        to do it locally here, so get the unmapped fd the kernel originally
+        gave us for this fd and use that directly. */
+    unmapped_fd = _condor_get_unmapped_fd(fd);
+#else 
+    unmapped_fd = fd;
+#endif
+    ret = syscall(SYS_fcntl, unmapped_fd, cmd, arg);
+
+    return ret;
 }
 
 void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop)

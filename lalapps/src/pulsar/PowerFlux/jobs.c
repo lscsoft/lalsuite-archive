@@ -160,6 +160,7 @@ long jobs_size=1000;
 long next_job_to_do=0;
 long jobs_submitted=0;
 long jobs_done=0;
+long jobs_reset_count=0;
 
 void init_jobs(void)
 {
@@ -267,9 +268,14 @@ thread_cond_broadcast(&wait_for_more_jobs_condition);
 thread_mutex_unlock(&jobs_mutex);
 }
 
+void reset_jobs_done_ratio(void)
+{
+jobs_reset_count=jobs_done;
+}
+
 float jobs_done_ratio(void)
 {
-return((1.0*jobs_done)/jobs_submitted);
+return((1.0*(jobs_done-jobs_reset_count))/(jobs_submitted-jobs_reset_count));
 }
 
 void print_jobs_stats(void)

@@ -21,6 +21,7 @@
 #define __UTIL_H__
 
 void condor_safe_sleep(int seconds);
+int direct_fcntl(int fd, int cmd, void *arg);
 
 /* locate argument number arg in the character line of length length */
 void locate_arg(char *line, int length, int arg, int *arg_start, int *arg_stop);

@@ -84,6 +84,10 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(x==NULL) {
+	fprintf(stderr, "Skipping %s\n", name);
+	return;
+	}
 if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
@@ -107,6 +111,10 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(x==NULL) {
+	fprintf(stderr, "Skipping %s\n", name);
+	return;
+	}
 if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
@@ -130,6 +138,10 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(x==NULL) {
+	fprintf(stderr, "Skipping %s\n", name);
+	return;
+	}
 if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);
@@ -153,6 +165,10 @@ FILE *fout;
 long i;
 char s[PATH_MAX];
 
+if(x==NULL) {
+	fprintf(stderr, "Skipping %s\n", name);
+	return;
+	}
 if(!clear_name_dat(name))return;
 
 snprintf(s,PATH_MAX,"%s%s", output_dir, name);

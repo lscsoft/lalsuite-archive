@@ -249,6 +249,10 @@ if(gethostname(s, 19999)>=0){
 	fprintf(LOG, "node: unknown\n");
 	}
 
+for(i=0;i<args_info.config_given;i++) {
+	fprintf(LOG, "using config file: %s\n", args_info.config_arg[i]);
+	}
+
 init_threads(args_info.num_threads_arg);
 init_jobs();
 init_hookup();
@@ -440,6 +444,7 @@ if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
 fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
 fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
 fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
+fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
 fflush(LOG);
