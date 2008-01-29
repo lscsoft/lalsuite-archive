@@ -101,9 +101,13 @@ static PyObject *__repr__(PyObject *self)
 {
 	PyObject *a = PyObject_Repr(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Repr(PyTuple_GET_ITEM(self, 1));
-	PyObject *result = PyString_FromFormat("segment(%s, %s)", PyString_AsString(a), PyString_AsString(b));
-	Py_DECREF(a);
-	Py_DECREF(b);
+	PyObject *result;
+	if(a && b)
+		result = PyString_FromFormat("segment(%s, %s)", PyString_AsString(a), PyString_AsString(b));
+	else
+		result = NULL;
+	Py_XDECREF(a);
+	Py_XDECREF(b);
 	return result;
 }
 
@@ -112,9 +116,13 @@ static PyObject *__str__(PyObject *self)
 {
 	PyObject *a = PyObject_Str(PyTuple_GET_ITEM(self, 0));
 	PyObject *b = PyObject_Str(PyTuple_GET_ITEM(self, 1));
-	PyObject *result = PyString_FromFormat("[%s ... %s)", PyString_AsString(a), PyString_AsString(b));
-	Py_DECREF(a);
-	Py_DECREF(b);
+	PyObject *result;
+	if(a && b)
+		result = PyString_FromFormat("[%s ... %s)", PyString_AsString(a), PyString_AsString(b));
+	else
+		result = NULL;
+	Py_XDECREF(a);
+	Py_XDECREF(b);
 	return result;
 }
 
@@ -159,10 +167,14 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
-	PyObject *result = (PyObject_Compare(sb, oa) > 0) && (PyObject_Compare(sa, ob) < 0) ? Py_True : Py_False;
-	Py_INCREF(result);
+	PyObject *oa = PyTuple_GetItem(other, 0);
+	PyObject *ob = PyTuple_GetItem(other, 1);
+	PyObject *result;
+	if(oa && ob) {
+		result = (PyObject_Compare(sb, oa) > 0) && (PyObject_Compare(sa, ob) < 0) ? Py_True : Py_False;
+		Py_INCREF(result);
+	} else
+		result = NULL;
 	return result;
 }
 
@@ -184,8 +196,10 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
+	PyObject *oa = PyTuple_GetItem(other, 0);
+	PyObject *ob = PyTuple_GetItem(other, 1);
+	if(!oa || !ob)
+		return NULL;
 	if(PyObject_Compare(sa, ob) > 0)
 		return PyInt_FromLong(1);
 	if(PyObject_Compare(sb, oa) < 0)
@@ -203,9 +217,12 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
+	PyObject *oa = PyTuple_GetItem(other, 0);
+	PyObject *ob = PyTuple_GetItem(other, 1);
 	PyObject *a, *b;
+
+	if(!oa || !ob)
+		return NULL;
 
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
 		/* self and other don't intersect */
@@ -234,9 +251,12 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
+	PyObject *oa = PyTuple_GetItem(other, 0);
+	PyObject *ob = PyTuple_GetItem(other, 1);
 	PyObject *a, *b;
+
+	if(!oa || !ob)
+		return NULL;
 
 	if((PyObject_Compare(sb, oa) < 0) || (PyObject_Compare(sa, ob) > 0)) {
 		/* self and other are disjoint */
@@ -265,9 +285,12 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GET_ITEM(other, 0);
-	PyObject *ob = PyTuple_GET_ITEM(other, 1);
+	PyObject *oa = PyTuple_GetItem(other, 0);
+	PyObject *ob = PyTuple_GetItem(other, 1);
 	PyObject *a, *b;
+
+	if(!oa || !ob)
+		return NULL;
 
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
 		/* self and other do not intersect */
