@@ -206,6 +206,7 @@ setup(
 		os.path.join("bin", "plotnumtemplates"),
 		os.path.join("bin", "plotinspiralrange"),
 		os.path.join("bin", "plotcoincseglength"),
+        os.path.join("bin", "plotsegments"),
 		os.path.join("bin", "plotthinca"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "pylal_grblikelihood"),
