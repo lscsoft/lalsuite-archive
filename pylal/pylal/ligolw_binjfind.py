@@ -340,7 +340,7 @@ def NearCoincCompare(sim, burst):
 	"""
 	Return False if the peak time of the sim is "near" the burst event.
 	"""
-	return not SimBurstUtils.burst_is_near_injection(sim.h_peak_time, sim.h_peak_time_ns, sim.l_peak_time, sim.l_peak_time_ns, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
+	return not SimBurstUtils.burst_is_near_injection(sim, burst.start_time, burst.start_time_ns, burst.duration, burst.ifo)
 
 
 #

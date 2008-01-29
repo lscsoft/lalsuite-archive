@@ -126,7 +126,7 @@ def hrss_in_instrument(sim, instrument):
 burst_is_near_injection_window = 2
 
 
-def burst_is_near_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_ns, duration, instrument):
+def burst_is_near_injection(sim, start, start_ns, duration, instrument):
 	"""
 	In the low background rate limit, there are two distinct tests used
 	to compare burst events to injections.  A strict test is used to
@@ -139,19 +139,16 @@ def burst_is_near_injection(h_peak, h_peak_ns, l_peak, l_peak_ns, start, start_n
 	the only coincidences to survive the pipeline at all are
 	injections.
 
-	This function compares one burst to an injection, and has an
-	inconvenient argument list because it is designed to be called from
-	within SQL code.  This function defines a burst to be "near" an
-	injection if the injection's peak time occurs within 2 s of the
-	time interval spanned by the burst event.
+	This function compares one burst to an injection.  This function
+	defines a burst to be "near" an injection if the injection's peak
+	time occurs within 2 s of the time interval spanned by the burst
+	event.
 	"""
+	# this function's inconvenient argument list is inherited from a
+	# time when it was meant to be called from within SQL code.
 	start = LIGOTimeGPS(start, start_ns)
 	seg = segments.segment(start, start + duration).protract(burst_is_near_injection_window)
-	if instrument in ("H1", "H2"):
-		return LIGOTimeGPS(h_peak, h_peak_ns) in seg
-	elif instrument in ("L1",):
-		return LIGOTimeGPS(l_peak, l_peak_ns) in seg
-	raise ValueError, instrument
+	return time_at_instrument(sim, burst.ifo) in seg
 
 
 #
