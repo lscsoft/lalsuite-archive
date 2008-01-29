@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,6 +25,7 @@
 # =============================================================================
 #
 
+
 #
 # NOTE:  the logic in this code is unintuitively complicated.  Small,
 # apparently irrelevant, changes to conditionals can have subtly unexpected
@@ -31,13 +33,21 @@
 # the test suite returns OK on ALL tests after any changes you make.
 #
 
+
 """
 This module defines the segment and segmentlist objects, as well as the
 infinity object used to define semi-infinite and infinite segments.
 """
 
+
 from bisect import bisect_left, bisect_right
 from copy import copy as shallowcopy
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -51,6 +61,7 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
+
 
 class infinity(object):
 	"""
@@ -185,6 +196,7 @@ class infinity(object):
 		# self is NegInfinity
 		return PosInfinity
 
+
 PosInfinity = object.__new__(infinity)
 NegInfinity = object.__new__(infinity)
 
@@ -196,6 +208,7 @@ NegInfinity = object.__new__(infinity)
 #
 # =============================================================================
 #
+
 
 class segment(tuple):
 	"""
@@ -247,14 +260,15 @@ class segment(tuple):
 		return "segment(" + repr(self[0]) + ", " + repr(self[1]) + ")"
 
 	def __str__(self):
-		return "[" + str(self[0]) + " ... " + str(self[1]) + "]"
+		return "[" + str(self[0]) + " ... " + str(self[1]) + ")"
 
 	# accessors
 
-	def duration(self):
+	def __abs__(self):
 		"""
 		Returns the length of the interval represented by the
-		segment.
+		segment.  Requires the bounds to support the subtract
+		operation.
 		"""
 		return self[1] - self[0]
 
@@ -266,15 +280,49 @@ class segment(tuple):
 		"""
 		return self[0] != self[1]
 
-	def order(self, other):
+	def disjoint(self, other):
 		"""
-		Equivalent to cmp(self, other) except that a result of 0
-		indicates that other is contained in self rather than being
-		identically equal to self.
+		Returns >0 if self covers an interval above other's
+		interval, <0 if self covers an interval below other's, or 0
+		if the two intervals are not disjoint (intersect or touch).
+		A return value of 0 indicates the two segments would
+		coalesce.
 		"""
-		if other in self:
-			return 0
-		return cmp(self, other)
+		if self[0] > other[1]:
+			return 1
+		if self[1] < other[0]:
+			return -1
+		return 0
+
+	def __lt__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__lt__(self, other)
+		return self[0] < other
+
+	def __le__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__le__(self, other)
+		return self[0] <= other
+
+	def __eq__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__eq__(self, other)
+		return self[0] == other
+
+	def __ne__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__ne__(self, other)
+		return self[0] != other
+
+	def __gt__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__gt__(self, other)
+		return self[0] > other
+
+	def __ge__(self, other):
+		if isinstance(other, self.__class__):
+			return tuple.__ge__(self, other)
+		return self[0] >= other
 
 	# some arithmetic operations that (mostly) make sense for segments
 
@@ -287,7 +335,7 @@ class segment(tuple):
 		if (self[1] <= other[0]) or (self[0] >= other[1]):
 			# self and other don't intersect
 			raise ValueError, other
-		return tuple.__new__(segment, (max(self[0], other[0]), min(self[1], other[1])))
+		return tuple.__new__(self.__class__, (max(self[0], other[0]), min(self[1], other[1])))
 
 	def __or__(self, other):
 		"""
@@ -298,7 +346,7 @@ class segment(tuple):
 		if (self[1] < other[0]) or (self[0] > other[1]):
 			# self and other are disjoint
 			raise ValueError, other
-		return tuple.__new__(segment, (min(self[0], other[0]), max(self[1], other[1])))
+		return tuple.__new__(self.__class__, (min(self[0], other[0]), max(self[1], other[1])))
 
 	# addition is union
 	__add__ = __or__
@@ -316,10 +364,10 @@ class segment(tuple):
 			# result is not exactly 1 segment
 			raise ValueError, other
 		if self[0] < other[0]:
-			return tuple.__new__(segment, (self[0], other[0]))
-		return tuple.__new__(segment, (other[1], self[1]))
+			return tuple.__new__(self.__class__, (self[0], other[0]))
+		return tuple.__new__(self.__class__, (other[1], self[1]))
 
-	# check for proper intersection, containment, and continuity
+	# check for proper intersection and subsetness
 
 	def intersects(self, other):
 		"""
@@ -330,20 +378,17 @@ class segment(tuple):
 
 	def __contains__(self, other):
 		"""
-		Return True if other is wholly contained in self.  other
-		can be another segment or an object of the same type as the
-		bounds of self.
+		Return True if other is wholly contained in self.  If other
+		is an instance of the segment class or an instance of a
+		subclass of segment then it is treated as an interval whose
+		upper and lower bounds must not be outside of self,
+		otherwise other is compared to the bounds of self as a
+		scalar.
 		"""
-		if type(other) == segment:
+		if isinstance(other, self.__class__):
 			return (self[0] <= other[0]) and (self[1] >= other[1])
 		else:
 			return self[0] <= other < self[1]
-
-	def continuous(self, other):
-		"""
-		Return True if self and other are not disjoint.
-		"""
-		return (self[1] >= other[0]) and (self[0] <= other[1])
 
 	# protraction and contraction and shifting
 
@@ -352,21 +397,27 @@ class segment(tuple):
 		Move both the start and the end of the segment a distance x
 		away from the other.
 		"""
-		return segment(self[0] - x, self[1] + x)
+		return self.__class__(self[0] - x, self[1] + x)
 
 	def contract(self, x):
 		"""
 		Move both the start and the end of the segment a distance x
 		towards the the other.
 		"""
-		return segment(self[0] + x, self[1] - x)
+		return self.__class__(self[0] + x, self[1] - x)
 
 	def shift(self, x):
 		"""
 		Return a new segment by adding x to the upper and lower
 		bounds of this segment.
 		"""
-		return tuple.__new__(segment, (self[0] + x, self[1] + x))
+		return tuple.__new__(self.__class__, (self[0] + x, self[1] + x))
+
+	def duration(self):
+		"""
+		Returns the duration of the segment
+		"""
+		return float(self[1] - self[0])
 
 
 #
@@ -376,6 +427,7 @@ class segment(tuple):
 #
 # =============================================================================
 #
+
 
 class segmentlist(list):
 	"""
@@ -419,8 +471,7 @@ class segmentlist(list):
 	def __contains__(self, item):
 		"""
 		Returns True if the given object is wholly contained within
-		one of the segments in self.  Does not require the
-		segmentlist to be coalesced.
+		one of the segments in self.  This operation is O(log n).
 
 		Note the difference between this operator, and the standard
 		Python "in" operator for sequence-like objects:  in the
@@ -430,21 +481,19 @@ class segmentlist(list):
 		checks if the given item is contained within any of the
 		segments in the segmentlist.
 		"""
-		for seg in self:
-			if item in seg:
-				return True
-		return False
+		i = bisect_left(self, item)
+		return ((i != 0) and (item in self[i-1])) or ((i != len(self)) and (item in self[i]))
 
-	# suplementary accessors
+	# supplementary accessors
 
-	def duration(self):
+	def __abs__(self):
 		"""
 		Return the sum of the durations of all segments in self.
 		Does not require the segmentlist to be coalesced.
 		"""
 		d = 0
 		for seg in self:
-			d += seg.duration()
+			d += abs(seg)
 		return d
 
 	def extent(self):
@@ -466,9 +515,9 @@ class segmentlist(list):
 	def find(self, item):
 		"""
 		Return the smallest i such that i is the index of an
-		element that wholly contains the given segment.  Raises
-		ValueError if no such element exists.  Does not require the
-		segmentlist to be coalesced.
+		element that wholly contains item.  Raises ValueError if no
+		such element exists.  Does not require the segmentlist to
+		be coalesced.
 		"""
 		for i, seg in enumerate(self):
 			if item in seg:
@@ -489,34 +538,33 @@ class segmentlist(list):
 		Return the intersection of the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self[:]).__iand__(other)
+		if len(self) >= len(other):
+			return self.__class__(self).__iand__(other)
+		return self.__class__(other).__iand__(self)
 
 	def __ior__(self, other):
 		"""
 		Replace the segmentlist with the union of itself and
-		another.  If the two lists have numbers of elements m and n
-		respectively, then this algorithm is O(n log m), which
-		means it is optimized for the case when the latter list
-		contains a small number of segments.  If you have two large
-		lists of n elements each, then it is faster to do
-
-			list1.extend(list2)
-			list1.coalesce()
-
-		which is also O(n log n), but with a smaller leading
-		coefficient.
+		another.  If the two lists have numbers of elements n and m
+		respectively, then for m << n the algorithm is O(m log n),
+		otherwise it is O((n + m) log (n + m)).
 		"""
+		if len(other) > len(self) / 2:
+			self.extend(other)
+			return self.coalesce()
 		i = 0
 		for seg in other:
 			i = j = bisect_right(self, seg, i)
-			if i and self[i - 1].continuous(seg):
+			lo, hi = seg
+			if i and self[i - 1][1] >= lo:
 				i -= 1
-				seg |= self[i]
+				lo = self[i][0]
 			n = len(self)
-			while j < n and seg.continuous(self[j]):
+			while j < n and self[j][0] <= hi:
 				j += 1
 			if j > i:
-				self[i : j] = [seg | self[j - 1]]
+				self[i] = segment(lo, max(hi, self[j - 1][1]))
+				del self[i + 1 : j]
 			else:
 				self.insert(i, seg)
 			i += 1
@@ -525,13 +573,13 @@ class segmentlist(list):
 	def __or__(self, other):
 		"""
 		Return the union of the segment list and another.  The
-		comment in the segmentlist.__ior__() method about
-		performance optimization when computing the union of large
-		lists of similar size applies here as well.
+		algorithm has the same scaling as in the
+		segmentlist.__ior__() method, except that the lists are
+		reordered to attempt to use the O(m log n) case.
 		"""
 		if len(self) >= len(other):
-			return segmentlist(self[:]).__ior__(other)
-		return segmentlist(other[:]).__ior__(self)
+			return self.__class__(self).__ior__(other)
+		return self.__class__(other).__ior__(self)
 
 	def __xor__(self, other):
 		"""
@@ -539,7 +587,10 @@ class segmentlist(list):
 		contained in exactly one of this and another list.  This
 		operation is O(n log n).
 		"""
-		return (self - other) | (other - self)
+		l = self - other
+		l.extend(other - self)
+		l.sort()
+		return l
 
 	# addition is union
 	__iadd__ = __ior__
@@ -548,7 +599,8 @@ class segmentlist(list):
 	def __isub__(self, other):
 		"""
 		Replace the segmentlist with the difference between itself
-		and another.  This operation is O(n).
+		and another.  For lists of length m and n respectively,
+		this operation is O(n + m).
 		"""
 		if not other:
 			return self
@@ -556,7 +608,7 @@ class segmentlist(list):
 		otherseg = other[j]
 		while i < len(self):
 			seg = self[i]
-			while (not otherseg) or otherseg[1] <= seg[0]:
+			while otherseg[1] <= seg[0]:
 				j += 1
 				if j >= len(other):
 					return self
@@ -580,38 +632,27 @@ class segmentlist(list):
 		Return the difference between the segmentlist and another.
 		This operation is O(n).
 		"""
-		return segmentlist(self[:]).__isub__(other)
+		return self.__class__(self).__isub__(other)
 
 	def __invert__(self):
 		"""
 		Return the segmentlist that is the inversion of the given
 		list.  This operation is O(n).
 		"""
-		if len(self) == 0:
-			return segmentlist([segment(NegInfinity, PosInfinity)])
-		l = segmentlist()
+		if not len(self):
+			return self.__class__([segment(NegInfinity, PosInfinity)])
+		l = self.__class__()
 		if self[0][0] > NegInfinity:
 			l.append(segment(NegInfinity, self[0][0]))
 		last = self[0][1]
-		for j in xrange(1, len(self)):
-			l.append(segment(last, self[j][0]))
-			last = self[j][1]
+		for i in xrange(1, len(self)):
+			l.append(segment(last, self[i][0]))
+			last = self[i][1]
 		if last < PosInfinity:
 			l.append(segment(last, PosInfinity))
 		return l
 
 	# other operations
-
-	def split(self, value):
-		"""
-		Break all segments that stradle the given value at that
-		value.  Does not require the segmentlist to be coalesced,
-		and the result is not coalesced by definition.  This
-		operation is O(n).
-		"""
-		for i, seg in enumerate(self):
-			if value in seg:
-				self[i:i+1] = [segment(seg[0], value), segment(value, seg[1])]
 
 	def intersects_segment(self, other):
 		"""
@@ -630,8 +671,10 @@ class segmentlist(list):
 		calculation of the intersection, i.e. by testing len(self &
 		other).  Requires both lists to be coalesced.
 		"""
+		# if either has zero length, the answer is False
 		if not (self and other):
 			return False
+		# walk through both lists in order, searching for a match
 		i = j = 0
 		seg = self[0]
 		otherseg = other[0]
@@ -659,13 +702,14 @@ class segmentlist(list):
 		i = j = 0
 		n = len(self)
 		while j < n:
-			seg = self[j]
+			lo, hi = self[j]
 			j += 1
-			while j < n and seg.continuous(self[j]):
-				seg |= self[j]
+			while j < n and hi >= self[j][0]:
+				hi = max(hi, self[j][1])
 				j += 1
-			self[i] = seg
-			i += 1
+			if lo != hi:
+				self[i] = segment(lo, hi)
+				i += 1
 		del self[i : ]
 		return self
 
@@ -697,6 +741,14 @@ class segmentlist(list):
 			self[i] = self[i].shift(x)
 		return self
 
+	def duration(self):
+		"""
+		Return the duration of the segmentlist
+		"""
+		tmptime = 0.0
+		for seg in self:
+			tmptime += seg.duration()
+		return tmptime
 
 #
 # =============================================================================
@@ -727,8 +779,6 @@ class _offsets(dict):
 		current offset this is a no-op, otherwise the corresponding
 		segmentlist object is shifted.
 		"""
-		if key not in self:
-			raise KeyError, key
 		delta = value - self[key]
 		if delta:
 			self.__parent[key].shift(delta)
@@ -742,14 +792,12 @@ class _offsets(dict):
 		matching segmentlist; no error will be raised, but the
 		offset will be ignored.  This simplifies the case of
 		updating several segmentlistdict objects from a common
-		offset dictionary, when one or more of the segmentlistdict
+		offset dictionary, when one or more of the segmentlistdicts
 		contains only a subset of the keys.
 		"""
 		for key, value in d.iteritems():
-			try:
+			if key in self:
 				self[key] = value
-			except KeyError:
-				pass
 
 	def clear(self):
 		"""
@@ -771,17 +819,22 @@ class _offsets(dict):
 
 class segmentlistdict(dict):
 	"""
-	A dictionary associating a set of segmentlist objects with a set of
-	labels, with the ability to apply numeric offsets to the segment
-	lists.
+	A dictionary associating a unique label and numeric offset with
+	each of a set of segmentlist objects.
 
-	At the surface, this class implements a normal dictionary
-	interface.  The offsets that are currently applied to the
-	segmentlists are stored in the "offsets" attribute, which itself is
-	a dictionary associating a number with each label.  Assigning to
-	the entries in the offsets dictionary has the effect of shifting
-	the corresponding segmentlist by the given amount.  The clear()
-	method of the offsets attribute resets the offsets to 0.
+	This class implements a standard mapping interface, with additional
+	features added to assist with the manipulation of a collection of
+	segmentlist objects.  In particular, methods for taking unions and
+	intersections of the lists in the dictionary are available, as well
+	as the ability to record and apply numeric offsets to the
+	boundaries of the segments in each list.
+
+	The numeric offsets are stored in the "offsets" attribute, which
+	itself is a dictionary, associating a number with each key in the
+	main dictionary.  Assigning to one of the entries of the offsets
+	attribute has the effect of shifting the corresponding segmentlist
+	from its original position (not its current position) by the given
+	amount.
 
 	Example:
 
@@ -815,8 +868,33 @@ class segmentlistdict(dict):
 	def copy(self):
 		"""
 		Return a copy of the segmentlistdict object.  The return
-		value is a new object with references to the original keys,
-		and shallow copies of the segment lists.
+		value is a new object with a new offsets attribute, with
+		references to the original keys, and shallow copies of the
+		segment lists.  Modifications made to the offset dictionary
+		or segmentlists in the object returned by this method will
+		not affect the original, but without using much memory
+		until such modifications are made.
+
+		More details.  There are two "built-in" ways to create a
+		working copy of a segmentlist object.  The first is to
+		initialize a new object from an existing one with
+
+		>>> new = segmentlistdict(old)
+
+		This creates a working copy of the dictionary, but not of
+		its contents.  That is, this creates new with references to
+		the segmentlists in old, so changes to the segmentlists in
+		either new or old are reflected in both.  The second method
+		is
+
+		>>> new = old.copy()
+
+		This creates a working copy of the dictionary and of the
+		segmentlists, but with references to the segment objects in
+		the original segmentlists.  Since segments are immutable,
+		this effectively creates a completely independent working
+		copy but without the memory cost of a full duplication of
+		the data.
 		"""
 		new = self.__class__()
 		for key, value in self.iteritems():
@@ -838,24 +916,22 @@ class segmentlistdict(dict):
 		dict.__delitem__(self, key)
 		dict.__delitem__(self.offsets, key)
 
-	# suplementary accessors
+	# supplementary accessors
 
 	def map(self, func):
 		"""
 		Return a dictionary of the results of func applied to each
 		of the segmentlist objects in self.
 		"""
-		d = {}
-		for key, value in self.iteritems():
-			d[key] = func(value)
-		return d
+		# FIXME: use generator expressions in >= 2.4
+		return dict([(key, func(value)) for key, value in self.iteritems()])
 
-	def duration(self):
+	def __abs__(self):
 		"""
-		Return a dictionary of the results of running duration() on
+		Return a dictionary of the results of running abs() on
 		each of the segmentlists.
 		"""
-		return self.map(segmentlist.duration)
+		return self.map(abs)
 
 	def extent(self):
 		"""
@@ -869,14 +945,16 @@ class segmentlistdict(dict):
 		Return the result of running extent on the union of all
 		lists in the dictionary.
 		"""
-		return self.union(self.iterkeys()).extent()
+		segs = self.extent().values()
+		# FIXME: use generator expressions in >= 2.4
+		return segment(min([seg[0] for seg in segs]), max([seg[1] for seg in segs]))
 
-	def find(self, seg):
+	def find(self, item):
 		"""
 		Return a dictionary of the results of running find() on
 		each of the segmentlists.
 		"""
-		return self.map(lambda l: segmentlist.find(l, seg))
+		return self.map(lambda x: x.find(item))
 
 	# list-by-list arithmetic
 
@@ -884,6 +962,8 @@ class segmentlistdict(dict):
 		for key, value in other.iteritems():
 			if key in self:
 				self[key] &= value
+			else:
+				self[key] = segmentlist()
 		return self
 
 	def __and__(self, other):
@@ -912,9 +992,20 @@ class segmentlistdict(dict):
 	def __sub__(self, other):
 		return self.copy().__isub__(other)
 
+	def __ixor__(self, other):
+		for key, value in other.iteritems():
+			if key in self:
+				self[key] ^= value
+			else:
+				self[key] = shallowcopy(value)
+		return self
+
+	def __xor__(self, other):
+		return self.copy().__ixor__(other)
+
 	def __invert__(self):
 		new = self.copy()
-		for key, value in new.iteritems():
+		for key, value in new.items():
 			dict.__setitem__(new, key, ~value)
 		return new
 
@@ -932,15 +1023,47 @@ class segmentlistdict(dict):
 
 	def intersects(self, other):
 		"""
+		Returns True if there exists a segmentlist in self that
+		intersects the corresponding segmentlist in other;  returns
+		False otherwise.
+		"""
+		for key, value in other.iteritems():
+			if key in self and self[key].intersects(value):
+				return True
+		return False
+
+	def intersects_all(self, other):
+		"""
 		Returns True if each segmentlist in other intersects the
 		corresponding segmentlist in self;  returns False
 		otherwise.
 		"""
-		# FIXME: should this be the other way around?  Returns True
-		# if each segmentlist in self intersects the corresponding
-		# segmentlist in other?
 		for key, value in other.iteritems():
-			if not self[key].intersects(value):
+			if key not in self or not self[key].intersects(value):
+				return False
+		return True
+
+	def all_intersects(self, other):
+		"""
+		Returns True if each segmentlist in self intersects the
+		corresponding segmentlist in other;  returns False
+		otherwise.
+		"""
+		for key, value in self.iteritems():
+			if key not in other or not other[key].intersects(value):
+				return False
+		return True
+
+	def all_intersects_all(self, other):
+		"""
+		Returns True if self and other have the same keys, and each
+		segmentlist intersects the corresponding segmentlist in the
+		other;  returns False otherwise.
+		"""
+		if set(self.keys()) != set(other.keys()):
+			return False
+		for key, value in self.iteritems():
+			if not other[key].intersects(value):
 				return False
 		return True
 
@@ -972,10 +1095,11 @@ class segmentlistdict(dict):
 		"""
 		Return a new segmentlistdict containing only those
 		segmentlists associated with the keys in keys, with each
-		set to the intersection of the original lists.  The offsets
-		are preserved.
+		set to their mutual intersection.  The offsets are
+		preserved.
 		"""
-		new = segmentlistdict()
+		keys = set(keys)
+		new = self.__class__()
 		intersection = self.intersection(keys)
 		for key in keys:
 			dict.__setitem__(new, key, shallowcopy(intersection))
@@ -984,14 +1108,28 @@ class segmentlistdict(dict):
 
 	# multi-list operations
 
-	def is_coincident(self, other):
+	def is_coincident(self, other, keys = None):
 		"""
 		Return True if any segment in any list in self intersects
-		any segment in any list in other.
+		any segment in any list in other.  If the optional keys
+		argument is not None, then only segment lists for the given
+		keys are considered.  Keys not represented in both segment
+		lists are ignored.  If keys is None (the default) then all
+		segment lists are considered.
+
+		This method is equivalent to the intersects() method, but
+		without requiring the keys to match.
 		"""
-		for l1 in self.itervalues():
-			for l2 in other.itervalues():
-				if l1.intersects(l2):
+		keys1 = set(self.keys())
+		keys2 = set(other.keys())
+		if keys is not None:
+			keys = set(keys)
+			keys1 &= keys
+			keys2 &= keys
+		for key1 in keys1:
+			l = self[key1]
+			for key2 in keys2:
+				if l.intersects(other[key2]):
 					return True
 		return False
 
@@ -1000,11 +1138,12 @@ class segmentlistdict(dict):
 		Return the intersection of the segmentlists associated with
 		the keys in keys.
 		"""
+		keys = set(keys)
 		if not keys:
 			return segmentlist()
-		seglist = ~segmentlist()
-		for value in map(self.__getitem__, keys):
-			seglist &= value
+		seglist = segmentlist(self[keys.pop()])
+		for key in keys:
+			seglist &= self[key]
 		return seglist
 
 	def union(self, keys):
@@ -1012,8 +1151,11 @@ class segmentlistdict(dict):
 		Return the union of the segmentlists associated with the
 		keys in keys.
 		"""
-		seglist = segmentlist()
-		for value in map(self.__getitem__, keys):
-			seglist |= value
+		keys = set(keys)
+		if not keys:
+			return segmentlist()
+		seglist = segmentlist(self[keys.pop()])
+		for key in keys:
+			seglist |= self[key]
 		return seglist
 
