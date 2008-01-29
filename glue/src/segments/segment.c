@@ -167,14 +167,16 @@ static PyObject *intersects(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GetItem(other, 0);
-	PyObject *ob = PyTuple_GetItem(other, 1);
+	PyObject *oa, *ob;
 	PyObject *result;
-	if(oa && ob) {
-		result = (PyObject_Compare(sb, oa) > 0) && (PyObject_Compare(sa, ob) < 0) ? Py_True : Py_False;
-		Py_INCREF(result);
-	} else
-		result = NULL;
+	if(!segments_Segment_Check(other)) {
+		PyErr_SetObject(PyExc_TypeError, other);
+		return NULL;
+	}
+	oa = PyTuple_GET_ITEM(other, 0);
+	ob = PyTuple_GET_ITEM(other, 1);
+	result = (PyObject_Compare(sb, oa) > 0) && (PyObject_Compare(sa, ob) < 0) ? Py_True : Py_False;
+	Py_INCREF(result);
 	return result;
 }
 
@@ -196,10 +198,13 @@ static PyObject *disjoint(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GetItem(other, 0);
-	PyObject *ob = PyTuple_GetItem(other, 1);
-	if(!oa || !ob)
+	PyObject *oa, *ob;
+	if(!segments_Segment_Check(other)) {
+		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
+	}
+	oa = PyTuple_GET_ITEM(other, 0);
+	ob = PyTuple_GET_ITEM(other, 1);
 	if(PyObject_Compare(sa, ob) > 0)
 		return PyInt_FromLong(1);
 	if(PyObject_Compare(sb, oa) < 0)
@@ -217,13 +222,14 @@ static PyObject *__and__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GetItem(other, 0);
-	PyObject *ob = PyTuple_GetItem(other, 1);
+	PyObject *oa, *ob;
 	PyObject *a, *b;
-
-	if(!oa || !ob)
+	if(!segments_Segment_Check(other)) {
+		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
-
+	}
+	oa = PyTuple_GET_ITEM(other, 0);
+	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
 		/* self and other don't intersect */
 		PyErr_SetObject(PyExc_ValueError, other);
@@ -251,13 +257,14 @@ static PyObject *__or__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GetItem(other, 0);
-	PyObject *ob = PyTuple_GetItem(other, 1);
+	PyObject *oa, *ob;
 	PyObject *a, *b;
-
-	if(!oa || !ob)
+	if(!segments_Segment_Check(other)) {
+		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
-
+	}
+	oa = PyTuple_GET_ITEM(other, 0);
+	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) < 0) || (PyObject_Compare(sa, ob) > 0)) {
 		/* self and other are disjoint */
 		PyErr_SetObject(PyExc_ValueError, other);
@@ -285,13 +292,14 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
 {
 	PyObject *sa = PyTuple_GET_ITEM(self, 0);
 	PyObject *sb = PyTuple_GET_ITEM(self, 1);
-	PyObject *oa = PyTuple_GetItem(other, 0);
-	PyObject *ob = PyTuple_GetItem(other, 1);
+	PyObject *oa, *ob;
 	PyObject *a, *b;
-
-	if(!oa || !ob)
+	if(!segments_Segment_Check(other)) {
+		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
-
+	}
+	oa = PyTuple_GET_ITEM(other, 0);
+	ob = PyTuple_GET_ITEM(other, 1);
 	if((PyObject_Compare(sb, oa) <= 0) || (PyObject_Compare(sa, ob) >= 0)) {
 		/* self and other do not intersect */
 		Py_INCREF(self);
