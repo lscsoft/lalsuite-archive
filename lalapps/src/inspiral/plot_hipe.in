@@ -704,11 +704,11 @@ if opts.plotethinca:
 
 if opts.plotinspmissed:
   if opts.first_stage:
-    for ifos in ifolist:
+    for ifo in ifolist:
       plotinspmissed_node =inspiral.PlotInspmissedNode(plotinspmissed_jobs[ifo + "FIRST"])
       dag.add_node(plotinspmissed_node)
   if opts.second_stage:
-    for ifos in ifolist:
+    for ifo in ifolist:
       plotinspmissed_node =inspiral.PlotInspmissedNode(plotinspmissed_jobs[ifo + "SECOND"])
       dag.add_node(plotinspmissed_node)
 
