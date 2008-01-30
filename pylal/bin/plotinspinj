@@ -22,16 +22,10 @@ from glue import segmentsUtils
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 from glue import lal
 
-from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal import SnglInspiralUtils, SimInspiralUtils, CoincInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 from pylal import InspiralUtils
 
-##############################################################################
-
-def filestrip(file):
-  x = file.rfind('D_')
-  y = file.rfind('_INJ')
-  return file[x+2:y]
 #############################################################################
 
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -155,12 +149,6 @@ def parse_command_line():
   parser.add_option("-c", "--coire-split", action="store_true", default=False,\
       help="split coired triggers into sire-like single ifo triggers")
   
-  parser.add_option("-1","--tag1",action="store",type="string",\
-      default=None, metavar=" TAG",help="identifier for first input file" )
-  parser.add_option("-2","--tag2",action="store",type="string",\
-      default=None, metavar=" TAG",help="identifier for second input file" )
-  parser.add_option("-3","--tag3",action="store",type="string",\
-      default=None, metavar=" TAG",help="identifier for third input file" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-n","--nbins",action="store",type="int",default=10,\
@@ -240,17 +228,11 @@ rc('text', usetex=True)
 
 # check at least one trig file was specified
 if opts.cache_file:
-  injGlobs = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, description = opts.found_pattern).checkfilesexist()[0].pfnlist()
-  if not injGlobs:
-    print >>sys.stdout, "List of found files empty."
-    sys.exit(0)
-
-  tags = []
-  for inj  in injGlobs:
-    tags.append(filestrip(inj))
-  print tags
+  cache = lal.Cache.fromfile(open(opts.cache_file))
+  injcache = cache.sieve(ifos=opts.ifo_times, description = opts.found_pattern)
+  injFiles = injcache.checkfilesexist()[0].pfnlist()
   if opts.verbose:
-    for inj in injGlobs:
+    for inj in injFiles:
       print "...reading the following list of found files  " + inj
 
 else:
@@ -259,58 +241,53 @@ else:
     print >>sys.stderr, "Enter 'plotinspinj --help' for usage"
     sys.exit(1)
 
-  injGlobs = args
+  injFiles = args
 
-  tags = []
-  if opts.tag1:
-    tags.append(opts.tag1)
-    if opts.tag2:
-      tags.append(opts.tag2)
-      if opts.tag3:
-        tags.append(opts.tag3)
 
 # get veto segment list
 if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
 
-# read in tables into dictionaries of paired sets
-injSets = []
-
-for injGlob in injGlobs:
-  injDict = {}
-  # read in triggers
-  flist = glob.glob(injGlob)
-  assert flist != [], "empty glob: \"%s\"" % injGlob
-  injDict["sngl_inspiral"] = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
-  injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
+     
+# read in triggers
+trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles)
+sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
  
-  if (injDict['sngl_inspiral'] is None) or \
-     (injDict['sim_inspiral'] is None):
-    continue   
+if (trigs is None) or \
+  (sims is None):
+  raise ValueError, "the number of triggers or number of sims is zero"   
   
-  # veto if supplied
-  if opts.veto_file:
-    injDict["sngl_inspiral"] = injDict["sngl_inspiral"].veto(seglist)
-    injDict["sim_inspiral"] = injDict["sim_inspiral"].veto(seglist)
+# veto if supplied
+if opts.veto_file:
+  trigs = trigs.veto(seglist)
+  sims = sims.veto(seglist)
   
-  # provide a matching sim_inspiral for each sngl_inspiral if requested
-  if opts.coire_split:
-    new_sim_table = tab.new_from_template(injDict["sim_inspiral"])
+# provide a matching sim_inspiral for each sngl_inspiral if requested
+if opts.coire_split:
+  new_sim_table = tab.new_from_template(sims)
     
   # iterator over consecutive triggers with matching event_ids
-    coincs = itertools.groupby(injDict["sngl_inspiral"],
-                               lambda row: row.event_id)
-    for coinc, inj in itertools.izip(coincs, injDict["sim_inspiral"]):
-      # coinc is tuple of (key, iterator); count length of iterator
-      num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
-      new_sim_table.extend([inj] * num_coincs)
-    injDict['sim_inspiral'] = new_sim_table
+  coincs = itertools.groupby(trigs,
+                             lambda row: row.event_id)
+  for coinc, inj in itertools.izip(coincs, sims):
+    # coinc is tuple of (key, iterator); count length of iterator
+    num_coincs = reduce(lambda x,y: x + 1, coinc[1], 0)
+    new_sim_table.extend([inj] * num_coincs)
+  sims = new_sim_table
 
-  if len(injDict['sngl_inspiral']) != len(injDict['sim_inspiral']):
-    raise ValueError, "number of triggers and found injections must be equal"
-  
-  injSets.append(injDict)
- 
+if len(trigs) != len(sims):
+  raise ValueError, "number of triggers and found injections must be equal"
+
+injSets = {}
+
+for trig, sim in zip(trigs,sims):
+  ifo = trig.ifo
+
+  if ifo not in injSets:
+    injSets[ifo] = {"sim_inspiral" : tab.new_from_template(sims),
+                    "sngl_inspiral": tab.new_from_template(trigs)}
+  injSets[ifo]["sim_inspiral"].append(sim)
+  injSets[ifo]["sngl_inspiral"].append(trig)
  
 # set lists of plot symbols
 plot_symbols = ['rx','b+','ko','D','h','p','rx','b+','ko','D','h','p']
@@ -318,19 +295,22 @@ plot_colors = ['r', 'b', 'k', 'g', 'y']
 
 # infinite sequence of integers, starting at 1
 plot_num = itertools.count(1)
-tags=""
+
 #####################################
 # plot of injected vs detected mchirp
 if opts.mchirp_mchirp:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
+
     viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
-                'mchirp', 'lin', plot_symbols[sym] )
+                'mchirp', 'linear', plot_symbols[sym] )
     sym+=1
   viz.labelval('mchirp', '$M_{\odot}$', [0,0,0,0],'Injected','Recovered',\
-    tags,opts.title_text)
+    None,opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -344,13 +324,16 @@ if opts.plot_mchirp:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
+
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'mchirp', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('mchirp', '$M_{\odot}$', \
       [0,0,-opts.chirp_axis,opts.chirp_axis],\
-      tags,opts.title_text)
+      None,opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -363,14 +346,16 @@ if opts.hist_mchirp:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     try:
       viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'mchirp', \
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.chirp_axis,opts.chirp_axis])
       sym+=1
     except:pass
-  viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', tags, opts.title_text)
+  viz.labelhistdiff('mchirp', 'hist', '$M_{\odot}$', None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -384,12 +369,14 @@ if opts.plot_eta:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'eta', 'linear', plot_symbols[sym])
     sym+=1
   viz.labeldiff('eta', None, [0,0,-opts.eta_axis,opts.eta_axis],\
-    tags,opts.title_text) 
+    None,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -403,12 +390,14 @@ if opts.hist_eta:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo  in ifos:
+    injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'eta', \
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.eta_axis,opts.eta_axis])
     sym+=1
-  viz.labelhistdiff('eta', 'hist', None, tags, opts.title_text, \
+  viz.labelhistdiff('eta', 'hist', None, None, opts.title_text, \
                     )
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_histogram")
@@ -423,12 +412,14 @@ if opts.plot_time:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'end_time', 'linear', plot_symbols[sym] )
     sym+=1
   viz.labeldiff('end_time', 'days', [0,0,-opts.time_axis,opts.time_axis],\
-    tags,opts.title_text) 
+    None,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -442,12 +433,14 @@ if opts.hist_time:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'end_time', \
                  'hist', sym, len(injSets), opts.nbins, \
                  [-opts.time_axis,opts.time_axis])
     sym+=1
-  viz.labelhistdiff('end_time', 'hist', 'seconds', tags, opts.title_text \
+  viz.labelhistdiff('end_time', 'hist', 'seconds', None, opts.title_text \
                     )
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_histogram")
@@ -462,12 +455,14 @@ if opts.plot_dist:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotfracdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                      'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelfracdiff('eff_dist', 'Mpc', [0,0,-opts.dist_axis,opts.dist_axis],\
-    tags,opts.title_text) 
+    None,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_frac_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -480,12 +475,14 @@ if opts.hist_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'eff_dist', \
                  'frac_hist', sym, len(injSets), opts.nbins, 
                  [-opts.dist_axis,opts.dist_axis])
     sym+=1
-  viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', tags, opts.title_text)
+  viz.labelhistdiff('eff_dist', 'frac_hist', 'Mpc', None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -498,12 +495,14 @@ if opts.dist_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                 'eff_dist', 'log', plot_symbols[sym] )
     sym+=1
   viz.labelval('eff_dist', 'Mpc', [0,0,0,0],'Injected','Recovered',\
-    tags,opts.title_text) 
+    None,opts.title_text) 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -516,12 +515,14 @@ if opts.chirp_dist:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'mchirp', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labelfracdiffa_vs_b('mchirp', 'eff_dist','$M_{\odot}$','Mpc', \
-    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
+    [0,0,-opts.chirp_axis,opts.chirp_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -534,12 +535,14 @@ if opts.time_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
                  'end_time', 'eff_dist', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'eff_dist','$M_{\odot}$','Mpc', \
-    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
+    [0,0,-opts.time_axis,opts.time_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -552,12 +555,14 @@ if opts.chirp_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'mchirp', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labelfracdiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
-    [0,0,-opts.chirp_axis,opts.chirp_axis], tags, opts.title_text)
+    [0,0,-opts.chirp_axis,opts.chirp_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -571,12 +576,14 @@ if opts.time_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'end_time', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
-    [0,0,-opts.time_axis,opts.time_axis], tags, opts.title_text)
+    [0,0,-opts.time_axis,opts.time_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -589,12 +596,14 @@ if opts.eta_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  for injSet in injSets:
+  ifos = injSets.keys()
+  for ifo in ifos:
+    injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'eta', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labelfracdiffa_vs_b('eta', 'snr',None,None, \
-    [0,0,-opts.eta_axis,opts.eta_axis], tags, opts.title_text)
+    [0,0,-opts.eta_axis,opts.eta_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
