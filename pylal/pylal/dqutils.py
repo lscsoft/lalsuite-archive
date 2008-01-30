@@ -48,23 +48,46 @@ def fromDQsegments(fileobj, coltype=int, discard_disabled=True, keep_versions=No
     segmentlistdict and columns 2 and 3 will be cast to coltype and used as
     start and end times for segments.
 
-    If discard_disabled==True, then check that the enabled flag (column) is >0.
+    If discard_disabled==True, then check that the enabled flag (column) is 1.
     """
-    fivecolsegpat = re.compile(r"\A(\w+)\s+([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
-    d = segmentlistdict({})
+    d = segmentlistdict()
 
     for line in fileobj:
-        if len(line) == 0 or line.startswith("#"):
+        if len(line) == 0 or line[0] == "#":
             continue
         try:
-            tokens = fivecolsegpat.match(line).groups()
+            tokens = line.split()
             name = tokens[0] + "_v" + tokens[1]
             seg = segment(coltype(tokens[2]), coltype(tokens[3]))
-            enabled = int(tokens[4])
-        except ValueError:
+            if (discard_disabled and tokens[4] != "1") or \
+               (keep_versions is not None and tokens[1] not in keep_versions):
+                continue
+        except IndexError:
+            print "IndexError on line: ", line
             break
-        if (discard_disabled and enabled <= 0) or \
-           (keep_versions is not None and tokens[1] not in keep_versions):
+        target_seglist = d.setdefault(name, segmentlist())
+        target_seglist.append(seg)
+    return d
+
+def fromDQsegments_fast(fileobj):
+    """
+    Same as fromDQsegments, but the following options are hardcoded for
+    speed (17% improvement):
+      coltype=int
+      discard_disabled=True
+      keep_versions=["99"]
+    
+    Also, any empty or malformed lines will throw an exception.
+    """
+    d = segmentlistdict()
+
+    for line in fileobj:
+        if line[0] == "#":
+            continue
+        tokens = line.split()
+        name = tokens[0] + "_v" + tokens[1]
+        seg = segment(int(tokens[2]), int(tokens[3]))
+        if (tokens[1] != "99") or (tokens[4] != "1"):
             continue
         target_seglist = d.setdefault(name, segmentlist())
         target_seglist.append(seg)
@@ -161,7 +184,7 @@ def download_and_parse_dq_segs(dq_segfile, ifo, verbose=False):
     # parse DQ segments; rename flags to keep track of IFO
     if verbose:
       print "parsing", ifo, "DQ segments..."
-    new_dict = fromDQsegments(open(dq_segfile), keep_versions=["99"])
+    new_dict = fromDQsegments_fast(open(dq_segfile))
     for flag, val in new_dict.iteritems():
         dq_segdict["%s:%s" % (ifo, flag)] = val
     
