@@ -89,6 +89,24 @@ def hrss_in_instrument(sim, instrument):
 	project the waveform onto the instrument, and return the root
 	integrated strain squared.
 	"""
+	# FIXME:  this function is really only correct for sine-Gaussian
+	# injections.  that's OK because I only quote sensitivities in
+	# units of hrss when discussin sine-Gaussians.
+	#
+	# the problem is the following.  first,
+	#
+	#	h = F+ h+ + Fx hx
+	#
+	# so
+	#
+	#	h^{2} = F+^2 h+^2 + Fx^2 hx^2 + 2 F+ Fx h+ hx
+	#
+	# which means to calculate the hrss in the instrument you need to
+	# know:  mean-square h in the + polarization, mean-square h in the
+	# x polarization, and the correlation between the polarizations <h+
+	# hx>.  these could be recorded in the sim_burst table, but they
+	# aren't at present.
+
 	# semimajor and semiminor axes of polarization ellipse
 
 	a = 1.0 / math.sqrt(2.0 - sim.pol_ellipse_e**2)
@@ -148,7 +166,7 @@ def burst_is_near_injection(sim, start, start_ns, duration, instrument):
 	# time when it was meant to be called from within SQL code.
 	start = LIGOTimeGPS(start, start_ns)
 	seg = segments.segment(start, start + duration).protract(burst_is_near_injection_window)
-	return time_at_instrument(sim, burst.ifo) in seg
+	return time_at_instrument(sim, instrument) in seg
 
 
 #
@@ -157,9 +175,10 @@ def burst_is_near_injection(sim, start, start_ns, duration, instrument):
 
 
 class Efficiency_hrss_vs_freq(object):
-	def __init__(self, instruments, hrss_func, error):
+	def __init__(self, instruments, amplitude_func, amplitude_lbl, error):
 		self.instruments = set(instruments)
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
+		self.amplitude_lbl = amplitude_lbl
 		self.error = error
 		self.injected_x = []
 		self.injected_y = []
@@ -196,12 +215,12 @@ WHERE
 			# watch out for this)
 			if injection_was_made(sim, seglist, self.instruments):
 				for instrument in self.instruments:
-					hrss = self.hrss_func(sim, instrument)
+					amplitude = self.amplitude_func(sim, instrument)
 					self.injected_x.append(sim.frequency)
-					self.injected_y.append(hrss)
+					self.injected_y.append(amplitude)
 					if found:
 						self.found_x.append(sim.frequency)
-						self.found_y.append(hrss)
+						self.found_y.append(amplitude)
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found in %s but not injected..." % (sim.simulation_id, "+".join(self.instruments))
 
@@ -253,7 +272,7 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 	"""
 	Generate a plot from an Efficiency_hrss_vs_freq instance.
 	"""
-	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$h_{\mathrm{rss}}$")
+	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", efficiency.amplitude_lbl)
 	plot.axes.loglog()
 
 	xcoords, ycoords = efficiency.efficiency.centres()

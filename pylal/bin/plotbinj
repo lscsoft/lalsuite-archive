@@ -71,7 +71,7 @@ def parse_command_line():
 	parser.add_option("--made-only", action = "store_true", default = False, help = "Plot only injections that were made.")
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "Set the prefix for output filenames (default = \"plotbinj_\")")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\")")
-	parser.add_option("--hrss", metavar = "wave|det", default = "wave", help = "Select which h_rss will be shown on the plots.  \"wave\" = the h_rss of the wave, \"det\" = the h_rss in the detector (injected).")
+	parser.add_option("--amplitude-func", metavar = "hrsswave|hrssdet|E", default = "hrsswave", help = "Select the amplitude to show on the plots.  \"hrsswave\" = the h_rss of the wave, \"hrssdet\" = the h_rss in the detector, \"E\" = the radiated energy over r^2.")
 	parser.add_option("--input-cache", metavar = "filename", help = "Get list of trigger files from this LAL cache file.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\").")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number (default = make all plots).  Use \"none\" to disable plots.")
@@ -80,12 +80,17 @@ def parse_command_line():
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.hrss == "wave":
-		options.hrss = lambda sim, instrument: sim.hrss
-	elif options.hrss == "det":
-		options.hrss = SimBurstUtils.hrss_in_instrument
+	if options.amplitude_func == "hrsswave":
+		options.amplitude_func = lambda sim, instrument: sim.hrss
+		options.amplitude_lbl = r"$h_{\mathrm{rss}}$"
+	elif options.amplitude_func == "hrssdet":
+		options.amplitude_func = SimBurstUtils.hrss_in_instrument
+		options.amplitude_lbl = r"$h_{\mathrm{rss}}^{\mathrm{det}}$"
+	elif options.amplitude_func == "E":
+		options.amplitude_func = lambda sim, instrument: sim.egw_over_rsquared
+		options.amplitude_lbl = r"$M_{\odot} / \mathrm{pc}^{2}$"
 	else:
-		raise ValueError, "unrecognized --hrss %s" % options.hrss
+		raise ValueError, "unrecognized --amplitude-func %s" % options.amplitude_func
 
 	if options.plot is None:
 		options.plot = range(10)
@@ -180,11 +185,12 @@ FROM
 
 
 class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", r"$h_{\mathrm{rss}}$")
+	def __init__(self, instrument, amplitude_func, amplitude_lbl):
+		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", amplitude_lbl)
 		self.axes.loglog()
 		self.instrument = instrument
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
+		self.amplitude_lbl = amplitude_lbl
 		self.num_injections = 0
 		self.injected_x = []
 		self.injected_y = []
@@ -215,12 +221,12 @@ FROM
 			found = values[-1]
 			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
 				self.num_injections += 1
-				hrss = self.hrss_func(sim, self.instrument)
+				amplitude = self.amplitude_func(sim, self.instrument)
 				self.injected_x.append(sim.frequency)
-				self.injected_y.append(hrss)
+				self.injected_y.append(amplitude)
 				if not found:
 					self.missed_x.append(sim.frequency)
-					self.missed_y.append(hrss)
+					self.missed_y.append(amplitude)
 
 	def finish(self):
 		self.axes.plot(self.injected_x, self.injected_y, "k+")
@@ -228,7 +234,7 @@ FROM
 			self.axes.plot(self.missed_x, self.missed_y, "rx")
 		self.axes.set_xlim([min(self.injected_x), max(self.injected_x)])
 		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
-		self.axes.set_title("Injection Amplitude vs. Frequency\n(%d Injections)" % self.num_injections)
+		self.axes.set_title("Injection " + self.amplitude_lbl + " vs. Frequency\n(%d Injections)" % self.num_injections)
 
 
 #
@@ -277,12 +283,13 @@ WHERE
 
 
 class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected $h_{\mathrm{rss}}$", r"Recovered $h_{\mathrm{rss}}$")
+	def __init__(self, instrument, amplitude_func, amplitude_lbl):
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injected " + amplitude_lbl, r"Recovered $h_{\mathrm{rss}}$")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
+		self.amplitude_lbl = amplitude_lbl
 		self.matches = 0
 		self.x = []
 		self.y = []
@@ -308,7 +315,7 @@ WHERE
 			sim = contents.sim_burst_table._row_from_cols(values)
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
-			self.x.append(self.hrss_func(sim, self.instrument))
+			self.x.append(self.amplitude_func(sim, self.instrument))
 			self.y.append(hrss_rec)
 			self.c.append(math.log(freq_rec))
 
@@ -323,16 +330,17 @@ WHERE
 		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected $h_{\mathrm{rss}}$ (%d Events Matching Injections)" % self.matches)
+		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected " + self.amplitude_lbl + " (%d Events Matching Injections)" % self.matches)
 
 
 class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
+	def __init__(self, instrument, amplitude_func, amplitude_lbl):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
+		self.amplitude_lbl = amplitude_lbl
 		self.matches = 0
 		self.x = []
 		self.y = []
@@ -359,23 +367,24 @@ WHERE
 			freq_rec, hrss_rec = values[-2:]
 			self.matches += 1
 			self.x.append(sim.frequency)
-			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
+			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
 			self.c.append(math.log(freq_rec))
 
 	def finish(self):
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
 		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Frequency (%d Events Matching Injections)" % self.matches)
+		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Frequency (%d Events Matching Injections)" % self.matches)
 
 
 class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, hrss_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"$\frac{\mathrm{Recovered}\ h_{\mathrm{rss}}}{\mathrm{Injected}\ h_{\mathrm{rss}}}$")
+	def __init__(self, instrument, amplitude_func, amplitude_lbl):
+		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
+		self.amplitude_lbl = amplitude_lbl
 		self.matches = 0
 		self.x = []
 		self.y = []
@@ -403,14 +412,14 @@ WHERE
 			bandwidth, freq_rec, hrss_rec = values[-3:]
 			self.matches += 1
 			self.x.append(bandwidth)
-			self.y.append(hrss_rec / self.hrss_func(sim, self.instrument))
+			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
 			self.c.append(math.log(freq_rec))
 
 	def finish(self):
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
 		self.axes.set_xlim([min(self.x), max(self.x)])
 		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered to Injected $h_{\mathrm{rss}}$ vs.\ Recovered Bandwidth (%d Events Matching Injections)" % self.matches)
+		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Recovered Bandwidth (%d Events Matching Injections)" % self.matches)
 
 
 #
@@ -572,12 +581,12 @@ WHERE
 
 
 class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, hrss_func):
+	def __init__(self, instrument, amplitude_func):
 		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instrument = instrument
-		self.hrss_func = hrss_func
+		self.amplitude_func = amplitude_func
 		self.matches = 0
 		self.x = []
 		self.y = []
@@ -605,7 +614,7 @@ WHERE
 			self.matches += 1
 			self.x.append(sim.frequency)
 			self.y.append(freq_rec)
-			self.c.append(math.log(hrss_rec / self.hrss_func(sim, self.instrument)))
+			self.c.append(math.log(hrss_rec / self.amplitude_func(sim, self.instrument)))
 
 	def finish(self):
 		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
@@ -620,12 +629,11 @@ WHERE
 
 
 class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instruments, hrss_func):
+	def __init__(self, instruments):
 		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
 		self.axes.loglog()
 		self.fig.set_size_inches(8, 8)
 		self.instruments = set(instruments)
-		self.hrss_func = hrss_func
 		self.matches = 0
 		self.x = []
 		self.y = []
@@ -686,26 +694,26 @@ WHERE
 #
 
 
-def new_plots(instrument, hrss_func, plots):
+def new_plots(instrument, amplitude_func, amplitude_lbl, plots):
 	l = (
 		FreqVsTime(instrument),
-		HrssVsFreqScatter(instrument, hrss_func),
-		SimBurstUtils.Efficiency_hrss_vs_freq((instrument,), hrss_func, 0.1),
+		HrssVsFreqScatter(instrument, amplitude_func, amplitude_lbl),
+		SimBurstUtils.Efficiency_hrss_vs_freq((instrument,), amplitude_func, amplitude_lbl, 0.1),
 		TriggerCountHistogram(instrument),
-		RecoveredVsInjectedhrss(instrument, hrss_func),
-		RecoveredPerInjectedhrssVsFreq(instrument, hrss_func),
-		RecoveredPerInjectedhrssVsBandwidth(instrument, hrss_func),
+		RecoveredVsInjectedhrss(instrument, amplitude_func, amplitude_lbl),
+		RecoveredPerInjectedhrssVsFreq(instrument, amplitude_func, amplitude_lbl),
+		RecoveredPerInjectedhrssVsBandwidth(instrument, amplitude_func, amplitude_lbl),
 		RecoveredTimeOffset(instrument, segments.segment(-0.03, +0.03), 0.00015),
 		RecoveredFrequencyOffset(instrument, segments.segment(-1.0, +1.0), .002),
-		RecoveredVsInjectedFreq(instrument, hrss_func)
+		RecoveredVsInjectedFreq(instrument, amplitude_func)
 	)
 	return [l[i] for i in plots]
 
 
-def new_coinc_plots(instruments, hrss_func, plots):
+def new_coinc_plots(instruments, amplitude_func, amplitude_lbl, plots):
 	l = (
-		SimBurstUtils.Efficiency_hrss_vs_freq(instruments, hrss_func, 0.1),
-		CoincRecoveredVsInjectedFreq(instruments, hrss_func)
+		SimBurstUtils.Efficiency_hrss_vs_freq(instruments, amplitude_func, amplitude_lbl, 0.1),
+		CoincRecoveredVsInjectedFreq(instruments)
 	)
 	return [l[i] for i in plots]
 
@@ -726,7 +734,7 @@ if not options.plot and not options.coinc_plot or not filenames:
 
 
 plots = {}
-coincplots = new_coinc_plots(("H1", "H2", "L1"), options.hrss, options.coinc_plot)
+coincplots = new_coinc_plots(("H1", "H2", "L1"), options.amplitude_func, options.amplitude_lbl, options.coinc_plot)
 
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
@@ -755,7 +763,7 @@ AS
 			""")
 		for instrument in database.instruments:
 			if instrument not in plots:
-				plots[instrument] = new_plots(instrument, options.hrss, options.plot)
+				plots[instrument] = new_plots(instrument, options.amplitude_func, options.amplitude_lbl, options.plot)
 			for n, plot in zip(options.plot, plots[instrument]):
 				if options.verbose:
 					print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
