@@ -28,6 +28,7 @@ import sys
 from itertools import *
 
 import numpy
+numpy.seterr(all="raise")
 
 from glue import lal
 from glue import segmentsUtils
@@ -39,7 +40,7 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
-        ##############################################################################
+##############################################################################
 # utility functions
 
 def get_num_slides(xmldoc):
@@ -141,21 +142,18 @@ assert len(coincTable) == trials.sum()
 
 ##############################################################################
 # output statistics
-if num_slides == 0:
-    mean = trials[0] / nsegs
-    stdev = 0.
-else:
-    trials[0] = 0 # just in case we have mixed zerolag in there
-    mean = trials.sum() / (2 * num_slides * nsegs)
-    stdev = numpy.sqrt(((trials - mean)**2).sum() / (2 * num_slides - 1) / nsegs)
+total_num_slides = 2 * num_slides or 1
+norm = 1 / (total_num_slides * nsegs)
+mean = norm * trials.sum()
+stdev = numpy.sqrt(norm * ((trials - mean)**2).sum())
 
-print >>opts.outfile, "Number of positive slides: %d" % num_slides
-print >>opts.outfile, "Total time analyzed: %f" % abs(segs)
+print >>opts.outfile, "Total number of slides (pos + neg or zerolag): %d" % total_num_slides
+print >>opts.outfile, "Total time analyzed (s): %d" % abs(segs)
 print >>opts.outfile, "Number of %d second segments per slide: %d" % (opts.fold_time, nsegs)
 print >>opts.outfile, "Total number of coincidences: %d" % len(coincTable)
 print >>opts.outfile, "Mean coincidences per slide per segment: %f" % mean
 print >>opts.outfile, "Stdev of trials: %f" % stdev
 
 for i in range(min(10, trials.max() + 1)):
-    prob = (trials == i).sum() / ((2 * num_slides) or 1) / nsegs
+    prob = norm * (trials == i).sum()
     print >>opts.outfile, "p(%d|0): %f" % (i, prob)
