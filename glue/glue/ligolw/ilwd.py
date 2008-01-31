@@ -88,24 +88,6 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
-#                            ilwd:char Manipulation
-#
-# =============================================================================
-#
-
-
-#
-# Regular expression to extract the parts of an ilwd:char string according
-# to the LIGO LW naming conventions.
-#
-
-
-ilwdchar_pattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
-
-
-#
-# =============================================================================
-#
 #                               ID Parent Class
 #
 # =============================================================================
@@ -205,10 +187,10 @@ def get_ilwdchar(s):
 	# try parsing the string as an ilwd:char formated string
 	#
 
-	m = ilwdchar_pattern.match(s)
-	if m is None:
+	try:
+		table_name, column_name, i = s.split(":")
+	except ValueError:
 		raise ValueError, repr(s)
-	table_name, column_name, i = m.groups()
 
 	#
 	# retrieve the matching class from the ID class cache, and return
