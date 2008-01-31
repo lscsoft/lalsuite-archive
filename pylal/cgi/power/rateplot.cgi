@@ -33,12 +33,12 @@ def makeplot(desc, table):
 	bins = rate.Rate(segments.segment(float(desc.trig_segment()[0]), float(desc.trig_segment()[1])), desc.ratewidth)
 	for row in table:
 		try:
-			bins[float(row.get_peak())] = 1
+			bins[float(row.get_peak())] += 1
 		except IndexError:
 			# trigger lies outside the bounds of the plot
 			pass
 
-	axes.plot(bins.xvals(), bins.filtered(), "k")
+	axes.plot(bins.xvals(), bins.filter(), "k")
 
 	axes.set_xlim(list(desc.segment))
 	axes.grid(True)

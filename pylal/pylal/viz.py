@@ -13,6 +13,19 @@ from pylab    import *
 params =  {'text.usetex': True }
 rcParams.update(params)
 
+
+def square_axis(axes=None):
+  """
+  Expands the x- and y-limits on the given axes so that they are equal
+  (defaults to the current axes).
+  """
+  if axes is None:
+    axes = gca()
+  tmpv = axes.axis()
+  xmax = max([tmpv[1], tmpv[3]])
+  xmin = min([tmpv[0], tmpv[2]])
+  axes.axis([xmin, xmax, xmin, xmax])
+
 def simpleplot(*args):
   if len(args)==3:
       mytable, col1, col2 = args
@@ -28,7 +41,6 @@ def simpleplot(*args):
   title(col1.replace("_"," ") + ' v ' + col2.replace("_"," "))
   grid(True)
 
-
 #######################################################################
 # function to read in a column from a given table 
 def readcol(table, col_name, ifo=None ):
@@ -39,8 +51,8 @@ def readcol(table, col_name, ifo=None ):
 
   this function can also read in two values not stored in the sngl_inspiral
   table:
-    snr_chi: read in value of snr/chi
-    s3_snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
+    - snr_chi: read in value of snr/chi
+    - s3_snr_chi_stat: read in value of snr^4 / ( chisq ( snr^2 + 250 ))
 
   @param table: metaDataTable
   @param col_name: name of column to read in 
@@ -111,11 +123,11 @@ def timeindays(col_data ):
   """
   function to re-express the time in days after the start of the run
   known runs:
-    ligo_virgo: [700000000, 700086400]
-    S2:         [729273613, 734367613]
-    S3:         [751658413, 757699213]
-    S4:         [793130413, 795679213]
-    S5:         [815119213, 883209614]
+    - ligo_virgo: [700000000, 700086400]
+    - S2:         [729273613, 734367613]
+    - S3:         [751658413, 757699213]
+    - S4:         [793130413, 795679213]
+    - S5:         [815119213, 883209614]
   The end of S5 is temporarily set to Jan 1, 2008, 00:00:00 PST, until the
   actual end of the run is known.
   @param col_data: array containing times
@@ -156,7 +168,7 @@ def makesteps(x,y1,y2):
   xnew=[]
   y1new=[y1[0]]
   y2new=[y2[0]]
-  for i in arange(x.size-1):
+  for i in arange(size(x)-1):
     xnew.append(x[i])
     xnew.append(x[i+1])
     y1new.append(y1[i])
@@ -178,7 +190,7 @@ def makesteps(x,y1,y2):
 # function to plot the col1 vs col2 from the table
 def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear', 
   plot_sym = 'kx', plot_label = None, output_name = None, ifo = None,
-  x_min = None, x_max = None):
+  x_min = None, x_max = None, y_min = None, y_max = None):
   """
   function to plot the values of col_name_a vs col_name_b from the table
 
@@ -187,11 +199,13 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   @param col_name_b: name of second column (y-axis)
   @param plot_type: One of 'linear' (default) ,'logx','logy','loglog','seconds'
   @param plot_sym : Symbol for plot, default 'kx'
-  @param plot_name: Name for the plot in the legend
+  @param plot_label: Name for the plot in the legend
   @param output_name: If given, save the plot, with output_name as prefix
   @param ifo: Name of ifo
   @param x_min: Minimum value of x axis
   @param x_max: Maximum value of x axis
+  @param y_min: Minimum value of y axis
+  @param y_max: Maximum value of y axis
   """
   if not ifo and len(table):
     if ("ifo" in table.validcolumns.keys()):
@@ -244,6 +258,11 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
   if x_max:
     xlim(xmax=x_max)
     
+  if y_min:
+    ylim(ymin=y_min)
+  if y_max:
+    ylim(ymax=y_max)
+
   if output_name:
     if ifo:
       output_name += '_' + ifo
@@ -500,6 +519,93 @@ def labeldiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
   if output_name:
     output_name += '_' + col_name_a + '_vs_' + col_name_b + '_accuracy.png'
     savefig(output_name)
+
+############################################################################
+# function to plot the fractional difference between values of 'col_name_a' in
+# two tables, table1 and table2 against the values of 'col_name_b' in table1
+def plotfracdiffa_vs_b(table1, table2, col_name_a, col_name_b, \
+    plot_type = 'linear', plot_sym = 'kx'):
+  """
+  function to plot the difference if col_name_a in two tables against the
+  value of col_name_b in table1.
+
+  @param table1: metaDataTable
+  @param table2: metaDataTable
+  @param col_name_a: name of column to plot difference of on y-axis
+  @param col_name_b: name of column to plot on x-axis
+  @param plot_type: either 'linear' or 'log' plot on x-axis
+  @param plot_sym: the symbol to use when plotting
+  """
+
+  [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name_a)
+
+  diff_a = 2.*(tmpvar2 - tmpvar1)/(tmpvar2 + tmpvar1)
+  col_b = readcol(table1, col_name_b, ifo )
+
+  if 'time' in col_name_b:
+    col_b = timeindays(col_b)
+
+  if plot_type == 'linear':
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
+  elif plot_type == 'log':
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+      markeredgewidth=1)
+
+
+#################################################################
+# function to label above plot
+def labelfracdiffa_vs_b(col_name_a, col_name_b, units_a=None, units_b=None,
+  axis=[0,0,0,0], leg = None, title_text = None, output_name = None):
+  """
+  function to label the output of plotfracdiffa_vs_b
+
+  @param col_name_a: name of column to plot
+  @param col_name_b: name of column to plot
+  @param units_a: the units of column a
+  @param units_b: the units of column b
+  @param axis: axis limits [xmin,xmax,ymin,ymax].  If both min and max of x or
+               y is zero then that axis is not set.
+  @param leg: legend to add to plot
+  @param title_text: text to add at start of title
+  @param output_name: used in naming output file
+  """
+
+  if units_b:
+    xlabel(col_name_b.replace("_"," ") + ' (' + units_b +')', size='x-large')
+  else:
+    xlabel(col_name_b.replace("_"," "), size='x-large')
+
+  ylabel(col_name_a.replace("_"," ") + ' fractional difference', \
+      size='x-large')
+
+  xticks(fontsize='x-large')
+  yticks(fontsize='x-large')
+
+  if axis[0] or axis[1]:
+    xlim(axis[0], axis[1])
+
+  if axis[2] or axis[3]:
+    ylim(axis[2], axis[3])
+
+  if leg:
+    legend(leg)
+
+  grid(True)
+
+  if title_text:
+    title(title_text + ' ' + col_name_a.replace("_"," ") + \
+        ' Fractional Accuracy vs ' + \
+        col_name_b.replace("_"," "), \
+        size='x-large', weight='bold')
+  else:
+    title(col_name_a.replace("_"," ") + ' Fractional Accuracy vs ' + \
+        col_name_b.replace("_"," "),
+        size='x-large',weight='bold')
+
+  if output_name:
+    output_name += '_' + col_name_a + '_vs_' + col_name_b + '_frac_accuracy.png'
+    savefig(output_name)
  
 ###################################################
 # function to plot the value of 'col_name' in table1 vs its
@@ -637,13 +743,27 @@ def plotcoinchanford(coinctable, col_name, ifo, \
         markeredgewidth=1)
 
     
+######################################################################
+# helper function to get the axes right when plotting logarithmic data
+def setAxisForLog( ax , limit):
+  """
+  Helper function to get the axes right when plotting logarithmic data
+  """
 
+  # get the range
+  ticks = range( int(limit[0]+0.5), int(limit[1])+1)
+
+  # set the ticks and the ticklabels
+  ax.set_ticks(ticks)
+  ax.set_ticklabels(power(10.0,ticks))
 
 ######################################################################
 # function to histogram the difference between values of 'col_name' in
 # two tables, table1 and table2
-def histcol(table1, col_name,nbins = None, width = None, output_name = None):
- 
+def histcol(table1, col_name,nbins = None, width = None, output_name = None, xlimit=[0,0], plot_type='normal'):
+  """
+
+  """ 
   if ("ifo" in table1.validcolumns.keys()):
     ifo = table1[0].ifo
   else:
@@ -658,16 +778,51 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None):
     for i in range(-nbins,nbins):
       bins.append(width * i/nbins)
   
-  xlabel(col_name.replace("_"," "), size='x-large')
-  ylabel('Number', size='x-large')
+  # creates the histogram and take plot_type into account  
+  if plot_type == 'loglog' or plot_type=='logx':
+    data = log10(data)
 
   if bins:
-    out = hist(data,bins)
+    ydata, xdata, patches = hist(data,bins)
   else:
-    out = hist(data,nbins)
+    ydata, xdata, patches = hist(data,nbins)
 
-  width = out[1][1] - out[1][0]
-  bar(out[1],out[0],width)
+  width = xdata[1] - xdata[0]
+
+  if plot_type == 'loglog' or plot_type=='logy':
+    indexPositive = find(ydata>0)
+    ydata = log10( ydata[indexPositive] )
+    xdata = xdata[indexPositive]
+
+  clf()
+  bar( xdata, ydata, width )
+
+  #set the x axis limits taking into account if we use log10(data) 
+  if xlimit[0] and  xlimit[1]:
+    xlim(xlimit)
+  if plot_type == 'loglog' or plot_type=='logx':
+    xlimit[0] = log10(xlimit[0])
+    if xlimit[1] < xlimit[0]:
+      xlimit[1] = max(data)
+      xlim(xlimit)
+  else:
+    if xlimit[1] < xlimit[0]:
+      xlimit[1] = max(data)
+      xlim(xlimit)
+
+  # set the axis labels
+  xlabel(col_name.replace("_"," "), size='x-large')
+  ylabel('Number', size='x-large')
+ 
+  ax=axes()
+  if plot_type == 'loglog' or plot_type=='logx':
+    xlabel(col_name.replace("_"," ")+" (log)", size='x-large')
+    setAxisForLog( ax.get_xaxis() , ax.get_xlim() )
+
+  if plot_type == 'loglog' or plot_type=='logy':
+    ylabel('Number', size='x-large')
+    setAxisForLog( ax.get_yaxis() , ax.get_ylim() )
+ 
   
   if ifo:
     title(ifo + ' ' + col_name.replace("_"," ") + ' histogram', size='x-large')
@@ -711,11 +866,12 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
   else:
     plot(data_sort, y_data,'k-',linewidth=1)
 
-
-  if xlimit[0]:
-    xmin(xlimit[0])
-  if xlimit[1]:
-    xmax(xlimit[1])
+  # set the x-axis limits
+  if xlimit[0] and  xlimit[1]:
+    xlim(xlimit)
+  if xlimit[1] < xlimit[0]:
+    xlimit[1] = max(data)
+    xlim(xlimit)
 
   xlabel(col_name.replace("_"," "), size='x-large')
   
@@ -734,7 +890,6 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
   title(title_string, size='x-large')
 
   grid(True)
-
   if output_name:
     if ifo:
       output_name += '_' + ifo
@@ -768,7 +923,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if trigs:
     if ifolist:
       trigs = trigs.coinctype(ifolist)
-    snr = trigs.getstat()  
+    snr = trigs.getstat()
     if len(snr):
       if not min_val:
         min_val = min(snr)
@@ -812,7 +967,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   if trigs:
     [zero_dist,bin,info] = hist(snr,bins)
     zero_dist = concatenate( (zeros(1),zero_dist) )
-    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:bin.size])
+    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:size(bin)])
 
   # hist of the slides:
   if slide_trigs:  
@@ -821,7 +976,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for slide_snr in slide_snr_list:
       [num_slide,bin,info] = hist(slide_snr,bins)
       num_slide = concatenate( (zeros(1),num_slide) )
-      cum_slide = sum(num_slide)-cumsum(num_slide[0:bin.size])
+      cum_slide = sum(num_slide)-cumsum(num_slide[0:size(bin)])
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = reshape(array(cum_dist_slide), \
       (len(slide_snr_list),nbins))
@@ -855,10 +1010,11 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
     
-  xlab='Statistic'
-  xlabel(r'Combined ' + xlab, size='x-large')
+  if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  else: xlab = 'Combined Statistic'
+  xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs Statistic'
+  title_text = 'Cumulative histogram of Number of events vs ' + xlab
   if ifolist:
     title_text += ' for ' 
     for ifo in ifolist:
@@ -866,6 +1022,124 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
  
   title(title_text, size='x-large')
 
+######################################################################
+# function to make a histogram of the coinc inspiral statistic
+def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
+  max_val = None, nbins = 20, stat=None):
+  """
+  function to plot a histogram of the snr of coincident events
+  in the zero lag and times slides
+
+  @param trigs: coincInspiralTable
+  @param slide_trigs: dictionary of time slide triggers
+  @param ifolist: list of ifos
+  @param min_val: minimum of snr to be plotted
+  @param max_val: maximum of snr to be plotted
+  @param nbins: number of bins to use in histogram
+  @param stat: the statistic being used
+  """
+
+  hold(False)
+
+  # read in zero lag triggers
+  if trigs:
+    if ifolist:
+      trigs = trigs.coinctype(ifolist)
+    snr = trigs.getstat()
+    if len(snr):
+      if not min_val:
+        min_val = min(snr)
+      if not max_val:
+        max_val = max(snr)
+
+  # read in slide triggers
+  if slide_trigs:
+    slide_min = 0
+    slide_max = 0
+
+    slide_snr_list = []
+    for this_slide in slide_trigs:
+      if ifolist:
+        slide = this_slide['coinc_trigs'].coinctype(ifolist)
+      else:
+        slide = this_slide['coinc_trigs']
+
+      slide_snr = slide.getstat()
+      slide_snr_list.append(slide_snr)
+
+      if len(slide_snr):
+        slide_max = max(slide_max, max(slide_snr))
+        slide_min = min(slide_min, min(slide_snr))
+
+    if not min_val:
+      min_val = slide_min
+    if not max_val:
+      max_val = slide_max
+
+  # set up the bin boundaries
+  if not max_val:
+    max_val = 10.
+  if not min_val:
+    min_val = 5.
+
+  step = (max_val - min_val)/nbins
+  bins = arange(min_val, max_val, step)
+
+  # hist of the zero lag:
+  if trigs:
+    [zero_dist,bin,info] = hist(snr,bins)
+    hist_zero = zero_dist
+
+  # hist of the slides:
+  if slide_trigs:
+    slide_dist = []
+    hist_slide = []
+    for slide_snr in slide_snr_list:
+      [num_slide,bin,info] = hist(slide_snr,bins)
+      hist_slide.append(num_slide)
+    hist_slide = reshape(array(hist_slide), \
+      (len(slide_snr_list),nbins))
+    slide_mean = mean(hist_slide)
+    slide_std = std(hist_slide)
+
+  if "bitten_l" in stat:
+     xvals=bins
+  else:
+     xvals=bins*bins;
+
+  clf()
+  hold(True)
+  # plot zero lag
+  if trigs and len(trigs):
+    semilogy(xvals,hist_zero+0.0001,'r^',markerfacecolor="b",\
+        markersize=12)
+
+  # plot time slides
+  ds=step/2
+  if slide_trigs and len(slide_snr_list):
+    slide_min = []
+    for i in range( len(slide_mean) ):
+      slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
+      slide_mean[i] = max(slide_mean[i], 0.0001)
+    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
+    tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
+    if "bitten_l" in stat:
+       p=fill((tmpx-ds),tmpy, facecolor='y')
+    else:
+       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
+    setp(p, alpha=0.3)
+
+  if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  else: xlab = 'Combined Statistic'
+  xlabel(xlab, size='x-large')
+  ylabel('Number of events', size='x-large')
+  title_text = 'Cumulative histogram of Number of events vs ' + xlab
+  if ifolist:
+    title_text += ' for '
+    for ifo in ifolist:
+      title_text += ifo + ' '
+
+  title(title_text, size='x-large')
 
 ######################################################################
 # function to determine the efficiency as a function of distance
@@ -882,11 +1156,11 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   @param ifo: name of ifo (default = None), 
               used in extracting information (e.g. which eff_dist)
   @param plot_type: either 'linear' or 'log' plot on x-axis
-  @param plot_sym:  the symbol to use when plotting, default = 'k-'
+  @param plotsym:  the symbol to use when plotting, default = 'k-'
   @param plot_name: name of the plot (for the legend)
   @param title_string: extra info for title
-  @param errorbars: plot errorbars on the efficiencies (using binomial errors)
-                    default = False
+  @param errors: plot errorbars on the efficiencies (using binomial errors)
+                 default = False
   """
   
   if not ifo and ("ifo" in found.validcolumns.keys()):
@@ -1010,7 +1284,10 @@ def histdiff(table1, table2, col_name, plot_type, hist_num,
     left.append(val)
  
  
-  bar(left,height,width,color=histcolors[hist_num])
+  try:
+    bar(left,height,width,color=histcolors[hist_num])
+  except:
+    print 'problem in histdiff, using bar. skipped'
 
   # figtext(0.13,0.8 - 0.1* hist_num," mean = %6.3e" % mean(tmp_diff))
   # figtext(0.13,0.75 - 0.1 * hist_num,'sigma = %6.3e' % std(tmp_diff))
@@ -1078,7 +1355,7 @@ def histdiffdiff(ifo1_trig, ifo2_trig, inj, col_name, sym, units=None,
     nbins = 10
   
   bins = []
-  if width:
+  if width and width[0]!=width[1]:
     for i in range(-nbins,nbins):
       bins.append(width * i/nbins)
 
@@ -1124,7 +1401,6 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
   @param zerolag_trigs: coincInspiralTable
   @param ifolist: list of ifos
   """
-
   nevents = []
   slides = []
   for slide in slide_trigs:
@@ -1134,17 +1410,16 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
       nevents.append( len(slide["coinc_trigs"]) )
       
     slides.append(slide["slide_num"])
- 
+
   mean_events = mean(nevents)
   std_events = std(nevents)
-
   if scalebkg:
     for i in range(len(nevents)):
       nevents[i] = nevents[i] * ( 600.0 / 6370.0 )
     mean_events = mean(nevents)
     std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
-  hist(nevents)
+  hist(nevents, align='center')
 
   figtext(0.13,0.8, " mean = %6.3e" % mean_events)
   figtext(0.13,0.75,"sigma = %6.3e" % std_events)
@@ -1159,7 +1434,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
 
   v = axis()
   
-  if scalebkg:
+  if scalebkg and mean_events>0:
     x_gauss = []
     y_gauss = []
     min_events = min(nevents)
@@ -1173,7 +1448,7 @@ def histslides(slide_trigs, zerolag_trigs = None, ifolist = None, scalebkg = Non
         ( 2.0 * ( std_events ** ( 2.0 ) ) ) ) * normalization )
     plot(x_gauss,y_gauss,'b',linewidth=2)
     axis(v)
-
+  
   xlabel('Number of triggers',size='x-large')
   title_text = 'Histogram of number coincident '
   if ifolist:
@@ -1206,7 +1481,7 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
     slides.append(slide["slide_num"])
 
   mean_events = mean(nevents)
-  std_events = std(nevents)
+  std_events = sqrt(mean_events)
 
   if scalebkg:
     for i in range(len(nevents)):
@@ -1214,10 +1489,10 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
     mean_events = mean(nevents)
     std_events = std(nevents) * ( 6370.0 / 600.0 ) ** ( 0.5 )
 
-  bar(slides, nevents, 0.8, 0, color='b') 
+  bar(slides, nevents, 0.8, 0, color='b', align="center") 
   axhline(mean_events,color='k',linewidth=2)
   axhline(mean_events + std_events,color='k',linestyle='--',linewidth=2)
-  axhline(mean_events - std_events,color='k',linestyle='--',linewidth=2)
+  axhline(max(mean_events - std_events,0),color='k',linestyle='--',linewidth=2)
  
   if zerolag_trigs:
     hold(True)
@@ -1225,9 +1500,9 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
       nfgevents = len(zerolag_trigs.coinctype(ifolist))
     else:
       nfgevents = len(zerolag_trigs)
-    bar([0], [nfgevents], 0.8, 0, color='r') 
+    bar([0], [nfgevents], 0.8, 0, color='r', align="center") 
  
-  xlim(min(slides),max(slides)) 
+  xlim(min(slides)-0.5,max(slides)+0.5) 
   xlabel('Number of time slide',size='x-large')
   ylabel('Number of triggers in slide',size='x-large')
   title_text = 'Plot of number coincident '
@@ -1240,22 +1515,22 @@ def plotslides(slide_trigs, zerolag_trigs = None, ifolist = None, \
    
 ######################################################################
 def tfplot(*args, **kwargs):
-  """\
+  """
   tfplot(x, y, s=20, c='b', marker='o', cmap=None, norm=None,
-      vmin=None, vmax=None, alpha=1.0)
+    vmin=None, vmax=None, alpha=1.0)
 
   Supported function signatures:
 
-  TFPLOT(x, y) - make a scatter plot of x vs y
+  TFPLOT(x, y)  : make a scatter plot of x vs y
 
-  TFPLOT(x, y, s) - make a scatter plot of x vs y with size in area
-    given by s
+  TFPLOT(x, y, s)  : make a scatter plot of x vs y with size in area
+  given by s
 
-  TFPLOT(x, y, s, c) - make a scatter plot of x vs y with size in area
-    given by s and colors given by c
+  TFPLOT(x, y, s, c) : make a scatter plot of x vs y with size in area
+  given by s and colors given by c
 
-  TFPLOT(x, y, s, c, **kwargs) - control colormapping and scaling
-    with keyword args; see below
+  TFPLOT(x, y, s, c, **kwargs) : control colormapping and scaling
+  with keyword args; see below
 
   Make a scatter plot of x versus y.  s is a size in points^2 a scalar
   or an array of the same length as x or y.  c is a color and can be a
@@ -1307,6 +1582,79 @@ def tfplot(*args, **kwargs):
   a.add_collection(collection)
   return collection
 
+######################################################################
+def plotCont( dataX, dataY, dataZ ):
+  """
+  Function to make a contour plot given 3-dimensional data
+  in each direction in x and y, and the height data in z.
+  The plot will only be created, not saved into a file.
+  
+  @param dataX: data for the x-dimension
+  @param dataY: data for the y-dimension
+  @param dataZ: data for the z-dimension (height)
+  """
+  def getTicks(minVal, maxVal, n):
+
+    Delta=maxVal-minVal
+    Delta+=Delta/float(n-1)
+    pot=int(log10(Delta)+0.000001)-1
+    DeltaReduced=Delta/pow(10, pot)
+    deltaApprox=DeltaReduced/5.0
+    if deltaApprox<1.5:
+      delta=1.0
+    elif deltaApprox<3.0:
+      delta=2.0
+    else:
+      delta=5.0
+
+
+    delta*=pow(10,pot)
+    nTicks=int(Delta/delta+1.0000000001)
+    tickPos= arange(nTicks+1)* float(n-1)/float(nTicks-1)
+    tickLabel=[minVal + i*delta for i in range(nTicks)]
+    return tickPos, tickLabel
+  
+  # let numpy not interfer with something else
+  import numpy
+  
+  if len(dataX) != len(dataY) or len(dataX) != len(dataZ):
+    raise ValueError, 'Input data must have same length'
+
+  # get the dimensions
+  n=len(numpy.unique(dataX))
+  m=len(numpy.unique(dataY))
+
+  minX=min(dataX)
+  maxX=max(dataX)  
+  minY=min(dataY)
+  maxY=max(dataY)
+
+  # create the plotting matrix
+  matrix = zeros( (m,n), float )
+
+  # and fill the matrix
+  c=0
+  for i in range(n):
+    for j in range(m):
+      matrix[j][i]=dataZ[c]
+      c=c+1
+
+  # create the plot
+  clf()
+  contourf(matrix,40)
+  colorbar()
+
+  # set the axes
+  ax = gca()
+  [xtick, xlabel]=getTicks(minX, maxX, n)
+  ax.set_xticks( xtick )
+  ax.set_xticklabels( xlabel )
+  [ytick, ylabel]=getTicks(minY, maxY, m)
+  ax.set_yticks( ytick )
+  ax.set_yticklabels( ylabel )
+  axis('tight')
+  
+  
 
 ######################################################################
 def main():

@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,17 +27,18 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 import matplotlib
 matplotlib.use("Agg")
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import sys
-import urllib
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -51,53 +53,53 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version="%prog CVS $Id$")
-parser.add_option("-o", "--output", metavar = "filename", help = "set output file name (required)")
-parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "plot this instrument's offsets along the x axis")
-parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "plot this instrument's offsets along the y axis")
-parser.add_option("-n", "--n-instruments", metavar = "number", help = "plot only time slides involving this many instruments")
-parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-options, filenames = parser.parse_args()
-del parser
 
-if len(filenames) != 1:
-	print >>sys.stderr, "error: must specify exactly one input file"
-	sys.exit(1)
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		description = "Plot projections of the time slides contained in the input files onto a two-instrument cross section of the delay space.  One plot is generated for each input file."
+	)
+	parser.add_option("-o", "--output", metavar = "filename", help = "Set output file name (required).  If the string \"%n\" occurs in the filename, it will be replaced with the plot number starting from 0.  If the output filename does not contain a \"%n\" in it and more than one plot is generated then the plots will over-write one another.")
+	parser.add_option("-x", "--x-instrument", metavar = "instrument", help = "Plot this instrument's offsets along the x axis (required).")
+	parser.add_option("-y", "--y-instrument", metavar = "instrument", help = "Plot this instrument's offsets along the y axis (required).")
+	parser.add_option("-n", "--require-instruments", metavar = "instrument[,instrument...]", help = "Plot only time slides involving exactly these instruments.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
 
-if not options.output:
-	print >>sys.stderr, "error: no output file specified"
-	sys.exit(1)
+	if not options.output:
+		raise ValueError, "no output file specified"
 
-if not options.x_instrument or not options.y_instrument:
-	print >>sys.stderr, "error: must set instruments for x and y axes"
-	sys.exit(1)
+	if not options.x_instrument or not options.y_instrument:
+		raise ValueError, "must set instruments for x and y axes"
 
-if not options.n_instruments:
-	options.n_instruments = 2
-else:
-	try:
-		options.n_instruments = int(options.n_instruments)
-	except:
-		print >>sys.stderr, "error: invalid --n"
-		sys.exit(1)
+	if options.require_instruments is not None:
+		options.require_instruments = map(str.strip, options.require_instruments.split(","))
+		options.require_instruments.sort()
+
+	return options, (filenames or [None])
 
 
 #
 # =============================================================================
 #
-#                                    Input
+#                           Time Slide Table Helper
 #
 # =============================================================================
 #
 
-def element_filter(name, attrs):
-	return lsctables.IsTableProperties(lsctables.TimeSlideTable, name, attrs)
 
-class ContentHandler(ligolw.PartialLIGOLWContentHandler):
-	def __init__(self, doc):
-		ligolw.PartialLIGOLWContentHandler.__init__(self, doc, element_filter)
+def time_slide_append(self, row):
+	if row.time_slide_id not in self.dict:
+		self.dict[row.time_slide_id] = {}
+	self.dict[row.time_slide_id][row.instrument] = row.offset
 
-utils.ContentHandler = ContentHandler
+
+def time_slide__end_of_columns(self):
+	self.dict = {}
+
+
+lsctables.TimeSlideTable.append = time_slide_append
+lsctables.TimeSlideTable._end_of_columns = time_slide__end_of_columns
 
 
 #
@@ -108,9 +110,9 @@ utils.ContentHandler = ContentHandler
 # =============================================================================
 #
 
+
 class Plot(object):
-	def __init__(self, doc, x_instrument, y_instrument, n):
-		slides = 0
+	def __init__(self, xmldoc, x_instrument, y_instrument, require_instruments = None):
 		self.fig = figure.Figure()
 		self.canvas = FigureCanvasAgg(self.fig)
 		self.axes = self.fig.gca()
@@ -120,41 +122,51 @@ class Plot(object):
 		self.axes.set_xlabel("%s Offset (s)" % x_instrument)
 		self.axes.set_ylabel("%s Offset (s)" % y_instrument)
 
-		tisitable = table.get_table(doc, lsctables.TimeSlideTable.tableName)
-		max_offset = min_offset = tisitable[0].offset
-		for id in tisitable.dict:
-			offsets = tisitable.get_offset_dict(id)
-			if len(offsets) == n:
-				x = offsets[x_instrument]
-				y = offsets[y_instrument]
-				self.axes.plot((x,), (y,), "k+")
-				min_offset = min((x, y, min_offset))
-				max_offset = max((x, y, max_offset))
-				slides += 1
+		tisitable = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+		# grab an offset from one of the diciontaries of offsets in
+		# the time slide table.
+		max_offset = min_offset = tisitable.dict.itervalues().next().itervalues().next()
+		x = []
+		y = []
+		for offsets in tisitable.dict.itervalues():
+			keys = offsets.keys()
+			keys.sort()
+			if require_instruments is None or require_instruments == keys:
+				x.append(offsets[x_instrument])
+				y.append(offsets[y_instrument])
+		min_offset = min(x + y)
+		max_offset = max(x + y)
 
+		self.axes.plot(x, y, "k+")
 		self.axes.set_xlim([min_offset, max_offset])
 		self.axes.set_ylim([min_offset, max_offset])
 
-		self.axes.set_title("%d %d-Instrument Time Slides" % (slides, n))
+		if require_instruments is not None:
+			self.axes.set_title("%d %s Time Slides" % (len(x), "+".join(require_instruments)))
+		else:
+			self.axes.set_title("%d Time Slides" % len(x))
 
 
 #
 # =============================================================================
 #
-#                                     Plot
+#                                     Main
 #
 # =============================================================================
 #
 
-plot = Plot(utils.load_filename(filenames[0], options.verbose), options.x_instrument, options.y_instrument, options.n_instruments)
+
+options, filenames = parse_command_line()
 
 
-#
-# =============================================================================
-#
-#                                    Output
-#
-# =============================================================================
-#
+for n, filename in enumerate(filenames):
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
 
-plot.fig.savefig(options.output, dpi=300)
+	if options.verbose:
+		print >>sys.stderr, "plotting ..."
+	plot = Plot(xmldoc, options.x_instrument, options.y_instrument, require_instruments = options.require_instruments)
+
+	output = options.output.replace("%n", "%d" % n)
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % output
+	plot.fig.savefig(output)

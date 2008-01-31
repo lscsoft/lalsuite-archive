@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/python
 
 # $Id$
 __author__ = "Drew Keppel <keppel_d@ligo.caltech.edu>"
@@ -14,7 +14,6 @@ import glob
 from types import *
 
 #import operator
-from pylab import *
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from pylal import SnglInspiralUtils
@@ -29,9 +28,12 @@ Generates plots showing the sngl_inspiral mass paramters contain in a file
 """
 
 parser = OptionParser( usage=usage, version="" )
-parser.add_option("-g","--glob",action="store",type="string",\
-    default=None, metavar=" GLOB",\
-    help="GLOB of xml files with sngl_inspiral tables to read" )
+parser.add_option("-T","--template-glob",action="store",type="string",\
+    default=None, metavar="TMPLT",\
+    help="Glob the list of sngl_inspirals from the template banks" )
+parser.add_option("-I","--inspiral-glob",action="store",type="string",\
+    default=None, metavar=" INSP",\
+    help="Glob the list of sngl_inspirals from the inspirals" )
 parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
@@ -56,17 +58,33 @@ parser.add_option("-s","--show-plot",action="store_true",default=False,\
 
 (opts,args) = parser.parse_args()
 
-if opts.glob:
-  file = glob.glob(opts.glob)
+# Now, use the Agg backend if it's unnecessary to call plot(), then do imports
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+
+if opts.template_glob:
+  file_template = glob.glob(opts.template_glob)
 else:
-  print >>sys.stderr, "Must specify a glob of files"
+  print >>sys.stderr, "Must specify a glob of template bank files"
   sys.exit(1)
+
+
+if opts.inspiral_glob:
+  file_inspiral = glob.glob(opts.inspiral_glob)
+  inspirals = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_inspiral)
+else:
+  pass
+
+
 
 if not (opts.m1_m2 or opts.mchirp_eta or opts.tau0_tau3):
   print >>sys.stderr, "Must specify --m1-m2, --mchirp-eta, or --tau0-tau3"
   sys.exit(1)
 
-templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file)
+templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_template)
+
 
 if opts.get_bins:
   n_lines = opts.get_bins
@@ -99,35 +117,61 @@ if opts.m1_m2:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('mass1'),templates.get_column('mass2'),'bx')
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('mass1'),inspirals.get_column('mass2'),'ko')
+    legend(('templates','triggers'))
+  else:
+    legend('templates')
+    
   grid()
-  title(file[0])
+  title('mass1 and mass2')
   xlabel('mass1')
   ylabel('mass2')
 
   print len(templates)
+  if opts.figure_name:
+    savefig(opts.figure_name + '_' + 'm1_and_m2' + '.png')
 
 if opts.mchirp_eta:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('mchirp'),templates.get_column('eta'),'bx')
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('mchirp'),inspirals.get_column('eta'),'ko')
+    legend(('templates','triggers'))
+  else:
+    legend('templates')
+  
   grid()
-  title(file[0])
+  title('mchirp and eta')
   xlabel('mchirp')
   ylabel('eta')
+
+  if opts.figure_name:
+    savefig(opts.figure_name + '_' + 'mchirp_and_eta' + '.png')
+
 
 if opts.tau0_tau3:
   fig_num += 1
   figure(fig_num)
   plot(templates.get_column('tau0'),templates.get_column('tau3'),'bx', \
     [3.628166],[1.292681],'r1')
+  if opts.inspiral_glob:
+    hold(True)
+    plot(inspirals.get_column('tau0'),inspirals.get_column('tau3'),'kx')
+    legend(('templates',' ','triggers'))
+  else:
+    legend('templates')
   grid()
   if opts.x_lim and opts.y_lim:
     axis([0.0,opts.x_lim,0.0,opts.y_lim])
-  title(file[0])
+  title('tau0 and tau3')
   xlabel('tau0')
   ylabel('tau3')
   if opts.figure_name:
-    savefig(opts.figure_name + '.png')
+    savefig(opts.figure_name + '_tau0_and_tau3' + '.png')
 
 if opts.inj_time:
   injTemplates = [[],[]]
@@ -180,4 +224,3 @@ if opts.show_plot:
 
 #for i in range(len(x_bins)):
 #  x_bins[i] /= float(n_names)
-

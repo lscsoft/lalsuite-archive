@@ -18,25 +18,63 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 
 import os.path
 import re
 import sys
 from optparse import OptionParser
 
+
+from glue import lal
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		usage = "usage: %prog [options]\n\nExample:\n\tls *.xml | %prog"
+	)
+	parser.add_option("-i", "--input", metavar="filename", help="Read input from this file (default = stdin).")
+	parser.add_option("-o", "--output", metavar="filename", help="Write output to this file (default = stdout).")
+	parser.add_option("-f", "--force", action = "store_true", help = "Ignore errors.  Unparseable file names are silently removed from the output.")
+	parser.add_option("-v", "--verbose", action="store_true", help="Be verbose.")
+	return parser.parse_args()[0]
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
 #
 # Parse command line
 #
 
-def parse_command_line():
-	parser = OptionParser(usage="usage: %prog [options]\n\nExample:\n\tls $PWD/*.xml | path2cache")
-	parser.add_option("-i", "--input", metavar="INPUT", default="", help="read input from INPUT [stdin]")
-	parser.add_option("-o", "--output", metavar="OUTPUT", default="", help="write output to OUTPUT [stdout]")
-	parser.add_option("-v", "--verbose", action="store_true", dest="verbose", help="turn on verbosity")
-	return parser.parse_args()[0]
 
 options = parse_command_line()
 
@@ -45,12 +83,13 @@ options = parse_command_line()
 # Open input and output streams
 #
 
-if options.input:
+
+if options.input is not None:
 	input = file(options.input)
 else:
 	input = sys.stdin
 
-if options.output:
+if options.output is not None:
 	output = file(options.output)
 else:
 	output = sys.stdout
@@ -58,6 +97,7 @@ else:
 #
 # Other initializations
 #
+
 
 path_count = 0
 total_duration = 0
@@ -67,16 +107,20 @@ total_duration = 0
 # Filter input one line at a time
 #
 
+
 for line in input:
-	path, file = os.path.split(line)
-	file = file.strip()
+	path, file = os.path.split(line.strip())
+	url = "file://localhost%s" % os.path.abspath(os.path.join(path, file))
 	try:
-		[instrument, type, start, duration, extension] = re.split("[.-]", file)
-	except ValueError:
-		raise Exception, "Filename format not recognized"
-	print >>output, instrument[0], type, start, duration, "file://localhost" + os.path.abspath(os.path.join(path, file))
+		cache_entry = lal.CacheEntry.from_T050017(url)
+	except ValueError, e:
+		if options.force:
+			continue
+		raise e
+	print >>output, str(cache_entry)
 	path_count += 1
-	total_duration += int(duration)
+	total_duration += abs(cache_entry.segment)
+
 
 if options.verbose:
-	print >>sys.stderr, "number of paths: %d\ntotal duration: %d" % (path_count, total_duration)
+	print >>sys.stderr, "number of paths: %d\ntotal duration: %s" % (path_count, str(total_duration))

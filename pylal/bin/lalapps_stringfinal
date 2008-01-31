@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -25,6 +26,7 @@
 #
 # =============================================================================
 #
+
 
 """
 String cusp search final output rendering tool.
@@ -34,12 +36,17 @@ import bisect
 from optparse import OptionParser
 import math
 from matplotlib import patches
-import numarray
-from pysqlite2 import dbapi2 as sqlite3
+import numpy
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
 from pylal import rate
@@ -58,8 +65,13 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
+	parser = OptionParser(
+		version="%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input files ending in \".gz\" are assumed to be gzip-compressed, and if no files are specified on the command line then input is read from stdin."
+	)
 	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
 	parser.add_option("--cal-uncertainty", metavar = "fraction", default = "0.0", help = "set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08)")
 	parser.add_option("-i", "--injections", action = "store_true", help = "generate efficiency plots from the output files of an injection run")
@@ -92,12 +104,13 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 class Survivors(object):
 	def __init__(self):
 		self.xmldoc = None
 
 	def add_contents(self, contents):
-		if self.xmldoc == None:
+		if self.xmldoc is None:
 			self.xmldoc = ligolw.Document()
 			self.xmldoc.appendChild(ligolw.LIGO_LW())
 			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
@@ -108,8 +121,7 @@ class Survivors(object):
 			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
 		time_slide_id = time_slide_id[0]
 
-		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT sngl_burst.* FROM
 	sngl_burst
 	JOIN coinc_event_map ON (
@@ -122,13 +134,11 @@ SELECT sngl_burst.* FROM
 WHERE
 	coinc_event.coinc_def_id == ?
 	AND coinc_event.time_slide_id == ?
-			""",
-			(contents.bb_definer_id, time_slide_id)
-		)))
+		""", (contents.bb_definer_id, time_slide_id))))
 
-	def finish(self, filename, verbose = "False"):
+	def finish(self, filename, verbose = False):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
-		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout")[-3:] == ".gz")
+		utils.write_filename(self.xmldoc, filename, verbose = verbose, gz = (filename or "stdout").endswith(".gz"))
 
 
 #
@@ -138,6 +148,7 @@ WHERE
 #
 # =============================================================================
 #
+
 
 class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, amplitude_factor):
@@ -154,19 +165,29 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		for time_slide_id in contents.time_slide_table.iterkeys():
 			offsets = contents.time_slide_table[time_slide_id]
 			contents.seglists.offsets.update(offsets)
-			live_time = float(contents.seglists.intersection(offsets.keys()).duration())
+			live_time = float(abs(contents.seglists.intersection(offsets.keys())))
 			if contents.time_slide_table.is_null(time_slide_id):
 				bins = self.foreground
 				self.foreground_time += live_time
 			else:
 				bins = self.background
 				self.background_time += live_time
-			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
-				if coinc.coinc_def_id != contents.bb_definer_id:
-					continue
-				for burst in contents.coinc_sngl_bursts(coinc):
-					if burst.ifo == self.instrument:
-						bins.append(abs(burst.amplitude) * self.amplitude_factor)
+			for amplitude, in contents.connection.cursor().execute("""
+SELECT sngl_burst.amplitude FROM
+	sngl_burst
+	JOIN coinc_event_map ON (
+		sngl_burst.event_id == coinc_event_map.event_id
+		AND coinc_event_map.table_name == 'sngl_burst'
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sngl_burst.ifo == ?
+	AND coinc_event.coinc_def_id == ?
+	AND coinc_event.time_slide_id == ?
+			""", (self.instrument, contents.bb_definer_id, time_slide_id)):
+				bins.append(abs(amplitude) * self.amplitude_factor)
 		contents.seglists.offsets.clear()
 
 	def finish(self):
@@ -179,14 +200,14 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		# ratio of live times
 		foregrounds_per_background = self.foreground_time / self.background_time
 		# cummulative number expected in foreground
-		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") * foregrounds_per_background
+		background_y = numpy.arange(len(self.background), 0.0, -1.0, "Float64") * foregrounds_per_background
 		# \sqrt{N} std dev expected in foreground
-		background_yerr = numarray.sqrt(numarray.array(background_y))
+		background_yerr = numpy.sqrt(numpy.array(background_y))
 		# convert to rate and uncertainty expected in foreground
 		background_y /= self.foreground_time
 		background_yerr /= self.foreground_time
 		# cummulative rate observed in foreground
-		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
+		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
 		# plot
 		# warning:  the error bar polygon is not *really* clipped
 		# to the axes' bounding box, the result will be incorrect
@@ -195,9 +216,9 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		xmax = 1e-19
 		ymin = 1e-8
 		ymax = 1e-4
-		poly_x = numarray.concatenate((self.background, self.background[::-1]))
-		poly_y = numarray.concatenate((background_y + 2 * background_yerr, (background_y - 2 * background_yerr)[::-1]))
-		self.axes.add_patch(patches.Polygon(zip(poly_x, numarray.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
+		poly_x = numpy.concatenate((self.background, self.background[::-1]))
+		poly_y = numpy.concatenate((background_y + 2 * background_yerr, (background_y - 2 * background_yerr)[::-1]))
+		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
 		self.axes.plot(self.background, background_y, "ko-")
 
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
@@ -216,11 +237,12 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 def slope(x, y):
 	"""
 	From the x and y array, compute the slope everywhere.
 	"""
-	slope = numarray.zeros((len(x),), numarray.Float64)
+	slope = numpy.zeros((len(x),), numpy.Float64)
 	slope[0] = (y[1] - y[0]) / (x[1] - x[0])
 	for i in xrange(1, len(x) - 1):
 		slope[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
@@ -235,10 +257,10 @@ def solve(x, y, xval = None, yval = None):
 	interpolation is done between (x,y) pairs.
 	"""
 	# FIXME: assumes x and y are both monotonically increasing!
-	if xval == None and yval != None:
+	if xval is None and yval is not None:
 		i = bisect.bisect_left(y, yval)
 		return x[i - 1] + (x[i] - x[i - 1]) * (yval - y[i - 1]) / (y[i] - y[i - 1])
-	elif xval != None and yval == None:
+	elif xval is not None and yval is None:
 		i = bisect.bisect_left(x, xval)
 		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
 	else:
@@ -248,7 +270,7 @@ def solve(x, y, xval = None, yval = None):
 def upper_err(y, yerr, deltax):
 	z = y + yerr
 	deltax = int(deltax)
-	upper = numarray.zeros((len(yerr),), "Float64")
+	upper = numpy.zeros((len(yerr),), "Float64")
 	for i in xrange(len(yerr)):
 		upper[i] = max(z[max(i - deltax, 0) : min(i + deltax, len(z))])
 	return upper - y
@@ -257,7 +279,7 @@ def upper_err(y, yerr, deltax):
 def lower_err(y, yerr, deltax):
 	z = y - yerr
 	deltax = int(deltax)
-	lower = numarray.zeros((len(yerr),), "Float64")
+	lower = numpy.zeros((len(yerr),), "Float64")
 	for i in xrange(len(yerr)):
 		lower[i] = min(z[max(i - deltax, 0) : min(i + deltax, len(z))])
 	return y - lower
@@ -266,7 +288,7 @@ def lower_err(y, yerr, deltax):
 def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
 	print >>fileobj, "# ln(A)	e	D[e]"
 	DlnA = bins.bins[0].delta * filterwidth / 2.0
-	for A, e, De in zip(bins.centres[0], eff, yerr):
+	for A, e, De in zip(bins.centres()[0], eff, yerr):
 		print >>fileobj, math.log(A), e, De
 
 
@@ -274,33 +296,33 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# extract array of x co-ordinates, and the factor by which x
 	# increases from one sample to the next.
 	(x,) = efficiency.centres()
-	x_factor_per_sample = efficiency.bins.bins[0].delta
+	x_factor_per_sample = efficiency.bins().bins[0].delta
 
 	# compute the efficiency, the slope (units = efficiency per
 	# sample), the y uncertainty (units = efficiency) due to binomial
 	# counting fluctuations, and the x uncertainty (units = samples)
 	# due to the width of the smoothing filter.
 	eff = efficiency.ratio()
-	dydx = slope(numarray.arange(len(x), type = numarray.Float64), eff)
-	yerr = numarray.sqrt(eff * (1 - eff) / efficiency.denominator)
-	xerr = numarray.array([filter_width / 2] * len(yerr))
+	dydx = slope(numpy.arange(len(x), dtype = "Float64"), eff)
+	yerr = numpy.sqrt(eff * (1 - eff) / efficiency.denominator.array)
+	xerr = numpy.array([filter_width / 2] * len(yerr))
 
 	# compute the net y err (units = efficiency) by (i) multiplying the
 	# x err by the slope, (ii) dividing the calibration uncertainty
 	# (units = percent) by the fractional change in x per sample and
 	# multiplying by the slope, (iii) adding the two in quadradure with
 	# the y err.
-	net_yerr = numarray.sqrt((xerr * dydx)**2 + yerr**2 + (cal_uncertainty / x_factor_per_sample * dydx)**2)
+	net_yerr = numpy.sqrt((xerr * dydx)**2 + yerr**2 + (cal_uncertainty / x_factor_per_sample * dydx)**2)
 
 	# compute net xerr (units = percent) by dividing yerr by slope and
 	# then multiplying by the fractional change in x per sample.
 	net_xerr = net_yerr / dydx * x_factor_per_sample
 
 	# write the efficiency data to file
-	write_efficiency(dump_file, efficiency.bins, eff, net_yerr, filter_width)
+	write_efficiency(dump_file, efficiency.bins(), eff, net_yerr, filter_width)
 
 	# plot the efficiency curve and uncertainty region
-	patch = patches.Polygon(zip(numarray.concatenate((x, x[::-1])), numarray.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = 0.3)
+	patch = patches.Polygon(zip(numpy.concatenate((x, x[::-1])), numpy.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = 0.3)
 	axes.add_patch(patch)
 	line = axes.plot(x, eff, colour + "-")
 
@@ -312,10 +334,10 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	axes.axvline(A50, color = colour)
 
 	# print some analysis
-	num_injections = efficiency.denominator.sum()
+	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
 	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / solve(x, dydx, xval = A50)**2.0)**(1.0/3.0))
-	print "Average number of injections in each bin = %g" % efficiency.denominator.mean()
+	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
 
@@ -343,8 +365,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		# get a list of the sim_burst simulation_id's for
 		# injections that matched one of those, then extract the
 		# rows for those injections.
-		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
 WHERE
@@ -368,9 +389,7 @@ WHERE
 					coinc_event.coinc_def_id == ?
 			)
 	)
-			""",
-			(contents.bb_definer_id,)
-		)))
+		""", (contents.bb_definer_id,))))
 		# find all injections recovered in loudest_survivor_inst
 		# with an amplitude greater than loudest_survivor_ampl:
 		# assemble a list of sngl_burst event_id's for events
@@ -378,8 +397,8 @@ WHERE
 		# coincidences, then get a list of the sim_burst
 		# simulation_id's for injections that matched one of those,
 		# then extract the rows for those injections.
-		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute(
-			"""
+		# FIXME: this query can be simplified
+		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
 SELECT * FROM
 	sim_burst
 WHERE
@@ -408,9 +427,7 @@ WHERE
 					AND coinc_event.coinc_def_id == ?
 			)
 	)
-			""",
-			(self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,)
-		)))
+		""", (self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,))))
 		self.all.extend(iter(contents.sim_burst_table))
 
 	def finish(self):
@@ -420,7 +437,7 @@ WHERE
 		min_amplitude = self.all[0].hpeak * self.amplitude_factor
 		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
 
-		bins = rate.Bins(min_amplitude, max_amplitude, 400, spacing = ["log"])
+		bins = rate.NDBins((rate.LogarithmicBins(min_amplitude, max_amplitude, 400),))
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
@@ -439,13 +456,15 @@ WHERE
 		# generate and plot trend curves.  adjust window function
 		# normalization so that denominator array correctly
 		# represents the number of injections contributing to each
-		# bin:  make w(0) = 1.0
+		# bin:  make w(0) = 1.0.  note that this factor has no
+		# effect on the efficiency because it is common to the
+		# numerator and denominator arrays.  we do this for the
+		# purpose of computing the Poisson error bars, which
+		# requires us to know the counts for the bins
 		windowfunc = rate.gaussian_window(self.width)
 		windowfunc /= windowfunc[len(windowfunc) / 2 + 1]
-		rate.filter_array(efficiency.numerator, windowfunc)
-		rate.filter_array(efficiency.denominator, windowfunc)
-		rate.filter_array(efficiency_above_loudest.numerator, windowfunc)
-		rate.filter_array(efficiency_above_loudest.denominator, windowfunc)
+		rate.filter_binned_ratios(efficiency, windowfunc)
+		rate.filter_binned_ratios(efficiency_above_loudest, windowfunc)
 
 		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, "k")
 		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
@@ -468,6 +487,7 @@ WHERE
 # =============================================================================
 #
 
+
 options, filenames = parse_command_line()
 
 if options.injections:
@@ -487,9 +507,11 @@ else:
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, options.live_time_program, options.verbose)
+	# FIXME:  this needs to be updated to work with SQLite files as input
+	connection = sqlite3.connect(":memory:")
+	dbtables.DBTable_set_connection(connection)
+	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
+	database = SnglBurstUtils.CoincDatabase().summarize(xmldoc, options.live_time_program, options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n
@@ -498,7 +520,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 		if options.verbose:
 			print >>sys.stderr, "storing zero-lag survivors ..."
 		survivors.add_contents(database)
-	xmldoc.unlink()
+	connection.close()
 
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)

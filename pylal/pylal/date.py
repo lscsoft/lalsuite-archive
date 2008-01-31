@@ -16,12 +16,6 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-"""
-This module is a wrapper of the xlal.date module, supplementing the C code
-in that module with additional features that are more easily implemented in
-Python.  It is recommended that you import this module rather than
-importing xlal.date directly.
-"""
 
 #
 # =============================================================================
@@ -31,14 +25,25 @@ importing xlal.date directly.
 # =============================================================================
 #
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+
+"""
+This module is a wrapper of the xlal.date module, supplementing the C code
+in that module with additional features that are more easily implemented in
+Python.  It is recommended that you import this module rather than
+importing xlal.date directly.
+"""
+
 
 import math
 
+
 from glue import segments
 from xlal.date import *
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -49,14 +54,17 @@ from xlal.date import *
 # =============================================================================
 #
 
+
 def XLALGreenwichMeanSiderealTime(gps):
 	return XLALGreenwichSiderealTime(gps, 0.0)
+
 
 def XLALGreenwichSiderealTimeToGPS(gmst, equation_of_equinoxes):
 	return XLALGreenwichMeanSiderealTimeToGPS(gmst) - equation_of_equinoxes
 
+
 def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
-	return XLALArrivalTimeDiff(pos, [0.0, 0.0, 0.0], ra, dec, gps)
+	return XLALArrivalTimeDiff(pos, (0.0, 0.0, 0.0), ra, dec, gps)
 
 
 #
@@ -66,6 +74,7 @@ def XLALTimeDelayFromEarthCenter(pos, ra, dec, gps):
 #
 # =============================================================================
 #
+
 
 def utc_midnight(gps):
 	"""
@@ -87,6 +96,9 @@ def UTCMidnights(start, end):
 	"""
 	Iterator for generating LIGOTimeGPS objects for UTC midnights.
 	"""
+	# 86402 == more seconds than there are in 1 day, but less than
+	# there are in 2 days.  Can 1 day have more than 1 leap second?  If
+	# so, this constant should be increased.
 	midnight = utc_midnight(start)
 	if midnight < start:
 		midnight = utc_midnight(midnight + 86402)
@@ -122,10 +134,11 @@ def GMST_0hs(start, end):
 #
 # =============================================================================
 #
-# Segment Lists
+#                                Segment Lists
 #
 # =============================================================================
 #
+
 
 def gmst_days(gps_start, gps_stop):
 	"""
@@ -133,8 +146,17 @@ def gmst_days(gps_start, gps_stop):
 	Sidereal days spanning the given range of GPS times.  Input and
 	output times are all GPS seconds.
 	"""
+	# construct an iterator for computing sequential 0h GMST in
+	# LIGOTimeGPS.  86402 == same constant seen above in in
+	# UTCMidnights.
 	gmst_0hs = GMST_0hs(gmst_0h(gps_start), gps_stop + 86402)
+
+	# initialize a segmentlist with the first sidereal day
 	l = segments.segmentlist([segments.segment(gmst_0hs.next(), gmst_0hs.next())])
+
+	# append each subsequent sideral day as another segment
 	while l[-1][1] < gps_stop:
 		l.append(segments.segment(l[-1][1], gmst_0hs.next()))
+
+	# done
 	return l

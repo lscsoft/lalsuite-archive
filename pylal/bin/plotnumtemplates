@@ -1,17 +1,89 @@
 #!/usr/bin/python
+"""
+plotting routines to show TMPLTBANK and TRIGBANK bank sizes
+
+Example: 
+you can use a cache file that will be parsed for TMPLTBANK and TRIGBANK glob
+
+>>>  /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output --cache-file 
+>>> ../playground/inspiral_hipe_playground_intermediate_data-847555570-849974770.cache
+>>>   --ifo-times H1H2L1 --user-tag plotnumtemplates --verbose
+
+or with a two glob options
+
+>>> /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output 
+>>> --tmpltbank-glob '../playground/*TMP*' 
+>>> --trigbank-glob '../playground/*TRIG*' 
+>>> --ifo-times H1H2L1 --user-tag plotnumtemplates --verbose 
+
+"""
+
+
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__name__ = "plotnumtemplates"
+__Id__ = "$Id$"
+__title__ = "Template Bank Size Plots"
+
+
+# $Source$
 
 import sys
 import glob
+import gzip
 from optparse import *
-from pylab import *
-from pylal import viz
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue import lal
+from pylal import InspiralUtils
 
-##############################################################################
+# ============================================================================
+def plotnumtemplates_tmpltbank_size(opts):
+  """
+  @param opts: the user arguments
+  @return: fname, the filename in which the picture was save
+  """
+  global figure_number
 
-##############################################################################
+  colors = InspiralUtils.colors
+  
+  # iterate figure number 
+  figure_number = figure_number + 1
+  figure(figure_number)
+  
+  if len(tmpltSumm)!=0:
+    for ifo in tmpltSumm.keys():
+      numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
+      startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
+      style = colors[ifo] + 'x'
+      plot(startTime, numTemplates, style, label=ifo+' tmplt',\
+          markersize=12, markeredgewidth=1)
+      if opts.verbose is  True:
+        print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+
+  if len(trigSumm)!=0:
+    for ifo in trigSumm.keys():
+      numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
+      startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
+      style = colors[ifo] + 'o'
+      plot(startTime, numTrigs, style, label=ifo+' trig',\
+          markersize=12, markeredgewidth=1)
+      if opts.verbose is True:
+        print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
+      
+  xlabel('Days after start of run', size='x-large')
+  ylabel('Number of templates', size='x-large')
+  legend(loc=0)
+  grid("on")
+  
+  if opts.enable_output: 
+    fname = InspiralUtils.set_figure_name(opts, "banksize")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    return fname,fname_thumb
+  else: return [], []
+
+# ============================================================================
 # function to read in a list of files
 def isSearchSumm(name, attrs):
   return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
@@ -27,16 +99,30 @@ def readFiles(fList):
   output = {}
   if not fList:
     return output
+  count = 0
   for thisFile in fList:
+    fileobj = file(thisFile)
+    count = count+1
+    if opts.verbose is True:
+      print '...reading ' +  str(count)+'/'+str(len(fList))
+    if thisFile.endswith(".gz"):
+      fileobj = gzip.GzipFile(mode = "rb", fileobj=fileobj)
+    else:
+      fileobj = thisFile
+ 
     doc = ligolw.Document()
     # read in ifo from process, as not stored in SearchSumm
     ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isProcess)).parse(file(thisFile))
+	isProcess)).parse(fileobj)
     ifo = doc.childNodes[0].getColumnByName('ifos')[0]
+    if thisFile.endswith(".gz"):
+       fileobj.seek(0)
+    else: pass
+  
     # read in SearchSummary
     doc = ligolw.Document()
     ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isSearchSumm)).parse(file(thisFile))
+        isSearchSumm)).parse(fileobj)
     searchSummTable = doc.childNodes[0]
     if output.has_key(ifo):
       output[ifo].extend(searchSummTable)
@@ -48,92 +134,169 @@ def readFiles(fList):
 #################################################################
 # help message
 usage = """\
-Usage: plotnumtemplates [options]
-
+%prog [options]
+------------------------------------------------------------------------------
   SUMMARY: Makes a plot of the number of templates against time.  The code
            will read in either TMPLTBANK files or TRIGBANK files or both, 
            for as many ifo's as you like.  It will then plot the number of 
            templates vs time for each ifo and each type of bank (TMPLT and 
            TRIG).
-
+------------------------------------------------------------------------------
 """
 
 ##############################################################################
-parser = OptionParser( usage )
-    
-parser.add_option("-t","--tmplt-glob",action="store",type="string",\
-    default=None,metavar="TMPLT",\
-    help="glob for files containing the string TMPLT")
-    
-parser.add_option("-T","--trig-glob",action="store",type="string",\
-    default=None,metavar="TRIG",\
-    help="glob for files containing the string TRIG")
-    
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
-    help="display the figures on the terminal" )
+def parse_command_line():
+  """
+  Parser function dedicated 
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
+  parser.add_option("-t","--tmpltbank-glob",action="store",type="string",\
+      default=None,metavar="TMPLT",\
+      help="glob for files containing the string TMPLT")
+  parser.add_option("-T","--trigbank-glob",action="store",type="string",\
+      default=None,metavar="TRIG",\
+      help="glob for files containing the string TRIG")
+  parser.add_option("-c","--cache-file",action="store",type="string",\
+      default=None,metavar="INPUT",\
+      help="supply a bunch of TMPLT files or TRIG files")
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar="USERTAG",\
+      help="" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+      default=None, metavar="IFOTAG",\
+      help="" )
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default=None,  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+  parser.add_option("-i", "--ifo-times", action="store", type="string",\
+      metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
+  parser.add_option("", "--ifo-pattern",action="store",type="string",\
+      default=None, metavar="IFO_PATTERN", \
+      help="read a file of a particular description  from cache file" )
+  parser.add_option("-W", "--bank-pattern",action="store",type="string",\
+      default=None, metavar="BANK_PATTERN", \
+      help="read a file of a particular description  from cache file" )
+  parser.add_option("-Z", "--trigbank-pattern",action="store",type="string",\
+      default=None, metavar="TRIG_PATTERN", \
+      help="read a file of a particular description  from cache file" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="resolution of the thumbnails (50 by default)", \
+      help="read a file of a particular description  from cache file" )
 
-parser.add_option("-f","--figure-name",action="store",type="string",\
-    default=None, metavar=" FNAME",\
-    help="generate png figures with name FNAME.png" )
+  (options,args) = parser.parse_args()
 
-parser.add_option("-p","--print-numbers",action="store_true",default=False,\
-    help="prints each number on the screen" )
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
-(opts,args) = parser.parse_args()
+  if options.cache_file and (options.trigbank_glob or options.tmpltbank_glob):
+    raise ValueError, """
+Use either the glob options(trigbank-glob, tmpltbank-glob 
+OR the cachefile options (--cache-file), not both at the same time.
+"""
+
+  return options, sys.argv[1:]
 
 
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+# -- Initialise
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
 
-# identify the template bank files
-if opts.tmplt_glob:
-  tmpltbankFiles = glob.glob(opts.tmplt_glob)
+# to avoid  display problem when show plot is not used
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
+
+# ============================================================================
+# -- identify the template bank files
+InspiralUtils.message(opts, "Reading data...")
+tmpltSumm=[]
+trigSumm=[]
+if opts.tmpltbank_glob is not None:
+  tmpltbankFiles = glob.glob(opts.tmpltbank_glob)
   if not tmpltbankFiles:
-    print >>sys.stderr, "The glob for " + opts.tmplt_glob + \
+    print >>sys.stderr, "The glob for " + opts.tmpltbank_glob + \
         " returned no files"
     sys.exit(1)
-else:
-  tmpltbankFiles = None
+  else:
+    print 'Reading files...' + str(len(tmpltbankFiles))
+    tmpltSumm = readFiles(tmpltbankFiles)
 
 # identify the trigbank files
-if opts.trig_glob:
-  trigbankFiles = glob.glob(opts.trig_glob)
+if opts.trigbank_glob is not None:
+  trigbankFiles = glob.glob(opts.trigbank_glob)
   if not trigbankFiles:
-    print >>sys.stderr, "The glob for " + opts.trig_glob + \
+    print >>sys.stderr, "The glob for " + opts.trigbank_glob + \
         " returned no files"
     sys.exit(1)
-else:
-  trigbankFiles = None
-  
-#######################################################################
-# Read in the search summaries from the template banks
-tmpltSumm = readFiles(tmpltbankFiles)
-trigSumm  = readFiles(trigbankFiles)
+  else:
+    print 'Reading files...' + str(len(trigbankFiles))
+    trigSumm= readFiles(trigbankFiles)
 
-colors = {'G1':'k','H1':'r','H2':'b','L1':'g'}
+ifo_pattern = ''
+temp_ifo_list = ['H1','H2','L1','G1','V1','T1']
+for ifo in temp_ifo_list:
+  if opts.ifo_times.count(ifo):
+    if ifo_pattern:
+      ifo_pattern += ifo[0]
+    else:
+      ifo_pattern += '[' + ifo[0]
+ifo_pattern += ']'
 
-for ifo in tmpltSumm.keys():
-  numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
-  startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
-  style = colors[ifo] + 'x'
-  plot(startTime, numTemplates, style, label=ifo+' tmplt',\
-      markersize=12, markeredgewidth=1)
-  if opts.print_numbers:
-    print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+if opts.ifo_pattern:
+  ifo_pattern = opts.ifo_pattern
 
-for ifo in trigSumm.keys():
-  numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
-  startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
-  style = colors[ifo] + 'o'
-  plot(startTime, numTrigs, style, label=ifo+' trig',\
-      markersize=12, markeredgewidth=1)
-  if opts.print_numbers:
-    print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
-      
-xlabel('Days after start of run', size='x-large')
-ylabel('Number of templates', size='x-large')
-legend()
-grid("on")
-if opts.figure_name:
-  savefig(opts.figure_name + ".png")
+if opts.cache_file:
+  tmpltbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.bank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
+  trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trigbank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
+
+  if opts.verbose is True:
+    print tmpltbankFiles
+  if not tmpltbankFiles:
+    print >>sys.stderr, "Must supply a list of input files. pattern "+opts.bank_pattern +' returns nothing'
+    sys.exit(1) 
+  else:
+    tmpltSumm = readFiles(tmpltbankFiles)
+    trigSumm= readFiles(trigbankFiles)
+
+# ============================================================================
+# Make plot of tmpltbank size 
+fname, fname_thumb =  plotnumtemplates_tmpltbank_size(opts)
+fnameList.append(fname)
+fnameList.append(fname_thumb)
+tagList.append("Template Bank Size")
+
+# ============================================================================
+# final step: html, cache file generation
+if opts.enable_output is True:
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+#============================================================================
 
 if opts.show_plot:
   show()  

@@ -25,9 +25,12 @@
 #
 
 from pylal.date import LIGOTimeGPS
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
+
 #
 # =============================================================================
 #
@@ -37,22 +40,32 @@ from glue.ligolw import utils
 #
 
 
-def ReadSnglInspiralFromFiles(fileList):
+def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
   """
-  Read the snglInspiral tables from a list of files
+  Read the SnglInspiralTables from a list of files
+
   @param fileList: list of input files
+  @param mangle_event_id: ID remapping is necessary in cases where multiple
+    files might have event_id collisions (ex: exttrig injections)
+  @param verbose: print ligolw_add progress
   """
-  snglInspiralTriggers = None
-  for thisFile in fileList:
-    doc = utils.load_filename(thisFile)
-    # extract the sngl inspiral table
-    try: snglInspiralTable = \
-      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
-    except: snglInspiralTable = None
-    if snglInspiralTriggers and snglInspiralTable: 
-      snglInspiralTriggers.extend(snglInspiralTable)
-    elif not snglInspiralTriggers:
-      snglInspiralTriggers = snglInspiralTable
+  # turn on ID remapping if necessary
+  if mangle_event_id:
+    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+
+  # ligolw_add will merge all tables, which is overkill, but merge time is
+  # much less than I/O time.
+  xmldoc = ligolw_add.ligolw_add(ligolw.Document(), fileList, verbose=verbose)
+
+  # extract the SnglInspiral table
+  try:
+    snglInspiralTriggers = table.get_table(xmldoc, \
+      lsctables.SnglInspiralTable.tableName)
+  except:
+    snglInspiralTriggers = None
+
+  # return ID remapping to its normal state (off)
+  lsctables.SnglInspiralTable.next_id = None
 
   return snglInspiralTriggers
 

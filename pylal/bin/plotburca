@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,22 +27,35 @@
 # =============================================================================
 #
 
-from optparse import OptionParser
+
 import math
 import matplotlib.cm
-import numarray
+import numpy
+from optparse import OptionParser
 import os
-from pysqlite2 import dbapi2 as sqlite3
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
 import sys
 
 from glue import segments
-from glue.ligolw import table
-from glue.ligolw import lsctables
+from glue.ligolw import dbtables
 from glue.ligolw import utils
+from pylal import date
 from pylal import rate
 from pylal import SnglBurstUtils
-from pylal import date
 from pylal.xlal import inject
+from pylal.xlal import tools
+
+
+tools.cached_detector.update({
+	"H1": tools.cached_detector["LHO_4k"],
+	"H2": tools.cached_detector["LHO_2k"],
+	"L1": tools.cached_detector["LLO_4k"]
+})
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -56,20 +70,23 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version="%prog CVS $Id$")
-	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "set the prefix for output filenames (default = plotburca_)")
-	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "set the output image format (default = png)")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "power", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = power)")
-	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "generate the given plot number")
-	parser.add_option("-s", "--skip", metavar = "number", default = 0, help = "skip this many files at the start of the list (default = 0)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser = OptionParser(
+		version = "%prog CVS $Id$"
+	)
+	parser.add_option("-b", "--base", metavar = "base", default = "plotburca_", help = "Set the prefix for output filenames (default = \"plotburca_\").")
+	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\").")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\").")
+	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number.")
+	parser.add_option("-s", "--skip", metavar = "number", default = 0, help = "Skip this many files at the start of the list (default = process all).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	if options.plot:
 		options.plot = map(int, options.plot)
 	else:
-		options.plot = range(14)
+		options.plot = range(11)
 
 	options.skip = int(options.skip)
 
@@ -84,6 +101,16 @@ def parse_command_line():
 # =============================================================================
 #
 
+
+def time_slides_extent(offsets):
+	min_offset = max_offset = offsets[0].itervalues().next()
+	for d in offsets:
+		for offset in d.itervalues():
+			min_offset = min(min_offset, offset)
+			max_offset = max(max_offset, offset)
+	return min_offset, max_offset
+
+
 def time_slide_is_null(offsets):
 	for offset in offsets.itervalues():
 		if offset != 0:
@@ -92,44 +119,80 @@ def time_slide_is_null(offsets):
 
 
 class RateContours(SnglBurstUtils.BurstPlot):
-	def __init__(self, x_instrument, y_instrument, min_delta_t, max_delta_t):
+	def __init__(self, x_instrument, y_instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
 		self.tisi_rows = None
-		self.seglists = None
-		self.bins = rate.BinnedRatios(rate.Bins(min_delta_t, max_delta_t, 81, min_delta_t, max_delta_t, 81))
+		self.seglists = segments.segmentlistdict()
+		self.bins = None
 
 	def add_contents(self, contents):
-		if self.tisi_rows == None:
-			self.tisi_rows = contents.time_slide_table.all_offsets()
-		if self.seglists == None:
-			self.seglists = contents.seglists
-		else:
-			for instrument, seglist in contents.seglists.iteritems():
-				self.seglists[instrument] |= seglist
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			offsets = coinc.get_time_slide()
-			self.bins.incnumerator((offsets[self.x_instrument], offsets[self.y_instrument]))
+		if self.tisi_rows is None:
+			# get a list of time slide dictionaries
+			self.tisi_rows = contents.time_slide_table.as_dict().values()
+
+			# find the largest and smallest offsets
+			min_offset, max_offset = time_slides_extent(self.tisi_rows)
+
+			# a guess at the time slide spacing:  works if the
+			# time slides are distributed as a square grid over
+			# the plot area.  (max - min)^2 gives the area of
+			# the time slide square in square seconds; dividing
+			# by the length of the time slide list gives the
+			# average area per time slide;  taking the square
+			# root of that gives the average distance between
+			# adjacent time slides in seconds
+			time_slide_spacing = ((max_offset - min_offset)**2 / len(self.tisi_rows))**0.5
+
+			# use an average of 3 bins per time slide in each
+			# direction, but round to an odd integer
+			nbins = (max_offset - min_offset) / time_slide_spacing * 3
+			nbins = int(nbins / 2) * 2 + 1
+
+			# construct the binning
+			self.bins = rate.BinnedRatios(rate.NDBins((rate.LinearBins(min_offset, max_offset, nbins), rate.LinearBins(min_offset, max_offset, nbins))))
+
+		self.seglists |= contents.seglists
+
+		for offsets in contents.connection.cursor().execute("""
+SELECT tx.offset, ty.offset FROM
+	coinc_event
+	JOIN time_slide AS tx ON (
+		tx.time_slide_id == coinc_event.time_slide_id
+	)
+	JOIN time_slide AS ty ON (
+		ty.time_slide_id == coinc_event.time_slide_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND tx.instrument == ?
+	AND ty.instrument == ?
+		""", (contents.bb_definer_id, self.x_instrument, self.y_instrument)):
+			try:
+				self.bins.incnumerator(offsets)
+			except IndexError:
+				# beyond plot boundaries
+				pass
 
 	def finish(self):
 		for offsets in self.tisi_rows:
 			self.seglists.offsets.update(offsets)
-			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(self.seglists.intersection(self.seglists.keys()).duration()))
+			self.bins.incdenominator((offsets[self.x_instrument], offsets[self.y_instrument]), float(abs(self.seglists.intersection(self.seglists.keys()))))
 		self.bins.logregularize()
 		zvals = self.bins.ratio()
-		rate.filter_array(zvals, rate.gaussian_window2d(8, 8))
+		rate.filter_array(zvals, rate.gaussian_window2d(3, 3))
 		xcoords, ycoords = self.bins.centres()
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(zvals)))
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
 			if time_slide_is_null(offsets):
 				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "r+")
 			else:
 				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "k+")
 
-		self.axes.set_xlim([self.bins.bins.min[0], self.bins.bins.max[0]])
-		self.axes.set_ylim([self.bins.bins.min[1], self.bins.bins.max[1]])
+		self.axes.set_xlim([self.bins.bins().min[0], self.bins.bins().max[0]])
+		self.axes.set_ylim([self.bins.bins().min[1], self.bins.bins().max[1]])
 		self.axes.set_title(r"Coincident Event Rate vs. Instrument Time Offset (Logarithmic Rate Contours)")
 
 
@@ -141,49 +204,74 @@ class RateContours(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+def incomplete_injection_coincs(contents):
+	# determine burst <--> burst coincidences for which at least one
+	# burst, *but not all*, was identified as an injection;  these are
+	# places in the data where an injection was done, a coincident
+	# event was seen, but where, later, the injection was not found to
+	# match all events in the coincidence;  these perhaps indicate
+	# power leaking from the injection into nearby tiles, or accidental
+	# coincidence of a marginal injection with near-by noise, etc, and
+	# so although they aren't "bang-on" reconstructions of injections
+	# they are nevertheless injections that are found and survive a
+	# coincidence cut.
+	for values in contents.connection.cursor().execute("""
+SELECT
+	bb_coinc_event.*
+FROM
+	coinc_event AS bb_coinc_event
+WHERE
+	bb_coinc_event.coinc_def_id == ?
+	AND EXISTS (
+		SELECT
+			*
+		FROM
+			coinc_event AS sb_coinc_event
+			JOIN coinc_event_map AS a ON (
+				a.coinc_event_id == sb_coinc_event.coinc_event_id
+				AND a.table_name == 'sngl_burst'
+			)
+			JOIN coinc_event_map AS b ON (
+				b.table_name == 'sngl_burst'
+				AND b.event_id == a.event_id
+			)
+		WHERE
+			sb_coinc_event.coinc_def_id == ?
+			AND b.coinc_event_id == bb_coinc_event.coinc_event_id
+			AND sb_coinc_event.time_slide_id == bb_coinc_event.time_slide_id
+	)
+EXCEPT
+	SELECT
+		c.event_id
+	FROM
+		coinc_event_map AS c
+		JOIN coinc_event AS sc_coinc_event ON (
+			c.coinc_event_id == sc_coinc_event.coinc_event_id
+			AND c.table_name == 'coinc_event'
+		)
+	WHERE
+		sc_coinc_event.coinc_def_id == ?
+		AND sc_coinc_event.time_slide_id == bb_coinc_event.time_slide_id
+	""", (contents.bb_definer_id, contents.sb_definer_id, contents.sc_definer_id)):
+		yield contents.coinc_table._row_from_cols(values)
+
 
 def magnitude_a(burst):
-	return -burst.confidence
+	return burst.ms_hrss
 
 
 def magnitude_b(burst):
 	# galactic core, J2000
 	ra, dec = 2.0318570464121519, -0.50628171572274738
 	gmst = date.XLALGreenwichMeanSiderealTime(date.LIGOTimeGPS(burst.peak_time, burst.peak_time_ns))
-	fplus, fcross = inject.XLALComputeDetAMResponse(inject.cached_detector[burst.ifo].response(), ra, dec, 0.0, gmst)
-	# power_per_dof = burst.snr / (2.0 * burst.tfvolume) + 1.0
-	power_per_dof = (burst.snr + 2.0 * burst.tfvolume) / (2.0 * burst.bandwidth * burst.duration)
-	return power_per_dof / (fplus**2.0 + fcross**2.0)
-
-
-from pylal import itertools
-
-def keep_1(coinc_bursts):
-	# events are coincident iff their time-frequency tiles touch or
-	# intersect
-	return True
-
-def keep_2(coinc_bursts):
-	# events are coincident iff one time-frequency tile's centre
-	# frequency and peak time are covered by the other time-frequency tile.
-	for [a, b] in itertools.choices(coinc_bursts, 2):
-		if a.get_peak() not in b.get_period() or b.get_peak() not in a.get_period() or a.central_freq not in b.get_band() or b.central_freq not in a.get_band():
-			return False
-	return True
-
-def keep_3(coinc_bursts):
-	# events are coincident iff their peak time and centre frequencies
-	# equal
-	for [a, b] in itertools.choices(coinc_bursts, 2):
-		if a.get_peak() != b.get_peak() or a.central_freq != b.central_freq:
-			return False
-	return True
+	fplus, fcross = inject.XLALComputeDetAMResponse(tools.cached_detector[burst.ifo].response, ra, dec, 0.0, gmst)
+	return (burst.ms_hrss**2.0 / (fplus**2.0 + fcross**2.0))**0.5
 
 
 class ConfidenceContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument, magnitude, desc, min_magnitude, max_magnitude):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s %s" % (x_instrument, desc), "%s %s" % (y_instrument, desc))
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.axes.loglog()
 		self.x_instrument = x_instrument
 		self.y_instrument = y_instrument
@@ -193,10 +281,10 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 		self.n_foreground = 0
 		self.n_background = 0
 		self.n_injections = 0
-		self.foreground_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
-		self.background_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
-		self.coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
-		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(min_magnitude, max_magnitude, 1024, min_magnitude, max_magnitude, 1024, spacing = ["log", "log"]))
+		self.foreground_bins = rate.BinnedArray(rate.NDBins((rate.LogarithmicBins(min_magnitude, max_magnitude, 1024), rate.LogarithmicBins(min_magnitude, max_magnitude, 1024))))
+		self.background_bins = rate.BinnedArray(rate.NDBins((rate.LogarithmicBins(min_magnitude, max_magnitude, 1024), rate.LogarithmicBins(min_magnitude, max_magnitude, 1024))))
+		self.coinc_injection_bins = rate.BinnedArray(rate.NDBins((rate.LogarithmicBins(min_magnitude, max_magnitude, 1024), rate.LogarithmicBins(min_magnitude, max_magnitude, 1024))))
+		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.NDBins((rate.LogarithmicBins(min_magnitude, max_magnitude, 1024), rate.LogarithmicBins(min_magnitude, max_magnitude, 1024))))
 
 	def coords(self, coinc_bursts):
 		x = y = None
@@ -212,12 +300,28 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			# fast path: these are not the instruments we're
 			# looking for
 			return
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			#if not keep_3(contents.coinc_sngl_bursts(coinc)):
-			#	continue
-			if coinc.is_zero_lag():
+		for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_event
+WHERE
+	coinc_event.coinc_def_id == ?
+		""", (contents.bb_definer_id,)):
+			coinc = contents.coinc_event_table._row_from_cols(values)
+			not_zero_lag = values[-1]
+			if not_zero_lag:
 				self.n_foreground += 1
-				x, y = self.coords(contents.coinc_sngl_bursts(coinc))
+				x, y = self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))
 				try:
 					self.foreground_bins[x, y] += 1
 					#self.foreground_x.append(x)
@@ -228,22 +332,38 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 			else:
 				self.n_background += 1
 				try:
-					self.background_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
+					self.background_bins[self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))] += 1
 				except IndexError:
 					# not on plot axes
 					pass
 		if contents.sc_definer_id:
-			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
+			# this query assumes each injection can match at
+			# most 1 coinc
+			for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*
+FROM
+	coinc_event AS sim_coinc
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.table_name == 'coinc_event'
+		AND coinc_event_map.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sim_coinc.coinc_def_id == ?
+			""", (contents.sc_definer_id,)):
+				coinc = contents.coinc_event_table._row_from_cols(values)
 				self.n_injections += 1
-				for coinc in contents.coinc_coincs(coinc):
-					try:
-						self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
-					except IndexError:
-						# not on plot axes
-						pass
-		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+				try:
+					self.coinc_injection_bins[self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))] += 1
+				except IndexError:
+					# not on plot axes
+					pass
+		for coinc in incomplete_injection_coincs(contents):
 			try:
-				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(contents.coinc_table[coinc_event_id]))] += 1
+				self.incomplete_coinc_injection_bins[self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))] += 1
 			except IndexError:
 				# not on plot axes
 				pass
@@ -264,20 +384,20 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 
 		# plot background contours
 		max_density = math.log(self.background_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
 
 		# plot foreground (zero-lag) contours
 		max_density = math.log(self.foreground_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
 
 		# plot coincident injection contours
 		max_density = math.log(self.coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
-		# plot coincident injection contours
+		# plot incomplete coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
 		# add diagonal line
 		lower = max(self.background_bins.bins.min)
@@ -292,7 +412,7 @@ class ConfidenceContours(SnglBurstUtils.BurstPlot):
 class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 	def __init__(self, x, y, magnitude, max_magnitude):
 		SnglBurstUtils.BurstPlot.__init__(self, "X", "Y")
-		self.fig.set_figsize_inches(16,16)
+		self.fig.set_size_inches(6,6)
 		self.x = x
 		self.y = y
 		self.magnitude = magnitude
@@ -300,13 +420,13 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 		self.n_background = 0
 		self.n_injections = 0
 		max_magnitude = math.log10(max_magnitude)
-		self.foreground_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
-		self.background_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
-		self.coinc_injection_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
-		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.Bins(-max_magnitude, max_magnitude, 1024, -max_magnitude, max_magnitude, 1024, spacing = ["lin", "lin"]))
+		self.foreground_bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(-max_magnitude, max_magnitude, 1024), rate.LinearBins(-max_magnitude, max_magnitude, 1024))))
+		self.background_bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(-max_magnitude, max_magnitude, 1024), rate.LinearBins(-max_magnitude, max_magnitude, 1024))))
+		self.coinc_injection_bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(-max_magnitude, max_magnitude, 1024), rate.LinearBins(-max_magnitude, max_magnitude, 1024))))
+		self.incomplete_coinc_injection_bins = rate.BinnedArray(rate.NDBins((rate.LinearBins(-max_magnitude, max_magnitude, 1024), rate.LinearBins(-max_magnitude, max_magnitude, 1024))))
 
 	def coords(self, coinc_bursts):
-		mag = numarray.zeros(3, "Float64")
+		mag = numpy.zeros(3, "Float64")
 		for burst in coinc_bursts:
 			if burst.ifo == "H1":
 				mag[0] = math.log10(self.magnitude(burst))
@@ -314,15 +434,39 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 				mag[1] = math.log10(self.magnitude(burst))
 			elif burst.ifo == "L1":
 				mag[2] = math.log10(self.magnitude(burst))
-		return numarray.dot(mag, self.x), numarray.dot(mag, self.y)
+		return numpy.inner(mag, self.x), numpy.inner(mag, self.y)
 
 	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			#if not keep_3(contents.coinc_sngl_bursts(coinc)):
-			#	continue
-			if coinc.is_zero_lag():
+		for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_event
+WHERE
+	coinc_event.coinc_def_id == ?
+		""", (contents.bb_definer_id,)):
+			coinc = contents.coinc_event_table._row_from_cols(values)
+			not_zero_lag = values[-1]
+			bursts = SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id)
+			x, y = self.coords(bursts)
+			if not_zero_lag:
+				self.n_background += 1
+				try:
+					self.background_bins[x, y] += 1
+				except IndexError:
+					# not on plot axes
+					pass
+			else:
 				self.n_foreground += 1
-				x, y = self.coords(contents.coinc_sngl_bursts(coinc))
 				try:
 					self.foreground_bins[x, y] += 1
 					#self.foreground_x.append(x)
@@ -330,25 +474,34 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 				except IndexError:
 					# not on plot axes
 					pass
-			else:
-				self.n_background += 1
+		if contents.sc_definer_id:
+			# this query assumes each injection can match at
+			# most 1 coinc
+			for values in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.*
+FROM
+	coinc_event AS sim_coinc
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc.coinc_event_id
+	)
+	JOIN coinc_event ON (
+		coinc_event_map.table_name == 'coinc_event'
+		AND coinc_event_map.event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	sim_coinc.coinc_def_id == ?
+			""", (contents.sc_definer_id,)):
+				coinc = contents.coinc_event_table._row_from_cols(values)
+				self.n_injections += 1
 				try:
-					self.background_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
+					self.coinc_injection_bins[self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))] += 1
 				except IndexError:
 					# not on plot axes
 					pass
-		if contents.sc_definer_id:
-			for coinc in contents.coinc_table.selectByDefID(contents.sc_definer_id):
-				self.n_injections += 1
-				for coinc in contents.coinc_coincs(coinc):
-					try:
-						self.coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(coinc))] += 1
-					except IndexError:
-						# not on plot axes
-						pass
-		for coinc_event_id in contents.incomplete_injection_coinc_ids:
+		for coinc in incomplete_injection_coincs(contents):
 			try:
-				self.incomplete_coinc_injection_bins[self.coords(contents.coinc_sngl_bursts(contents.coinc_table[coinc_event_id]))] += 1
+				self.incomplete_coinc_injection_bins[self.coords(SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id))] += 1
 			except IndexError:
 				# not on plot axes
 				pass
@@ -369,20 +522,20 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 
 		# plot background contours
 		max_density = math.log(self.background_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.background_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greys)
 
 		# plot foreground (zero-lag) contours
 		max_density = math.log(self.foreground_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.foreground_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Reds)
 		#self.axes.plot(self.foreground_x, self.foreground_y, "r+")
 
 		# plot coincident injection contours
 		max_density = math.log(self.coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Blues)
 
-		# plot coincident injection contours
+		# plot incomplete coincident injection contours
 		max_density = math.log(self.incomplete_coinc_injection_bins.array.max())
-		self.axes.contour(xcoords, ycoords, numarray.transpose(numarray.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
+		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(self.incomplete_coinc_injection_bins.array)), [max_density - n for n in xrange(0, 10, 1)], cmap = matplotlib.cm.Greens)
 
 		# fix axes limits
 		self.axes.set_xlim([self.background_bins.bins.min[0], self.background_bins.bins.max[0]])
@@ -397,6 +550,7 @@ class ConfidenceContourProjection(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
+
 class RateVsConfidence(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Confidence" % instrument, "Coincident Event Rate (Hz)")
@@ -408,77 +562,27 @@ class RateVsConfidence(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents):
-		for time_slide_id in contents.time_slide_table.iterkeys():
-			if contents.time_slide_table.is_null(time_slide_id):
-				bins = self.foreground
-				self.foreground_segs.append(contents.seglists[self.instrument])
-			else:
+		for time_slide_id, not_zero_lag in contents.connection.cursor().execute("SELECT DISTINCT( time_slide.time_slide_id ), EXISTS ( SELECT * FROM time_slide AS a WHERE a.time_slide_id == time_slide.time_slide_id AND a.offset != 0 ) FROM time_slide"):
+			if not_zero_lag:
 				bins = self.background
 				self.background_segs.append(contents.seglists[self.instrument])
-			for coinc in contents.coinc_table.selectByTimeSlideID(time_slide_id):
-				if coinc.coinc_def_id != contents.bb_definer_id:
-					continue
-				for burst in contents.coinc_sngl_bursts(coinc):
+			else:
+				bins = self.foreground
+				self.foreground_segs.append(contents.seglists[self.instrument])
+			for values in contents.connection.cursor().execute("SELECT * FROM coinc_event WHERE time_slide_id == ? AND coinc_def_id == ?", (time_slide_id, contents.bb_definer_id)):
+				coinc = contents.coinc_table._row_from_cols(values)
+				for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc.coinc_event_id):
 					if burst.ifo == self.instrument:
-						bins.append(-burst.confidence)
+						bins.append(burst.confidence)
 
 	def finish(self):
 		self.axes.set_title("Cummulative Coincident Event Rate vs. Confidence in %s" % self.instrument)
 		self.background.sort()
 		self.foreground.sort()
-		background_y = numarray.arange(len(self.background), 0.0, -1.0, "Float64") / float(self.background_segs.duration())
-		foreground_y = numarray.arange(len(self.foreground), 0.0, -1.0, "Float64") / float(self.foreground_segs.duration())
+		background_y = numpy.arange(len(self.background), 0.0, -1.0, "Float64") / float(abs(self.background_segs))
+		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, "Float64") / float(abs(self.foreground_segs))
 		self.axes.plot(self.background, background_y, "ko-")
 		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
-
-
-#
-# =============================================================================
-#
-#                              Delta-t Histogram
-#
-# =============================================================================
-#
-
-class DeltaTHistogram(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, "Offset (s)", "Events per Unit Offset")
-		self.instrument = instrument
-		self.n_foreground = 0
-		self.n_background = 0
-		self.foreground = rate.Rate(interval, width)
-		self.background = rate.Rate(interval, width)
-
-	def add_contents(self, contents):
-		for coinc in contents.coinc_table.selectByDefID(contents.bb_definer_id):
-			offsets = coinc.get_time_slide()
-			if self.instrument not in offsets:
-				continue
-			# sum = len(bursts) * peak_time for this instrument
-			# - sum of peak times of all instruments.  Dividing
-			# this by len(bursts) gives the peak time for this
-			# instrument - the average of all peak times.  I
-			# compute this the way I do to avoid a (very
-			# expensive!) LIGOTimeGPS division operation.
-			sum = 0
-			bursts = list(contents.coinc_sngl_bursts(coinc))
-			for burst in bursts:
-				peak = burst.get_peak() + offsets[burst.ifo]
-				if burst.ifo != self.instrument:
-					sum -= peak
-				else:
-					sum += (len(bursts) - 1) * peak
-			if coinc.is_zero_lag():
-				self.n_foreground += 1
-				self.foreground[float(sum) / len(bursts)] = 1.0
-			else:
-				self.n_background += 1
-				self.background[float(sum) / len(bursts)] = 1.0
-
-	def finish(self):
-		self.axes.set_title(r"%s Peak Time Offset From Coincidence Mean (%d Foreground, %d Background Events)" % (self.instrument, self.n_foreground, self.n_background))
-		self.axes.plot(self.background.xvals(), self.background.filtered(), "k")
-		self.axes.plot(self.foreground.xvals(), self.foreground.filtered(), "r")
 
 
 #
@@ -489,67 +593,62 @@ class DeltaTHistogram(SnglBurstUtils.BurstPlot):
 # =============================================================================
 #
 
-inject.cached_detector.update({
-	"H1": inject.cached_detector["LHO_4k"],
-	"H2": inject.cached_detector["LHO_2k"],
-	"L1": inject.cached_detector["LLO_4k"]
-})
 
 def new_plots(plots):
 	deltat_seg = segments.segment(-0.3, +0.3)
 	deltat_width = 0.03125
 	l = [
-		RateContours("H2", "H1", -100, +100),
+		RateContours("H2", "H1"),
 		ConfidenceContours("H2", "H1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_a, "Confidence", 1, 10**10),
 		ConfidenceContours("H2", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("H2", "L1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
 		ConfidenceContours("L1", "H1", magnitude_b, r"Power / D.o.F. / ($F_{+}^{2} + F_{\times}^{2}$)", 1, 10**10),
-		ConfidenceContourProjection(numarray.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numarray.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
+		ConfidenceContourProjection(numpy.array((-1/math.sqrt(2), +1/math.sqrt(2), 0), "Float64"), numpy.array((-1/math.sqrt(4), -1/math.sqrt(4), +1/math.sqrt(2)), "Float64"), magnitude_b, 10**5),
 		RateVsConfidence("H1"),
 		RateVsConfidence("H2"),
-		RateVsConfidence("L1"),
-		DeltaTHistogram("H1", deltat_seg, deltat_width),
-		DeltaTHistogram("H2", deltat_seg, deltat_width),
-		DeltaTHistogram("L1", deltat_seg, deltat_width),
-		#ConfidenceContours(r"H1_DARM_ERR", r"H1_STRAIN", magnitude_a, "Confidence", 35, 10**10),
-		#ConfidenceContours(r"H2_DARM_ERR", r"H2_STRAIN", magnitude_a, "Confidence", 35, 10**10),
-		#ConfidenceContours(r"L1_DARM_ERR", r"L1_STRAIN", magnitude_a, "Confidence", 35, 10**10)
+		RateVsConfidence("L1")
 	]
 	return [l[i] for i in plots]
 
+
 options, filenames = parse_command_line()
+
 
 plots = new_plots(options.plot)
 
+
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)[options.skip:]):
 	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames) - options.skip),
-	database = SnglBurstUtils.CoincDatabase(sqlite3.connect(":memory:"))
-	#database = SnglBurstUtils.CoincDatabase(sqlite3.connect("database.sqlite"))
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	database.summarize(xmldoc, options.live_time_program, options.verbose)
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames) - options.skip, filename)
+
+	connection = sqlite3.connect(filename)
+	dbtables.DBTable_set_connection(connection)
+	database = SnglBurstUtils.CoincDatabase()
+	database.summarize(options.live_time_program, options.verbose)
+
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to burca plot %d..." % n
+			print >>sys.stderr, "adding to burca plot %d ..." % n
 		plot.add_contents(database)
-	xmldoc.unlink()
-	#os.remove("database.sqlite")
+
+	connection.close()
 
 
 # delete the plots as we go to save memory
 n = 0
-format = "%%s%%0%dd.%%s" % (int(math.log10(max(options.plot) - 1)) + 1)
+format = "%%s%%0%dd.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
 while len(plots):
 	filename = format % (options.base, options.plot[n], options.format)
 	if options.verbose:
-		print >>sys.stderr, "finishing plot %d..." % options.plot[n]
+		print >>sys.stderr, "finishing plot %d ..." % options.plot[n]
 	plots[0].finish()
 	if options.verbose:
-		print >>sys.stderr, "writing %s..." % filename
+		print >>sys.stderr, "writing %s ..." % filename
 	plots[0].fig.savefig(filename)
 	del plots[0]
 	n += 1
+
 if options.verbose:
 	print >>sys.stderr, "done."

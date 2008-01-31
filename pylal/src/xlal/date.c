@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,10 +27,12 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <structmember.h>
 #include <stdlib.h>
 #include <time.h>
+#include <numpy/arrayobject.h>
 #include <lal/Date.h>
 #include <lal/TimeDelay.h>
 
@@ -45,9 +48,11 @@
  * ============================================================================
  */
 
+
 /*
  * Forward references
  */
+
 
 static PyTypeObject pylal_LIGOTimeGPS_Type;
 
@@ -55,6 +60,7 @@ static PyTypeObject pylal_LIGOTimeGPS_Type;
 /*
  * Structure
  */
+
 
 typedef struct {
 	PyObject_HEAD
@@ -65,6 +71,7 @@ typedef struct {
 /*
  * Utilities
  */
+
 
 static PyObject *pylal_LIGOTimeGPS_New(LIGOTimeGPS gps)
 {
@@ -83,19 +90,9 @@ static int pylal_LIGOTimeGPS_Check(PyObject *obj)
 
 
 /*
- * Member access
- */
-
-static struct PyMemberDef pylal_LIGOTimeGPS_members[] = {
-	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
-	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
-	{NULL,}
-};
-
-
-/*
  * Converter function
  */
+
 
 static int pyobject_to_ligotimegps(PyObject *obj, LIGOTimeGPS *gps)
 {
@@ -132,6 +129,7 @@ static int pyobject_to_ligotimegps(PyObject *obj, LIGOTimeGPS *gps)
 /*
  * Methods
  */
+
 
 static PyObject *pylal_LIGOTimeGPS___abs__(PyObject *self)
 {
@@ -199,6 +197,14 @@ static int pylal_LIGOTimeGPS___init__(PyObject *self, PyObject *args, PyObject *
 	if(!PyArg_ParseTuple(args, "O|L", &seconds, &nanoseconds))
 		return -1;
 
+	if(PyUnicode_Check(seconds)) {
+		/* convert to ascii string */
+		PyObject *str = PyUnicode_AsASCIIString(seconds);
+		if(!str)
+			return -1;
+		Py_DECREF(seconds);
+		seconds = str;
+	}
 	if(PyString_Check(seconds)) {
 		char *end, *str = PyString_AsString(seconds);
 		int result = XLALStrToGPS(gps, str, &end);
@@ -432,6 +438,14 @@ static PyObject *pylal_LIGOTimeGPS___sub__(PyObject *self, PyObject *other)
  * Type information
  */
 
+
+static struct PyMemberDef pylal_LIGOTimeGPS_members[] = {
+	{"seconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsSeconds), 0, "integer seconds"},
+	{"nanoseconds", T_INT, offsetof(pylal_LIGOTimeGPS, gps.gpsNanoSeconds), 0, "integer nanoseconds"},
+	{NULL,}
+};
+
+
 static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
 	.nb_absolute = pylal_LIGOTimeGPS___abs__,
 	.nb_add = pylal_LIGOTimeGPS___add__,
@@ -447,10 +461,12 @@ static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
 	.nb_subtract = pylal_LIGOTimeGPS___sub__,
 };
 
+
 static struct PyMethodDef pylal_LIGOTimeGPS_methods[] = {
 	{"__reduce__", pylal_LIGOTimeGPS___reduce__, METH_NOARGS, NULL},
 	{NULL,}
 };
+
 
 static PyTypeObject pylal_LIGOTimeGPS_Type = {
 	PyObject_HEAD_INIT(NULL)
@@ -476,6 +492,7 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
  *
  * ============================================================================
  */
+
 
 static PyObject *pylal_XLALGPSToINT8NS(PyObject *self, PyObject *args)
 {
@@ -515,6 +532,7 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
  * ============================================================================
  */
 
+
 /*
  * Convert a struct tm of the kind Python uses to/from a struct tm of the
  * kind the C library uses.
@@ -532,27 +550,33 @@ static PyObject *pylal_XLALINT8NSToGPS(PyObject *self, PyObject *args)
  *	January 1st = year day 0
  */
 
-static void struct_tm_python_to_c(struct tm *tm)
+
+static struct tm *struct_tm_python_to_c(struct tm *tm)
 {
 	tm->tm_year -= 1900;
 	tm->tm_mon -= 1;
 	tm->tm_wday = (tm->tm_wday + 8) % 7;
 	tm->tm_yday -= 1;
+
+	return tm;
 }
 
 
-static void struct_tm_c_to_python(struct tm *tm)
+static struct tm *struct_tm_c_to_python(struct tm *tm)
 {
 	tm->tm_year += 1900;
 	tm->tm_mon += 1;
 	tm->tm_wday = (tm->tm_wday + 6) % 7;
 	tm->tm_yday += 1;
+
+	return tm;
 }
 
 
 /*
  * Leap seconds.
  */
+
 
 static PyObject *pylal_XLALLeapSeconds(PyObject *self, PyObject *args)
 {
@@ -575,16 +599,15 @@ static PyObject *pylal_XLALLeapSecondsUTC(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALLeapSecondsUTC", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* int */
-	return PyInt_FromLong(XLALLeapSecondsUTC(&utc));
+	return PyInt_FromLong(XLALLeapSecondsUTC(struct_tm_python_to_c(&utc)));
 }
 
 
 /*
  * GPS to/from UTC
  */
+
 
 static PyObject *pylal_XLALGPSToUTC(PyObject *self, PyObject *args)
 {
@@ -616,8 +639,7 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALUTCToGPS", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-	XLALGPSSet(&gps, XLALUTCToGPS(&utc), 0);
+	XLALGPSSet(&gps, XLALUTCToGPS(struct_tm_python_to_c(&utc)), 0);
 
 	/* LIGOTimeGPS */
 	return pylal_LIGOTimeGPS_New(gps);
@@ -628,6 +650,7 @@ static PyObject *pylal_XLALUTCToGPS(PyObject *self, PyObject *args)
  * Julian day
  */
 
+
 static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
 {
 	struct tm utc;
@@ -636,10 +659,8 @@ static PyObject *pylal_XLALJulianDay(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* float */
-	return PyFloat_FromDouble(XLALJulianDay(&utc));
+	return PyFloat_FromDouble(XLALJulianDay(struct_tm_python_to_c(&utc)));
 }
 
 
@@ -651,16 +672,15 @@ static PyObject *pylal_XLALModifiedJulianDay(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "(iiiiiiiii):XLALModifiedJulianDay", &utc.tm_year, &utc.tm_mon, &utc.tm_mday, &utc.tm_hour, &utc.tm_min, &utc.tm_sec, &utc.tm_wday, &utc.tm_yday, &utc.tm_isdst))
 		return NULL;
 
-	struct_tm_python_to_c(&utc);
-
 	/* int */
-	return PyInt_FromLong(XLALModifiedJulianDay(&utc));
+	return PyInt_FromLong(XLALModifiedJulianDay(struct_tm_python_to_c(&utc)));
 }
 
 
 /*
  * Sidereal time
  */
+
 
 static PyObject *pylal_XLALGreenwichSiderealTime(PyObject *self, PyObject *args)
 {
@@ -700,37 +720,41 @@ static PyObject *pylal_XLALGreenwichMeanSiderealTimeToGPS(PyObject *self, PyObje
  * ============================================================================
  */
 
+
 static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 {
-	PyObject *pos1_list, *pos2_list;
-	double pos1[3], pos2[3];
+	PyObject *pos1, *pos2;
 	double ra, dec;
 	pylal_LIGOTimeGPS *gps;
-	int i;
+	PyObject *result;
 
 	/* 3-element list, 3-element list, float, float, LIGOTimeGPS */
-	if(!PyArg_ParseTuple(args, "O!O!ddO!:XLALArrivalTimeDiff", &PyList_Type, &pos1_list, &PyList_Type, &pos2_list, &ra, &dec, &pylal_LIGOTimeGPS_Type, &gps))
+	if(!PyArg_ParseTuple(args, "OOddO!:XLALArrivalTimeDiff", &pos1, &pos2, &ra, &dec, &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
-	if(PyList_Size(pos1_list) != 3) {
-		PyErr_Format(PyExc_TypeError, "XLALArrivalTimeDiff() argument 1 must have length 3, not %d", PyList_Size(pos1_list));
+	pos1 = PyArray_FromAny(pos1, PyArray_DescrFromType(NPY_FLOAT64), 1, 1, NPY_CONTIGUOUS, NULL);
+	pos2 = PyArray_FromAny(pos2, PyArray_DescrFromType(NPY_FLOAT64), 1, 1, NPY_CONTIGUOUS, NULL);
+	if(!pos1 || !pos2) {
+		Py_XDECREF(pos1);
+		Py_XDECREF(pos2);
 		return NULL;
 	}
-	if(PyList_Size(pos2_list) != 3) {
-		PyErr_Format(PyExc_TypeError, "XLALArrivalTimeDiff() argument 2 must have length 3, not %d", PyList_Size(pos1_list));
-		return NULL;
+	if(PyArray_DIM(pos1, 0) != 3) {
+		PyErr_SetString(PyExc_TypeError, "XLALArrivalTimeDiff() argument 1 must have length 3");
+		Py_DECREF(pos1);
+		Py_DECREF(pos2);
+	}
+	if(PyArray_DIM(pos2, 0) != 3) {
+		PyErr_SetString(PyExc_TypeError, "XLALArrivalTimeDiff() argument 2 must have length 3");
+		Py_DECREF(pos1);
+		Py_DECREF(pos2);
 	}
 
-	for(i = 0; i < 3; i++) {
-		pos1[i] = PyFloat_AsDouble(PyList_GetItem(pos1_list, i));
-		if(PyErr_Occurred())
-			return NULL;
-		pos2[i] = PyFloat_AsDouble(PyList_GetItem(pos2_list, i));
-		if(PyErr_Occurred())
-			return NULL;
-	}
+	result = PyFloat_FromDouble(XLALArrivalTimeDiff(PyArray_DATA(pos1), PyArray_DATA(pos2), ra, dec, &gps->gps));
+	Py_DECREF(pos1);
+	Py_DECREF(pos2);
 
 	/* float */
-	return PyFloat_FromDouble(XLALArrivalTimeDiff(pos1, pos2, ra, dec, &gps->gps));
+	return result;
 }
 
 
@@ -742,7 +766,8 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
  * ============================================================================
  */
 
-static struct PyMethodDef methods[] = {
+
+static struct PyMethodDef module_methods[] = {
 	{"XLALArrivalTimeDiff", pylal_XLALArrivalTimeDiff, METH_VARARGS, NULL},
 	{"XLALGPSToINT8NS", pylal_XLALGPSToINT8NS, METH_VARARGS, NULL},
 	{"XLALGPSToUTC", pylal_XLALGPSToUTC, METH_VARARGS, NULL},
@@ -760,7 +785,9 @@ static struct PyMethodDef methods[] = {
 
 void initdate(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, methods, "Wrapper for LAL's date package.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, module_methods, "Wrapper for LAL's date package.");
+
+	import_array();
 
 	/* LIGOTimeGPS */
 	if(PyType_Ready(&pylal_LIGOTimeGPS_Type) < 0)

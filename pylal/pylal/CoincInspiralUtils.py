@@ -1,21 +1,104 @@
 import sys
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
+import glue.iterutils
+import numpy
 
-def uniq(list):
+########################################
+# helper functions
+
+def get_ifo_combos(ifo_list):
+  ifo_combos = []
+  for num_ifos in range(2, len(ifo_list) + 1):
+    ifo_combos.extend(list(glue.iterutils.choices(ifo_list, num_ifos)))
+
+  return ifo_combos
+
+def simpleEThinca(trigger1, trigger2):
+  """ 
+  Return the e-thinca corresponding to the distance in  parameter space between two inspiral triggers.
+
+  The average distance defined below  is only an approximation to the true distance and is
+  valid whenever two triggers are nearby. The simplified version of
+  the e-thinca parameter is calculated based on that definition of the distance.
+
+  d_average=(1/2)[(Gamma(x1)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2) + (Gamma(x2)_{ij}(x2-x1)^i(x2-x1)^j)^(1/2)]
+  then simple_ethinca= d_average^2/4  
+  
+  @param trigger1: is a single inspiral triggers.
+  @param trigger2: is a single inspiral triggers.
+  """ 
+  #dend_time = (trigger2.end_time - trigger1.end_time) + (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+
+  # HACK
+  #dend_time = numpy.sign(dend_time)*max(0.0, abs(dend_time) - light_travel_time(trigger1.ifo, trigger2.ifo))
+  #dend_time = (trigger2.end_time - trigger1.end_time) +\
+  #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #FIX ME end_time for time slides is poorly defined, we should sort it out
+  #dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+
+  dt = 0
+  dtau0 = trigger2.tau0-trigger1.tau0
+  dtau3 = trigger2.tau3-trigger1.tau3
+
+  dist1 = dt * (dt * trigger1.Gamma0 + dtau0 * trigger1.Gamma1 + dtau3 * trigger1.Gamma2) + \
+       dtau0 * (dt * trigger1.Gamma1 + dtau0 * trigger1.Gamma3 + dtau3 * trigger1.Gamma4) + \
+       dtau3 * (dt * trigger1.Gamma2 + dtau0 * trigger1.Gamma4 + dtau3 * trigger1.Gamma5)
+  
+  dist2 = dt * (dt * trigger2.Gamma0 + dtau0 * trigger2.Gamma1 + dtau3 * trigger2.Gamma2) + \
+       dtau0 * (dt * trigger2.Gamma1 + dtau0 * trigger2.Gamma3 + dtau3 * trigger2.Gamma4) + \
+       dtau3 * (dt * trigger2.Gamma2 + dtau0 * trigger2.Gamma4 + dtau3 * trigger2.Gamma5)
+
+  average_distance = 0.5 * (numpy.sqrt(dist1) + numpy.sqrt(dist2))
+
+  simple_ethinca = (average_distance * average_distance) / 4.0
+  
+  return simple_ethinca
+  
+
+def readCoincInspiralFromFiles(fileList,statistic=None):
   """
-  return a list containing the unique elements 
-  from the original list
+  read in the Sngl and SimInspiralTables from a list of files
+  if Sngls are found, construct coincs, add injections (if any)
+  also return Sims (if any)
+  @param fileList: list of input files
+  @param statistic: instance of coincStatistic, to use in creating coincs
   """
-  l = []
-  for m in list:
-    if m not in l:
-      l.append(m)
-  from numarray import asarray
-  return asarray(l)
+  if not fileList:
+    return coincInspiralTable(), None
+
+  if not (isinstance(statistic,coincStatistic)):
+    raise TypeError, "invalid statistic, must be coincStatistic"
+
+  sims = None
+  coincs = None
+
+  for thisFile in fileList:
+    doc = utils.load_filename(thisFile)
+    # extract the sim inspiral table
+    try: 
+      simInspiralTable = \
+          table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      if sims: sims.extend(simInspiralTable)
+      else: sims = simInspiralTable
+    except: simInspiralTable = None
+
+    # extract the sngl inspiral table, construct coincs
+    try: snglInspiralTable = \
+      table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+    except: snglInspiralTable = None
+    if snglInspiralTable:
+      coincFromFile = coincInspiralTable(snglInspiralTable,statistic)
+      if simInspiralTable: 
+        coincFromFile.add_sim_inspirals(simInspiralTable) 
+      if coincs: coincs.extend(coincFromFile)
+      else: coincs = coincFromFile
+  return coincs, sims
 
 
 ########################################
@@ -34,6 +117,9 @@ class coincStatistic:
     self.rsq=0
     self.bl=0
 
+  def __str__(self):
+    return self.name
+
   def get_bittenl(self, bl, snr ):
     blx=self.a*snr-self.b
     if bl==0:    
@@ -41,7 +127,7 @@ class coincStatistic:
     else:
       return min(bl, blx)  
     
-    
+
 #######################################
 class coincInspiralTable:
   """
@@ -53,17 +139,27 @@ class coincInspiralTable:
   of the individual triggers.
   """
   class row(object):
-    __slots__ = ["event_id", "numifos","stat","G1","H1","H2",\
+    __slots__ = ["event_id", "numifos","stat","likelihood","G1","H1","H2",\
                  "L1","T1","V1","sim","rsq","bl"]
     
-    def __init__(self, event_id, numifos = 0, stat = 0 ):
+    def __init__(self, event_id, numifos = 0, stat = 0, likelihood = 0):
       self.event_id = event_id
       self.numifos = numifos
       self.stat = stat
+      self.likelihood = likelihood
       self.rsq=0
       self.bl=0
       
     def add_trig(self,trig,statistic):
+      # Coincidence IDs are intended to be unique.  If there is a collision,
+      # multiple triggers from the same ifo can get mixed together.  This is
+      # a serious problem.  This won't detect all cases, but with more and
+      # more triggers being added, it becomes increasingly likely that
+      # we'll notice and halt the program.
+      assert not hasattr(self, trig.ifo), "Trying to add %s trigger to a"\
+        " coincidence for the second time. Coincidence so far:\n%s"\
+        "\n\nTrigger:\n%s" % (trig.ifo, dict([(x, getattr(self, x)) for x in \
+        self.__slots__ if hasattr(self, x)]), trig.event_id)
       
       self.numifos +=1
       if statistic.name == 'effective_snr':
@@ -85,6 +181,22 @@ class coincInspiralTable:
     def add_sim(self,sim):
       setattr(self,"sim",sim)
 
+    def get_ifos(self): 
+      ifolist = ['G1','H1','H2','L1','T1','V1']
+      ifos = ""
+      ifolist_in_coinc = []
+      for ifo in ifolist:
+        if hasattr(self,ifo):
+          ifos = ifos + ifo
+          ifolist_in_coinc.append(ifo)
+
+      return ifos,ifolist_in_coinc
+    
+    def _get_slide_num(self):
+      slide_num = (self.event_id % 1000000000) // 100000
+      if slide_num > 5000: slide_num = 5000 - slide_num
+      return slide_num
+    slide_num = property(fget=_get_slide_num)
   
   def __init__(self, inspTriggers = None, stat = None):
     """
@@ -96,26 +208,26 @@ class coincInspiralTable:
     self.sngl_table = inspTriggers
     self.sim_table = None
     self.rows = []
-    if not inspTriggers:
+    if inspTriggers is None:
       return
 
-    # use the supplied method to convert these columns into numarrays
-    eventidlist = uniq(inspTriggers.get_column("event_id"))
-    for event_id in eventidlist: 
-      self.rows.append(self.row(event_id))
+    # At present, coincidence is recorded by thinca by over-writing event_ids.
+    # The event_ids uniquely label coincidences now, rather than triggers.
+    row_dict = {}
+    unique_id_list = []
     for trig in inspTriggers:
-      for coinc in self.rows:
-        if coinc.event_id == trig.event_id:
-          coinc.add_trig(trig,stat)
+      event_id = trig.event_id
+      if event_id not in row_dict:
+        unique_id_list.append(event_id)
+        row_dict[event_id] = self.row(event_id)
+      row_dict[event_id].add_trig(trig, stat)
 
-    # make sure that there are at least twos ifo in each coinc
-    pruned_coincs = coincInspiralTable()
-    for coinc in self.rows:
-      if coinc.numifos > 1:
-        pruned_coincs.rows.append(coinc)
+    # make sure that there are at least two ifos in each coinc; restore order
+    pruned_rows = [row_dict[k] for k in unique_id_list \
+      if row_dict[k].numifos > 1]
 
-    self.rows = pruned_coincs.rows
-
+    self.rows = pruned_rows
+    
   def __len__(self):
     return len(self.rows)
   
@@ -132,11 +244,7 @@ class coincInspiralTable:
     return self.rows[i]
 
   def getstat(self):
-    stat = []
-    for coinc in self.rows:
-      stat.append(coinc.stat)
-    from numarray import asarray
-    return asarray(stat)
+    return numpy.array([c.stat for c in self.rows], dtype=float)
 
   def sort(self, descending = True):
     """
@@ -148,7 +256,15 @@ class coincInspiralTable:
     if descending:
       stat_list.reverse()
     self.rows = [coinc for (stat,coinc) in stat_list]
-    
+
+  def get_slide_numbers(self):
+    """
+    Return all the slides numbers present in the table.
+    """
+    nums = list(glue.iterutils.uniq([c.slide_num for c in self.rows]))
+    nums.sort()
+    return nums
+
   def getslide(self, slide_num):
     """
     Return the triggers with a specific slide number.
@@ -156,12 +272,7 @@ class coincInspiralTable:
     """
     slide_coincs = coincInspiralTable(stat=self.stat)
     slide_coincs.sngl_table = self.sngl_table
-    if slide_num < 0:
-      slide_num = 5000 - slide_num
-    for coinc in self.rows:
-      if ( (coinc.event_id % 1000000000) / 100000 ) == slide_num:
-        slide_coincs.rows.append(coinc)
-     
+    slide_coincs.extend([c for c in self.rows if c.slide_num == slide_num])
     return slide_coincs 
 
   def coincinclude(self, ifolist):
@@ -186,7 +297,7 @@ class coincInspiralTable:
   def coinctype(self, ifolist):
     """
     Return the coincs which are from ifos.
-    @param ifos: a list of ifos 
+    @param ifolist: a list of ifos 
     """
     coincs = self.coincinclude(ifolist)
     selected_coincs = coincInspiralTable()
@@ -228,12 +339,11 @@ class coincInspiralTable:
         if hasattr(coinc,ifo):
           end_time = getattr(coinc,ifo).end_time
           break
-      cluster_times.append(cluster_window * (end_time/cluster_window) )
-    cluster_times = uniq(cluster_times)
+      cluster_times.append(cluster_window * (end_time//cluster_window) )
     
     cluster_triggers = coincInspiralTable(stat = self.stat)
     cluster_triggers.sngl_table = self.sngl_table
-    for cluster_time in cluster_times:
+    for cluster_time in glue.iterutils.uniq(cluster_times):
       # find all triggers at that time
       cluster = coincInspiralTable()
       for coinc in self:
@@ -241,7 +351,7 @@ class coincInspiralTable:
           if hasattr(coinc,ifo):
             end_time = getattr(coinc,ifo).end_time
             break
-        if ((end_time - cluster_time) / cluster_window == 0):   
+        if ((end_time - cluster_time) < cluster_window):   
           cluster.append(coinc)
 
       # find loudest trigger in time and append
@@ -278,7 +388,7 @@ class coincInspiralTable:
     @param sim_inspiral: a simInspiralTable
     """
     for sim in sim_inspiral:
-      row = coincInspiralTable.row(-1)
+      row = coincInspiralTable.row(-1,stat=-1)
       row.add_sim(sim)
       self.append(row)
 
@@ -299,6 +409,29 @@ class coincInspiralTable:
         simInspirals.append(coinc.sim)
     
     return simInspirals
+    
+  def partition_by_stat(self, threshold):
+    """
+    Return (triggers with stat < threshold,
+    triggers with stat == threshold,
+    triggers with stat > threshold).
+
+    The set of (stat == threshold) is of zero measure, but often, as when
+    doing something like the loudest event statistic, the threshold is taken
+    from a coinc in self.
+    """
+    stats = self.getstat()
+
+    lesser_coincs = coincInspiralTable(stat=self.stat)
+    lesser_coincs.extend([self[i] for i in (stats < threshold).nonzero()[0]])
+
+    equal_coincs = coincInspiralTable(stat=self.stat)
+    equal_coincs.extend([self[i] for i in (stats == threshold).nonzero()[0]])
+
+    greater_coincs = coincInspiralTable(stat=self.stat)
+    greater_coincs.extend([self[i] for i in (stats > threshold).nonzero()[0]])
+
+    return lesser_coincs, equal_coincs, greater_coincs
 
   def getTotalMass(self,mLow,mHigh):
     """
@@ -347,14 +480,105 @@ class coincInspiralTable:
     Return ethinca values for the coincidences
     @param ifos: a list of the 2 ifos
     """
-    ethinca = []
-    for coinc in self:
-      if ( hasattr(coinc,ifos[0]) == False ) or \
-          ( hasattr(coinc,ifos[1]) == False ):
-        ethinca.append(0.0)
-      else:
-        ethinca.append( XLALCalculateEThincaParameter(getattr(coinc,ifos[0]), 
-            getattr(coinc,ifos[1]) ) )
+    ethinca = numpy.zeros(len(self), dtype=float)
+    for i,coinc in enumerate(self):
+      if hasattr(coinc, ifos[0]) and hasattr(coinc, ifos[1]):
+        ethinca[i] = XLALCalculateEThincaParameter(getattr(coinc, ifos[0]),
+                                                   getattr(coinc, ifos[1]))
+    return ethinca
+
+  def getSimpleEThincaValues(self, ifos):
+    """
+    Return simple ethinca values for the coincidences of the ifo pair ifos.
     
-    from numarray import asarray
-    return asarray(ethinca)
+    For coincs that do not have both ifos specified, return 0.0.
+    """
+    ethinca = numpy.zeros(len(self), dtype=float)
+    for i,coinc in enumerate(self):
+      if hasattr(coinc, ifos[0]) and hasattr(coinc, ifos[1]):
+        ethinca[i] = simpleEThinca(getattr(coinc, ifos[0]),
+                                   getattr(coinc, ifos[1]))
+    return ethinca
+
+
+
+  def getTriggersWithinEpsilon(self, candidate, epsilon):
+    """
+    Return distance squared between candidate and coincident triggers
+    using the following metric
+
+    d^2 = ( 1/n ) * sum_i ( |cparam_i - trigparam_i|^2 / cparam_i^2 )
+
+    @param candidate: a coincInspiral describing a candidate
+    """
+    c_ifos,ifolist = candidate.get_ifos()
+    triggers_within_epsilon = coincInspiralTable()
+    epsilon_sq = epsilon * epsilon
+
+    for trig in self:
+      trig_ifos,tmplist = trig.get_ifos()
+      tmp_d_squared = 0.0
+      param_counter = 0
+      if c_ifos == trig_ifos:
+        for ifo1 in ifolist: 
+          c = getattr(candidate,ifo1)
+          t = getattr(trig,ifo1)
+          
+          # distance^2 apart in effective snr
+          c_lambda = c.snr
+          t_lambda = t.snr
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
+
+          # distance^2 apart in chi squared
+          c_lambda = c.chisq
+          t_lambda = t.chisq
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
+
+          # distance^2 apart in mchirp
+          c_lambda = c.mchirp
+          t_lambda = t.mchirp
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
+
+          # distance^2 apart in effective distance
+          c_lambda = c.eff_distance
+          t_lambda = t.eff_distance
+          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          param_counter += 1
+
+          # distance^2 apart in ethinca
+          for ifo2 in ifolist:
+            if ifo1 < ifo2:
+              c_lambda = simpleEThinca(c, getattr(candidate, ifo2))
+              t_lambda = simpleEThinca(t, getattr(trig, ifo2))
+              
+              # check if the ethinca parameter of the candidate is not zero
+              if c_lambda > 0.0:
+                sEThinca_scale = c_lambda
+              else:
+                sEThinca_scale = 0.5
+              #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+              # FIX ME! We need to make a choice for the sEThinca_scale that sets the scale for SimpleEThinca parameter 
+              tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
+              param_counter += 1
+
+        if ( (tmp_d_squared / float(param_counter)) < epsilon_sq ):
+          triggers_within_epsilon.append(trig)
+
+    return triggers_within_epsilon
+
+  def getTriggersInSegment(self, segment):
+    """
+    Return a new coincInspiralTable with triggers whose end_times lie within
+    segment; always use alphabetically first ifo's end_time.
+    """
+    triggers_within_segment = coincInspiralTable(stat=self.stat)
+
+    for trig in self:
+      end_time = getattr(trig, trig.get_ifos()[1][0]).end_time
+      if end_time in segment:
+        triggers_within_segment.append(trig)
+
+    return triggers_within_segment

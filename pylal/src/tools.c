@@ -1,7 +1,14 @@
 #include <Python.h>
+#include <lal/XLALError.h>
 #include <lal/LALStdio.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
+#include <lal/CoincInspiralEllipsoid.h>
+#include <lal/TimeDelay.h>
+#include <lal/DetectorSite.h>
+#include <lal/DetResponse.h>
+#include <lal/Date.h>
+#include <lal/EllipsoidOverlapTools.h>
 
 SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     /* Convert a Python SnglInspiral (row) to a C SnglInspiralTable.
@@ -22,14 +29,17 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
        - Decrement the Python object's reference count; omission => mem leak
      */
     temp = PyObject_GetAttrString(row, "ifo");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->ifo, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row,  "search");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->search, LIGOMETA_SEARCH_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "channel");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->channel, LIGOMETA_CHANNEL_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -194,6 +204,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     
     SimInspiralTable *event; /* Return value */
     PyObject *temp; /* Holds each datum for copy and refcount decrement */
+    PyObject *temp2;
     
     /* allocate new memory for row */
     event = (SimInspiralTable *) LALCalloc(1, sizeof(SimInspiralTable));
@@ -205,6 +216,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
        - Decrement the Python object's reference count; omission => mem leak
      */
     temp = PyObject_GetAttrString(row, "waveform");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->waveform, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -250,6 +262,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     event->end_time_gmst = PyFloat_AsDouble(temp);
     
     temp = PyObject_GetAttrString(row, "source");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->source, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -362,9 +375,11 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     
     event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
     temp = PyObject_GetAttrString(row, "simulation_id");
+    temp2 = PyObject_Str(temp);
     LALSnprintf( event->event_id->textId, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
+                 "%s", PyString_AsString(temp2));
     Py_XDECREF(temp);
+    Py_XDECREF(temp2);
     
     event->next = NULL;
     
@@ -378,6 +393,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     double result;
     PyObject *py_row1, *py_row2;
     SnglInspiralTable *c_row1, *c_row2;
+    InspiralAccuracyList* accuracyParams=NULL;
     
     if (! PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
         return NULL;
@@ -386,12 +402,81 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
+    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
+
+    XLALPopulateAccuracyParams( accuracyParams );
+
     /* This is the main call */
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2);
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
     
     /* Free temporary memory */
     LALFree(c_row1);
     LALFree(c_row2);
+    LALFree(accuracyParams);
+    
+    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+        /* convert XLAL exception to Python exception */
+        XLALClearErrno();
+        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
+        return NULL;
+    }
+    
+    return Py_BuildValue("d", result);
+}
+
+static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) {
+    /* Take two Python SnglInspiral values (rows of SnglInspiralTable) and
+    call XLALCalculateEThincaParameter on their contents. */
+    
+    double result;
+    double ra_deg, dec_deg;
+    long gps;
+    LIGOTimeGPS *gpstime;
+    PyObject    *py_row1, *py_row2;
+    SnglInspiralTable *c_row1, *c_row2;
+    InspiralAccuracyList* accuracyParams;
+    
+    if (! PyArg_ParseTuple(args, "OOldd", &py_row1, &py_row2, &gps, &ra_deg, &dec_deg ))
+        return NULL;
+    
+    /* check the values */
+    if (ra_deg<0 || ra_deg > 360) 
+    {
+      XLALPrintError("Right ascension value outside [0; 360]. Value given: %f\n", ra_deg);
+      return NULL;
+    }
+    if (dec_deg<-90 || dec_deg>90) 
+    {
+      XLALPrintError("Declination value outside [-90; 90]. Value given: %f\n", dec_deg);
+      return NULL;
+    }
+
+    /* Get rows into a format suitable for the LAL call */
+    c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
+    c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
+    
+    gpstime=(LIGOTimeGPS*)LALMalloc( sizeof(LIGOTimeGPS) );
+    gpstime->gpsSeconds=gps;
+    gpstime->gpsNanoSeconds=0;
+
+    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
+    XLALPopulateAccuracyParamsExt( accuracyParams, gpstime, ra_deg, dec_deg );
+
+    /* This is the main call */    
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    
+    /* Free temporary memory */
+    LALFree(c_row1);
+    LALFree(c_row2);
+    LALFree(accuracyParams);
+    LALFree(gpstime);
+
+    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+        /* convert XLAL exception to Python exception */
+        XLALClearErrno();
+        PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
+        return NULL;
+    }
     
     return Py_BuildValue("d", result);
 }
@@ -423,6 +508,7 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     return Py_BuildValue("d", result);
 }
 
+
 static struct PyMethodDef tools_methods[] = {
     {"XLALCalculateEThincaParameter", PyCalculateEThincaParameter,
      METH_VARARGS,
@@ -430,14 +516,20 @@ static struct PyMethodDef tools_methods[] = {
      "\n"
      "Takes two SnglInspiral objects (rows of a SnglInspiralTable) and\n"
      "calculates the overlap factor between them."},
+    {"XLALCalculateEThincaParameterExt", PyCalculateEThincaParameterExt,
+     METH_VARARGS,
+     "XLALCalculateEThincaParameterExt(SnglInspiral1, SnglInspiral2, gps, ra_deg, dec_deg)\n"
+     "\n"
+     "Takes two SnglInspiral objects (rows of a SnglInspiralTable) and\n"
+     "calculates the overlap factor between them, using the known time delay \n"
+     "between the IFO's at a given time for a given sky location (given in degrees)."},
      {"XLALEThincaParameterForInjection", PyEThincaParameterForInjection,
       METH_VARARGS, \
       "XLALEThincaParameterForInjection(SimInspiral, SnglInspiral)\n"
       "\n"
       "Takes a SimInspiral and a SnglInspiral object (rows of\n"
       "SimInspiralTable and SnglInspiralTable, respectively) and\n"
-      "calculates the ethinca parameter required to put the SimInspiral\n"
-      "parameters inside the SnglInspiral template's ellipse."},
+      "calculates the ethinca parameter required to put the SimInspiral\n"},   
     {NULL, NULL, 0}
 };
 

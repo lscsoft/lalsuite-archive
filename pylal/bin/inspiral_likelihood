@@ -1,0 +1,439 @@
+#!/usr/bin/python
+
+import sys
+import exceptions 
+from optparse import *
+import glob
+import re
+
+from glue import lal
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from glue.ligolw import ilwd
+from glue.ligolw import types
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal.tools import XLALCalculateEThincaParameter
+
+#from pylab import*
+import glue.iterutils
+import numpy
+numpy.seterr("raise")
+
+#######################################################################################
+# Definitions of some of the classes and functions that are used in the main program.
+#######################################################################################
+class InspiralLikelihoodTable(table.Table):
+  tableName = "Inspiral_Likelihood:table"
+  validcolumns = {
+	"ifo": "lstring",
+	"false_alarm_prob": "real_4",
+	"detect_prob": "real_4",
+	"likelihood": "real_4",
+	"bg_frac": "real_4",
+	"detect_bg_frac_ratio": "real_4",
+	"event_id": "int_8s"
+  }
+  def get_column(self,column):
+    return self.getColumnByName(column).asarray()
+	
+  def getslide(self,slide_num):
+	  """
+	  Return the triggers with a specific slide number.
+	  @param slide_num: the slide number to recover (contained in the event_id)
+	  """
+	  slideTrigs = table.new_from_template(self)
+	  if slide_num < 0:
+		  slide_num = 5000 - slide_num
+	  for row in self:
+		  if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+			  slideTrigs.append(row)
+	  return slideTrigs
+
+class InspiralLikelihood(object):
+  __slots__ = InspiralLikelihoodTable.validcolumns.keys()
+  
+InspiralLikelihoodTable.RowType = InspiralLikelihood
+
+def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="", user_tag="", gps_start_time=0, gps_end_time=0):
+  """
+  Generates the string according to inspiral pipeline conventions, that can be used as a name of a file.
+  """ 
+  prefix = program_name
+  if ifo_times:
+    prefix = ifo_times + "-" + prefix
+  if ifo_tag:
+    prefix = prefix + "_" + ifo_tag
+  if user_tag:
+    prefix = prefix + "_" + user_tag
+	
+  if gps_start_time > 0 and gps_end_time > 0:
+    suffix = "_" +str(gps_start_time) + "-" + str(gps_end_time - gps_start_time)
+  else:
+    suffix = ""
+  return prefix, suffix
+   			
+def false_alarm_prob(candidate, backgroundTriggers, Nslides, epsilon):
+  '''
+  Return false alarm probability of a candidate.
+  @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
+  the false alarm probability should be calculated.
+  @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background coincs.
+  @param Nslides: number of timeslides performed.
+  @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
+  it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
+  ''' 
+  c_ifos,ifolist=candidate.get_ifos()
+  # calculating the false alarm probability
+  slide_array=numpy.zeros(2*Nslides)
+  slides_within_epsilon = backgroundTriggers.getTriggersWithinEpsilon(candidate,epsilon)
+
+  for slide in range(1, Nslides+1):
+	#slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
+	#slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
+	slideTriggers_forward = slides_within_epsilon.getslide(slide)
+	slideTriggers_backward = slides_within_epsilon.getslide(-slide)
+	if len(slideTriggers_forward) >= 1:
+	  slide_array[slide - 1] = 1.0
+	if len(slideTriggers_backward) >= 1:
+	  slide_array[Nslides-1+slide] = 1.0
+
+  FalseAlarmProb = sum(slide_array)/float(2*Nslides)
+  return FalseAlarmProb
+################################################################################
+# Main program.
+################################################################################
+usage= """
+usage: %prog [options]
+
+Calculates likelihood ratio and assigns rank based on it to each 
+candidate event.
+"""
+###############################################################################
+# Options for input
+###############################################################################
+parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+parser.add_option("","--candidate-events-glob",action="store",type="string",\
+    default=None, metavar="CANDIDATEEVENTSGLOB",help="GLOB thinca (coire) files containing candidate events for which the likelihood is going to be calculated" )
+parser.add_option("","--background-glob",action="store",type="string",\
+    default=None, metavar="SLIDESGLOB",help="GLOB time slides thinca (coire) files that are going to be used to estimate the background" )
+parser.add_option("","--found-injections-glob",action="store",type="string",\
+    default=None, metavar="INJGLOB",help="GLOB thinca (coire) files with found software injections that are going to be used to estimate the foreground" )
+parser.add_option("","--missed-injections-glob",action="store",type="string",\
+    default=None, metavar="INJGLOB",help="GLOB thinca (coire) files with missed software injections that are going to be used to estimate the foreground" )
+	
+		
+parser.add_option("-c","--candidate-events-cache-file",action="store",type="string",\
+    default=None, metavar="CANDIDATEEVENTSCACHEFILE",help="name of the cache file (including the path) that points to thinca (coire) files containing candidate events for which the likelihood is going to be calculated " )
+parser.add_option("-I","--background-foreground-cache-files",action="store",type="string",\
+    default=None, metavar="INJECTIONCACHEFILE",help="names of the cache files (including the path) separated by commas that points to thinca (coire) files that are going to be used to estimate the background/foregorund (timeslides/injections) " )
+parser.add_option("","--candidate-events-pattern",\
+    default="", metavar="CANDIDATEEVENTSPATTERN", help="the candidate events files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--background-pattern",\
+    default="", metavar="BACKGROUNDPATTERN", help="the background events files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--found-injections-pattern",\
+    default="", metavar="FOUNDINJECTIONSPATTERN", help="the found injections files pattern the corresponding cache file will be seived with.")
+parser.add_option("","--missed-injections-pattern",\
+    default="", metavar="MISSEDINJECTIONSPATTERN", help="the missed injections files pattern the corresponding cache file will be seived with.")
+#################################################################################
+# Options for output
+##################################################################################
+parser.add_option("-u","--user-tag",action="store",type="string",\
+	default="", metavar=" USERTAG",\
+	help="The user tag used in the name of the name of the output file " )
+parser.add_option("","--ifo-tag",action="store",type="string",\
+	default="", metavar=" IFOTAG",\
+	help="The ifo tag used in the name of the output file (e.g. SECOND_H1H2L1)")      
+parser.add_option("","--gps-start-time",action="store", type="int", default=0, metavar="GPSSTARTTIME",\
+	help="gps start time used in the name of the output file")
+parser.add_option("","--gps-end-time",action="store", type= "int", default=0, metavar="GPSENDTIME",\
+	help="gps end time used in the name of the output file")
+parser.add_option("","--ifo-times",action="store",type="string",\
+    default="", metavar="IFOS",\
+	help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
+parser.add_option("-v","--verbose",action="store_true",\
+	default=False,help="print information" )
+####################################################################################	
+# Options to select parameters for calculation of p(c|0), p(c|h) and likelihood ratio. 
+####################################################################################
+parser.add_option("-S","--statistic",action="store",default='snr', type="string",\
+    help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
+
+parser.add_option("-e","--epsilon",action="store",type="float",\
+    default=0.3, metavar=" EPSILON", help="radius of the hypersphere in the parameter space that defines closeness of events" )
+
+parser.add_option("-N","--numslides", action="store",type="int",\
+    default = 0, metavar="NUMSLIDES", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
+
+parser.add_option("-k","--kappa", action="store",type="float",\
+    default = 0, metavar="KAPPA", help="The value of kappa to be supplied to perform distance cut" )
+
+(opts,args) = parser.parse_args()
+
+###############################################################################################
+
+
+# read in the candidate events files
+if opts.candidate_events_cache_file:
+  CandidateEventsFiles = []
+  CandidateEventsCache = lal.Cache.fromfile(open(opts.candidate_events_cache_file))
+  CandidateEventsFiles = CandidateEventsCache.sieve(description = opts.candidate_events_pattern).checkfilesexist()[0].pfnlist()
+elif opts.candidate_events_glob:
+  CandidateEventsFiles = []
+  CandidateEventsFiles = glob.glob(opts.candidate_events_glob)
+else: 
+  print >>sys.stderr, "either " + opts.candidate_events_cache_file + " or " + opts.candidate_events_glob + "must be given"
+  sys.exit(1)  
+
+if len(CandidateEventsFiles) < 1:
+  print >>sys.stderr, "The " +  opts.candidate_events_cache_file +  "contains no candidate events files"
+  sys.exit(1)
+
+
+
+
+if opts.background_foreground_cache_files:
+  BackgroundFiles = []
+  FoundInjectionsFiles = []
+  MissedInjectionsFiles = []
+  BackgroundForegroundCacheFiles = opts.background_foreground_cache_files.split(",")
+  for cachefile in BackgroundForegroundCacheFiles:  
+    BackgroundForegroundCache = lal.Cache.fromfile(open(cachefile))
+    BackgroundFiles += BackgroundForegroundCache.sieve(description = opts.background_pattern).checkfilesexist()[0].pfnlist()
+    FoundInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[0].pfnlist()
+    MissedInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.missed_injections_pattern).checkfilesexist()[0].pfnlist() 	
+elif opts.background_glob and opts.found_injections_glob and opts.missed_injections_glob:
+  BackgroundFiles = []
+  FoundInjectionsFiles = []
+  MissedInjectionsFiles = []    
+  BackgroundFiles = glob.glob(opts.background_glob)
+  FoundInjectionsFiles = glob.glob(opts.found_injections_glob)
+  MissedInjectionsFiles = glob.glob(opts.missed_injections_glob)
+else:	
+ print >>sys.stderr, "either " + opts.background_foreground_cache_file + " or " + opts.background_glob + " and " + opts.found_injections_glob + " and " + opts.missed_injections_glob + "must be given"
+ sys.exit(1)
+ 
+if len(BackgroundFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no time slides files "
+  sys.exit(1)
+
+if len(FoundInjectionsFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no found injections files "
+  sys.exit(1)
+  
+if len(MissedInjectionsFiles) < 1:
+  print >>sys.stderr, "The " + opts.background_foreground_cache_file  + "contains no missed injections files "
+  sys.exit(1)
+
+if not len(FoundInjectionsFiles) == len(MissedInjectionsFiles):
+  print >>sys.stderr, " The number of found injections files does not match the number of missed injections files"
+  sys.exit(1)
+  
+# check if number of slides is given
+if opts.numslides == 0:
+  print >> sys.stderr, "--numslides must be specified"
+  sys.exit(1)
+ 
+# check that statistic is OK:
+if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat', 'effective_snr', 'bitten_lsq', 'bitten_l'):
+  print >>sys.stderr, "--statistic must be one of"  
+  print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
+  sys.exit(1)
+
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
+
+###############################################################################
+# read in candidate events coincident triggers
+
+CandidateEventsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(CandidateEventsFiles, mangle_event_id=False)
+
+# construct the candidate events coincs 
+CandidateEventsCoincTriggers = CoincInspiralUtils.coincInspiralTable(CandidateEventsTriggers, statistic)
+
+# read in time slides triggers 
+
+#SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(BackgroundFiles, mangle_event_id=True)
+
+# construct the time slides coincs
+#SlidesCoincTriggers= \
+#CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
+
+
+# read in found injections sngl and sim inspirals
+
+#FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(FoundInjectionsFiles, mangle_event_id=True)
+
+ #FoundSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(FoundInjectionsFiles)   
+
+
+#construct injection coincs and add sim inspirals
+
+#FoundInjectionsCoincTriggers= \
+#CoincInspiralUtils.coincInspiralTable(FoundInjectionsTriggers, statistic)
+
+#FoundInjectionsCoincTriggers.add_sim_inspirals(FoundSimTriggers)
+
+# read in missed injections sim inspirals
+
+#MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(MissedInjectionsFiles)   
+
+
+######################################
+#Experimental area
+
+#counter=0
+#file=open('slidestriggers', 'w')
+#for trigger in slidesCoincTriggers:
+#  ifo, ifolist = trigger.get_ifos()
+#  file.write(str(ifo) + '\n')
+#  counter+=1
+#print str(counter)
+#file.close()
+
+#for candidate in injectionTestCoincTriggers:
+  #  ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
+  #c_ifo, ifolist = candidate.get_ifos()
+  #if c_ifo=='H1H2L1':
+    #print candidate.event_id
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.L1)
+    #print 'H1L1', ethinca, simethinca
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H2, candidate.L1)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H2, candidate.L1)
+    #print 'H2L1', ethinca, simethinca
+    #simethinca = CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.H2)
+    #ethinca=XLALCalculateEThincaParameter(candidate.H1, candidate.H2)
+    #print 'H1H2', ethinca, simethinca
+ 
+  #  if simethinca > 100.0:
+  #    CoincInspiralUtils.simpleEThinca(candidate.H1, candidate.L1)
+  #    print simethinca
+
+  #  d_tmp1=1.0 - simethinca**2
+  #  d_tmp2=1.0 - simethinca**2/4.0
+  #  d_tmp3=simethinca**2/4.0
+  #print simethinca
+
+
+############################################################################################################
+# Likelihood calculation
+###########################################################################################################
+##########################################################################################
+# calculate likelihood for candidate events 
+#########################################################################################
+  
+# Calculate False Alarm Probability and Background Fraction
+array_size = len(CandidateEventsCoincTriggers)
+FAProduct = numpy.zeros(array_size) + 1.0
+Ntotal_noise = 0
+Nnoise_events_within_epsilon = numpy.zeros(array_size)
+# loop over time slides files
+for file in BackgroundFiles:
+  if opts.verbose:
+    print file
+  # read in time slides triggers
+  SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  # construct the time slides coincs
+  SlidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
+  # False Alarm Probability for the current time slides file
+  if SlidesCoincTriggers:
+    if opts.verbose:
+	  print len(SlidesCoincTriggers)
+    Ntotal_noise += len(SlidesCoincTriggers)
+  i = 0
+  for candidate in CandidateEventsCoincTriggers:
+    FAProb = false_alarm_prob(candidate, SlidesCoincTriggers, opts.numslides, opts.epsilon)
+    FAProduct[i] = FAProduct[i] * (1.0 - FAProb)
+    # accumulating statistic for Background Fraction 
+    Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    i += 1
+FalseAlarmProb = 1.0 - FAProduct 
+  
+if Ntotal_noise > 0:
+  BackgroundFraction = Nnoise_events_within_epsilon / float(Ntotal_noise)
+else:
+  BackgroundFraction = numpy.zeros(array_size)
+	 
+# Calculate Detection Probability
+Ntotal_found_injections = 0
+N_injections_within_epsilon = numpy.zeros(array_size)
+# loop over found injections files 	
+for file in FoundInjectionsFiles:
+  if opts.verbose:
+    print file
+  FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  FoundInjectionsCoincTriggers = CoincInspiralUtils.coincInspiralTable(FoundInjectionsTriggers, statistic)
+  if FoundInjectionsCoincTriggers:
+    if opts.verbose:
+      print len(FoundInjectionsCoincTriggers)
+    Ntotal_found_injections += len(FoundInjectionsCoincTriggers)
+  i = 0
+  for candidate in CandidateEventsCoincTriggers:
+    # accumulating statistic for Detection Probability
+    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    i += 1
+	
+Ntotal_missed_injections = 0
+# loop over missed injections files
+for file in MissedInjectionsFiles:
+  if opts.verbose:
+	print file
+  MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles([file])
+  if MissedSimTriggers:
+    if opts.verbose:
+      print len(MissedSimTriggers)   
+    Ntotal_missed_injections += len(MissedSimTriggers)
+	
+DetectionProb = N_injections_within_epsilon / float(Ntotal_found_injections + Ntotal_missed_injections)
+  
+# Calculating likelihood ratio
+for i in range(array_size):  
+  if FalseAlarmProb[i] > 0:
+    pass
+  else:
+	#Likelihood[i] = -1.0
+	# below is a temporary fix for the case of vanishing false alarm probability
+	FalseAlarmProb[i] = 1.0 / float(4.0*opts.numslides)
+	 
+Likelihood = DetectionProb / FalseAlarmProb
+   
+# Calculating the ratio of DetectionProb to BackgroundFraction
+for i in range(array_size):  
+  if BackgroundFraction[i] > 0:
+	pass
+  else:
+	#DetectionBackgroundRatio[i] = -1.0
+	# below is a temporary fix for the case of vanishing false alarm probability
+	BackgroundFraction[i] = 1.0 / float(2.0 * Ntotal_noise)
+	
+DetectionBackgroundRatio= DetectionProb / BackgroundFraction
+
+#populating InspiralLikelihoodTable
+LikelihoodTable = lsctables.New(InspiralLikelihoodTable)
+i = 0
+for candidate in CandidateEventsCoincTriggers:
+  inspLikelihood = InspiralLikelihood()
+  c_ifos,ifolist = candidate.get_ifos()
+  inspLikelihood.ifo = c_ifos
+  inspLikelihood.event_id = candidate.event_id 	
+  inspLikelihood.false_alarm_prob = FalseAlarmProb[i]
+  inspLikelihood.detect_prob = DetectionProb[i]
+  inspLikelihood.likelihood = Likelihood[i]
+  inspLikelihood.bg_frac = BackgroundFraction[i]
+  inspLikelihood.detect_bg_frac_ratio = DetectionBackgroundRatio[i]
+  LikelihoodTable.append(inspLikelihood)
+  i += 1
+  
+# writing InspiralLikelihoodTable into a file
+prefix, suffix = generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
+output_file_name = prefix + suffix + ".xml"
+LikelihoodFile = open(output_file_name, "w")
+LikelihoodTable.write(LikelihoodFile)
+LikelihoodFile.close()
+
+if opts.verbose:
+  for row in LikelihoodTable:
+    print row.ifo, row.event_id, row.false_alarm_prob, row.detect_prob, row.likelihood, row.bg_frac, row.detect_bg_frac_ratio

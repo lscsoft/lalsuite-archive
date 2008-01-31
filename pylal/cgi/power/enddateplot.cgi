@@ -34,7 +34,7 @@ del trigsegs
 
 def end_date(t):
 	l = seglist - segments.segmentlist([segments.segment(t, segments.infinity())])
-	livetime = float(l.duration())
+	livetime = float(abs(l))
 	if livetime > 0.0:
 		return now + (s5length/livetime - 1) * (l[-1][1] - l[0][0])
 	else:

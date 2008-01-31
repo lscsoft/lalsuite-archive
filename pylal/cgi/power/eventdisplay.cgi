@@ -87,7 +87,7 @@ def fullrunrates():
 #
 
 def _imgsrc(name, query):
-	s = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], query.segment.duration(), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
+	s = "%s?inst=%s&start=%s&dur=%s&ratewidth=%s&freqwidth=%s&lofreq=%s&hifreq=%s" % (name, query.instrument, query.segment[0], abs(query.segment), query.ratewidth, query.freqwidth, query.band[0], query.band[1])
 	if query.cluster:
 		s += "&cluster=1"
 	return s
@@ -213,7 +213,7 @@ print fullrunrates()
 print "</center></p>"
 print """<hr width="90%">"""
 
-if query.segment.duration() > 24 * 3600:
+if abs(query.segment) > 24 * 3600:
 	# Time interval too long error
 	print errormsg("Requested segment is too long (24 hour max)")
 else:

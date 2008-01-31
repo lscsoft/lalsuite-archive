@@ -27,10 +27,12 @@
 # =============================================================================
 #
 
+
 """
 Program for plotting LAL time and frequency series data from a LIGO Light
 Weight XML file.
 """
+
 
 import matplotlib
 matplotlib.use("Agg")
@@ -39,14 +41,17 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 matplotlib.rcParams.update({
 	"text.usetex": True
 })
+import math
 import numpy
 from optparse import OptionParser
 import re
+
 
 from glue.ligolw import ligolw
 from glue.ligolw import array
 from glue.ligolw import utils
 from pylal.date import LIGOTimeGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -64,8 +69,12 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-a", "--axes", metavar = "[linlin|linlog|loglin|loglog]", default = "loglog", help = "Set the axes types (default = \"loglog\").")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
+
+	if options.axes not in ("linlin", "linlog", "loglin", "loglog"):
+		raise ValueError, "unrecognized --axes %s" % options.axes
 
 	return options, (filenames or [None])
 
@@ -122,6 +131,10 @@ def LALmetadata(array_elem):
 
 
 def texifyunit(unit):
+	"""
+	Put braces around exponents, replace spaces with "\," (this space),
+	then wrap in "$\mathrm{}$".
+	"""
 	# put braces around exponents
 	unit = re.sub(r"(\S+)\^(\S+)", r"\1^{\2}", unit)
 
@@ -130,6 +143,13 @@ def texifyunit(unit):
 
 	# wrap in $\mathrm{}$
 	return "$\mathrm{" + unit + "}$"
+
+
+def texifychannel(channel):
+	"""
+	Replace "_" with "\_".
+	"""
+	return re.sub(r"_", r"\_", channel)
 
 
 #
@@ -149,8 +169,8 @@ for filename in filenames:
 	# Load file
 	#
 
-	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
-	if filename[-3:] == ".gz":
+	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	if filename.endswith(".gz"):
 		basename = filename[:-7]
 	else:
 		basename = filename[:-4]
@@ -167,22 +187,41 @@ for filename in filenames:
 
 		fig = figure.Figure()
 		FigureCanvasAgg(fig)
+		# 6.5" wide, golden ratio high
+		fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
 		axes = fig.gca()
-		axes.loglog()
 		axes.grid(True)
+		if options.axes == "linlin":
+			pass
+		elif options.axes == "linlog":
+			axes.semilogy()
+		elif options.axes == "loglin":
+			axes.semilogx()
+		else:
+			# "loglog"
+			axes.loglog()
 		for i in range(1, a.array.shape[0]):
-			axes.plot(numpy.fabs(a.array[0]), numpy.fabs(a.array[i]))
+			if options.axes == "linlin":
+				axes.plot(a.array[0], a.array[i])
+			elif options.axes == "linlog":
+				axes.plot(a.array[0], numpy.fabs(a.array[i]))
+			elif options.axes == "loglin":
+				axes.plot(numpy.fabs(a.array[0]), a.array[i])
+			else:
+				# "loglog"
+				axes.plot(numpy.fabs(a.array[0]), numpy.fabs(a.array[i]))
 
-		axes.set_ylabel("%s (%s)" % (metadata["name"], texifyunit(metadata["yunit"])))
+		axes.set_ylabel("%s (%s)" % (texifychannel(metadata["name"]), texifyunit(metadata["yunit"])))
 		axes.set_xlabel("%s (%s)" % (metadata["xaxis"], texifyunit(metadata["xunit"])))
 
-		title = "%s at GPS %s s" % (metadata["name"], str(metadata["epoch"]))
+		title = "%s at GPS %s s" % (texifychannel(metadata["name"]), str(metadata["epoch"]))
 		if metadata["comment"]:
 			title += " (%s)" % metadata["comment"]
 		axes.set_title(title)
 
-		plotname = "%s_%02d.png" % (basename, n)
+		plotname = "%s_%03d.png" % (basename, n)
 		fig.savefig(plotname)
 		if options.verbose:
 			print "\t\tsaved as %s" % plotname
+		del fig, axes
 

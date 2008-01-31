@@ -25,7 +25,7 @@ class Plot(webplot.PlotDescription):
 #
 
 def makeplot(desc, table):
-	duration = float(segments.segmentlist.duration(desc.seglist & segments.segmentlist([desc.segment])))
+	duration = float(abs(desc.seglist & segments.segmentlist([desc.segment])))
 	
 	fig = figure.Figure()
 	canvas = FigureCanvasAgg(fig)
@@ -35,13 +35,13 @@ def makeplot(desc, table):
 	bins = rate.Rate(desc.band, desc.freqwidth)
 	for f in table.getColumnByName("central_freq"):
 		try:
-			bins[f] = 1
+			bins[f] += 1
 		except IndexError:
 			# trigger lies outside bounds of plot
 			pass
 	bins.filter()
 
-	axes.plot(bins.xvals(), bins.filtered() / duration, "k")
+	axes.plot(bins.xvals(), bins.filter() / duration, "k")
 
 	axes.set_xlim(list(desc.band))
 	axes.set_xticks(numarray.arange(desc.band[0], desc.band[1], 100))

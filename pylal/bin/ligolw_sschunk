@@ -128,7 +128,7 @@ def chunk_document(doc, verbose = False):
 	chunk = Chunk()
 	for process_id, seglist in build_id_seglist_pairs(doc):
 		if verbose:
-			print >>sys.stderr, "extracting %s (duration = %f)..." % (process_id, float(seglist.duration()))
+			print >>sys.stderr, "extracting %s (duration = %f)..." % (process_id, float(abs(seglist)))
 		chunk.seglist |= seglist
 		for source in doc.getElementsByTagName(ligolw.Table.tagName):
 			try:
@@ -139,10 +139,10 @@ def chunk_document(doc, verbose = False):
 			for row in source:
 				if row.process_id == process_id:
 					dest.append(row)
-		if chunk.seglist.duration() > options.duration:
+		if abs(chunk.seglist) > options.duration:
 			yield chunk.doc, chunk.seglist
 			chunk = Chunk()
-	if chunk.seglist.duration():
+	if abs(chunk.seglist):
 		yield chunk.doc, chunk.seglist
 
 
@@ -163,7 +163,7 @@ def write_sschunks(doc, **kwargs):
 	cache = ""
 	for chunk, seglist in chunk_document(doc, verbose = kwargs["verbose"]):
 		segment = seglist.extent()
-		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(segment.duration()))
+		chunkname = "%s-%d-%d.xml" % (kwargs["base"], int(segment[0]), int(abs(segment)))
 		utils.write_filename(chunk, chunkname, verbose = kwargs["verbose"])
 		if kwargs["write_cache"]:
 			cache += "%s\n" % str(CacheEntry(kwargs["cache_instrument"], kwargs["cache_comment"], segment, "file://localhost%s" % os.path.abspath(chunkname))

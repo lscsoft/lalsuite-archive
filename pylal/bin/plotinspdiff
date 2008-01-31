@@ -18,11 +18,9 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
-from pylab import *
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
-from pylal import viz
 
 ##############################################################################
 usage = """usage: %prog [options] file1 file2 
@@ -58,6 +56,13 @@ parser.add_option("-f","--figure-name",action="store",type="string",\
     help="generate png figures with name FNAME-fig.png" ) 
 
 (opts,args) = parser.parse_args()
+
+# Change to Agg back-end if show() will not be called
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
 
 # check at least one trig file was specified
 if not args:

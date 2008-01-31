@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,15 +27,17 @@
 # =============================================================================
 #
 
+
+import glob
 from optparse import OptionParser
 import sys
 
-from glue.ligolw import utils
-from pylal import ligolw_burca
-from pylal import llwapp
+
+from glue.lal import CacheEntry
+from pylal import inject
 from pylal import snglcoinc
-from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -49,67 +52,324 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
+
+def parse_thresholds(options):
+	#
+	# parse --thresholds options into a dictionary of instrument pairs
+	# and components
+	#
+
+	try:
+		thresholds = snglcoinc.parse_thresholds(options.thresholds)
+	except Exception, e:
+		raise ValueError, "error parsing --thresholds: %s" % str(e)
+
+	#
+	# parse the components from --thresholds options
+	#
+
+	if options.coincidence_algorithm == "excesspower":
+		#
+		# excess power does not use adjustable thresholds, but for
+		# speed it helps to pre-compute the light travel time
+		# between the instruments involved in the analysis
+		#
+
+		for pair in thresholds.keys():
+			thresholds[pair] = inject.light_travel_time(*pair)
+
+	elif options.coincidence_algorithm == "stringcusp":
+		#
+		# parse threshold components into dt, kappa, epsilon
+		# triples for stringcusp coincidence algorithm
+		#
+
+		try:
+			kappa, epsilon = map(float, options.stringcusp_params.split(","))
+		except Exception, e:
+			raise ValueError, "error parsing --stringcusp-params: %s" % str(e)
+		try:
+			thresholds = dict((instrumentpair, (float(dt), kappa, epsilon)) for instrumentpair, (dt,) in thresholds.iteritems())
+		except Exception, e:
+			raise ValueError, "error parsing --thresholds: %s" % str(e)
+
+	else:
+		#
+		# unrecognized coincidence algorithm
+		#
+
+		raise ValueError, options.coincidence_algorithm
+
+	#
+	# Done
+	#
+
+	return thresholds
+
+
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
-	parser.add_option("--comment", metavar = "text", default = "", help = "set comment string in process table")
-	parser.add_option("-f", "--force", action = "store_true", help = "process even if file has already been processed")
-	parser.add_option("-p", "--program", metavar = "name", default = "power", help = "set the name of the program that generated the events as it appears in the process table (default = power)")
-	parser.add_option("-w", "--window", metavar = "inst1,inst2=seconds", action = "append", default = [], help = "set the time coincidence window for an instrument pair")
-	parser.add_option("-s", "--string-compare", metavar = "kappa,epsilon", help = "use the string search coincidence test with H1+H2 kappa and epsilon parameters as given (hint:  try 3.0,0.5)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file ...]",
+		description = "%prog implements the excess power and string cusp coincidence algorithms for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
+	parser.add_option("-c", "--comment", metavar = "text", default = "", help = "Set comment string in process table (default is \"\").")
+	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
+	parser.add_option("-p", "--program", metavar = "name", help = "Set the name of the program that generated the events as it appears in the process table (required).  The program name is used to extract live time information from the search summary tables in the input files.")
+	parser.add_option("-a", "--coincidence-algorithm", metavar = "[excesspower|excesspower2|stringcusp]", default = None, help = "Select the coincidence test algorithm to use (required).")
+	parser.add_option("--likelihood-data", metavar = "filename", default = [], action = "append", help = "Read likelihood data from this XML file.  (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("--likelihood-data-cache", metavar = "filename", help = "Read likelihood data from the XML files described by this LAL cache.  For each trigger file, the live time of the trigger file is established and all likelihood data files whose segments intersect the trigger file's live time are loaded and merged into a single distribution data set.  (use ligolw_burca_tailor to generate these files)")
+	parser.add_option("-t", "--thresholds", metavar = "inst1,inst2=[threshold,...]", action = "append", default = [], help = "Set the coincidence algorithm's thresholds for an instrument pair.  For excesspower there are no thresholds.  For stringcusp, each instrument pair has a single threshold setting dt.  One set of thresholds must be provided for each instrument combination that will be compared, even if there are no thresholds to set.")
+	parser.add_option("--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	# FIXME:  split this next one into two arguments
+	parser.add_option("-s", "--stringcusp-params", metavar = "kappa,epsilon", help = "Set the H1+H2 kappa and epsilon parameters for the stringcusp coincidence test (hint: try 3.0,0.5).")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	# construct (inst_a, inst_b) --> delta t mappings
-	try:
-		options.window = snglcoinc.parse_thresholds(options.window)
-		for key, value in options.window.iteritems():
-			options.window[key] = LIGOTimeGPS(value)
-	except ValueError, e:
-		raise ValueError, "error parsing --window: %s" % str(e)
+	#
+	# check and convert and bunch of arguments
+	#
 
-	if options.string_compare:
-		try:
-			options.string_compare = map(float, options.string_compare.split(","))
-		except ValueError, e:
-			raise ValueError, "error parsing --string-compare: %s" % str(e)
-		# construct (inst_a, inst_b) --> (delta t, kappa, epsilon)
-		# mappings
-		for key, value in options.window.iteritems():
-			options.window[key] = (value, options.string_compare[0], options.string_compare[1])
+	if options.coincidence_algorithm is None:
+		raise ValueError, "missing required argument --coincidence-algorithm"
+	if options.coincidence_algorithm not in ("excesspower", "excesspower2", "stringcusp"):
+		raise ValueError, "unrecognized --coincidence-algorithm %s" % options.coincidence_algorithm
+	if options.coincidence_algorithm == "excesspower2":
+		options.likelihood_data = set(options.likelihood_data)
+		if (not options.likelihood_data) and (options.likelihood_data_cache is None):
+			raise ValueError, "must set one of --likelihood-data or --likelihood-data-cache"
+		if options.likelihood_data and (options.likelihood_data_cache is not None):
+			raise ValueError, "cannot set both --likelihood-data and --likelihood-data-cache"
+		if options.likelihood_data_cache:
+			options.likelihood_data_cache = set([CacheEntry(line, coltype = LIGOTimeGPS) for line in file(options.likelihood_data_cache)])
+		else:
+			options.likelihood_data_cache = set()
+	else:
+		if options.program is None:
+			raise ValueError, "missing required argument --program"
 
+	#
+	# parse the --thresholds arguments
+	#
+
+	if options.coincidence_algorithm in ("excesspower", "stringcusp"):
+		options.thresholds = parse_thresholds(options)
+	elif options.thresholds:
+		raise ValueError, "--coincidence-algorithm %s does not use --thresholds" % options.coincidence_algorithm
+	else:
+		# empty thresholds
+		options.thresholds = {}
+
+	# success
 	return options, (filenames or [None])
 
 
 #
 # =============================================================================
 #
-#                             Coincidence Criteria
+#                                Stage 1 Burca
 #
 # =============================================================================
 #
 
-def StringCoincCompare(a, b, thresholds):
-	"""
-	Returns False (a & b are coincident) if their peak times agree
-	within dt, and in the case of H1+H2 pairs if their amplitudes agree
-	according to some kinda test.
-	"""
-	dt, kappa, epsilon = thresholds
-	coincident = a.get_peak() - dt <= b.get_peak() <= a.get_peak() + dt
-	if a.ifo in ("H1", "H2") and b.ifo in ("H1", "H2"):
-		adelta = abs(a.amplitude) * (kappa / a.snr + epsilon)
-		bdelta = abs(b.amplitude) * (kappa / b.snr + epsilon)
-		coincident &= a.amplitude - adelta <= b.amplitude <= a.amplitude + adelta and b.amplitude - bdelta <= a.amplitude <= b.amplitude + bdelta
-	return not coincident
+
+def burca1(options, filenames):
+	#
+	# Finish imports.
+	#
 
 
-def ExcessPowerCoincCompare(a, b, dt):
-	"""
-	Returns False (a & b are coincident) if a's peak time lies within
-	b's time interval and vice versa and the two events' frequency
-	bands intersect or touch.  Returns non-zero otherwise.
-	"""
-	return b.get_peak() not in a.get_period().protract(dt) or a.get_peak() not in b.get_period().protract(dt) or SnglBurstUtils.cmp_segs(a.get_band(), b.get_band())
+	from glue.ligolw import utils
+	from pylal import ligolw_burca
+	from pylal import llwapp
+
+
+	#
+	# Use interning row builder to save memory.
+	#
+
+
+	ligolw_burca.table.RowBuilder = ligolw_burca.table.InterningRowBuilder
+
+
+	#
+	# For excesspower and stringcusp methods, select the appropriate
+	# event comparison and book-keeping functions.
+	#
+
+
+	if options.coincidence_algorithm == "excesspower":
+		EventListType = ligolw_burca.ExcessPowerEventList
+		comparefunc = ligolw_burca.ExcessPowerCoincCompare
+		CoincTables = ligolw_burca.ExcessPowerCoincTables
+		CoincDef = ligolw_burca.ExcessPowerCoincDef
+		options.get_max_segment_gap = ligolw_burca.ExcessPowerMaxSegmentGap
+	elif options.coincidence_algorithm == "stringcusp":
+		EventListType = ligolw_burca.StringEventList
+		comparefunc = ligolw_burca.StringCoincCompare
+		CoincTables = snglcoinc.CoincTables
+		CoincDef = ligolw_burca.StringCuspCoincDef
+		options.get_max_segment_gap = ligolw_burca.StringMaxSegmentGap
+	else:
+		raise Exception, "should never get here"
+
+
+	#
+	# Iterate over files.
+	#
+
+
+	for n, filename in enumerate(filenames):
+		#
+		# Load the file.
+		#
+
+		if options.verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+		ligolw_burca.table.InterningRowBuilder.strings.clear()
+
+		#
+		# Have we already processed it?
+		#
+
+		if llwapp.doc_includes_process(xmldoc, ligolw_burca.process_program_name):
+			if options.verbose:
+				print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+			if not options.force:
+				if options.verbose:
+					print >>sys.stderr, "skipping"
+				continue
+			if options.verbose:
+				print >>sys.stderr, "continuing by --force"
+
+		#
+		# Add an entry to the process table.
+		#
+
+		process = ligolw_burca.append_process(xmldoc, **options.__dict__)
+
+		#
+		# Run coincidence algorithm.
+		#
+
+		ligolw_burca.ligolw_burca(xmldoc, options.program, process.process_id, EventListType, CoincTables, CoincDef, comparefunc, options.thresholds, get_max_segment_gap = options.get_max_segment_gap, verbose = options.verbose)
+
+		#
+		# Close out the process table.
+		#
+
+		llwapp.set_process_end_time(process)
+
+		#
+		# Write back to disk, and clean up.
+		#
+
+		utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+		xmldoc.unlink()
+
+
+#
+# =============================================================================
+#
+#                                Stage 2 Burca
+#
+# =============================================================================
+#
+
+
+def burca2(options, filenames):
+	#
+	# Finish imports.
+	#
+
+
+	try:
+		import sqlite3
+	except ImportError:
+		# pre 2.5.x
+		from pysqlite2 import dbapi2 as sqlite3
+
+
+	from glue.ligolw import dbtables
+	from pylal import ligolw_burca_tailor
+	from pylal import ligolw_burca2
+	from pylal import SnglBurstUtils
+
+
+	# so they can be inserted into a database
+	dbtables.types.ToPyType["ilwd:char"] = str
+
+
+	# so they aren't insterted into a database
+	dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
+
+
+	def load_likelihood_data(filenames, verbose = False):
+		coinc_params_distributions = ligolw_burca_tailor.CoincParamsDistributions()
+		for filename in filenames:
+			connection = sqlite3.connect(":memory:")
+			dbtables.DBTable_set_connection(connection)
+			c, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = verbose)
+			coinc_params_distributions += c
+			connection.close()
+		coinc_params_distributions.finish()
+		return ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
+
+
+	#
+	# Iterate over files.
+	#
+
+
+	cached_likelihood_files = set()
+
+
+	for n, filename in enumerate(filenames):
+		#
+		# Open the file.
+		#
+
+
+		if options.verbose:
+			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+		working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+		connection = sqlite3.connect(working_filename)
+		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
+		dbtables.DBTable_set_connection(connection)
+		database = SnglBurstUtils.CoincDatabase().summarize(options.program, options.verbose)
+
+
+		#
+		# Retrieve appropriate likelihood data.
+		#
+
+
+		if options.likelihood_data_cache:
+			likelihood_files = set([c.path() for c in options.likelihood_data_cache if c.to_segmentlistdict().intersects(database.seglists)])
+		else:
+			likelihood_files = options.likelihood_data
+		if likelihood_files != cached_likelihood_files:
+			likelihood_ratio = load_likelihood_data(likelihood_files, verbose = options.verbose)
+			cached_likelihood_files = likelihood_files
+
+
+		#
+		# Run likelihood ratio calculation.
+		#
+
+
+		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, ligolw_burca_tailor.coinc_params, verbose = options.verbose)
+
+
+		#
+		# Done with this file.
+		#
+
+
+		connection.commit()
+		connection.close()
+		dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
 #
@@ -120,33 +380,21 @@ def ExcessPowerCoincCompare(a, b, dt):
 # =============================================================================
 #
 
-try:
-	options, filenames = parse_command_line()
-except ValueError, e:
-	print >>sys.stderr, "error: %s" % str(e)
-	sys.exit(1)
 
-if options.string_compare:
-	snglcoinc.EventListDict.EventListType = ligolw_burca.StringEventList
-	snglcoinc.CompareFunc = StringCoincCompare
+#
+# Command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# Run program
+#
+
+
+if options.coincidence_algorithm in ("excesspower", "stringcusp"):
+	burca1(options, filenames)
 else:
-	snglcoinc.EventListDict.EventListType = ligolw_burca.ExcessPowerEventList
-	snglcoinc.CompareFunc = ExcessPowerCoincCompare
-
-
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose)):
-	if options.verbose:
-		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename[-3:] == ".gz")
-	if llwapp.doc_includes_process(xmldoc, "ligolw_burca"):
-		if options.verbose:
-			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
-		if not options.force:
-			if options.verbose:
-				print >>sys.stderr, "skipping"
-			continue
-		if options.verbose:
-			print >>sys.stderr, "continuing"
-	ligolw_burca.ligolw_burca(xmldoc, **options.__dict__)
-	utils.write_filename(xmldoc, filename, options.verbose, gz = filename[-3:] == ".gz")
-	xmldoc.unlink()
+	burca2(options, filenames)
