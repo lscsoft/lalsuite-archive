@@ -22,6 +22,7 @@ from glue import segments
 from glue import segmentsUtils
 from pylal import antenna
 from pylal import date
+from pylal import grbsummary
 from numpy import *
 
 ##############################################
@@ -135,10 +136,10 @@ def parse_command_line():
       help="Output file for html output" )
   parser.add_option("-o","--output-xml",action="store",type="string",\
       help="Output file for xml")
-  parser.add_option("-s","--stats",action="store_true",\
+  parser.add_option("-a","--stats",action="store_true",\
       default=False, metavar=" STATS",\
       help="Printing statistical informations to screen (using all GRBs in list)" )
-  parser.add_option("-t","--type",action="store",\
+  parser.add_option("-t","--grb-type",action="store",\
       type="string",default="",  metavar=" SELECT_TYPE",\
       help="Selection of the type (short, long, all)")
   parser.add_option("","--gps-start-time",action="store",\
@@ -151,22 +152,26 @@ def parse_command_line():
       type="string",  metavar=" IFOTIMES",\
       help="ifo times e.g H1H2, H1L1, H1H2L1, etc., all (all GRBs), "\
                     "any (any GRB with data from >=2 detectors only)")
-  parser.add_option("-e","--select",action="store",\
-      type="string",  metavar=" SELECT",\
-      help="selecting 'exact' to match the ifos exactly or 'sub' to match a "\
-                    "subset only (e.g. H1H2 as subset of H1H2L1)")
+  parser.add_option("-e","--match-exact",action="store",\
+      type="string",  metavar=" MATCH_EXACT",\
+      help="if set to 'true' it will select only GRB's which"\
+                    "matches the ifo_times exactly. "\
+                    "Otherwise if set to 'false'")
   parser.add_option("-l","--onsource-left",action="store",\
       type="int",  default=0, metavar=" ONSOURCE_LEFT",\
       help="onsource time left of the trigger")
   parser.add_option("-r","--onsource-right",action="store",\
       type="int",  default=0, metavar=" ONSOURCE_LEFT",\
       help="onsource time right of the trigger")
-  parser.add_option("-n","--num-offsource",action="store",\
-      type="int",  default=-1, metavar=" NUM_OFFSOURCE",\
+  parser.add_option("-n","--num-trials",action="store",\
+      type="int",  default=-1, metavar=" NUM_TRIALS",\
       help="number of offsource segments required")
-  parser.add_option("-a","--algorithm",action="store",\
-      type="string",  metavar=" ALGORITHM",\
-      help="segment selection (symmetric, unsymmetric) around the trigger time")
+  parser.add_option("-p", "--padding-time", type="int", default=0,
+      help="padding time on each side of an analysis segment")   
+  parser.add_option("-s", "--symmetric", action="store_true", default=False,
+       help="restrict the off-source trials to be arranged"\
+            " symmetrically about the on-source segment "\
+            "(default: asymmetrical distribution allowed)")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
@@ -179,11 +184,6 @@ def parse_command_line():
     print >> sys.stderr, "use --onsource-left and --onsource-right"
     sys.exit(1)
 
-  if not opts.algorithm:
-    print >> sys.stderr, "Needs to specify the offsource selection algorithm:"
-    print >> sys.stderr, "either symmetric or unsymmetric"
-    sys.exit(1)
-
   if not opts.input:    
     print >> sys.stderr, "Must specify XML input file with --input"
     sys.exit(1)
@@ -192,21 +192,22 @@ def parse_command_line():
     print >> sys.stderr, "Must specify segments directory with --segments"
     sys.exit(1)
 
-  if not opts.type:
+  if not opts.grb_type:
     print >> sys.stderr,"Must select type, either short, long or all"
     sys.exit(1)
 
   if not opts.ifo_times:
-    print >> sys.stderr,"Must sspecify ifo-times, either the IFOs or 'all'"
-    sys.exit(1)         
+    print >> sys.stderr,"Must specify ifo-times, either the IFOs or 'all'"
+    sys.exit(1)
+
+  if opts.ifo_times!='all' and opts.ifo_times!='any':
+    if opts.match_exact!='true' and  opts.match_exact!='false':
+      print >> sys.stderr,"Must specify 'true' or 'false' for --match-exact"
+      sys.exit(1)
     
-  if opts.num_offsource<0:  
+  if opts.num_trials<0:  
     print >> sys.stderr,"Number of offcource segments must e >=0"
     sys.exit(1)         
-
-  if opts.algorithm!='symmetric' and opts.algorithm!='unsymmetric':
-    print >> sys.stderr,"Algorithm must be either 'symmetric' or 'unsymmetric'"
-    sys.exit(1)
 
   return opts, sys.argv[1:]
 
@@ -224,14 +225,14 @@ def checkSelection( grb, opts):
     if grb.start_time>opts.gps_end_time:
       return False
 
-  if opts.type!="all":
-    if opts.type!=grb.event_type:
+  if opts.grb_type!="all":
+    if opts.grb_type!=grb.event_type:
       return False
 
   return True
 
 ##############################################
-def checkIFO( ifo_times, selectedDet, select):
+def checkIFO( ifo_times, grb_list, match):
   """
   Check if the ifos in both lists are the same, regardless of their order.
   """
@@ -240,37 +241,28 @@ def checkIFO( ifo_times, selectedDet, select):
   if ifo_times=='any' or ifo_times=='all':
     return False
 
-  # if we want to have exact match, the lengths must be the same
-  if select=='exact' and len(ifo_times)!=len(selectedDet):
-    return False
-
   # decompose both strings
-  l1 = []
+  list = []
   for i in range(len(ifo_times)/2):
-    l1.append(ifo_times[2*i:2*i+2])
+    list.append(ifo_times[2*i:2*i+2])
 
-  l2 = []
-  for i in range(len(selectedDet)/2):
-    l2.append(selectedDet[2*i:2*i+2])
+  # convert to sets
+  ifosRequested = set( list )
+  ifosValid = set( grb_list )
 
-  flag=True
+  # now do the logic
+  if match:
+    if ifosValid==ifosRequested:
+      return True
+    else:
+      return False
 
-  # check that every item from ifo_times is in the list of selectedDet
-  for item in l1:
-    if item not in l2:
-      flag=False
-
-  # if we require exact match, check the other way around as well:
-  if select=='exact':
-    for item in l2:
-      if item not in l1:
-        flag=False
-
-        
-  return flag
-
-
-
+  else:
+    if ifosValid<=ifosRequested:
+      return True
+    else:
+      return False
+  
 ##############################################################################
 def applyDataQuality(segments, vetofile):
   """
@@ -285,6 +277,22 @@ def applyDataQuality(segments, vetofile):
   except:
     print "Unable to read veto segments from file  %s" % \
           (vetofile)
+
+
+##############################################################################
+def addColumnEntry( row, text, bold = False, link = None):
+  """
+  Add another column to the row in html format.
+  """
+
+  if bold:
+    text='<b>'+text+'</b>'
+  if link:
+    text='<a href="'+link+'">'+text+'</a>'
+    
+  row+='<td>'+text+'</td>'
+
+  return row
     
 
 ##############################################
@@ -353,248 +361,201 @@ onSourceRight = opts.onsource_right
 onSourceLength = onSourceLeft+onSourceRight
 
 
-if opts.algorithm=="symmetric":
-  symmetricSegs = True
-else:
-  symmetricSegs = False
+# open the html output file if requested
+if opts.output_html:
+  htmlfile=open(opts.output_html, 'w')
+  htmlfile.write(htmlHeader)
 
 
-if True:
-
-  # open the html output file if requested
-  if opts.output_html:
-    htmlfile=open(opts.output_html, 'w')
-    htmlfile.write(htmlHeader)
-
-
-  # prepare the xml output file if requested
-  if opts.output_xml:
-    xmldoc = ligolw.Document()
-    xmldoc.appendChild(ligolw.LIGO_LW())
-    tbl = lsctables.New(lsctables.ExtTriggersTable)
-    xmldoc.childNodes[-1].appendChild(tbl)
+# prepare the xml output file if requested
+if opts.output_xml:
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+  tbl = lsctables.New(lsctables.ExtTriggersTable)
+  xmldoc.childNodes[-1].appendChild(tbl)
     
-  ## create HTML table of all GRB's
-  month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
-         'Sep','Oct','Nov','Dec']
+## create HTML table of all GRB's
+month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
+       'Sep','Oct','Nov','Dec']
 
-  # read the data segments
-  ifoList=['H1','H2','L1','G1','V1']
-  ifoList2=['H2','V1','G1']
-  segs={}
+############################################################
+# handle the segment lists
+ifoList=['H1','H2','L1','G1','V1']
+ifoList2=['H2','V1','G1']
+segs={}
+for ifo in ifoList:
+
+  # read the segment lists
+  filename = opts.segments+'/S5%s_selectedsegs_full.txt' % ifo
+  segs[ifo] = segmentsUtils.fromsegwizard(open(filename))
+  
+  # apply category-1 vetoes in any case
+  applyDataQuality(segs[ifo], opts.segments+"/"+ifo + \
+                   "_cat1_vetoed_segments_allS5.txt")
+
+  # check for a veto file
+  if getattr( opts, ifo.lower()+'_vetosegs'):
+      
+    applyDataQuality(segs[ifo], ifo.lower()+'_vetosegs') 
+    print "Veto-file specified for IFO %s" % ifo
+
+# sort the triggers first
+index = argsort( vectorTime )
+
+
+##########################################################
+# loop over all GRBs in te list
+
+# just some counters
+color=1
+number=1
+numberSelected=0
+
+# loop over all GRBs
+for ind in index:
+  grb = table[ind]
+  
+  # check if this GRB is selected
+  if not checkSelection( grb, opts):
+    continue
+
+  # create te on-source segment
+  onSource =  segments.segment( grb.start_time-onSourceLeft,
+                                grb.start_time+onSourceRight )
+  
+  # calculate the antenna factor
+  antennaFactor = {}
   for ifo in ifoList:
-
-    # read the segment lists
-    filename = opts.segments+'/S5%s_selectedsegs.txt' % ifo
-    segs[ifo] = segmentsUtils.fromsegwizard(open(filename))
-    segmentsUtils.tosegwizard(open("testB.txt","w"), segs[ifo])
-
-    # apply category-1 vetoes in any case
-    applyDataQuality(segs[ifo], opts.segments+"/"+ifo + "cat1.list")
-
-    # check for a veto file
-    if getattr( opts, ifo.lower()+'_vetosegs'):
+    if onSource in segs[ifo]:
       
-      applyDataQuality(segs[ifo], ifo.lower()+'_vetosegs') 
-      print "Veto-file specified for IFO %s" % ifo
+      # compute the antenna factor for this time and position on the sky
+      f_plus, f_cross, f_ave, f_q = antenna.response( grb.start_time,
+                                                      grb.event_ra,\
+                                                      grb.event_dec, \
+                                                      0.0, 0.0, 'degree',
+                                                      ifo )
+      antennaFactor[ifo]=f_q
 
-    segmentsUtils.tosegwizard(open("test.txt","w"), segs[ifo])
-
-  # sort the triggers first
-  index = argsort( vectorTime )
-
-  # just some counters
-  c=1
-  n=1
-  numberSelected=0
-
-  # loop over all GRBs
-  for ind in index:
-    grb = table[ind]
-
-    # check if thie GRB is selected
-    if not checkSelection( grb, opts):
-      continue
     
-    # set the background color
-    line=''
-    if c==1:
-      line ='<tr style="background-color: rgb(153, 255, 255);">'
-    else:
-      line = '<tr style="background-color: rgb(204, 255, 255);">'
-
-    if grb.event_type == 'short':
-      line = '<tr style="background-color: rgb(255, 200, 200);">'
-
-    # set the number and the GCN link
-    line+='<td> %d </td>' % n
-    line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">%s</a>'\
-           '  </td>' % \
-           (grb.event_number_gcn, grb.event_number_grb)
-
-    # set the time
-    line+='<td> %d </a></td>' % grb.start_time    
-    gps = date.LIGOTimeGPS(grb.start_time )
-    d = date.XLALGPSToUTC(gps)
-    line+='<td> %s %02d %d %02d:%02d:%02d  </td>' % \
-           (month[d[1]-1], d[2], d[0], d[3], d[4], d[5])
-
-    # put in the redshift
-    if grb.event_z>0:
-      if int(grb.notice_time)>0:
-        line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">'\
-               '%.3f</a> </td>' % \
-               ( int(grb.notice_time), grb.event_z)
-      else:
-        line+='<td> %.3f </td>' %  grb.event_z
-    else:
-      line+='<td> n/a </td>'
-
-    # put in the duration
-    if float(grb.event_epoch)>0:
-      if int(grb.email_time)>0:
-        line+='<td> <a href="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3">'\
-               '%.3f</a> </td>'%\
-               ( int(grb.email_time), float(grb.event_epoch) )
-      else:
-        line+='<td> %.3f </td>' %  float(grb.event_epoch)
-    else: 
-      line+='<td> n/a </td>'
-
-    # position
-    line+='<td> %f </td><td> %f</td>' % (grb.event_ra, grb.event_dec)
-
-    # check segments
-    onSource =  segments.segment( grb.start_time-onSourceLeft,
-                                  grb.start_time+onSourceRight )
-
-    # check for containement
-    selectedSegs = {}
-    antennaFactor = {}
-    for ifo in ifoList:
-      if onSource in segs[ifo]:
-
-        # compute the antenna factor for this time and position on the sky
-        f_plus, f_cross, f_ave, f_q = antenna.response( grb.start_time,
-                                                        grb.event_ra,\
-                                                        grb.event_dec, \
-                                                        0.0, 0.0, 'degree',
-                                                        ifo )
-        antennaFactor[ifo]=f_q
-
-        # get the segment that include the onSource
-        # and get its length
-        index = segs[ifo].find(onSource)
-        offSourceSeg = segs[ifo][index]
-        offSourceLength = offSourceSeg[1]-offSourceSeg[0]
-        
-        # check begin and end of the (symmetrical) segment,
-        # so to have at least 50
-        # onsoure-times on EITHER side of the trigger
-        segStart = grb.start_time - opts.num_offsource*onSourceLength\
-                   - onSourceLeft
-        segEnd   = grb.start_time + opts.num_offsource*onSourceLength\
-                   + onSourceRight
-
-        # check condition on segment length
-        if symmetricSegs:
-          if offSourceSeg[0]<=segStart and offSourceSeg[1]>=segEnd:
-             selectedSegs[ifo]=offSourceSeg
-        else:
-          selectedSegs[ifo]=offSourceSeg
- 
+  # set the background color
+  line=''
+  if color==1:
+    line ='<tr style="background-color: rgb(153, 255, 255);">'
+  else:
+    line = '<tr style="background-color: rgb(204, 255, 255);">'
     
-    ## now check the result in a combined analysis
-    detectorsData='' # create the detector string
-    if symmetricSegs:
-      
-      # case of symmetric segments
-      for ifo in ifoList:
-        if onSource in segs[ifo]:
-          if selectedSegs.has_key(ifo):
-            detectorsData+=ifo
-            line+='<td> <b>%.2f</b> </td>' % antennaFactor[ifo]
-          else:
-             line+='<td> %.2f </td>' % antennaFactor[ifo]
-        else:
-           line+='<td> -- </td>'
+  if grb.event_type == 'short':
+    line = '<tr style="background-color: rgb(255, 200, 200);">'
+    
+  # set the number and the GCN link
+  line = addColumnEntry( line , '%d' % number)
+  line = addColumnEntry( line ,grb.event_number_grb, \
+                         link ="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3"% \
+                         grb.event_number_gcn )
 
+  # set the time
+  line = addColumnEntry( line , '%d' %  grb.start_time)
+  gps = date.LIGOTimeGPS(grb.start_time )
+  d = date.XLALGPSToUTC(gps)
+  line = addColumnEntry( line ,'%s %02d %d %02d:%02d:%02d' %\
+                         (month[d[1]-1], d[2], d[0], d[3], d[4], d[5]))
+
+  # put in the redshift
+  if grb.event_z>0:
+    if int(grb.notice_time)>0:
+      line = addColumnEntry( line , '%.3f' % grb.event_z, \
+                             link ="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3"% \
+                             int(grb.notice_time) )
     else:
+      line = addColumnEntry( line , '%.3f' % grb.event_z )      
+  else:
+    line = addColumnEntry( line , 'n/a' )
 
-      ## case of unsymmetric segments
-      # total length of offsource segments (including the onsource)
-      minLength = (2*opts.num_offsource+1)*onSourceLength
-      
-      # check H1, L1 first
-      if selectedSegs.has_key('H1') or selectedSegs.has_key('L1'):
-        
-        # do this ONLY if H1 or L1 is present
-        if  selectedSegs.has_key('H1') and selectedSegs.has_key('L1'):
-          totalSeg = selectedSegs['H1'] &  selectedSegs['L1']
-          detectorsData='H1L1'
-          if abs(totalSeg)<minLength:
-            if  abs(selectedSegs['H1'])> abs(selectedSegs['L1']):
-              totalSeg =  selectedSegs['H1']
-              detectorsData='H1'
-            else:
-              totalSeg =  selectedSegs['L1']
-              detectorsData='L1'
-        else:
-          if selectedSegs.has_key('H1'):
-            totalSeg = selectedSegs['H1']
-            detectorsData='H1'
-          else:
-            totalSeg = selectedSegs['L1']
-            detectorsData='L1'
+  # put in the duration
+  if float(grb.event_epoch)>0:
+    if int(grb.email_time)>0:
+      line = addColumnEntry( line , '%.3f' % float(grb.event_epoch), \
+                             link ="http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3"% \
+                             int(grb.email_time) )
+    else:
+      line = addColumnEntry( line , '%.3f' % float(grb.event_epoch) ) 
+  else: 
+    line = addColumnEntry( line , 'n/a' )
 
-        # now totalSeg contains a 'beginning' segment
-        # either it is H1 or L1 or (H1&L1)
-        # Now its time to check for the other detectors
-        for ifo in ifoList2:
-          if selectedSegs.has_key(ifo):
-            testSeg = totalSeg &  selectedSegs[ifo]
-            if abs(testSeg)>=minLength:
-              detectorsData+=ifo
-              totalSeg = testSeg
+  # position
+  line = addColumnEntry( line , '%f' % grb.event_ra )
+  line = addColumnEntry( line , '%f' % grb.event_dec )  
 
-      # put together the html entries
-      for ifo in ifoList:
-        if onSource in segs[ifo]:
-          if ifo in detectorsData:
-            line+='<td> <b>%.2f</b> </td>' % antennaFactor[ifo]
-          else:
-            line+='<td> %.2f </td>' % antennaFactor[ifo]
-        else:
-           line+='<td> -- </td>'
+
+  # find the analysable IFO for this GRB with Nick's function
+  ## print "\n==================================="
+##   print grb.event_number_grb
+  offSourceSegment, grb_ifolist = \
+                    grbsummary.multi_ifo_compute_offsource_segment(\
+      segs, onSource, padding_time=opts.padding_time , \
+      max_trials=opts.num_trials, symmetric=opts.symmetric)
+
+    
+  ## double check to see if the individual IFO are contained in the segments
+  # and if the duration is correct
+  if offSourceSegment:
+    if offSourceSegment.duration()!=(1+opts.num_trials)*onSource.duration()+\
+           2*opts.padding_time:
+      print "ERROR: Duration is incorrect..."
+      print  offSourceSegment.duration(), \
+              (1+opts.num_trials)*onSource.duration()+2*opts.padding_time
+      sys.exit(1)
+    for ifo in grb_ifolist:
+      if offSourceSegment not in segs[ifo]:     
+        print "ERROR: offsourcesegment is not contained in segment of IFO ", ifo
+        sys.exit(1)
+      ## else:
+##         print "Test: ", ifo,  offSourceSegment.duration(), \
+##               (1+opts.num_trials)*onSource.duration()+2*opts.padding_time
+
+  # put together the last columns in the html entry
+  for ifo in ifoList:
+    if onSource in segs[ifo]:
+      if ifo in grb_ifolist:
+        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], bold=True  )
+      else:
+        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo] )        
+    else:
+      line = addColumnEntry( line , '--' )
           
 
-    # Now finally check if we got the IFO times that was requested
-    if opts.ifo_times=='all' or \
-       (opts.ifo_times=='any' and len(detectorsData)>=4) or \
-       checkIFO(opts.ifo_times, detectorsData, opts.select):
+  # Now finally check if we got the IFO times that was requested
+  if opts.ifo_times=='all' or \
+         (opts.ifo_times=='any' and len(grb_ifolist)>=2) or \
+         checkIFO(opts.ifo_times, grb_ifolist, opts.match_exact):
 
-      print "selected GRB %s: %s %s %s" % (grb.event_number_grb, opts.ifo_times, detectorsData, opts.select)
+    ifoCombo = "".join(grb_ifolist)
+    print "selected GRB %s: %s %s " % \
+          (grb.event_number_grb, opts.ifo_times, \
+           ifoCombo)
+    
+    # increase counters
+    numberSelected+=1
+    color*=-1
+    number+=1
+    
+    # append to html table
+    if opts.output_html:
+      htmlfile.write(line+'</tr>')
 
-      # increase counters
-      numberSelected+=1
-      c*=-1
-      n+=1
-      
-      # append to html table
-      if opts.output_html:
-        htmlfile.write(line+'</tr>')
-
-        # append to xml file
-      if opts.output_xml:
-        tbl.append(grb)
-
-  # close-out the files
-  if opts.output_html:
-    htmlfile.close()
-  if opts.output_xml:
-    utils.write_filename(xmldoc, opts.output_xml )
+    # append to xml file
+    if opts.output_xml:
+      tbl.append(grb)
 
 
-  print "%d GRBs were selected " % numberSelected
+######################################################################
+# close-out the files
+if opts.output_html:
+  htmlfile.close()
+if opts.output_xml:
+  utils.write_filename(xmldoc, opts.output_xml )
+
+
+print "%d GRBs were selected " % numberSelected
 
     
