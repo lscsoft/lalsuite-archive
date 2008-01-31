@@ -29,14 +29,17 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
        - Decrement the Python object's reference count; omission => mem leak
      */
     temp = PyObject_GetAttrString(row, "ifo");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->ifo, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row,  "search");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->search, LIGOMETA_SEARCH_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
     temp = PyObject_GetAttrString(row, "channel");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->channel, LIGOMETA_CHANNEL_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -201,6 +204,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     
     SimInspiralTable *event; /* Return value */
     PyObject *temp; /* Holds each datum for copy and refcount decrement */
+    PyObject *temp2;
     
     /* allocate new memory for row */
     event = (SimInspiralTable *) LALCalloc(1, sizeof(SimInspiralTable));
@@ -212,6 +216,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
        - Decrement the Python object's reference count; omission => mem leak
      */
     temp = PyObject_GetAttrString(row, "waveform");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->waveform, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -257,6 +262,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     event->end_time_gmst = PyFloat_AsDouble(temp);
     
     temp = PyObject_GetAttrString(row, "source");
+    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->source, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
@@ -369,9 +375,11 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     
     event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
     temp = PyObject_GetAttrString(row, "simulation_id");
+    temp2 = PyObject_Str(temp);
     LALSnprintf( event->event_id->textId, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
+                 "%s", PyString_AsString(temp2));
     Py_XDECREF(temp);
+    Py_XDECREF(temp2);
     
     event->next = NULL;
     
