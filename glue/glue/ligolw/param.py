@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,19 +25,24 @@
 # =============================================================================
 #
 
+
 """
 High-level support for Param elements.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
+
 
 import ligolw
 import types
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -47,10 +53,14 @@ import types
 # =============================================================================
 #
 
+
+#
 # Regular expression used to extract the signifcant portion of a param
 # name, according to LIGO LW naming conventions.
+#
 
-ParamPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):param\Z")
+
+ParamPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):param\Z")
 
 
 def StripParamName(name):
@@ -87,11 +97,12 @@ def getParamsByName(elem, name):
 # =============================================================================
 #
 
+
 def new_param(name, type, value, comment = None):
 	"""
 	Construct a LIGO Light Weight XML Param document subtree.
 	"""
-	elem = Param({"Name": "%s:param" % name, "Type": type})
+	elem = Param({u"Name": u"%s:param" % name, u"Type": type})
 	elem.pcdata = value
 	if comment is not None:
 		elem.appendChild(ligolw.Comment())
@@ -110,6 +121,24 @@ def get_param(xmldoc, name):
 	return params[0]
 
 
+def from_pyvalue(name, value, comment = None):
+	"""
+	Convenience wrapper for new_param() that constructs a Param element
+	from an instance of a Python builtin type.
+	"""
+	return new_param(name, types.FromPyType[value.__class__], value, comment = comment)
+
+
+def get_pyvalue(xml, name):
+	"""
+	Convenience wrapper for get_param() that recovers an instance of a
+	Python builtin type from a Param element.
+	"""
+	# Note:  the Param is automatically parsed into the correct Python
+	# type, so this function is mostly a no-op.
+	return get_param(xml, name).pcdata
+
+
 #
 # =============================================================================
 #
@@ -118,6 +147,8 @@ def get_param(xmldoc, name):
 # =============================================================================
 #
 
+
+#
 # FIXME: params of type string should be quoted in order to correctly
 # delimit their extent.  If that were done, then the pcdata in a Param
 # element could be parsed using the Stream tokenizer (i.e., as though it
@@ -128,14 +159,16 @@ def get_param(xmldoc, name):
 # stop of all Param pcdata.  If this causes your string Param values to be
 # corrupted (because you need leading and trailing white space preserved),
 # then you need to make everyone switch to quoting their string Param
-# values and once that is done then this code will be changed.  Perhaps a
+# values, and once that is done then this code will be changed.  Perhaps a
 # warning should be emitted for non-quoted strings to encourage a
 # transition?
+#
+
 
 class Param(ligolw.Param):
 	"""
-	High-level Param element.  The parsed value is stored in the pcdata
-	attribute.
+	High-level Param element.  The value is stored in the pcdata
+	attribute as the native Python type rather than as a string.
 	"""
 	def __init__(self, *attrs):
 		"""
@@ -146,20 +179,22 @@ class Param(ligolw.Param):
 			t = self.getAttribute("Type")
 		except KeyError:
 			# default
-			t = "lstring"
+			t = u"lstring"
 		self.pytype = types.ToPyType[t]
 
-	def write(self, file = sys.stdout, indent = ""):
-		print >>file, self.start_tag(indent)
+	def write(self, file = sys.stdout, indent = u""):
+		file.write(self.start_tag(indent) + u"\n")
 		for c in self.childNodes:
 			if c.tagName not in self.validchildren:
 				raise ElementError, "invalid child %s for %s" % (c.tagName, self.tagName)
 			c.write(file, indent + ligolw.Indent)
 		if self.pcdata:
-			# FIXME:  does this satisfactorily preserve precision
-			# in floating point values?
-			print >>file, indent + ligolw.Indent + str(self.pcdata)
-		print >>file, self.end_tag(indent)
+			# we have to strip quote characters from string
+			# formats (see comment above)
+			file.write(indent + ligolw.Indent)
+			file.write(xmlescape(types.ToFormat[self.getAttribute("Type")].strip(u"\"") % self.pcdata))
+			file.write(u"\n")
+		file.write(self.end_tag(indent) + u"\n")
 
 
 #
@@ -170,15 +205,19 @@ class Param(ligolw.Param):
 # =============================================================================
 #
 
+
 #
 # Override portions of ligolw.LIGOLWContentHandler class
 #
 
+
 def startParam(self, attrs):
 	return Param(attrs)
 
+
 def endParam(self):
 	self.current.pcdata = self.current.pytype(self.current.pcdata.strip())
+
 
 ligolw.LIGOLWContentHandler.startParam = startParam
 ligolw.LIGOLWContentHandler.endParam = endParam

@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -32,4 +32,4 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-__all__ = ["ligolw", "table", "array", "param", "lsctables", "types", "ilwd", "utils"]
+__all__ = ["ligolw", "types", "ilwd", "table", "array", "param", "lsctables", "utils"]

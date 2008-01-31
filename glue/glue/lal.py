@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -29,9 +29,11 @@ __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
+import fnmatch
 import re
 import urlparse
-
+import operator
+import os
 from glue import segments
 
 
@@ -268,6 +270,7 @@ class LIGOTimeGPS(object):
 		Multiply a LIGOTimeGPS by a number.
 
 		Example:
+
 		>>> LIGOTimeGPS(100.5) * 2
 		LIGOTimeGPS(201, 0)
 		"""
@@ -321,6 +324,9 @@ class CacheEntry(object):
 	# How to parse a line in a LAL cache file.  Five white-space
 	# delimited columns.
 	_regex = re.compile(r"\A\s*(?P<observatory>\S+)\s+(?P<description>\S+)\s+(?P<start>\S+)\s+(?P<duration>\S+)\s+(?P<url>\S+)\s*\Z")
+	_url_regex = re.compile(r"\A((.*/)*(?P<observatory>[^/]+)-(?P<description>[^/]+)-(?P<start>[^/]+)-(?P<duration>[^/\.]+)\.[^/]+)\Z")
+	# My old regex from lalapps_path2cache, in case it's needed
+	#_url_regex = re.compile(r"\s*(?P<observatory>[^-]+)-(?P<description>[^-]+)-(?P<start>[^-]+)-(?P<duration>[^-\.]+)\.(?P<extension>.*)\s*")
 
 	def __init__(self, *args, **kwargs):
 		"""
@@ -386,9 +392,9 @@ class CacheEntry(object):
 		Returns a string, with the format of a line in a LAL cache,
 		containing the contents of this cache entry.
 		"""
-		if self.segment != None:
-			start = self.segment[0]
-			duration = self.segment.duration()
+		if self.segment is not None:
+			start = str(self.segment[0])
+			duration = str(abs(self.segment))
 		else:
 			start = "-"
 			duration = "-"
@@ -399,7 +405,7 @@ class CacheEntry(object):
 		Sort by observatory, then description, then segment, then
 		URL.
 		"""
-		if type(other)  != CacheEntry:
+		if type(other) != CacheEntry:
 			raise TypeError, "can only compare CacheEntry to CacheEntry"
 		return cmp((self.observatory, self.description, self.segment, self.url), (other.observatory, other.description, other.segment, other.url))
 
@@ -429,8 +435,220 @@ class CacheEntry(object):
 		Return a segmentlistdict object describing the instruments
 		and time spanned by this CacheEntry.
 		"""
+		if self.observatory and "," in self.observatory:
+			instruments = self.observatory.split(",")
+		elif self.observatory and "+" in self.observatory:
+			instruments = self.observatory.split("+")
+		else:
+			instruments = [self.observatory]
+		return segments.segmentlistdict([(instrument, segments.segmentlist(self.segment is not None and [self.segment] or [])) for instrument in instruments])
+
+	def from_T050017(cls, url, coltype = LIGOTimeGPS):
+		"""
+		Parse a URL a la T050017-00 into a CacheEntry. In short:
+
+		ifos-description-start-dur.ext
+		"""
+		match = cls._url_regex.search(url)
+		if not match:
+			raise ValueError, "could not convert \"%s\" to CacheEntry" % url
+		observatory = match.group("observatory")
+		description = match.group("description")
+		start = match.group("start")
+		duration = match.group("duration")
+		if start == "-" and duration == "-":
+			# no segment information
+			segment = None
+		else:
+			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
+		return cls(observatory, description, segment, url)
+	from_T050017 = classmethod(from_T050017)
+
+
+class Cache(list):
+	"""
+	An object representing a LAL cache file. Currently it is possible to
+	add anything to a Cache. This method should check that the thing you
+	are adding is a CacheEntry and throw and error if it is not.
+	"""
+	entry_class = CacheEntry
+	
+	# methods to create new Cache objects
+	def fromfile(cls, fileobj, coltype=LIGOTimeGPS):
+		"""
+		Return a Cache object whose entries are read from an open file.
+		"""
+		c = [cls.entry_class(line, coltype=coltype) for line in fileobj]
+		return cls(c)
+	fromfile = classmethod(fromfile)
+
+	def fromfilenames(cls, filenames, coltype=LIGOTimeGPS):
+		"""
+		Read Cache objects from the files named and concatenate the results into a
+		single Cache.
+		"""
+		cache = cls()
+		for filename in filenames:
+			cache.extend(cls.fromfile(open(filename), coltype=coltype))
+		return cache
+	fromfilenames = classmethod(fromfilenames)
+
+	def from_urls(cls, urllist, coltype=LIGOTimeGPS):
+		"""
+		Return a Cache whose entries are inferred from the URLs
+		in urllist, if possible.  PFN lists will also work; for PFNs, the path
+		will be absolutized and "file://" and "localhost" will be assumed
+		for the schemes and hosts.
+		
+		The filenames must be in the format set forth by DASWG in T050017-00.
+		"""
+		def pfn_to_url(url):
+			scheme, host, path, dummy, dummy = urlparse.urlsplit(url)
+			if scheme == "": path = os.path.abspath(path)
+			return urlparse.urlunsplit((scheme or "file", host or "localhost",
+			                            path, "", ""))
+		return cls([cls.entry_class.from_T050017(pfn_to_url(f), coltype=coltype) \
+		            for f in urllist])
+	from_urls = classmethod(from_urls)
+
+	# some set arithmetic to make life better
+	def __isub__(self, other):
+		"""
+		Remove elements from self that are in other.
+		"""
+		end = len(self) - 1
+		for i, elem in enumerate(self[::-1]):
+			if elem in other:
+				del self[end - i]
+		return self
+
+	def __sub__(self, other):
+		"""
+		Return a Cache containing the entries of self that are not in other.
+		"""
+		return self.__class__([elem for elem in self if elem not in other])
+
+	def __ior__(self, other):
+		"""
+		Append entries from other onto self without introducing (new) duplicates.
+		"""
+		self.extend(other - self)
+		return self
+	
+	def __or__(self, other):
+		"""
+		Return a Cache containing all entries of self and other.
+		"""
+		return self.__class__(self[:]).__ior__(other)
+
+	def __iand__(self, other):
+		"""
+		Remove elements in self that are not in other.
+		"""
+		end = len(self) - 1
+		for i, elem in enumerate(self[::-1]):
+			if elem not in other:
+				del self[end - i]
+		return self
+	
+	def __and__(self, other):
+		"""
+		Return a Cache containing the entries of self that are also in other.
+		"""
+		return self.__class__([elem for elem in self if elem in other])
+
+	def unique(self):
+		"""
+		Return a Cache which has every element of self, but without
+		duplication.  Preserve order.  Does not hash, so a bit slow.
+		"""
+		new = self.__class__([])
+		for elem in self:
+			if elem not in new:
+				new.append(elem)
+		return new
+
+	# other useful manipulations
+	def tofile(self, fileobj):
+		"""
+		write a cache object to the fileobj as a lal cache file
+		"""
+		for entry in self:
+			print >>fileobj, str(entry)
+		fileobj.close()
+
+	def topfnfile(self, fileobj):
+		"""
+		write a cache object to filename as a plain text pfn file
+		"""
+		for entry in self:
+			print >>fileobj, entry.path()
+		fileobj.close()
+
+	def to_segmentlistdict(self):
+		"""
+		Return a segmentlistdict object describing the instruments
+		and times spanned by the entries in this Cache.  The return
+		value is coalesced.
+		"""
 		d = segments.segmentlistdict()
-		for instrument in self.observatory.split(","):
-			d[instrument] = segments.segmentlist([self.segment])
+		for entry in self:
+			d |= entry.to_segmentlistdict()
 		return d
 
+	def sieve(self, ifos=None, description=None, segment=None,
+		exact_match=False):
+		"""
+		Return a Cache object with those CacheEntries that contain the
+		given patterns (or overlap, in the case of segment).  If
+		exact_match is True, then non-None ifos, description, and
+		segment patterns must match exactly.
+		
+		Bash-style wildcards (*?) are allowed for ifos and description.
+		"""
+		if exact_match:
+			segment_func = lambda e: e.segment == segment
+		else:
+			if ifos is not None: ifos = "*" + ifos + "*"
+			if description is not None: description = "*" + description + "*"
+			segment_func = lambda e: segment.intersects(e.segment)
+		
+		c = self
+		
+		if ifos is not None:
+			ifos_regexp = re.compile(fnmatch.translate(ifos))
+			match_func = lambda entry: ifos_regexp.match(entry.observatory) is not None
+			c = [entry for entry in c if match_func(entry)]
+		
+		if description is not None:
+			descr_regexp = re.compile(fnmatch.translate(description))
+			match_func = lambda entry: descr_regexp.match(entry.description) is not None
+			c = [entry for entry in c if match_func(entry)]
+		
+		if segment is not None:
+			c = [entry for entry in c if segment_func(entry)]
+		
+		return self.__class__(c)
+
+	def pfnlist(self):
+		"""
+		Return a list of physical file names.
+		"""
+		return [entry.path() for entry in self]
+
+	def checkfilesexist(self):
+		'''
+		Runs through the entries of the Cache() object and checks each entry
+		if the file which it points to exists or not. If the file does exist then 
+		it adds the entry to the Cache() object containing found files, otherwise it
+		adds the entry to the Cache() object containing all entries that are missing. 
+		It returns both in the follwing order: Cache_Found, Cache_Missed.
+		'''  
+		c_found = []
+		c_missed = []
+		for entry in self:
+			if os.path.isfile(entry.path()):
+				c_found.append(entry)
+			else:
+				c_missed.append(entry)
+		return self.__class__(c_found), self.__class__(c_missed)

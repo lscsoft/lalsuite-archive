@@ -6,7 +6,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,11 +27,13 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 import os
 import socket
 import sys
 import time
+
 
 from glue import segments
 from glue.ligolw import ligolw
@@ -38,6 +41,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -52,7 +56,10 @@ __date__ = "$Date$"[7:-2]
 # =============================================================================
 #
 
-parser = OptionParser(version = "%prog CVS $Id$")
+
+parser = OptionParser(
+	version = "%prog CVS $Id$"
+)
 parser.add_option("-c", "--comment", metavar = "text", default = "", help = "set process comment")
 parser.add_option("-i", "--input", metavar = "filename", help = "read from filename (default = stdin)")
 parser.add_option("-o", "--output", metavar = "filename", help = "write to filename (default = stdout)")
@@ -68,10 +75,8 @@ del parser, args
 # =============================================================================
 #
 
-indoc = utils.load_filename(options.input)
 
-snglbursttables = table.getTablesByName(indoc, lsctables.SnglBurstTable.tableName)
-insearchsummtables = table.getTablesByName(indoc, lsctables.SearchSummaryTable.tableName)
+indoc = utils.load_filename(options.input, gz = (options.input or "stdin").endswith(".gz"))
 
 
 #
@@ -81,6 +86,7 @@ insearchsummtables = table.getTablesByName(indoc, lsctables.SearchSummaryTable.t
 #
 # =============================================================================
 #
+
 
 doc = ligolw.Document()
 doc.appendChild(ligolw.LIGO_LW())
@@ -104,6 +110,7 @@ doc.childNodes[0].appendChild(ligolwmontable)
 # =============================================================================
 #
 
+
 process = lsctables.Process()
 process.program = "ligolw_burst2mon"
 process.version = __version__
@@ -119,9 +126,10 @@ process.end_time = 0
 process.jobid = 0
 process.domain = ""
 process.ifos = ""
-process.process_id = lsctables.ProcessIDs().next()
+process.process_id = proctable.get_next_id()
 
 proctable.append(process)
+
 
 def add_param(name, type, value):
 	param = lsctables.ProcessParams()
@@ -131,6 +139,7 @@ def add_param(name, type, value):
 	param.type = str(type)
 	param.value = str(value)
 	procparamtable.append(param)
+
 
 if options.comment:
 	add_param("--comment", "lstring", options.comment)
@@ -148,15 +157,14 @@ if options.output != None:
 # =============================================================================
 #
 
-seglist = segments.segmentlist([])
-for table_elem in insearchsummtables:
-	seglist |= table_elem.get_outlist().coalesce()
 
-segmentids = lsctables.SegmentIDs()
+seglist = table.get_table(indoc, lsctables.SearchSummaryTable.tableName).get_outlist().coalesce()
+
+
 for seg in seglist:
 	row = lsctables.Segment()
 	row.process_id = process.process_id
-	row.segment_id = segmentids.next()
+	row.segment_id = segtable.get_next_id()
 	row.active = 1
 	row.set(seg)
 	segtable.append(row)
@@ -170,17 +178,16 @@ for seg in seglist:
 # =============================================================================
 #
 
-ligolwmonids = lsctables.LIGOLWMonIDs()
-for table_elem in snglbursttables:
-	for burst in table_elem.rows:
-		ligolwmon = lsctables.LIGOLWMon()
-		ligolwmon.process_id = process.process_id
-		ligolwmon.event_id = ligolwmonids.next()
-		ligolwmon.set_time(burst.get_peak())
-		ligolwmon.amplitude = burst.amplitude
-		ligolwmon.confidence = -burst.confidence
-		ligolwmon.frequency = burst.central_freq
-		ligolwmontable.append(ligolwmon)
+
+for burst in table.get_table(indoc, lsctables.SnglBurstTable.tableName).rows:
+	ligolwmon = lsctables.LIGOLWMon()
+	ligolwmon.process_id = process.process_id
+	ligolwmon.event_id = ligolwmontable.get_next_id()
+	ligolwmon.set_time(burst.get_peak())
+	ligolwmon.amplitude = burst.amplitude
+	ligolwmon.confidence = -burst.confidence
+	ligolwmon.frequency = burst.central_freq
+	ligolwmontable.append(ligolwmon)
 
 
 #
@@ -190,6 +197,7 @@ for table_elem in snglbursttables:
 #
 # =============================================================================
 #
+
 
 searchsumm = lsctables.SearchSummary()
 searchsumm.process_id = process.process_id
@@ -203,6 +211,7 @@ searchsumm.set_out(seglist.extent())
 searchsumm.nevents = ligolwmonids.n
 searchsumm.nnodes = 1
 
+
 searchsummtable.append(searchsumm)
 
 
@@ -214,6 +223,8 @@ searchsummtable.append(searchsumm)
 # =============================================================================
 #
 
+
 process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 
-utils.write_filename(doc, options.output)
+
+utils.write_filename(doc, options.output, gz = (options.output or "stdout").endswith(".gz"))

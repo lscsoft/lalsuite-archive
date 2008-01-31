@@ -2,6 +2,21 @@
 This modules contains objects that make it simple for the user to 
 create python scripts that build Condor DAGs to run code on the LSC
 Data Grid.
+
+This file is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __author__ = 'Duncan Brown <duncan@gravity.phys.uwm.edu>'
@@ -17,6 +32,7 @@ import random
 import md5
 import math
 import urlparse
+import stat
 
 def s2play(t):
   """
@@ -79,6 +95,12 @@ class CondorJob:
     Return the name of the executable for this job.
     """
     return self.__executable
+
+  def set_executable(self, executable):
+    """
+    Set the name of the executable for this job.
+    """
+    self.__executable = executable
 
   def add_condor_cmd(self, cmd, value):
     """
@@ -347,6 +369,81 @@ class CondorDAGJob(CondorJob):
       self.__have_var_args = 1
 
 
+class CondorDAGManJob:
+  """
+  Condor DAGMan job class. Appropriate for setting up DAGs to run within a
+  DAG.
+  """
+  def __init__(self, dag):
+    """
+    dag = the condor dag file to run
+    """
+    self.__dag = dag
+    self.__options = {} 
+    self.__notification = None
+    self.__sub_file_path = dag + ".condor.sub" 
+
+  def add_opt(self, opt, value):
+    """
+    Add a command line option to the executable. The order that the arguments
+    will be appended to the command line is not guaranteed, but they will
+    always be added before any command line arguments. The name of the option
+    is prefixed with single hyphen.
+    @param opt: command line option to add.
+    @param value: value to pass to the option (None for no argument).
+    """
+    self.__options[opt] = value
+
+  def get_opts(self):
+    """
+    Return the dictionary of opts for the job.
+    """
+    return self.__options
+
+  def set_notification(self, value):
+    """
+    Set the email address to send notification to.
+    @param value: email address or never for no notification.
+    """
+    self.__notification = value
+
+  def set_sub_file(self, path):
+    """
+    Set the name of the file to write the Condor submit file to when
+    write_sub_file() is called.
+    @param path: path to submit file.
+    """
+    self.__sub_file_path = path
+
+  def get_sub_file(self):
+    """
+    Get the name of the file which the Condor submit file will be
+    written to when write_sub_file() is called.
+    """
+    return self.__sub_file_path
+
+  def write_sub_file(self):
+    """
+    Write a submit file for this Condor job.
+    """
+    command = "condor_submit_dag -f -no_submit -usedagdir "
+
+    if self.__options.keys():
+      for c in self.__options.keys():
+        if self.__options[c]:
+          command +=  ' -' + c + ' ' + self.__options[c] 
+        else:
+          command += ' -' + c 
+      command += ' '
+
+    command += self.__dag
+
+    stdin, out, err = os.popen3(command)
+    pid, status = os.wait()
+
+    if status != 0:
+      raise CondorSubmitError, command + " failed."
+
 
 class CondorDAGNode:
   """
@@ -359,10 +456,14 @@ class CondorDAGNode:
     """
     @param job: the CondorJob that this node corresponds to.
     """
-    if not isinstance(job, CondorDAGJob):
-      raise CondorDAGNodeError, "A DAG node must correspond to a Condor DAG job"
+    if not isinstance(job, CondorDAGJob) and \
+        not isinstance(job,CondorDAGManJob):
+      raise CondorDAGNodeError, \
+          "A DAG node must correspond to a Condor DAG job or Condor DAGMan job"
     self.__name = None
     self.__job = job
+    self.__category = None
+    self.__priority = None
     self.__pre_script = None
     self.__pre_script_args = []
     self.__post_script = None
@@ -435,6 +536,30 @@ class CondorDAGNode:
     """
     return self.__name
 
+  def set_category(self,category):
+    """
+    Set the category for this node in the DAG.
+    """
+    self.__category = str(category)
+
+  def get_category(self):
+    """
+    Get the category for this node in the DAG.
+    """
+    return self.__category
+
+  def set_priority(self,priority):
+    """
+    Set the priority for this node in the DAG.
+    """
+    self.__priority = str(priority)
+
+  def get_priority(self):
+    """
+    Get the priority for this node in the DAG.
+    """
+    return self.__priority
+
   def add_input_file(self, filename):
     """
     Add filename as a necessary input file for this DAG node.
@@ -455,13 +580,19 @@ class CondorDAGNode:
     """
     Return list of input files for this DAG node and it's job.
     """
-    return self.__input_files + self.__job.get_input_files()
+    input_files = list(self.__input_files)
+    if isinstance(self.job(), CondorDAGJob):
+      input_files = input_files + self.job().get_input_files()
+    return input_files
 
   def get_output_files(self):
     """
     Return list of output files for this DAG node and it's job.
     """
-    return self.__output_files + self.__job.get_output_files()
+    output_files = list(self.__output_files)
+    if isinstance(self.job(), CondorDAGJob):
+      output_files = output_files + self.job().get_output_files()
+    return output_files
 
   def set_vds_group(self,group):
     """
@@ -566,6 +697,20 @@ class CondorDAGNode:
     """
     fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() +  '\n' )
     fh.write( 'RETRY ' + self.__name + ' ' + str(self.__retry) + '\n' )
+
+  def write_category(self,fh):
+    """
+    Write the DAG entry for this node's category to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    """
+    fh.write( 'CATEGORY ' + self.__name + ' ' + self.__category +  '\n' )
+
+  def write_priority(self,fh):
+    """
+    Write the DAG entry for this node's priority to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    """
+    fh.write( 'PRIORITY ' + self.__name + ' ' + self.__priority +  '\n' )
 
   def write_vars(self,fh):
     """
@@ -701,6 +846,13 @@ class CondorDAGNode:
 
     return cmd
     
+  def finalize(self):
+    """
+    The finalize method of a node is called before the node is
+    finally added to the DAG and can be overridden to do any last
+    minute clean up (such as setting extra command line arguments)
+    """
+    pass
 
 
 class CondorDAG:
@@ -721,8 +873,23 @@ class CondorDAG:
     self.__dag_file_path = None
     self.__jobs = []
     self.__nodes = []
+    self.__maxjobs_categories = []
     self.__integer_node_names = 0
     self.__node_count = 0
+    self.__nodes_finalized = 0
+
+  def get_nodes(self):
+    """
+    Return a list containing all the nodes in the DAG
+    """
+    return self.__nodes
+  
+  def get_jobs(self):
+    """
+    Return a list containing all the jobs in the DAG
+    """
+    return self.__jobs
+
 
   def is_dax(self):
     """
@@ -768,7 +935,8 @@ class CondorDAG:
     """
     if not isinstance(node, CondorDAGNode):
       raise CondorDAGError, "Nodes must be class CondorDAGNode or subclass"
-    node.set_log_file(self.__log_file_path)
+    if not isinstance(node.job(), CondorDAGManJob):
+      node.set_log_file(self.__log_file_path)
     self.__nodes.append(node)
     if self.__integer_node_names:
       node.set_name(str(self.__node_count))
@@ -776,11 +944,30 @@ class CondorDAG:
     if node.job() not in self.__jobs:
       self.__jobs.append(node.job())
 
+  def add_maxjobs_category(self,categoryName,maxJobsNum):
+    """
+    Add a category to this DAG called categoryName with a maxjobs of maxJobsNum.
+    @param node: Add (categoryName,maxJobsNum) tuple to CondorDAG.__maxjobs_categories.
+    """
+    self.__maxjobs_categories.append((str(categoryName),str(maxJobsNum)))
+
+  def write_maxjobs(self,fh,category):
+    """
+    Write the DAG entry for this category's maxjobs to the DAG file descriptor.
+    @param fh: descriptor of open DAG file.
+    @param category: tuple containing type of jobs to set a maxjobs limit for
+        and the maximum number of jobs of that type to run at once.
+    """
+    fh.write( 'MAXJOBS ' + str(category[0]) + ' ' + str(category[1]) +  '\n' )
+
   def write_sub_files(self):
     """
     Write all the submit files used by the dag to disk. Each submit file is
     written to the file name set in the CondorJob.
     """
+    if not self.__nodes_finalized:
+      for node in self.__nodes:
+        node.finalize()
     if not self.is_dax():
       for job in self.__jobs:
         job.write_sub_file()
@@ -798,11 +985,17 @@ class CondorDAG:
     for node in self.__nodes:
       node.write_job(dagfile)
       node.write_vars(dagfile)
+      if node.get_category():
+        node.write_category(dagfile)
+      if node.get_priority():
+        node.write_priority(dagfile)
       node.write_pre_script(dagfile)
       node.write_post_script(dagfile)
       node.write_input_files(dagfile)
     for node in self.__nodes:
       node.write_parents(dagfile)
+    for category in self.__maxjobs_categories:
+      self.write_maxjobs(dagfile, category)
     dagfile.close()
 
   def write_abstract_dag(self):
@@ -905,10 +1098,12 @@ class CondorDAG:
         
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
+        node_file_dict = {}
         for f in node.get_input_files():
-          xml = '<filename file="%s" />' % f
-          cmd_line = cmd_line.replace(f, xml)
+          node_file_dict[f] = 1
         for f in node.get_output_files():      
+          node_file_dict[f] = 1
+        for f in node_file_dict.keys():
           xml = '<filename file="%s" />' % f
           cmd_line = cmd_line.replace(f, xml)
 
@@ -964,10 +1159,36 @@ class CondorDAG:
     """
     Write either a dag or a dax.
     """
+    if not self.__nodes_finalized:
+      for node in self.__nodes:
+        node.finalize()
     if self.is_dax():
       self.write_abstract_dag()
     else:
       self.write_concrete_dag()
+
+  def write_script(self):
+    """
+    Write the workflow to a script (.sh instead of .dag).
+    
+    Assuming that parents were added to the DAG before their children,
+    dependencies should be handled correctly.
+    """
+    if not self.__dag_file_path:
+      raise CondorDAGError, "No path for DAG file"
+    try:
+      outfilename = self.__dag_file_path.replace(".dag", ".sh")
+      outfile = open(outfilename, "w")
+    except:
+      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+
+    for node in self.__nodes:
+        outfile.write("# Job %s\n" % node.get_name())
+        outfile.write("%s %s\n\n" % (node.job().get_executable(),
+            node.get_cmd_line()))
+    outfile.close()
+    
+    os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
 
 
 class AnalysisJob:
@@ -1036,6 +1257,7 @@ class AnalysisNode(CondorDAGNode):
     self.__calibration = None
     self.__calibration_cache = None
     self.__LHO2k = re.compile(r'H2')
+    self.__user_tag = self.job().get_opts().get("user-tag", None)
 
   def set_start(self,time):
     """
@@ -1159,17 +1381,14 @@ class AnalysisNode(CondorDAGNode):
 
   def set_ifo(self,ifo):
     """
-    Set the channel name to analyze and add a calibration file for that
-    channel. The name of the ifo is prepended to the channel name obtained
+    Set the ifo name to analyze. If the channel name for the job is defined,
+    then the name of the ifo is prepended to the channel name obtained
     from the job configuration file and passed with a --channel-name option.
-    A calibration file is obtained from the ini file and passed with a 
-    --calibration-cache option.
     @param ifo: two letter ifo code (e.g. L1, H1 or H2).
     """
     self.__ifo = ifo
-    self.add_var_opt('channel-name', ifo + ':' + self.job().channel())
-    #if not self.__calibration and self.__ifo and self.__start > 0:
-    #   self.calibration()
+    if self.job().channel():
+      self.add_var_opt('channel-name', ifo + ':' + self.job().channel())
 
   def get_ifo(self):
     """
@@ -1190,6 +1409,20 @@ class AnalysisNode(CondorDAGNode):
     Returns the IFO tag string
     """
     return self.__ifo_tag
+
+  def set_user_tag(self,usertag):
+    """
+    Set the user tag that is passed to the analysis code.
+    @param user_tag: the user tag to identify the job
+    """
+    self.__user_tag = usertag
+    self.add_var_opt('user-tag', usertag)
+ 
+  def get_user_tag(self):
+    """
+    Returns the usertag string
+    """
+    return self.__user_tag
 
   def set_cache(self,file):
     """
@@ -2093,7 +2326,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     the LSCdataFind options are read.
     """
     self.__executable = config_file.get('condor','datafind')
-    self.__universe = 'scheduler'
+    self.__universe = 'local'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
     AnalysisJob.__init__(self,config_file)
     self.__cache_dir = cache_dir
@@ -2118,7 +2351,7 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     self.add_condor_cmd('getenv','True')
 
     self.set_stderr_file(os.path.join(log_dir, 'datafind-$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).err'))
-    self.set_stdout_file(os.path.join(self.__cache_dir, '$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime).cache'))
+    self.set_stdout_file(os.path.join(log_dir, 'datafind-$(macroobservatory)-$(macrotype)-$(macrogpsstarttime)-$(macrogpsendtime)-$(cluster)-$(process).out'))
     self.set_sub_file('datafind.sub')
 
   def get_cache_dir(self):
@@ -2171,7 +2404,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """
     if self.__start and self.__end and self.__observatory and self.__type:
       self.__output = os.path.join(self.__job.get_cache_dir(), self.__observatory + '-' + self.__type + '-' + str(self.__start) + '-' + str(self.__end) + '.cache')
-      self.add_output_file(self.__output)
+      self.set_output(self.__output)
 
   def set_start(self,time):
     """
@@ -2364,7 +2597,7 @@ class LDBDCJob(CondorDAGJob, AnalysisJob):
     cp = ConfigParser object from which options are read.
     """
     self.__executable = cp.get('condor','ldbdc')
-    self.__universe = 'scheduler'
+    self.__universe = 'local'
     CondorDAGJob.__init__(self,self.__universe,self.__executable)
     AnalysisJob.__init__(self,cp,dax)
 

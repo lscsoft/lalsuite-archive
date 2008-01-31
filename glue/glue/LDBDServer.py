@@ -5,10 +5,26 @@ LDBDClient by connecting to the DB2 database.
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
 
 $Id$
+
+This file is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __version__ = '$Revision$'[11:-2]
 
+import os
 import sys
 import re
 import types
@@ -19,6 +35,16 @@ import SocketServer
 import cPickle
 from glue import ldbd
 import rlsClient
+
+def dtd_uri_callback(uri):
+  if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
+    # if the XML file contants a http pointer to the ligolw DTD at CIT then
+    # return a local copy to avoid any network problems
+    return 'file://localhost' + os.path.join( os.environ["GLUE_LOCATION"],
+      'etc/ligolw_dtd.txt' )
+  else:
+    # otherwise just use the uri in the file
+    return uri
 
 def initialize(configuration,log):
   # define the global variables used by the server
@@ -36,6 +62,15 @@ def initialize(configuration,log):
   # create the xml and ligolw parsers
   xmlparser = pyRXP.Parser()
   lwtparser = ldbd.LIGOLwParser()
+
+  # use a local copy of the DTD, if one is available
+  try:
+    GLUE_LOCATION = os.environ["GLUE_LOCATION"]
+    xmlparser.eoCB = dtd_uri_callback
+    logger.info("Using local DTD in " + 
+      'file://localhost' + os.path.join( GLUE_LOCATION, 'etc') )
+  except KeyError:
+    logger.warning('GLUE_LOCATION not set, unable to use local DTD') 
 
   # open a connection to the rls server
   rls_server = configuration['rls']

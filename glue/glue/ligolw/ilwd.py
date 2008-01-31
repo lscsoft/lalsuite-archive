@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,17 +25,60 @@
 # =============================================================================
 #
 
+
 """
 The ilwd:char and ilwd:char_u types are used as IDs for objects within LIGO
-Light-Weight XML files.  This module provides the ILWD class used to
-represent a sequence of IDs.  An instance of the class can be used to
-generate unique IDs.
+Light-Weight XML files.  This module provides the ilwdchar class used as a
+parent class for memory-efficient storage of ilwd:char strings.
+
+LIGO Light Weight XML "ilwd:char" IDs are strings of the form
+"table:column:integer", for example "process:process_id:10".  Large complex
+documents can have many millions of these strings, and their storage
+represents a significant RAM burden.  At the same time, however, while
+there can be millions of ID strings in use there may be only a small number
+(e.g. 10 or fewer) unique ID prefixes in use (the table name and column
+name part).  The amount of RAM required to load a document can be
+significantly reduced if the small number of unique string prefixes is
+stored separately.  This module (and the __ilwd C extension module it uses)
+implement the machinery used to do this.
+
+The technique makes use of Python's ability to define new classes at
+runtime.  Each unique string prefix, for example "process:process_id", is
+mapped to a class.  The class definitions are stored in a look-up table
+indexed by the (table name, column name) string pairs.  The table and
+column strings are stored as class attributes (shared by all instances of
+the class), while only the integer suffix unique to each ID is stored as an
+instance attribute.  For those who have no idea what this means, an example
+to illustrate:
+
+	class Example(object):
+		# a class attribute.  the value of this variable is shared
+		# by all instances of the class, only one copy is stored in
+		# memory
+		prefix = "hello"
+
+		def __init__(self):
+			# an instance attribute.  each instance of this
+			# class gets its own variable by this name, each
+			# can have a different value
+			suffix = 10
+
+In detail, the implementation in this module begins with the ilwdchar
+class, coded in C for speed, that acts as the parent class for all
+prefix-specific ID classes.  The parent class implements all the methods
+and features required by an ID object.  The dictionary ilwdchar_class_cache
+is used to store subclasses of ilwd.  The helper function get_ilwdchar() is
+used to convert an ID string of the form "table:column:integer" into an
+instance of the appropriate subclass of ilwdchar.  This is done by parsing
+the string and retrieving the class matching the table and column name
+parts from the class dictionary, or creating a new class on the fly if a
+matching class is not found.  Either way, a new instance of the class is
+created initialized to the integer part of the ID.
 """
 
 
 import re
 
-import table
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -44,99 +88,113 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
-#                              ILWD Manipulation
+#                               ID Parent Class
 #
 # =============================================================================
 #
 
-# Regular expression to extract the parts of a row ID according to the LIGO
-# LW naming conventions.
 
-ILWDPattern = re.compile(r"(?P<Table>\w+):(?P<Column>\w+):(?P<ID>\d+)")
+#
+# Load the C extension module that provides the ilwdchar parent class.
+#
 
 
-def ILWDTableName(ilwdchar):
+from __ilwd import *
+
+
+#
+# =============================================================================
+#
+#                                Cached Classes
+#
+# =============================================================================
+#
+
+
+#
+# Cache of pre-defined ilwd:char subclasses, indexed by the string prefix
+# used with each.
+#
+
+
+ilwdchar_class_cache = {}
+
+
+#
+# Functions for retrieving ilwdchar subclasses, and constructing subclass
+# instances.
+#
+
+
+def get_ilwdchar_class(tbl_name, col_name):
 	"""
-	Return the table name part of the row ID ilwdchar.  ValueError is
-	raised if the ID cannot be parsed.
+	Searches the cache of pre-defined ilwdchar subclasses for a class
+	whose table_name and column_name attributes match those provided.
+	If a matching subclass is found it is returned;  otherwise a new
+	class is defined, added to the cache, and returned.
+
+	Example:
+
+	>>> cls = get_ilwdchar_class("process", "process_id")
+	>>> id = cls(10)
+	>>> id
+	<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x2b8de0a186a8>
+	>>> str(id)
+	'process:process_id:10'
 	"""
+	#
+	# if the class already exists, retrieve it
+	#
+
+	key = (str(tbl_name), str(col_name))
 	try:
-		return ILWDPattern.search(ilwdchar).group("Table")
-	except AttributeError:
-		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
+		return ilwdchar_class_cache[key]
+	except KeyError:
+		#
+		# define a new class, and add it to the cache
+		#
+
+		class cached_ilwdchar_class(ilwdchar):
+			__slots__ = ()
+			table_name, column_name = key
+			index_offset = len("%s:%s:" % key)
+
+		ilwdchar_class_cache[key] = cached_ilwdchar_class
+
+		return cached_ilwdchar_class
 
 
-def ILWDColumnName(ilwdchar):
+def get_ilwdchar(s):
 	"""
-	Return the column name part of the row ID ilwdchar.  ValueError is
-	raised if the ID cannot be parsed.
+	Convert an ilwd:char string into an instance of the matching
+	subclass of ilwdchar.
+
+	Example:
+
+	>>> id = get_ilwdchar("process:process_id:10")
+	>>> str(id)
+	'process:process_id:10'
+	>>> id.table_name
+	'process'
+	>>> id.column_name
+	'process_id'
+	>>> int(id)
+	10
+	>>> id.index_offset
+	19
 	"""
+	#
+	# try parsing the string as an ilwd:char formated string
+	#
+
 	try:
-		return ILWDPattern.search(ilwdchar).group("Column")
-	except AttributeError:
-		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
+		table_name, column_name, i = s.split(":")
+	except ValueError:
+		raise ValueError, repr(s)
 
+	#
+	# retrieve the matching class from the ID class cache, and return
+	# an instance initialized to the desired value
+	#
 
-def ILWDID(ilwdchar):
-	"""
-	Return the ID part of the row ID ilwdchar.  ValueError is raised if
-	the ID cannot be parsed.
-	"""
-	try:
-		return int(ILWDPattern.search(ilwdchar).group("ID"))
-	except AttributeError:
-		raise ValueError, "unrecognized ID '%s'" % repr(ilwdchar)
-
-
-class ILWD(object):
-	"""
-	Unique ILWD generator.
-	"""
-	def __init__(self, table_name, column_name, n = 0):
-		"""
-		Initialize an ILWD object.  table_name and column_name are
-		the names of the table and column within the table for
-		which these will be used as IDs, eg., "process" and
-		"process_id".  The optional n parameter sets the starting
-		value for the numeric suffix in the ilwd:char
-		representation of ID (default is 0).
-		"""
-		self.table_name = table.StripTableName(table_name)
-		self.column_name = table.StripColumnName(column_name)
-		self.n = n
-
-	def __str__(self):
-		"""
-		Return an ilwd:char string representation of this ID.
-		"""
-		return "%s:%s:%d" % (self.table_name, self.column_name, self.n)
-
-	def __cmp__(self, other):
-		"""
-		Compare IDs first by the base string, then by n.
-		"""
-		if isinstance(other, ILWD):
-			return cmp((self.table_name, self.column_name, self.n), (other.table_name, other.column_name, other.n))
-		return NotImplemented
-
-	def __getitem__(self, n):
-		return "%s:%s:%d" % (self.table_name, self.column_name, n)
-
-	def __iter__(self):
-		return self
-
-	def set_next(self, n):
-		"""
-		Set the current value of the numeric suffix.
-		"""
-		self.n = n
-
-	def next(self):
-		"""
-		Return the current value of the generator as a string, and
-		increment the numeric suffix.
-		"""
-		s = str(self)
-		self.n += 1
-		return s
-
+	return get_ilwdchar_class(table_name, column_name)(int(i))

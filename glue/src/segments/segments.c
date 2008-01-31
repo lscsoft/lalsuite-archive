@@ -5,7 +5,7 @@
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -45,7 +45,7 @@ void init__segments(void)
 	 * Initialize module
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "infinity and segment classes.");
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "C implementations of the infinity, segment, and segmentlist classes from the segments module.");
 
 	/*
 	 * Create infinity class

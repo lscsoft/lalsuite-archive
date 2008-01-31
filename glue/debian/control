@@ -1,13 +1,16 @@
 Source: python-glue
-Section: python
+Section: lscsoft
 Priority: optional
 Maintainer: Kipp Cannon <kipp@gravity.phys.uwm.edu>
-Build-Depends: python (>= 2.3)
+Build-Depends: python (>= 2.4)
 Standards-Version: 3.6.0
 
 Package: python-glue
-Architecture: any
-Depends: python (>= 2.3)
+Architecture: all
+Depends: python (>= 2.4)
+Recommends: python-numpy (>= 1.0), python-xml, python-pysqlite2 (>= 2.2), libsqlite3-0 (>= 3.3)
+Replaces: glue
+Conflicts: glue
 Description: Grid LSC User Environment
  Glue (Grid LSC User Environment) is a suite of python modules and programs
  to allow users to run LSC codes on the grid.

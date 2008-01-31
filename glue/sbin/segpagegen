@@ -1,7 +1,22 @@
-#!/usr/bin/python
+#!/ldcg/bin/python
 """
 segpagegen creates three web pages that can be parsed by segwizard to obtain
 information from the segment database.
+
+This program is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
 
 $Id$
 """
@@ -14,70 +29,45 @@ import types
 import ConfigParser
 import mx.ODBC.DB2
 from glue import gpstime
+from glue.__segments import *
+from glue.segments import segmentlist
 
 #####################################################################
-# Define a couple of classes that we need for the segments based
-# on the glue segments module. We can't use glue.segments directly
-# as we need the extra field for the segment number.
-class sciseg(tuple):
-  """
-  A science segment is a tuple that contains (start, end, segnum).
-  """
-  def __new__(cls, *args):
-    if len(args) == 1:
-      args = args[0]
-    if len(args) != 3:
-      raise TypeError, "__new__() takes 4 arguments or 2 arguments " \
-        + "when the second is a 3-element container type"
-    if args[0] <= args[1]:
-      return tuple.__new__(cls, args)
+#assumes that on and off are sorted from highest to lowest version
+def current_version(on, off):
+  n1=len(on)
+  n2=len(off)
+  ALL_VALID=segmentlist([])
+  print "n1="+repr(n1)+" n2="+repr(n2)
+  valid=range(0,n1)
+  VALID=range(0,n1)
+  ON=segmentlist([])
+  for i in range(0,n1):
+    on_dq=on[i][0]
+    on_version=on[i][1]
+    on_list=on[i][2]
+    off_dq=off[i][0]
+    off_version=off[i][1]
+    off_list=off[i][2]    
+    print "on_dq="+on_dq+" on_version="+repr(on_version)+" off_dq="+off_dq+" off_version="+repr(off_version)
+    valid[i]= on_list | off_list
+    if(i==0):
+	VALID[i]=valid[i]
+	ALL_VALID=VALID[i]
     else:
-      return tuple.__new__(cls, args[1], args[0], args[2])
-
-  def __str__(self):
-    """
-    Return the segment in segwizard format.
-    """
-    return str(self[2]) + ' ' + str(self[0]) + ' ' + str(self[1]) + ' ' + \
-      str(self[1] - self[0])
-
-  def __or__(self,other):
-    """
-    Return the segment that is the union of the given segments, or
-    None if the result cannot be represented as a single segment.
-    """
-    if not self.continuous(other):
-      return None
-    return sciseg(min(self[0], other[0]), max(self[1], other[1]), self[2])
-
-  def continuous(self, other):
-    """
-    Return True if self and other are not disjoint and share the same
-    science segment number.
-    """
-    return (self[1] >= other[0]) and (self[0] <= other[1]) \
-      and (self[2] == other[2])
-
-class sciseglist(list):
-  """
-  The sciseglist defines a list of scisegs, and is an extension of the
-  built in list class. This class provides an extra method to coalesce
-  pre-sorted lists.
-  """
-  def coalesce(self):
-    """
-    This will only work if the list has already been sorted by time,
-    but we assume that DB2 has taken care of this when returning the
-    results of the query.
-    """
-    try:
-      for i in range(len(self) - 1):
-        while self[i].continuous(self[i+1]):
-          self[i:i+2] = [ self[i] | self[i+1] ]
-    except IndexError:
-      pass
-    return self
-
+	VALID[i]=valid[i]-ALL_VALID
+	ALL_VALID |= VALID[i]
+    ON |= (on_list & VALID[i])
+  OFF=ALL_VALID-ON
+  return [ON,OFF]
+#####################################################################
+def correct4injections(inj,on,off):
+  on=on+[['Injection',0,inj]]
+  try:
+    off=off+[['Injection',0,segmentlist([inj.extent()])-inj]]
+  except:
+    return [segmentlist([]),segmentlist([])]
+  return [on,off]
 #####################################################################
 # Parse command line options.
 shortop = "c:vh"
@@ -170,28 +160,38 @@ sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 #####################################################################
 # Loop over interferometers to get the various segments.
-for ifo in ['H1', 'H2', 'L1']:
+for ifo in ['V1','G1','H1','H2','L1']:
   # create the names of the segment files
   seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments')
   seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments')
   seg_file['DataQual'] = os.path.join( seg_path, ifo, 'dq_segments')
 
   # get the segments which derive from the interferometer state vector
-  for segtype in ['Science', 'Injection']:
+  for segtype in ['Science', 'Injection', 'STATEVEC.5.12']:
+    if(ifo=='V1' or ifo=='G1'):
+      injections=segmentlist([])
+    if(segtype=='STATEVEC.5.12' and ifo!='V1'):
+      continue
+    segtype1=segtype
+    if(segtype=='STATEVEC.5.12'):
+      segtype='Science'
     # open the output files
     seg_fh = open(seg_file[segtype] + '.' + time_str + '.txt', 'w')
 
     # construct the sql to perform the query
     if verbose: print "querying database for ifo %s, state %s" % (ifo, segtype)
-    if segtype is 'Science':
+    if(segtype is 'Science'):
       sql = "SELECT segment.start_time, segment.end_time, segment.segnum FROM "
     else:
       sql = "SELECT segment.start_time, segment.end_time, 0 FROM "
     sql += sqlj + "AND segment.end_time < %d " % midnight_gps
-    sql += "AND segment_definer.run = '%s' " % configuration['run']
+    if(ifo!='V1'):
+      sql += "AND segment_definer.run = '%s' " % configuration['run']
     sql += "AND segment_definer.ifos = '%s' " % ifo
-    sql += "AND segment_definer.name = '%s' " % segtype
+    sql += "AND segment_definer.name = '%s' " % segtype1
+    sql += "AND segment_definer.version = 0 " ####
     sql += "ORDER BY segment.start_time ASC FOR READ ONLY"
+    print sql
     curs.execute(sql)
     result = curs.fetchall()
 
@@ -199,39 +199,104 @@ for ifo in ['H1', 'H2', 'L1']:
     if verbose: 
       print "coalescing %d segments for ifo %s, state %s and writing to file" \
         % (len(result), ifo, segtype)
-    ret_segs = sciseglist()
-    for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[2]))
-    ret_segs.coalesce()
 
-    # write the segments to the output file
+    # put each segment number into a different segment list
+    ret_segs_dict = {}
+    for r in result:
+      if(ifo=='V1'):
+        segnum_key=0
+      else:
+        segnum_key=r[2]
+      try:
+        ret_segs_dict[segnum_key].append(segment(r[0],r[1]))
+      except KeyError:
+        ret_segs_dict[segnum_key] = segmentlist()
+        ret_segs_dict[segnum_key].append(segment(r[0],r[1]))
+    print ret_segs_dict
+    # print the header to the file
     print >> seg_fh, "# %s" % configuration['dbname']
     print >> seg_fh, "# %d" % midnight_gps
     print >> seg_fh, "# number gps_start_time gps_end_time duration"
-    for s in ret_segs:
-      print >> seg_fh, str(s)
+
+    # coalesce the segments and print them out in order of seg number
+    segnums = ret_segs_dict.keys()
+    segnums.sort()
+    for r in segnums:
+      ret_segs_dict[r].coalesce()
+      for s in ret_segs_dict[r]:
+        print >> seg_fh, str(r) + ' ' + str(s[0]) + ' ' + str(s[1]) + \
+          ' ' + str(s[1] - s[0])
+    if segtype is 'Injection' and ifo!='V1' and ifo!='G1':
+      injections=ret_segs_dict[0]
+    # close the file
+    seg_fh.flush()
     seg_fh.close()
+
+  if(ifo=='V1' or ifo=='G1'):
+    # update the symbolic links
+    if verbose: print "creating symbolic links"
+    for k in seg_file.keys():
+      symlink_name = seg_file[k] + '.txt'
+      try:
+        os.unlink(symlink_name)
+      except:
+        pass
+      os.symlink(seg_file[k] + '.' + time_str + '.txt', symlink_name)
+    seg_fh = open(seg_file['DataQual'] + '.' + time_str + '.txt', 'w')
+    print >> seg_fh, "# %s" % configuration['dbname']
+    print >> seg_fh, "# %d" % midnight_gps
+    print >> seg_fh, "# name version gps_start_time gps_end_time active"  
+    seg_fh.flush()
+    sys.stdout.flush()
+    continue
 
   # get all the data quality segments into a single file
   seg_fh = open(seg_file['DataQual'] + '.' + time_str + '.txt', 'w')
+
+#  print "injections="
+#  print injections
 
   # get the a list of non-statevec data quality quality segments
   if verbose: print "fetching list of data quality segments"
   sql = "SELECT name, version FROM segment_definer WHERE "
   sql += "run = '%s' AND ifos = '%s' AND state_vec_major is NULL " \
     % (configuration['run'], ifo)
+  sql += "order by name, version desc "
   sql += "FOR READ ONLY"
+
+  print sql
+
   curs.execute(sql)
   dq_types = curs.fetchall()
   if verbose: print "got %d data quality segments" % len(dq_types)
+
+  print dq_types
 
   # get each data quality flag, coalesce the list and write to a file
   print >> seg_fh, "# %s" % configuration['dbname']
   print >> seg_fh, "# %d" % midnight_gps
   print >> seg_fh, "# name version gps_start_time gps_end_time active"
+  prev_type=dq_types[0][0] 
+
+  ON_SEGS=[]	
+  OFF_SEGS=[]
   for dq in dq_types:
     if verbose:
       print "querying database for %s,%s,%d" % (ifo, dq[0], dq[1])
+    if(dq[0]!=prev_type):
+      print "prev_type="+prev_type
+      if(prev_type == 'Injection'):
+        [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
+        sys.stdout.flush()
+      [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
+      for s in ON:
+      	print >> seg_fh, "%s 99 %d %d 1" % (prev_type, s[0], s[1])
+      for s in OFF:
+      	print >> seg_fh, "%s 99 %d %d 0" % (prev_type, s[0], s[1])         
+      ON_SEGS=[]
+      OFF_SEGS=[]
+    prev_type=dq[0]
+
     sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
     sql += sqlj + "AND segment.end_time < %d " % midnight_gps
     sql += "AND segment_definer.run = '%s' AND " % configuration['run']
@@ -241,18 +306,46 @@ for ifo in ['H1', 'H2', 'L1']:
     sql += "ORDER BY segment.start_time asc FOR READ ONLY"
     curs.execute(sql)
     result = curs.fetchall()
-    ret_segs = sciseglist()
+
+    on_segs = segmentlist()
+    off_segs = segmentlist()
 
     if verbose: 
       print "coalescing %d segments for %s,%s,%d and writing to file" \
         % (len(result), ifo, dq[0], dq[1])
     for r in result:
-      ret_segs.append(sciseg(r[0],r[1],r[2]))
-    ret_segs.coalesce()
-  
-    for s in ret_segs:
-      print >> seg_fh, "%s %d %d %d %d" % (dq[0], dq[1], s[0], s[1], s[2])
+      if r[2] == 0:
+        off_segs.append(segment(r[0],r[1]))
+      elif r[2] == 1:
+        on_segs.append(segment(r[0],r[1]))
 
+    on_segs.coalesce()
+    off_segs.coalesce()
+  
+    ON_SEGS.append([dq[0],dq[1],on_segs])
+    OFF_SEGS.append([dq[0],dq[1],off_segs])
+
+    for s in on_segs:
+      print >> seg_fh, "%s %d %d %d 1" % (dq[0], dq[1], s[0], s[1])
+
+    for s in off_segs:
+      print >> seg_fh, "%s %d %d %d 0" % (dq[0], dq[1], s[0], s[1])
+
+    seg_fh.flush()
+    sys.stdout.flush()
+
+  if(dq[0] is 'Injection'):
+    [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
+    sys.stdout.flush()
+  [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
+  for s in ON:
+    print >> seg_fh, "%s 99 %d %d 1" % (dq[0], s[0], s[1]) 
+  for s in OFF:
+    print >> seg_fh, "%s 99 %d %d 0" % (prev_type, s[0], s[1])         
+  ON_SEGS=[]	
+  OFF_SEGS=[]
+
+  seg_fh.flush()
   seg_fh.close()
 
   # update the symbolic links

@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 While the ligolw module provides classes and parser support for reading and
@@ -43,19 +45,22 @@ elements also provide list-like access to the values in the corresponding
 columns of the table.
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
+
 import copy
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
 from xml.sax.xmlreader import AttributesImpl
+
 
 import ligolw
 import tokenizer
 import types
-import ilwd
 
 
 #
@@ -66,6 +71,7 @@ import ilwd
 # =============================================================================
 #
 
+
 # Regular expression to extract the significant part of a column name
 # according to the LIGO LW naming conventions.
 
@@ -75,6 +81,7 @@ import ilwd
 #
 # but people are putting upper case letters in names!!!!!  Someone is going
 # to get the beats.
+
 
 ColumnPattern = re.compile(r"(?:\A\w+:|\A)(?P<FullName>(?:(?P<Table>\w+):|\A)(?P<Name>\w+))\Z")
 
@@ -113,8 +120,10 @@ def getColumnsByName(elem, name):
 # =============================================================================
 #
 
+
 # Regular expression used to extract the signifcant portion of a table or
 # stream name, according to LIGO LW naming conventions.
+
 
 TablePattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):table\Z")
 
@@ -153,6 +162,7 @@ def getTablesByName(elem, name):
 # =============================================================================
 #
 
+
 def new_from_template(template):
 	"""
 	Construct a new Table document subtree whose structure is the same
@@ -184,30 +194,17 @@ def get_table(xmldoc, name):
 	return tables[0]
 
 
-def new_ilwd(table_elem):
-	"""
-	From the table element, return a compatible ILWD instance
-	initialized to the next unique ID following those found in the
-	table.
-	"""
-	if table_elem.ids is None:
-		raise ValueError, table_elem
-	n = 0
-	for id in table_elem.getColumnByName(table_elem.ids.column_name):
-		n = max(n, ilwd.ILWDID(id) + 1)
-	return ilwd.ILWD(table_elem.ids.table_name, table_elem.ids.column_name, n)
-
-
 def reassign_ids(elem):
 	"""
-	Recurse over all tables below elem possessing an ILWD generator,
-	and use the generator to assign new IDs to the rows, recording the
-	modifications in a mapping of old row keys to new row keys.
-	Finally, apply the mapping to all rows of all tables.
+	Recurses over all tables below elem whose next_id attributes are
+	not none, and uses the next_id attribute to assign new IDs to the
+	rows in each table.  The modifications are recorded in a mapping of
+	old row keys to new row keys.  Finally, applies the mapping to all
+	rows of all tables to update cross references.
 	"""
 	mapping = {}
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
-		if tbl.ids is not None:
+		if tbl.next_id is not None:
 			tbl.updateKeyMapping(mapping)
 	for tbl in elem.getElementsByTagName(ligolw.Table.tagName):
 		tbl.applyKeyMapping(mapping)
@@ -216,103 +213,11 @@ def reassign_ids(elem):
 #
 # =============================================================================
 #
-#                          Mapping Protocol for Rows
+#                                Column Element
 #
 # =============================================================================
 #
 
-class TableRowDict(object):
-	"""
-	Class for implementing the Python mapping protocol on a Table
-	element, using the Table's ID column to retrieve and modify rows.
-	Note:  pretty much everything about this class is *SLOW*, so use it
-	only as a last resort.
-	"""
-	def __init__(self, table_elem):
-		"""
-		Initialize the ID --> row mapping.
-		"""
-		self._table = table_elem
-		self._keys = table_elem.getColumnByName(table_elem.ids.column_name)
-
-	def __len__(self):
-		"""
-		Return the number of unique IDs.
-		"""
-		return len(self.keys())
-
-	def __getitem__(self, key):
-		"""
-		Return a list of the rows whose ID equals key.
-		"""
-		l = [self._table[i] for i, k in enumerate(self._keys) if k == key]
-		if not len(l):
-			raise KeyError, key
-		return l
-
-	def __setitem__(self, key, values):
-		"""
-		Replace the rows whose ID equals key with the rows in the
-		list of values, appending to the table if there are no rows
-		with that ID.
-		"""
-		# FIXME: should we assign the key to rows?
-		del self[key]
-		map(self._table.append, values)
-
-	def __delitem__(self, key):
-		"""
-		Delete all the rows whose ID equals key.
-		"""
-		for i in xrange(len(self._keys), -1, -1):
-			if self._keys[i] == key:
-				del self._table[i]
-
-	def __iter__(self):
-		"""
-		Iterate over the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).iterkeys()
-
-	iterkeys = __iter__
-
-	def __contains__(self, key):
-		"""
-		Return True if the table contains a row whose ID equals
-		key, otherwise return False.
-		"""
-		return key in self._keys
-
-	has_key = __contains__
-
-	def keys(self):
-		"""
-		Return a list of the unique IDs.
-		"""
-		return {}.fromkeys(self._keys).keys()
-
-	def iteritems(self):
-		"""
-		Iterate over (key, value) pairs.
-		"""
-		for key in self:
-			yield key, self[key]
-
-	def itervalues(self):
-		"""
-		Return an iterator over rows.
-		"""
-		for key in self:
-			yield self[key]
-
-
-#
-# =============================================================================
-#
-#                               Element Classes
-#
-# =============================================================================
-#
 
 class Column(ligolw.Column):
 	"""
@@ -397,6 +302,52 @@ class Column(ligolw.Column):
 		return numpy.fromiter(self, dtype = types.ToNumPyType[self.getAttribute("Type")])
 
 
+#
+# =============================================================================
+#
+#                                Stream Element
+#
+# =============================================================================
+#
+
+
+class InterningRowBuilder(tokenizer.RowBuilder):
+	"""
+	This subclass of the tokenizer.RowBuilder class respects the
+	"interning" hints provided by table definitions, and attempts to
+	replace the values of row attributes associated with interned
+	columns with references to shared instances of those values.  This
+	results in a reduction in memory use which is small for most
+	documents, but can be subtantial when dealing with poorly-designed
+	tables containing large volumes of repeated information.
+	
+	The values are stored in a dictionary that is shared between all
+	instances of this class, and which survives forever.  Nothing is
+	ever naturally "uninterned", so the string dictionary grows without
+	bound as more documents are processed.  This can be a problem in
+	some use cases, and the work-around is to run
+
+	>>> InterningRowBuilder.strings.clear()
+
+	to reset the dictionary and appropriate points in the application.
+	"""
+	strings = {}
+	def append(self, tokens):
+		for row in tokenizer.RowBuilder.append(self, tokens):
+			for col in self.interns:
+				val = getattr(row, col)
+				setattr(row, col, self.strings.setdefault(val, val))
+			yield row
+
+
+#
+# Select the RowBuilder class to use when parsing tables.
+#
+
+
+RowBuilder = tokenizer.RowBuilder
+
+
 class TableStream(ligolw.Stream):
 	"""
 	High-level Stream element for use inside Tables.  This element
@@ -404,66 +355,64 @@ class TableStream(ligolw.Stream):
 	parent element, and knows how to turn the parent's rows back into a
 	character stream.
 	"""
-	__slots__ = ["__tokenizer", "__colnames", "__numcols", "__row", "__colindex"]
-
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.__tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
-		self.__colnames = None
-		self.__numcols = None
-		self.__row = None
-		self.__colindex = 0
+		self._tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
+		self._rowbuilder = None
+
+	def config(self, parentNode):
+		# some initialization that requires access to the
+		# parentNode, and so cannot be done inside the __init__()
+		# function.
+		self._tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
+		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
+		self._rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
+		return self
 
 	def appendData(self, content):
-		# some initialization that can only be done once parentNode
-		# has been set.
-		if self.__row is None:
-			self.__tokenizer.set_types([(self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns or None) and pytype for pytype, colname in zip(self.parentNode.columnpytypes, self.parentNode.columnnames)])
-			self.__colnames = tuple([colname for colname in self.parentNode.columnnames if self.parentNode.loadcolumns is None or colname in self.parentNode.loadcolumns])
-			self.__numcols = len(self.__colnames)
-			self.__row = self.parentNode.RowType()
-
-		# tokenize buffer, and construct row objects
-		for token in self.__tokenizer.add(content):
-			setattr(self.__row, self.__colnames[self.__colindex], token)
-			self.__colindex += 1
-			if self.__colindex >= self.__numcols:
-				self.parentNode.append(self.__row)
-				self.__row = self.parentNode.RowType()
-				self.__colindex = 0
+		# tokenize buffer, pack into row objects, and append to
+		# table
+		for row in self._rowbuilder.append(self._tokenizer.append(content)):
+			self.parentNode.append(row)
 
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.__colnames = None
-		self.__numcols = None
-		self.__row = None
-		self.__colindex = 0
+		self._tokenizer = None
+		self._rowbuilder = None
 		ligolw.Stream.unlink(self)
 
-	def write(self, file = sys.stdout, indent = ""):
-		rowfmt = indent + ligolw.Indent + self.getAttribute("Delimiter").join([types.ToFormat[c.getAttribute("Type")] for c in self.parentNode.getElementsByTagName(ligolw.Column.tagName)])
-		colnames = self.parentNode.columnnames
-
+	def write(self, file = sys.stdout, indent = u""):
 		# loop over parent's rows.  This is complicated because we
-		# need to not put a delimiter at the end of the last row.
-		print >>file, self.start_tag(indent)
-		rowiter = iter(self.parentNode)
+		# need to not put a delimiter at the end of the last row
+		# unless it ends with a null token
+		file.write(self.start_tag(indent))
+		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [types.ToFormat[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
+		rowdumper.dump(self.parentNode)
 		try:
-			row = rowiter.next()
-			# FIXME: in Python 2.5, use attrgetter(*colnames)
-			# for attribute tuplizing
-			file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
-			rowfmt = self.getAttribute("Delimiter") + "\n" + rowfmt
-			while True:
-				row = rowiter.next()
-				file.write(rowfmt % tuple([getattr(row, name) for name in colnames]))
+			line = rowdumper.next()
 		except StopIteration:
-			if len(self.parentNode) > 0:
-				file.write("\n")
-		print >>file, self.end_tag(indent)
+			# table is empty
+			pass
+		else:
+			# write first row
+			newline = u"\n" + indent + ligolw.Indent
+			file.write(newline)
+			file.write(xmlescape(line))
+			# now add delimiter and write the remaining rows
+			newline = rowdumper.delimiter + newline
+			for line in rowdumper:
+				file.write(newline)
+				file.write(xmlescape(line))
+			if rowdumper.tokens and rowdumper.tokens[-1] == u"":
+				# the last token of the last row was null:
+				# add a final delimiter to indicate that a
+				# token is present
+				file.write(rowdumper.delimiter)
+		file.write(u"\n" + self.end_tag(indent) + u"\n")
 
 	# FIXME: This function is for the metaio library:  metaio cares
 	# what order the attributes of XML tags come in.  This function
@@ -472,7 +421,16 @@ class TableStream(ligolw.Stream):
 		"""
 		Generate the element start tag.
 		"""
-		return indent + "<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
+		return indent + u"<%s Name=\"%s\" Type=\"%s\" Delimiter=\"%s\">" % (self.tagName, self.getAttribute("Name"), self.getAttribute("Type"), self.getAttribute("Delimiter"))
+
+
+#
+# =============================================================================
+#
+#                                Table Element
+#
+# =============================================================================
+#
 
 
 class TableRow(object):
@@ -489,9 +447,11 @@ class Table(ligolw.Table, list):
 	"""
 	validcolumns = None
 	loadcolumns = None
+	interncolumns = None
+	constraints = None
+	how_to_index = None
 	RowType = TableRow
-	ids = None
-	dict = None
+	next_id = None
 
 	def __init__(self, *attrs):
 		"""
@@ -501,20 +461,6 @@ class Table(ligolw.Table, list):
 		self.columnnames = []
 		self.columntypes = []
 		self.columnpytypes = []
-
-	#
-	# Sequence methods
-	#
-
-	def filterRows(self, func):
-		"""
-		Delete all rows for which func(row) evaluates to False.
-		"""
-		for i in xrange(len(self) - 1, -1, -1):
-			if not func(self[i]):
-				del self[i]
-		return self
-
 
 	#
 	# Column access
@@ -560,9 +506,9 @@ class Table(ligolw.Table, list):
 		Used for validation during parsing, and additional
 		book-keeping.  For internal use only.
 		"""
-		self.columnnames = []
-		self.columntypes = []
-		self.columnpytypes = []
+		del self.columnnames[:]
+		del self.columntypes[:]
+		del self.columnpytypes[:]
 		for child in self.childNodes:
 			if child.tagName != ligolw.Column.tagName:
 				continue
@@ -600,8 +546,7 @@ class Table(ligolw.Table, list):
 		Called during parsing to indicate that the last Column
 		child element has been added.
 		"""
-		if self.ids is not None:
-			self.dict = TableRowDict(self)
+		pass
 
 	def _end_of_rows(self):
 		"""
@@ -630,51 +575,71 @@ class Table(ligolw.Table, list):
 
 
 	#
-	# ILWD manipulation
+	# Row ID manipulation
 	#
 
-	def sync_ids(self):
+	def get_next_id(cls):
+		"""
+		Returns the current value of the next_id class attribute,
+		and increments the next_id class attribute by 1.
+		"""
+		id = cls.next_id
+		cls.next_id += 1
+		return id
+	get_next_id = classmethod(get_next_id)
+
+	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
-		the counter for the table's ILWD generator so as to cause
-		it to yield the next ID in the sequence and higher.  If the
-		generator is already set to yield an ID greater than the
-		max found, then it is left unmodified.  Raises ValueError
-		if the table does not possess an ILWD generator.
+		the table's next_id attribute to the next highest ID in
+		sequence.  If the next_id attribute is already set to a
+		value greater than the max found, then it is left
+		unmodified.  The return value is the ID identified by this
+		method.  If the table's next_id attribute is None, then
+		this function is a no-op.
 
-		Note that tables of the same name typically share
-		references to the same ILWD generator so that IDs can be
-		generated that are unique across all tables.  To set the
-		generator to produce an ID greater than that in any table,
-		sync_ids() needs to be run on every table sharing the
-		generator.
+		Note that tables of the same name typically share a common
+		next_id attribute (it is a class attribute, not an
+		attribute of each instance).  This is enforced so that IDs
+		can be generated that are unique across all tables in the
+		document.  Running sync_next_id() on all the tables in a
+		document that are of the same type will has the effect of
+		setting the ID to the next ID higher than any ID in any of
+		the those tables.
 		"""
-		if self.ids is None:
-			raise ValueError, self
-		n = 0
-		for id in self.getColumnByName(self.ids.column_name):
-			n = max(n, ilwd.ILWDID(id) + 1)
-		if n > self.ids.n:
-			self.ids.n = n
-		return self.ids
+		if self.next_id is not None:
+			if len(self):
+				n = max(self.getColumnByName(self.next_id.column_name)) + 1
+			else:
+				n = self.next_id.__class__(0)
+			if n > self.next_id:
+				# the left-hand-side is the way it is to
+				# ensure we assign to the class attribute
+				# instead of creating an instance attribute
+				self.__class__.next_id = n
+		return self.next_id
 
 	def updateKeyMapping(self, mapping):
 		"""
 		Used as the first half of the row key reassignment
 		algorithm.  Accepts a dictionary mapping old key --> new
 		key.  Iterates over the rows in this table, using the
-		table's own ILWD generator to assign a new key to each row,
-		recording the changes in the mapping.  Returns the mapping
-		or ValueError if the table has no ILWD generator.
+		table's next_id attribute to assign a new ID to each row,
+		recording the changes in the mapping.  Returns the mapping.
+		Raises ValueError if the table's next_id attribute is None.
 		"""
-		if self.ids is None:
+		if self.next_id is None:
 			raise ValueError, self
-		column = self.getColumnByName(self.ids.column_name)
+		try:
+			column = self.getColumnByName(self.next_id.column_name)
+		except KeyError:
+			# table is missing its ID column, this is a no-op
+			return mapping
 		for i, old in enumerate(column):
 			if old in mapping:
 				column[i] = mapping[old]
 			else:
-				column[i] = mapping[old] = self.ids.next()
+				column[i] = mapping[old] = self.get_next_id()
 		return mapping
 
 	def applyKeyMapping(self, mapping):
@@ -684,85 +649,11 @@ class Table(ligolw.Table, list):
 		old row keys with the new values from the mapping.
 		"""
 		for coltype, colname in zip(self.columntypes, self.columnnames):
-			if coltype in types.IDTypes and (self.ids is None or colname != self.ids.column_name):
+			if coltype in types.IDTypes and (self.next_id is None or colname != self.next_id.column_name):
 				column = self.getColumnByName(colname)
 				for i, old in enumerate(column):
 					if old in mapping:
 						column[i] = mapping[old]
-
-
-#
-# =============================================================================
-#
-#                            Database-backed Table
-#
-# =============================================================================
-#
-
-
-class DBTable(Table):
-	"""
-	A special version of the Table class using an SQL database for
-	storage.  Many of the features of the Table class are not available
-	here, but instead the user can use SQL to query the table's
-	contents.  Before use, the connection attribute must be set to a
-	Python DB-API 2.0 "connection" object.  The constraints attribute
-	can be set to a text string that will be added to the table's
-	CREATE statement where constraints go, for example you might wish
-	to set this to "PRIMARY KEY (event_id)" for a table with an
-	event_id column.
-
-	Note:  because the table is stored in an SQL database, the use of
-	this class imposes the restriction that table names be unique
-	within a document.
-	"""
-	connection = None
-	constraints = None
-
-	def __init__(self, *attrs):
-		"""
-		Initialize
-		"""
-		Table.__init__(self, *attrs)
-		if self.connection is None:
-			raise ElementError, "must set connection attribute before instantiating DBTable"
-		self.cursor = self.connection.cursor()
-
-	def _end_of_columns(self):
-		Table._end_of_columns(self)
-		statement = "CREATE TABLE " + StripTableName(self.getAttribute("Name")) + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.columnnames, self.columntypes))
-		if self.constraints is not None:
-			statement += ", " + self.constraints
-		statement += ")"
-		self.cursor.execute(statement)
-		self.append_statement = "INSERT INTO " + StripTableName(self.getAttribute("Name")) + " VALUES (" + ",".join("?" * len(self.columnnames)) + ")"
-
-	def _end_of_rows(self):
-		Table._end_of_rows(self)
-		self.connection.commit()
-
-	def __len__(self):
-		return self.cursor.execute("SELECT COUNT(*) FROM " + StripTableName(self.getAttribute("Name"))).fetchone()[0]
-
-	def __iter__(self):
-		for values in self.connection.cursor().execute("SELECT * FROM " + StripTableName(self.getAttribute("Name"))):
-			yield self._row_from_cols(values)
-
-	def append(self, row):
-		# FIXME: in Python 2.5 use attrgetter() for attribute
-		# tuplization.
-		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.columnnames))
-
-	def _row_from_cols(self, values):
-		row = self.RowType()
-		for c, v in zip(self.columnnames, values):
-			setattr(row, c, v)
-		return row
-
-	def unlink(self):
-		Table.unlink(self)
-		self.cursor.execute("DROP TABLE " + StripTableName(self.getAttribute("Name")))
-		self.cursor = None
 
 
 #
@@ -773,42 +664,52 @@ class DBTable(Table):
 # =============================================================================
 #
 
+
 #
 # Override portions of the ligolw.LIGOLWContentHandler class
 #
 
+
 __parent_startStream = ligolw.LIGOLWContentHandler.startStream
 __parent_endStream = ligolw.LIGOLWContentHandler.endStream
+
 
 def startColumn(self, attrs):
 	return Column(attrs)
 
+
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Table.tagName:
 		self.current._end_of_columns()
-		return TableStream(attrs)
+		return TableStream(attrs).config(self.current)
 	return __parent_startStream(self, attrs)
+
 
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
-	# add a final delimiter to induce the last token to get parsed.
-	# Also call _end_of_rows() hook.
+	# add a final delimiter to induce the last token to get parsed but
+	# only if there's something other than whitespace left in the
+	# tokenizer's buffer.  Also call _end_of_rows() hook.
 	if self.current.parentNode.tagName == ligolw.Table.tagName:
-		self.current.appendData(self.current.getAttribute("Delimiter"))
+		if not self.current._tokenizer.data.isspace():
+			self.current.appendData(self.current.getAttribute("Delimiter"))
 		self.current.parentNode._end_of_rows()
 	else:
 		__parent_endStream(self)
 
+
 def startTable(self, attrs):
 	return Table(attrs)
 
+
 def endTable(self):
 	# Table elements are allowed to contain 0 Stream children, but
-	# _end_of_columns() and _end_of_rows() hooks need to be called
-	# regardless.
+	# _end_of_columns() and _end_of_rows() hooks must be called
+	# regardless, so we do that here if needed.
 	if self.current.childNodes[-1].tagName != ligolw.Stream.tagName:
 		self.current._end_of_columns()
 		self.current._end_of_rows()
+
 
 ligolw.LIGOLWContentHandler.startColumn = startColumn
 ligolw.LIGOLWContentHandler.startStream = startStream

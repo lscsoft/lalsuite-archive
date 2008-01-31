@@ -6,6 +6,21 @@ Client for querying a LDRdataFindServer to find LSC data.
 Uses pyGlobus and the LDRdataFindClient modules.
 
 $Id$
+
+This program is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __version__ = '$Revision$'[11:-2]
@@ -187,7 +202,7 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 
 
 # grab command line options
-shortop = "vt:s:e:wyaphlr:f:u:m:o:np"
+shortop = "vt:s:e:wyaphlr:f:u:m:o:npO:"
 longop = [
           "version",
           "help", 
@@ -209,6 +224,7 @@ longop = [
           "strict-time-check",
           "show-times",
           "no-proxy",
+          "output-file=",
           ]
 
 try:
@@ -260,7 +276,7 @@ try:
 except:
         pass
         
-        
+output_file = sys.stdout
 
 for o, a in opts:
         if o in ("-h", "--help"):
@@ -322,6 +338,8 @@ for o, a in opts:
                 clientMethod = 'showTimes'
         elif o in ("-p","--no-proxy"):
                 noproxy = True
+        elif o in ("-O", "--output-file"):
+                output_file = open(a, "w")
 
 if not clientMethod:
         print >>sys.stderr, "Bad combination or missing options"
@@ -358,13 +376,13 @@ except Exception, e:
 try:
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
         if isinstance( result, str ):
-                print result
+                output_file.write(result + "\n")
         elif isinstance( result, LDRdataFindClient.lfnlist ):
                 if len(result) == 0:
                         print >>sys.stderr, "No files found!"
                 else:
                         for r in result:
-                                print r
+                                output_file.write(r + "\n")
         elif isinstance( result, LDRdataFindClient.pfnlist ):
                 if len(result) == 0:
                         print >>sys.stderr, "No URLs found!"
@@ -374,14 +392,14 @@ try:
                                         lfn = os.path.basename(pfn)
                                         head, ext = os.path.splitext(lfn)
                                         a, b, c, d = head.split('-') 
-                                        print "%s %s %s %s %s" % (a, b, c, d, pfn)
+                                        output_file.write("%s %s %s %s %s\n" % (a, b, c, d, pfn))
 
                         else:
                                 for r in result:
-                                        print r
+                                        output_file.write(r + "\n")
         elif isinstance( result, list ):
                 for r in result:
-                        print r
+                        output_file.write(r + "\n")
         else:
                 msg = "Error: unknown result format : %s" % result
                 raise LDRdataFindClient.LDRdataFindException, msg
@@ -391,4 +409,5 @@ except Exception, e:
         print >>sys.stderr, "Enter 'LSCdataFind --help' for usage"
         sys.exit(1)
 
+output_file.close()
 sys.exit(0)

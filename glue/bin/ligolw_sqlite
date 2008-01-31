@@ -1,0 +1,256 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2007  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Transfer table data between LIGO Light Weight XML files and SQLite
+databases.
+"""
+
+
+from optparse import OptionParser
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+
+from glue.lal import CacheEntry
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import dbtables
+from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
+
+
+# so they can be inserted into a database
+dbtables.types.ToPyType["ilwd:char"] = str
+
+
+# FIXME: this is a hack to allow documents w/ "valid" sngl_inspiral tables
+# to be inserted;  remove when this is no longer required
+if dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] == "ilwd:char":
+	raise Exception, "FIXME: yay, the sngl_inspiral:event_id hack is no longer required!!  (ask Kipp to remove)"
+dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	"""
+	Parse the command line, return an options object and a list of file
+	names.
+	"""
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog -d|--database filename [options] [xml ...]",
+		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If the database exists, the files' contents will be added to it, otherwise a new database file is created.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
+	)
+	parser.add_option("-d", "--database", metavar = "filename", help = "Use the SQLite3 database named filename (required).")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get XML files to insert from the LAL cache named filename.")
+	parser.add_option("-p", "--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database.  The default is to assign new IDs to prevent collisisions.  Inserts will fail if collisions occur.")
+	parser.add_option("-r", "--replace", action = "store_true", help = "If the database file already exists, over-write it instead of inserting into it.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (extraction is done after any inserts).")
+	options, filenames = parser.parse_args()
+
+	for cache in options.input_cache:
+		filenames += [CacheEntry(line).path() for line in file(cache)]
+
+	if not options.database:
+		raise ValueError, "missing required argument --database"
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                 Library Code
+#
+# =============================================================================
+#
+
+
+#
+# How to insert
+#
+
+
+def insert(filenames, preserve_ids = True, verbose = False):
+	"""
+	Iterate over the give filenames, and parse and insert each one into
+	the database the dbtables.DBTable class is currently connected to.
+	"""
+	if not preserve_ids:
+		# enable ID remapping
+		dbtables.DBTable_idmap_create()
+		dbtables.DBTable.append = dbtables.DBTable._remapping_append
+	for n, filename in enumerate(filenames):
+		# load document (if enabled, row IDs are reassigned on
+		# input)
+		if verbose:
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+		doc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
+
+		# update references to row IDs
+		if not preserve_ids:
+			table_elems = doc.getElementsByTagName(ligolw.Table.tagName)
+			for i, tbl in enumerate(table_elems):
+				if verbose:
+					print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
+				tbl.applyKeyMapping()
+			if verbose:
+				print >>sys.stderr, "updating IDs: 100%"
+
+			# reset ID mapping for next document
+			dbtables.DBTable_idmap_reset()
+
+		# delete cursors
+		doc.unlink()
+	dbtables.DBTable_commit()
+
+
+#
+# How to extract
+#
+
+
+def extract(filename, verbose = False):
+	xmldoc = ligolw.Document()
+	xmldoc.appendChild(dbtables.DBTable_get_xml())
+	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
+
+	# delete cursors
+	xmldoc.unlink()
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+will_write_to_file = (options.extract is None) or (filenames != [None])
+will_replace_file = will_write_to_file and options.replace
+will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
+
+
+#
+# Open database
+#
+
+
+target = dbtables.get_connection_filename(options.database, tmp_path = will_use_tmp_space and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
+
+connection = sqlite3.connect(target)
+dbtables.DBTable_set_connection(connection)
+
+
+#
+# Synchronize ID generators with table contents
+#
+
+
+for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
+	table.sync_next_id()
+
+
+#
+# Insert files
+#
+
+
+if (options.extract is None) or (filenames != [None]):
+	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
+
+	#
+	# construct indexes
+	#
+
+	dbtables.build_indexes(verbose = options.verbose)
+
+
+#
+# Extract database contents
+#
+
+
+if options.extract is not None:
+	if options.extract == "-":
+		# stdout
+		options.extract = None
+	extract(options.extract, verbose = options.verbose)
+
+
+#
+# Close database
+#
+
+
+connection.close()
+
+
+#
+# Move database to final location
+#
+
+
+dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
+
+
+if options.verbose:
+	print >>sys.stderr, "done."

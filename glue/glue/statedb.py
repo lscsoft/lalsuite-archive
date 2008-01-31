@@ -3,6 +3,21 @@ The statedb module is the interface between the segment publishing script
 and the metadata database.
 
 $Id$
+
+This file is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
 import socket
@@ -126,6 +141,7 @@ class StateSegmentDatabase:
     self.state_vec['H2'] = {}
     self.state_vec['L1'] = {}
     self.state_vec['G1'] = {}
+    self.state_vec['V1'] = {}
     self.lfn_id = None
     self.run = run
     self.framereg = re.compile(r'^([A-Za-z]+)\-(\w+)\-(\d+)\-(\d+)\.gwf$')

@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 While the ligolw module provides classes and parser support for reading and
@@ -40,17 +42,22 @@ into character data.
 The array is stored as an attribute of the Array element.
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 import numpy
 import re
 import sys
+from xml.sax.saxutils import escape as xmlescape
 
+
+from glue import iterutils
 import ligolw
 import tokenizer
 import types
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
 
 
 #
@@ -61,10 +68,14 @@ import types
 # =============================================================================
 #
 
+
+#
 # Regular expression used to extract the signifcant portion of an array or
 # stream name, according to LIGO LW naming conventions.
+#
 
-ArrayPattern = re.compile(r"(?:\A[a-z0-9_]+:|\A)(?P<Name>[a-z0-9_]+):array\Z")
+
+ArrayPattern = re.compile(r"(?P<Name>[a-z0-9_:]+):array\Z")
 
 
 def StripArrayName(name):
@@ -101,22 +112,23 @@ def getArraysByName(elem, name):
 # =============================================================================
 #
 
+
 def from_array(name, array, dim_names = None):
 	"""
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({"Name": name, "Type": types.FromNumPyType[str(array.type())]})
+	doc = Array({u"Name": u"%s:array" % name, u"Type": types.FromNumPyType[str(array.dtype)]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
 		attrs = {}
-		if dim_names != None:
-			attrs["Name"] = dim_names[n]
+		if dim_names is not None:
+			attrs[u"Name"] = dim_names[n]
 		child = ligolw.Dim(attrs)
-		child.pcdata = str(dim)
+		child.pcdata = unicode(dim)
 		doc.appendChild(child)
-	child = ArrayStream({"Type": "Local", "Delimiter": " "})
+	child = ArrayStream({u"Type": u"Local", u"Delimiter": u" "})
 	doc.appendChild(child)
 	doc.array = array
 	return doc
@@ -141,27 +153,9 @@ def get_array(xmldoc, name):
 # =============================================================================
 #
 
-class _IndexIter(object):
-	def __init__(self, shape):
-		self.shape = shape
-		self.index = [0] * len(shape)
-		self.stop = 0 in shape
 
-	def __iter__(self):
-		return self
-
-	def next(self):
-		if self.stop:
-			raise StopIteration
-		result = tuple(self.index)
-		for i in xrange(len(self.index)):
-			self.index[i] += 1
-			if self.index[i] < self.shape[i]:
-				break
-			self.index[i] = 0
-		else:
-			self.stop = True
-		return result
+def IndexIter(shape):
+	return iterutils.MultiIter(*map(range, shape))
 
 
 class ArrayStream(ligolw.Stream):
@@ -173,53 +167,52 @@ class ArrayStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = tokenizer.Tokenizer(self.getAttribute("Delimiter"))
-		self.__index = None
+		self.tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
+		self.index = None
 
-	def appendData(self, content):
+	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		if self.__index == None:
-			self.tokenizer.set_types([self.parentNode.pytype])
-			self.parentNode.array = numpy.zeros(self.parentNode.get_shape(), self.parentNode.arraytype)
-			self.__index = _IndexIter(self.parentNode.array.shape)
+		self.tokenizer.set_types([parentNode.pytype])
+		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
+		self.index = iter(IndexIter(parentNode.array.shape))
+		return self
 
+	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
-		try:
-			for token in self.tokenizer.add(content):
-				a[self.__index.next()] = token
-		except StopIteration:
-			raise ligolw.ElementError, "too many values in Array"
+		n = self.index.next
+		for token in self.tokenizer.append(content):
+			a[n()] = token
 
 	def unlink(self):
 		"""
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.__index = None
+		self.index = None
 		ligolw.Stream.unlink(self)
 
-	def write(self, file = sys.stdout, indent = ""):
+	def write(self, file = sys.stdout, indent = u""):
 		# This is complicated because we need to not put a
 		# delimiter after the last element.
-		print >>file, self.start_tag(indent)
-		delim = self.getAttribute("Delimiter")
-		format = types.ToFormat[self.parentNode.getAttribute("Type")]
+		file.write(self.start_tag(indent) + u"\n")
+		delim = self.getAttribute(u"Delimiter")
+		format = types.ToFormat[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
-		it = iter(_IndexIter(a.shape))
+		index = iter(IndexIter(a.shape))
 		try:
-			indeces = it.next()
+			indeces = index.next()
 			file.write(indent + ligolw.Indent)
 			while True:
-				file.write(format % a[indeces])
-				indeces = it.next()
+				file.write(xmlescape(format % a[indeces]))
+				indeces = index.next()
 				file.write(delim)
 				if not indeces[0]:
-					file.write("\n" + indent + ligolw.Indent)
+					file.write(u"\n" + indent + ligolw.Indent)
 		except StopIteration:
-			file.write("\n")
-		print >>file, self.end_tag(indent)
+			file.write(u"\n")
+		file.write(self.end_tag(indent) + u"\n")
 
 
 class Array(ligolw.Array):
@@ -231,8 +224,8 @@ class Array(ligolw.Array):
 		Initialize a new Array element.
 		"""
 		ligolw.Array.__init__(self, *attrs)
-		self.pytype = types.ToPyType[self.getAttribute("Type")]
-		self.arraytype = types.ToNumPyType[self.getAttribute("Type")]
+		self.pytype = types.ToPyType[self.getAttribute(u"Type")]
+		self.arraytype = types.ToNumPyType[self.getAttribute(u"Type")]
 		self.array = None
 
 	def get_shape(self):
@@ -268,28 +261,34 @@ class Array(ligolw.Array):
 # =============================================================================
 #
 
+
 #
 # Override portions of ligolw.LIGOLWContentHandler class
 #
 
+
 __parent_startStream = ligolw.LIGOLWContentHandler.startStream
 __parent_endStream = ligolw.LIGOLWContentHandler.endStream
 
+
 def startStream(self, attrs):
 	if self.current.tagName == ligolw.Array.tagName:
-		return ArrayStream(attrs)
+		return ArrayStream(attrs).config(self.current)
 	return __parent_startStream(self, attrs)
+
 
 def endStream(self):
 	# stream tokenizer uses delimiter to identify end of each token, so
 	# add a final delimiter to induce the last token to get parsed.
 	if self.current.parentNode.tagName == ligolw.Array.tagName:
-		self.current.appendData(self.current.getAttribute("Delimiter"))
+		self.current.appendData(self.current.getAttribute(u"Delimiter"))
 	else:
 		__parent_endStream(self)
 
+
 def startArray(self, attrs):
 	return Array(attrs)
+
 
 ligolw.LIGOLWContentHandler.startStream = startStream
 ligolw.LIGOLWContentHandler.endStream = endStream

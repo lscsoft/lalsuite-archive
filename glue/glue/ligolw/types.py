@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 Definitions of type strings found in LIGO Light Weight XML files.
@@ -50,10 +52,10 @@ for your files, for example if you wish your XML files to be lossless,
 simply include the lines
 
 	glue.ligolw.types.ToFormat.update({
-		"real_4": "%.9g",
-		"real_8": "%.17g",
-		"float": "%.9g",
-		"double": "%.17g"
+		"real_4": u"%.9g",
+		"real_8": u"%.17g",
+		"float": u"%.9g",
+		"double": u"%.17g"
 	})
 
 anywhere in your code, but before you write the document to a file.
@@ -62,6 +64,10 @@ References:
 
 	- http://docs.sun.com/source/806-3568/ncg_goldberg.html
 """
+
+
+import ilwd
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -76,95 +82,118 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
-IDTypes = ["ilwd:char", "ilwd:char_u"]
-StringTypes = IDTypes + ["char_s", "char_v", "lstring", "string"]
-IntTypes = ["int_2s", "int_2u", "int_4s", "int_4u", "int_8s", "int_8u", "int"]
-FloatTypes = ["real_4", "real_8", "float", "double"]
-TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
 
+IDTypes = [u"ilwd:char", u"ilwd:char_u"]
+StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
+IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
+FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
+TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
 Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
+
 ToFormat = {
-	"char_s": "\"%s\"",
-	"char_v": "\"%s\"",
-	"ilwd:char": "\"%s\"",
-	"ilwd:char_u": "\"%s\"",
-	"lstring": "\"%s\"",
-	"string": "\"%s\"",
-	"int_2s": "%d",
-	"int_2u": "%u",
-	"int_4s": "%d",
-	"int_4u": "%u",
-	"int_8s": "%d",
-	"int_8u": "%u",
-	"int": "%d",
-	"real_4": "%.8g",
-	"real_8": "%.16g",
-	"float": "%.8g",
-	"double": "%.16g"
+	u"char_s": u"\"%s\"",
+	u"char_v": u"\"%s\"",
+	u"ilwd:char": u"\"%s\"",
+	u"ilwd:char_u": u"\"%s\"",
+	u"lstring": u"\"%s\"",
+	u"string": u"\"%s\"",
+	u"int_2s": u"%d",
+	u"int_2u": u"%u",
+	u"int_4s": u"%d",
+	u"int_4u": u"%u",
+	u"int_8s": u"%d",
+	u"int_8u": u"%u",
+	u"int": u"%d",
+	u"real_4": u"%.8g",
+	u"real_8": u"%.16g",
+	u"float": u"%.8g",
+	u"double": u"%.16g"
 }
+
 
 ToPyType = {
-	"char_s": str,
-	"char_v": str,
-	"ilwd:char": str,
-	"ilwd:char_u": str,
-	"lstring": str,
-	"string": str,
-	"int_2s": int,
-	"int_2u": int,
-	"int_4s": int,
-	"int_4u": int,
-	"int_8s": int,
-	"int_8u": int,
-	"int": int,
-	"real_4": float,
-	"real_8": float,
-	"float": float,
-	"double": float
+	u"char_s": unicode,
+	u"char_v": unicode,
+	u"ilwd:char": ilwd.get_ilwdchar,
+	u"ilwd:char_u": str,
+	u"lstring": unicode,
+	u"string": unicode,
+	u"int_2s": int,
+	u"int_2u": int,
+	u"int_4s": int,
+	u"int_4u": int,
+	u"int_8s": int,
+	u"int_8u": int,
+	u"int": int,
+	u"real_4": float,
+	u"real_8": float,
+	u"float": float,
+	u"double": float
 }
+
+
+FromPyType = {
+	ilwd.ilwdchar: u"ilwd:char",
+	str: u"lstring",
+	unicode: u"lstring",
+	int: u"int_4s",
+	long: u"int_8s",
+	float: u"real_8"
+}
+
 
 ToNumPyType = {
-	"int_2s": "Int16",
-	"int_2u": "UInt16",
-	"int_4s": "Int32",
-	"int_4u": "UInt32",
-	"int_8s": "Int64",
-	"int_8u": "UInt64",
-	"int": "Int32",
-	"real_4": "Float32",
-	"real_8": "Float64",
-	"float": "Float64",
-	"double": "Float64"
+	u"int_2s": "int16",
+	u"int_2u": "uint16",
+	u"int_4s": "int32",
+	u"int_4u": "uint32",
+	u"int_8s": "int64",
+	u"int_8u": "uint64",
+	u"int": "int32",
+	u"real_4": "float32",
+	u"real_8": "float64",
+	u"float": "float64",
+	u"double": "float64"
 }
+
 
 FromNumPyType = {
-	"Int16": "int_2s",
-	"UInt16": "int_2u",
-	"Int32": "int_4s",
-	"UInt32": "int_4u",
-	"Int64": "int_8s",
-	"UInt64": "int_8u",
-	"Float32": "real_4",
-	"Float64": "real_8"
+	"int16": u"int_2s",
+	"uint16": u"int_2u",
+	"int32": u"int_4s",
+	"uint32": u"int_4u",
+	"int64": u"int_8s",
+	"uint64": u"int_8u",
+	"float32": u"real_4",
+	"float64": u"real_8"
 }
 
+
 ToSQLiteType = {
-	"char_s": "TEXT",
-	"char_v": "TEXT",
-	"ilwd:char": "TEXT",
-	"ilwd:char_u": "TEXT",
-	"lstring": "TEXT",
-	"string": "TEXT",
-	"int_2s": "INTEGER",
-	"int_2u": "INTEGER",
-	"int_4s": "INTEGER",
-	"int_4u": "INTEGER",
-	"int_8s": "INTEGER",
-	"int_8u": "INTEGER",
-	"int": "INTEGER",
-	"real_4": "REAL",
-	"real_8": "REAL",
-	"float": "REAL",
-	"double": "REAL"
+	u"char_s": "TEXT",
+	u"char_v": "TEXT",
+	u"ilwd:char": "TEXT",
+	u"ilwd:char_u": "TEXT",
+	u"lstring": "TEXT",
+	u"string": "TEXT",
+	u"int_2s": "INTEGER",
+	u"int_2u": "INTEGER",
+	u"int_4s": "INTEGER",
+	u"int_4u": "INTEGER",
+	u"int_8s": "INTEGER",
+	u"int_8u": "INTEGER",
+	u"int": "INTEGER",
+	u"real_4": "REAL",
+	u"real_8": "REAL",
+	u"float": "REAL",
+	u"double": "REAL"
+}
+
+
+FromSQLiteType = {
+	"TEXT": u"lstring",
+	"STRING": u"lstring",
+	"INTEGER": u"int_4s",
+	"REAL": u"real_8"
 }

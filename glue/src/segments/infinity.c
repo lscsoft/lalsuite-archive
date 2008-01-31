@@ -5,7 +5,7 @@
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2 of the License, or (at your
+ * Free Software Foundation; either version 3 of the License, or (at your
  * option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,8 +27,10 @@
  * ============================================================================
  */
 
+
 #include <Python.h>
 #include <stdlib.h>
+
 
 #include <segments.h>
 
@@ -44,6 +47,7 @@
 /*
  * Preallocated instances
  */
+
 
 segments_Infinity *segments_PosInfinity;
 segments_Infinity *segments_NegInfinity;
@@ -63,6 +67,7 @@ static int segments_Infinity_Check(PyObject *obj)
 /*
  * Methods
  */
+
 
 static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
@@ -230,6 +235,7 @@ static PyObject *__sub__(PyObject *self, PyObject *other)
  * Type information
  */
 
+
 static PyNumberMethods as_number = {
 	.nb_add = __add__,
 	.nb_negative = __neg__,
@@ -250,18 +256,37 @@ PyTypeObject segments_Infinity_Type = {
 	.tp_as_number = &as_number,
 	.tp_basicsize = sizeof(segments_Infinity),
 	.tp_doc =
-	"The infinity object possess the algebraic properties necessary for\n" \
-	"use as a bound on semi-infinite and infinite segments.\n" \
-	"\n" \
-	"Example:\n" \
-	"\n" \
-	">>> x = infinity()\n" \
-	">>> x > 0\n" \
-	"True\n" \
-	">>> x + 10 == x\n" \
-	"True\n" \
-	">>> segment(-10, 10) - segment(-x, 0)\n" \
-	"segment(0, 10)",
+"The infinity object possess the algebraic properties necessary for\n" \
+"use as a bound on semi-infinite and infinite segments.\n" \
+"\n" \
+"This class uses comparison-by-identity rather than\n" \
+"comparison-by-value.  What this means, is there are only ever two\n" \
+"instances of this class, representing positive and negative\n" \
+"infinity respectively.  All other \"instances\" of this class are\n" \
+"infact simply references to one of these two, and comparisons are\n" \
+"done by checking which one you've got.  This improves speed and\n" \
+"reduces memory use, and is similar in implementation to Python's\n" \
+"boolean True and False objects.\n" \
+"\n" \
+"The normal way to obtain references to positive or negative\n" \
+"infinity is to do infinity() or -infinity() respectively.  It is\n" \
+"also possible to select the sign by passing a single numeric\n" \
+"argument to the constructor.  The sign of the argument causes a\n" \
+"reference to either positive or negative infinity to be returned,\n" \
+"respectively.  For example infinity(-1) is equivalent to\n" \
+"-infinity().  However, this feature is a little slower and not\n" \
+"recommended for normal use;  it is provided only to simplify the\n" \
+"pickling and unpickling of instances of the class.\n" \
+"\n" \
+"Example:\n" \
+"\n" \
+">>> x = infinity()\n" \
+">>> x > 0\n" \
+"True\n" \
+">>> x + 10 == x\n" \
+"True\n" \
+">>> segment(-10, 10) - segment(-x, 0)\n" \
+"segment(0, 10)",
 	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
 	.tp_methods = methods,
 	.tp_name = MODULE_NAME ".infinity",

@@ -6,7 +6,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -18,6 +18,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -26,16 +27,26 @@
 # =============================================================================
 #
 
+
 """
 Cut pieces out of LIGO LW XML files containing LSC tables.
 """
 
+
 from optparse import OptionParser
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
+
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import utils
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
@@ -50,8 +61,13 @@ __version__ = "$Revision$"[11:-2]
 # =============================================================================
 #
 
+
 def parse_command_line():
-	parser = OptionParser(version = "%prog CVS $Id$")
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file [file ...]]",
+		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
 	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
@@ -59,23 +75,21 @@ def parse_command_line():
 	options, filenames = parser.parse_args()
 
 	# strip column names
-	# FIXME: remove duplicates
-	options.delete_column = map(table.StripColumnName, options.delete_column)
+	options.delete_column = set(map(table.StripColumnName, options.delete_column))
 
 	# parse element specs
-	# FIXME: remove duplicates
 	def parse_delete_element(arg):
 		arg = arg.split(",")
 		attrs = {}
 		for i in range(1, len(arg)):
-			[name, value] = arg[i].split("=")
+			name, value = arg[i].split("=")
 			attrs[name] = value
 		return arg[0], attrs
+	# FIXME: remove duplicates
 	options.delete_element = map(parse_delete_element, options.delete_element)
 
 	# strip table names
-	# FIXME: remove duplicates
-	options.delete_table = map(table.StripTableName, options.delete_table)
+	options.delete_table = set(map(table.StripTableName, options.delete_table))
 
 	return options, (filenames or [None])
 
@@ -87,6 +101,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
+
 
 class ElementFilter(object):
 	"""
@@ -105,6 +120,27 @@ class ElementFilter(object):
 		return True
 
 
+def ContentHandler(doc):
+	# uses options.delete_table global variable
+	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
+
+
+#
+# Enable attribute interning
+#
+
+
+table.RowBuilder = table.InterningRowBuilder
+
+
+#
+# Over-ride default content handler with our special one
+#
+
+
+utils.ContentHandler = ContentHandler
+
+
 #
 # =============================================================================
 #
@@ -113,9 +149,11 @@ class ElementFilter(object):
 # =============================================================================
 #
 
+
 #
 # Remove unwanted columns
 #
+
 
 def RemoveColumns(doc, columns):
 	for table_elem in doc.getElementsByTagName(ligolw.Table.tagName):
@@ -128,6 +166,7 @@ def RemoveColumns(doc, columns):
 # Remove unwanted elements
 #
 
+
 def CompareDeleteElement(elem, elemspec):
 	"""
 	Return 1 for !=, 0 for ==.
@@ -138,9 +177,10 @@ def CompareDeleteElement(elem, elemspec):
 		try:
 			if elem.getAttribute(name) != value:
 				return 1
-		except AttributeError:
+		except KeyError:
 			return 1
 	return 0
+
 
 def IsDeleteElement(elem, specs):
 	"""
@@ -150,6 +190,7 @@ def IsDeleteElement(elem, specs):
 		if CompareDeleteElement(elem, spec) == 0:
 			return True
 	return False
+
 
 def RemoveElements(doc, specs):
 	for elem in doc.getElements(lambda e: IsDeleteElement(e, specs)):
@@ -163,6 +204,7 @@ def RemoveElements(doc, specs):
 #
 # =============================================================================
 #
+
 
 def write_filename(filename):
 	if filename:
@@ -179,27 +221,20 @@ def write_filename(filename):
 # =============================================================================
 #
 
-try:
-	options, filenames = parse_command_line()
-except Exception, e:
-	print >>sys.stderr, "error: parsing command line: %s" % str(e)
-	sys.exit(1)
 
-def ContentHandler(doc):
-	# uses options.delete_table global variable
-	return ligolw.FilteringLIGOLWContentHandler(doc, ElementFilter(options.delete_table).element_filter)
+options, filenames = parse_command_line()
 
-utils.ContentHandler = ContentHandler
 
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
-	doc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin")[-3:] == ".gz")
+	doc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	table.InterningRowBuilder.strings.clear()
 	if options.verbose:
 		print >>sys.stderr, "processing"
 	if options.delete_column:
 		RemoveColumns(doc, options.delete_column)
 	if options.delete_element:
 		RemoveElements(doc, options.delete_element)
-	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout")[-3:] == ".gz")
+	utils.write_filename(doc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	doc.unlink()

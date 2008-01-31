@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -24,14 +25,17 @@
 # =============================================================================
 #
 
+
 """
 This module provides additional utilities for use with segments.segmentlist
 objects.
 """
 
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
+
 
 import re
 import segments
@@ -45,6 +49,12 @@ import lal
 #
 # =============================================================================
 #
+
+
+#
+# A list of file names
+#
+
 
 def fromfilenames(filenames, coltype=int):
 	"""
@@ -66,11 +76,19 @@ def fromfilenames(filenames, coltype=int):
 	pattern = re.compile(r"-([\d.]+)-([\d.]+)\.[\w_+#]+\Z")
 	l = segments.segmentlist()
 	for name in filenames:
+                if name.endswith('.gz'):
+                  name = name.rstrip('.gz')
 		[(s, d)] = pattern.findall(name.strip())
+
 		s = coltype(s)
 		d = coltype(d)
 		l.append(segments.segment(s, s + d))
 	return l
+
+
+#
+# LAL cache files
+#
 
 
 def fromlalcache(cachefile, coltype = int):
@@ -81,7 +99,12 @@ def fromlalcache(cachefile, coltype = int):
 	type coltype, which should raise ValueError if it cannot convert
 	its string argument.
 	"""
-	return segments.segmentlist([c.segment for c in map(lambda l: lal.CacheEntry(l, coltype = coltype), cachefile)])
+	return segments.segmentlist([lal.CacheEntry(l, coltype = coltype).segment for l in cachefile])
+
+
+#
+# Segwizard-formated segment list text files
+#
 
 
 def fromsegwizard(file, coltype=int, strict=True):
@@ -111,7 +134,6 @@ def fromsegwizard(file, coltype=int, strict=True):
 		line = commentpat.split(line)[0]
 		if not len(line):
 			continue
-
 		try:
 			[tokens] = fourcolsegpat.findall(line)
 			num = int(tokens[0])
@@ -122,19 +144,37 @@ def fromsegwizard(file, coltype=int, strict=True):
 			try:
 				[tokens] = twocolsegpat.findall(line)
 				seg = segments.segment(map(coltype, tokens[0:2]))
-				duration = seg.duration()
+				duration = abs(seg)
 				this_line_format = 2
 			except ValueError:
 				break
 		if strict:
-			if seg.duration() != duration:
+			if abs(seg) != duration:
 				raise ValueError, "segment \"" + line + "\" has incorrect duration"
-			if not format:
+			if format is None:
 				format = this_line_format
 			elif format != this_line_format:
 				raise ValueError, "segment \"" + line + "\" format mismatch"
 		l.append(seg)
 	return l
+
+
+def tosegwizard(file, seglist, header=True, coltype=int):
+	"""
+	Write the segmentlist seglist to the file object file in a
+	segwizard compatible format.  If header is True, then the output
+	will begin with a comment line containing column names.  The
+	segment boundaries will be coerced to type coltype before output.
+	"""
+	if header:
+		print >>file, "# seg\tstart    \tstop     \tduration"
+	for n, seg in enumerate(seglist):
+		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(abs(seg)))
+
+
+#
+# TAMA-formated segment list text files
+#
 
 
 def fromtama(file, coltype=lal.LIGOTimeGPS):
@@ -164,17 +204,102 @@ def fromtama(file, coltype=lal.LIGOTimeGPS):
 	return l
 
 
-def tosegwizard(file, seglist, header=True, coltype=int):
+#
+# Command line or config file strings
+#
+
+
+def from_range_strings(ranges, boundtype = int):
 	"""
-	Write the segmentlist seglist to the file object file in a
-	segwizard compatible format.  If header is True, then the output
-	will begin with a comment line containing column names.  The
-	segment boundaries will be coerced to type coltype before output.
+	Parse a list of ranges expressed as strings in the form "value" or
+	"first:last" into an equivalent glue.segments.segmentlist.  In the
+	latter case, an empty string for "first" and(or) "last" indicates a
+	(semi)infinite range.  A typical use for this function is in
+	parsing command line options or entries in configuration files.
+
+	NOTE:  the output is a segmentlist as described by the strings;  if
+	the segments in the input file are not coalesced or out of order,
+	then thusly shall be the output of this function.  It is
+	recommended that this function's output be coalesced before use.
+
+	Example:
+
+	>>> text = "0:10,35,100:"
+	>>> from_range_strings(text.split(","))
+	[segment(0, 10), segment(35, 35), segment(100, infinity)]
 	"""
-	if header:
-		print >>file, "# seg\tstart    \tstop     \tduration"
-	for n, seg in enumerate(seglist):
-		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(seg.duration()))
+	# preallocate segmentlist
+	segs = segments.segmentlist([None] * len(ranges))
+
+	# iterate over strings
+	for i, range in enumerate(ranges):
+		parts = range.split(":")
+		if len(parts) == 1:
+			parts = boundtype(parts[0])
+			segs[i] = segments.segment(parts, parts)
+			continue
+		if len(parts) != 2:
+			raise ValueError, range
+		if parts[0] == "":
+			parts[0] = segments.NegInfinity
+		else:
+			parts[0] = boundtype(parts[0])
+		if parts[1] == "":
+			parts[1] = segments.PosInfinity
+		else:
+			parts[1] = boundtype(parts[1])
+		segs[i] = segments.segment(parts[0], parts[1])
+
+	# success
+	return segs
+
+
+def to_range_strings(seglist):
+	"""
+	Turn a segment list into a list of range strings as could be parsed
+	by from_range_strings().  A typical use for this function is in
+	machine-generating configuration files or command lines for other
+	programs.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> segs = segmentlist([segment(0, 10), segment(35, 35), segment(100, infinity())])
+	>>> ",".join(to_range_strings(segs))
+	'0:10,35,100:'
+	"""
+	# preallocate the string list
+	ranges = [None] * len(seglist)
+
+	# iterate over segments
+	for i, seg in enumerate(seglist):
+		if not seg:
+			ranges[i] = str(seg[0])
+		elif (seg[0] is segments.NegInfinity) and (seg[1] is segments.PosInfinity):
+			ranges[i] = ":"
+		elif (seg[0] is segments.NegInfinity) and (seg[1] is not segments.PosInfinity):
+			ranges[i] = ":%s" % str(seg[1])
+		elif (seg[0] is not segments.NegInfinity) and (seg[1] is segments.PosInfinity):
+			ranges[i] = "%s:" % str(seg[0])
+		elif (seg[0] is not segments.NegInfinity) and (seg[1] is not segments.PosInfinity):
+			ranges[i] = "%s:%s" % (str(seg[0]), str(seg[1]))
+		else:
+			raise ValueError, seg
+
+	# success
+	return ranges
+
+
+def segmentlistdict_to_short_string(seglists):
+	return "/".join(["%s=%s" % (str(key), ",".join(to_range_strings(value))) for key, value in seglists.items()])
+
+
+def segmentlistdict_from_short_string(s):
+	d = segments.segmentlistdict()
+	for token in s.strip().split("/"):
+		key, ranges = token.strip().split("=")
+		d[key.strip()] = from_range_strings(ranges.strip().split(","))
+	return d
 
 
 #
@@ -184,6 +309,7 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 #
 # =============================================================================
 #
+
 
 def S2playground(extent):
 	"""
@@ -195,17 +321,27 @@ def S2playground(extent):
 
 def segmentlist_range(start, stop, period):
 	"""
-	Analogous to Python's range() builtin, returns a segmentlist of
-	continuous adjacent segments each of length "period" with the first
-	starting at "start" and the last ending not after "stop".  Note
-	that the output of this function is not a coalesced list.  start,
-	stop, and period can be any objects which support basic arithmetic
-	operations.
+	Analogous to Python's range() builtin, this generator yields a
+	sequence of continuous adjacent segments each of length "period"
+	with the first starting at "start" and the last ending not after
+	"stop".  Note that the segments generated do not form a coalesced
+	list (they are not disjoint).  start, stop, and period can be any
+	objects which support basic arithmetic operations.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> segmentlist(segmentlist_range(0, 15, 5))
+	[segment(0, 5), segment(5, 10), segment(10, 15)]
 	"""
-	new = segments.segmentlist()
-	for n in xrange(int((stop - start) / period)):
-		new.append(segments.segment(start + n * period, start + (n + 1) * period))
-	return new
+	n = 1
+	b = start
+	while True:
+		a, b = b, start + n * period
+		if b > stop:
+			break
+		yield segments.segment(a, b)
+		n += 1
 
 
 #
@@ -216,6 +352,7 @@ def segmentlist_range(start, stop, period):
 # =============================================================================
 #
 
+
 def Fold(seglist1, seglist2):
 	"""
 	An iterator that generates the results of taking the intersection
@@ -223,6 +360,20 @@ def Fold(seglist1, seglist2):
 	the segment start and stop values are adjusted to be with respect
 	to the start of the corresponding segment in seglist2.  See also
 	the segmentlist_range() function.
+
+	This has use in applications that wish to convert ranges of values
+	to ranges relative to epoch boundaries.  Below, a list of time
+	intervals in hours is converted to a sequence of daily interval
+	lists with times relative to midnight.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> x = segmentlist([segment(0, 13), segment(14, 20), segment(22, 36)])
+	>>> for y in Fold(x, segmentlist_range(0, 48, 24)): print y
+	...
+	[segment(0, 13), segment(14, 20), segment(22, 24)]
+	[segment(0, 12)]
 	"""
 	for seg in seglist2:
 		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])

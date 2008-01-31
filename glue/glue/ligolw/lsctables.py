@@ -4,7 +4,7 @@
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 2 of the License, or (at your
+# Free Software Foundation; either version 3 of the License, or (at your
 # option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -40,10 +40,15 @@ __version__ = "$Revision$"[11:-2]
 
 
 from xml import sax
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 
-from glue import lal
 from glue import segments
+from glue.lal import LIGOTimeGPS
 import ligolw
 import table
 import types
@@ -69,15 +74,15 @@ def New(Type, columns = None):
 
 	Example:
 
-	>>> import lsctables
-	>>> new = lsctables.New(lsctables.ProcessTable)
+	>>> tbl = New(ProcessTable)
+	>>> tbl.write()
 	"""
 	new = Type(sax.xmlreader.AttributesImpl({u"Name": Type.tableName}))
-	colnamefmt = ":".join(Type.tableName.split(":")[:-1]) + ":%s"
+	colnamefmt = u":".join(Type.tableName.split(":")[:-1]) + u":%s"
 	if columns is not None:
 		for key in columns:
 			if key not in new.validcolumns:
-				raise ligolw.ElementError, "New(): invalid Column '%s' for Table '%s'" % (key, new.tableName)
+				raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (key, new.tableName)
 			new.appendChild(table.Column(sax.xmlreader.AttributesImpl({u"Name": colnamefmt % key, u"Type": new.validcolumns[key]})))
 	else:
 		for key, value in new.validcolumns.items():
@@ -94,7 +99,7 @@ def IsTableElement(Type, elem):
 	"""
 	if elem.tagName != ligolw.Table.tagName:
 		return False
-	return table.CompareTableNames(elem.getAttribute("Name"), Type.tableName) == 0
+	return table.CompareTableNames(elem.getAttribute(u"Name"), Type.tableName) == 0
 
 
 def IsTableProperties(Type, tagname, attrs):
@@ -104,7 +109,7 @@ def IsTableProperties(Type, tagname, attrs):
 	"""
 	if tagname != ligolw.Table.tagName:
 		return False
-	return table.CompareTableNames(attrs["Name"], Type.tableName) == 0
+	return table.CompareTableNames(attrs[u"Name"], Type.tableName) == 0
 
 
 def getTablesByType(elem, Type):
@@ -120,7 +125,7 @@ def HasNonLSCTables(elem):
 	tables, otherwise return False.
 	"""
 	for t in elem.getElementsByTagName(ligolw.Table.tagName):
-		if table.StripTableName(t.getAttribute("Name")) not in TableByName:
+		if table.StripTableName(t.getAttribute(u"Name")) not in TableByName:
 			return True
 	return False
 
@@ -134,9 +139,7 @@ def HasNonLSCTables(elem):
 #
 
 
-class ProcessIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "process", "process_id", n)
+ProcessID = ilwd.get_ilwdchar_class(u"process", u"process_id")
 
 
 class ProcessTable(table.Table):
@@ -158,16 +161,15 @@ class ProcessTable(table.Table):
 		"ifos": "lstring",
 		"process_id": "ilwd:char"
 	}
-	ids = ProcessIDs()
+	constraints = "PRIMARY KEY (process_id)"
+	next_id = ProcessID(0)
 
 	def get_ids_by_program(self, program):
 		"""
-		Return a sorted list of the process IDs for rows whose
+		Return a set containing the process IDs from rows whose
 		program string equals the given program.
 		"""
-		ids = [row.process_id for row in self if row.program == program]
-		ids.sort()
-		return ids
+		return set([row.process_id for row in self if row.program == program])
 
 
 class Process(object):
@@ -186,9 +188,7 @@ ProcessTable.RowType = Process
 #
 
 
-class LfnIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "lfn", "lfn_id", n)
+LfnID = ilwd.get_ilwdchar_class(u"lfn", u"lfn_id")
 
 
 class LfnTable(table.Table):
@@ -199,24 +199,14 @@ class LfnTable(table.Table):
 		"name": "lstring",
 		"comment": "lstring",
 		"start_time": "int_4s",
-		"end_time": "int_4s",
+		"end_time": "int_4s"
 	}
-	ids = LfnIDs()
+	constraints = "PRIMARY KEY (lfn_id)"
+	next_id = LfnID(0)
 
 
 class Lfn(object):
 	__slots__ = LfnTable.validcolumns.keys()
-
-	def cmp(self, other):
-		# FIXME: this is a hack, but I need something so I can move
-		# forward.
-		for key in LfnTable.validcolumns.keys():
-			if key == "lfn_id":
-				continue
-			result = cmp(getattr(self, key), getattr(other, key))
-			if result:
-				return result
-		return 0
 
 
 LfnTable.RowType = Lfn
@@ -240,10 +230,12 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
+	# FIXME: these constraints break ID remapping in the DB backend
+	#constraints = "PRIMARY KEY (process_id, param)"
 
 	def append(self, row):
 		if row.type not in types.Types:
-			raise ligolw.ElementError, "ProcessParamsTable.append(): unrecognized type '%s'" % row.type
+			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 
 
@@ -314,6 +306,25 @@ class SearchSummaryTable(table.Table):
 		"""
 		return [row.process_id for row in self if seglist.intersects_segment(row.get_out())]
 
+	def get_in_segmentlistdict(self, process_ids = None):
+		"""
+		Return a segmentlistdict mapping instrument to in segment
+		list.  If process_ids is a list of process IDs, then only
+		rows with matching IDs are included otherwise all rows are
+		included.
+		"""
+		seglists = segments.segmentlistdict()
+		for row in self:
+			if process_ids is None or row.process_id in process_ids:
+				if "," in row.ifos:
+					ifos = row.ifos.split(",")
+				elif "+" in row.ifos:
+					ifos = row.ifos.split("+")
+				else:
+					ifos = [row.ifos]
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in ifos])
+		return seglists
+
 	def get_out_segmentlistdict(self, process_ids = None):
 		"""
 		Return a segmentlistdict mapping instrument to out segment
@@ -321,15 +332,17 @@ class SearchSummaryTable(table.Table):
 		rows with matching IDs are included otherwise all rows are
 		included.
 		"""
-		seglistdict = segments.segmentlistdict()
+		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				for ifo in row.ifos.split(","):
-					if ifo in seglistdict:
-						seglistdict[ifo].append(row.get_out())
-					else:
-						seglistdict[ifo] = segments.segmentlist([row.get_out()])
-		return seglistdict.coalesce()
+				if "," in row.ifos:
+					ifos = [ifo.strip() for ifo in row.ifos.split(",")]
+				elif "+" in row.ifos:
+					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
+				else:
+					ifos = [row.ifos]
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+		return seglists
 
 
 class SearchSummary(object):
@@ -339,7 +352,7 @@ class SearchSummary(object):
 		"""
 		Return the input segment.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), lal.LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.in_start_time, self.in_start_time_ns), LIGOTimeGPS(self.in_end_time, self.in_end_time_ns))
 
 	def set_in(self, seg):
 		"""
@@ -352,7 +365,7 @@ class SearchSummary(object):
 		"""
 		Get the output segment.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), lal.LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.out_start_time, self.out_start_time_ns), LIGOTimeGPS(self.out_end_time, self.out_end_time_ns))
 
 	def set_out(self, seg):
 		"""
@@ -374,14 +387,20 @@ SearchSummaryTable.RowType = SearchSummary
 #
 
 
+SearchSummVarsID = ilwd.get_ilwdchar_class(u"search_summvars", u"search_summvar_id")
+
+
 class SearchSummVarsTable(table.Table):
 	tableName = "search_summvars:table"
 	validcolumns = {
 		"process_id": "ilwd:char",
+		"search_summvar_id": "ilwd:char",
 		"name": "lstring",
 		"string": "lstring",
 		"value": "real_8"
 	}
+	constraints = "PRIMARY KEY (search_summvar_id)"
+	next_id = SearchSummVarsID(0)
 
 
 class SearchSummVars(object):
@@ -400,9 +419,7 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 
 
-class SnglBurstIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_burst", "event_id", n)
+SnglBurstID = ilwd.get_ilwdchar_class(u"sngl_burst", u"event_id")
 
 
 class SnglBurstTable(table.Table):
@@ -455,36 +472,43 @@ class SnglBurstTable(table.Table):
 		"param_three_value": "real_8",
 		"event_id": "ilwd:char"
 	}
-	ids = SnglBurstIDs()
+	constraints = "PRIMARY KEY (event_id)"
+	next_id = SnglBurstID(0)
+	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
 class SnglBurst(object):
 	__slots__ = SnglBurstTable.validcolumns.keys()
+
+	#
+	# Tile properties
+	#
+
 	def get_start(self):
-		return lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
 
 	def set_start(self, gps):
 		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_stop(self):
-		return lal.LIGOTimeGPS(self.stop_time, self.stop_time_ns)
+		return LIGOTimeGPS(self.stop_time, self.stop_time_ns)
 
 	def set_stop(self, gps):
 		self.stop_time, self.stop_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_peak(self):
-		return lal.LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
 
 	def set_peak(self, gps):
 		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_period(self):
-		start = lal.LIGOTimeGPS(self.start_time, self.start_time_ns)
+		start = LIGOTimeGPS(self.start_time, self.start_time_ns)
 		return segments.segment(start, start + self.duration)
 
 	def set_period(self, period):
 		self.start_time, self.start_time_ns = period[0].seconds, period[0].nanoseconds
-		self.duration = float(period.duration())
+		self.duration = float(abs(period))
 
 	def get_band(self):
 		low = self.central_freq - self.bandwidth / 2
@@ -492,10 +516,81 @@ class SnglBurst(object):
 
 	def set_band(self, band):
 		self.central_freq = (band[0] + band[1])/2.0
-		self.bandwidth = band.duration()
+		self.bandwidth = abs(band)
+
+	#
+	# "Most significant pixel" properties
+	#
+
+	def get_ms_start(self):
+		return LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+
+	def set_ms_start(self, gps):
+		self.ms_start_time, self.ms_start_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ms_stop(self):
+		return LIGOTimeGPS(self.ms_stop_time, self.ms_stop_time_ns)
+
+	def set_ms_stop(self, gps):
+		self.ms_stop_time, self.ms_stop_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_ms_period(self):
+		start = LIGOTimeGPS(self.ms_start_time, self.ms_start_time_ns)
+		return segments.segment(start, start + self.ms_duration)
+
+	def set_ms_period(self, period):
+		self.ms_start_time, self.ms_start_time_ns = period[0].seconds, period[0].nanoseconds
+		self.ms_duration = float(abs(period))
+
+	def get_ms_band(self):
+		return segments.segment(self.ms_flow, self.ms_flow + self.ms_bandwidth)
+
+	def set_ms_band(self, band):
+		self.ms_flow = band[0]
+		self.ms_bandwidth = abs(band)
 
 
 SnglBurstTable.RowType = SnglBurst
+
+
+#
+# =============================================================================
+#
+#                              multi_burst:table
+#
+# =============================================================================
+#
+
+
+class MultiBurstTable(table.Table):
+	tableName = "multi_burst:table"
+	validcolumns = {
+		"creator_db": "int_4s",
+		"process_id": "ilwd:char",
+		"filter_id": "ilwd:char",
+		"ifos": "lstring",
+		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
+		"duration": "real_4",
+		"central_freq": "real_4",
+		"bandwidth": "real_4",
+		"amplitude": "real_4",
+		"snr": "real_4",
+		"confidence": "real_4",
+		"ligo_axis_ra": "real_4",
+		"ligo_axis_dec": "real_4",
+		"ligo_angle": "real_4",
+		"ligo_angle_sig": "real_4",
+		"coinc_event_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (coinc_event_id)"
+
+
+class MultiBurst(object):
+	__slots__ = MultiBurstTable.validcolumns.keys()
+
+
+MultiBurstTable.RowType = MultiBurst
 
 
 #
@@ -507,9 +602,26 @@ SnglBurstTable.RowType = SnglBurst
 #
 
 
-class SnglInspiralIDs(ilwd.ILWD):
+class SnglInspiralID_old(object):
+	"""
+	Custom row ID thing for sngl_inspiral tables with int_8s event IDs.
+	"""
+	# FIXME: remove this class when the event_id column has been
+	# converted to ilwd:char
+	column_name = "event_id"
+
 	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_inspiral", "event_id", n)
+		self.n = n
+
+	def new(self, row):
+		self.n += 1
+		x, slidenum, y = row.get_id_parts()
+		x = 100000000 + (self.n // 100000)
+		y = self.n % 100000
+		return x * 1000000000 + slidenum * 100000 + y
+
+
+SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
 
 
 class SnglInspiralTable(table.Table):
@@ -534,6 +646,8 @@ class SnglInspiralTable(table.Table):
 		"mchirp": "real_4",
 		"mtotal": "real_4",
 		"eta": "real_4",
+		"kappa": "real_4",
+		"chi": "real_4",
 		"tau0": "real_4",
 		"tau2": "real_4",
 		"tau3": "real_4",
@@ -554,6 +668,10 @@ class SnglInspiralTable(table.Table):
 		"snr": "real_4",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
+                "bank_chisq": "real_4",
+                "bank_chisq_dof": "int_4s",
+                "cont_chisq": "real_4",
+                "cont_chisq_dof": "int_4s",
 		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
 		"Gamma0": "real_4",
@@ -566,10 +684,22 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
-		"event_id": "int_8s"	# FIXME: column should be ilwd
+		"event_id": "int_8s"	# FIXME: column should be ilwd:char
 	}
-	# FIXME:  inspiral pipeline needs to not encode data in event_id
-	#ids = SnglInspiralIDs()
+	constraints = "PRIMARY KEY (event_id)"
+	# FIXME:  uncomment the next line when the event_id column is
+	# converted to ilwd:char
+	#next_id = SnglInspiralID(0)
+
+	def updateKeyMapping(self, mapping):
+		# FIXME: remove this method when the event_id column is
+		# converted to ilwd:char
+		if self.next_id is not None:
+			for row in self:
+				if row.event_id not in mapping:
+					mapping[row.event_id] = self.next_id.new(row)
+				row.event_id = mapping[row.event_id]
+		return mapping
 
 	def get_column(self,column):
 		if column == 'effective_snr':
@@ -608,10 +738,25 @@ class SnglInspiralTable(table.Table):
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
-				vetoed.append(event)
+				vetoed.append(row)
 			else:
-				keep.append(event)
+				keep.append(row)
 		return keep
+	
+	def vetoed(self, seglist):
+		"""
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
 	
 	def getslide(self,slide_num):
 		"""
@@ -631,13 +776,36 @@ class SnglInspiral(object):
 	__slots__ = SnglInspiralTable.validcolumns.keys()
 
 	def get_end(self):
-		return lal.LIGOTimeGPS(self.end_time, self.end_time_ns)
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
 
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
 	def get_effective_snr(self):
 		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+
+	def get_id_parts(self):
+		"""
+		Return the three pieces of the int_8s-style sngl_inspiral
+		event_id.
+		"""
+		x = self.event_id // 1000000000
+		slidenum = (self.event_id % 1000000000) // 100000
+		y = self.event_id % 100000
+		return x, slidenum, y
+
+	# FIXME: how are two inspiral events defined to be the same?
+	def __eq__(self, other):
+		return not (
+			cmp(self.ifo, other.ifo) or
+			cmp(self.end_time, other.end_time) or
+			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.mass1, other.mass1) or
+			cmp(self.mass2, other.mass2)
+		)
+		
+	def __hash__(self):
+		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2))
 
 
 SnglInspiralTable.RowType = SnglInspiral
@@ -652,9 +820,7 @@ SnglInspiralTable.RowType = SnglInspiral
 #
 
 
-class SnglRingDownIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sngl_ringdown", "event_id", n)
+SnglRingDownID = ilwd.get_ilwdchar_class(u"sngl_ringdown", u"event_id")
 
 
 class SnglRingDownTable(table.Table):
@@ -679,8 +845,9 @@ class SnglRingDownTable(table.Table):
 		"sigma_sq": "real_8",
 		"event_id": "ilwd:char"
 	}
+	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
-	#ids = SnglRingDownIDs()
+	#next_id = SnglRingDownID(0)
 
 
 class SnglRingDown(object):
@@ -699,9 +866,7 @@ SnglRingDownTable.RowType = SnglRingDown
 #
 
 
-class MultiInspiralIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "multi_inspiral", "event_id", n)
+MultiInspiralID = ilwd.get_ilwdchar_class(u"multi_inspiral", u"event_id")
 
 
 class MultiInspiralTable(table.Table):
@@ -734,7 +899,11 @@ class MultiInspiralTable(table.Table):
 		"ifo2_snr": "real_4",
 		"snr": "real_4",
 		"chisq": "real_4",
-		"chisq_dof": "real_4",
+		"chisq_dof": "int_4s",
+		"bank_chisq": "real_4",
+		"bank_chisq_dof": "int_4s",
+		"cont_chisq": "real_4",
+		"cont_chisq_dof": "int_4s",
 		"sigmasq": "real_4",
 		"ligo_axis_ra": "real_4",
 		"ligo_axis_dec": "real_4",
@@ -742,7 +911,8 @@ class MultiInspiralTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "ilwd:char",
+		"event_id": "int_8s",
+		"null_statistic": "real_4",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
 		"h2quad_re": "real_4",
@@ -756,8 +926,53 @@ class MultiInspiralTable(table.Table):
 		"t1quad_re": "real_4",
 		"t1quad_im": "real_4"
 	}
-	ids = MultiInspiralIDs()
+	constraints = "PRIMARY KEY (event_id)"
+	next_id = MultiInspiralID(0)
 
+	def get_column(self,column):
+		return self.getColumnByName(column).asarray()
+
+	def getstat(self):
+		return self.get_column('snr')
+
+	def veto(self,seglist):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return keep
+
+	def vetoed(self, seglist):
+		"""
+		Return the inverse of what veto returns, i.e., return the triggers
+		that lie within a given seglist.
+		"""
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
+
+	def getslide(self,slide_num):
+		"""
+		Return the triggers with a specific slide number.
+		@param slide_num: the slide number to recover (contained in the event_id)
+		"""
+		slideTrigs = table.new_from_template(self)
+		if slide_num < 0:
+			slide_num = 5000 - slide_num
+		for row in self:
+			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+				slideTrigs.append(row)
+		return slideTrigs
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
@@ -775,9 +990,7 @@ MultiInspiralTable.RowType = MultiInspiral
 #
 
 
-class SimInspiralIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_inspiral", "simulation_id", n)
+SimInspiralID = ilwd.get_ilwdchar_class(u"sim_inspiral", u"simulation_id")
 
 
 class SimInspiralTable(table.Table):
@@ -834,9 +1047,13 @@ class SimInspiralTable(table.Table):
 		"eff_dist_g": "real_4",
 		"eff_dist_t": "real_4",
 		"eff_dist_v": "real_4",
+	        "numrel_mode_min": "int_4s",
+                "numrel_mode_max": "int_4s",
+                "numrel_data": "lstring",
 		"simulation_id": "ilwd:char"
 	}
-	ids = SimInspiralIDs()
+	constraints = "PRIMARY KEY (simulation_id)"
+	next_id = SimInspiralID(0)
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
@@ -878,9 +1095,9 @@ class SimInspiral(object):
 
 	def get_end(self,site = None):
 		if not site:
-			return lal.LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
+			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return lal.LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
+			return LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -895,9 +1112,7 @@ SimInspiralTable.RowType = SimInspiral
 #
 
 
-class SimBurstIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_burst", "simulation_id", n)
+SimBurstID = ilwd.get_ilwdchar_class(u"sim_burst", u"simulation_id")
 
 
 class SimBurstTable(table.Table):
@@ -905,106 +1120,39 @@ class SimBurstTable(table.Table):
 	validcolumns = {
 		"process_id": "ilwd:char",
 		"waveform": "lstring",
-		"geocent_peak_time": "int_4s",
-		"geocent_peak_time_ns": "int_4s",
-		"h_peak_time": "int_4s",
-		"h_peak_time_ns": "int_4s",
-		"l_peak_time": "int_4s",
-		"l_peak_time_ns": "int_4s",
-		"peak_time_gmst": "real_8",
-		"dtminus": "real_4",
-		"dtplus": "real_4",
-		"longitude": "real_4",
-		"latitude": "real_4",
-		"coordinates": "lstring",
-		"polarization": "real_4",
-		"hrss": "real_4",
-		"hpeak": "real_4",
-		"distance": "real_4",
-		"freq": "real_4",
-		"tau": "real_4",
-		"zm_number": "int_4s",
+		"ra": "real_8",
+		"dec": "real_8",
+		"psi": "real_8",
+		"time_geocent_gps": "int_4s",
+		"time_geocent_gps_ns": "int_4s",
+		"time_geocent_gmst": "real_8",
+		"duration": "real_8",
+		"frequency": "real_8",
+		"bandwidth": "real_8",
+		"q": "real_8",
+		"pol_ellipse_angle": "real_8",
+		"pol_ellipse_e": "real_8",
+		"amplitude": "real_8",
+		"hrss": "real_8",
+		"egw_over_rsquared": "real_8",
+		# FIXME:  waveform_number should be int_8u but metaio can't
+		# handle that yet
+		"waveform_number": "int_8s",
 		"simulation_id": "ilwd:char"
 	}
-	ids = SimBurstIDs()
+	constraints = "PRIMARY KEY (simulation_id)"
+	next_id = SimBurstID(0)
+	interncolumns = ("process_id", "waveform")
 
 
 class SimBurst(object):
 	__slots__ = SimBurstTable.validcolumns.keys()
 
-	def cmp(self, other):
-		"""
-		Return 0 if self and other describe the same injection,
-		non-0 otherwise.
-		"""
-		# Ouch, this hurts.
-		a = (
-			self.waveform,
-			self.geocent_peak_time,
-			self.geocent_peak_time_ns,
-			self.h_peak_time,
-			self.h_peak_time_ns,
-			self.l_peak_time,
-			self.l_peak_time_ns,
-			self.peak_time_gmst,
-			self.dtminus,
-			self.dtplus,
-			self.longitude,
-			self.latitude,
-			self.coordinates,
-			self.polarization,
-			self.hrss,
-			self.hpeak,
-			self.distance,
-			self.freq,
-			self.tau,
-			self.zm_number
-		)
-		b = (
-			other.waveform,
-			other.geocent_peak_time,
-			other.geocent_peak_time_ns,
-			other.h_peak_time,
-			other.h_peak_time_ns,
-			other.l_peak_time,
-			other.l_peak_time_ns,
-			other.peak_time_gmst,
-			other.dtminus,
-			other.dtplus,
-			other.longitude,
-			other.latitude,
-			other.coordinates,
-			other.polarization,
-			other.hrss,
-			other.hpeak,
-			other.distance,
-			other.freq,
-			other.tau,
-			other.zm_number
-		)
-		return cmp(a, b)
+	def get_time_geocent(self):
+		return LIGOTimeGPS(self.time_geocent_gps, self.time_geocent_gps_ns)
 
-	def get_geocent_peak(self):
-		return lal.LIGOTimeGPS(self.geocent_peak_time, self.geocent_peak_time_ns)
-
-	def set_geocent_peak(self, gps):
-		self.geocent_peak_time, self.geocent_peak_time_ns = gps.seconds, gps.nanoseconds
-
-	def get_peak(self, instrument):
-		observatory = instrument[0]
-		if observatory == "H":
-			return lal.LIGOTimeGPS(self.h_peak_time, self.h_peak_time_ns)
-		if observatory == "L":
-			return lal.LIGOTimeGPS(self.l_peak_time, self.l_peak_time_ns)
-		raise ValueError, instrument
-
-	def set_peak(self, instrument, gps):
-		observatory = instrument[0]
-		if observatory == "H":
-			self.h_peak_time, self.h_peak_time_ns = gps.seconds, gps.nanoseconds
-		if observatory == "L":
-			self.l_peak_time, self.l_peak_time_ns = gps.seconds, gps.nanoseconds
-		raise ValueError, instrument
+	def set_time_geocent(self, gps):
+		self.time_geocent_gps, self.time_geocent_gps_ns = gps.seconds, gps.nanoseconds
 
 
 SimBurstTable.RowType = SimBurst
@@ -1019,9 +1167,7 @@ SimBurstTable.RowType = SimBurst
 #
 
 
-class SimRingDownIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_ringdown", "simulation_id", n)
+SimRingDownID = ilwd.get_ilwdchar_class(u"sim_ringdown", u"simulation_id")
 
 
 class SimRingDownTable(table.Table):
@@ -1055,7 +1201,8 @@ class SimRingDownTable(table.Table):
 		"hrss_l": "real_4",
 		"simulation_id": "ilwd:char"
 	}
-	ids = SimRingDownIDs()
+	constraints = "PRIMARY KEY (simulation_id)"
+	next_id = SimRingDownID(0)
 
 
 class SimRingDown(object):
@@ -1074,11 +1221,17 @@ SimRingDownTable.RowType = SimRingDown
 #
 
 
+SummValueID = ilwd.get_ilwdchar_class(u"summ_value", u"summ_value_id")
+
+
 class SummValueTable(table.Table):
 	tableName = "summ_value:table"
 	validcolumns = {
+		"summ_value_id": "ilwd:char",
 		"program": "lstring",
 		"process_id": "ilwd:char",
+		"frameset_group": "lstring",
+		"segment_def_id": "ilwd:char",
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
 		"end_time": "int_4s",
@@ -1086,8 +1239,12 @@ class SummValueTable(table.Table):
 		"ifo": "lstring",
 		"name": "lstring",
 		"value": "real_4",
+		"error": "real_4",
+		"intvalue": "int_4s",
 		"comment": "lstring"
 	}
+	constraints = "PRIMARY KEY (summ_value_id)"
+	next_id = SummValueID(0)
 
 
 class SummValue(object):
@@ -1106,9 +1263,7 @@ SummValueTable.RowType = SummValue
 #
 
 
-class SimInstParamsIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "sim_inst_params", "simulation_id", n)
+SimInstParamsID = ilwd.get_ilwdchar_class(u"sim_inst_params", u"simulation_id")
 
 
 class SimInstParamsTable(table.Table):
@@ -1119,7 +1274,7 @@ class SimInstParamsTable(table.Table):
 		"comment": "lstring",
 		"value": "real_8"
 	}
-	ids = SimInstParamsIDs()
+	next_id = SimInstParamsID(0)
 
 
 class SimInstParams(object):
@@ -1208,12 +1363,8 @@ StochSummTable.RowType = StochSumm
 #
 
 
-# FIXME: this table looks broken to me.  There is no unique ID column, thus
-# it is not possible to refer to entries in this table from other tables.
-# There is a "notice_id" column, but that is for recording the native
-# identifier as used by the source of the trigger.  It cannot be relied
-# upon to be unique within this table (two different sources might *happen*
-# to use the same identifier format, like "event001").
+# FIXME: this table is completely different from the official definition.
+# Someone *HAS* to sort this out.
 
 
 class ExtTriggersTable(table.Table):
@@ -1278,6 +1429,9 @@ ExtTriggersTable.RowType = ExtTriggers
 #
 
 
+FilterID = ilwd.get_ilwdchar_class(u"filter", u"filter_id")
+
+
 class FilterTable(table.Table):
 	tableName = "filter:table"
 	validcolumns = {
@@ -1285,8 +1439,12 @@ class FilterTable(table.Table):
 		"program": "lstring",
 		"start_time": "int_4s",
 		"filter_name": "lstring",
+		"filter_id": "ilwd:char",
+		"param_set": "int_4s",
 		"comment": "lstring"
 	}
+	constraints = "PRIMARY KEY (filter_id)"
+	next_id = FilterID(0)
 
 
 class Filter(object):
@@ -1305,9 +1463,7 @@ FilterTable.RowType = Filter
 #
 
 
-class SegmentIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment", "segment_id", n)
+SegmentID = ilwd.get_ilwdchar_class(u"segment", u"segment_id")
 
 
 class SegmentTable(table.Table):
@@ -1324,7 +1480,9 @@ class SegmentTable(table.Table):
 		"segnum": "int_4s",
 		"insertion_time": "int_4s"
 	}
-	ids = SegmentIDs()
+	constraints = "PRIMARY KEY (segment_id)"
+	next_id = SegmentID(0)
+	interncolumns = ("process_id",)
 
 
 class Segment(object):
@@ -1334,7 +1492,7 @@ class Segment(object):
 		"""
 		Return the segment described by this row.
 		"""
-		return segments.segment(lal.LIGOTimeGPS(self.start_time, self.start_time_ns), lal.LIGOTimeGPS(self.end_time, self.end_time_ns))
+		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
 
 	def set(self, segment):
 		"""
@@ -1348,23 +1506,28 @@ class Segment(object):
 		Return True if the segment is active, False if the segment
 		is inactive and None if neither is the case.
 		"""
-		if self.active > 0:
+		if self.active == 1:
 			return True
-		if self.active < 0:
+		if self.active == 0:
 			return False
-		return None
+		if self.active is None:
+			return None
+		raise ValueError, self.active
 
 	def set_active(self, active):
 		"""
 		Sets the segment to active if active is True, to inactive
 		if active if False, and undefined if active is None.
 		"""
-		if active is None:
-			self.active = 0
-		elif active:
+		if active:
+			# Anything that is "True" --> 1
 			self.active = 1
+		elif active is None:
+			# None --> None
+			self.active = None
 		else:
-			self.active = -1
+			# Antyhing that is "False" except None --> 0
+			self.active = 0
 		return self
 
 
@@ -1380,9 +1543,7 @@ SegmentTable.RowType = Segment
 #
 
 
-class SegmentDefMapIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment_def_map", "seg_def_map_id", n)
+SegmentDefMapID = ilwd.get_ilwdchar_class(u"segment_def_map", u"seg_def_map_id")
 
 
 class SegmentDefMapTable(table.Table):
@@ -1398,7 +1559,9 @@ class SegmentDefMapTable(table.Table):
 		"state_vec_map": "int_4s",
 		"insertion_time": "int_4s"
 	}
-	ids = SegmentDefMapIDs()
+	constraints = "PRIMARY KEY (seg_def_map_id)"
+	next_id = SegmentDefMapID(0)
+	interncolumns = ("process_id", "segment_def_id")
 
 
 class SegmentDefMap(object):
@@ -1417,9 +1580,7 @@ SegmentDefMapTable.RowType = SegmentDefMap
 #
 
 
-class SegmentDefIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "segment_definer", "segment_def_id", n)
+SegmentDefID = ilwd.get_ilwdchar_class(u"segment_definer", u"segment_def_id")
 
 
 class SegmentDefTable(table.Table):
@@ -1437,7 +1598,9 @@ class SegmentDefTable(table.Table):
 		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
-	ids = SegmentDefIDs()
+	constraints = "PRIMARY KEY (segment_def_id)"
+	next_id = SegmentDefID(0)
+	interncolumns = ("process_id",)
 
 
 class SegmentDef(object):
@@ -1456,9 +1619,7 @@ SegmentDefTable.RowType = SegmentDef
 #
 
 
-class TimeSlideIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "time_slide", "time_slide_id", n)
+TimeSlideID = ilwd.get_ilwdchar_class(u"time_slide", u"time_slide_id")
 
 
 class TimeSlideTable(table.Table):
@@ -1469,7 +1630,9 @@ class TimeSlideTable(table.Table):
 		"instrument": "lstring",
 		"offset": "real_8"
 	}
-	ids = TimeSlideIDs()
+	constraints = "PRIMARY KEY (time_slide_id, instrument)"
+	next_id = TimeSlideID(0)
+	interncolumns = ("process_id", "time_slide_id", "instrument")
 
 	def get_offset_dict(self, id):
 		"""
@@ -1477,11 +1640,60 @@ class TimeSlideTable(table.Table):
 		by the rows having the given ID.
 		"""
 		d = {}
-		for row in self.dict[id]:
-			if row.instrument in d:
-				raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
-			d[row.instrument] = row.offset
+		for row in self:
+			if row.time_slide_id == id:
+				if row.instrument in d:
+					raise KeyError, "%s: duplicate instrument %s" % (id, row.instrument)
+				d[row.instrument] = row.offset
+		if not d:
+			raise KeyError, id
 		return d
+
+	def as_dict(self):
+		"""
+		Return a ditionary mapping time slide IDs to offset
+		dictionaries.
+		"""
+		d = {}
+		for row in self:
+			if row.time_slide_id not in d:
+				d[row.time_slide_id] = {}
+			if row.instrument in d[row.time_slide_id]:
+				raise KeyError, "%s: duplicate instrument %s" % (row.time_slide_id, row.instrument)
+			d[row.time_slide_id][row.instrument] = row.offset
+		return d
+
+	def get_time_slide_id(self, offsetdict, create_new = None):
+		"""
+		Return the time_slide_id corresponding to the time slide
+		described by offsetdict, a dictionary of instrument/offset
+		pairs.  If no matching time_slide_id is found, then
+		KeyError is raised.  If, however, the optional create_new
+		argument is set to an lsctables.Process object (or any
+		other object with a process_id attribute), then new rows
+		are added to the table to describe the desired time slide,
+		and the ID of the new rows is returned.
+		"""
+		# look for the ID
+		for id, slide in self.as_dict().iteritems():
+			if offsetdict == slide:
+				# found it
+				return id
+
+		# time slide not found in table
+		if create_new is None:
+			raise KeyError, offsetdict
+		id = self.get_next_id()
+		for instrument, offset in offsetdict.iteritems():
+			row = self.RowType()
+			row.process_id = create_new.process_id
+			row.time_slide_id = id
+			row.instrument = instrument
+			row.offset = offset
+			self.append(row)
+
+		# return new ID
+		return id
 
 	def is_null(self, id):
 		"""
@@ -1510,30 +1722,80 @@ TimeSlideTable.RowType = TimeSlide
 #
 
 
-class CoincDefIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "coinc_definer", "coinc_def_id", n)
+CoincDefID = ilwd.get_ilwdchar_class(u"coinc_definer", u"coinc_def_id")
 
 
 class CoincDefTable(table.Table):
 	tableName = "coinc_definer:table"
 	validcolumns = {
 		"coinc_def_id": "ilwd:char",
-		"table_name": "char_v"
+		"search": "lstring",
+		"search_coinc_type": "int_4u",
+		"description": "lstring"
 	}
-	ids = CoincDefIDs()
+	constraints = "PRIMARY KEY (coinc_def_id)"
+	next_id = CoincDefID(0)
+	how_to_index = {
+		"cd_ssct_index": ("search", "search_coinc_type")
+	}
 
-	def get_contributors(self, id):
+	def get_coinc_def_id(self, search, search_coinc_type, create_new = True, description = u""):
 		"""
-		Return a list of contributing table names for the given ID.
+		Return the coinc_def_id for the row in the table whose
+		search string and search_coinc_type integer have the values
+		given.  If a matching row is not found, the default
+		behaviour is to create a new row and return the ID assigned
+		to the new row.  If, instead, create_new is False then
+		KeyError is raised when a matching row is not found.  The
+		optional description parameter can be used to set the
+		description string assigned to the new row if one is
+		created, otherwise the new row is left with an empty
+		description.
 		"""
-		l = [row.table_name for row in self.dict[id]]
-		l.sort()
-		return l
+		# look for the ID
+		for row in self:
+			if (row.search, row.search_coinc_type) == (search, search_coinc_type):
+				# found it
+				return row.coinc_def_id
+
+		# coinc type not found in table
+		if not create_new:
+			raise KeyError, (search, search_coinc_type)
+		row = self.RowType()
+		row.coinc_def_id = self.get_next_id()
+		row.search = search
+		row.search_coinc_type = search_coinc_type
+		row.description = description
+		self.append(row)
+
+		# return new ID
+		return row.coinc_def_id
+
+	def get_description(self, coinc_def_id):
+		"""
+		Get the description string for the given coinc_def_id.
+		"""
+		for row in self:
+			if row.coinc_def_id == coinc_def_id:
+				return row.description
+		raise KeyError, coinc_def_id
+
+	def set_description(self, coinc_def_id, description):
+		"""
+		Set the description string for the given coinc_def_id.
+		"""
+		for row in self:
+			if row.coinc_def_id == coinc_def_id:
+				row.description = description
+				break
 
 
 class CoincDef(object):
 	__slots__ = CoincDefTable.validcolumns.keys()
+
+	def __init__(self, **kwargs):
+		for name, value in kwargs.items():
+			setattr(self, name, value)
 
 
 CoincDefTable.RowType = CoincDef
@@ -1548,9 +1810,7 @@ CoincDefTable.RowType = CoincDef
 #
 
 
-class CoincIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "coinc_event", "coinc_event_id", n)
+CoincID = ilwd.get_ilwdchar_class(u"coinc_event", u"coinc_event_id")
 
 
 class CoincTable(table.Table):
@@ -1560,9 +1820,16 @@ class CoincTable(table.Table):
 		"coinc_def_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"nevents": "int_4u"
+		"nevents": "int_4u",
+		"likelihood": "real_8"
 	}
-	ids = CoincIDs()
+	constraints = "PRIMARY KEY (coinc_event_id)"
+	next_id = CoincID(0)
+	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
+	how_to_index = {
+		"ce_cdi_index": ("coinc_def_id",),
+		"ce_tsi_index": ("time_slide_id",)
+	}
 
 
 class Coinc(object):
@@ -1588,6 +1855,11 @@ class CoincMapTable(table.Table):
 		"table_name": "char_v",
 		"event_id": "ilwd:char"
 	}
+	interncolumns = ("table_name",)
+	how_to_index = {
+		"cem_tn_ei_index": ("table_name", "event_id"),
+		"cem_cei_index": ("coinc_event_id",)
+	}
 
 
 class CoincMap(object):
@@ -1606,9 +1878,7 @@ CoincMapTable.RowType = CoincMap
 #
 
 
-class LIGOLWMonIDs(ilwd.ILWD):
-	def __init__(self, n = 0):
-		ilwd.ILWD.__init__(self, "ligolw_mon", "event_id", n)
+LIGOLWMonID = ilwd.get_ilwdchar_class(u"ligolw_mon", u"event_id")
 
 
 class LIGOLWMonTable(table.Table):
@@ -1624,14 +1894,15 @@ class LIGOLWMonTable(table.Table):
 		"event_id": "ilwd:char",
 		"insertion_time": "int_4s"
 	}
-	ids = LIGOLWMonIDs()
+	constraints = "PRIMARY KEY (event_id)"
+	next_id = LIGOLWMonID(0)
 
 
 class LIGOLWMon(object):
 	__slots__ = LIGOLWMonTable.validcolumns.keys()
 
 	def get_time(self):
-		return lal.LIGOTimeGPS(self.time, self.time_ns)
+		return LIGOTimeGPS(self.time, self.time_ns)
 
 	def set_time(self, gps):
 		self.time, self.time_ns = gps.seconds, gps.nanoseconds
@@ -1661,6 +1932,7 @@ TableByName = {
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
+	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
 	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
@@ -1702,7 +1974,7 @@ __parent_startTable = ligolw.LIGOLWContentHandler.startTable
 
 
 def startTable(self, attrs):
-	name = table.StripTableName(attrs["Name"])
+	name = table.StripTableName(attrs[u"Name"])
 	if name in TableByName:
 		return TableByName[name](attrs)
 	return __parent_startTable(self, attrs)

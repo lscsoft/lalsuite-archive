@@ -18,341 +18,108 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
- *              LIGO Light Weight XML Stream and Array Tokenizer
+ *                   glue.ligolw.tokenizer Extension Module
  *
  * ============================================================================
  */
+
 
 #include <Python.h>
-#include <ctype.h>
 #include <stdlib.h>
-
-#define MODULE_NAME "glue.ligolw.tokenizer"
+#include <tokenizer.h>
 
 
 /*
  * ============================================================================
  *
- *                               Tokenizer Type
+ *                              Helper Functions
  *
  * ============================================================================
  */
 
 
 /*
- * Structure
+ * Convert a sequence of unicode and/or strings to a tuple of strings.
+ * Creates a reference to a new object, does not decref its argument.
  */
 
 
-typedef struct {
-	PyObject_HEAD
-	PyObject **types;
-	PyObject **types_length;
-	PyObject **type;
-	char delimiter;
-	int allocation;
-	char *data;
-	char *length;
-	char *pos;
-} ligolw_Tokenizer;
-
-
-/*
- * Utilities
- */
-
-
-static void _add_to_data(ligolw_Tokenizer *tokenizer, PyObject *string)
+PyObject *_build_attributes(PyObject *sequence)
 {
-	int n = PyString_GET_SIZE(string);
+	PyObject *result;
+	int i;
 
-	if(n) {
-		if(tokenizer->length - tokenizer->data + n > tokenizer->allocation) {
-			int pos = tokenizer->pos - tokenizer->data;
-			int length = tokenizer->length - tokenizer->data;
-			tokenizer->allocation += n;
-			/* add 1 to leave room for the null terminator */
-			/* FIXME: should check for failure */
-			tokenizer->data = realloc(tokenizer->data, (tokenizer->allocation + 1) * sizeof(*tokenizer->data));
-			tokenizer->pos = &tokenizer->data[pos];
-			tokenizer->length = &tokenizer->data[length];
-		}
-		memcpy(tokenizer->length, PyString_AS_STRING(string), n * sizeof(*tokenizer->data));
-		tokenizer->length += n;
-		*tokenizer->length = 0;
-	}
-}
-
-
-static void _advance_to_pos(ligolw_Tokenizer *tokenizer)
-{
-	/* shift the contents of the tokenizer's buffer so that the data
-	 * starting at pos is moved to the start of the buffer.  when
-	 * moving data, add 1 to the length to grab the null terminator */
-	if(tokenizer->pos != tokenizer->data) {
-		tokenizer->length -= tokenizer->pos - tokenizer->data;
-		memmove(tokenizer->data, tokenizer->pos, (tokenizer->length - tokenizer->data + 1) * sizeof(*tokenizer->data));
-		tokenizer->pos = tokenizer->data;
-	}
-}
-
-
-static void _unref_types(ligolw_Tokenizer *tokenizer)
-{
-	for(tokenizer->type = tokenizer->types; tokenizer->type < tokenizer->types_length; tokenizer->type++)
-		Py_DECREF(*tokenizer->type);
-
-	free(tokenizer->types);
-	tokenizer->types = NULL;
-	tokenizer->types_length = NULL;
-	tokenizer->type = NULL;
-}
-
-
-static PyObject *_next_string(ligolw_Tokenizer *tokenizer, char **start, char **end)
-{
-	char *pos = tokenizer->pos;
-	char *bailout = tokenizer->length;
-	PyObject *type = *tokenizer->type;
-
-	/*
-	 * The following code matches the pattern:
-	 *
-	 * any amount of white-space + " + non-quote characters + " + any
-	 * amount of white-space + delimiter
-	 *
-	 * or
-	 *
-	 * any amount of white-space + non-quote, non-white-space,
-	 * non-delimiter characters + any amount of white-space + delimiter
-	 *
-	 * The middle bit is returned as the token.
-	 */
-
-	/*
-	 * start == a white-space to non-white-space transition outside of
-	 * a quote, or a non-quoted to quoted transition.
-	 *
-	 * end == a non-white-space to white-space transition outside of a
-	 * quote, or a delimiter outside of a quote, or a quoted to
-	 * non-quoted transition.
-	 */
-
-	if(pos >= bailout)
-		goto stop_iteration;
-	while(isspace(*pos))
-		if(++pos >= bailout)
-			goto stop_iteration;
-	if(*pos == '"') {
-		*start = ++pos;
-		if(pos >= bailout)
-			goto stop_iteration;
-		while(*pos != '"')
-			if(++pos >= bailout)
-				goto stop_iteration;
-		*end = pos;
-		if(++pos >= bailout)
-			goto stop_iteration;
-	} else {
-		*start = pos;
-		while(!isspace(*pos) && (*pos != tokenizer->delimiter) && (*pos != '"'))
-			if(++pos >= bailout)
-				goto stop_iteration;
-		*end = pos;
-	}
-	while(*pos != tokenizer->delimiter) {
-		if(!isspace(*pos))
-			goto parse_error;
-		if(++pos >= bailout)
-			goto stop_iteration;
-	}
-
-	tokenizer->pos = ++pos;
-
-	if(++tokenizer->type >= tokenizer->types_length)
-		tokenizer->type = tokenizer->types;
-
-	return type;
-
-stop_iteration:
-	_advance_to_pos(tokenizer);
-	PyErr_SetNone(PyExc_StopIteration);
-	return NULL;
-
-parse_error:
-	PyErr_SetString(PyExc_ValueError, *start);
-	return NULL;
-}
-
-
-/*
- * Methods
- */
-
-
-static PyObject *add(PyObject *self, PyObject *data)
-{
-	if(PyUnicode_Check(data)) {
-		PyObject *string = PyUnicode_AsASCIIString(data);
-		_add_to_data((ligolw_Tokenizer *) self, string);
-		Py_DECREF(string);
-	} else if(PyString_Check(data)) {
-		_add_to_data((ligolw_Tokenizer *) self, data);
-	} else {
-		PyErr_SetObject(PyExc_TypeError, data);
+	/* guaranteed to produce a new object */
+	sequence = PySequence_List(sequence);
+	if(!sequence)
 		return NULL;
-	}
 
-	Py_INCREF(self);
-	return self;
-}
-
-
-static void __del__(PyObject *self)
-{
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-
-	_unref_types(tokenizer);
-	free(tokenizer->data);
-	tokenizer->data = NULL;
-	tokenizer->allocation = 0;
-	tokenizer->length = NULL;
-	tokenizer->pos = NULL;
-
-	self->ob_type->tp_free(self);
-}
-
-
-static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
-{
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	char *delimiter;
-	int delimiter_length;
-
-	if(!PyArg_ParseTuple(args, "s#", &delimiter, &delimiter_length))
-		return -1;
-	if(delimiter_length != 1) {
-		PyErr_SetString(PyExc_TypeError, "argument must have length 1");
-		return -1;
-	}
-
-	tokenizer->delimiter = *delimiter;
-	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
-	tokenizer->types_length = &tokenizer->types[1];
-	tokenizer->types[0] = (PyObject *) &PyString_Type;
-	Py_INCREF(&PyString_Type);
-	tokenizer->type = tokenizer->types;
-	tokenizer->allocation = 0;
-	tokenizer->data = NULL;
-	tokenizer->length = tokenizer->data;
-	tokenizer->pos = tokenizer->data;
-
-	return 0;
-}
-
-
-static PyObject *__iter__(PyObject *self)
-{
-	Py_INCREF(self);
-	return self;
-}
-
-
-static PyObject *next(PyObject *self)
-{
-	PyObject *type;
-	PyObject *token;
-	char *start, *end;
-
-	do {
-		type = _next_string((ligolw_Tokenizer *) self, &start, &end);
-		if(!type)
+	for(i = 0; i < PyList_GET_SIZE(sequence); i++) {
+		PyObject *item = PyList_GET_ITEM(sequence, i);
+		if(!item) {
+			Py_DECREF(sequence);
 			return NULL;
-	} while(type == Py_None);
-
-	*end = 0;
-	if(type == (PyObject *) &PyFloat_Type) {
-		token = PyFloat_FromDouble(strtod(start, &end));
-		if(*end != 0) {
-			Py_DECREF(token);
-			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", start);
-			token = NULL;
 		}
-	} else if(type == (PyObject *) &PyString_Type) {
-		token = PyString_FromStringAndSize(start, end - start);
-	} else if(type == (PyObject *) &PyInt_Type) {
-		token = PyInt_FromString(start, NULL, 0);
-	} else {
-		PyErr_BadArgument();
-		token = NULL;
+		if(!PyString_Check(item)) {
+			PyObject *str = PyUnicode_AsEncodedString(item, NULL, "strict");
+			if(!str) {
+				Py_DECREF(sequence);
+				return NULL;
+			}
+			Py_DECREF(item);
+			PyList_SET_ITEM(sequence, i, str);
+		}
 	}
 
-	return token;
-}
+	result = PySequence_Tuple(sequence);
+	Py_DECREF(sequence);
 
-
-static PyObject *set_types(PyObject *self, PyObject *list)
-{
-	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
-	int length, i;
-
-	if(!PyList_Check(list))
-		goto type_error;
-	length = PyList_GET_SIZE(list);
-	for(i = 0; i < length; i++) {
-		PyObject *type = PyList_GET_ITEM(list, i);
-		if((type != (PyObject *) &PyString_Type) && (type != (PyObject *) &PyInt_Type) && (type != (PyObject *) &PyFloat_Type) && (type != Py_None))
-			goto type_error;
-	}
-
-	_unref_types(tokenizer);
-
-	tokenizer->types = malloc(length * sizeof(*tokenizer->types));
-	tokenizer->types_length = &tokenizer->types[length];
-	tokenizer->type = tokenizer->types;
-
-	for(i = 0; i < length; i++) {
-		tokenizer->types[i] = PyList_GET_ITEM(list, i);
-		Py_INCREF(tokenizer->types[i]);
-	}
-
-	Py_INCREF(Py_None);
-	return Py_None;
-
-type_error:
-	PyErr_SetString(PyExc_TypeError, "Tokenizer.set_types(): argument must be a list of str, int, or float types, or Nones");
-	return NULL;
+	return result;
 }
 
 
 /*
- * Type information
+ * Convert a sequence of unicode and/or strings to a tuple of unicodes.
+ * Creates a reference to a new object, does not decref its argument.
  */
 
 
-static struct PyMethodDef methods[] = {
-	{"add", add, METH_O, "Append a string to the tokenizer's contents"},
-	{"set_types", set_types, METH_O, "Set the list of Python types to be used cyclically for token parsing"},
-	{NULL,}
-};
+PyObject *_build_formats(PyObject *sequence)
+{
+	PyObject *result;
+	int i;
 
+	/* guaranteed to produce a new object */
+	sequence = PySequence_List(sequence);
+	if(!sequence)
+		return NULL;
 
-static PyTypeObject ligolw_Tokenizer_Type = {
-	PyObject_HEAD_INIT(NULL)
-	.tp_basicsize = sizeof(ligolw_Tokenizer),
-	.tp_dealloc = __del__,
-	.tp_doc = "A tokenizer for LIGO Light Weight XML Stream and Array elements",
-	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_CHECKTYPES,
-	.tp_init = __init__,
-	.tp_iter = __iter__,
-	.tp_iternext = next,
-	.tp_methods = methods,
-	.tp_name = MODULE_NAME ".Tokenizer",
-	.tp_new = PyType_GenericNew,
-};
+	for(i = 0; i < PyList_GET_SIZE(sequence); i++) {
+		PyObject *item = PyList_GET_ITEM(sequence, i);
+		if(!item) {
+			Py_DECREF(sequence);
+			return NULL;
+		}
+		if(!PyUnicode_Check(item)) {
+			PyObject *unicd = PyUnicode_FromObject(item);
+			if(!unicd) {
+				Py_DECREF(sequence);
+				return NULL;
+			}
+			Py_DECREF(item);
+			PyList_SET_ITEM(sequence, i, unicd);
+		}
+	}
+
+	result = PySequence_Tuple(sequence);
+	Py_DECREF(sequence);
+
+	return result;
+}
 
 
 /*
@@ -366,10 +133,40 @@ static PyTypeObject ligolw_Tokenizer_Type = {
 
 void inittokenizer(void)
 {
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL, "This module provides a tokenizer for LIGO Light Weight XML Stream and Array elements");
+	/*
+	 * Create the module.
+	 */
+
+	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
+		"This module provides a tokenizer for LIGO Light Weight XML Stream and Array\n" \
+		"elements, as well as other utilities to assist in packing parsed tokens into\n" \
+		"various data storage units."
+	);
+
+	/*
+	 * Add the Tokenizer class.
+	 */
 
 	if(PyType_Ready(&ligolw_Tokenizer_Type) < 0)
 		return;
 	Py_INCREF(&ligolw_Tokenizer_Type);
 	PyModule_AddObject(module, "Tokenizer", (PyObject *) &ligolw_Tokenizer_Type);
+
+	/*
+	 * Add the RowBuilder class.
+	 */
+
+	if(PyType_Ready(&ligolw_RowBuilder_Type) < 0)
+		return;
+	Py_INCREF(&ligolw_RowBuilder_Type);
+	PyModule_AddObject(module, "RowBuilder", (PyObject *) &ligolw_RowBuilder_Type);
+
+	/*
+	 * Add the RowDumper class.
+	 */
+
+	if(PyType_Ready(&ligolw_RowDumper_Type) < 0)
+		return;
+	Py_INCREF(&ligolw_RowDumper_Type);
+	PyModule_AddObject(module, "RowDumper", (PyObject *) &ligolw_RowDumper_Type);
 }

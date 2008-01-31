@@ -1,7 +1,11 @@
-include README MANIFEST.in
+include LICENSE README MANIFEST.in
+include glue/ligolw/*.c
+include glue/ligolw/*.h
 include src/conf/db2/*
 include src/conf/q_replication/*
 include src/conf/mysql/*
+include src/segments/*.c
+include src/segments/*.h
 include man/man1/*
 include etc/*
 include test/*
