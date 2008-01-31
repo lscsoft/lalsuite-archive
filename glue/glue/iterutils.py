@@ -31,9 +31,6 @@ A collection of iteration utilities.
 """
 
 
-import math
-
-
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
