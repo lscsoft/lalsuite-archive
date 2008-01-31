@@ -278,8 +278,8 @@ if opts.coire_split:
 if len(trigs) != len(sims):
   raise ValueError, "number of triggers and found injections must be equal"
 
+# sort into bins by IFO
 injSets = {}
-
 for trig, sim in zip(trigs,sims):
   ifo = trig.ifo
 
@@ -288,6 +288,8 @@ for trig, sim in zip(trigs,sims):
                     "sngl_inspiral": tab.new_from_template(trigs)}
   injSets[ifo]["sim_inspiral"].append(sim)
   injSets[ifo]["sngl_inspiral"].append(trig)
+ifos = injSets.keys()
+ifos.sort()
  
 # set lists of plot symbols
 plot_symbols = ['rx','b+','ko','D','h','p','rx','b+','ko','D','h','p']
@@ -302,7 +304,6 @@ if opts.mchirp_mchirp:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
 
@@ -324,7 +325,6 @@ if opts.plot_mchirp:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
 
@@ -346,7 +346,6 @@ if opts.hist_mchirp:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     try:
@@ -369,7 +368,6 @@ if opts.plot_eta:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -390,7 +388,6 @@ if opts.hist_eta:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo  in ifos:
     injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'eta', \
@@ -412,7 +409,6 @@ if opts.plot_time:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -433,7 +429,6 @@ if opts.hist_time:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'end_time', \
@@ -455,7 +450,6 @@ if opts.plot_dist:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotfracdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -475,7 +469,6 @@ if opts.hist_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], 'eff_dist', \
@@ -495,7 +488,6 @@ if opts.dist_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -515,7 +507,6 @@ if opts.chirp_dist:
   figure(plot_num.next())
   hold(True) 
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -535,7 +526,6 @@ if opts.time_dist:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotdiffa_vs_b(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
@@ -555,7 +545,6 @@ if opts.chirp_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
@@ -576,7 +565,6 @@ if opts.time_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
@@ -596,7 +584,6 @@ if opts.eta_snr:
   figure(plot_num.next())
   hold(True)
   sym=0
-  ifos = injSets.keys()
   for ifo in ifos:
     injSet = injSets[ifo]
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
@@ -618,7 +605,8 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
   fig = figure(plot_num.next())
   ax = fig.add_subplot(111)
   ax.grid(True)
-  for injSet,symb in zip(injSets, plot_symbols):
+  for ifo, symb in zip(ifos, plot_symbols):
+    injSet = injSets[ifo]
     table1 = injSet['sim_inspiral']
     table2 = injSet['sngl_inspiral']
     
@@ -658,7 +646,8 @@ if opts.ethinca_vs_snr:
   fig = figure(plot_num.next())
   ax = fig.add_subplot(111)
   ax.grid(True)
-  for injSet,symb in zip(injSets, plot_symbols):
+  for ifo, symb in zip(ifos, plot_symbols):
+    injSet = injSets[ifo]
     table1 = injSet['sim_inspiral']
     table2 = injSet['sngl_inspiral']
 
@@ -696,8 +685,8 @@ if opts.hist_ethinca:
   fig = figure(plot_num.next())
   ax = fig.add_subplot(111)
   
-  sim_tables = [x['sim_inspiral'] for x in injSets]
-  sngl_tables = [x['sngl_inspiral'] for x in injSets]
+  sim_tables = [x['sim_inspiral'] for x in injSets.itervalues()]
+  sngl_tables = [x['sngl_inspiral'] for x in injSets.itervalues()]
   
   ethinca_list = [[ethinca_param(sim, sngl) \
                   for sim, sngl in zip(sim_table, sngl_table)] \
@@ -705,13 +694,18 @@ if opts.hist_ethinca:
   
   # Histogram all datasets with the same bins
   ep_max = max([max(eps) for eps in ethinca_list])
-  y_list, x_list = zip(*[histogram(eps, bins=opts.nbins, range=[0, ep_max]) \
-                         for eps in ethinca_list])
+  hists = {}
+  for ifo in ifos:
+    hists[ifo] = histogram(eps, bins=opts.nbins, range=[0, ep_max])
+  # y_list, x_list = zip(*[histogram(eps, bins=opts.nbins, range=[0, ep_max]) \
+  #                        for eps in ethinca_list])
   
-  n = len(x_list)
-  for i, x, y, color in zip(range(n), x_list, y_list, plot_colors):
+  n = len(ifos)
+  for i, ifo in enumerate(ifos):
+    y, x = hists[ifo]
+  # for i, x, y, color in zip(range(n), x_list, y_list, plot_colors):
     x += 0.1*i*ep_max/opts.nbins  # Introduce some stagger
-    ax.bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.nbins)
+    ax.bar(x, y, color=plot_colors[i], width=(1-0.1*n)*ep_max/opts.nbins)
   ax.set_ylabel("\#")
   ax.set_xlabel("E-thinca parameter")
   
