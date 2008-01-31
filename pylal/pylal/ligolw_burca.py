@@ -31,16 +31,12 @@ import math
 import sys
 
 
-from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools
-
-
-lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -57,6 +53,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
@@ -66,6 +63,17 @@ def sngl_burst___cmp__(self, other):
 
 
 lsctables.SnglBurst.__cmp__ = sngl_burst___cmp__
+
+
+def use___segments(modulename):
+	from glue import __segments
+	modulename.segments.infinity = __segments.infinity
+	modulename.segments.NegInfinity = __segments.NegInfinity
+	modulename.segments.PosInfinity = __segments.PosInfinity
+	modulename.segments.segment = __segments.segment
+	modulename.segments.segmentlist = __segments.segmentlist
+use___segments(llwapp)
+use___segments(lsctables)
 
 
 #
@@ -330,8 +338,8 @@ def ExcessPowerCoincCompare(a, b, light_travel_time):
 	The events are coincident if their time-frequency tiles intersect
 	after considering the light travel time between instruments.
 
-	Returns False (a & b are coincident) if the two events match within
-	the tresholds.  Retruns non-zero otherwise.
+	Returns False (a & b are coincident) if the two events match.
+	Retruns non-zero otherwise.
 	"""
 	return a.get_band().disjoint(b.get_band()) or a.get_period().protract(light_travel_time).disjoint(b.get_period())
 
