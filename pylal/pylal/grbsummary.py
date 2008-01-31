@@ -120,11 +120,12 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
 
     if symmetric:
         nplus = nminus = min(nplus, nminus)
-    
+
     return segments.segment((on_source[0] - nminus*quantization_time - padding_time,
                              on_source[1] + nplus*quantization_time + padding_time))
 
-def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
+def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, padding_time=0,
+    max_trials=None, symmetric=True):
     """
     Return the off-source segment determined for multiple IFO times along with
     the IFO combo that determined that segment.  Calls
@@ -142,16 +143,18 @@ def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
 
     # now try getting off-source segments; start trying with all IFOs, then
     # work our way to smaller and smaller subsets; exclude single IFOs.
-    off_source_segment = None
-    make_ifo_combos = lambda n: iterutils.choices(analyzable_ifos, n)
+    make_ifo_combos = lambda n: iterutils.choices(analyzable_ifos, n)    
     countdown = xrange(len(analyzable_ifos), 1, -1)
+
     for ifo_combo in itertools.chain(*itertools.imap(make_ifo_combos, countdown)):
-      trial_seglist = new_analyzable_dict.union(list(ifo_combo))
-      off_source_segment = compute_offsource_segment(trial_seglist, on_source, **kwargs)
+      trial_seglist = new_analyzable_dict.intersection(list(ifo_combo))
+      off_source_segment = compute_offsource_segment(trial_seglist, on_source, \
+                                                     padding_time, max_trials, symmetric)
       if off_source_segment is not None:
-          break
-    
-    return off_source_segment, list(ifo_combo)
+        if off_source_segment.duration()==(1+max_trials)*on_source.duration()+2*padding_time:
+          return off_source_segment, list(ifo_combo)
+
+    return None, []
 
 ##############################################################################
 # XML convenience code
