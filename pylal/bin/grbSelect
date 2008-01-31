@@ -199,12 +199,17 @@ def parse_command_line():
   if not opts.ifo_times:
     print >> sys.stderr,"Must specify ifo-times, either the IFOs or 'all'"
     sys.exit(1)
-
+    
   if opts.ifo_times!='all' and opts.ifo_times!='any':
     if opts.match_exact!='true' and  opts.match_exact!='false':
       print >> sys.stderr,"Must specify 'true' or 'false' for --match-exact"
       sys.exit(1)
-    
+
+  if opts.match_exact=='true':
+    opts.match = True
+  else:
+    opts.match = False
+
   if opts.num_trials<0:  
     print >> sys.stderr,"Number of offcource segments must e >=0"
     sys.exit(1)         
@@ -527,7 +532,7 @@ for ind in index:
   # Now finally check if we got the IFO times that was requested
   if opts.ifo_times=='all' or \
          (opts.ifo_times=='any' and len(grb_ifolist)>=2) or \
-         checkIFO(opts.ifo_times, grb_ifolist, opts.match_exact):
+         checkIFO(opts.ifo_times, grb_ifolist, opts.match):
 
     ifoCombo = "".join(grb_ifolist)
     print "selected GRB %s: %s %s " % \
