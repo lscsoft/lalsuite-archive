@@ -397,9 +397,9 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 	"""
 	Given an EventListDict object, a list (or iterator) of instruments,
 	and a dictionary of instrument pair thresholds, generate a sequence
-	of lists of mutually coincident events.  Each list of mutually
-	coincident events yielded by this generator will contain exactly
-	one event from each of the instruments in the instrument list.
+	of tuples of mutually coincident events.  Each tuple returned by
+	this generator will contain exactly one event from each of the
+	instruments in the instrument list.
 	"""
 	# retrieve the event lists for the requested instrument combination
 
