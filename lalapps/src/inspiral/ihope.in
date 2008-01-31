@@ -254,9 +254,9 @@ if opts.run_analysis:
   if opts.run_injections:
     hipeInjNode = {} 
     print "Running inspiral hipe for injection runs"
-    for (injDir, injFile) in cp.items("injections"):
+    for (injDir, injSeed) in cp.items("injections"):
       hipeInjNode[injDir] = inspiralutils.hipe_setup(injDir, cp, ifos, \
-           opts.log_path, injFile)
+           opts.log_path, injSeed)
       for cacheFile in hipeInjNode[injDir].get_output_files():
         cachelist.append(injDir + "/" + cacheFile)
       dag.add_node(hipeInjNode[injDir])
@@ -302,12 +302,11 @@ if opts.run_data_quality:
 
     if opts.run_injections:
       print "Running inspiral hipe for injections with vetoes"
-      for (injDir, injFile) in cp.items("injections"):
+      for (injDir, injSeed) in cp.items("injections"):
         if category == 2: hipeInjVetoNode[injDir] = {}
         hipeInjVetoNode[injDir][category] = inspiralutils.hipe_setup(injDir, \
             cp, ifos, opts.log_path, \
-            injFile = cp.get("injections", injDir), \
-            vetoCat = category, vetoFiles = dqVetoes)
+            injSeed= injSeed, vetoCat = category, vetoFiles = dqVetoes)
         for cacheFile in hipeInjVetoNode[injDir][category].get_output_files():
           cachelist.append(injDir + "/" + cacheFile)
         dag.add_node(hipeInjVetoNode[injDir][category])
