@@ -81,7 +81,9 @@ parser.add_option("-Y","--y-value",action="append",type="string",\
     help="variable to plot on the y-axis. Add 'LOG' at the end to make it a log  axis" )
 parser.add_option("-H","--hist",action="append",type="string",\
     default=None, metavar=" HIST",\
-    help="setting histograms to plot. Add 'LOG' at the end to make it a log plot" )
+    help="column to histogram; specify multiple times for multiple "\
+    "histograms. Add 'LOG' at the end to make it a log "\
+    "plot.  Make 'all' or 'allLOG' to histogram all columns of numeric data." )
 parser.add_option("","--verbose",action="store_true",\
     default=False, metavar=" VERBOSE",\
     help="setting verbosity" )
@@ -125,6 +127,12 @@ else:
 # an instance of the simInspiralTable
 binaries = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)
 
+# resolve --hist=all, --hist=allLOG, and --hist=allLOGLOG
+if len(opts.hist) == 1 and opts.hist[0].startswith("all"):
+  log_suffix = opts.hist[0][3:]
+  opts.hist = [attr + log_suffix for attr, attr_type in \
+               zip(binaries.columnnames, binaries.columntypes) if \
+               attr_type.startswith("real") or attr_type.startswith("int")]
 
 ######################################################
 ### plotting routines
@@ -193,7 +201,7 @@ if opts.hist:
     plot_type='normal'
     if hist[len(hist)-3:]=='LOG':
       hist=hist[0:len(hist)-3]
-      plot_type='semilogy'
+      plot_type='logy'
 
       if hist[len(hist)-3:]=='LOG':
         hist=hist[0:len(hist)-3]
