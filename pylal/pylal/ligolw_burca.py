@@ -37,6 +37,7 @@ from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools
+from pylal.xlal.burstsearch import ExcessPowerCoincCompare
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -325,18 +326,6 @@ class StringEventList(snglcoinc.EventList):
 #
 # =============================================================================
 #
-
-
-def ExcessPowerCoincCompare(a, b, light_travel_time):
-	"""
-	The events are coincident if their time-frequency tiles are not
-	disjoint after allowing for the light travel time between
-	instruments.
-
-	Returns 0 or False (a & b are coincident) if the two events match.
-	Returns non-zero or True otherwise.
-	"""
-	return (abs(a.central_freq - b.central_freq) > (a.bandwidth + b.bandwidth) / 2.0) or a.get_period().protract(light_travel_time).disjoint(b.get_period())
 
 
 def StringCoincCompare(a, b, thresholds):
