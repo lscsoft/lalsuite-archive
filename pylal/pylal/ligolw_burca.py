@@ -249,15 +249,15 @@ class ExcessPowerEventList(snglcoinc.EventList):
 			event.set_start(event.get_start() + delta)
 
 	def get_coincs(self, event_a, light_travel_time, comparefunc):
-		# location of event_a's peak time
-		min_peak = max_peak = dt = event_a.get_peak()
+		# event_a's peak time
+		peak = event_a.get_peak()
 
-		# event_a's start time
-		s = event_a.get_start()
+		# difference between event_a's peak and start times
+		dt = float(peak - event_a.get_start())
 
 		# largest difference between event_a's peak time and either
 		# its start or stop times
-		dt = max(float(dt - s), float(s + event_a.duration - dt))
+		dt = max(dt, event_a.duration - dt)
 
 		# add our own max_edge_peak_delta and the light travel time
 		# between the two instruments (when done, if event_a's peak
@@ -266,17 +266,11 @@ class ExcessPowerEventList(snglcoinc.EventList):
 		# be coincident)
 		dt += self.max_edge_peak_delta + light_travel_time
 
-		# add to and subtract from event_a's peak time to get the
-		# earliest and latest peak times of events in this list
-		# that could possibly be coincident with event_a
-		min_peak -= dt
-		max_peak += dt
-
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed peak times to quickly
 		# identify a subset of the full list)
-		return [event_b for event_b in self[bisect.bisect_left(self, min_peak) : bisect.bisect_right(self, max_peak)] if not comparefunc(event_a, event_b, light_travel_time)]
+		return [event_b for event_b in self[bisect.bisect_left(self, peak - dt) : bisect.bisect_right(self, peak + dt)] if not comparefunc(event_a, event_b, light_travel_time)]
 
 
 #
@@ -335,13 +329,14 @@ class StringEventList(snglcoinc.EventList):
 
 def ExcessPowerCoincCompare(a, b, light_travel_time):
 	"""
-	The events are coincident if their time-frequency tiles intersect
-	after considering the light travel time between instruments.
+	The events are coincident if their time-frequency tiles are not
+	disjoint after allowing for the light travel time between
+	instruments.
 
-	Returns False (a & b are coincident) if the two events match.
-	Retruns non-zero otherwise.
+	Returns 0 or False (a & b are coincident) if the two events match.
+	Returns non-zero or True otherwise.
 	"""
-	return a.get_band().disjoint(b.get_band()) or a.get_period().protract(light_travel_time).disjoint(b.get_period())
+	return (abs(a.central_freq - b.central_freq) > (a.bandwidth + b.bandwidth) / 2.0) or a.get_period().protract(light_travel_time).disjoint(b.get_period())
 
 
 def StringCoincCompare(a, b, thresholds):
