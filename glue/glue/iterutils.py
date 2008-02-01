@@ -189,6 +189,34 @@ except NameError:
 #
 # =============================================================================
 #
+#                              In-Place filter()
+#
+# =============================================================================
+#
+
+
+def inplace_filter(func, sequence):
+	"""
+	Like Python's filter() builtin, but modifies the sequence in place.
+
+	Example:
+
+	>>> l = range(10)
+	>>> inplace_filter(lambda x: x > 5, l)
+	>>> l
+	[6, 7, 8, 9]
+	"""
+	target = 0
+	for source in xrange(len(sequence)):
+		if func(sequence[source]):
+			sequence[target] = sequence[source]
+			target += 1
+	del sequence[target:]
+
+
+#
+# =============================================================================
+#
 #           Thing for keeping only the highest values in a sequence
 #
 # =============================================================================
