@@ -31,6 +31,7 @@ import sys
 
 
 from glue import segments
+from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
@@ -298,7 +299,7 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = No
 						inner_did_cluster = True
 					elif (sortfunc is not None) and bailoutfunc(a, b):
 						break
-			if innder_did_cluster:
+			if inner_did_cluster:
 				outer_did_cluster = True
 			else:
 				i += 1
