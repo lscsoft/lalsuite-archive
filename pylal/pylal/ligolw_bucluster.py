@@ -278,29 +278,35 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = No
 	False if it was not.
 	"""
 	table_changed = False
-	outer_did_cluster = True
-	while outer_did_cluster:
-		outer_did_cluster = False
+	while True:
 		if sortfunc is not None:
 			sngl_burst_table.sort(sortfunc)
+		outer_did_cluster = False
 		i = 0
 		while i < len(sngl_burst_table):
 			a = sngl_burst_table[i]
-			j = i + 1
+			if a is None:
+				i += 1
+				continue
 			inner_did_cluster = False
-			while j < len(sngl_burst_table):
+			for j in xrange(i + 1, len(sngl_burst_table)):
 				b = sngl_burst_table[j]
-				if not testfunc(a, b):
-					clusterfunc(a, sngl_burst_table.pop(j))
-					inner_did_cluster = True
-				elif (sortfunc is not None) and bailoutfunc(a, b):
-					break
-				else:
-					j += 1
+				if b is not None:
+					if not testfunc(a, b):
+						clusterfunc(a, b)
+						sngl_burst_table[j] = None
+						inner_did_cluster = True
+					elif (sortfunc is not None) and bailoutfunc(a, b):
+						break
 			if innder_did_cluster:
-				table_changed = outer_did_cluster = True
+				outer_did_cluster = True
 			else:
 				i += 1
+		if outer_did_cluster:
+			iterutils.inplace_filter(lambda row: row is not None, sngl_burst_table)
+			table_changed = True
+		else:
+			break
 	return table_changed
 
 
