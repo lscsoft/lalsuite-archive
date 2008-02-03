@@ -43,6 +43,10 @@ typedef struct {
 
 	INT64 *gps;
 
+	float veto_level;
+	float veto_spike_level;
+	unsigned char *sft_veto;
+
 	/* real and imaginary parts - they are separate to facilitate use of vectorized operations */
 	float *re; 
 	float *im;

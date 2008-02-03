@@ -455,6 +455,9 @@ d->gps=do_alloc(d->size, sizeof(*d->gps));
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->power=NULL;
+d->sft_veto=NULL;
+d->veto_level=1e-2; /* this takes care of SFTs that have 1/100 weight... */
+d->veto_spike_level=1.7; /* this takes care of SFTs with spikes 50 times median level */
 
 d->weight=1.0;
 
@@ -735,6 +738,30 @@ int i;
 for(i=0;i<d_free;i++)compute_power(&(datasets[i]));
 }
 
+void veto_sfts(DATASET *d)
+{
+int i, j;
+float *power;
+d->sft_veto=do_alloc(d->free, sizeof(*d->sft_veto));
+for(i=0;i<d->free;i++) {
+	d->sft_veto[i]=0;
+
+	if(d->expTMedians[i]<d->veto_level) {
+		d->sft_veto[i]=1;
+		continue;
+		}
+
+	power=&(d->power[i*d->nbins]);
+	for(j=0;j<d->nbins;j++) {
+		if(log10(*power)>d->TMedians[i]+d->veto_spike_level) {
+			d->sft_veto[i]=2;
+			break;
+			}
+		power++;
+		}
+	}
+}
+
 typedef struct {
 	int point;
 	DATASET *d;
@@ -854,6 +881,8 @@ for(i=0;i<d->free;i++){
 d->expTMedian=exp(-M_LN10*2.0*d->TMedian);
 
 fprintf(LOG, "dataset %s TMedian : %f\n", d->name, d->TMedian);
+
+veto_sfts(d);
 
 if(args_info.subtract_background_arg){
 	fprintf(LOG, "dataset %s subtract background: yes\n", d->name);
@@ -1449,6 +1478,14 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 	add_intervals_from_file(datasets[d_free-1].veto_segment_list, s2);
 	free(s2);
 	} else
+if(!strncasecmp(line, "veto_level", 10)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].veto_level=atof(&(line[ai]));
+	} else
+if(!strncasecmp(line, "veto_spike_level", 16)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].veto_spike_level=atof(&(line[ai]));
+	} else
 if(!strncasecmp(line, "apply_hanning_filter", 20)) {
 	apply_hanning_filter(&(datasets[d_free-1]));
 	} else
@@ -1694,6 +1731,24 @@ for(i=0;i<d->free;i++){
 d->expTMedian=exp(-M_LN10*2.0*d->TMedian);
 */
 
+fprintf(stderr, "%s SFTs veto level: %f\n", d->name, d->veto_level);
+fprintf(LOG, "%s SFTs veto level: %f\n", d->name, d->veto_level);
+fprintf(stderr, "%s SFTs veto spike level: %f\n", d->name, d->veto_spike_level);
+fprintf(LOG, "%s SFTs veto spike level: %f\n", d->name, d->veto_spike_level);
+
+count=0;
+for(i=0;i<d->free;i++)
+	if(d->sft_veto[i]) {
+		if(count<100) {
+			fprintf(stderr, "%s vetoed SFT: %lld %d\n", d->name, d->gps[i], d->sft_veto[i]+0);
+			fprintf(LOG, "%s vetoed SFT: %lld %d\n", d->name, d->gps[i], d->sft_veto[i]+0);
+			}
+		count++;
+		}
+
+fprintf(stderr, "%s SFTs veto count: %d\n", d->name, count);
+fprintf(LOG, "%s SFTs veto count: %d\n", d->name, count);
+
 
 d->mean=do_alloc(d->nbins, sizeof(*(d->mean)));
 d->weighted_mean=do_alloc(d->nbins, sizeof(*(d->weighted_mean)));
@@ -1718,6 +1773,8 @@ for(i=0;i<d->nbins;i++){
 	d->bin_weight[i]=0.0;
 	}
 for(i=0;i<d->free;i++){
+	if(d->sft_veto[i])continue;
+
 	w=d->expTMedians[i];
 	for(j=0;j<d->nbins;j++){
 		a=d->power[i*d->nbins+j];
@@ -1747,6 +1804,7 @@ for(i=0;i<d->nbins;i++){
 	}
 count=0;
 for(i=0;i<d->free;i++) {
+	if(d->sft_veto[i])continue;
 	if(d->TMedians[i]>=CutOff)continue;
 	w=d->expTMedians[i];
 	count++;

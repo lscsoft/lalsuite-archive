@@ -331,6 +331,9 @@ for(j=0;j<d_free;j++) {
 	
 	/* process single SFT */
 	for(k=0;k<d->free;k++){
+
+		if(d->sft_veto[k])continue;
+
 		/* Get amplitude response */
 		a_plus=F_plus(k, fine_grid, index, pl->AM_coeffs);
 		a_cross=F_plus(k, fine_grid, index, pl->conjugate->AM_coeffs);
@@ -485,6 +488,8 @@ for(j=0;j<d_free;j++) {
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
 
+		if(d->sft_veto[k])continue;
+
 		/* skip sfts of other units */
 		if((k % csd->divisor)!=csd->remainder)continue;
 
@@ -540,6 +545,8 @@ for(j=0;j<d_free;j++) {
 	//fprintf(stderr, "b0=%d b1=%d\n", b0, b1);
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
 
 		/* skip sfts of other units */
 		if((k % csd->divisor)!=csd->remainder)continue;
@@ -954,6 +961,8 @@ for(j=0;j<d_free;j++) {
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
 
+		if(d->sft_veto[k])continue;
+
 		f_plus=F_plus_coeff(k, ad->e, pl->AM_coeffs);
 		f_cross=F_plus_coeff(k, ad->e, pl->conjugate->AM_coeffs);
 
@@ -988,6 +997,8 @@ for(j=0;j<d_free;j++) {
 
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
 
 		doppler[k]=ad->e[0]*d->detector_velocity[3*k+0]+
 			ad->e[1]*d->detector_velocity[3*k+1]+
@@ -1039,6 +1050,8 @@ for(j=0;j<d_free;j++) {
 
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
 
 		demod_weight=d->expTMedians[k]*d->weight*response[k];
 		total_weight+=demod_weight;
@@ -1150,6 +1163,8 @@ for(j=0;j<d_free;j++) {
 
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
 
 		demod_weight=d->expTMedians[k]*d->weight*response[k];
 
@@ -1263,6 +1278,8 @@ for(j=0;j<d_free;j++) {
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
 
+		if(d->sft_veto[k])continue;
+
 		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
 
 		sb[k]=rint(1800.0*f-first_bin);
@@ -1320,6 +1337,8 @@ for(j=0;j<d_free;j++) {
 	doppler=&(ad->doppler[ad->offset[j]]);
 
 	for(k=0;k<d->free;k++) {
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 
@@ -1436,6 +1455,9 @@ for(j=0;j<d_free;j++) {
 	count=0;
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs not summed by this unit */
 		if((k % msu->divisor)!=msu->remainder)continue;
 
@@ -1670,6 +1692,9 @@ for(j=0;j<d_free;j++) {
 	count=0;
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 		sd->iter_count++;
@@ -1764,6 +1789,9 @@ for(j=0;j<d_free;j++) {
 	count=0;
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 
@@ -1876,6 +1904,9 @@ for(j=0;j<d_free;j++) {
 	count=0;
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 		sd->iter_count++;
@@ -2096,6 +2127,9 @@ for(j=0;j<d_free;j++) {
 	doppler=&(ad->doppler[ad->offset[j]]);
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 
@@ -2222,6 +2256,9 @@ for(j=0;j<d_free;j++) {
 	doppler=&(ad->doppler[ad->offset[j]]);
 
 	for(k=0;k<d->free;k++) {
+
+		if(d->sft_veto[k])continue;
+
 		/* skip SFTs with low weight */
 		if(d->expTMedians[k]<0.05)continue;
 

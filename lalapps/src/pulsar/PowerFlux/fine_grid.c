@@ -1604,6 +1604,8 @@ for(j=0;j<d_free;j++) {
 
 	/* process single patch */
 	for(k=0;k<datasets[j].free;k++) {
+		if(datasets[j].sft_veto[k])continue;
+
 		a=datasets[j].expTMedians[k];
 		
 		for(m=0;m<ntotal_polarizations;m++) {
