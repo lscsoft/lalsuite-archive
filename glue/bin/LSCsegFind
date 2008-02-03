@@ -6,21 +6,6 @@ Client for querying a LSCsegFindServer to find state segments.
 Uses pyGlobus and the LSCsegFindClient modules.
 
 $Id$
-
-This program is part of the Grid LSC User Environment (GLUE)
-
-GLUE is free software: you can redistribute it and/or modify it under the
-terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-details.
-
-You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __version__ = '$Revision$'[11:-2]
@@ -34,7 +19,8 @@ from types import *
 
 try:
   from glue import segments
-  from glue import LSCsegFindClient
+#  from glue import LSCsegFindClient1
+  import LSCsegFindClient
   from glue import gsiserverutils
   from glue.lal import LIGOTimeGPS
 except ImportError, e:
@@ -56,22 +42,44 @@ def usage():
 NAME
         LSCsegFind
 
+NOTE
+        The new test server is running at ldas-cit.ligo.caltech.edu:300156 which is used by default by the client so that a user does not have to specify it.
+
 SYNOPSIS
-        LSCsegFind --server=NAME:PORT --interferometer=NAME --type=NAME 
+        LSCsegFind [--server=NAME:PORT] --interferometer=NAME --type=NAME[:version[:only]] 
                --gps-start-time=GPS --gps-end-time=GPS [ --strict-off ] 
                [ --output-format (tcl|python|segwizard) ]
 
-        LSCsegFind --server=NAME:PORT --show-interferometers
+          only=1 means only the requested version should be returned,
+          only=0 (default) means that the requested version should be returned on its validity interval
+          and the union of all versions should be returned beyond the validity interval of the requested segment list.
+          Currently, the query runs faster if the version is provided and only=1.
+          If no version is provided, the highest one is returned by default with only=0.
+          To find out which versions are available, use --explain-types option described below.
 
-        LSCsegFind --server=NAME:PORT --show-types
+        LSCsegFind [--server=NAME:PORT] --type=All
+               --gps-start-time=GPS --gps-end-time=GPS
 
-        LSCsegFind --server=NAME:PORT --explain-types
+          A special type 'All' can be used to return all segment types, all versions, all ifos for the given time interval
+          The results are returned in the following format:
+          ifo name version start end
+   
+        LSCsegFind [--server=NAME:PORT] --type=NAME[:version[:only]] --run=NAME --interferometer=NAME
 
-        LSCsegFind --server=NAME:PORT --ping
+          Instead of specifying a time interval, one can specify run name. At the moment this does not work with type=All.
 
-        LSCsegFind --server=NAME:PORT --version
+        LSCsegFind [--server=NAME:PORT] --show-interferometers
 
-        LSCsegFind --server=NAME:PORT --help
+        LSCsegFind [--server=NAME:PORT] --show-types
+
+        LSCsegFind [--server=NAME:PORT] --explain-types
+
+        LSCsegFind [--server=NAME:PORT] --ping
+
+        LSCsegFind [--server=NAME:PORT] --version
+
+        LSCsegFind [--server=NAME:PORT] --help
+
 
 DESCRIPTION
         Query a LSCsegFindServer to obtain state vector information from a
@@ -90,6 +98,11 @@ DESCRIPTION
                 Comma separated list of interferometer states. The 
                 union of segments from all types specified is 
                 returned. Use --show-types to see what is available.
+                
+                Special type 'All' lists all active segment types for
+                the specified time interval in the format:
+                ifo segment_type version start end
+                Interferomenter option is not used for type 'All'.
 
         -s, --gps-start-time 
                 Start of GPS time range.
@@ -136,29 +149,18 @@ ENVIRONMENT
 
 EXAMPLES
 
-[user@host]$ LSCsegFind --server ldas-cit.ligo.caltech.edu --show-types
-Commissioning_Up
-Commissioning_Up_PSL_Error
-Injection
-Science
-Science_Conlog
-Science_Loss
-Science_Up
+LSCsegFind --type=All -s `tconvert 10/01/06` -e `tconvert 10/02/06` -r ldas-cit.ligo.caltech.edu:300156
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:300156
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:1 --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:300156
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:0 -s 834744360 -e 834744960 -i H1 -r ldas-cit.ligo.caltech.edu:300156
+LSCsegFind --explain-types -r ldas-cit.ligo.caltech.edu:300156
 
-[user@host]$ LSCsegFind --server=ldas.ligo-la.caltech.edu --interferometer L1 --type Science --gps-start-time 793756813 --gps-end-time 793802413
-793756813 793761885
-793763207 793767231
-793767680 793784113
-793784732 793787382
-793788056 793796486
-
-\
 """
   print >>sys.stderr, msg
 
 
 # grab command line options
-shortop = "vi:t:s:e:r:wxySlo:ph"
+shortop = "vi:t:s:e:r:wxySlo:ph:u"
 longop = [
   "version",
   "interferometer=",
@@ -174,7 +176,8 @@ longop = [
   "strict-off",
   "ping",
   "output-format=",
-  "help" ]
+  "help" ,
+  "run="]
 
 try:
   opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
@@ -184,8 +187,11 @@ except getopt.GetoptError:
   sys.exit(1)
 
 # defaults
-hostPortString = None
-port = 30015
+#### hostPortString = None
+#### port = 30015
+
+hostPortString = "ldas-cit.ligo.caltech.edu"
+port = 300156
 
 clientMethodArgDict = {
   'interferometer': None,
@@ -194,7 +200,8 @@ clientMethodArgDict = {
   'end': None,
   'start': None,
   'lfns': False,
-  'strict' : True
+  'strict' : True,
+  'run' : None
 }
 
 # default method 
@@ -215,14 +222,17 @@ for o, a in opts:
     sys.exit(0)
   elif o in ("-v", "--version"):
     print 'LSCsegFind client version', __version__
-    import glue.LSCsegFindClient
+    import glue.LSCsegFindClient1
     print 'Built on top of LSCsegFindClient version', \
-      glue.LSCsegFindClient.version()
+      glue.LSCsegFindClient1.version()
     sys.exit(0)
   elif o in ("-i", "--interferometer"):
     clientMethodArgDict['interferometer'] = a
   elif o in ("-t", "--type"):
     clientMethodArgDict['type'] = a
+    if(a=='All'):
+      clientMethodArgDict['strict']=False
+      clientMethodArgDict['interferometer']='All'
   elif o in ("-s", "--gps-start-time"):
     clientMethodArgDict['start'] = str(LIGOTimeGPS(a).seconds)
   elif o in ("-e", "--gps-end-time"):
@@ -231,6 +241,8 @@ for o, a in opts:
       clientMethodArgDict['end'] = str(a.seconds + 1)
     else:
       clientMethodArgDict['end'] = str(a.seconds)
+  elif o in ("-u","--run"):
+    clientMethodArgDict['run']=a
   elif o in ("-r", "--server"):
     hostPortString = a
   elif o in ("-p", "--ping"):
@@ -268,7 +280,7 @@ else:
 
 # open connection to LSCsegFindServer
 try:
-  myClient = LSCsegFindClient.LSCsegFind(host, port)
+  myClient = LSCsegFindClient1.LSCsegFind(host, port)
 
 except Exception, e:
   print >>sys.stderr, \
@@ -278,10 +290,23 @@ except Exception, e:
     print >>sys.stderr, "Enter 'LSCsegFind --help' for usage"
   sys.exit(1)
 
+
+#print "Before myClient call"
+#sys.stdout.flush()
+
 try:
   seglist = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
 
-  if type(seglist) is StringType:
+#  print "After myClient call, seglist="+str(seglist)
+#  sys.stdout.flush()
+
+  if(clientMethodArgDict['type']=='All'):
+    keys=seglist.keys()
+    keys.sort()
+    for k in keys:
+      for s in seglist[k]:
+        print " ".join(map(str,list(k)+[s[0],s[1]]))
+  elif type(seglist) is StringType:
     print seglist
   else:
     if len( seglist ) == 0:
@@ -313,7 +338,7 @@ try:
         print rdelim
       else:
         msg = "Error: unknown segment format : %s" % format
-        raise LSCsegFindClient.LSCsegFindException, msg
+        raise LSCsegFindClient1.LSCsegFindException, msg
  
 except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)

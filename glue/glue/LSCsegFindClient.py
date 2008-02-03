@@ -5,21 +5,6 @@ and making requests of a LSCsegFindServer.
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
 
 $Id$
-
-This file is part of the Grid LSC User Environment (GLUE)
-
-GLUE is free software: you can redistribute it and/or modify it under the
-terms of the GNU General Public License as published by the Free Software
-Foundation, either version 3 of the License, or (at your option) any later
-version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
-FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
-details.
-
-You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 __version__ = '$Revision$'[11:-2]
@@ -340,6 +325,8 @@ class LSCsegFindClient(object):
 
     ret, output = self.__response__()
 
+#    print "ret="+str(ret)+" output="+str(output)
+
     if ret:
       msg = \
         "Error querying LSCsegFindServer for segments with metadata %s : %s" \
@@ -453,29 +440,57 @@ class LSCsegFind(LSCsegFindClient):
 
     @return: None
     """
-    start = argDict['start']
-    end = argDict['end']
-    interferometer = argDict['interferometer']
-    type = argDict['type']
-    strict = argDict['strict']
 
+#    print "In findStateSegments argDict="+repr(argDict)
+
+    start=None
+    end=None
+    interferometer=None
+    type=None
+    strict=None
+    run=None
+
+    try:
+      start = argDict['start']
+      end = argDict['end']
+    except:
+      pass
+    try:
+      interferometer = argDict['interferometer']
+      type = argDict['type']
+      strict = argDict['strict']
+    except:
+      pass
+    try:
+      run = argDict['run']
+    except:
+      pass
+    
     # check that combination of command-line arguments is sound
-    if (not interferometer) or (not type) or (not start) or (not end):
+    if((interferometer==None or type==None or start==None or end==None) and (interferometer==None or type==None or run==None )):
       msg = """\
 Bad combination of command line arguments:
---interferometer --type --gps-start-time --gps-end-time must all
+--interferometer --type --gps-start-time --gps-end-time
+or
+--interferometer --type --run
+must all
 be present when searching for groups of segments 
 """
       raise LSCsegFindException, msg
 
-    self.__check_gps(start)
-    self.__check_gps(end)
+    if(run==None):
+      self.__check_gps(start)
+      self.__check_gps(end)
+      queryList = ["03",str(start),str(end),str(interferometer),str(type)]
+    else:
+      queryList = ["04",str(run),str(interferometer),str(type)]
 
-    queryList = ["03",str(start),str(end),str(interferometer),str(type)]
+#    print "queryList="+str(queryList)
+#    sys.stdout.flush()
 
     seglist = LSCsegFindClient.segmentQueryWithMetadata(self,queryList)
 
-    if strict:
+    if strict and (not argDict.has_key('run')):
       range = segments.segmentlist([segments.segment(long(start),long(end))])
       seglist &= range
 
