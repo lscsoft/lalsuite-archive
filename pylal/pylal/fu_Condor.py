@@ -549,7 +549,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
 
     #try to extract web output from the ini file, else ignore it
     try:
-      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifoString+'web'))+repr(times[ifoList[0]]),dag.cache)
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifoString+'-web'))+repr(times[ifoList[0]]),dag.cache)
     except:
       self.setupNodeWeb(job,False,None,None,None,dag.cache)
 
