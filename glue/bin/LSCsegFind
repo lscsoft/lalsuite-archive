@@ -222,9 +222,9 @@ for o, a in opts:
     sys.exit(0)
   elif o in ("-v", "--version"):
     print 'LSCsegFind client version', __version__
-    import glue.LSCsegFindClient1
+    import glue.LSCsegFindClient
     print 'Built on top of LSCsegFindClient version', \
-      glue.LSCsegFindClient1.version()
+      glue.LSCsegFindClient.version()
     sys.exit(0)
   elif o in ("-i", "--interferometer"):
     clientMethodArgDict['interferometer'] = a
@@ -280,7 +280,7 @@ else:
 
 # open connection to LSCsegFindServer
 try:
-  myClient = LSCsegFindClient1.LSCsegFind(host, port)
+  myClient = LSCsegFindClient.LSCsegFind(host, port)
 
 except Exception, e:
   print >>sys.stderr, \
@@ -338,7 +338,7 @@ try:
         print rdelim
       else:
         msg = "Error: unknown segment format : %s" % format
-        raise LSCsegFindClient1.LSCsegFindException, msg
+        raise LSCsegFindClient.LSCsegFindException, msg
  
 except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)
