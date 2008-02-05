@@ -518,6 +518,7 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
   plotcp.set("pipeline","found-suffix",injectionSuffix)
   plotcp.set("pipeline","missed-suffix",injectionSuffix)
   plotcp.set("pipeline","bank-suffix",bankSuffix)
+  plotcp.set("pipeline","trigbank-suffix",bankSuffix)
   plotcp.set("pipeline","zerolag-suffix",zerolagSuffix)
   plotcp.set("pipeline","trig-suffix",zerolagSuffix)
   plotcp.set("pipeline","coinc-suffix",zerolagSuffix)
