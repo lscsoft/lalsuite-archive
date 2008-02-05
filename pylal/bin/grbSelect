@@ -172,6 +172,8 @@ def parse_command_line():
        help="restrict the off-source trials to be arranged"\
             " symmetrically about the on-source segment "\
             "(default: asymmetrical distribution allowed)")
+  parser.add_option("","--plot-segments",action="store_true",\
+      default=False,help=" plot the segments" )
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
 
@@ -387,21 +389,21 @@ month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
 # handle the segment lists
 ifoList=['H1','H2','L1','G1','V1']
 ifoList2=['H2','V1','G1']
-segs={}
+segdict={}
 for ifo in ifoList:
 
   # read the segment lists
-  filename = opts.segments+'/S5%s_selectedsegs_full.txt' % ifo
-  segs[ifo] = segmentsUtils.fromsegwizard(open(filename))
+  filename = opts.segments+'/S5%s_selectedsegs.txt' % ifo
+  segdict[ifo] = segmentsUtils.fromsegwizard(open(filename))
   
   # apply category-1 vetoes in any case
-  applyDataQuality(segs[ifo], opts.segments+"/"+ifo + \
-                   "_cat1_vetoed_segments_allS5.txt")
+  applyDataQuality(segdict[ifo], opts.segments+"/"+ifo + \
+                   "_cat1_vetoed_segments.txt")
 
   # check for a veto file
   if getattr( opts, ifo.lower()+'_vetosegs'):
       
-    applyDataQuality(segs[ifo], ifo.lower()+'_vetosegs') 
+    applyDataQuality(segdict[ifo], ifo.lower()+'_vetosegs') 
     print "Veto-file specified for IFO %s" % ifo
 
 # sort the triggers first
@@ -409,7 +411,7 @@ index = argsort( vectorTime )
 
 
 ##########################################################
-# loop over all GRBs in te list
+# loop over all GRBs in the list
 
 # just some counters
 color=1
@@ -427,11 +429,14 @@ for ind in index:
   # create te on-source segment
   onSource =  segments.segment( grb.start_time-onSourceLeft,
                                 grb.start_time+onSourceRight )
-  
+  offSourceLength =   (1+opts.num_trials)*onSource.duration()+\
+           2*opts.padding_time
+
+    
   # calculate the antenna factor
   antennaFactor = {}
   for ifo in ifoList:
-    if onSource in segs[ifo]:
+    if onSource in segdict[ifo]:
       
       # compute the antenna factor for this time and position on the sky
       f_plus, f_cross, f_ave, f_q = antenna.response( grb.start_time,
@@ -494,41 +499,56 @@ for ind in index:
 
   # find the analysable IFO for this GRB with Nick's function
   ## print "\n==================================="
-##   print grb.event_number_grb
+  ##   print grb.event_number_grb
   offSourceSegment, grb_ifolist = \
                     grbsummary.multi_ifo_compute_offsource_segment(\
-      segs, onSource, padding_time=opts.padding_time , \
+      segdict, onSource, padding_time=opts.padding_time , \
       max_trials=opts.num_trials, symmetric=opts.symmetric)
+  grb_ifolist.sort()
+
+  # check the length of the segment:
+  if offSourceSegment:
+    if offSourceSegment.duration()!=offSourceLength:
+      offSourceSegment=None
+      grb_ifolist=[]
 
     
-  ## double check to see if the individual IFO are contained in the segments
+  # double check to see if the individual IFO are contained in the segments
   # and if the duration is correct
-  if offSourceSegment:
-    if offSourceSegment.duration()!=(1+opts.num_trials)*onSource.duration()+\
-           2*opts.padding_time:
-      print "ERROR: Duration is incorrect..."
-      print  offSourceSegment.duration(), \
-              (1+opts.num_trials)*onSource.duration()+2*opts.padding_time
-      sys.exit(1)
+  if offSourceSegment and opts.ifo_times!='all':   
     for ifo in grb_ifolist:
-      if offSourceSegment not in segs[ifo]:     
+      if offSourceSegment not in segdict[ifo]:     
         print "ERROR: offsourcesegment is not contained in segment of IFO ", ifo
         sys.exit(1)
-      ## else:
-##         print "Test: ", ifo,  offSourceSegment.duration(), \
-##               (1+opts.num_trials)*onSource.duration()+2*opts.padding_time
+
+  # create the segment plot
+  link=None
+  if opts.plot_segments and len(grb_ifolist)>0:
+    plot = grbsummary.PlotSegmentsPlot(grb.start_time)
+    plot.add_contents(segdict)
+    plot.set_window(offSourceSegment, opts.padding_time)
+    plot.highlight_segment( onSource )
+    plot.finalize()
+    filename = "".join(grb_ifolist) + "-PLOTSEGMENT"
+    filename = "-".join((filename, str(offSourceSegment[0]),
+                         str(offSourceSegment.duration())))
+    filename += ".png"
+    title('Segments for GRB '+grb.event_number_grb)
+    plot.savefig("PlotSegments/"+filename)
+    link="http://ldas-jobs.ligo.caltech.edu/~dietz/pages/s5/GRB/Segments/"+filename
+
 
   # put together the last columns in the html entry
   for ifo in ifoList:
-    if onSource in segs[ifo]:
+    if onSource in segdict[ifo]:
       if ifo in grb_ifolist:
-        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], bold=True  )
+        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], bold=True, link=link  )
       else:
-        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo] )        
+        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], link=None  )        
     else:
       line = addColumnEntry( line , '--' )
-          
 
+  
   # Now finally check if we got the IFO times that was requested
   if opts.ifo_times=='all' or \
          (opts.ifo_times=='any' and len(grb_ifolist)>=2) or \
@@ -546,7 +566,7 @@ for ind in index:
     
     # append to html table
     if opts.output_html:
-      htmlfile.write(line+'</tr>')
+      htmlfile.write(line+'</tr>\n')
 
     # append to xml file
     if opts.output_xml:
