@@ -23,12 +23,11 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
 import optparse
-import numpy
 
 # Change to Agg back-end to remove X display dependency
 import matplotlib
 matplotlib.use('Agg')
-import pylab
+from pylal.plotsegments import PlotSegmentsPlot
 
 ### Speed hacks
 import glue.segments, glue.__segments
@@ -38,7 +37,6 @@ glue.segments.segmentlist = glue.__segments.segmentlist
 
 from glue.segments import segmentlistdict, segment, segmentlist
 from glue.segmentsUtils import fromsegwizard
-
 
 
 ##############################################################################
@@ -83,79 +81,6 @@ def parse_command_line():
   opts, args = parser.parse_args()
   
   return (opts, args)
-
-
-##############################################################################
-# Plotting class
-
-class PlotSegmentsPlot(object):
-  """
-  Represent a plotsegments plot.  To use it, one must instantiate a
-  PlotSegmentsPlot object, call add_contents(), then call finalize().
-  To save, call the savefig() method.  To display to the screen, call
-  pylal.show().
-  
-  Developer note: There is the transformation function _time_transform.
-  Follow the convention of applying it before storing internal data so that
-  there is no ambiguity about whether data has been transformed or not.
-  """
-  color_code = {'H1':'r', 'H2':'b', 'L1':'g', 'V1':'m', 'G1':'k'}
-  
-  def __init__(self, t0=0):
-    """
-    Create a fresh plot.  Provide t0 to provide a reference time to use as
-    zero.
-    """
-    self.fig = pylab.figure()
-    self.ax = self.fig.add_subplot(111)
-    self.savefig = self.fig.savefig
-    
-    self.window = None
-    self.ifos = []
-    self._time_transform = lambda t: t - t0
-  
-  def add_contents(self, segdict):
-    new_ifos = segdict.keys()
-    self.ifos.extend(new_ifos)
-    for row, ifo in enumerate(new_ifos):
-      color = self.color_code[ifo]
-      for seg in segdict[ifo]:
-        a = self._time_transform(seg[0])
-        b = self._time_transform(seg[1])
-        self.ax.fill([a, b, b, a, a], [row, row, row+1, row+1, row], color)
-  
-  def set_window(self, window_seg, padding=0):
-    """
-    Define a window of interest by setting the x-limits of the plot
-    appropriately.  If padding is also present, protract the x-limits by
-    that quantity and mark the unpadded window with solid black lines.
-    """
-    a = self._time_transform(window_seg[0])
-    b = self._time_transform(window_seg[1])
-    self.window = segment((a - padding, b + padding))
-    
-    if padding > 0:
-      self.ax.axvline(a, color='k', linewidth=2)
-      self.ax.axvline(b, color='k', linewidth=2)
-  
-  def highlight_segment(self, seg):
-    """
-    Highlight a particular segment with dashed lines.
-    """
-    self.ax.axvline(self._time_transform(seg[0]), color='k', linestyle='--')
-    self.ax.axvline(self._time_transform(seg[1]), color='k', linestyle='--')
-  
-  def finalize(self):
-    ticks = numpy.arange(len(self.ifos)) + 0.5
-    self.ax.set_yticks(ticks)
-    self.ax.set_yticklabels(self.ifos)
-    
-    if self.window is not None:
-      self.ax.set_xlim(self.window)
-    self.ax.set_ylim((0, len(self.ifos)))
-    
-    self.ax.set_xlabel("time (s)")
-    self.ax.set_ylabel("IFO")
 
 
 ##############################################################################
