@@ -66,7 +66,7 @@ class PlotSegmentsPlot(object):
       ifos = segdict.keys()
       ifos.sort()
     self.ifos.extend(ifos[::-1])
-    for row, ifo in enumerate(ifos):
+    for row, ifo in enumerate(ifos[::-1]):
       color = self.color_code[ifo]
       for seg in segdict[ifo]:
         a = self._time_transform(seg[0])
