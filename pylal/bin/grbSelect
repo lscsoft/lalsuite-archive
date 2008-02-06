@@ -10,10 +10,17 @@ __title__ = "grb selection tool"
 
 import os
 import sys
-import matplotlib
 from optparse import *
-matplotlib.use('Agg')
-from pylab import *
+from numpy import *
+
+### Speed hacks
+import glue.segments, glue.__segments
+glue.segments.segment = glue.__segments.segment
+glue.segments.segmentlist = glue.__segments.segmentlist
+glue.segments.PosInfinity = glue.__segments.PosInfinity
+glue.segments.NegInfinity = glue.__segments.NegInfinity
+### End speed hacks
+
 from glue.ligolw import ligolw
 from glue.ligolw import utils
 from glue.ligolw import table
@@ -23,7 +30,10 @@ from glue import segmentsUtils
 from pylal import antenna
 from pylal import date
 from pylal import grbsummary
-from numpy import *
+
+import matplotlib
+matplotlib.use('Agg')
+from pylal.plotsegments import PlotSegmentsPlot
 
 ##############################################
 ## global variables
@@ -389,7 +399,7 @@ month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
 # handle the segment lists
 ifoList=['H1','H2','L1','G1','V1']
 ifoList2=['H2','V1','G1']
-segdict={}
+segdict = segments.segmentlistdict()
 for ifo in ifoList:
 
   # read the segment lists
@@ -418,6 +428,9 @@ color=1
 number=1
 numberSelected=0
 
+if opts.plot_segments and not os.path.isdir("plotsegments"):
+  os.mkdir("plotsegments")
+
 # loop over all GRBs
 for ind in index:
   grb = table[ind]
@@ -429,7 +442,7 @@ for ind in index:
   # create te on-source segment
   onSource =  segments.segment( grb.start_time-onSourceLeft,
                                 grb.start_time+onSourceRight )
-  offSourceLength =   (1+opts.num_trials)*onSource.duration()+\
+  offSourceLength =   (1+opts.num_trials)*abs(onSource)+\
            2*opts.padding_time
 
     
@@ -503,39 +516,40 @@ for ind in index:
   offSourceSegment, grb_ifolist = \
                     grbsummary.multi_ifo_compute_offsource_segment(\
       segdict, onSource, padding_time=opts.padding_time , \
-      max_trials=opts.num_trials, symmetric=opts.symmetric)
+      min_trials=opts.num_trials, max_trials=opts.num_trials,
+      symmetric=opts.symmetric)
   grb_ifolist.sort()
 
   # check the length of the segment:
   if offSourceSegment:
-    if offSourceSegment.duration()!=offSourceLength:
+    if abs(offSourceSegment)!=offSourceLength:
       offSourceSegment=None
       grb_ifolist=[]
 
-    
-  # double check to see if the individual IFO are contained in the segments
-  # and if the duration is correct
-  if offSourceSegment and opts.ifo_times!='all':   
-    for ifo in grb_ifolist:
-      if offSourceSegment not in segdict[ifo]:     
-        print "ERROR: offsourcesegment is not contained in segment of IFO ", ifo
-        sys.exit(1)
+
 
   # create the segment plot
   link=None
-  if opts.plot_segments and len(grb_ifolist)>0:
-    plot = grbsummary.PlotSegmentsPlot(grb.start_time)
-    plot.add_contents(segdict)
+  if opts.plot_segments:
+    if offSourceSegment is None:
+      offSourceSegment = \
+        segments.segment(onSource[0] - opts.num_trials*onSourceLength,
+                         onSource[1] + opts.num_trials*onSourceLength)
+    effective_window = segments.segmentlist([offSourceSegment]).protract(opts.padding_time)
+    effective_segdict = segdict.map(lambda sl: sl & effective_window)
+    plot = PlotSegmentsPlot(grb.start_time)
+    plot.add_contents(effective_segdict)
     plot.set_window(offSourceSegment, opts.padding_time)
     plot.highlight_segment( onSource )
     plot.finalize()
-    filename = "".join(grb_ifolist) + "-PLOTSEGMENT"
+    filename = "".join(grb_ifolist) + "-PLOTSEGMENT_" + grb.event_number_grb
     filename = "-".join((filename, str(offSourceSegment[0]),
-                         str(offSourceSegment.duration())))
+                         str(abs(offSourceSegment))))
     filename += ".png"
-    title('Segments for GRB '+grb.event_number_grb)
-    plot.savefig("PlotSegments/"+filename)
-    link="http://ldas-jobs.ligo.caltech.edu/~dietz/pages/s5/GRB/Segments/"+filename
+    plot.ax.set_title('Segments for GRB '+grb.event_number_grb)
+    plot.savefig("plotsegments/"+filename)
+    del plot
+    link = "plotsegments/"+filename
 
 
   # put together the last columns in the html entry
@@ -544,10 +558,9 @@ for ind in index:
       if ifo in grb_ifolist:
         line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], bold=True, link=link  )
       else:
-        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], link=None  )        
+        line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], link=link  )        
     else:
-      line = addColumnEntry( line , '--' )
-
+      line = addColumnEntry( line , '--', link=link)
   
   # Now finally check if we got the IFO times that was requested
   if opts.ifo_times=='all' or \
@@ -572,6 +585,15 @@ for ind in index:
     if opts.output_xml:
       tbl.append(grb)
 
+
+
+  # double check to see if the individual IFO are contained in the segments
+  # and if the duration is correct
+  for ifo in grb_ifolist:
+    if offSourceSegment not in segdict[ifo]:     
+      print "ERROR: offsourcesegment is not contained in segment of IFO ", ifo,\
+        "for GRB", grb.event_number_grb
+      sys.exit(1)
 
 ######################################################################
 # close-out the files
