@@ -14,9 +14,12 @@ from matplotlib.ticker import FormatStrFormatter
 from glue import segments
 from glue import segmentsUtils
 from glue import lal
+from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+import numpy
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -43,6 +46,81 @@ def readFiles(fList):
   return output
 
 
+def printMissed( misDict, ifo=None):
+
+  print "\nMissed Distance in " + ifo + " is " + \
+        str(misDict.eff_dist_h)+ ' Mpc'
+  print "GPS time: %9d.%9d" % \
+        (misDict.geocent_end_time, misDict.geocent_end_time_ns)
+  print "L/H Distance ratio is " + \
+        str(misDict.eff_dist_l/misDict.eff_dist_h)
+  print "Chirp mass is %.2f" % (misDict.mchirp)
+  print "Mass-pair is %.2f + %.2f " % (misDict.mass1, misDict.mass2)
+  #print "Inclination is %.2f and Polarization is %.2f " \
+  #% (misDict.inclination, misDict.polarization)
+
+
+
+##############################
+def createPlot( foundx, foundy, missedx, missedy, \
+                titleText, xlabelText, ylabelText):
+
+  figure()
+  plot( foundx, foundy, \
+        'bo', markerfacecolor=None,\
+        markeredgecolor='b',markersize=10, markeredgewidth=1)
+
+  plot( missedx, missedy, \
+        'ro', markerfacecolor=None,\
+        markeredgecolor='r',markersize=10, markeredgewidth=1)
+  
+  if inspiralFiles:
+    semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
+             linewidth=1)
+
+  if opts.y_min:
+    ylim(ymin=opts.y_min)
+  if opts.y_max:
+    ylim(ymax=opts.y_max)
+    
+
+  title(titleText, size='x-large')
+  xlabel(xlabelText, size='x-large')
+  ylabel(ylabelText, size='x-large')
+  grid(True)
+
+
+def getData( table, xname, yname, ifo  ):
+
+  if xname=='time':
+    xp= [ t-opts.time_offset \
+          for t in viz.timeindays(viz.readcol( table,"end_time", ifo)) ]
+    legx = "End time (in days)"
+  elif xname == 'mtotal':    
+    xp = viz.readcol( table,"mass1")+viz.readcol( table,"mass2")
+    legx = "Total mass"
+  else:
+    xp = viz.readcol( table,xname)
+    legx = xname
+  
+
+  if yname == 'eff_dist':
+    yp = viz.readcol( table,"eff_dist", ifo )
+    legy = "Effective distance"
+  else:
+    yp = viz.readcol( table,yname)
+    legy = yname
+
+  return xp, yp, legx, legy
+
+def savePlot(opts, filePart, tag ):
+       
+  fname = InspiralUtils.set_figure_name(opts, filePart)
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+                                            dpi_thumb=opts.figure_resolution)
+  fnameList.append(fname)
+  tagList.append( tag )
+
 #################################################################
 
 ##############################################################################
@@ -63,7 +141,7 @@ def parse_command_line():
       version= "%prog CVS\n" +
       "$Id$\n" +
       "$Name$\n")
-
+# opts.eff_vs_eff_dist, opts.eff_vs_distance opts.eff_vs_snr:  opts.eff_vs_snr_chi
   parser = OptionParser( usage=usage, version="%prog CVS $Id$ \n" + "$Name$\n" )
   parser.add_option("-a","--time-dist",action="store_true",default=False,\
       help="plot dist v trig end time" )
@@ -75,6 +153,17 @@ def parse_command_line():
       help="plot dist v mchirp (linear dist axis)" )
   parser.add_option("-e","--mtotal-dist-linear",action="store_true",default=False,\
       help="plot dist v mtotal (linear dist axis)" )
+  parser.add_option("-f","--eff-vs-eff-dist",action="store_true",default=False,\
+      help="efficiency plot versus effective distance (logarithmic dist axis)" )
+  parser.add_option("-g","--eff-vs-distance",action="store_true",default=False,\
+      help="efficiency plot versus distance (logarithmic dist axis)" )
+  parser.add_option("-j","--eff-vs-snr",action="store_true",default=False,\
+      help="efficiency plot versus SNR" )
+  parser.add_option("-k","--eff-vs-snr-chi",action="store_true",default=False,\
+      help="efficiency plot versus esnr-chi" )
+  parser.add_option("-T","--time-offset",action="store",type="float",\
+      default=0.0,metavar=" TIME-OFFSET",\
+      help="time offset when plotting times")
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
   parser.add_option("-t","--title",action="store",type="string",\
@@ -90,14 +179,20 @@ def parse_command_line():
   parser.add_option("","--ifo-times",action="store",type="string",\
       default=None,metavar="IFOS",\
       help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
+  parser.add_option("-S","--same-symbol",action="store",type="string",\
+      default=None,  metavar="SAME-SYMBOL",\
+      help="enables the use of a same symbol")
   parser.add_option("-V","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format)")
   parser.add_option("-i","--ifo",action="store",type="string",default=None,\
-      help="specify the ifo (otherwise will be read from the found file")
+      help="specify the ifo (otherwise will loop over all IFOs in ifo-times")
   parser.add_option("-M","--min-distance",action="store",type="int",\
       default=None, metavar=" MIN_DIST",\
-      help="provide time and dist of all missed injections closer than MIN_DIST")
+      help="provide time and dist of all missed injections closer than MIN_DIST [Mpc]")
+  parser.add_option("-N","--number-missed",action="store",type="int",\
+      default=None, metavar=" NUMBER_MISSED",\
+      help="provide number of missed injections to printed out")
   parser.add_option("-r","--add-horizon",action="store",type="string",\
       default=None,metavar="INSP",\
       help="show the inspiral horizon obtained from files matching the glob INSP")
@@ -135,8 +230,8 @@ def parse_command_line():
   (options,args) = parser.parse_args()
 
   # test the input options
-  if not options.ifo:
-    raise ValueError, "--ifo must be provided in (H1, H2, L1, V1, G1)"
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times must be provided"
 
   return options, sys.argv[1:]
 
@@ -145,10 +240,9 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 
-# ============================================================================
-# Initialise
-#-- add prefix and suffix to the opts strucutre. To be used for filenames
+# Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -163,12 +257,15 @@ from pylab import *
 from pylal import viz
 
 
+# do something if a title was given
+if opts.title != "":
+  opts.title += ": "
+  
 # check at least one trig file was specified
-
 if opts.cache_file:
   cache = lal.Cache.fromfile(open(opts.cache_file))
-  injcache = cache.sieve(description = opts.found_pattern).sieve(ifos=opts.ifo)
-  miscache = cache.sieve(description = opts.missed_pattern).sieve(ifos=opts.ifo)
+  injcache = cache.sieve(description = opts.found_pattern).sieve(ifos=opts.ifo_times, exact_match=True)
+  miscache = cache.sieve(description = opts.missed_pattern).sieve(ifos=opts.ifo_times, exact_match=True)
   injFiles = injcache.checkfilesexist()[0].pfnlist()
   misFiles = miscache.checkfilesexist()[0].pfnlist()
 
@@ -183,162 +280,103 @@ if opts.cache_file:
     print >>sys.stderr,"Cache file must be input"
     sys.exit(1)
   
-  if opts.title != "":
-      opts.title += ": "
-
 else:
 
   if not args:
-    print >>sys.stderr, "a trig-file must be specified"
+    print >>sys.stderr, "One trig-file must be specified at least"
     print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
     sys.exit(1)
-
-  if opts.title != "":
-    opts.title += ": "
-#check if "found_missed": trig and missed inj files are paired
-# then fill lists of injection and missed injection files
-  injFiles = []
-  misFiles = []
-  if not args:
-    print >>sys.stderr, "a trig-file must be specified"
-    print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
-    sys.exit(1)
-
-  if opts.title != "":
-    opts.title += ": "
-  
+    
+  # check if trig and missed inj files are paired
+  # then fill lists of injection and missed injection files
   if len(args)<2:
-    print >>sys.stderr, "a missed-file must be specified"
-    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "At least one trigger file and one missed"\
+          " file must be specified"
     print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
+    print usage
     sys.exit(1)
 
   elif len(args)%2:
-    print >>sys.stderr, "mismatched pair"
-    print >>sys.stderr, "when making plots of missed injections"
+    print >>sys.stderr, "The number of files specified must be even"
     print >>sys.stderr, "Enter 'plotinspmissed --help' for usage"
+    print usage
+    sys.exit(1)
   
   else:
+    injFiles = []
+    misFiles = []
+    # create the list of found and missed files
     for i in range(len(args)):
       if i%2:
         misFiles.append(args[i])
       else:
         injFiles.append(args[i])
+
+
+# create the ifoList
+ifoList = []
+for i in range(len(opts.ifo_times)/2):
+  ifoList.append(opts.ifo_times[2*i:2*i+2])
+
+# selecet one IFO if required
+if opts.ifo:
+  ifoList=[opts.ifo]
+
   
 #######################################################################
 # identify the inspiral files if we want the horizon
+inspiralFiles = None
 if opts.add_horizon:
   inspiralFiles = glob.glob(opts.add_horizon)
   if not inspiralFiles:
-    print >>sys.stderr, "The glob for " + opts.inspiral_horizon + \
-        " returned no files"
+    print >>sys.stderr, "The glob for " + \
+          opts.inspiral_horizon + \
+          " returned no files"
     sys.exit(1)
-else:
-  inspiralFiles = None
 
 ##############################################################################
 # read in tables into dictionaries of paired sets
-injSets = {"found":[],"missed":[]}
+# each dictionary contains the data for a different 'type'
+# type e.g. H1H2, H1L1, H2L1, H1H2L1 in H1H2L1 ifo-times
 
+foundInj  = dict()
+foundTrig = dict()
+missedInj = lsctables.New(lsctables.SimInspiralTable)
+allFoundTrig = lsctables.New(lsctables.SnglInspiralTable)
+allFoundInj = lsctables.New(lsctables.SimInspiralTable) 
+
+
+## read the found injections
 for entry, injfile in zip(injcache,injFiles):
-  injSet = {}
-  injDict = {}
-  flist = []
-  flist.append(injfile)
-  injDict["sim_inspiral"]  = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
 
-  injDict["ifotimeslabel"]=entry.observatory
+  # read the found injections and get the coincidences
+  sims =  SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
+  snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile])
+  triggers = CoincInspiralUtils.coincInspiralTable(
+    snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
-  if injDict["sim_inspiral"] is None:
-    injDict["inj_time"] = []
-    injDict["inj_dist"] =[]
-    injDict["inj_chirp"] = []
-    injDict["inj_m1"] = []
-    injDict["inj_m2"] = []
-    injDict["inj_mtotal"] = []
-    injSet["injections"] = injDict
-    injSets["found"].append(injSet)
-    continue
+  # loop over each sim, trigger
+  for sim, trigger in zip(sims, triggers):
 
-  if injDict["sim_inspiral"] is None:
-    continue
+    # get the IFOs in which the trigger was recovered
+    ifos, dummyList= trigger.get_ifos()
 
-  if opts.ifo:
-    injDict["ifo"] = opts.ifo
-  else:
-    sngl = SnglInspiralUtils.ReadSnglInspiralFromFiles(flist)
-    injDict["ifo"] = sngl[0].ifo
+    if ifos not in foundInj:
+      foundInj[ifos]  = lsctables.New(lsctables.SimInspiralTable)
+      foundTrig[ifos] = lsctables.New(lsctables.SnglInspiralTable)
 
-  injDict["inj_time"] = viz.timeindays( viz.readcol(injDict["sim_inspiral"], \
-    "end_time", injDict["ifo"] ) )
-  injDict["inj_dist"] = viz.readcol(injDict["sim_inspiral"], "eff_dist", \
-    injDict["ifo"] )
-  injDict["inj_chirp"]  = viz.readcol(injDict["sim_inspiral"], "mchirp" )
-  injDict["inj_m1"] = viz.readcol(injDict["sim_inspiral"], "mass1" )
-  injDict["inj_m2"] = viz.readcol(injDict["sim_inspiral"], "mass2" )
-  injDict["inj_mtotal"] = injDict["inj_m1"] + injDict["inj_m2"]
-  
-  # append combination of tables to list as a dictionary
-  injSet["injections"] = injDict
-  injSets["found"].append(injSet)
+    foundInj[ifos].append( sim )
+    foundTrig[ifos].append(trigger)
+    allFoundTrig.append( trigger )
+    allFoundInj.append( sim )
 
+## read the missed injections
 for misentry, misfile in zip(miscache,misFiles):
-      injSet = {}
-      misDict = {}
-      flist = []
-      flist.append(misfile)
-      misDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(flist)
-
-      misDict["ifotimeslabel"]=misentry.observatory
-
-      if misDict["sim_inspiral"] is None:
-        misDict["mis_time"] = []
-        misDict["mis_dist"] =[]
-        misDict["mis_chirp"] = []
-        misDict["mis_m1"] = []
-        misDict["mis_m2"] = []
-        misDict["mis_mtotal"] = []
-        injSet["missedinjs"] = misDict
-        injSets["missed"].append(injSet.copy())
-        continue
-
-      # apply veto if there is one
-      if opts.veto_file:
-        file = open( opts.veto_file , "r")
-        seglist = segmentsUtils.fromsegwizard(file)
-        file.close()
-        misDict["sim_inspiral"] = \
-        misDict["sim_inspiral"].veto(seglist,"geocent_end_time")
-
-      misDict["mis_time"] = viz.timeindays( viz.readcol(misDict["sim_inspiral"], \
-        "end_time", injDict["ifo"] ) )
-      misDict["mis_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", \
-        injDict["ifo"] )
-      misDict["mis_chirp"]  = viz.readcol(misDict["sim_inspiral"], "mchirp" )
-      misDict["mis_m1"] = viz.readcol(misDict["sim_inspiral"], "mass1" )
-      misDict["mis_m2"] = viz.readcol(misDict["sim_inspiral"], "mass2" )
-      misDict["mis_mtotal"] = misDict["mis_m1"] + misDict["mis_m2"]
-   
-      if opts.min_distance:
-        misDict["l_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", "L1" )
-        misDict["h_dist"] = viz.readcol(misDict["sim_inspiral"], "eff_dist", "H1" )
-        misDict["mchirp"] = viz.readcol(misDict["sim_inspiral"], "mchirp", "H1" )
-        print flist[0]
-      for i in range(len(misDict["mis_time"])):
-        if misDict["mis_dist"][i] < opts.min_distance:
-          print "Missed Distance in " + injDict["ifo"] + " was " + \
-            str(misDict["mis_dist"][i]),
-          print "GPS time " + \
-            str(misDict["sim_inspiral"][i].geocent_end_time)
-          print "L/H Distance ratio was " + \
-            str(misDict["l_dist"][i]/misDict["h_dist"][i])
-          print "Chirp mass was " + \
-            str(misDict["mchirp"][i])
-
-
-      # append combination of tables to list as a dictionary
-      injSet["missedinjs"] = misDict
-      injSets["missed"].append(injSet.copy())
+  
+  # fill the dictionary    
+  sims =   SimInspiralUtils.ReadSimInspiralFromFiles([misfile])
+  if sims:
+    missedInj.extend( sims )
 
 
 ##############################################################################
@@ -356,245 +394,210 @@ if inspiralFiles:
 # set lists of plot symbols
 plot1symbol=['bx','bo','b+','b^','b>','b<']
 plot2symbol=['rx','ro','r+','r^','r>','r<']
+allsymbols=['^','v','<','>','s','+','x','D','d','1','2','3','4','h','H','p']
 
-foundSymbol = {'H1H2':'bx', 'H1L1':'bo', 'H2L1':'b+', 'H1H2L1':'b^'}
-missedSymbol = {'H1H2':'rx', 'H1L1':'ro', 'H2L1':'r+', 'H1H2L1':'r^'}
+# GEO tags missing...
+foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2L1':'<','L1V1':'>', \
+               'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\
+               'H1H2L1V1':'p'}
+#missedSymbol = {'H1H2':'rx', 'H1L1':'ro', 'H2L1':'r+', 'H1H2L1':'r^'}
+foundSymbols = ['','','','','','','','' ]
 
 gpsDigits = "9"
 xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
 ##############################################################################
-# Initialise all the stuffs 
+# Create all the plots
 
-# plot time V dist
-if opts.time_dist:  
-  figure()
-  t=0
-
-  # plot found
-  for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
-    try:
-      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for found injections not found; uses default one'
-      symbolf = 'bx'
-    try:
-      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for missed injections not found; uses default one'
-      symbolm = 'bx'
-    
-    semilogy(foundSet['injections']['inj_time'],foundSet['injections']['inj_dist'],\
-             symbolf, label=foundSet['injections']['ifotimeslabel']+" found",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-
-    semilogy(missedSet['missedinjs']['mis_time'],missedSet['missedinjs']['mis_dist'],\
-        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
-        markerfacecolor=None,markeredgecolor='r',markersize=10,\
-        markeredgewidth=1)
-    t+=1
-    hold(True) 
-    
-  if inspiralFiles:
-    semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
-      linewidth=1)
-
-  if opts.y_min:
-    ylim(ymin=opts.y_min)
-  if opts.y_max:
-    ylim(ymax=opts.y_max)
-    
-  if opts.legend:
-    legend()
-
-  title(opts.title + 'Distance vs Time', size='x-large')
-  xlabel('Injected End Time (days after start of run)', size='x-large')
-  ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  gca().grid(True)
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "time-dist-log")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("End time versus distance")
-
-# plot mchirp V dist log plot
-if opts.mchirp_dist_log:  
-  figure()
-  sym=0
-  t=0
-  for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
-    try:
-      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for found injections not found; uses default one'
-      symbolf = 'bx'
-    try:
-      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for missed injections not found; uses default one'
-      symbolm = 'bx'
-
-    semilogy(foundSet['injections']['inj_chirp'],foundSet['injections']['inj_dist'],\
-             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    semilogy(missedSet['missedinjs']['mis_chirp'],missedSet['missedinjs']['mis_dist'],\
-        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
-        markerfacecolor=None,markeredgecolor='r',markersize=10,\
-        markeredgewidth=1)
-    hold(True) 
-    sym+=1
-    t+=1
-  if opts.legend:
-    legend()
-  title(opts.title + 'Distance vs Chirp Mass', size='x-large')
-  xlabel('Injected Chirp Mass (Msun)', size='x-large')
-  ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #ylim(10, 1000)
-  gca().grid(True)
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "time-mchirp-log")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("End time versus chirp mass ")
-    
-
-# plot mchirp V dist linear plot
-if opts.mchirp_dist_linear:  
-  figure()
-  sym=0
-  t=0
-  try:
-    symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
-  except:
-    print 'symbol for found injections not found; uses default one'
-    symbolf = 'bx'
-  try:
-    symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
-  except:
-    print 'symbol for missed injections not found; uses default one'
-    symbolm = 'bx'
-  for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
-
-    plot(foundSet['injections']['inj_chirp'],foundSet['injections']['inj_dist'],\
-             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    plot(missedSet['missedinjs']['mis_chirp'],missedSet['missedinjs']['mis_dist'],\
-        symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
-        markerfacecolor=None,markeredgecolor='r',markersize=10,\
-        markeredgewidth=1)
-    hold(True) 
-    sym+=1
-    t+=1
-  if opts.legend:
-    legend()
-  title(opts.title + 'Distance vs Chirp Mass', size='x-large')
-  xlabel('Injected Chirp Mass (Msun)', size='x-large')
-  ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #ylim(10, 100)
-  gca().grid(True)
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "time-mchirp-linear")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("End time versus chirp mass (linear) ")
-
-# plot mtotal V dist log plot
-if opts.mtotal_dist_log:
-  figure()
-  sym=0
-  t=0
-  for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
-    try:
-      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for found injections not found; uses default one'
-      symbolf = 'bx'
-    try:
-      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for missed injections not found; uses default one'
-      symbolm = 'bx'
-
-    semilogy(foundSet['injections']['inj_mtotal'],foundSet['injections']['inj_dist'],\
-             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    semilogy(missedSet['missedinjs']['mis_mtotal'],missedSet['missedinjs']['mis_dist'],\
-             symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
-             markerfacecolor=None,markeredgecolor='r',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    sym+=1
-    t+=1
-  if opts.legend:
-    legend()
-  title(opts.title + 'Distance vs Total Mass', size='x-large')
-  xlabel('Injected Total Mass (Msun)', size='x-large')
-  ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #ylim(10, 1000)
-  gca().grid(True)
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-log")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("Distnace versus total mass ")
-
-  
-# plot mtotal V dist linear plot
+xplot=['mchirp']
+yplot=['distance']
+yscale = ['lin']
+if opts.time_dist:
+  xplot.append('time')
+  yplot.append('eff_dist')
+  yscale.append('log')
+if opts.mchirp_dist_linear:
+  xplot.append('mchirp')
+  yplot.append('eff_dist')
+  yscale.append('lin')
+if  opts.mchirp_dist_log:
+  xplot.append('mchirp')
+  yplot.append('eff_dist')
+  yscale.append('log')
 if opts.mtotal_dist_linear:
-  figure()
-  sym=0
-  t=0
-  for foundSet,missedSet in zip(injSets["found"],injSets["missed"]):
-    try:
-      symbolf = foundSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for found injections not found; uses default one'
-      symbolf = 'bx'
-    try:
-      symbolm = missedSymbol[foundSet['injections']['ifotimeslabel']]
-    except:
-      print 'symbol for missed injections not found; uses default one'
+  xplot.append('mtotal')
+  yplot.append('eff_dist')
+  yscale.append('lin')
+if opts.mtotal_dist_log:
+  xplot.append('mtotal')
+  yplot.append('eff_dist')
+  yscale.append('log')
 
-    plot(foundSet['injections']['inj_mtotal'],foundSet['injections']['inj_dist'],\
-             symbolf,label=foundSet["injections"]["ifotimeslabel"]+" found",\
-             markerfacecolor=None,markeredgecolor='b',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    plot(missedSet['missedinjs']['mis_mtotal'],missedSet['missedinjs']['mis_dist'],\
-             symbolm,label=missedSet["missedinjs"]["ifotimeslabel"]+" missed",\
-             markerfacecolor=None,markeredgecolor='r',markersize=10,\
-             markeredgewidth=1)
-    hold(True)
-    sym+=1
-    t+=1
-  if opts.legend:
+
+# loop over all the plotting types
+for xname, yname, ys in zip( xplot, yplot, yscale):
+
+  # create a plot for each ifo in the list
+  for ifo in ifoList:
+
+    figure()
+    sym = 0
+
+    # loop over the different types for found injections
+    for type in foundInj.keys():
+
+      if ifo in type:
+        col = 'b'
+      else:
+        col = 'm'
+
+      px, py, legx, legy = getData( foundInj[type], xname, yname, ifo )
+      plot( px, py, col+foundSymbol[type], markerfacecolor=None,\
+        markeredgecolor=col, label = type, markersize=10, markeredgewidth=1)
+
+    # plot the missed ones
+    px, py, legx, legy = getData( missedInj, xname, yname, ifo )
+    plot( px, py, 'ro', markerfacecolor=None,label='missed',\
+          markeredgecolor='r',markersize=10, markeredgewidth=1)
+    
+    if inspiralFiles:
+      semilogy(startTime, horizon, 'g.', label='Horizon (Mpc)',
+               linewidth=1)
+
+    titleText = legx+' vs '+legy +' '+ifo
+    title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')
+    xlabel(legx, size='x-large')
+    ylabel(legy+' '+ifo, size='x-large')
+    grid(True)
     legend()
-  title(opts.title + 'Distance vs Total Mass', size='x-large')
-  xlabel('Injected Total Mass (Msun)', size='x-large')
-  ylabel('Injected Effective Distance (Mpc)', size='x-large')
-  #ylim(1, 200)
-  gca().grid(True)
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "dist-mtotal-linear")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-    tagList.append("Distance versus total mass (linear)")
 
+    if opts.enable_output:
+      if ys=='lin':
+        savePlot( opts, xname+'-'+yname+'-lin-'+ifo, titleText )
+      if ys=='log':
+        axes().set_yscale('log')    
+        savePlot( opts, xname+'-'+yname+'-log-'+ifo, titleText )
+
+ ##  # create the plot of everything (using the px, py from above...)
+##   figure()
+##   plot( px, py, 'ro', markerfacecolor=None,\
+##         markeredgecolor='r',markersize=10, markeredgewidth=1)
+
+##   # get the found  ones
+##   px, py, legx, legy = getData( allFoundInj,  xname, yname, 'H1' )
+##   plot( px, py, 'bo', markerfacecolor=None,\
+##         markeredgecolor='b',markersize=10, markeredgewidth=1)
+    
+
+##   titleText = legx+' vs '+legy +' all'
+##   title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')
+##   xlabel(legx, size='x-large')
+##   ylabel(legy+' H1', size='x-large')
+##   grid(True)
+##   legend()
+  
+##   if opts.enable_output:
+##     if ys=='lin':
+##       savePlot( opts, xname+'-'+yname+'-lin-H1', titleText )
+##     if ys=='log':
+##       axes().set_yscale('log')    
+##       savePlot( opts, xname+'-'+yname+'-log-H1', titleText )
+      
+    
+##########################################
+# plot of efficiency vs different values
+
+
+### print the closest missed injections
+if opts.number_missed>0:
+
+  # get the distances FIXME: H1 distance or what?
+  distVector = viz.readcol( missedInj, 'eff_dist', 'H1' )
+  index = numpy.argsort( distVector )
+
+  n=min( len(index), opts.number_missed)
+  for i in range( n-1, -1, -1):
+    idx = index[i]
+    printMissed( missedInj[idx], 'H1')  
+
+
+# put together what efficiency plots we need
+valueList = [ 'eff_dist_h', \
+              'distance']
+nameList = ["efficiency-eff_dist", "efficiency_dist"]
+tagnameList = ["Efficiency versus distance", "Efficiency versus distance"]
+
+indexPlots = []
+if opts.eff_vs_eff_dist:
+  indexPlots.append(0)
+if opts.eff_vs_distance:
+  indexPlots.append(1)
+
+ifo = 'H1'
+  
+### create the efficiency plots
+for index in indexPlots:
+  
+  figure()
+  viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
+                      plot_type = 'log', \
+                      nbins = 20, output_name = None, errors=True )
+
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, nameList[index])
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+                                              dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(tagnameList[index]+ifo)
+
+
+
+if opts.eff_vs_snr:
+  
+  figure()
+  totalInj = len(allFoundInj) + len(missedInj)
+  print allFoundTrig
+  values = viz.readcol( allFoundTrig, 'stat')
+  print values
+  
+  viz.cumhistcol(allFoundTrig, 'snr', 'linear', normalization = totalInj, \
+                 xlimit = [min(values), max(values)], output_name = None)
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "efficiency_snr")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,\
+                                              dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append("Efficiency versus snr")
+    
+if opts.eff_vs_snr_chi:
+  
+  figure()
+  totalInj = len(allFoundInj) + len(missedInj)
+  values = viz.readcol( allFoundTrig, 'snr_over_chi')  
+  
+  viz.cumhistcol(allFoundTrig, 'snr_over_chi', 'linear', \
+                 normalization = totalInj, \
+                 xlimit = [min(values), max(values)], \
+                 output_name = None)
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "efficiency_snr-chi")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,\
+                                              dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append("Efficiency versus snr-chi")
+
+
+
+print fnameList
 
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  html_filename = InspiralUtils.write_html_output(opts, args, \
+                                                  fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-
 
 
 #######################################################################################3
