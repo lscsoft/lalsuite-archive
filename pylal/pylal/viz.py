@@ -8,6 +8,8 @@ from matplotlib.colors      import normalize, Colormap
 from optparse import * 
 from pylab    import *
 
+import numpy
+
 #####################################################################
 # use tex labels
 params =  {'text.usetex': True }
@@ -161,29 +163,42 @@ def timeindays(col_data ):
 
 #############################################################################
 # make steps so that fill will work properly
-"""
-Function to create an array of steps suitable for filling between.
-"""
-def makesteps(x,y1,y2):
-  xnew=[]
-  y1new=[y1[0]]
-  y2new=[y2[0]]
-  for i in arange(size(x)-1):
-    xnew.append(x[i])
-    xnew.append(x[i+1])
-    y1new.append(y1[i])
-    y1new.append(y1[i+1])
-    y2new.append(y2[i])
-    y2new.append(y2[i+1])
-  xnew.append(x[-1])
+def makesteps(left_edges, y1, y2=None):
+  """
+  Return ordinates and coordinates for the vertices of a polygon with
+  "stairsteps" with upper heights y1 and lower heights y2 (zero if y2 is
+  None).  The right edge of the polygon is extrapolated from the left_edges,
+  assuming uniform spacing.
+  """
+  n = len(left_edges)
+  if len(y1) != n or (y2 is not None and len(y2) != n):
+    raise ValueError, "left_edges, y1, and y2 (if specified) must have "\
+      "matching lengths"
+  if n < 2:
+    raise ValueError, "don't know how to form stairs with less than 2 points"
 
-  tmpx=asarray(xnew)
-  tmpy1=asarray(y1new)
-  tmpy2=asarray(y2new)
-  xnew=concatenate((tmpx,tmpx[::-1]))
-  ynew=concatenate((tmpy1,tmpy2[::-1]))
+  if y2 is None: y2 = y1
+  y1 = numpy.asanyarray(y1)
+  y2 = numpy.asanyarray(y2)
+  
+  right_edge = left_edges[-1] + (left_edges[1] - left_edges[0])
+  
+  # fill x
+  x_new = numpy.empty(4*n, dtype=left_edges.dtype)
+  x_new[:2*n-1:2] = left_edges
+  x_new[1:2*n-1:2] = left_edges[1:]
+  x_new[2*n-1] = right_edge
+  x_new[2*n:] = x_new[2*n-1::-1]  # make it a palindrome
+  
+  # fill y
+  y_new = numpy.empty(4*n, dtype=min(y1.dtype, y2.dtype))
+  y_new[:2*n:2] = y1
+  y_new[1:2*n:2] = y1
+  y_new[2*n::2] = y2[::-1]
+  y_new[2*n+1::2] = y2[::-1]
+  
+  return x_new, y_new
 
-  return xnew,ynew
 
 
 #######################################################################
