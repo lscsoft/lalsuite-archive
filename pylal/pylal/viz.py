@@ -7,6 +7,7 @@ from matplotlib.collections import PolyCollection
 from matplotlib.colors      import normalize, Colormap
 from optparse import * 
 from pylab    import *
+import numpy
 
 import numpy
 
@@ -931,87 +932,81 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   @param nbins: number of bins to use in histogram
   @param stat: the statistic being used
   """
+  internal_min = numpy.inf
+  internal_max = -numpy.inf
   
-  hold(False)
+  # filter down to ifolist
+  if ifolist:
+    if trigs:
+      trigs = trigs.coinctype(ifolist)
+    for this_slide in slide_trigs:
+      this_slide['coinc_trigs'] = this_slide['coinc_trigs'].coinctype(ifolist)
   
   # read in zero lag triggers
   if trigs:
-    if ifolist:
-      trigs = trigs.coinctype(ifolist)
     snr = trigs.getstat()
-    if len(snr):
-      if not min_val:
-        min_val = min(snr)
-      if not max_val:
-        max_val = max(snr)
+    if len(snr) > 0:
+      internal_max = max(internal_max, snr.max())
+      internal_min = min(internal_min, snr.min())
   
   # read in slide triggers
   if slide_trigs:
-    slide_min = 0
-    slide_max = 0
-    
     slide_snr_list = []
     for this_slide in slide_trigs:
-      if ifolist:
-        slide = this_slide['coinc_trigs'].coinctype(ifolist)
-      else:
-        slide = this_slide['coinc_trigs']
-
-      slide_snr = slide.getstat()
+      slide_snr = this_slide['coinc_trigs'].getstat()
       slide_snr_list.append(slide_snr)
       
-      if len(slide_snr):
-        slide_max = max(slide_max, max(slide_snr))
-        slide_min = min(slide_min, min(slide_snr))
-    
-    if not min_val:
-      min_val = slide_min
-    if not max_val:
-      max_val = slide_max
+      if len(slide_snr) > 0:
+        internal_max = max(internal_max, slide_snr.max())
+        internal_min = min(internal_min, slide_snr.min())
 
   # set up the bin boundaries
   if not max_val:
-    max_val = 10.
+    max_val = internal_max
   if not min_val:
+    min_val = internal_min
+  
+  if min_val >= max_val:
+    # CHECKME: what should we do without any trigs or slide_trigs?
+    # This is the old behavior.
     min_val = 5.
+    max_val = 10.
+  if min_val == max_val:
+    # NB: this is numpy.histogram's default behavior for equal max and min
+    min_val -= 0.5
+    max_val += 0.5
     
-  step = (max_val - min_val)/nbins
-  bins = arange(min_val, max_val, step)
+  bins = numpy.linspace(min_val, max_val, nbins)
 
   # hist of the zero lag:
   if trigs:
-    [zero_dist,bin,info] = hist(snr,bins)
-    zero_dist = concatenate( (zeros(1),zero_dist) )
-    cum_dist_zero = sum(zero_dist)-cumsum(zero_dist[0:size(bin)])
+    zero_dist, xbin = numpy.histogram(snr, bins)
+    cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
-  if slide_trigs:  
-    slide_dist = []
+  if slide_trigs:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
-      [num_slide,bin,info] = hist(slide_snr,bins)
-      num_slide = concatenate( (zeros(1),num_slide) )
-      cum_slide = sum(num_slide)-cumsum(num_slide[0:size(bin)])
+      num_slide, bin = numpy.histogram(slide_snr, bins)
+      cum_slide = num_slide[::-1].cumsum()[::-1]
       cum_dist_slide.append(cum_slide)
-    cum_dist_slide = reshape(array(cum_dist_slide), \
-      (len(slide_snr_list),nbins))
-    slide_mean = mean(cum_dist_slide)
-    slide_std = std(cum_dist_slide)
+    cum_dist_slide = numpy.array(cum_dist_slide)
+    slide_mean = cum_dist_slide.mean(axis=0)
+    slide_std = cum_dist_slide.std(axis=0)
 
   if "bitten_l" in stat:
      xvals=bins
   else:
-     xvals=bins*bins;
+     xvals=bins*bins
 
-  clf()
-  hold(True)
+  figure()
   # plot zero lag
-  if trigs and len(trigs):
+  if trigs:
     semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
         markersize=12)
   
   # plot time slides
-  ds=step/2
+  ds = (bins[1] - bins[0]) / 2
   if slide_trigs and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
@@ -1053,52 +1048,51 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   @param nbins: number of bins to use in histogram
   @param stat: the statistic being used
   """
-
-  hold(False)
-
+  internal_min = numpy.inf
+  internal_max = -numpy.inf
+  
+  # filter down to ifolist
+  if ifolist:
+    if trigs:
+      trigs = trigs.coinctype(ifolist)
+    for this_slide in slide_trigs:
+      this_slide['coinc_trigs'] = this_slide['coinc_trigs'].coinctype(ifolist)
+  
   # read in zero lag triggers
   if trigs:
-    if ifolist:
-      trigs = trigs.coinctype(ifolist)
     snr = trigs.getstat()
-    if len(snr):
-      if not min_val:
-        min_val = min(snr)
-      if not max_val:
-        max_val = max(snr)
-
+    if len(snr) > 0:
+      internal_max = max(internal_max, snr.max())
+      internal_min = min(internal_min, snr.min())
+  
   # read in slide triggers
   if slide_trigs:
-    slide_min = 0
-    slide_max = 0
-
     slide_snr_list = []
     for this_slide in slide_trigs:
-      if ifolist:
-        slide = this_slide['coinc_trigs'].coinctype(ifolist)
-      else:
-        slide = this_slide['coinc_trigs']
-
-      slide_snr = slide.getstat()
+      slide_snr = this_slide['coinc_trigs'].getstat()
       slide_snr_list.append(slide_snr)
-
-      if len(slide_snr):
-        slide_max = max(slide_max, max(slide_snr))
-        slide_min = min(slide_min, min(slide_snr))
-
-    if not min_val:
-      min_val = slide_min
-    if not max_val:
-      max_val = slide_max
+      
+      if len(slide_snr) > 0:
+        internal_max = max(internal_max, slide_snr.max())
+        internal_min = min(internal_min, slide_snr.min())
 
   # set up the bin boundaries
   if not max_val:
-    max_val = 10.
+    max_val = internal_max
   if not min_val:
+    min_val = internal_min
+  
+  if min_val >= max_val:
+    # CHECKME: what should we do without any trigs or slide_trigs?
+    # This is the old behavior.
     min_val = 5.
-
-  step = (max_val - min_val)/nbins
-  bins = arange(min_val, max_val, step)
+    max_val = 10.
+  if min_val == max_val:
+    # NB: this is numpy.histogram's default behavior for equal max and min
+    min_val -= 0.5
+    max_val += 0.5
+    
+  bins = numpy.linspace(min_val, max_val, nbins)
 
   # hist of the zero lag:
   if trigs:
@@ -1110,12 +1104,11 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      [num_slide,bin,info] = hist(slide_snr,bins)
+      num_slide, bin = numpy.histogram(slide_snr, bins)
       hist_slide.append(num_slide)
-    hist_slide = reshape(array(hist_slide), \
-      (len(slide_snr_list),nbins))
-    slide_mean = mean(hist_slide)
-    slide_std = std(hist_slide)
+    hist_slide = numpy.array(hist_slide)
+    slide_mean = hist_slide.mean(axis=0)
+    slide_std = hist_slide.std(axis=0)
 
   if "bitten_l" in stat:
      xvals=bins
@@ -1130,7 +1123,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
         markersize=12)
 
   # plot time slides
-  ds=step/2
+  ds = (bins[1] - bins[0]) / 2
   if slide_trigs and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
@@ -1148,7 +1141,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   else: xlab = 'Combined Statistic'
   xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs ' + xlab
+  title_text = 'Histogram of Number of events vs ' + xlab
   if ifolist:
     title_text += ' for '
     for ifo in ifolist:
