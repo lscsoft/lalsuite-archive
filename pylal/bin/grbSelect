@@ -275,7 +275,7 @@ def checkIFO( ifo_times, grb_list, match):
       return False
 
   else:
-    if ifosValid<=ifosRequested:
+    if ifosRequested<=ifosValid:
       return True
     else:
       return False
@@ -511,8 +511,6 @@ for ind in index:
 
 
   # find the analysable IFO for this GRB with Nick's function
-  ## print "\n==================================="
-  ##   print grb.event_number_grb
   offSourceSegment, grb_ifolist = \
                     grbsummary.multi_ifo_compute_offsource_segment(\
       segdict, onSource, padding_time=opts.padding_time , \
@@ -525,8 +523,6 @@ for ind in index:
     if abs(offSourceSegment)!=offSourceLength:
       offSourceSegment=None
       grb_ifolist=[]
-
-
 
   # create the segment plot
   link=None
@@ -584,8 +580,6 @@ for ind in index:
     # append to xml file
     if opts.output_xml:
       tbl.append(grb)
-
-
 
   # double check to see if the individual IFO are contained in the segments
   # and if the duration is correct
