@@ -527,10 +527,13 @@ for ind in index:
   # create the segment plot
   link=None
   if opts.plot_segments:
+
+    filePrefix = grb_ifolist
     if offSourceSegment is None:
       offSourceSegment = \
         segments.segment(onSource[0] - opts.num_trials*onSourceLength,
                          onSource[1] + opts.num_trials*onSourceLength)
+      filePrefix='None'
     effective_window = segments.segmentlist([offSourceSegment]).protract(opts.padding_time)
     effective_segdict = segdict.map(lambda sl: sl & effective_window)
     plot = PlotSegmentsPlot(grb.start_time)
@@ -538,7 +541,7 @@ for ind in index:
     plot.set_window(offSourceSegment, opts.padding_time)
     plot.highlight_segment( onSource )
     plot.finalize()
-    filename = "".join(grb_ifolist) + "-PLOTSEGMENT_" + grb.event_number_grb
+    filename = "".join(filePrefix) + "-PLOTSEGMENT_" + grb.event_number_grb
     filename = "-".join((filename, str(offSourceSegment[0]),
                          str(abs(offSourceSegment))))
     filename += ".png"
@@ -556,7 +559,7 @@ for ind in index:
       else:
         line = addColumnEntry( line , '%.2f' % antennaFactor[ifo], link=link  )        
     else:
-      line = addColumnEntry( line , '--', link=link)
+      line = addColumnEntry( line , 'N/A', link=link)
   
   # Now finally check if we got the IFO times that was requested
   if opts.ifo_times=='all' or \
