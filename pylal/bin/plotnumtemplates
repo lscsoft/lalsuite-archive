@@ -5,9 +5,10 @@ plotting routines to show TMPLTBANK and TRIGBANK bank sizes
 Example: 
 you can use a cache file that will be parsed for TMPLTBANK and TRIGBANK glob
 
->>>  /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output --cache-file 
->>> ../playground/inspiral_hipe_playground_intermediate_data-847555570-849974770.cache
->>>   --ifo-times H1H2L1 --user-tag plotnumtemplates --verbose
+>>>  /archive/home/cokelaer/lscsoft/bin/plotnumtemplates --enable-output 
+>>>  --cache-file ihope.cache --bank-pattern TMPLTBANK_PLAYGROUND
+>>>  --trigbank-pattern 'TRIGBANK_*_PLAYGRPUND'
+>>>   --ifo-times H1H2L1 --verbose
 
 or with a two glob options
 
@@ -55,22 +56,26 @@ def plotnumtemplates_tmpltbank_size(opts):
   if len(tmpltSumm)!=0:
     for ifo in tmpltSumm.keys():
       numTemplates = tmpltSumm[ifo].getColumnByName('nevents').asarray()
-      startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName('out_start_time').asarray())
+      startTime = viz.timeindays(tmpltSumm[ifo].getColumnByName(
+        'out_start_time').asarray())
       style = colors[ifo] + 'x'
       plot(startTime, numTemplates, style, label=ifo+' tmplt',\
           markersize=12, markeredgewidth=1)
       if opts.verbose is  True:
-        print "Number of templates for :" +ifo+ str(startTime) +" " + str(numTemplates)
+        print "Number of templates for :" +ifo+ str(startTime) +" " + \
+            str(numTemplates)
 
   if len(trigSumm)!=0:
     for ifo in trigSumm.keys():
       numTrigs = trigSumm[ifo].getColumnByName('nevents').asarray()
-      startTime = viz.timeindays(trigSumm[ifo].getColumnByName('out_start_time').asarray())
+      startTime = viz.timeindays(trigSumm[ifo].getColumnByName(
+        'out_start_time').asarray())
       style = colors[ifo] + 'o'
       plot(startTime, numTrigs, style, label=ifo+' trig',\
           markersize=12, markeredgewidth=1)
       if opts.verbose is True:
-        print "Number templates for :" +ifo+ str(startTime) +" " + str(numTrigs)
+        print "Number templates for :" +ifo+ str(startTime) +" " + \
+            str(numTrigs)
       
   xlabel('Days after start of run', size='x-large')
   ylabel('Number of templates', size='x-large')
@@ -79,7 +84,8 @@ def plotnumtemplates_tmpltbank_size(opts):
   
   if opts.enable_output: 
     fname = InspiralUtils.set_figure_name(opts, "banksize")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, 
+        dpi_thumb=opts.figure_resolution)
     return fname,fname_thumb
   else: return [], []
 
@@ -113,7 +119,7 @@ def readFiles(fList):
     doc = ligolw.Document()
     # read in ifo from process, as not stored in SearchSumm
     ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-	isProcess)).parse(fileobj)
+        isProcess)).parse(fileobj)
     ifo = doc.childNodes[0].getColumnByName('ifos')[0]
     if thisFile.endswith(".gz"):
        fileobj.seek(0)
@@ -180,12 +186,13 @@ def parse_command_line():
       type="int",  metavar="GPSSTARTTIME",\
       help="gps start time (for naming figure and output files")
   parser.add_option("","--gps-end-time",action="store",\
-      type="int",  metavar=" GPSENDTIME",\
+      type="int",  metavar="GPSENDTIME",\
       help="gps end time (for naming figure and output files")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("-i", "--ifo-times", action="store", type="string",\
-      metavar="IFOTIMES", help="ifo times is used as a prefix for the output files" )
+      metavar="IFOTIMES", \
+      help="ifo times is used as a prefix for the output files" )
   parser.add_option("", "--ifo-pattern",action="store",type="string",\
       default=None, metavar="IFO_PATTERN", \
       help="read a file of a particular description  from cache file" )
@@ -270,19 +277,25 @@ ifo_pattern += ']'
 if opts.ifo_pattern:
   ifo_pattern = opts.ifo_pattern
 
-if opts.cache_file:
+# identify tmpltbank files from cache
+if opts.cache_file and opts.bank_pattern:
   tmpltbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.bank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
-  trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trigbank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
-
-  if opts.verbose is True:
-    print tmpltbankFiles
   if not tmpltbankFiles:
-    print >>sys.stderr, "Must supply a list of input files. pattern "+opts.bank_pattern +' returns nothing'
-    sys.exit(1) 
-  else:
-    tmpltSumm = readFiles(tmpltbankFiles)
-    trigSumm= readFiles(trigbankFiles)
+    print >>sys.stderr, "Failed to read any files matching the pattern " + \
+        opts.bank_pattern + " from the cache"
+  if opts.verbose: print tmpltbankFiles
+  tmpltSumm = readFiles(tmpltbankFiles)
 
+
+# identify trigbank files from cache
+if opts.cache_file and opts.trigbank_pattern:
+  trigbankFiles = lal.Cache().fromfile(open(opts.cache_file)).sieve(description = (opts.trigbank_pattern), exact_match = True).sieve(ifos = (ifo_pattern)).checkfilesexist()[0].pfnlist()
+  if not trigbankFiles:
+    print >>sys.stderr, "Failed to read any files matching the pattern " + \
+        opts.bank_pattern + " from the cache"
+  if opts.verbose: print trigbankFiles 
+  trigSumm= readFiles(trigbankFiles)
+    
 # ============================================================================
 # Make plot of tmpltbank size 
 fname, fname_thumb =  plotnumtemplates_tmpltbank_size(opts)
@@ -293,7 +306,8 @@ tagList.append("Template Bank Size")
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, 
+      tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #============================================================================
