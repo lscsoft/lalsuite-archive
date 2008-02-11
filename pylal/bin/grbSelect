@@ -182,6 +182,8 @@ def parse_command_line():
        help="restrict the off-source trials to be arranged"\
             " symmetrically about the on-source segment "\
             "(default: asymmetrical distribution allowed)")
+  parser.add_option("-O", "--plot-offset", type="int", default=0,
+      help="offset-time added to the plots")   
   parser.add_option("","--plot-segments",action="store_true",\
       default=False,help=" plot the segments" )
   parser.add_option("-v","--verbose",action="store_true",\
@@ -506,8 +508,8 @@ for ind in index:
     line = addColumnEntry( line , 'n/a' )
 
   # position
-  line = addColumnEntry( line , '%f' % grb.event_ra )
-  line = addColumnEntry( line , '%f' % grb.event_dec )  
+  line = addColumnEntry( line , '%.2f' % grb.event_ra )
+  line = addColumnEntry( line , '%.2f' % grb.event_dec )  
 
 
   # find the analysable IFO for this GRB with Nick's function
@@ -534,11 +536,11 @@ for ind in index:
         segments.segment(onSource[0] - opts.num_trials*onSourceLength,
                          onSource[1] + opts.num_trials*onSourceLength)
       filePrefix='None'
-    effective_window = segments.segmentlist([offSourceSegment]).protract(opts.padding_time)
+    effective_window = segments.segmentlist([offSourceSegment]).protract(opts.plot_offset)
     effective_segdict = segdict.map(lambda sl: sl & effective_window)
     plot = PlotSegmentsPlot(grb.start_time)
     plot.add_contents(effective_segdict)
-    plot.set_window(offSourceSegment, opts.padding_time)
+    plot.set_window(offSourceSegment, opts.plot_offset)
     plot.highlight_segment( onSource )
     plot.finalize()
     filename = "".join(filePrefix) + "-PLOTSEGMENT_" + grb.event_number_grb
