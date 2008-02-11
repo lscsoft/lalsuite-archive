@@ -119,6 +119,8 @@ class line_plot(QGraphicsView):
 		self.app=parent.app
 		
 		self.curves=[]
+		self.diurnal_data=[]
+		self.start_gps=630720013
 		self.colors=["blue", "red", "green", "black", "magenta", "cyan"]
 		self.title=title
 		self.xlab=xlab
@@ -145,6 +147,8 @@ class line_plot(QGraphicsView):
 		self.ymin=None
 
 		self.lines=[]
+		
+		self.view_mode="xy"
 
 		self.setup()
 		
@@ -198,7 +202,7 @@ class line_plot(QGraphicsView):
 		a.show()
 		self.min_y_label=a
 
-	def refresh(self):		
+	def refresh_xy(self):
 		Y=[]
 		X=[]
 		self.points=[]
@@ -251,6 +255,34 @@ class line_plot(QGraphicsView):
 			if color_idx>=len(self.colors) : color_idx=0
 			self.canvas.addItem(a)
 			self.lines.append(a)
+			
+	def refresh_diurnal(self):
+		self.curves=[]
+		for piece in self.diurnal_data:
+			accum=[]
+			for i in range(24):
+				accum.append(0.0)
+			count=copy.copy(accum)
+			for (gps, x) in piece:
+				hours=(gps-self.start_gps)//3600
+				hours=hours % 24
+				accum[hours]=accum[hours]+x
+				count[hours]=count[hours]+1
+			curve=[]
+			for i in range(24):
+				y=accum[i]/count[i]
+				curve.append((i, y))
+			self.curves.append(curve)
+		self.refresh_xy()
+			
+	def refresh(self):
+		if self.view_mode=="xy" : 
+			self.refresh_xy()
+			return
+		if self.view_mode=="diurnal" : 
+			self.refresh_diurnal()
+			return
+		print "unknown view mode "+self.view_mode
 
 	def subtract_means(self, start=0, stop=None) :
 		if stop==None : stop=len(self.curves)
@@ -1087,6 +1119,31 @@ class powerflux(QMainWindow):
 	self.power_accum_plots.append(self.avg_power_evolution)
 
 	f=QWidget()
+	self.tabs.addTab(f, "Diurnal variation")
+	layout=QGridLayout(f)
+
+	self.diurnal_plots=[]
+	
+	self.diurnal_tmedians=line_plot(self, "Hour", "Power", "Diurnal variation of SFT noise level", width=600, height=540)
+	layout.addWidget(self.diurnal_tmedians, 0, 0)
+	self.diurnal_plots.append(self.diurnal_tmedians)
+
+	self.diurnal_weight=line_plot(self, "Hour", "Weight", "Diurnal variation of SFT weight", width=600, height=540)
+	layout.addWidget(self.diurnal_weight, 1, 0)
+	self.diurnal_plots.append(self.diurnal_weight)
+
+	self.diurnal_power=line_plot(self, "Hour", "Power", "Diurnal variation of power", width=600, height=540)
+	layout.addWidget(self.diurnal_power, 0, 1)
+	self.diurnal_plots.append(self.diurnal_power)
+	
+	self.diurnal_summand=line_plot(self, "Hour", "Power", "Diurnal variation of power sum components", width=600, height=540)
+	layout.addWidget(self.diurnal_summand, 1, 1)
+	self.diurnal_plots.append(self.diurnal_summand)
+
+	for plot in self.diurnal_plots:
+		plot.view_mode="diurnal"
+
+	f=QWidget()
 	self.tabs.addTab(f, "Freehand")
 	layout=QGridLayout(f)
 	
@@ -1156,6 +1213,9 @@ class powerflux(QMainWindow):
 			return
 	    if index=="Power accumulation":
 			self.update_power_accumulation()
+			return
+	    if index=="Diurnal variation":
+			self.update_diurnal_variation()
 			return
 
     def update_maps(self, center=None):
@@ -1251,7 +1311,45 @@ class powerflux(QMainWindow):
 		self.row_info.setItem(i, 9, QTableWidgetItem(str(x[1])))
 	
 	self.row_info.resizeColumnsToContents()
-	    
+    
+    def update_diurnal_variation(self, center=None):
+	if center == None : center=self.cand_entry.cand
+
+	
+	self.diurnal_tmedians.diurnal_data=[]
+	for dataset in datasets :
+		curve=map(None, dataset['gps'], dataset['TMedians'])
+		self.diurnal_tmedians.diurnal_data.append(curve)
+		
+    	psum=power_sum(center)
+	weight=map(lambda x: x[0], psum)
+	power=map(lambda x: x[1], psum)
+	summand=map(lambda x: x[0]*x[1], psum)
+	
+	self.diurnal_weight.diurnal_data=[]
+	self.diurnal_summand.diurnal_data=[]
+	self.diurnal_power.diurnal_data=[]
+	
+	start=0
+	for dataset in datasets :
+		gps=dataset['gps']
+		count=len(gps)
+		
+		curve=map(None, gps, weight[start:start+count])
+		self.diurnal_weight.diurnal_data.append(curve)
+	
+		curve=map(None, gps, summand[start:start+count])
+		self.diurnal_summand.diurnal_data.append(curve)
+		
+		curve=map(None, gps, power[start:start+count])
+		self.diurnal_power.diurnal_data.append(curve)
+		
+		start+=count
+	
+	
+	for plot in self.diurnal_plots:
+		plot.refresh()
+
 
 app=None
 	
