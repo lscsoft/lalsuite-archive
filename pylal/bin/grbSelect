@@ -504,8 +504,12 @@ for ind in index:
                              int(grb.email_time) )
     else:
       line = addColumnEntry( line , '%.3f' % float(grb.event_epoch) ) 
-  else: 
-    line = addColumnEntry( line , 'n/a' )
+  else:
+    if int(grb.email_time)>0:
+      line = addColumnEntry( line , 'n/a' , link = "http://gcn.gsfc.nasa.gov/gcn3/%d.gcn3"% \
+                             int(grb.email_time) )
+    else:
+      line = addColumnEntry( line , 'n/a' )      
 
   # position
   line = addColumnEntry( line , '%.2f' % grb.event_ra )
