@@ -63,17 +63,17 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self):
-		from glue.ligolw import dbtables
-		self.connection = dbtables.DBTable_get_connection()
-		self.xmldoc = dbtables.DBTable_get_xml()
-
-	def summarize(self, live_time_program, verbose = False):
+	def __init__(self, live_time_program, verbose = False):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
 		and before you want any of this information.
 		"""
+
+		from glue.ligolw import dbtables
+		self.connection = dbtables.DBTable_get_connection()
+		self.xmldoc = dbtables.DBTable_get_xml()
+
 		cursor = self.connection.cursor()
 
 		# find the tables
@@ -140,9 +140,6 @@ class CoincDatabase(object):
 				print >>sys.stderr, "\tinjection + exact (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sce_definer_id,)).fetchone()[0]
 			if self.scn_definer_id is not None:
 				print >>sys.stderr, "\tinjection + nearby (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.scn_definer_id,)).fetchone()[0]
-
-		# done
-		return self
 
 
 def coinc_sngl_bursts(contents, coinc_event_id):

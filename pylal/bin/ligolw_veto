@@ -311,7 +311,7 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase().summarize("lalapps_power", options.verbose)
+	database = SnglBurstUtils.CoincDatabase("lalapps_power", options.verbose)
 
 	#
 	# Apply vetoes
