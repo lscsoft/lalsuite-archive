@@ -226,12 +226,21 @@ def inplace_filter(func, sequence):
 class Highest(list):
 	"""
 	A class for use when you need to collect the largest in a very long
-	sequence of things, too long a sequence to hold in memory all at
+	sequence of things, a sequence too long to hold in memory all at
 	once and sort.  This class behaves like a list, in fact it is a
 	Python list, but one that stores only some fraction of all items
-	that have been added to it.  The list is always ordered, so the
-	insert() and __setitem__() methods are not supported, only append()
-	and extend().
+	that have been added to it.  The list is always sorted in
+	decreasing order, so the 0th element is the highest-valued item
+	added to the list and so on.
+
+	To function correctly the list must remain sorted, so the insert()
+	and __setitem__() methods are disabled.  Only the append() and
+	extend() methods can be used to add elements to the list.  The
+	__len__() method returns the total number of items that have been
+	added to the list ever, not the number that are actually stored in
+	it at any given time.  To retrieve the number of items actually
+	stored in memory, use the list class' __len__() method.  See the
+	example below.
 
 	Example:
 
