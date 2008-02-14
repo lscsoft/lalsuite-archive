@@ -2688,3 +2688,41 @@ class LDBDCNode(CondorDAGNode, AnalysisNode):
     Get the query name.
     """
     return self.__query
+
+
+class NoopJob(CondorDAGJob, AnalysisJob):
+  """
+  A Noop Job does nothing.
+  """
+  def __init__(self,log_dir,cp,dax=False):
+    """
+    cp = ConfigParser object from which options are read.
+    """
+    self.__executable = 'true'
+    self.__universe = 'local'
+    CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    AnalysisJob.__init__(self,cp,dax)
+
+    self.add_condor_cmd('getenv','True')
+    self.add_condor_cmd('noop_job','True')
+
+    self.set_stdout_file(os.path.join( log_dir, 'noop-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'noop-$(cluster)-$(process).err') )
+    self.set_sub_file('noop.sub')
+
+
+class NoopNode(CondorDAGNode, AnalysisNode):
+  """
+  Run an noop job in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    @param job: A CondorDAGJob that does nothing.
+    """
+    CondorDAGNode.__init__(self,job)
+    AnalysisNode.__init__(self)
+    self.__server = None
+    self.__identity = None
+    self.__insert = None
+    self.__pfn = None
+    self.__query = None
