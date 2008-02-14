@@ -89,7 +89,7 @@ def set_figure_name(opts, text):
   return fname
 
 
-def write_html_output(opts, args, fnameList, tagLists):
+def write_html_output(opts, args, fnameList, tagLists, doThumb=True):
   """
 
   """
@@ -107,7 +107,52 @@ def write_html_output(opts, args, fnameList, tagLists):
 
   for tag,filename in zip(tagLists,fnameList):
     fname = "Images/"+os.path.basename(filename) # set the correct name for linking
-    page.a(extra.img(src=[fname], width=400, \
+    if doThumb is True:
+      fname_thumb = fname[:-4] + "_thumb.png"
+      page.a(extra.img(src=[fname_thumb], width=400, \
+        alt=tag, border="2"), title=tag, href=[ fname])
+    else:
+      page.a(extra.img(src=[fname], width=400, \
+        alt=tag, border="2"), title=tag, href=[ fname])
+
+  page.add("<hr/>")
+
+  if opts.enable_output is True:
+    text = writeProcessParams( opts.name, opts.version,  args)
+    page.add(text)
+    html_file.write(page(False))
+    html_file.close()
+
+  return html_filename
+
+def write_html_output_for_cbcweb(opts, args, fnameList, tagLists, doThumb=True):
+  """
+
+  """
+
+  # -- the HTML document and output cache file
+  # -- initialise the web page calling init_page
+  page, extra = init_markup_page(opts)
+  page.addheader("<%method title>" + opts.name + " results</%method>")
+  page.addheader("<%method headline>" + opts.name + " results</%method>")
+  page.addheader("<%method cvsid> $Id$ </%method>")
+  print opts
+
+  # -- filename
+  html_filename = opts.prefix + opts.suffix +"_publish.html"
+  if opts.output_path:
+    html_filename = opts.output_path + html_filename
+  html_file = file(html_filename, "w")
+  for tag,filename in zip(tagLists,fnameList):
+    # Find out if there is a / at the end of the given directory name. If not, add one.
+    if opts.html_for_cbcweb[-1:]!="/":
+      namebase = opts.html_for_cbcweb + "/"
+    else:
+      namebase = opts.html_for_cbcweb
+    fname = namebase + "Images/" + os.path.basename(filename) # set the correct name for linking
+    if doThumb is True:
+      fname_thumb = fname[:-4] + "_thumb.png"
+    page.a(extra.img(src=[fname_thumb], width=400, \
         alt=tag, border="2"), title=tag, href=[ fname])
   page.add("<hr/>")
 
@@ -119,6 +164,7 @@ def write_html_output(opts, args, fnameList, tagLists):
     html_file.close()
 
   return html_filename
+
 
 def write_cache_output(opts, html_filename,fnameList):
   """
