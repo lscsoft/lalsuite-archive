@@ -444,4 +444,8 @@ PyTypeObject segments_Segment_Type = {
 	.tp_repr = __repr__,
 	.tp_str = __str__,
 	.tp_richcompare = richcompare,
+	/* The compiler doesn't like the following, so instead this is done
+	 * at runtime in the module init() function (in segments.c) just
+	 * before creating the type */
+	/* .tp_hash = PyTuple_Type.tp_hash, */
 };

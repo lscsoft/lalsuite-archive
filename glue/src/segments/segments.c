@@ -68,9 +68,14 @@ void init__segments(void)
 	PyModule_AddObject(module, "NegInfinity", (PyObject *) segments_NegInfinity);
 
 	/*
-	 * Create segment class
+	 * Create segment class.  Ideally the .tp_hash field would be
+	 * initialized along with the other fields in the initializer in
+	 * segment.c, but something about PyTuple_Type makes the compiler
+	 * unhappy with that.
 	 */
 
+	if(!segments_Segment_Type.tp_hash)
+		segments_Segment_Type.tp_hash = PyTuple_Type.tp_hash;
 	if(PyType_Ready(&segments_Segment_Type) < 0)
 		return;
 	Py_INCREF(&segments_Segment_Type);
