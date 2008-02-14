@@ -145,24 +145,39 @@ def make_multi_burst(process_id, coinc_event_id, events):
 	multiburst.coinc_event_id = coinc_event_id
 
 	# snr = root sum of ms_snr squares
+
 	multiburst.snr = math.sqrt(sum(event.ms_snr**2.0 for event in events))
 
+	# peak time = ms_snr squared weighted average of peak times (no
+	# attempt to account for inter-site delays).  LIGOTimeGPS objects
+	# don't like being multiplied by things, so the first event's peak
+	# time is used as a reference epoch.
+
+	t = events[0].get_peak()
+	multiburst.set_peak(t + sum(event.ms_snr**2.0 * float(event.get_peak() - t) for event in events) / multiburst.snr**2.0)
+
 	# duration = ms_snr squared weighted average of durations
+
 	multiburst.duration = sum(event.ms_snr**2.0 * event.duration for event in events) / multiburst.snr**2.0
 
 	# central_freq = ms_snr squared weighted average of peak frequencies
+
 	multiburst.central_freq = sum(event.ms_snr**2.0 * event.peak_frequency for event in events) / multiburst.snr**2.0
 
 	# bandwidth = ms_snr squared weighted average of bandwidths
+
 	multiburst.bandwidth = sum(event.ms_snr**2.0 * event.bandwidth for event in events) / multiburst.snr**2.0
 
 	# confidence = minimum of confidences
+
 	multiburst.confidence = min(event.confidence for event in events)
 
 	# "amplitude" = h_rss of event with highest confidence
+
 	multiburst.amplitude = max((event.ms_confidence, event.ms_hrss) for event in events)[1]
 
 	# done
+
 	return multiburst
 
 
