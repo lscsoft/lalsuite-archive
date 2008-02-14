@@ -562,6 +562,12 @@ SnglBurstTable.RowType = SnglBurst
 #
 
 
+#
+# FIXME:  I think extra columns have been added here that aren't in other
+# places where this table is defined.
+#
+
+
 class MultiBurstTable(table.Table):
 	tableName = "multi_burst:table"
 	validcolumns = {
