@@ -572,6 +572,8 @@ class MultiBurstTable(table.Table):
 		"start_time": "int_4s",
 		"start_time_ns": "int_4s",
 		"duration": "real_4",
+		"peak_time": "int_4s",
+		"peak_time_ns": "int_4s",
 		"central_freq": "real_4",
 		"bandwidth": "real_4",
 		"amplitude": "real_4",
@@ -588,6 +590,12 @@ class MultiBurstTable(table.Table):
 
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
+
+	def get_peak(self):
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+	def set_peak(self, gps):
+		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 
 MultiBurstTable.RowType = MultiBurst
