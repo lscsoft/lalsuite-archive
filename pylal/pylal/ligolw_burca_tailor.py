@@ -78,15 +78,22 @@ lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 def coinc_params(events, offsetdict):
 	params = {}
 	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+
 	if events:
 		# the "time" is the ms_snr squared weighted average of the
 		# peak times neglecting light-travel times.  because
 		# LIGOTimeGPS objects have overflow problems in this sort
 		# of a calculation, the first event's peak time is used as
 		# an epoch and the calculations are done w.r.t. that time.
+
+		# FIXME: this time is available as the peak_time in the
+		# multi_burst table, and it should be retrieved from that
+		# table instead of being recomputed
+
 		t = events[0].get_peak()
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-		#params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
+		params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
+
 	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
 			# a coincidence is parameterized only by
@@ -123,7 +130,9 @@ def coinc_params(events, offsetdict):
 		name = "%sddur" % prefix
 		if name not in params or abs(params[name]) > abs(ddur):
 			params[name] = ddur
-	# convert values to 1-D tuples
+
+	# convert values to 1-D tuples, and we're done
+
 	return dict([(name, (value,)) for name, value in params.items()])
 
 
@@ -458,8 +467,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
-		"H2_L1_dt": dt_binning("H2", "L1")#,
-		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 24001),))
+		"H2_L1_dt": dt_binning("H2", "L1"),
+		"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 24001),))
 	}
 
 	filters = {
@@ -477,8 +486,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": rate.gaussian_window(21),
 		"H1_H2_dt": rate.gaussian_window(21),
 		"H1_L1_dt": rate.gaussian_window(21),
-		"H2_L1_dt": rate.gaussian_window(21)#,
-		#"gmst": rate.gaussian_window(21)
+		"H2_L1_dt": rate.gaussian_window(21),
+		"gmst": rate.gaussian_window(21)
 	}
 
 	def __init__(self):
