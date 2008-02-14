@@ -89,10 +89,12 @@ class CoincDatabase(object):
 			self.coinc_def_table = table.get_table(self.xmldoc, lsctables.CoincDefTable.tableName)
 			self.coinc_table = table.get_table(self.xmldoc, lsctables.CoincTable.tableName)
 			self.time_slide_table = table.get_table(self.xmldoc, lsctables.TimeSlideTable.tableName)
+			self.multi_burst_table = table.get_table(self.xmldoc, lsctables.MultiBurstTable.tableName)
 		except ValueError:
 			self.coinc_def_table = None
 			self.coinc_table = None
 			self.time_slide_table = None
+			self.multi_burst_table = None
 
 		# get the segment lists
 		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program)
