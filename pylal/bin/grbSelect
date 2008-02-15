@@ -553,7 +553,7 @@ for ind in index:
     filename += ".png"
     plot.ax.set_title('Segments for GRB '+grb.event_number_grb)
     plot.savefig("plotsegments/"+filename)
-    del plot
+    plot.close()
     link = "plotsegments/"+filename
 
 
