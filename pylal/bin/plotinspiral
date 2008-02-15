@@ -191,6 +191,12 @@ def parse_command_line():
     help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
       default=None, metavar=" FILE",help="missed injection file")
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   (options,args) = parser.parse_args()
 
@@ -343,7 +349,7 @@ if opts.funky_threshold:
 # ============================================================================
 ###################################
 # plot of snr vs time for missed injections
-if opts.snr_time:
+if opts.snr_time and opts.missed_pattern:
   text = "End time versus SNR (missed injections)"
   InspiralUtils.message(opts, "plotting..."+text)
   for injTime,triggers in zip(followupMissed["mis_time"],
@@ -611,7 +617,8 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
-
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output_for_cbcweb(opts, args, fnameList, tagList)
 
 
 if opts.show_plot:
