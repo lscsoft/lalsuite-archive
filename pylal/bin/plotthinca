@@ -29,8 +29,6 @@ from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from numpy import histogram
 
-import itertools
-
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
@@ -198,6 +196,8 @@ def parse_command_line():
       help="plot distribution of combined statistic" )
   parser.add_option("-K","--snr-hist",action="store_true",default=False,\
       help="plot histogram of combined statistic" )
+  parser.add_option("", "--inverse-expectation", action="store_true",
+      default=False, help="plot cumulative (1/<N>) for each trigger")
   parser.add_option("-m","--mass-dependent",action="store_true",default=False,\
       help="sort triggers by mass range" )
   parser.add_option("-M","--mass-range",action="store",type="string",\
@@ -286,6 +286,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
+from pylal import plotthinca
 from numpy import histogram
 rc('text', usetex=True)
 
@@ -1287,6 +1288,35 @@ if opts.snr_dist and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+
+# ============================================================================
+# plot inverse expectation number
+
+if opts.inverse_expectation:
+  # create plot
+  ie_plot = plotthinca.InverseExpectationPlot(fig_num=figure_number)
+  figure_number += 1
+  for ifo_combo in ifo_coincs:
+    fg_coincs = coincTriggers.coinctype(ifo_combo)
+    bg_coincs = [s["coinc_trigs"].coinctype(ifo_combo) for s in slideTriggers]
+    if sum([len(s) for s in bg_coincs]) == 0:
+      print >>sys.stderr, "warning: no slide triggers for ifo combo:", \
+        "".join(ifo_combo)
+      continue
+    ie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo))
+  ie_plot.finalize()
+  
+  # save it
+  name = "".join(ifo_list) + "_inverse_expectation_" + statistic.name
+  text = "Number of triggers vs the inverse expectation rate (1 / <N>)"
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname, fig=ie_plot.fig)
+  fnameList.append(fname)
+  tagList.append(text)
+  
+  if not opts.show_plot:
+    ie_plot.close()
+
 
 # ============================================================================
 # final step: html, cache file generation
