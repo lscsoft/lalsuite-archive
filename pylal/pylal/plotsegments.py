@@ -17,7 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-__author__ = "Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
@@ -107,5 +107,8 @@ class PlotSegmentsPlot(object):
       self.ax.set_xlim(self.window)
     self.ax.set_ylim((0, len(self.ifos)))
 
-  def __del__(self):
+  def close(self):
     pylab.close(self.fig)
+  
+  def __del__(self)
+    self.close()
