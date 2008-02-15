@@ -110,5 +110,5 @@ class PlotSegmentsPlot(object):
   def close(self):
     pylab.close(self.fig)
   
-  def __del__(self)
+  def __del__(self):
     self.close()
