@@ -936,11 +936,11 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   internal_max = -numpy.inf
   
   # filter down to ifolist
+  slide_trig_list = [s["coinc_trigs"] for s in slide_trigs]
   if ifolist:
     if trigs:
       trigs = trigs.coinctype(ifolist)
-    for this_slide in slide_trigs:
-      this_slide['coinc_trigs'] = this_slide['coinc_trigs'].coinctype(ifolist)
+    slide_trig_list = [s.coinctype(ifolist) for s in slide_trig_list]
   
   # read in zero lag triggers
   if trigs:
@@ -950,10 +950,10 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       internal_min = min(internal_min, snr.min())
   
   # read in slide triggers
-  if slide_trigs:
+  if slide_trig_list:
     slide_snr_list = []
-    for this_slide in slide_trigs:
-      slide_snr = this_slide['coinc_trigs'].getstat()
+    for this_slide in slide_trig_list:
+      slide_snr = this_slide.getstat()
       slide_snr_list.append(slide_snr)
       
       if len(slide_snr) > 0:
@@ -984,7 +984,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
-  if slide_trigs:
+  if slide_trig_list:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
       num_slide, bin = numpy.histogram(slide_snr, bins)
@@ -1007,7 +1007,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   
   # plot time slides
   ds = (bins[1] - bins[0]) / 2
-  if slide_trigs and len(slide_snr_list):
+  if slide_trig_list and len(slide_snr_list):
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
@@ -1052,11 +1052,11 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   internal_max = -numpy.inf
   
   # filter down to ifolist
+  slide_trig_list = [s["coinc_trigs"] for s in slide_trigs]
   if ifolist:
     if trigs:
       trigs = trigs.coinctype(ifolist)
-    for this_slide in slide_trigs:
-      this_slide['coinc_trigs'] = this_slide['coinc_trigs'].coinctype(ifolist)
+    slide_trig_list = [s.coinctype(ifolist) for s in slide_trig_list]
   
   # read in zero lag triggers
   if trigs:
@@ -1066,10 +1066,10 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       internal_min = min(internal_min, snr.min())
   
   # read in slide triggers
-  if slide_trigs:
+  if slide_trig_list:
     slide_snr_list = []
-    for this_slide in slide_trigs:
-      slide_snr = this_slide['coinc_trigs'].getstat()
+    for this_slide in slide_trig_list:
+      slide_snr = this_slide.getstat()
       slide_snr_list.append(slide_snr)
       
       if len(slide_snr) > 0:
