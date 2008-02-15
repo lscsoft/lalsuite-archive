@@ -136,7 +136,6 @@ def write_html_output_for_cbcweb(opts, args, fnameList, tagLists, doThumb=True):
   page.addheader("<%method title>" + opts.name + " results</%method>")
   page.addheader("<%method headline>" + opts.name + " results</%method>")
   page.addheader("<%method cvsid> $Id$ </%method>")
-  print opts
 
   # -- filename
   html_filename = opts.prefix + opts.suffix +"_publish.html"
