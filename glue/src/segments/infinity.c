@@ -71,14 +71,12 @@ static int segments_Infinity_Check(PyObject *obj)
 
 static PyObject *__new__(PyTypeObject *subtype, PyObject *args, PyObject *kwds)
 {
-	int sign;
+	int sign = +1;	/* return +infinity when called with no arg */
 	PyObject *self;
 
-	if(!PyTuple_Size(args))
-		self = (PyObject *) segments_PosInfinity;
-	else if(!PyArg_ParseTuple(args, "i:infinity", &sign))
+	if(!PyArg_ParseTuple(args, "|i:infinity", &sign))
 		return NULL;
-	else if(sign > 0)
+	if(sign > 0)
 		self = (PyObject *) segments_PosInfinity;
 	else if (sign < 0)
 		self = (PyObject *) segments_NegInfinity;
@@ -155,7 +153,7 @@ static PyObject *__reduce__(PyObject *self, PyObject *args)
 {
 	if(segments_Infinity_Check(self)) {
 		Py_INCREF(&segments_Infinity_Type);
-		return Py_BuildValue("(O,(i))", &segments_Infinity_Type, self == (PyObject *) segments_PosInfinity ? 1 : -1);
+		return Py_BuildValue("(O,(i))", &segments_Infinity_Type, self == (PyObject *) segments_PosInfinity ? +1 : -1);
 	}
 	PyErr_SetObject(PyExc_TypeError, self);
 	return NULL;
@@ -170,6 +168,7 @@ static PyObject *richcompare(PyObject *self, PyObject *other, int op_id)
 	PyObject *result;
 
 	if(!(s || o)) {
+		/* neither of the arguments is an Infinity instance */
 		PyErr_SetObject(PyExc_TypeError, other);
 		return NULL;
 	}
@@ -294,4 +293,5 @@ PyTypeObject segments_Infinity_Type = {
 	.tp_repr = __repr__,
 	.tp_richcompare = richcompare,
 	.tp_str = __repr__,
+	.tp_hash = (hashfunc) _Py_HashPointer,
 };
