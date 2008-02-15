@@ -300,7 +300,7 @@ class coincInspiralTable:
     @param ifolist: a list of ifos 
     """
     coincs = self.coincinclude(ifolist)
-    selected_coincs = coincInspiralTable()
+    selected_coincs = coincInspiralTable(stat=self.stat)
     selected_coincs.sngl_table = self.sngl_table
     for coinc in coincs:
       if coinc.numifos == len(ifolist):
