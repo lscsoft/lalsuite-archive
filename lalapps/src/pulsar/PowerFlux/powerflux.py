@@ -12,6 +12,7 @@ from PyQt4.QtGui import *
 import powerflux
 from powerflux import compute_scores
 from powerflux import compute_matched_snr
+from powerflux import compute_single_snr
 from powerflux import get_power_sum
 
 class candidate:
@@ -37,13 +38,46 @@ class candidate:
 	
 value_cache={}
 
-def compute(c):
-	ans=value_cache.get(c.coords())
+value_mode="matched"
+
+def compute(c, mode="default"):
+	if mode=="default" : mode=value_mode
+	if mode=="full" :
+		mode=value_mode
+		if mode=="matched" :
+			mode="full"
+	
+	ans=value_cache.get((mode, c.coords()))
 	if(ans==None):
 		ans=copy.copy(c)
-		compute_matched_snr(ans)
-		value_cache[c.coords()]=ans
+		if mode=="single":
+			compute_single_snr(ans)
+		elif mode=="matched":
+			compute_matched_snr(ans)
+		elif mode=="full":
+			compute_scores(ans)
+		else :
+			print "Unknown mode"+value_mode
+		value_cache[(mode, c.coords())]=ans
 	return ans
+
+def set_value_mode(mode):
+	global value_mode
+	value_mode=mode
+
+def set_veto(start_gps, stop_gps, flag, dataset="ALL"):
+	if dataset=="ALL":
+		dataset= -1
+	else:
+		for i in range(len(datasets)):
+			if datasets[i]["name"]==dataset:
+				dataset=i
+				break
+	a=powerflux.set_veto(start_gps, stop_gps, dataset, flag)
+	global value_cache
+	value_cache={}
+	return(a)
+	
 
 def power_sum(c):
 	ans=get_power_sum(c)
@@ -64,9 +98,9 @@ c1.psi=0;
 
 #powerflux.init("--config=search.15.config")
 
-if 0 : powerflux.init("--dataset=random.dst -f 180002 -n 501 \
+if 1 : powerflux.init("--dataset=random2.dst --first-bin=1953405 --side-cut=1200 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
+		--averaging-mode=matched --do-cutoff=0 \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
@@ -74,7 +108,11 @@ if 0 : powerflux.init("--dataset=random.dst -f 180002 -n 501 \
 		--sky-marks-file=all_sky_marks.txt \
 		--earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
 		--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		--max-candidates=10000 --skymap-resolution-ratio=1")
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+  		--fake-ref-time=793154935 \
+  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=1085.34027777 --fake-strain=10e-24 \
+  		--fake-spindown=-4.66e-10 --fake-iota=1.57 --fake-psi=0.0 \
+		")
 		
 else :
 	powerflux.init("--first-bin=1953405 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/n20/dataset.H1L1.A5C.dst --config=/home/volodya/LIGO/S5/n20/matched.interactive.config")
@@ -312,7 +350,7 @@ class clickable_point(QGraphicsEllipseItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
-			compute_scores(self.cand)
+			self.cand=compute(self.cand, mode="full")
 			self.parent.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
 			#c=self.parent.parent.cand_entry.cand
 			#setattr(c, self.parent.var1, getattr(self.cand, self.parent.var1))
@@ -506,7 +544,7 @@ class clickable_dot(QGraphicsRectItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
-			compute_scores(self.cand)
+			self.cand=compute(self.cand, mode="full")
 			self.update_widget.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
 			c=self.update_widget.parent.cand_entry.cand
 			setattr(c, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
@@ -803,7 +841,7 @@ class candidate_display(QWidget):
 
 	def recompute(self):
 		self.get_controls()
-		compute_scores(self.cand)
+		self.cand=compute(self.cand, mode="full")
 		c=self.cand
 		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (c.snr, c.strain, c.power_cor, c.ifo_freq))
 
@@ -837,7 +875,7 @@ class candidate_display(QWidget):
 	def setNote(self, string):
 		self.note.setText(string)
 
-class powerflux(QMainWindow):
+class powerflux_main_window(QMainWindow):
     """An application called astrocalc."""
 
     def __init__(self, app):
@@ -1007,7 +1045,7 @@ class powerflux(QMainWindow):
 		curves.append(curve)		
 	f.curves=curves
 	
-	rows=["name", "detector", "sft_count", "weight", "nbins", "coherence_time"]
+	rows=["name", "detector", "sft_count", "weight", "nbins", "coherence_time", "gps_start", "gps_stop"]
 	
 	f=QTableWidget(len(rows), len(datasets)+1)
 	layout.addWidget(f, 1, 1)
@@ -1293,7 +1331,7 @@ app=None
 def main(args):
     global app
     app=QApplication(args)
-    mainWindow = powerflux(app)
+    mainWindow = powerflux_main_window(app)
     mainWindow.show()
     app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))
     #mainWindow.update(mainWindow.center)
