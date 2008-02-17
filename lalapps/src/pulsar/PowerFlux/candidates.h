@@ -34,7 +34,7 @@ typedef struct {
 	float S_band;
 	float M_band;
 	float max_dx;
-	float frequency;
+	double frequency;
 	float ra;
 	float dec;
 	float spindown;
@@ -49,8 +49,8 @@ typedef struct {
 	float strain;
 	float strain_err;
 	float total_weight;
-	float f_max;
-	float ifo_freq;
+	double f_max;
+	double ifo_freq;
 	float ifo_freq_sd;
 	} CANDIDATE;
 
@@ -58,5 +58,7 @@ void init_candidates(void);
 void identify_candidates(void);
 void output_candidates(FILE *fout);
 void compute_scores(CANDIDATE *cand, int debug);
+void single_pass_compute_matched_snr(CANDIDATE *cand);
+void single_pass_compute_simple_snr(CANDIDATE *cand);
 
 #endif

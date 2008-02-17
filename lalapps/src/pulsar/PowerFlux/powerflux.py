@@ -11,6 +11,7 @@ from PyQt4.QtGui import *
 
 import powerflux
 from powerflux import compute_scores
+from powerflux import compute_matched_snr
 from powerflux import get_power_sum
 
 class candidate:
@@ -40,7 +41,7 @@ def compute(c):
 	ans=value_cache.get(c.coords())
 	if(ans==None):
 		ans=copy.copy(c)
-		compute_scores(ans)
+		compute_matched_snr(ans)
 		value_cache[c.coords()]=ans
 	return ans
 
@@ -76,7 +77,7 @@ if 0 : powerflux.init("--dataset=random.dst -f 180002 -n 501 \
 		--max-candidates=10000 --skymap-resolution-ratio=1")
 		
 else :
-	powerflux.init("--first-bin=1953405 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/n20/dataset.H1L1.A5.dst --config=/home/volodya/LIGO/S5/n20/matched.interactive.config")
+	powerflux.init("--first-bin=1953405 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/n20/dataset.H1L1.A5C.dst --config=/home/volodya/LIGO/S5/n20/matched.interactive.config")
 
 start_center = candidate()
 
@@ -113,7 +114,7 @@ datasets=powerflux.get_datasets()
 #from qtcanvas import *
 
 class line_plot(QGraphicsView):
-	def __init__(self, parent, xlab="x", ylab="y", title="", width=800, height=400):
+	def __init__(self, parent, xlab="x", ylab="y", title="", width=640, height=400):
 		
 		self.parent=parent
 		self.app=parent.app
@@ -311,6 +312,7 @@ class clickable_point(QGraphicsEllipseItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
+			compute_scores(self.cand)
 			self.parent.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
 			#c=self.parent.parent.cand_entry.cand
 			#setattr(c, self.parent.var1, getattr(self.cand, self.parent.var1))
@@ -348,8 +350,8 @@ class plot_display(QGraphicsView):
 		
 		self.x0=20
 		self.y0=20
-		self.width=125*4
-		self.height=125*4
+		self.width=100*4
+		self.height=100*4
 		
 		self.canvas=QGraphicsScene(0, 0, self.x0*2+self.width, self.y0*2+self.height)
 		QGraphicsView.__init__(self, self.canvas, parent)
@@ -504,6 +506,7 @@ class clickable_dot(QGraphicsRectItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
+			compute_scores(self.cand)
 			self.update_widget.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
 			c=self.update_widget.parent.cand_entry.cand
 			setattr(c, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
@@ -665,7 +668,7 @@ class map_display(QGraphicsView):
 		self.min_z=0
 		
 		#self.size=(2*self.dot_half_count+1)*self.dot_size+2*self.dot_size
-		self.size=2*self.dot_size + 4*125
+		self.size=2*self.dot_size + 4*100
 		self.canvas=QGraphicsScene(0, 0, self.size, self.size)
 		QGraphicsView.__init__(self, self.canvas, parent)
 
@@ -756,117 +759,73 @@ class map_display(QGraphicsView):
 		if(self.dot!=None) :
 			self.dot.hide()
 			del self.dot
-		self.dot=divisible_dot(self, self.center, s, s, 4*125, self.var1, self.var2, self.var3)
+		self.dot=divisible_dot(self, self.center, s, s, 4*100, self.var1, self.var2, self.var3)
 		
 		self.dot.subdivide(auto_level=-1)
 		self.rescale()
 		self.dot.update()
 		
+candidate_items=["frequency", "spindown", "ra", "dec", "iota", "psi"]
+		
 class candidate_display(QWidget):
 	def __init__(self, parent):
+		self.parent=parent
 		self.cand=None
 		QWidget.__init__(self, parent)
 		
 		layout=QGridLayout(self)
 		self.layout=layout
 	
-		self.display=QLabel("", self)
-		layout.addWidget(self.display, 0, 0, 1, 3)
+		self.display=QTableWidget(2, len(candidate_items))
+		
+		for i in range(len(candidate_items)):
+			self.display.setHorizontalHeaderItem(i, QTableWidgetItem(candidate_items[i]))
+		self.display.setVerticalHeaderItem(0, QTableWidgetItem("value"))
+		self.display.setVerticalHeaderItem(1, QTableWidgetItem("step"))
+		
+		layout.addWidget(self.display, 0, 0)
+	
+		self.note=QLabel("", self)
+		layout.addWidget(self.note, 0, 1)
 
-		self.header_var=QLabel("", self)
-		self.header_value=QLabel("Value", self)
-		self.header_step=QLabel("Step", self)
-		
-		layout.addWidget(self.header_var, 1, 0)
-		layout.addWidget(self.header_value, 1, 1)
-		layout.addWidget(self.header_step, 1, 2)
-		
-		self.label_frequency = QLabel("Frequency", self)
-		self.label_spindown = QLabel("Spindown", self)
-		self.label_ra = QLabel("RA", self)
-		self.label_dec = QLabel("DEC", self)
-		self.label_iota = QLabel("iota", self)
-		self.label_psi = QLabel("psi", self)
+		self.controls=QWidget(self)
+		layout.addWidget(self.controls, 0, 2)
 	
-		layout.addWidget(self.label_frequency, 2, 0)
-		layout.addWidget(self.label_spindown, 3, 0)
-		layout.addWidget(self.label_ra, 4, 0)
-		layout.addWidget(self.label_dec, 5, 0)
-		layout.addWidget(self.label_iota, 6, 0)
-		layout.addWidget(self.label_psi, 7, 0)
-	
-		self.entry_frequency = QLineEdit("Frequency", self)
-		self.entry_spindown = QLineEdit("Spindown", self)
-		self.entry_ra = QLineEdit("RA", self)
-		self.entry_dec = QLineEdit("DEC", self)
-		self.entry_iota = QLineEdit("iota", self)
-		self.entry_psi = QLineEdit("psi", self)
-	
-		layout.addWidget(self.entry_frequency, 2, 1)
-		layout.addWidget(self.entry_spindown, 3, 1)
-		layout.addWidget(self.entry_ra, 4, 1)
-		layout.addWidget(self.entry_dec, 5, 1)
-		layout.addWidget(self.entry_iota, 6, 1)
-		layout.addWidget(self.entry_psi, 7, 1)
-	
-		self.entry_step_frequency = QLineEdit("Frequency", self)
-		self.entry_step_spindown = QLineEdit("Spindown", self)
-		self.entry_step_ra = QLineEdit("RA", self)
-		self.entry_step_dec = QLineEdit("DEC", self)
-		self.entry_step_iota = QLineEdit("iota", self)
-		self.entry_step_psi = QLineEdit("psi", self)
-	
-		layout.addWidget(self.entry_step_frequency, 2, 2)
-		layout.addWidget(self.entry_step_spindown, 3, 2)
-		layout.addWidget(self.entry_step_ra, 4, 2)
-		layout.addWidget(self.entry_step_dec, 5, 2)
-		layout.addWidget(self.entry_step_iota, 6, 2)
-		layout.addWidget(self.entry_step_psi, 7, 2)
-		
-		self.entry_frequency.setMinimumWidth(100)
-		self.entry_step_frequency.setMinimumWidth(100)
+		layout2=QGridLayout(self.controls)
 	
 		self.compute = QPushButton("Compute", self)
-		layout.addWidget(self.compute, 8, 0, 1, 3)
+		layout2.addWidget(self.compute, 0, 0)
 		app.connect(self.compute, SIGNAL("clicked()"), self.recompute)
 		
+		self.recompute_all = QPushButton("Recompute all", self)
+		layout2.addWidget(self.recompute_all, 1, 0)
+		app.connect(self.recompute_all, SIGNAL("clicked()"), self.parent.recompute)
+
 	def recompute(self):
 		self.get_controls()
-		self.cand=compute(self.cand)
+		compute_scores(self.cand)
 		c=self.cand
 		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (c.snr, c.strain, c.power_cor, c.ifo_freq))
 
 	def set_controls(self):
 		if(self.cand==None): return
-		self.entry_frequency.setText(str(self.cand.frequency))
-		self.entry_spindown.setText(str(self.cand.spindown))
-		self.entry_ra.setText(str(self.cand.ra))
-		self.entry_dec.setText(str(self.cand.dec))
-		self.entry_iota.setText(str(self.cand.iota))
-		self.entry_psi.setText(str(self.cand.psi))
-	
-		self.entry_step_frequency.setText(str(self.cand.frequency_step))
-		self.entry_step_spindown.setText(str(self.cand.spindown_step))
-		self.entry_step_ra.setText(str(self.cand.ra_step))
-		self.entry_step_dec.setText(str(self.cand.dec_step))
-		self.entry_step_iota.setText(str(self.cand.iota_step))
-		self.entry_step_psi.setText(str(self.cand.psi_step))
+		
+		for i in range(len(candidate_items)):
+			value=getattr(self.cand, candidate_items[i], "")
+			self.display.setItem(0, i, QTableWidgetItem(str(value)))
+
+			value=getattr(self.cand, candidate_items[i]+"_step", "")
+			self.display.setItem(1, i, QTableWidgetItem(str(value)))
 
 	def get_controls(self):
-		self.cand.frequency=float(self.entry_frequency.text())
-		self.cand.spindown=float(self.entry_spindown.text())
-		self.cand.ra=float(self.entry_ra.text())
-		self.cand.dec=float(self.entry_dec.text())
-		self.cand.iota=float(self.entry_iota.text())
-		self.cand.psi=float(self.entry_psi.text())
-	
-		self.cand.frequency_step=float(self.entry_step_frequency.text())
-		self.cand.spindown_step=float(self.entry_step_spindown.text())
-		self.cand.ra_step=float(self.entry_step_ra.text())
-		self.cand.dec_step=float(self.entry_step_dec.text())
-		self.cand.iota_step=float(self.entry_step_iota.text())
-		self.cand.psi_step=float(self.entry_step_psi.text())
+		
+		for i in range(len(candidate_items)):
+			value=float(self.display.item(0, i).text())
+			setattr(self.cand, candidate_items[i], value)
 
+			value=float(self.display.item(1, i).text())
+			setattr(self.cand, candidate_items[i]+"_step", value)
+			
 	def set_coords(self, frequency=None, spindown=None, ra=None, dec=None, iota=None, psi=None):
 		if frequency!=None : cand.frequency=frequency
 		if spindown!=None : cand.spindown=spindown
@@ -876,7 +835,7 @@ class candidate_display(QWidget):
 		self.set_controls()
 		
 	def setNote(self, string):
-		self.display.setText(string)
+		self.note.setText(string)
 
 class powerflux(QMainWindow):
     """An application called astrocalc."""
@@ -900,47 +859,26 @@ class powerflux(QMainWindow):
     def set_controls(self):
 	self.cand_entry.cand=self.center
 	self.cand_entry.set_controls()
-	return
-    
-	self.controls.entry_frequency.setText(str(self.center.frequency))
-	self.controls.entry_spindown.setText(str(self.center.spindown))
-	self.controls.entry_ra.setText(str(self.center.ra))
-	self.controls.entry_dec.setText(str(self.center.dec))
-	self.controls.entry_iota.setText(str(self.center.iota))
-	self.controls.entry_psi.setText(str(self.center.psi))
-
-	self.controls.entry_step_frequency.setText(str(self.center.frequency_step))
-	self.controls.entry_step_spindown.setText(str(self.center.spindown_step))
-	self.controls.entry_step_ra.setText(str(self.center.ra_step))
-	self.controls.entry_step_dec.setText(str(self.center.dec_step))
-	self.controls.entry_step_iota.setText(str(self.center.iota_step))
-	self.controls.entry_step_psi.setText(str(self.center.psi_step))
 
     def get_controls(self):
 	self.cand_entry.get_controls()
 	self.center=self.cand_entry.cand
-	return
-    
-	self.center.frequency=float(self.controls.entry_frequency.text())
-	self.center.spindown=float(self.controls.entry_spindown.text())
-	self.center.ra=float(self.controls.entry_ra.text())
-	self.center.dec=float(self.controls.entry_dec.text())
-	self.center.iota=float(self.controls.entry_iota.text())
-	self.center.psi=float(self.controls.entry_psi.text())
-
-	self.center.frequency_step=float(self.controls.entry_step_frequency.text())
-	self.center.spindown_step=float(self.controls.entry_step_spindown.text())
-	self.center.ra_step=float(self.controls.entry_step_ra.text())
-	self.center.dec_step=float(self.controls.entry_step_dec.text())
-	self.center.iota_step=float(self.controls.entry_step_iota.text())
-	self.center.psi_step=float(self.controls.entry_step_psi.text())
 
     def initMainWidget(self):
-	#self.layout1 = QGridLayout()
+	    
+	self.main=QWidget(self)
+	self.setCentralWidget(self.main)
+	
+	layout0 = QGridLayout(self.main)
+		
+	self.cand_entry=candidate_display(self)
+	#self.controls.layout2.addWidget(self.cand_entry, 0, 0, 1, 3)
+	layout0.addWidget(self.cand_entry, 1, 0)
 	
 	#self.f=QWidget(self)
 	self.tabs=QTabWidget(self)
-	self.setCentralWidget(self.tabs)
+	#self.setCentralWidget(self.tabs)
+	layout0.addWidget(self.tabs, 0, 0)
 	
 	app.connect(self.tabs, SIGNAL("currentChanged(int)"), self.tab_switch)
 	
@@ -952,14 +890,12 @@ class powerflux(QMainWindow):
 	self.controls = QWidget(self)
 	self.layout1.addWidget(self.controls, 1, 2)
 	
+	
 	self.controls.layout2 = QGridLayout(self.controls)
 	
-	self.cand_entry=candidate_display(self)
-	self.controls.layout2.addWidget(self.cand_entry, 0, 0, 1, 3)
-
-	self.controls.recompute = QPushButton("Recompute all", self.controls)
-	self.controls.layout2.addWidget(self.controls.recompute, 8, 0, 1, 3)
-	app.connect(self.controls.recompute, SIGNAL("clicked()"), self.recompute)
+	#self.controls.recompute = QPushButton("Recompute all", self.controls)
+	#self.controls.layout2.addWidget(self.controls.recompute, 8, 0, 1, 3)
+	#app.connect(self.controls.recompute, SIGNAL("clicked()"), self.recompute)
 
 	self.controls.best_candidate = QPushButton("Best candidate", self.controls)
 	self.controls.layout2.addWidget(self.controls.best_candidate, 9, 0, 1, 3)
@@ -1026,7 +962,7 @@ class powerflux(QMainWindow):
 
 	self.dataset_plots=[]
 	
-	f=line_plot(self, "frequency", "average power", "new_weighted_mean", width=800, height=540)
+	f=line_plot(self, "frequency", "average power", "new_weighted_mean", width=640, height=440)
 	layout.addWidget(f, 0, 0)
 	self.dataset_plots.append(f)
 	
@@ -1041,7 +977,7 @@ class powerflux(QMainWindow):
 		curves.append(curve)		
 	f.curves=curves
 	
-	f=line_plot(self, "frequency", "log(power)", "FMedians", width=800, height=540)
+	f=line_plot(self, "frequency", "log(power)", "FMedians", width=640, height=440)
 	layout.addWidget(f, 1, 0)
 	self.dataset_plots.append(f)
 	
@@ -1056,7 +992,7 @@ class powerflux(QMainWindow):
 		curves.append(curve)		
 	f.curves=curves
 
-	f=line_plot(self, "hours", "log(power)", "TMedians", width=800, height=540)
+	f=line_plot(self, "hours", "log(power)", "TMedians", width=640, height=440)
 	layout.addWidget(f, 0, 1)
 	self.dataset_plots.append(f)
 	
@@ -1106,15 +1042,15 @@ class powerflux(QMainWindow):
 
 	self.power_accum_plots=[]
 	
-	self.power_evolution=line_plot(self, "Nsft", "Power", "Power evolution by SFT number", width=800, height=540)
+	self.power_evolution=line_plot(self, "Nsft", "Power", "Power evolution by SFT number", width=640, height=440)
 	layout.addWidget(self.power_evolution, 0, 0)
 	self.power_accum_plots.append(self.power_evolution)
 
-	self.power_evolution2=line_plot(self, "weight", "Power", "Power evolution by weight", width=800, height=540)
+	self.power_evolution2=line_plot(self, "weight", "Power", "Power evolution by weight", width=640, height=440)
 	layout.addWidget(self.power_evolution2, 1, 0)
 	self.power_accum_plots.append(self.power_evolution2)
 
-	self.avg_power_evolution=line_plot(self, "Nsft", "Power", "Average power evolution by SFT number", width=800, height=540)
+	self.avg_power_evolution=line_plot(self, "Nsft", "Power", "Average power evolution by SFT number", width=640, height=440)
 	layout.addWidget(self.avg_power_evolution, 0, 1)
 	self.power_accum_plots.append(self.avg_power_evolution)
 
@@ -1124,19 +1060,19 @@ class powerflux(QMainWindow):
 
 	self.diurnal_plots=[]
 	
-	self.diurnal_tmedians=line_plot(self, "Hour", "Power", "Diurnal variation of SFT noise level", width=600, height=540)
+	self.diurnal_tmedians=line_plot(self, "Hour", "Power", "Diurnal variation of SFT noise level", width=640, height=440)
 	layout.addWidget(self.diurnal_tmedians, 0, 0)
 	self.diurnal_plots.append(self.diurnal_tmedians)
 
-	self.diurnal_weight=line_plot(self, "Hour", "Weight", "Diurnal variation of SFT weight", width=600, height=540)
+	self.diurnal_weight=line_plot(self, "Hour", "Weight", "Diurnal variation of SFT weight", width=640, height=440)
 	layout.addWidget(self.diurnal_weight, 1, 0)
 	self.diurnal_plots.append(self.diurnal_weight)
 
-	self.diurnal_power=line_plot(self, "Hour", "Power", "Diurnal variation of power", width=600, height=540)
+	self.diurnal_power=line_plot(self, "Hour", "Power", "Diurnal variation of power", width=640, height=440)
 	layout.addWidget(self.diurnal_power, 0, 1)
 	self.diurnal_plots.append(self.diurnal_power)
 	
-	self.diurnal_summand=line_plot(self, "Hour", "Power", "Diurnal variation of power sum components", width=600, height=540)
+	self.diurnal_summand=line_plot(self, "Hour", "Power", "Diurnal variation of power sum components", width=640, height=440)
 	layout.addWidget(self.diurnal_summand, 1, 1)
 	self.diurnal_plots.append(self.diurnal_summand)
 

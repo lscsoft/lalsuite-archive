@@ -471,7 +471,7 @@ float a, f_plus, f_cross, f_plus_sq, f_cross_sq, doppler;
 double f, x, y, demod_weight, power, weight;
 float filter[7];
 float spindown=csd->cand->spindown;
-float frequency=csd->cand->frequency;
+double frequency=csd->cand->frequency;
 
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
@@ -1015,8 +1015,9 @@ float doppler, ra_doppler, dec_doppler;
 float *response;
 float demod_weight, total_weight;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
-                     float signal_bin, mismatch, f;
+double frequency=cand->frequency;
+double f;
+float signal_bin, mismatch;
 float a;
 float one1800;
 DATASET *d;
@@ -1122,8 +1123,9 @@ float doppler, ra_doppler, dec_doppler;
 float *response;
 float demod_weight, total_weight;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
-float mismatch, f;
+double frequency=cand->frequency;
+double f;
+float mismatch;
 float a;
 float one1800;
 DATASET *d;
@@ -1303,7 +1305,7 @@ inline static void compute_simple_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int d
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int j, k, b, b_max;
 double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
@@ -1416,6 +1418,21 @@ if(cand->strain>0)
 
 }
 
+void single_pass_compute_simple_snr(CANDIDATE *cand)
+{
+SCORE_AUX_DATA *ad;
+
+ad=allocate_score_aux_data();
+
+fill_e(ad, cand);
+fill_response(ad, cand);
+fill_doppler(ad);
+
+compute_simple_snr(ad, cand, 0);
+
+free_score_aux_data(ad);
+}
+
 typedef struct {
 	double demod_signal_sum_d[(2*WINDOW+1)];
 	double total_demod_weight;
@@ -1440,7 +1457,7 @@ int count;
 double f, weight;
 float filter[7];
 float spindown=msu->cand->spindown;
-float frequency=msu->cand->frequency;
+double frequency=msu->cand->frequency;
 
 for(b=0;b<(2*WINDOW+1);b++) {
 	demod_signal_sum[b]=0.0;
@@ -1636,6 +1653,21 @@ if(cand->strain>0)
 
 }
 
+void single_pass_compute_matched_snr(CANDIDATE *cand)
+{
+SCORE_AUX_DATA *ad;
+
+ad=allocate_score_aux_data();
+
+fill_e(ad, cand);
+fill_response(ad, cand);
+fill_doppler(ad);
+
+compute_matched_snr(ad, cand, 0);
+
+free_score_aux_data(ad);
+}
+
 /* This is used to speedup optimization in iota and psi and changes in the frequency path*/
 
 typedef struct {
@@ -1651,7 +1683,7 @@ static void precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *can
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int j, k, b;
 double weight, f;
 float *doppler;
@@ -1754,7 +1786,7 @@ static void update_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDIDATE *cand, i
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int j, k, b;
 double weight, f, f0;
 float *doppler;
@@ -1861,7 +1893,7 @@ static void matched_precompute_snr_data(SNR_DATA *sd, SCORE_AUX_DATA *ad, CANDID
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int j, k, b;
 double weight, f;
 float *doppler;
@@ -2093,7 +2125,7 @@ inline static void compute_snr(SCORE_AUX_DATA *ad, CANDIDATE *cand, int debug)
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int i, j, k, b, b_max;
 double weight, f, demod_weight, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
@@ -2226,7 +2258,7 @@ inline static void compute_hints(SCORE_AUX_DATA *ad, CANDIDATE *cand, HINTS *h)
 {
 DATASET *d;
 float spindown=cand->spindown;
-float frequency=cand->frequency;
+double frequency=cand->frequency;
 int j, k, i, b;
 float mismatch;
 double weight, f, x, y, demod_weight, power[3], freq_hint_right[FREQ_STEPS], freq_hint_left[FREQ_STEPS], max_hint;
@@ -3199,7 +3231,7 @@ int search_all(CANDIDATE *cand)
 {
 int ra_dir, dec_dir, spindown_dir, frequency_dir;
 int found=0, lfound;
-float frequency;
+double frequency;
 CANDIDATE c, best_c;
 int i, N=5, N_sky=10, sign;
 float max, lmax;
