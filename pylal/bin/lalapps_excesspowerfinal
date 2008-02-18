@@ -19,6 +19,42 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
+# Information extracted from data set:
+#
+# - from zero lag obtain zero lag event rate vs. amplitude threshold curve,
+# and amplitude of loudest event to use as final threshold
+#
+# - from time slides, obtain background event rate vs. amplitude threshold
+# curve.  this is \mu_{0}(x) in Brady et al. upper limit paper.
+#
+# - numerically differentiate that curve to obtain \mu_{0}'(x).  this is
+# done by first computing a spline approximation of the \mu_{0}(x) curve,
+# and then differentiating that curve.
+#
+# - from histogram of the times between events, confirm that background is
+# a Poisson process.  but should this be of all background events, or only
+# background events with amplitudes above the final threshold?  again, the
+# latter could be a problem if there aren't enough events in the time
+# slides above threshold
+#
+# - in each M_{sun} vs. centre frequency bin, measure the injection
+# recovery probability at the final threshold.  this is \epsilon(x) in
+# Brady et al., and required two 2D M_{sun} vs. frequency binnings to
+# compute.  all made injections go into the first 2D binning, and all
+# injections recovered with an amplitude above threshold go into the second
+# 2D binning.  the ratio of the second binning's counts to those in the
+# first yields the detection efficiency (found / made).
+#
+# - in each M_{sun} vs. centre frequency bin, measure the injection
+# recovery probability density at the final threshold.  this is
+# \epsilon'(x) in Brady et al., and requires one additional 2D M_{sun} vs.
+# frequency binning to compute.  all recovered injections regardless of
+# amplitude go into this binning weighted by an amplitude window function.
+# the ratio of this third binnings' counts to those in the first above
+# yields the efficiency density if the amplitude window has been normalized
+# properly (so as to yield count per amplitude interval).
+
+
 #
 # =============================================================================
 #
@@ -28,15 +64,11 @@
 #
 
 
-"""
-Excess power upper limit final result tool.
-"""
-
-
 import glob
 import math
 from matplotlib import patches
 import numpy
+from scipy import interpolate
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -48,7 +80,6 @@ import sys
 
 from glue import iterutils
 from glue import segments
-from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from pylal import ligolw_tisi
 from pylal import SimBurstUtils
@@ -70,7 +101,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-lsctables.LIGOTimeGPS = LIGOTimeGPS
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -85,31 +116,22 @@ lsctables.LIGOTimeGPS = LIGOTimeGPS
 def parse_command_line():
 	parser = OptionParser(
 		version="%prog CVS $Id$",
-		usage = "%prog [options] -i|--injection-glob pattern -b|--background-glob pattern",
+		usage = "%prog [options] -i|--injections-glob pattern -b|--background-glob pattern",
 		description = "%prog performs the final, summary, stages of an upper-limit excess power search for burst-like gravitational waves."
 	)
-	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files.")
-	parser.add_option("-i", "--injection-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files.")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\")")
-	parser.add_option("--foreground-survivors", metavar = "number", type = "float", help = "Tune the coincidence likelihood threshold to result in this many survivors being expected in the foreground. (e.g., 0.1)")
-	parser.add_option("--confidence-contour-slope", metavar = "slope", type = "float", default = -20.0, help = "Set the slope of the confidence-likelihood joint contours on which the final cut thresholds (default = -20.0).")
-	parser.add_option("--threshold", metavar = "value", type = "float", help = "Set the effective confidence threshold to this value instead of measuring one from the time slide coincidence data.")
+	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files (required).")
+	parser.add_option("-i", "--injections-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files (required).")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary \"out\" segments define the search live time (default = \"lalapps_power\")")
+	parser.add_option("--foreground-survivors", metavar = "number", type = "int", help = "Set the final confidence-likelihood joint threshold so that this many events survive in the foreground.  If n survivors are requested, then the threshold is set at exactly the amplitude of the n+1 event, and events are discarded if their amplitudes are <= the threshold.  A \"loudest-event\" upper limit is obtained by setting this to 0.  The default is 0.")
+	parser.add_option("--confidence-contour-slope", metavar = "slope", type = "float", default = -20.0, help = "Set the slope of the confidence-likelihood joint threshold contours (default = -20.0).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
-	if options.threshold is None:
-		if not options.background_glob:
-			raise ValueError, "missing required --background-glob argument (--threshold not given)"
-		if options.foreground_survivors is None:
-			raise ValueError, "missing required --foreground-survivors argument (--threshold not given)"
-	elif options.verbose:
-		if options.background_glob:
-			print >>sys.stderr, "warning: using --threshold, ignoring --background-glob argument"
-		if options.foreground_survivors is not None:
-			print >>sys.stderr, "warning: using --threshold, ignoring --foreground-survivors argument"
-	if not options.injection_glob:
-		raise ValueError, "missing required --injection-glob argument"
+	if not options.background_glob:
+		raise ValueError, "missing required --background-glob argument"
+	if not options.injections_glob:
+		raise ValueError, "missing required --injections-glob argument"
 
 	return options, (filenames or [None])
 
@@ -117,136 +139,7 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                           Likelihood Book-Keeping
-#
-# =============================================================================
-#
-
-
-class Confidence_Likelihood_Histogram(object):
-	def __init__(self, effective_confidence_slope):
-		self.effective_confidence_slope = effective_confidence_slope
-		self.slides = []
-		self.background_eff_confidences = iterutils.Highest(max = 10000000)
-		self.foreground_eff_confidences = []
-
-	def effective_confidence(self, likelihood, confidence):
-		# In the 2-D likelihood--confidence parameter space, the
-		# background density contours for high confidence, high
-		# likelihood, tuples are found to be approximated by the
-		# family of curves given by
-		#
-		#	ln likelihood = m ln confidence + ln b
-		#
-		# b (the y-intercept) parameterizes the family of curves,
-		# and can be interpreted as an "effective confidence".
-		# Injections are found to have high "b" values, and noise
-		# low "b" values.  Given a likelihood and confidence pair,
-		#
-		#	b = likelihood / confidence^m
-		#
-		# This function computes and returns ln b.
-
-		if likelihood <= 0:
-			# log() doesn't like 0, so we handle this case
-			# separately.  Unfortunately, Python doesn't appear
-			# to have a defined way to construct a constant
-			# equal to -inf.  On machines on which Python uses
-			# IEEE-compliant double-precision floats, the
-			# constant below is returned as -inf.  Otherwise it
-			# should surely be negative enough to ensure that
-			# this coinc is not retained.
-			return -1e400
-		if 1.0 / likelihood <= 0:
-			# this time likelihood == +inf, which can happen
-			# when there are regions of parameter space where
-			# no noise is ever *ever* seen.
-			return +1e400
-		return math.log(likelihood) - self.effective_confidence_slope * math.log(confidence)
-
-	def add_non_injections(self, contents):
-		#
-		# Iterate over burst<-->burst coincidences.  Assume there
-		# are no injections in this file.
-		#
-
-		# accumulate confidences in a separate buffer to avoid slow
-		# calls to the Highest class' append() method.
-		buffer = []
-		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
-SELECT
-	coinc_event.likelihood,
-	multi_burst.confidence,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-FROM
-	coinc_event
-	JOIN multi_burst ON (
-		multi_burst.coinc_event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-		""", (contents.bb_definer_id,)):
-			if is_background:
-				buffer.append(self.effective_confidence(likelihood, confidence))
-			else:
-				self.foreground_eff_confidences.append(self.effective_confidence(likelihood, confidence))
-		self.background_eff_confidences.extend(buffer)
-
-	def finish_non_injections(self):
-		self.foreground_eff_confidences.sort(reverse = True)
-
-	def find_confidence_threshold(self, events_per_foreground, foreground_live_time, background_live_time, verbose = False):
-		"""
-		Given the desired average number of events per foreground
-		live time, determine the likelihood threshold to cut
-		coincidences on.  The interpretation is that coincidences
-		with a likelihood greater than (not equal to) the value
-		returned by this function are to be retained.
-		"""
-		#
-		# How many events to retain from the non-zero-lag
-		# coincidences in order to get events_per_foreground
-		# survivors in the foreground, assuming the event rate is
-		# the same in all time slides.
-		#
-
-		n_background = int(round(events_per_foreground * background_live_time / foreground_live_time))
-
-		#
-		# Effective confidence that will keep n_background
-		# background events
-		#
-
-		self.effective_confidence_threshold = self.background_eff_confidences[n_background]
-
-		if verbose:
-			print >>sys.stderr, "\tln likelihood > %.16g ln confidence + %.16g" % (self.effective_confidence_slope, self.effective_confidence_threshold)
-
-	def get_foreground_above_confidence_threshold(self):
-		return [x for x in self.foreground_eff_confidences if x > self.effective_confidence_threshold]
-
-	def is_a_keeper(self, likelihood, confidence):
-		# FIXME:  consider imposing a minimum required likelihood
-		# to prevent a noise event with a ridiculously low
-		# likelihood but a stupidly high amplitude from passing the
-		# test.  has to be accounted for in
-		# get_foreground_above_confidence_threshold() and other
-		# places.
-		return self.effective_confidence(likelihood, confidence) > self.effective_confidence_threshold
-
-
-#
-# =============================================================================
-#
-#                                  Live Time
+#                               Live Time Tools
 #
 # =============================================================================
 #
@@ -292,39 +185,170 @@ def zero_lag_livetime(seglists):
 
 def time_slides_livetime(seglists, time_slides, verbose = False):
 	"""
-	For each of the time slides, which are instrument --> offset
-	mappings, compute the live time, and return the sum.
+	Given a sequence of time slides (each of which is an instrument -->
+	offset dictionary), use the segmentlistdict dictionary of segment
+	lists to compute the live time in each time slide.  Return the sum
+	of the live times from all slides.
 	"""
 	livetime = 0.0
 	old_offsets = seglists.offsets.copy()
 	N = len(time_slides)
 	for n, time_slide in enumerate(time_slides):
 		if verbose:
-			print >>sys.stderr, "\t%.1g%%" % (100.0 * n / N),
+			print >>sys.stderr, "Computing the live time for %d time slides:  %.1g%%" % (N, 100.0 * n / N),
 		seglists.offsets.update(time_slide)
 		livetime += float(abs(seglists.intersection(time_slide.keys())))
 	seglists.offsets.update(old_offsets)
 	if verbose:
-		print >>sys.stderr, "\t100.0%"
+		print >>sys.stderr, "Computing live time for %d time slides:  100.0%"
 	return livetime
 
 
 #
 # =============================================================================
 #
-#                              Measure Threshold
+#                              Rate vs. Threshold
 #
 # =============================================================================
 #
 
 
-def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
+#
+# Book-keeping class
+#
+
+
+class RateVsThresholdData(object):
+	def __init__(self):
+		self.background_amplitudes = iterutils.Highest(max = 1e7)
+		self.foreground_amplitudes = []
+		self.background_time_slides = []
+		self.out_seglists = segments.segmentlistdict()
+
+
+	def update_from(self, contents):
+		#
+		# Record the "out" segment lists.
+		#
+
+		self.out_seglists |= contents.seglists
+
+		#
+		# Add the background time slides from this file to the
+		# total list.
+		#
+
+		self.background_time_slides = ligolw_tisi.time_slide_list_merge(self.background_time_slides, get_background_time_slides(contents).values())
+
+		#
+		# Iterate over burst<-->burst coincidences.  Assume there
+		# are no injections in this file.  Accumulate confidences
+		# in a separate buffer to avoid slow calls to the Highest
+		# class' append() method.
+		#
+
+		buffer = []
+		for likelihood, confidence, is_background in contents.connection.cursor().execute("""
+SELECT
+	coinc_event.likelihood,
+	multi_burst.confidence,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_event
+	JOIN multi_burst ON (
+		multi_burst.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+		""", (contents.bb_definer_id,)):
+			if is_background:
+				buffer.append(coinc_amplitude(likelihood, confidence))
+			else:
+				self.foreground_amplitudes.append(coinc_amplitude(likelihood, confidence))
+		self.background_amplitudes.extend(buffer)
+
+
+	def finish(self, foreground_survivors, verbose = False):
+		# sort the zero lag amplitudes from highest to lowest.
+
+		self.foreground_amplitudes.sort(reverse = True)
+
+		# compute the live time at zero lag and in time slides.
+
+		self.foreground_live_time = zero_lag_livetime(self.out_seglists)
+		self.background_live_time = time_slides_livetime(self.out_seglists, self.background_time_slides, verbose = verbose)
+
+		# given the desired number of survivors in the foreground,
+		# find the "amplitude" threshold to cut coincs on.  The
+		# interpretation is that only coincidences with an
+		# "amplitude" greater than (not equal to) this value are to
+		# be retained.
+
+		self.amplitude_threshold = self.foreground_amplitudes[foreground_survivors]
+
+		# compute the mean event rate vs. amplitude threshold as
+		# observed in the time slides.  xcoords are the background
+		# event amplitudes, ycoords are the are the corresponding
+		# rates.  have to not trick array() with the Highest class'
+		# fake element count.  this is \mu_{0}(x) in the Brady et
+		# al. paper.
+
+		self.background_rate_x = numpy.fromiter(self.background_amplitudes, dtype = "double", count = list.__len__(self.background_amplitudes))
+		self.background_rate_y = numpy.arange(0, len(self.background_rate_x), dtype = "double") / self.background_live_time
+
+		# compute the 1-sigma vertical error bars.  ycoords is the
+		# expected event rate measured from the background, times
+		# foreground_live_time is the expected event count in the
+		# foreground, the square root of which is the 1 sigma
+		# Poisson fluctuation in the foreground evetn count,
+		# divided by foreground_live_time gives the 1 sigma Poisson
+		# fluctuation in the expected foreground event rate.
+
+		self.background_rate_dy = numpy.sqrt(self.background_rate_y * self.foreground_live_time) / self.foreground_live_time
+
+		# compute spline approximation of background event rate
+		# curve to assist in obtaining an approximation of its
+		# first derivative, which will be \mu_{0}'(x) in the Brady
+		# et al. paper.  the spline function requires the x
+		# co-ordinates to be in increasing order, so we have to
+		# reverse the x and y arrays.
+
+		self.background_rate_spline = interpolate.UnivariateSpline(self.background_rate_x[::-1], self.background_rate_y[::-1])
+
+		# compute the mean event rate vs. amplitude threshold as
+		# observed at zero-lag.  don't include foreground events
+		# whose amplitudes are below the lowest amplitude recorded
+		# for a background event
+
+		foreground_amplitudes = list(self.foreground_amplitudes)
+		for i in xrange(len(foreground_amplitudes)):
+			if foreground_amplitudes[i] < self.background_amplitudes[-1]:
+				del foreground_amplitudes[i:]
+				break
+
+		self.foreground_rate_x = numpy.array(foreground_amplitudes)
+		self.foreground_rate_y = numpy.arange(0, len(self.foreground_rate_x), dtype = "double") / self.foreground_live_time
+
+
+#
+# Measure threshold
+#
+
+
+def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
 	#
-	# Set up book-keeping tools.
+	# Initialize the book-keeping object.
 	#
 
-	non_injection_seglists = segments.segmentlistdict()
-	background_time_slides = []
+	rate_vs_threshold_data = RateVsThresholdData()
 
 	#
 	# Iterate over non-injection files.
@@ -340,15 +364,13 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase().summarize(live_time_program, verbose)
+		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose)
 
 		#
 		# Process database contents.
 		#
 
-		background_time_slides = ligolw_tisi.time_slide_list_merge(background_time_slides, get_background_time_slides(database).values())
-		likelihood_histogram.add_non_injections(database)
-		non_injection_seglists |= database.seglists
+		rate_vs_threshold_data.update_from(database)
 
 		#
 		# Done with this file.
@@ -362,80 +384,69 @@ def measure_threshold(filenames, likelihood_histogram, n_survivors, live_time_pr
 	#
 
 	if verbose:
-		print >>sys.stderr, "=== Threshold ==="
-		print >>sys.stderr, "measuring live time ..."
-	foreground_live_time = zero_lag_livetime(non_injection_seglists)
-	background_live_time = time_slides_livetime(non_injection_seglists, background_time_slides)
-
-	if verbose:
-		print >>sys.stderr, "finishing background likelihood histograms ..."
-	likelihood_histogram.finish_non_injections()
-
-	if verbose:
-		print >>sys.stderr, "computing effective confidence threshold ..."
-	likelihood_histogram.find_confidence_threshold(n_survivors, foreground_live_time, background_live_time, verbose = verbose)
+		print >>sys.stderr, "finishing rate vs. threshold measurement ..."
+	rate_vs_threshold_data.finish(n_survivors, verbose = verbose)
 
 	#
 	# Done.
 	#
 
-	return foreground_live_time, background_live_time
+	return rate_vs_threshold_data
 
 
 #
-# =============================================================================
-#
-#                              Rate vs. Threshold
-#
-# =============================================================================
+# Plot
 #
 
 
-def plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, background_live_time):
-	plot = SnglBurstUtils.BurstPlot(r"Combined Threshold $\ln b$", r"Mean Event Rate (Hz)")
+def plot_rate_vs_threshold(data):
+	"""
+	Input is a RateVsThresholdData instance.  Output is a matplotlib
+	Figure instance.
+	"""
+	# initialize the plot
+
+	plot = SnglBurstUtils.BurstPlot(r"Coincident $n$-tuple ``amplitude'' (see text)", r"Mean Event Rate (Hz)")
 	plot.axes.semilogy()
 
-	# have to not trick array() with the fake element count
-	xcoords = numpy.fromiter(likelihood_histogram.background_eff_confidences, dtype = "double", count = list.__len__(likelihood_histogram.background_eff_confidences))
-	ycoords = numpy.arange(1, len(xcoords) + 1, dtype = "double")
-	ycoords /= background_live_time
-	# ycoords is the expected event rate, times foreground_live_time is
-	# the expected event count at zero lag, the square root of which is
-	# the 1 sigma Poisson fluctuation in the count, divided by
-	# foreground_live_time converts the count fluctuation to a rate
-	# fluctuation.
-	ysigmas = numpy.sqrt(ycoords * foreground_live_time) / foreground_live_time
+	# draw the background rate 1-sigma error bars as a shaded polygon
+	# clipped to the plot.  warning:  the error bar polygon is not
+	# *really* clipped to the axes' bounding box, the result will be
+	# incorrect if the number of sample points is small.
 
-	# warning:  the error bar polygon is not *really* clipped to the
-	# axes' bounding box, the result will be incorrect if the number of
-	# sample points is small.
 	ymin = 1e-9
 	ymax = 1e0
-	poly_x = numpy.concatenate((xcoords, xcoords[::-1]))
-	poly_y = numpy.concatenate((ycoords + 1 * ysigmas, (ycoords - 1 * ysigmas)[::-1]))
+	poly_x = numpy.concatenate((data.background_rate_x, data.background_rate_x[::-1]))
+	poly_y = numpy.concatenate((data.background_rate_y + 1 * data.background_rate_dy, (data.background_rate_y - 1 * data.background_rate_dy)[::-1]))
 	plot.axes.add_patch(patches.Polygon(numpy.column_stack((poly_x, numpy.clip(poly_y, ymin, ymax))), edgecolor = "k", facecolor = "k", alpha = 0.3))
 
-	line1 = plot.axes.plot(xcoords, ycoords, "k-")
+	# draw the mean background event rate
 
-	foreground_eff_confidences = list(likelihood_histogram.foreground_eff_confidences)
-	for i in xrange(len(foreground_eff_confidences)):
-		if foreground_eff_confidences[i] < likelihood_histogram.background_eff_confidences[-1]:
-			del foreground_eff_confidences[i:]
-			break
-	xcoords = numpy.array(foreground_eff_confidences)
-	ycoords = numpy.arange(1, len(xcoords) + 1, dtype = "double")
-	ycoords /= foreground_live_time
-	line2 = plot.axes.plot(xcoords, ycoords, "r-")
+	line1 = plot.axes.plot(data.background_rate_x, data.background_rate_y, "k-")
 
-	plot.axes.axvline(likelihood_histogram.effective_confidence_threshold, color = "k")
+	# draw the spline approximation to the mean background event rate
+
+	line2 = plot.axes.plot(data.background_rate_x, data.background_rate_spline(data.background_rate_x), "b-")
+
+	# draw the mean zero-lag event rate
+
+	line3 = plot.axes.plot(data.foreground_rate_x, data.foreground_rate_y, "r-")
+
+	# draw a vertical marker indicating the threshold
+
+	plot.axes.axvline(data.amplitude_threshold, color = "k")
 
 	#plot.axes.set_ylim((ymin, ymax))
 	#plot.axes.xaxis.grid(True, which="minor")
 	#plot.axes.yaxis.grid(True, which="minor")
 
-	plot.axes.legend((line1, line2), (r"Time Slides", r"Zero lag"))
+	# add a legend and a title
 
-	plot.axes.set_title(r"Mean Event Rate vs.\ Combined Final Threshold")
+	plot.axes.legend((line1, line3), (r"Background (time slides)", r"Zero lag"))
+	plot.axes.set_title(r"Mean Event Rate vs.\ Amplitude Threshold")
+
+	# done
+
 	return plot.fig
 
 
@@ -448,8 +459,13 @@ def plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, backgroun
 #
 
 
+#
+# Book-keeping class
+#
+
+
 class Efficiency_hrss_vs_freq(SimBurstUtils.Efficiency_hrss_vs_freq):
-	def add_contents(self, contents):
+	def add_contents(self, contents, amplitude_threshold):
 		if self.instruments != contents.instruments:
 			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
 
@@ -471,6 +487,7 @@ AS
 		sim_burst.simulation_id AS simulation_id,
 		sim_coinc_event.coinc_def_id AS sim_coinc_def_id,
 		burst_coinc_event.coinc_event_id AS burst_coinc_event_id
+		amplitude(burst_coinc_event.likelihood, multi_burst.confidence) AS burst_coinc_amplitude
 	FROM
 		sim_burst
 		JOIN coinc_event_map AS a ON (
@@ -490,15 +507,13 @@ AS
 		JOIN multi_burst ON (
 			multi_burst.coinc_event_id == burst_coinc_event.coinc_event_id
 		)
-	WHERE
-		is_a_keeper(burst_coinc_event.likelihood, multi_burst.confidence)
 		""")
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
-	EXISTS (
+	MAX (
 		SELECT
-			*
+			sim_coinc_map.burst_coinc_amplitude
 		FROM
 			sim_coinc_map
 		WHERE
@@ -509,23 +524,87 @@ FROM
 	sim_burst
 		""", (contents.scn_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
-			found = values[-1]
+			amplitude = values[-1]
+			found = (amplitude is not None) and (amplitude > amplitude_threshold)
 			# FIXME:  this assumes all injections are done at
-			# zero lag (which is correct, for now, but watch
-			# out for this)
+			# zero lag (which is correct for now, but watch out
+			# for this).  in general, a time_slide_id needs to
+			# be retrieved from the sim_coinc_event, the
+			# corresponding offsets retrieved from the
+			# time_slide_table and applied to the segment
+			# lists, and *then* the segmentlist intersection
+			# taken and the _was_made() test performed on the
+			# injection.
 			if SimBurstUtils.injection_was_made(sim, seglist, self.instruments):
+				# injection was made
 				self.injected_x.append(sim.freq)
-				self.injected_y.append(sim.hrss)
-				if found:
-					self.found_x.append(sim.freq)
-					self.found_y.append(sim.hrss)
+				self.injected_y.append(sim.egw_over_rsquared)
+				if amplitude is not None:
+					# injection was recovered (found at
+					# all)
+					self.recovered_x.append(sim.freq)
+					self.recovered_y.append(sim.egw_over_rsquared)
+					self.recovered_z.append(amplitude)
+					if amplitude > amplitude_threshold:
+						# injection was found above
+						# threshold
+						self.found_x.append(sim.freq)
+						self.found_y.append(sim.egw_over_rsquared)
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 
-def measure_efficiency(filenames, is_a_keeper, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
+	def finish(self, amplitude_threshold):
+		SimBurstUtils.Efficiency_hrss_vs_freq.finish(self)
+
+		# use the same binning for the efficiency density as was
+		# constructed for the efficiency
+
+		self.efficiency_density = rate.BinnedRatios(self.efficiency.denominator.bins)
+
+		# share denominators (saves computing it twice)
+
+		self.efficiency_density.denominator = self.efficiency.denominator
+
+		# construct the amplitude weighting function
+
+		# FIXME
+
+		#amplitude_weight = rate.BinnedArray(NDBins((LinearBins(amplitude_threshold - 5, amplitude_threshold + 5, 101),)))
+
+		# gaussian window's width is the number of bins
+		# corresponding to 1 unit of amplitude, which is determined
+		# by computing the inverse of the "volume" of the bin
+		# corresponding to amplitude_threshold
+
+		#window = rate.gaussian_window(1.0 / amplitude_weight.bins.volumes()[amplitude_weight.bins[(amplitude_threshold,)]])
+
+		# store the recovered injections in the efficiency density
+		# numerator bins weighted by amplitude
+
+		#for x, y, z in zip(self.recovered_x, self.recovered_y, self.recovered_z):
+		#	try:
+		#		weight = amplitude_weight[(z,)]
+		#	except IndexError:
+		#		# beyond the edge of the window
+		#		weight = 0.0
+		#	self.efficiency_density.incnumerator((x, y), weight)
+
+		# smooth the efficiency density numerator using the same 2D
+		# window as was used for the efficiency numerator and
+		# denominators
+
+		#rate.filter_array(self.efficiency_density.numerator, rate.gaussian_window2d(self.window_size_x, self.window_size_y))
+
+
+#
+# Measure efficiency
+#
+
+
+def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
 	# FIXME:  instrument is hard-coded.  bad bad bad.  sigh...
-	efficiency = Efficiency_hrss_vs_freq(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), 0.1)
+	efficiency = Efficiency_hrss_vs_freq(("H1", "H2", "L1"), (lambda sim, instrument: sim.egw_over_rsquared), r"$M_{\odot} / \mathrm{pc}^{2}$", 0.1)
 
 	#
 	# Iterate over injection files.
@@ -540,15 +619,15 @@ def measure_efficiency(filenames, is_a_keeper, live_time_program = "lalapps_powe
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
-		connection.create_function("is_a_keeper", 2, is_a_keeper)
+		connection.create_function("amplitude", 2, amplitude)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase().summarize(live_time_program, verbose)
+		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose)
 
 		#
 		# Process database contents.
 		#
 
-		efficiency.add_contents(database)
+		efficiency.add_contents(database, amplitude_threshold)
 
 		#
 		# Done with this file.
@@ -578,55 +657,95 @@ options, filenames = parse_command_line()
 
 
 #
-# Threshold
+# The "amplitude" of a coinc, the statistic on which we threshold.  This
+# function is defined here, like this, so that the slope of the
+# confidence-likelihood isodensity contours doesn't have to be carried
+# around.  For example, we can export this function to sqlite3 as a
+# two-argument function so that we do not have to pass the slope parameter
+# into SQL queries.
 #
 
 
-if options.verbose:
-	print >>sys.stderr, "=== Threshold ==="
-
-likelihood_histogram = Confidence_Likelihood_Histogram(options.confidence_contour_slope)
-
-if options.threshold is None:
+def coinc_amplitude(likelihood, confidence, m = options.confidence_contour_slope):
+	# In the 2-D confidence--likelihood parameter space, the background
+	# isodensity contours for high confidence, high likelihood,
+	# coincident n-tuples are found to be approximated by the family
+	# of curves given by
 	#
-	# Measure the threshold from the time slide files
+	#	likelihood = b * confidence^m
 	#
-
-	filenames = reduce(list.__add__, [glob.glob(g) for g in options.background_glob])
-	filenames.sort()
-	if not len(filenames):
-		raise ValueError, "error:  no background/foreground files found"
-
-	foreground_live_time, background_live_time = measure_threshold(filenames, likelihood_histogram, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-
+	# or
 	#
-	# Summary
+	#	ln likelihood = m ln confidence + ln b
 	#
+	# where m is a constant and b parameterizes the family of curves.
+	# Injections are found to have high "b" values, and noise low "b"
+	# values.  We use b (actually ln b) as the final, combined,
+	# statistic measuring the "goodness" of a coincident n-tuple.
+	# Given the likelihood ratio and confidence of a coincident
+	# n-tuple, this function computes and returns ln b, which we refer
+	# to as the "amplitude" of a coinc throughout this code following
+	# the language of Brady et al.
 
-	n_background = len(likelihood_histogram.background_eff_confidences)
-	n_foreground = len(likelihood_histogram.foreground_eff_confidences)
-	n_survivors = len(likelihood_histogram.get_foreground_above_confidence_threshold())
+	if likelihood <= 0:
+		# log() doesn't like 0, so we handle this case separately.
+		return float("-inf")
 
-	print
-	print "=== Threshold Summary ==="
-	print "Total live time in background = %.16g s" % background_live_time
-	print "Total live time in foreground = %.16g s" % foreground_live_time
-	print "Number of coincs in background = %d" % n_background
-	print "Average number of background coincs per foreground live time = %.16g" % (n_background / background_live_time * foreground_live_time)
-	print "Number of coincs in foreground = %d" % n_foreground
-	print "Number of foreground coincs above threshold = %d (%.16g expected)" % (n_survivors, options.foreground_survivors)
+	if 1.0 / likelihood <= 0:
+		# this time likelihood == +inf, which can happen when there
+		# are regions of parameter space where no noise is ever,
+		# *ever*, seen.
+		return float("+inf")
 
-	if options.verbose:
-		print >>sys.stderr, "plotting event rate ..."
-	fig = plot_rate_vs_threshold(likelihood_histogram, foreground_live_time, background_live_time)
-	if options.verbose:
-		print >>sys.stderr, "writing rate_vs_threshold.png ..."
-	fig.savefig("rate_vs_threshold.png")
-else:
-	# manually configure the thresholding function
-	likelihood_histogram.effective_confidence_threshold = options.threshold
+	return math.log(likelihood) - m * math.log(confidence)
 
-is_a_keeper = likelihood_histogram.is_a_keeper
+
+#
+# Accumulate the statistics required to extract rate vs. threshold
+# information, and measure the amplitude of the n_survivors+1 loudest
+# event.
+#
+
+
+print >>sys.stderr, "=== Threshold ==="
+print >>sys.stderr
+
+
+filenames = [filename for g in options.background_glob for filename in glob.glob(g)]
+filenames.sort()
+if not filenames:
+	raise ValueError, "error:  no background/foreground files found"
+
+
+rate_vs_threshold_data = measure_threshold(filenames, options.foreground_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+
+
+print >>sys.stderr
+print >>sys.stderr, "=== Threshold Summary ==="
+print >>sys.stderr
+print >>sys.stderr, "threshold definition:  ln likelihood > %.16g ln confidence + %.16g" % (options.confidence_contour_slope, rate_vs_threshold_data.amplitude_threshold)
+print >>sys.stderr, "total live time in background = %.16g s" % rate_vs_threshold_data.background_live_time
+print >>sys.stderr, "total live time in foreground = %.16g s" % rate_vs_threshold_data.foreground_live_time
+print >>sys.stderr, "number of coincs in background = %d" % len(rate_vs_threshold_data.background_amplitudes)
+print >>sys.stderr, "average number of background coincs per foreground live time = %.16g" % (len(rate_vs_threshold_data.background_amplitudes) / rate_vs_threshold_data.background_live_time * rate_vs_threshold_data.foreground_live_time)
+print >>sys.stderr, "number of coincs in foreground = %d" % len(rate_vs_threshold_data.foreground_amplitudes)
+
+
+print >>sys.stderr
+print >>sys.stderr, "plotting event rate ..."
+
+fig = plot_rate_vs_threshold(rate_vs_threshold_data, foreground_live_time, background_live_time)
+
+print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+
+fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+
+print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+
+fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
+
+print >>sys.stderr, "done."
+print >>sys.stderr
 
 
 #
@@ -634,21 +753,44 @@ is_a_keeper = likelihood_histogram.is_a_keeper
 #
 
 
-if options.verbose:
-	print >>sys.stderr, "=== Efficiency =="
+print >>sys.stderr
+print >>sys.stderr, "=== Efficiency =="
+print >>sys.stderr
 
-filenames = reduce(list.__add__, [glob.glob(g) for g in options.injection_glob])
+
+filenames = [filename for g in options.injections_glob for filename in glob.glob(g)]
 filenames.sort()
-if not len(filenames):
+if not filenames:
 	raise ValueError, "error:  no injection files found"
 
-efficiency = measure_efficiency(filenames, is_a_keeper, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-efficiency.finish()
 
-print
-print "== Efficiency Summary ==="
-print "Writing lalapps_excesspowerfinal_efficiency.png ..."
-SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency).savefig("lalapps_excesspowerfinal_efficiency.png")
+efficiency = measure_efficiency(filenames, rate_vs_threshold_data.amplitude_threshold, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+efficiency.finish(rate_vs_threshold_data.amplitude_threshold)
 
-print
-print "=== Done ==="
+
+print >>sys.stderr
+print >>sys.stderr, "=== Efficiency Summary ==="
+print >>sys.stderr
+
+
+print >>sys.stderr, "plotting efficiency curves ..."
+
+fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency)
+
+print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
+
+fig.savefig("lalapps_excesspowerfinal_efficiency.pdf")
+
+print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.png ..."
+
+fig.savefig("lalapps_excesspowerfinal_efficiency.pdf")
+
+
+#
+# Done.
+#
+
+
+print >>sys.stderr
+print >>sys.stderr, "=== Done ==="
+print >>sys.stderr
