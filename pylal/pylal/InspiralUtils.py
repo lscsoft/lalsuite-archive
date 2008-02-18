@@ -20,42 +20,41 @@ from glue.ligolw import lsctables
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
-def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dpi_thumb=50):
+def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
+  dpi_thumb=50, fig=None):
   """
   @param filename: filename in which to save the figure
   @param filename_thumb: filename into which save a thumbnail of the figure
-  @param doThumb: save the thumbnail or not (True/False)
+  @param doThumb: save the thumbnail or not (doThumb=True by default)
   @param dpi: resolution of the figure
-  @param dpi_thumn: resolution of the thumbnail (dpi=50 by default)
-  @return filename_thumb if a thumbnail was created (None otherwise)
+  @param dpi_thumb: resolution of the thumbnail (dpi=50 by default)
+  @param fig: the particular figure you wish to save (current figure by
+              default)
+  @return filename_thumb if a thumbnail was created (computed from filename
+          by default)
 
   """
-  from pylab import savefig
-
+  import pylab
+  
+  # fill in non-trivial defaults
+  if fig is None:
+    fig = pylab.gcf()
+  if dpi is None:
+    dpi = pylab.rcParams["savefig.dpi"]
+  if doThumb and (filename_thumb is None):
+    if filename is None:
+      raise ValueError, "must provide filename_thumb or filename if doThumb "\
+        "is True"
+    index = filename.rindex('.')
+    filename_thumb = filename[0:index] + '_thumb' + filename[index:]
+  
   # save picture into a file
   if filename is not None:
-    # with the appropriate resolution
-    if dpi is None:
-      savefig(filename)
-    else:
-      savefig(filename, dpi=dpi)
+    fig.savefig(filename, dpi=dpi)
 
-  # if thumbnail are requested, save a small picture into a file
-  if doThumb is True:
-    # if a filename is provided
-    if filename_thumb is not None:
-      savefig(filename_thumb, dpi=dpi_thumb)
-    else:
-    # if no filename for the thumbnail is provided, then
-    # we can use the filename argument and add a "thumbnail"
-    # string at the end. However, filename must be provided.
-      if filename is not None:
-        index = filename.rindex('.')
-        filename_thumb = filename[0:index]
-        filename_thumb += '_thumb' + filename[index:]
-        savefig(filename_thumb, dpi=dpi_thumb)
-      else:
-        print >> sys.stderr, "filename for the thumbnail is not correct. Fix me"
+  # save thumbnail into a file if requested
+  if doThumb:
+    fig.savefig(filename_thumb, dpi=dpi_thumb)
 
   return filename_thumb
 
