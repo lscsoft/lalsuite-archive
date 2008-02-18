@@ -193,14 +193,16 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	livetime = 0.0
 	old_offsets = seglists.offsets.copy()
 	N = len(time_slides)
+	if verbose:
+		print >>sys.stderr, "Computing the live time for %d time slides:" % N
 	for n, time_slide in enumerate(time_slides):
 		if verbose:
-			print >>sys.stderr, "Computing the live time for %d time slides:  %.1g%%" % (N, 100.0 * n / N),
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		seglists.offsets.update(time_slide)
 		livetime += float(abs(seglists.intersection(time_slide.keys())))
 	seglists.offsets.update(old_offsets)
 	if verbose:
-		print >>sys.stderr, "Computing live time for %d time slides:  100.0%"
+		print >>sys.stderr, "\t100.0%"
 	return livetime
 
 
@@ -734,7 +736,7 @@ print >>sys.stderr, "number of coincs in foreground = %d" % len(rate_vs_threshol
 print >>sys.stderr
 print >>sys.stderr, "plotting event rate ..."
 
-fig = plot_rate_vs_threshold(rate_vs_threshold_data, foreground_live_time, background_live_time)
+fig = plot_rate_vs_threshold(rate_vs_threshold_data)
 
 print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
 
