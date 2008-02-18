@@ -182,7 +182,7 @@ def makesteps(left_edges, y1, y2=None):
   y1 = numpy.asanyarray(y1)
   y2 = numpy.asanyarray(y2)
   
-  right_edge = left_edges[-1] + (left_edges[1] - left_edges[0])
+  right_edge = left_edges[-1] + (left_edges[-1] - left_edges[-2])
   
   # fill x
   x_new = numpy.empty(4*n, dtype=left_edges.dtype)
