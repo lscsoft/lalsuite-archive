@@ -117,6 +117,14 @@ options, filenames = parse_command_line()
 
 
 #
+# Coinc params function
+#
+
+
+coinc_params_func = ligolw_burca_tailor.galactic_core_coinc_params
+
+
+#
 # Load pre-computed likelihood data.
 #
 
@@ -186,9 +194,9 @@ for n, filename in enumerate(filenames):
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_background(ligolw_burca_tailor.coinc_params, database)
+		stats.add_background(coinc_params_func, database)
 	else:
-		stats.add_injections(ligolw_burca_tailor.coinc_params, database)
+		stats.add_injections(coinc_params_func, database)
 
 	#
 	# Clean up.
