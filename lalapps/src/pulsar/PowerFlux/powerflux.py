@@ -103,6 +103,7 @@ if 1 : powerflux.init("--dataset=random2.dst --first-bin=1953405 --side-cut=1200
 		--averaging-mode=matched --do-cutoff=0 \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		--spindown-start-time=793154935 \
 		--dump-candidates=0 \
 		--dump-points=0 --no-secondary-skymaps=1 \
 		--sky-marks-file=all_sky_marks.txt \
@@ -110,8 +111,8 @@ if 1 : powerflux.init("--dataset=random2.dst --first-bin=1953405 --side-cut=1200
 		--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--fake-ref-time=793154935 \
-  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=1085.34027777 --fake-strain=10e-24 \
-  		--fake-spindown=-4.66e-10 --fake-iota=1.57 --fake-psi=0.0 \
+  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=1085.340253 --fake-strain=3.2e-24 \
+  		--fake-spindown=-4.66e-9 --fake-iota=1.57 --fake-psi=0.0 \
 		")
 		
 else :
@@ -126,6 +127,7 @@ start_center.dec=-0.62;
 start_center.iota=0;
 start_center.psi=0;
 
+#start_center.frequency=100.1;
 #start_center=c1
 
 start_center.frequency_step=5e-5;
@@ -843,7 +845,7 @@ class candidate_display(QWidget):
 		self.get_controls()
 		self.cand=compute(self.cand, mode="full")
 		c=self.cand
-		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (c.snr, c.strain, c.power_cor, c.ifo_freq))
+		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\nf_max=%f\n" % (c.snr, c.strain, c.power_cor, c.ifo_freq, c.f_max))
 
 	def set_controls(self):
 		if(self.cand==None): return
@@ -951,11 +953,11 @@ class powerflux_main_window(QMainWindow):
 	self.layout1.addWidget(f, 0, 1)
 	self.maps.append(f)
 
-	f=map_display(self, "spindown", "dec")
+	f=map_display(self, "frequency", "dec")
 	self.layout1.addWidget(f, 1, 0)
 	self.maps.append(f)
 
-	f=map_display(self, "spindown", "ra")
+	f=map_display(self, "frequency", "ra")
 	self.layout1.addWidget(f, 1, 1)
 	self.maps.append(f)
 
@@ -1045,7 +1047,7 @@ class powerflux_main_window(QMainWindow):
 		curves.append(curve)		
 	f.curves=curves
 	
-	rows=["name", "detector", "sft_count", "weight", "nbins", "coherence_time", "gps_start", "gps_stop"]
+	rows=["name", "detector", "sft_count", "weight", "nbins", "coherence_time", "min_gps", "max_gps"]
 	
 	f=QTableWidget(len(rows), len(datasets)+1)
 	layout.addWidget(f, 1, 1)
