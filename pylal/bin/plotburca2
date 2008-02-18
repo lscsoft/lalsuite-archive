@@ -75,7 +75,7 @@ def parse_command_line():
 #
 
 
-def add_to_plot(axes, red, black, plottype):
+def add_to_plot(axes, red, black, plottype = "LR"):
 	if plottype == "P":
 		axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
 		axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
@@ -85,12 +85,12 @@ def add_to_plot(axes, red, black, plottype):
 		raise ValueError, plottype
 
 	ymin, ymax = axes.get_ylim()
-	if ymax / ymin > 1e6:
-		ymin = ymax / 1e6
+	if ymin < 1e-6 * ymax:
+		ymin = 1e-6 * ymax
 		axes.set_ylim((ymin, ymax))
 
 
-def add_to_dtplot(axes, red, black, plottype):
+def add_to_dtplot(axes, red, black, plottype = "LR"):
 	x = numpy.arange(len(black.array), dtype = "double")
 	if plottype == "P":
 		axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
@@ -101,8 +101,8 @@ def add_to_dtplot(axes, red, black, plottype):
 		raise ValueError, plottype
 
 	ymin, ymax = axes.get_ylim()
-	if ymax / ymin > 1e6:
-		ymin = ymax / 1e6
+	if ymin < 1e-6 * ymax:
+		ymin = 1e-6 * ymax
 		axes.set_ylim((ymin, ymax))
 	axes.set_xlim((0, len(black.array) - 1))
 
@@ -141,8 +141,8 @@ def plot_coinc_params(distributions, plottype):
 	# How many rows?
 	#
 
-	#n_vert = 6
-	n_vert = 5
+	n_vert = 6
+	#n_vert = 5
 
 	#
 	# Each of the first len(pairs) sub plot's aspect ratio is the golden
@@ -156,9 +156,9 @@ def plot_coinc_params(distributions, plottype):
 	# Plot layout.
 	#
 
-	vlabel_allowance = .05
-	hlabel_allowance = .03
-	border = .007
+	vlabel_allowance = (n_vert * .05) / fig.figheight.get()
+	hlabel_allowance = (n_horiz * .1) / fig.figwidth.get()
+	border = .07 / fig.figwidth.get()
 	width = 1.0 / n_horiz - hlabel_allowance - 2 * border
 	height = 1.0 / n_vert
 
@@ -210,10 +210,17 @@ def plot_coinc_params(distributions, plottype):
 	# GMST
 	#
 
-	#gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
-	#red = distributions.injection_rates["gmst"]
-	#black = distributions.background_rates["gmst"]
-	#add_to_plot(gmst_axes, red, black, plottype)
+	gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
+	red = distributions.injection_rates["gmst"]
+	black = distributions.background_rates["gmst"]
+	add_to_plot(gmst_axes, red, black, plottype)
+
+	gmst_axes.set_xlim((0, 2 * math.pi))
+
+	gmst_axes.set_xticks([n * math.pi / 4 for n in xrange(9)])
+	gmst_axes.set_xticklabels([r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$", r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$2\pi$"])
+
+	gmst_axes.set_xlabel("Greenwich Mean Sidereal Time (rad)")
 
 	#
 	# Done.
