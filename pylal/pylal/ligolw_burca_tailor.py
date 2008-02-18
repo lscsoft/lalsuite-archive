@@ -42,6 +42,7 @@ from pylal import date
 from pylal import inject
 from pylal import llwapp
 from pylal import rate
+from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -92,7 +93,7 @@ def coinc_params(events, offsetdict):
 
 		t = events[0].get_peak()
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-		params["gmst"] = date.XLALGreenwichMeanSiderealTime(t)
+		params["gmst"] = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
 	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
@@ -157,7 +158,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 	# amplitude-correct the event using the polarization-averaged
 	# antenna response
 
-	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, XLALGreenwichMeanSiderealTime(peak))
+	fp, fc = inject.XLALComputeDetAMResponse(detector.response, ra, dec, 0, date.XLALGreenwichMeanSiderealTime(peak))
 	mean_response = math.sqrt(fp**2 + fc**2)
 	event.amplitude /= mean_response
 	event.ms_hrss /= mean_response
