@@ -72,7 +72,7 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "plotbinj_", help = "Set the prefix for output filenames (default = \"plotbinj_\")")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\")")
 	parser.add_option("--amplitude-func", metavar = "hrsswave|hrssdet|E", default = "hrsswave", help = "Select the amplitude to show on the plots.  \"hrsswave\" = the h_rss of the wave, \"hrssdet\" = the h_rss in the detector, \"E\" = the radiated energy over r^2.")
-	parser.add_option("--input-cache", metavar = "filename", help = "Get list of trigger files from this LAL cache file.")
+	parser.add_option("--input-cache", metavar = "filename", action = "append", default = [], help = "Get list of trigger files from this LAL cache file.")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\").")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number (default = make all plots).  Use \"none\" to disable plots.")
 	parser.add_option("--coinc-plot", metavar = "number", action = "append", default = None, help = "Generate the given coinc plot number (default = make all coinc plots).  Use \"none\" to disable coinc plots.")
@@ -106,8 +106,10 @@ def parse_command_line():
 		options.coinc_plot = map(int, options.coinc_plot)
 
 	filenames = filenames or []
-	if options.input_cache:
-		filenames += [lal.CacheEntry(line).path() for line in file(options.input_cache)]
+	for cache in options.input_cache:
+		if options.verbose:
+			print >>sys.stderr, "reading '%s' ..." % cache
+		filenames += [lal.CacheEntry(line).path() for line in file(cache)]
 
 	return options, filenames
 
