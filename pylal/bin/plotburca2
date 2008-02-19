@@ -210,21 +210,21 @@ def plot_coinc_params(distributions, plottype):
 	# GMST
 	#
 
-	gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
-	gmst_axes.semilogy()
-	gmst_axes.set_xticks([n * math.pi / 4 for n in xrange(9)])
-	gmst_axes.set_xticklabels([r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$", r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$2\pi$"])
-	gmst_axes.set_xlabel("Greenwich Mean Sidereal Time (rad)")
+	#gmst_axes = fig.add_axes((hlabel_allowance + border, 5 * height + vlabel_allowance + border, 1.0 - hlabel_allowance - 2 * border, height - vlabel_allowance - 2 * border))
+	#gmst_axes.semilogy()
+	#gmst_axes.set_xticks([n * math.pi / 4 for n in xrange(9)])
+	#gmst_axes.set_xticklabels([r"$0$", r"$\frac{\pi}{4}$", r"$\frac{\pi}{2}$", r"$\frac{3\pi}{4}$", r"$\pi$", r"$\frac{5\pi}{4}$", r"$\frac{3\pi}{2}$", r"$\frac{7\pi}{4}$", r"$2\pi$"])
+	#gmst_axes.set_xlabel("Greenwich Mean Sidereal Time (rad)")
 
-	red = distributions.injection_rates["gmst"]
-	black = distributions.background_rates["gmst"]
-	add_to_plot(gmst_axes, red, black, plottype)
+	#red = distributions.injection_rates["gmst"]
+	#black = distributions.background_rates["gmst"]
+	#add_to_plot(gmst_axes, red, black, plottype)
 
-	ymin, ymax = gmst_axes.get_ylim()
-	if ymin < 1e-5 * ymax:
-		ymin = 1e-5 * ymax
-		gmst_axes.set_ylim((ymin, ymax))
-	gmst_axes.set_xlim((0, 2 * math.pi))
+	#ymin, ymax = gmst_axes.get_ylim()
+	#if ymin < 1e-5 * ymax:
+	#	ymin = 1e-5 * ymax
+	#	gmst_axes.set_ylim((ymin, ymax))
+	#gmst_axes.set_xlim((0, 2 * math.pi))
 
 	#
 	# Done.

@@ -93,7 +93,7 @@ def coinc_params(events, offsetdict):
 
 		t = events[0].get_peak()
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-		params["gmst"] = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
+		#params["gmst"] = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
 	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
@@ -468,8 +468,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
-		"H2_L1_dt": dt_binning("H2", "L1"),
-		"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 24001),))
+		"H2_L1_dt": dt_binning("H2", "L1")#,
+		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 4801),))
 	}
 
 	filters = {
@@ -487,8 +487,8 @@ class DistributionsStats(Stats):
 		"H2_L1_dh": rate.gaussian_window(21),
 		"H1_H2_dt": rate.gaussian_window(21),
 		"H1_L1_dt": rate.gaussian_window(21),
-		"H2_L1_dt": rate.gaussian_window(21),
-		"gmst": rate.gaussian_window(21)
+		"H2_L1_dt": rate.gaussian_window(21)#,
+		#"gmst": rate.gaussian_window(21)
 	}
 
 	def __init__(self):
