@@ -136,14 +136,9 @@ class CoincDatabase(object):
 				print >>sys.stderr, "\tinjections: %d" % len(self.sim_burst_table)
 			if self.time_slide_table is not None:
 				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
-			if self.bb_definer_id is not None:
-				print >>sys.stderr, "\tburst + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.bb_definer_id,)).fetchone()[0]
-			if self.sb_definer_id is not None:
-				print >>sys.stderr, "\tinjection + burst coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sb_definer_id,)).fetchone()[0]
-			if self.sce_definer_id is not None:
-				print >>sys.stderr, "\tinjection + exact (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.sce_definer_id,)).fetchone()[0]
-			if self.scn_definer_id is not None:
-				print >>sys.stderr, "\tinjection + nearby (burst + burst) coincidences: %d" % cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (self.scn_definer_id,)).fetchone()[0]
+			if self.coinc_def_table is not None:
+				for description, id in self.connection.cursor().execute("SELECT description, coinc_def_id FROM coinc_definer"):
+					print >>sys.stderr, "\t%s: %d" % (description, cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (id,)).fetchone()[0])
 
 
 def coinc_sngl_bursts(contents, coinc_event_id):
