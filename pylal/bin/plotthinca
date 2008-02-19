@@ -229,10 +229,6 @@ def parse_command_line():
 
   (options,args) = parser.parse_args()
 
-  # test the input options
-  if not options.ifo_times:
-    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
-
 
   return options, sys.argv[1:]
 
@@ -361,16 +357,24 @@ if opts.glob is not None or opts.cache_file is not None:
     allfilesCache = lal.Cache.fromfile(open(opts.cache_file))    
 
     offsourcefiles = []
-    slidefiles = []
-    coincfiles = []
-    coincfiles = allfilesCache.sieve(description=opts.coinc_pattern, exact_match=opts.match).\
-        sieve(ifos=opts.ifo_times,exact_match=True).\
-        checkfilesexist()[0].pfnlist()
-        #sieve(description=opts.ifo_times, exact_match=False).\
-    slidefiles = allfilesCache.sieve(description = (opts.slide_pattern), exact_match=opts.match).\
-        sieve(ifos=opts.ifo_times, exact_match=True).\
-        checkfilesexist()[0].pfnlist()
-#        sieve(description=opts.ifo_times, exact_match=False).\
+    sieved_cache = allfilesCache.sieve(description=opts.coinc_pattern,
+                                       exact_match=opts.match)
+    if opts.ifo_times is not None:
+      sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times,exact_match=True)
+    found, missed = sieved_cache.checkfilesexist()
+    if len(missed) > 0:
+      raise ValueError, "some files in the cache were not found on disk"
+    coincfiles = found.pfnlist()
+    
+    sieved_cache = allfilesCache.sieve(description=opts.slide_pattern,
+                                       exact_match=opts.match)
+    if opts.ifo_times is not None:
+      sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times, exact_match=True)
+    found, missed = sieved_cache.checkfilesexist()
+    if len(missed) > 0:
+      raise ValueError, "some files in the cache were not found on disk"
+    slidefiles = found.pfnlist()
+  
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "No files match your description."
