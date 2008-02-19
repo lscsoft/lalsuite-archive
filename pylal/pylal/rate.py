@@ -231,10 +231,10 @@ class ATanBins(Bins):
 	Example:
 
 	>>> x = ATanBins(-1.0, +1.0, 11)
-	>>> x[0]
-	5
 	>>> x[float("-inf")]
 	0
+	>>> x[0]
+	5
 	>>> x[float("+inf")]
 	10
 	>>> x.centres()
