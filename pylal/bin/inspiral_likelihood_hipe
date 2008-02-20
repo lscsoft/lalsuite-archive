@@ -1,0 +1,413 @@
+#!/usr/bin/python
+"""
+This script generates the condor DAG that represents the workflow for likelihood calculation.
+Currently the calculation consist of two main step
+1) running COIRE on all individual THINCA files containing coicident inspiral events
+2) running inspiral_likelihood jobs for each individual COIRE file.
+"""
+__author__ = 'Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>'
+__date__ = '$Date$'
+__version__ = '$Revision$'[11:-2]
+
+##############################################################################
+# import standard modules and append the lalapps prefix to the python path
+import sys, os
+from optparse import *
+import ConfigParser
+import re
+import tempfile
+sys.path.append('@PYTHONLIBDIR@')
+
+##############################################################################
+# import the modules we need to build the pipeline
+from glue import pipeline
+from glue import lal
+from lalapps import inspiral
+##############################################################################
+class LikelihoodJob(inspiral.InspiralAnalysisJob):
+  """
+  A likelihood job.The static options are read from the section
+  [plotthinca] in the ini file.  The stdout and stderr from the job
+  are directed to the logs directory.  The path to the executable is
+  determined from the ini file.
+  """
+  def __init__(self, cp, dax=False):
+	"""
+	cp = ConfigParser object from which options are read.
+	"""
+	exec_name = "likelihood"
+	sections = ["likelihood"]
+	inspiral.InspiralAnalysisJob.__init__(self, cp, sections, exec_name, dax)
+	self.add_condor_cmd('getenv', 'True')
+	
+	
+class LikelihoodNode(inspiral.InspiralAnalysisNode):
+  """
+  A LikelihoodNode runs an instance of the inspiral_likelihood code in a Condor DAG.
+  """
+  def __init__(self,job):
+    """
+    job = A CondorDAGJob that can run an instance of plotthinca.
+    """
+    inspiral.InspiralAnalysisNode.__init__(self,job)
+
+
+
+
+##############################################################################
+# function to add coire nodes to the dag  
+def add_coire_nodes(thinca_files, coire_job, dag, inj_file=None, num_slides=0):
+  """
+  Add a coire node for each of the file in the thinca_files list to a dag 
+  
+  thinca_files = list of thinca files to be used as an input for coire jobs
+  coire_job = coire job to use for the analysis
+  dag       = name of the dag
+  inj_file  = name of injection file
+  num_slides = the number of time slides
+  """
+  coire_files = []
+  for file in thinca_files:
+	# strip the path
+	filename = file.split("/")[-1]
+	coire = inspiral.CoireNode(coire_job)
+	# set the options:
+	if inj_file:
+	  coire.set_inj_file(inj_file)
+	if num_slides: coire.set_slides(num_slides) 
+	# set the glob file for coire
+	coire.set_glob(file)
+	if num_slides:
+	  output_file = re.sub("THINCA_SLIDE", "COIRE_SLIDE", filename)
+	elif inj_file:
+	  coire.set_inj_file(inj_file)
+	  output_file = re.sub("THINCA", "COIRE_FOUND", filename)
+	  coire.add_var_opt('missed-injections', re.sub("FOUND", "MISSED", output_file))
+	else:
+	  output_file = re.sub("THINCA", "COIRE", filename)
+	
+	coire.add_var_opt("output", output_file)
+	coire.add_var_opt("summary", output_file.replace("xml.gz", "txt"))
+
+	dag.add_node(coire)
+	coire_files.append(output_file)
+  return coire_files
+
+# function to add likelihood nodes to the dag
+def add_likelihood_nodes(coire_files, likelihood_job, dag, Noop_Node = None):
+  """
+  Add a likelihood node for each of the file in the coire_files list.
+  
+  coire_files = list of coire files cantaing triggers for which likelihood will be calculated
+  likelihood_job = likelihood job to use for calculation
+  dag = name of the dag
+  background_foreground_cache_files = cache files  (separated by comma) that will be used for estimating background
+                                      and forground distributions
+  background_pattern = background events files pattern the corresponding cache file will be seived with
+  found_injections_pattern = found injections files pattern the corresponding cache file will be seived with
+  missed_injections_pattern = missed injections files pattern the corresponding cache file will be seived with
+  Noop_job = noop job that may be used to set parent-child relation
+  """
+  likelihood_files = []
+  for file in coire_files:
+	likelihood = LikelihoodNode(likelihood_job)
+	# set the options:
+	# set the glob file for candidate events
+	likelihood.add_var_opt("candidate-events-glob", file)
+	
+	# set output file
+	# strip the path
+	filename = file.split("/")[-1]
+	output_file = re.sub("COIRE", "LIKELIHOOD", filename)
+	likelihood.add_var_opt("output-file", output_file)
+	# add noop node as a parent if it is given
+	if Noop_Node:
+	  likelihood.add_parent(Noop_Node)
+	  
+	dag.add_node(likelihood)
+	likelihood_files.append(output_file)
+  return likelihood_files
+
+##############################################################################
+#
+#  MAIN PROGRAM
+#
+##############################################################################
+usage = """usage: %prog [options] """
+parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+parser.add_option("", "--skip-coire",action="store_true",default=False, help="skip coire step")
+
+parser.add_option("", "--config-file",action="store",type="string",\
+    metavar=" FILE",help="use configuration file FILE")
+
+parser.add_option("", "--log_path",action="store",type="string",\
+    metavar="LOGPATH", help="path for condor log")
+	
+parser.add_option("", "--user-tag",action="store",type="string",\
+    metavar="USERTAG",help="user tag")
+	
+parser.add_option("", "--write-script",action="store_true",default=False, help="write dag generation script")
+
+	
+(opts,args) = parser.parse_args()
+	
+
+
+##############################################################################
+# create the config parser object and read in the ini file
+cp = ConfigParser.ConfigParser()
+cp.read(opts.config_file)
+
+###############################################################################
+
+##############################################################################
+# create a log file that the Condor jobs will write to
+basename = re.sub(r'\.ini',r'', opts.config_file)
+if opts.user_tag:
+  (handle,logfile) = tempfile.mkstemp(".dag.log", basename + "." + opts.user_tag + ".", opts.log_path)
+else:
+  (handle,logfile) = tempfile.mkstemp(".dag.log", basename + ".", opts.log_path)
+fh = open(logfile, "w" )
+fh.close()
+
+##############################################################################
+# create the DAG writing the log to the specified directory
+dag = pipeline.CondorDAG(logfile)
+if opts.user_tag:
+  dag.set_dag_file(basename + '.' + opts.user_tag )
+else:
+  dag.set_dag_file(basename)
+
+# set better submit file names than the default
+if opts.user_tag:
+  subsuffix = '.' + opts.user_tag + '.sub'
+else:
+  subsuffix = '.sub'
+##################################################################################
+# setting up  coire jobs that will be used in DAG generation unless --skip-coire option is given
+
+if not opts.skip_coire:
+  # coire:
+  coire_job = inspiral.CoireJob(cp)
+  coire_job.set_sub_file(basename + ".coire" + subsuffix )
+  coire_slide_job = inspiral.CoireJob(cp)
+  coire_slide_job.set_sub_file( basename + ".coire_slide" + subsuffix )
+
+  coire_inj_job = inspiral.CoireJob(cp)
+  coire_inj_job.set_sub_file( basename + ".coire_inj" + subsuffix )
+  
+  # default log directory for analysis jobs is "logs/" it is being set in inspiral.py in InspiralAnalysisJob() class
+  # here we set it to be the same for No-Op job that does not inherit InspiralAnalysisJob() class.
+  log_dir="logs"
+
+  # No-Op job
+  coire_noop_job = pipeline.NoopJob(log_dir, cp)
+
+
+
+##############################################################################
+# read in zerolag THINCA or COIRE files
+
+zerolag_cache_file=cp.get("input", "zerolag-cache-file")
+zerolag_cache = lal.Cache.fromfile(open(zerolag_cache_file))
+zerolag_pattern = cp.get("input", "zerolag-pattern")
+zerolag_files = zerolag_cache.sieve(description = zerolag_pattern).checkfilesexist()[0].pfnlist()
+
+##############################################################################
+# read in time slides (background) and injections (foreground) THINCA or COIRE files
+
+background_foreground_cache_file=cp.get("input", "background_foreground_cache_file")
+background_foreground_cache = lal.Cache.fromfile(open(background_foreground_cache_file))
+background_pattern = cp.get("input", "background-pattern")
+background_files = background_foreground_cache.sieve(description = background_pattern).checkfilesexist()[0].pfnlist()
+found_injections_pattern = cp.get("injections", "found-injections-pattern")
+found_injections_files =  background_foreground_cache.sieve(description = found_injections_pattern).checkfilesexist()[0].pfnlist()
+
+###############################################################################
+# set up coire nodes of the dag unless --skip-coire option was given
+if not opts.skip_coire:
+  # adding coire nodes for zerolag files to the dag
+  zerolag_coire_files = add_coire_nodes(zerolag_files, coire_job, dag)
+
+  # adding coire nodes for time slides to the dag
+  numslides = cp.get("input", "num-slides")
+  background_coire_files = add_coire_nodes(background_files, coire_slide_job, dag, num_slides=numslides)
+   
+  # adding coire nodes for zerolag files to the dag 
+  injection_file = cp.get("injections", "inj_file")
+  found_injections_coire_files = add_coire_nodes(found_injections_files, coire_inj_job, dag, inj_file = injection_file)
+  
+  # forming list of missed injections files 
+  missed_injections_coire_files = []
+  for file in found_injections_coire_files:
+	missed_coire_file = re.sub("FOUND", "MISSED", file)
+	missed_injections_coire_files.append(missed_coire_file)
+	
+  # write coire files to the output cache file
+  current_dir = os.getcwd()
+  output_coire_cache = lal.Cache()
+  
+  # adding zerolag coire files to cache
+  for file in zerolag_coire_files:
+	file = current_dir + "/" + file
+	output_coire_cache.append(lal.Cache.from_urls([file])[0])
+	
+  #	adding background (time slides) coire files to cache
+  for file in background_coire_files:
+	file = current_dir + "/" + file
+	output_coire_cache.append(lal.Cache.from_urls([file])[0])
+	
+  #	adding found injections coire files to cache
+  for file in found_injections_coire_files:
+	file = current_dir + "/" + file
+	output_coire_cache.append(lal.Cache.from_urls([file])[0]) 
+  # adding missed injections coire files
+  for file in missed_injections_coire_files:
+	file = current_dir + "/" + file
+	output_coire_cache.append(lal.Cache.from_urls([file])[0])
+  output_cache_name = basename + "_COIRE.cache"
+  output_cache_file = open(output_cache_name, "w")
+  output_coire_cache.tofile(output_cache_file)
+  output_cache_file.close()
+  
+##################################################################################
+# set up likelihood jobs
+
+numslides = cp.get("input", "num-slides")
+
+# zero lag
+likelihood_job = LikelihoodJob(cp)
+likelihood_job.add_opt("num-slides", numslides) 
+likelihood_job.set_sub_file(basename + ".likelihood" +subsuffix)
+
+# time slides
+likelihood_slide_job = LikelihoodJob(cp)
+likelihood_slide_job.add_opt("num-slides", numslides) 
+likelihood_slide_job.set_sub_file(basename + ".likelihood_slide" +subsuffix)
+
+# injections
+likelihood_inj_job = LikelihoodJob(cp)
+likelihood_inj_job.add_opt("num-slides", numslides) 
+likelihood_inj_job.set_sub_file(basename + ".likelihood_inj" +subsuffix)
+
+
+
+if not opts.skip_coire:
+  # overwriting options  for likelihood jobs set in the ini file
+  # zero lag
+  likelihood_job.add_opt("background-foreground-cache-files", output_cache_name)
+  likelihood_job.add_opt("background-pattern", "COIRE_SLIDE")
+  likelihood_job.add_opt("found-injections-pattern", "COIRE_FOUND")
+  likelihood_job.add_opt("missed-injections-pattern", "COIRE_MISSED")
+  
+  # time slides
+  likelihood_slide_job.add_opt("background-foreground-cache-files", output_cache_name)
+  likelihood_slide_job.add_opt("background-pattern", "COIRE_SLIDE")
+  likelihood_slide_job.add_opt("found-injections-pattern", "COIRE_FOUND")
+  likelihood_slide_job.add_opt("missed-injections-pattern", "COIRE_MISSED") 
+
+  # injections
+  likelihood_inj_job.add_opt("background-foreground-cache-files", output_cache_name)
+  likelihood_inj_job.add_opt("background-pattern", "COIRE_SLIDE")
+  likelihood_inj_job.add_opt("found-injections-pattern", "COIRE_FOUND")
+  likelihood_inj_job.add_opt("missed-injections-pattern", "COIRE_MISSED") 
+  
+  # adding Noop node to the dag whose parent are all coire nodes
+  coire_nodes = dag.get_nodes()
+  coire_noop = pipeline.NoopNode(coire_noop_job)
+  for node in coire_nodes:
+	coire_noop.add_parent(node)
+  dag.add_node(coire_noop)
+  
+  # adding likelihood jobs to dag
+  # zero lag
+  zerolag_likelihood_files = add_likelihood_nodes(zerolag_coire_files, likelihood_job, dag, Noop_Node = coire_noop)
+  
+  # time slides 
+  background_likelihood_files = add_likelihood_nodes(background_coire_files, likelihood_slide_job, dag, Noop_Node = coire_noop)
+  
+  # injections
+  found_injections_likelihood_files = add_likelihood_nodes(found_injections_coire_files, likelihood_inj_job, dag, Noop_Node = coire_noop)
+else:
+   # adding likelihood jobs to dag
+  # zero lag
+  zerolag_likelihood_files = add_likelihood_nodes(zerolag_files, likelihood_job, dag)
+  
+  # time slides 
+  background_likelihood_files = add_likelihood_nodes(background_files, likelihood_slide_job, dag)
+  
+  # injections
+  background_likelihood_files = add_likelihood_nodes(found_injections_files, likelihood_inj_job, dag)
+  
+  
+# write coire files to the output cache file
+current_dir = os.getcwd()
+output_likelihood_cache = lal.Cache()
+
+# adding zerolag coire files to cache
+for file in zerolag_likelihood_files:
+  file = current_dir + "/" + file
+  output_likelihood_cache.append(lal.Cache.from_urls([file])[0])
+  
+# adding background (time slides) coire files to cache
+for file in background_likelihood_files:
+  file = current_dir + "/" + file
+  output_likelihood_cache.append(lal.Cache.from_urls([file])[0])
+  
+# adding found injections coire files to cache
+for file in found_injections_likelihood_files:
+  file = current_dir + "/" + file
+  output_likelihood_cache.append(lal.Cache.from_urls([file])[0]) 
+  
+output_cache_name = basename + ".cache"
+output_cache_file = open(output_cache_name, "w")
+output_likelihood_cache.tofile(output_cache_file)
+output_cache_file.close()
+
+##############################################################################
+#Write out the DAG, help message and log file
+dag.set_nodes_finalized()
+dag.write_sub_files()
+dag.write_dag()
+
+if opts.write_script:
+  dag.write_script()
+
+##############################################################################  
+# write a message telling the user that the DAG has been written
+
+print "\nCreated a DAG file which can be submitted by executing"
+print "\n   condor_submit_dag", dag.get_dag_file()
+print """\nfrom a condor submit machine (e.g. hydra.phys.uwm.edu)\n
+If you are running LSCdataFind jobs, do not forget to initialize your grid 
+proxy certificate on the condor submit machine by running the commands
+
+  unset X509_USER_PROXY
+  grid-proxy-init -hours 72
+
+Enter your pass phrase when prompted. The proxy will be valid for 72 hours. 
+If you expect the LSCdataFind jobs to take longer to complete, increase the
+time specified in the -hours option to grid-proxy-init. You can check that 
+the grid proxy has been sucessfully created by executing the command:
+
+  grid-cert-info -all -file /tmp/x509up_u`id -u`
+
+This will also give the expiry time of the proxy. You should also make sure
+that the environment variable LSC_DATAFIND_SERVER is set the hostname and
+optional port of server to query. For example on the UWM medusa cluster this
+you should use
+
+  export LSC_DATAFIND_SERVER=dataserver.phys.uwm.edu
+
+Contact the administrator of your cluster to find the hostname and port of the
+LSCdataFind server.
+"""
+
+
+
+  	
+	
+   
+
+
