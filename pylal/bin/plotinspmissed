@@ -20,6 +20,7 @@ from pylal import CoincInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
 import numpy
+from pylal import followup_missed
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -56,9 +57,6 @@ def printMissed( misDict, ifo=None):
         str(misDict.eff_dist_l/misDict.eff_dist_h)
   print "Chirp mass is %.2f" % (misDict.mchirp)
   print "Mass-pair is %.2f + %.2f " % (misDict.mass1, misDict.mass2)
-  #print "Inclination is %.2f and Polarization is %.2f " \
-  #% (misDict.inclination, misDict.polarization)
-
 
 
 ##############################
@@ -120,6 +118,101 @@ def savePlot(opts, filePart, tag ):
                                             dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append( tag )
+
+def createImageMap(opts, missedInj, ifo, filename):
+  """
+  This function will do a followup on some or all missed injections
+  by using the class FollowupMissed in followup_missed.py.
+  This will create a html page containing informations and trigger-time series
+  of the missed injection. Also, this function adds an ImageMap to the
+  main html file
+  @param missedInj: sim_inspiral table of a missed injection that might be followed up
+  @param ifo: The IFO corresponding to this missed injection
+  @param axes: The axes from the main picture to get the coordinates right
+  @param filename: The original filename; used to create the ImageMap picture
+  """
+
+  # reset the number
+  followup.reset()
+  
+  # create the name of the ImageMap
+  picname = "Images/"+opts.prefix + "_"+filename +"_map"+\
+            opts.suffix + ".png"
+
+  # create a mapDist
+  mapDict ={'object':picname, 'text':'Click on a filled circle to go to the followup page',\
+            'xCoords':[], 'yCoords':[], 'links': []}
+
+  ## get the scaling right
+  # coordinates of the actual picture in the image
+  boundFigX = [100.0,720.0]
+  boundFigY = [540.0, 60.0]
+
+  # limits on the axes for the image
+  axes=gcf().axes[0]
+  rangeFigX = axes.get_xlim()
+  rangeFigY = log10( axes.get_ylim() )
+
+  # calculating scaling factors
+  slopeX = (boundFigX[1]-boundFigX[0])/(rangeFigX[1]-rangeFigX[0])
+  interX = boundFigX[1] - slopeX*rangeFigX[1]
+  slopeY = (boundFigY[1]-boundFigY[0])/(rangeFigY[1]-rangeFigY[0])
+  interY = boundFigY[1] - slopeY*rangeFigY[1]
+
+  # what missed injections should be folowed up?
+  if opts.followup_number:
+
+    # get the distances and sort them
+    distVector = viz.readcol( missedInj, 'eff_dist', ifo )
+
+    index = distVector.argsort()
+    n=min( len(distVector), opts.followup_number)
+    missedInjSort = distVector[index[:n]]
+  else:
+    missedInjSort=missedInj
+
+  # loop over all missed injections
+  for inj in missedInjSort:
+    
+    # get the effective distance for this injection and IFO
+    # and the masses
+    effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
+    m1 = inj.mass1
+    m2 = inj.mass2
+    
+    # check if this missed injection is 'closeby'
+    if not opts.followup_number:
+
+      dist20 = getattr( opts, "followup_dist_%s" % ifo[0].lower() )
+      estDist = followup_missed.calculateEstimatedDistance( m1, m2,\
+                                                            opts.followup_flow,\
+                                                            dist20)
+      if effDist>estDist:
+        continue
+              
+    # do the followup and create the followup page
+    followuphtml = followup.followup( inj, ifo )
+    
+    # get the coordinates of this missed injection
+    totalMass = m1+m2
+    effDistLog = log10(effDist)
+    px = int( interX+slopeX*totalMass )
+    py = int( interY+slopeY*effDistLog )
+
+    # highlight the clickable missed ones
+    plot( [totalMass], [effDist], 'ro', markerfacecolor = 'r', markersize=10)
+
+    # add the point and the link to the mapDict
+    mapDict['xCoords'].append( px )
+    mapDict['yCoords'].append( py )
+    mapDict['links'].append( followuphtml )
+    
+  # save the figure (containing filled circles)
+  savefig( opts.output_path+picname )
+
+  # add mapDict to the map vector
+  mapList.append( mapDict )
+
 
 #################################################################
 
@@ -190,9 +283,6 @@ def parse_command_line():
   parser.add_option("-M","--min-distance",action="store",type="int",\
       default=None, metavar=" MIN_DIST",\
       help="provide time and dist of all missed injections closer than MIN_DIST [Mpc]")
-  parser.add_option("-N","--number-missed",action="store",type="int",\
-      default=None, metavar=" NUMBER_MISSED",\
-      help="provide number of missed injections to printed out")
   parser.add_option("-r","--add-horizon",action="store",type="string",\
       default=None,metavar="INSP",\
       help="show the inspiral horizon obtained from files matching the glob INSP")
@@ -225,6 +315,48 @@ def parse_command_line():
   parser.add_option("", "--figure-resolution",action="store",type="int",\
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
+  parser.add_option("","--do-followup",action="store_true",\
+      default=False,help="activates the followup of missed injections" )
+  parser.add_option("","--followup-output-path",action="store",\
+      type="string",default="",  metavar="FOLLOWUPPATH",\
+      help="path where the figures and html from the followup "\
+                      "should be stored")
+  parser.add_option("","--followup-dist-l",action="store",\
+      type="float",default=None,  metavar="FOLLOWUPDISTL",\
+      help="distance for a binary with 20 Solarmasses in L")
+  parser.add_option("","--followup-dist-h",action="store",\
+      type="float",default=None,  metavar="FOLLOWUPDISTH",\
+      help="distance for a binary with 20 Solarmasses in H")
+  parser.add_option("","--followup-dist-g",action="store",\
+      type="float",default=None,  metavar="FOLLOWUPDISTG",\
+      help="distance for a binary with 20 Solarmasses in G")
+  parser.add_option("","--followup-dist-v",action="store",\
+      type="float",default=None,  metavar="FOLLOWUPDISTV",\
+      help="distance for a binary with 20 Solarmasses in V")
+  parser.add_option("","--followup-number",\
+      type="int",default=None,  metavar="FOLLOWUPNUMBER",\
+      help="number of closest missed injections to be followed up")
+  parser.add_option("","--followup-flow",action="store",\
+      type="float",default=40.0,  metavar="FOLLOWUPFLOW",\
+      help="specifies the lower cutoff frequency")
+  parser.add_option("","--followup-exttrig",action="store_true",\
+      default=False,help="set the exttrig flag for followup" )
+  parser.add_option("","--followup-vetofile-l1",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOL1",\
+      help="vetofile containing veto times for L1")
+  parser.add_option("","--followup-vetofile-h1",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOH1",\
+      help="vetofile containing veto times for H1")
+  parser.add_option("","--followup-vetofile-h2",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOH2",\
+      help="vetofile containing veto times for H2")
+  parser.add_option("","--followup-vetofile-g1",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOG1",\
+      help="vetofile containing veto times for G1")
+  parser.add_option("","--followup-vetofile-v1",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOV1",\
+      help="vetofile containing veto times for V1")
+    
   
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -248,6 +380,7 @@ colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
+mapList = []  # vector containing data for creating maps
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -270,10 +403,10 @@ if opts.cache_file:
   misFiles = miscache.checkfilesexist()[0].pfnlist()
 
   if opts.verbose:
-    print __name__+"... reading the following found files \n" 
+    print "\n"+__name__+"... reading the following found files" 
     for file in injFiles:
       print file
-    print __name__+"... reading the following missed files \n"
+    print "\n"+__name__+"... reading the following missed files \n"
     for file in misFiles:
       print file
   if len(injFiles) < 1:
@@ -355,6 +488,10 @@ for entry, injfile in zip(injcache,injFiles):
   triggers = CoincInspiralUtils.coincInspiralTable(
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
+  # check if there are any sims here
+  if not sims:
+    continue
+
   # loop over each sim, trigger
   for sim, trigger in zip(sims, triggers):
 
@@ -378,6 +515,11 @@ for misentry, misfile in zip(miscache,misFiles):
   if sims:
     missedInj.extend( sims )
 
+# initialize the followup class
+if opts.do_followup:
+  followup = followup_missed.FollowupMissed( cache, miscache, opts)
+ 
+
 
 ##############################################################################
 # read in the range if desired
@@ -400,7 +542,6 @@ allsymbols=['^','v','<','>','s','+','x','D','d','1','2','3','4','h','H','p']
 foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2L1':'<','L1V1':'>', \
                'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\
                'H1H2L1V1':'p'}
-#missedSymbol = {'H1H2':'rx', 'H1L1':'ro', 'H2L1':'r+', 'H1H2L1':'r^'}
 foundSymbols = ['','','','','','','','' ]
 
 gpsDigits = "9"
@@ -475,49 +616,21 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
         savePlot( opts, xname+'-'+yname+'-lin-'+ifo, titleText )
       if ys=='log':
         axes().set_yscale('log')    
-        savePlot( opts, xname+'-'+yname+'-log-'+ifo, titleText )
+        filename = xname+'-'+yname+'-log-'+ifo
+        savePlot( opts, filename, titleText)
+        
+        # include followup links
+        if xname=="mtotal" and yname=="eff_dist" and opts.do_followup:
+          createImageMap(opts, missedInj, ifo,  filename)
 
- ##  # create the plot of everything (using the px, py from above...)
-##   figure()
-##   plot( px, py, 'ro', markerfacecolor=None,\
-##         markeredgecolor='r',markersize=10, markeredgewidth=1)
 
-##   # get the found  ones
-##   px, py, legx, legy = getData( allFoundInj,  xname, yname, 'H1' )
-##   plot( px, py, 'bo', markerfacecolor=None,\
-##         markeredgecolor='b',markersize=10, markeredgewidth=1)
-    
-
-##   titleText = legx+' vs '+legy +' all'
-##   title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')
-##   xlabel(legx, size='x-large')
-##   ylabel(legy+' H1', size='x-large')
-##   grid(True)
-##   legend()
-  
-##   if opts.enable_output:
-##     if ys=='lin':
-##       savePlot( opts, xname+'-'+yname+'-lin-H1', titleText )
-##     if ys=='log':
-##       axes().set_yscale('log')    
-##       savePlot( opts, xname+'-'+yname+'-log-H1', titleText )
       
     
 ##########################################
 # plot of efficiency vs different values
 
 
-### print the closest missed injections
-if opts.number_missed>0:
 
-  # get the distances FIXME: H1 distance or what?
-  distVector = viz.readcol( missedInj, 'eff_dist', 'H1' )
-  index = numpy.argsort( distVector )
-
-  n=min( len(index), opts.number_missed)
-  for i in range( n-1, -1, -1):
-    idx = index[i]
-    printMissed( missedInj[idx], 'H1')  
 
 
 # put together what efficiency plots we need
@@ -596,7 +709,9 @@ print fnameList
 # final step: html, cache file generation
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, \
-                                                  fnameList, tagList)
+                                                  fnameList, tagList,\
+                                                  doThumb=True,\
+                                                  mapList=mapList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 
