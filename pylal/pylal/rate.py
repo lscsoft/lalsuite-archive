@@ -777,10 +777,10 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	>>> x.array
 	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
 
-	We have "uniformly" distributed events at 2 unit intervals (the
-	first is at 1, the second at 3, etc.).  The computed event density
-	is 0.5 events / unit, except at the edges where the smoothing
-	window has picked up zero values from beyond the ends of the array.
+	We have uniformly distributed events at 2 unit intervals (the first
+	is at 1, the second at 3, etc.).  The event density is 0.5 events /
+	unit, except at the edges where the smoothing window has picked up
+	zero values from beyond the ends of the array.
 	"""
 	filter_array(binned_array.array, filterdata, cyclic = cyclic)
 	binned_array.to_density()
