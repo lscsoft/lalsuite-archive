@@ -124,9 +124,15 @@ def write_html_output(opts, args, fnameList, tagLists, doThumb=True):
 
   return html_filename
 
-def write_html_output_for_cbcweb(opts, args, fnameList, tagLists, doThumb=True):
+def write_html_output_for_cbcweb(opts, args, fnameList, tagLists, \
+                                 doThumb=True, mapList = []):
   """
-
+  @param opts: The options from the calling code
+  @param args: The args from the calling code
+  @param fnameList: A list of the filenames
+  @param tagLists: A list for the tags, getting added to the links
+  @param doThumb: Uses the _thumb file as the sourcs for the images
+  @param mapList: A list of dictionaries to create the image maps
   """
 
   # -- the HTML document and output cache file
@@ -154,6 +160,25 @@ def write_html_output_for_cbcweb(opts, args, fnameList, tagLists, doThumb=True):
         alt=tag, border="2"), title=tag, href=[ fname])
   page.add("<hr/>")
 
+  # add maps to this page
+  if len(mapList)>0:
+    m=0
+    for mapDict in mapList:
+      m+=1
+      page.add( mapDict['text']+'<br>' )
+      page.add( '<IMG src="%s" '\
+                'usemap="#map%d">' % ( mapDict['object'], m) )
+      page.add( '<MAP name="map%d"> <P>' % m )
+      n=0
+      for px, py, link in zip( mapDict['xCoords'],  \
+                               mapDict['yCoords'],  \
+                               mapDict['links']):
+        n+=1
+        page.add( '<area href="%s" shape="circle" '\
+                  'coords="%d, %d, 5"> Point%d</a>' %\
+                  ( link, px, py, n) )
+      page.add('</P></MAP></OBJECT><br>')
+      page.add("<hr/>")    
 
   if opts.enable_output is True:
     text = writeProcessParams( opts.name, opts.version,  args)
