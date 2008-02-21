@@ -485,7 +485,7 @@ int main ( int argc, char *argv[] )
   }
 
   /* determine the number of points to get and create storage forr the data */
-  inputLengthNS = (REAL8) ( 1000000000L * 
+  inputLengthNS = (REAL8) ( LAL_INT8_C(1000000000) * 
       ( gpsEndTime.gpsSeconds - gpsStartTime.gpsSeconds + 2 * padData ) );
   chan.deltaT *= 1.0e9;
   numInputPoints = (UINT4) floor( inputLengthNS / chan.deltaT + 0.5 );
@@ -2403,10 +2403,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
   inputDataLength = numPoints * numSegments - ( numSegments - 1 ) * 
     (numPoints / 2);
   {
-    UINT8 gpsChanIntervalNS = gpsEndTime.gpsSeconds * 1000000000L - 
-      gpsStartTime.gpsSeconds * 1000000000L;
-    UINT8 inputDataLengthNS = (UINT8) inputDataLength * 1000000000L / 
-      (UINT8) sampleRate;
+    UINT8 gpsChanIntervalNS = gpsEndTime.gpsSeconds * LAL_INT8_C(1000000000) - 
+      gpsStartTime.gpsSeconds * LAL_INT8_C(1000000000);
+    UINT8 inputDataLengthNS = (UINT8) inputDataLength * LAL_INT8_C(1000000000) 
+      / (UINT8) sampleRate;
 
     if ( inputDataLengthNS != gpsChanIntervalNS )
     {
