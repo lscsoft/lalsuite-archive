@@ -141,7 +141,8 @@ parser.add_option("", "--first-stage",action="store_true", default=False,\
     metavar="FIRSTSTAGE",help="to make plots for output of the first inspiral stage")
 parser.add_option("", "--second-stage",action="store_true", default=False,\
     metavar="SECONDSTAGE",help="to make plots for output of the second inspiral stage")
-
+parser.add_option("-P", "--priority",action="store",type="int",\
+    metavar=" PRIO",help="run jobs with condor priority PRIO")
 
 #################################
 
@@ -637,6 +638,10 @@ if usertag is not None:
   for job in all_jobs:
     job.add_opt('user-tag',usertag)
 
+# Setting priority of plotting jobs.
+for job in all_jobs:
+  job.add_condor_cmd('priority',str(opts.priority))
+ 
 ##############################################################################
 #  The meat of the DAG generation comes below
 #

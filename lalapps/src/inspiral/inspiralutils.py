@@ -558,6 +558,7 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
   plotCommand = config.get("condor","plot")
   plotCommand += " --log-path " + logPath
   plotCommand += " --config-file " + iniFile
+  plotCommand += " --priority 10"
   for item in config.items("ifo-details"):
       plotCommand += " --" + item[0] + " " + item[1]
 
