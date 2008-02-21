@@ -112,6 +112,7 @@ class FollowupMissed:
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
 
+
     self.readVetoFiles()
     
 
@@ -563,55 +564,66 @@ class FollowupMissed:
     return htmlfilename
 
 
+def createSpectrum( flow, sampleRate = 4096, nPoints = 1048576):
 
-
-def calculateEstimatedDistance( mass1, mass2, fLow, dist20 ):
-  """
-  Calculate the estimated distance for a binary
-  with masses 'mass1' and 'mass2' when using the
-  LIGO-I PSD and a lower cutoff frequency 'fLow
-  @param mass1: Mass 1 of the binary [Solarmasses]
-  @param mass2: Mass 2 of the binary [Solarmasses]
-  @param fLow: lower cutoff frequency [Hertz]
-  @param dist20: Norming distance (in Mpc) for a 10/10 binary
-  """
-  
-  def calcPSD( f1, f2 ):
-    
+  def calcPSD( f ):
     f0=150.0
-    df=0.5
-    sum=0
-    for f in numpy.arange( f1, f2, df):
-
-      a = pow(4.49*f/f0, -56.0)
-      b = 0.16*pow(f/f0, -4.52)
-      c = 0.52
-      d = 0.32*pow(f/f0,2)
-      q = pow( f, -14.0/6.0)
-      sum+= q/(a+b+c+d)
-
-    return sum
+    a = pow(4.49*f/f0, -56.0)
+    b = 0.16*pow(f/f0, -4.52)
+    c = 0.52
+    d = 0.32*pow(f/f0,2)
+    return (a+b+c+d)*9.0e-46
   
-  # this is the total mass
-  totalMass=mass1+mass2
+  chanDeltaT = 1.0/float(sampleRate)
+  deltaF =  1.0/( float(nPoints)*chanDeltaT )
   
-  # the ISCO frequency in Hertz
-  fHigh = 4420.0/totalMass
-  if fHigh<fLow:
-    return 0.0
+  spectrum = []
+  for k in range( nPoints/2+1):
+    f = k*deltaF
+    if f<flow:
+      spectrum.append(0)
+    else:
+      spectrum.append( calcPSD(f) )
+    
+  return spectrum
+    
   
-  # the integral over the LIGO-I PSD
-  factor = calcPSD( fLow, fHigh)
 
-  # now put it all together
-  eta = mass1*mass2/(totalMass*totalMass)
-  mChirp = totalMass*pow( eta, 3.0/5.0)
-
-  # calculate the norm for 10/10 Solarmass binary
-  # fHigh is 211 Hz then and
-  # the constant is 6.069
-  factorNorm = calcPSD( fLow, 221.0)  
-  A20 = 6.069
-  norm = dist20/(A20* factorNorm**0.5)
+def computeCandleDistance( candleM1, candleM2, fLow, spectrum = None, \
+                           snr=8.0, sampleRate = 4096, nPoints = 1048576):
+  """
+  Computes the candle distance as computed in inspiralutils.c.
+  This code has been tested on 21 Feb 2008 and the derivation between
+  these calculated values with the LAL code is less than 2 Percent.
+  """
+  # TestCode: testEstimatedDistance.png
   
-  return norm*pow( mChirp, 5.0/6.0)* factor**0.5
+
+  LAL_MTSUN_SI = 4.92549095e-6
+  chanDeltaT = 1.0/float(sampleRate)
+  negativeSevenOverThree = -7.0/3.0
+  totalMass = candleM1 + candleM2
+  mu = candleM1 * candleM2 / totalMass
+  distNorm = 9.5708317e-20 # = 2.0 * LAL_MRSUN_SI / (1.0e6 * LAL_PC_SI )
+  a = sqrt( (5.0 * mu) / 96.0 ) * \
+      pow( totalMass / ( pi*pi ), 1.0/3.0 ) *\
+      pow( LAL_MTSUN_SI / chanDeltaT, -1.0/6.0 )
+  sigmaSq = 4.0 * ( chanDeltaT / float(nPoints) ) * \
+            distNorm * distNorm * a * a
+  
+  fmax = 1.0 / (6.0 * sqrt(6.0) * pi * totalMass * LAL_MTSUN_SI)
+  deltaF =  1.0/( float(nPoints)*chanDeltaT )
+
+  cut = int( fLow/deltaF )
+  kmax = min( int( fmax/deltaF ), len(spectrum) )
+
+  sigmaSqSum = 0
+  for k in range( cut, kmax):
+    sigmaSqSum += pow( float(k)/float(nPoints),  negativeSevenOverThree ) /\
+                  spectrum[k]
+
+  sigmaSq *= sigmaSqSum
+  distance = sqrt( sigmaSq ) / snr
+
+  return distance
+
