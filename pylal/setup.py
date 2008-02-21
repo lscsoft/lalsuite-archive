@@ -44,6 +44,8 @@ class pylal_install(install.install):
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
 
+		if not os.path.isdir("etc"):
+			os.mkdir("etc")
 		log.info("creating pylal-user-env.sh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.sh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
