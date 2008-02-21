@@ -369,6 +369,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
       hipecp.set("inspinj",name,value)
     hipecp.remove_section(hipeDir)
     hipecp.set("input","injection-seed",injSeed)
+    hipecp.set("input", "num-slides", "")
 
   else:
     # add the time slide to the ini file
