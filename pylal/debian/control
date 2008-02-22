@@ -2,7 +2,7 @@ Source: pylal
 Section: lscsoft
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
-Build-Depends: debhelper (>= 5), lal-dev, python-dev (>= 2.4)
+Build-Depends: debhelper (>= 5), lal-dev, python-dev (>= 2.4), python-numpy-dev
 Standards-Version: 3.7.2
 
 Package: pylal
