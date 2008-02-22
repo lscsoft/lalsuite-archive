@@ -87,7 +87,7 @@ def add_coire_nodes(thinca_files, coire_job, dag, inj_file=None, num_slides=0):
 	  output_file = re.sub("THINCA", "COIRE", filename)
 	
 	coire.add_var_opt("output", output_file)
-	coire.add_var_opt("summary", output_file.replace("xml.gz", "txt"))
+	coire.add_var_opt("summary", output_file.split(".xml")[0] + ".txt")
 
 	dag.add_node(coire)
 	coire_files.append(output_file)
@@ -195,7 +195,10 @@ if not opts.skip_coire:
   coire_slide_job.set_sub_file( basename + ".coire_slide" + subsuffix )
 
   coire_inj_job = inspiral.CoireJob(cp)
+  injection_window = cp.get("coire-inj", "injection-window")
+  coire_inj_job.add_opt("injection-window", injection_window)
   coire_inj_job.set_sub_file( basename + ".coire_inj" + subsuffix )
+  
   
   # default log directory for analysis jobs is "logs/" it is being set in inspiral.py in InspiralAnalysisJob() class
   # here we set it to be the same for No-Op job that does not inherit InspiralAnalysisJob() class.
