@@ -75,6 +75,12 @@ class FollowupMissed:
     # counter for the followups
     self.number = 0
 
+    # for the estimated distances
+    self.flow = opts.followup_flow
+    self.spectrum = createSpectrum( self.flow, \
+                                    sampleRate = 4096, \
+                                    nPoints = 1048576)
+
     # getting all the caches
     self.triggerCache = dict()
     self.triggerCache['INSPIRAL_FIRST'] = lal.Cache([c for c in cache if "INSPIRAL_FIRST" in c.description])
@@ -235,6 +241,22 @@ class FollowupMissed:
       vetox = [seg[0], seg[1], seg[1], seg[0], seg[0]]
       vetoy = [ylims[0], ylims[0], ylims[1], ylims[1], ylims[0]]
       fill ( vetox, vetoy, 'y', alpha=0.2)  
+
+
+  # -----------------------------------------------------
+  def estimatedDistance( self, mass1, mass2, distTarget):
+
+    snrActual = 8.0
+    distActual = computeCandleDistance( 10.0, 10.0, \
+                                        self.flow, self.spectrum, \
+                                        snrActual)
+
+    # rescale the SNR threshold
+    snrTarget = distActual / distTarget*snrActual 
+    distance = computeCandleDistance( mass1, mass2, \
+                                      self.flow, self.spectrum,\
+                                      snrTarget)
+    return distance
 
   # -----------------------------------------------------
   def investigateInspiral(self, triggerFiles, inj,  ifoName, stage, number ):
