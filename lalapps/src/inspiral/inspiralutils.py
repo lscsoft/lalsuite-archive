@@ -238,14 +238,13 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
 
   # download the dq segments to generate the veto files
   if generate_segments:
-    # XXX FIXME:hard coded path to get the dq-segments from:
-    dq_url_pattern = \
-        "http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
+    dq_url_pattern = config.get("segments","dq-server-url") + "/%s"
 
     print "Downloading the latest daily dump of segment database to " \
         + dqSegFile + " ...",
     sys.stdout.flush()
-    dqSegFile, info = urllib.urlretrieve(dq_url_pattern % ifo, dqSegFile)
+    dqSegFile, info = urllib.urlretrieve(dq_url_pattern % \
+      config.get("segments", ifo.lower() + '-dq-file') , dqSegFile)
     print "done"
 
     print "Generating cat 1 veto segments for " + ifo + " ...",
