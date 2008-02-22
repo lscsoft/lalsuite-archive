@@ -140,7 +140,8 @@ def createImageMap(opts, missedInj, ifo, filename):
             opts.suffix + ".png"
 
   # create a mapDist
-  mapDict ={'object':picname, 'text':'Click on a filled circle to go to the followup page',\
+  mapDict ={'object':picname, \
+            'text':'Click on a filled circle to go to the followup page',\
             'xCoords':[], 'yCoords':[], 'links': []}
 
   ## get the scaling right
@@ -159,42 +160,32 @@ def createImageMap(opts, missedInj, ifo, filename):
   slopeY = (boundFigY[1]-boundFigY[0])/(rangeFigY[1]-rangeFigY[0])
   interY = boundFigY[1] - slopeY*rangeFigY[1]
 
-  # what missed injections should be folowed up?
+  # figure out the missed injections to be wollowed up
   if opts.followup_number:
 
     # get the distances and sort them
     distVector = viz.readcol( missedInj, 'eff_dist', ifo )
-
     index = distVector.argsort()
     n=min( len(distVector), opts.followup_number)
-    missedInjSort = distVector[index[:n]]
+    missedInjUse = [missedInj[index[i]] for i in range(n)]
   else:
-    missedInjSort=missedInj
+    # use the estimated distance curve
+    missedInjUse = []
+    for inj in missedInj:
+      dist20 = getattr( opts, "followup_dist_%s" % ifo[0].lower() )
+      estDist = followup.estimatedDistance( inj.mass1, inj.mass2, dist20)
+      if getattr( inj, 'eff_dist_'+ifo[0].lower())<estDist:
+        missedInjUse.append( inj )
 
   # loop over all missed injections
-  for inj in missedInjSort:
+  for inj in missedInjUse:
     
-    # get the effective distance for this injection and IFO
-    # and the masses
-    effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
-    m1 = inj.mass1
-    m2 = inj.mass2
-    
-    # check if this missed injection is 'closeby'
-    if not opts.followup_number:
-
-      dist20 = getattr( opts, "followup_dist_%s" % ifo[0].lower() )
-      estDist = followup_missed.calculateEstimatedDistance( m1, m2,\
-                                                            opts.followup_flow,\
-                                                            dist20)
-      if effDist>estDist:
-        continue
-              
     # do the followup and create the followup page
     followuphtml = followup.followup( inj, ifo )
     
     # get the coordinates of this missed injection
-    totalMass = m1+m2
+    totalMass = inj.mass1+inj.mass2
+    effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
     effDistLog = log10(effDist)
     px = int( interX+slopeX*totalMass )
     py = int( interY+slopeY*effDistLog )
@@ -317,10 +308,6 @@ def parse_command_line():
       help="read a file of a particular description  from cache file" )
   parser.add_option("","--do-followup",action="store_true",\
       default=False,help="activates the followup of missed injections" )
-  parser.add_option("","--followup-output-path",action="store",\
-      type="string",default="",  metavar="FOLLOWUPPATH",\
-      help="path where the figures and html from the followup "\
-                      "should be stored")
   parser.add_option("","--followup-dist-l",action="store",\
       type="float",default=None,  metavar="FOLLOWUPDISTL",\
       help="distance for a binary with 20 Solarmasses in L")
@@ -450,6 +437,18 @@ else:
 ifoList = []
 for i in range(len(opts.ifo_times)/2):
   ifoList.append(opts.ifo_times[2*i:2*i+2])
+
+
+# check the followup input parameters
+if opts.do_followup:
+  if not opts.followup_number:
+    for ifo in ifoList:
+      if not getattr( opts, "followup_dist_%s" % ifo[0].lower() ):
+        print >>sys.stderr, "ERROR: If --followup-number is not given "
+        print >>sys.stderr, "--followup-dist-%s must be specified \n" %\
+              ifo[0].lower() 
+        print usage
+        sys.exit(1)
 
 # selecet one IFO if required
 if opts.ifo:
@@ -711,6 +710,7 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, \
                                                   fnameList, tagList,\
                                                   doThumb=True,\
+                                                  cbcweb=True,\
                                                   mapList=mapList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
