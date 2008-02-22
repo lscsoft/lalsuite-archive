@@ -141,6 +141,9 @@ parser.add_option("","--missed-injections-pattern",\
 #################################################################################
 # Options for output
 ##################################################################################
+parser.add_option("","--output-file",action="store",type="string",\
+	default=None, metavar="OUTPUTFILE",\
+	help="Option that allows user to set the full name (including path) of the output file" )
 parser.add_option("-u","--user-tag",action="store",type="string",\
 	default="", metavar=" USERTAG",\
 	help="The user tag used in the name of the name of the output file " )
@@ -165,11 +168,8 @@ parser.add_option("-S","--statistic",action="store",default='snr', type="string"
 parser.add_option("-e","--epsilon",action="store",type="float",\
     default=0.3, metavar=" EPSILON", help="radius of the hypersphere in the parameter space that defines closeness of events" )
 
-parser.add_option("-N","--numslides", action="store",type="int",\
-    default = 0, metavar="NUMSLIDES", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
-
-parser.add_option("-k","--kappa", action="store",type="float",\
-    default = 0, metavar="KAPPA", help="The value of kappa to be supplied to perform distance cut" )
+parser.add_option("-N","--num-slides", action="store",type="int",\
+    default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
 
 (opts,args) = parser.parse_args()
 
@@ -189,7 +189,7 @@ else:
   sys.exit(1)  
 
 if len(CandidateEventsFiles) < 1:
-  print >>sys.stderr, "The " +  opts.candidate_events_cache_file +  "contains no candidate events files"
+  print >>sys.stderr, "The list of CandidateEventsFiles is empty"
   sys.exit(1)
 
 
@@ -233,8 +233,8 @@ if not len(FoundInjectionsFiles) == len(MissedInjectionsFiles):
   sys.exit(1)
   
 # check if number of slides is given
-if opts.numslides == 0:
-  print >> sys.stderr, "--numslides must be specified"
+if opts.num_slides == 0:
+  print >> sys.stderr, "--num_slides must be specified"
   sys.exit(1)
  
 # check that statistic is OK:
@@ -332,20 +332,16 @@ Ntotal_noise = 0
 Nnoise_events_within_epsilon = numpy.zeros(array_size)
 # loop over time slides files
 for file in BackgroundFiles:
-  if opts.verbose:
-    print file
   # read in time slides triggers
   SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
   # construct the time slides coincs
   SlidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
   # False Alarm Probability for the current time slides file
   if SlidesCoincTriggers:
-    if opts.verbose:
-	  print len(SlidesCoincTriggers)
     Ntotal_noise += len(SlidesCoincTriggers)
   i = 0
   for candidate in CandidateEventsCoincTriggers:
-    FAProb = false_alarm_prob(candidate, SlidesCoincTriggers, opts.numslides, opts.epsilon)
+    FAProb = false_alarm_prob(candidate, SlidesCoincTriggers, opts.num_slides, opts.epsilon)
     FAProduct[i] = FAProduct[i] * (1.0 - FAProb)
     # accumulating statistic for Background Fraction 
     Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
@@ -396,7 +392,7 @@ for i in range(array_size):
   else:
 	#Likelihood[i] = -1.0
 	# below is a temporary fix for the case of vanishing false alarm probability
-	FalseAlarmProb[i] = 1.0 / float(4.0*opts.numslides)
+	FalseAlarmProb[i] = 1.0 / float(4.0*opts.num_slides)
 	 
 Likelihood = DetectionProb / FalseAlarmProb
    
@@ -428,8 +424,13 @@ for candidate in CandidateEventsCoincTriggers:
   i += 1
   
 # writing InspiralLikelihoodTable into a file
-prefix, suffix = generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
-output_file_name = prefix + suffix + ".xml"
+# setting the name for the output file
+if opts.output_file:
+  output_file_name = opts.output_file
+else:
+  prefix, suffix = generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
+  output_file_name = prefix + suffix + ".xml"
+  
 LikelihoodFile = open(output_file_name, "w")
 LikelihoodTable.write(LikelihoodFile)
 LikelihoodFile.close()
