@@ -238,13 +238,14 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
 
   # download the dq segments to generate the veto files
   if generate_segments:
-    dq_url_pattern = config.get("segments","dq-server-url") + "/%s"
+    dq_url = config.get("segments","dq-server-url")
+    dq_segdb_file = config.get("segments", ifo.lower() + '-dq-file')
 
-    print "Downloading the latest daily dump of segment database to " \
-        + dqSegFile + " ...",
+    print "Downloading DQ segment file " + dq_segdb_file + " from " \
+        + dq_url + " to " + dqSegFile + " ...",
     sys.stdout.flush()
-    dqSegFile, info = urllib.urlretrieve(dq_url_pattern % \
-      config.get("segments", ifo.lower() + '-dq-file') , dqSegFile)
+    dqSegFile, info = urllib.urlretrieve(dq_url + '/' + dq_segdb_file,
+        dqSegFile)
     print "done"
 
     print "Generating cat 1 veto segments for " + ifo + " ...",
