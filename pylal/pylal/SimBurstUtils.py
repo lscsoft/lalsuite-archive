@@ -188,6 +188,8 @@ class Efficiency_hrss_vs_freq(object):
 
 	def add_contents(self, contents):
 		seglist = contents.seglists.intersection(self.instruments)
+		# FIXME:  the first left outer join can yield multiple
+		# rows.
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
