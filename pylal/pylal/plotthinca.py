@@ -29,13 +29,21 @@ itertools = __import__("itertools")
 import sys
 
 from glue import iterutils
-from pylal import rate
 from pylal import viz
 
 import numpy
 import pylab
 
 epsilon = 1e-16
+
+# helpful warning
+try:
+  from pylal import rate
+except ImportError:
+  print >>sys.stderr, "warning: pylal.rate import failed, probably due to "\
+        "a scipy import failure.  If you later get a NameError exception "\
+        "saying that rate isn't found, it's probably due to scipy not being "\
+        "installed."
 
 ##############################################################################
 # Supporting classes
@@ -102,8 +110,6 @@ class ExtrapolatingBackgroundEstimator(BackgroundEstimator):
     self.fit_params, err = scipy.optimize.leastsq(err_func, p0[:], args=(x, y))
     if err != 1:
       raise FitError, "background fit did not converge"
-    
-    print self.fit_params
     
     # delete SNRs to free memory
     del self[:]
@@ -358,9 +364,6 @@ class HistogramInverseExpectationPlot(InverseExpectationPlot):
       N = len(slide_stats)
       means = hist_sum / N
       stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
-      
-      print means
-      print stds
       
       # shade in the area
       upper = means + stds
