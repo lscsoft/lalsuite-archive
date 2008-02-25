@@ -20,42 +20,41 @@ from glue.ligolw import lsctables
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 
-def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None, dpi_thumb=50):
+def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
+  dpi_thumb=50, fig=None):
   """
   @param filename: filename in which to save the figure
   @param filename_thumb: filename into which save a thumbnail of the figure
-  @param doThumb: save the thumbnail or not (True/False)
+  @param doThumb: save the thumbnail or not (doThumb=True by default)
   @param dpi: resolution of the figure
-  @param dpi_thumn: resolution of the thumbnail (dpi=50 by default)
-  @return filename_thumb if a thumbnail was created (None otherwise)
+  @param dpi_thumb: resolution of the thumbnail (dpi=50 by default)
+  @param fig: the particular figure you wish to save (current figure by
+              default)
+  @return filename_thumb if a thumbnail was created (computed from filename
+          by default)
 
   """
-  from pylab import savefig
-
+  import pylab
+  
+  # fill in non-trivial defaults
+  if fig is None:
+    fig = pylab.gcf()
+  if dpi is None:
+    dpi = pylab.rcParams["savefig.dpi"]
+  if doThumb and (filename_thumb is None):
+    if filename is None:
+      raise ValueError, "must provide filename_thumb or filename if doThumb "\
+        "is True"
+    index = filename.rindex('.')
+    filename_thumb = filename[0:index] + '_thumb' + filename[index:]
+  
   # save picture into a file
   if filename is not None:
-    # with the appropriate resolution
-    if dpi is None:
-      savefig(filename)
-    else:
-      savefig(filename, dpi=dpi)
+    fig.savefig(filename, dpi=dpi)
 
-  # if thumbnail are requested, save a small picture into a file
-  if doThumb is True:
-    # if a filename is provided
-    if filename_thumb is not None:
-      savefig(filename_thumb, dpi=dpi_thumb)
-    else:
-    # if no filename for the thumbnail is provided, then
-    # we can use the filename argument and add a "thumbnail"
-    # string at the end. However, filename must be provided.
-      if filename is not None:
-        index = filename.rindex('.')
-        filename_thumb = filename[0:index]
-        filename_thumb += '_thumb' + filename[index:]
-        savefig(filename_thumb, dpi=dpi_thumb)
-      else:
-        print >> sys.stderr, "filename for the thumbnail is not correct. Fix me"
+  # save thumbnail into a file if requested
+  if doThumb:
+    fig.savefig(filename_thumb, dpi=dpi_thumb)
 
   return filename_thumb
 
@@ -88,29 +87,78 @@ def set_figure_name(opts, text):
 
   return fname
 
-
-def write_html_output(opts, args, fnameList, tagLists):
+def write_html_output(opts, args, fnameList, tagLists, \
+                                 doThumb=True, cbcweb = False, mapList = []):
+  """
+  @param opts: The options from the calling code
+  @param args: The args from the calling code
+  @param fnameList: A list of the filenames
+  @param tagLists: A list for the tags, getting added to the links
+  @param doThumb: Uses the _thumb file as the sourcs for the images
+  @param cbcweb: Creates the output as a CBC webpage
+  @param mapList: A list of dictionaries to create the image maps
   """
 
-  """
   # -- the HTML document and output cache file
   # -- initialise the web page calling init_page
   page, extra = init_markup_page(opts)
-  page.h1(opts.name + " results")
-  page.hr()
-  
+  if cbcweb:
+    page.addheader("<%method title>" + opts.name + " results</%method>")
+    page.addheader("<%method headline>" + opts.name + " results</%method>")
+    page.addheader("<%method cvsid> $Id$ </%method>")
+  else:
+    page.h1(opts.name + " results")
+    page.hr()
+
   # -- filename
-  html_filename = opts.prefix + opts.suffix +".html"
+  if cbcweb:
+    html_filename = opts.prefix + opts.suffix +"_publish.html"
+  else:
+    html_filename = opts.prefix + opts.suffix +".html"  
   if opts.output_path:
     html_filename = opts.output_path + html_filename
   html_file = file(html_filename, "w")
 
+  # loop over the contents
   for tag,filename in zip(tagLists,fnameList):
-    fname = "Images/"+os.path.basename(filename) # set the correct name for linking
-    page.a(extra.img(src=[fname], width=400, \
+
+    # set the correct name for linking (two '//' does not bother)
+    if cbcweb:
+      fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
+    else:
+      fname = "Images/" + os.path.basename(filename)
+
+      # set the thumbnail pictures if required
+    if doThumb is True:
+      fname_thumb = fname[:-4] + "_thumb.png"
+    else:
+      fname_thumb =fname
+
+    # add the image to tge page
+    page.a(extra.img(src=[fname_thumb], width=400, \
         alt=tag, border="2"), title=tag, href=[ fname])
+    
   page.add("<hr/>")
 
+  # add maps to this page
+  if len(mapList)>0:
+    m=0
+    for mapDict in mapList:
+      m+=1
+      page.add( mapDict['text']+'<br>' )
+      page.add( '<IMG src="%s" '\
+                'usemap="#map%d">' % ( mapDict['object'], m) )
+      page.add( '<MAP name="map%d"> <P>' % m )
+      n=0
+      for px, py, link in zip( mapDict['xCoords'],  \
+                               mapDict['yCoords'],  \
+                               mapDict['links']):
+        n+=1
+        page.add( '<area href="%s" shape="circle" '\
+                  'coords="%d, %d, 5"> Point%d</a>' %\
+                  ( link, px, py, n) )
+      page.add('</P></MAP></OBJECT><br>')
+      page.add("<hr/>")    
 
   if opts.enable_output is True:
     text = writeProcessParams( opts.name, opts.version,  args)
@@ -119,6 +167,7 @@ def write_html_output(opts, args, fnameList, tagLists):
     html_file.close()
 
   return html_filename
+
 
 def write_cache_output(opts, html_filename,fnameList):
   """
@@ -323,6 +372,7 @@ def readFiles(fList, verbose=False):
           if not output.has_key(row.ifo):
             output[row.ifo] = lsctables.New(lsctables.SummValueTable)
           output[row.ifo].append(row)
+          
     # and any horizon distance available (tmpltbank)
     for row in doc.childNodes[0]:
       if row.name == 'inspiral_effective_distance':

@@ -83,6 +83,15 @@ if not (opts.m1_m2 or opts.mchirp_eta or opts.tau0_tau3):
   print >>sys.stderr, "Must specify --m1-m2, --mchirp-eta, or --tau0-tau3"
   sys.exit(1)
 
+# Do the pylab import in such a way that doesn't require an X display
+# if show() won't be invoked.
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+rc('text', usetex=True)
+
 templates = SnglInspiralUtils.ReadSnglInspiralFromFiles(file_template)
 
 

@@ -385,7 +385,12 @@ def parse_command_line():
       default=None,metavar="MATCH",\
       help="To sieve exactly according to a pattern, if its set True" )
 
-
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -484,7 +489,8 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
-
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output_for_cbcweb(opts, args, fnameList, tagList)
   
 # ============================================================================
 

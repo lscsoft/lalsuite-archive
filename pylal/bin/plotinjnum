@@ -116,13 +116,13 @@ def plot_found_missed(figNum, opts, missed, found, xtype, ytype):
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, 'found_missed_' + \
         ytype + '_vs_' + xtype)
-    savefig(fname)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     return fname
   else:
     figName = opts.ifo_type + 'found_missed_' + ytype + '_vs_' + xtype + '.png'
-    savefig(figName)
-    return figName
- 
+    fname_thumb = InspiralUtils.savefig_pylal(filename=figName, doThumb=True, dpi_thumb=opts.figure_resolution)
+    return figName 
+
 ###################################
 # Defining a config parser function
 ###################################
@@ -184,6 +184,14 @@ def parse_command_line():
       default="", metavar="INJECTIONSPATTERN", help="sieving the cache file with injection pattern description" )
   parser.add_option("","--inj-missed-pattern", action="store",type="string",\
       default="", metavar="MISSEDPATTERN", help="sieving the cache file with missed pattern description" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, help="dpi of the thumbnails (50 by default)")
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   (options,args) = parser.parse_args()
   # test the input options
@@ -287,6 +295,9 @@ tagList.append("Found and missed versus chirp mass")
 if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output_for_cbcweb(opts, args, fnameList, tagList)
 
 ####################
 if opts.show_plot:
