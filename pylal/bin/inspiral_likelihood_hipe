@@ -78,13 +78,13 @@ def add_coire_nodes(thinca_files, coire_job, dag, inj_file=None, num_slides=0):
 	# set the glob file for coire
 	coire.set_glob(file)
 	if num_slides:
-	  output_file = re.sub("THINCA_SLIDE", "COIRE_SLIDE", filename)
+	  output_file = re.sub(".xml.gz", ".xml", re.sub("THINCA_SLIDE", "COIRE_SLIDE", filename))
 	elif inj_file:
 	  coire.set_inj_file(inj_file)
-	  output_file = re.sub("THINCA", "COIRE_FOUND", filename)
+	  output_file = re.sub(".xml.gz", ".xml", re.sub("THINCA", "COIRE_FOUND", filename))
 	  coire.add_var_opt('missed-injections', re.sub("FOUND", "MISSED", output_file))
 	else:
-	  output_file = re.sub("THINCA", "COIRE", filename)
+	  output_file = re.sub(".xml.gz", ".xml", re.sub("THINCA", "COIRE", filename))
 	
 	coire.add_var_opt("output", output_file)
 	coire.add_var_opt("summary", output_file.split(".xml")[0] + ".txt")
@@ -184,6 +184,12 @@ if opts.user_tag:
   subsuffix = '.' + opts.user_tag + '.sub'
 else:
   subsuffix = '.sub'
+##################################################################################
+# create (if it does not exist) logs directory, 
+#which is the default directory for .err and .out files of the jobs in the DAG
+try: os.mkdir("logs")
+except: pass
+    
 ##################################################################################
 # setting up  coire jobs that will be used in DAG generation unless --skip-coire option is given
 
