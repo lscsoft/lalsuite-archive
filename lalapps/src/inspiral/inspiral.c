@@ -66,6 +66,7 @@ RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
 #define CVS_REVISION "$Revision$"
+#define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
 #define PROGRAM_NAME "inspiral"
 
