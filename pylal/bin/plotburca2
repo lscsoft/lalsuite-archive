@@ -146,8 +146,8 @@ def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
 	# How many rows?
 	#
 
-	n_vert = 6
-	#n_vert = 5
+	#n_vert = 6
+	n_vert = 5
 
 	#
 	# Each of the first len(pairs) sub plot's aspect ratio is the golden
