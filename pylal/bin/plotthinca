@@ -1318,7 +1318,8 @@ if opts.inverse_expectation:
       print >>sys.stderr, "warning: no slide triggers for ifo combo:", \
         "".join(ifo_combo)
       continue
-    ie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo))
+    ie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo),
+                        zero_lag_playground=opts.zero_lag_playground)
   ie_plot.finalize()
   
   # save it
@@ -1344,7 +1345,8 @@ if opts.hist_inverse_expectation:
       print >>sys.stderr, "warning: no slide triggers for ifo combo:", \
         "".join(ifo_combo)
       continue
-    hie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo))
+    hie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo),
+                         zero_lag_playground=opts.zero_lag_playground)
   hie_plot.finalize()
   
   # save it
