@@ -1006,8 +1006,8 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
         markersize=12)
   
   # plot time slides
-  ds = (bins[1] - bins[0]) / 2
   if slide_trig_list and len(slide_snr_list):
+    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
@@ -1123,8 +1123,8 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
         markersize=12)
 
   # plot time slides
-  ds = (bins[1] - bins[0]) / 2
   if slide_trigs and len(slide_snr_list):
+    ds = (bins[1] - bins[0]) / 2
     slide_min = []
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
