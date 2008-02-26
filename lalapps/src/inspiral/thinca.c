@@ -73,8 +73,9 @@ int doBCVC = 0;
 int h1h2Consistency = 0;
 int doVeto = 0;
 int completeCoincs = 0;
-REAL4 ra_deg=-1; /* for specifying a certain location on the sky */
-REAL4 dec_deg=-100;   
+
+INT4 numExtTriggers = 0;
+ExtTriggerTable   *exttrigHead = NULL;
 
 /*
  * 
@@ -214,49 +215,6 @@ static void print_usage(char *program)
       "\n"\
       "[LIGOLW XML input files] list of the input trigger files.\n"\
       "\n", program);
-}
-
-/*
- * 
- * readSource
- *
- */
-
- /* read the source location in GRB mode,
-    returns the coordinates in radians  */
-static void readSource( char* sourceFile, REAL4* rec, REAL4* dec )
-{
-  FILE *fp;
-  char line[256];
-  char dummy[16]; 
-  char ra_sgn, dec_sgn;
-  double ra_h, ra_m, dec_d, dec_m;
-  int c;
-  
-  fp = fopen( sourceFile, "r" );
-  if (!fp) {
-    fprintf( stderr, "Error: Unable to open file %s.\n", sourceFile );
-    fprintf( stderr, "It does not exist or is read-permitted.\n ");
-    exit(1);
-  }
-
-  while ( fgets( line, sizeof( line ), fp ) )
-    if ( line[0] == '#' )
-      continue;
-    else
-      {
-	c = sscanf( line, "%s %c%le:%le %c%le:%le %s %s %s",
-		    &dummy, &ra_sgn, &ra_h, &ra_m, &dec_sgn, &dec_d, &dec_m,
-		    &dummy, &dummy, &dummy);
-	*rec=( ra_h + ra_m / 60.0 ) * 15.0; /* convert to degree */
-	*dec=( dec_d + dec_m / 60.0 ); /* already degree */
-	if ( ra_sgn == '-' )
-	  *rec *= -1;
-	if ( dec_sgn == '-' )
-	  *dec *= -1;
-      }
-  
-  fclose( fp );
 }
 
 /*
@@ -1203,12 +1161,12 @@ int main( int argc, char *argv[] )
         break;       
 
       case '_':
-	/* specifying GRB source file */
+        /* specifying GRB source file */
         optarg_len = strlen(optarg) + 1;
         sourceFile = (CHAR *) calloc( optarg_len, sizeof(CHAR) );
         memcpy( sourceFile, optarg, optarg_len );
         ADD_PROCESS_PARAM( "string", "%s", optarg );
-	accuracyParams.exttrig=1;
+        accuracyParams.exttrig=1;
         break;
         
       default:
@@ -1535,12 +1493,6 @@ int main( int argc, char *argv[] )
   }
 
 
-  /* read the source location in GRB mode,
-     right ascension and declination read in radians */
-  if (sourceFile) {
-    readSource( sourceFile, &ra_deg, &dec_deg );   
-  }
-
   /* delete the first, empty process_params entry */
   this_proc_param = processParamsTable.processParamsTable;
   processParamsTable.processParamsTable = 
@@ -1809,22 +1761,40 @@ int main( int argc, char *argv[] )
     goto cleanexit;
   }
 
-  /* Populate the lightTravel matrix */
   if ( accuracyParams.exttrig )
   {
-    gpsTime=(LIGOTimeGPS*) LALMalloc( sizeof(LIGOTimeGPS) );
-    gpsTime->gpsSeconds=
-      (INT4)( (endCoincidence+startCoincidence)/2.0 );
-    gpsTime->gpsNanoSeconds=0;
+    LIGOTimeGPS timeTrigger;
 
-    XLALPopulateAccuracyParamsExt( &accuracyParams, gpsTime, ra_deg, dec_deg);
+    /* read the extTriggersTable from a file */
+    numExtTriggers=LALExtTriggerTableFromLIGOLw( &exttrigHead, sourceFile,
+                                                 0, 1);
+    printf("Number of triggers read from the external trigger file: %d\n",
+           numExtTriggers);
     
-    LALFree( gpsTime );
+    if (numExtTriggers>1)
+    {
+      printf("WARNING: Only 1 external trigger expected in the file '%s'",
+             sourceFile );
+    }
+    if (numExtTriggers==0)
+    {
+      printf("ERROR: No external trigger found in file '%s'",sourceFile );
+      exit(1);
+    } 
+
+    /* extract the exttrig-time */
+    timeTrigger.gpsSeconds     = exttrigHead->start_time;
+    timeTrigger.gpsNanoSeconds = exttrigHead->start_time_ns;
+    
+    /* populate the accuracy params table */
+    XLALPopulateAccuracyParamsExt( &accuracyParams, 
+                                   &timeTrigger, exttrigHead->event_ra, 
+                                   exttrigHead->event_dec );
   }
   else 
   {
+    /* Populate the lightTravel matrix */
     XLALPopulateAccuracyParams( &accuracyParams);
- 
   }
  
   
