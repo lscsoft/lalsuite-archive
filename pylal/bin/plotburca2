@@ -60,6 +60,7 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "plotburca2", help = "Set the prefix for output filenames (default = \"plotburca2\").")
 	parser.add_option("-f", "--format", metavar = "format", default = "png", help = "Set the output image format (default = \"png\").")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"lalapps_power\").")
+	parser.add_option("--with-zero-lag", action = "store_true", help = "Also plot the parameter distributions for zero lag events.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -75,8 +76,10 @@ def parse_command_line():
 #
 
 
-def add_to_plot(axes, red, black, plottype = "LR"):
+def add_to_plot(axes, red, black, blue = None, plottype = "LR"):
 	if plottype == "P":
+		if blue is not None:
+			axes.plot(numpy.compress(blue.array > 0, blue.centres()[0]), numpy.compress(blue.array > 0, blue.array), "b")
 		axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
 		axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
 	elif plottype == "LR":
@@ -90,9 +93,11 @@ def add_to_plot(axes, red, black, plottype = "LR"):
 		axes.set_ylim((ymin, ymax))
 
 
-def add_to_dtplot(axes, red, black, plottype = "LR"):
+def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
 	x = numpy.arange(len(black.array), dtype = "double")
 	if plottype == "P":
+		if blue is not None:
+			axes.plot(numpy.compress(blue.array > 0, x), numpy.compress(blue.array > 0, blue.array), "b")
 		axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
 		axes.plot(numpy.compress(red.array > 0, x), numpy.compress(red.array > 0, red.array), "r")
 	elif plottype == "LR":
@@ -117,7 +122,7 @@ def add_to_dtplot(axes, red, black, plottype = "LR"):
 #
 
 
-def plot_coinc_params(distributions, plottype):
+def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
 	#
 	# Create a figure.
 	#
@@ -196,15 +201,24 @@ def plot_coinc_params(distributions, plottype):
 		#
 
 		prefix = "%s_%s_" % pair
+
 		for axes, suffix in zip((df_axes, dh_axes, dband_axes, ddur_axes), ("df", "dh", "dband", "ddur")):
 			red = distributions.injection_rates[prefix + suffix]
 			black = distributions.background_rates[prefix + suffix]
-			add_to_plot(axes, red, black, plottype)
+			if with_zero_lag:
+				blue = distributions.zero_lag_rates[prefix + suffix]
+			else:
+				blue = None
+			add_to_plot(axes, red, black, blue, plottype = plottype)
 
 		suffix = "dt"
 		red = distributions.injection_rates[prefix + suffix]
 		black = distributions.background_rates[prefix + suffix]
-		add_to_dtplot(dt_axes, red, black, plottype)
+		if with_zero_lag:
+			blue = distributions.zero_lag_rates[prefix + suffix]
+		else:
+			blue = None
+		add_to_dtplot(dt_axes, red, black, blue, plottype = plottype)
 
 	#
 	# GMST
@@ -218,7 +232,11 @@ def plot_coinc_params(distributions, plottype):
 
 	#red = distributions.injection_rates["gmst"]
 	#black = distributions.background_rates["gmst"]
-	#add_to_plot(gmst_axes, red, black, plottype)
+	#if with_zero_lag:
+	#	blue = distributions.zero_lag_rates["gmst"]
+	#else:
+	#	blue = None
+	#add_to_plot(gmst_axes, red, black, blue, plottype = plottype)
 
 	#ymin, ymax = gmst_axes.get_ylim()
 	#if ymin < 1e-5 * ymax:
@@ -258,10 +276,10 @@ distributions.finish()
 filename = "%s-%%s-%d-%d.%s" % (options.base, int(seglists.extent_all()[0]), int(abs(seglists.extent_all())), options.format)
 if options.verbose:
 	print >>sys.stderr, "writing %s ..." % (filename % "P")
-plot_coinc_params(distributions, "P").savefig(filename % "P")
+plot_coinc_params(distributions, plottype = "P", with_zero_lag = options.with_zero_lag).savefig(filename % "P")
 if options.verbose:
 	print >>sys.stderr, "writing %s ..." % (filename % "LR")
-plot_coinc_params(distributions, "LR").savefig(filename % "LR")
+plot_coinc_params(distributions, plottype = "LR").savefig(filename % "LR")
 
 sys.exit()
 

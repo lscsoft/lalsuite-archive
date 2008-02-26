@@ -188,15 +188,22 @@ def galactic_core_coinc_params(events, offsetdict):
 
 class CoincParamsDistributions(object):
 	def __init__(self, **kwargs):
+		self.zero_lag_rates = {}
 		self.background_rates = {}
 		self.injection_rates = {}
 		for param, binning in kwargs.iteritems():
+			self.zero_lag_rates[param] = rate.BinnedArray(binning)
 			self.background_rates[param] = rate.BinnedArray(binning)
 			self.injection_rates[param] = rate.BinnedArray(binning)
 
 	def __iadd__(self, other):
 		if type(other) != type(self):
 			raise TypeError, other
+		for param, rate in other.zero_lag_rates.iteritems():
+			if param in self.zero_lag_rates:
+				self.zero_lag_rates[param] += rate
+			else:
+				self.zero_lag_rates[param] = rate
 		for param, rate in other.background_rates.iteritems():
 			if param in self.background_rates:
 				self.background_rates[param] += rate
@@ -208,6 +215,15 @@ class CoincParamsDistributions(object):
 			else:
 				self.injection_rates[param] = rate
 		return self
+
+	def add_zero_lag(self, param_func, events, timeslide):
+		for param, value in param_func(events, timeslide).iteritems():
+			rate = self.zero_lag_rates[param]
+			try:
+				rate[value] += 1.0
+			except IndexError:
+				# param value out of range
+				pass
 
 	def add_background(self, param_func, events, timeslide):
 		for param, value in param_func(events, timeslide).iteritems():
@@ -233,6 +249,9 @@ class CoincParamsDistributions(object):
 		# effect of making the integral of P(x) dx equal 1 after
 		# the array is transformed to an array of densities (which
 		# is done by dividing each bin by dx).
+		for name, binnedarray in self.zero_lag_rates.items():
+			binnedarray.array /= numpy.sum(binnedarray.array)
+			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
 		for name, binnedarray in self.background_rates.items():
 			binnedarray.array /= numpy.sum(binnedarray.array)
 			rate.to_moving_mean_density(binnedarray, filters.get(name, default_filter))
@@ -257,6 +276,15 @@ class CoincParamsDistributions(object):
 
 
 class Stats(object):
+	def _add_zero_lag(self, param_func, events, timeslide):
+		"""
+		A subclass should provide an override of this method to do
+		whatever it needs to do with a tuple of coincidence events
+		identified as "zero lag".
+		"""
+		raise NotImplementedError
+
+
 	def _add_background(self, param_func, events, timeslide):
 		"""
 		A subclass should provide an override of this method to do
@@ -275,8 +303,8 @@ class Stats(object):
 		raise NotImplementedError
 
 
-	def add_background(self, param_func, database):
-		# iterate over non-zero-lag burst<-->burst coincs
+	def add_noninjections(self, param_func, database):
+		# iterate over burst<-->burst coincs
 		for (coinc_event_id,) in database.connection.cursor().execute("""
 SELECT
 	coinc_event_id
@@ -284,20 +312,12 @@ FROM
 	coinc_event
 WHERE
 	coinc_def_id == ?
-	AND EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide
-		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
 		""", (database.bb_definer_id,)):
 			# retrieve the list of the sngl_bursts in this
 			# coinc, and their time slide dictionary
 			events = []
 			offsetdict = {}
+			is_zero_lag = True
 			for values in database.connection.cursor().execute("""
 SELECT
 	sngl_burst.*,
@@ -329,7 +349,13 @@ ORDER BY
 				# store the time slide offset
 				offsetdict[event.ifo] = values[-1]
 
-			self._add_background(param_func, events, offsetdict)
+				# test for zero lag
+				is_zero_lag = is_zero_lag and (values[-1] == 0)
+
+			if is_zero_lag:
+				self._add_zero_lag(param_func, events, offsetdict)
+			else:
+				self._add_background(param_func, events, offsetdict)
 
 
 	def add_injections(self, param_func, database):
@@ -421,6 +447,9 @@ class Covariance(Stats):
 		self.bak_observations = []
 		self.inj_observations = []
 
+	def _add_zero_lag(self, param_func, events, offsetdict):
+		pass
+
 	def _add_background(self, param_func, events, offsetdict):
 		items = param_func(events, offsetdict).items()
 		items.sort()
@@ -495,6 +524,9 @@ class DistributionsStats(Stats):
 		Stats.__init__(self)
 		self.distributions = CoincParamsDistributions(**self.binnings)
 
+	def _add_zero_lag(self, param_func, events, offsetdict):
+		self.distributions.add_zero_lag(param_func, events, offsetdict)
+
 	def _add_background(self, param_func, events, offsetdict):
 		self.distributions.add_background(param_func, events, offsetdict)
 
@@ -517,6 +549,8 @@ class DistributionsStats(Stats):
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
+	for name, binnedarray in coinc_params_distributions.zero_lag_rates.iteritems():
+		xml.appendChild(rate.binned_array_to_xml(binnedarray, "zero_lag:%s" % name))
 	for name, binnedarray in coinc_params_distributions.background_rates.iteritems():
 		xml.appendChild(rate.binned_array_to_xml(binnedarray, "background:%s" % name))
 	for name, binnedarray in coinc_params_distributions.injection_rates.iteritems():
@@ -530,6 +564,7 @@ def coinc_params_distributions_from_xml(xml, name):
 	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
 	c = CoincParamsDistributions()
 	for name in names:
+		c.zero_lag_rates[name] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
 		c.background_rates[name] = rate.binned_array_from_xml(xml, "background:%s" % name)
 		c.injection_rates[name] = rate.binned_array_from_xml(xml, "injection:%s" % name)
 	return c, process_id

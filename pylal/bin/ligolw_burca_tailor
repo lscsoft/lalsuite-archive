@@ -194,7 +194,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_background(coinc_params_func, database)
+		stats.add_noninjections(coinc_params_func, database)
 	else:
 		stats.add_injections(coinc_params_func, database)
 
