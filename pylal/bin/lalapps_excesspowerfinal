@@ -152,8 +152,8 @@ def parse_command_line():
 
 
 #
-# An iterator that returns (likelihood, confidence, is_background) tuples
-# for all sngl_burst <--> sngl_burst coincs.
+# An iterator that returns (id, likelihood, confidence, is_background)
+# tuples for all sngl_burst <--> sngl_burst coincs.
 #
 
 
@@ -430,20 +430,19 @@ def plot_confidence_likelihood_scatter_data(slope, verbose = False):
 #
 
 
-def get_background_time_slides(contents):
+def get_time_slides(database):
 	"""
-	Query the database for the IDs and offsets of non-zero-lag time
-	slides.
+	Query the database for the IDs and offsets of all time slides, and
+	return two dictionaries one containing the all-zero time slides and
+	the other containing the not-all-zero time slides.
 	"""
-	time_slides = {}
-	for id, instrument, offset in contents.connection.cursor().execute("""
+	zero_lag_time_slides = {}
+	background_time_slides = {}
+	for id, instrument, offset, is_background in database.connection.cursor().execute("""
 SELECT
 	time_slide_id,
 	instrument,
-	offset
-FROM
-	time_slide
-WHERE
+	offset,
 	EXISTS (
 		SELECT
 			*
@@ -453,11 +452,18 @@ WHERE
 			a.time_slide_id == time_slide.time_slide_id
 			AND a.offset != 0
 	)
+FROM
+	time_slide
 	"""):
-		if id not in time_slides:
-			time_slides[id] = {}
-		time_slides[id][instrument] = offset
-	return time_slides
+		if is_background:
+			if id not in background_time_slides:
+				background_time_slides[id] = {}
+			background_time_slides[id][instrument] = offset
+		else:
+			if id not in zero_lag_time_slides:
+				zero_lag_time_slides[id] = {}
+			zero_lag_time_slides[id][instrument] = offset
+	return zero_lag_time_slides, background_time_slides
 
 
 def zero_lag_livetime(seglists):
@@ -509,23 +515,20 @@ class RateVsThresholdData(object):
 	def __init__(self):
 		self.background_amplitudes = iterutils.Highest(max = 1e7)
 		self.zero_lag_amplitudes = []
-		self.background_time_slides = []
-		self.out_seglists = segments.segmentlistdict()
+		self.zero_lag_live_time = 0.0
+		self.background_live_time = 0.0
 
 
-	def update_from(self, contents, filename = ""):
+	def update_from(self, contents, filename = "", verbose = False):
 		#
-		# Record the "out" segment lists.
-		#
-
-		self.out_seglists |= contents.seglists
-
-		#
-		# Add the background time slides from this file to the
-		# total list.
+		# Add the live times from this file to the totals.
 		#
 
-		self.background_time_slides = ligolw_tisi.time_slide_list_merge(self.background_time_slides, get_background_time_slides(contents).values())
+		if verbose:
+			print >>sys.stderr, "Measuring live time ..."
+		zero_lag_time_slides, background_time_slides = get_time_slides(contents)
+		self.zero_lag_live_time += time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), verbose = verbose)
+		self.background_live_time += time_slides_livetime(contents.seglists, background_time_slides.values(), verbose = verbose)
 
 		#
 		# Iterate over burst<-->burst coincidences.  Assume there
@@ -534,21 +537,20 @@ class RateVsThresholdData(object):
 		# class' append() method.
 		#
 
+		if verbose:
+			print >>sys.stderr, "Retrieving sngl_burst<-->sngl_burst coincs ..."
 		buffer = []
 		for id, likelihood, confidence, is_background in bb_id_likelihood_confidence_background(contents):
 			if is_background:
 				buffer.append(coinc_amplitude(likelihood, confidence))
 			else:
 				self.zero_lag_amplitudes.append((coinc_amplitude(likelihood, confidence), filename, id))
+		if verbose:
+			print >>sys.stderr, "Sorting background coincs ..."
 		self.background_amplitudes.extend(buffer)
 
 
 	def finish(self, zero_lag_survivors, verbose = False):
-		# compute the live time at zero lag and in time slides.
-
-		self.zero_lag_live_time = zero_lag_livetime(self.out_seglists)
-		self.background_live_time = time_slides_livetime(self.out_seglists, self.background_time_slides, verbose = verbose)
-
 		# sort the zero lag amplitudes from highest to lowest.
 
 		self.zero_lag_amplitudes.sort(reverse = True)
@@ -567,10 +569,11 @@ class RateVsThresholdData(object):
 		# rates.  have to not trick array() with the Highest class'
 		# fake element count.  this is \mu_{0}(x) in the Brady et
 		# al. paper, but the actual value at threshold is extracted
-		# from a smoothed approximation below.  note that the x
-		# co-ordinates come out in decreasing order, but it's more
-		# convenient for them to be in increasing order so we
-		# reverse the two arrays.
+		# from a smoothed approximation below.  note that because
+		# the Highest class's contents are sorted in decreasing
+		# order, the x co-ordinates come out in decreasing order,
+		# but it's more convenient for them to be in increasing
+		# order so we have to reverse the two arrays.
 
 		self.background_rate_x = numpy.fromiter(self.background_amplitudes, dtype = "double", count = list.__len__(self.background_amplitudes))
 		self.background_rate_y = numpy.arange(1, len(self.background_rate_x) + 1, dtype = "double") / self.background_live_time
@@ -581,9 +584,9 @@ class RateVsThresholdData(object):
 		# expected event rate measured from the background, times
 		# zero_lag_live_time is the expected event count at zero
 		# lag, the square root of which is the 1 sigma Poisson
-		# fluctuation in the zero lag event count, divided by
-		# zero_lag_live_time gives the 1 sigma Poisson fluctuation
-		# in the expected zero lag event rate.
+		# fluctuation in the expected zero lag event count, divided
+		# by zero_lag_live_time gives the 1 sigma Poisson
+		# fluctuation in the expected zero lag event rate.
 
 		self.background_rate_dy = numpy.sqrt(self.background_rate_y * self.zero_lag_live_time) / self.zero_lag_live_time
 
@@ -598,9 +601,8 @@ class RateVsThresholdData(object):
 		# spline are chosen by identifying the sample corresponding
 		# to the amplitude threshold, and then taking the samples
 		# on either side of that corresponding to +/- 1 order of
-		# magnitude in rate (which is a symmetric interval in
-		# ln(rate)).  to obtain \mu_{0}(x) and \mu_{0}'(x) from the
-		# spline, if
+		# magnitude in rate (a symmetric interval in ln(rate)).  to
+		# obtain \mu_{0}'(x) from the spline, if
 		#
 		#	y = ln rate(threshold)
 		#
@@ -611,23 +613,30 @@ class RateVsThresholdData(object):
 		# so
 		#
 		#	drate/dthreshold = rate * dy/dthreshold
+		#
+		# the uncertainty in \mu_{0}(x) is computed the same way as
+		# background_rate_dy above, except using \mu_{0}(x) as the
+		# rate and using the total background live time instead of
+		# the zero lag live time.
 
 		index = bisect.bisect(self.background_rate_x, self.amplitude_threshold)
 		lo = len(self.background_rate_x) - (len(self.background_rate_x) - index) * 10
 		hi = len(self.background_rate_x) - (len(self.background_rate_x) - index) / 10
-		spline = interpolate.UnivariateSpline(self.background_rate_x[lo:hi], numpy.log(self.background_rate_y[ho:hi]), k = 3)
+		spline = interpolate.UnivariateSpline(self.background_rate_x[lo:hi], numpy.log(self.background_rate_y[lo:hi]), k = 3)
 		self.background_rate_approximant = lambda x: numpy.exp(spline(x))
 
-		self.mu0 = math.exp(spline(self.amplitude_threshold))
-		self.dmu0 = self.background_rate_dy[index]
-		self.mu0primed = self.mu0 * spline(self.amplitude_threshold, nu = 1)
+		self.mu_0 = math.exp(spline(self.amplitude_threshold))
+		self.dmu_0 = numpy.sqrt(self.mu_0 * self.background_live_time) / self.background_live_time
+		self.mu_0primed = self.mu_0 * spline(self.amplitude_threshold, nu = 1)
 
 		# compute the mean event rate vs. amplitude threshold as
 		# observed at zero-lag.  to make the plots nicer, don't
 		# include zero lag events whose amplitudes are below the
-		# lowest amplitude recorded for a background event.  for
-		# convenience, we reverse the arrays so that the x
-		# co-ordinates are in increasing order.
+		# lowest amplitude recorded for a background event.  again,
+		# the x co-ordinates come out in decreasing order (the were
+		# sorted that way above), but for convenience we reverse
+		# the arrays so that the x co-ordinates are in increasing
+		# order.
 
 		self.zero_lag_rate_x = numpy.array([zero_lag_amplitude[0] for zero_lag_amplitude in self.zero_lag_amplitudes], dtype = "double")
 		self.zero_lag_rate_y = numpy.arange(1, len(self.zero_lag_rate_x) + 1, dtype = "double") / self.zero_lag_live_time
@@ -670,7 +679,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		# Process database contents.
 		#
 
-		rate_vs_threshold_data.update_from(database, filename = filename)
+		rate_vs_threshold_data.update_from(database, filename = filename, verbose = verbose)
 
 		#
 		# Done with this file.
@@ -692,6 +701,33 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 	#
 
 	return rate_vs_threshold_data
+
+
+#
+# Print results.
+#
+
+
+def print_rate_vs_threshold_data(rate_vs_threshold_data, confidence_contour_slope):
+	print >>sys.stderr
+	print >>sys.stderr, "=== Threshold Summary ==="
+	print >>sys.stderr
+	print >>sys.stderr, "threshold definition:  ln likelihood > %.16g ln confidence + %.16g" % (confidence_contour_slope, rate_vs_threshold_data.amplitude_threshold)
+	print >>sys.stderr, "total live time in background = %.16g s" % rate_vs_threshold_data.background_live_time
+	print >>sys.stderr, "total live time at zero lag = %.16g s" % rate_vs_threshold_data.zero_lag_live_time
+	print >>sys.stderr, "number of coincs in background = %d" % len(rate_vs_threshold_data.background_amplitudes)
+	print >>sys.stderr, "average number of background coincs per zero lag live time = %.16g" % (len(rate_vs_threshold_data.background_amplitudes) / rate_vs_threshold_data.background_live_time * rate_vs_threshold_data.zero_lag_live_time)
+	print >>sys.stderr, "number of coincs at zero lag = %d" % len(rate_vs_threshold_data.zero_lag_amplitudes)
+	print >>sys.stderr, "at threshold, \\mu_{0} = %.16g Hz +/- %.16g Hz" % (rate_vs_threshold_data.mu_0, rate_vs_threshold_data.dmu_0)
+	print >>sys.stderr, "at threshold, \\mu_{0}' = %.16g Hz / unit of amplitude" % rate_vs_threshold_data.mu_0primed
+	print >>sys.stderr
+	print >>sys.stderr, "100 Highest-Ranked Zero Lag Events"
+	print >>sys.stderr, "----------------------------------"
+	print >>sys.stderr
+	print >>sys.stderr, "Amplitude\tFilename\tID"
+	for amplitude, filename, id in rate_vs_threshold_data.zero_lag_amplitudes[:100]:
+		print >>sys.stderr, "%.16g\t%s\t%s" % (amplitude, filename, id)
+	print >>sys.stderr
 
 
 #
@@ -726,11 +762,11 @@ def plot_rate_vs_threshold(data):
 
 	# draw the smoothed approximation to the mean background event rate
 
-	index = bisect.bisect(data.background_rate_x, data.amplitude_threshold)
-	lo = len(data.background_rate_x) - (len(data.background_rate_x) - index) * 10
-	hi = len(data.background_rate_x) - (len(data.background_rate_x) - index) / 10
-	x = data.background_rate_x[lo:hi]
-	line2 = plot.axes.plot(x, data.background_rate_approximant(x), "b-")
+	#index = bisect.bisect(data.background_rate_x, data.amplitude_threshold)
+	#lo = len(data.background_rate_x) - (len(data.background_rate_x) - index) * 10
+	#hi = len(data.background_rate_x) - (len(data.background_rate_x) - index) / 10
+	#x = data.background_rate_x[lo:hi]
+	#line2 = plot.axes.plot(x, data.background_rate_approximant(x), "b-")
 
 	# draw the mean zero-lag event rate
 
@@ -757,9 +793,16 @@ def plot_rate_vs_threshold(data):
 
 	plot = SnglBurstUtils.BurstPlot(r"Coincident $n$-tuple ``amplitude'' (see text)", r"Mean Event Rate Residual (standard deviations)")
 
+	# construct a linear interpolator for the backround rate data so
+	# that we can evaluate it at the x co-ordinates of the zero-lag
+	# curve samples
+
+	interp_y = interpolate.interpolate.interp1d(data.background_rate_x, data.background_rate_y, kind = "linear", bounds_error = False)
+	interp_dy = interpolate.interpolate.interp1d(data.background_rate_x, data.background_rate_dy, kind = "linear", bounds_error = False)
+
 	# plot the residual
 
-	plot.axes.plot(data.background_rate_x, (data.zero_lag_rate_y - data.background_rate_y) / data.background_rate_dy, "k-")
+	plot.axes.plot(data.zero_lag_rate_x, (data.zero_lag_rate_y - interp_y(data.zero_lag_rate_x)) / interp_dy(data.zero_lag_rate_x), "k-")
 
 	# add a title
 
@@ -791,23 +834,11 @@ def plot_rate_vs_threshold(data):
 class EfficiencyData(SimBurstUtils.Efficiency_hrss_vs_freq):
 	def __init__(self, *args):
 		SimBurstUtils.Efficiency_hrss_vs_freq.__init__(self, *args)
-		self.recovered_x = []
-		self.recovered_y = []
-		self.recovered_z = []
+		self.recovered_xyz = []
 
 	def add_contents(self, contents, amplitude_threshold):
 		if self.instruments != contents.instruments:
 			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
-
-		# NOTE:  seglist must be computed the same way the segment
-		# list used to measure live time is computed, otherwise the
-		# detection efficiency is not being measured in the same
-		# data as the live time is being claimed.  that means it
-		# must be the simple intersection, with no attempt to
-		# contract it on the grounds that it's difficult to detect
-		# things at the edges of segments.
-
-		seglist = contents.seglists.intersection(self.instruments)
 
 		# iterate over all sims
 
@@ -829,50 +860,91 @@ FROM
 		""", (contents.scn_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			amplitude = values[-1]
-			found = (amplitude is not None) and (amplitude > amplitude_threshold)
 			# FIXME:  this assumes all injections are done at
 			# zero lag (which is correct for now, but watch out
 			# for this).  in general, a time_slide_id needs to
 			# be retrieved from the sim_coinc_event, the
 			# corresponding offsets retrieved from the
 			# time_slide_table and applied to the segment
-			# lists, and *then* the segmentlist intersection
-			# taken and the _was_made() test performed on the
-			# injection.
-			if SimBurstUtils.injection_was_made(sim, seglist, self.instruments):
+			# lists.
+			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):
 				# injection was made
 				self.injected_x.append(sim.frequency)
 				self.injected_y.append(sim.egw_over_rsquared)
 				if amplitude is not None:
 					# injection was recovered (found at
 					# all)
-					self.recovered_x.append(sim.frequency)
-					self.recovered_y.append(sim.egw_over_rsquared)
-					self.recovered_z.append(amplitude)
+					self.recovered_xyz.append((sim.frequency, sim.egw_over_rsquared, amplitude))
 					if amplitude > amplitude_threshold:
 						# injection was found above
 						# threshold
 						self.found_x.append(sim.frequency)
 						self.found_y.append(sim.egw_over_rsquared)
-			elif found:
+			elif (amplitude is not None) and (amplitude > amplitude_threshold):
+				# injection was found, and found above
+				# threshold, but not "injected" because it
+				# lies outside of the output segments.
+				# this is not unusual, in particular
+				# because we are only looking for coincs
+				# that are "nearby" an injection which can
+				# mean several seconds.
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 
 	def finish(self, amplitude_threshold):
-		# process the efficiency data
+		# bin the injections
 
-		SimBurstUtils.Efficiency_hrss_vs_freq.finish(self)
+		self._bin_events()
+
+		# use the same binning for the found injection density as
+		# was constructed for the efficiency
+
+		self.found_density = rate.BinnedArray(self.efficiency.denominator.bins)
+
+		# construct the amplitude weighting function
+
+		amplitude_weight = rate.BinnedArray(rate.NDBins((rate.LinearBins(amplitude_threshold - 100, amplitude_threshold + 100, 10001),)))
+
+		# gaussian window's width is the number of bins
+		# corresponding to 10 units of amplitude, which is computed
+		# by dividing 10 by the "volume" of the bin corresponding
+		# to amplitude_threshold.  index is the index of the
+		# element in amplitude_weight corresponding to the
+		# amplitude threshold.
+
+		index, = amplitude_weight.bins[amplitude_threshold,]
+		window = rate.gaussian_window(10.0 / amplitude_weight.bins.volumes()[index])
+		window /= 10 * window[(len(window) - 1) / 2]
+
+		# set the window data into the BinnedArray object.  the
+		# Gaussian peaks on the middle element of the window, which
+		# we want to place at index in the amplitude_weight array.
+
+		lo = index - (len(window) - 1) / 2
+		hi = lo + len(window)
+		if lo < 0 or hi > len(amplitude_weight.array):
+			raise ValueError, "amplitude weighting window too large"
+		amplitude_weight.array[lo:hi] = window
+
+		# store the recovered injections in the found density bins
+		# weighted by amplitude
+
+		for x, y, z in self.recovered_xyz:
+			try:
+				weight = amplitude_weight[z,]
+			except IndexError:
+				# beyond the edge of the window
+				weight = 0.0
+			self.found_density[x, y] += weight
 
 		# the efficiency is only valid up to the highest energy
 		# that has been injected.  this creates problems later on
 		# so, instead, for each frequency, identify the highest
 		# energy that has been measured and copy the values for
 		# that bin's numerator and denominator into the bins for
-		# all higher energies.  because the efficiency data has
-		# already been smoothed and regularized, we have to guess
-		# that the highest energy with an efficiency >0.9 is the
-		# one we want
-
+		# all higher energies.  do the same for the counts in the
+		# found injection density bins.
+		#
 		# the numpy.indices() call returns an array where each
 		# element is set equal to its y index.  meanwhile
 		# numpy.roll() cyclically permutes the efficiency bins down
@@ -888,77 +960,44 @@ FROM
 		# (was found) the value from that x-y bin is copied to all
 		# higher bins.
 
-		e = self.efficiency.ratio()
-		for x, y in enumerate(numpy.max(numpy.where((e > 0.9) & (numpy.roll(e, -1, axis = 1) <= 0.9), numpy.indices(e.shape)[1], -1), axis = 1)):
+		n = self.efficiency.numerator.array
+		d = self.efficiency.denominator.array
+		f = self.found_density.array
+		for x, y in enumerate(numpy.max(numpy.where((d > 0) & (numpy.roll(d, -1, axis = 1) <= 0), numpy.indices(d.shape)[1], -1), axis = 1)):
 			if y >= 0:
-				self.efficiency.numerator[x, y + 1:] = self.efficiency.numerator[x, y]
-				self.efficiency.denominator[x, y + 1:] = self.efficiency.denominator[x, y]
+				n[x, y + 1:] = n[x, y]
+				d[x, y + 1:] = d[x, y]
+				f[x, y + 1:] = f[x, y]
 
-		# use the same binning for the efficiency density as was
-		# constructed for the efficiency
+		# now do the same for the bins at energies below those that
+		# have been measured.
 
-		self.efficiency_density = rate.BinnedRatios(self.efficiency.denominator.bins)
+		for x, y in enumerate(numpy.min(numpy.where((d > 0) & (numpy.roll(d, 1, axis = 1) <= 0), numpy.indices(d.shape)[1], -1), axis = 1)):
+			if y >= 0:
+				n[x, 0:y] = n[x, y]
+				d[x, 0:y] = d[x, y]
+				f[x, 0:y] = f[x, y]
 
-		# share denominators (saves computing it twice)
+		# smooth the efficiency bins and the found injection
+		# density bins using the same 2D window.
 
-		self.efficiency_density.denominator = self.efficiency.denominator
-
-		# construct the amplitude weighting function
-
-		amplitude_weight = rate.BinnedArray(NDBins((LinearBins(amplitude_threshold - 10, amplitude_threshold + 10, 1001),)))
-
-		# gaussian window's width is the number of bins
-		# corresponding to 1 unit of amplitude, which is determined
-		# by computing the inverse of the "volume" of the bin
-		# corresponding to amplitude_threshold.  index is the index
-		# of the element in amplitude_weight corresponding to the
-		# amplitude threshold
-
-		index = amplitude_weight.bins[amplitude_threshold,]
-		window = rate.gaussian_window(1.0 / amplitude_weight.bins.volumes()[index])
-
-		# set the window data into the BinnedArray object.  the
-		# Gaussian peaks on the middle element of the window, which
-		# we want to place at index in the amplitude_weight array.
-
-		lo = index - (len(window) - 1) / 2
-		hi = lo + len(window)
-		if lo < 0 or hi > len(amplitude_weight.array):
-			raise ValueError, "amplitude weighting window too large"
-		amplitude_weight.array[lo:hi] = window
-
-		# store the recovered injections in the efficiency density
-		# numerator bins weighted by amplitude
-
-		for x, y, z in zip(self.recovered_x, self.recovered_y, self.recovered_z):
-			try:
-				weight = amplitude_weight[z,]
-			except IndexError:
-				# beyond the edge of the window
-				weight = 0.0
-			self.efficiency_density.incnumerator((x, y), weight)
-
-		# the numerator of the efficiency density is now the count
-		# of injections recovered with an "amplitude" falling
-		# within a range of 1 unit centred on the amplitude
-		# threshold (as defined by the window function), and is
-		# therefore the amount by which the efficiency's numerator
-		# changes as the threshold is moved by 1 unit.
-
-		# smooth the efficiency density numerator using the same 2D
-		# window as was used for the efficiency numerator and
-		# denominators.  note that because the denominator is
-		# shared with the efficiency function, it has already been
-		# smoothed and "regularized"
-
-		rate.filter_array(self.efficiency_density.numerator, rate.gaussian_window2d(self.window_size_x, self.window_size_y))
+		window = rate.gaussian_window2d(self.window_size_x, self.window_size_y)
+		rate.filter_binned_ratios(self.efficiency, window)
+		rate.filter_array(self.found_density.array, window)
 
 		# compute the uncertainties in the efficiency and its
 		# derivative by assuming these to be the \sqrt{N} Poisson
 		# fluctuations in the numerators.
+		# FIXME:  this isn't right, the window function has to have
+		# its normalization adjusted to get the bin counts to
+		# accurately reflect the number of injections that were
+		# used to measure the efficiency in each bin.  note that
+		# other than here only ratios of these arrays are ever
+		# used, so the window function's normalization can be set
+		# to achieve the correct uncertainty.
 
-		self.defficiency = numpy.sqrt(self.efficiency.numerator) / self.efficiency.denominator
-		self.defficiency_density = numpy.sqrt(self.efficiency_density.numerator) / self.efficiency_density.denominator
+		#self.defficiency = numpy.sqrt(self.efficiency.numerator.array) / self.efficiency.denominator.array
+		#self.defficiency_density = numpy.sqrt(self.efficiency_density.numerator.array) / self.efficiency_density.denominator.array
 
 
 #
@@ -1004,6 +1043,8 @@ def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lala
 	# Compute efficiency from the data that have been collected
 	#
 
+	if verbose:
+		print >>sys.stderr, "binning and smoothnig efficiency data ..."
 	efficiency.finish(amplitude_threshold)
 
 	#
@@ -1043,7 +1084,7 @@ def plot_efficiency_data(efficiency_data):
 #
 
 
-def solve_for_rate(xi, epsilon, p):
+def mu_p(xi, epsilon, p):
 	r"""
 	Solve
 
@@ -1056,9 +1097,9 @@ def solve_for_rate(xi, epsilon, p):
 	"""
 	def f(mu):
 		return 1 - p - math.exp(mu * epsilon) * (1 + xi * mu * epsilon)
-	def fprimed(mu):
-		return 1 - p - math.exp(mu * epsilon) * (epsilon * (1 + xi * mu * epsilon) - (1 + xi * epsilon))
-	return optimize.newton(f, 0, fprimed, tol = 1e-10)
+	def fprime(mu):
+		return -math.exp(mu * epsilon) * (epsilon * (1 + xi * mu * epsilon) + xi * epsilon)
+	return optimize.newton(f, 0, fprime = fprime, tol = 1e-8)
 
 
 #
@@ -1066,34 +1107,78 @@ def solve_for_rate(xi, epsilon, p):
 #
 
 
-def rate_upper_limit(efficiency_data, rate_vs_threshold_data, p = 0.9):
+def rate_upper_limit(efficiency_data, mu_0primed, p = 0.9):
+	# initialize the rate upper limit array, giving it the same binning
+	# as the efficiency array.
+
+	rate_array = rate.BinnedArray(efficiency_data.efficiency.denominator.bins)
+
 	# efficiency, and first derivative of efficiency with respect to
 	# "amplitude" threshold.  both are functions of frequency and
-	# energy.  also, their uncertainties.
+	# energy.  also, their uncertainties.  note the negative sign in
+	# the derivative of the efficiency (see the comments about this
+	# where the efficiency density is computed).
 
 	e = efficiency_data.efficiency.ratio()
-	eprimed = efficiency_data.efficiency_density.ratio()
-	de = efficiency_data.defficiency
-	deprimed = efficiency_data.defficiency_density
+	e = numpy.where(numpy.isnan(e), 0, e)
+
+	# the found density is the count of injections recovered with an
+	# "amplitude" falling within a range of 1 unit centred on the
+	# amplitude threshold, and is therefore the number of events lost
+	# from the efficiency's numerator as the threshold is increased by
+	# 1 unit.  if t is the threshold, f is the number found, m is the
+	# number made, and e = f / m is the efficiency, then
+ 	#
+	#	e / (de/dt) = 1 / (d ln e / dt)
+	#
+	# and
+	#
+	#	d ln e / dt = d/dt (ln f - ln m)
+	#	            = d ln f / dt
+	#	            = (1 / f) df/dt
+	#
+	# so
+	#
+	#	e / (de/dt) = f / (df/dt)
+	#
+	# f are the counts in the efficiency's numerator bins, and because
+	# the found density's bins are the count of events lost as the
+	# threshold is increased they are -df/dt.
+
+	e_over_eprimed = efficiency_data.efficiency.numerator.array / -efficiency_data.found_density.array
 
 	# background rate correction factor, \xi in Brady et al, also a
 	# function of frequency and energy.
 
-	xi = 1.0 / (1.0 - e / eprimed * rate_vs_threshold_data.mu0primed)
+	xi = 1.0 / (1.0 - e_over_eprimed * mu_0primed)
+	xi = numpy.where(numpy.isnan(e_over_eprimed), 1, xi)
 
-	# initialize the rate upper limit array, giving it the same binning
-	# as the efficiency array.
+	# diagnostic plots
 
-	rate = rate.BinnedArray(efficiency_data.efficiency.denominator.bins)
+	def plot_xi(z, rate_array, title, filename):
+		print >>sys.stderr, "generating %s ..." % filename
+		plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+		plot.axes.loglog()
+		xcoords, ycoords = rate_array.centres()
+		cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z))
+		cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
+		plot.axes.set_title(title)
+		plot.fig.savefig(filename)
+
+	plot_xi(efficiency_data.found_density.array, rate_array, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density.png")
+	plot_xi(xi, rate_array, r"Background Correction Factor $\xi$", "lalapps_excesspowerfinal_xi.png")
+	plot_xi(e_over_eprimed, rate_array, r"$\epsilon / \epsilon'$", "lalapps_excesspowerfinal_e_over_eprimed.png")
 
 	# compute the rate upper limit bin-by-bin
 
-	for xy in iterutils.MultiIter(*rate.bins.centres()):
-		rate[xy] = solve_for_rate(xi[xy], e[xy], p)
+	for xy in iterutils.MultiIter(*map(xrange, rate_array.array.shape)):
+		print >>sys.stderr, "xi = %.16g, e = %.16g, e/e' = %.16g, mu_0' = %.16g, p = %.16g" % (xi[xy], e[xy], e_over_eprimed[xy], mu_0primed, p)
+		rate_array.array[xy] = mu_p(xi[xy], e[xy], p)
+		print >>sys.stderr, "\tmu_p = %.16g" % rate_array.array[xy]
 
 	# done
 
-	return rate
+	return rate_array
 
 
 #
@@ -1101,14 +1186,14 @@ def rate_upper_limit(efficiency_data, rate_vs_threshold_data, p = 0.9):
 #
 
 
-def plot_rate_upper_limit(rate):
+def plot_rate_upper_limit(rate_array):
 	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
 	plot.axes.loglog()
 
-	xcoords, ycoords = rate.centres()
-	zvals = rate.array
+	xcoords, ycoords = rate_array.centres()
+	zvals = rate_array.array
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals))
-	cset.label(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
+	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 
 	plot.axes.set_title(r"90% Confidence Rate Upper Limit")
 
@@ -1219,28 +1304,7 @@ if not filenames:
 
 
 rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-
-
-print >>sys.stderr
-print >>sys.stderr, "=== Threshold Summary ==="
-print >>sys.stderr
-print >>sys.stderr, "threshold definition:  ln likelihood > %.16g ln confidence + %.16g" % (options.confidence_contour_slope, rate_vs_threshold_data.amplitude_threshold)
-print >>sys.stderr, "total live time in background = %.16g s" % rate_vs_threshold_data.background_live_time
-print >>sys.stderr, "total live time at zero lag = %.16g s" % rate_vs_threshold_data.zero_lag_live_time
-print >>sys.stderr, "number of coincs in background = %d" % len(rate_vs_threshold_data.background_amplitudes)
-print >>sys.stderr, "average number of background coincs per zero lag live time = %.16g" % (len(rate_vs_threshold_data.background_amplitudes) / rate_vs_threshold_data.background_live_time * rate_vs_threshold_data.zero_lag_live_time)
-print >>sys.stderr, "number of coincs at zero lag = %d" % len(rate_vs_threshold_data.zero_lag_amplitudes)
-print >>sys.stderr, "at threshold, \\mu_{0} = %.16g Hz +/- %.16g Hz" % (rate_vs_threshold_data.mu0, rate_vs_threshold_data.dmu0)
-print >>sys.stderr, "at threshold, \\mu_{0}' = %.16g Hz / unit of amplitude" % rate_vs_threshold_data.mu0primed
-
-print >>sys.stderr
-print >>sys.stderr, "100 Highest-Ranked Zero Lag Events"
-print >>sys.stderr, "----------------------------------"
-print >>sys.stderr
-print >>sys.stderr, "Amplitude\tFilename\tID"
-for amplitude, filename, id in rate_vs_threshold_data.zero_lag_amplitudes[:100]:
-	print >>sys.stderr, "%.16g\t%s\t%s" % (amplitude, filename, id)
-print >>sys.stderr
+print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
 
 
 print >>sys.stderr
@@ -1310,11 +1374,11 @@ print >>sys.stderr
 
 
 print >>sys.stderr, "computing rate upper limit ..."
-rate = rate_upper_limit(efficiency_data, rate_vs_threshold_data, p = 0.9)
+rate_array = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed, p = 0.9)
 
 
 print >>sys.stderr, "plotting rate upper limit ..."
-fig1 = plot_rate_upper_limit(rate)
+fig1 = plot_rate_upper_limit(rate_array)
 
 #print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit.pdf ..."
 #fig1.savefig("lalapps_excesspowerfinal_upper_limit.pdf")
@@ -1324,7 +1388,6 @@ fig1.savefig("lalapps_excesspowerfinal_upper_limit.png")
 
 print >>sys.stderr, "done."
 print >>sys.stderr
-
 
 
 #
