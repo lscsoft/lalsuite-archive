@@ -138,8 +138,7 @@ if options.verbose:
 # dictionary mapping time_slide_id --> (dictionary mapping insrument --> offset)
 
 for time_slide in ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)):
-	time_slides[unicode(lsctables.TimeSlideTable.next_id)] = time_slide
-	lsctables.TimeSlideTable.next_id += 1
+	time_slides[lsctables.TimeSlideTable.get_next_id()] = time_slide
 
 if options.verbose:
 	print >>sys.stderr, "Total of %d time slides." % len(time_slides)
