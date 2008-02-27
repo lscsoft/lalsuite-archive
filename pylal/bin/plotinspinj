@@ -731,7 +731,7 @@ if opts.enable_output is True:
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
   if opts.html_for_cbcweb:
-    html_filename_publish = InspiralUtils.write_html_output_for_cbcweb(opts, args, fnameList, tagList)
+    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()
