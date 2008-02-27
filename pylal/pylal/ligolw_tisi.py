@@ -269,7 +269,8 @@ def time_slides_vacuum(time_slides, verbose = False):
 	a mapping indicating time slide equivalences.  This can be used to
 	delete redundant time slides from a time slide table, and then also
 	used via the applyKeyMapping() method of glue.ligolw.table.Table
-	instances to update cross references.
+	instances to update cross references (for example in the
+	coinc_event table).
 
 	Example:
 
