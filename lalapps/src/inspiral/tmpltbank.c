@@ -1163,8 +1163,13 @@ cleanExit:
     LAL_CALL( LALWriteLIGOLwXMLTable( &status, &results, candle, 
           summ_value_table ), &status );
     LAL_CALL( LALEndLIGOLwXMLTable ( &status, &results ), &status );
-    LALFree( candle.summValueTable );
-    candle.summValueTable = NULL;
+  }
+  while ( candle.summValueTable )
+  {
+    SummValueTable *tmp_summvalue = NULL;
+    tmp_summvalue = candle.summValueTable;
+    candle.summValueTable = candle.summValueTable->next;
+    LALFree( tmp_summvalue );
   }
 
   /* write the template bank to the file */
