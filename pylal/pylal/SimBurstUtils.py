@@ -225,7 +225,8 @@ WHERE
 			elif found:
 				print >>sys.stderr, "odd, injection %s was found in %s but not injected..." % (sim.simulation_id, "+".join(self.instruments))
 
-	def finish(self, binning = None):
+	def _bin_events(self, binning = None):
+		# called internally by finish()
 		if binning is None:
 			minx, maxx = min(self.injected_x), max(self.injected_x)
 			miny, maxy = min(self.injected_y), max(self.injected_y)
@@ -257,6 +258,13 @@ WHERE
 
 		print >>sys.stderr, "The smoothing window for %s is %g x %g bins" % ("+".join(self.instruments), self.window_size_x, self.window_size_y),
 		print >>sys.stderr, "which is %g%% x %g%% of the binning" % (100.0 * self.window_size_x / binning[0].n, 100.0 * self.window_size_y / binning[1].n)
+
+	def finish(self, binning = None):
+		# compute the binning if needed, and set the injections
+		# into the numerator and denominator bins.  also compute
+		# the smoothing window's parameters.
+
+		self._bin_events(binning)
 
 		# smooth the efficiency data.
 		print >>sys.stderr, "Sum of numerator bins before smoothing = %g" % self.efficiency.numerator.array.sum()
