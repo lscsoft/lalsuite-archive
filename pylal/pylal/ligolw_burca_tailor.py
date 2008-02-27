@@ -471,7 +471,7 @@ class Covariance(Stats):
 
 
 def dt_binning(instrument1, instrument2):
-	dt = 0.01 + inject.light_travel_time(instrument1, instrument2)
+	dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
 	return rate.NDBins((rate.ATanBins(-dt, +dt, 24001),))
 
 
