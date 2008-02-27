@@ -136,8 +136,7 @@ class FreqVsTime(SnglBurstUtils.BurstPlot):
 		self.seglist = segments.segmentlist()
 
 	def add_contents(self, contents):
-		seglist = contents.seglists[self.instrument]
-		self.seglist |= seglist
+		self.seglist |= contents.seglists[self.instrument]
 		for values in contents.connection.cursor().execute("""
 SELECT
 	*,
@@ -158,7 +157,7 @@ FROM
 		""", (self.instrument,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			found = values[-1]
-			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
+			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
 				self.num_injections += 1
 				peak = float(SimBurstUtils.time_at_instrument(sim, self.instrument))
 				self.injected_x.append(peak)
@@ -200,7 +199,6 @@ class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
 		self.missed_y = []
 
 	def add_contents(self, contents):
-		seglist = contents.seglists[self.instrument]
 		for values in contents.connection.cursor().execute("""
 SELECT
 	*,
@@ -221,7 +219,7 @@ FROM
 		""", (self.instrument,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			found = values[-1]
-			if SimBurstUtils.injection_was_made(sim, seglist, (self.instrument,)):
+			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
 				self.num_injections += 1
 				amplitude = self.amplitude_func(sim, self.instrument)
 				self.injected_x.append(sim.frequency)

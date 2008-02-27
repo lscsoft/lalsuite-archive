@@ -62,13 +62,13 @@ def time_at_instrument(sim, instrument):
 	return t_geocent + date.XLALTimeDelayFromEarthCenter(inject.cached_detector[inject.prefix_to_name[instrument]].location, sim.ra, sim.dec, t_geocent)
 
 
-def injection_was_made(sim, seglist, instruments):
+def injection_was_made(sim, seglists, instruments):
 	"""
 	Return True if the "time" of the injection as seen at each of the
 	named instruments lies within the segment list.
 	"""
 	for instrument in instruments:
-		if time_at_instrument(sim, instrument) not in seglist:
+		if time_at_instrument(sim, instrument) not in seglists[instrument]:
 			return False
 	return True
 
@@ -187,7 +187,6 @@ class Efficiency_hrss_vs_freq(object):
 
 
 	def add_contents(self, contents):
-		seglist = contents.seglists.intersection(self.instruments)
 		# FIXME:  the first left outer join can yield multiple
 		# rows.
 		for values in contents.connection.cursor().execute("""
@@ -215,7 +214,7 @@ WHERE
 			# FIXME:  this following assumes all injections are
 			# done at zero lag (which is correct, for now, but
 			# watch out for this)
-			if injection_was_made(sim, seglist, self.instruments):
+			if injection_was_made(sim, contents.seglists, self.instruments):
 				for instrument in self.instruments:
 					amplitude = self.amplitude_func(sim, instrument)
 					self.injected_x.append(sim.frequency)
