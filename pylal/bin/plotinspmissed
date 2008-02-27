@@ -343,6 +343,12 @@ def parse_command_line():
   parser.add_option("","--followup-vetofile-v1",action="store",\
       type="string",default=None,  metavar="FOLLOWUPVETOV1",\
       help="vetofile containing veto times for V1")
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
     
   
   command_line = sys.argv[1:]
@@ -710,10 +716,11 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, \
                                                   fnameList, tagList,\
                                                   doThumb=True,\
-                                                  cbcweb=True,\
                                                   mapList=mapList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 #######################################################################################3
 if opts.show_plot:
