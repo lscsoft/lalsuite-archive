@@ -305,7 +305,6 @@ if opts.cache_file and opts.trigbank_pattern:
 # Make plot of tmpltbank size 
 fname, fname_thumb =  plotnumtemplates_tmpltbank_size(opts)
 fnameList.append(fname)
-fnameList.append(fname_thumb)
 tagList.append("Template Bank Size")
 
 # ============================================================================
