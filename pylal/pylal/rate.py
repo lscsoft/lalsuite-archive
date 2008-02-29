@@ -155,7 +155,15 @@ class LinearBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		if self.min <= x < self.max:
 			return int((x - self.min) / self.delta)
 		if x == self.max:
@@ -200,7 +208,15 @@ class LogarithmicBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		if self.min <= x < self.max:
 			return int(math.log(x / self.min) / self.delta)
 		if x == self.max:
@@ -254,7 +270,15 @@ class ATanBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
 		if x < 1:
