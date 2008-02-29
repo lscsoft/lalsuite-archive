@@ -524,7 +524,7 @@ class coincInspiralTable:
           c = getattr(candidate,ifo1)
           t = getattr(trig,ifo1)
           
-          # distance^2 apart in effective snr
+          # distance^2 apart in snr
           c_lambda = c.snr
           t_lambda = t.snr
           tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
@@ -543,28 +543,28 @@ class coincInspiralTable:
           param_counter += 1
 
           # distance^2 apart in effective distance
-          c_lambda = c.eff_distance
-          t_lambda = t.eff_distance
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          #c_lambda = c.eff_distance
+          #t_lambda = t.eff_distance
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
           # distance^2 apart in ethinca
-          for ifo2 in ifolist:
-            if ifo1 < ifo2:
-              c_lambda = simpleEThinca(c, getattr(candidate, ifo2))
-              t_lambda = simpleEThinca(t, getattr(trig, ifo2))
-              
+          #for ifo2 in ifolist:
+          #  if ifo1 < ifo2:
+          #    c_lambda = simpleEThinca(c, getattr(candidate, ifo2))
+          #    t_lambda = simpleEThinca(t, getattr(trig, ifo2))
+          #    
               # check if the ethinca parameter of the candidate is not zero
-              if c_lambda > 0.0:
-                sEThinca_scale = c_lambda
-              else:
-                sEThinca_scale = 0.5
+              #if c_lambda > 0.0:
+              #  sEThinca_scale = c_lambda
+              #else:
+          #    sEThinca_scale = 0.5
               #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
               # FIX ME! We need to make a choice for the sEThinca_scale that sets the scale for SimpleEThinca parameter 
-              tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
-              param_counter += 1
+          #    tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
+          #    param_counter += 1
 
-        if ( (tmp_d_squared / float(param_counter)) < epsilon_sq ):
+        if ( tmp_d_squared < epsilon_sq ):
           triggers_within_epsilon.append(trig)
 
     return triggers_within_epsilon
