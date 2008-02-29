@@ -827,6 +827,22 @@ def plot_rate_vs_threshold(data):
 
 
 #
+# Diagnostic plots
+#
+
+
+def diagnostic_plot(z, bins, title, filename):
+	print >>sys.stderr, "generating %s ..." % filename
+	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+	plot.axes.loglog()
+	xcoords, ycoords = bins.centres()
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z))
+	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
+	plot.axes.set_title(title)
+	plot.fig.savefig(filename)
+
+
+#
 # Book-keeping class
 #
 
@@ -945,26 +961,28 @@ FROM
 		# all higher energies.  do the same for the counts in the
 		# found injection density bins.
 		#
-		# the numpy.indices() call returns an array where each
-		# element is set equal to its y index.  meanwhile
-		# numpy.roll() cyclically permutes the efficiency bins down
-		# one along the y (energy) axis.  from this, the
-		# conditional finds bins where the efficiency is greater
-		# than 0.9 but <= 0.9 in the bin immediately above it in
-		# energy.  we select the elements from the y index array
-		# where the conditional is true, and then use numpy.max()
-		# along the y direction to return the highest such y index
-		# for each x index, which is a 1-D array.  finally,
-		# enumerate() is used to iterate over x index and
-		# corresponding y index, and if the y index is not negative
-		# (was found) the value from that x-y bin is copied to all
-		# higher bins.
+		# numpy.indices() returns two arrays array, the first of
+		# which has each element set equal to its x index, the
+		# second has each element set equal to its y index, we keep
+		# the latter.  meanwhile numpy.roll() cyclically permutes
+		# the efficiency bins down one along the y (energy) axis.
+		# from this, the conditional finds bins where the
+		# efficiency is greater than 0.9 but <= 0.9 in the bin
+		# immediately above it in energy.  we select the elements
+		# from the y index array where the conditional is true, and
+		# then use numpy.max() along the y direction to return the
+		# highest such y index for each x index, which is a 1-D
+		# array.  finally, enumerate() is used to iterate over x
+		# index and corresponding y index, and if the y index is
+		# not negative (was found) the value from that x-y bin is
+		# copied to all higher bins.
 
 		n = self.efficiency.numerator.array
 		d = self.efficiency.denominator.array
 		f = self.found_density.array
-		for x, y in enumerate(numpy.max(numpy.where((d > 0) & (numpy.roll(d, -1, axis = 1) <= 0), numpy.indices(d.shape)[1], -1), axis = 1)):
-			if y >= 0:
+		bady = -1
+		for x, y in enumerate(numpy.max(numpy.where((d > 0) & (numpy.roll(d, -1, axis = 1) <= 0), numpy.indices(d.shape)[1], bady), axis = 1)):
+			if y != bady:
 				n[x, y + 1:] = n[x, y]
 				d[x, y + 1:] = d[x, y]
 				f[x, y + 1:] = f[x, y]
@@ -972,32 +990,35 @@ FROM
 		# now do the same for the bins at energies below those that
 		# have been measured.
 
-		for x, y in enumerate(numpy.min(numpy.where((d > 0) & (numpy.roll(d, 1, axis = 1) <= 0), numpy.indices(d.shape)[1], -1), axis = 1)):
-			if y >= 0:
+		bady = d.shape[1]
+		for x, y in enumerate(numpy.min(numpy.where((d > 0) & (numpy.roll(d, 1, axis = 1) <= 0), numpy.indices(d.shape)[1], bady), axis = 1)):
+			if y != bady:
 				n[x, 0:y] = n[x, y]
 				d[x, 0:y] = d[x, y]
 				f[x, 0:y] = f[x, y]
+
+		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator", "lalapps_excesspowerfinal_efficiency_numerator_before.png")
+		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator", "lalapps_excesspowerfinal_efficiency_denominator_before.png")
+		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density_before.png")
 
 		# smooth the efficiency bins and the found injection
 		# density bins using the same 2D window.
 
 		window = rate.gaussian_window2d(self.window_size_x, self.window_size_y)
+		window /= window[tuple((numpy.array(window.shape, dtype = "double") - 1) / 2)]
 		rate.filter_binned_ratios(self.efficiency, window)
 		rate.filter_array(self.found_density.array, window)
+
+		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator", "lalapps_excesspowerfinal_efficiency_numerator_after.png")
+		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator", "lalapps_excesspowerfinal_efficiency_denominator_after.png")
+		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density_after.png")
 
 		# compute the uncertainties in the efficiency and its
 		# derivative by assuming these to be the \sqrt{N} Poisson
 		# fluctuations in the numerators.
-		# FIXME:  this isn't right, the window function has to have
-		# its normalization adjusted to get the bin counts to
-		# accurately reflect the number of injections that were
-		# used to measure the efficiency in each bin.  note that
-		# other than here only ratios of these arrays are ever
-		# used, so the window function's normalization can be set
-		# to achieve the correct uncertainty.
 
-		#self.defficiency = numpy.sqrt(self.efficiency.numerator.array) / self.efficiency.denominator.array
-		#self.defficiency_density = numpy.sqrt(self.efficiency_density.numerator.array) / self.efficiency_density.denominator.array
+		self.defficiency = numpy.sqrt(self.efficiency.numerator.array) / self.efficiency.denominator.array
+		self.dfound_density = numpy.sqrt(self.found_density.array)
 
 
 #
@@ -1084,22 +1105,21 @@ def plot_efficiency_data(efficiency_data):
 #
 
 
-def mu_p(xi, epsilon, p):
+def mu_p_epsilon(xi, p):
 	r"""
 	Solve
 
-		p = 1 - \ee^{\mu_{p} \epsilon} (1 + \xi \mu_{p} \epsilon)
+		p = 1 - \ee^{-\mu_{p} \epsilon} (1 + \xi \mu_{p} \epsilon)
 
-	for \mu_{p}, the Poisson foreground rate given the background
-	correction factor \xi and the detection efficiency \epsilon.  Uses a
-	Newton-Raphson root finder, with an analytic expression for the
-	derivative.
+	for (\mu_{p} \epsilon), the product of the foreground rate upper limit
+	times the efficiency, given the background correction factor \xi and
+	the upper limit confidence p.
 	"""
-	def f(mu):
-		return 1 - p - math.exp(mu * epsilon) * (1 + xi * mu * epsilon)
-	def fprime(mu):
-		return -math.exp(mu * epsilon) * (epsilon * (1 + xi * mu * epsilon) + xi * epsilon)
-	return optimize.newton(f, 0, fprime = fprime, tol = 1e-8)
+	def f(mue):
+		return math.exp(-mue) * (1 + xi * mue) - (1 - p)
+	def fprime(mue):
+		return -math.exp(-mue) * (1 + xi * mue - xi)
+	return optimize.newton(f, 1, fprime = fprime, tol = 1e-8)
 
 
 #
@@ -1107,7 +1127,7 @@ def mu_p(xi, epsilon, p):
 #
 
 
-def rate_upper_limit(efficiency_data, mu_0primed, p = 0.9):
+def rate_upper_limit(efficiency_data, mu_0primed, zero_lag_live_time, p = 0.9):
 	# initialize the rate upper limit array, giving it the same binning
 	# as the efficiency array.
 
@@ -1120,7 +1140,6 @@ def rate_upper_limit(efficiency_data, mu_0primed, p = 0.9):
 	# where the efficiency density is computed).
 
 	e = efficiency_data.efficiency.ratio()
-	e = numpy.where(numpy.isnan(e), 0, e)
 
 	# the found density is the count of injections recovered with an
 	# "amplitude" falling within a range of 1 unit centred on the
@@ -1150,31 +1169,17 @@ def rate_upper_limit(efficiency_data, mu_0primed, p = 0.9):
 	# background rate correction factor, \xi in Brady et al, also a
 	# function of frequency and energy.
 
-	xi = 1.0 / (1.0 - e_over_eprimed * mu_0primed)
+	xi = 1.0 / (1.0 - e_over_eprimed * abs(mu_0primed * zero_lag_live_time))
 	xi = numpy.where(numpy.isnan(e_over_eprimed), 1, xi)
 
-	# diagnostic plots
+	diagnostic_plot(xi, rate_array.bins, r"Background Correction Factor $\xi$", "lalapps_excesspowerfinal_xi.png")
 
-	def plot_xi(z, rate_array, title, filename):
-		print >>sys.stderr, "generating %s ..." % filename
-		plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
-		plot.axes.loglog()
-		xcoords, ycoords = rate_array.centres()
-		cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z))
-		cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
-		plot.axes.set_title(title)
-		plot.fig.savefig(filename)
-
-	plot_xi(efficiency_data.found_density.array, rate_array, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density.png")
-	plot_xi(xi, rate_array, r"Background Correction Factor $\xi$", "lalapps_excesspowerfinal_xi.png")
-	plot_xi(e_over_eprimed, rate_array, r"$\epsilon / \epsilon'$", "lalapps_excesspowerfinal_e_over_eprimed.png")
-
-	# compute the rate upper limit bin-by-bin
+	# compute the rate upper limit
 
 	for xy in iterutils.MultiIter(*map(xrange, rate_array.array.shape)):
-		print >>sys.stderr, "xi = %.16g, e = %.16g, e/e' = %.16g, mu_0' = %.16g, p = %.16g" % (xi[xy], e[xy], e_over_eprimed[xy], mu_0primed, p)
-		rate_array.array[xy] = mu_p(xi[xy], e[xy], p)
-		print >>sys.stderr, "\tmu_p = %.16g" % rate_array.array[xy]
+		rate_array.array[xy] = mu_p_epsilon(xi[xy], p)
+	diagnostic_plot(rate_array.array, rate_array.bins, r"$\mu_{%.2g} \epsilon$" % p, "lalapps_excesspowerfinal_mu_p_epsilon.png")
+	rate_array.array /= zero_lag_live_time * e
 
 	# done
 
@@ -1186,18 +1191,43 @@ def rate_upper_limit(efficiency_data, mu_0primed, p = 0.9):
 #
 
 
-def plot_rate_upper_limit(rate_array):
+def plot_rate_upper_limit(rate_array, p = 0.9):
+	#
+	# contour plot in frequency-energy plane
+	#
+
 	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
 	plot.axes.loglog()
 
 	xcoords, ycoords = rate_array.centres()
-	zvals = rate_array.array
+
+	zvals = numpy.log10(numpy.clip(rate_array.array, 0, 1) / 1.0)
+
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 
-	plot.axes.set_title(r"90% Confidence Rate Upper Limit")
+	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * p, p))
+	fig1 = plot.fig
 
-	return plot.fig
+	#
+	# rate vs. energy curve at a sample frequency
+	#
+
+	plot = SnglBurstUtils.BurstPlot(r"$M_{\odot} / \mathrm{pc}^{2}$", r"Rate Upper Limit (Hz)")
+	plot.axes.loglog()
+
+	zvals = rate_array[110, :]
+	max = min(zvals) * 1e4
+	plot.axes.plot(numpy.compress(zvals <= max, ycoords), numpy.compress(zvals <= max, zvals), "k-")
+
+	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit at $110\,\mathrm{Hz}$" % (100 * p))
+	fig2 = plot.fig
+
+	#
+	# done
+	#
+
+	return fig1, fig2
 
 
 #
@@ -1311,13 +1341,13 @@ print >>sys.stderr
 print >>sys.stderr, "plotting event rate ..."
 fig1, fig2 = plot_rate_vs_threshold(rate_vs_threshold_data)
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
 fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
-#fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
+fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
 fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
 
@@ -1354,8 +1384,8 @@ print >>sys.stderr
 print >>sys.stderr, "plotting efficiency curves ..."
 fig1 = plot_efficiency_data(efficiency_data)
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_efficiency.pdf")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
+fig1.savefig("lalapps_excesspowerfinal_efficiency.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.png ..."
 fig1.savefig("lalapps_excesspowerfinal_efficiency.png")
 
@@ -1374,16 +1404,21 @@ print >>sys.stderr
 
 
 print >>sys.stderr, "computing rate upper limit ..."
-rate_array = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed, p = 0.9)
+rate_array = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed, rate_vs_threshold_data.zero_lag_live_time, p = 0.9)
 
 
 print >>sys.stderr, "plotting rate upper limit ..."
-fig1 = plot_rate_upper_limit(rate_array)
+fig1, fig2 = plot_rate_upper_limit(rate_array, p = 0.9)
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_upper_limit.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit.png ..."
-fig1.savefig("lalapps_excesspowerfinal_upper_limit.png")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
+fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.png ..."
+fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
+
+print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
+fig1.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
+print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.png ..."
+fig2.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
 
 
 print >>sys.stderr, "done."
