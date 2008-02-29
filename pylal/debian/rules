@@ -87,10 +87,9 @@ install: build
 #	    --install-data=$(DATAPREFIX) \
 #	    --sysconfdir=$(SYSCONF) \
 # move etc files around:
-        mkdir -p $(CURDIR)/debian/$(PACKAGE)$(SYSCONF)
+	mkdir -p $(CURDIR)/debian/$(PACKAGE)$(SYSCONF)
 	mv $(CURDIR)/debian/$(PACKAGE)$(PREFIX)/etc/* $(CURDIR)/debian/$(PACKAGE)$(SYSCONF)
-	rm -rf $(CURDIR)/debian/$(PACKAGE)$(PREFIX)/etc
-			
+	rm -rf $(CURDIR)/debian/$(PACKAGE)$(PREFIX)/etc		
 
 # Must not depend on anything. This is to be called by
 # binary in another 'make' thread.
