@@ -45,6 +45,10 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+# FIXME:  this should probably be a subclass of list, but no doubt that will
+# break things so make this change some time it's convenient.
+
+
 class Bin(object):
 	"""
 	Bin object for use in packing algorithm implementations.  A Bin
