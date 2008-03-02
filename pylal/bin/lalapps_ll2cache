@@ -87,7 +87,7 @@ def parse_command_line():
 	if filenames is None:
 		filenames = []
 	else:
-		filenames = reduce(list.__add__, [glob.glob(g) for g in filenames])
+		filenames = [filename for g in filenames for filename in glob.glob(g)]
 
 	return options, filenames
 
@@ -127,8 +127,10 @@ utils.ContentHandler = ContentHandler
 options, filenames = parse_command_line()
 
 
-for filename in filenames:
+for n, filename in enumerate(filenames):
 	# load document and extract search summary table
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = filename.endswith(".gz"))
 	searchsumm = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 
