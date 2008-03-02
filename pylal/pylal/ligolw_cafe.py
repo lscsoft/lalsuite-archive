@@ -34,6 +34,11 @@ LIGO Light-Weight XML coincidence analysis front end.
 import bisect
 from math import log10
 import sys
+# Python 2.3 compatibility
+try:
+	set
+except NameError:
+	from sets import Set as set
 
 
 from glue import segments
@@ -68,10 +73,10 @@ def load_cache(filename, verbose = False):
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
 	if filename:
-		fileobj = file(filename)
+		f = file(filename)
 	else:
-		fileobj = sys.stdin
-	return map(lambda l: CacheEntry(l, coltype = LIGOTimeGPS), fileobj)
+		f = sys.stdin
+	return [CacheEntry(line, coltype = LIGOTimeGPS) for line in f]
 
 
 def cache_to_seglistdict(cache):
@@ -165,7 +170,7 @@ class CafePacker(packing.Packer):
 		Set the list of time slides to be considered when deciding
 		the bins in which each file belongs.  Must be called before
 		packing any files.  The input is a list of dictionaries,
-		each mapping an instrument to an offset.
+		each mapping instruments to offsets.
 		"""
 		self.timeslides = offsetdictlist
 		min_offset = min([min(timeslide.itervalues()) for timeslide in offsetdictlist])
@@ -188,9 +193,8 @@ class CafePacker(packing.Packer):
 		"""
 		new = LALCacheBin()
 		new.add(cache_entry, cache_entry.to_segmentlistdict())
-		new.extent = new.extent.protract(self.max_gap)
 		matching_bins = []
-		for n in xrange(bisect.bisect_left([bin.extent[1] for bin in self.bins], new.extent[0]), len(self.bins)):
+		for n in xrange(bisect.bisect_left([bin.extent[1] for bin in self.bins], new.extent[0] - self.max_gap), len(self.bins)):
 			bin = self.bins[n]
 			for offsetdict in self.timeslides:
 				new.size.offsets.update(offsetdict)
@@ -200,7 +204,6 @@ class CafePacker(packing.Packer):
 					break
 			bin.size.offsets.clear()
 		new.size.offsets.clear()
-		new.extent = new.size.extent_all()
 
 		if not matching_bins:
 			# no matching bins, add a new one
@@ -231,6 +234,7 @@ class CafePacker(packing.Packer):
 
 
 def write_caches(base, bins, instruments, verbose = False):
+	instruments = set(instruments)
 	filenames = []
 	if len(bins):
 		pattern = "%%s%%0%dd.cache" % int(log10(len(bins)) + 1)
@@ -241,7 +245,7 @@ def write_caches(base, bins, instruments, verbose = False):
 			print >>sys.stderr, "writing %s ..." % filename
 		f = file(filename, "w")
 		for cacheentry in bin.objects:
-			if True in map(instruments.__contains__, cacheentry.observatory.split(",")):
+			if instruments & set(cacheentry.to_segmentlistdict().keys()):
 				print >>f, str(cacheentry)
 	return filenames
 
@@ -262,10 +266,10 @@ def write_single_instrument_caches(base, bins, instruments, verbose = False):
 
 def ligolw_cafe(cache, time_slides, verbose = False):
 	"""
-	cache is a list of glue.lal.CacheEntry objects.  time_slides is a
-	list of dictionaries describing the time slides to consider.  Set
-	verbose to True for verbosity.  The output is a tuple, the first
-	element of which is a glue.segments.segmentlistdict object
+	cache is a sequence of glue.lal.CacheEntry objects.  time_slides is
+	a sequence of dictionaries describing the time slides to consider.
+	Set verbose to True for verbosity.  The output is a tuple, the
+	first element of which is a glue.segments.segmentlistdict object
 	describing the times for which coincident data is available.  The
 	second element is a list of LALCacheBin objects, providing the file
 	groups identified by the coincidence analysis.
@@ -322,10 +326,10 @@ def ligolw_cafe(cache, time_slides, verbose = False):
 		print >>sys.stderr, "packing files ..."
 	for n, cacheentry in enumerate(cache):
 		if verbose and not n % 7:
-			print >>sys.stderr, "	%.1f%%	(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
+			print >>sys.stderr, "\t%.1f%%\t(%d files, %d caches)\r" % (100.0 * n / len(cache), n + 1, len(outputcaches)),
 		packer.pack(cacheentry)
 	if verbose:
-		print >>sys.stderr, "	100.0%%	(%d files, %d caches)" % (n + 1, len(outputcaches))
+		print >>sys.stderr, "\t100.0%%\t(%d files, %d caches)" % (n + 1, len(outputcaches))
 		print >>sys.stderr, "sorting output caches ..."
 	for cache in outputcaches:
 		cache.objects.sort()
