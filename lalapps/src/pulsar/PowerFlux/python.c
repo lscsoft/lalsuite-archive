@@ -576,6 +576,175 @@ for(j=0;j<d_free;j++) {
 return power_list;
 }
 
+static PyObject * powerflux_get_power_sum_stats(PyObject *self, PyObject *args)
+{
+int nsegments;
+int i,j,k, m;
+DATASET *d;
+CANDIDATE cand;
+PyObject *ocand;
+POLARIZATION *pl;
+float a, f_plus, f_cross, f_plus_sq, f_cross_sq, doppler;
+double f, x, y, power, weight, response;
+float mismatch;
+int signal_bin;
+float filter[7];
+float e[26];
+float a_plus, a_cross, a_plus_sq, a_cross_sq, c_proj, p_proj;
+float *bin_re, *bin_im;
+double mult;
+float mean;
+double sums[5]={0,0,0, 0, 0};
+
+memset(&cand, 0, sizeof(cand));
+
+ocand=PyTuple_GetItem(args, 0);
+if (ocand==NULL)return NULL;
+
+RETRIEVE_D(frequency);
+RETRIEVE_D(ra);
+RETRIEVE_D(dec);
+RETRIEVE_D(spindown);
+RETRIEVE_D(psi);
+RETRIEVE_D(iota);
+
+precompute_am_constants(e, cand.ra, cand.dec);
+p_proj=cos(2*cand.psi);
+c_proj=sin(2*cand.psi);
+
+a=cos(cand.iota);
+a_plus=(1.0+a*a)/2.0;
+a_cross=a;
+
+/* precompute squares */
+a_plus_sq=a_plus*a_plus;
+a_cross_sq=a_cross*a_cross;
+
+/* correction factor to convert power into (approx) strain units */
+mult=args_info.strain_norm_factor_arg/(1800.0*16384.0);
+mult=mult*mult;
+
+nsegments=0;
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+	nsegments+=d->free;
+	}
+
+
+i=0;
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+	pl=&(d->polarizations[0]);
+	/* process single SFTs */
+	for(k=0;k<d->free;k++) {
+		if(d->sft_veto[k]) {
+			i++;
+			continue;
+			}
+
+
+		f_plus=F_plus_coeff(k, e, pl->AM_coeffs);
+		f_cross=F_plus_coeff(k, e, pl->conjugate->AM_coeffs);
+
+// 		f_plus_sq=f_plus*f_plus;
+// 		f_cross_sq=f_cross*f_cross;
+// 
+// 		a=f_plus*a_plus+f_cross*a_cross;
+// 		response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq)*p_proj+2.0*f_plus*f_cross*(a_plus_sq-a_cross_sq))*c_proj;
+
+		a=f_plus*p_proj+f_cross*c_proj;
+		f_cross=f_cross*p_proj-f_plus*c_proj;
+		f_plus=a;
+
+		f_plus_sq=f_plus*f_plus;
+		f_cross_sq=f_cross*f_cross;
+
+		//response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq));
+		response=f_plus_sq*a_plus_sq+f_cross_sq*a_cross_sq;
+
+		weight=d->expTMedians[k]*d->weight*response;
+
+		doppler=e[0]*d->detector_velocity[3*k+0]+
+			e[1]*d->detector_velocity[3*k+1]+
+			e[2]*d->detector_velocity[3*k+2];
+
+		f=cand.frequency+cand.frequency*doppler+cand.spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+
+		signal_bin=rintf(1800.0*f-first_bin);
+		mismatch=1800.0*f-first_bin-signal_bin;
+
+		if( (signal_bin<0) || (signal_bin>=d->nbins)) {
+			i++;
+			continue;
+			}
+
+		bin_re=&(d->re[k*nbins+signal_bin]);
+		bin_im=&(d->im[k*nbins+signal_bin]);
+
+		fill_hann_filter7(filter, mismatch);
+
+		x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+		y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
+
+		power=x*x+y*y;
+
+		mean=0.0;
+		for(m=10;m<30;m++) {
+			x=bin_re[m-3]*filter[0]+bin_re[m-2]*filter[1]+bin_re[m-1]*filter[2]+bin_re[m+0]*filter[3]+bin_re[m+1]*filter[4]+bin_re[m+2]*filter[5]+bin_re[m+3]*filter[6];
+			y=bin_im[m-3]*filter[0]+bin_im[m-2]*filter[1]+bin_im[m-1]*filter[2]+bin_im[m+0]*filter[3]+bin_im[m+1]*filter[4]+bin_im[m+2]*filter[5]+bin_im[m+3]*filter[6];
+
+			mean+=x*x+y*y;
+			
+			x=bin_re[-m-3]*filter[0]+bin_re[-m-2]*filter[1]+bin_re[-m-1]*filter[2]+bin_re[-m+0]*filter[3]+bin_re[-m+1]*filter[4]+bin_re[-m+2]*filter[5]+bin_re[-m+3]*filter[6];
+			y=bin_im[-m-3]*filter[0]+bin_im[-m-2]*filter[1]+bin_im[-m-1]*filter[2]+bin_im[-m+0]*filter[3]+bin_im[-m+1]*filter[4]+bin_im[-m+2]*filter[5]+bin_im[-m+3]*filter[6];
+
+			mean+=x*x+y*y;
+			}
+		mean*=0.025;
+
+		/* weight accumulation */
+		sums[0]+=weight;
+		sums[1]+=mult*(power-mean)*weight;
+
+
+		/* statistical sums */
+		sums[2]+=sums[0]*sums[0]*weight;
+		sums[3]+=sums[0]*sums[1]*weight;
+		sums[4]+=sums[1]*sums[1]*weight;
+
+		i++;
+		}
+	}
+
+sums[2]/=sums[0];
+sums[3]/=sums[0];
+sums[4]/=sums[0];
+
+mult=- sums[3]/sums[2];
+
+//fprintf(stderr, "%g %g %g %g %g mult=%g\n", sums[0], sums[1], sums[2], sums[3], sums[4], mult);
+
+cand.total_weight=sums[0];
+cand.power_cor=mult;
+x=sqrt(sums[4]+2*sums[3]*mult+sums[2]*mult*mult);
+cand.strain_err=x;
+cand.snr=sums[1]/x;
+if(sums[1]>0)cand.strain=sqrt(sums[1]/sums[0]);
+
+STORE_D(coherence_score);
+STORE_D(chi_sq);
+STORE_D(power_cor);
+STORE_D(snr);
+STORE_D(strain);
+STORE_D(strain_err);
+STORE_D(total_weight);
+STORE_D(f_max);
+STORE_D(ifo_freq);
+STORE_D(ifo_freq_sd);
+
+return Py_BuildValue("i", 0);
+}
+
 static PyMethodDef PowerFluxMethods[] = {
     	{"init",  powerflux_init, METH_VARARGS, "Initialize powerflux"},
     	{"compute_scores",  powerflux_compute_scores, METH_VARARGS, "Compute candidate scores"},
@@ -585,6 +754,7 @@ static PyMethodDef PowerFluxMethods[] = {
     	{"set_veto",  powerflux_set_veto, METH_VARARGS, "Set veto flag for range of GPS values"},
     	{"get_gps",  powerflux_get_gps, METH_VARARGS, "Get list of start times of SFTs"},
     	{"get_power_sum",  powerflux_get_power_sum, METH_VARARGS, "Get power sum"},
+    	{"get_power_sum_stats",  powerflux_get_power_sum_stats, METH_VARARGS, "Get power sum with stats"},
     	{NULL, NULL, 0, NULL}        /* Sentinel */
 	};
 

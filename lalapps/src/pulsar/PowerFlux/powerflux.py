@@ -14,6 +14,7 @@ from powerflux import compute_scores
 from powerflux import compute_matched_snr
 from powerflux import compute_single_snr
 from powerflux import get_power_sum
+from math import sqrt
 
 class candidate:
 	def __init__(self):
@@ -42,10 +43,6 @@ value_mode="matched"
 
 def compute(c, mode="default"):
 	if mode=="default" : mode=value_mode
-	if mode=="full" :
-		mode=value_mode
-		if mode=="matched" :
-			mode="full"
 	
 	ans=value_cache.get((mode, c.coords()))
 	if(ans==None):
@@ -56,6 +53,8 @@ def compute(c, mode="default"):
 			compute_matched_snr(ans)
 		elif mode=="full":
 			compute_scores(ans)
+		elif mode=="accum_stats":
+			powerflux.get_power_sum_stats(ans)
 		else :
 			print "Unknown mode"+value_mode
 		value_cache[(mode, c.coords())]=ans
@@ -98,7 +97,7 @@ c1.psi=0;
 
 #powerflux.init("--config=search.15.config")
 
-if 1 : powerflux.init("--dataset=random2.dst --first-bin=1953405 --side-cut=1200 -n 501 \
+if 0 : powerflux.init("--dataset=random.dst --first-bin=180000 --side-cut=1200 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
 		--averaging-mode=matched --do-cutoff=0 \
 		--subtract-background=0 --ks-test=1 --filter-lines=0 \
@@ -111,7 +110,7 @@ if 1 : powerflux.init("--dataset=random2.dst --first-bin=1953405 --side-cut=1200
 		--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
   		--fake-ref-time=793154935 \
-  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=1085.340253 --fake-strain=3.2e-24 \
+  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=100.1240253 --fake-strain=6e-24 \
   		--fake-spindown=-4.66e-9 --fake-iota=1.57 --fake-psi=0.0 \
 		")
 		
@@ -152,6 +151,35 @@ datasets=powerflux.get_datasets()
 #
 
 #from qtcanvas import *
+
+all_actions={}
+
+#
+# desc is a list of tuples:
+#  (text, tag, extra)
+#
+
+def build_menu(menu, desc, prefix=[]):
+	global all_actions
+	
+	for (text, tag, extra) in desc:
+		if text=="" :
+			menu.addSeparator()
+			continue
+		
+		if len(extra)>0 :
+			build_menu(menu.addMenu(text), extra, prefix=prefix + [tag])
+			continue
+		
+		if tag=="" :
+			tag=text
+		ac=menu.addAction(text)
+		all_actions[ac]=prefix+[tag]
+	
+def find_action_tag(ac):
+	global all_actions
+	return(all_actions[ac])
+
 
 class line_plot(QGraphicsView):
 	def __init__(self, parent, xlab="x", ylab="y", title="", width=640, height=400):
@@ -352,9 +380,9 @@ class clickable_point(QGraphicsEllipseItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
-			self.cand=compute(self.cand, mode="full")
-			self.parent.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
+			self.parent.parent.cand_entry.candidate_stats(self.cand)
 			#c=self.parent.parent.cand_entry.cand
+			#c.copy_coords(self.cand)
 			#setattr(c, self.parent.var1, getattr(self.cand, self.parent.var1))
 			#setattr(c, self.parent.var2, getattr(self.cand, self.parent.var2))
 			#self.parent.parent.cand_entry.set_controls()
@@ -366,10 +394,12 @@ class clickable_point(QGraphicsEllipseItem):
 	def mouseDoubleClickEvent(self, event):
 		if(self.cand!=None):
 			#self.cand.dump()
-			self.parent.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
+			self.parent.parent.cand_entry.candidate_stats(self.cand)
+			
 			c=self.parent.parent.cand_entry.cand
-			setattr(c, self.parent.var1, getattr(self.cand, self.parent.var1))
-			setattr(c, self.parent.var2, getattr(self.cand, self.parent.var2))
+			c.copy_coords(self.cand)
+			#setattr(c, self.parent.var1, getattr(self.cand, self.parent.var1))
+			#setattr(c, self.parent.var2, getattr(self.cand, self.parent.var2))
 			self.parent.parent.cand_entry.set_controls()
 			#self.update_widget.rescale()
 			#self.parent.center=copy.copy(c)
@@ -378,12 +408,13 @@ class clickable_point(QGraphicsEllipseItem):
 
 
 class plot_display(QGraphicsView):
-	def __init__(self, parent, var1, var2="snr"):
+	def __init__(self, parent, var1, var2="snr", value_mode="matched"):
 		
 		self.parent=parent
 		self.app=parent.app
 		self.var1=var1
 		self.var2=var2
+		self.value_mode=value_mode
 		
 		self.dot_half_count=20
 		
@@ -402,6 +433,15 @@ class plot_display(QGraphicsView):
 
 		self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 		self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+		self.menu=QMenu(self)
+		
+		build_menu(self.menu, [
+			("x var", "x_var", [("frequency", "", []), ("spindown", "", []), ("ra", "", []), ("dec", "", []), ("iota", "", []), ("psi", "", [])  ]),
+			("mode", "mode", [("One bin SNR", "single", []), ("Matched SNR", "matched", []), ("Accumulation stability", "accum_stats", [])]),
+			("number of samples", "nsamples", [("21", 10, []), ("41", 20, []), ("101", 50, []), ("201", 100, [])])
+			])
+			
 
 		self.xmax=None
 		self.ymax=None
@@ -435,8 +475,8 @@ class plot_display(QGraphicsView):
 		a.show()
 		self.var1_label=a
 		
-		a=self.canvas.addText(self.var2)
-		a.moveBy(0, self.y0+self.height*0.5)
+		a=self.canvas.addText(self.var2+" "+self.value_mode)
+		a.moveBy(0, self.y0+(self.height+a.boundingRect().width())*0.5)
 		a.rotate(-90)
 		a.setDefaultTextColor(QColor(0,0,0))
 		a.show()
@@ -468,6 +508,33 @@ class plot_display(QGraphicsView):
 		a.show()
 		self.min_y_label=a
 
+	def mousePressEvent(self, e):
+		if e.button()==Qt.RightButton :
+			print "Posting menu"
+			a=self.menu.exec_(e.globalPos())
+			tag=find_action_tag(a)
+			if tag[0]=="nsamples" :
+				self.dot_half_count=tag[1]
+				self.refresh()
+				return
+			elif tag[0]=="x_var":
+				self.var1=tag[1]
+				self.var1_label.setPlainText(self.var1)
+				self.refresh()
+				return
+			elif tag[0]=="mode":
+				self.value_mode=tag[1]
+				a=self.var2_label
+				a.moveBy(0.0, -a.boundingRect().width()*0.5)
+				a.setPlainText(self.var2+" "+self.value_mode)
+				a.moveBy(0.0, +a.boundingRect().width()*0.5)
+				self.refresh()
+				return
+			print "Unknown tag:"
+			print tag
+			return
+		QGraphicsView.mousePressEvent(self, e)
+
 	def refresh(self):
 		n=self.dot_half_count
 		c=copy.copy(self.center)
@@ -477,7 +544,7 @@ class plot_display(QGraphicsView):
 		for i in range(-n, n+1) :
 			setattr(c, self.var1, getattr(self.center, self.var1)+i*getattr(self.center, self.var1+"_step"))
 			X.append(getattr(c, self.var1))
-			a=compute(c)
+			a=compute(c, mode=self.value_mode)
 			y=getattr(a, self.var2)
 			Y.append(y)
 			self.points.append(a)
@@ -546,11 +613,11 @@ class clickable_dot(QGraphicsRectItem):
 		print "pressed"
 		if(self.cand!=None):
 			#self.cand.dump()
-			self.cand=compute(self.cand, mode="full")
-			self.update_widget.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
+			self.update_widget.parent.cand_entry.candidate_stats(self.cand)
 			c=self.update_widget.parent.cand_entry.cand
-			setattr(c, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
-			setattr(c, self.update_widget.var2, getattr(self.cand, self.update_widget.var2))
+			#setattr(c, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
+			#setattr(c, self.update_widget.var2, getattr(self.cand, self.update_widget.var2))
+			c.copy_coords(self.cand)
 			self.update_widget.parent.cand_entry.set_controls()
 			self.parent.subdivide()
 			self.update_widget.rescale()
@@ -558,18 +625,18 @@ class clickable_dot(QGraphicsRectItem):
 	
 	def mouseDoubleClickEvent(self, event):
 		if(self.cand!=None):
-			c=copy.copy(self.cand)
-			self.update_widget.parent.cand_entry.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\n" % (self.cand.snr, self.cand.strain, self.cand.power_cor, self.cand.ifo_freq))
+			self.update_widget.parent.cand_entry.candidate_stats(self.cand)
 			c1=self.update_widget.parent.cand_entry.cand
-			setattr(c1, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
-			setattr(c1, self.update_widget.var2, getattr(self.cand, self.update_widget.var2))
+			#setattr(c1, self.update_widget.var1, getattr(self.cand, self.update_widget.var1))
+			#setattr(c1, self.update_widget.var2, getattr(self.cand, self.update_widget.var2))
+			c1.copy_coords(self.cand)
 			self.update_widget.parent.cand_entry.set_controls()
 			self.update_widget.update(c)
 			self.update_widget.parent.update(c)
 
 class divisible_dot:
-	def __init__(self, update_widget, center, x, y, size, var1, var2, var3="snr"):
-		self.center=compute(center)
+	def __init__(self, update_widget, center, x, y, size, var1, var2, var3="snr", mode="matched"):
+		self.center=compute(center, mode=mode)
 		self.update_widget=update_widget
 		self.size=size
 		self.x=x
@@ -577,6 +644,7 @@ class divisible_dot:
 		self.var1=var1
 		self.var2=var2
 		self.var3=var3
+		self.value_mode=mode
 		
 		self.step1=getattr(center, self.var1+"_step")
 		self.step2=getattr(center, self.var2+"_step")
@@ -650,7 +718,10 @@ class divisible_dot:
 		a=[b.max() for b in self.dots]
 		a.sort()
 		a.reverse()
-		a=a[3]
+		x=self.update_widget.auto_open
+		if x<1 : a=a[1]
+		elif x>=len(a) : a=min(a)-1.0
+		else : a=a[x]
 		
 		for b in self.dots:
 			if b.max() > a : b.subdivide(half_n=half_n, auto_level=None)
@@ -674,7 +745,7 @@ class divisible_dot:
 			setattr(c, self.var1, getattr(self.center, self.var1)+i*self.step1)
 			for j in range(-n, n+1) :
 				setattr(c, self.var2, getattr(self.center, self.var2)+j*self.step2)
-				a=divisible_dot(self.update_widget, c, self.x+(i+n)*s, self.y+(j+n)*s, s, self.var1, self.var2)
+				a=divisible_dot(self.update_widget, c, self.x+(i+n)*s, self.y+(j+n)*s, s, self.var1, self.var2, mode=self.value_mode)
 				self.dots.append(a)
 		self.mydot.hide()
 		
@@ -693,19 +764,22 @@ class divisible_dot:
 
 
 class map_display(QGraphicsView):
-	def __init__(self, parent, var1, var2, var3="snr"):
+	def __init__(self, parent, var1, var2, var3="snr", mode="matched"):
 		
 		self.parent=parent
 		self.app=parent.app
 		self.var1=var1
 		self.var2=var2
 		self.var3=var3
+		self.value_mode=mode
 		
 		self.dot_size=20
 		self.dot_half_count=10
 		
 		self.max_z=10
 		self.min_z=0
+		
+		self.auto_open=3
 		
 		#self.size=(2*self.dot_half_count+1)*self.dot_size+2*self.dot_size
 		self.size=2*self.dot_size + 4*100
@@ -719,23 +793,21 @@ class map_display(QGraphicsView):
 		self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 		self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
+		self.menu=QMenu(self)
+		
+		build_menu(self.menu, [
+			("x var", "x_var", [("frequency", "", []), ("spindown", "", []), ("ra", "", []), ("dec", "", []), ("iota", "", []), ("psi", "", [])  ]),
+			("y var", "y_var", [("frequency", "", []), ("spindown", "", []), ("ra", "", []), ("dec", "", []), ("iota", "", []), ("psi", "", [])  ]),
+			("mode", "mode", [("One bin SNR", "single", []), ("Matched SNR", "matched", []), ("Accumulation stability", "accum_stats", [])]),
+			("number of followups", "auto_open", [("3", 3, []), ("4", 4, []), ("5", 5, []), ("6", 6, []), ("7", 7, []), ("8", 8, []), ("9", 9, []), ("10", 10, []), ("11", 11, []), ("12", 12, []), ("15", 15, []), ("17", 17, []), ("20", 20, []), ("All", 25, [])])
+			])
+
 		self.setup()
 		
 	def setup(self):
 		s=self.dot_size
 		n=self.dot_half_count
-		
-		#self.layout = QGridLayout(self, 1, 1)
-		
-		#self.canvas_view=QCanvasView(self.canvas, self)
-		#self.canvas_view.setFixedSize(size, size)
-		#self.canvas_view.setVScrollBarMode(QScrollView.AlwaysOff)
-		#self.canvas_view.setHScrollBarMode(QScrollView.AlwaysOff)
-		
-		#self.canvas_view.setCanvas(QCanvas())
-		
-		#self.layout.addWidget(self.canvas_view, 0, 0)
-		
+				
 		self.canvas.setBackgroundBrush(QBrush(QColor(0, 0, 0)))
 		
 		#self.canvas.setAdvancePeriod(30)
@@ -767,6 +839,36 @@ class map_display(QGraphicsView):
 
 		self.dot=None
 
+	def mousePressEvent(self, e):
+		if e.button()==Qt.RightButton :
+			print "Posting menu"
+			a=self.menu.exec_(e.globalPos())
+			tag=find_action_tag(a)
+			if tag[0]=="auto_open" :
+				self.auto_open=tag[1]
+				self.update(self.center)
+				return
+			elif tag[0]=="x_var":
+				self.var1=tag[1]
+				self.var1_label.setPlainText(self.var1)
+				self.update(self.center)
+				return
+			elif tag[0]=="y_var":
+				self.var2=tag[1]
+				self.var2_label.setPlainText(self.var2)
+				self.update(self.center)
+				return
+			elif tag[0]=="mode":
+				self.value_mode=tag[1]
+				#a.moveBy(a.boundingRect().width()*0.5, 0.0)
+				#self.var2_label.setPlainText(self.var2+" "+self.value_mode)
+				#a.moveBy(-a.boundingRect().width()*0.5, 0.0)
+				self.update(self.center)
+				return
+			print "Unknown tag:"
+			print tag
+			return
+		QGraphicsView.mousePressEvent(self, e)
 		
 	def refresh(self):
 		self.dot.update()
@@ -799,7 +901,7 @@ class map_display(QGraphicsView):
 		if(self.dot!=None) :
 			self.dot.hide()
 			del self.dot
-		self.dot=divisible_dot(self, self.center, s, s, 4*100, self.var1, self.var2, self.var3)
+		self.dot=divisible_dot(self, self.center, s, s, 4*100, self.var1, self.var2, self.var3, mode=self.value_mode)
 		
 		self.dot.subdivide(auto_level=-1)
 		self.rescale()
@@ -844,8 +946,7 @@ class candidate_display(QWidget):
 	def recompute(self):
 		self.get_controls()
 		self.cand=compute(self.cand, mode="full")
-		c=self.cand
-		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\nf_max=%f\n" % (c.snr, c.strain, c.power_cor, c.ifo_freq, c.f_max))
+		self.candidate_stats(self.cand)
 
 	def set_controls(self):
 		if(self.cand==None): return
@@ -873,6 +974,13 @@ class candidate_display(QWidget):
 		if dec!=None : cand.dec=dec
 		if iota!=None : cand.iota=iota
 		self.set_controls()
+		
+	def candidate_stats(self, cand):
+		a=copy.copy(cand)
+		c=compute(a, mode="full")
+		ca=compute(a, mode="accum_stats")
+		self.setNote("snr: %f\nstrain: %g\npower_cor: %f\nifo_freq: %f\nifo_freq_sd: %f\nf_max: %f\naccum_snr: %f" % (c.snr, c.strain, c.power_cor, c.ifo_freq, c.ifo_freq_sd, c.f_max, ca.snr))
+		
 		
 	def setNote(self, string):
 		self.note.setText(string)
@@ -1212,7 +1320,7 @@ class powerflux_main_window(QMainWindow):
     def update_power_accumulation(self, center=None):
 	    if center == None : center=self.cand_entry.cand
 	    
-	    psums=[power_sum(center)]
+	    psums=[powerflux.get_power_sum(center)]
 	    c=copy.copy(center)
 	    for i in range(3, 10) :
 		    c.frequency=center.frequency+i*0.01
@@ -1238,7 +1346,7 @@ class powerflux_main_window(QMainWindow):
 			power=sum/weight
 			power_curve.append((x, sum))
 			power_curve2.append((weight, sum))
-			avg_power_curve.append((x, power))
+			if x>100 : avg_power_curve.append((x, power))
 			
 		self.power_evolution.curves.append(power_curve)
 
@@ -1254,6 +1362,8 @@ class powerflux_main_window(QMainWindow):
 		  
     def update_row_info(self, center=None):
 	if center == None : center=self.cand_entry.cand
+	global datasets
+	datasets=powerflux.get_datasets()
 	
 	for i in range(len(self.row_info_columns)):
 		self.row_info.setHorizontalHeaderItem(i, QTableWidgetItem(self.row_info_columns[i]))
@@ -1328,11 +1438,13 @@ class powerflux_main_window(QMainWindow):
 
 
 app=None
+mainWindow=None
 	
 
 def main(args):
     global app
     app=QApplication(args)
+    global mainWindow
     mainWindow = powerflux_main_window(app)
     mainWindow.show()
     app.connect(app, SIGNAL("lastWindowClosed()"), app, SLOT("quit()"))

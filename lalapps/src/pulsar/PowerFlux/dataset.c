@@ -378,6 +378,8 @@ p.ref_time=args_info.fake_ref_time_arg;
 p.segment_start=d->gps[segment];
 p.coherence_time=d->coherence_time;
 
+//fprintf(stderr, "frequency=%f spindown=%g ra=%f dec=%f\n", p.freq, p.spindown, p.ra, p.dec);
+
 cos_i=cos(args_info.fake_iota_arg);
 
 p.a_plus=(1+cos_i*cos_i)*0.5;
@@ -393,7 +395,7 @@ compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
 
 
 bin=round(f*1800.0-d->first_bin);
-
+if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside loaded band: bin=%d, segment=%d\n", bin, segment);
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
