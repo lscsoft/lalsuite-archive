@@ -102,7 +102,7 @@ class DocContents(object):
 	"""
 	A wrapper interface to the XML document.
 	"""
-	def __init__(self, xmldoc, bbdef, sbdef, scdef, scndef, process):
+	def __init__(self, xmldoc, bbdef, sbdef, scedef, scndef, process):
 		#
 		# store the process row
 		#
@@ -151,10 +151,10 @@ class DocContents(object):
 			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
 			self.bb_coinc_def_id = None
-			self.sc_coinc_def_id = None
+			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
-			self.sc_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scdef.search, scdef.search_coinc_type, create_new = True, description = scdef.description)
+			self.sce_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scedef.search, scedef.search_coinc_type, create_new = True, description = scedef.description)
 			self.scn_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, scndef.search, scndef.search_coinc_type, create_new = True, description = scndef.description)
 
 		#
@@ -228,11 +228,6 @@ class DocContents(object):
 		# earth at equator, 299792458 = c, 1.5 = add 50% for good
 		# luck.  (constants copied from LALConstants.h)
 		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.5
-
-		# add the duration of the longest injection
-		# FIXME:  needed for string search?
-		#if len(self.simbursttable):
-		#	self.burst_peak_time_window += max(self.simbursttable.getColumnByName("duration"))
 
 		# add the duration of the longest burst event (the most an
 		# event's peak time could differ from either the start or
@@ -467,7 +462,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			"StringCusp": StringCuspSBCoincDef,
 			"excesspower": ExcessPowerSBCoincDef
 		}[search],
-		scdef = {
+		scedef = {
 			"StringCusp": StringCuspSCCoincDef,
 			"excesspower": ExcessPowerSCCoincDef
 		}[search],
@@ -484,7 +479,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	#
 
 	if verbose:
-		print >>sys.stderr, "constructing sim_burst <--> sngl_burst coincidences:"
+		print >>sys.stderr, "constructing \"%s\":" % sbdef.description
 	for n, sim in enumerate(contents.simbursttable):
 		if verbose and not (n % (N / 50 or 1)):
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
@@ -498,16 +493,16 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	# Find sim_burst <--> coinc_event coincidences.
 	#
 
-	if contents.sc_coinc_def_id:
+	if contents.sce_coinc_def_id:
 		if verbose:
-			print >>sys.stderr, "constructing sim_burst <--> coinc_event coincidences:"
+			print >>sys.stderr, "constructing \"%s\" and \"%s\":" % (scedef.description, scndef.description)
 		for n, sim in enumerate(contents.simbursttable):
-			if verbose and not (n % (N / 50 or 1)):
+			if verbose and not (n % (N / 500 or 1)):
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
 			coinc_event_ids = find_coinc_matches(coincs, sim, snglcomparefunc)
 			if coinc_event_ids:
-				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sc_coinc_def_id)
+				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sce_coinc_def_id)
 			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)
 			if coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.scn_coinc_def_id)
