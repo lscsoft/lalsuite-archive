@@ -1341,13 +1341,13 @@ print >>sys.stderr
 print >>sys.stderr, "plotting event rate ..."
 fig1, fig2 = plot_rate_vs_threshold(rate_vs_threshold_data)
 
-print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
-fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+#fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
 fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
 
-print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
-fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
+#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
+#fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
 fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
 
@@ -1384,8 +1384,8 @@ print >>sys.stderr
 print >>sys.stderr, "plotting efficiency curves ..."
 fig1 = plot_efficiency_data(efficiency_data)
 
-print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
-fig1.savefig("lalapps_excesspowerfinal_efficiency.pdf")
+#print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
+#fig1.savefig("lalapps_excesspowerfinal_efficiency.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.png ..."
 fig1.savefig("lalapps_excesspowerfinal_efficiency.png")
 
@@ -1410,13 +1410,13 @@ rate_array = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed
 print >>sys.stderr, "plotting rate upper limit ..."
 fig1, fig2 = plot_rate_upper_limit(rate_array, p = 0.9)
 
-print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
-fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
+#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
+#fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.png ..."
 fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
 
-print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
-fig1.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
+#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
+#fig1.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
 print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.png ..."
 fig2.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
 
