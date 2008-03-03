@@ -18,7 +18,7 @@
       <Column Name="processgroup:process:ifos" Type="lstring"/>
       <Column Name="processgroup:process:process_id" Type="ilwd:char"/>
       <Stream Name="processgroup:process:table" Type="Local" Delimiter=",">
-         "thinca","1.36.2.1","/usr/local/cvs/lscsoft/lalapps/src/inspiral/thinca.c\,v",833067074," ",0,"node120","inspiralbns",1,833196128,833196128,0,"lalapps","H1H2","process:process_id:0"
+         "thinca","1.36.2.1","/usr/local/cvs/lscsoft/lalapps/src/inspiral/thinca.c\,v",833067074,"",0,"node120","inspiralbns",1,833196128,833196128,0,"lalapps","H1H2","process:process_id:0"
       </Stream>
    </Table>
    <Table Name="process_paramsgroup:process_params:table">
@@ -44,9 +44,9 @@
          "thinca","process:process_id:0","--h2-time-accuracy","float","5",
          "thinca","process:process_id:0","--l1-mchirp-accuracy","float","0.01",
          "thinca","process:process_id:0","--h1-time-accuracy","float","5",
-         "thinca","process:process_id:0","--h1-triggers","string"," ",
-         "thinca","process:process_id:0","--h2-triggers","string"," ",
-         "thinca","process:process_id:0","--multi-ifo-coinc","string"," "
+         "thinca","process:process_id:0","--h1-triggers","string",,
+         "thinca","process:process_id:0","--h2-triggers","string",,
+         "thinca","process:process_id:0","--multi-ifo-coinc","string",,
       </Stream>
    </Table>
    <Table Name="search_summarygroup:search_summary:table">
