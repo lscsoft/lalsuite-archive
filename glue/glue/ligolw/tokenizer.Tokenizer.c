@@ -174,10 +174,12 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
  * Identify the next token to extract from the tokenizer's internal buffer.
  * On success, start will be left pointing to the address of the start of
  * the string, and end will be pointing to the first character after the
- * string.  The return value is the Python type to which the text should be
- * converted, or NULL on error.  On error, the values of start and end are
- * undefined.  Raises StopIteration if the end of the tokenizer's internal
- * buffer is reached, or ValueError if a parse error occurs.
+ * string.  If no token is encountered, only whitespace between two
+ * delimiters, then start and end are both set to NULL.  The return value
+ * is the Python type to which the text should be converted, or NULL on
+ * error.  On error, the values of start and end are undefined.  Raises
+ * StopIteration if the end of the tokenizer's internal buffer is reached,
+ * or ValueError if a parse error occurs.
  */
 
 
@@ -231,10 +233,15 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 			goto stop_iteration;
 	} else {
 		*start = pos;
+		/* FIXME:  why the != STREAM_QUOTE? */
 		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter) && (*pos != STREAM_QUOTE))
 			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
+		if(*start == *end)
+			/* nothing but unquoted whitespace between
+			 * delimiters */
+			*start = *end = NULL;
 	}
 	while(*pos != tokenizer->delimiter) {
 		if(!Py_UNICODE_ISSPACE(*pos))
@@ -259,7 +266,8 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 
 	/*
 	 * Done.  *start points to the first character of the token, *end
-	 * points to the first character following the token,
+	 * points to the first character following the token (or both are
+	 * NULL if there was nothing but unquoted whitespace),
 	 * tokenizer->pos and tokenizer->type have been advanced in
 	 * readiness for the next token, and the return value is the python
 	 * type to which the current token is to be converted.
@@ -407,13 +415,14 @@ static PyObject *next(PyObject *self)
 	 * Null-terminate the token.
 	 */
 
-	*end = 0;
+	if(end)
+		*end = 0;
 
 	/*
 	 * Extract token as desired type.
 	 */
 
-	if(start == end) {
+	if(start == NULL) {
 		/* unquoted zero-length string == None */
 		Py_INCREF(Py_None);
 		token = Py_None;
