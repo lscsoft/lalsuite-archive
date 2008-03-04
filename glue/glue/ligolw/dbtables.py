@@ -121,6 +121,8 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	if tmp_path:
 		fd, target = tempfile.mkstemp(suffix = ".sqlite", dir = tmp_path)
 		os.close(fd)
+		if verbose:
+			print >>sys.stderr, "using %s as workspace" % target
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
