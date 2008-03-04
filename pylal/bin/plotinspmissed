@@ -241,10 +241,6 @@ def parse_command_line():
       help="efficiency plot versus effective distance (logarithmic dist axis)" )
   parser.add_option("-g","--eff-vs-distance",action="store_true",default=False,\
       help="efficiency plot versus distance (logarithmic dist axis)" )
-  parser.add_option("-j","--eff-vs-snr",action="store_true",default=False,\
-      help="efficiency plot versus SNR" )
-  parser.add_option("-k","--eff-vs-snr-chi",action="store_true",default=False,\
-      help="efficiency plot versus esnr-chi" )
   parser.add_option("-T","--time-offset",action="store",type="float",\
       default=0.0,metavar=" TIME-OFFSET",\
       help="time offset when plotting times")
@@ -634,10 +630,6 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
 ##########################################
 # plot of efficiency vs different values
 
-
-
-
-
 # put together what efficiency plots we need
 valueList = [ 'eff_dist_h', \
               'distance']
@@ -650,65 +642,27 @@ if opts.eff_vs_eff_dist:
 if opts.eff_vs_distance:
   indexPlots.append(1)
 
-ifo = 'H1'
+# loop over the IFOs' in the list
+for ifo in ifoList:
   
-### create the efficiency plots
-for index in indexPlots:
+  # create the efficiency plots
+  for index in indexPlots:
   
-  figure()
-  viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
-                      plot_type = 'log', \
-                      nbins = 20, output_name = None, errors=True )
+    figure()
+    viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
+                        plot_type = 'log', \
+                        nbins = 20, output_name = None, errors=True )
 
 
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, nameList[index])
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-                                              dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(tagnameList[index]+ifo)
-
-
-
-if opts.eff_vs_snr:
-  
-  figure()
-  totalInj = len(allFoundInj) + len(missedInj)
-  print allFoundTrig
-  values = viz.readcol( allFoundTrig, 'stat')
-  print values
-  
-  viz.cumhistcol(allFoundTrig, 'snr', 'linear', normalization = totalInj, \
-                 xlimit = [min(values), max(values)], output_name = None)
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "efficiency_snr")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,\
-                                              dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("Efficiency versus snr")
-    
-if opts.eff_vs_snr_chi:
-  
-  figure()
-  totalInj = len(allFoundInj) + len(missedInj)
-  values = viz.readcol( allFoundTrig, 'snr_over_chi')  
-  
-  viz.cumhistcol(allFoundTrig, 'snr_over_chi', 'linear', \
-                 normalization = totalInj, \
-                 xlimit = [min(values), max(values)], \
-                 output_name = None)
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "efficiency_snr-chi")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,\
-                                              dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("Efficiency versus snr-chi")
+    if opts.enable_output:
+      fname = InspiralUtils.set_figure_name(opts, nameList[index])
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+                                                dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(tagnameList[index]+ifo)
 
 
 
-print fnameList
 
 # ============================================================================
 # final step: html, cache file generation
@@ -722,6 +676,6 @@ if opts.enable_output is True:
   if opts.html_for_cbcweb:
     html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
-#######################################################################################3
+#########################################################################
 if opts.show_plot:
   show()
