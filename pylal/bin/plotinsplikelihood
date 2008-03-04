@@ -347,13 +347,13 @@ def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injec
   if y_lower_limit:
 	for i in range(len(p0_background)):
 	  if p0_background[i] == 0.0:
-	    p0_background = y_lower_limit
+	    p0_background[i] = y_lower_limit
 	for i in range(len(p0_injections)):
 	  if p0_injections[i] == 0.0:
-	    p0_injections = y_lower_limit	
+	    p0_injections[i] = y_lower_limit	
 	for i in range(len(p0_zerolag)):
 	  if p0_zerolag[i] == 0.0:
-	    p0_zerolag = y_lower_limit
+	    p0_zerolag[i] = y_lower_limit
 		
   l3 = semilogy(background_stat, p0_background, marker='x', linestyle='None', color='k')
   hold(True)
@@ -387,7 +387,7 @@ def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', ol
   if y_lower_limit:
 	for i in range(len(p0)):
 	  if p0[i] == 0.0:
-	    p0 = y_lower_limit
+	    p0[i] = y_lower_limit
 
   plot(stat_array, p0, marker='o', linestyle='None', color='g')
   ylabel(new_statistic)
