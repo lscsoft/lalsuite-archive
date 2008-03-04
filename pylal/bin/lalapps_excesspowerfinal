@@ -125,11 +125,12 @@ def parse_command_line():
 	parser.add_option("-b", "--background-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for non-injection files (required).")
 	parser.add_option("-i", "--injections-glob", metavar = "pattern", default = [], action = "append", help = "Shell filename pattern for injection files (required).")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "lalapps_power", help = "Set the name, as it appears in the process table, of the program whose search summary \"out\" segments define the search live time (default = \"lalapps_power\")")
-	parser.add_option("--zero-lag-survivors", metavar = "number", type = "int", help = "Set the final confidence-likelihood joint threshold so that this many events survive at zero lag.  If n survivors are requested, then the threshold is set at exactly the amplitude of the n+1 event, and events are discarded if their amplitudes are <= the threshold.  A \"loudest-event\" upper limit is obtained by setting this to 0.  The default is 0.")
+	parser.add_option("--open-box", action = "store_true", help = "Open the box.  If this is not set, then instead of setting a threshold based on the loudest zero-lag coincidence, the threshold is set at the predicted loudest-event amplitude as derived from the background.")
 	parser.add_option("--confidence-contour-slope", metavar = "slope", type = "float", default = -12.0, help = "Set the slope of the confidence-likelihood joint threshold contours (default = -12.0).")
 	parser.add_option("--dump-scatter-data", action = "store_true", help = "Instead of computing upper limit, dump data files for confidence-likelihood scatter diagnostic scatter plot.")
 	parser.add_option("--plot-scatter-data", action = "store_true", help = "Instead of computing upper limit, load data files for confidence-likelihood scatter diagnostic scatter plot and generate scatter plot.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("--zero-lag-survivors", metavar = "number", type = "int", help = "Set the final confidence-likelihood joint threshold so that this many events survive at zero lag.  If n survivors are requested, then the threshold is set at exactly the amplitude of the n+1 event, and events are discarded if their amplitudes are <= the threshold.  A \"loudest-event\" upper limit is obtained by setting this to 0.  The default is 0.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -466,14 +467,6 @@ FROM
 	return zero_lag_time_slides, background_time_slides
 
 
-def zero_lag_livetime(seglists):
-	"""
-	Return the total live time in the zero lag time slide.
-	"""
-	seglists.offsets.clear()
-	return float(abs(seglists.intersection(seglists.keys())))
-
-
 def time_slides_livetime(seglists, time_slides, verbose = False):
 	"""
 	Given a sequence of time slides (each of which is an instrument -->
@@ -485,7 +478,7 @@ def time_slides_livetime(seglists, time_slides, verbose = False):
 	old_offsets = seglists.offsets.copy()
 	N = len(time_slides)
 	if verbose:
-		print >>sys.stderr, "Computing the live time for %d time slides:" % N
+		print >>sys.stderr, "computing the live time for %d time slides:" % N
 	for n, time_slide in enumerate(time_slides):
 		if verbose:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
@@ -525,7 +518,7 @@ class RateVsThresholdData(object):
 		#
 
 		if verbose:
-			print >>sys.stderr, "Measuring live time ..."
+			print >>sys.stderr, "measuring live time ..."
 		zero_lag_time_slides, background_time_slides = get_time_slides(contents)
 		self.zero_lag_live_time += time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), verbose = verbose)
 		self.background_live_time += time_slides_livetime(contents.seglists, background_time_slides.values(), verbose = verbose)
@@ -538,7 +531,7 @@ class RateVsThresholdData(object):
 		#
 
 		if verbose:
-			print >>sys.stderr, "Retrieving sngl_burst<-->sngl_burst coincs ..."
+			print >>sys.stderr, "retrieving sngl_burst<-->sngl_burst coincs ..."
 		buffer = []
 		for id, likelihood, confidence, is_background in bb_id_likelihood_confidence_background(contents):
 			if is_background:
@@ -546,22 +539,18 @@ class RateVsThresholdData(object):
 			else:
 				self.zero_lag_amplitudes.append((coinc_amplitude(likelihood, confidence), filename, id))
 		if verbose:
-			print >>sys.stderr, "Sorting background coincs ..."
+			print >>sys.stderr, "sorting background coincs ..."
 		self.background_amplitudes.extend(buffer)
 
 
-	def finish(self, zero_lag_survivors, verbose = False):
+	def finish(self, zero_lag_survivors, open_box = False, verbose = False):
 		# sort the zero lag amplitudes from highest to lowest.
 
-		self.zero_lag_amplitudes.sort(reverse = True)
-
-		# given the desired number of survivors at zero lag, find
-		# the "amplitude" threshold to cut coincs on.  The
-		# interpretation is that only coincidences with an
-		# "amplitude" greater than (not equal to) this value are to
-		# be retained.
-
-		self.amplitude_threshold = self.zero_lag_amplitudes[zero_lag_survivors][0]
+		if not open_box:
+			# just forget them for safety
+			self.zero_lag_amplitudes = []
+		else:
+			self.zero_lag_amplitudes.sort(reverse = True)
 
 		# compute the mean event rate vs. amplitude threshold as
 		# observed in the time slides.  xcoords are the background
@@ -589,6 +578,19 @@ class RateVsThresholdData(object):
 		# fluctuation in the expected zero lag event rate.
 
 		self.background_rate_dy = numpy.sqrt(self.background_rate_y * self.zero_lag_live_time) / self.zero_lag_live_time
+
+		# given the desired number of survivors at zero lag, find
+		# the "amplitude" threshold to cut coincs on.  The
+		# interpretation is that only coincidences with an
+		# "amplitude" greater than (not equal to) this value are to
+		# be retained.
+
+		if open_box:
+			# obtain threshold from loudest zero-lag trigger
+			self.amplitude_threshold = self.zero_lag_amplitudes[zero_lag_survivors][0]
+		else:
+			# obtain threshold from background rate
+			self.amplitude_threshold = self.background_rate_x[-1 - bisect.bisect(self.background_rate_y[::-1], 1.0 / self.zero_lag_live_time)]
 
 		# compute cubic spline approximation of background event
 		# rate curve in the vacinity of the amplitude threshold.
@@ -652,7 +654,7 @@ class RateVsThresholdData(object):
 #
 
 
-def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
+def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power", tmp_path = None, open_box = False, verbose = False):
 	#
 	# Initialize the book-keeping object.
 	#
@@ -694,7 +696,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 
 	if verbose:
 		print >>sys.stderr, "finishing rate vs. threshold measurement ..."
-	rate_vs_threshold_data.finish(n_survivors, verbose = verbose)
+	rate_vs_threshold_data.finish(n_survivors, open_box = open_box, verbose = verbose)
 
 	#
 	# Done.
@@ -768,7 +770,8 @@ def plot_rate_vs_threshold(data):
 	#x = data.background_rate_x[lo:hi]
 	#line2 = plot.axes.plot(x, data.background_rate_approximant(x), "b-")
 
-	# draw the mean zero-lag event rate
+	# draw the mean zero-lag event rate.  if the box is closed, these
+	# arrays will be empty.
 
 	line3 = plot.axes.plot(data.zero_lag_rate_x, data.zero_lag_rate_y, "r-")
 
@@ -833,7 +836,7 @@ def plot_rate_vs_threshold(data):
 
 def diagnostic_plot(z, bins, title, filename):
 	print >>sys.stderr, "generating %s ..." % filename
-	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
 	plot.axes.loglog()
 	xcoords, ycoords = bins.centres()
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z))
@@ -1196,7 +1199,7 @@ def plot_rate_upper_limit(rate_array, p = 0.9):
 	# contour plot in frequency-energy plane
 	#
 
-	plot = SnglBurstUtils.BurstPlot("Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
 	plot.axes.loglog()
 
 	xcoords, ycoords = rate_array.centres()
@@ -1323,6 +1326,8 @@ if options.plot_scatter_data:
 
 print >>sys.stderr, "=== Threshold ==="
 print >>sys.stderr
+print >>sys.stderr, "\t\tBOX IS %s" % (options.open_box and "OPEN!!" or "CLOSED!!")
+print >>sys.stderr
 
 
 if options.verbose:
@@ -1333,7 +1338,7 @@ if not filenames:
 	raise ValueError, "no background/zero lag files found"
 
 
-rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
+rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
 print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
 
 
