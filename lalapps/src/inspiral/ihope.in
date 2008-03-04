@@ -400,6 +400,56 @@ if opts.run_plots:
     if opts.run_data_quality and opts.run_play_analysis:
       playPlotVetoNode.add_parent(hipePlayVetoNode[2])
 
+# Setting up plots for injection run.
+
+  if opts.run_injections:
+    for (injDir, injSeed) in cp.items("injections"):
+      print "Making plots depending on the injection runs"
+      # single ifo
+      plotcp = copy.deepcopy(cp)
+      plotcp.add_section("plot-arguments")
+      plotcp.set("plot-arguments","plotinspiralrange","")
+      plotcp.set("plot-arguments","plotnumtemplates","")
+      plotcp.set("plot-arguments","plotinspinj","")
+      plotcp.set("plot-arguments","plotsnrchi","")
+      plotcp.set("plot-arguments","write-script","")
+      playPlotNode = inspiralutils.plot_setup(injDir + "_summary_plots", \
+          plotcp, opts.log_path, "both", injDir.upper(), "PLAYGROUND", \
+          "PLAYGROUND", injDir.upper(), "../" + cachefilename, tag="SNGL" )
+      dag.add_node(playPlotNode)
+      if opts.run_search and opts.run_play_analysis:
+        playPlotNode.add_parent(hipePlayNode)
+
+      # coincs
+      plotcp = copy.deepcopy(cp)
+      plotcp.add_section("plot-arguments")
+      plotcp.set("plot-arguments","plotethinca","")
+      plotcp.set("plot-arguments","plotinjnum","")
+      plotcp.set("plot-arguments","plotinspmissed","")
+      plotcp.set("plot-arguments","write-script","")
+      playPlotCoincNode = inspiralutils.plot_setup(injDir + "_summary_plots",\
+          plotcp, opts.log_path, "first", injDir.upper(), "PLAYGROUND" , \
+          "PLAYGROUND", injDir.upper(), "../" + cachefilename, tag="COINC" )
+      dag.add_node(playPlotCoincNode)
+      if opts.run_search and opts.run_play_analysis:
+        playPlotCoincNode.add_parent(hipePlayNode)
+
+      # coincs second (require DQ)
+      plotcp = copy.deepcopy(cp)
+      plotcp.add_section("plot-arguments")
+      plotcp.set("plot-arguments","plotethinca","")
+      plotcp.set("plot-arguments","plotinjnum","")
+      plotcp.set("plot-arguments","plotinspmissed","")
+      plotcp.set("plot-arguments","write-script","")
+      playPlotVetoNode = inspiralutils.plot_setup(injDir + "_summary_plots",
+          plotcp, opts.log_path, "second", injDir.upper() + "_CAT_2_VETO", \
+          "PLAYGROUND" + "_CAT_2_VETO", \
+          "PLAYGROUND" + "_CAT_2_VETO", injDir.upper() + "_CAT_2_VETO", \
+          "../" + cachefilename, tag="COINC_CAT_2" )
+      dag.add_node(playPlotVetoNode)
+      if opts.run_data_quality and opts.run_play_analysis:
+        playPlotVetoNode.add_parent(hipePlayVetoNode[2])
+
 
 ##############################################################################
 # Set up the directories for followup and run lalapps_followup_pipe
