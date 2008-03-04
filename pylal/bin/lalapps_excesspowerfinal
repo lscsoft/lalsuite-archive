@@ -1338,23 +1338,31 @@ if not filenames:
 	raise ValueError, "no background/zero lag files found"
 
 
-rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
-print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
+if True:
+	rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
+	print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
 
 
-print >>sys.stderr
-print >>sys.stderr, "plotting event rate ..."
-fig1, fig2 = plot_rate_vs_threshold(rate_vs_threshold_data)
+	print >>sys.stderr
+	print >>sys.stderr, "plotting event rate ..."
+	fig1, fig2 = plot_rate_vs_threshold(rate_vs_threshold_data)
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
-fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+	#fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
+	fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
 
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
-#fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
-fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
+	#fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
+	fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
+else:
+	# fake the rate-vs-threshold data to skip straight to injections
+	rate_vs_threshold_data = RateVsThresholdData()
+	rate_vs_threshold_data.zero_lag_live_time = 1163382.623777472
+	rate_vs_threshold_data.amplitude_threshold = 49.3975937091782
+	rate_vs_threshold_data.mu_0primed = -2.000347702238217e-07
+
 
 print >>sys.stderr, "done."
 print >>sys.stderr
