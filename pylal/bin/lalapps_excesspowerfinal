@@ -1088,6 +1088,7 @@ def plot_efficiency_data(efficiency_data):
 	# efficiency contour plot
 
 	fig1 = SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency_data)
+	fig1.gca().set_ylim((3e-17, 3e-10))
 
 	# done
 
@@ -1206,6 +1207,8 @@ def plot_rate_upper_limit(rate_array, p = 0.9):
 	zvals = numpy.log10(numpy.clip(rate_array.array, 0, 1) / 1.0)
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), 9)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
+
+	plot.axes.set_ylim((3e-17, 3e-10))
 
 	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * p, p))
 	fig1 = plot.fig
