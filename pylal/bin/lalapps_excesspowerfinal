@@ -839,7 +839,7 @@ def diagnostic_plot(z, bins, title, filename):
 	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
 	plot.axes.loglog()
 	xcoords, ycoords = bins.centres()
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z))
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z), 9)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 	plot.axes.set_title(title)
 	plot.fig.savefig(filename)
@@ -1203,10 +1203,8 @@ def plot_rate_upper_limit(rate_array, p = 0.9):
 	plot.axes.loglog()
 
 	xcoords, ycoords = rate_array.centres()
-
 	zvals = numpy.log10(numpy.clip(rate_array.array, 0, 1) / 1.0)
-
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals))
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), 9)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 
 	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * p, p))
