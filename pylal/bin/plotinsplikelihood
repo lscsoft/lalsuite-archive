@@ -326,35 +326,45 @@ def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0
   """
   v = [-0.1, 1.1, -0.1, 1.1]
   axis(v)
-  l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
+  l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
   hold(True)
   l2 = plot(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
   hold(True)
-  l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
+  l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
+  hold(True)
+
   xlabel(prefix + ', p(c|0)')
   ylabel('Detection Probability, p(c|h)')
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
   savefig('All_DetectProb_vs_' + prefix)
   figure()
 
-def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr'):
+def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', y_lower_limit=0.00001):
   """
   Function that makes scattering plot of  new statistic (likelihood) vs old statistic (effective snr) 
   for zerolag candidate triggers, injections and background triggers. 
   """
-  print "internal check point 1"
-  print "internal check point 2"
-  l1 = semilogy(zerolag_stat, p0_zerolag, marker='o', linestyle='None', color='g')
+  if y_lower_limit:
+	for i in range(len(p0_background)):
+	  if p0_background[i] == 0.0:
+	    p0_background = y_lower_limit
+	for i in range(len(p0_injections)):
+	  if p0_injections[i] == 0.0:
+	    p0_injections = y_lower_limit	
+	for i in range(len(p0_zerolag)):
+	  if p0_zerolag[i] == 0.0:
+	    p0_zerolag = y_lower_limit
+		
+  l3 = semilogy(background_stat, p0_background, marker='x', linestyle='None', color='k')
   hold(True)
-  print "internal check point 3"
   l2 = semilogy(injections_stat, p0_injections, marker='x', linestyle='None', color='r')
   hold(True)
-  print "internal check point 4"
-  l3 = semilogy(background_stat, p0_background, marker='x', linestyle='None', color='k')
+  l1 = semilogy(zerolag_stat, p0_zerolag, marker='o', linestyle='None', color='g')
+  hold(True)
+
   xlabel(old_statistic)
   ylabel(new_statistic)
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-  print "internal check point 5"
   savefig('All_' + new_statistic + '_' + old_statistic)
   figure()
 
@@ -370,10 +380,15 @@ def scatter_plot(p0, pc):
   savefig('zerolag_DetectProb_vs_FalseAlarmProb')
   figure()
 
-def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr'):
-  ''' 
+def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', y_lower_limit=0.00001):
+  """ 
   Makes a scatter plot of new statistic (likelihood) vs old statistic (effective snr)
-  '''
+  """
+  if y_lower_limit:
+	for i in range(len(p0)):
+	  if p0[i] == 0.0:
+	    p0 = y_lower_limit
+
   plot(stat_array, p0, marker='o', linestyle='None', color='g')
   ylabel(new_statistic)
   xlabel(old_statistic)
@@ -381,9 +396,9 @@ def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', ol
   figure()
 
 def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
-  '''
+  """
   Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-  '''
+  """
   for ifolist in ifos:
    for i in range(len(ifolist)):
 	 for j in range(len(ifolist)):
@@ -412,9 +427,9 @@ def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
 		 figure()
 		 
 def scatter_plot_param_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zerolag, param, logscale=False):
-  '''
+  """
   Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair in the ifos list
-  '''
+  """
   for ifolist in ifos:
    for i in range(len(ifolist)):
 	 for j in range(len(ifolist)):
@@ -450,9 +465,9 @@ def scatter_plot_param_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zero
 		 figure()
 			   
 def scatter_plot_param1_vs_param2(ifos, coinc_slides, coinc_inj, param1, param2, logscale=False, ylogscale=False):
-  '''
+  """
   Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-  '''
+  """
   for ifolist in ifos:
 	for i in range(len(ifolist)):
 	  coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
@@ -482,9 +497,9 @@ def scatter_plot_param1_vs_param2(ifos, coinc_slides, coinc_inj, param1, param2,
 	  figure()
  
 def scatter_plot_param1_vs_param2_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zerolag, param1, param2, logscale=False, ylogscale=False):
-  '''
+  """
   Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
-  '''
+  """
   for ifolist in ifos:
 	for i in range(len(ifolist)):
 	  coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param1)
@@ -733,11 +748,9 @@ parser.add_option("-S","--statistic",action="store",default='snr',\
     type="string",\
     help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
 
-parser.add_option("-N","--numslides", action="store",type="int",\
-    default = 0, metavar="NUMSLIDES", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
+parser.add_option("-N","--num-slides", action="store",type="int",\
+    default = 0, metavar="num_slides", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
 
-parser.add_option("-k","--kappa", action="store",type="float",\
-    default = 0, metavar="KAPPA", help="The value of kappa to be supplied to perform distance cut" )
 
 # Plotting options 
 
@@ -773,12 +786,6 @@ parser.add_option("","--falsealarm-vs-detectprob-zerolag",action="store_true",\
 parser.add_option("","--falsealarm-vs-detectprob-all",action="store_true",\
     default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag, time slides and injections.")
 
-parser.add_option("-t","--scatter-plot",action="store_true",\
-    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
-
-parser.add_option("-a","--scatter-all-plot",action="store_true",\
-    default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of all coincidences")
-
 parser.add_option("-Y","--inj-vs-slides-hist",action="store_true",\
     default=False, help ="Shows the injections vs. time slides likelihood histogram")
 
@@ -802,6 +809,15 @@ parser.add_option("","--cum-hist-zerolag-vs-timeslides",action="store_true",\
 	
 parser.add_option("","--cum-hist-injections-vs-timeslides",action="store_true",\
     default=False, help ="Make cumulative likelihood histogram of injections and time slides triggers ")
+
+# plots that use data from both Single Inspiral and Inspiral Likelihood tables
+parser.add_option("-t","--scatter-plot",action="store_true",\
+    default=False, help ="Shows the scatter plot of new statitsic (likelihood) vs old statistic (effective snr) of zero lag candidates only ")
+
+parser.add_option("-a","--scatter-all-plot",action="store_true",\
+    default=False, help ="Shows the scatter plot of new statitsic (likelihood) vs old statistic (effective snr) of all coincidences")
+
+	
 	
 
 
@@ -1046,7 +1062,7 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	average_DBR = numpy.zeros(opts.bins_cumhist)
 	average_sqr_DBR = numpy.zeros(opts.bins_cumhist)
 	
-	range_slides = range(-opts.numslides, opts.numslides + 1)
+	range_slides = range(-opts.num_slides, opts.num_slides + 1)
 	range_slides.remove(0)
 	for slide in range_slides:
 	  TriggersInSlide = slidesLikelihoodTriggers.getslide(slide)
@@ -1057,11 +1073,11 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	  average_DBR +=cumhist_slide
 	  average_sqr_DBR +=cumhist_slide**2
 	  
-	sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
-	expect_likelihood = average_likelihood / (2 * opts.numslides)
+	sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.num_slides)) - (average_likelihood/(2 * opts.num_slides))**2)
+	expect_likelihood = average_likelihood / (2 * opts.num_slides)
 
-	sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
-	expect_DBR = average_DBR / (2 * opts.numslides)
+	sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.num_slides)) - (average_DBR/(2 * opts.num_slides))**2)
+	expect_DBR = average_DBR / (2 * opts.num_slides)
 	
 	postfix = '_zerolag_vs_background'
 	plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
@@ -1082,7 +1098,7 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	average_sqr_DBR = numpy.zeros(opts.bins_cumhist)
 	  
 
-	range_slides = range(-opts.numslides, opts.numslides + 1)
+	range_slides = range(-opts.num_slides, opts.num_slides + 1)
 	range_slides.remove(0)
 	for slide in range_slides:
 	  TriggersInSlide = slidesLikelihoodTriggers.getslide(slide)
@@ -1093,11 +1109,11 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	  average_DBR +=cumhist_slide
 	  average_sqr_DBR +=cumhist_slide**2
 	  
-	sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.numslides)) - (average_likelihood/(2 * opts.numslides))**2)
-	expect_likelihood = average_likelihood / (2 * opts.numslides)
+	sigma_likelihood = numpy.sqrt((average_sqr_likelihood / (2 * opts.num_slides)) - (average_likelihood/(2 * opts.num_slides))**2)
+	expect_likelihood = average_likelihood / (2 * opts.num_slides)
 
-	sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.numslides)) - (average_DBR/(2 * opts.numslides))**2)
-	expect_DBR = average_DBR / (2 * opts.numslides)
+	sigma_DBR = numpy.sqrt((average_sqr_DBR / (2 * opts.num_slides)) - (average_DBR/(2 * opts.num_slides))**2)
+	expect_DBR = average_DBR / (2 * opts.num_slides)
 	postfix = '_injections_vs_background' 
 	plot_cumhist(statistic_foreground_inj_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
 	postfix = '_injections_vs_background' + '_DBR'
@@ -1162,48 +1178,51 @@ if opts.input_data_type == "all-data":
   
   # read in zero lag coinc triggers
   zerolagTriggers = None
-  zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles,mangle_event_id=False)  
+  zerolagTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagfiles, mangle_event_id=False)  
   # construct the zero lag coincs 
   zerolagCoincTriggers = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
   zerolagLikelihoodTriggers = None
   zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
   # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(zerolagLikelihoodTriggers) == len(zerolagCoincTriggers):
-	print >>sys.stderr, "zero lag inspiral likelihood table is incompatible with the inspiral coinc table"
+	print >>sys.stderr, "zero lag: inspiral likelihood table is incompatible with the inspiral coinc table"
 	sys.exit(1)
 	
   # read in time slides triggers 
   slidesTriggers = None
-  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles,mangle_event_id=True)
+  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles, mangle_event_id=False)
   # construct the time slides coincs
   slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
   slidesLikelihoodTriggers = None
   slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
    # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(slidesLikelihoodTriggers) == len(slidesCoincTriggers):
-	print >>sys.stderr, "time slides inspiral likelihood table is incompatible with the inspiral coinc table"
-	sys.exit(1)
+	print >>sys.stderr, "time slides: inspiral likelihood table is incompatible with the inspiral coinc table"
+	#sys.exit(1)
   
   # read in injections sngl and sim inspirals
   injectionTriggers = None
-  injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles,mangle_event_id=True)
+  injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles, mangle_event_id=False)
   #simTriggers = None
   #simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
   #construct injection coincs and add sim inspirals
   injectionCoincTriggers = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
   injectionLikelihoodTriggers = None
   injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
-   # check if inspiral likelihood table is compatible with the inspiral coinc table
+  # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(injectionLikelihoodTriggers) == len(injectionCoincTriggers):
-	print >>sys.stderr, "time slides inspiral likelihood table is incompatible with the inspiral coinc table"
-	sys.exit(1)
+	print >>sys.stderr, "injections: inspiral likelihood table is incompatible with the inspiral coinc table"
+	#sys.exit(1)
    
   # generation of plots
   #####################
   
   # scatter plots for zero lag only 
   if opts.scatter_plot:
-	stat_dic={}
+	stat_dic = {}
+	fap_dic = {}
+	likelihood_dic = {}
+	dbr_dic = {}
 	for coinc in zerolagCoincTriggers:
 	  stat_dic[coinc.event_id] = coinc.stat
 	for coinc in zerolagLikelihoodTriggers:
@@ -1235,6 +1254,9 @@ if opts.input_data_type == "all-data":
   
     # forming array for zero lag
 	zerolag_stat_dic={}
+	zerolag_fap_dic = {}
+	zerolag_likelihood_dic = {}
+	zerolag_dbr_dic = {}
 	for coinc in zerolagCoincTriggers:
 	  zerolag_stat_dic[coinc.event_id] = coinc.stat
 	for coinc in zerolagLikelihoodTriggers:
@@ -1257,6 +1279,9 @@ if opts.input_data_type == "all-data":
 	  
 	# forming arrays for injections
 	injection_stat_dic={}
+	injection_fap_dic = {}
+	injection_likelihood_dic = {}
+	injection_dbr_dic = {}
 	for coinc in injectionCoincTriggers:
 	  injection_stat_dic[coinc.event_id] = coinc.stat
 	for coinc in injectionLikelihoodTriggers:
@@ -1278,6 +1303,9 @@ if opts.input_data_type == "all-data":
 	  i += 1 
 	# forming arrays for time slides
 	slides_stat_dic={}
+	slides_fap_dic = {}
+	slides_likelihood_dic = {}
+	slides_dbr_dic = {}	
 	for coinc in slidesCoincTriggers:
 	  slides_stat_dic[coinc.event_id] = coinc.stat
 	for coinc in slidesLikelihoodTriggers:
@@ -1298,9 +1326,9 @@ if opts.input_data_type == "all-data":
 	  DetectionBackgroundRatio_slides[i] = slides_dbr_dic[id]
 	  i +=1
 	
-	triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injections_stat_array, p0_injection_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
-	triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injections_stat_array, Likelihood_injection, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
-	triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injections_stat_array, DetectionBackgroundRatio_injection, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
+	triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injection_stat_array, p0_injection_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic)
+	triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injection_stat_array, Likelihood_injection, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic)
+	triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injection_stat_array, DetectionBackgroundRatio_injection, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic)
 
 if opts.show:
   show()
