@@ -608,7 +608,7 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
     titleText = legx+' vs '+legy +' '+ifo
     title( opts.title + ' '+titleText+' in '+opts.ifo_times+' times', size='x-large')
     xlabel(legx, size='x-large')
-    ylabel(legy+' '+ifo, size='x-large')
+    ylabel(legy+' '+ifo+' [Mpc]', size='x-large')
     grid(True)
     legend()
 
@@ -655,7 +655,7 @@ for ifo in ifoList:
 
 
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, nameList[index])
+      fname = InspiralUtils.set_figure_name(opts, ifo+'-'+nameList[index])
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
                                                 dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
