@@ -374,14 +374,18 @@ for file in FoundInjectionsFiles:
 	
 Ntotal_missed_injections = 0
 # loop over missed injections files
-for file in MissedInjectionsFiles:
-  if opts.verbose:
-	print file
-  MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles([file])
-  if MissedSimTriggers:
-    if opts.verbose:
-      print len(MissedSimTriggers)   
-    Ntotal_missed_injections += len(MissedSimTriggers)
+# Currently we assume that all missed injections were made at effective distance exceeding the horizon
+# therefore we will disregard them. If this approximation turn out to be always valid, options related to 
+# missed injections should be removed completely.
+# For now we just comment out the section below  
+#for file in MissedInjectionsFiles:
+#  if opts.verbose:
+#	print file
+#  MissedSimTriggers = SimInspiralUtils.ReadSimInspiralFromFiles([file])
+#  if MissedSimTriggers:
+#    if opts.verbose:
+#      print len(MissedSimTriggers)   
+#    Ntotal_missed_injections += len(MissedSimTriggers)
 	
 DetectionProb = N_injections_within_epsilon / float(Ntotal_found_injections + Ntotal_missed_injections)
   
