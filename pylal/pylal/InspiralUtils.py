@@ -75,6 +75,8 @@ def message(opts, text):
   """
   if opts.verbose is True:
     print text
+  return text+'</br>\n'
+
 def set_figure_name(opts, text):
   """
   return a string containing a standard output name for pylal 
@@ -88,7 +90,8 @@ def set_figure_name(opts, text):
   return fname
 
 def write_html_output(opts, args, fnameList, tagLists, \
-                                 doThumb=True, cbcweb = False, mapList = []):
+			doThumb=True, cbcweb = False, mapList = [],\
+			comment=None ):
   """
   @param opts: The options from the calling code
   @param args: The args from the calling code
@@ -163,6 +166,9 @@ def write_html_output(opts, args, fnameList, tagLists, \
   if opts.enable_output is True:
     text = writeProcessParams( opts.name, opts.version,  args)
     page.add(text)
+    if comment is not None:
+      page.hr()
+      page.add("<div> "+comment+"</div>")
     html_file.write(page(False))
     html_file.close()
 
@@ -198,10 +204,11 @@ def writeProcessParams(name, version, command):
   @return text
   """
   text = "Figure(s) produced with " + name + ", " \
-      + version + ", invoked with arguments:\n\n" \
-      + name
+      + version + ", invoked with the following command line arguments:" \
+      + '</br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
     text += " " +  arg
+  text+='</p>'
   
   return text
 
