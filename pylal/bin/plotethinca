@@ -311,7 +311,6 @@ if slidefilelists:
     for i in range(len(segs[opts.ifo_times])):
       slideTimeAnalyzed += segs[opts.ifo_times][i][1].seconds \
         - segs[opts.ifo_times][i][0].seconds
-    print slideTimeAnalyzed
 
     # perform the veto
     if opts.veto_file is not None:
@@ -322,7 +321,6 @@ if slidefilelists:
     slide_num.extend(range(-opts.num_slides, 0))
 
     for slide in slide_num:
-      print 'Testing '+str(slide)
       dtH1 = slide * opts.h1_slide_time
       dtH2 = slide * opts.h2_slide_time
       dtL1 = slide * opts.l1_slide_time
@@ -345,9 +343,6 @@ if slidefilelists:
 	decrement artificially th end time of this triggers 
 	by half a second (only to find the segments it 
 	belongs to.""" 
-       # else:
-#          print >>sys.stderr, "Enter 'plotethinca --help' for usage"
-#          sys.exit(1)
         segStartTime=segs[opts.ifo_times][segListIdx][0].seconds
         segEndTime=segs[opts.ifo_times][segListIdx][1].seconds
 
