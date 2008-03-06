@@ -307,11 +307,11 @@ if slidefilelists:
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
-
     slideTimeAnalyzed = 0
     for i in range(len(segs[opts.ifo_times])):
       slideTimeAnalyzed += segs[opts.ifo_times][i][1].seconds \
         - segs[opts.ifo_times][i][0].seconds
+    print slideTimeAnalyzed
 
     # perform the veto
     if opts.veto_file is not None:
@@ -322,7 +322,7 @@ if slidefilelists:
     slide_num.extend(range(-opts.num_slides, 0))
 
     for slide in slide_num:
-
+      print 'Testing '+str(slide)
       dtH1 = slide * opts.h1_slide_time
       dtH2 = slide * opts.h2_slide_time
       dtL1 = slide * opts.l1_slide_time
@@ -333,7 +333,21 @@ if slidefilelists:
 
       # Add the slide times
       for i in this_slide["sngl_trigs"]:
-        segListIdx=segs[opts.ifo_times].find(i.end_time)
+        try:
+          segListIdx=segs[opts.ifo_times].find(i.end_time)
+        except:
+          segListIdx=segs[opts.ifo_times].find(i.end_time-.5)
+          print >>sys.stderr, """
+	Warning. Plotethinca problem. end_time occurs 
+	exactly at the end of a segment which causes a 
+	error in me in glue.segment.find which is a 
+	strict comparison to the end_time. For now, we 
+	decrement artificially th end time of this triggers 
+	by half a second (only to find the segments it 
+	belongs to.""" 
+       # else:
+#          print >>sys.stderr, "Enter 'plotethinca --help' for usage"
+#          sys.exit(1)
         segStartTime=segs[opts.ifo_times][segListIdx][0].seconds
         segEndTime=segs[opts.ifo_times][segListIdx][1].seconds
 
