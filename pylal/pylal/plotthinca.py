@@ -149,7 +149,8 @@ class InverseExpectationPlot(object):
     self.ax.set_xlabel(r"$1/\langle N \rangle$")
     self.ax.set_ylabel(r"Cumulative \#")
   
-  def add_content(self, trigs, slide_trigs, label=None):
+  def add_content(self, trigs, slide_trigs, label=None,
+                  zero_lag_playground=False):
     """
     Add the contents to the plot.  The expectation value of each trigger in
     trigs will be computed from the slide_trigs.  At this point, a list of
@@ -161,12 +162,17 @@ class InverseExpectationPlot(object):
     if self.finalized:
       raise ValueError, "cannot add data after plot has been finalized"
     
+    # determine bg_fg_ratio
+    bg_fg_ratio = len(slide_trigs)
+    if zero_lag_playground:
+      bg_fg_ratio *= 600/6370
+    
     # store background stats
     self.slide_stats_list.append([s.getstat() for s in slide_trigs])
     
     # prepare background estimate
     bg_est = BackgroundEstimator(iterutils.flatten(self.slide_stats_list[-1]),
-                                 bg_fg_ratio=len(slide_trigs))
+                                 bg_fg_ratio=bg_fg_ratio)
     bg_est.finalize()
     self.bg_estimators.append(bg_est)
     

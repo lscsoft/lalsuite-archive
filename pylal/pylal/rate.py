@@ -155,7 +155,15 @@ class LinearBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		if self.min <= x < self.max:
 			return int((x - self.min) / self.delta)
 		if x == self.max:
@@ -200,7 +208,15 @@ class LogarithmicBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		if self.min <= x < self.max:
 			return int(math.log(x / self.min) / self.delta)
 		if x == self.max:
@@ -231,10 +247,10 @@ class ATanBins(Bins):
 	Example:
 
 	>>> x = ATanBins(-1.0, +1.0, 11)
-	>>> x[0]
-	5
 	>>> x[float("-inf")]
 	0
+	>>> x[0]
+	5
 	>>> x[float("+inf")]
 	10
 	>>> x.centres()
@@ -254,7 +270,15 @@ class ATanBins(Bins):
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
-			return slice(self[x.start], self[x.stop])
+			if x.start is None:
+				start = 0
+			else:
+				start = self[x.start]
+			if x.stop is None:
+				stop = self.n
+			else:
+				stop = self[x.stop]
+			return slice(start, stop)
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
 		if x < 1:
@@ -777,10 +801,10 @@ def to_moving_mean_density(binned_array, filterdata, cyclic = False):
 	>>> x.array
 	array([ 0.33333333,  0.5       ,  0.5       ,  0.5       ,  0.33333333])
 
-	We have "uniformly" distributed events at 2 unit intervals (the
-	first is at 1, the second at 3, etc.).  The computed event density
-	is 0.5 events / unit, except at the edges where the smoothing
-	window has picked up zero values from beyond the ends of the array.
+	We have uniformly distributed events at 2 unit intervals (the first
+	is at 1, the second at 3, etc.).  The event density is 0.5 events /
+	unit, except at the edges where the smoothing window has picked up
+	zero values from beyond the ends of the array.
 	"""
 	filter_array(binned_array.array, filterdata, cyclic = cyclic)
 	binned_array.to_density()

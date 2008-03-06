@@ -96,7 +96,6 @@ def parse_command_line():
   """
   Parser function dedicated
   """
-
   parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
 
   # options related to input and output
@@ -362,8 +361,6 @@ if opts.glob is not None or opts.cache_file is not None:
     if opts.ifo_times is not None:
       sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times,exact_match=True)
     found, missed = sieved_cache.checkfilesexist()
-    if len(missed) > 0:
-      raise ValueError, "some files in the cache were not found on disk"
     coincfiles = found.pfnlist()
     
     sieved_cache = allfilesCache.sieve(description=opts.slide_pattern,
@@ -371,8 +368,6 @@ if opts.glob is not None or opts.cache_file is not None:
     if opts.ifo_times is not None:
       sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times, exact_match=True)
     found, missed = sieved_cache.checkfilesexist()
-    if len(missed) > 0:
-      raise ValueError, "some files in the cache were not found on disk"
     slidefiles = found.pfnlist()
   
   # check if the file lists are not empty
@@ -1318,7 +1313,8 @@ if opts.inverse_expectation:
       print >>sys.stderr, "warning: no slide triggers for ifo combo:", \
         "".join(ifo_combo)
       continue
-    ie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo))
+    ie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo),
+                        zero_lag_playground=opts.zero_lag_playground)
   ie_plot.finalize()
   
   # save it
@@ -1344,7 +1340,8 @@ if opts.hist_inverse_expectation:
       print >>sys.stderr, "warning: no slide triggers for ifo combo:", \
         "".join(ifo_combo)
       continue
-    hie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo))
+    hie_plot.add_content(fg_coincs, bg_coincs, label="".join(ifo_combo),
+                         zero_lag_playground=opts.zero_lag_playground)
   hie_plot.finalize()
   
   # save it
