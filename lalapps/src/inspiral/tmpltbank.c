@@ -201,7 +201,6 @@ int main ( int argc, char *argv[] )
   MetadataTable         searchsumm;
   MetadataTable         searchsummvars;
   MetadataTable         candle;
-  candle.summValueTable = NULL;
   SummValueTable      **this_summvalue = &(candle.summValueTable);
   SearchSummvarsTable  *this_search_summvar;
   ProcessParamsTable   *this_proc_param;
@@ -249,6 +248,7 @@ int main ( int argc, char *argv[] )
   this_proc_param = procparams.processParamsTable = (ProcessParamsTable *) 
     calloc( 1, sizeof(ProcessParamsTable) );
   memset( comment, 0, LIGOMETA_COMMENT_MAX * sizeof(CHAR) );
+  candle.summValueTable = NULL;
 
   /* create the search summary and zero out the summvars table */
   searchsumm.searchSummaryTable = (SearchSummaryTable *)
