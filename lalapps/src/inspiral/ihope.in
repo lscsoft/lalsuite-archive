@@ -416,7 +416,8 @@ if opts.run_plots:
       plotcp.set("plot-arguments","plotinspinj","")
       plotcp.set("plot-arguments","plotsnrchi","")
       plotcp.set("plot-arguments","write-script","")
-      injPlotNode[injDir] = inspiralutils.plot_setup(injDir + "_summary_plots", \
+      injPlotNode[injDir] = inspiralutils.plot_setup(
+          injDir + "_summary_plots", \
           plotcp, opts.log_path, "both", injDir.upper(), "PLAYGROUND", \
           "PLAYGROUND", injDir.upper(), "../" + cachefilename, tag="SNGL" )
       dag.add_node(injPlotNode[injDir])
@@ -432,7 +433,8 @@ if opts.run_plots:
       plotcp.set("plot-arguments","plotinjnum","")
       plotcp.set("plot-arguments","plotinspmissed","")
       plotcp.set("plot-arguments","write-script","")
-      injPlotCoincNode[injDir] = inspiralutils.plot_setup(injDir + "_summary_plots",\
+      injPlotCoincNode[injDir] = inspiralutils.plot_setup(
+          injDir + "_summary_plots",\
           plotcp, opts.log_path, "first", injDir.upper(), "PLAYGROUND" , \
           "PLAYGROUND", injDir.upper(), "../" + cachefilename, tag="COINC" )
       dag.add_node(injPlotCoincNode[injDir])
@@ -447,7 +449,8 @@ if opts.run_plots:
       plotcp.set("plot-arguments","plotinjnum","")
       plotcp.set("plot-arguments","plotinspmissed","")
       plotcp.set("plot-arguments","write-script","")
-      injPlotVetoNode[injDir] = inspiralutils.plot_setup(injDir + "_summary_plots",
+      injPlotVetoNode[injDir] = inspiralutils.plot_setup(
+          injDir + "_summary_plots", \
           plotcp, opts.log_path, "second", injDir.upper() + "_CAT_2_VETO", \
           "PLAYGROUND" + "_CAT_2_VETO", \
           "PLAYGROUND" + "_CAT_2_VETO", injDir.upper() + "_CAT_2_VETO", \
