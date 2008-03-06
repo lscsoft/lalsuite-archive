@@ -201,6 +201,7 @@ int main ( int argc, char *argv[] )
   MetadataTable         searchsumm;
   MetadataTable         searchsummvars;
   MetadataTable         candle;
+  candle.summValueTable = NULL;
   SummValueTable      **this_summvalue = &(candle.summValueTable);
   SearchSummvarsTable  *this_search_summvar;
   ProcessParamsTable   *this_proc_param;
@@ -1163,13 +1164,14 @@ cleanExit:
     LAL_CALL( LALWriteLIGOLwXMLTable( &status, &results, candle, 
           summ_value_table ), &status );
     LAL_CALL( LALEndLIGOLwXMLTable ( &status, &results ), &status );
-  }
-  while ( candle.summValueTable )
-  {
-    SummValueTable *tmp_summvalue = NULL;
-    tmp_summvalue = candle.summValueTable;
-    candle.summValueTable = candle.summValueTable->next;
-    LALFree( tmp_summvalue );
+  
+    while ( candle.summValueTable )
+    {
+      SummValueTable *tmp_summvalue = NULL;
+      tmp_summvalue = candle.summValueTable;
+      candle.summValueTable = candle.summValueTable->next;
+      LALFree( tmp_summvalue );
+    }
   }
 
   /* write the template bank to the file */
