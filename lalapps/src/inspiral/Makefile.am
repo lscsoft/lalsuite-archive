@@ -67,7 +67,7 @@ bin_SCRIPTS = lalapps_inspiral_pipe lalapps_inspiral_hipe \
               lalapps_inspiral_online_pipe_inject \
               lalapps_check_hipe_times lalapps_ihope \
               lalapps_followup_pipe lalapps_plot_hipe \
-              lalapps_ihope_status
+              lalapps_ihope_status lalapps_write_ihope_page
 
 pkgpython_DATA = inspiral.py inspiralutils.py
 endif
@@ -92,6 +92,9 @@ lalapps_ihope: $(srcdir)/ihope.in python_config.sed
 lalapps_ihope_status: $(srcdir)/ihope_status.in python_config.sed
 	sed -f python_config.sed $(srcdir)/ihope_status.in > lalapps_ihope_status
 	chmod +x lalapps_ihope_status
+lalapps_write_ihope_page: $(srcdir)/write_ihope_page.in python_config.sed
+	sed -f python_config.sed $(srcdir)/write_ihope_page.in > lalapps_write_ihope_page
+	chmod +x lalapps_write_ihope_page
 lalapps_followup_pipe: $(srcdir)/followup_pipe.in python_config.sed
 	sed -f python_config.sed $(srcdir)/followup_pipe.in > lalapps_followup_pipe
 	chmod +x lalapps_followup_pipe
@@ -105,15 +108,15 @@ lalapps_inspiral_online_pipe_inject: $(srcdir)/inspiral_online_pipe_inject.in py
 	sed -f python_config.sed $(srcdir)/inspiral_online_pipe_inject.in > lalapps_inspiral_online_pipe_inject
 	chmod +x lalapps_inspiral_online_pipe_inject
 
-pkgdata_DATA = BNSMasses.dat inspsrcs.dat inspsrcs.errors inspsrcs-050Mpc.errors inspsrcs-075Mpc.errors inspsrcs-100Mpc.errors inspiral_pipe.ini inspiral_hipe.ini online.ini online_inject_bbh.ini ihope.ini followup_pipe.ini plot_hipe.ini
+pkgdata_DATA = BNSMasses.dat inspsrcs.dat inspsrcs.errors inspsrcs-050Mpc.errors inspsrcs-075Mpc.errors inspsrcs-100Mpc.errors inspiral_pipe.ini inspiral_hipe.ini online.ini online_inject_bbh.ini ihope.ini followup_pipe.ini plot_hipe.ini write_ihope_page.ini
 EXTRA_DIST = $(INSPIRALSRC) $(TMPLTBANKSRC) \
              $(SIRESRC) $(COIRESRC) $(SIVASRC) $(MINJSRC) \
              $(INCASRC) $(COHERESRC) $(INSPINJSRC) \
              $(SPLITBANKSRC) inspiral.py inspiralutils.py inspiral_pipe.in \
              inspiral_online_pipe.in inspiral_hipe.in \
-	     ihope.in ihope_status.in \
+	     ihope.in ihope_status.in  write_ihope_page.in \
              inspiral_online_pipe_inject.in check_hipe_times.in \
-	     followup_pipe.in plot_hipe.in \
+	     followup_pipe.in plot_hipe.in  \
              $(DATA)
 
 INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/src/lalapps
