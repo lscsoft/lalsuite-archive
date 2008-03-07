@@ -82,10 +82,15 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     segOverlapSec = segOverlap / sampleRate
      
     if (trigStart):
-      trigPosition = int((trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec))
+      trig_position = (trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec)
+      trigPosition = int(trig_position)
+      if trig_position == trigPosition:
+         trigPosition = trigPosition - 1
+      else: pass
     else: trigPosition = 0
 
     gpsPosition = int((eval(gpsTime) - gpsStart - segOverlapSec/2. ) / (segLenSec -segOverlapSec))
+
     if (trigPosition < 0): trigPosition = 0
     position = gpsPosition - trigPosition
     chanNumber = str(position)
