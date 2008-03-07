@@ -786,32 +786,34 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     ifo = None
 
   data = readcol(table1, col_name, ifo )
-  if not nbins:
-    nbins = 10
   
-  bins = []
-  if width:
-    for i in range(-nbins,nbins):
-      bins.append(width * i/nbins)
+  if len(data) > 0:
+    if not nbins:
+      nbins = 10
+    
+    bins = []
+    if width:
+      for i in range(-nbins,nbins):
+        bins.append(width * i/nbins)
+    
+    # creates the histogram and take plot_type into account  
+    if plot_type == 'loglog' or plot_type=='logx':
+      data = log10(data)
   
-  # creates the histogram and take plot_type into account  
-  if plot_type == 'loglog' or plot_type=='logx':
-    data = log10(data)
-
-  if bins:
-    ydata, xdata, patches = hist(data,bins)
-  else:
-    ydata, xdata, patches = hist(data,nbins)
-
-  width = xdata[1] - xdata[0]
-
-  if plot_type == 'loglog' or plot_type=='logy':
-    indexPositive = find(ydata>0)
-    ydata = log10( ydata[indexPositive] )
-    xdata = xdata[indexPositive]
-
-  clf()
-  bar( xdata, ydata, width )
+    if bins:
+      ydata, xdata, patches = hist(data,bins)
+    else:
+      ydata, xdata, patches = hist(data,nbins)
+  
+    width = xdata[1] - xdata[0]
+  
+    if plot_type == 'loglog' or plot_type=='logy':
+      indexPositive = find(ydata>0)
+      ydata = log10( ydata[indexPositive] )
+      xdata = xdata[indexPositive]
+  
+    clf()
+    bar( xdata, ydata, width )
 
   #set the x axis limits taking into account if we use log10(data) 
   if xlimit[0] and  xlimit[1]:
