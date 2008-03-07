@@ -37,7 +37,7 @@ Available plots:
   d) a function of the detected SNR, using --chirp-snr
 The width of all these plots is set using --chirp-axis
 
-Any two-dimensional plot is also available for each of the value that is stored
+2) Any two-dimensional plot is also available for each of the value that is stored
 in the sim_inspiral table, including 'total_mass','spin1' and 'spin2'. Just specify the values you want to have plotted with '--x-value' and '--y-value' (repetitive arguments possible).
 
 Example:
@@ -45,11 +45,17 @@ plotinsppop --glob-injfile \"../Injection/HL/HL*.xml\" --fig-name s5_test --logd
 
 plotinsppop --glob-injfile \"../Injection/HL/HL*.xml\" --fig-name s5_test --x-value total_mass --y-value distanceLOG --x-value mass1 --y-value mass2 --x-value inclination --y-value distanceLOG
 
+3) Any one-dimensional histogram is available with --hist <column name>;
+   specify multiple times to get histograms of multiple columns.  All
+   available numeric columns can be histogrammed with '--hist all'.
+
 """
 parser = OptionParser( usage )
 parser.add_option("-C","--cache-file",action="store",type="string",\
     default=None, metavar=" CACHE",\
     help="setting cache-filename" )
+parser.add_option("", "--inj-pattern", default="INJECTION",
+    help="sieve pattern for the injection files of interest")
 parser.add_option("-F","--glob-injfile",action="store",type="string",\
     default=None, metavar=" INJFILE",\
     help="glob of the injection file" )
@@ -130,7 +136,7 @@ binaries = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)
 # resolve --hist=all, --hist=allLOG, and --hist=allLOGLOG
 if len(opts.hist) == 1 and opts.hist[0].startswith("all"):
   log_suffix = opts.hist[0][3:]
-  opts.hist = [attr + log_suffix for attr, attr_type in \
+  opts.hist = [str(attr) + log_suffix for attr, attr_type in \
                zip(binaries.columnnames, binaries.columntypes) if \
                attr_type.startswith("real") or attr_type.startswith("int")]
 
@@ -185,7 +191,7 @@ if opts.x_value and opts.y_value:
     grid(True)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name( opts, xval+'_'+yval)
-      savefig(fname)
+      InspiralUtils.savefig_pylal(fname)
       fnameList.append( fname )
       tagList.append(xval +' vs. '+yval)
 
@@ -212,7 +218,7 @@ if opts.hist:
     viz.histcol( binaries, hist, nbins = nbins, plot_type=plot_type)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name( opts, 'hist '+hist)
-      savefig(fname)
+      InspiralUtils.savefig_pylal(fname)
       fnameList.append( fname )
       tagList.append('histogram '+hist)
       
