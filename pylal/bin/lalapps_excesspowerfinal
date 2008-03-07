@@ -1017,11 +1017,13 @@ FROM
 		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density_after.png")
 
 		# compute the uncertainties in the efficiency and its
-		# derivative by assuming these to be the \sqrt{N} Poisson
+		# derivative by assuming these to be the binomial counting
 		# fluctuations in the numerators.
 
-		self.defficiency = numpy.sqrt(self.efficiency.numerator.array) / self.efficiency.denominator.array
-		self.dfound_density = numpy.sqrt(self.found_density.array)
+		p = self.efficiency.ratio()
+		self.defficiency = numpy.sqrt(p * (1 - p) / self.efficiency.denominator.array)
+		p = self.found_density.array / self.efficiency.denominator.array
+		self.dfound_density = numpy.sqrt(p * (1 - p) / self.efficiency.denominator.array)
 
 
 #
