@@ -121,36 +121,31 @@ class DocContents(object):
 		# instruments listed in all the triggers, then determine
 		# its ID (or create it if needed)
 		#
+		# FIXME:  in the future, the sim_burst table should
+		# indicate time slide at which the injection was done
+		#
 
 		self.tisi_id = llwapp.get_time_slide_id(xmldoc, {}.fromkeys(self.snglbursttable.getColumnByName("ifo"), 0.0), create_new = process)
 
 		#
-		# identify the IDs of zero-lag time slides;
-		# get_time_slide_id() above will have created the time
-		# slide table if it didn't exist
-		#
-
-		zero_lag_time_slides = set(llwapp.get_zero_lag_time_slides(xmldoc).keys())
-
-		#
-		# get coinc_def_id for sim_burst <--> sngl_burst coincs;
-		# this creates a coinc_definer table if the document
-		# doesn't have one
+		# get coinc_definer row for sim_burst <--> sngl_burst
+		# coincs; this creates a coinc_definer table if the
+		# document doesn't have one
 		#
 
 		self.sb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, sbdef.search, sbdef.search_coinc_type, create_new = True, description = sbdef.description)
 
 		#
 		# get coinc_def_id's for sngl_burst <--> sngl_burst, and
-		# both kinds of sim_burst <--> coinc coincs.  set all to
-		# None if this document does not contain any sngl_burst
+		# both kinds of sim_burst <--> coinc_event coincs.  set all
+		# to None if this document does not contain any sngl_burst
 		# <--> sngl_burst coincs.
 		#
 
 		try:
-			self.bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
+			bb_coinc_def_id = llwapp.get_coinc_def_id(xmldoc, bbdef.search, bbdef.search_coinc_type, create_new = False)
 		except KeyError:
-			self.bb_coinc_def_id = None
+			bb_coinc_def_id = None
 			self.sce_coinc_def_id = None
 			self.scn_coinc_def_id = None
 		else:
@@ -181,15 +176,19 @@ class DocContents(object):
 		#
 		# index the document
 		#
+		# FIXME:  burst<-->burst coincs should be organized by time
+		# slide ID, but since injections are only done at zero lag
+		# for now this is ignored.
+		#
 
 		# index sngl_burst table
 		index = {}
 		for row in self.snglbursttable:
 			index[row.event_id] = row
-		# find IDs of zero-lag burst<-->burst coincs
+		# find IDs of burst<-->burst coincs
 		self.coincs = {}
 		for coinc in self.coinctable:
-			if (coinc.coinc_def_id == self.bb_coinc_def_id) and (coinc.time_slide_id in zero_lag_time_slides):
+			if coinc.coinc_def_id == bb_coinc_def_id:
 				self.coincs[coinc.coinc_event_id] = []
 		# construct event list for each burst<-->burst coinc
 		for row in self.coincmaptable:
@@ -224,9 +223,9 @@ class DocContents(object):
 
 		# the radius of Earth in light seconds.  (the most an
 		# injection's peak time column can differ from the time it
-		# peaks in an instrument)  6.378140e6 = mean radius of
-		# earth at equator, 299792458 = c, 1.5 = add 50% for good
-		# luck.  (constants copied from LALConstants.h)
+		# peaks in an instrument)  6.378140e6 m = mean radius of
+		# earth at equator, 299792458 m/s = c, 1.5 = add 50% for
+		# good luck.  (constants copied from LALConstants.h)
 		self.burst_peak_time_window = 6.378140e6 / 299792458 * 1.5
 
 		# add the duration of the longest burst event (the most an
@@ -452,26 +451,24 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	if verbose:
 		print >>sys.stderr, "indexing ..."
 
-	contents = DocContents(
-		xmldoc = xmldoc,
-		bbdef = {
-			"StringCusp": ligolw_burca.StringCuspCoincDef,
-			"excesspower": ligolw_burca.ExcessPowerCoincDef
-		}[search],
-		sbdef = {
-			"StringCusp": StringCuspSBCoincDef,
-			"excesspower": ExcessPowerSBCoincDef
-		}[search],
-		scedef = {
-			"StringCusp": StringCuspSCCoincDef,
-			"excesspower": ExcessPowerSCCoincDef
-		}[search],
-		scndef = {
-			"StringCusp": StringCuspSCNearCoincDef,
-			"excesspower": ExcessPowerSCNearCoincDef
-		}[search],
-		process = process
-	)
+	bbdef = {
+		"StringCusp": ligolw_burca.StringCuspCoincDef,
+		"excesspower": ligolw_burca.ExcessPowerCoincDef
+	}[search]
+	sbdef = {
+		"StringCusp": StringCuspSBCoincDef,
+		"excesspower": ExcessPowerSBCoincDef
+	}[search]
+	scedef = {
+		"StringCusp": StringCuspSCCoincDef,
+		"excesspower": ExcessPowerSCCoincDef
+	}[search]
+	scndef = {
+		"StringCusp": StringCuspSCNearCoincDef,
+		"excesspower": ExcessPowerSCNearCoincDef
+	}[search]
+
+	contents = DocContents(xmldoc = xmldoc, bbdef = bbdef, sbdef = sbdef, scedef = scedef, scndef = scndef, process = process)
 	N = len(contents.simbursttable)
 
 	#
@@ -481,7 +478,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	if verbose:
 		print >>sys.stderr, "constructing \"%s\":" % sbdef.description
 	for n, sim in enumerate(contents.simbursttable):
-		if verbose and not (n % (N / 50 or 1)):
+		if verbose:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 		bursts = find_sngl_burst_matches(contents, sim, snglcomparefunc)
 		if bursts:
@@ -497,7 +494,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 		if verbose:
 			print >>sys.stderr, "constructing \"%s\" and \"%s\":" % (scedef.description, scndef.description)
 		for n, sim in enumerate(contents.simbursttable):
-			if verbose and not (n % (N / 500 or 1)):
+			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
 			coinc_event_ids = find_coinc_matches(coincs, sim, snglcomparefunc)
