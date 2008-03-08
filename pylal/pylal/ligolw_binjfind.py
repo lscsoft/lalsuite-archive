@@ -476,7 +476,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	#
 
 	if verbose:
-		print >>sys.stderr, "constructing \"%s\":" % sbdef.description
+		print >>sys.stderr, "constructing %s:" % sbdef.description
 	for n, sim in enumerate(contents.simbursttable):
 		if verbose:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
@@ -492,7 +492,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 
 	if contents.sce_coinc_def_id:
 		if verbose:
-			print >>sys.stderr, "constructing \"%s\" and \"%s\":" % (scedef.description, scndef.description)
+			print >>sys.stderr, "constructing %s and %s:" % (scedef.description, scndef.description)
 		for n, sim in enumerate(contents.simbursttable):
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
