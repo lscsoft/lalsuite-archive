@@ -723,18 +723,6 @@ class CoincDefTable(DBTable):
 		row.description = description
 		self.append(row)
 
-	def get_description(self, coinc_def_id):
-		"""
-		Get the description string for the given coinc_def_id.
-		"""
-		return self.cursor.execute("SELECT description FROM coinc_definer WHERE coinc_def_id == ?", (coinc_def_id,)).fetchone()[0]
-
-	def set_description(self, coinc_def_id, description):
-		"""
-		Set the description string for the given coinc_def_id.
-		"""
-		self.cursor.execute("UPDATE coinc_definer SET description = ? WHERE coinc_def_id == ?", (description, coinc_def_id))
-
 
 class CoincTable(DBTable):
 	tableName = lsctables.CoincTable.tableName
