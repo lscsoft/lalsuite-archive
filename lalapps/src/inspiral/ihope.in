@@ -497,9 +497,9 @@ if opts.run_plots:
     plotcp.set("plot-arguments","plotsnrchi","")
     plotcp.set("plot-arguments","write-script","")
     allinjPlotNode = inspiralutils.plot_setup(
-        "ALLINJ" + "_summary_plots", \
-        plotcp, opts.log_path, "both", "INJ" , "PLAYGROUND", \
-        "PLAYGROUND", "INJ" , "../" + cachefilename, tag="SNGL" )
+        "allinj" + "_summary_plots", \
+        plotcp, opts.log_path, "both", "*INJ" , "PLAYGROUND", \
+        "PLAYGROUND", "*INJ" , "../" + cachefilename, tag="SNGL" )
     if opts.do_dag_categories:
       allinjPlotNode.set_category('plotting')
     dag.add_node(allinjPlotNode)
@@ -516,9 +516,9 @@ if opts.run_plots:
     plotcp.set("plot-arguments","plotinspmissed","")
     plotcp.set("plot-arguments","write-script","")
     allinjPlotCoincNode = inspiralutils.plot_setup(
-        "ALLINJ" + "_summary_plots",\
-        plotcp, opts.log_path, "first", "INJ" , "PLAYGROUND" , \
-        "PLAYGROUND", "INJ", "../" + cachefilename, tag="COINC" )
+        "allinj" + "_summary_plots",\
+        plotcp, opts.log_path, "first", "*INJ" , "PLAYGROUND" , \
+        "PLAYGROUND", "*INJ", "../" + cachefilename, tag="COINC" )
     if opts.do_dag_categories:
       allinjPlotCoincNode.set_category('plotting')
     dag.add_node(allinjPlotCoincNode)
@@ -538,10 +538,10 @@ if opts.run_plots:
     plotcp.set("plot-arguments","plotinspmissed","")
     plotcp.set("plot-arguments","write-script","")
     allinjPlotVetoNode = inspiralutils.plot_setup(
-        "ALLINJ" + "_summary_plots", \
-        plotcp, opts.log_path, "second", "INJ" + "_CAT_2_VETO", \
+        "allinj" + "_summary_plots", \
+        plotcp, opts.log_path, "second", "*INJ" + "_CAT_2_VETO", \
         "PLAYGROUND" + "_CAT_2_VETO", \
-        "PLAYGROUND" + "_CAT_2_VETO", "INJ" + "_CAT_2_VETO", \
+        "PLAYGROUND" + "_CAT_2_VETO", "*INJ" + "_CAT_2_VETO", \
         "../" + cachefilename, tag="COINC_CAT_2" )
     if opts.do_dag_categories:
       allinjPlotVetoNode.set_category('plotting')
