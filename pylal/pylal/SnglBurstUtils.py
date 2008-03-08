@@ -48,6 +48,7 @@ try:
 except NameError:
 	from sets import Set as set
 
+
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
@@ -63,7 +64,7 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self, live_time_program, verbose = False):
+	def __init__(self, live_time_program, search = "excesspower", verbose = False):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -103,22 +104,22 @@ class CoincDatabase(object):
 		self.instruments = set(self.seglists.keys())
 
 		# determine a few coinc_definer IDs
-		# FIXME:  don't hard-code the strings and numbers
+		# FIXME:  don't hard-code the numbers
 		if self.coinc_def_table is not None:
 			try:
-				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 0, create_new = False)
+				self.bb_definer_id = self.coinc_def_table.get_coinc_def_id(search, 0, create_new = False)
 			except KeyError:
 				self.bb_definer_id = None
 			try:
-				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 1, create_new = False)
+				self.sb_definer_id = self.coinc_def_table.get_coinc_def_id(search, 1, create_new = False)
 			except KeyError:
 				self.sb_definer_id = None
 			try:
-				self.sce_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 2, create_new = False)
+				self.sce_definer_id = self.coinc_def_table.get_coinc_def_id(search, 2, create_new = False)
 			except KeyError:
 				self.sce_definer_id = None
 			try:
-				self.scn_definer_id = self.coinc_def_table.get_coinc_def_id("excesspower", 3, create_new = False)
+				self.scn_definer_id = self.coinc_def_table.get_coinc_def_id(search, 3, create_new = False)
 			except KeyError:
 				self.scn_definer_id = None
 		else:
@@ -137,8 +138,8 @@ class CoincDatabase(object):
 			if self.time_slide_table is not None:
 				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
 			if self.coinc_def_table is not None:
-				for description, id in self.connection.cursor().execute("SELECT description, coinc_def_id FROM coinc_definer"):
-					print >>sys.stderr, "\t%s: %d" % (description, cursor.execute("SELECT COUNT(*) FROM coinc_event WHERE coinc_def_id = ?", (id,)).fetchone()[0])
+				for description, n in self.connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+					print >>sys.stderr, "\t%s: %d" % (description, n)
 
 
 def coinc_sngl_bursts(contents, coinc_event_id):
