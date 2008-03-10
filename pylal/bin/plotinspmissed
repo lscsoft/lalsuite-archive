@@ -340,9 +340,6 @@ def parse_command_line():
   parser.add_option("","--followup-tag",action="store",\
       type="string",default=None,  metavar="FOLLOWUPTAG",\
       help="a tag to select the proper xml files in a cache fie. Should be the injecion tag ideally.")
-  parser.add_option("","--followup-veto-tag",action="store",\
-      type="string",default=None,  metavar="FOLLOWUPVETOTAG",\
-      help="a tag to select the proper xml files in a cache fie. Should be None, CAT_2, CAT_3 or CAT_4.")
   parser.add_option("", "--html-for-cbcweb",action="store",\
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
