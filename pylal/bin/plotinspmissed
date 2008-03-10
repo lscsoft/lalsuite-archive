@@ -130,6 +130,7 @@ def createImageMap(opts, missedInj, ifo, filename):
   @param ifo: The IFO corresponding to this missed injection
   @param axes: The axes from the main picture to get the coordinates right
   @param filename: The original filename; used to create the ImageMap picture
+  @param description: The tag of the injction run
   """
 
   # reset the number
@@ -160,7 +161,7 @@ def createImageMap(opts, missedInj, ifo, filename):
   slopeY = (boundFigY[1]-boundFigY[0])/(rangeFigY[1]-rangeFigY[0])
   interY = boundFigY[1] - slopeY*rangeFigY[1]
 
-  # figure out the missed injections to be wollowed up
+  # figure out the missed injections to be followed up
   if opts.followup_number:
 
     # get the distances and sort them
@@ -181,8 +182,7 @@ def createImageMap(opts, missedInj, ifo, filename):
   for inj in missedInjUse:
     
     # do the followup and create the followup page
-    followuphtml = followup.followup( inj, ifo )
-    
+    followuphtml = followup.followup( inj, ifo , opts.followup_tag)
     # get the coordinates of this missed injection
     totalMass = inj.mass1+inj.mass2
     effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
@@ -337,6 +337,12 @@ def parse_command_line():
   parser.add_option("","--followup-vetofile-v1",action="store",\
       type="string",default=None,  metavar="FOLLOWUPVETOV1",\
       help="vetofile containing veto times for V1")
+  parser.add_option("","--followup-tag",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPTAG",\
+      help="a tag to select the proper xml files in a cache fie. Should be the injecion tag ideally.")
+  parser.add_option("","--followup-veto-tag",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPVETOTAG",\
+      help="a tag to select the proper xml files in a cache fie. Should be None, CAT_2, CAT_3 or CAT_4.")
   parser.add_option("", "--html-for-cbcweb",action="store",\
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
@@ -623,7 +629,6 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
           createImageMap(opts, missedInj, ifo,  filename)
 
 
-      
     
 ##########################################
 # plot of efficiency vs different values
@@ -650,7 +655,6 @@ for ifo in ifoList:
     viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
                         plot_type = 'log', \
                         nbins = 20, output_name = None, errors=True )
-
 
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, ifo+'-'+nameList[index])
