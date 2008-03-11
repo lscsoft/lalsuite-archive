@@ -370,18 +370,9 @@ if slidefilelists:
     slideTriggersList.append(newSlides)
 
 
-## the super-hack...
-for coinc in slideTriggersList[0]:   
-   if hasattr(coinc, 'H1') and hasattr(coinc, 'H2'):
-     t1 = getattr(coinc,'H1').end_time
-     t2 = getattr(coinc,'H2').end_time
-     diff = t1-t2
-     if abs(diff)>1:
-       trigger = getattr(coinc,'H2')
-       trigger.end_time+=diff
-       setattr(coinc,'H2',trigger)
-       print "WARNING: Difference ", t1, t2, diff, getattr(coinc,'H2').end_time
-
+# regenerate the timeslide-times
+for coincVector in slideTriggersList:
+  CoincInspiralUtils.regenerateSlides( coincVector )
 
 ##################################### plotting here below.
 # first some symbol definitions.
