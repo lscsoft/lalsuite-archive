@@ -348,6 +348,10 @@ if slidefilelists:
 
     slideTriggersList.append(newSlides)
 
+# regenerate the timeslide-times
+CoincInspiralUtils.regenerateSlides( coincVector )
+
+
 # Plot
 text = "End time versus SNR (missed injections)"
 InspiralUtils.message(opts, "plotting..."+text)
