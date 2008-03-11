@@ -374,7 +374,10 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
     massNum = 0
 
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
-    summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
+    try:
+      summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
+    except ValueError:
+      return output,massOutput
 
     # if not summ_value table was filled , then simply returns 
     if summ_value_table is None:
