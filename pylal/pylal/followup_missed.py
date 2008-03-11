@@ -645,7 +645,7 @@ class FollowupMissed:
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
     fillTable( page, ['<b>step','<b>F/M'] )
-    for stage in self.stageLabels:
+    for stage in foundDict.keys():
       if "TMPLTBANK" in stage:
         for ifo in foundDict[stage].keys():
           text = "Expected SNR is " + ifo
