@@ -227,6 +227,7 @@ setup(
                 os.path.join("bin", "plotsnrchisq_pipe"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
+		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "s3_statistic"),
 		os.path.join("bin", "hipecoire"),
 		os.path.join("bin", "inspiral_likelihood"),

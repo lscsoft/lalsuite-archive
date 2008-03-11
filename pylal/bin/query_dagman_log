@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+# $Id$
+#
+# Copyright (C) 2008  Nickolas Fotopoulos
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import optparse
+import sys
+from pylal import dagmanutils
+
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"[11:-2]
+__id__ = "$Id$"
+
+#
+# Main
+#
+
+usage = """%prog dagman_out_filename"""
+
+parser = optparse.OptionParser(usage=usage, version=__id__)
+
+opts, args = parser.parse_args()
+
+args = sys.argv[1:]
+if len(args) != 1:
+  print >>sys.stderr, "error: " + usage
+  sys.exit(2)
+
+dagman_out_name = args[0]
+
+log = dagmanutils.DAGManLog()
+log.read_dag(open(dagman_out_name[:-11]))
+log.read_dagman_out(open(dagman_out_name))
+
+# print summary to screen
+print "submitted:"
+dagmanutils.print_dict_of_counts(log.get_job_dict())
+dagmanutils.print_nested_dict_of_counts(log.get_state_subfile_dict())
+print "totals:"
+dagmanutils.print_dict_of_counts(log.get_state_dict())
