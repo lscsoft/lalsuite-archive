@@ -525,6 +525,20 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
   plotcp.set("pipeline","coinc-suffix",zerolagSuffix)
   plotcp.set("pipeline","slide-suffix",slideSuffix)
 
+  # Adding followup options to plotinspmissed
+  analysisstart = plotcp.get("common","gps-start-time")
+  analysisend = plotcp.get("common","gps-end-time")
+  analysisduration = int(analysisend) - int(analysisstart)
+  plotcp.set("plotinspmissed","followup-vetofile-h1",
+        "../segments/H1-CATEGORY_2_VETO_SEGS-" + analysisstart 
+        + "-" + str(analysisduration) + ".txt")
+  plotcp.set("plotinspmissed","followup-vetofile-h2",
+        "../segments/H2-CATEGORY_2_VETO_SEGS-" + analysisstart 
+        + "-" + str(analysisduration) + ".txt")
+  plotcp.set("plotinspmissed","followup-vetofile-l1",
+        "../segments/L1-CATEGORY_2_VETO_SEGS-" + analysisstart 
+        + "-" + str(analysisduration) + ".txt")
+
 
   # set the user-tag
   if plotcp.get("pipeline","user-tag"):
