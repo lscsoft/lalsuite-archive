@@ -101,6 +101,48 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
   return coincs, sims
 
 
+def regenerateSlides( coincList ):
+  """
+  Regenerates the slides times for a list of coincident triggers.
+  WARNING: The slided times will NOT in general coincide with the real slided time
+  as it was computed in lalapps_thinca!
+  WARNING: This works ONLY when the initial time-slides were integer times!
+  @param coincList: A list of coincidences 
+  """
+  
+  ifoList = ['H1','H2','L1','G1','V1']
+
+  if not coincList:
+    print "Warning: Input list (coincList) is not defined"
+    return coincList
+
+  # loop over all entries in the list
+  for coinc in coincList:
+
+    # the next two loop over all possible two-IFO combinations
+    for i1 in range(4):
+      for i2 in range(i1+1, 5):
+
+        # get the IFO names
+        ifo1 = ifoList[i1]
+        ifo2 = ifoList[i2]
+
+        # check if the IFO's are in this coincident one
+        if hasattr(coinc, ifo1) and hasattr(coinc, ifo2):
+          
+          # get the current time difference and round them
+          timeDiff = getattr(coinc,ifo1).end_time -  getattr(coinc,ifo2).end_time  +\
+                     ( getattr(coinc,ifo1).end_time_ns-getattr(coinc,ifo2).end_time_ns)*1.0e-9
+          timeDiffRound = round(timeDiff)
+
+          # correct the time
+          trigger = getattr( coinc, ifo1)
+          trigger.end_time-=timeDiffRound
+          setattr( coinc, ifo1, trigger)
+
+  # return the list with re-slided times
+  return coincList
+
 ########################################
 class coincStatistic:
   """
