@@ -370,6 +370,19 @@ if slidefilelists:
     slideTriggersList.append(newSlides)
 
 
+## the super-hack...
+for coinc in slideTriggersList[0]:   
+   if hasattr(coinc, 'H1') and hasattr(coinc, 'H2'):
+     t1 = getattr(coinc,'H1').end_time
+     t2 = getattr(coinc,'H2').end_time
+     diff = t1-t2
+     if abs(diff)>1:
+       trigger = getattr(coinc,'H2')
+       trigger.end_time+=diff
+       setattr(coinc,'H2',trigger)
+       print "WARNING: Difference ", t1, t2, diff, getattr(coinc,'H2').end_time
+
+
 ##################################### plotting here below.
 # first some symbol definitions.
 symbol_list = ('ro', 'b+', 'k^', 'gv')
@@ -647,11 +660,6 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
 
     stat_max = max([max([y.stat for y in x]) for x in coincs_list+slides_list \
         if len(x)] + [0.1])
-    if coincTriggersList:
-      xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
-      y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,
-          range=[0, stat_max]) for xVal in xVals])
-      n = len(x_list)
     
     if coincTriggersList:
       xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
@@ -661,7 +669,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
-        bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins, alpha=0.6)
+        handle[0].set_label('injections ')
 
     if slideTriggersList:
       hold(True)
@@ -673,14 +682,13 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
-        bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins, alpha=0.6)
+        handle[0].set_label('slides ')
 
     grid(True)
     xlabel("Combined %s" % opts.statistic.replace('_', r'\_'))
     ylabel("\#")
-
-    legend(["Injections"]) 
-
+    legend()
     title("Histogram of combined %s for %s and %s triggers" % \
       (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]))
 
@@ -718,7 +726,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         y_norm = zeros(len(y),Float)
         for j in range(len(y)):
           y_norm[j] = normalization*y[j]
-        bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
+        handle = bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins, alpha=0.6)
+        handle[0].set_label( 'slides')
 
     if coincTriggersList:
       hold(True)
@@ -727,14 +736,15 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
-        bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins, alpha=0.6)
+        handle[0].set_label('injections')
 
     ylabel("\#")
     xlabel("E-thinca parameter")
     title("E-thinca parameter Histogram for " + ifos[0] + \
           " and " + ifos[1] + " triggers")
     grid(True)
-    legend(["Injections"]) 
+    legend() 
     
     if opts.enable_output:
       name = ifos[0] + "_" + ifos[1] + "_ethinca_hist" 
