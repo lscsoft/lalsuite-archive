@@ -553,41 +553,137 @@ class coincInspiralTable:
 
     @param candidate: a coincInspiral describing a candidate
     """
-    c_ifos,ifolist = candidate.get_ifos()
     triggers_within_epsilon = coincInspiralTable()
     epsilon_sq = epsilon * epsilon
 
+    # setting which dimension should be used
+    dim_stat = True
+    dim_mchirp_err = True
+    dim_average_ethinca = True
+    dim_effective_distance = True
+    # setting scales for dimensions
+    stat_scale = 1.0
+    mchirp_err_scale = 0.1 
+    average_ethinca_scale = 0.1
+    eff_dist_diff_scale = 0.1
+
+    # calculating parameters of the candidate 
+    c_ifos,ifolist = candidate.get_ifos()
+    # combined effective snr
+    if dim_stat:
+      c_stat = candidate.stat
+    # combined fractional diff in chirp mass
+    if dim_mchirp_err:
+      c_mchirp_err_sq = 0.0
+    # combined ethinca
+    if dim_average_ethinca:
+      c_sum_ethinca = 0.0
+    # combined fractional diff in effective distance
+    if dim_effective_distance:
+     c_eff_dist_diff_sq = 0.0
+
+    counter = 0.0
+    for ifo1 in ifolist:
+      for ifo2 in ifolist:
+        if ifo1 < ifo2:
+          counter += 1.0
+          c_ifo1 = getattr(candidate, ifo1)
+          c_ifo2 = getattr(candidate, ifo2)
+          if dim_mchirp_err:
+            c_mchirp_err_sq += (2.0*(c_ifo2.mchirp - c_ifo1.mchirp)/(c_ifo2.mchirp + c_ifo1.mchirp))**2
+          if dim_average_ethinca:
+            c_sum_ethinca += simpleEThinca(c_ifo1, c_ifo2)
+          if dim_effective_distance:
+            c_eff_dist_diff_sq += (2.0*(c_ifo2.eff_distance - c_ifo1.eff_distance)/(c_ifo2.eff_distance + c_ifo1.eff_distance))**2
+    if dim_mchirp_err:    
+      c_mchirp_err = c_mchirp_err_sq**(0.5)
+    if dim_average_ethinca:
+      c_average_ethinca = c_sum_ethinca/counter
+    if dim_effective_distance:
+      c_eff_dist_diff = c_eff_dist_diff_sq**(0.5)
+
+    # loop over triggers
     for trig in self:
       trig_ifos,tmplist = trig.get_ifos()
-      tmp_d_squared = 0.0
-      param_counter = 0
       if c_ifos == trig_ifos:
-        for ifo1 in ifolist: 
-          c = getattr(candidate,ifo1)
-          t = getattr(trig,ifo1)
+        tmp_d_squared = 0.0
+
+        # distance^2 apart in combined effective snr
+        if dim_stat:
+          t_stat = trig.stat
+          tmp_d_squared += ((c_stat - t_stat)/stat_scale)**2
+
+        if dim_mchirp_err:
+          t_mchirp_err_sq = 0.0
+        if dim_average_ethinca:
+          t_sum_ethinca = 0.0
+        if dim_effective_distance:
+          t_eff_dist_diff_sq = 0.0
+        counter = 0.0
+        for ifo1 in ifolist:
+          for ifo2 in ifolist:
+            if ifo1 < ifo2:
+              counter += 1.0
+              t_ifo1 = getattr(trig, ifo1)
+              t_ifo2 = getattr(trig, ifo2)
+              if dim_mchirp_err:
+                t_mchirp_err_sq += (2.0*(t_ifo2.mchirp - t_ifo1.mchirp)/(t_ifo2.mchirp + t_ifo1.mchirp))**2
+              if dim_average_ethinca:
+                t_sum_ethinca += simpleEThinca(t_ifo1, t_ifo2)
+              if dim_effective_distance:
+                t_eff_dist_diff_sq += (2.0*(t_ifo2.eff_distance - t_ifo1.eff_distance)/(t_ifo2.eff_distance + t_ifo1.eff_distance))**2
+
+        # distance^2 apart in combined fractional difference in mchirp
+        if dim_mchirp_err:           
+          t_mchirp_err = t_mchirp_err_sq**(0.5)
+          tmp_d_squared += ((c_mchirp_err - t_mchirp_err)/mchirp_err_scale)**2
+        # distance^2 apart in combined ethinca
+        if dim_average_ethinca:
+          t_average_ethinca = t_sum_ethinca/counter
+          tmp_d_squared += ((c_average_ethinca - t_average_ethinca)/average_ethinca_scale)**2
+
+        # distance^ apart in combined fractional difference in effective distance
+        if dim_effective_distance:
+          t_eff_dist_diff = t_eff_dist_diff_sq**(0.5)
+          tmp_d_squared += ((c_eff_dist_diff - t_eff_dist_diff)/eff_dist_diff_scale)**2
+
+        if ( tmp_d_squared < epsilon_sq ):
+          triggers_within_epsilon.append(trig)
+
+
+
+ 
+        #for ifo1 in ifolist: 
+          #c = getattr(candidate,ifo1)
+          #t = getattr(trig,ifo1)
           
+          # distance ^2 apart in combined effective snr (units 1 snr)
+          #c_lambda = c.get_effective_snr()
+          #t_lambda = t.get_effective_snr()
+          #tmp_d_squared += (c_lambda - t_lambda)**2
+          #param_counter += 1           
           # distance^2 apart in snr
-          c_lambda = c.snr
-          t_lambda = t.snr
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          #c_lambda = c.snr
+          #t_lambda = t.snr
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
           # distance^2 apart in chi squared
-          c_lambda = c.chisq
-          t_lambda = t.chisq
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          #c_lambda = c.chisq
+          #t_lambda = t.chisq
+          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #param_counter += 1
 
-          # distance^2 apart in mchirp
-          c_lambda = c.mchirp
-          t_lambda = t.mchirp
-          tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
-          param_counter += 1
+          # distance^2 apart in mchirp(units 1 Mchirp)
+          #c_lambda = c.mchirp
+          #t_lambda = t.mchirp
+          #tmp_d_squared += ( c_lambda - t_lambda )**2
+          #param_counter += 1
 
-          # distance^2 apart in effective distance
+          # distance^2 apart in effective distance (units 5 Mpc)
           #c_lambda = c.eff_distance
           #t_lambda = t.eff_distance
-          #tmp_d_squared += ( 1.0 - t_lambda / c_lambda )**2
+          #tmp_d_squared += ( (c_lambda - t_lambda) / 5.0 )**2
           #param_counter += 1
 
           # distance^2 apart in ethinca
@@ -595,7 +691,7 @@ class coincInspiralTable:
           #  if ifo1 < ifo2:
           #    c_lambda = simpleEThinca(c, getattr(candidate, ifo2))
           #    t_lambda = simpleEThinca(t, getattr(trig, ifo2))
-          #    
+              
               # check if the ethinca parameter of the candidate is not zero
               #if c_lambda > 0.0:
               #  sEThinca_scale = c_lambda
@@ -605,9 +701,9 @@ class coincInspiralTable:
               # FIX ME! We need to make a choice for the sEThinca_scale that sets the scale for SimpleEThinca parameter 
           #    tmp_d_squared += ((c_lambda - t_lambda) / sEThinca_scale)**2
           #    param_counter += 1
-
-        if ( tmp_d_squared < epsilon_sq ):
-          triggers_within_epsilon.append(trig)
+        #radius = epsilon**(1.0/float(param_counter))*(5)**(1.0 - 1.0/float(param_counter))
+        #if ( tmp_d_squared < epsilon_sq ):
+        #  triggers_within_epsilon.append(trig)
 
     return triggers_within_epsilon
 
