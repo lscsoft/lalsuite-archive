@@ -1,4 +1,23 @@
 #!/usr/bin/python
+"""
+routine to look at  ethinca parameter
+
+ Important note : note that the kappa that should be
+ provided in this code is different from the ihope.ini file
+ by a factor 2. 
+
+i.e. : --kappa = 2*(kappa from ini file)
+"""
+# $Id$
+
+from __future__ import division
+
+__author__ = "CBC "
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__name__="ploteffdistcut"
+__Id__ = "$Id$"
+
 
 import sys
 import os
@@ -8,18 +27,24 @@ import exceptions
 import glob
 from types import *
 
+from glue.segments import segment, segmentlist
+from glue.segmentsUtils import fromsegwizard, fromfilenames
+
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue.segments import segment, segmentlist
-from glue.segmentsUtils import fromsegwizard, fromfilenames
+from glue import iterutils
+
 
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal.viz import square_axis
-
+from pylal import InspiralUtils
 ##############################################################################
 def disterr(coinc_table, ifo_list, use_avg, statistic):
 
@@ -66,105 +91,127 @@ epsilon.  We require:
    |D_IFOA + D_IFOB|     rho_obs
 """
 
-parser = OptionParser( usage )
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
 
-parser.add_option("-v","--version",action="store_true",default=False,\
-    help="display version information " )
 
-parser.add_option("-g","--inj-glob",action="store",type="string",\
+  # options to read the data
+  parser.add_option("-g","--inj-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-
-parser.add_option("-G","--slide-glob",action="store",type="string",\
+  parser.add_option("-G","--slide-glob",action="store",type="string",\
     default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+  parser.add_option("-V", "--veto-file", metavar=" VETO_FILE",
+    help="file of segments in which to veto triggers (segwizard format)")  
+  parser.add_option("-A","--ifoa",action="store",default=None,\
+    metavar=" IFOA",help="first ifo for which we have triggers" )
+  parser.add_option("-B","--ifob",action="store",default=None,\
+    metavar=" IFOB",help="second ifo for which we have triggers" )
+ 
+  # which plots do you want ? 
+  parser.add_option("-a","--dist-cut",action="store_true",default=False,\
+    help="perform distance cut on inj and slide trigs" )
+  parser.add_option("-b","--dist-snr",action="store_true",default=False,\
+    help="plot of distance accuracy vs snr" )
+  parser.add_option("-c","--dist-hist",action="store_true",default=False,\
+    help="histogram of distance accuracy" )
+  parser.add_option("-C","--snr-hist",action="store_true",default=False,\
+    help="histogram of snr" )
+  parser.add_option("-d", "--dist-dist", action="store_true", default=False,
+    help="plot IFOB effective distance vs IFOA effective distance")
 
-parser.add_option("-V", "--veto-file", metavar=" VETO_FILE",
-    help="file of segments in which to veto triggers (segwizard format)")
+  #plotting options
+  parser.add_option("-t","--plot-type",action="store",type="string",\
+    default="linear",metavar=" PLOT_TYPE", \
+    help="make either linear or log or plots" )
+  parser.add_option("-F","--font-size",action="store",type="int",\
+    default="12",metavar=" FONT_SIZE", \
+    help="font size for axis labels" )
+  parser.add_option("","--add-fit",action="store_true",\
+    default=False,metavar=" FONT_SIZE", \
+    help="fits the accuracy versus snr data" )
 
-parser.add_option("-T", "--quantization-time", type="int",
+  # options related manipulate the data
+  parser.add_option("","--use-avg-distance",action="store_true",default=False,\
+    help="use average of the two distances to normalize the error" )
+  parser.add_option("-N","--num-slides",action="store",type="int",\
+    metavar=" NUM_SLIDES",help="number of time slides performed (0 for zero-lag)" )  
+  parser.add_option("-k","--kappa",action="store",type="float",default=0,\
+    metavar=" KAPPA",help="value of kappa in dist cut" )
+  parser.add_option("-e","--epsilon",action="store",type="float",default=0,\
+    metavar=" EPSILON",help="value of epsilon in dist cut" )
+  parser.add_option("-T", "--quantization-time", type="int",
     help="quantize live time on this time period")
-
-parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
+  parser.add_option("-L","--cluster-window",action="store",type="int",default=0,\
     metavar=" SEC", help="length of time over which to cluster triggers" )
-
-parser.add_option("-K","--statistic",action="store",type="string",\
+  parser.add_option("-K","--statistic",action="store",type="string",\
     default="snr",metavar=" STAT",\
     help="coincident statistic (default = snr)")
 
-parser.add_option("-f","--figure-name",action="store",type="string",\
+  # plotting outputs
+  parser.add_option("-f","--figure-name",action="store",type="string",\
     default=None, metavar=" FNAME",\
     help="generate png figures with name FNAME-fig.png" )
-
-parser.add_option("-s","--show-plot",action="store_true",default=False,\
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display the figures on the terminal" )
 
-parser.add_option("-A","--ifoa",action="store",default=None,\
-    metavar=" IFOA",help="first ifo for which we have triggers" )
+  # common arguments to use sieve and ihope
+  parser.add_option("","--cache-file",action="store",type="string",\
+    default=None,metavar="INPUT",\
+    help="supply a bunch of TMPLT files or TRIG files")
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+    default=None, metavar="USERTAG",\
+    help="" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+    default=None, metavar="IFOTAG",\
+    help="" )
+  parser.add_option("-P","--output-path",action="store",\
+    type="string",default=None,  metavar="PATH",\
+    help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+    type="int",  metavar="GPSSTARTTIME",\
+    help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+    type="int",  metavar="GPSENDTIME",\
+    help="gps end time (for naming figure and output files")
+  parser.add_option("-v","--verbose",action="store_true",\
+    default=False,help="print information" )
+  parser.add_option("-i", "--ifo-times", action="store", type="string",\
+    metavar="IFOTIMES", \
+    help="ifo times is used as a prefix for the output files" )
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+    default=50, metavar="resolution of the thumbnails (50 by default)", \
+    help="read a file of a particular description  from cache file" )
+  parser.add_option("","--slide-pattern", action="store", type="string", \
+    default= None,metavar="SLIDEPATTERN")
+  parser.add_option("","--inj-pattern", action="store", type="string", \
+    default=None,metavar="INJPATTERN")
 
-parser.add_option("-B","--ifob",action="store",default=None,\
-    metavar=" IFOB",help="second ifo for which we have triggers" )
+  (options,args) = parser.parse_args()
 
-parser.add_option("-a","--dist-cut",action="store_true",default=False,\
-    help="perform distance cut on inj and slide trigs" )
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
 
-parser.add_option("-u","--use-avg-distance",action="store_true",default=False,\
-    help="use average of the two distances to normalize the error" )
+  return options, sys.argv[1:]
 
-parser.add_option("-b","--dist-snr",action="store_true",default=False,\
-    help="plot of distance accuracy vs snr" )
-
-parser.add_option("-c","--dist-hist",action="store_true",default=False,\
-    help="histogram of distance accuracy" )
-
-parser.add_option("-C","--snr-hist",action="store_true",default=False,\
-    help="histogram of snr" )
-
-parser.add_option("-d", "--dist-dist", action="store_true", default=False,
-    help="plot IFOB effective distance vs IFOA effective distance")
-
-parser.add_option("-N","--num-slides",action="store",type="int",\
-    metavar=" NUM_SLIDES",help="number of time slides performed (0 for zero-lag)" )
-
-parser.add_option("-t","--plot-type",action="store",type="string",\
-    default="linear",metavar=" PLOT_TYPE", \
-    help="make either linear or log or plots" )
-
-parser.add_option("-F","--font-size",action="store",type="int",\
-    default="12",metavar=" FONT_SIZE", \
-    help="font size for axis labels" )
-    
-parser.add_option("-k","--kappa",action="store",type="float",default=0,\
-    metavar=" KAPPA",help="value of kappa in dist cut" )
-
-parser.add_option("-e","--epsilon",action="store",type="float",default=0,\
-    metavar=" EPSILON",help="value of epsilon in dist cut" )
-
-(opts,args) = parser.parse_args()
-
-##############################################################################
-# sanity check on arguments
-##############################################################################
-
-if not opts.inj_glob:
-  print >>sys.stderr, "Must specify a GLOB of inj files to read"
-  print >>sys.stderr, "Enter 'ploteffdistcut --help' for usage"
-  sys.exit(1)
-
-if not opts.kappa and not opts.epsilon:
-  print >> sys.stderr, "Must specify a value of KAPPA and EPSILON"
-  print >>sys.stderr, "Enter 'ploteffdistcut --help' for usage"
-  sys.exit(1)
-
-if not opts.ifoa or not opts.ifob:
-  print >> sys.stderr, "Must specify two ifos, --ifoa and --ifob"
-  print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
-  sys.exit(1)
-
-if opts.slide_glob and (opts.num_slides is None or not opts.num_slides > 0):
-  print >> sys.stderr, "--num-slides must be set if --slide-glob is specified"
-  print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
-  sys.exit(1)
-  
-stat = CoincInspiralUtils.coincStatistic(opts.statistic)
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+# -- Initialise
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+comments =""
 
 # if we're not displaying a plot, don't require an X server
 if not opts.show_plot:
@@ -176,9 +223,77 @@ rc("lines", markersize=12, markeredgewidth=1)
 from pylal import viz
 
 #####################################
+
+
+##############################################################################
+# sanity check on arguments
+##############################################################################
+if opts.cache_file is None:
+  if not opts.inj_glob:
+    print >>sys.stderr, "Must specify a GLOB of inj files to read"
+    print >>sys.stderr, "Enter 'ploteffdistcut --help' for usage"
+    sys.exit(1)
+
+  if not opts.kappa and not opts.epsilon:
+    print >> sys.stderr, "Must specify a value of KAPPA and EPSILON"
+    print >>sys.stderr, "Enter 'ploteffdistcut --help' for usage"
+    sys.exit(1)
+
+  if not opts.ifoa or not opts.ifob:
+    print >> sys.stderr, "Must specify two ifos, --ifoa and --ifob"
+    print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
+    sys.exit(1)
+
+  if opts.slide_glob and (opts.num_slides is None or not opts.num_slides > 0):
+    print >> sys.stderr, "--num-slides must be set if --slide-glob is specified"
+    print >> sys.stderr, "Enter 'ploteffdistcut --help' for usage"
+    sys.exit(1)
+  
+stat = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+
+#####################################
+InspiralUtils.message(opts, "Reading data...")
+
+injFiles = []
+slideFiles = []
 # glob the input files
-injFiles = glob.glob(opts.inj_glob)
-injTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
+if opts.cache_file is None:
+  injFiles = glob.glob(opts.inj_glob)
+  injTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
+if opts.slide_glob and opts.cache_file is None:
+  slideFiles = glob.glob(opts.slide_glob)
+
+
+# if cachefile is on 
+if opts.cache_file  is not None:
+  InspiralUtils.message(opts, 'Reading cache')
+  injTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
+  cache_injfilelist = []
+  cache_slidefilelist = []
+  allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
+  if opts.slide_pattern:
+    cache_slidefilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).\
+	sieve(description=opts.slide_pattern).checkfilesexist()[0].pfnlist()
+    slideFiles = cache_slidefilelist
+    if not len(cache_slidefilelist):
+      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
+      sys.exit(1)
+    else:
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_slidefilelist)) + ' files having the pattern '+opts.slide_pattern)
+
+  if opts.inj_pattern:
+    cache_injfilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).\
+	sieve(description=opts.inj_pattern).checkfilesexist()[0].pfnlist()
+    injFiles = cache_injfilelist
+    if not len(cache_injfilelist):
+      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.inj_pattern + " description"
+      sys.exit(1)
+    else:
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_injfilelist)) + ' files having the pattern '+opts.inj_pattern)
+
+
+
 
 # decide vetoes beforehand
 if opts.veto_file is not None:
@@ -194,9 +309,9 @@ if opts.quantization_time is not None:
   live_time = [segment(s[0], s[0] + (abs(s)//T)*T) for s in naive_live_time]
   veto_segs = full_segs - live_time
 
-for file in injFiles:
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file])
 
+for file in injFiles:
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], verbose=opts.verbose)
   if (opts.veto_file is not None) or (opts.quantization_time is not None):
       inspTriggers = inspTriggers.veto(veto_segs)
 
@@ -206,12 +321,13 @@ for file in injFiles:
     injTrig = injTrig.cluster(opts.cluster_window)
   injTriggers.extend(injTrig)
 
-if opts.slide_glob:
-  slideFiles = glob.glob(opts.slide_glob)
-  inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles)
-  
+
+print slideFiles
+for file in slideFiles:
+  inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], verbose=opts.verbose)
+
   if (opts.veto_file is not None) or (opts.quantization_time is not None):
-    inspSlide = inspSlide.veto(veto_segs)
+      inspSlide = inspSlide.veto(veto_segs)
 
   if opts.num_slides > 0:
     slide_num = range(1 , opts.num_slides + 1)
@@ -220,31 +336,32 @@ if opts.slide_glob:
     slide_num = [0]
 
   slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
-  for slide in slide_num:
-    this_slide = {}
-    this_slide["slide_num"] = slide
-    this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+  if inspSlide is not None:
+    for slide in slide_num:
+      this_slide = {}
+      this_slide["slide_num"] = slide
+      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
 
-    # make coincs
-    this_slide["coinc_trigs"] = \
-        CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],stat)
-    this_slide["coinc_trigs"] = \
-        this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
-
-    # cluster triggers
-    if opts.cluster_window:
+      # make coincs
       this_slide["coinc_trigs"] = \
-        this_slide["coinc_trigs"].cluster(opts.cluster_window)  
+          CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],stat)
+      this_slide["coinc_trigs"] = \
+          this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
+
+      # cluster triggers
+      if opts.cluster_window:
+        this_slide["coinc_trigs"] = \
+          this_slide["coinc_trigs"].cluster(opts.cluster_window)  
     
-    # add slide to list
-    slideTriggers.extend(this_slide["coinc_trigs"])
+      # add slide to list
+      slideTriggers.extend(this_slide["coinc_trigs"])
 
 #######################################################################
 # extract the information from the tables
 [inj_snr,inj_error] = disterr(injTriggers,[opts.ifoa,opts.ifob], \
     opts.use_avg_distance, opts.statistic)
 
-if opts.slide_glob:
+if opts.slide_glob or opts.slide_pattern:
   [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
       opts.use_avg_distance, opts.statistic)
 
@@ -252,11 +369,14 @@ figNum = 0
 #######################################################################
 # plot of distance accuracy vs snr
 if opts.dist_snr:
+  text = "Fractional difference in effective distance versus SNR"
+  InspiralUtils.message(opts,"        "+ text)
+
   figNum += 1
   figure(figNum)
   leg = []
   # plot the slides
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     semilogx(slide_snr, slide_error, 'b+')
     if opts.num_slides > 0:
       leg.append('slide')
@@ -267,32 +387,44 @@ if opts.dist_snr:
   leg.append('inj')
 
   x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
-  fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
-  semilogx(x,fit_y,'k',linewidth=2)
-  leg.append('fit')
+  if opts.add_fit is True:
+    fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
+    semilogx(x,fit_y,'k',linewidth=2)
+    leg.append('fit')
   if opts.kappa or opts.epsilon:
     semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
     leg.append('cut')
   xlim(min(x),max(x))
+  ylim(0,2)
+
   xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"))
   ylabel('fractional difference in eff. distance')
   legend(leg, loc='best')
   grid(True)
+  if opts.enable_output:
+      name = "eff_dist_cut"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
+
   if opts.figure_name:  
     savefig(opts.figure_name + "_eff_dist_cut.png")
 
 #######################################################################
 # histogram of distance accuracy
 if opts.dist_hist:
+  text = "Histogram of fractional difference in effective distance"
+  InspiralUtils.message(opts,"        "+ text)
   figNum += 1
   figure(figNum)
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
     slide_num = slide_num/float(sum(slide_num))
   [inj_num,inj_bin,junk] = hist(inj_error,bins=20)
   inj_num = inj_num/float(sum(inj_num))
   clf()
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
   if not opts.epsilon and opts.kappa:
@@ -302,21 +434,34 @@ if opts.dist_hist:
   xlabel('fractional difference in eff. distance')
   ylabel(r'normalized \#')
   ylim(ymin=0)
+  xlim(xmin=0)
+  xlim(xmax=2)
+  grid(True)
   if opts.figure_name:
     savefig(opts.figure_name + "_eff_dist_hist.png")
+  if opts.enable_output:
+      name = "eff_dist_hist"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
 
-#######################################################################
+#######################################################################i
+# T.C, 03/2008 I do not think these two next plots are usefule at all in this context of effective distances.
+# we may want to remove them in the future
 # histogram of snr
 if opts.snr_hist:
+  text = "Histogram of SNR"
+  InspiralUtils.message(opts,"        "+ text)
   figNum += 1
   figure(figNum)
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     [slide_num,slide_bin,junk] = hist(log(slide_snr)/log(10.),bins=20)
     slide_num = slide_num/float(sum(slide_num))
   [inj_num,inj_bin,junk] = hist(log(inj_snr)/log(10.),bins=20)
   inj_num = inj_num/float(sum(inj_num))
   clf()
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
   xticks(fontsize=opts.font_size)
@@ -325,18 +470,27 @@ if opts.snr_hist:
   ylabel(r'normalized \#')
   snr_max = int(max(log(inj_snr)/log(10.))) + 2
   snr_min = int(min(log(inj_snr)/log(10.)))
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     snr_max = max(int(max(log(slide_snr)/log(10.))) + 2,snr_max)
     snr_min = min(int(min(log(slide_snr)/log(10.))),snr_min)
   ylim(ymin=0)
   xlim(snr_min,snr_max)
+  grid(True)
   if opts.figure_name:
     savefig(opts.figure_name + "_snr_hist.png")
+  if opts.enable_output:
+      name = "snr_hist"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
 
+  text = "Fix me . what is it ?"
+  InspiralUtils.message(opts,"        "+ text)
   figNum += 1
   figure(figNum)
   bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='b')
   xticks(fontsize=opts.font_size)
   yticks(fontsize=opts.font_size)
@@ -344,13 +498,22 @@ if opts.snr_hist:
   ylabel(r'normalized \#')
   ylim(ymin=0)
   xlim(snr_min,snr_max)
+  grid(True)
   if opts.figure_name:
     savefig(opts.figure_name + "_hist_snr.png")
+  if opts.enable_output:
+      name = "dist_snr"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
 
 
 #######################################################################
 # effective distance vs effective distance plot
 if opts.dist_dist:
+  text = "effective distance scatter plots in the 2 detectors"
+  InspiralUtils.message(opts,"        "+ text)
   figNum += 1
   fig = figure(figNum)
   fig.clear()
@@ -360,7 +523,7 @@ if opts.dist_dist:
   ax.set_yscale("log")
 
   leg = []
-  if opts.slide_glob is not None:
+  if opts.slide_glob or opts.slide_pattern:
     x = [getattr(coinc, opts.ifoa).eff_distance for coinc in slideTriggers]
     y = [getattr(coinc, opts.ifob).eff_distance for coinc in slideTriggers]
     ax.plot(x, y, 'b+')
@@ -372,6 +535,7 @@ if opts.dist_dist:
   y = [getattr(coinc, opts.ifob).eff_distance for coinc in injTriggers]
   ax.plot(x, y, 'rx')
   leg.append('injections')
+  grid(True)
 
   ax.axis("tight")
   square_axis(ax)
@@ -380,19 +544,31 @@ if opts.dist_dist:
   ax.legend(leg, loc='upper left')
   if opts.figure_name:
     fig.savefig("%s_dist-dist.png" % opts.figure_name)
+  if opts.enable_output:
+      name = "dist_dist"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+      fnameList.append(fname)
+      tagList.append(text)
 
 #######################################################################
 # calculate triggers surviving cut
 if (opts.kappa or opts.epsilon) and opts.dist_cut:
-  if opts.slide_glob:
+  if opts.slide_glob or opts.slide_pattern:
     slide_trigs = len(slide_error)
     slide_cut = sum(asarray(slide_error > opts.kappa + opts.epsilon/slide_snr))
-    print 'Number of time slide triggers ' + str(slide_trigs)
-    print 'Number surviving distance cut ' + str(slide_trigs - slide_cut)
+    comments += InspiralUtils.message(opts, 'Number of time slide triggers ' + str(slide_trigs))
+    comments += InspiralUtils.message(opts, 'Number surviving distance cut ' + str(slide_trigs - slide_cut))
   inj_trigs = len(inj_error)
   inj_cut = sum( asarray(inj_error > opts.kappa + opts.epsilon/inj_snr) )
-  print 'Number of injection triggers  ' + str(inj_trigs)
-  print 'Number surviving distance cut ' + str(inj_trigs - inj_cut)
+  comments += InspiralUtils.message(opts, 'Number of injection triggers  ' + str(inj_trigs))
+  comments += InspiralUtils.message(opts, 'Number surviving distance cut ' + str(inj_trigs - inj_cut))
+
+# ============================================================================
+# final step: html, cache file generation
+if opts.enable_output is True:
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 if opts.show_plot:
   show()
