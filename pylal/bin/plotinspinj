@@ -160,8 +160,10 @@ def parse_command_line():
       help="read in segments from FNAME (assumed segwizard format)")
   parser.add_option("","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE-FILE",help=" reads the cache file as an input" )
-  parser.add_option("","--found-pattern", metavar=" INJECTION_PATTERN",
+  parser.add_option("","--found-pattern", metavar="INJECTION_PATTERN",
     help="sieves a file for found injections of a particular type" )
+  parser.add_option("","--min-snr", metavar="MIN_SNR", default=5.5,
+    help="the minimum SNR value for setting the limit of the axis" )
 
   # output related
   parser.add_option("-z","--user-tag",action="store",type="string",\
@@ -303,6 +305,7 @@ plot_num = itertools.count(1)
 #####################################
 # plot of injected vs detected mchirp
 if opts.mchirp_mchirp:
+  text = InspiralUtils.message(opts, "Plots of injected versus detected chirp mass")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -318,12 +321,13 @@ if opts.mchirp_mchirp:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 
 ################################
 # plot of mchirp error vs mchirp
 if opts.plot_mchirp:
+  text = InspiralUtils.message(opts, "Plots of chirp mass errors versus chirpmass")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -340,11 +344,12 @@ if opts.plot_mchirp:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
   
 ###############################  
 # histogram of chirp mass error
 if opts.hist_mchirp:
+  text = InspiralUtils.message(opts, "histogram of chirp mass error")
   figure(plot_num.next())
   hold(True) 
   sym=0
@@ -361,12 +366,13 @@ if opts.hist_mchirp:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
   
  
 ################################
 # plot of eta error vs eta
 if opts.plot_eta:
+  text = InspiralUtils.message(opts, "Plot of eta error versus eta")
   figure(plot_num.next())
   hold(True) 
   sym=0
@@ -381,12 +387,13 @@ if opts.plot_eta:
     fname = InspiralUtils.set_figure_name(opts, "eta_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
  
  
 ###############################  
-# histogram of chirp mass error
+# histogram of eta error
 if opts.hist_eta:
+  text = InspiralUtils.message(opts, "Histogram of eta errors")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -402,12 +409,13 @@ if opts.hist_eta:
     fname = InspiralUtils.set_figure_name(opts, "eta_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 
 ################################
 # plot of timing error vs time
 if opts.plot_time:
+  text = InspiralUtils.message(opts, "Plotting timing errors versus time")
   figure(plot_num.next())
   hold(True) 
   sym=0
@@ -422,13 +430,14 @@ if opts.plot_time:
     fname = InspiralUtils.set_figure_name(opts, "end_time_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 
 ############################### 
 # histogram of timing error
 if opts.hist_time:
   figure(plot_num.next())
+  text = InspiralUtils.message(opts, "Histogram of timing ")
   hold(True) 
   sym=0
   for ifo in ifos:
@@ -443,12 +452,13 @@ if opts.hist_time:
     fname = InspiralUtils.set_figure_name(opts, "end_time_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 
 ################################
 # plot of distance error vs dist
 if opts.plot_dist:
+  text = InspiralUtils.message(opts, "Plots of distance error versus distance")
   figure(plot_num.next())
   hold(True) 
   sym=0
@@ -463,11 +473,12 @@ if opts.plot_dist:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_frac_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 ###############################  
 # histogram of dist error
 if opts.hist_dist:
+  text = InspiralUtils.message(opts, "Histogram  of distance errors")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -482,11 +493,12 @@ if opts.hist_dist:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 #######################################
 # plot of injected vs detected distance    
 if opts.dist_dist:  
+  text = InspiralUtils.message(opts, "Injected distance versus detected distance")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -501,11 +513,12 @@ if opts.dist_dist:
     fname = InspiralUtils.set_figure_name(opts, "eff_dist_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 ################################
 # plot of mchirp error vs eff_dist
 if opts.chirp_dist:
+  text = InspiralUtils.message(opts, "iChirp mass errors versus effective distance")
   figure(plot_num.next())
   hold(True) 
   sym=0
@@ -520,11 +533,12 @@ if opts.chirp_dist:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 ################################
 # plot of end time error vs eff_dist
 if opts.time_dist:
+  text = InspiralUtils.message(opts, "End time error versus effective distance")
   figure(plot_num.next())
   hold(True)
   sym=0
@@ -539,71 +553,163 @@ if opts.time_dist:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_eff_dist_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
 
 ################################
 # plot of mchirp error vs snr
 if opts.chirp_snr:
+  text = InspiralUtils.message(opts, "chirp mass errors versus SNR")
   figure(plot_num.next())
   hold(True)
   sym=0
   for ifo in ifos:
     injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'mchirp', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labelfracdiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
-    [0,0,-opts.chirp_axis,opts.chirp_axis], None, opts.title_text)
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))), -opts.chirp_axis, opts.chirp_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
+ # the same results but with some colors (total mass) 
+  text = InspiralUtils.message(opts, "chirp mass errors versus SNR and total mass")
+  figure(plot_num.next())
+  hold(True)
+  sym=0
+  for ifo in ifos:
+    injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
+    mchirp_e = viz.readcol(injSet['sngl_inspiral'], 'mchirp')
+    mchirp_i = viz.readcol(injSet['sim_inspiral'], 'mchirp')
+    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
+    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
+    diff_a = 2.*(mchirp_i - mchirp_e)/(mchirp_e + mchirp_i)    
+    scatter(snr, diff_a, s=40, c=mass1+mass2, faceted=False)
+    ax = axes()
+    ax.set_xscale('log')
+
+  viz.labelfracdiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))), -opts.chirp_axis, opts.chirp_axis], None, opts.title_text)
+  colorbar()
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "mchirp_vs_snr_accuracy_scatter_totalmass")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+
+  
 
 
 ################################
 # plot of end time error vs snr
 if opts.time_snr:
+  text = InspiralUtils.message(opts, "End time error versus SNR")
   figure(plot_num.next())
   hold(True)
   sym=0
   for ifo in ifos:
     injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
     viz.plotdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'end_time', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
-    [0,0,-opts.time_axis,opts.time_axis], None, opts.title_text)
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.time_axis, opts.time_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
-
-################################
-# plot of eta error vs snr
-if opts.eta_snr:
+    tagList.append(text)
+ # the same results but with some colors (total mass) 
+  text = InspiralUtils.message(opts, "end_time errors versus SNR and total mass")
   figure(plot_num.next())
   hold(True)
   sym=0
   for ifo in ifos:
     injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
+    time_e = viz.readcol(injSet['sngl_inspiral'], 'end_time', ifo)
+    time_i = viz.readcol(injSet['sim_inspiral'], 'end_time', ifo)
+    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
+    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
+    diff_a = 2.*(time_i - time_e)/(time_e + time_i)    
+    handle = scatter(snr, diff_a, s=40, c=mass1+mass2, faceted=False)
+    ax = axes()
+    ax.set_xscale('log')
+
+
+  viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.time_axis, opts.time_axis], None, opts.title_text)
+  colorbar()
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr_accuracy_scatter_totalmass")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+
+  
+
+################################
+# plot of eta error vs snr
+if opts.eta_snr:
+  text = InspiralUtils.message(opts, "Eta error versus SNR")
+  figure(plot_num.next())
+  hold(True)
+  sym=0
+  for ifo in ifos:
+    injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
     viz.plotfracdiffa_vs_b(injSet['sngl_inspiral'], injSet['sim_inspiral'], \
                  'eta', 'snr', 'log', plot_symbols[sym])
     sym+=1
   viz.labelfracdiffa_vs_b('eta', 'snr',None,None, \
-    [0,0,-opts.eta_axis,opts.eta_axis], None, opts.title_text)
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.eta_axis,opts.eta_axis], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append(text)
+ # the same results but with some colors (total mass) 
+  text = InspiralUtils.message(opts, "Eta errors versus SNR and total mass")
+  figure(plot_num.next())
+  hold(True)
+  sym=0
+  for ifo in ifos:
+    injSet = injSets[ifo]
+    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
+    eta_e = viz.readcol(injSet['sngl_inspiral'], 'eta')
+    eta_i = viz.readcol(injSet['sim_inspiral'], 'eta')
+    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
+    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
+    diff_a = 2.*(eta_i - eta_e)/(eta_e + eta_i)    
+    scatter(snr, diff_a, s=40, c=mass1+mass2, faceted=False)
+    ax = axes()
+    ax.set_xscale('log')
+
+  viz.labelfracdiffa_vs_b('eta', 'snr',None,None, \
+    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.eta_axis,opts.eta_axis], None, opts.title_text)
+  colorbar()
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "eta_vs_snr_accuracy_scatter_totalmass")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append(text)
+
+  
 
 ################################
 # plot of ethinca parameter vs the difference between any parameter's
 # injected and recovered values
 
 for ethinca_vs_diff in opts.ethinca_vs_diff:
+  text = InspiralUtils.message(opts, "fix me")
   fig = figure(plot_num.next())
   ax = fig.add_subplot(111)
   ax.grid(True)
@@ -641,7 +747,7 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
       fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_ethinca_vs_diff_accuracy")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append("fix me in plotinspinj")
+      tagList.append(text)
 
 # Plot of ethinca values vs snr
 if opts.ethinca_vs_snr:
@@ -680,7 +786,7 @@ if opts.ethinca_vs_snr:
       fname = InspiralUtils.set_figure_name(opts, "ethinca_vs_snr")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append("fix me in plotinspinj")
+      tagList.append("fix me")
 
 # Histogram of ethinca values
 if opts.hist_ethinca:
@@ -718,7 +824,7 @@ if opts.hist_ethinca:
     fname = InspiralUtils.set_figure_name(opts, "inj_trig_ethinca_hist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
-    tagList.append("fix me in plotinspinj")
+    tagList.append("fix me")
 
 
 
