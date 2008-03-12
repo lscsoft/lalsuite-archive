@@ -42,9 +42,6 @@ def usage():
 NAME
         LSCsegFind
 
-NOTE
-        The new test server is running at ldas-cit.ligo.caltech.edu:300156 which is used by default by the client so that a user does not have to specify it.
-
 SYNOPSIS
         LSCsegFind [--server=NAME:PORT] --interferometer=NAME --type=NAME[:version[:only]] 
                --gps-start-time=GPS --gps-end-time=GPS [ --strict-off ] 
@@ -149,11 +146,11 @@ ENVIRONMENT
 
 EXAMPLES
 
-LSCsegFind --type=All -s `tconvert 10/01/06` -e `tconvert 10/02/06` -r ldas-cit.ligo.caltech.edu:300156
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:300156
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:1 --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:300156
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:0 -s 834744360 -e 834744960 -i H1 -r ldas-cit.ligo.caltech.edu:300156
-LSCsegFind --explain-types -r ldas-cit.ligo.caltech.edu:300156
+LSCsegFind --type=All -s `tconvert 10/01/06` -e `tconvert 10/02/06` -r ldas-cit.ligo.caltech.edu:30015
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:30015
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:1 --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:30015
+LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:0 -s 834744360 -e 834744960 -i H1 -r ldas-cit.ligo.caltech.edu:30015
+LSCsegFind --explain-types -r ldas-cit.ligo.caltech.edu:30015
 
 """
   print >>sys.stderr, msg
@@ -187,11 +184,8 @@ except getopt.GetoptError:
   sys.exit(1)
 
 # defaults
-#### hostPortString = None
-#### port = 30015
-
-hostPortString = "ldas-cit.ligo.caltech.edu"
-port = 300156
+hostPortString = None
+port = 30015
 
 clientMethodArgDict = {
   'interferometer': None,
