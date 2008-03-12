@@ -449,6 +449,7 @@ if opts.run_plots:
       plotcp.add_section("plot-arguments")
       plotcp.set("plot-arguments","plotinjnum","")
       plotcp.set("plot-arguments","plotinspmissed","")
+      plotcp.set("plot-arguments","ploteffdistcut","")
       plotcp.set("plot-arguments","write-script","")
       injPlotCoincNode[injDir] = inspiralutils.plot_setup(
           injDir + "_summary_plots",\
@@ -470,6 +471,7 @@ if opts.run_plots:
       plotcp.set("plot-arguments","plotethinca","")
       plotcp.set("plot-arguments","plotinjnum","")
       plotcp.set("plot-arguments","plotinspmissed","")
+      plotcp.set("plot-arguments","ploteffdistcut","")
       plotcp.set("plot-arguments","write-script","")
       injPlotVetoNode[injDir] = inspiralutils.plot_setup(
           injDir + "_summary_plots", \
@@ -514,6 +516,7 @@ if opts.run_plots:
     plotcp.add_section("plot-arguments")
     plotcp.set("plot-arguments","plotinjnum","")
     plotcp.set("plot-arguments","plotinspmissed","")
+    plotcp.set("plot-arguments","ploteffdistcut","")
     plotcp.set("plot-arguments","write-script","")
     allinjPlotCoincNode = inspiralutils.plot_setup(
         "allinj" + "_summary_plots",\
@@ -536,6 +539,7 @@ if opts.run_plots:
     plotcp.set("plot-arguments","plotethinca","")
     plotcp.set("plot-arguments","plotinjnum","")
     plotcp.set("plot-arguments","plotinspmissed","")
+    plotcp.set("plot-arguments","ploteffdistcut","")
     plotcp.set("plot-arguments","write-script","")
     allinjPlotVetoNode = inspiralutils.plot_setup(
         "allinj" + "_summary_plots", \

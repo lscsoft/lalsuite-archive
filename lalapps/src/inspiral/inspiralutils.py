@@ -500,7 +500,8 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
       "plotinspmissed", "plotinspmissed-meta", \
       "plotinspinj", "plotinspinj-meta", \
       "plotsnrchi", "plotsnrchi-meta", \
-      "plotinspiralrange", "plotinspiralrange-meta"]
+      "plotinspiralrange", "plotinspiralrange-meta", \
+      "ploteffdistcut", "ploteffdistcut-meta"]
 
   for seg in plotcp.sections():
     if not seg in plotSections: plotcp.remove_section(seg)
