@@ -762,6 +762,7 @@ def sire_segs(segments, sire_job, dag, do_input, ifo,
 
     dag.add_node(sire) 
 
+
 ##############################################################################
 # function to sweep up data using coire  
 def coire_segs(segments, coire_job, dag, do_input, ifos,
@@ -804,7 +805,7 @@ def coire_segs(segments, coire_job, dag, do_input, ifos,
     coire.set_glob(seg.get_dag_node().get_output())
   
     coire.finalize()
-    dag.add_node(coire) 
+    dag.add_node(coire)
 
 
 ##############################################################################
@@ -1018,6 +1019,8 @@ parser.add_option("-C", "--second-coinc" ,action="store_true",default=False,\
     help="run lalapps_thinca on the inspiral veto triggers")
 parser.add_option("-E", "--coire-second-coinc",action="store_true",
     default=False, help="do coires to sweep up triggers")
+parser.add_option("-F", "--sire-second-coinc",action="store_true",
+    default=False, help="do sires to sweep up triggers")
 parser.add_option("-j", "--coherent-bank",action="store_true",default=False,\
     help="run lalapps_coherentbank to make coherent bank")
 parser.add_option("-k", "--coherent-inspiral",action="store_true",
@@ -1113,8 +1116,8 @@ if not opts.datafind and not opts.template_bank and \
      not opts.trigbank and not opts.inspiral_veto and \
      not opts.sire_inspiral_veto and not opts.td_follow_bank and \
      not opts.td_follow_inspiral and not opts.second_coinc and \
-     not opts.coire_second_coinc and not opts.coherent_bank and \
-     not opts.coherent_inspiral: 
+     not opts.coire_second_coinc and not opts.sire_second_coinc and \
+     not opts.coherent_bank and not opts.coherent_inspiral: 
   print >> sys.stderr, """  No steps of the pipeline specified.
   Please specify at least one of
   --datafind, --template-bank, --inspiral, --sire-inspiral, --coincidence, 
@@ -1917,10 +1920,15 @@ for ifos in ifo_coincs:
       opts.inspiral_veto, exttrigInjections, usertag=usertag,
       coire_job=coire_job, do_coire=opts.coire_second_coinc, ifotag=ifos)
 
-    if opts.coire_second_coinc and len(coinc2_nodes[ifos])\
-           and not doExtTrig :
+    if opts.coire_second_coinc and len(coinc2_nodes[ifos]) and not doExtTrig:
       coire_segs(coinc2_nodes[ifos], coire_job, dag, opts.second_coinc, 
           ifos, inj_file=inj_file, ifotag="SECOND_" + ifos, usertag=usertag)
+
+    if opts.sire_second_coinc and len(coinc2_nodes[ifos]) and not doExtTrig:
+      for ifo in ifo_list:
+        if ifo in ifos: 
+          sire_segs(coinc2_nodes[ifos], sire_job, dag, opts.second_coinc, 
+              ifo, inj_file=inj_file, ifotag="SECOND_" + ifos, usertag=usertag)
 
   # Step 8slide: Time slides on the data
   if num_slides:
@@ -1944,14 +1952,20 @@ for ifos in ifo_coincs:
         do_coire=opts.coire_second_coinc, ifotag=ifos, slides=num_slides)
 
      if opts.coire_second_coinc and len(coinc2_slide_nodes[ifos])\
-            and not doExtTrig:
+         and not doExtTrig:
        coire_segs(coinc2_slide_nodes[ifos], coire_slide_job, dag, 
            opts.second_coinc, ifos, inj_file = inj_file, 
            num_slides=num_slides, ifotag="SECOND_" + ifos, usertag=usertag)
 
+     if opts.sire_second_coinc and len(coinc2_slide_nodes[ifos])\
+         and not doExtTrig:
+       for ifo in ifo_list:
+         if ifo in ifos: 
+           sire_segs(coinc2_slide_nodes[ifos], sire_job, dag, 
+               opts.second_coinc, ifo, inj_file = inj_file, 
+               ifotag="SECOND_SLIDE_" + ifos, usertag=usertag)
+
   print "done"
-
-
 
 ##############################################################################
 # Step 9: Do the coherent analyses:
