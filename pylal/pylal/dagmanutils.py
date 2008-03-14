@@ -16,7 +16,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import sqlite3
+try:
+  import sqlite3
+except ImportError:
+  import pysqlite2 as sqlite3
+
 import sys
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
