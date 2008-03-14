@@ -19,7 +19,7 @@
 try:
   import sqlite3
 except ImportError:
-  import pysqlite2 as sqlite3
+  from pysqlite2 import dbapi2 as sqlite3
 
 import sys
 
