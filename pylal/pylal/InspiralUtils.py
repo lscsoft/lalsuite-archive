@@ -14,7 +14,7 @@ import socket, os
 import sys
 
 from glue.ligolw import utils
-
+from glue.ligolw import table
 from glue.ligolw import lsctables
 
 # set default color code for inspiral plotting functions
@@ -149,7 +149,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
     for mapDict in mapList:
       m+=1
       page.add( mapDict['text']+'<br>' )
-      page.add( '<IMG src="%s" '\
+      page.add( '<IMG src="%s" width=800px '\
                 'usemap="#map%d">' % ( mapDict['object'], m) )
       page.add( '<MAP name="map%d"> <P>' % m )
       n=0
@@ -352,9 +352,10 @@ def init_markup_page( opts):
   return page, extra_oneliner
 
 
-def readFiles(fList, verbose=False):
+def readHorizonDistanceFromSummValueTable(fList, verbose=False):
   """
-  read in the SummValueTables from a list of files
+  read in the SummValueTables from a list of files and return the
+  horizon distance versus total mass
 
   @param fList:       list of input files
   @param verbose: True of False (default is False)
@@ -368,28 +369,54 @@ def readFiles(fList, verbose=False):
   # for each file in the list 
   for thisFile in fList:
     if verbose is True:
-      print str(count)+"/"+str(len(fList))+" " + thisFile
+      print str(count+1)+"/"+str(len(fList))+" " + thisFile
     count = count+1
     massNum = 0
     doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"))
-    # we search for the horizon distance of a BNS (inspiral file only)
-    for row in doc.childNodes[0]:
+    try:
+      summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
+    except ValueError:
+      return output,massOutput
+
+    # if not summ_value table was filled , then simply returns 
+    if summ_value_table is None:
+      return output,massOutput
+    
+    # else
+    for row in summ_value_table:
+      # we should find a name "inspiral_Effective_distance
       if row.name == 'inspiral_effective_distance':
+        # it may be that the file read is an inspiral file
+        # containing only the BNS infomration
         if (row.comment == '1.40_1.40_8.00') or (row.comment == '1.4_1.4_8'):
           if not output.has_key(row.ifo):
             output[row.ifo] = lsctables.New(lsctables.SummValueTable)
           output[row.ifo].append(row)
-          
-    # and any horizon distance available (tmpltbank)
-    for row in doc.childNodes[0]:
-      if row.name == 'inspiral_effective_distance':
-        if not massOutput.has_key(row.ifo):
-          massOutput[row.ifo] = [lsctables.New(lsctables.SummValueTable)]
-        if len(massOutput[row.ifo]) < massNum + 1:
-          massOutput[row.ifo].append(lsctables.New(lsctables.SummValueTable))
-        massOutput[row.ifo][massNum].append(row)
-        massNum += 1
-
-
-
+        # or a template bank containing a whole list of
+        # inspiral_effective_distance
+        else:
+          if not massOutput.has_key(row.ifo):
+            massOutput[row.ifo] = [lsctables.New(lsctables.SummValueTable)]
+          if len(massOutput[row.ifo]) < massNum + 1:
+            massOutput[row.ifo].append(lsctables.New(lsctables.SummValueTable))
+          massOutput[row.ifo][massNum].append(row)
+          massNum += 1
   return output,massOutput
+
+
+
+def isPlayground(table):
+  """
+  @param gpsTime: a list of valid GPS time
+  @return True if it belongs to the playground time
+  """
+  start= 729273613 ;
+  interval = 6370;
+  len = 600;
+  gpsTime = table.geocent_end_time + table.geocent_end_time_ns * 1e-9
+  if ((gpsTime-start) % interval)<len:
+    return True
+  else:
+    return False
+
+
