@@ -345,7 +345,7 @@ def burca2(options, filenames):
 		connection = sqlite3.connect(working_filename)
 		connection.execute("PRAGMA temp_store_directory = '%s';" % dbtables.tempfile.gettempdir())
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(options.program, options.verbose)
+		database = SnglBurstUtils.CoincDatabase(options.program, verbose = options.verbose)
 
 
 		#

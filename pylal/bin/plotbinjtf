@@ -302,7 +302,7 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase("lalapps_power", options.verbose)
+	database = SnglBurstUtils.CoincDatabase("lalapps_power", verbose = options.verbose)
 	for instrument in database.instruments:
 		for sim in found_injections(database, instrument):
 			plotname = "%s%d_%s.%s" % (options.base, SimBurstUtils.time_at_instrument(sim, instrument).seconds, instrument, options.format)

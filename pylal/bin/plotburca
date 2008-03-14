@@ -625,7 +625,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(options.live_time_program, options.verbose)
+	database = SnglBurstUtils.CoincDatabase(options.live_time_program, verbose = options.verbose)
 
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:

@@ -511,7 +511,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	connection = sqlite3.connect(":memory:")
 	dbtables.DBTable_set_connection(connection)
 	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
-	database = SnglBurstUtils.CoincDatabase(xmldoc, options.live_time_program, options.verbose)
+	database = SnglBurstUtils.CoincDatabase(options.live_time_program, verbose = options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n
