@@ -195,8 +195,7 @@ if __name__ == "__main__":
     plot_cp.read(opts.plot_config_file)
     
     # load external trigger times
-    ext_triggers = grbsummary.load_external_triggers(opts.list,
-        verbose=opts.verbose)
+    ext_triggers = grbsummary.load_external_triggers(opts.list)
     
     # determine what subdirectories each GRB will have
     injection_cp = ConfigParser.ConfigParser()
