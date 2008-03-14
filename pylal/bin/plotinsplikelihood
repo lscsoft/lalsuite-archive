@@ -307,6 +307,100 @@ def plot_hist_param(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 	  savefig(coinc_label + '-' + str(param))
 	  figure()
 	  
+	  
+def plot_param_vs_stat(ifos, coinc_slides, coinc_inj, param):
+  """
+  Makes a scatter plot of a coinc parameter vs effective snr
+  """
+  for ifolist in ifos:
+	coinc_slides_type = coinc_slides.coinctype(ifolist)
+	coinc_inj_type = coinc_inj.coinctype(ifolist)
+	if param == "mchirp_diff":
+	  param_slides = numpy.zeros(len(coinc_slides_type))
+	  param_inj = numpy.zeros(len(coinc_inj_type))
+	  i = 0
+	  for coinc in coinc_slides_type:
+		mchirp_diff_sq = 0.0
+		for ifo1 in ifolist:
+		  for ifo2 in ifolist:
+			if ifo1 < ifo2:
+			  mchirp_diff_sq += (2.0*(getattr(coinc, ifo2).mchirp - getattr(coinc, ifo1).mchirp)/(getattr(coinc, ifo2).mchirp + getattr(coinc, ifo1).mchirp))**(2.0)
+		param_slides[i] = mchirp_diff_sq**(0.5)
+		i += 1
+		
+	  i = 0
+	  for coinc in coinc_inj_type:
+		mchirp_diff_sq = 0.0
+		for ifo1 in ifolist:
+		  for ifo2 in ifolist:
+			if ifo1 < ifo2:
+			  mchirp_diff_sq += (2.0*(getattr(coinc, ifo2).mchirp - getattr(coinc, ifo1).mchirp)/(getattr(coinc, ifo2).mchirp + getattr(coinc, ifo1).mchirp))**(2.0)
+		param_inj[i] = mchirp_diff_sq**(0.5)
+		i += 1 
+		
+	if param == "eff_dist_diff":
+	  param_slides = numpy.zeros(len(coinc_slides_type))
+	  param_inj = numpy.zeros(len(coinc_inj_type))
+	  i = 0
+	  for coinc in coinc_slides_type:
+		eff_dist_diff_sq = 0.0
+		for ifo1 in ifolist:
+		  for ifo2 in ifolist:
+			if ifo1 < ifo2:
+			  eff_dist_diff_sq += (2.0*(getattr(coinc, ifo2).eff_distance - getattr(coinc, ifo1).eff_distance)/(getattr(coinc, ifo2).eff_distance + getattr(coinc, ifo1).eff_distance))**(2.0)
+		param_slides[i] = eff_dist_diff_sq**(0.5)
+		i += 1
+		
+	  i = 0
+	  for coinc in coinc_inj_type:
+		eff_dist_diff_sq = 0.0
+		for ifo1 in ifolist:
+		  for ifo2 in ifolist:
+			if ifo1 < ifo2:
+			  eff_dist_diff_sq += (2.0*(getattr(coinc, ifo2).eff_distance - getattr(coinc, ifo1).eff_distance)/(getattr(coinc, ifo2).eff_distance + getattr(coinc, ifo1).eff_distance))**(2.0)
+		param_inj[i] = eff_dist_diff_sq**(0.5)
+		i += 1 
+
+	if param == "combined_eff_snr":
+	  param_slides = coinc_slides_type.getstat()
+	  param_inj = coinc_inj_type.getstat()
+	  
+	if param == "average_ethinca":
+	  param_slides = numpy.zeros(len(coinc_slides_type))
+	  param_inj = numpy.zeros(len(coinc_inj_type))
+	  n_pairs = 0.0
+	  for ifo1 in ifolist:
+		for ifo2 in ifolist:
+		  if ifo1 < ifo2:
+			n_pairs += 1.0
+			param_slides += coinc_slides_type.getSimpleEThincaValues([ifo1, ifo2])
+			param_inj += coinc_inj_type.getSimpleEThincaValues([ifo1, ifo2])
+	  param_slides = param_slides / n_pairs
+	  param_inj = param_inj / n_pairs
+	  
+	slides_stat = numpy.zeros(len(coinc_slides_type))
+	inj_stat = numpy.zeros(len(coinc_inj_type))
+	i = 0
+	for coinc in coinc_slides_type:
+	  slides_stat[i] = coinc.stat
+	  i += 1
+	i = 0  
+	for coinc in coinc_inj_type:
+	  inj_stat[i] = coinc.stat
+	  i += 1
+	l1 = plot(slides_stat, param_slides, marker='x', linestyle='None', color='k')
+	hold(True)
+	l2 = plot(inj_stat, param_inj, marker = 'x', linestyle="None", color='r')
+	xlabel("effective snr")
+	ylabel(param)
+	legend((l1, l2), ('time slides', 'injections'))
+	coinc_label=''
+	for ifo in ifolist:
+	  coinc_label += ifo
+	savefig(coinc_label + "_" + param + "_vs_" + "eff_snr")
+	figure()
+
+
 def plotroutine(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
   """ 
   Function that makes histograms of a relative difference of a given parameter (or of parameter itself in case of simple ethinca)
@@ -579,7 +673,7 @@ def scatter_plot_param_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zero
 			   
 def scatter_plot_param1_vs_param2(ifos, coinc_slides, coinc_inj, param1, param2, logscale=False, ylogscale=False):
   """
-  Makes a scatter plot of single inspiral param  vs. single inspiral param  for each pair of the list of ifos
+  Makes a scatter plot of single inspiral param  vs. single inspiral param  for each ifo pairs  the list of ifos.
   """
   for ifolist in ifos:
 	for i in range(len(ifolist)):
@@ -1066,18 +1160,20 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
   # plots of combined effective snr
   if opts.plot_combined_eff_snr:
 	plot_hist_param(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'combined_eff_snr', opts.slide_bins, opts.injection_bins)
-	
   # plots of average ethinca
   if opts.plot_average_ethinca:
-    plot_hist_param(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'average_ethinca', opts.slide_bins, opts.injection_bins)
+	plot_hist_param(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'average_ethinca', opts.slide_bins, opts.injection_bins)
+	plot_param_vs_stat(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'average_ethinca')
   
   # plots of combined fractional difference in mchirp
   if opts.plot_mchirp_diff:
 	plot_hist_param(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'mchirp_diff', opts.slide_bins, opts.injection_bins)
+	plot_param_vs_stat(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'mchirp_diff')
 	
   # plots of combined fractional difference in mchirp
   if opts.plot_eff_dist_diff:
 	plot_hist_param(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'eff_dist_diff', opts.slide_bins, opts.injection_bins)
+	plot_param_vs_stat(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'eff_dist_diff')
 
   # plots of simple e-thinca 
   if opts.plot_simethinca:
