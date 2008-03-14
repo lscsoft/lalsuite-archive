@@ -757,12 +757,12 @@ if opts.plotinspmissed:
 
 if opts.ploteffdistcut:
   if opts.first_stage:
-    ifos = H1H2
+    ifos = "H1H2"
     combostring = combo2str(ifos)
     ploteffdistcut_node =inspiral.PlotEffdistcutNode(ploteffdistcut_jobs[combostring + "FIRST"])
     dag.add_node(ploteffdistcut_node)
   if opts.second_stage:
-    ifos = H1H2
+    ifos = "H1H2"
     combostring = combo2str(ifos)
     ploteffdistcut_node =inspiral.PlotEffdistcutNode(ploteffdistcut_jobs[combostring + "SECOND"])
     dag.add_node(ploteffdistcut_node)
