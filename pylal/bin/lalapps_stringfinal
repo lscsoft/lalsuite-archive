@@ -32,6 +32,7 @@
 String cusp search final output rendering tool.
 """
 
+
 import bisect
 from optparse import OptionParser
 import math
@@ -44,6 +45,7 @@ except ImportError:
 	from pysqlite2 import dbapi2 as sqlite3
 import sys
 
+
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
@@ -51,6 +53,7 @@ from glue.ligolw import utils
 from glue import segments
 from pylal import rate
 from pylal import SnglBurstUtils
+
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -69,29 +72,27 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version="%prog CVS $Id$",
-		usage = "%prog [options] [file [file ...]]",
+		usage = "%prog [options] [file ...]",
 		description = "%prog performs the final, summary, stages of the upper-limit string cusp search.  Input files ending in \".gz\" are assumed to be gzip-compressed, and if no files are specified on the command line then input is read from stdin."
 	)
-	parser.add_option("-a", "--amplitude-factor", metavar = "factor", default = "1e-20", help = "multiple amplitudes in XML files by this amount (default = 1e-20)")
-	parser.add_option("--cal-uncertainty", metavar = "fraction", default = "0.0", help = "set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08)")
-	parser.add_option("-i", "--injections", action = "store_true", help = "generate efficiency plots from the output files of an injection run")
-	parser.add_option("--injections-bin-size", default = "16.7", help = "set bin with for injection efficiency curves")
-	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", default = None, help = "set amplitude of loudest zero-lag non-injection survivor for efficiency plots")
-	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-a", "--amplitude-factor", metavar = "factor", type = "float", default = 1e-20, help = "Multiple amplitudes in XML files by this amount (default = 1e-20).")
+	parser.add_option("--cal-uncertainty", metavar = "fraction", type = "float", default = 0.0, help = "Set the fractional uncertainty in amplitude due to calibration uncertainty (eg. 0.08).")
+	parser.add_option("-i", "--injections", action = "store_true", help = "Generate efficiency plots from the output files of an injection run.")
+	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves.")
+	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", help = "Set amplitude of loudest zero-lag non-injection survivor for efficiency plots.")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	options.amplitude_factor = float(options.amplitude_factor)
 	if options.injections:
 		if options.loudest_survivor is None:
 			raise ValueError, "must set --loudest-survivor with --injections"
 		options.loudest_survivor = options.loudest_survivor.split("=")
 		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1]))}
-		options.injections_bin_size = float(options.injections_bin_size)
 
 	if options.cal_uncertainty is None:
 		raise ValueError, "must set --cal-uncertainty"
-	options.cal_uncertainty = float(options.cal_uncertainty)
 
 	return options, (filenames or [None])
 
@@ -507,11 +508,10 @@ else:
 for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-	# FIXME:  this needs to be updated to work with SQLite files as input
-	connection = sqlite3.connect(":memory:")
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
-	xmldoc = utils.load_filename(filename, options.verbose, gz = filename.endswith(".gz"))
-	database = SnglBurstUtils.CoincDatabase(options.live_time_program, verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(options.live_time_program, search = "StringCusp", verbose = options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n
@@ -521,6 +521,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			print >>sys.stderr, "storing zero-lag survivors ..."
 		survivors.add_contents(database)
 	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
 
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)
