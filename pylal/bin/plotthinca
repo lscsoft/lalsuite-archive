@@ -532,7 +532,10 @@ if slidefiles:
   for slide in slide_num:
     this_slide = {}
     this_slide["slide_num"] = slide
-    this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+    try:
+      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+    except:
+      this_slide["sngl_trigs"] = []
 
     # make coincs
     this_slide["coinc_trigs"] = \
