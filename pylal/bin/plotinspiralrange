@@ -437,7 +437,7 @@ inspiralFiles = get_filelist(opts)
  
 
 # -- Read in the summ values from the inspiral/tmpltbank  files
-inspiralSumm, massInspiralSumm = InspiralUtils.readFiles(inspiralFiles, opts.verbose)
+inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(inspiralFiles, opts.verbose)
 
 
 # ============================================================================

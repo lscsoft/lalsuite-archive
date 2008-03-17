@@ -121,6 +121,8 @@ def parse_command_line():
   #axis and plotting related
   parser.add_option("", "--log-y", action="store_true", default=False,
       help="set the y axis to have a log scale")
+  parser.add_option("", "--log-x", action="store_true", default=False,
+      help="set the x axis to have a log scale")
   parser.add_option("", "--threshold", type="float", default=0,
       help="set the SNR threshold used in the analysis")
   parser.add_option("-n","--nbins",action="store",type="int",default=10,\
@@ -221,10 +223,20 @@ InspiralUtils.message(opts, "reading data...")
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
 # -- set the proper color code
-colors = InspiralUtils.colors
+ifocolors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
+  
+# set the type of plot into a variable
+if opts.log_y is True and opts.log_x is False:
+  plot_type = 'logy'
+elif opts.log_y is False and opts.log_x is True:
+  plot_type = 'logx'
+elif opts.log_y is False and opts.log_x is False:
+  plot_type = 'linear'
+elif opts.log_y is True and opts.log_x is True:
+  plot_type = 'loglog'
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -373,8 +385,11 @@ if opts.snr_time and opts.missed_pattern:
 if opts.snr_time is True:
   text = "SNR versus end time"
   InspiralUtils.message(opts, "plotting..."+text)
+  ifo = inspTriggers[0].ifo
+  plot_sym=ifocolors[ifo]+'x'
   figure_number += 1
   figure(figure_number)
+
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
@@ -384,12 +399,14 @@ if opts.snr_time is True:
     for idx in range(len(inspTriggers)):
       inspTriggers[idx].end_time = inspTriggers[idx].end_time \
                                    - int(opts.add_vertical_line)
-    viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds','kx',\
-                   x_min=opts.x_min,\
-                   x_max=opts.x_max, y_min=opts.y_min, y_max=opts.y_max)
+    viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds',plot_sym,\
+		x_min=opts.x_min, x_max=opts.x_max, \
+		y_min=opts.y_min, y_max=opts.y_max)
   else:
-    viz.plot_a_v_b(inspTriggers,'end_time','snr','linear','kx',\
-                   y_min=opts.y_min, y_max=opts.y_max)
+    viz.plot_a_v_b(inspTriggers,'end_time','snr','linear',plot_sym,\
+                   y_min=opts.y_min, y_max=opts.y_max, )
+  
+  
   if opts.enable_output is True:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -451,6 +468,9 @@ except:
 if opts.cum_hist_snr is True:
   text = "SNR,cumulative histogram"
   InspiralUtils.message(opts, "plotting..."+text)
+  ifo = inspTriggers[0].ifo
+  symcolor=ifocolors[ifo]
+
   figure_number += 1
   figure(figure_number)
   if opts.log_y:
@@ -465,10 +485,7 @@ if opts.cum_hist_snr is True:
     xlimits = [opts.threshold, 0]
 
 
-  if opts.log_y is True:
-    viz.cumhistcol(inspTriggers,'snr', plot_type='loglog', xlimit=xlimits)
-  else:
-    viz.cumhistcol(inspTriggers,'snr', xlimit=xlimits)
+  viz.cumhistcol(inspTriggers,'snr', plot_type=plot_type, xlimit=xlimits, color=symcolor)
   
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
@@ -483,6 +500,8 @@ if opts.cum_hist_snr is True:
 if opts.hist_snr is True:
   text = "SNR histogram"
   InspiralUtils.message(opts, "plotting..."+text)
+  ifo = inspTriggers[0].ifo
+  symcolor=ifocolors[ifo]
   figure_number += 1
   figure(figure_number)
   
@@ -494,7 +513,8 @@ if opts.hist_snr is True:
   if opts.threshold>0:
     xlimits = [opts.threshold, 0]
 
-  viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits)
+   
+  viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits, color=symcolor, plot_type=plot_type)
 
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
