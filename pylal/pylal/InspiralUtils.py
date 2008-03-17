@@ -130,6 +130,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
       fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
     else:
       fname = "Images/" + os.path.basename(filename)
+     
 
       # set the thumbnail pictures if required
     if doThumb is True:
@@ -187,7 +188,10 @@ def write_cache_output(opts, html_filename,fnameList):
   if opts.enable_output is True:
     this.write(os.path.basename(html_filename) + '\n')
   for filename in fnameList:
-    fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+    if str(filename).endswith('.png'): 
+      fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+    elif str(filename).endswith('.html'): 
+      fname = os.path.basename(str(filename)) # set the correct name for linking
     this.write(fname + '\n')
   this.close()
 
