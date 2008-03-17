@@ -786,76 +786,94 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     ifo = None
 
   data = readcol(table1, col_name, ifo )
-  if not nbins:
-    nbins = 10
   
-  bins = []
-  if width:
-    for i in range(-nbins,nbins):
-      bins.append(width * i/nbins)
+  if len(data) > 0:
+    if not nbins:
+      nbins = 10
+    
+    bins = []
+    if width:
+      for i in range(-nbins,nbins):
+        bins.append(width * i/nbins)
+    
+    # creates the histogram and take plot_type into account  
+    if plot_type == 'loglog' or plot_type=='logx':
+      data = log10(data)
   
-  # creates the histogram and take plot_type into account  
-  if plot_type == 'loglog' or plot_type=='logx':
-    data = log10(data)
-
-
-  if bins:
-    ydata, xdata, patches = hist(data,bins)
-  else:
-    ydata, xdata, patches = hist(data,nbins)
-
-  width = xdata[1] - xdata[0]
-
-  if plot_type == 'loglog' or plot_type=='logy':
-    indexPositive = find(ydata>0)
-    ydata = log10( ydata[indexPositive] )
-    xdata = xdata[indexPositive]
-
-    clf()
-    # ydata may be zero. if this is the case bar fails. 
-    # let cheat and increment ydata by 1, which we will take into account in the tick_labels 
-    bar( xdata, 1 + ydata, width ,color=color)
-  else:
-    clf()
-    bar( xdata, ydata, width ,color=color)
+    if bins:
+      ydata, xdata, patches = hist(data,bins)
+    else:
+      ydata, xdata, patches = hist(data,nbins)
   
-  ax=axes()
-  xlabel(col_name.replace("_"," "), size='x-large')
-  ylabel('Number', size='x-large')
-
-  # now let us set the ticks and ylabels.
-  # First to be human readable, let us come back to power of 10 instead of log10 values
-  # on x, which is easy....:
-  if plot_type=='logx' or plot_type=='loglog':
-    locs, labels = xticks()
-    l = len(locs)
-    lim1 = floor(log10(power(10, locs[0])))
-    lim2 = ceil(log10(power(10, locs[l-1])))
-    ticks = range(int(lim1), int(lim2), 1)
-    ticks_labels = power(10.0,ticks)
-    this = ax.get_xaxis()
-    this.set_ticks(ticks)
-    this.set_ticklabels([ str(x) for x in ticks_labels])
-
-  if plot_type=='logy' or plot_type=='loglog':
-    # and on y 
-    locs, labels = yticks()
-    l = len(locs)
-    lim1 = floor(log10(power(10, locs[0])))
-    # note the +1 here (in anticipation to a shift later on
-    lim2 = ceil(log10(power(10, locs[l-1]+1)))
-    this = range(int(lim1), int(lim2), 1)
-    # note the -1 here to compensate with the bar(xdata, 1+ydata) call
-    ticks_labels = power(10.0, [x-1 for x in this])
-    # finally, if a tick is 0.1, it should be 0
-    if ticks_labels[0]==0.1: ticks_labels[0]  = 0
-
-    ticks = range(int(lim1), int(lim2), 1)
-    this = ax.get_yaxis()
-    this.set_ticks(ticks)
-    this.set_ticklabels([ str(x) for x in ticks_labels])
+    width = xdata[1] - xdata[0]
+  
+    if plot_type == 'loglog' or plot_type=='logy':
+      indexPositive = find(ydata>0)
+      ydata = log10( ydata[indexPositive] )
+      xdata = xdata[indexPositive]
+  
+    # creates the histogram and take plot_type into account  
+    if plot_type == 'loglog' or plot_type=='logx':
+      data = log10(data)
 
 
+    if bins:
+      ydata, xdata, patches = hist(data,bins)
+    else:
+      ydata, xdata, patches = hist(data,nbins)
+
+    width = xdata[1] - xdata[0]
+
+    if plot_type == 'loglog' or plot_type=='logy':
+      indexPositive = find(ydata>0)
+      ydata = log10( ydata[indexPositive] )
+      xdata = xdata[indexPositive]
+
+      clf()
+      # ydata may be zero. if this is the case bar fails. 
+      # let cheat and increment ydata by 1, 
+      # which we will take into account in the tick_labels 
+      bar( xdata, 1 + ydata, width ,color=color)
+    else:
+      clf()
+      bar( xdata, ydata, width ,color=color)
+  
+    ax=axes()
+    xlabel(col_name.replace("_"," "), size='x-large')
+    ylabel('Number', size='x-large')
+
+    # now let us set the ticks and ylabels.
+    # First to be human readable, 
+    #let us come back to power of 10 instead of log10 values
+    # on x, which is easy....:
+    if plot_type=='logx' or plot_type=='loglog':
+      locs, labels = xticks()
+      l = len(locs)
+      lim1 = floor(log10(power(10, locs[0])))
+      lim2 = ceil(log10(power(10, locs[l-1])))
+      ticks = range(int(lim1), int(lim2), 1)
+      ticks_labels = power(10.0,ticks)
+      this = ax.get_xaxis()
+      this.set_ticks(ticks)
+      this.set_ticklabels([ str(x) for x in ticks_labels])
+
+    if plot_type=='logy' or plot_type=='loglog':
+      # and on y 
+      locs, labels = yticks()
+      l = len(locs)
+      lim1 = floor(log10(power(10, locs[0])))
+      # note the +1 here (in anticipation to a shift later on
+      lim2 = ceil(log10(power(10, locs[l-1]+1)))
+      this = range(int(lim1), int(lim2), 1)
+      # note the -1 here to compensate with the bar(xdata, 1+ydata) call
+      ticks_labels = power(10.0, [x-1 for x in this])
+      # finally, if a tick is 0.1, it should be 0
+      if ticks_labels[0]==0.1: ticks_labels[0]  = 0
+
+      ticks = range(int(lim1), int(lim2), 1)
+      this = ax.get_yaxis()
+      this.set_ticks(ticks)
+      this.set_ticklabels([ str(x) for x in ticks_labels])
 
   #set the x axis limits taking into account if we use log10(data) 
   if xlimit[0] and  xlimit[1]:
