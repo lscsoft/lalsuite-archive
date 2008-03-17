@@ -343,6 +343,7 @@ if slidefilelists:
 	decrement artificially th end time of this triggers 
 	by half a second (only to find the segments it 
 	belongs to.""" 
+
         segStartTime=segs[opts.ifo_times][segListIdx][0].seconds
         segEndTime=segs[opts.ifo_times][segListIdx][1].seconds
 
@@ -466,7 +467,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     xlim(xmin=5.5, xmax=1000)
     ylim(ymin=1e-5, ymax=maxEThinca)
     if opts.enable_output:
-      name = "%s_%s_ethinca_vs_%s_%s_andtotMass.png" % \
+      name = "%s_%s_ethinca_vs_%s_%s_andtotMass" % \
         ( ifos[0], ifos[1], ifo, col)
       fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -509,7 +510,7 @@ if numSlides>0:
       xlim(xmin=5.5, xmax=1000)
       ylim(ymin=1e-5, ymax=maxEThinca)
       if opts.enable_output:
-        name = "_%s_%s_ethinca_slide_only_vs_%s_%s_andtotMass.png" % \
+        name = "%s_%s_ethinca_slide_only_vs_%s_%s_andtotMass" % \
           ( ifos[0], ifos[1], ifo, col)
         fname = InspiralUtils.set_figure_name(opts, name)
         fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -660,7 +661,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
-        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins, alpha=0.6)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
+        setp(handle, alpha=0.6)
         handle[0].set_label('injections ')
 
     if slideTriggersList:
@@ -673,7 +675,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
         y[len(y)-1] = 0
-        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins, alpha=0.6)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*stat_max/opts.num_bins)
+        setp(handle, alpha=0.6)
         handle[0].set_label('slides ')
 
     grid(True)
@@ -717,7 +720,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         y_norm = zeros(len(y),Float)
         for j in range(len(y)):
           y_norm[j] = normalization*y[j]
-        handle = bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins, alpha=0.6)
+        handle = bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
+        setp(handle, alpha=0.6)
         handle[0].set_label( 'slides')
 
     if coincTriggersList:
@@ -727,7 +731,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
-        handle = bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins, alpha=0.6)
+        handle = bar(x, y, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
+        setp(handle, alpha=0.6)
         handle[0].set_label('injections')
 
     ylabel("\#")
