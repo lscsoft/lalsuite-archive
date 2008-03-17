@@ -6,7 +6,11 @@ from optparse import *
 import matplotlib
 matplotlib.use('Agg')
 from pylab import *
-
+try:
+  set
+except NameError:
+  from sets import Set as set
+  
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
