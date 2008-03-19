@@ -379,7 +379,7 @@ class DBTable(table.Table):
 			raise ligolw.ElementError, "connection attribute not set"
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 		# has the table metadata been set?
-		if self.tableName is None:
+		if not hasattr(self, "tableName"):
 			# nope, try to find info in lsctables module
 			try:
 				cls = lsctables.TableByName[self.dbtablename]
