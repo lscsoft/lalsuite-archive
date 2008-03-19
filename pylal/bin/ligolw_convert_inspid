@@ -215,6 +215,20 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 			row.search_summvar_id = summvars.get_next_id()
 
 	#
+	# find the filter table, then add and populate a filter_id column
+	#
+
+	filter = table.get_table(xmldoc, lsctables.FilterTable.tableName)
+	try:
+		filter.appendColumn("filter_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in filter:
+			row.filter_id = filter.get_next_id()
+
+	#
 	# find the sngl_inspiral table
 	#
 
