@@ -280,28 +280,6 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	sngl_inspiral._update_column_info()
 
 	#
-	# find the summ_value table, and remove the summ_value_id column
-	#
-
-	try:
-		summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-		summ_value.removeChild(summ_value.getColumnByName("summ_value_id"))
-	except (ValueError, KeyError):
-		# no such table, or it doesn't have the column
-		pass
-
-	#
-	# find the summ_vars table, and remove the search_summvar_id column
-	#
-
-	try:
-		summvars = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
-		summvars.removeChild(summvars.getColumnByName("search_summvar_id"))
-	except (ValueError, KeyError):
-		# no such table, or it doesn't have the column
-		pass
-
-	#
 	# done
 	#
 
