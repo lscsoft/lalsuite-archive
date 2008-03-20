@@ -184,49 +184,34 @@ def load_filename(filename, int_to_ilwd, verbose = False, gz = False):
 #
 
 
+def populate_id_column(xmldoc, table_name, column_name):
+	#
+	# this function adds a missing ID column to a table.  it should not
+	# exist:  fix the lal table code please.
+	#
+
+	# find table
+	tbl = table.get_table(xmldoc, table_name)
+	try:
+		# add id column
+		tbl.appendColumn(column_name)
+	except ValueError:
+		# already has one
+		pass
+	else:
+		# populate id column
+		for row in tbl:
+			setattr(row, column_name, tbl.get_next_id())
+
+
 def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
-	# find the summ_value table, then add and populate a summ_value_id
-	# column
+	# fix broken tables
 	#
 
-	summ_value = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-	try:
-		summ_value.appendColumn("summ_value_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
-		for row in summ_value:
-			row.summ_value_id = summ_value.get_next_id()
-
-	#
-	# find the summvars table, then add and populate a summvar_id column
-	#
-
-	summvars = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
-	try:
-		summvars.appendColumn("search_summvar_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
-		for row in summvars:
-			row.search_summvar_id = summvars.get_next_id()
-
-	#
-	# find the filter table, then add and populate a filter_id column
-	#
-
-	filter = table.get_table(xmldoc, lsctables.FilterTable.tableName)
-	try:
-		filter.appendColumn("filter_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
-		for row in filter:
-			row.filter_id = filter.get_next_id()
+	populate_id_column(xmldoc,  lsctables.SummValueTable.tableName, "summ_value_id")
+	populate_id_column(xmldoc,  lsctables.SearchSummVarsTable.tableName, "search_summvar_id")
+	populate_id_column(xmldoc,  lsctables.FilterTable.tableName, "filter_id")
 
 	#
 	# find the sngl_inspiral table
@@ -314,6 +299,16 @@ def populate_time_slide(xmldoc):
 	# FIXME: this is place-holder code.
 	#
 
+	#
+	# find the time_slide table
+	#
+
+	try:
+		time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	except ValueError:
+		time_slide_table = lsctables.New(lsctables.TimeSlideTable)
+		xmldoc.childNodes[0].appendChild(time_slide_table)
+
 	return xmldoc
 
 
@@ -391,6 +386,12 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc_event_map = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincMapTable))
 
 	#
+	# find the time_slide table
+	#
+
+	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+	#
 	# iterate over reconstructed coincs
 	#
 
@@ -411,9 +412,9 @@ def populate_coinc_event_sngls(xmldoc):
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = coinc_event.get_next_id()
-		# time_slide_id is digits 9--12 (inclusively, zero-origin)
-		# of the event_id.
-		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
+		# time_slide_id is at index 1 in the tuple returned by
+		# get_id_parts()
+		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -484,6 +485,12 @@ def populate_coinc_event_sims(xmldoc):
 		coinc_event_map = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincMapTable))
 
 	#
+	# find the time_slide table
+	#
+
+	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+	#
 	# iterate over reconstructed coincs
 	#
 
@@ -498,10 +505,9 @@ def populate_coinc_event_sims(xmldoc):
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = coinc_event.get_next_id()
-		# time_slide_id is digits 9--12 (inclusively, zero-origin)
-		# of the event_id.  subtract ID=0 from the event_id to
-		# obtain the offset as an integer
-		coinc.time_slide_id = type(lsctables.TimeSlideTable.next_id)((int(events[0].event_id) / long(1e9)) % long(1e4))
+		# time_slide_id is at index 1 in the tuple returned by
+		# get_id_parts()
+		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
 		coinc.likelihood = float("nan")
 		coinc_event.append(coinc)
@@ -552,14 +558,13 @@ def depopulate_sngl_inspiral(xmldoc):
 
 	trigger_id_dict = {}
 	id_mapping = {}
-	for i, trigger in enumerate(sngl_inspiral):
+	for i in xrange(len(sngl_inspiral) - 1, -1, -1):
+		trigger = sngl_inspiral[i]
 		if trigger in trigger_id_dict:
 			id_mapping[trigger.event_id] = trigger_id_dict[trigger]
 			del sngl_inspiral[i]
 		else:
 			trigger_id_dict[trigger] = trigger.event_id
-
-	print id_mapping
 
 	#
 	# update coinc_event_map table
@@ -601,7 +606,6 @@ for filename in filenames:
 	if options.int_to_ilwd:
 		initialize_process(xmldoc)
 		set_process_params(xmldoc, process, options)
-		sngl_inspiral_int_to_ilwd(xmldoc)
 		populate_time_slide(xmldoc)
 		if options.verbose:
 			print >>sys.stderr, "constructing coincs ..."
@@ -611,6 +615,7 @@ for filename in filenames:
 			populate_coinc_event_sngls(xmldoc)
 		if options.verbose:
 			print >>sys.stderr, "depopulating sngl_inspirals ..."
+		sngl_inspiral_int_to_ilwd(xmldoc)
 		depopulate_sngl_inspiral(xmldoc)
 		llwapp.set_process_end_time(process)
 	else:
