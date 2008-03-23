@@ -265,7 +265,7 @@ def append_process(doc, program = "", version = "", cvs_repository = "", cvs_ent
 	process.username = os.environ["LOGNAME"]
 	process.unix_procid = os.getpid()
 	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
-	process.end_time = 0
+	process.end_time = None
 	process.jobid = jobid
 	process.domain = domain
 	process.ifos = ifos
