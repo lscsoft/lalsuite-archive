@@ -561,7 +561,7 @@ def coinc_params_distributions_to_xml(process, coinc_params_distributions, name)
 def coinc_params_distributions_from_xml(xml, name):
 	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.hasAttribute(u"Name") and elem.getAttribute(u"Name") == u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name]
 	process_id = param.get_pyvalue(xml, u"process_id")
-	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name")[:11] == "background:"]
+	names = [elem.getAttribute("Name").split(":")[1] for elem in xml.childNodes if elem.getAttribute("Name").startswith("background:")]
 	c = CoincParamsDistributions()
 	for name in names:
 		c.zero_lag_rates[name] = rate.binned_array_from_xml(xml, "zero_lag:%s" % name)
