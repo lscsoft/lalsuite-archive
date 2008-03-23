@@ -569,10 +569,148 @@ for(j=0;j<d_free;j++) {
 		power=x*x+y*y;
 
 
-		PyList_SetItem(power_list, i, Py_BuildValue("(ff)", weight, power*mult));
+		PyList_SetItem(power_list, i, Py_BuildValue("(fff)", weight, power*mult, f));
 		i++;
 		}
 	}
+return power_list;
+}
+
+static PyObject * powerflux_get_power_hist(PyObject *self, PyObject *args)
+{
+PyObject *power_list;
+int nsegments;
+int i,j,k;
+DATASET *d;
+CANDIDATE cand;
+PyObject *ocand;
+POLARIZATION *pl;
+float a, f_plus, f_cross, f_plus_sq, f_cross_sq, doppler;
+double f, x, y, power, weight, response;
+float mismatch;
+int signal_bin;
+float filter[7];
+float e[26];
+float a_plus, a_cross, a_plus_sq, a_cross_sq, c_proj, p_proj;
+float *bin_re, *bin_im;
+double mult;
+double *accum_weight;
+double *accum_power;
+int *count;
+
+memset(&cand, 0, sizeof(cand));
+
+ocand=PyTuple_GetItem(args, 0);
+if (ocand==NULL)return NULL;
+
+RETRIEVE_D(frequency);
+RETRIEVE_D(ra);
+RETRIEVE_D(dec);
+RETRIEVE_D(spindown);
+RETRIEVE_D(psi);
+RETRIEVE_D(iota);
+
+precompute_am_constants(e, cand.ra, cand.dec);
+p_proj=cos(2*cand.psi);
+c_proj=sin(2*cand.psi);
+
+a=cos(cand.iota);
+a_plus=(1.0+a*a)/2.0;
+a_cross=a;
+
+/* precompute squares */
+a_plus_sq=a_plus*a_plus;
+a_cross_sq=a_cross*a_cross;
+
+/* correction factor to convert power into (approx) strain units */
+mult=args_info.strain_norm_factor_arg/(1800.0*16384.0);
+mult=mult*mult;
+
+accum_weight=do_alloc(nbins, sizeof(*accum_weight));
+accum_power=do_alloc(nbins, sizeof(*accum_power));
+count=do_alloc(nbins, sizeof(*count));
+
+for(i=0;i<nbins;i++) {
+	accum_weight[i]=0.0;
+	accum_power[i]=0.0;
+	count[i]=0;
+	}
+
+i=0;
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+	pl=&(d->polarizations[0]);
+	/* process single SFTs */
+	for(k=0;k<d->free;k++) {
+		if(d->sft_veto[k]) {
+			PyList_SetItem(power_list, i, Py_BuildValue("(ff)", 0.0, 0.0));
+			i++;
+			continue;
+			}
+
+
+		f_plus=F_plus_coeff(k, e, pl->AM_coeffs);
+		f_cross=F_plus_coeff(k, e, pl->conjugate->AM_coeffs);
+
+// 		f_plus_sq=f_plus*f_plus;
+// 		f_cross_sq=f_cross*f_cross;
+// 
+// 		a=f_plus*a_plus+f_cross*a_cross;
+// 		response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq)*p_proj+2.0*f_plus*f_cross*(a_plus_sq-a_cross_sq))*c_proj;
+
+		a=f_plus*p_proj+f_cross*c_proj;
+		f_cross=f_cross*p_proj-f_plus*c_proj;
+		f_plus=a;
+
+		f_plus_sq=f_plus*f_plus;
+		f_cross_sq=f_cross*f_cross;
+
+		//response[k]=0.25*((f_plus_sq+f_cross_sq)*(a_plus_sq+a_cross_sq)+(f_plus_sq-f_cross_sq)*(a_plus_sq-a_cross_sq));
+		response=f_plus_sq*a_plus_sq+f_cross_sq*a_cross_sq;
+
+		weight=d->expTMedians[k]*d->weight*response;
+
+		doppler=e[0]*d->detector_velocity[3*k+0]+
+			e[1]*d->detector_velocity[3*k+1]+
+			e[2]*d->detector_velocity[3*k+2];
+
+		f=cand.frequency+cand.frequency*doppler+cand.spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
+
+		signal_bin=rintf(1800.0*f-first_bin);
+		mismatch=1800.0*f-first_bin-signal_bin;
+
+		if( (signal_bin<0) || (signal_bin>=d->nbins)) {
+			PyList_SetItem(power_list, i, Py_BuildValue("(ff)", 0.0, 0.0));
+			i++;
+			continue;
+			}
+
+		bin_re=&(d->re[k*nbins+signal_bin]);
+		bin_im=&(d->im[k*nbins+signal_bin]);
+
+		fill_hann_filter7(filter, mismatch);
+
+		x=bin_re[-3]*filter[0]+bin_re[-2]*filter[1]+bin_re[-1]*filter[2]+bin_re[0]*filter[3]+bin_re[1]*filter[4]+bin_re[2]*filter[5]+bin_re[3]*filter[6];
+		y=bin_im[-3]*filter[0]+bin_im[-2]*filter[1]+bin_im[-1]*filter[2]+bin_im[0]*filter[3]+bin_im[1]*filter[4]+bin_im[2]*filter[5]+bin_im[3]*filter[6];
+
+		power=x*x+y*y;
+
+		accum_weight[signal_bin]+=weight*response;
+		accum_power[signal_bin]+=weight*power;
+		count[signal_bin]++;
+		}
+	}
+
+power_list=PyList_New(nbins);
+
+for(i=0;i<nbins;i++) {
+	PyList_SetItem(power_list, i, Py_BuildValue("(ffi)", accum_weight[i], accum_power[i], count[i]));
+	}
+
+free(accum_weight);
+free(accum_power);
+free(count);
+
 return power_list;
 }
 
@@ -703,14 +841,14 @@ for(j=0;j<d_free;j++) {
 		mean*=0.025;
 
 		/* weight accumulation */
-		sums[0]+=weight;
+		sums[0]+=weight*response;
 		sums[1]+=mult*(power-mean)*weight;
 
 
 		/* statistical sums */
-		sums[2]+=sums[0]*sums[0]*weight;
-		sums[3]+=sums[0]*sums[1]*weight;
-		sums[4]+=sums[1]*sums[1]*weight;
+		sums[2]+=sums[0]*sums[0]*weight*response;
+		sums[3]+=sums[0]*sums[1]*weight*response;
+		sums[4]+=sums[1]*sums[1]*weight*response;
 
 		i++;
 		}
@@ -754,6 +892,7 @@ static PyMethodDef PowerFluxMethods[] = {
     	{"set_veto",  powerflux_set_veto, METH_VARARGS, "Set veto flag for range of GPS values"},
     	{"get_gps",  powerflux_get_gps, METH_VARARGS, "Get list of start times of SFTs"},
     	{"get_power_sum",  powerflux_get_power_sum, METH_VARARGS, "Get power sum"},
+    	{"get_power_hist",  powerflux_get_power_hist, METH_VARARGS, "Get power distribution across frequency bins at the detector"},
     	{"get_power_sum_stats",  powerflux_get_power_sum_stats, METH_VARARGS, "Get power sum with stats"},
     	{NULL, NULL, 0, NULL}        /* Sentinel */
 	};

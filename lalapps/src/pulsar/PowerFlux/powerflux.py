@@ -94,63 +94,76 @@ c1.psi=0;
 
 #c1.dump()
 
+if len(sys.argv)<2 :
+	print "Usage: powerflux.py init_script.py"
+	exit(0)
+else :
+	execfile(sys.argv[1])
 
 #powerflux.init("--config=search.15.config")
 
-if 0 : powerflux.init("--dataset=random.dst --first-bin=180000 --side-cut=1200 -n 501 \
-		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--averaging-mode=matched --do-cutoff=0 \
-		--subtract-background=0 --ks-test=1 --filter-lines=0 \
-		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
-		--spindown-start-time=793154935 \
-		--dump-candidates=0 \
-		--dump-points=0 --no-secondary-skymaps=1 \
-		--sky-marks-file=all_sky_marks.txt \
-		--earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
-		--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
-		--max-candidates=10000 --skymap-resolution-ratio=1 \
-  		--fake-ref-time=793154935 \
-  		--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=100.1240253 --fake-strain=6e-24 \
-  		--fake-spindown=-4.66e-9 --fake-iota=1.57 --fake-psi=0.0 \
-		")
+#if 0 : powerflux.init("--dataset=random.dst --first-bin=180000 --side-cut=1200 -n 501 \
+		#--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		#--averaging-mode=matched --do-cutoff=0 \
+		#--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		#--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
+		#--spindown-start-time=793154935 \
+		#--dump-candidates=0 \
+		#--dump-points=0 --no-secondary-skymaps=1 \
+		#--sky-marks-file=all_sky_marks.txt \
+		#--earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+		#--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+		#--max-candidates=10000 --skymap-resolution-ratio=1 \
+  		#--fake-ref-time=793154935 \
+  		#--fake-ra=4.0904057 --fake-dec=-0.634548 --fake-freq=100.1240253 --fake-strain=6e-24 \
+  		#--fake-spindown=-4.66e-9 --fake-iota=1.57 --fake-psi=0.0 \
+		#")
 		
-else :
-	powerflux.init("--first-bin=1953405 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/n20/dataset.H1L1.A5C.dst --config=/home/volodya/LIGO/S5/n20/matched.interactive.config")
+#else :
+	##powerflux.init("--first-bin=1953405 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/n20/dataset.H1L1.A5C.dst --config=/home/volodya/LIGO/S5/n20/matched.interactive.config")
+	#powerflux.init("--first-bin=1905345 --side-cut=1200 --dataset=/home/volodya/LIGO/S5/c1058.6/dataset.H1L1.A5C.dst --config=/home/volodya/LIGO/S5/c1058.6/matched.interactive.config")
 
-start_center = candidate()
+#n20=candidate()
 
-start_center.frequency=1085.34;
-start_center.spindown=-4.5e-9;
-start_center.ra=4.07;
-start_center.dec=-0.62;
-start_center.iota=0;
-start_center.psi=0;
+#n20.frequency=1085.34;
+#n20.spindown=-4.5e-9;
+#n20.ra=4.07;
+#n20.dec=-0.62;
+#n20.iota=0;
+#n20.psi=0;
+
+#c1058=candidate()
+
+#c1058.frequency=1058.65;
+#c1058.spindown=-4.15e-10;
+#c1058.ra=5.14;
+#c1058.dec=-1.26;
+#c1058.iota=0;
+#c1058.psi=0;
+
+#start_center = copy.copy(c1058)
 
 #start_center.frequency=100.1;
-#start_center=c1
+#cstart_center=c1
 
-start_center.frequency_step=5e-5;
-start_center.spindown_step=1e-12;
-start_center.ra_step=0.0001;
-start_center.dec_step=0.0001;
-start_center.iota_step=0.01;
-start_center.psi_step=0.01;
+#start_center.frequency_step=5e-5;
+#start_center.spindown_step=1e-12;
+#start_center.ra_step=0.0001;
+#start_center.dec_step=0.0001;
+#start_center.iota_step=0.01;
+#start_center.psi_step=0.01;
 
 
 
 
 #c1.dump()
-compute(start_center).dump()
+#compute(start_center).dump()
 
 datasets=powerflux.get_datasets()
-#powerflux.compute_scores(c1)
-#c1.dump()
 
 #
 # GUI
 #
-
-#from qtcanvas import *
 
 all_actions={}
 
@@ -1228,6 +1241,31 @@ class powerflux_main_window(QMainWindow):
 		plot.view_mode="diurnal"
 
 	f=QWidget()
+	self.tabs.addTab(f, "Detector frequency distribution")
+	layout=QGridLayout(f)
+
+	self.det_freq_plots=[]
+	
+	self.det_freq_weight=line_plot(self, "Frequency", "Weight", "Weight distribution", width=640, height=440)
+	layout.addWidget(self.det_freq_weight, 0, 0)
+	self.det_freq_plots.append(self.det_freq_weight)
+
+	self.det_freq_psum=line_plot(self, "Frequency", "Power", "Power sum distribution", width=640, height=440)
+	layout.addWidget(self.det_freq_psum, 0, 1)
+	self.det_freq_plots.append(self.det_freq_psum)
+
+	self.det_freq_asum=line_plot(self, "Frequency", "Power", "Avg power distribution", width=640, height=440)
+	layout.addWidget(self.det_freq_asum, 1, 1)
+	self.det_freq_plots.append(self.det_freq_asum)
+
+	self.det_freq_count=line_plot(self, "Frequency", "Count", "Count distribution", width=640, height=440)
+	layout.addWidget(self.det_freq_count, 1, 0)
+	self.det_freq_plots.append(self.det_freq_count)
+
+#	for plot in self.det_freq_plots:
+#		plot.view_mode="hist"
+
+	f=QWidget()
 	self.tabs.addTab(f, "Freehand")
 	layout=QGridLayout(f)
 	
@@ -1301,6 +1339,9 @@ class powerflux_main_window(QMainWindow):
 	    if index=="Diurnal variation":
 			self.update_diurnal_variation()
 			return
+	    if index=="Detector frequency distribution":
+			self.update_det_freq()
+			return
 
     def update_maps(self, center=None):
 	    if center == None : center=self.cand_entry.cand
@@ -1339,7 +1380,7 @@ class powerflux_main_window(QMainWindow):
 		weight=0
 		sum=0
 		x=0
-		for (w,p) in psum :
+		for (w,p,f) in psum :
 			weight=weight+w
 			sum=sum+p*w
 			x=x+1
@@ -1434,6 +1475,58 @@ class powerflux_main_window(QMainWindow):
 	
 	
 	for plot in self.diurnal_plots:
+		plot.refresh()
+
+    def update_det_freq(self, center=None):
+	if center == None : center=self.cand_entry.cand
+
+	
+    	psum=power_sum(center)
+	#weight=map(lambda x: x[0], psum)
+	#power=map(lambda x: x[1], psum)
+	frequency=map(lambda x: x[2], psum)
+	#summand=map(lambda x: x[0]*x[1], psum)
+	
+	fmin=math.floor(min(frequency)*1800.0)/1800.0
+	fmax=math.ceil(max(frequency)*1800.0)/1800.0
+	N=int(math.ceil((fmax-fmin)*1800.0))
+	
+	weight=[]
+	sum=[]
+	count=[]
+	for i in range(N+1):
+		weight.append(0.0)
+		sum.append(0.0)
+		count.append(0)
+		
+	for (w,p,f) in psum:
+		k=int(math.floor(1800.0*(f-fmin)+0.5))
+		weight[k]+=w
+		sum[k]+=w*p
+		count[k]+=1
+	
+	weight_curve=[]
+	psum_curve=[]
+	asum_curve=[]
+	count_curve=[]
+	
+	for i in range(N+1):
+		f=fmin+i/1800.0
+		weight_curve.append((f, weight[i]))
+		psum_curve.append((f, sum[i]))
+		if weight[i]>0 :
+			asum_curve.append((f, sum[i]/weight[i]))
+		else : 
+			asum_curve.append((f, 0.0))
+		count_curve.append((f, count[i]))
+
+	self.det_freq_weight.curves=[weight_curve]
+	self.det_freq_psum.curves=[psum_curve]
+	self.det_freq_asum.curves=[asum_curve]
+	self.det_freq_count.curves=[count_curve]
+	
+	
+	for plot in self.det_freq_plots:
 		plot.refresh()
 
 
