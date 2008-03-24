@@ -579,7 +579,6 @@ return power_list;
 static PyObject * powerflux_get_power_hist(PyObject *self, PyObject *args)
 {
 PyObject *power_list;
-int nsegments;
 int i,j,k;
 DATASET *d;
 CANDIDATE cand;
@@ -643,8 +642,6 @@ for(j=0;j<d_free;j++) {
 	/* process single SFTs */
 	for(k=0;k<d->free;k++) {
 		if(d->sft_veto[k]) {
-			PyList_SetItem(power_list, i, Py_BuildValue("(ff)", 0.0, 0.0));
-			i++;
 			continue;
 			}
 
@@ -680,8 +677,6 @@ for(j=0;j<d_free;j++) {
 		mismatch=1800.0*f-first_bin-signal_bin;
 
 		if( (signal_bin<0) || (signal_bin>=d->nbins)) {
-			PyList_SetItem(power_list, i, Py_BuildValue("(ff)", 0.0, 0.0));
-			i++;
 			continue;
 			}
 
@@ -901,6 +896,12 @@ void initpowerflux(void)
 {
 FILE_LOG=fopen("/dev/null", "w");
 LOG=fopen("/dev/null", "w");
+if(FILE_LOG==NULL) {
+	FILE_LOG=stdout;
+	}
+if(LOG==NULL) {
+	LOG=stdout;
+	}
 (void) Py_InitModule("powerflux", PowerFluxMethods);
 }
 
