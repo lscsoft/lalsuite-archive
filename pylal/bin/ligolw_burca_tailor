@@ -44,6 +44,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import ligolw_burca_tailor
 from pylal import SnglBurstUtils
+from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -59,6 +60,7 @@ dbtables.types.ToPyType["ilwd:char"] = str
 dbtables.NonDBTableNames.append(ligolw_burca_tailor.rate.BinsTable.tableName)
 
 
+# characters allowed to appear in the description string
 T010150_letters = set(string.ascii_lowercase + string.ascii_uppercase + string.digits + "_+#")
 
 
@@ -121,7 +123,8 @@ options, filenames = parse_command_line()
 #
 
 
-coinc_params_func = ligolw_burca_tailor.galactic_core_coinc_params
+coinc_params_func = ligolw_burca_tailor.targeted_coinc_params
+coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 
 
 #
@@ -129,7 +132,6 @@ coinc_params_func = ligolw_burca_tailor.galactic_core_coinc_params
 #
 
 
-extra_data = None
 segs = segments.segmentlistdict()
 
 if options.add_from:
@@ -143,6 +145,8 @@ if options.add_from:
 		extra_data += c
 		segs |= s
 		connection.close()
+else:
+	extra_data = None
 
 
 #
@@ -194,9 +198,9 @@ for n, filename in enumerate(filenames):
 	#
 
 	if database.sim_burst_table is None:
-		stats.add_noninjections(coinc_params_func, database)
+		stats.add_noninjections(coinc_params_func, database, *coinc_params_func_extra_args)
 	else:
-		stats.add_injections(coinc_params_func, database)
+		stats.add_injections(coinc_params_func, database, *coinc_params_func_extra_args)
 
 	#
 	# Clean up.

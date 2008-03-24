@@ -42,7 +42,6 @@ from pylal import date
 from pylal import inject
 from pylal import llwapp
 from pylal import rate
-from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -168,8 +167,8 @@ def delay_and_amplitude_correct(event, ra, dec):
 	return event
 
 
-def galactic_core_coinc_params(events, offsetdict):
-	return coinc_params([delay_and_amplitude_correct(event, MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD) for event in events], offsetdict)
+def targeted_coinc_params(events, offsetdict, ra, dec):
+	return coinc_params([delay_and_amplitude_correct(event, ra, dec) for event in events], offsetdict)
 
 
 #
@@ -216,8 +215,8 @@ class CoincParamsDistributions(object):
 				self.injection_rates[param] = rate
 		return self
 
-	def add_zero_lag(self, param_func, events, timeslide):
-		for param, value in param_func(events, timeslide).iteritems():
+	def add_zero_lag(self, param_func, events, timeslide, *args):
+		for param, value in param_func(events, timeslide, *args).iteritems():
 			rate = self.zero_lag_rates[param]
 			try:
 				rate[value] += 1.0
@@ -225,8 +224,8 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def add_background(self, param_func, events, timeslide):
-		for param, value in param_func(events, timeslide).iteritems():
+	def add_background(self, param_func, events, timeslide, *args):
+		for param, value in param_func(events, timeslide, *args).iteritems():
 			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
@@ -234,8 +233,8 @@ class CoincParamsDistributions(object):
 				# param value out of range
 				pass
 
-	def add_injection(self, param_func, events, timeslide):
-		for param, value in param_func(events, timeslide).iteritems():
+	def add_injection(self, param_func, events, timeslide, *args):
+		for param, value in param_func(events, timeslide, *args).iteritems():
 			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
@@ -276,7 +275,7 @@ class CoincParamsDistributions(object):
 
 
 class Stats(object):
-	def _add_zero_lag(self, param_func, events, timeslide):
+	def _add_zero_lag(self, param_func, events, timeslide, *args):
 		"""
 		A subclass should provide an override of this method to do
 		whatever it needs to do with a tuple of coincidence events
@@ -285,7 +284,7 @@ class Stats(object):
 		raise NotImplementedError
 
 
-	def _add_background(self, param_func, events, timeslide):
+	def _add_background(self, param_func, events, timeslide, *args):
 		"""
 		A subclass should provide an override of this method to do
 		whatever it needs to do with a tuple of coincidence events
@@ -294,7 +293,7 @@ class Stats(object):
 		raise NotImplementedError
 
 
-	def _add_injections(self, param_func, sim, events, timeslide):
+	def _add_injections(self, param_func, sim, events, timeslide, *args):
 		"""
 		A subclass should provide an override of this method to do
 		whatever it needs to do with a tuple of coincidence events
@@ -303,7 +302,7 @@ class Stats(object):
 		raise NotImplementedError
 
 
-	def add_noninjections(self, param_func, database):
+	def add_noninjections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs
 		for (coinc_event_id,) in database.connection.cursor().execute("""
 SELECT
@@ -353,12 +352,12 @@ ORDER BY
 				is_zero_lag = is_zero_lag and (values[-1] == 0)
 
 			if is_zero_lag:
-				self._add_zero_lag(param_func, events, offsetdict)
+				self._add_zero_lag(param_func, events, offsetdict, *args)
 			else:
-				self._add_background(param_func, events, offsetdict)
+				self._add_background(param_func, events, offsetdict, *args)
 
 
-	def add_injections(self, param_func, database):
+	def add_injections(self, param_func, database, *args):
 		# iterate over burst<-->burst coincs matching injections
 		# "exactly"
 		for values in database.connection.cursor().execute("""
@@ -421,7 +420,7 @@ ORDER BY
 				offsetdict[event.ifo] = values[-1]
 
 			# pass the events to whatever wants them
-			self._add_injections(param_func, sim, events, offsetdict)
+			self._add_injections(param_func, sim, events, offsetdict, *args)
 
 	def finish(self):
 		pass
@@ -447,16 +446,16 @@ class Covariance(Stats):
 		self.bak_observations = []
 		self.inj_observations = []
 
-	def _add_zero_lag(self, param_func, events, offsetdict):
+	def _add_zero_lag(self, param_func, events, offsetdict, *args):
 		pass
 
-	def _add_background(self, param_func, events, offsetdict):
-		items = param_func(events, offsetdict).items()
+	def _add_background(self, param_func, events, offsetdict, *args):
+		items = param_func(events, offsetdict, *args).items()
 		items.sort()
 		self.bak_observations.append(tuple([value for name, value in items]))
 
-	def _add_injections(self, param_func, sim, events, offsetdict):
-		items = param_func(events, offsetdict).items()
+	def _add_injections(self, param_func, sim, events, offsetdict, *args):
+		items = param_func(events, offsetdict, *args).items()
 		items.sort()
 		self.inj_observations.append(tuple([value for name, value in items]))
 
@@ -524,14 +523,14 @@ class DistributionsStats(Stats):
 		Stats.__init__(self)
 		self.distributions = CoincParamsDistributions(**self.binnings)
 
-	def _add_zero_lag(self, param_func, events, offsetdict):
-		self.distributions.add_zero_lag(param_func, events, offsetdict)
+	def _add_zero_lag(self, param_func, events, offsetdict, *args):
+		self.distributions.add_zero_lag(param_func, events, offsetdict, *args)
 
-	def _add_background(self, param_func, events, offsetdict):
-		self.distributions.add_background(param_func, events, offsetdict)
+	def _add_background(self, param_func, events, offsetdict, *args):
+		self.distributions.add_background(param_func, events, offsetdict, *args)
 
-	def _add_injections(self, param_func, sim, events, offsetdict):
-		self.distributions.add_injection(param_func, events, offsetdict)
+	def _add_injections(self, param_func, sim, events, offsetdict, *args):
+		self.distributions.add_injection(param_func, events, offsetdict, *args)
 
 	def finish(self):
 		self.distributions.finish(filters = self.filters)

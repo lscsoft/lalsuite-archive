@@ -295,6 +295,7 @@ def burca2(options, filenames):
 	from pylal import ligolw_burca_tailor
 	from pylal import ligolw_burca2
 	from pylal import SnglBurstUtils
+	from pylal.SimBurstUtils import MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD
 
 
 	# so they can be inserted into a database
@@ -322,7 +323,8 @@ def burca2(options, filenames):
 	#
 
 
-	coinc_params_func = ligolw_burca_tailor.galactic_core_coinc_params
+	coinc_params_func = ligolw_burca_tailor.targeted_coinc_params
+	coinc_params_func_extra_args = (MW_CENTER_J2000_RA_RAD, MW_CENTER_J2000_DEC_RAD)
 
 
 	#
@@ -367,7 +369,7 @@ def burca2(options, filenames):
 		#
 
 
-		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, coinc_params_func, verbose = options.verbose)
+		ligolw_burca2.ligolw_burca2(database, likelihood_ratio, coinc_params_func, verbose = options.verbose, *coinc_params_func_extra_args)
 
 
 		#
