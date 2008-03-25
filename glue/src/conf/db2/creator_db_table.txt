@@ -6,4 +6,6 @@ test 5
 mit 6
 uwm 7
 psu 8
+dev1 9
+dev2 10
 other -1
