@@ -487,7 +487,7 @@ class Table(ligolw.Table, list):
 		name.
 		"""
 		if getColumnsByName(self, name):
-			raise ValueError, "duplicate Column \"%s\"" % name
+			raise ValueError, "duplicate Column '%s'" % name
 		column = Column(AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
 		streams = self.getElementsByTagName(ligolw.Stream.tagName)
 		if streams:
@@ -603,20 +603,20 @@ class Table(ligolw.Table, list):
 		attribute of each instance).  This is enforced so that IDs
 		can be generated that are unique across all tables in the
 		document.  Running sync_next_id() on all the tables in a
-		document that are of the same type will has the effect of
+		document that are of the same type will have the effect of
 		setting the ID to the next ID higher than any ID in any of
-		the those tables.
+		those tables.
 		"""
 		if self.next_id is not None:
 			if len(self):
 				n = max(self.getColumnByName(self.next_id.column_name)) + 1
 			else:
-				n = self.next_id.__class__(0)
+				n = type(self.next_id)(0)
 			if n > self.next_id:
 				# the left-hand-side is the way it is to
 				# ensure we assign to the class attribute
 				# instead of creating an instance attribute
-				self.__class__.next_id = n
+				type(self).next_id = n
 		return self.next_id
 
 	def updateKeyMapping(self, mapping):
