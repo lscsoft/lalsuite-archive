@@ -182,6 +182,8 @@ def get_ilwdchar(s):
 	10
 	>>> id.index_offset
 	19
+	>>> str(id)[id.index_offset:]
+	'10'
 	"""
 	#
 	# try parsing the string as an ilwd:char formated string
