@@ -194,7 +194,7 @@ will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 #
 
 
-target = dbtables.get_connection_filename(options.database, tmp_path = will_use_tmp_space and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
+target = dbtables.get_connection_filename(options.database, tmp_path = (will_use_tmp_space or None) and options.tmp_space, replace_file = will_replace_file, verbose = options.verbose)
 
 connection = sqlite3.connect(target)
 dbtables.DBTable_set_connection(connection)
