@@ -302,7 +302,7 @@ def DBTable_column_info(table_name):
 	"""
 	statement, = DBTable.connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
-	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"] not in ("PRIMARY", "UNIQUE", "CHECK")]
+	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
 def DBTable_get_xml():
@@ -378,31 +378,44 @@ class DBTable(table.Table):
 
 	connection = None
 
-	def __init__(self, *attrs):
+	def __new__(cls, *args):
+		# does this class have table-specific metadata?
+		if not hasattr(cls, "tableName"):
+			# no, try to retrieve it from lsctables
+			attrs, = args
+			name = table.StripTableName(attrs[u"Name"])
+			try:
+				lsccls = lsctables.TableByName[name]
+			except KeyError:
+				# unknown table, give up
+				pass
+			else:
+				# found metadata, construct custom class.
+				# NOTE:  this works because when using
+				# SQL-backed tables there can only be ONE
+				# of any table in a document, which solves
+				# the problem of trying to share the
+				# next_id attribute across multiple
+				# instances of a table.
+				class CustomDBTable(cls):
+					tableName = lsccls.tableName
+					validcolumns = lsccls.validcolumns
+					loadcolumns = lsccls.loadcolumns
+					constraints = lsccls.constraints
+					next_id = lsccls.next_id
+					RowType = lsccls.RowType
+					how_to_index = lsccls.how_to_index
+				return CustomDBTable.__new__(CustomDBTable, *args)
+		return table.Table.__new__(cls, *args)
+
+	def __init__(self, *args):
 		"""
 		Initialize
 		"""
-		table.Table.__init__(self, *attrs)
+		table.Table.__init__(self, *args)
 		if self.connection is None:
 			raise ligolw.ElementError, "connection attribute not set"
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
-		# has the table metadata been set?
-		if not hasattr(self, "tableName"):
-			# nope, try to find info in lsctables module
-			try:
-				cls = lsctables.TableByName[self.dbtablename]
-			except KeyError:
-				# unknown table
-				pass
-			else:
-				# found it, copy metadata from lsctables
-				self.tableName = cls.tableName
-				self.validcolumns = cls.validcolumns
-				self.loadcolumns = cls.loadcolumns
-				self.constraints = cls.constraints
-				self.next_id = cls.next_id
-				self.RowType = cls.RowType
-				self.how_to_index = cls.how_to_index
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
@@ -589,38 +602,6 @@ class SearchSummaryTable(DBTable):
 		return seglists
 
 
-class SnglBurstTable(DBTable):
-	tableName = lsctables.SnglBurstTable.tableName
-	validcolumns = lsctables.SnglBurstTable.validcolumns
-	constraints = lsctables.SnglBurstTable.constraints
-	next_id = lsctables.SnglBurstTable.next_id
-	RowType = lsctables.SnglBurstTable.RowType
-	how_to_index = lsctables.SnglBurstTable.how_to_index
-
-class SimBurstTable(DBTable):
-	tableName = lsctables.SimBurstTable.tableName
-	validcolumns = lsctables.SimBurstTable.validcolumns
-	constraints = lsctables.SimBurstTable.constraints
-	next_id = lsctables.SimBurstTable.next_id
-	RowType = lsctables.SimBurstTable.RowType
-	how_to_index = lsctables.SimBurstTable.how_to_index
-
-class SnglInspiralTable(DBTable):
-	tableName = lsctables.SnglInspiralTable.tableName
-	validcolumns = lsctables.SnglInspiralTable.validcolumns
-	constraints = lsctables.SnglInspiralTable.constraints
-	next_id = lsctables.SnglInspiralTable.next_id
-	RowType = lsctables.SnglInspiralTable.RowType
-	how_to_index = lsctables.SnglInspiralTable.how_to_index
-
-class SimInspiralTable(DBTable):
-	tableName = lsctables.SimInspiralTable.tableName
-	validcolumns = lsctables.SimInspiralTable.validcolumns
-	constraints = lsctables.SimInspiralTable.constraints
-	next_id = lsctables.SimInspiralTable.next_id
-	RowType = lsctables.SimInspiralTable.RowType
-	how_to_index = lsctables.SimInspiralTable.how_to_index
-
 class TimeSlideTable(DBTable):
 	tableName = lsctables.TimeSlideTable.tableName
 	validcolumns = lsctables.TimeSlideTable.validcolumns
@@ -732,33 +713,6 @@ class CoincDefTable(DBTable):
 		self.append(row)
 
 
-class CoincTable(DBTable):
-	tableName = lsctables.CoincTable.tableName
-	validcolumns = lsctables.CoincTable.validcolumns
-	constraints = lsctables.CoincTable.constraints
-	next_id = lsctables.CoincTable.next_id
-	RowType = lsctables.CoincTable.RowType
-	how_to_index = lsctables.CoincTable.how_to_index
-
-
-class CoincMapTable(DBTable):
-	tableName = lsctables.CoincMapTable.tableName
-	validcolumns = lsctables.CoincMapTable.validcolumns
-	constraints = lsctables.CoincMapTable.constraints
-	next_id = lsctables.CoincMapTable.next_id
-	RowType = lsctables.CoincMapTable.RowType
-	how_to_index = lsctables.CoincMapTable.how_to_index
-
-
-class MultiBurstTable(DBTable):
-	tableName = lsctables.MultiBurstTable.tableName
-	validcolumns = lsctables.MultiBurstTable.validcolumns
-	constraints = lsctables.MultiBurstTable.constraints
-	next_id = lsctables.MultiBurstTable.next_id
-	RowType = lsctables.MultiBurstTable.RowType
-	how_to_index = lsctables.MultiBurstTable.how_to_index
-
-
 #
 # =============================================================================
 #
@@ -776,12 +730,14 @@ def build_indexes(verbose = False):
 	"""
 	cursor = DBTable_get_connection().cursor()
 	for table_name in DBTable_table_names():
-		try:
-			# FIXME:  figure out how to do this extensibly
+		# FIXME:  figure out how to do this extensibly
+		if table_name in TableByName:
 			how_to_index = TableByName[table_name].how_to_index
-		except KeyError:
+		elif table_name in lsctables.TableByName:
+			how_to_index = lsctables.TableByName[table_name].how_to_index
+		else:
 			continue
-		if how_to_index:
+		if how_to_index is not None:
 			if verbose:
 				print >>sys.stderr, "indexing %s table ..." % table_name
 			for index_name, cols in how_to_index.iteritems():
@@ -806,15 +762,8 @@ TableByName = {
 	table.StripTableName(ProcessTable.tableName): ProcessTable,
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
-	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
-	table.StripTableName(SimBurstTable.tableName): SimBurstTable,
-	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
-	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
-	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
-	table.StripTableName(CoincTable.tableName): CoincTable,
-	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable
+	table.StripTableName(CoincDefTable.tableName): CoincDefTable
 }
 
 
