@@ -102,27 +102,35 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 	reduced fileserver load.  The API is not stable, don't use unless
 	you're prepared to track changes.
 	"""
-	def truncate(filename, verbose = False):
-		"""
-		For internal use only.
-		"""
+	def mktmp(path, verbose = False):
+		fd, filename = tempfile.mkstemp(suffix = ".sqlite", dir = path)
+		os.close(fd)
 		if verbose:
-			print >>sys.stderr, "%s exists, truncating ..." % filename
+			print >>sys.stderr, "using '%s' as workspace" % filename
+		return filename
+
+	def truncate(filename, verbose = False):
+		if verbose:
+			print >>sys.stderr, "'%s' exists, truncating ..." % filename
 		try:
 			fd = os.open(filename, os.O_WRONLY | os.O_TRUNC)
 		except:
-			raise e, "cannot truncate %s" % filename
+			if verbose:
+				print >>sys.stderr, "cannot truncate '%s': %s" % (filename, str(e))
+			return
 		os.close(fd)
 		if verbose:
 			print >>sys.stderr, "done."
 
+	def cpy(srcname, dstname, verbose = False):
+		if verbose:
+			print >>sys.stderr, "copying '%s' to '%s' ..." % (srcname, dstname)
+		shutil.copy(srcname, dstname)
+
 	database_exists = os.access(filename, os.F_OK)
 
-	if tmp_path:
-		fd, target = tempfile.mkstemp(suffix = ".sqlite", dir = tmp_path)
-		os.close(fd)
-		if verbose:
-			print >>sys.stderr, "using %s as workspace" % target
+	if tmp_path is not None:
+		target = mktmp(tmp_path, verbose)
 		if database_exists:
 			if replace_file:
 				# truncate database so that if this job
@@ -132,36 +140,36 @@ def get_connection_filename(filename, tmp_path = None, replace_file = False, ver
 			else:
 				# need to copy existing database to work
 				# space for modifications
-				if verbose:
-					print >>sys.stderr, "copying %s to %s ..." % (filename, target)
-				try:
-					shutil.copy(filename, target)
-				except IOError, e:
-					import errno
-					import time
-					if e.errno == errno.ENOSPC:
-						if verbose:
-							print >>sys.stderr, "warning: no space left on device, sleeping and trying again ..."
-						time.sleep(10)
-						if verbose:
-							print >>sys.stderr, "copying %s to %s ..." % (filename, target)
-						try:
-							shutil.copy(filename, target)
-						except IOError, e:
-							if e.errno == errno.ENOSPC:
+				i = 1
+				while True:
+					try:
+						cpy(filename, target, verbose)
+					except IOError, e:
+						import errno
+						import time
+						if e.errno == errno.ENOSPC:
+							if i < 5:
 								if verbose:
-									print >>sys.stderr, "warning: no space left on device: working with original file"
+									print >>sys.stderr, "warning: attempt %d: no space left on device, sleeping and trying again ..." % i
+								time.sleep(10)
+								i += 1
+								continue
+							else:
+								if verbose:
+									print >>sys.stderr, "warning: attempt %d: no space left on device: working with original file" % i
 								os.remove(target)
 								target = filename
-							else:
-								raise e
-
-					else:
-						raise e
+						else:
+							raise e
+					break
 	else:
 		target = filename
 		if database_exists and replace_file:
 			truncate(target, verbose = verbose)
+
+	del mktmp
+	del truncate
+	del cpy
 
 	return target
 
@@ -193,7 +201,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 		# replace document
 		if verbose:
-			print >>sys.stderr, "moving %s to %s ..." % (working_filename, filename)
+			print >>sys.stderr, "moving '%s' to '%s' ..." % (working_filename, filename)
 		shutil.move(working_filename, filename)
 
 		# restore original handlers, and report the most recently
@@ -208,7 +216,7 @@ def put_connection_filename(filename, working_filename, verbose = False):
 def discard_connection_filename(filename, working_filename, verbose = False):
 	if working_filename != filename:
 		if verbose:
-			print >>sys.stderr, "removing %s ..." % working_filename
+			print >>sys.stderr, "removing '%s' ..." % working_filename
 		os.remove(working_filename)
 
 
@@ -751,33 +759,6 @@ class MultiBurstTable(DBTable):
 	how_to_index = lsctables.MultiBurstTable.how_to_index
 
 
-class SegmentTable(DBTable):
-	tableName = lsctables.SegmentTable.tableName
-	validcolumns = lsctables.SegmentTable.validcolumns
-	constraints = lsctables.SegmentTable.constraints
-	next_id = lsctables.SegmentTable.next_id
-	RowType = lsctables.SegmentTable.RowType
-	how_to_index = lsctables.SegmentTable.how_to_index
-
-
-class SegmentDefMapTable(DBTable):
-	tableName = lsctables.SegmentDefMapTable.tableName
-	validcolumns = lsctables.SegmentDefMapTable.validcolumns
-	constraints = lsctables.SegmentDefMapTable.constraints
-	next_id = lsctables.SegmentDefMapTable.next_id
-	RowType = lsctables.SegmentDefMapTable.RowType
-	how_to_index = lsctables.SegmentDefMapTable.how_to_index
-
-
-class SegmentDefTable(DBTable):
-	tableName = lsctables.SegmentDefTable.tableName
-	validcolumns = lsctables.SegmentDefTable.validcolumns
-	constraints = lsctables.SegmentDefTable.constraints
-	next_id = lsctables.SegmentDefTable.next_id
-	RowType = lsctables.SegmentDefTable.RowType
-	how_to_index = lsctables.SegmentDefTable.how_to_index
-
-
 #
 # =============================================================================
 #
@@ -833,10 +814,7 @@ TableByName = {
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
-	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
-	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
-	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable
+	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable
 }
 
 
