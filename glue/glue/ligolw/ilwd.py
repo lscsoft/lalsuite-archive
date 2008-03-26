@@ -189,8 +189,8 @@ def get_ilwdchar(s):
 
 	try:
 		table_name, column_name, i = s.split(":")
-	except ValueError:
-		raise ValueError, repr(s)
+	except ValueError, AttributeError:
+		raise ValueError, "invalid ilwd:char %s" % repr(s)
 
 	#
 	# retrieve the matching class from the ID class cache, and return
