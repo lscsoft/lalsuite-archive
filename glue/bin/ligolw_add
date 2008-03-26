@@ -189,6 +189,7 @@ if options.mangle_sngl_inspiral_ids == "int_8s":
 	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old()
 elif options.mangle_sngl_inspiral_ids == "ilwd:char":
 	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
+	lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
 
 
