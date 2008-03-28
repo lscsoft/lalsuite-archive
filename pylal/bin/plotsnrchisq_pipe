@@ -80,35 +80,27 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
 
     segLenSec = segLen / sampleRate
     segOverlapSec = segOverlap / sampleRate
-     
+
+    trigPosition = 0.0
     if (trigStart):
-      trig_position = (trigStart - gpsStart - segOverlapSec ) / (segLenSec -segOverlapSec)
-      trigPosition = int(trig_position)
-      if trig_position == trigPosition:
-         trigPosition = trigPosition - 1
-      else: pass
-    else: trigPosition = 0
+      trig_position = float(trigStart - gpsStart - segOverlapSec ) / float(segLenSec - segOverlapSec)
+      #ceil usage: if trig_position = 3.0, then number must be 2.0
+      #if trig_position = 3.1, then number must be 3.0
+      trigPosition = math.ceil(trig_position) - 1.0 
+
+    if (trigPosition < 0): trigPosition = 0.0
 
     gpsPosition = int((eval(gpsTime) - gpsStart - segOverlapSec/2. ) / (segLenSec -segOverlapSec))
 
-    if (trigPosition < 0): trigPosition = 0
-    position = gpsPosition - trigPosition
+    position = gpsPosition - int(trigPosition)
     chanNumber = str(position)
     chanNamePSD = chanStringBase + "_PSD"
-    
+ 
     # now, read the data !!
     # The window width should be an input argument maybe ?
     duration = 2.0
     # chanNums = range(16)
       
-    # figure out what the hell is in this file
-    # for chan in chanNums:
-      # chanNameSnr = chanStringBase + "_SNRSQ_" + str(chan)
-      # try: squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
-      # except: break
-
-    # if position == 1: chan -= 1
-    # if position == 0: chan -= 2
     
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
