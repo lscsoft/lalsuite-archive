@@ -130,6 +130,22 @@ def parse_slides(slides):
 	return d
 
 
+def parse_inspiral_num_slides_slidespec(slidespec):
+	"""
+	Accepts a string in the format
+	count:instrument=offset[,instrument=offset...] and returns the
+	tuple (count, {instrument: offset, ...})
+
+	Example:
+
+	>>> parse_inspiral_num_slides_slidespec("3:H1=0,H2=5,L1=10")
+	(3, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0})
+	"""
+	count, offsets = slidespec.strip().split(":")
+	offsets = dict([(instrument.strip(), float(offset)) for instrument, offset in [token.strip().split("=") for token in offsets.strip().split(",")]])
+	return int(count), offsets
+
+
 def load_time_slides(filename, verbose = False, gz = False):
 	"""
 	Load a time_slide table from the LIGO Light Weight XML file named
@@ -197,6 +213,30 @@ def SlidesIter(slides):
 	instruments = slides.keys()
 	for slide in iterutils.MultiIter(*slides.values()):
 		yield dict(zip(instruments, slide))
+
+
+def Inspiral_Num_Slides_Iter(slidespec):
+	"""
+	Accepts a string in the format understood by
+	parse_inspiral_slidespec(), and generates a sequence of time slide
+	dictionaries mapping instrument to offset.
+
+	Example:
+
+	>>> list(Inspiral_Num_Slides_Iter("3:H1=0,H2=5,L1=10"))
+	[{'H2': -15.0, 'H1': -0.0, 'L1': -30.0}, {'H2': -10.0, 'H1': -0.0, 'L1': -20.0}, {'H2': -5.0, 'H1': -0.0, 'L1': -10.0}, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0}, {'H2': 10.0, 'H1': 0.0, 'L1': 20.0}, {'H2': 15.0, 'H1': 0.0, 'L1': 30.0}]
+
+	The instrument/offset pairs in the input string form a vector of
+	offsets, and the output time slides are all integer multiples of
+	that vector with multiples in the range [-count, +count] excluding
+	0.
+	"""
+	count, offsets = parse_inspiral_num_slides_slidespec(slidespec)
+	offsets = offsets.items()
+	for n in range(-count, +count + 1):
+		if n == 0:
+			continue
+		yield dict([(instrument, offset * n) for instrument, offset in offsets])
 
 
 def RowsFromOffsetDict(offsetdict, time_slide_id, process):
