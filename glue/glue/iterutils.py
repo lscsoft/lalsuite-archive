@@ -73,7 +73,7 @@ def MultiIter(*sequences):
 
 	runs approximately 5 times faster if the lengths list is reversed.
 	"""
-	if sequences:
+	if len(sequences) > 1:
 		# FIXME:  experiment with a generator expression in Python
 		# >= 2.5
 		# FIXME:  this loop is about 5% faster if done the other
@@ -86,8 +86,9 @@ def MultiIter(*sequences):
 		for t in MultiIter(*sequences[1:]):
 			for h in head:
 				yield h + t
-	else:
-		yield ()
+	elif sequences:
+		for t in sequences[0]:
+			yield (t,)
 
 
 def choices(vals, n):
