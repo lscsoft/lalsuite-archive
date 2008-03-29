@@ -1484,7 +1484,10 @@ class powerflux_main_window(QMainWindow):
     	psum=power_sum(center)
 	#weight=map(lambda x: x[0], psum)
 	#power=map(lambda x: x[1], psum)
-	frequency=map(lambda x: x[2], psum)
+	frequency=[]
+	for (w,p,f) in psum:
+		if f==0.0 : continue
+		frequency.append(f)
 	#summand=map(lambda x: x[0]*x[1], psum)
 	
 	fmin=math.floor(min(frequency)*1800.0)/1800.0
@@ -1500,6 +1503,7 @@ class powerflux_main_window(QMainWindow):
 		count.append(0)
 		
 	for (w,p,f) in psum:
+		if f==0.0 : continue
 		k=int(math.floor(1800.0*(f-fmin)+0.5))
 		weight[k]+=w
 		sum[k]+=w*p
