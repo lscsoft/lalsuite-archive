@@ -1347,11 +1347,18 @@ for(j=0;j<d_free;j++) {
 		/* power_cor computation */
 		weight=d->expTMedians[k]*d->weight;
 
-		demod_weight=weight*response[k];
-		total_demod_weight+=demod_weight*response[k];
-
 		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
 		signal_bin=rintf(1800.0*f-first_bin);
+
+		if(signal_bin<WINDOW) {
+			cand->strain=-1;
+			cand->snr=-1;
+			cand->f_max=cand->frequency;
+			fprintf(stderr, "compute_snr: outside loaded frequency range\n");
+			}
+
+		demod_weight=weight*response[k];
+		total_demod_weight+=demod_weight*response[k];
 
 		power=&(d->power[k*nbins+signal_bin-WINDOW]);
 		pout=demod_signal_sum;
@@ -4352,7 +4359,7 @@ for(i=0;i<candidate_free;i++) {
 	if(args_info.output_initial_arg)output_candidate(LOG, "_initial", &(candidate[i]));
 
 	if( ((args_info.max_candidates_arg<0) || (i<args_info.max_candidates_arg)) && (max_dx[k]>args_info.min_candidate_snr_arg)) {
-		time(&now);
+		//time(&now);
 		optimize_candidate(&(candidate[i]));
 		//fprintf(stderr, "Time per candidate %f\n", ((now-start)*1.0)/(i+1));
 		candidate[i].opt_rank=0;
