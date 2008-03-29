@@ -20,7 +20,8 @@ GWF2XMLSRC 	= gwf2xml.c
 SPININJSRC 	= spininj.c
 COINEXTSRC 	= coinext.c
 RANDOMBANKSRC 	= randombank.c
-SNEDSRC         = sned.c
+SNEDSRC		= sned.c
+CORSESRC	= corse.c
 if LALFRAME
 if LALMETAIO
 bin_PROGRAMS = lalapps_inspiral lalapps_tmpltbank \
@@ -31,7 +32,7 @@ bin_PROGRAMS = lalapps_inspiral lalapps_tmpltbank \
                lalapps_thinca lalapps_trigbank \
                lalapps_spininj lalapps_coherent_inspiral \
                lalapps_coherentbank lalapps_coinext \
-               lalapps_randombank lalapps_sned
+               lalapps_randombank lalapps_sned lalapps_corse
 
 lalapps_inspiral_SOURCES 	= $(INSPIRALSRC)
 lalapps_coherent_inspiral_SOURCES = $(COHERESRC)
@@ -51,9 +52,10 @@ lalapps_trigbank_SOURCES 	= $(TRIGBANKSRC)
 lalapps_spininj_SOURCES 	= $(SPININJSRC)
 lalapps_inspfrinj_SOURCES 	= $(INSPFRINJSRC)
 lalapps_gwf2xml_SOURCES 	= $(GWF2XMLSRC)
-lalapps_coinext_SOURCES         = $(COINEXTSRC)
+lalapps_coinext_SOURCES		= $(COINEXTSRC)
 lalapps_randombank_SOURCES 	= $(RANDOMBANKSRC)
-lalapps_sned_SOURCES            = $(SNEDSRC)
+lalapps_sned_SOURCES		= $(SNEDSRC)
+lalapps_corse_SOURCES		= $(CORSESRC)
 else
 bin_PROGRAMS = 
 endif
