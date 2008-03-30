@@ -99,7 +99,7 @@ def append_process(xmldoc, **kwargs):
 	if "stringcusp_params" in kwargs:
 		params += [("--stringcusp-params", "lstring", kwargs["stringcusp_params"])]
 	if "force" in kwargs and kwargs["force"]:
-		params += [("--force", "lstring", "")]
+		params += [("--force", None, None)]
 	if kwargs["coincidence_algorithm"] in ("stringcusp",):
 		for key, value in kwargs["thresholds"].iteritems():
 			if key[0] < key[1]:

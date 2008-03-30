@@ -209,9 +209,9 @@ def append_process(doc, options):
 
 	params = []
 	if options.coinc_only:
-		params += [("--coinc-only", "lstring", "")]
+		params += [("--coinc-only", None, None)]
 	if options.inj_made_only:
-		params += [("--inj-made-only", "lstring", "")]
+		params += [("--inj-made-only", None, None)]
 	if options.min_amplitude is not None:
 		params += [("--min-amplitude", "real_4", options.min_amplitude)]
 	if options.max_amplitude is not None:
