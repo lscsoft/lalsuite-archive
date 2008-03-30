@@ -43,6 +43,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
+from glue.ligolw import types as ligolwtypes
 from glue.ligolw import utils
 from pylal.date import XLALUTCToGPS
 
@@ -304,22 +305,21 @@ def get_process_params(xmldoc, program, param):
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
 		raise ValueError, "process table must contain exactly one program named %s" % program
-	return [row.value for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+	return [ligolwtypes.ToPyType[row.type](row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def dbget_process_params(connection, program, param):
 	process_ids = set()
 	values = []
-	for process_id, value in connection.cursor().execute("""
-SELECT process_id, value FROM
+	for process_id, valuetype, value in connection.cursor().execute("""
+SELECT process_id, type, value FROM
 	process_params
 WHERE
 	program == ?
 	AND param == ?
 	""", (program, param)):
-		# FIXME:  should the process_ids be ilwdchar-ified?
 		process_ids.add(process_id)
-		values.append(value)
+		values.append(ligolwtypes.ToPyType[valuetype](value))
 	if len(process_ids) != 1:
 		raise ValueError, "process table must contain exactly one program named %s with params %s" % (program, param)
 	return values
