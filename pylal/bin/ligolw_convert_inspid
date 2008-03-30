@@ -207,7 +207,7 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
 
 	try:
-		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
 		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return xmldoc
@@ -216,8 +216,8 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	# convert the event_id attribute on every row object
 	#
 
-	for row in sngl_inspiral:
-		row.event_id = type(sngl_inspiral.next_id)(row.event_id)
+	for row in sngl_inspiral_table:
+		row.event_id = type(sngl_inspiral_table.next_id)(row.event_id)
 
 	#
 	# update the table's list of valid column types, and the Type
@@ -226,9 +226,9 @@ def sngl_inspiral_int_to_ilwd(xmldoc):
 	#
 
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
-	event_id = sngl_inspiral.getColumnByName("event_id")
+	event_id = sngl_inspiral_table.getColumnByName("event_id")
 	event_id.setAttribute("Type", "ilwd:char")
-	sngl_inspiral._update_column_info()
+	sngl_inspiral_table._update_column_info()
 
 	#
 	# done
@@ -243,7 +243,7 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	#
 
 	try:
-		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
 		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return xmldoc
@@ -253,7 +253,7 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	# ID index is extract with the __int__() method.
 	#
 
-	for row in sngl_inspiral:
+	for row in sngl_inspiral_table:
 		row.event_id = int(row.event_id)
 
 	#
@@ -263,9 +263,9 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 	#
 
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
-	event_id = sngl_inspiral.getColumnByName("event_id")
+	event_id = sngl_inspiral_table.getColumnByName("event_id")
 	event_id.setAttribute("Type", "int_8s")
-	sngl_inspiral._update_column_info()
+	sngl_inspiral_table._update_column_info()
 
 	#
 	# done
@@ -375,9 +375,8 @@ def depopulate_time_slide_table(xmldoc):
 	# remove rows corresponding to redundant IDs
 	#
 
-	ids_to_remove = set(mapping.keys())
 	for i in xrange(len(time_slide_table) - 1, -1, -1):
-		if time_slide_table[i].time_slide_id in ids_to_remove:
+		if time_slide_table[i].time_slide_id in mapping:
 			del time_slide_table[i]
 
 	#
@@ -423,7 +422,7 @@ def populate_coinc_event_sngls(xmldoc, process):
 	#
 
 	try:
-		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
 		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
@@ -471,13 +470,13 @@ def populate_coinc_event_sngls(xmldoc, process):
 	# iterate over reconstructed coincs
 	#
 
-	for event_id, events in itertools.groupby(sngl_inspiral, lambda row: row.event_id):
+	for event_id, events in itertools.groupby(sngl_inspiral_table, lambda row: row.event_id):
 		events = tuple(events)
 		if len(events) < 2:
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
-				event.event_id = sngl_inspiral.get_next_id()
+				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
 
 		#
@@ -488,7 +487,7 @@ def populate_coinc_event_sngls(xmldoc, process):
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = coinc_event.get_next_id()
-		# time_slide_id is at index 1 in the tuple returned by
+		# "slide number" is at index 1 in the tuple returned by
 		# get_id_parts()
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
@@ -501,7 +500,7 @@ def populate_coinc_event_sngls(xmldoc, process):
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = sngl_inspiral.get_next_id()
+			event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
@@ -520,7 +519,7 @@ def populate_coinc_event_sims(xmldoc, process):
 	#
 
 	try:
-		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
 		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
@@ -570,7 +569,7 @@ def populate_coinc_event_sims(xmldoc, process):
 	# iterate over reconstructed coincs
 	#
 
-	for (event_id, events), sim in itertools.izip(itertools.groupby(sngl_inspiral, lambda row: row.event_id), sim_inspiral):
+	for (event_id, events), sim in itertools.izip(itertools.groupby(sngl_inspiral_table, lambda row: row.event_id), sim_inspiral):
 		events = tuple(events)
 
 		#
@@ -581,7 +580,7 @@ def populate_coinc_event_sims(xmldoc, process):
 		coinc.process_id = process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = coinc_event.get_next_id()
-		# time_slide_id is at index 1 in the tuple returned by
+		# "slide number" is at index 1 in the tuple returned by
 		# get_id_parts()
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
@@ -600,7 +599,7 @@ def populate_coinc_event_sims(xmldoc, process):
 
 		for event in events:
 			# assign a new, unique, event_id
-			event.event_id = sngl_inspiral.get_next_id()
+			event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
