@@ -215,23 +215,24 @@ def SlidesIter(slides):
 		yield dict(zip(instruments, slide))
 
 
-def Inspiral_Num_Slides_Iter(slidespec):
+def Inspiral_Num_Slides_Iter(count, offsets):
 	"""
-	Accepts a string in the format understood by
-	parse_inspiral_slidespec(), and generates a sequence of time slide
-	dictionaries mapping instrument to offset.
+	This generator yields a sequence of time slide dictionaries in the
+	style of the inspiral pipeline's time slides.  Each resulting
+	dictionary maps instrument to offset.  The input is a count of time
+	slides (and integer), and a dictionary mapping instrument to
+	offset.  The output dictionaries describe time slides that are
+	integer multiples of the input time shifts.
 
 	Example:
 
-	>>> list(Inspiral_Num_Slides_Iter("3:H1=0,H2=5,L1=10"))
+	>>> list(Inspiral_Num_Slides_Iter(3, {"H1": 0.0, "H2": 5.0,"L1": 10.0}))
 	[{'H2': -15.0, 'H1': -0.0, 'L1': -30.0}, {'H2': -10.0, 'H1': -0.0, 'L1': -20.0}, {'H2': -5.0, 'H1': -0.0, 'L1': -10.0}, {'H2': 5.0, 'H1': 0.0, 'L1': 10.0}, {'H2': 10.0, 'H1': 0.0, 'L1': 20.0}, {'H2': 15.0, 'H1': 0.0, 'L1': 30.0}]
 
-	The instrument/offset pairs in the input string form a vector of
-	offsets, and the output time slides are all integer multiples of
-	that vector with multiples in the range [-count, +count] excluding
-	0.
+	The output time slides are all integer multiples of the input time
+	shift vector in the range [-count, +count] excluding 0, and are
+	returned in increasing order of mupltiplier.
 	"""
-	count, offsets = parse_inspiral_num_slides_slidespec(slidespec)
 	offsets = offsets.items()
 	for n in range(-count, +count + 1):
 		if n == 0:
