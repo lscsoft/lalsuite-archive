@@ -310,8 +310,8 @@ def append_process_params(doc, process, params):
 def get_process_params(xmldoc, program, param):
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
 	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named %s" % program
-	return [ligolwtypes.ToPyType[row.type](row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+		raise ValueError, "process table must contain exactly one program named '%s'" % program
+	return [((row.value is not None) or None) and ligolwtypes.ToPyType[row.type or "lstring"](row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
 def dbget_process_params(connection, program, param):
@@ -325,9 +325,9 @@ WHERE
 	AND param == ?
 	""", (program, param)):
 		process_ids.add(process_id)
-		values.append(ligolwtypes.ToPyType[valuetype](value))
+		values.append(((value is not None) or None) and ligolwtypes.ToPyType[valuetype or "lstring"](value))
 	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named %s with params %s" % (program, param)
+		raise ValueError, "process table must contain exactly one program named '%s' with param(s) '%s'" % (program, param)
 	return values
 
 
