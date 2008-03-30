@@ -295,8 +295,14 @@ def append_process_params(doc, process, params):
 		row.program = process.program
 		row.process_id = process.process_id
 		row.param = unicode(name)
-		row.type = unicode(type)
-		row.value = unicode(value)
+		if type is not None:
+			row.type = unicode(type)
+		else:
+			row.type = None
+		if value is not None:
+			row.value = unicode(value)
+		else:
+			row.value = None
 		paramtable.append(row)
 	return process
 
