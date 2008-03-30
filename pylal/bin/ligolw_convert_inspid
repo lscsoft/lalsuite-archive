@@ -43,6 +43,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import llwapp
 from pylal import date
+from pylal import ligolw_tisi
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -105,28 +106,12 @@ def parse_command_line():
 
 
 #
-# a row in the process table for this job
-#
-
-
-process = None
-
-
-#
 # create and initialize this job's row in the process table
 #
 
 
-def initialize_process(xmldoc, comment = ""):
-	global process
-
-	if process is not None:
-		# already initialized
-		raise Exception, "oops, program tried to reinitialize process information"
-
-	process = llwapp.append_process(xmldoc, program = "ligolw_convert_inspid", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
-
-	return xmldoc
+def initialize_process(xmldoc, comment = u""):
+	return llwapp.append_process(xmldoc, program = u"ligolw_convert_inspid", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 
 #
@@ -137,9 +122,9 @@ def initialize_process(xmldoc, comment = ""):
 def set_process_params(xmldoc, process, options):
 	params = []
 	if options.int_to_ilwd:
-		params.append(("--int-to-ilwd", "lstring", ""))
+		params.append(("--int-to-ilwd", None, None))
 	else:
-		params.append(("--ilwd-to-int", "lstring", ""))
+		params.append(("--ilwd-to-int", None, None))
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return xmldoc
@@ -191,7 +176,11 @@ def populate_id_column(xmldoc, table_name, column_name):
 	#
 
 	# find table
-	tbl = table.get_table(xmldoc, table_name)
+	try:
+		tbl = table.get_table(xmldoc, table_name)
+	except ValueError:
+		# doesn't have one
+		return
 	try:
 		# add id column
 		tbl.appendColumn(column_name)
@@ -294,13 +283,13 @@ def sngl_inspiral_ilwd_to_int(xmldoc):
 #
 
 
-def populate_time_slide(xmldoc):
+def populate_thinca_time_slide_table(xmldoc, process):
+	"""
+	Reconstruct the list of time slides from lalapps_thinca's command
+	line arguments.
+	"""
 	#
-	# FIXME: this is place-holder code.
-	#
-
-	#
-	# find the time_slide table
+	# find the time_slide table or add one if needed
 	#
 
 	try:
@@ -308,8 +297,95 @@ def populate_time_slide(xmldoc):
 	except ValueError:
 		time_slide_table = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(time_slide_table)
+	time_slide_table.sync_next_id()
 
-	return xmldoc
+	#
+	# move existing time_slide IDs out of the way
+	#
+
+	if time_slide_table.next_id < type(time_slide_table.next_id)(10000):
+		time_slide_table.next_id = type(time_slide_table.next_id)(10000)
+	mapping = {}
+	time_slide_table.updateKeyMapping(mapping)
+	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
+		tbl.applyKeyMapping(mapping)
+
+	#
+	# identify lalapps_thinca's time slides
+	#
+
+	num_slides, = llwapp.get_process_params(xmldoc, "thinca", "--num-slides")
+	offset_vector = {}
+	# FIXME:  hard-coded instrument list = BAD BAD BAD.
+	for instrument in ("G1", "H1", "H2", "L1", "V2"):
+		try:
+			offset, = llwapp.get_process_params(xmldoc, "thinca", "--%s-slide" % instrument.lower())
+		except ValueError:
+			# no offset for this instrument
+			continue
+		offset_vector[instrument] = offset
+
+	#
+	# build the time slides
+	#
+
+	def ids(num_slides):
+		# implements the inspiral group's rule for mapping integer
+		# offset multiplier to "slide number"
+		for n in range(-num_slides, +num_slides + 1):
+			if n < 0:
+				yield type(time_slide_table.next_id)(5000 - n)
+			elif n == 0:
+				continue
+			else:
+				# n > 0
+				yield type(time_slide_table.next_id)(n)
+
+	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(num_slides)):
+		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
+			time_slide_table.append(row)
+
+
+def populate_coire_time_slide_table(xmldoc, process):
+	#
+	# FIXME:  figure out what time slides coire needs
+	#
+	pass
+
+
+def depopulate_time_slide_table(xmldoc):
+	"""
+	Search for and remove duplicate time slide definitions from the
+	time_slide table.
+	"""
+	#
+	# find the time_slide table
+	#
+
+	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+	#
+	# translate time_slide table into a dictionary, and identify
+	# redundant IDs
+	#
+
+	mapping = ligolw_tisi.time_slides_vacuum(time_slide_table.as_dict())
+
+	#
+	# remove rows corresponding to redundant IDs
+	#
+
+	ids_to_remove = set(mapping.keys())
+	for i in xrange(len(time_slide_table) - 1, -1, -1):
+		if time_slide_table[i].time_slide_id in ids_to_remove:
+			del time_slide_table[i]
+
+	#
+	# reassign time_slide IDs in the rest of the document
+	#
+
+	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
+		tbl.applyKeyMapping(mapping)
 
 
 #
@@ -341,7 +417,7 @@ InspiralCoincTypes = {
 #
 
 
-def populate_coinc_event_sngls(xmldoc):
+def populate_coinc_event_sngls(xmldoc, process):
 	#
 	# find the sngl_inspiral table
 	#
@@ -416,7 +492,7 @@ def populate_coinc_event_sngls(xmldoc):
 		# get_id_parts()
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
-		coinc.likelihood = float("nan")
+		coinc.likelihood = None
 		coinc_event.append(coinc)
 
 		#
@@ -438,7 +514,7 @@ def populate_coinc_event_sngls(xmldoc):
 #
 
 
-def populate_coinc_event_sims(xmldoc):
+def populate_coinc_event_sims(xmldoc, process):
 	#
 	# find the sngl_inspiral and sim_inspiral tables
 	#
@@ -509,7 +585,7 @@ def populate_coinc_event_sims(xmldoc):
 		# get_id_parts()
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
-		coinc.likelihood = float("nan")
+		coinc.likelihood = None
 		coinc_event.append(coinc)
 
 		#
@@ -547,30 +623,33 @@ def depopulate_sngl_inspiral(xmldoc):
 	#
 
 	try:
-		sngl_inspiral = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
 		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
 		return
 
 	#
-	# delete duplicates, recording replacement event_ids
+	# delete duplicates, recording replacement event_ids.  this relies
+	# on the SnglInspiral class' __cmp__() method to define when two
+	# triggers are the same
 	#
 
-	trigger_id_dict = {}
-	id_mapping = {}
-	for i in xrange(len(sngl_inspiral) - 1, -1, -1):
-		trigger = sngl_inspiral[i]
-		if trigger in trigger_id_dict:
-			id_mapping[trigger.event_id] = trigger_id_dict[trigger]
-			del sngl_inspiral[i]
+	trigger_to_id_index = {}
+	mapping = {}
+	for i in xrange(len(sngl_inspiral_table) - 1, -1, -1):
+		trigger = sngl_inspiral_table[i]
+		if trigger in trigger_to_id_index:
+			mapping[trigger.event_id] = trigger_to_id_index[trigger]
+			del sngl_inspiral_table[i]
 		else:
-			trigger_id_dict[trigger] = trigger.event_id
+			trigger_to_id_index[trigger] = trigger.event_id
 
 	#
-	# update coinc_event_map table
+	# update IDs in other tables
 	#
 
-	table.get_table(xmldoc, lsctables.CoincMapTable.tableName).applyKeyMapping(id_mapping)
+	for tbl in xmldoc.getElementsByTagName(sngl_inspiral_table.tagName):
+		tbl.applyKeyMapping(mapping)
 
 
 #
@@ -593,35 +672,83 @@ for filename in filenames:
 	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
 
 	#
+	# has the document been thinca'ed?
+	#
+
+	is_thinca_output = llwapp.doc_includes_process(xmldoc, "thinca")
+
+	#
 	# is the document a "found injections" list?
 	#
 
-	injections = llwapp.doc_includes_process(xmldoc, "coire") \
-	    and len(llwapp.get_process_params(xmldoc, "coire", "--injection-file"))
+	is_found_injections = llwapp.doc_includes_process(xmldoc, "coire") and llwapp.get_process_params(xmldoc, "coire", "--injection-file")
+
+	#
+	# create entry in process table
+	#
+
+	process = initialize_process(xmldoc)
+	set_process_params(xmldoc, process, options)
 
 	#
 	# do conversion
 	#
 
 	if options.int_to_ilwd:
-		initialize_process(xmldoc)
-		set_process_params(xmldoc, process, options)
-		populate_time_slide(xmldoc)
+		#
+		# construct time slide entries
+		#
+
+		if is_thinca_output:
+			if options.verbose:
+				print >>sys.stderr, "populating thinca time_slide table ..."
+			populate_thinca_time_slide_table(xmldoc, process)
+			# FIXME:  must unslide the triggers
+		if is_found_injections:
+			if options.verbose:
+				print >>sys.stderr, "populating coire time_slide table ..."
+			populate_coire_time_slide_table(xmldoc, process)
+
+		#
+		# construct coincs
+		#
+
 		if options.verbose:
 			print >>sys.stderr, "constructing coincs ..."
-		if injections:
-			populate_coinc_event_sims(xmldoc)
-		else:
-			populate_coinc_event_sngls(xmldoc)
+		if is_thinca_output:
+			populate_coinc_event_sngls(xmldoc, process)
+		elif is_found_injections:
+			populate_coinc_event_sims(xmldoc, process)
+
+		#
+		# convert event_ids
+		#
+
+		if options.verbose:
+			print >>sys.stderr, "translating sngl_inspiral event_ids ..."
+		sngl_inspiral_int_to_ilwd(xmldoc)
+
+		#
+		# remove duplicate sngl_inspirals and time_slides
+		#
+
 		if options.verbose:
 			print >>sys.stderr, "depopulating sngl_inspirals ..."
-		sngl_inspiral_int_to_ilwd(xmldoc)
 		depopulate_sngl_inspiral(xmldoc)
-		llwapp.set_process_end_time(process)
+		if is_found_injections or is_thinca_output:
+			if options.verbose:
+				print >>sys.stderr, "depopulating time_slides ..."
+			depopulate_time_slide_table(xmldoc)
 	else:
 		# FIXME: this doesn't reconstruct inspiral-style coinc
 		# files
 		sngl_inspiral_ilwd_to_int(xmldoc)
+
+	#
+	# finish process metadata
+	#
+
+	llwapp.set_process_end_time(process)
 
 	#
 	# write file
