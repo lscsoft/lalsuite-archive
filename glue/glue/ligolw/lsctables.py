@@ -234,7 +234,7 @@ class ProcessParamsTable(table.Table):
 	#constraints = "PRIMARY KEY (process_id, param)"
 
 	def append(self, row):
-		if row.type not in types.Types:
+		if row.type is not None and row.type not in types.Types:
 			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 
