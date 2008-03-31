@@ -176,6 +176,15 @@ def parse_command_line():
       help="plot the snr vs time of coinc triggers" )
   parser.add_option("-b","--snr-snr",action="store_true",default=False,\
       help="make snr vs snr plots of coinc triggers" )
+  parser.add_option("","--snr-cube",action="store_true",default=False,\
+      help="make snr vs snr vs snr plots of coinc triggers, if possible" )
+  parser.add_option("","--parcoord-var",action="store",type="string",default=None,\
+      metavar="VAR_LIST",help="make parallel coordinates plot of variables described by the "\
+           "VAR_LIST string. This string is of the form \"xxx yyy zzz\" "\
+	   "where xxx, yyy, zzz are variables declared in the sngl_inspiral tables. "\
+	   "There will be as many single variables (for example snr) as there are "\
+	   "selected interferometers and the interferometer name will be appended "\
+	   "to the variable name in the par. coord. plot.")
   parser.add_option("-S","--statistic",action="store",default='snr',\
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
@@ -1357,6 +1366,129 @@ if opts.hist_inverse_expectation:
   # close the figure to free memory
   if not opts.show_plot:
     hie_plot.close()
+
+####################################################################
+# parallel coordinates plot. Output is a ROOT script
+# and tree files
+if opts.parcoord_var or opts.snr_cube:
+  from ROOT import gROOT,gSystem,gStyle,TCanvas,TFile
+  from ROOT import TH3F, TNtupleD
+  from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+  from ROOT import TLegend
+  from ROOT import kRed,kGreen,kBlue,kCyan,kYellow,kViolet,kOrange,kMagenta
+  import numpy
+
+  gROOT.SetBatch(1)
+  gStyle.SetPalette(1)
+  #  Rcolors = {'G1':kYellow,'H1':kRed,'H2':kBlue,'L1':kGreen,'V1':kViolet}
+  Rcolors = [kGreen+3,kRed+1,kCyan+3,kCyan-3,kBlue+1,kOrange,kMagenta-4,kBlue-7,kMagenta+1,kRed-7,kYellow+2]
+
+  if opts.snr_cube:
+    if len(ifo_list) == 3 and len(ifo_non_h) == 1 and len(coincTriggers) > 0:
+      can = TCanvas('canSnr3D','snr3D',1024,700)
+      cangl = TCanvas('canSnr3Dgl','snr3Dgl',1024,700)
+      ifo_coinc = coincTriggers.coinctype(ifo_list)
+      snrifo1 = viz.readcol(ifo_coinc.getsngls(ifo_list[0]),'snr',ifo_list[0])
+      snrifo2 = viz.readcol(ifo_coinc.getsngls(ifo_list[1]),'snr',ifo_list[1])
+      snrifo3 = viz.readcol(ifo_coinc.getsngls(ifo_list[2]),'snr',ifo_list[2])
+      snr1range = abs(max(snrifo1)-min(snrifo1))
+      snr1max = max(snrifo1)+snr1range/20
+      snr1min = min(snrifo1)-snr1range/20
+      snr2range = abs(max(snrifo2)-min(snrifo2))
+      snr2max = max(snrifo2)+snr2range/20
+      snr2min = min(snrifo2)-snr2range/20
+      snr3range = abs(max(snrifo3)-min(snrifo3))
+      snr3max = max(snrifo3)+snr3range/20
+      snr3min = min(snrifo3)-snr3range/20
+      hist=TH3F('snr3D','snr('+ifo_list[0]+') vs snr('+ifo_list[1]+') vs snr('+ifo_list[2]+')', \
+		30,snr1min,snr1max,30,snr2min,snr2max,30,snr3min,snr3max)
+      for isnr in range(len(snrifo1)):
+	hist.Fill(snrifo1[isnr],snrifo2[isnr],snrifo3[isnr])
+
+      hist.SetMarkerStyle(20)
+      hist.SetMarkerColor(kBlue)
+
+      hist.Draw('glbox');
+      cangl.SaveAs('snr3Dgl.png')
+      cangl.SaveAs('snr3Dgl.root')
+
+      hist.Draw()
+      can.SaveAs('snr3D.png')
+      can.SaveAs('snr3D.root')
+
+
+      f = TFile('snr3Dhist.root',"RECREATE")
+      hist.Write()
+      f.Close()
+      
+  #############################################
+  # parallel coordinates
+  
+  if opts.parcoord_var:
+    pc_var_list = opts.parcoord_var.split(' ')
+    
+    if len(coincTriggers) > 0 and len(ifo_list)>0 and len(pc_var_list)>0:
+      pc_plot_title = ''
+      for ipcvar in range(len(pc_var_list)):
+        pc_plot_title = pc_plot_title + pc_var_list[ipcvar]+'/'
+      pc_plot_title = pc_plot_title + ' '
+      for ipcifo in range(len(ifo_list)):
+        pc_plot_title = pc_plot_title + ifo_list[ipcifo]
+      canParC = TCanvas('canParCoord',pc_plot_title,1024,700)
+      ifo_coinc = coincTriggers.coinctype(ifo_list)
+      
+      # build the list of data (list of arrays) of the variables
+      pc_name=[]
+      pc_table=[]
+      nt_var=''
+      for ipcvar0 in range(len(pc_var_list)):
+        for ipcifo in range(len(ifo_list)):
+          pc_name.append(pc_var_list[ipcvar0]+'_'+ifo_list[ipcifo])
+	  varifo = viz.readcol(ifo_coinc.getsngls(ifo_list[ipcifo]),pc_var_list[ipcvar0],ifo_list[ipcifo])
+	  pc_table.append(varifo)
+	  
+      # build the list of names for the ntuple definition in ROOT
+      for ipcvar in range(len(pc_name)-1):
+        nt_var = nt_var+pc_name[ipcvar]+':'
+      nt_var = nt_var+pc_name[len(pc_name)-1]
+      
+      # build the ntuple and draw it
+      ntup = TNtupleD('parcoord',pc_plot_title,nt_var)
+      nt_fill_array = numpy.ndarray([len(pc_name)])
+      for ipc in range(len(pc_table[0])):
+	for ipcvar in range(len(pc_name)):
+	  var_array = pc_table[ipcvar]
+	  nt_fill_array[ipcvar] = var_array[ipc]
+        ntup.Fill(nt_fill_array)
+      
+      ntup.Draw(nt_var,'','para')
+      
+      # build a set of standard selections, one for each variable
+      para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
+      for ipcvar in range(len(pc_name)):
+        varaxis = para.GetVarList().FindObject(pc_name[ipcvar])
+        para.AddSelection('select_'+pc_name[ipcvar])
+	# 11 colors in the Rcolors array, set the color modulo 11
+        para.GetCurrentSelection().SetLineColor(Rcolors[ipcvar%11])
+	# Calculate and set the range
+	varaxismin = min(pc_table[ipcvar])
+	varaxismax = max(pc_table[ipcvar])
+	varaxislength = varaxismax-varaxismin
+        varaxis.AddRange(\
+	   TParallelCoordRange(varaxis,\
+	   varaxismax-varaxislength/(2*len(pc_name))*(ipcvar+0.5),\
+	   varaxismax-varaxislength/(2*len(pc_name))*(ipcvar+0.75)))
+      
+      # Save the parallel coordinates plot and accompanying files
+      # in the ParCoord directory
+      if (not os.path.exists('ParCoord')):
+        os.mkdir('ParCoord')
+	
+      if (not os.path.isdir('ParCoord')):
+        print('ParCoord is not a directory, cannot save parallel coordinates plot')
+      else:
+        gSystem.ChangeDirectory('ParCoord')
+        canParC.SaveAs('ParCoord.C')
 
 # ============================================================================
 # final step: html, cache file generation
