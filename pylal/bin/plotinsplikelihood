@@ -19,6 +19,14 @@ import glue.iterutils
 import numpy
 numpy.seterr("raise")
 
+
+from ROOT import gROOT,gStyle,TCanvas,TFile
+from ROOT import TH3F, TNtuple
+from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+from ROOT import TLegend
+from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
+
+
 #######################################################################################
 # Definitions of some of the classes and functions that are used in the main program.
 #######################################################################################
@@ -835,9 +843,66 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, prefi
   savefig(prefix+'_inj_vs_slides_hist')
   figure()
 
+def parallel_axis_plot_double(coincTriggers, coincType, data_type):
+  """ 
+  Generates files to be used under ROOT to make multi-dimensional plots with
+  parallel axis
+  """
+  gROOT.SetBatch(1)
+  #gStyle.SetPalette(1)
+  #Rcolors = {'G1':kYellow,'H1':kRed,'H2':kBlue,'L1':kGreen,'V1':kViolet}
+
+  coincs = coincTriggers.coinctype(coincType)
+  coinc_name = ''
+  for ifo in coincType:
+	coinc_name += ifo
+  canParC = TCanvas(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, R_eff, phi_eff, M_chrip, e-thinca', 1024, 700)
+  ntup = TNtuple(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, R_eff, phi_eff, M_chrip, e-thinca',\
+				'snr_eff1:snr_eff2:R_eff:phi_eff:Mchirp1:Mchirp2:ethinca')
+  for coinc in coincs:
+	trigger1 = getattr(coinc, coincType[0])
+	trigger2 = getattr(coinc, coincType[1])
+	R_eff = (trigger1.eff_distance**2.0 +  trigger2.eff_distance**2.0)**(0.5)
+        phi_eff = numpy.arctan(trigger2.eff_distance/trigger1.eff_distance) 
+	ntup.Fill(trigger1.get_effective_snr(), trigger2.get_effective_snr(), R_eff, phi_eff,\
+                  trigger1.mchirp, trigger2.mchirp, CoincInspiralUtils.simpleEThinca(trigger1, trigger2))
+			  
+  ntup.Draw('snr_eff1:snr_eff2:R_eff:phi_eff:Mchirp1:Mchirp2:ethinca', '', 'para')
+  #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
+  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
+  canParC.Close()
+  #para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
+  #snr1axis = para.GetVarList().FindObject('snr1')
+  #snr2axis = para.GetVarList().FindObject('snr2')
+
+  
+
+def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
+  """
+  Generates files to be used under ROOT to make multi-dimensional plots with
+  parallel axis
+  """
+
+  coincs = coincTriggers.coinctype(coincType)
+
+  coinc_name = ''
+  for ifo in coincType:
+        coinc_name += ifo
+  canParC = TCanvas(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca', 1024, 700)
+  ntup = TNtuple(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
+                 'snr1:snr2:snr4:chisq1:chisq2:chisq3:eff_dist1:eff_dist2:eff_dist3:Mchirp1:Mchirp2:Mchirp3:ethinca12:ethinca13:ethinca23')
+  for coinc in coincs:
+        trigger1 = getattr(coinc, coincType[0])
+        trigger2 = getattr(coinc, coincType[1])
+        trigger3 = getattr(coinc, coincType[2])
+        ntup.Fill(trigger1.snr, trigger2.snr, trigger3.snr, trigger1.chisq, trigger2.chisq, trigger3.chisq, trigger1.eff_distance, trigger2.eff_distance, trigger3.eff_distance,\
+                          trigger1.mchirp, trigger2.mchirp, trigger3.mchirp, CoincInspiralUtils.simpleEThinca(trigger1, trigger2), CoincInspiralUtils.simpleEThinca(trigger1, trigger3), CoincInspiralUtils.simpleEThinca(trigger2, trigger3))
+  ntup.Draw('snr1:snr2:snr4:chisq1:chisq2:chisq3:eff_dist1:eff_dist2:eff_dist3:Mchirp1:Mchirp2:Mchirp3:ethinca12:ethinca13:ethinca23', '', 'para')
+  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
+  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
+  canParC.Close()
 
 
-   
 
 ################################################################################
 # Main program
@@ -997,7 +1062,9 @@ parser.add_option("","--plot-snr-vs-mchirp",action="store_true",\
 parser.add_option("","--add-zerolag",action="store_true",\
     default=False, help ="add zerolag triggers to scatter plots")
 
-
+parser.add_option("","--parallel-axis-plots",action="store_true",\
+    default=False, help ="Generates input files for ROOT package that makes plots with parallel axis")
+	
 # plots that use data from Inspiral Likelihood Table only
 parser.add_option("","--falsealarm-vs-detectprob-zerolag",action="store_true",\
     default=False, help ="Shows the scatter plot Detection probability vs. False alarm probability of zero lag candidates only ")
@@ -1222,7 +1289,21 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
 	scatter_plot_param1_vs_param2(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, 'mchirp', 'snr', ylogscale=True)
 	if opts.add_zerolag:
 	  scatter_plot_param1_vs_param2_with_zerolag(ifo_combos, slidesCoincTriggers, injectionCoincTriggers, zerolagCoincTriggers, 'mchirp', 'snr', ylogscale=True)
-	
+
+
+if opts.parallel_axis_plots:
+  #parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
+  parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H1','L1'], data_type='injections')
+
+  #if opts.parallel_axis_plots:
+	#for ifolist in ifo_combos:
+	  #if len(ifolist) == 2:
+		#parallel_axis_plot_double(injectionCoincTriggers, coincType = ifolist, data_type='injections')
+		#parallel_axis_plot_double(slidesCoincTriggers, coincType = ifolist, data_type = 'time_slides')
+	  #if len(ifolist) == 3:
+                #parallel_axis_plot_triple(injectionCoincTriggers, coincType = ifolist, data_type='injections')
+                #parallel_axis_plot_triple(slidesCoincTriggers, coincType = ifolist, data_type = 'time_slides')
+ 
 	
 ############ ########### ############# ############# ############### ###########	
 # plots that make use of inspiral likelihood tables only
