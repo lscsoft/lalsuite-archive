@@ -111,8 +111,11 @@ def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
 		axes.set_ylim((ymin, ymax))
 	axes.set_xlim((0, len(black.array) - 1))
 
-	xticks = (float("-inf"), -0.04, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.04, float("inf"))
-	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % x for x in xticks[1:-1]] + [r"$\infty$"]
+	if black.bins[0].scale > 150:
+		xticks = (float("-inf"), -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, float("inf"))
+	else:
+		xticks = (float("-inf"), -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, float("inf"))
+	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % (1000 * x) for x in xticks[1:-1]] + [r"$\infty$"]
 	axes.set_xticks([black.bins[x,][0] for x in xticks])
 	axes.set_xticklabels(xticklabels)
 
@@ -190,7 +193,7 @@ def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
 		dband_axes.semilogy()
 		ddur_axes.semilogy()
 
-		dt_axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (s)" % pair)
+		dt_axes.set_xlabel(r"$t_{\mathrm{%s}} - t_{\mathrm{%s}}$ (ms)" % pair)
 		df_axes.set_xlabel(r"$(f_{\mathrm{%s}} - f_{\mathrm{%s}}) / \left< f \right>$" % pair)
 		dh_axes.set_xlabel(r"$({h_{\mathrm{rss}}}_{\mathrm{%s}} - {h_{\mathrm{rss}}}_{\mathrm{%s}}) / \left< h_{\mathrm{rss}} \right>$" % pair)
 		dband_axes.set_xlabel(r"$(\Delta f_{\mathrm{%s}} - \Delta f_{\mathrm{%s}}) / \left< \Delta f \right>$" % pair)
