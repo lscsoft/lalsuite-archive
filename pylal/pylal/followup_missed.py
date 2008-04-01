@@ -72,6 +72,7 @@ class FollowupMissed:
     self.verbose     = opts.verbose
     self.exttrig     = opts.followup_exttrig
     self.output_path = opts.output_path
+    self.tag         = None
 
     # default value for the injection time-window
     self.injectionWindow = 0.050
@@ -325,7 +326,10 @@ class FollowupMissed:
     ylabel('SNR')
     title(stage+'_'+str(self.number))    
     filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
+               self.opts.suffix
+    if self.tag:
+      filename+='_'+self.tag
+    filename+='.png'
     savefig(filename)
 
     close(fig)
@@ -402,7 +406,10 @@ class FollowupMissed:
     ylabel('SNR')
     title(stage+'_'+str(self.number))
     filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
+               self.opts.suffix
+    if self.tag:
+      filename+='_'+self.tag
+    filename+='.png'
     savefig(filename)
     close(fig)
 
@@ -434,7 +441,8 @@ class FollowupMissed:
       snglInspiral = snglTriggers.ifocut(ifo)
 
       # plot the templatebank
-      plot( snglInspiral.get_column('mass1'), snglInspiral.get_column('mass2'), self.colors[ifo]+'x', \
+      plot( snglInspiral.get_column('mass1'), snglInspiral.get_column('mass2'),\
+            self.colors[ifo]+'x', \
             label=ifo)
 
     # plot the missed trigger and save the plot
@@ -446,18 +454,18 @@ class FollowupMissed:
     xlabel('mass1')
     ylabel('mass2')
     title(stage+'_'+str(self.number))    
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
+    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+\
+               "_"+str(self.number) +self.opts.suffix
+    if self.tag:
+      filename+='_'+self.tag
+    filename+='.png'
     savefig(filename)
-
-    #axis([ max(xm-5,0), xm+5.0, max(ym-5.0, 0.0), ym+5])
-    #savefig(self.output_path+'/Images/plot'+stage.upper()+'-zoom_'+str(number)+'.png')
 
     close(fig)
 
 
   # -----------------------------------------------------
-  def followup(self, inj, ifo ):
+  def followup(self, inj, ifo, tag = None ):
     """
     Do the followup procedure for the missed injection 'inj'
     and create the several time-series for INSPIRAL, THINCA and
@@ -466,7 +474,7 @@ class FollowupMissed:
     @param inj: sim_inspiral table of the missed injection
     @param ifo : The current IFO
     """
-    
+
     def fillTable(page, contents ):
       """
       Making life easier...
@@ -478,6 +486,8 @@ class FollowupMissed:
         page.add( str(content) )
         page.add('</td>')
       page.add('</tr>')
+
+    self.tag = tag
 
    
     # get the injections that were missed
@@ -537,17 +547,20 @@ class FollowupMissed:
 
       # now create the several plots
       if 'INSPIRAL' in stage:
-        found = self.investigateInspiral( trigCache.pfnlist(), inj, ifo, stage, self.number )
+        found = self.investigateInspiral( trigCache.pfnlist(), inj, ifo, \
+                                          stage, self.number )
         foundDict[stage]=found
 
       elif 'THINCA' in stage:
         
-        found = self.investigateThinca( trigCache.pfnlist(), inj,  ifo, stage, self.number )
+        found = self.investigateThinca( trigCache.pfnlist(), inj,  ifo, \
+                                        stage, self.number )
         foundDict[stage]=found
         
       elif 'TRIGBANK' in stage:
         
-        self.investigateTrigbank( trigCache.pfnlist(), inj, ifo, stage, self.number )
+        self.investigateTrigbank( trigCache.pfnlist(), inj, ifo, stage, \
+                                  self.number )
         
       else:
         print >>sys.stderr, "Error: Unknown pipeline stage ", stage
@@ -575,13 +588,19 @@ class FollowupMissed:
     for stage in ['INSPIRAL_FIRST','THINCA_FIRST','INSPIRAL_SECOND',\
                      'THINCA_SECOND','TRIGBANK']:
       fname = "Images/"+ifo + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
+               self.opts.suffix
+      if tag:
+        fname+='_'+tag
+      fname+='.png'
       page.a(extra.img(src=[fname], width=400, \
                        alt=fname, border="2"), title=fname, href=[ fname])
       
     # and write the html file
     htmlfilename = self.opts.prefix + "_"+ifo+"_followup_"+str(self.number) +\
-                         self.opts.suffix+'.html'
+                         self.opts.suffix
+    if tag:
+      htmlfilename+='_'+tag
+    htmlfilename+='.html'
     file = open(self.opts.output_path+htmlfilename,'w')      
     file.write(page(False))
     file.close()
