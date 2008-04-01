@@ -1,0 +1,346 @@
+#!/usr/bin/python
+
+# $Id$
+
+__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__name__="plotifar"
+__Id__ = "$Id$"
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+import glue.iterutils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import InspiralUtils
+from numpy import histogram
+
+import itertools
+import numpy
+
+from glue.ligolw import ligolw, table as tab, lsctables, utils
+
+from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+
+
+##############################################################################
+usage = """
+"""
+
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+  # options related to input and output
+  parser.add_option("-g","--glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+  parser.add_option("-I", "--cache-file", help="read thinca filenames from cache input file")  
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
+  parser.add_option("","--ifo-tag",action="store",type="string",\
+      default=None, metavar=" IFOTAG",\
+      help="The ifo tag used in the name of the figures (e.g. SECOND_H1H2L1)")      
+  parser.add_option("","--gps-start-time",action="store", type="int", metavar="GPSSTARTTIME",\
+      help="gps start time used in the figure and output file names")
+  parser.add_option("","--gps-end-time",action="store", type= "int", metavar="GPSENDTIME",\
+      help="gps end time used in the figure and output file names")
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("","--ifo-times",action="store",type="string",\
+      default=None,metavar="IFOS",\
+      help="sets ifo times for which plots will be made (e.g. H1H2L1)" )
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False,help="print information" )
+  parser.add_option("-A","--g1-triggers",action="store_true",default=False,\
+      help="input files contain triggers from G1" )
+  parser.add_option("-B","--h1-triggers",action="store_true",default=False,\
+      help="input files contain triggers from H1" )
+  parser.add_option("-C","--h2-triggers",action="store_true",default=False,\
+      help="input files contain triggers from H2" )
+  parser.add_option("-D","--l1-triggers",action="store_true",default=False,\
+      help="input files contain triggers from L1" )
+  parser.add_option("-U","--v1-triggers",action="store_true",default=False,\
+      help="input files contain triggers from V1" )
+
+
+  # options used in sieving the cache file, in case it is given    
+  parser.add_option("","--coinc-pattern",
+      default="", metavar="COINCPATTERN",
+      help="pattern for zerolag files the cache "\
+           "input file  will be sieved with" )
+  parser.add_option("","--match",action="store",type="string",\
+      default=None,metavar="MATCH",\
+      help="To sieve exactly according to a pattern, if its set True" )
+
+  #options that set parameters specific to the plots 
+
+  parser.add_option("","--num-categories",action="store",type= "int",
+      default=1,metavar="NUM",help="number of categories plotted together")
+  parser.add_option("","--combine-types",action="store_true",default=False,
+      help="combine the different types together" )
+
+  parser.add_option("","--min-ifar",action="store",type= "float",
+      default=None,metavar="IFAR",help="the minimum IFAR to plot")
+
+  parser.add_option("-a","--snr-ifar",action="store_true",default=False,\
+      help="plot the snr vs ifar of coinc triggers" )
+  parser.add_option("-b","--ifar-dist",action="store_true",default=False,\
+      help="make snr vs snr plots of coinc triggers" )
+  parser.add_option("-S","--statistic",action="store",\
+      default='effective_snr',type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
+            "snr, effective_snr (DEFAULT)") 
+  parser.add_option("-Z","--zero-lag-playground",action="store_true",\
+      default=False,\
+      help="scale number of bkg triggers in slide plots by 600/6370")
+  parser.add_option("-z","--zero-lag-exclude-play",action="store_true",\
+      default=False,\
+      help="scale number of bkg triggers in slide plots by 5770/6370")
+
+  (options,args) = parser.parse_args()
+
+  # test the input options
+  if not options.ifo_times:
+    raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
+
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+
+
+if not opts.glob and not opts.cache_file:
+  print >>sys.stderr, "Must specify a --glob of files or --cache-input file to read"
+  print >>sys.stderr, "Enter 'plotifar --help' for usage"
+  sys.exit(1)
+
+# check that statistic is OK:
+if (opts.statistic != 'snr') \
+    and (opts.statistic != 'effective_snr'):
+  print >>sys.stderr, "--statistic must be one of"
+  print >>sys.stderr, "(snr|effective_snr)"
+  sys.exit(1)
+
+#####################################################################
+# -- some initialisation
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+# -- set the proper color code
+colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+
+# Change to Agg back-end if show() will not be called thus avoiding display problem
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+from numpy import histogram
+rc('text', usetex=True)
+
+
+## mangle the event-IDs in the case of the exttrig analysis
+mangleEventID = False
+
+####################################################################
+
+statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
+snglStat=opts.statistic
+    
+plotsymbols = ['r+','bx','ko','g1']
+hanfordsym = ['b+','bx','r1']
+addsym = ['k+','kx','k1']
+
+xlow = 20
+xhigh = 0
+
+#######################################################
+# determine IFOs and IFO combos in play
+
+ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1", "V1") \
+            if getattr(opts, "%s_triggers" % ifo.lower())]
+ifo_non_h = [ifo for ifo in ifo_list if ifo[0] != "H"]
+
+ifo_coincs = []
+for num_ifos in range(2, len(ifo_list) + 1):
+  ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, num_ifos)))
+combos = ["".join(ifos) for ifos in ifo_coincs]
+
+###################################
+# glob the list of files to read in
+if opts.glob is not None or opts.cache_file is not None:
+  if opts.glob is not None:
+    allfiles = []
+    for gl in opts.glob.split(" "):
+      allfiles.extend(glob.glob(gl))
+    if len(allfiles) < 1:
+      print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+      sys.exit(1)
+
+    coincfiles = []
+    for file in allfiles:
+      coincfiles.append(file)
+
+  elif opts.cache_file is not None:
+    allfilesCache = lal.Cache.fromfile(open(opts.cache_file))    
+
+    coincfiles = []
+    coincfiles = allfilesCache.sieve(description=opts.coinc_pattern,
+        exact_match=opts.match).sieve(ifos=opts.ifo_times,exact_match=True).\
+        checkfilesexist()[0].pfnlist()
+        #sieve(description=opts.ifo_times, exact_match=False).\
+  # check if the file lists are not empty
+  if not (coincfiles):
+    print >>sys.stdout, "No files match your description."
+    sys.exit(0) 
+         
+########################
+# read in coinc triggers
+inspTriggers = None
+coincTriggers = CoincInspiralUtils.coincInspiralTable()
+
+if coincfiles:
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(coincfiles,
+                                           mangle_event_id = mangleEventID,
+                                           verbose=opts.verbose)
+  
+  # construct the coincs
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+stats = {}
+stats['IFAR'] = {}
+stats['stat'] = {}
+FAR = {}
+IFAR = {}
+cumhist ={}
+
+maxIFAR = -numpy.inf
+minIFAR = numpy.inf
+
+for combo,ifos in zip(combos,ifo_coincs):
+  coincs = coincTriggers.coinctype(ifos)
+  FAR[combo] = coincs.getsngls(ifos[0]).get_column('alpha')
+  for idx in range(len(FAR[combo])):
+    if FAR[combo][idx] == 0:
+      FAR[combo][idx] = 0.0001
+  FAR[combo] = array(FAR[combo])
+  if opts.zero_lag_playground:
+    FAR[combo] /= 600./6370.
+  if opts.zero_lag_exclude_play:
+    FAR[combo] *= 5770./6370.
+  stats['stat'][combo] = coincs.getstat()
+  stats['IFAR'][combo] = 1./(array(FAR[combo]))
+  FAR[combo].sort()
+  IFAR[combo] = 1./(array(FAR[combo]))
+  if len(coincs):
+    maxIFAR = max(maxIFAR, max(IFAR[combo]))
+    minIFAR = min(minIFAR, min(IFAR[combo]))
+  cumhist[combo] = array(range(len(IFAR[combo]))) + 1
+  if opts.verbose:
+    print "%s %d" % (combo,len(IFAR[combo]))
+
+if opts.min_ifar:
+  minIFAR = opts.min_ifar
+  
+bkgmin = 0.8*minIFAR
+bkgmax = 1.2*maxIFAR
+
+bkg = bkgmin*exp(array(range(10001))/10000.*log(bkgmax/bkgmin))
+ibkg = float(opts.num_categories)/bkg
+ibkg_p1 = ibkg + sqrt(ibkg)
+ibkg_m1 = array([max(x - sqrt(x), 0.1) for x in ibkg])
+bkg_x1,bkg_y1 = viz.makesteps(bkg, ibkg_p1, ibkg_m1)
+
+colors = itertools.cycle(('b', 'g', 'r', 'c', 'm', 'k'))
+symbols = itertools.cycle(('^', 'D', 'H', 'o', '1', '+', 'x'))
+
+################################################
+# make histogram of stat distribution
+if opts.ifar_dist:
+  figure(figure_number)
+  figure_number += 1
+
+  for combo,color,symbol in zip(combos,colors,symbols):
+    loglog(IFAR[combo], cumhist[combo], color+symbol,
+        markerfacecolor=color, markeredgecolor=color,
+        alpha=0.65, label=combo)
+    hold(True)
+  loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
+  fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2)
+  xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
+  ylim(ymin=0.6,ymax=opts.num_categories*1.1/minIFAR)
+  legend()
+  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  ylabel(r"Cumulative \#", size='x-large')
+  if opts.enable_output is True:
+    name = "cumhist_ifar"
+    text = "Cumulative Histogram of IFAR distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    fnameList.append(fname)
+    tagList.append(text)
+
+if opts.snr_ifar:
+  figure(figure_number)
+  figure_number += 1
+  for combo,color,symbol in zip(combos,colors,symbols):
+    semilogx(stats['IFAR'][combo], stats['stat'][combo], color+symbol,
+        markeredgecolor=color, alpha=0.1, label=combo)
+    hold(True)
+  grid(True)
+  legend(loc='lower right')
+  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  ylabel(r"Combined Effective SNR", size='x-large')
+  if opts.enable_output is True:
+    name = "stat_vs_ifar"
+    text = "Combined Effective SNR vs $1/\langle N \rangle$"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    fnameList.append(fname)
+    tagList.append(text)
+
+
+# ============================================================================
+# final step: html, cache file generation
+if opts.enable_output is True:
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+# ============================================================================
+
+
+if opts.show_plot:
+  show()
