@@ -19,10 +19,9 @@ import glue.iterutils
 import numpy
 numpy.seterr("raise")
 
-
 from ROOT import gROOT,gStyle,TCanvas,TFile
 from ROOT import TH3F, TNtuple
-from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+#from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
 from ROOT import TLegend
 from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
 
@@ -856,20 +855,22 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type):
   coinc_name = ''
   for ifo in coincType:
 	coinc_name += ifo
-  canParC = TCanvas(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, R_eff, phi_eff, M_chrip, e-thinca', 1024, 700)
-  ntup = TNtuple(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, R_eff, phi_eff, M_chrip, e-thinca',\
-  				'snr_eff1:snr_eff2:R_eff:phi_eff:Mchirp1:Mchirp2:ethinca')
+  canParC = TCanvas(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca', 1024, 700)
+  ntup = TNtuple(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca',\
+  				'snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca')
 
   for coinc in coincs:
-	trigger1 = getattr(coinc, coincType[0])
-	trigger2 = getattr(coinc, coincType[1])
-	R_eff = (trigger1.eff_distance**2.0 +  trigger2.eff_distance**2.0)**(0.5)
-        phi_eff = numpy.arctan(trigger2.eff_distance/trigger1.eff_distance) 
-	ntup.Fill(trigger1.get_effective_snr(), trigger2.get_effective_snr(), R_eff, phi_eff,\
-                  trigger1.mchirp, trigger2.mchirp, CoincInspiralUtils.simpleEThinca(trigger1, trigger2))
+	c_ifo1 = getattr(coincs, ifolist[0])
+	c_ifo2 = getattr(coincs, ifolist[1])
+	c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
+	c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
+	c_D_eff_rms,c_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(c_ifo1.eff_distance, c_ifo2.eff_distance)
+	c_mchirp_rms, c_mchirp_theta = CoincInspiralUtils.convert_to_polar_coord(c_ifo1.mchirp, c_ifo2.mchirp)
+	c_ethinca = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)  
+	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_D_eff_rms, c_eff_dist_theta, c_mchirp_rms, c_mchirp_theta, c_ethinca)
 			  
 
-  ntup.Draw('snr_eff1:snr_eff2:R_eff:phi_eff:Mchirp1:Mchirp2:ethinca', '', 'para')
+  ntup.Draw('snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca', '', 'para')
   #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
   canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
   canParC.Close()
@@ -893,14 +894,21 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
         coinc_name += ifo
   canParC = TCanvas(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca', 1024, 700)
   ntup = TNtuple(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
-                 'snr1:snr2:snr4:chisq1:chisq2:chisq3:eff_dist1:eff_dist2:eff_dist3:Mchirp1:Mchirp2:Mchirp3:ethinca12:ethinca13:ethinca23')
+                 'eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23')
   for coinc in coincs:
-        trigger1 = getattr(coinc, coincType[0])
-        trigger2 = getattr(coinc, coincType[1])
-        trigger3 = getattr(coinc, coincType[2])
-        ntup.Fill(trigger1.snr, trigger2.snr, trigger3.snr, trigger1.chisq, trigger2.chisq, trigger3.chisq, trigger1.eff_distance, trigger2.eff_distance, trigger3.eff_distance,\
-                          trigger1.mchirp, trigger2.mchirp, trigger3.mchirp, CoincInspiralUtils.simpleEThinca(trigger1, trigger2), CoincInspiralUtils.simpleEThinca(trigger1, trigger3), CoincInspiralUtils.simpleEThinca(trigger2, trigger3))
-  ntup.Draw('snr1:snr2:snr4:chisq1:chisq2:chisq3:eff_dist1:eff_dist2:eff_dist3:Mchirp1:Mchirp2:Mchirp3:ethinca12:ethinca13:ethinca23', '', 'para')
+	c_ifo1 = getattr(coinc, ifolist[0])
+	c_ifo2 = getattr(coinc, ifolist[1])
+	c_ifo3 = getattr(coinc, ifolist[2])
+	c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
+	c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
+	c_eff_snr_ifo3 = c_ifo3.get_effective_snr()
+	c_D_eff_rms, c_eff_dist_theta, c_eff_dist_phi = CoincInspiralUtils.convert_to_spherical_coord(c_ifo1.eff_distance, c_ifo2.eff_distance, c_ifo3.eff_distance)
+	c_mchirp_rms, c_mchirp_theta, c_mchirp_phi = CoincInspiralUtils.convert_to_spherical_coord(c_ifo1.mchirp, c_ifo2.mchirp, c_ifo3.mchirp)
+	c_ethinca_12 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)
+	c_ethinca_13 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo3)
+	c_ethinca_23 = CoincInspiralUtils.simpleEThinca(c_ifo2, c_ifo3)
+	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_eff_snr_ifo3, c_D_eff_rms, c_eff_dist_theta, c_eff_dist_phi, c_mchirp_rms, c_mchirp_theta, c_mchirp_phi, c_ethinca_12, c_ethinca_13, c_ethinca_23)
+  ntup.Draw('eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23', '', 'para')
   canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
   canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
   canParC.Close()
@@ -1299,19 +1307,10 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
 
 
 if opts.parallel_axis_plots:
-  #parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H2','L1'], data_type='injections')
+  parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
   #parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides')
   #parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections')
-  parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides')
-  #if opts.parallel_axis_plots:
-	#for ifolist in ifo_combos:
-	  #if len(ifolist) == 2:
-		#parallel_axis_plot_double(injectionCoincTriggers, coincType = ifolist, data_type='injections')
-		#parallel_axis_plot_double(slidesCoincTriggers, coincType = ifolist, data_type = 'time_slides')
-	  #if len(ifolist) == 3:
-                #parallel_axis_plot_triple(injectionCoincTriggers, coincType = ifolist, data_type='injections')
-                #parallel_axis_plot_triple(slidesCoincTriggers, coincType = ifolist, data_type = 'time_slides')
- 
+  #parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides')
 	
 ############ ########### ############# ############# ############### ###########	
 # plots that make use of inspiral likelihood tables only
