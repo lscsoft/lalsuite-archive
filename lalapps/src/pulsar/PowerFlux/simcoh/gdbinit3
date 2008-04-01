@@ -1,0 +1,8 @@
+break 833
+commands
+silent
+set nbinw=18000
+cont 
+end
+run -w -i In.data-test -I LHO -E /home/rarmen/opt/lscsoft/lal/share/lal -S 693326229 -n ./fdata/FourierH1 -G 693327129
+quit
