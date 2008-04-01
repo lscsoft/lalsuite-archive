@@ -2,7 +2,7 @@
 
 # $Id$
 
-__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__author__ = "Drew Keppel <drew.keppel@ligo.org>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 __name__="plotifar"
