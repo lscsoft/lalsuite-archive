@@ -61,6 +61,31 @@ def simpleEThinca(trigger1, trigger2):
   
   return simple_ethinca
   
+def convert_to_polar_coord(x, y):  
+  r_rms = ((x**2 + y**2)/2.0)**(0.5)
+  phi = numpy.arctan(float(y)/float(x))
+  return r_rms, phi
+
+def convert_to_spherical_coord(x, y, z):
+   """ 
+   This includes rotation by 45 deg around z follwed by rotation by 45 deg
+   around y to define new x,y,z coordinates in which z would be along (1,1,1) 
+   vector of the original coordinates. The spherical coordinates then defined with respect
+   this new set of Cartesian coordinates.
+   """
+   sq_root_two = 2**(0.5)
+   x_new = (x + y)/2.0 - z/sq_root_two
+   y_new = (y - x)/sq_root_two
+   z_new = (x + y)/2.0 + z/sq_root_two
+
+   r_rms = ((x_new**2 + y_new**2 + z_new**2)/3.0)**(0.5)
+   theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
+   phi = numpy.arctan(float(y_new)/float(x_new))
+   return r_rms, theta, phi
+
+def frac_error_sq(candidate, trigger):
+  return ((float(candidate) - float(trigger)) / float(candidate))**2
+
 
 def readCoincInspiralFromFiles(fileList,statistic=None):
   """
@@ -543,30 +568,6 @@ class coincInspiralTable:
                                    getattr(coinc, ifos[1]))
     return ethinca
 
-  def convert_to_polar_coord(x, y):
-	r_rms = ((x**2 + y**2)/2.0)**(0.5)
-	phi = numpy.arctan(float(y)/float(x))
-	return r_rms, phi
-	
-  def convert_to_spherical_coord(x, y, z):
-	""" 
-	This includes rotation by 45 deg around z follwed by rotation by 45 deg
-	around y to define new x,y,z coordinates in which z would be along (1,1,1) 
-	vector of the original coordinates. The spherical coordinates then defined with respect
-	this new set of Cartesian coordinates.
-	"""
-	sq_root_two = 2**(0.5)
-	x_new = (x + y)/2.0 - z/sq_root_two
-	y_new = (y - x)/sq_root_two
-	z_new = (x + y)/2.0 + z/sq_root_two
-	
-	r_rms = ((x_new**2 + y_new**2 + z_new**2)/3.0)**(0.5)
-	theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
-	phi = numpy.arctan(float(y_new)/float(x_new))
-	return r_rms, theta, phi
-
-  def frac_error_sq(candidate, trigger):
-	return ((float(candidate) - float(trigger)) / float(candidate))**2
 	
   def getTriggersWithinEpsilon(self, candidate, epsilon, epsilon_ball_type = "version2"):
 	"""
@@ -712,7 +713,7 @@ class coincInspiralTable:
 		if dim_mchirp:
 		  c_mchirp_rms, c_mchirp_theta = convert_to_polar_coord(c_ifo1.mchirp, c_ifo2.mchirp)
 		if dim_ethinca:
-		  c_ethinca = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)
+		  c_ethinca = simpleEThinca(c_ifo1, c_ifo2)
 	  # if candidate is a triple	  
 	  if len(ifolist) == 3:
 		c_ifo1 = getattr(candidate, ifolist[0])
@@ -727,9 +728,9 @@ class coincInspiralTable:
 		if dim_mchirp:
 		  c_mchirp_rms, c_mchirp_theta, c_mchirp_phi = convert_to_spherical_coord(c_ifo1.mchirp, c_ifo2.mchirp, c_ifo3.mchirp)
 		if dim_ethinca:
-		  c_ethinca_12 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)
-		  c_ethinca_13 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo3)
-		  c_ethinca_23 = CoincInspiralUtils.simpleEThinca(c_ifo2, c_ifo3)
+		  c_ethinca_12 = simpleEThinca(c_ifo1, c_ifo2)
+		  c_ethinca_13 = simpleEThinca(c_ifo1, c_ifo3)
+		  c_ethinca_23 = simpleEThinca(c_ifo2, c_ifo3)
 		  
 	  # loop over triggers
 	  for trig in self:
@@ -747,7 +748,7 @@ class coincInspiralTable:
 			if dim_mchirp:
 			  t_mchirp_rms, t_mchirp_theta = convert_to_polar_coord(t_ifo1.mchirp, t_ifo2.mchirp)
 			if dim_ethinca:
-			  t_ethinca = CoincInspiralUtils.simpleEThinca(t_ifo1, t_ifo2)
+			  t_ethinca = simpleEThinca(t_ifo1, t_ifo2)
 			score = 0.0
 			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq)):
 			  score += 1.0	
@@ -762,21 +763,21 @@ class coincInspiralTable:
 			  
 		  # if candidate is a triple	  
 		  if len(ifolist) == 3:
-			c_ifo1 = getattr(candidate, ifolist[0])
-			c_ifo2 = getattr(candidate, ifolist[1])
-			c_ifo3 = getattr(candidate, ifolist[2])
+			t_ifo1 = getattr(trig, ifolist[0])
+			t_ifo2 = getattr(trig, ifolist[1])
+			t_ifo3 = getattr(trig, ifolist[2])
 			if dim_eff_snr:
-			  c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
-			  c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
-			  c_eff_snr_ifo3 = c_ifo3.get_effective_snr()
+			  t_eff_snr_ifo1 = t_ifo1.get_effective_snr()
+			  t_eff_snr_ifo2 = t_ifo2.get_effective_snr()
+			  t_eff_snr_ifo3 = t_ifo3.get_effective_snr()
 			if dim_eff_distance:
-			  c_D_eff_rms, c_eff_dist_theta, c_eff_dist_phi = convert_to_spherical_coord(c_ifo1.eff_distance, c_ifo2.eff_distance, c_ifo3.eff_distance)
+			  t_D_eff_rms, t_eff_dist_theta, t_eff_dist_phi = convert_to_spherical_coord(t_ifo1.eff_distance, t_ifo2.eff_distance, t_ifo3.eff_distance)
 			if dim_mchirp:
-			  c_mchirp_rms, c_mchirp_theta, c_mchirp_phi = convert_to_spherical_coord(c_ifo1.mchirp, c_ifo2.mchirp, c_ifo3.mchirp)
+			  t_mchirp_rms, t_mchirp_theta, t_mchirp_phi = convert_to_spherical_coord(t_ifo1.mchirp, t_ifo2.mchirp, t_ifo3.mchirp)
 			if dim_ethinca:
-			  c_ethinca_12 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)
-			  c_ethinca_13 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo3)
-			  c_ethinca_23 = CoincInspiralUtils.simpleEThinca(c_ifo2, c_ifo3)
+			  t_ethinca_12 = simpleEThinca(t_ifo1, t_ifo2)
+			  t_ethinca_13 = simpleEThinca(t_ifo1, t_ifo3)
+			  t_ethinca_23 = simpleEThinca(t_ifo2, t_ifo3)
 			score = 0.0
 			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo3, t_eff_snr_ifo3) < epsilon_sq)):
 			  score += 1.0	
@@ -791,7 +792,6 @@ class coincInspiralTable:
 
 		
 		
-
 		
 
 
