@@ -185,15 +185,15 @@ if not opts.log_path:
 
 # Checks for atleast one ifo is specified  
 if not opts.g1_data and not opts.h1_data and not opts.h2_data and \
-    not opts.l1_data and not opts.analyze_all:
+    not opts.l1_data and not opts.v1_data:
   print >> sys.stderr, "No ifos specified.  Please specify at least one of"
-  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data"
+  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data, --v1-data"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
   sys.exit(1)
 
 # Checks for consistency when running ploteffdistcut
 
-if not opts.h1_data and not opys.h2_data and opts.ploteffdistcut:
+if not opts.h1_data and not opts.h2_data and opts.ploteffdistcut:
   print >> sys.stderr, "How can I plot effdistcut when H1 and H2 are not"
   print >> sys.stderr, "being analysed??? I will not run ploteffdistcut."
   opts.ploteffdistcut = False
@@ -203,18 +203,12 @@ if not opts.h1_data and not opys.h2_data and opts.ploteffdistcut:
 if ((opts.plotthinca or opts.plotethinca or opts.plotinspmissed or \
      opts.plotinjnum or opts.plotinspinj \
      or opts.plotsnrchi or opts.ploteffdistcut ) and \
-     not (opts.two_ifo or opts.three_ifo or opts.four_ifo or opts.analyze_all)):
+     not (opts.two_ifo or opts.three_ifo or opts.four_ifo \
+          or opts.analyze_all)):
   print >> sys.stderr, "No number of ifos given. Please specify at least two"
   print >> sys.stderr, "--two-ifo, --three-ifo, --four-ifo"
   print >> sys.stderr, "or use --analyze-all to analyze all ifos all data"
   sys.exit(1)
- 
-
-if ((opts.plotnumtemplates or opts.plotinspiral or opts.plotinspiralrange) and not (opts.g1_data or opts.h1_data or opts.h2_data or\
-    opts.l1_data)):
-  print >> sys.stderr, "--g1-data, --h1-data, --h2-data, --l1-data"
-  sys.exit(1)
-
 
 ##############################################################################
 # create the config parser object and read in the ini file
