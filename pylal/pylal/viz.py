@@ -171,6 +171,7 @@ def makesteps(left_edges, y1, y2=None):
   None).  The right edge of the polygon is extrapolated from the left_edges,
   assuming uniform spacing.
   """
+  left_edges = numpy.asanyarray(left_edges)
   n = len(left_edges)
   if len(y1) != n or (y2 is not None and len(y2) != n):
     raise ValueError, "left_edges, y1, and y2 (if specified) must have "\
