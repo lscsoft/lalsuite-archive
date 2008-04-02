@@ -80,8 +80,18 @@ def convert_to_spherical_coord(x, y, z):
    z_new = (x + y + z) / sq_root_three
 
    r_rms = ((x_new**2 + y_new**2 + z_new**2)/3.0)**(0.5)
-   theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
-   phi = numpy.arctan(float(y_new)/float(x_new))
+   if (x_new != 0.0 or y_new != 0.0) and (z_new == 0.0):
+     theta = cmath.pi/2.0
+   else:
+     theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
+   if (x_new == 0.0) and (y_new >  0.0):
+     phi = cmath.pi/2.0
+   elif (x_new == 0.0) and (y_new < 0.0):
+     phi = 3.0*cmath.pi/2.0
+   elif (x_new == 0.0) and (y_new == 0.0):
+     phi = 0.0
+   else:
+     phi = numpy.arctan(float(y_new)/float(x_new))
    return r_rms, theta, phi
 
 def frac_error_sq(candidate, trigger):
