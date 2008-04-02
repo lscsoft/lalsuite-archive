@@ -250,6 +250,8 @@ class coincInspiralTable:
         self.stat=min( self.bl, self.rsq )
         if statistic.name == 'bitten_lsq' and self.numifos >2:
           self.stat = self.rsq
+      elif 'ifar' == statistic.name:
+        self.stat = trig.get_ifar()
 
       else:
         self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
