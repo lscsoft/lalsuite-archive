@@ -250,7 +250,7 @@ for bin in range(massBins):
     maxrate = opts.max_rate
     dr = opts.dr
     rate = arange(0,maxrate,dr)
-    rateprior = ones([int(maxrate/dr)])/maxrate
+    rateprior = ones([int(around(maxrate/dr))])/maxrate
   else:
     print >> sys.stderr, "--prior must be one of uniform or fromfile"
 
