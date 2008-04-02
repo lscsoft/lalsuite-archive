@@ -10,7 +10,7 @@ import os
 import copy
 from os import *
 from optparse import *
-from pylal.itertools import *
+from glue.iterutils import *
 #from pylal.llwapp import *
 import re
 import exceptions
