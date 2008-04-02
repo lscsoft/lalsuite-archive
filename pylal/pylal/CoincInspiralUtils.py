@@ -87,7 +87,7 @@ def convert_to_spherical_coord(x, y, z):
    if (x_new == 0.0) and (y_new >  0.0):
      phi = cmath.pi/2.0
    elif (x_new == 0.0) and (y_new < 0.0):
-     phi = 3.0*cmath.pi/2.0
+     phi = -1.0*cmath.pi/2.0
    elif (x_new == 0.0) and (y_new == 0.0):
      phi = 0.0
    else:
@@ -834,7 +834,7 @@ class coincInspiralTable:
 		trig_ifos,tmplist = trig.get_ifos()
 		if c_ifos == trig_ifos:
 		  t_mchirp_total = 0.0
-		  oounter_sngl = 0.0  
+		  counter_sngl = 0.0  
 		  for ifo in ifolist:
 			t_sngl = getattr(trig, ifo)
 			t_mchirp_total += t_sngl.mchirp
