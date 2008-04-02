@@ -73,10 +73,11 @@ def convert_to_spherical_coord(x, y, z):
    vector of the original coordinates. The spherical coordinates then defined with respect
    this new set of Cartesian coordinates.
    """
+   sq_root_three = 3**(0.5)
    sq_root_two = 2**(0.5)
-   x_new = (x + y)/2.0 - z/sq_root_two
-   y_new = (y - x)/sq_root_two
-   z_new = (x + y)/2.0 + z/sq_root_two
+   x_new = (x + y - 2.0*z) / (sq_root_three*sq_root_two)
+   y_new = (y - x) / sq_root_two
+   z_new = (x + y + z) / sq_root_three
 
    r_rms = ((x_new**2 + y_new**2 + z_new**2)/3.0)**(0.5)
    theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
@@ -750,7 +751,7 @@ class coincInspiralTable:
 			if dim_ethinca:
 			  t_ethinca = simpleEThinca(t_ifo1, t_ifo2)
 			score = 0.0
-			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq)):
+			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo1) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq)):
 			  score += 1.0	
 			if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale)):
 			  score += 1.0
@@ -779,7 +780,7 @@ class coincInspiralTable:
 			  t_ethinca_13 = simpleEThinca(t_ifo1, t_ifo3)
 			  t_ethinca_23 = simpleEThinca(t_ifo2, t_ifo3)
 			score = 0.0
-			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo3, t_eff_snr_ifo3) < epsilon_sq)):
+			if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo1) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < epsilon_sq) and (frac_error_sq(c_eff_snr_ifo3, t_eff_snr_ifo3) < epsilon_sq)):
 			  score += 1.0	
 			if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale) and (abs(c_eff_dist_phi - t_eff_dist_phi) < eff_dist_phi_scale)):
 			  score += 1.0
