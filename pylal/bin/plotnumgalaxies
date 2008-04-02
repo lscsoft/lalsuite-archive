@@ -74,6 +74,7 @@ lsctables.SnglInspiralTable.loadcolumns = [
     "chisq",
     "chisq_dof",
     "sigmasq",
+    "alpha",
     "event_id"]
 
 ##############################################################################
@@ -354,7 +355,7 @@ class slideZeroData:
     if self.zero_loudest:
       axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
       P_b = self.get_cumulative([self.zero_loudest])[0]
-      print 'cumulative probability P_b at loudest event is %.2f' % P_b
+      print 'cumulative probability P_b at loudest event is %.4f' % P_b
     legend()
     if figureName:
       savefig( figureName + '_slide_cumulative_dist.png' )
@@ -401,7 +402,7 @@ class slideZeroData:
       else:
         p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
                      slidePDF[min(x[self.snr_array > self.zero_loudest])] )
-      print 'pdf p_b at loudest event is %.2f' % p_b
+      print 'pdf p_b at loudest event is %.4f' % p_b
     legend()
     if figureName:
       savefig( figureName + '_slide_pdf.png' )
