@@ -76,8 +76,11 @@ parser.add_option("-R","--results-dir",action="store",type="string",\
 parser.add_option("-s","--skip-setup",action="store_true",default=False,\
     help="skip setup stage, i.e. mkdirs, copy files, run inspinj")
 
-parser.add_option("","--skip-calcmasscut",action="store_true",default=False,\
-    help="skip the mass cut calculation")
+parser.add_option("","--skip-injcut",action="store_true",default=False,\
+    help="skip the injection file pruning by mass")
+
+parser.add_option("","--skip-coiremasscut",action="store_true",default=False,\
+    help="skip the mass cut")
 
 parser.add_option("-p","--skip-population",action="store_true",default=False,\
     help="skip population generation")
@@ -154,11 +157,12 @@ analyzedtimes = cp.items("analyzedtimes")
 coire_options = cp.items("coire")
 coireinj_options = cp.items("coireinj")
 coiredata_options = cp.items("coiredata")
-calcmasscut_options = cp.items("calcmasscut")
+injcut_options = cp.items("injcut")
+coiremasscut_options = cp.items("coiremasscut")
 plotthinca_options=cp.items("plotthinca")
 png_options = cp.items("plotnumgalaxies")
 png_y_options = cp.items("plotnumgalaxies-y")
-posterior_options=cp.items("upperlimit")
+posterior_options = cp.items("upperlimit")
 
 # convert the statistic options into a dictionary
 stat_dict=dict()
@@ -194,6 +198,11 @@ for opt in masses:
 coiredata_dict=dict()
 for opt in coiredata_options:
     coiredata_dict[opt[0]]=opt[1]
+
+# convert the injcut options into a dictionary
+injcut_dict=dict()
+for opt in injcut_options:
+    injcut_dict[opt[0]]=opt[1]
 
 #######################################################################
 # do the set up
@@ -279,75 +288,33 @@ if not opts.skip_population:
       os.system( command )
 
 #######################################################################
-# calculate the mass cut to apply
+# create mass cut injection files
 #######################################################################
-if not opts.skip_calcmasscut:
-  print "** Calculating the mass cut to apply"
+if not (opts.skip_injcut):
+  print "** Creating mass cut injection files"
   os.chdir(MYRESULTSDIR)
-  mkdirsafe( MYRESULTSDIR + "/calc_mass_cut" )
+  mkdirsafe( MYRESULTSDIR + "/injcut" )
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
-    mkdirsafe( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
+    mkdirsafe( MYRESULTSDIR + "/injcut/" + mydir )
     injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + \
         "/HL-INJECTIONS*.xml.gz")
     injFileName = os.path.basename( injectionfile[0] )
     command = "lalapps_injcut --injection-file " + injectionfile[0]
-    for opt in calcmasscut_options:
-      command += " --" + opt[0] + " " + opt[1]
-    command +=  " --output " + MYRESULTSDIR + "/calc_mass_cut/" + mydir + \
+    for key in injcut_dict.keys():
+      if key in ['mass-cut', 'mass-range-low', 'mass-range-high',
+          'mass2-range-low', 'mass2-range-high']:
+        command += " --" + key + " " + injcut_dict[key]
+    command +=  " --output " + MYRESULTSDIR + "/injcut/" + mydir + \
         "/" + injFileName
     if opts.test:
       print command + "\n"
     else:
       os.system( command )
     if not injectionfile:
-      print "ERROR in coireinj: No injection-file (HL*.xml.gz) \
+      print "ERROR in injcut: No injection-file (HL*.xml.gz) \
           in the injections-directory. Exiting..."
       sys.exit(1)
-    command = "hipecoire --trig-path " + MYRESULTSDIR + "/" + mydir + \
-        " --ifo H1 --ifo H2 --ifo L1 --injection-file " + injectionfile[0] + \
-        " --coinc-stat " + stat_dict["statistic"]
-    if stat_dict["statistic"][-3:] == "snr":
-      # coire takes "snrsq"/"effective_snrsq"
-      command += "sq"
-    if "bitten_l" in stat_dict["statistic"]:
-      command += " --h1-bittenl-a " + stat_dict["bittenl_a"] + \
-          " --h1-bittenl-b " + stat_dict["bittenl_b"] + \
-          " --h2-bittenl-a " + stat_dict["bittenl_a"] + \
-          " --h2-bittenl-b " + stat_dict["bittenl_b"] + \
-          " --l1-bittenl-a " + stat_dict["bittenl_a"] + \
-          " --l1-bittenl-b " + stat_dict["bittenl_b"]
-    for opt in coireinj_options:
-      command += " --" + opt[0] + " " + opt[1]
-    if not opts.no_veto:
-      command+=" --veto-file " + MYRESULTSDIR + "/h1veto.list" + \
-          " --veto-file " + MYRESULTSDIR + "/h2veto.list" + \
-          " --veto-file " + MYRESULTSDIR + "/l1veto.list"
-    if opts.second_coinc:
-      command += " --second-coinc"
-    if opts.clustered_files:
-      command += " --clustered-files"
-    for opt in coire_options:
-       command += " --" + opt[0] + " " + opt[1]
-    if opts.test:
-      print command + "\n"
-    else:
-      os.chdir( MYRESULTSDIR + "/calc_mass_cut/" + mydir )
-      os.system( command )
-      os.chdir( MYRESULTSDIR + "/calc_mass_cut/" )
-
-  command = "calcMassCut --glob 'injections*/H*FOUND.xml.gz'"
-  for opt in calcmasscut_options:
-    command += " --" + opt[0] + " " + opt[1]
-  command += " --mass-mass --hist-mass-error --figure-name injections"
-  command += " > massCut.ini"
-  if opts.test:
-    print command + "\n"
-  else:
-    os.system( command )
-    cp = ConfigParser.ConfigParser()
-    cp.read(MYRESULTSDIR + "/calc_mass_cut/massCut.ini")
-    coireMassCut_options = cp.items("coireMassCut")
 
 #######################################################################
 # sire and coire full data
@@ -380,8 +347,8 @@ if not opts.skip_coiredata:
     command += " --" + opt[0] + " " + opt[1]
   for opt in coire_options:
     command += " --" + opt[0] + " " + opt[1]
-  if not opts.skip_calcmasscut and not opts.test:
-    for opt in coireMassCut_options:
+  if not opts.skip_coiremasscut:
+    for opt in coiremasscut_options:
       command += " --" + opt[0] + " " + opt[1]
   if opts.test:
     print command + "\n"
@@ -425,8 +392,8 @@ if not opts.skip_coireinj:
   for mydir in glob.glob( "injections*" ):
     print "** Processing " + mydir
     mkdirsafe( MYRESULTSDIR + "/hipecoire/" + mydir )
-    if not opts.skip_calcmasscut:
-      injectionfile=glob.glob(MYRESULTSDIR + "/calc_mass_cut/" + mydir + \
+    if not opts.skip_injcut:
+      injectionfile=glob.glob(MYRESULTSDIR + "/injcut/" + mydir + \
           "/HL-INJECTIONS*.xml.gz")
     else:
       injectionfile=glob.glob(MYRESULTSDIR + "/" + mydir + \
@@ -463,8 +430,8 @@ if not opts.skip_coireinj:
       command += " --clustered-files"
     for opt in coire_options:
       command += " --" + opt[0] + " " + opt[1]
-    if not opts.skip_calcmasscut and not opts.test:
-      for opt in coireMassCut_options:
+    if not opts.skip_coiremasscut:
+      for opt in coiremasscut_options:
         command += " --" + opt[0] + " " + opt[1]
     if opts.test:
       print command + "\n"
