@@ -784,6 +784,9 @@ class SnglInspiral(object):
 	def get_effective_snr(self):
 		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
 
+        def get_ifar(self):
+                return 1./self.alpha
+
 	def get_id_parts(self):
 		"""
 		Return the three pieces of the int_8s-style sngl_inspiral
