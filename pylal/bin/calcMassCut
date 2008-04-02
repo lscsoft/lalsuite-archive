@@ -16,6 +16,21 @@ from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 
 ##############################################################################
+def errorCalc(distance, error):
+  """
+  This function weights the mean / std calculation of errors such that
+  injections made uniform in log-distance are return weighted uniform in
+  distance-cubed.
+  """
+  distance = array(distance)
+  error = array(error)
+  N = sum(3.*distance**3.)
+  meanError = 1./N*sum(3.*distance**3.*error)
+  sigmaError = (1./N*sum(3.*distance**3.*(error - meanError)**2.))**.5
+
+  return meanError,sigmaError
+
+##############################################################################
 usage = """usage: %prog [options]
 
 Program to calculate the mass region in template space needed to make an
@@ -138,6 +153,7 @@ injSet["rec_mass1"] = []
 injSet["inj_mass1"] = []
 injSet["rec_mass2"] = []
 injSet["inj_mass2"] = []
+injSet["distance"] = []
 if opts.mass_cut == 'mtotal':
   for jdx in range(len(fList)):
     for idx in range(len(injDict[jdx]["sim_inspiral"])):
@@ -155,6 +171,8 @@ if opts.mass_cut == 'mtotal':
             get_column("mass1")[idx]),
             float(injDict[jdx]["sim_inspiral"].\
             get_column("mass2")[idx])))
+        injSet["distance"].append(float(injDict[jdx]["sim_inspiral"].
+            get_column("distance")[idx]))
         combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
         mchirpRecovered = 0.0
         mass1Recovered = 0.0
@@ -169,6 +187,7 @@ if opts.mass_cut == 'mtotal':
         injSet["rec_mchirp"].append(mchirpRecovered)
         injSet["rec_mass1"].append(mass1Recovered)
         injSet["rec_mass2"].append(mass2Recovered)
+
 elif opts.mass_cut == 'mchirp':
   for jdx in range(len(fList)):
     for idx in range(len(injDict[jdx]["sim_inspiral"])):
@@ -178,12 +197,15 @@ elif opts.mass_cut == 'mchirp':
           opts.mass_range_high:
         injSet["inj_mchirp"].append(float(injDict[jdx]["sim_inspiral"].\
             get_column("mchirp")[idx]))
+        injSet["distance"].append(float(injDict[jdx]["sim_inspiral"].
+            get_column("distance")[idx]))
         combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
         mchirpRecovered = 0.0
         for ifo in ifos:
           mchirpRecovered += getattr(injDict[jdx]["coincs"][idx],ifo).mchirp
         mchirpRecovered /= len(ifos)
         injSet["rec_mchirp"].append(mchirpRecovered)
+
 elif opts.mass_cut == 'mcomp':
   for jdx in range(len(fList)):
     for idx in range(len(injDict[jdx]["sim_inspiral"])):
@@ -211,6 +233,8 @@ elif opts.mass_cut == 'mcomp':
             get_column("mass1")[idx]),
             float(injDict[jdx]["sim_inspiral"].\
             get_column("mass2")[idx])))
+        injSet["distance"].append(float(injDict[jdx]["sim_inspiral"].
+            get_column("distance")[idx]))
         combo,ifos = injDict[jdx]["coincs"][idx].get_ifos()
         mchirpRecovered = 0.0
         etaRecovered = 0.0
@@ -232,10 +256,11 @@ elif opts.mass_cut == 'mcomp':
 
 ###################################
 # calculate the fraction mass error
+distance = array(injSet["distance"])
 mchirpError = (array(injSet["rec_mchirp"]) - array(injSet["inj_mchirp"])) / \
               array(injSet["inj_mchirp"])
-sigmaMchirpError = std(mchirpError)
-meanMchirpError = mean(mchirpError)
+meanMchirpError,sigmaMchirpError = errorCalc(distance, mchirpError)
+
 if opts.mass_cut == 'mcomp':
   etaError = (array(injSet["rec_eta"]) - array(injSet["inj_eta"])) / \
              array(injSet["inj_eta"])
@@ -251,14 +276,16 @@ oldSigmaMchirpError = newSigmaMchirpError
 oldMeanMchirpError = newMeanMchirpError
 while True:
   tmpMchirpError = []
+  tmpdistance = []
   for idx in range(len(mchirpError)):
     if abs(mchirpError[idx] - newMeanMchirpError) < newMeanMchirpError + \
         5.0*newSigmaMchirpError:
       tmpMchirpError.append(mchirpError[idx])
+      tmpdistance.append(distance[idx])
   oldSigmaMchirpError = newSigmaMchirpError
   oldMeanMchirpError = newMeanMchirpError
-  newSigmaMchirpError = std(tmpMchirpError)
-  newMeanMchirpError = mean(tmpMchirpError)
+  newMeanMchirpError,newSigmaMchirpError = \
+      errorCalc(tmpdistance, tmpMchirpError)
   if (oldSigmaMchirpError - newSigmaMchirpError)/oldSigmaMchirpError < 0.1:
     break
 
@@ -288,7 +315,7 @@ if opts.mass_cut == 'mcomp':
 
 ###############################################################
 # convert this into a minimum and maximum mass in trigger space
-minMchirp = max(0.0,McMin*\
+minMchirp = max(0.0,McMin* \
                     (1 - 4.0*sigmaMchirpError + min(0.0,meanMchirpError)))
 maxMchirp = McMax*(1 + 4.0*sigmaMchirpError + max(0.0,meanMchirpError))
 
@@ -405,6 +432,17 @@ if opts.mass_mass:
   xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
   if opts.figure_name:
     savefig(opts.figure_name + '_inj_vs_rec_mchirp.png')
+
+  figure(plot_num.next())
+  plot(injSet["inj_mchirp"], mchirpError,'rx')
+  hold(True)
+  axvline(x=McMin, linewidth=2, color='b')
+  axvline(x=McMax, linewidth=2, color='b')
+  xlim(xmin=int(McMin)-1.0,xmax=int(McMax)+1.0)
+  ylabel('Fractional Error',size='x-large')
+  xlabel('Injected $M_{chirp}$ $(M_{\odot})$',size='x-large')
+  if opts.figure_name:
+    savefig(opts.figure_name + '_frac_error_vs_inj_mchirp.png')
 
 if opts.mass_cut == 'mcomp' and opts.mass_mass:
   figure(plot_num.next())
