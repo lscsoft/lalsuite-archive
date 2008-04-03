@@ -843,7 +843,16 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, prefi
   savefig(prefix+'_inj_vs_slides_hist')
   figure()
 
-def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None, show_epsilon_ball=False):
+
+def paraxis_add_range(para_coord, axes, min, max):
+   para_axes = para_coord.GetVarList().FindObject(axes)
+   para_axes.AddRange(TParallelCoordRange(para_axes, min, max))
+   return para_coord
+
+
+
+
+def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None, show_epsilon_ball=False, zerolag_tag=''):
   """ 
   Generates files to be used under ROOT to make multi-dimensional plots with
   parallel axis
@@ -856,13 +865,19 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
   coinc_name = ''
   for ifo in coincType:
 	coinc_name += ifo
-  canParC = TCanvas(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca', 1024, 700)
-  ntup = TNtuple(data_type + "_" + coinc_name, data_type + '_' + coinc_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca',\
+  if zerolag and not show_epsilon_ball:
+    canvas_name = coinc_name + "_" + data_type + "_with_zerolag_" + zerolag_tag 
+  elif zerolag and show_epsilon_ball:
+    canvas_name = coinc_name + "_" + data_type + "_with_epsilon_ball_" + zerolag_tag
+  else:
+    canvas_name = coinc_name + "_" + data_type
+  canParC = TCanvas(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca', 1024, 700)
+  ntup = TNtuple(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca',\
   				'snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca')
 
   for coinc in coincs:
-	c_ifo1 = getattr(coinc, ifolist[0])
-	c_ifo2 = getattr(coinc, ifolist[1])
+	c_ifo1 = getattr(coinc, coincType[0])
+	c_ifo2 = getattr(coinc, coincType[1])
 	c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
 	c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
 	c_D_eff_rms,c_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(c_ifo1.eff_distance, c_ifo2.eff_distance)
@@ -871,10 +886,10 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_D_eff_rms, c_eff_dist_theta, c_mchirp_rms, c_mchirp_theta, c_ethinca)
 			  
   if zerolag:
-	ifos,ifolist = zerolag.get_ifos()
+	ifos,ifolist = zerolag[0].get_ifos()
 	if ifolist == coincType:
-	  zerolag_ifo1 = getattr(zerolag, ifolist[0])
-	  zerolag_ifo2 = getattr(zerolag, ifolist[1])
+	  zerolag_ifo1 = getattr(zerolag[0], ifolist[0])
+	  zerolag_ifo2 = getattr(zerolag[0], ifolist[1])
 	  zerolag_eff_snr_ifo1 = zerolag_ifo1.get_effective_snr()
 	  zerolag_eff_snr_ifo2 = zerolag_ifo2.get_effective_snr()
 	  zerolag_D_eff_rms,zerolag_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(zerolag_ifo1.eff_distance, zerolag_ifo2.eff_distance)
@@ -904,6 +919,9 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	  mchirp_phi_scale = 0.1*cmath.pi/float(180)
 	  
 	para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
+        para.AddSelection("zerolag")
+        para.GetCurrentSelection().SetLineColor(kBlue)
+
 	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
 	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
@@ -913,7 +931,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	para = paraxis_add_range(para, "ethinca", (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
 
   #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
-  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
+  canParC.SaveAs(canvas_name + '_parallel_axis.C')
   canParC.Close()
   #para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
   #snr1axis = para.GetVarList().FindObject('snr1')
@@ -936,9 +954,9 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
   ntup = TNtuple(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
                  'eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23')
   for coinc in coincs:
-	c_ifo1 = getattr(coinc, ifolist[0])
-	c_ifo2 = getattr(coinc, ifolist[1])
-	c_ifo3 = getattr(coinc, ifolist[2])
+	c_ifo1 = getattr(coinc, coincType[0])
+	c_ifo2 = getattr(coinc, coincType[1])
+	c_ifo3 = getattr(coinc, coincType[2])
 	c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
 	c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
 	c_eff_snr_ifo3 = c_ifo3.get_effective_snr()
@@ -1116,6 +1134,9 @@ parser.add_option("","--add-zerolag",action="store_true",\
 
 parser.add_option("","--parallel-axis-plots",action="store_true",\
     default=False, help ="Generates input files for ROOT package that makes plots with parallel axis")
+
+parser.add_option("","--show-epsilon-ball",action="store_true",\
+    default=False, help ="show epsilon ball on the parallel axis plot")
 	
 # plots that use data from Inspiral Likelihood Table only
 parser.add_option("","--falsealarm-vs-detectprob-zerolag",action="store_true",\
@@ -1354,10 +1375,10 @@ if opts.parallel_axis_plots:
 	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
 	# construct the zero lag coincs
 	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
-	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate)
-	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate)
-	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate)
-	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate)
+	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate")
+	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
+	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
+	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
   else:
 	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
 	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides')
