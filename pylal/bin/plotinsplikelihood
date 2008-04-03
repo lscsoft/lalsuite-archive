@@ -18,10 +18,11 @@ from glue.ligolw import ligolw
 import glue.iterutils
 import numpy
 numpy.seterr("raise")
+import cmath
 
 from ROOT import gROOT,gStyle,TCanvas,TFile
 from ROOT import TH3F, TNtuple
-#from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
 from ROOT import TLegend
 from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
 
@@ -842,7 +843,7 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, prefi
   savefig(prefix+'_inj_vs_slides_hist')
   figure()
 
-def parallel_axis_plot_double(coincTriggers, coincType, data_type):
+def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None, show_epsilon_ball=False):
   """ 
   Generates files to be used under ROOT to make multi-dimensional plots with
   parallel axis
@@ -860,8 +861,8 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type):
   				'snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca')
 
   for coinc in coincs:
-	c_ifo1 = getattr(coincs, ifolist[0])
-	c_ifo2 = getattr(coincs, ifolist[1])
+	c_ifo1 = getattr(coinc, ifolist[0])
+	c_ifo2 = getattr(coinc, ifolist[1])
 	c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
 	c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
 	c_D_eff_rms,c_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(c_ifo1.eff_distance, c_ifo2.eff_distance)
@@ -869,8 +870,48 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type):
 	c_ethinca = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)  
 	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_D_eff_rms, c_eff_dist_theta, c_mchirp_rms, c_mchirp_theta, c_ethinca)
 			  
-
+  if zerolag:
+	ifos,ifolist = zerolag.get_ifos()
+	if ifolist == coincType:
+	  zerolag_ifo1 = getattr(zerolag, ifolist[0])
+	  zerolag_ifo2 = getattr(zerolag, ifolist[1])
+	  zerolag_eff_snr_ifo1 = zerolag_ifo1.get_effective_snr()
+	  zerolag_eff_snr_ifo2 = zerolag_ifo2.get_effective_snr()
+	  zerolag_D_eff_rms,zerolag_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(zerolag_ifo1.eff_distance, zerolag_ifo2.eff_distance)
+	  zerolag_mchirp_rms, zerolag_mchirp_theta = CoincInspiralUtils.convert_to_polar_coord(zerolag_ifo1.mchirp, zerolag_ifo2.mchirp)
+	  zerolag_ethinca = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo2)
+	  if not show_epsilon_ball:
+		ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_ethinca)
+	else:
+	  print >> sys.stdout, "Warning: the zerolag candidate is of different type then injections/time slides triggers"
+	  
   ntup.Draw('snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca', '', 'para')
+  
+  if zerolag:
+	if show_epsilon_ball:
+	  epsilon = 0.1
+	  ethinca_scale = 0.1
+	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
+	  eff_dist_phi_scale =  45.0*cmath.pi/float(180)
+	  mchirp_theta_scale = 2.0*cmath.pi/float(180)
+	  mchirp_phi_scale = 45.0*cmath.pi/float(180)
+	else:
+	  epsilon = 0.01
+	  ethinca_scale = 0.01
+	  eff_dist_theta_scale = 0.1*cmath.pi/float(180)
+	  eff_dist_phi_scale =  0.1*cmath.pi/float(180)
+	  mchirp_theta_scale = 0.1*cmath.pi/float(180)
+	  mchirp_phi_scale = 0.1*cmath.pi/float(180)
+	  
+	para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
+	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
+	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
+	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "D_eff_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
+	para = paraxis_add_range(para, "Mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "Mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
+	para = paraxis_add_range(para, "ethinca", (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
+
   #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
   canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
   canParC.Close()
@@ -878,7 +919,6 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type):
   #snr1axis = para.GetVarList().FindObject('snr1')
   #snr2axis = para.GetVarList().FindObject('snr2')
 
-  
 
 def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
   """
@@ -973,7 +1013,8 @@ parser.add_option("","--likelihood-slides-pattern",\
 parser.add_option("","--likelihood-inj-pattern",\
     default="", metavar="INJSPATTERN", help="the injections files pattern the cache file, specified by --likelihood-cache-file option, will be seived with.")
 			
-
+parser.add_option("","--paraxis-zerolag-glob",action="store",type="string",\
+    default=None, metavar=" GLOB",help="GLOB zero lag  thinca files to read. The file should contain only one coincident trigger that will be overlayed with the pupulation of injections or time slides" )
 ###################################################################################
 # Options for output
 ###################################################################################
@@ -1307,10 +1348,21 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
 
 
 if opts.parallel_axis_plots:
-  parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
-  #parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides')
-  #parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections')
-  #parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides')
+  if opts.paraxis_zerolag_glob:
+	zerolagCandidateFile = glob.glob(opts.paraxis_zerolag_glob)
+	zerolagCandidateTriggers = None
+	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
+	# construct the zero lag coincs
+	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
+	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate)
+	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate)
+	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate)
+	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate)
+  else:
+	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
+	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides')
+	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections')
+	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides')
 	
 ############ ########### ############# ############# ############### ###########	
 # plots that make use of inspiral likelihood tables only
