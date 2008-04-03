@@ -873,7 +873,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
     canvas_name = coinc_name + "_" + data_type
   canParC = TCanvas(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca', 1024, 700)
   ntup = TNtuple(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca',\
-  				'snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca')
+  				'snr_eff1:snr_eff2:D_eff_rms:eff_dist_theta:mchirp_rms:mchirp_theta:ethinca')
 
   for coinc in coincs:
 	c_ifo1 = getattr(coinc, coincType[0])
@@ -900,7 +900,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	else:
 	  print >> sys.stdout, "Warning: the zerolag candidate is of different type then injections/time slides triggers"
 	  
-  ntup.Draw('snr_eff1:snr_eff2:D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:ethinca', '', 'para')
+  ntup.Draw('snr_eff1:snr_eff2:D_eff_rms:eff_dist_theta:mchirp_rms:mchirp_theta:ethinca', '', 'para')
   
   if zerolag:
 	if show_epsilon_ball:
@@ -925,9 +925,9 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
 	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
-	para = paraxis_add_range(para, "D_eff_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
-	para = paraxis_add_range(para, "Mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
-	para = paraxis_add_range(para, "Mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
+	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
+	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
 	para = paraxis_add_range(para, "ethinca", (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
 
   #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
@@ -938,7 +938,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
   #snr2axis = para.GetVarList().FindObject('snr2')
 
 
-def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
+def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None, show_epsilon_ball=False, zerolag_tag=''):
   """
   Generates files to be used under ROOT to make multi-dimensional plots with
   parallel axis
@@ -950,8 +950,14 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
   coinc_name = ''
   for ifo in coincType:
         coinc_name += ifo
-  canParC = TCanvas(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca', 1024, 700)
-  ntup = TNtuple(data_type + "_" + coinc_name, data_type + ' ' + coinc_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
+  if zerolag and not show_epsilon_ball:
+    canvas_name = coinc_name + "_" + data_type + "_with_zerolag_" + zerolag_tag 
+  elif zerolag and show_epsilon_ball:
+    canvas_name = coinc_name + "_" + data_type + "_with_epsilon_ball_" + zerolag_tag
+  else:
+    canvas_name = coinc_name + "_" + data_type
+  canParC = TCanvas(canvas_name, canvas_name + ': snr, chisq, eff_dist, M_chrip, e-thinca', 1024, 700)
+  ntup = TNtuple(canvas_name, canvas_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
                  'eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23')
   for coinc in coincs:
 	c_ifo1 = getattr(coinc, coincType[0])
@@ -966,9 +972,64 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type):
 	c_ethinca_13 = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo3)
 	c_ethinca_23 = CoincInspiralUtils.simpleEThinca(c_ifo2, c_ifo3)
 	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_eff_snr_ifo3, c_D_eff_rms, c_eff_dist_theta, c_eff_dist_phi, c_mchirp_rms, c_mchirp_theta, c_mchirp_phi, c_ethinca_12, c_ethinca_13, c_ethinca_23)
+		
+  if zerolag:
+	ifos,ifolist = zerolag[0].get_ifos()
+	if ifolist == coincType:
+	  zerolag_ifo1 = getattr(zerolag[0], coincType[0])
+	  zerolag_ifo2 = getattr(zerolag[0], coincType[1])
+	  zerolag_ifo3 = getattr(zerolag[0], coincType[2])
+	  zerolag_eff_snr_ifo1 = zerolag_ifo1.get_effective_snr()
+	  zerolag_eff_snr_ifo2 = zerolag_ifo2.get_effective_snr()
+	  zerolag_eff_snr_ifo3 = zerolag_ifo3.get_effective_snr()
+	  zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_eff_dist_phi = CoincInspiralUtils.convert_to_spherical_coord(zerolag_ifo1.eff_distance, zerolag_ifo2.eff_distance, zerolag_ifo3.eff_distance)
+	  zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_mchirp_phi = CoincInspiralUtils.convert_to_spherical_coord(zerolag_ifo1.mchirp, zerolag_ifo2.mchirp, zerolag_ifo3.mchirp)
+	  zerolag_ethinca_12 = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo2)
+	  zerolag_ethinca_13 = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo3)
+	  zerolag_ethinca_23 = CoincInspiralUtils.simpleEThinca(zerolag_ifo2, zerolag_ifo3)
+	  if not show_epsilon_ball:
+	  	ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_eff_snr_ifo3, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_eff_dist_phi, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_mchirp_phi, zerolag_ethinca_12, zerolag_ethinca_13, zerolag_ethinca_23)
+	else:
+	  print >> sys.stdout, "Warning: the zerolag candidate is of different type then injections/time slides triggers"
+
   ntup.Draw('eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23', '', 'para')
-  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
-  canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.C')
+  
+  if zerolag:
+	if show_epsilon_ball:
+	  epsilon = 0.1
+	  ethinca_scale = 0.1
+	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
+	  eff_dist_phi_scale =  45.0*cmath.pi/float(180)
+	  mchirp_theta_scale = 2.0*cmath.pi/float(180)
+	  mchirp_phi_scale = 45.0*cmath.pi/float(180)
+	else:
+	  epsilon = 0.01
+	  ethinca_scale = 0.01
+	  eff_dist_theta_scale = 0.1*cmath.pi/float(180)
+	  eff_dist_phi_scale =  0.1*cmath.pi/float(180)
+	  mchirp_theta_scale = 0.1*cmath.pi/float(180)
+	  mchirp_phi_scale = 0.1*cmath.pi/float(180)
+	  
+	para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
+	para.AddSelection("zerolag")
+	para.GetCurrentSelection().SetLineColor(kBlue)
+
+	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
+	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
+	para = paraxis_add_range(para, "snr_eff3", zerolag_eff_snr_ifo3*(1.0 - epsilon), zerolag_eff_snr_ifo3*(1.0 + epsilon))
+	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
+	para = paraxis_add_range(para, "eff_dist_phi", (zerolag_eff_dist_phi - eff_dist_phi_scale) , (zerolag_eff_dist_phi + eff_dist_phi_scale))
+	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
+	para = paraxis_add_range(para, "mchirp_phi", (zerolag_mchirp_phi - mchirp_phi_scale) , (zerolag_mchirp_phi + mchirp_phi_scale))
+	para = paraxis_add_range(para, "ethinca_12", (zerolag_ethinca_12 - ethinca_scale) , (zerolag_ethinca_12 + ethinca_scale))
+	para = paraxis_add_range(para, "ethinca_13", (zerolag_ethinca_13 - ethinca_scale) , (zerolag_ethinca_13 + ethinca_scale))
+	para = paraxis_add_range(para, "ethinca_23", (zerolag_ethinca_23 - ethinca_scale) , (zerolag_ethinca_23 + ethinca_scale)) 
+
+
+  canParC.SaveAs(canvas_name + '_parallel_axis.png')
+  canParC.SaveAs(canvas_name + '_parallel_axis.C')
   canParC.Close()
 
 
