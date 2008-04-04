@@ -76,17 +76,8 @@ def parse_command_line():
   """
   parser = OptionParser( usage=usage, \
       version= "%prog CVS\n" +
-<<<<<<< plotinspiral
-<<<<<<< plotinspiral
       "$Id$\n" +
       "$Name$\n")
-=======
-      "$Id$\n" +
-=======
-      "$Id$\n" +
->>>>>>> 1.28.2.4
-      "$Name$\n")
->>>>>>> 1.47
 
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
