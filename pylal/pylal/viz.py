@@ -800,22 +800,6 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     # creates the histogram and take plot_type into account  
     if plot_type == 'loglog' or plot_type=='logx':
       data = log10(data)
-  
-    if bins:
-      ydata, xdata, patches = hist(data,bins)
-    else:
-      ydata, xdata, patches = hist(data,nbins)
-  
-    width = xdata[1] - xdata[0]
-  
-    if plot_type == 'loglog' or plot_type=='logy':
-      indexPositive = find(ydata>0)
-      ydata = log10( ydata[indexPositive] )
-      xdata = xdata[indexPositive]
-  
-    # creates the histogram and take plot_type into account  
-    if plot_type == 'loglog' or plot_type=='logx':
-      data = log10(data)
 
 
     if bins:
@@ -844,16 +828,17 @@ def histcol(table1, col_name,nbins = None, width = None, output_name = None, xli
     ylabel('Number', size='x-large')
 
     # now let us set the ticks and ylabels.
-    # First to be human readable, 
-    #let us come back to power of 10 instead of log10 values
+    # First to be human readable (not in log10), 
+    # let us come back to power of 10 instead of log10 values
     # on x, which is easy....:
     if plot_type=='logx' or plot_type=='loglog':
       locs, labels = xticks()
       l = len(locs)
       lim1 = floor(log10(power(10, locs[0])))
       lim2 = ceil(log10(power(10, locs[l-1])))
+      this = range(int(lim1), int(lim2), 1)
+      ticks_labels = power(10.0, [x for x in this])
       ticks = range(int(lim1), int(lim2), 1)
-      ticks_labels = power(10.0,ticks)
       this = ax.get_xaxis()
       this.set_ticks(ticks)
       this.set_ticklabels([ str(x) for x in ticks_labels])
