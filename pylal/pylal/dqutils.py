@@ -2,6 +2,7 @@ from __future__ import division
 
 import os
 import re
+import sys
 import urllib
 
 ### Speed hacks
@@ -99,7 +100,8 @@ def from_veto_file(fileobj):
     added to the start and end times of DQ-flagged segments.
     """
     veto_window_lines = [line.split() for line in fileobj\
-                         if len(line) > 0 and not line.startswith("#")]
+                         if len(line.strip()) > 0 \
+                            and not line.startswith("#")]
     veto_windows = dict([(key, (int(minus), int(plus))) for key, minus, plus\
                          in veto_window_lines])
     return veto_windows
@@ -119,6 +121,7 @@ def apply_veto_windows(seg_dict, veto_window_dict):
         # FIXME: For now we assume that we want the v99 flags
         v99_flag = flag + "_v99"
         if v99_flag not in seg_dict:
+            print >>sys.stderr, "warning: %s not in DQ segments file" % v99_flag
             continue
         segs = segmentlist([segment(s[0]+window[0], s[1]+window[1]) 
                 for s in seg_dict[v99_flag]])
