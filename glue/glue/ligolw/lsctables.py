@@ -1,8 +1,4 @@
-<<<<<<< lsctables.py
 # $Id$
-=======
-# $Id$
->>>>>>> 1.140.2.2
 #
 # Copyright (C) 2006  Kipp C. Cannon
 #
