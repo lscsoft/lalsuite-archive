@@ -111,7 +111,7 @@ def parse_command_line():
   parser.add_option("-a","--snr-ifar",action="store_true",default=False,\
       help="plot the snr vs ifar of coinc triggers" )
   parser.add_option("-b","--ifar-dist",action="store_true",default=False,\
-      help="make snr vs snr plots of coinc triggers" )
+      help="make the cumulative distribution of IFAR" )
   parser.add_option("-S","--statistic",action="store",\
       default='effective_snr',type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
@@ -258,9 +258,10 @@ for combo,ifos in zip(combos,ifo_coincs):
       FAR[combo][idx] = 0.0001
   FAR[combo] = array(FAR[combo])
   if opts.zero_lag_playground:
-    FAR[combo] /= 600./6370.
+    FAR[combo] *= 600./6370.
   if opts.zero_lag_exclude_play:
     FAR[combo] *= 5770./6370.
+  FAR[combo] *= float(opts.num_categories)
   stats['stat'][combo] = coincs.getstat()
   stats['IFAR'][combo] = 1./(array(FAR[combo]))
   FAR[combo].sort()
@@ -279,7 +280,7 @@ bkgmin = 0.8*minIFAR
 bkgmax = 1.2*maxIFAR
 
 bkg = bkgmin*exp(array(range(10001))/10000.*log(bkgmax/bkgmin))
-ibkg = float(opts.num_categories)/bkg
+ibkg = 1./bkg
 ibkg_p1 = ibkg + sqrt(ibkg)
 ibkg_m1 = array([max(x - sqrt(x), 0.1) for x in ibkg])
 bkg_x1,bkg_y1 = viz.makesteps(bkg, ibkg_p1, ibkg_m1)
@@ -289,7 +290,7 @@ symbols = itertools.cycle(('^', 'D', 'H', 'o', '1', '+', 'x'))
 
 ################################################
 # make histogram of stat distribution
-if opts.ifar_dist:
+if opts.ifar_dist and not opts.combine_types:
   figure(figure_number)
   figure_number += 1
 
@@ -299,7 +300,34 @@ if opts.ifar_dist:
         alpha=0.65, label=combo)
     hold(True)
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
-  fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2)
+  fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
+  xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
+  ylim(ymin=0.6,ymax=opts.num_categories*1.1/minIFAR)
+  legend()
+  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  ylabel(r"Cumulative \#", size='x-large')
+  if opts.enable_output is True:
+    name = "cumhist_ifar"
+    text = "Cumulative Histogram of IFAR distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    fnameList.append(fname)
+    tagList.append(text)
+
+if opts.combine_types and opts.ifar_dist:
+  figure(figure_number)
+  figure_number += 1
+  combinedIFAR = {}
+  combinedIFAR['IFAR'] = [IFAR[combo][idx] for combo in combos for idx in range(len(IFAR[combo]))]
+  combinedIFAR['IFAR'].sort()
+  combinedIFAR['IFAR'].reverse()
+  combinedIFAR['cumhist'] = arange(len(combinedIFAR['IFAR'])) + 1.
+  loglog(combinedIFAR['IFAR'], combinedIFAR['cumhist'], 'b^',
+      markerfacecolor='b', markeredgecolor='b',
+      alpha=0.65, label='zero-lag')
+  hold(True)
+  loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
+  fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
   xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
   ylim(ymin=0.6,ymax=opts.num_categories*1.1/minIFAR)
   legend()
