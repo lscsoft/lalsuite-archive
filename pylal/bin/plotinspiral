@@ -76,8 +76,17 @@ def parse_command_line():
   """
   parser = OptionParser( usage=usage, \
       version= "%prog CVS\n" +
+<<<<<<< plotinspiral
+<<<<<<< plotinspiral
       "$Id$\n" +
       "$Name$\n")
+=======
+      "$Id$\n" +
+=======
+      "$Id$\n" +
+>>>>>>> 1.28.2.4
+      "$Name$\n")
+>>>>>>> 1.47
 
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
@@ -129,12 +138,12 @@ def parse_command_line():
       metavar=" NBINS", help="number of bins for the histogram plots" )
   parser.add_option("-t","--title",action="store",type="string",default=None,\
       metavar=" STRING",help="title string for plots")
-  parser.add_option("-x","--x-min",action="store",type="float",\
-      default=None, metavar="XMIN",help="set plot xmin to XMIN")
+#  parser.add_option("-x","--x-min",action="store",type="float",\
+#      default=None, metavar="XMIN",help="set plot xmin to XMIN")
   parser.add_option("-X","--x-max",action="store",type="float",\
       default=None, metavar="XMAX",help="set plot xmax to XMAX")
-  parser.add_option("-y","--y-min",action="store",type="float",\
-      default=None, metavar="YMIN",help="set plot xmin to YMIN")
+#  parser.add_option("-y","--y-min",action="store",type="float",\
+#      default=None, metavar="YMIN",help="set plot xmin to YMIN")
   parser.add_option("-Y","--y-max",action="store",type="float",\
       default=None, metavar="YMAX",help="set plot xmax to YMAX")
 
@@ -237,6 +246,7 @@ elif opts.log_y is False and opts.log_x is False:
   plot_type = 'linear'
 elif opts.log_y is True and opts.log_x is True:
   plot_type = 'loglog'
+
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:
@@ -373,7 +383,7 @@ if opts.snr_time and opts.missed_pattern:
       triggers[idx].end_time = triggers[idx].end_time - int(injTime)
 
     viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
-                   x_min=opts.x_min,x_max=opts.x_max)
+                   x_min=opts.threshold,x_max=None)
     if opts.enable_output is True:
       fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -399,14 +409,16 @@ if opts.snr_time is True:
     for idx in range(len(inspTriggers)):
       inspTriggers[idx].end_time = inspTriggers[idx].end_time \
                                    - int(opts.add_vertical_line)
+      
     viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds',plot_sym,\
-		x_min=opts.x_min, x_max=opts.x_max, \
-		y_min=opts.y_min, y_max=opts.y_max)
+		x_min=None, x_max=None, \
+		y_min=opts.threshold, y_max=opts.y_max)
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear',plot_sym,\
-                   y_min=opts.y_min, y_max=opts.y_max, )
+                   y_min=opts.threshold, y_max=opts.y_max, )
   
-  
+  ylabel('SNR') 
+  xlabel('Time in days')
   if opts.enable_output is True:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_time")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -418,6 +430,7 @@ if opts.snr_time is True:
 # plot of snr vs chisq
 if opts.snr_chisq is True:
   ifo = inspTriggers[0].ifo
+  plot_sym=ifocolors[ifo]+'x'
   col_a = viz.readcol(inspTriggers, 'chisq', ifo )
   if col_a[0]!=0:
     text = "SNR versus chisq-square (linear)"
@@ -430,7 +443,8 @@ if opts.snr_chisq is True:
     if opts.funky_threshold:
       plot(snr_range, s3_snr_chi_stat, 'r-')
       hold(True)
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','linear','kx')
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','linear',plot_sym)
+    xlabel('SNR') 
     if opts.enable_output is True: 
       fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_linear")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -442,6 +456,8 @@ if opts.snr_chisq is True:
 try:
   if opts.log_snr_chisq is True:
     text = "SNR versus chisq-square (log)"
+    ifo = inspTriggers[0].ifo
+    plot_sym=ifocolors[ifo]+'x'
     InspiralUtils.message(opts, "plotting..."+text)
     figure_number += 1
     figure(figure_number)
@@ -452,7 +468,8 @@ try:
       loglog(snr_range, s3_snr_chi_stat, 'r-')
       hold(True)
       
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog',plot_sym)
+    xlabel('SNR') 
     if opts.enable_output is True: 
       fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq_log")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -476,17 +493,14 @@ if opts.cum_hist_snr is True:
   if opts.log_y:
     ax = subplot(111)
     ax.set_yscale('log')
-  # we use y_lim and y_max of the snr for the xlimit of the snr histogram 
-  if opts.y_min and opts.y_max:
-    xlimits = [opts.y_min, opts.y_max]
-  else :
-    xlimits=[0,0]
+
   if opts.threshold>0:
     xlimits = [opts.threshold, 0]
 
 
   viz.cumhistcol(inspTriggers,'snr', plot_type=plot_type, xlimit=xlimits, color=symcolor)
-  
+  xlabel('SNR')  
+
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_cum_hist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -505,17 +519,12 @@ if opts.hist_snr is True:
   figure_number += 1
   figure(figure_number)
   
-  if opts.y_min and opts.y_max:
-    xlimits = [opts.y_min, opts.y_max]
-  else :
-    xlimits=[0,0]
-
   if opts.threshold>0:
     xlimits = [opts.threshold, 0]
-
-   
+    
   viz.histcol(inspTriggers,'snr',opts.nbins,None, xlimit=xlimits, color=symcolor, plot_type=plot_type)
 
+  ylabel('Number')
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
@@ -537,6 +546,7 @@ if opts.norm_hist_snr is True:
     ax = subplot(111)
     ax.set_yscale('log')
   viz.cumhistcol(inspTriggers,'snr',normalization = max_poss_trigs)
+  ylabel('SNR')
   if opts.enable_output is True: 
     fname = InspiralUtils.set_figure_name(opts, "snr_norm_hist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
