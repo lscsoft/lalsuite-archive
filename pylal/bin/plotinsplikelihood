@@ -1014,9 +1014,9 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
 	para.AddSelection("zerolag")
 	para.GetCurrentSelection().SetLineColor(kBlue)
 
-	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
-	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
-	para = paraxis_add_range(para, "snr_eff3", zerolag_eff_snr_ifo3*(1.0 - epsilon), zerolag_eff_snr_ifo3*(1.0 + epsilon))
+	para = paraxis_add_range(para, "eff_snr1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
+	para = paraxis_add_range(para, "eff_snr2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
+	para = paraxis_add_range(para, "eff_snr3", zerolag_eff_snr_ifo3*(1.0 - epsilon), zerolag_eff_snr_ifo3*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
 	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
 	para = paraxis_add_range(para, "eff_dist_phi", (zerolag_eff_dist_phi - eff_dist_phi_scale) , (zerolag_eff_dist_phi + eff_dist_phi_scale))
@@ -1436,9 +1436,9 @@ if opts.parallel_axis_plots:
 	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
 	# construct the zero lag coincs
 	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
-	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate")
+	#parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate")
 	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
-	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
+	parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
 	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
   else:
 	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
