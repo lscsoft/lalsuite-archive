@@ -898,7 +898,11 @@ def binned_array_from_xml(xml, name):
 	return a new rate.BinnedArray object from the data contained
 	therein.
 	"""
-	xml, = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	xml = [elem for elem in xml.getElementsByTagName(ligolw.LIGO_LW.tagName) if elem.getAttribute(u"Name") == u"%s:pylal_rate_binnedarray" % name]
+	try:
+		xml, = xml
+	except ValueError:
+		raise ValueError, "document must contain exactly 1 BinnedArray named '%s'" % name
 	binnedarray = BinnedArray(NDBins())
 	binnedarray.bins = bins_from_xml(xml)
 	binnedarray.array = array.get_array(xml, u"array").array
