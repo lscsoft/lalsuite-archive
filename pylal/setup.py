@@ -184,6 +184,7 @@ setup(
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
 		os.path.join("bin", "plotulvsmass"), 
+		os.path.join("bin", "plotifar"),
 		os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
