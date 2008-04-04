@@ -40,6 +40,7 @@ matplotlib.rcParams.update({
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+#from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
 import re
 import sys
 # Python 2.3 compatibility
