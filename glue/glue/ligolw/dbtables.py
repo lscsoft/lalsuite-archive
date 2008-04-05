@@ -563,7 +563,7 @@ class ProcessParamsTable(DBTable):
 	how_to_index = lsctables.ProcessParamsTable.how_to_index
 
 	def append(self, row):
-		if row.type not in types.Types:
+		if row.type is not None and row.type not in types.Types:
 			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		DBTable.append(self, row)
 
