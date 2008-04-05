@@ -63,7 +63,7 @@ def parse_command_line():
 		description = "Accepts as input one or more LIGO Light Weight XML files, each containing burst candidates and a list of injections, and adds entries to the coincidence tables indicating which burst events match which injections."
 	)
 	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
-	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be written to the process table (default = \"\").")
+	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
 	parser.add_option("-c", "--match-algorithm", metavar = "[stringcusp|excesspower]", default = None, help = "Set the algorithm used to match burst candidates with injections (required).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()

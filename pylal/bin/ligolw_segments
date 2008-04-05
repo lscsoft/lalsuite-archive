@@ -68,7 +68,7 @@ def parse_command_line():
 		usage = "%prog [options] [filename ...]",
 		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations.  If a file name is given on the command line, then it is loaded, the segments are added to the segment tables therein, and the file overwritten with the new document.  If multiple file names are given, then the same transformation is performed to each one.  If no file names are given, then a new document is created and written to stdout.  If the --output option is set, then output is written to that file, instead."
 	)
-	parser.add_option("--comment", metavar = "text", default = "", help = "Set comment string in process and segment_definer tables.")
+	parser.add_option("--comment", metavar = "text", help = "Set comment string in process and segment_definer tables (default = None).")
 	parser.add_option("--name", metavar = "text", default = "", help = "When inserting new segments, set the name string in the definer table to this (default = \"\").")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
 	parser.add_option("--insert-from-segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file, coalesce and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")

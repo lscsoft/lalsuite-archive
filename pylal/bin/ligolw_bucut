@@ -65,7 +65,7 @@ def parse_command_line():
 		description = "Removes sngl_burst events from XML files according to a variety of criteria.  Files named on the command line are read one-by-one, and over-written with the new files.  If no files are named on the command line, input is read from stdin and written to stdout.  Any file whose name ends in \".gz\" is assumed to be gzip compressed.  Note that, for the most part, this program does not understand coincidence information, and so if an injection or burst event is removed that participates in a coincidence, this program simply deletes the entire coincidence as well (before applying the --coinc-only cut)."
 	)
 	parser.add_option("--coinc-only", action = "store_true", help = "Discard events that are not participating in a coincident event.")
-	parser.add_option("--comment", metavar = "text", default = "", help = "Set the comment string to be recorded in the process table for this job (default = \"\").")
+	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be recorded in the process table for this job (default = None).")
 	parser.add_option("--inj-made-only", action = "store_true", help = "Discard injections outside the search summary out segments.")
 	parser.add_option("--min-amplitude", metavar = "value", type = "float", help = "Discard events below the given amplitude.")
 	parser.add_option("--max-amplitude", metavar = "value", type = "float", help = "Discard events above the given amplitude.")
