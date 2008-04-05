@@ -246,20 +246,23 @@ def yaml_from_param(elem, name):
 #
 
 
-def append_process(doc, program = "", version = "", cvs_repository = "", cvs_entry_time = "", comment = "", is_online = False, jobid = 0, domain = "", ifos = ""):
+def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
 	"""
-	Add an entry to the process table in doc.  program, version,
+	Add an entry to the process table in xmldoc.  program, version,
 	cvs_repository, comment, domain, and ifos should all be strings.
 	cvs_entry_time should be a string in the format "YYYY/MM/DD
 	HH:MM:SS".  is_online should be a boolean, jobid an integer.
 	"""
-	proctable = table.get_table(doc, lsctables.ProcessTable.tableName)
+	proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
 	proctable.sync_next_id()
 	process = lsctables.Process()
 	process.program = program
 	process.version = version
 	process.cvs_repository = cvs_repository
-	process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
+	if cvs_entry_time is not None:
+		process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
+	else:
+		process.cvs_entry_time = None
 	process.comment = comment
 	process.is_online = int(is_online)
 	process.node = socket.gethostname()
@@ -283,13 +286,13 @@ def set_process_end_time(process):
 	return process
 
 
-def append_process_params(doc, process, params):
+def append_process_params(xmldoc, process, params):
 	"""
-	doc is an XML document tree, process is the row in the process
+	xmldoc is an XML document tree, process is the row in the process
 	table for which these are the parameters, and params is a list of
 	(name, type, value) tuples one for each parameter.
 	"""
-	paramtable = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+	paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
 	for name, type, value in params:
 		row = lsctables.ProcessParams()
 		row.program = process.program
@@ -297,6 +300,8 @@ def append_process_params(doc, process, params):
 		row.param = unicode(name)
 		if type is not None:
 			row.type = unicode(type)
+			if row.type not in ligolwtypes.Types:
+				raise ValueError, "invalid type '%s' for parameter '%s'" % (row.type, row.param)
 		else:
 			row.type = None
 		if value is not None:
