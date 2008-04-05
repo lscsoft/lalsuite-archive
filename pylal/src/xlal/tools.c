@@ -311,15 +311,17 @@ typedef struct {
 static int ligolw_CoincMap_event_id_set(PyObject *obj, PyObject *val, void *data)
 {
 	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
 
 	Py_XDECREF(coinc_map->event_id_type);
-
-	Py_INCREF(val->ob_type);
 	coinc_map->event_id_type = (PyObject *) val->ob_type;
+	Py_INCREF(coinc_map->event_id_type);
+	coinc_map->event_id_i = i;
 
-	coinc_map->event_id_i = PyInt_AsLong(val);
-
-	return PyErr_Occurred() ? -1 : 0;
+	return 0;
 }
 
 
@@ -359,15 +361,19 @@ static PyObject *ligolw_CoincMap_table_name_get(PyObject *obj, void *data)
 static int ligolw_CoincMap_coinc_event_id_set(PyObject *obj, PyObject *val, void *data)
 {
 	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
 
 	if((PyObject *) val->ob_type != coinc_event_id_type) {
 		PyErr_SetObject(PyExc_TypeError, val);
 		return -1;
 	}
 
-	coinc_map->coinc_event_id_i = PyInt_AsLong(val);
+	coinc_map->coinc_event_id_i = i;
 
-	return PyErr_Occurred() ? -1 : 0;
+	return 0;
 }
 
 
