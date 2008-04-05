@@ -428,7 +428,7 @@ def ligolw_burca(
 			continue
 		if not offset_instruments.issubset(avail_instruments):
 			if verbose:
-				print >>sys.stderr, "\twarning: skipping due to insufficient data"
+				print >>sys.stderr, "\twarning: do not have data for instrument(s) %s: skipping" % ", ".join(offset_instruments - avail_instruments)
 			continue
 
 		#
