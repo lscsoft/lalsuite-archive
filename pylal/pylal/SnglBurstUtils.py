@@ -160,6 +160,74 @@ WHERE
 #
 # =============================================================================
 #
+#                               Live Time Tools
+#
+# =============================================================================
+#
+
+
+def get_time_slides(connection):
+	"""
+	Query the database for the IDs and offsets of all time slides, and
+	return two dictionaries one containing the all-zero time slides and
+	the other containing the not-all-zero time slides.
+	"""
+	zero_lag_time_slides = {}
+	background_time_slides = {}
+	for id, instrument, offset, is_background in connection.cursor().execute("""
+SELECT
+	time_slide_id,
+	instrument,
+	offset,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide AS a
+		WHERE
+			a.time_slide_id == time_slide.time_slide_id
+			AND a.offset != 0
+	)
+FROM
+	time_slide
+	"""):
+		if is_background:
+			if id not in background_time_slides:
+				background_time_slides[id] = {}
+			background_time_slides[id][instrument] = offset
+		else:
+			if id not in zero_lag_time_slides:
+				zero_lag_time_slides[id] = {}
+			zero_lag_time_slides[id][instrument] = offset
+	return zero_lag_time_slides, background_time_slides
+
+
+def time_slides_livetime(seglists, time_slides, verbose = False):
+	"""
+	Given a sequence of time slides (each of which is an instrument -->
+	offset dictionary), use the segmentlistdict dictionary of segment
+	lists to compute the live time in each time slide.  Return the sum
+	of the live times from all slides.
+	"""
+	livetime = 0.0
+	old_offsets = seglists.offsets.copy()
+	N = len(time_slides)
+	if verbose:
+		print >>sys.stderr, "computing the live time for %d time slides:" % N
+	for n, time_slide in enumerate(time_slides):
+		if verbose:
+			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
+		seglists.offsets.update(time_slide)
+		livetime += float(abs(seglists.intersection(time_slide.keys())))
+	seglists.offsets.update(old_offsets)
+	if verbose:
+		print >>sys.stderr, "\t100.0%"
+	return livetime
+
+
+#
+# =============================================================================
+#
 #                                 TeX Helpers
 #
 # =============================================================================
