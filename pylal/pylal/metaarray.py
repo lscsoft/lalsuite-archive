@@ -149,13 +149,12 @@ class Metadata(object):
         """
         Merge metadata; this must be subclassed.
         """
-        if self is None:
-            return other
-        if other is None:
-            return self
         raise NotImplemented
     
     def __or__(self, other):
+        return self.copy().__ior__(other)
+    
+    def __ror__(self, other):
         return self.copy().__ior__(other)
     
     def __eq__(self, other):
@@ -453,8 +452,6 @@ class TimeSeriesMetadata(Metadata):
         """
         if other is None:
             return self
-        if self is None:
-            return other
         
         # check that metadata are compatible for merging
         assert numpy.alltrue([getattr(self, attr) == getattr(other, attr) \
@@ -464,6 +461,7 @@ class TimeSeriesMetadata(Metadata):
         # add, but do not join, segments
         self.segments.extend([seg for seg in other.segments \
             if seg not in self.segments])
+        self.segments.sort()
         
         # add only new comments
         self.comments.extend([comment for comment in other.comments \
