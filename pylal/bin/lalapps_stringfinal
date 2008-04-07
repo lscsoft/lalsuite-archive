@@ -117,25 +117,31 @@ class Survivors(object):
 			self.sngl_burst_table = lsctables.New(lsctables.SnglBurstTable, contents.sngl_burst_table.columnnames)
 			self.xmldoc.childNodes[0].appendChild(self.sngl_burst_table)
 
-		time_slide_id = [id for id in contents.time_slide_table.iterkeys() if contents.time_slide_table.is_null(id)]
-		if len(time_slide_id) != 1:
-			raise ValueError, "document does not contain exactly 1 zero-lag time slide (contains %d of them)" % len(time_slide_id)
-		time_slide_id = time_slide_id[0]
-
-		self.sngl_burst_table.extend(map(contents.sngl_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT sngl_burst.* FROM
-	sngl_burst
+		for values in contents.connection.cursor().execute("""
+SELECT
+	sngl_burst.*
+FROM
+	coinc_event
 	JOIN coinc_event_map ON (
-		coinc_event_map.event_id == sngl_burst.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
 	)
-	JOIN coinc_event ON (
-		coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+	JOIN sngl_burst ON (
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
-	AND coinc_event.time_slide_id == ?
-		""", (contents.bb_definer_id, time_slide_id))))
+	AND NOT EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+		""", (contents.bb_definer_id,)):
+			self.sngl_burst_table.append(contents.sngl_burst_table._row_from_cols(values))
 
 	def finish(self, filename, verbose = False):
 		self.sngl_burst_table.sort(lambda a, b: cmp((a.ifo, abs(a.amplitude)), (b.ifo, abs(b.amplitude))))
@@ -163,33 +169,39 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		self.axes.loglog()
 
 	def add_contents(self, contents):
-		for time_slide_id in contents.time_slide_table.iterkeys():
-			offsets = contents.time_slide_table[time_slide_id]
-			contents.seglists.offsets.update(offsets)
-			live_time = float(abs(contents.seglists.intersection(offsets.keys())))
-			if contents.time_slide_table.is_null(time_slide_id):
-				bins = self.foreground
-				self.foreground_time += live_time
-			else:
-				bins = self.background
-				self.background_time += live_time
-			for amplitude, in contents.connection.cursor().execute("""
-SELECT sngl_burst.amplitude FROM
-	sngl_burst
-	JOIN coinc_event_map ON (
-		sngl_burst.event_id == coinc_event_map.event_id
-		AND coinc_event_map.table_name == 'sngl_burst'
+		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
+		self.foreground_time += SnglBurstUtils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values())
+		self.background_time += SnglBurstUtils.time_slides_livetime(contents.seglists, background_time_slides.values())
+
+		for amplitude, is_background in contents.connection.cursor().execute("""
+SELECT
+	sngl_burst.amplitude,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
 	)
-	JOIN coinc_event ON (
+FROM
+	coinc_event
+	JOIN coinc_event_map ON (
 		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_burst ON (
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
 	)
 WHERE
 	sngl_burst.ifo == ?
 	AND coinc_event.coinc_def_id == ?
-	AND coinc_event.time_slide_id == ?
-			""", (self.instrument, contents.bb_definer_id, time_slide_id)):
-				bins.append(abs(amplitude) * self.amplitude_factor)
-		contents.seglists.offsets.clear()
+		""", (self.instrument, contents.bb_definer_id)):
+			if is_background:
+				self.background.append(abs(amplitude) * self.amplitude_factor)
+			else:
+				self.foreground.append(abs(amplitude) * self.amplitude_factor)
 
 	def finish(self):
 		print "Total time in %s foreground segments: %s s" % (self.instrument, str(self.foreground_time))
@@ -521,7 +533,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 			print >>sys.stderr, "storing zero-lag survivors ..."
 		survivors.add_contents(database)
 	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = verbose)
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 n = 0
 format = "%%s%%0%dd.%%s" % (int(math.log10(max(len(plots) - 1, 1))) + 1)
