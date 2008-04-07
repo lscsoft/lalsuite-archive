@@ -89,7 +89,7 @@ def parse_command_line():
 		if options.loudest_survivor is None:
 			raise ValueError, "must set --loudest-survivor with --injections"
 		options.loudest_survivor = options.loudest_survivor.split("=")
-		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1]))}
+		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1])) / 1e-20}
 
 	if options.cal_uncertainty is None:
 		raise ValueError, "must set --cal-uncertainty"
@@ -213,14 +213,14 @@ WHERE
 		# ratio of live times
 		foregrounds_per_background = self.foreground_time / self.background_time
 		# cummulative number expected in foreground
-		background_y = numpy.arange(len(self.background), 0.0, -1.0, "Float64") * foregrounds_per_background
+		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") * foregrounds_per_background
 		# \sqrt{N} std dev expected in foreground
 		background_yerr = numpy.sqrt(numpy.array(background_y))
 		# convert to rate and uncertainty expected in foreground
 		background_y /= self.foreground_time
 		background_yerr /= self.foreground_time
 		# cummulative rate observed in foreground
-		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, "Float64") / self.foreground_time
+		foreground_y = numpy.arange(len(self.foreground), 0.0, -1.0, dtype = "double") / self.foreground_time
 		# plot
 		# warning:  the error bar polygon is not *really* clipped
 		# to the axes' bounding box, the result will be incorrect
@@ -255,7 +255,7 @@ def slope(x, y):
 	"""
 	From the x and y array, compute the slope everywhere.
 	"""
-	slope = numpy.zeros((len(x),), numpy.Float64)
+	slope = numpy.zeros((len(x),), dtype = "double")
 	slope[0] = (y[1] - y[0]) / (x[1] - x[0])
 	for i in xrange(1, len(x) - 1):
 		slope[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
@@ -283,7 +283,7 @@ def solve(x, y, xval = None, yval = None):
 def upper_err(y, yerr, deltax):
 	z = y + yerr
 	deltax = int(deltax)
-	upper = numpy.zeros((len(yerr),), "Float64")
+	upper = numpy.zeros((len(yerr),), dtype = "double")
 	for i in xrange(len(yerr)):
 		upper[i] = max(z[max(i - deltax, 0) : min(i + deltax, len(z))])
 	return upper - y
@@ -292,7 +292,7 @@ def upper_err(y, yerr, deltax):
 def lower_err(y, yerr, deltax):
 	z = y - yerr
 	deltax = int(deltax)
-	lower = numpy.zeros((len(yerr),), "Float64")
+	lower = numpy.zeros((len(yerr),), dtype = "double")
 	for i in xrange(len(yerr)):
 		lower[i] = min(z[max(i - deltax, 0) : min(i + deltax, len(z))])
 	return y - lower
@@ -300,7 +300,7 @@ def lower_err(y, yerr, deltax):
 
 def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
 	print >>fileobj, "# ln(A)	e	D[e]"
-	DlnA = bins.bins[0].delta * filterwidth / 2.0
+	DlnA = bins[0].delta * filterwidth / 2.0
 	for A, e, De in zip(bins.centres()[0], eff, yerr):
 		print >>fileobj, math.log(A), e, De
 
@@ -309,14 +309,14 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# extract array of x co-ordinates, and the factor by which x
 	# increases from one sample to the next.
 	(x,) = efficiency.centres()
-	x_factor_per_sample = efficiency.bins().bins[0].delta
+	x_factor_per_sample = efficiency.bins()[0].delta
 
 	# compute the efficiency, the slope (units = efficiency per
 	# sample), the y uncertainty (units = efficiency) due to binomial
 	# counting fluctuations, and the x uncertainty (units = samples)
 	# due to the width of the smoothing filter.
 	eff = efficiency.ratio()
-	dydx = slope(numpy.arange(len(x), dtype = "Float64"), eff)
+	dydx = slope(numpy.arange(len(x), dtype = "double"), eff)
 	yerr = numpy.sqrt(eff * (1 - eff) / efficiency.denominator.array)
 	xerr = numpy.array([filter_width / 2] * len(yerr))
 
@@ -446,20 +446,20 @@ WHERE
 	def finish(self):
 		# put made and found injections in the denominators and
 		# numerators of the efficiency bins
-		self.all.sort(lambda a, b: cmp(a.hpeak, b.hpeak))
-		min_amplitude = self.all[0].hpeak * self.amplitude_factor
-		max_amplitude = self.all[-1].hpeak * self.amplitude_factor
+		self.all.sort(lambda a, b: cmp(a.amplitude, b.amplitude))
+		min_amplitude = self.all[0].amplitude * self.amplitude_factor
+		max_amplitude = self.all[-1].amplitude * self.amplitude_factor
 
 		bins = rate.NDBins((rate.LogarithmicBins(min_amplitude, max_amplitude, 400),))
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
-			efficiency.incnumerator((sim.hpeak * self.amplitude_factor,))
+			efficiency.incnumerator((sim.amplitude * self.amplitude_factor,))
 		for sim in self.found_above_loudest:
-			efficiency_above_loudest.incnumerator((sim.hpeak * self.amplitude_factor,))
+			efficiency_above_loudest.incnumerator((sim.amplitude * self.amplitude_factor,))
 		for sim in self.all:
-			efficiency.incdenominator((sim.hpeak * self.amplitude_factor,))
-			efficiency_above_loudest.incdenominator((sim.hpeak * self.amplitude_factor,))
+			efficiency.incdenominator((sim.amplitude * self.amplitude_factor,))
+			efficiency_above_loudest.incdenominator((sim.amplitude * self.amplitude_factor,))
 
 		# regularize:  adjust unused bins so that the efficiency
 		# ratio comes out to 0
