@@ -427,8 +427,6 @@ if opts.run_plots:
       # single ifo
       plotcp = copy.deepcopy(cp)
       plotcp.add_section("plot-arguments")
-      plotcp.set("plot-arguments","plotinspiralrange","")
-      plotcp.set("plot-arguments","plotnumtemplates","")
       plotcp.set("plot-arguments","plotinspinj","")
       plotcp.set("plot-arguments","plotsnrchi","")
       plotcp.set("plot-arguments","write-script","")
@@ -493,8 +491,6 @@ if opts.run_plots:
     # single ifo
     plotcp = copy.deepcopy(cp)
     plotcp.add_section("plot-arguments")
-    plotcp.set("plot-arguments","plotinspiralrange","")
-    plotcp.set("plot-arguments","plotnumtemplates","")
     plotcp.set("plot-arguments","plotinspinj","")
     plotcp.set("plot-arguments","plotsnrchi","")
     plotcp.set("plot-arguments","write-script","")
