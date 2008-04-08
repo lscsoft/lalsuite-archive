@@ -519,7 +519,7 @@ class FollowupMissed:
     # plot the missed trigger and save the plot
     xm = injMass[0]
     ym = injMass[1]
-    plot( [xm], [ym],  'ko', ms=10.0, mfc=None, mec='k', mew=3)
+    plot( [xm], [ym],  'ko', ms=10.0, mfc='None', mec='k', mew=3)
     grid(True)
     legend()
     xlabel('mass1')
