@@ -95,7 +95,7 @@ else:
 
 ##############################################################################
 # segment computation
-segs = orig_segs = segmentsUtils.fromfilenames(files)
+segs = orig_segs = segmentsUtils.fromfilenames(files).coalesce()
 
 # incorporate veto file
 if opts.veto_file is not None:
