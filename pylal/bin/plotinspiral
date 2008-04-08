@@ -41,7 +41,7 @@ from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
-
+from pylal import GRButils
 
 #################################################################
 # help message
@@ -156,6 +156,14 @@ def parse_command_line():
       help="only look at missed injections closer than EFFDIST")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
+  parser.add_option("","--exttrig",action="store",type="string",default=None,\
+      metavar=" STRING",help="file containing the trigger time of the GRB")
+  parser.add_option("","--exttrig-onsource-left",action="store",type="float",\
+      default=None, metavar="ONSOURCELEFT",
+      help="left window of the onsource segment (to negative time)")
+  parser.add_option("","--exttrig-onsource-right",action="store",type="float",\
+      default=None, metavar="ONSOURCERIGHT",
+      help="right window of the onsource segment (to positive time)")
 
   # output related
   parser.add_option("-o","--output-path",action="store",\
@@ -298,6 +306,13 @@ tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts
 if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
   inspTriggers = inspTriggers.veto(seglist)
+
+if opts.exttrig:
+  exttrig = GRButils.grbTable(opts.exttrig).rows
+  triggerTime =  exttrig[0].gpsTime
+  exttrigseg = segments.segment( triggerTime - opts.exttrig_onsource_left, triggerTime + opts.exttrig_onsource_right)
+  inspTriggers = inspTriggers.veto(exttrigseg)
+
 
 # determine missed injection file
 missed_files = []
