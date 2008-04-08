@@ -130,7 +130,9 @@ def parse_command_line():
 	parser.add_option("--dump-scatter-data", action = "store_true", help = "Instead of computing upper limit, dump data files for confidence-likelihood scatter diagnostic scatter plot.")
 	parser.add_option("--plot-scatter-data", action = "store_true", help = "Instead of computing upper limit, load data files for confidence-likelihood scatter diagnostic scatter plot and generate scatter plot.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
-	parser.add_option("--zero-lag-survivors", metavar = "number", type = "int", help = "Set the final confidence-likelihood joint threshold so that this many events survive at zero lag.  If n survivors are requested, then the threshold is set at exactly the amplitude of the n+1 event, and events are discarded if their amplitudes are <= the threshold.  A \"loudest-event\" upper limit is obtained by setting this to 0.  The default is 0.")
+	parser.add_option("--upper-limit-confidence", metavar = "percent", type = "float", default = 90, help = "Set the confidence in percent of the upper limit to derive (default = 90.0).")
+	parser.add_option("--upper-limit-scale", metavar = "E|hrss", default = "E", help = "Select the scale on which to measure the upper limit.  Allowed values are 'E' for an upper limit on rate of bursts by energy, and 'hrss' for an upper limit on rate of bursts by h_{rss}.  (default = 'E')")
+	parser.add_option("--zero-lag-survivors", metavar = "number", type = "int", default = 0, help = "Set the final confidence-likelihood joint threshold so that this many events survive at zero lag.  If n survivors are requested, then the threshold is set at exactly the amplitude of the n+1 loudest event, and events are discarded if their amplitudes are <= the threshold.  A \"loudest-event\" upper limit is obtained by setting this to 0.  The default is 0.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	options, filenames = parser.parse_args()
 
@@ -139,6 +141,11 @@ def parse_command_line():
 			raise ValueError, "missing required --background-glob argument"
 		if not options.injections_glob:
 			raise ValueError, "missing required --injections-glob argument"
+
+	options.upper_limit_confidence /= 100.0
+
+	if options.upper_limit_scale not in ("E", "hrss"):
+		raise ValueError, "invalid value '%s' for --upper-limit-scale" % options.upper_limit_scale
 
 	return options, (filenames or [None])
 
@@ -200,7 +207,7 @@ AS
 		burst_coinc_event.coinc_event_id AS burst_coinc_event_id,
 		burst_coinc_event.likelihood AS burst_coinc_likelihood,
 		multi_burst.confidence AS burst_coinc_confidence,
-		amplitude(burst_coinc_event.likelihood, multi_burst.confidence) AS burst_coinc_amplitude
+		coinc_detection_statistic(burst_coinc_event.likelihood, multi_burst.confidence) AS burst_coinc_amplitude
 	FROM
 		sim_burst
 		JOIN coinc_event_map AS a ON (
@@ -268,9 +275,9 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
-		connection.create_function("amplitude", 2, coinc_amplitude)
+		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose)
+		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose = verbose)
 
 		#
 		# Process database contents.  Assume all files with
@@ -284,9 +291,9 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 			zero_lag_buffer = []
 			for id, l, c, is_background in bb_id_likelihood_confidence_background(database):
 				if is_background:
-					background_buffer.append((coinc_amplitude(l, c), l, c))
+					background_buffer.append((coinc_detection_statistic(l, c), l, c))
 				else:
-					zero_lag_buffer.append((coinc_amplitude(l, c), l, c))
+					zero_lag_buffer.append((coinc_detection_statistic(l, c), l, c))
 			background.extend(background_buffer)
 			zero_lag.extend(zero_lag_buffer)
 		else:
@@ -392,7 +399,7 @@ def plot_confidence_likelihood_scatter_data(slope, verbose = False):
 	if verbose:
 		print >>sys.stderr, "plotting contours ..."
 	ymin, ymax = axes.get_ylim()
-	for lnb in range(30, 90, 10):
+	for lnb in range(10, 110, 10):
 		x = 10**numpy.arange(0.85, 3.0, 0.01)
 		y = fit(x, lnb)
 		x = numpy.compress((ymin <= y) & (y <= ymax), x)
@@ -425,74 +432,6 @@ def plot_confidence_likelihood_scatter_data(slope, verbose = False):
 #
 # =============================================================================
 #
-#                               Live Time Tools
-#
-# =============================================================================
-#
-
-
-def get_time_slides(database):
-	"""
-	Query the database for the IDs and offsets of all time slides, and
-	return two dictionaries one containing the all-zero time slides and
-	the other containing the not-all-zero time slides.
-	"""
-	zero_lag_time_slides = {}
-	background_time_slides = {}
-	for id, instrument, offset, is_background in database.connection.cursor().execute("""
-SELECT
-	time_slide_id,
-	instrument,
-	offset,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide AS a
-		WHERE
-			a.time_slide_id == time_slide.time_slide_id
-			AND a.offset != 0
-	)
-FROM
-	time_slide
-	"""):
-		if is_background:
-			if id not in background_time_slides:
-				background_time_slides[id] = {}
-			background_time_slides[id][instrument] = offset
-		else:
-			if id not in zero_lag_time_slides:
-				zero_lag_time_slides[id] = {}
-			zero_lag_time_slides[id][instrument] = offset
-	return zero_lag_time_slides, background_time_slides
-
-
-def time_slides_livetime(seglists, time_slides, verbose = False):
-	"""
-	Given a sequence of time slides (each of which is an instrument -->
-	offset dictionary), use the segmentlistdict dictionary of segment
-	lists to compute the live time in each time slide.  Return the sum
-	of the live times from all slides.
-	"""
-	livetime = 0.0
-	old_offsets = seglists.offsets.copy()
-	N = len(time_slides)
-	if verbose:
-		print >>sys.stderr, "computing the live time for %d time slides:" % N
-	for n, time_slide in enumerate(time_slides):
-		if verbose:
-			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		seglists.offsets.update(time_slide)
-		livetime += float(abs(seglists.intersection(time_slide.keys())))
-	seglists.offsets.update(old_offsets)
-	if verbose:
-		print >>sys.stderr, "\t100.0%"
-	return livetime
-
-
-#
-# =============================================================================
-#
 #                              Rate vs. Threshold
 #
 # =============================================================================
@@ -519,9 +458,9 @@ class RateVsThresholdData(object):
 
 		if verbose:
 			print >>sys.stderr, "measuring live time ..."
-		zero_lag_time_slides, background_time_slides = get_time_slides(contents)
-		self.zero_lag_live_time += time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), verbose = verbose)
-		self.background_live_time += time_slides_livetime(contents.seglists, background_time_slides.values(), verbose = verbose)
+		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
+		self.zero_lag_live_time += SnglBurstUtils.time_slides_livetime(contents.seglists, zero_lag_time_slides.values(), verbose = verbose)
+		self.background_live_time += SnglBurstUtils.time_slides_livetime(contents.seglists, background_time_slides.values(), verbose = verbose)
 
 		#
 		# Iterate over burst<-->burst coincidences.  Assume there
@@ -535,9 +474,9 @@ class RateVsThresholdData(object):
 		buffer = []
 		for id, likelihood, confidence, is_background in bb_id_likelihood_confidence_background(contents):
 			if is_background:
-				buffer.append(coinc_amplitude(likelihood, confidence))
+				buffer.append(coinc_detection_statistic(likelihood, confidence))
 			else:
-				self.zero_lag_amplitudes.append((coinc_amplitude(likelihood, confidence), filename, id))
+				self.zero_lag_amplitudes.append((coinc_detection_statistic(likelihood, confidence), filename, id))
 		if verbose:
 			print >>sys.stderr, "sorting background coincs ..."
 		self.background_amplitudes.extend(buffer)
@@ -675,7 +614,7 @@ def measure_threshold(filenames, n_survivors, live_time_program = "lalapps_power
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose)
+		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose = verbose)
 
 		#
 		# Process database contents.
@@ -726,7 +665,7 @@ def print_rate_vs_threshold_data(rate_vs_threshold_data, confidence_contour_slop
 	print >>sys.stderr, "100 Highest-Ranked Zero Lag Events"
 	print >>sys.stderr, "----------------------------------"
 	print >>sys.stderr
-	print >>sys.stderr, "Amplitude\tFilename\tID"
+	print >>sys.stderr, "Detection Statistic\tFilename\tID"
 	for amplitude, filename, id in rate_vs_threshold_data.zero_lag_amplitudes[:100]:
 		print >>sys.stderr, "%.16g\t%s\t%s" % (amplitude, filename, id)
 	print >>sys.stderr
@@ -744,7 +683,11 @@ def plot_rate_vs_threshold(data):
 	"""
 	# start the rate vs. threshold plot
 
-	plot = SnglBurstUtils.BurstPlot(r"Coincident $n$-tuple ``amplitude'' (see text)", r"Mean Event Rate (Hz)")
+
+	print >>sys.stderr
+	print >>sys.stderr, "plotting event rate ..."
+
+	plot = SnglBurstUtils.BurstPlot(r"Detection Statistic Threshold", r"Mean Event Rate (Hz)")
 	plot.axes.semilogy()
 
 	# draw the background rate 1-sigma error bars as a shaded polygon
@@ -786,15 +729,18 @@ def plot_rate_vs_threshold(data):
 	# add a legend and a title
 
 	plot.axes.legend((line1, line3), (r"Background (time slides)", r"Zero lag"))
-	plot.axes.set_title(r"Mean Event Rate vs.\ Amplitude Threshold")
+	plot.axes.set_title(r"Mean Event Rate vs.\ Detection Statistic Threshold")
 
 	# done rate vs. threshold plot
 
-	fig1 = plot.fig
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
+	#plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
+	plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
 
 	# start rate vs. threshold residual plot
 
-	plot = SnglBurstUtils.BurstPlot(r"Coincident $n$-tuple ``amplitude'' (see text)", r"Mean Event Rate Residual (standard deviations)")
+	plot = SnglBurstUtils.BurstPlot(r"Detection Statistic Threshold", r"Mean Event Rate Residual (standard deviations)")
 
 	# construct a linear interpolator for the backround rate data so
 	# that we can evaluate it at the x co-ordinates of the zero-lag
@@ -809,15 +755,16 @@ def plot_rate_vs_threshold(data):
 
 	# add a title
 
-	plot.axes.set_title(r"Mean Event Rate Residual vs.\ Amplitude Threshold")
+	plot.axes.set_title(r"Mean Event Rate Residual vs.\ Detection Statistic Threshold")
 
 	# done rate vs. threshold residual plot
 
-	fig2 = plot.fig
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
+	#plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
+	plot.fig.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
 
 	# done
-
-	return fig1, fig2
 
 
 #
@@ -834,9 +781,9 @@ def plot_rate_vs_threshold(data):
 #
 
 
-def diagnostic_plot(z, bins, title, filename):
+def diagnostic_plot(z, bins, title, ylabel, filename):
 	print >>sys.stderr, "generating %s ..." % filename
-	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", ylabel)
 	plot.axes.loglog()
 	xcoords, ycoords = bins.centres()
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(z), 9)
@@ -855,7 +802,8 @@ class EfficiencyData(SimBurstUtils.Efficiency_hrss_vs_freq):
 		SimBurstUtils.Efficiency_hrss_vs_freq.__init__(self, *args)
 		self.recovered_xyz = []
 
-	def add_contents(self, contents, amplitude_threshold):
+
+	def add_contents(self, contents, threshold):
 		if self.instruments != contents.instruments:
 			raise ValueError, "this document contains instruments %s, but we want %s" % ("+".join(contents.instruments), "+".join(self.instruments))
 
@@ -878,7 +826,8 @@ FROM
 	sim_burst
 		""", (contents.scn_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
-			amplitude = values[-1]
+			detection_statistic = values[-1]
+			amplitude = self.amplitude_func(sim, None)
 			# FIXME:  this assumes all injections are done at
 			# zero lag (which is correct for now, but watch out
 			# for this).  in general, a time_slide_id needs to
@@ -889,17 +838,17 @@ FROM
 			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):
 				# injection was made
 				self.injected_x.append(sim.frequency)
-				self.injected_y.append(sim.egw_over_rsquared)
-				if amplitude is not None:
+				self.injected_y.append(amplitude)
+				if detection_statistic is not None:
 					# injection was recovered (found at
 					# all)
-					self.recovered_xyz.append((sim.frequency, sim.egw_over_rsquared, amplitude))
-					if amplitude > amplitude_threshold:
+					self.recovered_xyz.append((sim.frequency, amplitude, detection_statistic))
+					if detection_statistic > threshold:
 						# injection was found above
 						# threshold
 						self.found_x.append(sim.frequency)
-						self.found_y.append(sim.egw_over_rsquared)
-			elif (amplitude is not None) and (amplitude > amplitude_threshold):
+						self.found_y.append(amplitude)
+			elif (detection_statistic is not None) and (detection_statistic > threshold):
 				# injection was found, and found above
 				# threshold, but not "injected" because it
 				# lies outside of the output segments.
@@ -910,7 +859,7 @@ FROM
 				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 
-	def finish(self, amplitude_threshold):
+	def finish(self, threshold):
 		# bin the injections
 
 		self._bin_events()
@@ -922,16 +871,15 @@ FROM
 
 		# construct the amplitude weighting function
 
-		amplitude_weight = rate.BinnedArray(rate.NDBins((rate.LinearBins(amplitude_threshold - 100, amplitude_threshold + 100, 10001),)))
+		amplitude_weight = rate.BinnedArray(rate.NDBins((rate.LinearBins(threshold - 100, threshold + 100, 10001),)))
 
 		# gaussian window's width is the number of bins
 		# corresponding to 10 units of amplitude, which is computed
 		# by dividing 10 by the "volume" of the bin corresponding
-		# to amplitude_threshold.  index is the index of the
-		# element in amplitude_weight corresponding to the
-		# amplitude threshold.
+		# to threshold.  index is the index of the element in
+		# amplitude_weight corresponding to the threshold.
 
-		index, = amplitude_weight.bins[amplitude_threshold,]
+		index, = amplitude_weight.bins[threshold,]
 		window = rate.gaussian_window(10.0 / amplitude_weight.bins.volumes()[index])
 		window /= 10 * window[(len(window) - 1) / 2]
 
@@ -1000,9 +948,9 @@ FROM
 				d[x, 0:y] = d[x, y]
 				f[x, 0:y] = f[x, y]
 
-		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator", "lalapps_excesspowerfinal_efficiency_numerator_before.png")
-		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator", "lalapps_excesspowerfinal_efficiency_denominator_before.png")
-		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density_before.png")
+		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator (Before Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_efficiency_numerator_before.png")
+		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator (Before Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_efficiency_denominator_before.png")
+		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold (Before Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_found_density_before.png")
 
 		# smooth the efficiency bins and the found injection
 		# density bins using the same 2D window.
@@ -1012,9 +960,9 @@ FROM
 		rate.filter_binned_ratios(self.efficiency, window)
 		rate.filter_array(self.found_density.array, window)
 
-		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator", "lalapps_excesspowerfinal_efficiency_numerator_after.png")
-		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator", "lalapps_excesspowerfinal_efficiency_denominator_after.png")
-		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold", "lalapps_excesspowerfinal_found_density_after.png")
+		diagnostic_plot(self.efficiency.numerator.array, self.efficiency.denominator.bins, r"Efficiency Numerator (After Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_efficiency_numerator_after.png")
+		diagnostic_plot(self.efficiency.denominator.array, self.efficiency.denominator.bins, r"Efficiency Denominator (After Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_efficiency_denominator_after.png")
+		diagnostic_plot(self.found_density.array, self.efficiency.denominator.bins, r"Injections Lost / Unit of Threshold (After Averaging)", self.amplitude_lbl, "lalapps_excesspowerfinal_found_density_after.png")
 
 		# compute the uncertainties in the efficiency and its
 		# derivative by assuming these to be the binomial counting
@@ -1031,9 +979,14 @@ FROM
 #
 
 
-def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lalapps_power", tmp_path = None, verbose = False):
-	# FIXME:  instrument is hard-coded.  bad bad bad.  sigh...
-	efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.egw_over_rsquared), r"$M_{\odot} / \mathrm{pc}^{2}$", 0.1)
+def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power", upper_limit_scale = "E", tmp_path = None, verbose = False):
+	# FIXME:  instruments are hard-coded.  bad bad bad.  sigh...
+	if upper_limit_scale == "E":
+		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.egw_over_rsquared), r"Equivalent Isotropic Energy ($M_{\odot} / \mathrm{pc}^{2}$)", 0.1)
+	elif upper_limit_scale == "hrss":
+		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), r"$h_{rss}$", 0.1)
+	else:
+		raise ValueError, "bad upper_limit_scale %s" % repr(upper_limit_scale)
 
 	#
 	# Iterate over injection files.
@@ -1048,15 +1001,15 @@ def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lala
 			print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 		working_filename = dbtables.get_connection_filename(filename, tmp_path = tmp_path, verbose = verbose)
 		connection = sqlite3.connect(working_filename)
-		connection.create_function("amplitude", 2, coinc_amplitude)
+		connection.create_function("coinc_detection_statistic", 2, coinc_detection_statistic)
 		dbtables.DBTable_set_connection(connection)
-		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose)
+		database = SnglBurstUtils.CoincDatabase(live_time_program, verbose = verbose)
 
 		#
 		# Process database contents.
 		#
 
-		efficiency.add_contents(database, amplitude_threshold)
+		efficiency.add_contents(database, threshold)
 
 		#
 		# Done with this file.
@@ -1071,7 +1024,7 @@ def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lala
 
 	if verbose:
 		print >>sys.stderr, "binning and smoothnig efficiency data ..."
-	efficiency.finish(amplitude_threshold)
+	efficiency.finish(threshold)
 
 	#
 	# Done
@@ -1086,15 +1039,20 @@ def measure_efficiency(filenames, amplitude_threshold, live_time_program = "lala
 
 
 def plot_efficiency_data(efficiency_data):
+	print >>sys.stderr, "plotting efficiency curves ..."
+
 	# use the stock plotting routing in SimBurstUtils for the
 	# efficiency contour plot
 
-	fig1 = SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency_data)
-	fig1.gca().set_ylim((3e-17, 3e-10))
+	fig = SimBurstUtils.plot_Efficiency_hrss_vs_freq(efficiency_data)
+	#fig.gca().set_ylim((3e-17, 3e-10))
 
 	# done
 
-	return fig1
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
+	#fig.savefig("lalapps_excesspowerfinal_efficiency.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.png ..."
+	fig.savefig("lalapps_excesspowerfinal_efficiency.png")
 
 
 #
@@ -1113,13 +1071,14 @@ def plot_efficiency_data(efficiency_data):
 
 def mu_p_epsilon(xi, p):
 	r"""
-	Solve
+	Given the background correction factor \xi, and the upper limit
+	confidence p, solve
 
 		p = 1 - \ee^{-\mu_{p} \epsilon} (1 + \xi \mu_{p} \epsilon)
 
-	for (\mu_{p} \epsilon), the product of the foreground rate upper limit
-	times the efficiency, given the background correction factor \xi and
-	the upper limit confidence p.
+	for (\mu_{p} \epsilon), the product of the foreground rate upper
+	limit times the efficiency.  Note that this product is always well
+	defined by this relation (i.e., even when the efficiency is 0).
 	"""
 	def f(mue):
 		return math.exp(-mue) * (1 + xi * mue) - (1 - p)
@@ -1133,17 +1092,22 @@ def mu_p_epsilon(xi, p):
 #
 
 
-def rate_upper_limit(efficiency_data, mu_0primed, zero_lag_live_time, p = 0.9):
+class RateData(object):
+	def __init__(self, efficiency_data, confidence):
+		self.rate_array = rate.BinnedArray(efficiency_data.efficiency.denominator.bins)
+		self.amplitude_lbl = efficiency_data.amplitude_lbl
+		self.confidence = confidence
+
+
+def rate_upper_limit(efficiency_data, mu_0primed, zero_lag_live_time, p):
+	print >>sys.stderr, "computing rate upper limit ..."
+
 	# initialize the rate upper limit array, giving it the same binning
 	# as the efficiency array.
 
-	rate_array = rate.BinnedArray(efficiency_data.efficiency.denominator.bins)
+	rate_data = RateData(efficiency_data, p)
 
-	# efficiency, and first derivative of efficiency with respect to
-	# "amplitude" threshold.  both are functions of frequency and
-	# energy.  also, their uncertainties.  note the negative sign in
-	# the derivative of the efficiency (see the comments about this
-	# where the efficiency density is computed).
+	# efficiency
 
 	e = efficiency_data.efficiency.ratio()
 
@@ -1176,20 +1140,20 @@ def rate_upper_limit(efficiency_data, mu_0primed, zero_lag_live_time, p = 0.9):
 	# function of frequency and energy.
 
 	xi = 1.0 / (1.0 - e_over_eprimed * abs(mu_0primed * zero_lag_live_time))
-	xi = numpy.where(numpy.isnan(e_over_eprimed), 1, xi)
+	xi = numpy.where(numpy.isnan(e_over_eprimed), 1.0, xi)
 
-	diagnostic_plot(xi, rate_array.bins, r"Background Correction Factor $\xi$", "lalapps_excesspowerfinal_xi.png")
+	diagnostic_plot(xi, rate_data.rate_array.bins, r"Background Correction Factor $\xi$", rate_data.amplitude_lbl, "lalapps_excesspowerfinal_xi.png")
 
 	# compute the rate upper limit
 
-	for xy in iterutils.MultiIter(*map(xrange, rate_array.array.shape)):
-		rate_array.array[xy] = mu_p_epsilon(xi[xy], p)
-	diagnostic_plot(rate_array.array, rate_array.bins, r"$\mu_{%.2g} \epsilon$" % p, "lalapps_excesspowerfinal_mu_p_epsilon.png")
-	rate_array.array /= zero_lag_live_time * e
+	for xy in iterutils.MultiIter(*map(xrange, rate_data.rate_array.array.shape)):
+		rate_data.rate_array.array[xy] = mu_p_epsilon(xi[xy], p)
+	diagnostic_plot(rate_data.rate_array.array, rate_data.rate_array.bins, r"$\mu_{%.2g} \epsilon$" % p, rate_data.amplitude_lbl, "lalapps_excesspowerfinal_mu_p_epsilon.png")
+	rate_data.rate_array.array /= zero_lag_live_time * e
 
 	# done
 
-	return rate_array
+	return rate_data
 
 
 #
@@ -1197,43 +1161,53 @@ def rate_upper_limit(efficiency_data, mu_0primed, zero_lag_live_time, p = 0.9):
 #
 
 
-def plot_rate_upper_limit(rate_array, p = 0.9):
+def plot_rate_upper_limit(rate_data):
+	print >>sys.stderr, "plotting rate upper limit ..."
+
 	#
 	# contour plot in frequency-energy plane
 	#
 
-	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", r"$M_{\odot} / \mathrm{pc}^{2}$")
+	plot = SnglBurstUtils.BurstPlot("Centre Frequency (Hz)", rate_data.amplitude_lbl)
 	plot.axes.loglog()
 
-	xcoords, ycoords = rate_array.centres()
-	zvals = numpy.log10(numpy.clip(rate_array.array, 0, 1) / 1.0)
-	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), 9)
+	xcoords, ycoords = rate_data.rate_array.centres()
+	# zvals = log_{10}(R_{0.9} / 1 Hz)
+	zvals = numpy.log10(numpy.clip(rate_data.rate_array.array, 0, 1) / 1.0)
+	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), 19)
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%g$", colors = "k")
 
-	plot.axes.set_ylim((3e-17, 3e-10))
+	#plot.axes.set_ylim((3e-17, 3e-10))
 
-	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * p, p))
-	fig1 = plot.fig
+	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit ($\log_{10} R_{%g} / 1\,\mathrm{Hz}$)" % (100 * rate_data.confidence, rate_data.confidence))
+
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
+	#plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.png ..."
+	plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
 
 	#
 	# rate vs. energy curve at a sample frequency
 	#
 
-	plot = SnglBurstUtils.BurstPlot(r"$M_{\odot} / \mathrm{pc}^{2}$", r"Rate Upper Limit (Hz)")
+	plot = SnglBurstUtils.BurstPlot(rate_data.amplitude_lbl, r"Rate Upper Limit (Hz)")
 	plot.axes.loglog()
 
-	zvals = rate_array[110, :]
+	zvals = rate_data.rate_array[110, :]
 	max = min(zvals) * 1e4
-	plot.axes.plot(numpy.compress(zvals <= max, ycoords), numpy.compress(zvals <= max, zvals), "k-")
+	ycoords = numpy.compress(zvals <= max, ycoords)
+	zvals = numpy.compress(zvals <= max, zvals)
+	max = min(ycoords) * 1e6
+	zvals = numpy.compress(ycoords <= max, zvals)
+	ycoords = numpy.compress(ycoords <= max, ycoords)
+	plot.axes.plot(ycoords, zvals, "k-")
 
-	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit at $110\,\mathrm{Hz}$" % (100 * p))
-	fig2 = plot.fig
+	plot.axes.set_title(r"%g\%% Confidence Rate Upper Limit at $110\,\mathrm{Hz}$" % (100 * rate_data.confidence))
 
-	#
-	# done
-	#
-
-	return fig1, fig2
+	#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
+	#plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
+	print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.png ..."
+	plot.fig.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
 
 
 #
@@ -1263,7 +1237,7 @@ options, filenames = parse_command_line()
 #
 
 
-def coinc_amplitude(likelihood, confidence, m = options.confidence_contour_slope):
+def coinc_detection_statistic(likelihood, confidence, m = options.confidence_contour_slope):
 	# In the 2-D confidence--likelihood parameter space, the background
 	# isodensity contours for high confidence, high likelihood,
 	# coincident n-tuples are found to be approximated by the family
@@ -1332,7 +1306,6 @@ print >>sys.stderr
 print >>sys.stderr, "\t\tBOX IS %s" % (options.open_box and "OPEN!!" or "CLOSED!!")
 print >>sys.stderr
 
-
 if options.verbose:
 	print >>sys.stderr, "building file list ..."
 filenames = [filename for g in options.background_glob for filename in glob.glob(g)]
@@ -1340,32 +1313,16 @@ filenames.sort()
 if not filenames:
 	raise ValueError, "no background/zero lag files found"
 
-
-if True:
+if False:
 	rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
 	print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
-
-
-	print >>sys.stderr
-	print >>sys.stderr, "plotting event rate ..."
-	fig1, fig2 = plot_rate_vs_threshold(rate_vs_threshold_data)
-
-	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.pdf ..."
-	#fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.pdf")
-	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold.png ..."
-	fig1.savefig("lalapps_excesspowerfinal_rate_vs_threshold.png")
-
-	#print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf ..."
-	#fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.pdf")
-	print >>sys.stderr, "writing lalapps_excesspowerfinal_rate_vs_threshold_residual.png ..."
-	fig2.savefig("lalapps_excesspowerfinal_rate_vs_threshold_residual.png")
+	plot_rate_vs_threshold(rate_vs_threshold_data)
 else:
 	# fake the rate-vs-threshold data to skip straight to injections
 	rate_vs_threshold_data = RateVsThresholdData()
 	rate_vs_threshold_data.zero_lag_live_time = 1163382.623777472
 	rate_vs_threshold_data.amplitude_threshold = 49.3975937091782
 	rate_vs_threshold_data.mu_0primed = -2.000347702238217e-07
-
 
 print >>sys.stderr, "done."
 print >>sys.stderr
@@ -1380,7 +1337,6 @@ print >>sys.stderr
 print >>sys.stderr, "=== Efficiency =="
 print >>sys.stderr
 
-
 if options.verbose:
 	print >>sys.stderr, "building file list ..."
 filenames = [filename for g in options.injections_glob for filename in glob.glob(g)]
@@ -1388,22 +1344,13 @@ filenames.sort()
 if not filenames:
 	raise ValueError, "no injection files found"
 
-
-efficiency_data = measure_efficiency(filenames, rate_vs_threshold_data.amplitude_threshold, live_time_program = options.live_time_program, tmp_path = options.tmp_space, verbose = options.verbose)
-
+efficiency_data = measure_efficiency(filenames, rate_vs_threshold_data.amplitude_threshold, live_time_program = options.live_time_program, upper_limit_scale = options.upper_limit_scale, tmp_path = options.tmp_space, verbose = options.verbose)
 
 print >>sys.stderr
 print >>sys.stderr, "=== Efficiency Summary ==="
 print >>sys.stderr
 
-
-print >>sys.stderr, "plotting efficiency curves ..."
-fig1 = plot_efficiency_data(efficiency_data)
-
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_efficiency.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_efficiency.png ..."
-fig1.savefig("lalapps_excesspowerfinal_efficiency.png")
+plot_efficiency_data(efficiency_data)
 
 print >>sys.stderr, "done."
 print >>sys.stderr
@@ -1418,31 +1365,15 @@ print >>sys.stderr
 print >>sys.stderr, "=== Rate Upper Limit ==="
 print >>sys.stderr
 
-
-print >>sys.stderr, "computing rate upper limit ..."
-rate_array = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed, rate_vs_threshold_data.zero_lag_live_time, p = 0.9)
-
-
-print >>sys.stderr, "plotting rate upper limit ..."
-fig1, fig2 = plot_rate_upper_limit(rate_array, p = 0.9)
-
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_1.png ..."
-fig1.savefig("lalapps_excesspowerfinal_upper_limit_1.png")
-
-#print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.pdf ..."
-#fig1.savefig("lalapps_excesspowerfinal_upper_limit_2.pdf")
-print >>sys.stderr, "writing lalapps_excesspowerfinal_upper_limit_2.png ..."
-fig2.savefig("lalapps_excesspowerfinal_upper_limit_2.png")
-
+rate_data = rate_upper_limit(efficiency_data, rate_vs_threshold_data.mu_0primed, rate_vs_threshold_data.zero_lag_live_time, options.upper_limit_confidence)
+plot_rate_upper_limit(rate_data)
 
 print >>sys.stderr, "done."
 print >>sys.stderr
 
 
 #
-# Done.
+# Done
 #
 
 
