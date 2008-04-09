@@ -897,7 +897,7 @@ class grbCoireTable:
         
       hold(True)
       plot(xMarked, zMarked, 'mo',markersize=15,\
-           markerfacecolor=None, markeredgewidth=2, markeredgecolor='m')
+           markerfacecolor='None', markeredgewidth=2, markeredgecolor='m')
       hold(False)
       
     xlabel( xvalue+' '+xifo, size='x-large')
@@ -1068,7 +1068,7 @@ class grbCoireTable:
       xValueMarked=self.getSimList( xvalue, self.markedF )
       yValueMarked=self.getSimList( yvalue, self.markedF )      
       plot(xValueMarked, yValueMarked, 'ko',markersize=15,
-           markerfacecolor=None, markeredgewidth=2, markeredgecolor='k')
+           markerfacecolor='None', markeredgewidth=2, markeredgecolor='k')
       hold(True)
       leg.append('marked found')
 
@@ -1077,7 +1077,7 @@ class grbCoireTable:
       xValueMarked=self.getSimList( xvalue, self.markedM ,"MISSED")
       yValueMarked=self.getSimList( yvalue, self.markedM ,"MISSED" )      
       plot(xValueMarked, yValueMarked, 'go',markersize=15,
-           markerfacecolor=None, markeredgewidth=2, markeredgecolor='g')
+           markerfacecolor='None', markeredgewidth=2, markeredgecolor='g')
       hold(True)
       leg.append('marked missed')
 

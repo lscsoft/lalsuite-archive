@@ -239,16 +239,16 @@ def plot_a_v_b(table, col_name_a, col_name_b, plot_type = 'linear',
    
   if (plot_type == 'linear') or (plot_type == 'seconds'):
     plot(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None, label = plot_label)
+        markerfacecolor='None', label = plot_label)
   elif plot_type == 'logx':
     semilogx(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None, label = plot_label)
+        markerfacecolor='None', label = plot_label)
   elif plot_type == 'logy':
     semilogy(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None, label = plot_label)
+        markerfacecolor='None', label = plot_label)
   elif plot_type == 'loglog':
     loglog(col_a, col_b, plot_sym, markersize=12,markeredgewidth=1,\
-        markerfacecolor=None, label = plot_label)
+        markerfacecolor='None', label = plot_label)
     xlim(0.95 * min(col_a), 1.05 * max(col_a))
     ylim(0.95 * min(col_b), 1.05 * max(col_b))
 
@@ -311,10 +311,10 @@ def plotdiff(table1, table2, col_name, plot_type = 'linear', plot_sym = 'kx',\
     tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
-    plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
+    plot(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor='None',
       markeredgewidth=1, label = plot_name)
   elif plot_type == 'log':
-    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor=None,
+    semilogx(tmpvar1, tmp_diff, plot_sym, markersize=12,markerfacecolor='None',
       markeredgewidth=1, label = plot_name)
     
 #################################################################
@@ -392,10 +392,10 @@ def plotfracdiff(table1, table2, col_name, plot_type = 'linear',
     tmpvar1 = timeindays(tmpvar1)
 
   if plot_type == 'linear':
-    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,\
+    plot(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor='None',\
         markeredgewidth=1, label = plot_name)
   elif plot_type == 'log':
-    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor=None,\
+    semilogx(tmpvar1, frac_diff,plot_sym,markersize=12,markerfacecolor='None',\
         markeredgewidth=1, label = plot_name)
 
 
@@ -474,10 +474,10 @@ def plotdiffa_vs_b(table1, table2, col_name_a, col_name_b, \
     col_b = timeindays(col_b)
 
   if plot_type == 'linear':
-    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor='None',
       markeredgewidth=1)
   elif plot_type == 'log':
-    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor='None',
       markeredgewidth=1)
   
   
@@ -563,10 +563,10 @@ def plotfracdiffa_vs_b(table1, table2, col_name_a, col_name_b, \
     col_b = timeindays(col_b)
 
   if plot_type == 'linear':
-    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+    plot(col_b, diff_a,plot_sym,markersize=12,markerfacecolor='None',
       markeredgewidth=1)
   elif plot_type == 'log':
-    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor=None,
+    semilogx(col_b, diff_a,plot_sym,markersize=12,markerfacecolor='None',
       markeredgewidth=1)
 
 
@@ -641,10 +641,10 @@ def plotval(table1, table2, col_name, plot_type, plot_sym):
   [tmpvar1, tmpvar2, ifo ] = readcolfrom2tables(table1, table2, col_name)
 
   if plot_type == 'linear':
-    plot(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None, \
+    plot(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor='None', \
       markeredgewidth=1)
   elif plot_type == 'log':
-    loglog(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor=None, \
+    loglog(tmpvar1, tmpvar2,plot_sym,markersize=12,markerfacecolor='None', \
       markeredgewidth=1)
 
    
@@ -722,10 +722,10 @@ def plotcoincval(coinctable, col_name, ifo1, ifo2, plot_sym, plot_type,\
   
   if plot_type == 'linear':
     plot(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor='None')
   elif plot_type == 'log':
     loglog(ifo1_val, ifo2_val,plot_sym,markersize=12,markeredgewidth=1,\
-        markerfacecolor=None)
+        markerfacecolor='None')
 
 
 ###########################################################
@@ -753,10 +753,10 @@ def plotcoinchanford(coinctable, col_name, ifo, \
       h_val.append(sqrt(h1_val[idx] * h1_val[idx] + h2_val[idx] * h2_val[idx]))
    
   if plot_type == 'linear':
-    plot(h_val, ifo_val, plot_sym,markersize=12,markerfacecolor=None,\
+    plot(h_val, ifo_val, plot_sym,markersize=12,markerfacecolor='None',\
         markeredgewidth=1)
   elif plot_type == 'log':
-    loglog(h_val, ifo_val,plot_sym,markersize=12,markerfacecolor=None,\
+    loglog(h_val, ifo_val,plot_sym,markersize=12,markerfacecolor='None',\
         markeredgewidth=1)
 
     
@@ -1236,23 +1236,23 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   if plot_type == 'log':
     bins = 10**bins
     if plot_name:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
           markeredgewidth=1, linewidth=2, label = plot_name)
     else:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
           markeredgewidth=1, linewidth=2)
     if errors:
-      errorbar(bins, eff, error,markersize=12, markerfacecolor=None,\
+      errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
           markeredgewidth=1, linewidth = 2, label = plot_name, \
           fmt = plotsym)
             
   else:
     if errors:
       errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
-          markerfacecolor=None,\
+          markerfacecolor='None',\
           markeredgewidth=1, linewidth=1, label = plot_name)
     else:
-      plot(bins, eff, plotsym,markersize=12, markerfacecolor=None,\
+      plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
           markeredgewidth=1, linewidth=1, label = plot_name)
 
   xlabel(col_name.replace("_"," "), size='x-large')
