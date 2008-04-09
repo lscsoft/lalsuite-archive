@@ -194,6 +194,17 @@ def ExcessPowerClusterFunc(a, b):
 	highest confidence.  The modified event a is returned.
 	"""
 	#
+	# In the special case of the two events being the exact same
+	# time-frequency tile, simply preserve the one with the highest
+	# confidence and discard the other.
+	#
+
+	if a.get_period() == b.get_period() and a.get_band() == b.get_band():
+		if b.ms_confidence > a.ms_confidence:
+			return b
+		return a
+
+	#
 	# Compute the properties of the "most significant contributor"
 	#
 
@@ -266,8 +277,9 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = No
 	Cluster the candidates in the sngl_burst table.  testfunc will be
 	passed a pair in random order, and must return 0 (or False) if they
 	should be clustered.  clusterfunc will be passed a pair of
-	candidates in random order, and must modify the contents of the
-	first so as to be a "cluster" of the two.
+	candidates in random order, and must return an event that is the
+	"cluster" of the two.  It is free to return a new trigger, or
+	modify one or the other of its parameters in place and return it.
 
 	If sortfunc and bailoutfunc are both not None (if one is provided
 	the other must be as well), the candidates will be sorted into
@@ -285,19 +297,17 @@ def ClusterSnglBurstTable(sngl_burst_table, testfunc, clusterfunc, sortfunc = No
 		outer_did_cluster = False
 		i = 0
 		while i < len(sngl_burst_table):
-			a = sngl_burst_table[i]
-			if a is None:
+			if sngl_burst_table[i] is None:
 				i += 1
 				continue
 			inner_did_cluster = False
 			for j in xrange(i + 1, len(sngl_burst_table)):
-				b = sngl_burst_table[j]
-				if b is not None:
-					if not testfunc(a, b):
-						clusterfunc(a, b)
+				if sngl_burst_table[j] is not None:
+					if not testfunc(sngl_burst_table[i], sngl_burst_table[j]):
+						sngl_burst_table[i] = clusterfunc(sngl_burst_table[i], sngl_burst_table[j])
 						sngl_burst_table[j] = None
 						inner_did_cluster = True
-					elif (sortfunc is not None) and bailoutfunc(a, b):
+					elif (sortfunc is not None) and bailoutfunc(sngl_burst_table[i], sngl_burst_table[j]):
 						break
 			if inner_did_cluster:
 				outer_did_cluster = True
