@@ -32,7 +32,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
-from numpy import histogram
+from numpy import histogram, float64
 #from pylal import itertools as pylal_itertools
 
 ##############################################################################
@@ -212,7 +212,10 @@ if not opts.show_plot:
 from pylab import *
 from pylal import viz
 
-rc('font', size='x-large')
+# this scaling is equivalent to setting the font.size to the keyword 'x-large',
+# which is not supported (yet?) by matplotlib 0.91
+rc('font', size=rcParams['font.size'] * 1.440)
+
 if not opts.show_plot:
   rc('text', usetex=True)
 
@@ -717,7 +720,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
-        y_norm = zeros(len(y),Float)
+        y_norm = zeros(len(y),float64)
         for j in range(len(y)):
           y_norm[j] = normalization*y[j]
         handle = bar(x, y_norm, color=color, width=(1-0.1*n)*ep_max/opts.num_bins)
