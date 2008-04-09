@@ -984,7 +984,7 @@ def measure_efficiency(filenames, threshold, live_time_program = "lalapps_power"
 	if upper_limit_scale == "E":
 		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.egw_over_rsquared), r"Equivalent Isotropic Energy ($M_{\odot} / \mathrm{pc}^{2}$)", 0.1)
 	elif upper_limit_scale == "hrss":
-		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), r"$h_{rss}$", 0.1)
+		efficiency = EfficiencyData(("H1", "H2", "L1"), (lambda sim, instrument: sim.hrss), r"$h_{\mathrm{rss}}$", 0.1)
 	else:
 		raise ValueError, "bad upper_limit_scale %s" % repr(upper_limit_scale)
 
