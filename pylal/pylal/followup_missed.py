@@ -69,6 +69,7 @@ class FollowupMissed:
     self.coireVetoMissedCache = coireVetoMissedCache
     self.opts                 = opts
     self.deltaTime = deltaTime
+    self.fnameDict = dict()
 
     # set arguments from the options
     self.verbose     = opts.verbose
@@ -162,6 +163,13 @@ class FollowupMissed:
     """
     self.number=0
 
+  # -----------------------------------------------------
+  def setTag( self, tag ):
+    """
+    Just sets the tag...
+    """
+
+    self.tag = tag
 
   # -----------------------------------------------------
   def print_inj( self, inj, injID ):
@@ -183,6 +191,17 @@ class FollowupMissed:
         ( inj.mass1, inj.mass2, inj.geocent_end_time, inj.geocent_end_time_ns,\
           inj.distance, inj.eff_dist_h, inj.eff_dist_l )
 
+  # ----------------------------------------------------
+  def savePlot( self, stage ):
+    """
+    Saves the plots and store them in a seperate fnameList
+    """
+    fname = self.output_path+'Images/'+self.opts.prefix + "_"+self.tag+"_map-"+stage+"-"+str(self.number) +\
+               self.opts.suffix+'.png'
+    fname_thumb = InspiralUtils.savefig_pylal( filename = fname, doThumb = True,
+                                               dpi_thumb = self.opts.figure_resolution)
+
+    self.fnameDict[stage]=fname
 
   # -----------------------------------------------------  
   def findInjection( self, missedInj ):
@@ -284,14 +303,7 @@ class FollowupMissed:
     # read the inspiral file(s)
     if self.verbose: print "Processing TMPLTBANK triggers from files ", triggerFiles      
     inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(triggerFiles, self.verbose)
-    
-#    for ifo in inspiralSumm.keys():
-#      Range = inspiralSumm[ifo].getColumnByName('value').asarray()
-#      startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
-#      style = colors[ifo]
-#      [num[ifo],bins,blah] = hist(Range,bins)
- 
- 
+     
     injMass = [inj.mass1, inj.mass2]
     # selection segment
     timeInjection = self.getTimeSim( inj )
@@ -326,7 +338,7 @@ class FollowupMissed:
               massInspiralSumm[ifo][massNum].getColumnByName('start_time').asarray()
             #sanity check 
             if len(startTimeSec)>1: 
-              print >> sys.stderr, 'warning more than 1 file found at that GPS time. Using the first one.'
+              print >> sys.stderr, 'Warning in fct. expectedHorizonDistance: More than 1 file found at particular GPS time. Using the first file.' 
             if startTimeSec[0] > inj.geocent_end_time:
               text= """the start time of the template bank must be less than 
 		the end_time of the injection. We found startTime of the bank to be %s and
@@ -402,10 +414,7 @@ class FollowupMissed:
     xlabel('time [s]')
     ylabel('SNR')
     title(stage+'_'+str(self.number))    
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
-    savefig(filename)
-
+    self.savePlot( stage )
     close(fig)
 
     return foundAny
@@ -480,9 +489,7 @@ class FollowupMissed:
     xlabel('time [s]')
     ylabel('SNR')
     title(stage+'_'+str(self.number))
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
-    savefig(filename)
+    self.savePlot( stage )
     close(fig)
 
     return foundAny
@@ -525,13 +532,7 @@ class FollowupMissed:
     xlabel('mass1')
     ylabel('mass2')
     title(stage+'_'+str(self.number))    
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
-    savefig(filename)
-
-    #axis([ max(xm-5,0), xm+5.0, max(ym-5.0, 0.0), ym+5])
-    #savefig(self.output_path+'/Images/plot'+stage.upper()+'-zoom_'+str(number)+'.png')
-
+    self.savePlot( stage )
     close(fig)
 
 
@@ -644,7 +645,6 @@ class FollowupMissed:
         foundDict[stage]=found
       else:
         print >>sys.stderr, "Error: Unknown pipeline stage ", stage
-#        sys.exit(1)
         
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
@@ -670,12 +670,10 @@ class FollowupMissed:
     page.add('</td></tr></table><br><br>')
 
     ## add the pictures to the webpage
-    for stage in self.stageLabels:
+    for stage, fname in self.fnameDict.iteritems():
       if stage!="TMPLTBANK":
-        fname = "Images/"+ifo + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
         page.a(extra.img(src=[fname], width=400, \
-                       alt=fname, border="2"), title=fname, href=[ fname])
+                       alt=fname, border="2"), title=fname, href=[ fname ])
       
     # and write the html file
     htmlfilename = self.opts.prefix + "_"+ifo+"_followup_"+str(self.number) +\
