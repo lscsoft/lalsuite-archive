@@ -133,8 +133,9 @@ def createImageMap(opts, missedInj, ifo, filename):
   @param description: The tag of the injction run
   """
 
-  # reset the number
+  # reset the number and the tag
   followup.reset()
+  followup.setTag( filename )
   
   # create the name of the ImageMap
   picname = "Images/"+opts.prefix + "_"+filename +"_map"+\
@@ -669,9 +670,11 @@ if opts.enable_output is True:
                                                  fnameList, tagList,\
                                                  doThumb=True,\
                                                  mapList=mapList)
-  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
   if opts.html_for_cbcweb:
     html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
+  if opts.do_followup:
+     fnameList.extend( followup.fnameDict.values() )
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #########################################################################
 
