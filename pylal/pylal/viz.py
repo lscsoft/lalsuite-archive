@@ -8,8 +8,7 @@ from matplotlib.colors      import normalize, Colormap
 from optparse import * 
 from pylab    import *
 import numpy
-
-import numpy
+from numpy import power
 
 #####################################################################
 # use tex labels

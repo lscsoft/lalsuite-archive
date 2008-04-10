@@ -225,7 +225,7 @@ if not opts.show_plot:
   matplotlib.use('Agg')
 from pylab import *
 from pylal import viz
-from numpy import histogram
+from numpy import histogram, power
 rc('text', usetex=True)
 
 

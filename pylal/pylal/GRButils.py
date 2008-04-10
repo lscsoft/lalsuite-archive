@@ -3,6 +3,7 @@ import sys
 
 from numpy import *
 from pylab import *
+from numpy import power
 
 from glue.ligolw import ligolw
 from glue.ligolw import utils
