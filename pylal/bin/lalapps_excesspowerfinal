@@ -1254,9 +1254,9 @@ def coinc_detection_statistic(likelihood, confidence, m = options.confidence_con
 	# values.  We use b (actually ln b) as the final, combined,
 	# statistic measuring the "goodness" of a coincident n-tuple.
 	# Given the likelihood ratio and confidence of a coincident
-	# n-tuple, this function computes and returns ln b, which we refer
-	# to as the "amplitude" of a coinc throughout this code following
-	# the language of Brady et al.
+	# n-tuple, this function computes and returns ln b, which is
+	# sometimes referred to as the "amplitude" of a coinc in this code
+	# following the language of Brady et al.
 
 	if likelihood <= 0:
 		# log() doesn't like 0, so we handle this case separately.
@@ -1313,7 +1313,7 @@ filenames.sort()
 if not filenames:
 	raise ValueError, "no background/zero lag files found"
 
-if False:
+if True:
 	rate_vs_threshold_data = measure_threshold(filenames, options.zero_lag_survivors, live_time_program = options.live_time_program, tmp_path = options.tmp_space, open_box = options.open_box, verbose = options.verbose)
 	print_rate_vs_threshold_data(rate_vs_threshold_data, options.confidence_contour_slope)
 	plot_rate_vs_threshold(rate_vs_threshold_data)
