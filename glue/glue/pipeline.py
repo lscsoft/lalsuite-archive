@@ -374,14 +374,15 @@ class CondorDAGManJob:
   Condor DAGMan job class. Appropriate for setting up DAGs to run within a
   DAG.
   """
-  def __init__(self, dag):
+  def __init__(self, dag, dir=None):
     """
-    dag = the condor dag file to run
+    dag = the name of the condor dag file to run
+    dir = the diretory in which the dag file is located
     """
     self.__dag = dag
     self.__options = {} 
     self.__notification = None
-    self.__sub_file_path = dag + ".condor.sub" 
+    self.__dag_directory= dir
 
   def add_opt(self, opt, value):
     """
@@ -400,6 +401,19 @@ class CondorDAGManJob:
     """
     return self.__options
 
+  def set_dag_directory(self, dir):
+    """
+    Set the directory where the dag will be run
+    @param dir: the name of the directory where the dag will be run
+    """
+    self.__dag_directory = dir
+
+  def get_dag_directory(self):
+    """
+    Get the directory where the dag will be run
+    """
+    return self.__dag_directory
+    
   def set_notification(self, value):
     """
     Set the email address to send notification to.
@@ -407,26 +421,24 @@ class CondorDAGManJob:
     """
     self.__notification = value
 
-  def set_sub_file(self, path):
-    """
-    Set the name of the file to write the Condor submit file to when
-    write_sub_file() is called.
-    @param path: path to submit file.
-    """
-    self.__sub_file_path = path
-
   def get_sub_file(self):
     """
     Get the name of the file which the Condor submit file will be
     written to when write_sub_file() is called.
     """
-    return self.__sub_file_path
+    return self.__dag + ".condor.sub"
 
   def write_sub_file(self):
     """
     Write a submit file for this Condor job.
     """
-    command = "condor_submit_dag -f -no_submit -usedagdir "
+    cwd = os.getcwd()
+    if self.get_dag_directory() is not None:
+      try: os.chdir(self.get_dag_directory())
+      except: raise CondorSubmitError, \
+          "directory " + self.get_dag_directory() + " doesn't exist"
+
+    command = "condor_submit_dag -f -no_submit "
 
     if self.__options.keys():
       for c in self.__options.keys():
@@ -443,6 +455,8 @@ class CondorDAGManJob:
 
     if status != 0:
       raise CondorSubmitError, command + " failed."
+
+    os.chdir(cwd)
 
 
 class CondorDAGNode:
@@ -695,7 +709,12 @@ class CondorDAGNode:
     Write the DAG entry for this node's job to the DAG file descriptor.
     @param fh: descriptor of open DAG file.
     """
-    fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() +  '\n' )
+    fh.write( 'JOB ' + self.__name + ' ' + self.__job.get_sub_file() )
+    if isinstance(self.job(),CondorDAGManJob) and \
+        self.job().get_dag_directory() is not None:
+      fh.write( ' DIR ' + self.job().get_dag_directory() )
+    fh.write( '\n')
+
     fh.write( 'RETRY ' + self.__name + ' ' + str(self.__retry) + '\n' )
 
   def write_category(self,fh):
