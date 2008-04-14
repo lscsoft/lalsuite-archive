@@ -1,199 +1,151 @@
 #include <Python.h>
+#include <string.h>
+#include <stdlib.h>
 #include <lal/XLALError.h>
-#include <lal/LALStdio.h>
+#include <lal/LIGOMetadataTables.h>
 #include <lal/LIGOMetadataUtils.h>
 #include <lal/CoincInspiralEllipsoid.h>
-#include <lal/CoincInspiralEllipsoid.h>
-#include <lal/TimeDelay.h>
-#include <lal/DetectorSite.h>
-#include <lal/DetResponse.h>
 #include <lal/Date.h>
 #include <lal/EllipsoidOverlapTools.h>
+
+static void GetAttrInPlaceString(char *dest, int n, PyObject *obj, char *attr)
+{
+    PyObject *val = PyObject_GetAttrString(obj, attr);
+    PyObject *str;
+
+    memset(dest, 0, n);
+
+    if(!val)
+        return;
+
+    /* this extra step is done because the attribute is typically not a
+     * string object.  it's either a unicode object or some kind of other
+     * thing that is string-like but not actually a string (like an
+     * ilwdchar subclass instance). */
+    str = PyObject_Str(val);
+    Py_DECREF(val);
+
+    if(!str)
+        return;
+
+    strncpy(dest, PyString_AsString(str), n - 1);
+
+    Py_DECREF(str);
+}
+
+static double GetAttrFloat(PyObject *obj, char *attr)
+{
+    PyObject *val = PyObject_GetAttrString(obj, attr);
+    double result;
+
+    if(!val)
+        return XLAL_REAL8_FAIL_NAN;
+
+    result = val == Py_None ? XLAL_REAL8_FAIL_NAN : PyFloat_AsDouble(val);
+
+    Py_DECREF(val);
+
+    return result;
+}
+
+static long GetAttrLong(PyObject *obj, char *attr)
+{
+    PyObject *val = PyObject_GetAttrString(obj, attr);
+    long result;
+
+    if(!val)
+        return 0;
+
+    result = val == Py_None ? 0 : PyInt_AsLong(val);
+
+    Py_DECREF(val);
+
+    return result;
+}
+
+static long GetAttrLongLong(PyObject *obj, char *attr)
+{
+    PyObject *val = PyObject_GetAttrString(obj, attr);
+    long long result;
+
+    if(!val)
+        return 0;
+
+    result = val == Py_None ? 0 : PyLong_AsLongLong(val);
+
+    Py_DECREF(val);
+
+    return result;
+}
+
 
 SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
     /* Convert a Python SnglInspiral (row) to a C SnglInspiralTable.
     Used in function PyCalculateEThincaParameter and
-      PyThincaParameterForInjection.
-    Calls LAL functions LALSnprintf and LALCalloc. */
-    
+      PyThincaParameterForInjection. */
+
     SnglInspiralTable *event; /* Return value */
-    PyObject *temp; /* Holds each datum to copy */
-    
+
     /* allocate new memory for row */
-    event = (SnglInspiralTable *) LALCalloc(1, sizeof(SnglInspiralTable));
-    
+    event = calloc(1, sizeof(*event));
+    event->event_id = calloc(1, sizeof(*event->event_id));
+
     /* copy to C SnglInspiral row */
-    /* Procedure for each variable:
-       - Extract; this increases the Python object's reference count
-       - Copy
-       - Decrement the Python object's reference count; omission => mem leak
-     */
-    temp = PyObject_GetAttrString(row, "ifo");
-    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
-    LALSnprintf( event->ifo, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row,  "search");
-    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
-    LALSnprintf( event->search, LIGOMETA_SEARCH_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "channel");
-    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
-    LALSnprintf( event->channel, LIGOMETA_CHANNEL_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
-    Py_XDECREF(temp);
-    
-    temp = PyObject_GetAttrString(row, "end_time");
-    event->end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "end_time_ns");
-    event->end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "end_time_gmst");
-    event->end_time_gmst = PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "impulse_time");
-    event->impulse_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "impulse_time_ns");
-    event->impulse_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "template_duration");
-    event->template_duration = PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "event_duration");
-    event->event_duration = PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "amplitude");
-    event->amplitude = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_distance");
-    event->eff_distance = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "coa_phase");
-    event->coa_phase = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mass1");
-    event->mass1 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mass2");
-    event->mass2 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mchirp");
-    event->mchirp = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mtotal");
-    event->mtotal = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eta");
-    event->eta = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "tau0");
-    event->tau0 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "tau2");
-    event->tau2 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "tau3");
-    event->tau3 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "tau4");
-    event->tau4 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "tau5");
-    event->tau5 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "ttotal");
-    event->ttotal = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "psi0");
-    event->psi0 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "psi3");
-    event->psi3 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha");
-    event->alpha = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha1");
-    event->alpha1 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha2");
-    event->alpha2 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha3");
-    event->alpha3 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha4");
-    event->alpha4 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha5");
-    event->alpha5 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha6");
-    event->alpha6 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "beta");
-    event->beta = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "f_final");
-    event->f_final = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "snr");
-    event->snr = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "chisq");
-    event->chisq = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "chisq_dof");
-    event->chisq_dof = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "sigmasq");
-    event->sigmasq = PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "rsqveto_duration");
-    event->rsqveto_duration = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    
-    temp = PyObject_GetAttrString(row, "Gamma0");
-    event->Gamma[0] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma1");
-    event->Gamma[1] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma2");
-    event->Gamma[2] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma3");
-    event->Gamma[3] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma4");
-    event->Gamma[4] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma5");
-    event->Gamma[5] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma6");
-    event->Gamma[6] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma7");
-    event->Gamma[7] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma8");
-    event->Gamma[8] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "Gamma9");
-    event->Gamma[9] = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    
-    event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
-    temp = PyObject_GetAttrString(row, "event_id");
-    event->event_id->id = PyLong_AsLongLong(temp);
-    Py_XDECREF(temp);
-    
-    event->next = NULL;
-    
+    GetAttrInPlaceString(event->ifo, LIGOMETA_IFO_MAX, row, "ifo");
+    GetAttrInPlaceString(event->search, LIGOMETA_SEARCH_MAX, row, "search");
+    GetAttrInPlaceString(event->channel, LIGOMETA_CHANNEL_MAX, row, "channel");
+
+    event->end_time.gpsSeconds = GetAttrLong(row, "end_time");
+    event->end_time.gpsNanoSeconds = GetAttrLong(row, "end_time_ns");
+    event->end_time_gmst = GetAttrFloat(row, "end_time_gmst");
+    event->impulse_time.gpsSeconds = GetAttrLong(row, "impulse_time");
+    event->impulse_time.gpsNanoSeconds = GetAttrLong(row, "impulse_time_ns");
+    event->template_duration = GetAttrFloat(row, "template_duration");
+    event->event_duration = GetAttrFloat(row, "event_duration");
+    event->amplitude = GetAttrFloat(row, "amplitude");
+    event->eff_distance = GetAttrFloat(row, "eff_distance");
+    event->coa_phase = GetAttrFloat(row, "coa_phase");
+    event->mass1 = GetAttrFloat(row, "mass1");
+    event->mass2 = GetAttrFloat(row, "mass2");
+    event->mchirp = GetAttrFloat(row, "mchirp");
+    event->mtotal = GetAttrFloat(row, "mtotal");
+    event->eta = GetAttrFloat(row, "eta");
+    event->tau0 = GetAttrFloat(row, "tau0");
+    event->tau2 = GetAttrFloat(row, "tau2");
+    event->tau3 = GetAttrFloat(row, "tau3");
+    event->tau4 = GetAttrFloat(row, "tau4");
+    event->tau5 = GetAttrFloat(row, "tau5");
+    event->ttotal = GetAttrFloat(row, "ttotal");
+    event->psi0 = GetAttrFloat(row, "psi0");
+    event->psi3 = GetAttrFloat(row, "psi3");
+    event->alpha = GetAttrFloat(row, "alpha");
+    event->alpha1 = GetAttrFloat(row, "alpha1");
+    event->alpha2 = GetAttrFloat(row, "alpha2");
+    event->alpha3 = GetAttrFloat(row, "alpha3");
+    event->alpha4 = GetAttrFloat(row, "alpha4");
+    event->alpha5 = GetAttrFloat(row, "alpha5");
+    event->alpha6 = GetAttrFloat(row, "alpha6");
+    event->beta = GetAttrFloat(row, "beta");
+    event->f_final = GetAttrFloat(row, "f_final");
+    event->snr = GetAttrFloat(row, "snr");
+    event->chisq = GetAttrFloat(row, "chisq");
+    event->chisq_dof = GetAttrLong(row, "chisq_dof");
+    event->sigmasq = GetAttrFloat(row, "sigmasq");
+    event->rsqveto_duration = GetAttrFloat(row, "rsqveto_duration");
+
+    event->Gamma[0] = GetAttrFloat(row, "Gamma0");
+    event->Gamma[1] = GetAttrFloat(row, "Gamma1");
+    event->Gamma[2] = GetAttrFloat(row, "Gamma2");
+    event->Gamma[3] = GetAttrFloat(row, "Gamma3");
+    event->Gamma[4] = GetAttrFloat(row, "Gamma4");
+    event->Gamma[5] = GetAttrFloat(row, "Gamma5");
+    event->Gamma[6] = GetAttrFloat(row, "Gamma6");
+    event->Gamma[7] = GetAttrFloat(row, "Gamma7");
+    event->Gamma[8] = GetAttrFloat(row, "Gamma8");
+    event->Gamma[9] = GetAttrFloat(row, "Gamma9");
+
+    event->event_id->id = GetAttrLongLong(row, "event_id");
+
     return event;
 }
 
@@ -201,14 +153,15 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     /* Convert a Python SimInspiral (row) to a C SimInspiralTable.
     Used in function PyThincaParameterForInjection.
     Calls LAL functions LALSnprintf and LALCalloc. */
-    
+
     SimInspiralTable *event; /* Return value */
     PyObject *temp; /* Holds each datum for copy and refcount decrement */
     PyObject *temp2;
-    
+
     /* allocate new memory for row */
-    event = (SimInspiralTable *) LALCalloc(1, sizeof(SimInspiralTable));
-    
+    event = calloc(1, sizeof(*event));
+    event->event_id = calloc(1, sizeof(*event->event_id));
+
     /* copy to C SimInspiral row */
     /* Procedure for each variable:
        - Extract; this increases the Python object's reference count
@@ -220,7 +173,7 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     LALSnprintf( event->waveform, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
-    
+
     temp = PyObject_GetAttrString(row, "geocent_end_time");
     event->geocent_end_time.gpsSeconds = PyInt_AsLong(temp);
     Py_XDECREF(temp);
@@ -257,16 +210,16 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     temp = PyObject_GetAttrString(row, "v_end_time_ns");
     event->v_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
     Py_XDECREF(temp);
-    
+
     temp = PyObject_GetAttrString(row, "end_time_gmst");
     event->end_time_gmst = PyFloat_AsDouble(temp);
-    
+
     temp = PyObject_GetAttrString(row, "source");
     if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
     LALSnprintf( event->source, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp));
     Py_XDECREF(temp);
-    
+
     temp = PyObject_GetAttrString(row, "mass1");
     event->mass1 = (float)PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
@@ -372,62 +325,59 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     temp = PyObject_GetAttrString(row, "eff_dist_v");
     event->eff_dist_v = (float)PyFloat_AsDouble(temp);
     Py_XDECREF(temp);
-    
-    event->event_id = (EventIDColumn *) LALCalloc(1, sizeof(EventIDColumn));
+
     temp = PyObject_GetAttrString(row, "simulation_id");
     temp2 = PyObject_Str(temp);
     LALSnprintf( event->event_id->textId, LIGOMETA_IFO_MAX  * sizeof(CHAR),
                  "%s", PyString_AsString(temp2));
     Py_XDECREF(temp);
     Py_XDECREF(temp2);
-    
-    event->next = NULL;
-    
+
     return event;
 }
 
 static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     /* Take two Python SnglInspiral values (rows of SnglInspiralTable) and
     call XLALCalculateEThincaParameter on their contents. */
-    
+
     double result;
     PyObject *py_row1, *py_row2;
     SnglInspiralTable *c_row1, *c_row2;
     InspiralAccuracyList accuracyParams;
-    
-    if (! PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
+
+    if(!PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
         return NULL;
-    
+
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
 
     memset(&accuracyParams, 0, sizeof(accuracyParams));
-    XLALPopulateAccuracyParams( &accuracyParams );
+    XLALPopulateAccuracyParams(&accuracyParams);
 
     /* This is the main call */
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
-    
-    /* Free temporary memory */
-    LALFree(c_row1->event_id);
-    LALFree(c_row1);
-    LALFree(c_row2->event_id);
-    LALFree(c_row2);
+    result = XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
 
-    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+    /* Free temporary memory */
+    free(c_row1->event_id);
+    free(c_row1);
+    free(c_row2->event_id);
+    free(c_row2);
+
+    if(XLAL_IS_REAL8_FAIL_NAN(result)) {
         /* convert XLAL exception to Python exception */
         XLALClearErrno();
         PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
         return NULL;
     }
-    
+
     return PyFloat_FromDouble(result);
 }
 
 static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) {
     /* Take two Python SnglInspiral values (rows of SnglInspiralTable) and
     call XLALCalculateEThincaParameter on their contents. */
-    
+
     double result;
     double ra_deg, dec_deg;
     long gps;
@@ -436,7 +386,7 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
     SnglInspiralTable *c_row1, *c_row2;
     InspiralAccuracyList accuracyParams;
     
-    if (! PyArg_ParseTuple(args, "OOldd", &py_row1, &py_row2, &gps, &ra_deg, &dec_deg ))
+    if(!PyArg_ParseTuple(args, "OOldd", &py_row1, &py_row2, &gps, &ra_deg, &dec_deg))
         return NULL;
     
     /* check the values */
@@ -460,21 +410,21 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
     XLALPopulateAccuracyParamsExt( &accuracyParams, &gpstime, ra_deg, dec_deg );
 
     /* This is the main call */    
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
-    
-    /* Free temporary memory */
-    LALFree(c_row1->event_id);
-    LALFree(c_row1);
-    LALFree(c_row2->event_id);
-    LALFree(c_row2);
+    result = XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
 
-    if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
+    /* Free temporary memory */
+    free(c_row1->event_id);
+    free(c_row1);
+    free(c_row2->event_id);
+    free(c_row2);
+
+    if(XLAL_IS_REAL8_FAIL_NAN(result)) {
         /* convert XLAL exception to Python exception */
         XLALClearErrno();
         PyErr_SetString(PyExc_ValueError, "SnglInspiral triggers are not coincident.");
         return NULL;
     }
-    
+
     return PyFloat_FromDouble(result);
 }
 
@@ -488,7 +438,7 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     SimInspiralTable *c_row1;
     SnglInspiralTable *c_row2;
     
-    if (! PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
+    if(!PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
         return NULL;
     
     /* Get rows into a format suitable for the LAL call */
@@ -496,13 +446,13 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
     
     /* This is the main call */
-    result = (double) XLALEThincaParameterForInjection(c_row1, c_row2);
+    result = XLALEThincaParameterForInjection(c_row1, c_row2);
     
     /* Free temporary memory */
-    LALFree(c_row1->event_id);
-    LALFree(c_row1);
-    LALFree(c_row2->event_id);
-    LALFree(c_row2);
+    free(c_row1->event_id);
+    free(c_row1);
+    free(c_row2->event_id);
+    free(c_row2);
     
     return PyFloat_FromDouble(result);
 }
