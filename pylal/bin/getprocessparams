@@ -3,7 +3,6 @@
 # Author: Patrick Brady and Darren Woods, UWM
 
 import re, sys, os, string, glob
-from pylal import readMeta
 from optparse import *
 from glue.ligolw import table
 from glue.ligolw import lsctables
