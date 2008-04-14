@@ -146,6 +146,12 @@ SnglInspiralTable *PySnglInspiral2CSnglInspiral(PyObject *row) {
 
     event->event_id->id = GetAttrLongLong(row, "event_id");
 
+    if(PyErr_Occurred()) {
+        free(event->event_id);
+        free(event);
+        return NULL;
+    }
+
     return event;
 }
 
@@ -218,6 +224,12 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
 
     GetAttrInPlaceString(event->event_id->textId, LIGOMETA_UNIQUE_MAX, row, "simulation_id");
 
+    if(PyErr_Occurred()) {
+        free(event->event_id);
+        free(event);
+        return NULL;
+    }
+
     return event;
 }
 
@@ -235,7 +247,14 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
 
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
+    if(!c_row1)
+        return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
+    if(!c_row2) {
+        free(c_row1->event_id);
+        free(c_row1);
+        return NULL;
+    }
 
     memset(&accuracyParams, 0, sizeof(accuracyParams));
     XLALPopulateAccuracyParams(&accuracyParams);
@@ -288,7 +307,14 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
 
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
+    if(!c_row1)
+        return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
+    if(!c_row2) {
+        free(c_row1->event_id);
+        free(c_row1);
+        return NULL;
+    }
 
     XLALGPSSet(&gpstime, gps, 0);
     memset(&accuracyParams, 0, sizeof(accuracyParams));
@@ -328,7 +354,14 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySimInspiral2CSimInspiral(py_row1);
+    if(!c_row1)
+        return NULL;
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
+    if(!c_row2) {
+        free(c_row1->event_id);
+        free(c_row1);
+        return NULL;
+    }
     
     /* This is the main call */
     result = XLALEThincaParameterForInjection(c_row1, c_row2);
