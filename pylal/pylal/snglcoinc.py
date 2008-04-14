@@ -231,7 +231,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	for row in search_summ_table:
 		if row.process_id not in proc_ids or row.process_id in coinc_proc_ids:
 			continue
-		if seglistdict[row.ifos].intersects_segment(row.get_out()):
+		if seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
 			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
 
