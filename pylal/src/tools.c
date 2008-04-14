@@ -393,7 +393,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     double result;
     PyObject *py_row1, *py_row2;
     SnglInspiralTable *c_row1, *c_row2;
-    InspiralAccuracyList* accuracyParams=NULL;
+    InspiralAccuracyList accuracyParams;
     
     if (! PyArg_ParseTuple(args, "OO", &py_row1, &py_row2))
         return NULL;
@@ -401,19 +401,19 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
-    
-    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
 
-    XLALPopulateAccuracyParams( accuracyParams );
+    memset(&accuracyParams, 0, sizeof(accuracyParams));
+    XLALPopulateAccuracyParams( &accuracyParams );
 
     /* This is the main call */
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
     
     /* Free temporary memory */
+    LALFree(c_row1->event_id);
     LALFree(c_row1);
+    LALFree(c_row2->event_id);
     LALFree(c_row2);
-    LALFree(accuracyParams);
-    
+
     if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
         /* convert XLAL exception to Python exception */
         XLALClearErrno();
@@ -421,7 +421,7 @@ static PyObject *PyCalculateEThincaParameter(PyObject *self, PyObject *args) {
         return NULL;
     }
     
-    return Py_BuildValue("d", result);
+    return PyFloat_FromDouble(result);
 }
 
 static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) {
@@ -431,10 +431,10 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
     double result;
     double ra_deg, dec_deg;
     long gps;
-    LIGOTimeGPS *gpstime;
+    LIGOTimeGPS gpstime;
     PyObject    *py_row1, *py_row2;
     SnglInspiralTable *c_row1, *c_row2;
-    InspiralAccuracyList* accuracyParams;
+    InspiralAccuracyList accuracyParams;
     
     if (! PyArg_ParseTuple(args, "OOldd", &py_row1, &py_row2, &gps, &ra_deg, &dec_deg ))
         return NULL;
@@ -454,22 +454,19 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
     /* Get rows into a format suitable for the LAL call */
     c_row1 = PySnglInspiral2CSnglInspiral(py_row1);
     c_row2 = PySnglInspiral2CSnglInspiral(py_row2);
-    
-    gpstime=(LIGOTimeGPS*)LALMalloc( sizeof(LIGOTimeGPS) );
-    gpstime->gpsSeconds=gps;
-    gpstime->gpsNanoSeconds=0;
 
-    accuracyParams=(InspiralAccuracyList*)LALMalloc( sizeof( InspiralAccuracyList) );
-    XLALPopulateAccuracyParamsExt( accuracyParams, gpstime, ra_deg, dec_deg );
+    XLALGPSSet(&gpstime, gps, 0);
+    memset(&accuracyParams, 0, sizeof(accuracyParams));
+    XLALPopulateAccuracyParamsExt( &accuracyParams, &gpstime, ra_deg, dec_deg );
 
     /* This is the main call */    
-    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, accuracyParams);
+    result = (double) XLALCalculateEThincaParameter(c_row1, c_row2, &accuracyParams);
     
     /* Free temporary memory */
+    LALFree(c_row1->event_id);
     LALFree(c_row1);
+    LALFree(c_row2->event_id);
     LALFree(c_row2);
-    LALFree(accuracyParams);
-    LALFree(gpstime);
 
     if (XLAL_IS_REAL8_FAIL_NAN((REAL8) result)) {
         /* convert XLAL exception to Python exception */
@@ -478,7 +475,7 @@ static PyObject *PyCalculateEThincaParameterExt(PyObject *self, PyObject *args) 
         return NULL;
     }
     
-    return Py_BuildValue("d", result);
+    return PyFloat_FromDouble(result);
 }
 
 static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) {
@@ -502,10 +499,12 @@ static PyObject *PyEThincaParameterForInjection(PyObject *self, PyObject *args) 
     result = (double) XLALEThincaParameterForInjection(c_row1, c_row2);
     
     /* Free temporary memory */
+    LALFree(c_row1->event_id);
     LALFree(c_row1);
+    LALFree(c_row2->event_id);
     LALFree(c_row2);
     
-    return Py_BuildValue("d", result);
+    return PyFloat_FromDouble(result);
 }
 
 
