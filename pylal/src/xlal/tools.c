@@ -84,7 +84,8 @@ static int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
 		return -1;
 	}
 
-	strncpy(s, v, desc->length);
+	strncpy(s, v, desc->length - 1);
+	s[desc->length - 1] = '\0';
 
 	return 0;
 }
@@ -494,6 +495,34 @@ static PyObject *make_cached_detectors(void)
 }
 
 
+static PyObject *get_ilwdchar_class(char *table_name, char *column_name)
+{
+	PyObject *module_name;
+	PyObject *module;
+	PyObject *func;
+	PyObject *class;
+
+	module_name = PyString_FromString("glue.ligolw.ilwd");
+	if(!module_name)
+		return NULL;
+
+	module = PyImport_Import(module_name);
+	Py_DECREF(module_name);
+	if(!module)
+		return NULL;
+
+	func = PyMapping_GetItemString(PyModule_GetDict(module), "get_ilwdchar_class");
+	Py_DECREF(module);
+	if(!func)
+		return NULL;
+
+	class = PyObject_CallFunction(func, "ss", table_name, column_name);
+	Py_DECREF(func);
+
+	return class;
+}
+
+
 static struct PyMethodDef methods[] = {
 	{"XLALCalculateEThincaParameter", pylal_XLALCalculateEThincaParameter, METH_VARARGS, "XLALCalculateEThincaParameter(row1, row2)\n\nTakes two SnglInspiralTable objects and\ncalculates the overlap factor between them."},
 	{NULL,}
@@ -524,15 +553,5 @@ void inittools(void)
 		return;
 	Py_INCREF(&ligolw_CoincMap_Type);
 	PyModule_AddObject(module, "CoincMap", (PyObject *) &ligolw_CoincMap_Type);
-
-	{
-	PyObject *name = PyString_FromString("glue.ligolw.ilwd");
-	PyObject *ilwd_module = PyImport_Import(name);
-	PyObject *get_ilwdchar_class;
-	Py_DECREF(name);
-	get_ilwdchar_class = PyMapping_GetItemString(PyModule_GetDict(ilwd_module), "get_ilwdchar_class");
-	coinc_event_id_type = PyObject_CallFunction(get_ilwdchar_class, "ss", "coinc_event", "coinc_event_id");
-	Py_DECREF(get_ilwdchar_class);
-	Py_DECREF(ilwd_module);
-	}
+	coinc_event_id_type = get_ilwdchar_class("coinc_event", "coinc_event_id");
 }
