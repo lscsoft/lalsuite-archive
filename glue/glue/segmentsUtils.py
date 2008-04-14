@@ -112,7 +112,7 @@ def fromsegwizard(file, coltype=int, strict=True):
 	Read a segmentlist from the file object file containing a segwizard
 	compatible segment list.  Parsing stops on the first line that
 	cannot be parsed (which is consumed).  The segmentlist will be
-	created with segments whose boundaries are of type coltype, which
+	created with segment whose boundaries are of type coltype, which
 	should raise ValueError if it cannot convert its string argument.
 	Both two-column and four-column segwizard files are recognized, but
 	the entire file must be in the same format, which is decided by the
@@ -150,11 +150,11 @@ def fromsegwizard(file, coltype=int, strict=True):
 				break
 		if strict:
 			if abs(seg) != duration:
-				raise ValueError, "segment \"" + line + "\" has incorrect duration"
+				raise ValueError, "segment '%s' has incorrect duration" % line
 			if format is None:
 				format = this_line_format
 			elif format != this_line_format:
-				raise ValueError, "segment \"" + line + "\" format mismatch"
+				raise ValueError, "segment '%s' format mismatch" % line
 		l.append(seg)
 	return l
 
