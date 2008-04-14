@@ -175,6 +175,16 @@ class ProcessTable(table.Table):
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
+
 
 ProcessTable.RowType = Process
 
@@ -316,13 +326,7 @@ class SearchSummaryTable(table.Table):
 		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				if "," in row.ifos:
-					ifos = row.ifos.split(",")
-				elif "+" in row.ifos:
-					ifos = row.ifos.split("+")
-				else:
-					ifos = [row.ifos]
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in ifos])
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in row.get_ifos()])
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
@@ -335,18 +339,22 @@ class SearchSummaryTable(table.Table):
 		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				if "," in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split(",")]
-				elif "+" in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
-				else:
-					ifos = [row.ifos]
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()])
 		return seglists
 
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
 
 	def get_in(self):
 		"""
@@ -596,6 +604,16 @@ class MultiBurstTable(table.Table):
 
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
 
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
@@ -1622,6 +1640,16 @@ class SegmentDefTable(table.Table):
 
 class SegmentDef(object):
 	__slots__ = SegmentDefTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
 
 
 SegmentDefTable.RowType = SegmentDef

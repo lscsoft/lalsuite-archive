@@ -590,13 +590,7 @@ class SearchSummaryTable(DBTable):
 		# dictionary
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				if "," in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split(",")]
-				elif "+" in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
-				else:
-					ifos = [row.ifos.strip()]
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()])
 
 		# done
 		return seglists
