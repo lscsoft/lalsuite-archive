@@ -63,7 +63,7 @@ static long GetAttrLong(PyObject *obj, char *attr)
     return result;
 }
 
-static long GetAttrLongLong(PyObject *obj, char *attr)
+static long long GetAttrLongLong(PyObject *obj, char *attr)
 {
     PyObject *val = PyObject_GetAttrString(obj, attr);
     long long result;
@@ -155,183 +155,68 @@ SimInspiralTable *PySimInspiral2CSimInspiral(PyObject *row) {
     Calls LAL functions LALSnprintf and LALCalloc. */
 
     SimInspiralTable *event; /* Return value */
-    PyObject *temp; /* Holds each datum for copy and refcount decrement */
-    PyObject *temp2;
 
     /* allocate new memory for row */
     event = calloc(1, sizeof(*event));
     event->event_id = calloc(1, sizeof(*event->event_id));
 
     /* copy to C SimInspiral row */
-    /* Procedure for each variable:
-       - Extract; this increases the Python object's reference count
-       - Copy
-       - Decrement the Python object's reference count; omission => mem leak
-     */
-    temp = PyObject_GetAttrString(row, "waveform");
-    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
-    LALSnprintf( event->waveform, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
-    Py_XDECREF(temp);
+    GetAttrInPlaceString(event->waveform, LIGOMETA_WAVEFORM_MAX, row, "waveform");
 
-    temp = PyObject_GetAttrString(row, "geocent_end_time");
-    event->geocent_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "geocent_end_time_ns");
-    event->geocent_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "h_end_time");
-    event->h_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "h_end_time_ns");
-    event->h_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "l_end_time");
-    event->l_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "l_end_time_ns");
-    event->l_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "g_end_time");
-    event->g_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "g_end_time_ns");
-    event->g_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "t_end_time");
-    event->t_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "t_end_time_ns");
-    event->t_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "v_end_time");
-    event->v_end_time.gpsSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "v_end_time_ns");
-    event->v_end_time.gpsNanoSeconds = PyInt_AsLong(temp);
-    Py_XDECREF(temp);
+    event->geocent_end_time.gpsSeconds = GetAttrLong(row, "geocent_end_time");
+    event->geocent_end_time.gpsNanoSeconds = GetAttrLong(row, "geocent_end_time_ns");
+    event->h_end_time.gpsSeconds = GetAttrLong(row, "h_end_time");
+    event->h_end_time.gpsNanoSeconds = GetAttrLong(row, "h_end_time_ns");
+    event->l_end_time.gpsSeconds = GetAttrLong(row, "l_end_time");
+    event->l_end_time.gpsNanoSeconds = GetAttrLong(row, "l_end_time_ns");
+    event->g_end_time.gpsSeconds = GetAttrLong(row, "g_end_time");
+    event->g_end_time.gpsNanoSeconds = GetAttrLong(row, "g_end_time_ns");
+    event->t_end_time.gpsSeconds = GetAttrLong(row, "t_end_time");
+    event->t_end_time.gpsNanoSeconds = GetAttrLong(row, "t_end_time_ns");
+    event->v_end_time.gpsSeconds = GetAttrLong(row, "v_end_time");
+    event->v_end_time.gpsNanoSeconds = GetAttrLong(row, "v_end_time_ns");
 
-    temp = PyObject_GetAttrString(row, "end_time_gmst");
-    event->end_time_gmst = PyFloat_AsDouble(temp);
+    event->end_time_gmst = GetAttrFloat(row, "end_time_gmst");
 
-    temp = PyObject_GetAttrString(row, "source");
-    if ( temp == Py_None ) { Py_DECREF(temp); temp = PyString_FromString(""); }
-    LALSnprintf( event->source, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp));
-    Py_XDECREF(temp);
+    GetAttrInPlaceString(event->source, LIGOMETA_SOURCE_MAX, row, "source");
 
-    temp = PyObject_GetAttrString(row, "mass1");
-    event->mass1 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mass2");
-    event->mass2 =  (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eta");
-    event->eta = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "distance");
-    event->distance = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "longitude");
-    event->longitude = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "latitude");
-    event->latitude = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "inclination");
-    event->inclination = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "coa_phase");
-    event->coa_phase = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "polarization");
-    event->polarization = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "psi0");
-    event->psi0 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "psi3");
-    event->psi3 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha");
-    event->alpha = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha1");
-    event->alpha1 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha2");
-    event->alpha2 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha3");
-    event->alpha3 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha4");
-    event->alpha4 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha5");
-    event->alpha5 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "alpha6");
-    event->alpha6 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "beta");
-    event->beta = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin1x");
-    event->spin1x = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin1y");
-    event->spin1y = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin1z");
-    event->spin1z = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin2x");
-    event->spin2x = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin2y");
-    event->spin2y = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "spin2z");
-    event->spin2z = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "theta0");
-    event->theta0 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "phi0");
-    event->phi0 = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "f_lower");
-    event->f_lower = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "f_final");
-    event->f_final = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "mchirp");
-    event->mchirp = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_dist_h");
-    event->eff_dist_h = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_dist_l");
-    event->eff_dist_l = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_dist_g");
-    event->eff_dist_g = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_dist_t");
-    event->eff_dist_t = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
-    temp = PyObject_GetAttrString(row, "eff_dist_v");
-    event->eff_dist_v = (float)PyFloat_AsDouble(temp);
-    Py_XDECREF(temp);
+    event->mass1 = GetAttrFloat(row, "mass1");
+    event->mass2 = GetAttrFloat(row, "mass2");
+    event->eta = GetAttrFloat(row, "eta");
+    event->distance = GetAttrFloat(row, "distance");
+    event->longitude = GetAttrFloat(row, "longitude");
+    event->latitude = GetAttrFloat(row, "latitude");
+    event->inclination = GetAttrFloat(row, "inclination");
+    event->coa_phase = GetAttrFloat(row, "coa_phase");
+    event->polarization = GetAttrFloat(row, "polarization");
+    event->psi0 = GetAttrFloat(row, "psi0");
+    event->psi3 = GetAttrFloat(row, "psi3");
+    event->alpha = GetAttrFloat(row, "alpha");
+    event->alpha1 = GetAttrFloat(row, "alpha1");
+    event->alpha2 = GetAttrFloat(row, "alpha2");
+    event->alpha3 = GetAttrFloat(row, "alpha3");
+    event->alpha4 = GetAttrFloat(row, "alpha4");
+    event->alpha5 = GetAttrFloat(row, "alpha5");
+    event->alpha6 = GetAttrFloat(row, "alpha6");
+    event->beta = GetAttrFloat(row, "beta");
+    event->spin1x = GetAttrFloat(row, "spin1x");
+    event->spin1y = GetAttrFloat(row, "spin1y");
+    event->spin1z = GetAttrFloat(row, "spin1z");
+    event->spin2x = GetAttrFloat(row, "spin2x");
+    event->spin2y = GetAttrFloat(row, "spin2y");
+    event->spin2z = GetAttrFloat(row, "spin2z");
+    event->theta0 = GetAttrFloat(row, "theta0");
+    event->phi0 = GetAttrFloat(row, "phi0");
+    event->f_lower = GetAttrFloat(row, "f_lower");
+    event->f_final = GetAttrFloat(row, "f_final");
+    event->mchirp = GetAttrFloat(row, "mchirp");
+    event->eff_dist_h = GetAttrFloat(row, "eff_dist_h");
+    event->eff_dist_l = GetAttrFloat(row, "eff_dist_l");
+    event->eff_dist_g = GetAttrFloat(row, "eff_dist_g");
+    event->eff_dist_t = GetAttrFloat(row, "eff_dist_t");
+    event->eff_dist_v = GetAttrFloat(row, "eff_dist_v");
 
-    temp = PyObject_GetAttrString(row, "simulation_id");
-    temp2 = PyObject_Str(temp);
-    LALSnprintf( event->event_id->textId, LIGOMETA_IFO_MAX  * sizeof(CHAR),
-                 "%s", PyString_AsString(temp2));
-    Py_XDECREF(temp);
-    Py_XDECREF(temp2);
+    GetAttrInPlaceString(event->event_id->textId, LIGOMETA_UNIQUE_MAX, row, "simulation_id");
 
     return event;
 }
