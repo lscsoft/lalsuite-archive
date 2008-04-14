@@ -118,8 +118,8 @@ def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
 
 	# extract zero-lag ID --> offset dictionary mapping
 	zero_lag_offset_dicts = {}
-	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().iteritems():
-		for offset in offset_dict.itervalues():
+	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().items():
+		for offset in offset_dict.values():
 			if offset != 0:
 				# not zero-lag
 				break
@@ -172,11 +172,11 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 
-	# segment_def_id --> instrument name mapping constructed from
+	# segment_def_id --> instrument names mapping constructed from
 	# segment_definer entries bearing the correct name
-	def_ids = dict([(row.segment_def_id, row.ifos) for row in def_table if row.name == name])
+	def_ids = dict([(row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name])
 
-	# segment_id --> instrument name mapping constructed from
+	# segment_id --> instrument names mapping constructed from
 	# segment_def_map entries bearing segment_def_ids from above
 	seg_ids = dict([(row.segment_id, def_ids[row.segment_def_id]) for row in map_table if row.segment_def_id in def_ids])
 
@@ -185,10 +185,11 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	result = segments.segmentlistdict()
 	for row in seg_table:
 		if row.get_active() == activity and row.segment_id in seg_ids:
-			instrument = seg_ids[row.segment_id]
-			if instrument not in result:
-				result[instrument] = segments.segmentlist()
-			result[instrument].append(row.get())
+			seg = row.get()
+			for instrument in seg_ids[row.segment_id]:
+				if instrument not in result:
+					result[instrument] = segments.segmentlist()
+				result[instrument].append(seg)
 
 	# return the coalesced segment lists
 	return result.coalesce()
@@ -425,7 +426,7 @@ def get_coincident_segmentlistdict(seglistdict, offsetdictlist):
 	coincseglists = segments.segmentlistdict()
 	for offsetdict in offsetdictlist:
 		seglistdict.offsets.update(offsetdict)
-		intersection = seglistdict.extract_common(offsetdict.iterkeys())
+		intersection = seglistdict.extract_common(offsetdict.keys())
 		intersection.offsets.clear()
 		coincseglists |= intersection
 	seglistdict.offsets.update(origoffsets)
