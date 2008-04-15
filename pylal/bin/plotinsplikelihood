@@ -20,11 +20,11 @@ import numpy
 numpy.seterr("raise")
 import cmath
 
-from ROOT import gROOT,gStyle,TCanvas,TFile
-from ROOT import TH3F, TNtuple
-from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
-from ROOT import TLegend
-from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
+#from ROOT import gROOT,gStyle,TCanvas,TFile
+#from ROOT import TH3F, TNtuple
+#from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+#from ROOT import TLegend
+#from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
 
 
 #######################################################################################
@@ -904,12 +904,12 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
   
   if zerolag:
 	if show_epsilon_ball:
-	  epsilon = 0.1
-	  ethinca_scale = 0.1
+	  epsilon = 0.2
+	  ethinca_scale = 10.0
 	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
-	  eff_dist_phi_scale =  45.0*cmath.pi/float(180)
+	  eff_dist_phi_scale =  10.0*cmath.pi/float(180)
 	  mchirp_theta_scale = 2.0*cmath.pi/float(180)
-	  mchirp_phi_scale = 45.0*cmath.pi/float(180)
+	  mchirp_phi_scale = 180.0*cmath.pi/float(180)
 	else:
 	  epsilon = 0.01
 	  ethinca_scale = 0.01
@@ -926,7 +926,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
 	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
-	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - 0.5), zerolag_mchirp_rms*(1.0 + 0.5))
 	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
 	para = paraxis_add_range(para, "ethinca", (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
 
@@ -996,12 +996,12 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
   
   if zerolag:
 	if show_epsilon_ball:
-	  epsilon = 0.1
-	  ethinca_scale = 0.1
+	  epsilon = 0.2
+	  ethinca_scale = 10.0
 	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
-	  eff_dist_phi_scale =  45.0*cmath.pi/float(180)
+	  eff_dist_phi_scale =  10.0*cmath.pi/float(180)
 	  mchirp_theta_scale = 2.0*cmath.pi/float(180)
-	  mchirp_phi_scale = 45.0*cmath.pi/float(180)
+	  mchirp_phi_scale = 180.0*cmath.pi/float(180)
 	else:
 	  epsilon = 0.01
 	  ethinca_scale = 0.01
@@ -1020,7 +1020,7 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
 	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
 	para = paraxis_add_range(para, "eff_dist_phi", (zerolag_eff_dist_phi - eff_dist_phi_scale) , (zerolag_eff_dist_phi + eff_dist_phi_scale))
-	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - epsilon), zerolag_mchirp_rms*(1.0 + epsilon))
+	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - 0.5), zerolag_mchirp_rms*(1.0 + 0.5))
 	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
 	para = paraxis_add_range(para, "mchirp_phi", (zerolag_mchirp_phi - mchirp_phi_scale) , (zerolag_mchirp_phi + mchirp_phi_scale))
 	para = paraxis_add_range(para, "ethinca_12", (zerolag_ethinca_12 - ethinca_scale) , (zerolag_ethinca_12 + ethinca_scale))
@@ -1430,16 +1430,22 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
 
 
 if opts.parallel_axis_plots:
+  from ROOT import gROOT,gStyle,TCanvas,TFile
+  from ROOT import TH3F, TNtuple
+  from ROOT import TParallelCoord, TParallelCoordVar, TParallelCoordRange
+  from ROOT import TLegend
+  from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
+
   if opts.paraxis_zerolag_glob:
 	zerolagCandidateFile = glob.glob(opts.paraxis_zerolag_glob)
 	zerolagCandidateTriggers = None
 	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
 	# construct the zero lag coincs
 	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
-	#parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate")
-	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
-	parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
-	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball)
+	#parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate_version2_0_2")
+	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H1','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate_version2_eps_0_2")
+	parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="found_injection")
+	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="full_s5_version2_eps_0_2")
   else:
 	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
 	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides')
