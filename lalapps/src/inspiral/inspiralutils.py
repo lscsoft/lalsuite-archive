@@ -241,22 +241,26 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
     dq_url = config.get("segments","dq-server-url")
     dq_segdb_file = config.get("segments", ifo.lower() + '-dq-file')
 
-    print "Downloading DQ segment file " + dq_segdb_file + " from " \
-        + dq_url + " to " + dqSegFile + " ...",
-    sys.stdout.flush()
-    dqSegFile, info = urllib.urlretrieve(dq_url + '/' + dq_segdb_file,
-        dqSegFile)
-    print "done"
+    if dq_segdb_file == "":
+      print >>sys.stderr, "warning: no file provided to %s-dq-file; " \
+        "running without data quality" % ifo.lower()
+    else:
+      print "Downloading DQ segment file " + dq_segdb_file + " from " \
+          + dq_url + " to " + dqSegFile + " ...",
+      sys.stdout.flush()
+      dqSegFile, info = urllib.urlretrieve(dq_url + '/' + dq_segdb_file,
+          dqSegFile)
+      print "done"
 
-    print "Generating cat 1 veto segments for " + ifo + " ...",
-    sys.stdout.flush()
-    vetoFiles = veto_segments(ifo, config, sciSegFile, dqSegFile, [1], \
-        generate_segments )
-    print "done"
+      print "Generating cat 1 veto segments for " + ifo + " ...",
+      sys.stdout.flush()
+      vetoFiles = veto_segments(ifo, config, sciSegFile, dqSegFile, [1], \
+          generate_segments )
+      print "done"
 
-    # remove cat 1 veto times
-    vetoSegs = segmentsUtils.fromsegwizard(open(vetoFiles[1])).coalesce()
-    sciSegs = sciSegs.__and__(vetoSegs.__invert__())
+      # remove cat 1 veto times
+      vetoSegs = segmentsUtils.fromsegwizard(open(vetoFiles[1])).coalesce()
+      sciSegs = sciSegs.__and__(vetoSegs.__invert__())
 
     if use_available_data:
       dfSegs = datafind_segments(ifo, config)
