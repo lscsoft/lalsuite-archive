@@ -547,24 +547,25 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			figure()
 
 
-def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, prefix='False_Alarm_Probability'):
+def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="", prefix='False_Alarm_Probability'):
   """
   Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
   Detection probability (or Likelihood) , p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
   """
-  v = [-0.1, 1.1, -0.1, 1.1]
-  axis(v)
-  l3 = plot(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
+  #v = [-0.1, 1.1, -0.1, 1.1]
+  #axis(v)
+  l3 = semilogy(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
   hold(True)
-  l2 = plot(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
+  l2 = semilogy(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
   hold(True)
-  l1 = plot(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
+  l1 = semilogy(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
   hold(True)
 
   xlabel(prefix + ', p(c|0)')
   ylabel(y_label)
+  title(y_label + " vs " + prefix + " " + ifo.replace("_", ""))
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-  savefig(y_label +'_vs_' + prefix)
+  savefig(ifo.replace("_", "") + "-" + y_label +'_vs_' + prefix)
   figure()
 
 def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="", y_lower_limit=0.00001):
@@ -592,22 +593,23 @@ def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injec
 
   xlabel(old_statistic)
   ylabel(new_statistic)
-  title("Likelihood vs combined effective SNR" + " " + ifo) 
+  title("Likelihood vs combined effective SNR" + " " + ifo.replace("_","")) 
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-  savefig('All_' + new_statistic + '_' + old_statistic)
+  savefig(ifo.replace("_","") + "-" + new_statistic + '_' + old_statistic)
   figure()
 
-def scatter_plot(p0, pc, y_label):
+def scatter_plot(p0, pc, y_label, ifo=""):
   """
   Makes a scatter plot of points {p(c|0), p(c|h)} or {p(c|0), Likelihood}.
   """
   
-  v = [-0.1, 1.1, -0.1, 1.1]
-  axis(v)
-  plot(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
+  #v = [-0.1, 1.1, -0.1, 1.1]
+  #axis(v)
+  semilogy(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
   xlabel('False Alarm Probability, p(c|0)')
   ylabel(y_label)
-  savefig(y_label + '_vs_FalseAlarmProb')
+  title(y_label + "vs False Alarm Probability" + " " +  ifo.replace("_", ""))
+  savefig(ifo.replace("_", "") + "-" + y_label + '_vs_FalseAlarmProb')
   figure()
 
 def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="", y_lower_limit=0.00001):
@@ -624,7 +626,7 @@ def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', ol
   ylabel(new_statistic)
   xlabel(old_statistic)
   title("Likelihood vs combined effective SNR" + " " + ifo) 
-  savefig('zerolag_' + new_statistic + '_' + old_statistic)
+  savefig(ifo.replace("_","") + "-" + 'zerolag_' + new_statistic + '_' + old_statistic)
   figure()
 
 def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
@@ -769,7 +771,7 @@ def scatter_plot_param1_vs_param2_with_zerolag(ifos, coinc_slides, coinc_inj, co
 	  figure()
 
 
-def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, label_x='likelihood'):
+def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="", label_x='likelihood'):
   """ 
   Plots the cumulative histogram (cum_hist)  of foreground (injections or zerolag candidates)  and background 
   (time slides). The entries in the latter are  normalized by the number of time slides performed. In addition, 
@@ -790,12 +792,12 @@ def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, label_x
   grid(True)
   xlabel(label_x)
   ylabel('number of events')
-  legend('Combined statistic '+ postfix)
+  title('Combined statistic '+ postfix + ifo.replace("_", ""))
   legend((l1,l2),('foreground', 'background'))
-  savefig('Combined_statistic' + postfix)
+  savefig(ifo.replace("_", "") + "-" + 'Combined_statistic' + postfix)
   figure()
 
-def plot_likelihood(likelihood_foreground, bins, prefix, label_x='likelihood'):
+def plot_likelihood(likelihood_foreground, bins, prefix, ifo="",  label_x='likelihood'):
   """
   Plots a single cum_hist histogram.
   @param likelihood: an array that contains the statistic (e.g. likelihood) calculated for each event.
@@ -817,11 +819,12 @@ def plot_likelihood(likelihood_foreground, bins, prefix, label_x='likelihood'):
   grid(True)
   xlabel(label_x)
   ylabel('number of events')
+  title("cumulative histogram " + ifo.replace("_", ""))
   legend()
-  savefig(prefix+'_statistic')
+  savefig(ifo.replace("_", "") + "-" + prefix+'_statistic')
   figure()
 
-def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, prefix='likelihood'):
+def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="", prefix='likelihood'):
   """ 
   Plots normilzed histograms of statistic for injections and time slides.
   @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the foreground (injections).
@@ -857,7 +860,8 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, prefi
   bar(x_background, y_background, width=step/2.0 , color='k')
   xlim(min_global, max_global)
   xlabel(prefix)
-  savefig(prefix+'_inj_vs_slides_hist')
+  title(prefix + " injections vs, time slides histogram " + ifo.replace("_", ""))
+  savefig(ifo.replace("_", "") + "-" + prefix+'_inj_vs_slides_hist')
   figure()
 
 
@@ -1266,7 +1270,7 @@ parser.add_option("-a","--scatter-all-plot",action="store_true",\
     default=False, help ="Shows the scatter plot of new statitsic (likelihood) vs old statistic (effective snr) of all coincidences")
 
 parser.add_option("","--plot-only-ifo",action="store",type="string",\
-    default="", metavar="", help="makes plots only with events whose IFO matches the one specified by the option. (e.g. H1H2L1)" )
+    default="", metavar="", help="makes plots only with events whose IFO matches the one specified by the option. (e.g. H1_H2_L1). Note that different detector are separated by the underscore. It is required for unambiguous identification" )
 	
 	
 
@@ -1507,46 +1511,60 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	
   # read in inspiral likelihood tables from the data files
   ########################################################
-  # read in zero lag coinc triggers
-  zerolagLikelihoodTriggers = None
-  zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
-  # read in time slides triggers 
-  slidesLikelihoodTriggers = None
-  slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
-  # read in injections sngl and sim inspirals
-  injectionLikelihoodTriggers = None
-  injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
+
+  if opts.plot_only_ifo:
+    coinc_IFO=opts.plot_only_ifo.replace("_", "")
+    # read in zero lag coinc triggers
+    zerolagLikelihoodTriggers = None
+    zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles).coinctype(coinc_IFO)
+    # read in time slides triggers 
+    slidesLikelihoodTriggers = None
+    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles).coinctype(coinc_IFO
+)
+    # read in injections sngl and sim inspirals
+    injectionLikelihoodTriggers = None
+    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles).coinctype(coinc_IFO
+)
+  else:
+    # read in zero lag coinc triggers
+    zerolagLikelihoodTriggers = None
+    zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
+    # read in time slides triggers 
+    slidesLikelihoodTriggers = None
+    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
+    # read in injections sngl and sim inspirals
+    injectionLikelihoodTriggers = None
+    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
 	
   # generation of plots
   #####################
   
   # scatter plot of false alarm vs. detection probabilities for zero lag triggers 
   if opts.falsealarm_vs_detectprob_zerolag:
-    scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability")
-  
+    scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability", ifo=opts.plot_only_ifo)
   # scatter plot of false alarm vs. detection probabilities for zero lag, injections and time slides triggers 		
   if opts.falsealarm_vs_detectprob_all:
-    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("detect_prob"), injectionLikelihoodTriggers.get_column("false_alarm_prob"), injectionLikelihoodTriggers.get_column("detect_prob"), slidesLikelihoodTriggers.get_column("false_alarm_prob"), slidesLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability")
-    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("bg_frac"), zerolagLikelihoodTriggers.get_column("detect_prob"), injectionLikelihoodTriggers.get_column("bg_frac"), injectionLikelihoodTriggers.get_column("detect_prob"), slidesLikelihoodTriggers.get_column("bg_frac"), slidesLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability", prefix="BackgroundFraction")
+    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("detect_prob"), injectionLikelihoodTriggers.get_column("false_alarm_prob"), injectionLikelihoodTriggers.get_column("detect_prob"), slidesLikelihoodTriggers.get_column("false_alarm_prob"), slidesLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability", ifo=opts.plot_only_ifo)
+    #triple_scatter_plot(zerolagLikelihoodTriggers.get_column("bg_frac"), zerolagLikelihoodTriggers.get_column("detect_prob"), injectionLikelihoodTriggers.get_column("bg_frac"), injectionLikelihoodTriggers.get_column("detect_prob"), slidesLikelihoodTriggers.get_column("bg_frac"), slidesLikelihoodTriggers.get_column("detect_prob"), y_label="Detection_probability", ifo=opts.plot_only_ifo, prefix="BackgroundFraction")
 
   # cumulative histograms of zero lag triggers only
   if opts.cum_hist_zerolag_only:	
-    plot_likelihood(zerolagLikelihoodTriggers.get_column("likelihood"), opts.bins_cumhist, prefix='likelihood_zerolag')
-    plot_likelihood(zerolagLikelihoodTriggers.get_column("detect_bg_frac_ratio"), opts.bins_cumhist, prefix='DBR_zerolag',label_x='DBR')
+    plot_likelihood(zerolagLikelihoodTriggers.get_column("likelihood"), opts.bins_cumhist, ifo=opts.plot_only_ifo, prefix='likelihood_zerolag')
+    #plot_likelihood(zerolagLikelihoodTriggers.get_column("detect_bg_frac_ratio"), opts.bins_cumhist, ifo=opts.plot_only_ifo, prefix='DBR_zerolag', label_x='DBR')
   
   # histograms of of injections vs. time slides	    
   if opts.inj_vs_slides_hist:
-    inj_vs_slides_hist(injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("likelihood"), opts.bins_inj_vs_slides)
-    inj_vs_slides_hist(injectionLikelihoodTriggers.get_column("detect_bg_frac_ratio"), slidesLikelihoodTriggers.get_column("detect_bg_frac_ratio"), opts.bins_inj_vs_slides, prefix='DBR')
+    inj_vs_slides_hist(injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("likelihood"), opts.bins_inj_vs_slides, ifo=opts.plot_only_ifo)
+    #inj_vs_slides_hist(injectionLikelihoodTriggers.get_column("detect_bg_frac_ratio"), slidesLikelihoodTriggers.get_column("detect_bg_frac_ratio"), opts.bins_inj_vs_slides,ifo=opts.plot_only_ifo,  prefix='DBR')
 
   # scatter plot of false alarm vs. likelihood for zero lag triggers 
   if opts.falsealarm_vs_likelihood_zerolag:
-    scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood")
+    scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood", ifo=opts.plot_only_ifo)
   
   # scatter plot of false alarm vs. likelihood for zero lag, injections and time slides triggers 		
   if opts.falsealarm_vs_likelihood_all:
-    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("likelihood"), injectionLikelihoodTriggers.get_column("false_alarm_prob"), injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("false_alarm_prob"), slidesLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood")
-    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("bg_frac"), zerolagLikelihoodTriggers.get_column("likelihood"), injectionLikelihoodTriggers.get_column("bg_frac"), injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("bg_frac"), slidesLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood", prefix="BackgroundFraction")
+    triple_scatter_plot(zerolagLikelihoodTriggers.get_column("false_alarm_prob"), zerolagLikelihoodTriggers.get_column("likelihood"), injectionLikelihoodTriggers.get_column("false_alarm_prob"), injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("false_alarm_prob"), slidesLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood", ifo=opts.plot_only_ifo)
+    #triple_scatter_plot(zerolagLikelihoodTriggers.get_column("bg_frac"), zerolagLikelihoodTriggers.get_column("likelihood"), injectionLikelihoodTriggers.get_column("bg_frac"), injectionLikelihoodTriggers.get_column("likelihood"), slidesLikelihoodTriggers.get_column("bg_frac"), slidesLikelihoodTriggers.get_column("likelihood"), y_label="Likelihood", ifo=opts.plot_only_ifo, prefix="BackgroundFraction")
 
 
 
@@ -1581,9 +1599,9 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
 	expect_DBR = opts.slides_norm_factor*average_DBR / (2 * opts.num_slides)
 	
 	postfix = '_zerolag_vs_background'
-	plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix)
+	plot_cumhist(statistic_foreground_zerolag_LKH, sigma_likelihood, expect_likelihood, x_middle_slide_LKH, postfix, ifo=opts.plot_only_ifo)
 	postfix = '_zerolag_vs_background' + '_DBR'
-	plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, postfix, label_x='DBR')
+	#plot_cumhist(statistic_foreground_zerolag_DBR, sigma_DBR, expect_DBR, x_middle_slide_DBR, ifo=opts.plot_only_ifo, postfix, label_x='DBR')
 
 
   #cumulative histogram of found injections vs time slides triggers	
