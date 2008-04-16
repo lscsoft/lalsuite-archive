@@ -547,7 +547,7 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			figure()
 
 
-def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="", prefix='False_Alarm_Probability'):
+def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="All", prefix='False_Alarm_Probability'):
   """
   Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
   Detection probability (or Likelihood) , p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
@@ -568,7 +568,7 @@ def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0
   savefig(ifo.replace("_", "") + "-" + y_label +'_vs_' + prefix)
   figure()
 
-def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="", y_lower_limit=0.00001):
+def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
   """
   Function that makes scattering plot of  new statistic (likelihood) vs old statistic (effective snr) 
   for zerolag candidate triggers, injections and background triggers. 
@@ -598,7 +598,7 @@ def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injec
   savefig(ifo.replace("_","") + "-" + new_statistic + '_' + old_statistic)
   figure()
 
-def scatter_plot(p0, pc, y_label, ifo=""):
+def scatter_plot(p0, pc, y_label, ifo="All"):
   """
   Makes a scatter plot of points {p(c|0), p(c|h)} or {p(c|0), Likelihood}.
   """
@@ -612,7 +612,7 @@ def scatter_plot(p0, pc, y_label, ifo=""):
   savefig(ifo.replace("_", "") + "-" + y_label + '_vs_FalseAlarmProb')
   figure()
 
-def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="", y_lower_limit=0.00001):
+def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
   """
   Makes a scatter plot of new statistic (likelihood) vs old statistic (effective snr)
   """
@@ -771,7 +771,7 @@ def scatter_plot_param1_vs_param2_with_zerolag(ifos, coinc_slides, coinc_inj, co
 	  figure()
 
 
-def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="", label_x='likelihood'):
+def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="All", label_x='likelihood'):
   """ 
   Plots the cumulative histogram (cum_hist)  of foreground (injections or zerolag candidates)  and background 
   (time slides). The entries in the latter are  normalized by the number of time slides performed. In addition, 
@@ -797,7 +797,7 @@ def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="",
   savefig(ifo.replace("_", "") + "-" + 'Combined_statistic' + postfix)
   figure()
 
-def plot_likelihood(likelihood_foreground, bins, prefix, ifo="",  label_x='likelihood'):
+def plot_likelihood(likelihood_foreground, bins, prefix, ifo="All",  label_x='likelihood'):
   """
   Plots a single cum_hist histogram.
   @param likelihood: an array that contains the statistic (e.g. likelihood) calculated for each event.
@@ -824,7 +824,7 @@ def plot_likelihood(likelihood_foreground, bins, prefix, ifo="",  label_x='likel
   savefig(ifo.replace("_", "") + "-" + prefix+'_statistic')
   figure()
 
-def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="", prefix='likelihood'):
+def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="All", prefix='likelihood'):
   """ 
   Plots normilzed histograms of statistic for injections and time slides.
   @param likelihood_foreground: an array that contains the statistic (e.g. likelihood) calculated for each event of the foreground (injections).
