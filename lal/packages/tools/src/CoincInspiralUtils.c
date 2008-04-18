@@ -1758,7 +1758,7 @@ XLALCoincInspiralTimeNS (
 
 REAL4 
 XLALCoincInspiralStat(
-    CoincInspiralTable         *coincInspiral,
+    const CoincInspiralTable   *coincInspiral,
     CoincInspiralStatistic      coincStat,
     CoincInspiralBittenLParams *bittenLParams
     )
@@ -1978,8 +1978,8 @@ XLALCompareCoincInspiralByEffectiveSnr (
     ) 
 /* </lalVerbatim> */
 {
-  CoincInspiralTable *aPtr = *((CoincInspiralTable * const *)a);
-  CoincInspiralTable *bPtr = *((CoincInspiralTable * const *)b);
+  const CoincInspiralTable *aPtr = *((CoincInspiralTable * const *)a);
+  const CoincInspiralTable *bPtr = *((CoincInspiralTable * const *)b);
   REAL4 ta, tb;
 
   CoincInspiralStatistic coincStat = effective_snrsq;
