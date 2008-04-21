@@ -145,14 +145,11 @@ def parse_command_line():
 
   # options used in sieving the cache file, in case it is given    
   parser.add_option("","--coinc-pattern",
-      default="", metavar="COINCPATTERN", help="pattern for zerolag files the cache "\
-                    "input file  will be sieved with" )
-  parser.add_option("","--slide-pattern", action="store",type="string",\
-      default="", metavar="SLIDEPATTERN", help="pattern for time slides files  the cache"\
-                    " input file will be sieved with" )
-  parser.add_option("","--match",action="store",type="string",\
-      default=None,metavar="MATCH",\
-      help="To sieve exactly according to a pattern, if its set True" )
+    help="sieve the cache for zero-lag coincidence files with this pattern")
+  parser.add_option("","--slide-pattern",
+    help="sieve the cache for time-slide files with this pattern")
+  parser.add_option("","--match", action="store_true", default=False,
+      help="Apply sieve patterns exactly (no leading and trailing *s)")
 
   #options that set parameters specific to the plots 
 
@@ -343,6 +340,11 @@ if opts.mass_range is not None:
 
 ###################################
 # glob the list of files to read in
+
+slidefiles = []
+coincfiles = []
+offsourcefiles = []
+
 if opts.glob is not None or opts.cache_file is not None:
   if opts.glob is not None:
     allfiles = []
@@ -351,10 +353,6 @@ if opts.glob is not None or opts.cache_file is not None:
     if len(allfiles) < 1:
       print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
       sys.exit(1)
-
-    slidefiles = []
-    coincfiles = []
-    offsourcefiles = []
 
     for file in allfiles:
       if 'SLIDE' in file:
@@ -365,20 +363,22 @@ if opts.glob is not None or opts.cache_file is not None:
   elif opts.cache_file is not None:
     allfilesCache = lal.Cache.fromfile(open(opts.cache_file))    
 
-    offsourcefiles = []
-    sieved_cache = allfilesCache.sieve(description=opts.coinc_pattern,
-                                       exact_match=opts.match)
-    if opts.ifo_times is not None:
-      sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times,exact_match=True)
-    found, missed = sieved_cache.checkfilesexist()
-    coincfiles = found.pfnlist()
-    
-    sieved_cache = allfilesCache.sieve(description=opts.slide_pattern,
-                                       exact_match=opts.match)
-    if opts.ifo_times is not None:
-      sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times, exact_match=True)
-    found, missed = sieved_cache.checkfilesexist()
-    slidefiles = found.pfnlist()
+    if opts.coinc_pattern is not None:
+        sieved_cache = allfilesCache.sieve(description=opts.coinc_pattern,
+                                           exact_match=opts.match)
+        if opts.ifo_times is not None:
+          sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times,
+                                            exact_match=True)
+        found, missed = sieved_cache.checkfilesexist()
+        coincfiles = found.pfnlist()
+    if opts.slide_pattern is not None:
+        sieved_cache = allfilesCache.sieve(description=opts.slide_pattern,
+                                           exact_match=opts.match)
+        if opts.ifo_times is not None:
+          sieved_cache = sieved_cache.sieve(ifos=opts.ifo_times,
+                                            exact_match=True)
+        found, missed = sieved_cache.checkfilesexist()
+        slidefiles = found.pfnlist()
   
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
