@@ -217,7 +217,7 @@ if opts.hist:
     figure(plot_num.next())
     viz.histcol( binaries, hist, nbins = nbins, plot_type=plot_type)
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name( opts, 'hist '+hist)
+      fname = InspiralUtils.set_figure_name( opts, 'hist_'+hist)
       InspiralUtils.savefig_pylal(fname)
       fnameList.append( fname )
       tagList.append('histogram '+hist)
