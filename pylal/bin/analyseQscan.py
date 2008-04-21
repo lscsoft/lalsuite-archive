@@ -406,6 +406,7 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
   else:
     figFileName = opts.output_path + '/' + figName
   savefig(figFileName)
+  close(figNumber)
 
   return figName  
 
@@ -462,6 +463,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   else:
     figFileName = opts.output_path + '/' + figName
   savefig(figFileName) 
+  close(figNumber)
 
   return figName
 
