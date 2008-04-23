@@ -674,103 +674,108 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, mcmcJob, procParams, ifo, trig, cp,opts,dag):
 
-    time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
+    try:
+      time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
 
-    self.friendlyName = 'MCMC followup'
-    pipeline.CondorDAGNode.__init__(self,mcmcJob)
+      self.friendlyName = 'MCMC followup'
+      pipeline.CondorDAGNode.__init__(self,mcmcJob)
 
-    for row in procParams:
-      param = row.param.strip("-")
-      value = row.value
-      if param == 'frame-cache': cacheFile = value
-      if param == 'low-frequency-cutoff': lowCut = value
-      if param == 'sample-rate': highCut = str(float(value)/2 - 1.0)
-      if param == 'channel-name': channel = value
-      if param == 'gps-end-time': chunk_end = value
-      if param == 'gps-start-time': chunk_start = value
+      for row in procParams:
+        param = row.param.strip("-")
+        value = row.value
+        if param == 'frame-cache': cacheFile = value
+        if param == 'low-frequency-cutoff': lowCut = value
+        if param == 'sample-rate': highCut = str(float(value)/2 - 1.0)
+        if param == 'channel-name': channel = value
+        if param == 'gps-end-time': chunk_end = value
+        if param == 'gps-start-time': chunk_start = value
 
-    # add the arguments that I know now...
-    self.add_var_opt("low-cut", lowCut)
-    self.add_var_opt("high-cut", str(min(1800,float(highCut))))
-    self.add_var_opt("channel-name", channel) # must be STRAIN ?
-    # THIS COALESCENCE TIME INFO IS AD HOC AND NEEDS TO BE IMPROVED
-    self.add_var_opt("prior-coal-time-mean", str(trig.gpsTime[ifo]))
-    self.add_var_opt("prior-coal-time-marg",time_margin)
-    self.add_var_opt("random-seed-one", str(trig.gpsTime[ifo]).split('.')[0][5:9])
-    self.add_var_opt("random-seed-two", str(trig.gpsTime[ifo]).split('.')[1])
-    mass1 = getattr(trig.coincs,ifo).mass1
-    mass2 = getattr(trig.coincs,ifo).mass2
-    dist = getattr(trig.coincs,ifo).eff_distance
-    snr = getattr(trig.coincs,ifo).snr
-    duration = getattr(trig.coincs,ifo).template_duration
-    # THE DIST LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
-    # THESE CAN HAVE LARGE SYSTEMATIC ERRORS THAT WILL NOT
-    # BE CAPTURED BY THIS RIGHT??? I am using two sigma instead of 
-    # 1.65 which would be right for the 10/90 !!
-    #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
-    #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
-    #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
-    dist90 = 56.5
-    dist10 = dist90 + 5. 
-    # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
-    #if mass1 < mass2:
-    #  self.add_var_opt("prior-lower-mass", str(0.9) )
-    #  self.add_var_opt("prior-upper-mass", str(10.0) )
-    #else:
-    #  self.add_var_opt("prior-lower-mass", str(0.9) )
-    #  self.add_var_opt("prior-upper-mass", str(10.0) )
-    self.add_var_opt("prior-lower-mass", str(0.5) )
-    self.add_var_opt("prior-upper-mass", str(34.5) )
-    self.add_var_opt("prior-distance-10", str(dist10))
-    self.add_var_opt("prior-distance-90", str(dist90))
-    self.add_var_opt("before-coal-time", str(duration*1.5))
-    #self.add_var_opt("before-coal-time", str(28))
+      # add the arguments that I know now...
+      self.add_var_opt("low-cut", lowCut)
+      self.add_var_opt("high-cut", str(min(1800,float(highCut))))
+      self.add_var_opt("channel-name", channel) # must be STRAIN ?
+      # THIS COALESCENCE TIME INFO IS AD HOC AND NEEDS TO BE IMPROVED
+      self.add_var_opt("prior-coal-time-mean", str(trig.gpsTime[ifo]))
+      self.add_var_opt("prior-coal-time-marg",time_margin)
+      self.add_var_opt("random-seed-one", str(trig.gpsTime[ifo]).split('.')[0][5:9])
+      self.add_var_opt("random-seed-two", str(trig.gpsTime[ifo]).split('.')[1])
+      mass1 = getattr(trig.coincs,ifo).mass1
+      mass2 = getattr(trig.coincs,ifo).mass2
+      dist = getattr(trig.coincs,ifo).eff_distance
+      snr = getattr(trig.coincs,ifo).snr
+      duration = getattr(trig.coincs,ifo).template_duration
+      # THE DIST LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
+      # THESE CAN HAVE LARGE SYSTEMATIC ERRORS THAT WILL NOT
+      # BE CAPTURED BY THIS RIGHT??? I am using two sigma instead of 
+      # 1.65 which would be right for the 10/90 !!
+      #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
+      #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
+      #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
+      dist90 = 56.5
+      dist10 = dist90 + 5. 
+      # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
+      #if mass1 < mass2:
+      #  self.add_var_opt("prior-lower-mass", str(0.9) )
+      #  self.add_var_opt("prior-upper-mass", str(10.0) )
+      #else:
+      #  self.add_var_opt("prior-lower-mass", str(0.9) )
+      #  self.add_var_opt("prior-upper-mass", str(10.0) )
+      self.add_var_opt("prior-lower-mass", str(0.5) )
+      self.add_var_opt("prior-upper-mass", str(34.5) )
+      self.add_var_opt("prior-distance-10", str(dist10))
+      self.add_var_opt("prior-distance-90", str(dist90))
+      self.add_var_opt("before-coal-time", str(duration*1.5))
+      #self.add_var_opt("before-coal-time", str(28))
     
-    ########################################################################
-    # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
-    # THE MCMC CODE SHOULD TAKE THE SAME CACHE FILE AS LALAPPS_INSPIRAL AND
-    # COMPUTE THE SAME PSD ETC.  CURRENTLY THE WAY IT HANDLES FRAMES IS A BIT
-    # AD HOC.  THIS IS BOUND TO FAIL ON OCCASION SINCE IT ASSUMES ALL FRAMES
-    # HAVE THE SPECIFIED DURATION!!!
-    ########################################################################
-    frameCache = lal.Cache().fromfile(open(cacheFile,'r'))  
-    trigSegment = segments.segment(trig.gpsTime[ifo],trig.gpsTime[ifo])
-    goodCache = frameCache.sieve(ifo[0],ifo[0], trigSegment)
-    frame = goodCache[0].path()
-    frameFilePath = str.join('/',frame.split('/')[0:-1])
-    frameFile = frame.split('/')[-1]
-    frameFilePrefix = str.join('-',frameFile.split('-')[0:2]+[''])
-    frameFileSuffix = str.join('-',['',frameFile.split('-')[-1]])
-    gpsStartTime = frameFile.split('-')[-2]
-    frameFileSize = str(goodCache[0]).split(' ')[3]
-    self.add_var_opt("frame-file-path",frameFilePath)
-    self.add_var_opt("frame-file-prefix",frameFilePrefix)
-    self.add_var_opt("frame-file-suffix",frameFileSuffix)
-    self.add_var_opt("frame-file-size",frameFileSize)
-    self.add_var_opt("gps-start-time",gpsStartTime)
+      ########################################################################
+      # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
+      # THE MCMC CODE SHOULD TAKE THE SAME CACHE FILE AS LALAPPS_INSPIRAL AND
+      # COMPUTE THE SAME PSD ETC.  CURRENTLY THE WAY IT HANDLES FRAMES IS A BIT
+      # AD HOC.  THIS IS BOUND TO FAIL ON OCCASION SINCE IT ASSUMES ALL FRAMES
+      # HAVE THE SPECIFIED DURATION!!!
+      ########################################################################
+      frameCache = lal.Cache().fromfile(open(cacheFile,'r'))  
+      trigSegment = segments.segment(trig.gpsTime[ifo],trig.gpsTime[ifo])
+      goodCache = frameCache.sieve(ifo[0],ifo[0], trigSegment)
+      frame = goodCache[0].path()
+      frameFilePath = str.join('/',frame.split('/')[0:-1])
+      frameFile = frame.split('/')[-1]
+      frameFilePrefix = str.join('-',frameFile.split('-')[0:2]+[''])
+      frameFileSuffix = str.join('-',['',frameFile.split('-')[-1]])
+      gpsStartTime = frameFile.split('-')[-2]
+      frameFileSize = str(goodCache[0]).split(' ')[3]
+      self.add_var_opt("frame-file-path",frameFilePath)
+      self.add_var_opt("frame-file-prefix",frameFilePrefix)
+      self.add_var_opt("frame-file-suffix",frameFileSuffix)
+      self.add_var_opt("frame-file-size",frameFileSize)
+      self.add_var_opt("gps-start-time",gpsStartTime)
 
-    if (float(chunk_end) - trig.gpsTime[ifo]) > 512.:
-      psdSegment = segments.segment(trig.gpsTime[ifo]+256.,trig.gpsTime[ifo]+256.)
-    else:
-      psdSegment = segments.segment(trig.gpsTime[ifo]-384.,trig.gpsTime[ifo]-384.)
-    psdCache = frameCache.sieve(ifo[0],ifo[0],psdSegment)
-    psdFrame = psdCache[0].path()
-    psdFilePath = str.join('/',psdFrame.split('/')[0:-1])
-    psdFile = psdFrame.split('/')[-1]
-    psdFilePrefix = str.join('-',psdFile.split('-')[0:2]+[''])
-    psdFileSuffix = str.join('-',['',psdFile.split('-')[-1]])
-    psdStartTime = psdFile.split('-')[-2]
-    psdFileSize = str(psdCache[0]).split(' ')[3]
-    #self.add_var_opt("psd-file-path",psdFilePath)
-    #self.add_var_opt("psd-file-prefix",psdFilePrefix)
-    #self.add_var_opt("psd-file-suffix",psdFileSuffix)
-    #self.add_var_opt("psd-file-size",psdFileSize)
-    self.add_var_opt("psd-start-time",psdStartTime)
+      if (float(chunk_end) - trig.gpsTime[ifo]) > 512.:
+        psdSegment = segments.segment(trig.gpsTime[ifo]+256.,trig.gpsTime[ifo]+256.)
+      else:
+        psdSegment = segments.segment(trig.gpsTime[ifo]-384.,trig.gpsTime[ifo]-384.)
+      psdCache = frameCache.sieve(ifo[0],ifo[0],psdSegment)
+      psdFrame = psdCache[0].path()
+      psdFilePath = str.join('/',psdFrame.split('/')[0:-1])
+      psdFile = psdFrame.split('/')[-1]
+      psdFilePrefix = str.join('-',psdFile.split('-')[0:2]+[''])
+      psdFileSuffix = str.join('-',['',psdFile.split('-')[-1]])
+      psdStartTime = psdFile.split('-')[-2]
+      psdFileSize = str(psdCache[0]).split(' ')[3]
+      #self.add_var_opt("psd-file-path",psdFilePath)
+      #self.add_var_opt("psd-file-prefix",psdFilePrefix)
+      #self.add_var_opt("psd-file-suffix",psdFileSuffix)
+      #self.add_var_opt("psd-file-size",psdFileSize)
+      self.add_var_opt("psd-start-time",psdStartTime)
 
-    self.id = mcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-    self.setupNodeWeb(mcmcJob)
-    self.add_var_opt("output-file-name",mcmcJob.name+'/'+self.id+'.txt') 
-    if opts.mcmc:
-      dag.addNode(self,self.friendlyName)
-      self.validate()
-    else: self.invalidate()
+      self.id = mcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.setupNodeWeb(mcmcJob)
+      self.add_var_opt("output-file-name",mcmcJob.name+'/'+self.id+'.txt') 
+      if opts.mcmc:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+
+    except:
+      self.invalidate()
+      print "couldn't add mcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
