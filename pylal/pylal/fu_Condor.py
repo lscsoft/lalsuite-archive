@@ -146,7 +146,10 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
     except:
       self.invalidate()
-      print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
+      try:
+        print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
+      except:
+        print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
 
 
   def checkInjections(self,cp):
