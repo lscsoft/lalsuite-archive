@@ -593,27 +593,29 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, FrCheckJob, procParams, ifo, trig, cp,opts,dag):
 
-    for row in procParams:
-      param = row.param.strip("-")
-      value = row.value
-      if param == 'frame-cache': cacheFile = value 
+    try:
+      for row in procParams:
+        param = row.param.strip("-")
+        value = row.value
+        if param == 'frame-cache': cacheFile = value 
 
-    self.friendlyName = 'Frame Check'
+      self.friendlyName = 'Frame Check'
 
     
-    pipeline.CondorDAGNode.__init__(self,FrCheckJob)
-    self.add_var_opt("frame-cache", cacheFile)
-    self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
+      pipeline.CondorDAGNode.__init__(self,FrCheckJob)
+      self.add_var_opt("frame-cache", cacheFile)
+      self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
 
-    self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-    self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
-    if opts.frame_check:
-      dag.addNode(self,self.friendlyName)
-      self.validate()
-    else: self.invalidate()
-#    except:
-#      self.invalidate()
-#      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+      if opts.frame_check:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+
+    except:
+      self.invalidate()
+      print "couldn't add frame check job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
 class IFOstatus_checkJob(pipeline.CondorDAGJob, webTheJob):
   """
