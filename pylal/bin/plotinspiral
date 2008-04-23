@@ -142,10 +142,10 @@ def parse_command_line():
   parser.add_option("-j","--maximization-interval",action="store",\
       type="int",default=10,\
       metavar=" MAX_INT", help="maximization interval used (in ms)" )
-  parser.add_option("-J","--veto-file",action="append",type="string",\
+  parser.add_option("-J","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="read in segments from FNAME (assumed segwizard format). \
-      Multiple veto files can be added by repeated use of this option.")
+      Multiple veto files can be added seperated by commas.")
 
   #others
   parser.add_option("-l","--analyzed-time",action="store",type="int",\
@@ -297,7 +297,7 @@ tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts
 
 # apply veto if there is one
 if opts.veto_file:
-  for veto_file in opts.veto_file:
+  for veto_file in opts.veto_file.split(','):
     seglist = segmentsUtils.fromsegwizard(open(veto_file))
     inspTriggers = inspTriggers.veto(seglist)
 
