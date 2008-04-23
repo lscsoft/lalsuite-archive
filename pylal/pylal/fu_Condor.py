@@ -70,6 +70,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot',sngl_table = None):    
 
     try:
+      self.output_file_name = ""
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
 
@@ -148,6 +149,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.invalidate()
       try:
         print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
+      # if self.inputIfo does not exist (happens when inspiral cache and xml files not available), then use ifo in the string.
       except:
         print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
 
