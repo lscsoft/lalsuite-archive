@@ -142,9 +142,10 @@ def parse_command_line():
   parser.add_option("-j","--maximization-interval",action="store",\
       type="int",default=10,\
       metavar=" MAX_INT", help="maximization interval used (in ms)" )
-  parser.add_option("-J","--veto-file",action="store",type="string",\
+  parser.add_option("-J","--veto-file",action="append",type="string",\
       default=None,metavar=" FNAME",\
-      help="read in segments from FNAME (assumed segwizard format)")
+      help="read in segments from FNAME (assumed segwizard format). \
+      Multiple veto files can be added by repeated use of this option.")
 
   #others
   parser.add_option("-l","--analyzed-time",action="store",type="int",\
@@ -201,6 +202,7 @@ def parse_command_line():
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   (options,args) = parser.parse_args()
+
 
   # test the input options
   if not options.ifo_times: 
@@ -295,8 +297,9 @@ tmpltbank = SnglInspiralUtils.ReadSnglInspiralFromFiles(bank_files, verbose=opts
 
 # apply veto if there is one
 if opts.veto_file:
-  seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-  inspTriggers = inspTriggers.veto(seglist)
+  for veto_file in opts.veto_file:
+    seglist = segmentsUtils.fromsegwizard(open(veto_file))
+    inspTriggers = inspTriggers.veto(seglist)
 
 # determine missed injection file
 missed_files = []
