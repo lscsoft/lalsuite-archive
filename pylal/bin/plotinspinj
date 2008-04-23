@@ -637,7 +637,7 @@ if opts.time_snr:
     time_i = viz.readcol(injSet['sim_inspiral'], 'end_time', ifo)
     mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
     mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
-    diff_a = 2.*(time_i - time_e)/(time_e + time_i)    
+    diff_a = time_i - time_e
     handle = scatter(snr, diff_a, s=40, c=mass1+mass2, faceted=False)
     ax = axes()
     ax.set_xscale('log')
