@@ -611,6 +611,78 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
 
 
 ##############################################################################
+# Function to set up zero/slide plots:
+def zeroSlidePlots(dag, plotDir, config, logPath, zerolagSuffix, slideSuffix, 
+    cacheFile, doDagCategories, parentDags = None, vetoParentDags = None, 
+    vetoCat = 2):
+  """
+  set up plots for zero lag and time slides
+  dag       = the dag
+  plotDir   = directory in to set up plots
+  config    = config file
+  logPath   = location where log files will be written
+  zerolagSuffix   = the string to restrict to for zero lag
+  slideSuffix     = the string to restrict to for time slides
+  cacheFile       = the input cache file for plotting
+  doCategories    = dag categories turned on
+  parentDags      = the name of the parent dag to add
+  vetoParentDags  = the name of the veto parent dag to add
+  vetoCat         = veto category
+  """
+  # single ifo
+  plotcp = copy.deepcopy(config)
+  plotcp.add_section("plot-arguments")
+  plotcp.set("plot-arguments","plotinspiralrange","")
+  plotcp.set("plot-arguments","plotnumtemplates","")
+  plotcp.set("plot-arguments","plotinspiral","")
+  plotcp.set("plot-arguments","write-script","")
+  playPlotNode = plot_setup(plotDir, plotcp, logPath, "both", \
+      "", zerolagSuffix, slideSuffix, slideSuffix, cacheFile, tag="SNGL" )
+  if doDagCategories:
+    playPlotNode.set_category('plotting')
+  dag.add_node(playPlotNode)
+  if parentDags:
+    for thisDag in parentDags: 
+      playPlotNode.add_parent(thisDag)
+
+  # coincs
+  plotcp = copy.deepcopy(config)
+  plotcp.add_section("plot-arguments")
+  plotcp.set("plot-arguments","plotthinca","")
+  plotcp.set("plot-arguments","write-script","")
+  playPlotCoincNode = plot_setup(plotDir, plotcp, logPath, \
+      "first", "", zerolagSuffix, slideSuffix, slideSuffix, cacheFile, \
+      tag="COINC" )
+  if doDagCategories:
+    playPlotCoincNode.set_category('plotting')
+  dag.add_node(playPlotCoincNode)
+  if parentDags:
+    for thisDag in parentDags: 
+      playPlotCoincNode.add_parent(thisDag)
+  if not doDagCategories:
+    playPlotCoincNode.add_parent(playPlotNode)
+
+  # coincs second (require DQ)
+  vetoString = "_CAT_" + str(vetoCat) + "_VETO"
+  plotcp = copy.deepcopy(config)
+  plotcp.add_section("plot-arguments")
+  plotcp.set("plot-arguments","plotthinca","")
+  plotcp.set("plot-arguments","write-script","")
+  playPlotVetoNode = plot_setup(plotDir, plotcp, logPath, \
+      "second", "", zerolagSuffix + vetoString, slideSuffix + vetoString, \
+      slideSuffix + vetoString, cacheFile, tag="COINC_CAT_" + str(vetoCat) )
+  if doDagCategories:
+    playPlotVetoNode.set_category('plotting')
+  dag.add_node(playPlotVetoNode)
+  if vetoParentDags:
+    for thisDag in vetoParentDags:
+      playPlotVetoNode.add_parent(thisDag)
+  if not doDagCategories:
+    playPlotVetoNode.add_parent(playPlotCoincNode)
+
+  return dag
+
+##############################################################################
 # Function to set up lalapps_followup_pipe
 def followup_setup(followupDir, config, opts, hipeDir):
   """
@@ -681,8 +753,9 @@ def followup_setup(followupDir, config, opts, hipeDir):
   f.close()
 
   # add job to dag
-  followupJob = pipeline.CondorDAGManJob(followupDag,followupDir)
+  followupJob = pipeline.CondorDAGManJob(followupDag, followupDir)
   followupNode = pipeline.CondorDAGNode(followupJob)
+
 
   # write the pre-script to run lalapps_followup_pipe at the appropriate time
   f = open(followupDag + ".pre","w")
@@ -714,7 +787,8 @@ def fix_rescue(dagNode):
     os.symlink("../rescue.sh", "rescue.sh")
   dagNode.set_post_script( "rescue.sh")
   dagNode.add_post_script_arg( "$RETURN" )
-  dagNode.add_post_script_arg( dagNode.job().get_sub_file().rstrip(".condor.sub") )
+  dagNode.add_post_script_arg(
+      dagNode.job().get_sub_file().rstrip(".condor.sub") )
 
 def write_rescue():
   # Write the rescue post-script
