@@ -80,8 +80,9 @@ def add_to_plot(axes, red, black, blue = None, plottype = "LR"):
 	if plottype == "P":
 		if blue is not None:
 			axes.plot(numpy.compress(blue.array > 0, blue.centres()[0]), numpy.compress(blue.array > 0, blue.array), "b")
-		axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
-		axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
+		l, = axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
+		#l.set_dashes([8, 4])
+		l, = axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
 	elif plottype == "LR":
 		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), black.centres()[0]), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
 	else:
@@ -91,6 +92,7 @@ def add_to_plot(axes, red, black, blue = None, plottype = "LR"):
 	if ymin < 1e-5 * ymax:
 		ymin = 1e-5 * ymax
 		axes.set_ylim((ymin, ymax))
+	axes.set_xlim((-2.0, +2.0))
 
 
 def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
@@ -98,8 +100,9 @@ def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
 	if plottype == "P":
 		if blue is not None:
 			axes.plot(numpy.compress(blue.array > 0, x), numpy.compress(blue.array > 0, blue.array), "b")
-		axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
-		axes.plot(numpy.compress(red.array > 0, x), numpy.compress(red.array > 0, red.array), "r")
+		l, = axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
+		#l.set_dashes([8, 4])
+		l, = axes.plot(numpy.compress(red.array > 0, x), numpy.compress(red.array > 0, red.array), "r")
 	elif plottype == "LR":
 		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), x), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
 	else:
