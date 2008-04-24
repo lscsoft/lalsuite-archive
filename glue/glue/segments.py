@@ -1068,6 +1068,18 @@ class segmentlistdict(dict):
 				return False
 		return set(self.keys()) != set()
 
+	def extend(self, other):
+		"""
+		Appends the segmentlists from other to the corresponding
+		segmentlists in self, adding new segmentslists to self as
+		needed.
+		"""
+		for key, value in other.itervalues():
+			if key not in self:
+				self[key] = shallowcopy(value)
+			else:
+				self[key].extend(value)
+
 	def coalesce(self):
 		"""
 		Run coalesce() on all segmentlists.
