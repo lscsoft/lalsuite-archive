@@ -116,14 +116,6 @@ setup(
 	},
 	ext_modules = [
 		Extension(
-			"pylal.support",
-			["src/support.c"],
-			include_dirs = full_lal_pkg_config.incdirs,
-			libraries = full_lal_pkg_config.libs,
-			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs
-		),
-		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
 			include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
