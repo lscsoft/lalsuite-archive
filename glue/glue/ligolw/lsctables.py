@@ -280,6 +280,9 @@ class SearchSummaryTable(table.Table):
 		"""
 		Return a segmentlist object describing the times spanned by
 		the input segments of all rows in the table.
+
+		Note:  the result is not coalesced, the segmentlist
+		contains the segments as they appear in the table.
 		"""
 		return segments.segmentlist([row.get_in() for row in self])
 
@@ -287,61 +290,44 @@ class SearchSummaryTable(table.Table):
 		"""
 		Return a segmentlist object describing the times spanned by
 		the output segments of all rows in the table.
+
+		Note:  the result is not coalesced, the segmentlist
+		contains the segments as they appear in the table.
 		"""
 		return segments.segmentlist([row.get_out() for row in self])
-
-	def get_inprocs(self, seglist):
-		"""
-		Return a list of the process IDs for the processes whose
-		input segments intersect some part of the segmentlist
-		seglist.
-		"""
-		return [row.process_id for row in self if seglist.intersects_segment(row.get_in())]
-
-	def get_outprocs(self, seglist):
-		"""
-		Return a list of the process IDs for the processes whose
-		output segments intersect some part of the segmentlist
-		seglist.
-		"""
-		return [row.process_id for row in self if seglist.intersects_segment(row.get_out())]
 
 	def get_in_segmentlistdict(self, process_ids = None):
 		"""
 		Return a segmentlistdict mapping instrument to in segment
-		list.  If process_ids is a list of process IDs, then only
-		rows with matching IDs are included otherwise all rows are
-		included.
+		list.  If process_ids is a sequence of process IDs, then
+		only rows with matching IDs are included otherwise all rows
+		are included.
+
+		Note:  the result is not coalesced, each segmentlist
+		contains the segments listed for that instrument as they
+		appeared in the table.
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				if "," in row.ifos:
-					ifos = row.ifos.split(",")
-				elif "+" in row.ifos:
-					ifos = row.ifos.split("+")
-				else:
-					ifos = [row.ifos]
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in ifos])
+				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in row.get_ifos()]))
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
 		"""
 		Return a segmentlistdict mapping instrument to out segment
-		list.  If process_ids is a list of process IDs, then only
-		rows with matching IDs are included otherwise all rows are
-		included.
+		list.  If process_ids is a sequence of process IDs, then
+		only rows with matching IDs are included otherwise all rows
+		are included.
+
+		Note:  the result is not coalesced, each segmentlist
+		contains the segments listed for that instrument as they
+		appeared in the table.
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
 			if process_ids is None or row.process_id in process_ids:
-				if "," in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split(",")]
-				elif "+" in row.ifos:
-					ifos = [ifo.strip() for ifo in row.ifos.split("+")]
-				else:
-					ifos = [row.ifos]
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in ifos])
+				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()]))
 		return seglists
 
 
