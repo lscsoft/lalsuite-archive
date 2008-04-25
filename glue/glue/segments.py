@@ -1074,7 +1074,7 @@ class segmentlistdict(dict):
 		segmentlists in self, adding new segmentslists to self as
 		needed.
 		"""
-		for key, value in other.itervalues():
+		for key, value in other.iteritems():
 			if key not in self:
 				self[key] = shallowcopy(value)
 			else:
