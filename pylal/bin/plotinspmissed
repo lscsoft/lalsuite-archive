@@ -65,11 +65,11 @@ def createPlot( foundx, foundy, missedx, missedy, \
 
   figure()
   plot( foundx, foundy, \
-        'bo', markerfacecolor=None,\
+        'bo', markerfacecolor='None',\
         markeredgecolor='b',markersize=10, markeredgewidth=1)
 
   plot( missedx, missedy, \
-        'ro', markerfacecolor=None,\
+        'ro', markerfacecolor='None',\
         markeredgecolor='r',markersize=10, markeredgewidth=1)
   
   if inspiralFiles:
@@ -133,8 +133,9 @@ def createImageMap(opts, missedInj, ifo, filename):
   @param description: The tag of the injction run
   """
 
-  # reset the number
+  # reset the number and the tag
   followup.reset()
+  followup.setTag( filename )
   
   # create the name of the ImageMap
   picname = "Images/"+opts.prefix + "_"+filename +"_map"+\
@@ -595,12 +596,12 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
         col = 'm'
 
       px, py, legx, legy = getData( foundInj[type], xname, yname, ifo )
-      plot( px, py, col+foundSymbol[type], markerfacecolor=None,\
+      plot( px, py, col+foundSymbol[type], markerfacecolor='None',\
         markeredgecolor=col, label = type, markersize=10, markeredgewidth=1)
 
     # plot the missed ones
     px, py, legx, legy = getData( missedInj, xname, yname, ifo )
-    plot( px, py, 'ro', markerfacecolor=None,label='missed',\
+    plot( px, py, 'ro', markerfacecolor='None',label='missed',\
           markeredgecolor='r',markersize=10, markeredgewidth=1)
     
     if inspiralFiles:
@@ -675,6 +676,9 @@ if opts.enable_output is True:
 
   if opts.html_for_cbcweb:
     html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
+  if opts.do_followup:
+     fnameList.extend( followup.fnameDict.values() )
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #########################################################################
 if opts.show_plot:

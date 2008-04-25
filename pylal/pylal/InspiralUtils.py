@@ -130,6 +130,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
       fname = opts.html_for_cbcweb + "/Images/" + os.path.basename(filename)
     else:
       fname = "Images/" + os.path.basename(filename)
+     
 
       # set the thumbnail pictures if required
     if doThumb is True:
@@ -187,7 +188,10 @@ def write_cache_output(opts, html_filename,fnameList):
   if opts.enable_output is True:
     this.write(os.path.basename(html_filename) + '\n')
   for filename in fnameList:
-    fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+    if str(filename).endswith('.png'): 
+      fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+    elif str(filename).endswith('.html'): 
+      fname = os.path.basename(str(filename)) # set the correct name for linking
     this.write(fname + '\n')
   this.close()
 
@@ -360,6 +364,8 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
   @param fList:       list of input files
   @param verbose: True of False (default is False)
   """
+
+  print fList
   output = {}
   massOutput = {}
   count = 0
@@ -377,6 +383,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
     try:
       summ_value_table = table.get_table(doc, lsctables.SummValueTable.tableName)
     except ValueError:
+      print "ValueError in readHorizonDistanceFromSummValueTable whiile reading summvalue table from file ", thisFile
       return output,massOutput
 
     # if not summ_value table was filled , then simply returns 

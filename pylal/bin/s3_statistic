@@ -49,10 +49,10 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   if len(h1_val):
     if plot_type == 'log':
       loglog(h1_val, h2_val, symbols[0], markersize=12, markeredgewidth=1,\
-        markerfacecolor=None, label=my_label)
+        markerfacecolor='None', label=my_label)
     else:
       plot(h1_val, h2_val, symbols[0], markersize=12, markeredgewidth=1,\
-        markerfacecolor=None, label=my_label)
+        markerfacecolor='None', label=my_label)
      
 
   # h1-l1
@@ -67,10 +67,10 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   if len(h1_val):
     if plot_type == 'log':
       loglog(h1_val, l1_val, symbols[1], markersize=12, markeredgewidth=1,\
-          markerfacecolor=None, label=my_label)
+          markerfacecolor='None', label=my_label)
     else:
       plot(h1_val, l1_val, symbols[1], markersize=12, markeredgewidth=1,\
-          markerfacecolor=None, label=my_label)
+          markerfacecolor='None', label=my_label)
 
   # h2-l1
   h2l1_coinc = coincInspiral.coinctype(['H2','L1'])
@@ -84,10 +84,10 @@ def plotstat(coincInspiral, symbols, description = None, plot_type = 'linear'):
   if len(h2_val):
     if plot_type == 'log':
       loglog(h2_val, l1_val, symbols[2], markersize=12, markeredgewidth=1,\
-          markerfacecolor=None, label=my_label)
+          markerfacecolor='None', label=my_label)
     else:
       plot(h2_val, l1_val, symbols[2], markersize=12, markeredgewidth=1,\
-          markerfacecolor=None, label=my_label)
+          markerfacecolor='None', label=my_label)
 
 
   # h1-h2-l1
