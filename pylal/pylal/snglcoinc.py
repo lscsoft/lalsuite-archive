@@ -215,7 +215,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# extract a segmentlistdict;  protract by half the largest
 	# coincidence window so as to not miss edge effects
 	search_summ_table = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).protract(max_segment_gap / 2)
+	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce().protract(max_segment_gap / 2)
 	avail_instruments = set(seglistdict.keys())
 
 	# determine which time slides are possible given the instruments in

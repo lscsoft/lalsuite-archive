@@ -354,7 +354,7 @@ def ligolw_bucluster(doc, **kwargs):
 		if kwargs["verbose"]:
 			print >>sys.stderr, "document does not contain a sngl_burst table, skipping ..."
 		return doc, False
-	seg = llwapp.segmentlistdict_fromsearchsummary(doc, program = kwargs["program"]).extent_all()
+	seg = llwapp.segmentlistdict_fromsearchsummary(doc, program = kwargs["program"]).coalesce().extent_all()
 
 	# FIXME:  don't do this:  fix lalapps_power's output
 	add_ms_columns(sngl_burst_table)

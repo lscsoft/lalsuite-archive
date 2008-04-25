@@ -153,7 +153,7 @@ class DocContents(object):
 		# Find the out segments
 		#
 
-		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program)
+		self.outsegs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program).coalesce()
 
 		#
 		# Find the sngl_burst table

@@ -572,7 +572,7 @@ def coinc_params_distributions_from_xml(xml, name):
 def coinc_params_distributions_from_filename(filename, name, verbose = False):
 	xmldoc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
 	result, process_id = coinc_params_distributions_from_xml(xmldoc, name)
-	seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id])
+	seglists = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict([process_id]).coalesce()
 	xmldoc.unlink()
 	return result, seglists
 

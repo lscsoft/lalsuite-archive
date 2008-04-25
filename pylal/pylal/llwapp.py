@@ -69,6 +69,10 @@ def segmentlistdict_fromsearchsummary(xmldoc, program = None):
 	program named program, then scans the search summary table for
 	matching process IDs and constructs a segmentlistdict object from
 	the out segments in those rows.
+
+	Note:  the segmentlists in the segmentlistdict are not necessarily
+	coalesced, they contain the segments as they appear in the
+	search_summary table.
 	"""
 	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
 	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)

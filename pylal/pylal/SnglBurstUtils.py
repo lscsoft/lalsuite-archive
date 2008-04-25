@@ -101,7 +101,7 @@ class CoincDatabase(object):
 			self.multi_burst_table = None
 
 		# get the segment lists
-		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program)
+		self.seglists = llwapp.segmentlistdict_fromsearchsummary(self.xmldoc, live_time_program).coalesce()
 		self.instruments = set(self.seglists.keys())
 
 		# determine a few coinc_definer IDs

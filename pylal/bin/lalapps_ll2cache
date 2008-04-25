@@ -141,7 +141,7 @@ for n, filename in enumerate(filenames):
 		process_ids = None
 
 	# extract segment lists
-	seglists = searchsumm.get_out_segmentlistdict(process_ids)
+	seglists = searchsumm.get_out_segmentlistdict(process_ids).coalesce()
 	if not seglists:
 		raise ValueError, "%s: no matching rows found in search summary table" % filename
 
