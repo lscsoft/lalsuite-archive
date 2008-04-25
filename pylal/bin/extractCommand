@@ -2,8 +2,8 @@
 
 import sys
 import os
-from optparse import *
-import ConfigParser
+#from optparse import *
+#import ConfigParser
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -17,22 +17,18 @@ usage = """
 Script for recreating a command to create a certain XML file
 
 Example:
-  extractCommand --file [xmlfile]
+  extractCommand [xmlfile]
 """
 
+# get the only argument
+argument = sys.argv[1]
 
+if 'help' in argument:
+  print usage
+  sys.exit(0)
 
-parser = OptionParser( usage )
-
-# file
-parser.add_option("-f","--file",action="store",type="string",\
-    default=0, metavar=" FILE", help="xml file")
-
-(opts,args)=parser.parse_args()
-
-
-filename=opts.file
-
+# get the filename
+filename=argument
 
 # read the xml structure
 doc = utils.load_filename(filename)
