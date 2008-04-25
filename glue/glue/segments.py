@@ -1036,36 +1036,49 @@ class segmentlistdict(dict):
 		"""
 		Returns True if each segmentlist in other intersects the
 		corresponding segmentlist in self;  returns False
-		otherwise.
+		if this is not the case, or if other is empty.
 		"""
 		for key, value in other.iteritems():
 			if key not in self or not self[key].intersects(value):
 				return False
-		return True
+		return set(other.keys()) != set()
 
 	def all_intersects(self, other):
 		"""
 		Returns True if each segmentlist in self intersects the
 		corresponding segmentlist in other;  returns False
-		otherwise.
+		if this is not the case or if self is empty.
 		"""
 		for key, value in self.iteritems():
 			if key not in other or not other[key].intersects(value):
 				return False
-		return True
+		return set(self.keys()) != set()
 
 	def all_intersects_all(self, other):
 		"""
 		Returns True if self and other have the same keys, and each
 		segmentlist intersects the corresponding segmentlist in the
-		other;  returns False otherwise.
+		other;  returns False if this is not the case or if either
+		dictionary is empty.
 		"""
 		if set(self.keys()) != set(other.keys()):
 			return False
 		for key, value in self.iteritems():
 			if not other[key].intersects(value):
 				return False
-		return True
+		return set(self.keys()) != set()
+
+	def extend(self, other):
+		"""
+		Appends the segmentlists from other to the corresponding
+		segmentlists in self, adding new segmentslists to self as
+		needed.
+		"""
+		for key, value in other.iteritems():
+			if key not in self:
+				self[key] = shallowcopy(value)
+			else:
+				self[key].extend(value)
 
 	def coalesce(self):
 		"""
