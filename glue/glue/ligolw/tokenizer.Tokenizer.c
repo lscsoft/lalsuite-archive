@@ -175,11 +175,12 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
  * On success, start will be left pointing to the address of the start of
  * the string, and end will be pointing to the first character after the
  * string.  If no token is encountered, only whitespace between two
- * delimiters, then start and end are both set to NULL.  The return value
- * is the Python type to which the text should be converted, or NULL on
- * error.  On error, the values of start and end are undefined.  Raises
- * StopIteration if the end of the tokenizer's internal buffer is reached,
- * or ValueError if a parse error occurs.
+ * delimiters, then start and end are both set to NULL (so that calling
+ * code can tell the difference between a zero-length token and an absent
+ * token).  The return value is the Python type to which the text should be
+ * converted, or NULL on error.  On error, the values of start and end are
+ * undefined.  Raises StopIteration if the end of the tokenizer's internal
+ * buffer is reached, or ValueError if a parse error occurs.
  */
 
 
