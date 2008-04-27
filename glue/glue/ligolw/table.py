@@ -401,6 +401,12 @@ class TableStream(ligolw.Stream):
 			# write first row
 			newline = u"\n" + indent + ligolw.Indent
 			file.write(newline)
+			# the xmlescape() call replaces things like "<"
+			# with "&lt;" so that the string will not confuse
+			# an XML parser when the file is read.  turning
+			# "&lt;" back into "<" during file reading is
+			# handled by the XML parser, so there is no code
+			# in Glue related to that.
 			file.write(xmlescape(line))
 			# now add delimiter and write the remaining rows
 			newline = rowdumper.delimiter + newline
