@@ -217,9 +217,9 @@ static struct PyMethodDef methods[] = {
 "generating a sequence of new row instances.  The tokens argument should be\n"\
 "an iterable, producing a sequence of token objects.  If fewer tokens are\n"\
 "yielded from the iterable than are required to construct a complete row,\n"\
-"then the row is retained in its state, and its construction will continue\n"\
-"upon the next invocation.  Note that it is possible that a call to this\n"\
-"method will yield no new rows at all.\n"\
+"then the row is stored in its partially-populated state and its\n"\
+"construction will continue upon the next invocation.  Note that it is\n"\
+"possible that a call to this method will yield no new rows at all.\n"\
 "\n"\
 "Example:\n"\
 "\n"\
@@ -245,7 +245,7 @@ PyTypeObject ligolw_RowBuilder_Type = {
 "\n"\
 "Example:\n"\
 "\n"\
-">>> from glue.ligolw import tokenizer\n"\
+">>> import tokenizer\n"\
 ">>> class Row(object):\n"\
 "...     pass\n"\
 "...\n"\
