@@ -41,7 +41,6 @@ from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
-from pylal import GRButils
 
 #################################################################
 # help message
