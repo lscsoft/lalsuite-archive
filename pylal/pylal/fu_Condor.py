@@ -699,11 +699,12 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("prior-coal-time-marg",time_margin)
       self.add_var_opt("random-seed-one", str(trig.gpsTime[ifo]).split('.')[0][5:9])
       self.add_var_opt("random-seed-two", str(trig.gpsTime[ifo]).split('.')[1])
-      mass1 = getattr(trig.coincs,ifo).mass1
-      mass2 = getattr(trig.coincs,ifo).mass2
-      dist = getattr(trig.coincs,ifo).eff_distance
-      snr = getattr(trig.coincs,ifo).snr
-      duration = getattr(trig.coincs,ifo).template_duration
+      #mass1 = getattr(trig.coincs,ifo).mass1
+      #mass2 = getattr(trig.coincs,ifo).mass2
+      #dist = getattr(trig.coincs,ifo).eff_distance
+      #snr = getattr(trig.coincs,ifo).snr
+      #duration = getattr(trig.coincs,ifo).template_duration
+
       # THE DIST LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
       # THESE CAN HAVE LARGE SYSTEMATIC ERRORS THAT WILL NOT
       # BE CAPTURED BY THIS RIGHT??? I am using two sigma instead of 
@@ -711,21 +712,14 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
       #dist10 = 1.0/math.sqrt((snr*snr+2.0*2.0)/snr/snr)*dist
       #dist90 = 1.0/math.sqrt((snr*snr-2.0*2.0)/snr/snr)*dist
       #dist90 = 45.6*math.sqrt(mass1*mass2)/(mass1+mass2)**(1./6.)
-      dist90 = 56.5
-      dist10 = dist90 + 5. 
+      dist90 = 60
+      dist10 = 70
       # THE MASS LIMITS ARE AD HOC THIS NEEDS TO BE FIXED
-      #if mass1 < mass2:
-      #  self.add_var_opt("prior-lower-mass", str(0.9) )
-      #  self.add_var_opt("prior-upper-mass", str(10.0) )
-      #else:
-      #  self.add_var_opt("prior-lower-mass", str(0.9) )
-      #  self.add_var_opt("prior-upper-mass", str(10.0) )
-      self.add_var_opt("prior-lower-mass", str(0.5) )
-      self.add_var_opt("prior-upper-mass", str(34.5) )
+      self.add_var_opt("prior-lower-mass", str(1.0) )
+      self.add_var_opt("prior-upper-mass", str(15.0) )
       self.add_var_opt("prior-distance-10", str(dist10))
       self.add_var_opt("prior-distance-90", str(dist90))
-      self.add_var_opt("before-coal-time", str(duration*1.5))
-      #self.add_var_opt("before-coal-time", str(28))
+      self.add_var_opt("before-coal-time", str(30.0))
     
       ########################################################################
       # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
