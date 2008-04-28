@@ -311,6 +311,11 @@ class Column(ligolw.Column):
 #
 
 
+#
+# A subclass of tokenizer.RowBuilder that interns strings.
+#
+
+
 class InterningRowBuilder(tokenizer.RowBuilder):
 	"""
 	This subclass of the tokenizer.RowBuilder class respects the
@@ -346,6 +351,11 @@ class InterningRowBuilder(tokenizer.RowBuilder):
 
 
 RowBuilder = tokenizer.RowBuilder
+
+
+#
+# Stream class
+#
 
 
 class TableStream(ligolw.Stream):
