@@ -1626,61 +1626,62 @@ def tfplot(*args, **kwargs):
   return collection
 
 ######################################################################
-def plotCont( dataX, dataY, dataZ ):
+def _getTicks(minVal, maxVal, n):
   """
-  Function to make a contour plot given 3-dimensional data
-  in each direction in x and y, and the height data in z.
-  The plot will only be created, not saved into a file.
+  Calculate tick positions when creating a contour plot
+  from a matrix or from a set of vectors describing the locations
+  of points.
+  Internal use only
+  """
+
+  Delta=maxVal-minVal
+  Delta+=Delta/float(n-1)
+  pot=int(log10(Delta)+0.000001)-1
+  DeltaReduced=Delta/pow(10, pot)
+  deltaApprox=DeltaReduced/5.0
+  if deltaApprox<1.5:
+    delta=1.0
+  elif deltaApprox<3.0:
+    delta=2.0
+  else:
+    delta=5.0
+    
+  delta*=pow(10,pot)
+  nTicks=int(Delta/delta+1.0000000001)
+  tickPos= arange(nTicks+1)* float(n-1)/float(nTicks-1)
+  tickLabel=[minVal + i*delta for i in range(nTicks)]
   
-  @param dataX: data for the x-dimension
-  @param dataY: data for the y-dimension
-  @param dataZ: data for the z-dimension (height)
+  return tickPos, tickLabel
+
+
+
+######################################################################
+def plotContMat( matrix, defX, defY):
   """
-  def getTicks(minVal, maxVal, n):
-
-    Delta=maxVal-minVal
-    Delta+=Delta/float(n-1)
-    pot=int(log10(Delta)+0.000001)-1
-    DeltaReduced=Delta/pow(10, pot)
-    deltaApprox=DeltaReduced/5.0
-    if deltaApprox<1.5:
-      delta=1.0
-    elif deltaApprox<3.0:
-      delta=2.0
-    else:
-      delta=5.0
-
-
-    delta*=pow(10,pot)
-    nTicks=int(Delta/delta+1.0000000001)
-    tickPos= arange(nTicks+1)* float(n-1)/float(nTicks-1)
-    tickLabel=[minVal + i*delta for i in range(nTicks)]
-    return tickPos, tickLabel
+  Function to make a contour plot of a matrix
+  with the scaling information of the axis given in 'defX' and 'defY'.
+  The definition of the matrix is then:
+  matrix[j,i]
+  with i in defX
+  and j in defY
+  
+  @param matrix: contour matrix
+  @param defX: vector describing the x-scale
+  @param defY: vector describing the y-scale
+  """
   
   # let numpy not interfer with something else
   import numpy
   
-  if len(dataX) != len(dataY) or len(dataX) != len(dataZ):
-    raise ValueError, 'Input data must have same length'
-
   # get the dimensions
-  n=len(numpy.unique(dataX))
-  m=len(numpy.unique(dataY))
+  n=len(numpy.unique(defX))
+  m=len(numpy.unique(defY))
 
-  minX=min(dataX)
-  maxX=max(dataX)  
-  minY=min(dataY)
-  maxY=max(dataY)
-
-  # create the plotting matrix
-  matrix = zeros( (m,n), float )
-
-  # and fill the matrix
-  c=0
-  for i in range(n):
-    for j in range(m):
-      matrix[j][i]=dataZ[c]
-      c=c+1
+  # get the boundaries
+  minX=min(defX)
+  maxX=max(defX)  
+  minY=min(defY)
+  maxY=max(defY)
 
   # create the plot
   clf()
@@ -1689,14 +1690,13 @@ def plotCont( dataX, dataY, dataZ ):
 
   # set the axes
   ax = gca()
-  [xtick, xlabel]=getTicks(minX, maxX, n)
+  [xtick, xlabel]=_getTicks(minX, maxX, n)
   ax.set_xticks( xtick )
   ax.set_xticklabels( xlabel )
-  [ytick, ylabel]=getTicks(minY, maxY, m)
+  [ytick, ylabel]=_getTicks(minY, maxY, m)
   ax.set_yticks( ytick )
   ax.set_yticklabels( ylabel )
   axis('tight')
-  
   
 
 ######################################################################
