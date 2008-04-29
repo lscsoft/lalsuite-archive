@@ -262,7 +262,7 @@ def parse_command_line():
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
   parser.add_option("", "--exact-match",action="store_true",
-      default="false",  \
+      default=False,  \
       help="the pattern should match exactly if this option is used" )
 
   (options,args) = parser.parse_args()
