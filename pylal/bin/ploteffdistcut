@@ -43,7 +43,6 @@ from glue import iterutils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
-from pylal.viz import square_axis
 from pylal import InspiralUtils
 ##############################################################################
 def disterr(coinc_table, ifo_list, use_avg, statistic):
@@ -538,7 +537,7 @@ if opts.dist_dist:
   grid(True)
 
   ax.axis("tight")
-  square_axis(ax)
+  viz.square_axis(ax)
   ax.set_xlabel('%s effective distance' % opts.ifoa)
   ax.set_ylabel('%s effective distance' % opts.ifob)
   ax.legend(leg, loc='upper left')
