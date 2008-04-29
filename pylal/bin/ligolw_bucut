@@ -144,7 +144,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 def load_veto_segments(filename, verbose = False):
-	return llwapp.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, gz = filename.endswith(".gz")), "sngl_burst_veto")
+	return llwapp.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, gz = filename.endswith(".gz")), "sngl_burst_veto").coalesce()
 
 
 class DocContents(object):

@@ -171,6 +171,9 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	list of segments explicitly indicated as undefined in the segment
 	table.  The union of the "active", "inactive", and "undefined"
 	segments need not be [-infinity, +infinity).
+
+	The output of this function is not coalesced, each segmentlist
+	contains the segments as found in the segment table.
 	"""
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
@@ -195,8 +198,8 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 					result[instrument] = segments.segmentlist()
 				result[instrument].append(seg)
 
-	# return the coalesced segment lists
-	return result.coalesce()
+	# done
+	return result
 
 
 #
