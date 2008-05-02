@@ -1212,51 +1212,60 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   foundVal = readcol(found,col_name, ifo)
   missedVal = readcol(missed,col_name, ifo)
 
+  if len(foundVal) or len(missedVal):
+    # we have found or missed injections so we can generate the plot
+    if plot_type == 'log':
+      foundVal = log10(foundVal)
+      missedVal = log10(missedVal)
 
-  if plot_type == 'log':
-    foundVal = log10(foundVal)
-    missedVal = log10(missedVal)
-
-  step = (max(foundVal) - min(foundVal)) /nbins
-  bins = arange(min(foundVal),max(foundVal), step )
- 
-  fig_num = gcf().number
-  figure(100)
-  [num_found,binsf,stuff] = hist(foundVal, bins)
-  [num_missed,binsm,stuff] = hist(missedVal ,bins)
-  close(100)
-  
-  figure(fig_num)
-  num_found = array(num_found,'d')
-  eff = num_found / (num_found + num_missed)
-  error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
-  error = array(error)
-
-  if plot_type == 'log':
-    bins = 10**bins
-    if plot_name:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=2, label = plot_name)
+    if len(foundVal):
+      step = (max(foundVal) - min(foundVal)) /nbins
+      bins = arange(min(foundVal),max(foundVal), step )
     else:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=2)
-    if errors:
-      errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth = 2, label = plot_name, \
-          fmt = plotsym)
-            
+      step = (max(missedVal) - min(missedVal)) /nbins
+      bins = arange(min(missedVal),max(missedVal), step )
+   
+    fig_num = gcf().number
+    figure(100)
+    [num_found,binsf,stuff] = hist(foundVal, bins)
+    [num_missed,binsm,stuff] = hist(missedVal ,bins)
+    close(100)
+    
+    figure(fig_num)
+    num_found = array(num_found,'d')
+    eff = num_found / (num_found + num_missed)
+    error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
+    error = array(error)
+
+    if plot_type == 'log':
+      bins = 10**bins
+      if plot_name:
+        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name)
+      else:
+        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2)
+      if errors:
+        errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth = 2, label = plot_name, \
+            fmt = plotsym)
+              
+    else:
+      if errors:
+        errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+            markerfacecolor='None',\
+            markeredgewidth=1, linewidth=1, label = plot_name)
+      else:
+        plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=1, label = plot_name)
+
+    xlabel(col_name.replace("_"," "), size='x-large')
+    ylabel('Efficiency', size='x-large')
+    ylim(0,1.1)
   else:
-    if errors:
-      errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
-          markerfacecolor='None',\
-          markeredgewidth=1, linewidth=1, label = plot_name)
-    else:
-      plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=1, label = plot_name)
+    # no found or missed injections
+    figtext(0,0,'No found or missed injections',fontsize=32)
 
-  xlabel(col_name.replace("_"," "), size='x-large')
-  ylabel('Efficiency', size='x-large')
-  ylim(0,1.1)
   if ifo:
     title_string += ' ' + ifo  
   
