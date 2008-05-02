@@ -547,25 +547,36 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			figure()
 
 
-def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="All", prefix='False_Alarm_Probability'):
+def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="All", prefix='False_Alarm_Probability', y_lower_limit=0.00001):
   """
   Function that makes scattering plot of zerolag candidate triggers, injections and background triggers in
   Detection probability (or Likelihood) , p(h|c), and False Alarm Probability, p(0|c), space. The coordinates of points plotted are {p(c|0), p(c|h)}. 
   """
   #v = [-0.1, 1.1, -0.1, 1.1]
   #axis(v)
-  l3 = semilogy(p0_background, pc_background, marker='x', linestyle='None', color='k',scalex=False, scaley=False)
+  if y_lower_limit:
+        for i in range(len(pc_zerolag)):
+          if  pc_zerolag[i] == 0.0:
+             pc_zerolag[i] = y_lower_limit
+        for i in range(len(pc_injections)):
+          if pc_injections[i] == 0.0:
+            pc_injections[i] = y_lower_limit
+        for i in range(len(pc_background)):
+          if pc_background[i] == 0.0:
+            pc_background[i] = y_lower_limit
+
+  l3 = semilogy(p0_background, pc_background, marker='x', linestyle='None', color='k')
   hold(True)
-  l2 = semilogy(p0_injections, pc_injections, marker='x', linestyle='None', color='r', scalex=False, scaley=False)
+  l2 = semilogy(p0_injections, pc_injections, marker='x', linestyle='None', color='r')
   hold(True)
-  l1 = semilogy(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g', scalex=False, scaley=False)
+  l1 = semilogy(p0_zerolag, pc_zerolag, marker='o', linestyle='None', color='g')
   hold(True)
 
-  xlabel(prefix + ', p(c|0)')
-  ylabel(y_label)
-  title(y_label + " vs " + prefix + " " + ifo.replace("_", ""))
+  xlabel(prefix.replace("_", " ") + ', p(c|0)')
+  ylabel(y_label.replace("_", " "))
+  title(y_label.replace("_", " ") + " " + prefix.replace("_", " ") + " " + ifo.replace("_", ""))
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-  savefig(ifo.replace("_", "") + "-" + y_label +'_vs_' + prefix)
+  savefig(ifo.replace("_", "") + "_" + y_label +'_vs_' + prefix)
   figure()
 
 def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
@@ -591,25 +602,30 @@ def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injec
   l1 = semilogy(zerolag_stat, p0_zerolag, marker='o', linestyle='None', color='g')
   hold(True)
 
-  xlabel(old_statistic)
-  ylabel(new_statistic)
-  title("Likelihood vs combined effective SNR" + " " + ifo.replace("_","")) 
+  xlabel(old_statistic.replace("_", " "))
+  ylabel(new_statistic.replace("_", " "))
+  title(new_statistic.replace("_", " ") + " vs combined effective SNR " + ifo.replace("_","")) 
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
-  savefig(ifo.replace("_","") + "-" + new_statistic + '_' + old_statistic)
+  savefig(ifo.replace("_","") + "_" + new_statistic + '_' + old_statistic)
   figure()
 
-def scatter_plot(p0, pc, y_label, ifo="All"):
+def scatter_plot(p0, pc, y_label, ifo="All", y_lower_limit=0.00001):
   """
   Makes a scatter plot of points {p(c|0), p(c|h)} or {p(c|0), Likelihood}.
   """
   
   #v = [-0.1, 1.1, -0.1, 1.1]
   #axis(v)
-  semilogy(p0, pc, marker='o', linestyle='None', color='g',scalex=False, scaley=False)
+  if y_lower_limit:
+    for i in range(len(p0)):
+      if pc[i] == 0.0:
+        pc[i] = y_lower_limit
+
+  semilogy(p0, pc, marker='o', linestyle='None', color='g')
   xlabel('False Alarm Probability, p(c|0)')
-  ylabel(y_label)
-  title(y_label + "vs False Alarm Probability" + " " +  ifo.replace("_", ""))
-  savefig(ifo.replace("_", "") + "-" + y_label + '_vs_FalseAlarmProb')
+  ylabel(y_label.replace("_", " "))
+  title(y_label.replace("_", " ") + " vs False Alarm Probability" + " " +  ifo.replace("_", ""))
+  savefig(ifo.replace("_", "") + "_" + y_label + '_vs_FalseAlarmProb')
   figure()
 
 def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
@@ -623,10 +639,10 @@ def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', ol
 	    p0[i] = y_lower_limit
 
   plot(stat_array, p0, marker='o', linestyle='None', color='g')
-  ylabel(new_statistic)
-  xlabel(old_statistic)
+  ylabel(new_statistic.replace("_", " "))
+  xlabel(old_statistic.replace("_", " "))
   title("Likelihood vs combined effective SNR" + " " + ifo) 
-  savefig(ifo.replace("_","") + "-" + 'zerolag_' + new_statistic + '_' + old_statistic)
+  savefig(ifo.replace("_","") + "_" + 'zerolag_' + new_statistic + '_' + old_statistic)
   figure()
 
 def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
@@ -792,9 +808,9 @@ def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="Al
   grid(True)
   xlabel(label_x)
   ylabel('number of events')
-  title('Combined statistic '+ postfix + ifo.replace("_", ""))
+  title('Combined statistic '+ postfix.replace("_", " ") + " " + ifo.replace("_", ""))
   legend((l1,l2),('foreground', 'background'))
-  savefig(ifo.replace("_", "") + "-" + 'Combined_statistic' + postfix)
+  savefig(ifo.replace("_", "") + "_" + 'Combined_statistic' + postfix)
   figure()
 
 def plot_likelihood(likelihood_foreground, bins, prefix, ifo="All",  label_x='likelihood'):
@@ -821,7 +837,7 @@ def plot_likelihood(likelihood_foreground, bins, prefix, ifo="All",  label_x='li
   ylabel('number of events')
   title("cumulative histogram " + ifo.replace("_", ""))
   legend()
-  savefig(ifo.replace("_", "") + "-" + prefix+'_statistic')
+  savefig(ifo.replace("_", "") + "_" + prefix+'_statistic')
   figure()
 
 def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="All", prefix='likelihood'):
@@ -861,7 +877,7 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="
   xlim(min_global, max_global)
   xlabel(prefix)
   title(prefix + " injections vs, time slides histogram " + ifo.replace("_", ""))
-  savefig(ifo.replace("_", "") + "-" + prefix+'_inj_vs_slides_hist')
+  savefig(ifo.replace("_", "") + "_" + prefix+'_inj_vs_slides_hist')
   figure()
 
 
@@ -892,9 +908,13 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
     canvas_name = coinc_name + "_" + data_type + "_with_epsilon_ball_" + zerolag_tag
   else:
     canvas_name = coinc_name + "_" + data_type
-  canParC = TCanvas(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca', 1024, 700)
-  ntup = TNtuple(canvas_name, canvas_name + ': snr_eff, D_eff_rms, D_eff_theta, M_chrip_rms, M_chirp_theta, e-thinca',\
-  				'snr_eff1:snr_eff2:D_eff_rms:eff_dist_theta:mchirp_rms:mchirp_theta:ethinca')
+  var_snr_eff1 = coincType[0] + "_SNR_eff"
+  var_snr_eff2 = coincType[1] + "_SNR_eff"
+  var_ethinca = coinc_name + "_ethinca"
+  canvas_variables=var_snr_eff1 + ":" + var_snr_eff2 + ":" + "D_eff_rms:D_eff_theta:Mchirp_rms:Mchirp_theta:" + var_ethinca
+  canParC = TCanvas(canvas_name, canvas_name + ': SNR_eff, D_eff_rms, D_eff_theta, Mchrip_rms, Mchirp_theta, e-thinca', 1024, 700)
+  ntup = TNtuple(canvas_name, canvas_name + ': SNR_eff, D_eff_rms, D_eff_theta, Mchrip_rms, Mchirp_theta, e-thinca',\
+  				canvas_variables)
 
   for coinc in coincs:
 	c_ifo1 = getattr(coinc, coincType[0])
@@ -905,7 +925,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	c_mchirp_rms, c_mchirp_theta = CoincInspiralUtils.convert_to_polar_coord(c_ifo1.mchirp, c_ifo2.mchirp)
 	c_ethinca = CoincInspiralUtils.simpleEThinca(c_ifo1, c_ifo2)  
 	ntup.Fill(c_eff_snr_ifo1, c_eff_snr_ifo2, c_D_eff_rms, c_eff_dist_theta, c_mchirp_rms, c_mchirp_theta, c_ethinca)
-			  
+ 			  
   if zerolag:
 	ifos,ifolist = zerolag[0].get_ifos()
 	if ifolist == coincType:
@@ -916,16 +936,16 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	  zerolag_D_eff_rms,zerolag_eff_dist_theta = CoincInspiralUtils.convert_to_polar_coord(zerolag_ifo1.eff_distance, zerolag_ifo2.eff_distance)
 	  zerolag_mchirp_rms, zerolag_mchirp_theta = CoincInspiralUtils.convert_to_polar_coord(zerolag_ifo1.mchirp, zerolag_ifo2.mchirp)
 	  zerolag_ethinca = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo2)
-	  if not show_epsilon_ball:
-		ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_ethinca)
+	  ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_ethinca)
 	else:
 	  print >> sys.stdout, "Warning: the zerolag candidate is of different type then injections/time slides triggers"
 	  
-  ntup.Draw('snr_eff1:snr_eff2:D_eff_rms:eff_dist_theta:mchirp_rms:mchirp_theta:ethinca', '', 'para')
+  ntup.Draw(canvas_variables, '', 'para')
   
   if zerolag:
 	if show_epsilon_ball:
 	  epsilon = 0.2
+          mchirp_epsilon = 0.5
 	  ethinca_scale = 10.0
 	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
 	  eff_dist_phi_scale =  10.0*cmath.pi/float(180)
@@ -933,6 +953,7 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
 	  mchirp_phi_scale = 180.0*cmath.pi/float(180)
 	else:
 	  epsilon = 0.01
+          mchirp_epsilon = 0.01
 	  ethinca_scale = 0.01
 	  eff_dist_theta_scale = 0.1*cmath.pi/float(180)
 	  eff_dist_phi_scale =  0.1*cmath.pi/float(180)
@@ -943,16 +964,16 @@ def parallel_axis_plot_double(coincTriggers, coincType, data_type, zerolag=None,
         para.AddSelection("zerolag")
         para.GetCurrentSelection().SetLineColor(kBlue)
 
-	para = paraxis_add_range(para, "snr_eff1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
-	para = paraxis_add_range(para, "snr_eff2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
+	para = paraxis_add_range(para, var_snr_eff1, zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
+	para = paraxis_add_range(para, var_snr_eff2, zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
-	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
-	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - 0.5), zerolag_mchirp_rms*(1.0 + 0.5))
-	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
-	para = paraxis_add_range(para, "ethinca", (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
+	para = paraxis_add_range(para, "D_eff_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
+	para = paraxis_add_range(para, "Mchirp_rms", zerolag_mchirp_rms*(1.0 - mchirp_epsilon), zerolag_mchirp_rms*(1.0 + mchirp_epsilon))
+	para = paraxis_add_range(para, "Mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
+	#para = paraxis_add_range(para, var_ethinca, (zerolag_ethinca - ethinca_scale) , (zerolag_ethinca + ethinca_scale)) 
 
-  #canParC.SaveAs(coinc_name + '_' + data_type + '_parallel_axis.png')
-  canParC.SaveAs(canvas_name + '_parallel_axis.C')
+  canParC.SaveAs(canvas_name + '_parallel_axis.png')
+  canParC.SaveAs(canvas_name + "_parallel_axis.C")
   canParC.Close()
   #para = canParC.GetListOfPrimitives().FindObject('ParaCoord')
   #snr1axis = para.GetVarList().FindObject('snr1')
@@ -977,9 +998,16 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
     canvas_name = coinc_name + "_" + data_type + "_with_epsilon_ball_" + zerolag_tag
   else:
     canvas_name = coinc_name + "_" + data_type
+  var_snr_eff1 = coincType[0] + "_SNR_eff"
+  var_snr_eff2 = coincType[1] + "_SNR_eff"
+  var_snr_eff3 = coincType[2] + "_SNR_eff"
+  var_ethinca12 = coincType[0] + coincType[1] + "_ethinca"
+  var_ethinca13 = coincType[0] + coincType[2] + "_ethinca"
+  var_ethinca23 = coincType[1] + coincType[2] + "_ethinca"
+  canvas_variables = var_snr_eff1 + ":" + var_snr_eff2 + ":" + var_snr_eff3 + ":" + "D_eff_rms:D_eff_theta:D_eff_phi:Mchirp_rms:Mchirp_theta:Mchirp_phi:" + var_ethinca12 + ":" + var_ethinca13 + ":" + var_ethinca23
   canParC = TCanvas(canvas_name, canvas_name + ': snr, chisq, eff_dist, M_chrip, e-thinca', 1024, 700)
   ntup = TNtuple(canvas_name, canvas_name + ': snr, chisq, eff_dist, M_chrip, e-thinca',\
-                 'eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23')
+                 canvas_variables)
   for coinc in coincs:
 	c_ifo1 = getattr(coinc, coincType[0])
 	c_ifo2 = getattr(coinc, coincType[1])
@@ -1008,16 +1036,16 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
 	  zerolag_ethinca_12 = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo2)
 	  zerolag_ethinca_13 = CoincInspiralUtils.simpleEThinca(zerolag_ifo1, zerolag_ifo3)
 	  zerolag_ethinca_23 = CoincInspiralUtils.simpleEThinca(zerolag_ifo2, zerolag_ifo3)
-	  if not show_epsilon_ball:
-	  	ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_eff_snr_ifo3, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_eff_dist_phi, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_mchirp_phi, zerolag_ethinca_12, zerolag_ethinca_13, zerolag_ethinca_23)
+	  ntup.Fill(zerolag_eff_snr_ifo1, zerolag_eff_snr_ifo2, zerolag_eff_snr_ifo3, zerolag_D_eff_rms, zerolag_eff_dist_theta, zerolag_eff_dist_phi, zerolag_mchirp_rms, zerolag_mchirp_theta, zerolag_mchirp_phi, zerolag_ethinca_12, zerolag_ethinca_13, zerolag_ethinca_23)
 	else:
 	  print >> sys.stdout, "Warning: the zerolag candidate is of different type then injections/time slides triggers"
 
-  ntup.Draw('eff_snr1:eff_snr2:eff_snr3:D_eff_rms:eff_dist_theta:eff_dist_phi:mchirp_rms:mchirp_theta:mchirp_phi:ethinca_12:ethinca_13:ethinca_23', '', 'para')
+  ntup.Draw(canvas_variables, '', 'para')
   
   if zerolag:
 	if show_epsilon_ball:
 	  epsilon = 0.2
+          mchirp_epsilon = 0.5
 	  ethinca_scale = 10.0
 	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
 	  eff_dist_phi_scale =  10.0*cmath.pi/float(180)
@@ -1025,6 +1053,7 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
 	  mchirp_phi_scale = 180.0*cmath.pi/float(180)
 	else:
 	  epsilon = 0.01
+          mchirp_epsilon = 0.5
 	  ethinca_scale = 0.01
 	  eff_dist_theta_scale = 0.1*cmath.pi/float(180)
 	  eff_dist_phi_scale =  0.1*cmath.pi/float(180)
@@ -1035,18 +1064,18 @@ def parallel_axis_plot_triple(coincTriggers, coincType, data_type, zerolag=None,
 	para.AddSelection("zerolag")
 	para.GetCurrentSelection().SetLineColor(kBlue)
 
-	para = paraxis_add_range(para, "eff_snr1", zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
-	para = paraxis_add_range(para, "eff_snr2", zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
-	para = paraxis_add_range(para, "eff_snr3", zerolag_eff_snr_ifo3*(1.0 - epsilon), zerolag_eff_snr_ifo3*(1.0 + epsilon))
+	para = paraxis_add_range(para, var_eff_snr1, zerolag_eff_snr_ifo1*(1.0 - epsilon), zerolag_eff_snr_ifo1*(1.0 + epsilon))
+	para = paraxis_add_range(para, var_eff_snr2, zerolag_eff_snr_ifo2*(1.0 - epsilon), zerolag_eff_snr_ifo2*(1.0 + epsilon))
+	para = paraxis_add_range(para, var_eff_snr3, zerolag_eff_snr_ifo3*(1.0 - epsilon), zerolag_eff_snr_ifo3*(1.0 + epsilon))
 	para = paraxis_add_range(para, "D_eff_rms", zerolag_D_eff_rms*(1.0 - epsilon), zerolag_D_eff_rms*(1.0 + epsilon))
-	para = paraxis_add_range(para, "eff_dist_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
-	para = paraxis_add_range(para, "eff_dist_phi", (zerolag_eff_dist_phi - eff_dist_phi_scale) , (zerolag_eff_dist_phi + eff_dist_phi_scale))
-	para = paraxis_add_range(para, "mchirp_rms", zerolag_mchirp_rms*(1.0 - 0.5), zerolag_mchirp_rms*(1.0 + 0.5))
-	para = paraxis_add_range(para, "mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
-	para = paraxis_add_range(para, "mchirp_phi", (zerolag_mchirp_phi - mchirp_phi_scale) , (zerolag_mchirp_phi + mchirp_phi_scale))
-	para = paraxis_add_range(para, "ethinca_12", (zerolag_ethinca_12 - ethinca_scale) , (zerolag_ethinca_12 + ethinca_scale))
-	para = paraxis_add_range(para, "ethinca_13", (zerolag_ethinca_13 - ethinca_scale) , (zerolag_ethinca_13 + ethinca_scale))
-	para = paraxis_add_range(para, "ethinca_23", (zerolag_ethinca_23 - ethinca_scale) , (zerolag_ethinca_23 + ethinca_scale)) 
+	para = paraxis_add_range(para, "D_eff_theta", (zerolag_eff_dist_theta - eff_dist_theta_scale) , (zerolag_eff_dist_theta + eff_dist_theta_scale))
+	para = paraxis_add_range(para, "D_eff_phi", (zerolag_eff_dist_phi - eff_dist_phi_scale) , (zerolag_eff_dist_phi + eff_dist_phi_scale))
+	para = paraxis_add_range(para, "Mchirp_rms", zerolag_mchirp_rms*(1.0 - mchirp_epsilon), zerolag_mchirp_rms*(1.0 + mchirp_epsilon))
+	para = paraxis_add_range(para, "Mchirp_theta", (zerolag_mchirp_theta - mchirp_theta_scale) , (zerolag_mchirp_theta + mchirp_theta_scale))
+	para = paraxis_add_range(para, "Mchirp_phi", (zerolag_mchirp_phi - mchirp_phi_scale) , (zerolag_mchirp_phi + mchirp_phi_scale))
+	#para = paraxis_add_range(para, var_ethinca12, (zerolag_ethinca_12 - ethinca_scale) , (zerolag_ethinca_12 + ethinca_scale))
+	#para = paraxis_add_range(para, var_ethinca13, (zerolag_ethinca_13 - ethinca_scale) , (zerolag_ethinca_13 + ethinca_scale))
+	#para = paraxis_add_range(para, var_ethinca23, (zerolag_ethinca_23 - ethinca_scale) , (zerolag_ethinca_23 + ethinca_scale)) 
 
 
   canParC.SaveAs(canvas_name + '_parallel_axis.png')
@@ -1378,12 +1407,12 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
     zerolagCoincTriggers = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
   # read in time slides triggers 
   slidesTriggers = None
-  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles,mangle_event_id=True)
+  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles,mangle_event_id= False)
   # construct the time slides coincs
   slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
   # read in injections sngl and sim inspirals
   injectionTriggers = None
-  injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles,mangle_event_id=True)
+  injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injfiles,mangle_event_id=False)
   #simTriggers = None
   #simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(injfiles)   
   #construct injection coincs and add sim inspirals
@@ -1472,9 +1501,9 @@ if opts.parallel_axis_plots:
 	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
 	# construct the zero lag coincs
 	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
-	#parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate_version2_0_2")
-	#parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H1','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="burst_candidate_version2_eps_0_2")
-	parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="found_injection")
+	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H2','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H2L1_loudest_822956883")
+        #parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H2L1_loudest_822956883")
+	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="found_injection")
 	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="full_s5_version2_eps_0_2")
   else:
 	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','L1'], data_type='injections')
@@ -1713,7 +1742,7 @@ if opts.input_data_type == "all-data":
   # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(zerolagLikelihoodTriggers) == len(zerolagCoincTriggers):
 	print >>sys.stderr, "zero lag: inspiral likelihood table is incompatible with the inspiral coinc table"
-	sys.exit(1)
+	#sys.exit(1)
 	
   # read in time slides triggers 
   slidesTriggers = None
@@ -1730,7 +1759,7 @@ if opts.input_data_type == "all-data":
    # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(slidesLikelihoodTriggers) == len(slidesCoincTriggers):
 	print >>sys.stderr, "time slides: inspiral likelihood table is incompatible with the inspiral coinc table"
-	#sys.exit(1)
+	sys.exit(1)
   
   # read in injections sngl inspiral
   injectionTriggers = None
@@ -1865,7 +1894,7 @@ if opts.input_data_type == "all-data":
 	
 	triple_scatter_plot_stat(zerolag_stat_array, p0_zerolag_array, injection_stat_array, p0_injection_array, slides_stat_array, p0_slides_array, old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
 	triple_scatter_plot_stat(zerolag_stat_array, Likelihood_zerolag, injection_stat_array, Likelihood_injection, slides_stat_array, Likelihood_slides, new_statistic='likelihood', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
-	triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injection_stat_array, DetectionBackgroundRatio_injection, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
+	#triple_scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio_zerolag, injection_stat_array, DetectionBackgroundRatio_injection, slides_stat_array, DetectionBackgroundRatio_slides, new_statistic='DetectionBackgroundRatio', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
 
 if opts.show:
   show()
