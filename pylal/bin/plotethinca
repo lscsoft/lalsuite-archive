@@ -259,8 +259,9 @@ if opts.cache_file  is not None:
     cache_slidefilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.slide_pattern).checkfilesexist()[0].pfnlist()
     slidefilelists = [cache_slidefilelist]
     if not len(cache_slidefilelist):
-      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
-      sys.exit(1)
+      err_msg = opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
+      print >>sys.stderr, err_msg
+      comments += InspiralUtils.message(opts, err_msg)
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_slidefilelist)) + ' files having the pattern '+opts.slide_pattern)
 
@@ -268,10 +269,21 @@ if opts.cache_file  is not None:
     cache_injfilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.inj_pattern).checkfilesexist()[0].pfnlist()
     filelists = [cache_injfilelist]
     if not len(cache_injfilelist):
-      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.inj_pattern + " description"
-      sys.exit(1)
+      err_msg = opts.cache_file+ " contains no files with " + opts.inj_pattern + " description"
+      print >>sys.stderr, err_msg
+      comments += InspiralUtils.message(opts, err_msg)
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_injfilelist)) + ' files having the pattern '+opts.inj_pattern)
+
+  if len(cache_slidefilelist) == 0 or len(cache_injfilelist) == 0:
+    # give up and exit
+    if opts.enable_output is True:
+      html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
+      InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    if opts.show_plot:
+      sys.exit(1)
+    else:
+      sys.exit(0)
 
 # if the glob option is required and therefore no cache file is provided, switch here
 if opts.cache_file is None:
