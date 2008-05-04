@@ -329,3 +329,41 @@ class Highest(list):
 	def sort(*args, **kwargs):
 		raise NotImplementedError
 
+
+#
+# =============================================================================
+#
+#          Return the Values from Several Ordered Iterables in Order
+#
+# =============================================================================
+#
+
+
+def inorder(iterables):
+	"""
+	A generator that yields the values from several ordered iterables
+	in order.
+
+	Example:
+
+	>>> x = [0, 1, 2, 3]
+	>>> y = [1.5, 2.5, 3.5, 4.5]
+	>>> list(inorder((x, y)))
+	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
+	"""
+	nextvals = []
+	for iterable in iterables:
+		iterable = iter(iterable)
+		try:
+			nextvals.append((iterable.next(), iterable))
+		except StopIteration:
+			pass
+	nextvals.sort(reverse = True)
+	while nextvals:
+		val, iterable = nextvals.pop()
+		yield val
+		try:
+			nextvals.append((iterable.next(), iterable))
+		except StopIteration:
+			continue
+		nextvals.sort(reverse = True)
