@@ -127,8 +127,8 @@ def fromsegwizard(file, coltype=int, strict=True):
 	recommended that this function's output be coalesced before use.
 	"""
 	commentpat = re.compile(r"\s*([#;].*)?\Z", re.DOTALL)
-	twocolsegpat = re.compile(r"\A\s*([\d.]+)\s+([\d.]+)\s*\Z")
-	fourcolsegpat = re.compile(r"\A\s*([\d]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\Z")
+	twocolsegpat = re.compile(r"\A\s*([\d.+-eE]+)\s+([\d.+-eE]+)\s*\Z")
+	fourcolsegpat = re.compile(r"\A\s*([\d]+)\s+([\d.+-eE]+)\s+([\d.+-eE]+)\s+([\d.+-eE]+)\s*\Z")
 	format = None
 	l = segments.segmentlist()
 	for line in file:
@@ -194,7 +194,7 @@ def fromtama(file, coltype=lal.LIGOTimeGPS):
 	then thusly shall be the output of this function.  It is
 	recommended that this function's output be coalesced before use.
 	"""
-	segmentpat = re.compile(r"\A\s*\S+\s+\S+\s+\S+\s+([\d.]+)\s+([\d.]+)")
+	segmentpat = re.compile(r"\A\s*\S+\s+\S+\s+\S+\s+([\d.+-eE]+)\s+([\d.+-eE]+)")
 	l = segments.segmentlist()
 	for line in file:
 		try:
