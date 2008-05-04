@@ -40,6 +40,7 @@ __version__ = "$Revision$"[11:-2]
 import re
 import segments
 import lal
+import iterutils
 
 
 #
@@ -377,3 +378,21 @@ def Fold(seglist1, seglist2):
 	"""
 	for seg in seglist2:
 		yield (seglist1 & segments.segmentlist([seg])).shift(-seg[0])
+
+
+def vote(seglists, n):
+	"""
+	Given a sequence of segmentlists, returns the intervals during
+	which at least n of them intersect.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> w = segmentlist([segment(0, 15)])
+	>>> x = segmentlist([segment(5, 20)])
+	>>> y = segmentlist([segment(10, 25)])
+	>>> z = segmentlist([segment(15, 30)])
+	>>> vote((w, x, y, z), 3)
+	[segment(10, 20)]
+	"""
+	return reduce(lambda x, y: x | y, (reduce(lambda a, b: a & b, votes) for votes in iterutils.choices(seglists, n)))
