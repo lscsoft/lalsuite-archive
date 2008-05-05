@@ -95,38 +95,6 @@ vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
 
 
 ##############################################################################
-# plotting class
-
-class LoudestTrialsCumHistPlot(plotutils.CumulativeHistogramPlot):
-    """
-    Make a cumulative effective SNR histogram of the loudest trigger from
-    each off-source trial.  (relevant to the external trigger search)
-    """
-    def __init__(self, n=1):
-        plotutils.CumulativeHistogramPlot.__init__(self,
-            r"$\rho_\mathrm{eff}^2$",
-            r"$\textrm{\# trials with }\rho_\mathrm{loudest}^2 > "\
-                r"\rho_\mathrm{eff}^2$",
-            r"$\textrm{Cumulative histogram of }\rho_\mathrm{eff}^2\textrm{ "\
-                r"of loudest events}$")
-        self.n = n
-
-    def add_content(self, coincs, label="_nolabel_"):
-        """
-        Add data to the plots from coincs.  coincs must be an object array,
-        containing lists of coincs.
-        """
-        # take loudest
-        new_stats = []
-        for sub_list in coincs[0, :]:
-            sub_list.sort()
-            new_stats.extend([c.stat for c in sub_list[-self.n:]])
-
-        # save each dataset with label
-        self.data_sets.append(new_stats)
-        self.data_labels.append(label)
-
-##############################################################################
 # handle user input
 parser = optparse.OptionParser(version="%prog CVS $Id$ ")
 parser.add_option("-g", "--glob",
@@ -135,8 +103,6 @@ parser.add_option("-i", "--cache-file",
     help="lal cache of zero-lag thinca or thinca slide files to read")
 parser.add_option("-p", "--coinc-pattern",
     help="sieve pattern for coincidences of interest (slide or zerolag)")
-parser.add_option("-o", "--outfile",
-    help="write results to output file (default: stdout)")
 parser.add_option("-V", "--veto-file",
     help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="int",
@@ -189,11 +155,6 @@ if opts.fold_time is None:
 if opts.coinc_statistic is None:
     print >>sys.stderr, "A coincidence statistic is required."
     sys.exit(2)
-
-if opts.outfile is None:
-    opts.outfile = sys.stdout
-else:
-    opts.outfile = open(opts.outfile, 'w')
 
 # discover files containing coincs
 if opts.glob is not None:
@@ -430,8 +391,6 @@ if opts.plot_trial_number_autocorrelation:
     # prepare data
     x_data = numpy.arange(nsegs) - nsegs//2
     zerolag_trials = coincs[0, :]
-    def get_loudest_stat(coinc_list):
-        return max([c.stat for c in coinc_list] + [0])
     num_coincs = vec_len(zerolag_trials)
     y_data = numpy.correlate(num_coincs, num_coincs, "same")
 
