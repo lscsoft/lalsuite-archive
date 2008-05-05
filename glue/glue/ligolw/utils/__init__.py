@@ -170,7 +170,7 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	>>> xmldoc = utils.load_filename(name, verbose = True, gz = (name or "stdin").endswidth(".gz"))
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (filename or "stdin")
+		print >>sys.stderr, "reading %s ..." % (filename and ("'%s'" % filename) or "stdin")
 	if filename is not None:
 		fileobj = file(filename)
 	else:
@@ -207,7 +207,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 	    locally should work correctly.
 	"""
 	if verbose:
-		print >>sys.stderr, "reading %s ..." % (url or "stdin")
+		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
 		# hack to detect local files:  urlopen() returns an object
 		# that does not support seeking, which prevents GzipFile
@@ -271,7 +271,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 
 	# write the document
 	if verbose:
-		print >>sys.stderr, "writing %s ..." % (filename or "stdout")
+		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
 	if filename is not None:
 		fileobj = file(filename, "w")
 	else:
