@@ -22,16 +22,27 @@ Characterize a set of timeslide triggers.
 
 from __future__ import division
 
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"
+__name__ = "pylal_grbtimeslide_stats"
+
+
 import glob
 import optparse
 import sys
-from itertools import *
+itertools = __import__("itertools")  # system-wide itertools
 
 import numpy
 numpy.seterr(all="raise")
 
+import matplotlib
+matplotlib.use("Agg")
+import pylab
+
 from glue import lal
 from glue import segmentsUtils
+from glue import iterutils
 from glue.segments import segment, segmentlist
 from glue.segmentsUtils import segmentlist_range
 from glue.ligolw import ligolw
@@ -40,13 +51,75 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
+from pylal import plotutils
+
 ##############################################################################
 # utility functions
 
 def get_num_slides(xmldoc):
+    """
+    Return the value of --num-slides found in the process_params table of
+    xmldoc.  If no such entry is found, return 0.
+    """
     # don't be too picky what program had --num-slides
     slide_params = [int(row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.param == "--num-slides")] + [0]
     return max(slide_params)
+
+def array_of_lists(shape):
+    """
+    Return a 2D array of empty lists given shape, a 2-tuple of dimensions.
+    """
+    if len(shape) != 2:
+        raise ValueError, "array_of_lists only takes a 2-tuple shape argument"
+
+    arr = numpy.empty(shape, dtype=object)
+    for i in xrange(shape[0]):
+        for j in xrange(shape[1]):
+            arr[i, j] = []
+    return arr
+
+def get_loudest_stat(coinc_list):
+    """
+    Return the loudest statistic in coinc_list.  If coinc_list is empty,
+    return 0.
+    """
+    return max([c.stat for c in coinc_list] + [0])
+
+# some vectorized functions that act on arrays
+vec_len = numpy.frompyfunc(len, 1, 1)
+vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
+
+##############################################################################
+# plotting class
+
+class LoudestTrialsCumHistPlot(plotutils.CumulativeHistogramPlot):
+    """
+    Make a cumulative effective SNR histogram of the loudest trigger from
+    each off-source trial.  (relevant to the external trigger search)
+    """
+    def __init__(self, n=1):
+        plotutils.CumulativeHistogramPlot.__init__(self,
+            r"$\rho_\mathrm{eff}^2$",
+            r"$\textrm{\# trials with }\rho_\mathrm{loudest}^2 > "\
+                r"\rho_\mathrm{eff}^2$",
+            r"$\textrm{Cumulative histogram of }\rho_\mathrm{eff}^2\textrm{ "\
+                r"of loudest events}$")
+        self.n = n
+
+    def add_content(self, coincs, label="_nolabel_"):
+        """
+        Add data to the plots from coincs.  coincs must be an object array,
+        containing lists of coincs.
+        """
+        # take loudest
+        new_stats = []
+        for sub_list in coincs[0, :]:
+            sub_list.sort()
+            new_stats.extend([c.stat for c in sub_list[-self.n:]])
+
+        # save each dataset with label
+        self.data_sets.append(new_stats)
+        self.data_labels.append(label)
 
 ##############################################################################
 # handle user input
@@ -57,12 +130,29 @@ parser.add_option("-i", "--cache-file",
     help="lal cache of zero-lag thinca or thinca slide files to read")
 parser.add_option("-p", "--coinc-pattern",
     help="sieve pattern for coincidences of interest (slide or zerolag)")
-parser.add_option("-o", "--outfile", default="stdout",
+parser.add_option("-o", "--outfile",
     help="write results to output file (default: stdout)")
 parser.add_option("-V", "--veto-file",
     help="segwizard file with times to ignore")
 parser.add_option("-t", "--fold-time", type="int",
     help="express result in terms of trials of length FOLD_TIME seconds")
+parser.add_option("", "--coinc-statistic",
+    help="coincidence statistic of interest (snr or effective_snr)")
+parser.add_option("", "--hist-loudest", action="store_true", default=False,
+    help="make a cumulative histogram that includes the loudest statistic "\
+         "from each trial")
+parser.add_option("", "--plot-prefix", help="prefix for plot filenames")
+parser.add_option("", "--plot-slide-loudest", action="store_true",
+    default=False, help="plot the loudest events in each slide vs slide number")
+parser.add_option("", "--plot-trials-loudest", action="store_true",
+    default=False, help="plot the loudest events in each zero-lag trial vs " \
+    "trial number")
+parser.add_option("", "--plot-trial-stat-autocorrelation",
+    action="store_true", default=False, help="plot the auto-correlation of "\
+    "loudest statistic vs trial number")
+parser.add_option("", "--plot-trial-number-autocorrelation",
+    action="store_true", default=False, help="plot the auto-correlation of "\
+    "number of coincidences vs trial number")
 parser.add_option("-v", "--verbose", action="store_true", default=False,
     help="print extra information to stdout")
 (opts, args) = parser.parse_args()
@@ -75,7 +165,17 @@ if opts.fold_time is None:
     print >>sys.stderr, "A fold time is required."
     sys.exit(2)
 
-if opts.outfile.lower() == "stdout":
+if opts.coinc_statistic is None:
+    print >>sys.stderr, "A coincidence statistic is required."
+    sys.exit(2)
+
+if (opts.hist_loudest or opts.plot_slide_loudest \
+    or opts.plot_trials_loudest) and \
+   (opts.plot_prefix is None):
+    print >>sys.stderr, "If any plot is specified, require --plot-prefix."
+    sys.exit(2)
+
+if opts.outfile is None:
     opts.outfile = sys.stdout
 else:
     opts.outfile = open(opts.outfile, 'w')
@@ -83,14 +183,14 @@ else:
 # discover files containing coincs
 if opts.glob is not None:
     files = glob.glob(opts.glob)
+    if len(files) == 0:
+        raise ValueError, "no files match glob"
 else:
     cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
     cache = cache.sieve(description=opts.coinc_pattern)
     if len(cache) == 0:
         raise ValueError, "no files in cache match coinc pattern"
     present, missing = cache.checkfilesexist()
-    if len(missing) > 0:
-        raise ValueError, "at least one file in cache does not exist on disk"
     files = present.pfnlist()
 
 ##############################################################################
@@ -102,7 +202,8 @@ if opts.veto_file is not None:
     segs -= segmentsUtils.fromsegwizard(open(opts.veto_file))
 
 # quantize on fold_time
-segs = segmentlist(chain(*[segmentlist_range(a, b, opts.fold_time) for a,b in segs]))
+segs = segmentlist(iterutils.flatten([segmentlist_range(a, b, opts.fold_time) \
+                                      for a,b in segs]))
 
 # sanity check: time is quantized correctly
 assert (abs(segs) % opts.fold_time) == 0
@@ -126,34 +227,152 @@ doc = ligolw_add.ligolw_add(ligolw.Document(), files, verbose=opts.verbose)
 triggers = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
 triggers = [trig for trig in triggers if trig.end_time not in veto_segs]
 
-dummy_stat = CoincInspiralUtils.coincStatistic('snr')
-coincTable = CoincInspiralUtils.coincInspiralTable(triggers, dummy_stat)
+stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
+coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
 
 ##############################################################################
-# count coincidences in each opts.fold_time second segment
+# sort coincidences in each opts.fold_time second segment
 num_slides = get_num_slides(doc)
-trials = numpy.zeros((2*num_slides + 1, nsegs), dtype=int)
+
+# initialize an array of empty lists, into which we will sort our triggers
+coincs = array_of_lists(shape=(2*num_slides + 1, nsegs))
+
+# sort into (slide, segment) bins
 for c in coincTable:
     # NB: c.slide_num indexing OK with current inspiral slide implementation
-    trials[c.slide_num, segs.find(getattr(c, c.get_ifos()[1][0]).end_time)] += 1
+    coincs[c.slide_num, segs.find(getattr(c, c.get_ifos()[1][0]).end_time)]\
+        .append(c)
+
+# apply a vectorized len function to count how many coincs are in each bin
+counts = vec_len(coincs)
+total_counts = counts.sum()
 
 # sanity check: every coinc has been counted
-assert len(coincTable) == trials.sum()
+assert len(coincTable) == total_counts
 
 ##############################################################################
 # output statistics
 total_num_slides = 2 * num_slides or 1
 norm = 1 / (total_num_slides * nsegs)
-mean = norm * trials.sum()
-stdev = numpy.sqrt(norm * ((trials - mean)**2).sum())
+mean = norm * total_counts
+stdev = numpy.sqrt(norm * ((counts - mean)**2).sum())
 
 print >>opts.outfile, "Total number of slides (pos + neg or zerolag): %d" % total_num_slides
 print >>opts.outfile, "Total time analyzed (s): %d" % abs(segs)
 print >>opts.outfile, "Number of %d second segments per slide: %d" % (opts.fold_time, nsegs)
-print >>opts.outfile, "Total number of coincidences: %d" % len(coincTable)
+print >>opts.outfile, "Total number of coincidences: %d" % total_counts
 print >>opts.outfile, "Mean coincidences per slide per segment: %f" % mean
 print >>opts.outfile, "Stdev of trials: %f" % stdev
 
-for i in range(min(10, trials.max() + 1)):
-    prob = norm * (trials == i).sum()
+for i in range(min(10, counts.max() + 1)):
+    prob = norm * (counts == i).sum()
     print >>opts.outfile, "p(%d|0): %f" % (i, prob)
+
+##############################################################################
+# plots
+safe_stat = opts.coinc_statistic.replace("_", r"\_")
+
+# plot cumulative histogram of zero-lag trials' loudest event statistics
+if opts.hist_loudest:
+    # initialize plot
+    plot = plotutils.CumulativeHistogramPlot(
+            safe_stat,
+            r"$\textrm{\# trials with %s}_\mathrm{loudest} > \mathrm{%s}$" % \
+                (safe_stat, safe_stat),
+            r"$\textrm{Cumulative histogram of %s}^2\textrm{ "\
+                r"of loudest events}$" % safe_stat)
+
+    # prepare data
+    zerolag_trials = coincs[0, :]
+    data = vec_get_loudest_stat(zerolag_trials)
+ 
+    # finalize plot
+    plot.add_content(data)
+    plot.finalize(num_bins=50)
+    plot.savefig(opts.plot_prefix + "_trial_loudest_%s_cum_hist.png" % \
+        opts.coinc_statistic)
+    plot.close()
+
+# plot loudest event statistic vs slide number
+if opts.plot_slide_loudest:
+    # initialize plot
+    plot = plotutils.VerticalBarPlot("slide number", safe_stat,
+        "Loudest events in each slide")
+
+    # prepare data
+    x_data = numpy.arange(-num_slides, num_slides + 1)
+    y_data = numpy.zeros(len(x_data), dtype=numpy.float32)
+    for i, slide_num in enumerate(x_data):
+        relevant_slides = coincTable.getslide(slide_num)
+        y_data[i] = get_loudest_stat(relevant_slides)
+
+    # complete plot
+    plot.add_content(x_data, y_data)
+    plot.finalize()
+    plot.savefig(opts.plot_prefix + "_slide_loudest_%s.png" % \
+        opts.coinc_statistic)
+    plot.close()
+
+# plot loudest event statistic vs trial number
+if opts.plot_trials_loudest:
+    # initialize plot
+    plot = plotutils.VerticalBarPlot("trial number", safe_stat,
+        "Loudest events in each trial")
+
+    # prepare data
+    x_data = numpy.arange(nsegs)
+    zerolag_trials = coincs[0, :]
+    y_data = vec_get_loudest_stat(zerolag_trials)
+
+    # sanity checks
+    if sum(vec_len(zerolag_trials)) == 0:
+        raise ValueError, "error: cannot obey --plot-trials-loudest, "\
+            "as no zero-lag coincidences were found."
+    assert len(zerolag_trials) == nsegs
+
+    # complete plot
+    plot.add_content(x_data, y_data)
+    plot.finalize()
+    plot.savefig(opts.plot_prefix + "_trial_loudest_%s.png" % \
+        opts.coinc_statistic)
+    plot.close()
+
+# plot the autocorrelation of the loudest event statistic vs trial number
+if opts.plot_trial_stat_autocorrelation:
+    # initialize plot
+    plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
+        "", r"Autocorrelation of loudest stat vs trial number")
+
+    # prepare data
+    x_data = numpy.arange(nsegs) - nsegs//2
+    zerolag_trials = coincs[0, :]
+    loudest = vec_get_loudest_stat(zerolag_trials)
+    y_data = numpy.correlate(loudest, loudest, "same")
+
+    # complete plot
+    plot.add_content(x_data, y_data)
+    plot.finalize()
+    plot.savefig(opts.plot_prefix + "_trial_%s_autocorrelation.png" % \
+        opts.coinc_statistic)
+    plot.close()
+
+# plot the autocorrelation of the number of coincs vs trial number
+if opts.plot_trial_number_autocorrelation:
+    # initialize plot
+    plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
+        "", r"Autocorrelation of \# coincs vs trial number")
+
+    # prepare data
+    x_data = numpy.arange(nsegs) - nsegs//2
+    zerolag_trials = coincs[0, :]
+    def get_loudest_stat(coinc_list):
+        return max([c.stat for c in coinc_list] + [0])
+    num_coincs = vec_len(zerolag_trials)
+    y_data = numpy.correlate(num_coincs, num_coincs, "same")
+
+    # complete plot
+    plot.add_content(x_data, y_data)
+    plot.finalize()
+    plot.savefig(opts.plot_prefix + "_trial_number_autocorrelation.png")
+    plot.close()
+
