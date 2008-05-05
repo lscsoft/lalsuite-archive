@@ -365,6 +365,7 @@ if opts.plot_trial_stat_autocorrelation:
     x_data = numpy.arange(nsegs) - nsegs//2
     zerolag_trials = coincs[0, :]
     loudest = vec_get_loudest_stat(zerolag_trials)
+    loudest -= loudest.mean()
     y_data = numpy.correlate(loudest, loudest, "same")
 
     # complete plot
@@ -393,6 +394,7 @@ if opts.plot_trial_number_autocorrelation:
     x_data = numpy.arange(nsegs) - nsegs//2
     zerolag_trials = coincs[0, :]
     num_coincs = vec_len(zerolag_trials)
+    num_coincs -= num_coincs.mean()
     y_data = numpy.correlate(num_coincs, num_coincs, "same")
 
     # complete plot
