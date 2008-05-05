@@ -1,0 +1,181 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2008  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+import glob
+from optparse import OptionParser
+import sys
+
+
+from glue.lal import CacheEntry
+from glue.ligolw import utils
+from pylal import ligolw_thinca
+from pylal import llwapp
+from pylal import snglcoinc
+from pylal.date import LIGOTimeGPS
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# Use interning row builder to save memory.
+#
+
+
+ligolw_thinca.table.RowBuilder = ligolw_thinca.table.InterningRowBuilder
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file ...]",
+		description = "%prog implements the inspiral coincidence algorithm for use in performing trigger-based multi-instrument searches for gravitational wave events.  The LIGO Light Weight XML files listed on the command line are processed one by one in order, and over-written with the results.  If no files are named, then input is read from stdin and output written to stdout.  Any files whose names end in \".gz\" are assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
+	)
+	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
+	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
+	parser.add_option("-p", "--program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.  Default = \"inspiral\"")
+	parser.add_option("-t", "--e-thinca-parameter", metavar = "value", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	#
+	# check arguments
+	#
+
+	if options.e_thinca_parameter is None:
+		raise ValueError, "missing required argument --e-thinca-parameter"
+
+	#
+	# done
+	#
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# Iterate over files.
+#
+
+
+for n, filename in enumerate(filenames):
+	#
+	# Load the file.
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+	ligolw_thinca.table.InterningRowBuilder.strings.clear()
+
+	#
+	# Have we already processed it?
+	#
+
+	if llwapp.doc_includes_process(xmldoc, ligolw_thinca.process_program_name):
+		if options.verbose:
+			print >>sys.stderr, "warning: %s already processed," % (filename or "stdin"),
+		if not options.force:
+			if options.verbose:
+				print >>sys.stderr, "skipping"
+			continue
+		if options.verbose:
+			print >>sys.stderr, "continuing by --force"
+
+	#
+	# Add an entry to the process table.
+	#
+
+	process = ligolw_thinca.append_process(
+		xmldoc,
+		comment = options.comment,
+		force = options.force,
+		program = options.program,
+		e_thinca_parameter = options.e_thinca_parameter,
+		verbose = options.verbose
+	)
+
+	#
+	# Run coincidence algorithm.
+	#
+
+	ligolw_thinca.ligolw_thinca(
+		xmldoc,
+		program = options.program,
+		process_id = process.process_id,
+		EventListType = ligolw_thinca.InspiralEventList,
+		CoincTables = ligolw_thinca.InspiralCoincTables,
+		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
+		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
+		thresholds = options.e_thinca_parameter,
+		verbose = options.verbose
+	)
+
+	#
+	# Close out the process table.
+	#
+
+	llwapp.set_process_end_time(process)
+
+	#
+	# Write back to disk, and clean up.
+	#
+
+	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	xmldoc.unlink()
+
+
