@@ -25,7 +25,9 @@ from __future__ import division
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
+__Id__ = "$Id$"
 __name__ = "pylal_grbtimeslide_stats"
+__title__ = "GRB timeslide and trial statistics"
 
 
 import glob
@@ -50,8 +52,10 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
+from pylal import InspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import plotutils
+
 
 ##############################################################################
 # utility functions
@@ -88,6 +92,7 @@ def get_loudest_stat(coinc_list):
 # some vectorized functions that act on arrays
 vec_len = numpy.frompyfunc(len, 1, 1)
 vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
+
 
 ##############################################################################
 # plotting class
@@ -153,8 +158,24 @@ parser.add_option("", "--plot-trial-stat-autocorrelation",
 parser.add_option("", "--plot-trial-number-autocorrelation",
     action="store_true", default=False, help="plot the auto-correlation of "\
     "number of coincidences vs trial number")
+parser.add_option("", "--show-plot", action="store_true", default=False,
+    help="display plots to screen")
 parser.add_option("-v", "--verbose", action="store_true", default=False,
     help="print extra information to stdout")
+
+# InspiralUtils compatibility
+parser.add_option("", "--gps-start-time", type="int",
+    help="GPS start time of data analyzed")
+parser.add_option("", "--gps-end-time", type="int",
+    help="GPS end time of data analyzed")
+parser.add_option("", "--ifo-tag", help="IFO coincidence time analyzed")
+parser.add_option("", "--user-tag", help="a tag to label your plots")
+parser.add_option("", "--output-path", help="root of the HTML output")
+parser.add_option("", "--enable-output", action="store_true", default=False,
+    help="enable plots and HTML output")
+parser.add_option("", "--html-for-cbcweb", action="store_true", default=False,
+    help="enable HTML output with the appropriate headers for the CBC website")
+
 (opts, args) = parser.parse_args()
 
 if not ((opts.glob is None) ^ (opts.cache_file is None)):
@@ -167,12 +188,6 @@ if opts.fold_time is None:
 
 if opts.coinc_statistic is None:
     print >>sys.stderr, "A coincidence statistic is required."
-    sys.exit(2)
-
-if (opts.hist_loudest or opts.plot_slide_loudest \
-    or opts.plot_trials_loudest) and \
-   (opts.plot_prefix is None):
-    print >>sys.stderr, "If any plot is specified, require --plot-prefix."
     sys.exit(2)
 
 if opts.outfile is None:
@@ -192,6 +207,11 @@ else:
         raise ValueError, "no files in cache match coinc pattern"
     present, missing = cache.checkfilesexist()
     files = present.pfnlist()
+
+##############################################################################
+# HTML initialization
+InspiralUtils.initialise(opts, __name__, __version__)
+
 
 ##############################################################################
 # segment computation
@@ -257,23 +277,33 @@ norm = 1 / (total_num_slides * nsegs)
 mean = norm * total_counts
 stdev = numpy.sqrt(norm * ((counts - mean)**2).sum())
 
-print >>opts.outfile, "Total number of slides (pos + neg or zerolag): %d" % total_num_slides
-print >>opts.outfile, "Total time analyzed (s): %d" % abs(segs)
-print >>opts.outfile, "Number of %d second segments per slide: %d" % (opts.fold_time, nsegs)
-print >>opts.outfile, "Total number of coincidences: %d" % total_counts
-print >>opts.outfile, "Mean coincidences per slide per segment: %f" % mean
-print >>opts.outfile, "Stdev of trials: %f" % stdev
+info_text = ""
+info_text += InspiralUtils.message(opts, "Total number of slides (pos + neg "\
+    "or zerolag): %d" % total_num_slides)
+info_text += InspiralUtils.message(opts, "Total time analyzed (s): %d" % \
+    abs(segs))
+info_text += InspiralUtils.message(opts, "Number of %d second segments per "\
+    "slide: %d" % (opts.fold_time, nsegs))
+info_text += InspiralUtils.message(opts, "Total number of coincidences: %d" % \
+    total_counts)
+info_text += InspiralUtils.message(opts, "Mean coincidences per slide per " \
+    "segment: %f" % mean)
+info_text += InspiralUtils.message(opts, "Stdev of trials: %f" % stdev)
 
 for i in range(min(10, counts.max() + 1)):
     prob = norm * (counts == i).sum()
-    print >>opts.outfile, "p(%d|0): %f" % (i, prob)
+    info_text += InspiralUtils.message(opts, "p(%d|0): %f" % (i, prob))
 
 ##############################################################################
 # plots
 safe_stat = opts.coinc_statistic.replace("_", r"\_")
+fnameList = []
+tagList = []
 
 # plot cumulative histogram of zero-lag trials' loudest event statistics
 if opts.hist_loudest:
+    text = "Cumulative histogram of zero-lag trials' loudest event statistics"
+
     # initialize plot
     plot = plotutils.CumulativeHistogramPlot(
             safe_stat,
@@ -285,16 +315,25 @@ if opts.hist_loudest:
     # prepare data
     zerolag_trials = coincs[0, :]
     data = vec_get_loudest_stat(zerolag_trials)
- 
+
     # finalize plot
     plot.add_content(data)
     plot.finalize(num_bins=50)
-    plot.savefig(opts.plot_prefix + "_trial_loudest_%s_cum_hist.png" % \
-        opts.coinc_statistic)
-    plot.close()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "trial_loudest_%s_cum_hist" % opts.coinc_statistic)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
 
 # plot loudest event statistic vs slide number
 if opts.plot_slide_loudest:
+    text = "Loudest event statistic vs slide number"
+
     # initialize plot
     plot = plotutils.VerticalBarPlot("slide number", safe_stat,
         "Loudest events in each slide")
@@ -309,12 +348,20 @@ if opts.plot_slide_loudest:
     # complete plot
     plot.add_content(x_data, y_data)
     plot.finalize()
-    plot.savefig(opts.plot_prefix + "_slide_loudest_%s.png" % \
-        opts.coinc_statistic)
-    plot.close()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "slide_loudest")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
 
 # plot loudest event statistic vs trial number
 if opts.plot_trials_loudest:
+    text = "Loudest event statistic vs trial number"
+
     # initialize plot
     plot = plotutils.VerticalBarPlot("trial number", safe_stat,
         "Loudest events in each trial")
@@ -333,12 +380,21 @@ if opts.plot_trials_loudest:
     # complete plot
     plot.add_content(x_data, y_data)
     plot.finalize()
-    plot.savefig(opts.plot_prefix + "_trial_loudest_%s.png" % \
-        opts.coinc_statistic)
-    plot.close()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "trial_loudest_%s" % opts.coinc_statistic)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
 
 # plot the autocorrelation of the loudest event statistic vs trial number
 if opts.plot_trial_stat_autocorrelation:
+    text = "Autocorrelation of the loudest event statistic vs trial number"
+
     # initialize plot
     plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
         "", r"Autocorrelation of loudest stat vs trial number")
@@ -352,12 +408,21 @@ if opts.plot_trial_stat_autocorrelation:
     # complete plot
     plot.add_content(x_data, y_data)
     plot.finalize()
-    plot.savefig(opts.plot_prefix + "_trial_%s_autocorrelation.png" % \
-        opts.coinc_statistic)
-    plot.close()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "trial_%s_autocorrelation" % opts.coinc_statistic)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
 
 # plot the autocorrelation of the number of coincs vs trial number
 if opts.plot_trial_number_autocorrelation:
+    text = "autocorrelation of the number of coincs vs trial number"
+
     # initialize plot
     plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
         "", r"Autocorrelation of \# coincs vs trial number")
@@ -373,6 +438,27 @@ if opts.plot_trial_number_autocorrelation:
     # complete plot
     plot.add_content(x_data, y_data)
     plot.finalize()
-    plot.savefig(opts.plot_prefix + "_trial_number_autocorrelation.png")
-    plot.close()
 
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "trial_number_autocorrelation")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+#############################################################################
+# Generate HTML and cache file
+if opts.enable_output:
+    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
+        fnameList, tagList, comment=info_text)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+    if opts.html_for_cbcweb:
+        html_filename_publish = InspiralUtils.write_html_output(opts,
+            sys.argv[1:], fnameList, tagList, comment=info_text, cbcweb=True)
+
+if opts.show_plot:
+    pylab.show()
