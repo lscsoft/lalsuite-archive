@@ -170,7 +170,7 @@ def tosegwizard(file, seglist, header=True, coltype=int):
 	if header:
 		print >>file, "# seg\tstart    \tstop     \tduration"
 	for n, seg in enumerate(seglist):
-		print >>file, "%d\t%s\t%s\t%s" % (n, coltype(seg[0]), coltype(seg[1]), coltype(abs(seg)))
+		print >>file, "%d\t%s\t%s\t%s" % (n, str(coltype(seg[0])), str(coltype(seg[1])), str(coltype(abs(seg))))
 
 
 #
