@@ -1882,6 +1882,10 @@ class ScienceData:
         x = ScienceSegment(tuple([id,st,en,du]))
         self.__sci_segs.append(x)
 
+  def append_from_tuple(self,seg_tuple):
+    x = ScienceSegment(seg_tuple)
+    self.__sci_segs.append(x)
+
   def tama_read(self,file):
     """
     Parse the science segments from a tama list of locked segments contained in
