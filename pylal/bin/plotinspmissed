@@ -633,7 +633,7 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
 # plot of efficiency vs different values
 
 # put together what efficiency plots we need
-valueList = [ 'eff_dist_h', \
+valueList = [ 'eff_dist', \
               'distance']
 nameList = ["efficiency-eff_dist", "efficiency_dist"]
 tagnameList = ["Efficiency versus distance", "Efficiency versus distance"]
