@@ -1299,8 +1299,10 @@ parser.add_option("-a","--scatter-all-plot",action="store_true",\
     default=False, help ="Shows the scatter plot of new statitsic (likelihood) vs old statistic (effective snr) of all coincidences")
 
 parser.add_option("","--plot-only-ifo",action="store",type="string",\
-    default="", metavar="", help="makes plots only with events whose IFO matches the one specified by the option. (e.g. H1_H2_L1). Note that different detector are separated by the underscore. It is required for unambiguous identification" )
-	
+    default="", metavar="", help="makes plots only with events whose IFO matches the one specified by the option. (e.g. H1_H2_L1). Note that different detector are separated by the underscore. It is required for unambiguous identification")
+
+parser.add_option("","--print-loudest-candidates",action="store",type="int",\
+    default=0, help="set the number of the loudest candidates to be printed into a separate file")
 	
 
 
@@ -1784,7 +1786,7 @@ if opts.input_data_type == "all-data":
   #####################
   
   # scatter plots for zero lag only 
-  if opts.scatter_plot:
+  if opts.scatter_plot or opts.print_loudest_candidates:
 	stat_dic = {}
 	fap_dic = {}
 	likelihood_dic = {}
@@ -1795,22 +1797,58 @@ if opts.input_data_type == "all-data":
 	  fap_dic[coinc.event_id] = coinc.false_alarm_prob
 	  likelihood_dic[coinc.event_id] = coinc.likelihood
 	  dbr_dic[coinc.event_id] = coinc.detect_bg_frac_ratio
-
-	array_size = len(zerolagCoincTriggers)  
-	zerolag_stat_array = numpy.zeros(array_size)
-	FalseAlarmProb_array = numpy.zeros(array_size)
-	Likelihood = numpy.zeros(array_size)
-	DetectionBackgroundRatio = numpy.zeros(array_size)
-	i = 0
-	for id in stat_dic.keys():
-	  zerolag_stat_array[i] = stat_dic[id]
-	  FalseAlarmProb_array[i] = fap_dic[id]
-	  Likelihood[i] = likelihood_dic[id]
-	  DetectionBackgroundRatio[i] = dbr_dic[id]
-	  i += 1 		        
-	scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
-	scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
-	scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
+	  
+    # get loudest events
+	if opts.print_loudest_candidates:
+	  likelihood_sorted_array = numpy.flipud(numpy.asarray(likelihood_dic.values()).sort)
+	  loudest_likelihood_dic = {}
+	  while len(loudest_likelihood_dic) < opts.print_loudest_candidates:
+		for i in range(len(likelihood_sorted_array)):
+		  for id in likelihood_dic.keys():
+			if likelihood_dic[id] == likelihood_sorted_array[i]:
+			  if len(loudest_likelihood_dic) < (opts.print_loudest_candidates - 1):
+				loudest_likelihood_dic[id] == likelihood_dic[id]
+	  # creating new tables for loudest events
+	  loudest_sngl_table = lsctables.New(lsctables.SnglInspiralTable)
+	  loudest_inspiral_likelihood_table = lsctables.New(InspiralLikelihoodTable)
+	  loudest_coinc_table = CoincInspiralUtils.CoincInspiralTable()
+	  
+	  for id in loudest_likelihood_dic.keys():
+		for coinc in zerolagCoincTriggers:
+		  ifos,ifolist = coinc.get_ifos()
+		  if getattr(coinc, ifolist[0]).event_id == id:
+			loudest_coinc_table.append(coinc)
+		for coinc in zerolagLikelihoodTriggers:
+			if coinc.event_id == id:
+			  loudest_inspiral_likelihood_table.append(coinc)
+	  #writing the new tables into a file
+	  loudest_file = open("Loudest_events.xml", "w")		  
+	  loudest_inspiral_likelihood_table.write(loudest_file)
+	  
+	  for coinc in loudest_coinc_table:
+		ifos,ifolist = coinc.get_ifos()
+		for ifo in ifolist:
+		  loudest_sngl_table.append(getattr(coinc, ifo))
+	  loudest_sngl_table.write(loudest_file)
+	  loudest_file.close()
+	  
+	
+	if opts.scatter_plot:
+	  array_size = len(zerolagCoincTriggers)  
+	  zerolag_stat_array = numpy.zeros(array_size)
+	  FalseAlarmProb_array = numpy.zeros(array_size)
+	  Likelihood = numpy.zeros(array_size)
+	  DetectionBackgroundRatio = numpy.zeros(array_size)
+	  i = 0
+	  for id in stat_dic.keys():
+		zerolag_stat_array[i] = stat_dic[id]
+		FalseAlarmProb_array[i] = fap_dic[id]
+		Likelihood[i] = likelihood_dic[id]
+		DetectionBackgroundRatio[i] = dbr_dic[id]
+		i += 1 		        
+	  scatter_plot_stat(zerolag_stat_array, FalseAlarmProb_array, old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
+	  scatter_plot_stat(zerolag_stat_array, Likelihood, new_statistic = 'likelihood', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
+	  scatter_plot_stat(zerolag_stat_array, DetectionBackgroundRatio, new_statistic = 'DetectionBackgroundRatio', old_statistic=opts.statistic, ifo=opts.plot_only_ifo)
 
 
 
