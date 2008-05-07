@@ -167,7 +167,7 @@ def createImageMap(opts, missedInj, ifo, filename):
 
     # get the distances and sort them
     distVector = viz.readcol( missedInj, 'eff_dist', ifo )
-    index = distVector.argsort()
+    index = argsort(distVector)
     n=min( len(distVector), opts.followup_number)
     missedInjUse = [missedInj[index[i]] for i in range(n)]
   else:
@@ -354,6 +354,11 @@ def parse_command_line():
   # test the input options
   if not options.ifo_times:
     raise ValueError, "--ifo-times must be provided"
+
+  if options.do_followup and not options.user_tag:
+    raise ValueError, "--user-tag must be provided when doing followup, "\
+          "specifying the injection tag (e.g. 'GRB060429_injections21')"
+
 
   return options, sys.argv[1:]
 
