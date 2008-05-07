@@ -278,12 +278,11 @@ def parse_command_line():
   parser.add_option("-q","--y-max",action="store",type="float",\
       default=None,metavar="YMAX",\
       help="set the y max range to YMAX")
-  parser.add_option("","--found-pattern", action="store",type="string",\
-      default="", metavar=" FOUND_PATTERN", help=" sieves a file for found injections of a particular type" ) 
-  parser.add_option("","--missed-pattern", action="store",type="string",\
-      default="", metavar=" MISSED_PATTERN", help=" sieves a file for missed injections of a particular type" )
-  parser.add_option("","--cache-file", action="store", type="string",\
-      default=None, metavar=" CACHE_FILE", help= "reads the cache file as input" )
+  parser.add_option("", "--found-pattern",
+    help="sieve the cache for found injection files with this pattern")
+  parser.add_option("", "--missed-pattern",
+    help="sieve the cache for missed injection files with this pattern")
+  parser.add_option("", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -400,8 +399,8 @@ if opts.cache_file:
     print "\n"+__name__+"... reading the following missed files \n"
     for file in misFiles:
       print file
-  if len(injFiles) < 1:
-    print >>sys.stderr,"Cache file must be input"
+  if len(injFiles) == 0:
+    print >>sys.stderr, "no found files match sieve pattern"
     sys.exit(1)
   
 else:
@@ -632,7 +631,7 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
 # plot of efficiency vs different values
 
 # put together what efficiency plots we need
-valueList = [ 'eff_dist_h', \
+valueList = [ 'eff_dist', \
               'distance']
 nameList = ["efficiency-eff_dist", "efficiency_dist"]
 tagnameList = ["Efficiency versus distance", "Efficiency versus distance"]
