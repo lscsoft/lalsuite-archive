@@ -76,7 +76,10 @@ b) full data and full data time slides.  Skipped with --skip-full-data
 c) software injections. Skipped with --skip-injections
 """
 
-parser = optparse.OptionParser( usage )
+parser = optparse.OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
 
 # arguments
 parser.add_option("-f", "--config-file",action="store",type="string",\

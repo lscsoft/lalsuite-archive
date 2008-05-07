@@ -575,6 +575,7 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
   print "Using time slide sieve: " + slideSuffix  
   print "Using injection sieve: " + injectionSuffix 
   print "Using bank sieve: " + bankSuffix 
+  print
 
   # work out the hipe call:
   plotCommand = config.get("condor","plot")
