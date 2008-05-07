@@ -226,8 +226,6 @@ def parse_command_line():
       version= "%prog CVS\n" +
       "$Id$\n" +
       "$Name$\n")
-# opts.eff_vs_eff_dist, opts.eff_vs_distance opts.eff_vs_snr:  opts.eff_vs_snr_chi
-  parser = OptionParser( usage=usage, version="%prog CVS $Id$ \n" + "$Name$\n" )
   parser.add_option("-a","--time-dist",action="store_true",default=False,\
       help="plot dist v trig end time" )
   parser.add_option("-b","--mchirp-dist-log",action="store_true",default=False,\
