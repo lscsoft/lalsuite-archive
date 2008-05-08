@@ -1,5 +1,4 @@
 # $Id$
-#
 # Copyright (C) 2006  Duncan A. Brown
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -30,6 +29,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from glue import segments
 
 #
 # =============================================================================
@@ -70,6 +70,43 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
   return snglInspiralTriggers
 
 
+def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
+  mangleEventId=False, verbose=False):
+  """
+  Function for reading time-slided single inspiral triggers
+  with automatic resliding the times, given a list of input files.
+
+  @param fileList: List of files containing single inspiral time-slided
+                   triggers
+  @param shiftVector: Dictionary of time shifts to apply to triggers
+                      keyed by IFO  
+  @param vetoFile: segwizard formatted file used to veto all triggers
+  @param mangleEventId: ID remapping is necessary in cases where multiple
+    files might have event_id collisions (ex: exttrig injections)
+  @param verbose: print ligolw_add progress
+  """
+
+  # read raw triggers
+  inspTriggers = ReadSnglInspiralFromFiles(\
+    fileList, verbose=verbose, mangle_event_id=mangleEventId )
+
+  # get the rings
+  segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
+  rings = segments.segmentlist(iterutils.flatten(segDict.values()))
+  rings.sort()
+
+  # perform the veto
+  if vetoFile is not None:
+    segList = segmentsUtils.fromsegwizard(open(vetoFile))
+    inspTriggers = inspTriggers.veto(segList)
+
+  # now slide all the triggers within their appropriate ring
+  slideTriggersOnRingWithVector(inspTriggers, rings, shiftVector)
+
+  # return the re-slided triggers
+  return inspTriggers
+
+
 #
 # =============================================================================
 #
@@ -101,3 +138,167 @@ def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
     return 0
   else:
     return cmp(a.get_end(), b.get_end())
+
+#
+# =============================================================================
+#
+#                              Time Sliding on Ring
+#
+# =============================================================================
+#
+
+def slideTimeOnRing(time, shift, ring):
+  """
+  Return time after adding shift, but constrained to lie along the ring
+  """
+  newTime = time + shift
+  if shift > 0:
+    newTime = ring[0] + (newTime - ring[0]) % abs(ring)
+  if shift < 0:
+    newTime = ring[1] - (ring[1] - newTime) % abs(ring)
+
+  return newTime
+
+
+def slideTriggersOnRings(triggerList, rings, shifts):
+  """
+   In-place modify trigger_list so that triggers are slid by appropriate value
+   of shifts along their enclosing ring segment by the algorithm given in XXX.
+   This function calls the function slideTimeOnRing
+
+   @param triggerList: a SnglInspiralTable
+   @param rings:       sorted segment list of possible rings
+   @param shifts:      a dictionary of the time-shifts keyed by IFO
+  """
+  for trigger in triggerList:
+    oldTime = LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
+    ringIdx = rings.find(oldTime)
+    ring = rings[ringIdx]
+
+    # check that trigger was represented in rings, actually
+    if ringIdx == len(rings):
+      print >> sys.stderr, "DireErrorAboutRounding"
+      sys.exit(1)
+    # algorithm sanity check: trigger in chosen ring
+    assert trigger.end_time in ring
+
+    newTime = slideTimeOnRing(oldTime, shifts[trigger.ifo], ring)
+    trigger.end_time = newTime.seconds
+    trigger.end_time_ns = newTime.nanoseconds
+
+
+def unslideTriggersOnRings(triggerList, rings, shifts):
+  """
+   In-place modify trigger_list so that triggers are unslid by appropriate
+   value of shifts along their enclosing ring segment by the algorithm given in
+   XXX.
+   This function calls the function slideTimeOnRing
+
+   @param triggerList: a SnglInspiralTable
+   @param rings:       sorted segment list of possible rings
+   @param shifts:      a dictionary of the time-shifts keyed by IFO
+  """
+  for trigger in triggerList:
+    oldTime = LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
+    segListIdx = rings.find(oldTime)
+    ring = rings[ringIdx]
+
+    # check that trigger was represented in rings, actually
+    if ringIdx == len(rings):
+      print >> sys.stderr, "DireErrorAboutRounding"
+      sys.exit(1)
+    # algorithm sanity check: trigger in chosen ring
+    assert trigger.end_time in ring
+
+    newTime = slideTimeOnRing(oldTime, -1.*shifts[trigger.ifo], ring)
+    trigger.end_time = newTime.seconds
+    trigger.end_time_ns = newTime.nanoseconds
+
+
+def slideTriggersOnRingWithVector(triggerList, shiftVector, rings):
+   """
+   In-place modify trigger_list so that triggers are slid by
+   along their enclosing ring segment by the algorithm given in XXX.
+   Slide numbers are extracted from the event_id of each trigger,
+   and multiplied by the corresponding (ifo-keyed) entry in shift_vector
+   to get the total slide amount.
+   This function is called by ReadSnglInspiralSlidesFromFiles and
+   calls the function slideTimeOnRing
+
+   @param triggerList: a SnglInspiralTable
+   @param shiftVector: a dictionary of the unit time-shift vector,
+                       keyed by IFO
+   @param rings:       sorted segment list of possible rings
+   """
+   for trigger in triggerList:
+       # get shift
+       shift = trigger.get_slide_number() * shiftVector[trigger.ifo]
+
+       # get ring
+       ringIndex = rings.find(trigger.end_time)
+       ring = rings[ringIndex]
+
+       # check that trigger was represented in rings, actually
+       if ringIndex == len(rings):
+         print >> sys.stderr, "DireErrorAboutRounding"
+         sys.exit(1)
+       # algorithm sanity check: trigger in chosen ring
+       assert trigger.end_time in ring
+
+       # perform shift
+       oldTime = date.LIGOTimeGPS(trigger.end_time, trigger.end_time_ns)
+       newTime = slide_time_on_ring(oldTime, shift, ring)
+       trigger.end_time = newTime.seconds
+       trigger.end_time_ns = newTime.nanoseconds
+
+
+def slideSegListDictOnRing(ring, seglistdict, shifts):
+  """
+   Return seglistdict with segments that are slid by appropriate values of
+   shifts along the ring segment by the algorithm given in XXX.
+   This function calls the function slideTimeOnRing
+
+   @param ring:        segment on which to cyclicly slide segments in
+                       seglistdict
+   @param seglistdict: segments to be slid on ring
+   @param shifts:      a dictionary of the time-shifts keyed by IFO
+  """
+  start,end = ring
+  dur = end - start
+
+  slidseglistdict = seglistdict.copy()
+
+  for key in slidseglistdict.keys():
+    slidseglistdict[key] = slidseglistdict[key].shift(shifts[key] - start)
+    splitseg = 0
+    tmpslidseglist = segments.segmentlist([])
+    for seg in slidseglistdict[key]:
+      if shifts[key] >= 0:
+        while seg[0] >= dur:
+          seg = seg.shift(-dur)
+        if seg[1] > dur:
+          splitseg = seg[1] - dur
+          seg = seg.contract(splitseg/2.)
+          seg = seg.shift(-splitseg/2.)
+        tmpslidseglist.append(seg)
+      if shifts[key] < 0:
+        while seg[1] <= 0:
+          seg = seg.shift(dur)
+        if seg[0] < 0:
+          splitseg = seg[0]
+          seg = seg.contract(-splitseg/2.)
+          seg = seg.shift(-splitseg/2.)
+        tmpslidseglist.append(seg)
+    slidseglistdict[key] = tmpslidseglist
+    if splitseg > 0:
+      slidseglistdict[key].append(segments.segment(0,splitseg))
+    if splitseg < 0:
+      slidseglistdict[key].append(segments.segment(dur+splitseg,dur))
+
+  slidseglistdict = slidseglistdict.coalesce()
+
+  for key in slidseglistdict.keys():
+    slidseglistdict[key] = slidseglistdict[key].shift(start)
+
+  return slidseglistdict
+
