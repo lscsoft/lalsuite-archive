@@ -47,7 +47,6 @@ from glue import lal
 from glue import segmentsUtils
 from glue import iterutils
 from glue.segments import segment, segmentlist
-from glue.segmentsUtils import segmentlist_range
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -184,8 +183,9 @@ if opts.veto_file is not None:
     segs -= segmentsUtils.fromsegwizard(open(opts.veto_file))
 
 # quantize on fold_time
-segs = segmentlist(iterutils.flatten([segmentlist_range(a, b, opts.fold_time) \
-                                      for a,b in segs]))
+start, end = orig_segs.extent()
+segs = segmentlist([seg for seg in \
+    segmentsUtils.segmentlist_range(start, end, opts.fold_time) if seg in segs])
 
 # sanity check: time is quantized correctly
 assert (abs(segs) % opts.fold_time) == 0
