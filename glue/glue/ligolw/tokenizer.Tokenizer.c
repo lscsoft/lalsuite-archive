@@ -31,6 +31,7 @@
 #include <Python.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <string.h>
 #include <tokenizer.h>
 
 
@@ -41,10 +42,6 @@
  *
  * ============================================================================
  */
-
-
-#define STREAM_QUOTE '"'
-#define STREAM_ESCAPE '\\'
 
 
 /*
@@ -62,6 +59,10 @@ typedef struct {
 	PyObject **type;
 	/* delimiter character to be used in parsing */
 	Py_UNICODE delimiter;
+	/* the character to interpret as a quote character */
+	Py_UNICODE quote_character;
+	/* the character to interpret as the escape character */
+	Py_UNICODE escape_character;
 	/* size of internal buffer, minus null terminator */
 	int allocation;
 	/* internal buffer */
@@ -171,16 +172,71 @@ static void unref_types(ligolw_Tokenizer *tokenizer)
 
 
 /*
+ * Construct a parser error message.
+ */
+
+
+static void parse_error(PyObject *exception, const Py_UNICODE *buffer, size_t buffer_length, const Py_UNICODE *pos, const char *msg)
+{
+	PyObject *buffer_str;
+	PyObject *pos_str;
+	
+	buffer_str = PyUnicode_Encode(buffer, buffer_length, NULL, NULL);
+	pos_str = PyUnicode_Encode(pos, 1, NULL, NULL);
+
+	if(buffer_str && pos_str)
+		PyErr_Format(exception, "parse error in '%s' near '%s' at position %ld: %s", PyString_AS_STRING(buffer_str), PyString_AS_STRING(pos_str), pos - buffer + 1, msg);
+	else
+		PyErr_Format(exception, "parse error (details not available): %s", msg);
+
+	Py_XDECREF(buffer_str);
+	Py_XDECREF(pos_str);
+}
+
+
+/*
+ * Unescape a string.
+ */
+
+
+static int unescape(Py_UNICODE *s, Py_UNICODE **end, Py_UNICODE quote_character, Py_UNICODE escape_character)
+{
+	/* FIXME: disabled until agreed upon */
+#if 0
+	Py_UNICODE *start = s;
+	int escaped = 0;
+
+	while(*s) {
+		if(!escaped) {
+			escaped = *(s++) == escape_character;
+			continue;
+		}
+		if(*s != quote_character && *s != escape_character) {
+			parse_error(PyExc_ValueError, start, *end - start - 1, s - 1, "unrecognized escape sequence");
+			return -1;
+		}
+		memmove(s - 1, s, (*end - s + 1) * sizeof(*s));
+		(*end)--;
+		escaped = 0;
+	}
+#endif
+
+	return 0;
+}
+
+
+/*
  * Identify the next token to extract from the tokenizer's internal buffer.
  * On success, start will be left pointing to the address of the start of
  * the string, and end will be pointing to the first character after the
- * string.  If no token is encountered, only whitespace between two
- * delimiters, then start and end are both set to NULL (so that calling
- * code can tell the difference between a zero-length token and an absent
- * token).  The return value is the Python type to which the text should be
- * converted, or NULL on error.  On error, the values of start and end are
- * undefined.  Raises StopIteration if the end of the tokenizer's internal
- * buffer is reached, or ValueError if a parse error occurs.
+ * string.  If an empty token is encountered (only whitespace between two
+ * delimiters) then start and end are both set to NULL so that calling code
+ * can tell the difference between a zero-length token and an absent token.
+ * If a non-empty token is found, it will be NULL terminated.  The return
+ * value is the Python type to which the text should be converted, or NULL
+ * on error.  On error, the values of start and end are undefined.  Raises
+ * StopIteration if the end of the tokenizer's internal buffer is reached,
+ * or ValueError if a parse error occurs.
  */
 
 
@@ -189,6 +245,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	Py_UNICODE *pos = tokenizer->pos;
 	Py_UNICODE *bailout = tokenizer->length;
 	PyObject *type = *tokenizer->type;
+	int was_quoted;
 
 	/*
 	 * The following code matches the pattern:
@@ -198,11 +255,11 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	 *
 	 * or
 	 *
-	 * any amount of white-space + non-quote, non-white-space,
-	 * non-delimiter characters + any amount of white-space + delimiter
+	 * any amount of white-space + non-white-space, non-delimiter
+	 * characters + any amount of white-space + delimiter
 	 *
-	 * The middle bit is returned as the token.  '"' characters can be
-	 * escaped by preceding them with a '\' character.
+	 * The middle bit is returned as the token.  '"' and '\' characters
+	 * can be escaped by preceding them with a '\' character.
 	 */
 
 	/*
@@ -219,13 +276,20 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	while(Py_UNICODE_ISSPACE(*pos))
 		if(++pos >= bailout)
 			goto stop_iteration;
-	if(*pos == STREAM_QUOTE) {
+	if(*pos == tokenizer->quote_character) {
+		/*
+		 * found a quoted token
+		 */
+
 		int escaped = 0;
+
+		was_quoted = 1;
+
 		*start = ++pos;
 		if(pos >= bailout)
 			goto stop_iteration;
-		while((*pos != STREAM_QUOTE) || escaped) {
-			escaped = (*pos == STREAM_ESCAPE) && !escaped;
+		while((*pos != tokenizer->quote_character) || escaped) {
+			escaped = (*pos == tokenizer->escape_character) && !escaped;
 			if(++pos >= bailout)
 				goto stop_iteration;
 		}
@@ -233,20 +297,31 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 		if(++pos >= bailout)
 			goto stop_iteration;
 	} else {
+		/*
+		 * found an unquoted token
+		 */
+
+		was_quoted = 0;
+
 		*start = pos;
-		/* FIXME:  why the != STREAM_QUOTE? */
-		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter) && (*pos != STREAM_QUOTE))
+		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter))
 			if(++pos >= bailout)
 				goto stop_iteration;
 		*end = pos;
 		if(*start == *end)
-			/* nothing but unquoted whitespace between
-			 * delimiters */
+			/*
+			 * found nothing but unquoted whitespace between
+			 * delimiters, an empty token (not the same as a
+			 * zero-length token).
+			 */
+
 			*start = *end = NULL;
 	}
 	while(*pos != tokenizer->delimiter) {
-		if(!Py_UNICODE_ISSPACE(*pos))
-			goto parse_error;
+		if(!Py_UNICODE_ISSPACE(*pos)) {
+			parse_error(PyExc_ValueError, *start, tokenizer->length - *start - 1, pos, "expected whitespace");
+			return NULL;
+		}
 		if(++pos >= bailout)
 			goto stop_iteration;
 	}
@@ -264,6 +339,21 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 
 	if(++tokenizer->type >= tokenizer->types_length)
 		tokenizer->type = tokenizer->types;
+
+	/*
+	 * NULL terminate the token, and if it was quoted unescape special
+	 * characters.  The unescape() function modifies the token in
+	 * place, so we call it after advancing tokenizer->pos and
+	 * tokenizer->type so that if a failure occurs we don't leave the
+	 * tokenizer pointed at a garbled string.
+	 */
+
+	if(*end)
+		**end = '\0';
+	if(was_quoted) {
+		if(unescape(*start, end, tokenizer->quote_character, tokenizer->escape_character))
+			return NULL;
+	}
 
 	/*
 	 * Done.  *start points to the first character of the token, *end
@@ -284,14 +374,6 @@ stop_iteration:
 	advance_to_pos(tokenizer);
 	PyErr_SetNone(PyExc_StopIteration);
 	return NULL;
-
-parse_error:
-	{
-	PyObject *unicode = PyUnicode_FromUnicode(*start, tokenizer->length - *start);
-	PyErr_SetObject(PyExc_ValueError, unicode);
-	Py_DECREF(unicode);
-	return NULL;
-	}
 }
 
 
@@ -307,9 +389,7 @@ static PyObject *append(PyObject *self, PyObject *data)
 	if(PyUnicode_Check(data)) {
 		fail = add_to_data((ligolw_Tokenizer *) self, data);
 	} else if(PyString_Check(data)) {
-		/* decode to unicode */
 		if(!(data = PyUnicode_FromObject(data)))
-			/* decode failure */
 			return NULL;
 		fail = add_to_data((ligolw_Tokenizer *) self, data);
 		Py_DECREF(data);
@@ -365,6 +445,8 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 
 	tokenizer->delimiter = *PyUnicode_AS_UNICODE(arg);
+	tokenizer->quote_character = '\"';
+	tokenizer->escape_character = '\\';
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
 	tokenizer->types[0] = (PyObject *) &PyUnicode_Type;
@@ -398,6 +480,7 @@ static PyObject *__iter__(PyObject *self)
 
 static PyObject *next(PyObject *self)
 {
+	ligolw_Tokenizer *tokenizer = (ligolw_Tokenizer *) self;
 	PyObject *type;
 	PyObject *token;
 	Py_UNICODE *start, *end;
@@ -407,24 +490,20 @@ static PyObject *next(PyObject *self)
 	 */
 
 	do {
-		type = next_token((ligolw_Tokenizer *) self, &start, &end);
+		type = next_token(tokenizer, &start, &end);
 		if(!type)
 			return NULL;
 	} while(type == Py_None);
-
-	/*
-	 * Null-terminate the token.
-	 */
-
-	if(end)
-		*end = 0;
 
 	/*
 	 * Extract token as desired type.
 	 */
 
 	if(start == NULL) {
-		/* unquoted zero-length string == None */
+		/*
+		 * unquoted zero-length string == None
+		 */
+
 		Py_INCREF(Py_None);
 		token = Py_None;
 	} else if(type == (PyObject *) &PyFloat_Type) {
@@ -434,8 +513,11 @@ static PyObject *next(PyObject *self)
 			return NULL;
 		token = PyFloat_FromDouble(strtod(ascii_buffer, &ascii_end));
 		if(ascii_end == ascii_buffer || *ascii_end != 0) {
-			/* strtod() couldn't convert the token, emulate
-			 * float()'s error message */
+			/*
+			 * strtod() couldn't convert the token, emulate
+			 * float()'s error message
+			 */
+
 			Py_DECREF(token);
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", ascii_buffer);
 			token = NULL;
