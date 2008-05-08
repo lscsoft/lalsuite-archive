@@ -733,6 +733,9 @@ class SnglInspiralTable(table.Table):
 		else:
 			return self.getColumnByName(column).asarray()
 
+	def get_end(self):
+		return [row.get_end() for row in self]
+
 	def get_effective_snr(self):    
 		snr = self.get_column('snr')
 		chisq = self.get_column('chisq')
@@ -775,6 +778,28 @@ class SnglInspiralTable(table.Table):
 		for row in self:
 			time = row.get_end()
 			if time in seglist:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return vetoed
+	
+	def veto_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglistdict[row.ifo]:
+				vetoed.append(row)
+			else:
+				keep.append(row)
+		return keep
+	
+	def vetoed_seglistdict(self, seglistdict):
+		vetoed = table.new_from_template(self)
+		keep = table.new_from_template(self)
+		for row in self:
+			time = row.get_end()
+			if time in seglistdict[row.ifo]:
 				vetoed.append(row)
 			else:
 				keep.append(row)
