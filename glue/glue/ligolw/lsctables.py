@@ -175,6 +175,16 @@ class ProcessTable(table.Table):
 class Process(object):
 	__slots__ = ProcessTable.validcolumns.keys()
 
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
+
 
 ProcessTable.RowType = Process
 
@@ -333,6 +343,16 @@ class SearchSummaryTable(table.Table):
 
 class SearchSummary(object):
 	__slots__ = SearchSummaryTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
 
 	def get_in(self):
 		"""
@@ -574,6 +594,22 @@ class MultiBurstTable(table.Table):
 
 class MultiBurst(object):
 	__slots__ = MultiBurstTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
+
+	def get_peak(self):
+		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
+
+	def set_peak(self, gps):
+		self.peak_time, self.peak_time_ns = gps.seconds, gps.nanoseconds
 
 
 MultiBurstTable.RowType = MultiBurst
@@ -1594,6 +1630,16 @@ class SegmentDefTable(table.Table):
 
 class SegmentDef(object):
 	__slots__ = SegmentDefTable.validcolumns.keys()
+
+	def get_ifos(self):
+		"""
+		Return a list of the instruments for this row.
+		"""
+		if "," in self.ifos:
+			return self.ifos.strip().split(",")
+		if "+" in self.ifos:
+			return self.ifos.strip().split("+")
+		return [self.ifos.strip()]
 
 
 SegmentDefTable.RowType = SegmentDef
