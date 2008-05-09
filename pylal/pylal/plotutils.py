@@ -33,6 +33,8 @@ import pylab
 
 from glue import iterutils
 
+from pylal import viz
+
 ##############################################################################
 # abstract classes
 
@@ -107,11 +109,12 @@ def determine_common_bin_limits(data_sets, default_min=0, default_max=0):
     Given a some nested sequences (e.g. list of lists), determine the largest
     and smallest values over the data sets and determine a common binning.
     """
-    max_stat = max(list(iterutils.flatten(data_sets)) + [default_min])
-    min_stat = min(list(iterutils.flatten(data_sets)) + [default_max])
-    if min_stat == max_stat:
-        min_stat -= 0.5
-        max_stat += 0.5
+    max_stat = max(list(iterutils.flatten(data_sets)) + [-numpy.inf])
+    min_stat = min(list(iterutils.flatten(data_sets)) + [numpy.inf])
+    if numpy.isinf(-max_stat):
+        max_stat = default_max
+    if numpy.isinf(min_stat):
+        min_stat = default_min
     return min_stat, max_stat
 
 
@@ -152,50 +155,6 @@ class VerticalBarPlot(BasicPlot):
         del self.y_data_sets
         del self.data_labels
 
-class CumulativeHistogramPlot(BasicPlot):
-    """
-    A simple cumulative histogram plot.  It accepts data sets and provides
-    a common binning.  The histograms are cumulative from the right.
-    """
-    def __init__(self, *args, **kwargs):
-        BasicPlot.__init__(self, *args, **kwargs)
-        self.data_sets = []
-        self.data_labels = []
-
-    def add_content(self, data, label="_nolabel_"):
-        self.data_sets.append(data)
-        self.data_labels.append(label)
-
-    def finalize(self, num_bins=20):
-        """
-        Generate cumulative histogram using a common binning.
-        """
-        # determine binning
-        min_stat, max_stat = determine_common_bin_limits(self.data_sets)
-        bins = numpy.linspace(min_stat, max_stat, num_bins)
-
-        # make histogram
-        colors = default_colors()
-        symbols = default_symbols()
-        max_num = 0
-        for stats, color, symbol, label in \
-            itertools.izip(self.data_sets, colors, symbols, self.data_labels):
-            y, x = numpy.histogram(stats, bins=bins)
-            y = y[::-1].cumsum()[::-1]  # make cumulative from the right
-            y[y==0] = 1e-8
-            self.ax.semilogy(x, y, color + symbol, label=label)
-            max_num = max(max_num, y.max())
-
-        # auto-set limits
-        self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
-        self.ax.set_ylim((0.9, 1.1 * max_num))
-
-        # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist()
-
-        # decrement reference counts
-        del self.data_sets
-        del self.data_labels
 
 class VerticalBarHistogram(BasicPlot):
     """
@@ -240,4 +199,86 @@ class VerticalBarHistogram(BasicPlot):
         del self.data_sets
         del self.data_labels
 
+class CumulativeHistogramPlot(BasicPlot):
+    """
+    Cumulative histogram of foreground that also has a shaded region,
+    determined by the mean and standard deviation of the background
+    population coincidence statistics.
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.fg_data_sets = []
+        self.fg_labels = []
+        self.bg_data_sets = []
+        self.bg_label = "_nolegend_"
+
+    def add_content(self, fg_data_set, label="_nolegend_"):
+        self.fg_data_sets.append(fg_data_set)
+        self.fg_labels.append(label)
+
+    def add_background(self, bg_data_sets, label="_nolegend_"):
+        self.bg_data_sets.extend(bg_data_sets)
+        self.bg_label = label
+
+    def finalize(self, num_bins=20):
+        # determine binning
+        min_stat, max_stat = determine_common_bin_limits(\
+            self.fg_data_sets)
+        bins = numpy.linspace(min_stat, max_stat, num_bins)
+
+        # make plot
+        colors = default_colors()
+        symbols = default_symbols()
+        for data_set, color, symbol, label in \
+            itertools.izip(self.fg_data_sets, colors, symbols,
+            self.fg_labels):
+            # make histogram
+            y, x = numpy.histogram(data_set, bins=bins)
+            y = y[::-1].cumsum()[::-1]
+
+            # plot
+            self.ax.semilogy(x, y, symbol + color, label=label)
+
+        # shade background region
+        if len(self.bg_data_sets) > 0:
+            # histogram each background instance separately and take stats
+            hist_sum = numpy.zeros(len(bins), dtype=float)
+            sq_hist_sum = numpy.zeros(len(bins), dtype=float)
+            for instance in self.bg_data_sets:
+                # make histogram
+                y, x = numpy.histogram(instance, bins=bins)
+                y = y[::-1].cumsum()[::-1]
+                hist_sum += y
+                sq_hist_sum += y*y
+          
+            # get statistics
+            N = len(self.bg_data_sets)
+            means = hist_sum / N
+            stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
+          
+            # shade in the area
+            upper = means + stds
+            lower = means - stds
+            epsilon = 1e-8
+            upper[upper <= epsilon] = epsilon
+            lower[lower <= epsilon] = epsilon
+            means[means <= epsilon] = epsilon
+            tmp_x, tmp_y = viz.makesteps(bins, upper, lower)
+            self.ax.fill(tmp_x, tmp_y, facecolor='y', alpha=0.2,
+                label=self.bg_label)
+
+        # adjust plot range
+        self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
+        self.ax.set_ylim(ymin=0.6)
+
+        # add legend if there are any non-trivial labels
+        self.data_labels = self.fg_labels + [self.bg_label]
+        self.add_legend_if_labels_exist()
+
+        # decrement reference counts
+        del self.fg_data_sets
+        del self.bg_data_sets
+        del self.fg_labels
+        del self.bg_label
+        del self.data_labels
 
