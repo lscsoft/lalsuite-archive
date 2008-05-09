@@ -96,6 +96,22 @@ vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
 
 ##############################################################################
 # handle user input
+
+def comma_delimited(option, opt_str, value, parser, elem_type=str):
+    """
+    This callback function stores a comma-delimited string as a list during
+    option parsing.  Cast elements of list to elem_type, specified via
+    callback_kwargs (default: str).  Must specify type="string"!
+
+    Example:
+    parser.add_option("-n", "--names", action="callback", type="string",
+        callback=comma_delimited, callback_kwargs={"elem_type":str})
+
+    This would allow a user to provide "--names Joe,Bob,Sarah" and the
+    developer to have opts.names == ["Joe", "Bob", "Sarah"].
+    """
+    setattr(parser.values, option.dest, map(elem_type, value.split(",")))
+
 parser = optparse.OptionParser(version="%prog CVS $Id$ ")
 parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
@@ -112,6 +128,10 @@ parser.add_option("", "--coinc-statistic",
 parser.add_option("", "--hist-loudest", action="store_true", default=False,
     help="make a cumulative histogram that includes the loudest statistic "\
          "from each trial")
+parser.add_option("", "--hist-trials", action="callback", type="string",
+    callback=comma_delimited, callback_kwargs={"elem_type":int}, default=[],
+    help="make a cumulative histogram of statistics for each of the given "\
+         "trials (comma-delimited list)")
 parser.add_option("", "--plot-prefix", help="prefix for plot filenames")
 parser.add_option("", "--plot-slide-loudest", action="store_true",
     default=False, help="plot the loudest events in each slide vs slide number")
@@ -286,6 +306,46 @@ if opts.hist_loudest:
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
             "trial_loudest_%s_cum_hist" % opts.coinc_statistic)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+# plot cumulative histogram of specified trial's statistics
+if len(opts.hist_trials) > 0:
+    # sanity check
+    for trial_num in opts.hist_trials:
+        if trial_num < 0 or trial_num > nsegs:
+            raise ValueError, "--hist-trials must provide numbers between 1 "\
+            "and the number of trials"
+
+    text = "Cumulative histogram of statistics"
+
+    # initialize plot
+    plot = plotutils.CumulativeHistogramPlot(
+            r"$\textrm{%s}^2$" % safe_stat,
+            r"$\textrm{\# trials louder than %s}^2$" % safe_stat,
+            r"$\textrm{Cumulative histogram of %s}^2$" % safe_stat)
+
+    # prepare data of interest
+    for trial_num in opts.hist_trials:
+        trial = coincs[0, trial_num-1]
+        data = [c.stat*c.stat for c in trial]
+        plot.add_content(data, "trial %d" % trial_num)
+
+    # prepare background
+    data = [[c.stat*c.stat for c in coincs[0, i]] for i in \
+            range(0, nsegs) if i+1 not in opts.hist_trials]
+    plot.add_background(data, label="background")
+
+    # finalize plot
+    plot.finalize(num_bins=50)
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "trials_%s_cum_hist" % (opts.coinc_statistic))
         fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
         fnameList.append(fname)
         tagList.append(text)
