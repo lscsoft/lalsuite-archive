@@ -192,27 +192,14 @@ def unslideTriggersOnRings(triggerList, rings, shifts):
    In-place modify trigger_list so that triggers are unslid by appropriate
    value of shifts along their enclosing ring segment by the algorithm given in
    XXX.
-   This function calls the function slideTimeOnRing
+   This function calls the function slideTriggersOnRing
 
    @param triggerList: a SnglInspiralTable
    @param rings:       sorted segment list of possible rings
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
-  for trigger in triggerList:
-    oldTime = LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
-    segListIdx = rings.find(oldTime)
-    ring = rings[ringIdx]
-
-    # check that trigger was represented in rings, actually
-    if ringIdx == len(rings):
-      print >> sys.stderr, "DireErrorAboutRounding"
-      sys.exit(1)
-    # algorithm sanity check: trigger in chosen ring
-    assert trigger.end_time in ring
-
-    newTime = slideTimeOnRing(oldTime, -1.*shifts[trigger.ifo], ring)
-    trigger.end_time = newTime.seconds
-    trigger.end_time_ns = newTime.nanoseconds
+  negativeShifts = dict([(ifo, -shift) for ifo,shift in shifts.itervalues()])
+  slideTriggersOnRings(triggerList, rings, negativeShifts)
 
 
 def slideTriggersOnRingWithVector(triggerList, shiftVector, rings):
@@ -263,40 +250,71 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
    @param seglistdict: segments to be slid on ring
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
+  # calculate start and end of ring as well as duration
   start,end = ring
   dur = end - start
 
+  # create a new seglistdict so we don't modify the old one
   slidseglistdict = seglistdict.copy()
 
+  # loop over ifos
   for key in slidseglistdict.keys():
+    # shift seglistdict to have segment start at 0
     slidseglistdict[key] = slidseglistdict[key].shift(shifts[key] - start)
+
+    # keep track of whether a segment needs to be split at the end
     splitseg = 0
+
     tmpslidseglist = segments.segmentlist([])
     for seg in slidseglistdict[key]:
       if shifts[key] >= 0:
         while seg[0] >= dur:
+          # segment start has slid past end of ring, subtract duration of
+          # ring until start of segment is in ring
           seg = seg.shift(-dur)
+
         if seg[1] > dur:
+          # segment end is after end of ring, we need to split this segment
+          # so keep track of how much overflow there is and contract/shift
+          # segment so that it ends at the end of the ring
           splitseg = seg[1] - dur
           seg = seg.contract(splitseg/2.)
           seg = seg.shift(-splitseg/2.)
+
+        # append seg to new seglist
         tmpslidseglist.append(seg)
+
       if shifts[key] < 0:
         while seg[1] <= 0:
+          # segment end has slid past start of ring, add duration of
+          # ring until end of segment is in ring
           seg = seg.shift(dur)
+
         if seg[0] < 0:
+          # segment start is before start of ring, we need to split this
+          # segment so keep track of how much underflow there is and
+          # contract/shift segment so that it starts at the start of the ring
           splitseg = seg[0]
           seg = seg.contract(-splitseg/2.)
           seg = seg.shift(-splitseg/2.)
+
+        # append seg to new seglist
         tmpslidseglist.append(seg)
+
+    # set this ifos seglist to the new seglist
     slidseglistdict[key] = tmpslidseglist
+
+    # if there was a segment needing to be split, append the amount
+    # that was overflow/underflow as well
     if splitseg > 0:
       slidseglistdict[key].append(segments.segment(0,splitseg))
     if splitseg < 0:
       slidseglistdict[key].append(segments.segment(dur+splitseg,dur))
 
+  # coalesce the new seglistdict
   slidseglistdict = slidseglistdict.coalesce()
 
+  # shift new seglistdict to start of ring and return
   for key in slidseglistdict.keys():
     slidseglistdict[key] = slidseglistdict[key].shift(start)
 
