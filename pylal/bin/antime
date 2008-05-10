@@ -164,7 +164,8 @@ for slide in slide_num:
     for key in vetoes.keys():
       theseVetoes[key] = vetoes[key] & seg
  
-    slidVetoes = slideSegListDictOnRing(seg[0], theseVetoes, slides)
+    slidVetoes = SnglInspiralUtils.slideSegListDictOnRing(seg[0], theseVetoes,
+        slides)
 
     for coinc in ifo_coincs:
       thisSlideSeg = seg & (~slidVetoes).intersection(coinc)

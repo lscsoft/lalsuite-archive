@@ -271,7 +271,8 @@ if slideTriggers:
     for key in slides.keys():
       slides[key] *= slide
 
-    slidVetoes = slideSegListDictOnRing(seg[0], vetoes, slides)
+    slidVetoes = SnglInspiralUtils.slideSegListDictOnRing(seg[0], vetoes,
+        slides)
 
     SnglInspiralUtils.slideTriggersOnRings(slideTriggers[slide]["sngl_trigs"],
         seg, slides)
