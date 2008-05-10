@@ -319,7 +319,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	}
 	while(*pos != tokenizer->delimiter) {
 		if(!Py_UNICODE_ISSPACE(*pos)) {
-			parse_error(PyExc_ValueError, *start, tokenizer->length - *start - 1, pos, "expected whitespace");
+			parse_error(PyExc_ValueError, *start, tokenizer->length - *start - 1, pos, "expected whitespace or delimiter");
 			return NULL;
 		}
 		if(++pos >= bailout)
