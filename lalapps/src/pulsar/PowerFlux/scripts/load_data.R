@@ -73,6 +73,7 @@ for(skyband in 0:(NBands-1)) {
 		max_dx_ra=p("max_dx_band.", skyband, ".6"), 
 		max_dx_dec=p("max_dx_band.", skyband, ".7"), 
 		max_dx_point_index=p("max_dx_band.", skyband, ".8"), 
+		grid_points_sky_band_name=p("grid_points.", skyband, ".2"), 
 		p("ks_hist.", skyband, ".3"), 
 		p("max_band.", skyband, ".5"),
 		p("max_band.", skyband, ".6"),
@@ -105,10 +106,11 @@ for(i in 1:length(Types)) {
 
 	Name<-gsub("\\.", "_", Name)
 
-	CreateQuery<-p(CreateQuery, ", ", Name, " ", switch(Types[[i]], integer="INTEGER", factor="VARCHAR(255)", numeric="DOUBLE", "NA"))
+	CreateQuery<-p(CreateQuery, ", ", Name, " ", switch(Types[[i]], integer="INTEGER", factor="TEXT", numeric="DOUBLE", "NA"))
 	LoadQuery<-p(LoadQuery, ifelse(i==1, "", ", "), Name)
 	}
 CreateQuery<-p(CreateQuery, p(", PRIMARY KEY (Line))"))
+cat(CreateQuery, "\n")
 LoadQuery<-p(LoadQuery, ")")
 
 cat("Preprocessing input data (NaN -> NULL)\n")

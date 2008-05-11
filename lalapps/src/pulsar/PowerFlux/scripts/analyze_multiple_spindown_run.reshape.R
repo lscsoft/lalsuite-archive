@@ -7,6 +7,8 @@ p<-function(...) {
 	return(paste(..., sep=""))
 	}
 
+#SkyBandNamesField<-"grid_points"
+SkyBandNamesField<-"max_dx"
 
 FieldsUsed<-c("band", "spindown", "hist_residuals.3", "hist_residuals.4", "median",
 		"max_dx.1", "max_dx.2", "max_dx_pol_0", "max_dx.4",
@@ -62,7 +64,7 @@ con<-dbConnect(dbDriver("MySQL"), user="volodya", password="", dbname="volodya")
 cat("Loading table", DataSet, "\n")
 header<-dbGetQuery(con, p("SELECT * FROM ", DataSet, " LIMIT 10"))
 
-BandLine<-unique(dbGetQuery(con, p("SELECT ", p(grep("^max_dx_sky_band_name", names(header), value=TRUE), collapse=", "), " FROM ", DataSet, " LIMIT 10")))
+BandLine<-unique(dbGetQuery(con, p("SELECT ", p(grep(p("^", SkyBandNamesField, "_sky_band_name"), names(header), value=TRUE), collapse=", "), " FROM ", DataSet, " LIMIT 10")))
 
 NBands<- dim(BandLine)[2]
 
@@ -70,7 +72,7 @@ BandData<-data.frame(i=1:(NBands+length(CompositeBands)), idx=NA, Name=NA)
 k<-1
 for(i in 0:(NBands-1)) {
 	BandData[k, 'idx']<-i
-	BandData[k, 'Name']<- as.character(BandLine[1, p("max_dx_sky_band_name_", i)])
+	BandData[k, 'Name']<- as.character(BandLine[1, p(SkyBandNamesField, "_sky_band_name_", i)])
 	k<-k+1
 	}
 
