@@ -126,6 +126,7 @@ float stationary_effective_weight_ratio(float target_ra, float target_dec, float
 void dump_datasets(char *filename);
 void sftv2_dump_datasets(char *directory);
 void output_datasets_info(void);
+void verify_dataset_whole_sky_AM_response(void);
 void test_datasets(void);
 
 #define PHASE_ACCUMULATION_TIMEOUT 50000

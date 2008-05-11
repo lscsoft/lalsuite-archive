@@ -316,6 +316,7 @@ fprintf(LOG, "AM coeffs size: %f KB\n", 2*count*GRID_FIT_COUNT*sizeof(**coeffs_p
 *coeffs_cross=do_alloc(*size, sizeof(**coeffs_cross));
 
 sample_grid=make_rect_grid(8,5);
+precompute_values(sample_grid);
 
 workspace=gsl_multifit_linear_alloc(sample_grid->npoints, GRID_FIT_COUNT);
 

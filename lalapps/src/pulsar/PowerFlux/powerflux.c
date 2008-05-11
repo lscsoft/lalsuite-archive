@@ -337,6 +337,36 @@ fine_grid=proto_super_grid->super_grid;
 fprintf(stderr,"fine grid: max_n_ra=%d max_n_dec=%d\n", 
 	fine_grid->max_n_ra, fine_grid->max_n_dec);
 
+fprintf(LOG, "sky map orientation: %s\n", args_info.skymap_orientation_arg);
+
+if(!strcasecmp("ecliptic", args_info.skymap_orientation_arg)){
+	rotate_grid_xy(patch_grid, -M_PI/2.0);
+	rotate_grid_xy(fine_grid, -M_PI/2.0);
+
+	rotate_grid_xz(patch_grid, -M_PI*23.44/180.0);
+	rotate_grid_xz(fine_grid, -M_PI*23.44/180.0);
+
+	rotate_grid_xy(patch_grid, M_PI/2.0);
+	rotate_grid_xy(fine_grid, M_PI/2.0);
+	} else
+if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
+	rotate_grid_xy(patch_grid, -band_axis_ra);
+	rotate_grid_xy(fine_grid, -band_axis_ra);
+
+	rotate_grid_xz(patch_grid, -band_axis_dec+M_PI/2.0);
+	rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
+
+	rotate_grid_xy(patch_grid, band_axis_ra);
+	rotate_grid_xy(fine_grid, band_axis_ra);
+	}
+
+fprintf(stderr, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+fprintf(LOG, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+
+free_values(fine_grid);
+
+// fprintf(stderr, "No values grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
+// fprintf(LOG, "No values memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 	/* Determine side_cut - amount of extra bins to load to accomodate 
 	   Doppler shifts and spindown.
@@ -415,9 +445,6 @@ dump_floats("e5.dat",patch_grid->e[5],patch_grid->npoints,1);
 #endif
 
 no_am_response=args_info.no_am_response_arg;
-
-fprintf(stderr, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
-fprintf(LOG, "Full grid memory: %g MB\n", (MEMUSAGE*10.0/(1024.0*1024.0))/10.0);
 
 
 fprintf(LOG,"powerflux : %s\n",VERSION);
@@ -656,31 +683,6 @@ fprintf(stderr,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 fprintf(LOG,"band axis RA (degrees) : %f\n", band_axis_ra*180.0/M_PI);
 fprintf(LOG,"band axis DEC (degrees): %f\n", band_axis_dec*180.0/M_PI);
 
-fprintf(LOG, "sky map orientation: %s\n", args_info.skymap_orientation_arg);
-
-if(!strcasecmp("ecliptic", args_info.skymap_orientation_arg)){
-	rotate_grid_xy(patch_grid, -M_PI/2.0);
-	rotate_grid_xy(fine_grid, -M_PI/2.0);
-
-	rotate_grid_xz(patch_grid, -M_PI*23.44/180.0);
-	rotate_grid_xz(fine_grid, -M_PI*23.44/180.0);
-
-	rotate_grid_xy(patch_grid, M_PI/2.0);
-	rotate_grid_xy(fine_grid, M_PI/2.0);
-	} else
-if(!strcasecmp("band_axis", args_info.skymap_orientation_arg)){
-	rotate_grid_xy(patch_grid, -band_axis_ra);
-	rotate_grid_xy(fine_grid, -band_axis_ra);
-
-	rotate_grid_xz(patch_grid, -band_axis_dec+M_PI/2.0);
-	rotate_grid_xz(fine_grid, -band_axis_dec+M_PI/2.0);
-
-	rotate_grid_xy(patch_grid, band_axis_ra);
-	rotate_grid_xy(fine_grid, band_axis_ra);
-	}
-
-free_values(fine_grid);
-
 /* now that we have new grid positions plot them */
 
 plot_grid_f(p, patch_grid, patch_grid->latitude,1);
@@ -801,13 +803,15 @@ for(subinstance=0;subinstance<args_info.spindown_count_arg;subinstance++){
 	fine_grid=super_grid->super_grid;
 
 	print_grid_statistics(LOG, subinstance_name, fine_grid);
+	precompute_values(fine_grid);
+	precompute_values(patch_grid);
+	verify_dataset_whole_sky_AM_response();
 
 	plot_grid_f(p, fine_grid, fine_grid->band_f, 1);
 	snprintf(s, 20000, "%sbands.png", subinstance_name);
 	RGBPic_dump_png(s, p);
 	snprintf(s, 20000, "%sbands.dat", subinstance_name);
 	dump_ints(s, fine_grid->band, fine_grid->npoints, 1);
-	
 	fflush(LOG);
 
 	/* MAIN LOOP stage */

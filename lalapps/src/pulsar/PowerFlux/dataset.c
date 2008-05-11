@@ -886,7 +886,7 @@ fprintf(LOG, "dataset %s TMedian : %f\n", d->name, d->TMedian);
 
 veto_sfts(d);
 
-if(args_info.subtract_background_arg){
+if(args_info.subtract_background_arg) {
 	fprintf(LOG, "dataset %s subtract background: yes\n", d->name);
 	for(i=0;i<d->free;i++){
 		for(j=0;j<d->nbins;j++){
@@ -901,13 +901,16 @@ get_whole_sky_AM_response(d->gps, d->free, args_info.orientation_arg, &(d->AM_co
 fprintf(stderr, "Initializing polarizations for dataset %s\n", d->name);
 init_polarizations1(d->polarizations, d->AM_coeffs_plus, d->AM_coeffs_cross, d->AM_coeffs_size);
 
+precompute_values(fine_grid);
 /* Check AM_response for correctness */
 fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
-for(i=0;i<ntotal_polarizations;i++){
+for(i=0;i<ntotal_polarizations;i++) {
 	verify_whole_sky_AM_response(d->gps, d->free, d->polarizations[i].orientation, 
 		fine_grid, 
 		d->polarizations[i].AM_coeffs, d->polarizations[i].name);	
 	}
+
+free_values(fine_grid);
 
 fprintf(stderr,"Computing cutoff values for dataset %s\n", d->name);
 /* compute CutOff values for each patch */
@@ -916,6 +919,8 @@ fprintf(stderr,"Computing cutoff values for dataset %s\n", d->name);
 
 cd=do_alloc(patch_grid->npoints, sizeof(*cd));
 reset_jobs_done_ratio();
+
+precompute_values(patch_grid);
 
 for(i=0;i<patch_grid->npoints;i++) {
 	cd[i].point=i;
@@ -943,6 +948,7 @@ while(do_single_job(-1)) {
 wait_for_all_done();
 
 fprintf(stderr, " 100\n");
+free_values(patch_grid);
 free(cd);
 
 //free(tm);
@@ -2225,6 +2231,22 @@ for(i=0;i<d_free;i++) {
 	fclose(fout);
 	}
 fclose(fdst);
+}
+
+void verify_dataset_whole_sky_AM_response(void)
+{
+DATASET *d;
+int i,j;
+/* Check AM_response for correctness */
+for(j=0;j<d_free;j++) {
+	d=&(datasets[j]);
+	fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
+	for(i=0;i<ntotal_polarizations;i++){
+		verify_whole_sky_AM_response(d->gps, d->free, d->polarizations[i].orientation, 
+			fine_grid, 
+			d->polarizations[i].AM_coeffs, d->polarizations[i].name);	
+		}
+	}
 }
 
 void fake_dataset_test(void)

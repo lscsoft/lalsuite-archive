@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.23-64
+VERSION=1.4.24-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -353,21 +353,21 @@ cmdline.c: powerflux.ggo
 clean:
 	rm -f core *.bck *.o
 
-upload: powerflux-condor
+upload: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor hydra.phys.uwm.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.g: powerflux-condor
+upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
 	scp -C powerflux-mt gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-mt.$(VERSION)
 	scp -C $(FILES) gallatin.physics.lsa.umich.edu:PowerFlux/
 	
-upload.h: powerflux-condor
+upload.h: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo-wa.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-wa.caltech.edu:PowerFlux/
 
-upload.l: powerflux-condor
+upload.l: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo-la.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo-la.caltech.edu:PowerFlux/
 

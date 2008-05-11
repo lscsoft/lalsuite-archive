@@ -162,7 +162,6 @@ for(i=0;i<num_ra;i++){
 		grid->y[k]=j;
 		}
 	}
-precompute_values(grid);
 return grid;
 }
 
@@ -213,7 +212,6 @@ for(i=0;i<num_ra;i++){
 		grid->y[k]=j;
 		}
 	}
-precompute_values(grid);
 return grid;
 }
 
@@ -279,7 +277,6 @@ for(i=0;i<priv->num_dec;i++) {
 		k++;
 		}
 	}
-precompute_values(grid);
 return grid;
 }
 
@@ -361,7 +358,6 @@ for(i=0;i<g->npoints;i++) {
 	k++;
 	}
 
-precompute_values(grid);
 return grid;
 }
 
@@ -1177,7 +1173,6 @@ for(i=0;i<grid->npoints;i++){
 		&(grid->longitude[i]), &(grid->latitude[i]),
 		angle);
 	}
-precompute_values(grid);
 }
 
 void rotate_grid_xy(SKY_GRID *grid, SKY_GRID_TYPE angle)
@@ -1188,5 +1183,4 @@ for(i=0;i<grid->npoints;i++){
 		&(grid->longitude[i]), &(grid->latitude[i]),
 		angle);
 	}
-precompute_values(grid);
 }
