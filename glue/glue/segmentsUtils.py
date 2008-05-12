@@ -334,6 +334,8 @@ def segmentlist_range(start, stop, period):
 	>>> from glue.segments import *
 	>>> segmentlist(segmentlist_range(0, 15, 5))
 	[segment(0, 5), segment(5, 10), segment(10, 15)]
+	>>> segmentlist(segmentlist_range('', 'xxx', 'x'))
+	[segment('', 'x'), segment('x', 'xx'), segment('xx', 'xxx')]
 	"""
 	n = 1
 	b = start
