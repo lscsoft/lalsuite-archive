@@ -80,10 +80,9 @@ def parse_command_line():
   parser.add_option("","--veto-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="veto file for all IFOS (format ligolw_segments)")
-  parser.add_option("","--segment-file",action="store",type="string",\
-      default=None,metavar=" FNAME",\
-      help="segment file for COINC times = U(--IFO-triggers)" + \
-      " (format ligolw_segments)")
+  parser.add_option("","--output-dir",action="store",type="string",\
+      default=None,metavar=" DIR",\
+      help="directory in which to write output files")
 
   parser.add_option("","--gps-start-time",action="store", type="int",
       metavar="GPSSTARTTIME",\
@@ -352,7 +351,10 @@ for coinc in ifo_coincs:
   for ifo in ifo_list:
     time += ifo
 
-  fileName = types[coinc] + '-SEPTIME_'
+  fileName = ''
+  if opts.output_dir:
+    fileName += opts.output_dir + '/'
+  fileName += types[coinc] + '-SEPTIME_'
   if slidefiles:
     fileName += 'SLIDE_'
   if opts.user_tag:
