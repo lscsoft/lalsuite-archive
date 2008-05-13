@@ -38,9 +38,11 @@ from optparse import OptionParser
 import sys
 
 
+from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
 from pylal import date
 from pylal import ligolw_tisi
@@ -84,16 +86,20 @@ def parse_command_line():
 		usage = "%prog [options] [file ...]",
 		description = "Converts the event_id column in a sngl_inspiral table from int_8s to ilwd:char and vice-versa.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
 	)
-	parser.add_option("--int-to-ilwd", action = "store_true", default = False, help = "Convert int_8s IDs to ilwd:char IDs.")
-	parser.add_option("--ilwd-to-int", action = "store_true", default = False, help = "Convert ilwd:char to int_8s IDs.")
+	parser.add_option("--zero-lag-file", help = "Thinca file containing zero lag triggers.")
+	parser.add_option("--time-slide-file", help = "Thinca file containing time slide triggers.")
+	parser.add_option("--num-slides", type = "int", help = "Number of time slides.")
+	parser.add_option("--output", help = "Output file name.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	options, filenames = parser.parse_args()
+	options, args = parser.parse_args()
 
-	if not (options.int_to_ilwd ^ options.ilwd_to_int):
-		raise ValueError, "must set exactly one of --int-to-ilwd or --ilwd-to-int"
-	del options.ilwd_to_int
+	if not (options.zero_lag_file and options.time_slide_file and options.num_slides and options.output):
+		raise ValueError, "must specify all of --zero-lag-file, --time-slide-file, --num-slides and --output"
 
-	return options, (filenames or [None])
+	if args is not None:
+		raise ValueError, "extraneous command line arguments specified"
+
+	return options
 
 
 #
@@ -121,10 +127,11 @@ def initialize_process(xmldoc, comment = u""):
 
 def set_process_params(xmldoc, process, options):
 	params = []
-	if options.int_to_ilwd:
-		params.append(("--int-to-ilwd", None, None))
-	else:
-		params.append(("--ilwd-to-int", None, None))
+	params.append(("--zero-lag-file", "lstring", options.zero_lag_file))
+	params.append(("--time-slide-file", "lstring", options.time_slide_file))
+	params.append(("--num-slides", "int_4s", options.num_slides))
+	params.append(("--output", "lstring", options.output))
+
 	llwapp.append_process_params(xmldoc, process, params)
 
 	return xmldoc
@@ -660,97 +667,31 @@ def depopulate_sngl_inspiral(xmldoc):
 #
 
 
-options, filenames = parse_command_line()
+options = parse_command_line()
 
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [options.zero_lag_file, options.time_slide_file], verbose = options.verbose)
 
-for filename in filenames:
-	#
-	# read file
-	#
+process = initialize_process(xmldoc)
+set_process_params(xmldoc, process, options)
 
-	xmldoc = load_filename(filename, options.int_to_ilwd, verbose = options.verbose, gz = (filename or "stdin").endswith(".gz"))
+if options.verbose:
+	print >>sys.stderr, "populating thinca time_slide table ..."
+populate_thinca_time_slide_table(xmldoc, process)
+if options.verbose:
+	print >>sys.stderr, "constructing coincs ..."
+populate_coinc_event_sngls(xmldoc, process)
 
-	#
-	# has the document been thinca'ed?
-	#
+if options.verbose:
+	print >>sys.stderr, "translating sngl_inspiral event_ids ..."
+sngl_inspiral_int_to_ilwd(xmldoc)
 
-	is_thinca_output = llwapp.doc_includes_process(xmldoc, "thinca")
+if options.verbose:
+	print >>sys.stderr, "depopulating sngl_inspirals ..."
+depopulate_sngl_inspiral(xmldoc)
+if options.verbose:
+	print >>sys.stderr, "depopulating time_slides ..."
+depopulate_time_slide_table(xmldoc)
 
-	#
-	# is the document a "found injections" list?
-	#
+llwapp.set_process_end_time(process)
 
-	is_found_injections = llwapp.doc_includes_process(xmldoc, "coire") and llwapp.get_process_params(xmldoc, "coire", "--injection-file")
-
-	#
-	# create entry in process table
-	#
-
-	process = initialize_process(xmldoc)
-	set_process_params(xmldoc, process, options)
-
-	#
-	# do conversion
-	#
-
-	if options.int_to_ilwd:
-		#
-		# construct time slide entries
-		#
-
-		if is_thinca_output:
-			if options.verbose:
-				print >>sys.stderr, "populating thinca time_slide table ..."
-			populate_thinca_time_slide_table(xmldoc, process)
-			# FIXME:  must unslide the triggers
-		if is_found_injections:
-			if options.verbose:
-				print >>sys.stderr, "populating coire time_slide table ..."
-			populate_coire_time_slide_table(xmldoc, process)
-
-		#
-		# construct coincs
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "constructing coincs ..."
-		if is_thinca_output:
-			populate_coinc_event_sngls(xmldoc, process)
-		elif is_found_injections:
-			populate_coinc_event_sims(xmldoc, process)
-
-		#
-		# convert event_ids
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "translating sngl_inspiral event_ids ..."
-		sngl_inspiral_int_to_ilwd(xmldoc)
-
-		#
-		# remove duplicate sngl_inspirals and time_slides
-		#
-
-		if options.verbose:
-			print >>sys.stderr, "depopulating sngl_inspirals ..."
-		depopulate_sngl_inspiral(xmldoc)
-		if is_found_injections or is_thinca_output:
-			if options.verbose:
-				print >>sys.stderr, "depopulating time_slides ..."
-			depopulate_time_slide_table(xmldoc)
-	else:
-		# FIXME: this doesn't reconstruct inspiral-style coinc
-		# files
-		sngl_inspiral_ilwd_to_int(xmldoc)
-
-	#
-	# finish process metadata
-	#
-
-	llwapp.set_process_end_time(process)
-
-	#
-	# write file
-	#
-
-	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
