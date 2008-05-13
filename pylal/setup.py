@@ -110,7 +110,7 @@ setup(
 		"pylal",
 		"pylal.xlal"
 	],
-        cmdclass = {
+ 	cmdclass = {
 		"install": pylal_install,
 		"sdist": pylal_sdist
 	},
@@ -173,7 +173,7 @@ setup(
 		)
 	],
 	scripts = [
-                os.path.join("bin", "analyseQscan.py"),
+		os.path.join("bin", "analyseQscan.py"),
 		os.path.join("bin", "grbSelect"),
 		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "plotbank"),
@@ -188,7 +188,7 @@ setup(
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotsiminspiral"),
 		os.path.join("bin", "plotnumgalaxies"),
-                os.path.join("bin", "calcMassCut"),
+		os.path.join("bin", "calcMassCut"),
 		os.path.join("bin", "upperlimit.py"),
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
@@ -215,9 +215,9 @@ setup(
 		os.path.join("bin", "ploteffdistcut"),
 		os.path.join("bin", "plotefficiency"),
 		os.path.join("bin", "plotsnrchi"),
-                os.path.join("bin", "frame_check"),
-                os.path.join("bin", "IFOstatus_check"),
-                os.path.join("bin", "plotsnrchisq_pipe"),
+		os.path.join("bin", "frame_check"),
+		os.path.join("bin", "IFOstatus_check"),
+		os.path.join("bin", "plotsnrchisq_pipe"),
 		os.path.join("bin", "plotmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
