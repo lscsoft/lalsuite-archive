@@ -129,10 +129,10 @@ file.write("# load the data written in the MCMC txt file\n")
 file.write("input <- read.table(\"" + opts.mcmc_file + "\",header=TRUE)\n\n")
 
 file.write("# prepare the input data for the plotting routine\n")
-file.write("dataset = cbind(input[,1],input[,4:8],input[,12:16],input[,20:24],input[,28:32],input[,36:40],input[,44:48])\n\n")
+file.write("dataset = cbind(input[,1],input[,4:9],input[,12:17],input[,20:25],input[,28:33],input[,36:41],input[,44:49])\n\n")
 
 file.write("# enter injected or inspiral parameters\n")
-file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ")\n")
+file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1" + ")\n")
 file.write("trueparList = c(injpar,injpar,injpar,injpar,injpar,injpar)\n\n")
 
 file.write("# execute the \"mcmcsummary\" code:\n")
