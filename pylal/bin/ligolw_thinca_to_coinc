@@ -214,7 +214,7 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	num_slides, = llwapp.get_process_params(xmldoc, "thinca", "--num-slides")
 	offset_vector = {}
 	# FIXME:  hard-coded instrument list = BAD BAD BAD.
-	for instrument in ("G1", "H1", "H2", "L1", "V2"):
+	for instrument in ("G1", "H1", "H2", "L1", "V1"):
 		try:
 			offset, = llwapp.get_process_params(xmldoc, "thinca", "--%s-slide" % instrument.lower())
 		except ValueError:
@@ -232,10 +232,7 @@ def populate_thinca_time_slide_table(xmldoc, process):
 		for n in range(-num_slides, +num_slides + 1):
 			if n < 0:
 				yield type(time_slide_table.next_id)(5000 - n)
-			elif n == 0:
-				continue
 			else:
-				# n > 0
 				yield type(time_slide_table.next_id)(n)
 
 	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(num_slides)):
