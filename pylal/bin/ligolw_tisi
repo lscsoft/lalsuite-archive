@@ -140,7 +140,7 @@ if options.verbose:
 
 for time_slide in ligolw_tisi.SlidesIter(ligolw_tisi.parse_slides(options.instrument)):
 	time_slides[lsctables.TimeSlideTable.get_next_id()] = time_slide
-for inspiral_slidepsec in options.inspiral_num_slides:
+for inspiral_slidespec in options.inspiral_num_slides:
 	for time_slide in ligolw_tisi.Inspiral_Num_Slides_Iter(*ligolw_tisi.parse_inspiral_num_slides_slidespec(inspiral_slidespec)):
 		time_slides[lsctables.TimeSlideTable.get_next_id()] = time_slide
 
