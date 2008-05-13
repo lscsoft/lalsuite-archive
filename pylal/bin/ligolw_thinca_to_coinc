@@ -81,7 +81,7 @@ lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog --int-to-ilwd|--ilwd-to-int [options] [file ...]",
+		usage = "%prog [options] [file ...]",
 		description = "Converts the event_id column in a sngl_inspiral table from int_8s to ilwd:char and vice-versa.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
 	)
 	parser.add_option("--int-to-ilwd", action = "store_true", default = False, help = "Convert int_8s IDs to ilwd:char IDs.")
