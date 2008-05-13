@@ -750,6 +750,7 @@ class segmentlist(list):
 			tmptime += seg.duration()
 		return tmptime
 
+
 #
 # =============================================================================
 #
@@ -1171,4 +1172,24 @@ class segmentlistdict(dict):
 		for key in keys:
 			seglist |= self[key]
 		return seglist
+
+
+#
+# =============================================================================
+#
+#                          Use C Version If Possible
+#
+# =============================================================================
+#
+
+
+#
+# FIXME:  commented out until LSCsegFind client/server protocol fixed.
+#
+
+
+#try:
+#	from __segments import *
+#except ImportError:
+#	pass
 
