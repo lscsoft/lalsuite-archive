@@ -169,7 +169,7 @@ for slide in slide_num:
 
     for coinc in ifo_coincs:
       thisSlideSeg = seg & (~slidVetoes).intersection(coinc)
-      if slidVetoes.intersection(ifos - set(coinc)):
+      if (ifos - set(coinc)):
         thisSlideSeg &= slidVetoes.\
             intersection(ifos - set(coinc))
 
