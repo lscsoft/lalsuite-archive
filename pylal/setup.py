@@ -44,6 +44,8 @@ class pylal_install(install.install):
 		pylal_pythonpath = remove_root(pylal_pythonpath, self.root)
 		pylal_install_platlib = remove_root(self.install_platlib, self.root)
 
+		if not os.path.isdir("etc"):
+			os.mkdir("etc")
 		log.info("creating pylal-user-env.sh script")
 		env_file = open(os.path.join("etc", "pylal-user-env.sh"), "w")
 		print >> env_file, "# Source this file to access PYLAL"
@@ -172,6 +174,8 @@ setup(
 	],
 	scripts = [
                 os.path.join("bin", "analyseQscan.py"),
+		os.path.join("bin", "grbSelect"),
+		os.path.join("bin", "galaxies_in_polygon"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
 		os.path.join("bin", "plotburca"),
@@ -179,6 +183,7 @@ setup(
 		os.path.join("bin", "plotburst"),
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
+		os.path.join("bin", "plotcohsnr"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotlalseries"),
 		os.path.join("bin", "plotsiminspiral"),
@@ -188,6 +193,7 @@ setup(
 		os.path.join("bin", "write_iul_page"),
 		os.path.join("bin", "lalapps_compute_posterior"),
 		os.path.join("bin", "plotulvsmass"), 
+		os.path.join("bin", "plotifar"),
 		os.path.join("bin", "plotinjnum"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
@@ -196,6 +202,7 @@ setup(
 		os.path.join("bin", "plotnumtemplates"),
 		os.path.join("bin", "plotinspiralrange"),
 		os.path.join("bin", "plotcoincseglength"),
+		os.path.join("bin", "plotsegments"),
 		os.path.join("bin", "plotthinca"),
 		os.path.join("bin", "pylal_followup_missed"),
 		os.path.join("bin", "pylal_grblikelihood"),
@@ -214,13 +221,15 @@ setup(
 		os.path.join("bin", "plotmcmc.py"),
 		os.path.join("bin", "plotinsppop"),
 		os.path.join("bin", "plottisi"),
+		os.path.join("bin", "query_dagman_log"),
 		os.path.join("bin", "s3_statistic"),
+		os.path.join("bin", "antime"),
+		os.path.join("bin", "septime"),
 		os.path.join("bin", "hipecoire"),
 		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
 		os.path.join("bin", "lalapps_path2cache"),
-		os.path.join("bin", "lalapps_pire"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
 		os.path.join("bin", "ligolw_bucluster"),
