@@ -36,6 +36,7 @@ Translate int_8s sngl_inspiral event_id's to ilwd:char and vice-versa.
 import itertools
 from optparse import OptionParser
 import sys
+import re
 
 
 from glue.ligolw import ligolw
@@ -96,7 +97,7 @@ def parse_command_line():
 	if not (options.zero_lag_file and options.time_slide_file and options.num_slides and options.output):
 		raise ValueError, "must specify all of --zero-lag-file, --time-slide-file, --num-slides and --output"
 
-	if args is not None:
+	if args:
 		raise ValueError, "extraneous command line arguments specified"
 
 	return options
@@ -170,6 +171,50 @@ def populate_id_column(xmldoc, table_name, column_name):
 			setattr(row, column_name, tbl.get_next_id())
 
 
+def sngl_inspiral_int_to_ilwd(xmldoc):
+	#
+	# fix broken tables
+	#
+
+	populate_id_column(xmldoc,  lsctables.SummValueTable.tableName, "summ_value_id")
+	populate_id_column(xmldoc,  lsctables.SearchSummVarsTable.tableName, "search_summvar_id")
+	populate_id_column(xmldoc,  lsctables.FilterTable.tableName, "filter_id")
+
+	#
+	# find the sngl_inspiral table
+	#
+
+	try:
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
+		return xmldoc
+
+	#
+	# convert the event_id attribute on every row object
+	#
+
+	for row in sngl_inspiral_table:
+		row.event_id = type(sngl_inspiral_table.next_id)(row.event_id)
+
+	#
+	# update the table's list of valid column types, and the Type
+	# attribute on the column element, then reset the sngl_inspiral
+	# table's internal variables so that writing will work correctly
+	#
+
+	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+	event_id = sngl_inspiral_table.getColumnByName("event_id")
+	event_id.setAttribute("Type", "ilwd:char")
+	sngl_inspiral_table._update_column_info()
+
+	#
+	# done
+	#
+
+	return xmldoc
+
+
 
 #
 # =============================================================================
@@ -180,7 +225,7 @@ def populate_id_column(xmldoc, table_name, column_name):
 #
 
 
-def populate_thinca_time_slide_table(xmldoc, process):
+def populate_thinca_time_slide_table(xmldoc, process, num_slides):
 	"""
 	Reconstruct the list of time slides from lalapps_thinca's command
 	line arguments.
@@ -211,16 +256,19 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	# identify lalapps_thinca's time slides
 	#
 
-	num_slides, = llwapp.get_process_params(xmldoc, "thinca", "--num-slides")
 	offset_vector = {}
-	# FIXME:  hard-coded instrument list = BAD BAD BAD.
-	for instrument in ("G1", "H1", "H2", "L1", "V1"):
-		try:
-			offset, = llwapp.get_process_params(xmldoc, "thinca", "--%s-slide" % instrument.lower())
-		except ValueError:
-			# no offset for this instrument
-			continue
-		offset_vector[instrument] = offset
+        slide_option_pattern = re.compile("--(?P<ifo>[a-z][0-9])--slide")
+
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
+		if row.process_id in process_ids:
+			if row.param == "--num-slides":
+				if int(row.value) != num_slides:
+					raise ValueError, "Incorrect number of time slides in time slide file"
+			else:
+				match = re.search(slide_option_pattern, row.param)
+				if match is not None:
+					offset_vector[match.groupdict()["ifo"]] = float(row.value)
 
 	#
 	# build the time slides
@@ -272,6 +320,9 @@ def depopulate_time_slide_table(xmldoc):
 
 	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
 		tbl.applyKeyMapping(mapping)
+
+
+
 
 
 #
@@ -449,16 +500,16 @@ def depopulate_sngl_inspiral(xmldoc):
 
 options = parse_command_line()
 
-lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
-lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
+#lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
 xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [options.zero_lag_file, options.time_slide_file], verbose = options.verbose)
+lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 process = initialize_process(xmldoc)
 set_process_params(xmldoc, process, options)
 
 if options.verbose:
 	print >>sys.stderr, "populating thinca time_slide table ..."
-populate_thinca_time_slide_table(xmldoc, process)
+populate_thinca_time_slide_table(xmldoc, process, options.num_slides)
 if options.verbose:
 	print >>sys.stderr, "constructing coincs ..."
 populate_coinc_event_sngls(xmldoc, process)
