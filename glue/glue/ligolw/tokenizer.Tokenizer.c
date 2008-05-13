@@ -45,6 +45,15 @@
 
 
 /*
+ * Globally-defined, statically-allocated, default list of quote
+ * characters.
+ */
+
+
+static const Py_UNICODE default_quote_characters[] = {'\'', '\"', '\0'};
+
+
+/*
  * Structure
  */
 
@@ -59,8 +68,8 @@ typedef struct {
 	PyObject **type;
 	/* delimiter character to be used in parsing */
 	Py_UNICODE delimiter;
-	/* the character to interpret as a quote character */
-	Py_UNICODE quote_character;
+	/* the character(s) to interpret as a quote character */
+	const Py_UNICODE *quote_characters;
 	/* the character to interpret as the escape character */
 	Py_UNICODE escape_character;
 	/* size of internal buffer, minus null terminator */
@@ -195,11 +204,25 @@ static void parse_error(PyObject *exception, const Py_UNICODE *buffer, size_t bu
 
 
 /*
+ * Py_UNICODE equivalent of strchr()
+ */
+
+
+static const Py_UNICODE *pyunicode_strchr(const Py_UNICODE *s, Py_UNICODE c)
+{
+	for(; *s; s++)
+		if(*s == c)
+			return s;
+	return NULL;
+}
+
+
+/*
  * Unescape a string.
  */
 
 
-static int unescape(Py_UNICODE *s, Py_UNICODE **end, Py_UNICODE quote_character, Py_UNICODE escape_character)
+static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable_characters, Py_UNICODE escape_character)
 {
 	/* FIXME: disabled until agreed upon */
 #if 0
@@ -211,7 +234,7 @@ static int unescape(Py_UNICODE *s, Py_UNICODE **end, Py_UNICODE quote_character,
 			escaped = *(s++) == escape_character;
 			continue;
 		}
-		if(*s != quote_character && *s != escape_character) {
+		if(!pyunicode_strchr(escapable_characters, *s)) {
 			parse_error(PyExc_ValueError, start, *end - start - 1, s - 1, "unrecognized escape sequence");
 			return -1;
 		}
@@ -245,7 +268,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	Py_UNICODE *pos = tokenizer->pos;
 	Py_UNICODE *bailout = tokenizer->length;
 	PyObject *type = *tokenizer->type;
-	int was_quoted;
+	Py_UNICODE quote_character;
 
 	/*
 	 * The following code matches the pattern:
@@ -276,19 +299,19 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	while(Py_UNICODE_ISSPACE(*pos))
 		if(++pos >= bailout)
 			goto stop_iteration;
-	if(*pos == tokenizer->quote_character) {
+	if(pyunicode_strchr(tokenizer->quote_characters, *pos)) {
 		/*
 		 * found a quoted token
 		 */
 
 		int escaped = 0;
 
-		was_quoted = 1;
+		quote_character = *pos;
 
 		*start = ++pos;
 		if(pos >= bailout)
 			goto stop_iteration;
-		while((*pos != tokenizer->quote_character) || escaped) {
+		while((*pos != quote_character) || escaped) {
 			escaped = (*pos == tokenizer->escape_character) && !escaped;
 			if(++pos >= bailout)
 				goto stop_iteration;
@@ -301,7 +324,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 		 * found an unquoted token
 		 */
 
-		was_quoted = 0;
+		quote_character = 0;
 
 		*start = pos;
 		while(!Py_UNICODE_ISSPACE(*pos) && (*pos != tokenizer->delimiter))
@@ -350,8 +373,9 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 
 	if(*end)
 		**end = '\0';
-	if(was_quoted) {
-		if(unescape(*start, end, tokenizer->quote_character, tokenizer->escape_character))
+	if(quote_character) {
+		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, '\0'};
+		if(unescape(*start, end, escapable_characters, tokenizer->escape_character))
 			return NULL;
 	}
 
@@ -445,7 +469,7 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	}
 
 	tokenizer->delimiter = *PyUnicode_AS_UNICODE(arg);
-	tokenizer->quote_character = '\"';
+	tokenizer->quote_characters = default_quote_characters;
 	tokenizer->escape_character = '\\';
 	tokenizer->types = malloc(1 * sizeof(*tokenizer->types));
 	tokenizer->types_length = &tokenizer->types[1];
