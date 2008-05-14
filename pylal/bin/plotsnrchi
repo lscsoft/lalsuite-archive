@@ -362,10 +362,12 @@ from pylal import viz
 ###################################
 # input triggers
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
-rsq = inspTriggers.get_column('rsqveto_duration')
-for i in range(len(rsq)):
-  rsq[i] += 0.00001
+nevents = len(inspTriggers)
+snr = inspTriggers.get_column('snr')
+chisq = inspTriggers.get_column('chisq')
+rsq = inspTriggers.get_column('rsqveto_duration') + 0.00001
 max_rsq = max(rsq)
+
 # input injections:
 inj_snr = None
 inj_chisq = None
@@ -373,18 +375,14 @@ if opts.inj_glob or opts.cache_file:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose)
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
-  inj_rsq = injTriggers.get_column('rsqveto_duration')
-  for i in range(len(inj_rsq)):
-    inj_rsq[i] += 0.00001
+  inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
   max_rsq = max(max_rsq,max(inj_rsq))
 
 comments += InspiralUtils.message(opts, 'Read '+str(len(rsq))+ ' triggers from from inspiral files')
 comments += InspiralUtils.message(opts, 'Read '+str(len(inj_rsq))+ ' triggers from inspiral injection files')
 
 ###################################
-# Set up snr arrays
-nevents = len(inspTriggers)
-snr = inspTriggers.get_column('snr')
+# Determine SNR range
 
 if opts.inj_glob or opts.cache_file:
   max_snr = max(inj_snr)
@@ -399,8 +397,7 @@ snr_range = arange( log_min, log_max , (log_max - log_min)/20)
 snr_range = 10**snr_range
 
 ###################################
-# Set up chisq arrays
-chisq = inspTriggers.get_column('chisq')
+# Determine chisq range
 
 max_chisq = max(chisq)
 min_chisq = min(chisq)
@@ -412,47 +409,13 @@ chisq_range = arange( log_min, log_max, (log_max - log_min)/20)
 chisq_range = 10**chisq_range
 
 ###################################
-# work out different behaviour of snr/chi
-high_snr_cut = 15
-high_snr = []
-high_chisq = []
-for i in range(len(snr)):
-  if snr[i] > high_snr_cut:
-    high_snr.append(snr[i])
-    high_chisq.append(chisq[i])
-
-high_snr = array(high_snr)
-high_chisq = array(high_chisq)
-ratio = high_chisq/high_snr**2
-# print 'number of triggers = ' + str(nevents)
-# print 'number of high snr triggers = ' + str(len(high_snr))
-# print 'high snr, mean of chisq/snrsq = ' + str(mean(ratio))
-# print 'high snr, std  of chisq/snrsq = ' + str(std(ratio))
-
-snr_cut = 7.5
-low_snr = []
-low_chisq = []
-for i in range(len(snr)):
-  if snr[i] < snr_cut:
-    low_snr.append(snr[i])
-    low_chisq.append(chisq[i])
-    
-low_snr = array(low_snr)
-low_chisq = array(low_chisq)
-# print 'number of triggers = ' + str(nevents)
-# print 'number of high snr triggers = ' + str(len(high_snr))
-# print 'low snr, mean of snr   = ' + str(mean(low_snr))
-# print 'low snr, mean of chisq = ' + str(mean(low_chisq))
-# print 'low snr, std  of chisq = ' + str(std(low_chisq))
-
-###################################
 # calculate the contours
 if opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
   or opts.trig_inj_lines:
-  cont = reshape(zeros(20*20), (20,20))
-  for i in range(20):  
-    for j in range(20):
-      cont[i][j] = sum( asarray(snr > snr_range[j]) * \
+  cont = zeros(shape=(20, 20), dtype='f')
+  for i in xrange(20):  
+    for j in xrange(20):
+      cont[i, j] = sum( asarray(snr > snr_range[j]) * \
           asarray(chisq < chisq_range[i]) )
 
   v = arange(0,log10(nevents),log10(nevents)/20)
@@ -471,56 +434,31 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
     rsq_cut_line_x = [min_snr, opts.rsq_max_snr, opts.rsq_max_snr]
     rsq_cut_line_y = [opts.rsq_threshold, opts.rsq_threshold,max_rsq]
 
-  snr_cut = []
-  rsq_cut = []
-  snr_kept = []
-  rsq_kept = []
-  for i in range(len(snr)):
-    if snr[i] < opts.rsq_max_snr:
-      if rsq[i] > opts.rsq_threshold:
-        snr_cut.append(snr[i])
-        rsq_cut.append(rsq[i])
-      else:
-        snr_kept.append(snr[i])
-        rsq_kept.append(rsq[i])
-    elif opts.rsq_coeff and opts.rsq_pow:
-      if rsq[i] > opts.rsq_coeff*(snr[i])**opts.rsq_pow:
-        snr_cut.append(snr[i])
-        rsq_cut.append(rsq[i])
-      else:
-        snr_kept.append(snr[i])
-        rsq_kept.append(rsq[i])
-    else:
-      snr_kept.append(snr[i])
-      rsq_kept.append(rsq[i])
+  # determine cuts for triggers
+  cut_index = (snr < opts.rsq_max_snr)
+  cut_index &= (rsq > opts.rsq_threshold)
+  if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
+    cut_index |= (rsq > opts.rsq_coeff * snr**opts.rsq_pow)
 
-  if opts.inj_glob or opts.cache_file:
-    inj_snr_cut = []
-    inj_rsq_cut = []
-    inj_snr_kept = []
-    inj_rsq_kept = []
-    for i in range(len(inj_snr)):
-      if inj_snr[i] < opts.rsq_max_snr:
-        if inj_rsq[i] > opts.rsq_threshold:
-          inj_snr_cut.append(inj_snr[i])
-          inj_rsq_cut.append(inj_rsq[i])
-        else:
-          inj_snr_kept.append(inj_snr[i])
-          inj_rsq_kept.append(inj_rsq[i])
-      elif opts.rsq_coeff and opts.rsq_pow:
-        if inj_rsq[i] > opts.rsq_coeff*(inj_snr[i])**opts.rsq_pow:
-          inj_snr_cut.append(inj_snr[i])
-          inj_rsq_cut.append(inj_rsq[i])
-        else:
-          inj_snr_kept.append(inj_snr[i])
-          inj_rsq_kept.append(inj_rsq[i])
-      else:
-        inj_snr_kept.append(inj_snr[i])
-        inj_rsq_kept.append(inj_rsq[i])
+  snr_cut = snr[cut_index]
+  snr_kept = snr[~cut_index]
+  rsq_cut = rsq[cut_index]
+  rsq_kept = rsq[~cut_index]
+
+  # determine cuts for injections
+  if opts.inj_glob or opts.found_pattern:
+    cut_index = (inj_snr < opts.rsq_max_snr)
+    cut_index &= (inj_rsq > opts.rsq_threshold)
+    if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
+      cut_index |= (inj_rsq > opts.rsq_coeff * inj_snr**opts.rsq_pow)
+
+    inj_snr_cut = inj_snr[cut_index]
+    inj_snr_kept = inj_snr[~cut_index]
+    inj_rsq_cut = inj_rsq[cut_index]
+    inj_rsq_kept = inj_rsq[~cut_index]
 
 comments += InspiralUtils.message(opts, 'After the rsq cut, we kept '+str(len(rsq_kept)) +' events.')
 comments += InspiralUtils.message(opts, 'After the rsq cut, we removed '+str(len(rsq_cut))+' events.')
-
 
 
 fig_num = 0
