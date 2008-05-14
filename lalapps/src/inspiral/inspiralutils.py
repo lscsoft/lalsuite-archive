@@ -428,9 +428,10 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
   if dfOnly:
     hipeCommand = test_and_add_hipe_arg(hipeCommand,"datafind")
   elif vetoCat:
-    hipeCommand = test_and_add_hipe_arg(hipeCommand,"second-coinc")
-    hipeCommand = test_and_add_hipe_arg(hipeCommand,"coire-second-coinc")
-    hipeCommand = test_and_add_hipe_arg(hipeCommand,"summary-coinc-triggers")
+    for hipe_arg in ["second-coinc", "coire-second-coinc", 
+        "summary-coinc-triggers", "sire-second-coinc", 
+        "summary-single-ifo-triggers","write-script"]:
+      hipeCommand = test_and_add_hipe_arg(hipeCommand,hipe_arg)
 
   else:
     omit = ["datafind", "disable-dag-categories", "disable-dag-priorities"]
