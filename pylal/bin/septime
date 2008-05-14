@@ -201,12 +201,17 @@ if coincfiles:
                                            mangle_event_id = False,
                                            verbose=opts.verbose)
 
-  # perform the veto
-  inspTriggers = inspTriggers.vetoed(seg)
-  inspTriggers = inspTriggers.veto_seglistdict(vetoes)
+  if inspTriggers:
+    # perform the veto
+    inspTriggers = inspTriggers.vetoed(seg)
+    inspTriggers = inspTriggers.veto_seglistdict(vetoes)
 
   if opts.verbose:
-    print ('0 ' + str(len(inspTriggers)))
+    try:
+      len_inspTriggers = len(inspTriggers)
+    except:
+      len_inspTriggers = 0
+    print ('0 ' + str(len_inspTriggers))
 
 ########################
 # read in slide triggers
@@ -217,10 +222,11 @@ if slidefiles:
               ReadSnglInspiralFromFiles(slidefiles,
                                         mangle_event_id = False,
                                         verbose=opts.verbose)
-  
-  # perform the veto
-  inspSlide = inspSlide.vetoed(seg)
-  inspSlide = inspSlide.veto_seglistdict(vetoes)
+
+  if inspSlide:
+    # perform the veto
+    inspSlide = inspSlide.vetoed(seg)
+    inspSlide = inspSlide.veto_seglistdict(vetoes)
  
   slide_num = range(1 , opts.num_slides + 1)
   slide_num.extend(range(-opts.num_slides, 0))
@@ -252,10 +258,14 @@ if inspTriggers:
   for coinc in ifo_coincs:
     inspSepTimesTriggers[coinc] = inspTriggers.vetoed(segs[coinc])
 
-    if opts.verbose and segs[coinc].duration():
-      print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
-          str(segs[coinc].duration()) + ' sec analyzed ' + \
-          types[coinc] + ' time')
+for coinc in ifo_coincs:
+  if coinc not in inspSepTimesTriggers.keys():
+    inspSepTimesTriggers[coinc] = lsctables.SnglInspiralTable()
+
+  if opts.verbose and segs[coinc].duration():
+    print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
+        str(segs[coinc].duration()) + ' sec analyzed ' + \
+        types[coinc] + ' time')
 
 #######################################################################
 # calculate the different times during the time slides for this segment
@@ -282,8 +292,11 @@ if slideTriggers:
         thisSlide["segs"][coinc] &= slidVetoes.\
             intersection(ifos - set(coinc))
 
-      thisSlide["sngl_trigs"][coinc] = slideTriggers[slide]["sngl_trigs"].\
-          vetoed(thisSlide["segs"][coinc])
+      if slideTriggers[slide]["sngl_trigs"]:
+        thisSlide["sngl_trigs"][coinc] = slideTriggers[slide]["sngl_trigs"].\
+            vetoed(thisSlide["segs"][coinc])
+      else:
+        thisSlide["sngl_trigs"][coinc] = slideTriggers[slide]["sngl_trigs"]
 
       if opts.verbose and thisSlide["segs"][coinc].duration():
         print (str(len(thisSlide["sngl_trigs"][coinc])) + ' triggers in ' + \
@@ -385,7 +398,7 @@ for coinc in ifo_coincs:
 
 #############################
 # write file
-  if (segs[coinc] and inspTriggers) or inspSepTimesTriggers[coinc]:
+  if (segs[coinc] and coincfiles) or inspSepTimesTriggers[coinc]:
     utils.write_filename(xmldoc, fileName, verbose=opts.verbose,
       gz=opts.veto_file.endswith("gz"))
 
