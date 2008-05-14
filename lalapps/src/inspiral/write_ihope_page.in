@@ -602,8 +602,10 @@ def write_tuning(page,opts):
   ifos = get_ifos()
   mkdir(opts.physdir+"/tuning")
   
-  page.add("This section summarizes the tuning with e-thinca, \
-      r-square, chi-square and h1-h2 cuts.<br/>")
+  page.add("This section summarizes the tuning of the e-thinca, \
+      r-square, chi-square and h1-h2 cuts. Note that the R-square and chi-square \
+      plots use as an input the SIRE of the COIRE files. The other plots use \
+      the COIRE files <br/>")
   
   #---------------------------- Tuning
 
@@ -628,9 +630,9 @@ def write_tuning(page,opts):
 	]
 
   captions = [\
-  	"Ethinca versus combined SNr in the different ifo combinations",\
-  	"fix me",\
-  	"fix me",\
+  	"Ethinca versus combined SNR in the different ifo combinations",\
+  	"chi-square versus SNR (injections in red, slides in black) ",\
+  	"R-square versus SNR (injections in red, slides in blue) ",\
   	"Fractional differences in effective distance (H1 and H2 detectors). \
          Blue crosses are slided triggers. Red crosses are injection triggers."\
 	]
@@ -742,14 +744,14 @@ def write_analysis(page, opts, thisSearch='playground'):
       alt = "Venn diagramm"
     else: 
       alt = "No picture generated, check your matlab installation. you must \
-          havevennX.m available (from matapps/src/inspiral/matSpiral package) "
+          have vennX.m available (from matapps/src/inspiral/matSpiral package) "
     # and incorporate into html
 
     comment = "Venn diagram showing distribution of"
     for coinc in  coincs.keys():
       comment = comment + " "+ coinc
     page = add_figure(page, fnames =[thisSearch+"/venn_"+thisSearch+".png"],\
-      caption=comment, size="half", alt=[alt])
+      caption=comment, size="full", alt=[alt])
     page.add("</td></tr></table>")
     
     page.add("Here below is the detail of the data and ligo-data section \
@@ -953,7 +955,6 @@ def write_injection(page, opts):
   	"Closeby missed injections (Second coincidence stage and CAT2)",\
   	"Efficiencies (second stage)",\
   	"Accuracies (First stage, using SIRE files)",\
-  	"Accuracies (Second stage, using SIRE files)",\
   	"Accuracies (Second stage, using SIRE_COIRE files )"\
 	]
   tags = [\
@@ -961,7 +962,6 @@ def write_injection(page, opts):
   	'*plotinspmissed_SECOND*',\
   	'*plotinspmissed_SECOND*',\
   	'*plotinspinj_FIRST*',\
-  	'*plotinspinj_SECOND*SNGL1-*',\
   	'*plotinspinj_SECOND*SNGL-*'\
 	]
 	#['map-8'],\  # this is not robust but works for GPS <900,000,000
@@ -970,7 +970,6 @@ def write_injection(page, opts):
 	['map-8'],\
         ['efficiency-eff_dist'],\
         ['mchirp_vs_snr_accuracy_scatter_totalmass'],\
-        ['mchirp_vs_snr_accuracy_scatter_totalmass'],\
         ['mchirp_vs_snr_accuracy_scatter_totalmass']\
 	]
   captions = [\
@@ -978,7 +977,6 @@ def write_injection(page, opts):
 	'Found and Missed injections. Effective distance versus chirp mass',\
 	'Efficiencies (Second stage)',\
         'Accuracy plots (first stage)',\
-        'Accuracy plots (second stage)',\
         'Accuracy plots (second stage)'\
 	]
 
@@ -1154,7 +1152,7 @@ def add_caption(page, caption):
 
 
 # ***************************************************************************
-def add_figure(page,fnames="test", caption="add a caption", size="full", \
+def add_figure(page,fnames="test", caption="add a caption", size=None, \
     alt="no figure found",source="not specified"):
   """
   Add a figure to the HTML document, taking care of the numbering.
@@ -1175,7 +1173,16 @@ def add_figure(page,fnames="test", caption="add a caption", size="full", \
   dir = opts.webdir
   page.add("<!-- insert a figure -->\n<div class=\"figure\">")
   this_count = 0
-  
+ 
+  # set the size of the images
+  if size==None:
+    if len(fnames)==1: 
+      size="full"
+    elif len(fnames)==2:
+      size="half"
+    else : size="third"
+
+ 
   for fnam in fnames:
     source=dir+"/"+fnam
     
@@ -1551,7 +1558,8 @@ def fom(page, opts, cachefile_tag=None, caption="fix me",\
         command = 'find ' + dir + '/Images'  \
             + ' -name \"*plotinspmissed*\" -exec cp \"{}\" '\
             + opts.physdir + '/Images/'+' \;'     
-        print >> sys.stdout, ' .../ copying all plotinspmissed files ...'
+        temp = eachcache.split("/")
+        print >> sys.stdout, ' .../ copying all plotinspmissed files from ' + temp[len(temp)-1]
         make_external_call(command, opts.debug, opts.debug, True)
   
   # for each cachefile we create a div figure section with all 
@@ -1610,7 +1618,7 @@ def fom(page, opts, cachefile_tag=None, caption="fix me",\
         source =  eachcache.split('/') 
         source =  source[len(source)-1]
         page = add_figure(page, fnames=fnameList, \
-          caption=(caption+' '+msg), source=source, size="third", alt=fnameList)
+          caption=(caption+' '+msg), source=source,size=None, alt=fnameList)
         break
      # close the cachefile
     this.close()
@@ -1708,8 +1716,6 @@ output          = index.shtml""")
 #  raise ImportError("Require markup.py to generate the html page")
 #
 opts,args = parse_arguments()
-print opts
-print opts.no_copy
 #############################################################################
 #  MAIN PART                                                                #
 #############################################################################
@@ -1848,6 +1854,7 @@ page.input(type="button", value="Wait until the page is fully loaded before navi
 # The main part of the code, which loops over all subsections
 for each_section in html_order:
   if each_section in html_sections:
+    print "...Processing " + each_section
     page.p(e.br())
     page.add("<!-- beginning of a sub section -->")
     page.div(class_="encadre")
