@@ -24,6 +24,8 @@
 # =============================================================================
 #
 
+import copy
+
 from pylal.date import LIGOTimeGPS
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -199,7 +201,7 @@ def unslideTriggersOnRings(triggerList, rings, shifts):
    @param rings:       sorted segment list of possible rings
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
-  negativeShifts = dict([(ifo, -shift) for ifo,shift in shifts.itervalues()])
+  negativeShifts = dict([(ifo, -shift) for ifo,shift in shifts.items()])
   slideTriggersOnRings(triggerList, rings, negativeShifts)
 
 
@@ -256,11 +258,12 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   dur = end - start
 
   # create a new seglistdict so we don't modify the old one
-  slidseglistdict = seglistdict.copy()
+  slidseglistdict = segments.segmentlistdict([])
 
   # loop over ifos
-  for key in slidseglistdict.keys():
+  for key in shifts.keys():
     # shift seglistdict to have segment start at 0
+    slidseglistdict[key] = copy.copy(seglistdict[key])
     slidseglistdict[key] = slidseglistdict[key].shift(shifts[key] - start)
 
     # keep track of whether a segment needs to be split at the end
