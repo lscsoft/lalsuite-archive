@@ -34,6 +34,7 @@ from pylal.webUtils import *
 from pylal.webCondor import *
 from lalapps import inspiral
 from pylal import fu_utils
+from glue.ligolw import lsctables
 
 ###### WRAPPER FOR CONDOR DAG - TO MAKE THE FOLLOWUP DAG WEBIFIABLE ###########
 ###############################################################################
@@ -811,7 +812,8 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       sim = None
       try:
         sim = isinstance(trig.coincs.sim,lsctables.SimInspiral)
-      except: pass
+      except:
+        pass
       if sim:
         time = eval("trig.coincs.sim." + ifo[0:1].lower() + "_end_time")
         time_ns = eval("trig.coincs.sim." + ifo[0:1].lower() + "_end_time_ns")
