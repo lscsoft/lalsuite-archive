@@ -325,7 +325,7 @@ if len(opts.hist_trials) > 0:
     # initialize plot
     plot = plotutils.CumulativeHistogramPlot(
             r"$\textrm{%s}^2$" % safe_stat,
-            r"$\textrm{\# trials louder than %s}^2$" % safe_stat,
+            r"$\textrm{\# coincs louder than %s}^2$" % safe_stat,
             r"$\textrm{Cumulative histogram of %s}^2$" % safe_stat)
 
     # prepare data of interest
@@ -337,7 +337,7 @@ if len(opts.hist_trials) > 0:
     # prepare background
     data = [[c.stat*c.stat for c in coincs[0, i]] for i in \
             range(0, nsegs) if i+1 not in opts.hist_trials]
-    plot.add_background(data, label="background")
+    plot.add_background(data, label=r"other\ trials")
 
     # finalize plot
     plot.finalize(num_bins=50)

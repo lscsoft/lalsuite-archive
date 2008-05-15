@@ -256,6 +256,10 @@ class CumulativeHistogramPlot(BasicPlot):
             means = hist_sum / N
             stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
           
+            # plot mean
+            self.ax.plot(x, means, 'r+', label=r"$\mu_\mathrm{%s}$" % \
+                self.bg_label)
+
             # shade in the area
             upper = means + stds
             lower = means - stds
@@ -264,8 +268,8 @@ class CumulativeHistogramPlot(BasicPlot):
             lower[lower <= epsilon] = epsilon
             means[means <= epsilon] = epsilon
             tmp_x, tmp_y = viz.makesteps(bins, upper, lower)
-            self.ax.fill(tmp_x, tmp_y, facecolor='y', alpha=0.2,
-                label=self.bg_label)
+            self.ax.fill(tmp_x, tmp_y, facecolor='y', alpha=0.3,
+                label=r"$\sigma_\mathrm{%s}$" % self.bg_label)
 
         # adjust plot range
         self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
