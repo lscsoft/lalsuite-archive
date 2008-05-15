@@ -128,11 +128,16 @@ file.write("source(\"" + opts.plot_routine + "\")\n\n")
 file.write("# load the data written in the MCMC txt file\n")
 file.write("input <- read.table(\"" + opts.mcmc_file + "\",header=TRUE)\n\n")
 
-file.write("# prepare the input data for the plotting routine\n")
-file.write("dataset = cbind(input[,1],input[,4:9],input[,12:17],input[,20:25],input[,28:33],input[,36:41],input[,44:49])\n\n")
+file.write("# keep only the tens of seconds for the GPS time. This will allow to display the decimal part of the gps time with a precision of 1.e-5 seconds.\n")
+nb_chain = 6
+for i in range(nb_chain):
+  file.write("input[,\"tc" + str(i+1) + "\"] <- input[,\"tc" + str(i+1) + "\"] %% 100\n")
+
+file.write("\n# prepare the input data for the plotting routine\n")
+file.write("dataset = cbind(input[,1],input[,4:10],input[,12:18],input[,20:26],input[,28:34],input[,36:42],input[,44:50])\n\n")
 
 file.write("# enter injected or inspiral parameters\n")
-file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1" + ")\n")
+file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1, \"loglikeli\"= 1" + ")\n")
 file.write("trueparList = c(injpar,injpar,injpar,injpar,injpar,injpar)\n\n")
 
 file.write("# execute the \"mcmcsummary\" code:\n")
