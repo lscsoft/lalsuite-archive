@@ -138,6 +138,7 @@ file.write("dataset = cbind(input[,1],input[,4:10],input[,12:18],input[,20:26],i
 
 file.write("# enter injected or inspiral parameters\n")
 file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1, \"loglikeli\"= 1" + ")\n")
+file.write("injpar[\"tc\"] <- injpar[\"tc\"] %% 100\n")
 file.write("trueparList = c(injpar,injpar,injpar,injpar,injpar,injpar)\n\n")
 
 file.write("# execute the \"mcmcsummary\" code:\n")
