@@ -159,6 +159,8 @@ def slideTimeOnRing(time, shift, ring):
     newTime = ring[0] + (newTime - ring[0]) % abs(ring)
   if shift < 0:
     newTime = ring[1] - (ring[1] - newTime) % abs(ring)
+  if newTime == ring[1]:
+    newTime = ring[0]
 
   return newTime
 
@@ -237,7 +239,7 @@ def slideTriggersOnRingWithVector(triggerList, shiftVector, rings):
 
        # perform shift
        oldTime = date.LIGOTimeGPS(trigger.end_time, trigger.end_time_ns)
-       newTime = slide_time_on_ring(oldTime, shift, ring)
+       newTime = slideTimeOnRing(oldTime, shift, ring)
        trigger.end_time = newTime.seconds
        trigger.end_time_ns = newTime.nanoseconds
 
