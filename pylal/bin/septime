@@ -398,7 +398,7 @@ for coinc in ifo_coincs:
 
 #############################
 # write file
-  if (segs[coinc] and coincfiles) or inspSepTimesTriggers[coinc]:
+  if (segs[coinc] and coincfiles) or inspSepTimesTriggers[coinc] or slidefiles:
     utils.write_filename(xmldoc, fileName, verbose=opts.verbose,
       gz=opts.veto_file.endswith("gz"))
 
