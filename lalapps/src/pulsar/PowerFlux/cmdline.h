@@ -258,6 +258,9 @@ struct gengetopt_args_info
   int extended_test_arg;	/* Perform extended self test (default='0').  */
   char * extended_test_orig;	/* Perform extended self test original value given at command line.  */
   const char *extended_test_help; /* Perform extended self test help description.  */
+  int max_sft_report_arg;	/* Maximum count of SFTs to report with veto information (default='100').  */
+  char * max_sft_report_orig;	/* Maximum count of SFTs to report with veto information original value given at command line.  */
+  const char *max_sft_report_help; /* Maximum count of SFTs to report with veto information help description.  */
   int num_threads_arg;	/* Use that many threads for computation (default='-1').  */
   char * num_threads_orig;	/* Use that many threads for computation original value given at command line.  */
   const char *num_threads_help; /* Use that many threads for computation help description.  */
@@ -342,6 +345,7 @@ struct gengetopt_args_info
   int output_initial_given ;	/* Whether output-initial was given.  */
   int output_optimized_given ;	/* Whether output-optimized was given.  */
   int extended_test_given ;	/* Whether extended-test was given.  */
+  int max_sft_report_given ;	/* Whether max-sft-report was given.  */
   int num_threads_given ;	/* Whether num-threads was given.  */
 
   int injection_group_counter; /* counter for group injection */

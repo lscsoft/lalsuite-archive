@@ -454,9 +454,9 @@ d->veto_segment_list=NULL;
 d->size=1000;
 d->free=0;
 d->gps=do_alloc(d->size, sizeof(*d->gps));
+d->dc_factor=1.0;
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
-d->power=NULL;
 d->sft_veto=NULL;
 d->veto_level=1e-2; /* this takes care of SFTs that have 1/100 weight... */
 d->veto_spike_level=1.7; /* this takes care of SFTs with spikes 50 times median level */
@@ -720,30 +720,10 @@ d->size=d->free;
 free(p);
 }
 
-static void compute_power(DATASET *d)
-{
-int i;
-float x,y;
-if(d->power!=NULL)free(d->power);
-
-d->power=do_alloc(d->free*d->nbins, sizeof(*d->power));
-for(i=0;i<d->free*d->nbins;i++){
-	x=d->re[i];
-	y=d->im[i];
-	d->power[i]=x*x+y*y;
-	}
-}
-
-void recompute_power(void)
-{
-int i;
-for(i=0;i<d_free;i++)compute_power(&(datasets[i]));
-}
-
 void veto_sfts(DATASET *d)
 {
 int i, j;
-float *power;
+float power, *x, *y;
 d->sft_veto=do_alloc(d->free, sizeof(*d->sft_veto));
 for(i=0;i<d->free;i++) {
 	d->sft_veto[i]=0;
@@ -753,13 +733,16 @@ for(i=0;i<d->free;i++) {
 		continue;
 		}
 
-	power=&(d->power[i*d->nbins]);
+	x=&(d->re[i*d->nbins]);
+	y=&(d->im[i*d->nbins]);
 	for(j=0;j<d->nbins;j++) {
-		if(log10(*power)>d->TMedians[i]+d->veto_spike_level) {
+		power=(*x)*(*x)+(*y)*(*y);
+		if(log10(power)>d->TMedians[i]+d->veto_spike_level) {
 			d->sft_veto[i]=2;
 			break;
 			}
-		power++;
+		x++;
+		y++;
 		}
 	}
 }
@@ -813,10 +796,6 @@ if(d->free<1){
 		d->re=NULL;
 		d->im=NULL;
 		}
-	if(d->power!=NULL){
-		free(d->power);
-		d->power=NULL;
-		}
 	return 0;
 	}
 
@@ -851,7 +830,7 @@ if(fake_injection) {
 	gsl_integration_workspace_free(giw);
 	}
 
-compute_power(d);
+/* compute_power(d); */
 
 /* compute time from the start of the run */
 d->hours=do_alloc(d->free, sizeof(*(d->hours)));
@@ -873,27 +852,26 @@ compute_detector_speed(d);
 
 d->TMedians=do_alloc(d->free, sizeof(*(d->TMedians)));
 d->expTMedians=do_alloc(d->free, sizeof(*(d->expTMedians)));
+d->expTMedians_plain=do_alloc(d->free, sizeof(*(d->expTMedians_plain)));
+
 d->FMedians=do_alloc(d->nbins, sizeof(*(d->TMedians)));
+d->expFMedians_plain=do_alloc(d->nbins, sizeof(*(d->expFMedians_plain)));
 
 compute_noise_curves(d);
 
 for(i=0;i<d->free;i++){
 	d->expTMedians[i]=exp(-M_LN10*2.0*(d->TMedians[i]-d->TMedian));
+	d->expTMedians_plain[i]=exp(M_LN10*d->TMedians[i]);
 	}
 d->expTMedian=exp(-M_LN10*2.0*d->TMedian);
+
+for(i=0;i<d->nbins;i++){
+	d->expFMedians_plain[i]=exp(M_LN10*d->FMedians[i]);
+	}
 
 fprintf(LOG, "dataset %s TMedian : %f\n", d->name, d->TMedian);
 
 veto_sfts(d);
-
-if(args_info.subtract_background_arg) {
-	fprintf(LOG, "dataset %s subtract background: yes\n", d->name);
-	for(i=0;i<d->free;i++){
-		for(j=0;j<d->nbins;j++){
-			d->power[i*d->nbins+j]-=exp(M_LN10*(d->TMedians[i]+d->FMedians[j]));
-			}
-		}
-	}
 
 fprintf(stderr, "Obtaining whole sky AM response for dataset %s\n", d->name);
 get_whole_sky_AM_response(d->gps, d->free, args_info.orientation_arg, &(d->AM_coeffs_plus), &(d->AM_coeffs_cross), &(d->AM_coeffs_size));
@@ -1103,6 +1081,7 @@ if(timebase < 0) {
 	} else {
 	factor=(0.5*1800.0*16384.0)/(args_info.strain_norm_factor_arg*nbins); /* use fixed normalization for 1800 sec SFTs .. */
 	}
+factor*=d->dc_factor;
 for(i=0;i<count;i++){
 	re[i]=tmp[2*i]*factor;
 	im[i]=tmp[2*i+1]*factor;
@@ -1184,6 +1163,7 @@ if(timebase < 0) {
 	} else {
 	factor=16384.0/args_info.strain_norm_factor_arg; /* fixed normalization for v2 SFTs ? */
 	}
+factor*=d->dc_factor;
 for(i=0;i<count;i++){
 	re[i]=tmp[2*i]*factor;
 	im[i]=tmp[2*i+1]*factor;
@@ -1377,6 +1357,7 @@ rng=gsl_rng_alloc(gsl_rng_default);
 gsl_rng_set(rng, fill_seed);
 
 amp/=args_info.strain_norm_factor_arg;
+amp*=d->dc_factor;
 
 for(i=d->free;i<(d->free+count);i++) {
 	d->gps[i]=gps_start+(i-d->free)*step;
@@ -1448,6 +1429,12 @@ if(!strncasecmp(line, "gps_start", 9)) {
 if(!strncasecmp(line, "gps_stop", 8)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].gps_stop=atoll(&(line[ai]));
+	} else 
+if(!strncasecmp(line, "dc_factor", 9)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].dc_factor=atof(&(line[ai]));
+	fprintf(LOG, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
+	fprintf(stderr, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
 	} else 
 if(!strncasecmp(line, "directory", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1592,31 +1579,15 @@ for(i=0;i<d_free;i++){
 return(total);
 }
 
-void compute_powers(DATASET *dataset)
+long vetoed_segments(void)
 {
-int i,k;
-float *p;
-float x,y;
-float *bin_re, *bin_im;
-int nbins=dataset->nbins;
-int nsegments=dataset->free;
-
-for(i=0;i<nsegments;i++) {
-
-	bin_re=&(dataset->re[i*nbins]);
-	bin_im=&(dataset->im[i*nbins]);
-
-	p=&(dataset->power[i*nbins]);
-
-	for(k=0;k<nbins;k++) {
-		x=*bin_re;
-		y=*bin_im;
-		*p=x*x+y*y;
-		p++;
-		bin_re++;
-		bin_im++;
-		}
+int i, j;
+long total=0;
+for(i=0;i<d_free;i++) {
+	for(j=0;j<datasets[i].free;j++)
+		if(datasets[i].sft_veto[j]!=0)total++;
 	}
+return(total);
 }
 
 static float compute_median(float *firstbin, int step, int count)
@@ -1650,7 +1621,7 @@ if(fabs(err)>1e-6)exit(-1);
 void compute_noise_curves(DATASET *dataset)
 {
 float *tmp;
-float *p,*t;
+float *x, *y, *t;
 float a;
 int i,j;
 double b, b_initial;
@@ -1659,11 +1630,12 @@ int nbins=dataset->nbins;
 HISTOGRAM *hist;
 
 tmp=do_alloc(nsegments*nbins,sizeof(float));
-for(i=0;i<nsegments;i++){
+for(i=0;i<nsegments;i++) {
 	t=&(tmp[i*nbins]);
-	p=&(dataset->power[i*nbins]);
-	for(j=0;j<nbins;j++){
-		t[j]=log10(p[j]);
+	x=&(dataset->re[i*nbins]);
+	y=&(dataset->im[i*nbins]);
+	for(j=0;j<nbins;j++) {
+		t[j]=log10(x[j]*x[j]+y[j]*y[j]);
 		}
 	}
 b=0;
@@ -1731,6 +1703,7 @@ void characterize_dataset(DATASET *d)
 {
 double a,w, CutOff;
 int i, j, count;
+float x, y;
 float *tmp;
 /*
 for(i=0;i<d->free;i++){
@@ -1747,7 +1720,7 @@ fprintf(LOG, "%s SFTs veto spike level: %f\n", d->name, d->veto_spike_level);
 count=0;
 for(i=0;i<d->free;i++)
 	if(d->sft_veto[i]) {
-		if(count<100) {
+		if(count<args_info.max_sft_report_arg) {
 			fprintf(stderr, "%s vetoed SFT: %lld %d\n", d->name, d->gps[i], d->sft_veto[i]+0);
 			fprintf(LOG, "%s vetoed SFT: %lld %d\n", d->name, d->gps[i], d->sft_veto[i]+0);
 			}
@@ -1785,7 +1758,15 @@ for(i=0;i<d->free;i++){
 
 	w=d->expTMedians[i];
 	for(j=0;j<d->nbins;j++){
-		a=d->power[i*d->nbins+j];
+		x=d->re[i*d->nbins+j];
+		y=d->im[i*d->nbins+j];
+
+		a=x*x+y*y;
+
+		if(args_info.subtract_background_arg) {
+			a-=d->expTMedians_plain[i]*d->expFMedians_plain[j];
+			}
+
 		d->bin_weight[j]+=w;
 		d->weighted_mean[j]+=a*w;
 		}
@@ -1817,7 +1798,15 @@ for(i=0;i<d->free;i++) {
 	w=d->expTMedians[i];
 	count++;
 	for(j=0;j<d->nbins;j++){
-		a=d->power[i*d->nbins+j];
+		x=d->re[i*d->nbins+j];
+		y=d->im[i*d->nbins+j];
+		a=x*x+y*y;
+
+		if(args_info.subtract_background_arg) {
+			/* the line below is faster a-=exp(M_LN10*(d->TMedians[i]+d->FMedians[j])); */
+			a-=d->expTMedians_plain[i]*d->expFMedians_plain[j];
+			}
+
 		d->new_mean[j]+=a;
 		d->new_sigma[j]+=a*a;
 		d->new_bin_weight[j]+=w;

@@ -474,6 +474,7 @@ fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
 fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
+fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
 fflush(LOG);
 
 init_polarizations0();
@@ -505,6 +506,11 @@ if(args_info.dataset_given) {
 	fprintf(stderr, "Loading data from dataset %s\n", args_info.dataset_arg);
 	load_dataset_from_file(args_info.dataset_arg);
 	nsegments=total_segments();
+	if(nsegments==vetoed_segments()) {
+		fprintf(LOG, "All SFTs vetoed, aborting!\n");
+		fprintf(stderr, "All SFTs vetoed, aborting!\n");
+		exit(-1);
+		}
 	}
 
 if(args_info.sky_marks_file_given) {

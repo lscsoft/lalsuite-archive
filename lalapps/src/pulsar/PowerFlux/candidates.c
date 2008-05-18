@@ -1311,7 +1311,7 @@ double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
 float *doppler;
 int signal_bin;
-float demod_signal_sum[(2*WINDOW+1)*2], *power, *pout, demod_weight;
+float demod_signal_sum[(2*WINDOW+1)*2], *x, *y, power, *pout, demod_weight;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -1360,14 +1360,16 @@ for(j=0;j<d_free;j++) {
 		demod_weight=weight*response[k];
 		total_demod_weight+=demod_weight*response[k];
 
-		power=&(d->power[k*nbins+signal_bin-WINDOW]);
+		x=&(d->re[k*nbins+signal_bin-WINDOW]);
+		y=&(d->im[k*nbins+signal_bin-WINDOW]);
 		pout=demod_signal_sum;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
-
-			(*pout)+=(*power)*demod_weight;
+			power=(*x)*(*x)+(*y)*(*y);
+			(*pout)+=(power)*demod_weight;
 			pout++;
-			power++;
+			x++;
+			y++;
 			}
 		}
 	}
@@ -1695,7 +1697,7 @@ int j, k, b;
 double weight, f;
 float *doppler;
 int signal_bin;
-float *power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
+float *x, *y, power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
 float f_plus_sq[(2*WINDOW+1)*2];
 float f_cross_sq[(2*WINDOW+1)*2];
@@ -1751,22 +1753,25 @@ for(j=0;j<d_free;j++) {
 		f=frequency+frequency*doppler[k]+spindown*(d->gps[k]-spindown_start+d->coherence_time*0.5);
 		signal_bin=rintf(1800.0*f-first_bin);
 
-		power=&(d->power[k*nbins+signal_bin-WINDOW]);
+		x=&(d->re[k*nbins+signal_bin-WINDOW]);
+		y=&(d->im[k*nbins+signal_bin-WINDOW]);
 
 		pout=f_plus_sq;
 		cout=f_cross_sq;
 		pcout=f_plus_cross;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
+			power=(*x)*(*x)+(*y)*(*y);
 
-			(*pout)+=(*power)*pweight;
-			(*cout)+=(*power)*cweight;
-			(*pcout)+=(*power)*pcweight;
+			(*pout)+=power*pweight;
+			(*cout)+=power*cweight;
+			(*pcout)+=power*pcweight;
 
 			pout++;
 			cout++;
 			pcout++;
-			power++;
+			x++;
+			y++;
 			}
 		count++;
 		if(count>100) {
@@ -1798,7 +1803,7 @@ int j, k, b;
 double weight, f, f0;
 float *doppler;
 int signal_bin, signal_bin0;
-float *power, *power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
+float *x, *y, power, *x0, *y0, power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
 float f_plus_sq[(2*WINDOW+1)*2];
 float f_cross_sq[(2*WINDOW+1)*2];
@@ -1855,15 +1860,19 @@ for(j=0;j<d_free;j++) {
 		pcweight=weight*f_plus*f_cross;
 
 
-		power=&(d->power[k*nbins+signal_bin-WINDOW]);
-		power0=&(d->power[k*nbins+signal_bin0-WINDOW]);
+		x=&(d->re[k*nbins+signal_bin-WINDOW]);
+		y=&(d->im[k*nbins+signal_bin-WINDOW]);
+		x0=&(d->re[k*nbins+signal_bin0-WINDOW]);
+		y0=&(d->im[k*nbins+signal_bin0-WINDOW]);
 
 		pout=f_plus_sq;
 		cout=f_cross_sq;
 		pcout=f_plus_cross;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
-			p=(*power)-(*power0);
+			power=(*x)*(*x)+(*y)*(*y);
+			power0=(*x0)*(*x0)+(*y0)*(*y0);
+			p=(power)-(power0);
 			(*pout)+=p*pweight;
 			(*cout)+=p*cweight;
 			(*pcout)+=p*pcweight;
@@ -1871,8 +1880,10 @@ for(j=0;j<d_free;j++) {
 			pout++;
 			cout++;
 			pcout++;
-			power++;
-			power0++;
+			x++;
+			y++;
+			x0++;
+			y0++;
 			}
 		count++;
 		if(count>100) {
@@ -2138,7 +2149,7 @@ double weight, f, demod_weight, total_demod_weight, mean_power, mean_power_sq, p
 float *response;
 float *doppler;
 int signal_bin, offset;
-float demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS], *power, *pout;
+float demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS], *x, *y, power, *pout;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -2183,12 +2194,15 @@ for(j=0;j<d_free;j++) {
 			signal_bin=rintf(1800.0*f-first_bin);
 			offset=i*(2*WINDOW+1);
 	
-			power=&(d->power[k*nbins+signal_bin-WINDOW]);
+			x=&(d->re[k*nbins+signal_bin-WINDOW]);
+			y=&(d->im[k*nbins+signal_bin-WINDOW]);
 			pout=&(demod_signal_sum[offset]);
 	
 			for(b=0; b< (2*WINDOW+1); b++) {
-				(*pout)+=*power*demod_weight;
-				power++;
+				power=(*x)*(*x)+(*y)*(*y);
+				(*pout)+=power*demod_weight;
+				x++;
+				y++;
 				pout++;
 				}
 			}

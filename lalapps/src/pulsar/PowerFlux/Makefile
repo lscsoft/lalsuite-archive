@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.24-64
+VERSION=1.4.25-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -240,8 +240,8 @@ test5: powerflux
 test5c: powerflux-mt
 	 ./powerflux-mt --dataset=random.dst -f 180002 -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
-		--averaging-mode=matched --do-cutoff=1 --lock-file=test.lock \
-		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--averaging-mode=single --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=1 --ks-test=1 --filter-lines=0 \
 		--spindown-start=0.0 --spindown-step=2e-8 --spindown-count=1 \
 		--dump-candidates=0 \
 		--dump-points=0 --no-secondary-skymaps=1 \
@@ -328,7 +328,7 @@ powerflux: $(OBJS) jobs.o util.o
 
 powerflux-mt: $(OBJS) jobs-mt.o util.o
 	$(CC) $(OBJS) jobs-mt.o util.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
-	ls -l powerflux
+	ls -l powerflux-mt
 
 powerflux.dyn: $(OBJS) jobs.o util.o
 	$(CC) $(OBJS) jobs.o util.o -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas

@@ -89,277 +89,8 @@ float lower_limit_comp;
    
 #include "fc.c"
 
-
-/* single bin version */
-
-void (*process_patch)(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff);
-
-static void process_patch1(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
-{
-int i,kk,b,b0,b1,n,offset;
-int bin_shift;
-SUM_TYPE mod;
-SUM_TYPE a,w,w2;
-SUM_TYPE *sum,*sq_sum;
-float *p;
-float doppler, bin_offset;
-float f_plus, f_cross, beta1, beta2;
-ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
-POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
-POLARIZATION *pl=&(d->polarizations[pol_index]);
-
-
-CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
-
-bin_offset=d->coherence_time*(args_info.frequency_offset_arg+spindown*(d->gps[k]-spindown_start)+0.5*args_info.fdotdot_arg*(d->gps[k]-spindown_start)*(d->gps[k]-spindown_start));
-
-for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
-		{
-
-		if(fine_grid->band[kk]<0)continue;
-		
-		/* Get amplitude response */
-		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
-		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
-
-
-		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
-
-		if(do_CutOff && (mod>CutOff))continue;
-
-		/* this assumes that both relfreq and spindown are small enough that the bin number
-		   down not change much within the band - usually true */
-		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
-			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
-			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
-		doppler=args_info.doppler_multiplier_arg*doppler;
-
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+bin_offset);
-
-		if(bin_shift>max_shift)max_shift=bin_shift;
-		if(bin_shift<min_shift)min_shift=bin_shift;
-		b0=side_cut-bin_shift;
-		b1=(nbins-side_cut)-bin_shift;
-		if((b0<0)||(b1>nbins)){
-			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
-				bin_shift, kk, i, pi);
-			exit(-1);
-			}
-		
-		if(args_info.compute_betas_arg){
-		        beta1=f_cross*f_plus*mod;	
-			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
-			}
-
-		/* prime array pointers */
-		#ifdef WEIGHTED_SUM
-		w2=d->expTMedians[k]*d->weight/mod;
-		w=w2/mod;
-		//pr->skymap.total_weight[kk]+=w;
-		aa->total_weight[i]+=w;
-	
-		if(args_info.compute_betas_arg){
-			pr->skymap.beta1[kk]+=w*beta1;
-			pr->skymap.beta2[kk]+=w*beta2;
-			}
-		if(!args_info.no_secondary_skymaps_arg)pr->skymap.total_count[kk]++;
-		#else
-		pr->skymap.total_count[kk]++;
-
-		if(args_info.compute_betas_arg){
-			pr->skymap.beta1[kk]+=beta1;
-			pr->skymap.beta2[kk]+=beta2;
-			}
-		#endif
-		
-		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
-		#ifdef COMPUTE_SIGMA
-		sq_sum=&(aa->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
-		#endif
-		p=&(d->power[k*nbins+b0]);
-		
-		/* cycle over bins */
-		for(b=b0;b<b1;b++){			    
-			#ifdef WEIGHTED_SUM
-			a=(*p)*w2;
-			(*sum)+=a;
-			#else
-			a=(*p)*mod;
-			(*sum)+=a;
-			#ifdef COMPUTE_SIGMA
-			(*sq_sum)+=a*a;
-			sq_sum++;
-			#endif			
-			#endif
-		
-			p++;
-			sum++;
-			}
-		/* subtract lines */
-		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
-			b=d->lines_report->lines_list[n];
-			if(b<b0)continue;
-			if(b>=b1)continue;
-			offset=b-side_cut+bin_shift+useful_bins*i;
-			/* prime array pointers */
-			sum=&(aa->fine_grid_sum[offset]);
-			p=&(d->power[k*nbins+b]);
-
-			#ifdef WEIGHTED_SUM
-			aa->fine_grid_weight[offset]+=w;
-			#else
-			aa->fine_grid_count[offset]++;
-			#endif
-			
-			#ifdef WEIGHTED_SUM
-			a=(*p)*w2;
-			(*sum)-=a;
-			#else
-			a=(*p)*mod;
-			(*sum)-=a;
-			#ifdef COMPUTE_SIGMA
-			pr->fine_grid_sq_sum[offset]-=a*a;
-			#endif			
-			#endif
-			}
-		}
-
-}
-
-/* three bin version */
-
-static void process_patch3(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
-{
-int i,kk,b,b0,b1,n,offset;
-int bin_shift;
-SUM_TYPE mod;
-SUM_TYPE a,w,w2;
-SUM_TYPE *sum,*sq_sum;
-float *p;
-float doppler, bin_offset;
-float f_plus, f_cross, beta1, beta2;
-ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
-POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
-POLARIZATION *pl=&(d->polarizations[pol_index]);
-
-CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
-
-bin_offset=d->coherence_time*(args_info.frequency_offset_arg+spindown*(d->gps[k]-spindown_start)+0.5*args_info.fdotdot_arg*(d->gps[k]-spindown_start)*(d->gps[k]-spindown_start));
-
-for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
-		{
-		if(fine_grid->band[kk]<0)continue;
-
-		/* Get amplitude response */
-		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
-		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
-
-
-		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
-
-		if(do_CutOff && (mod>CutOff))continue;
-
-		
-		/* this assumes that both relfreq and spindown are small enough that the bin number
-		   down not change much within the band - usually true */
-		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
-			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
-			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
-		doppler=args_info.doppler_multiplier_arg*doppler;
-
-		bin_shift=-rint((first_bin+nbins*0.5)*doppler+bin_offset);
-
-		if(bin_shift>max_shift)max_shift=bin_shift;
-		if(bin_shift<min_shift)min_shift=bin_shift;
-		b0=side_cut-bin_shift;
-		b1=(nbins-side_cut)-bin_shift;
-		if((b0<1)||(b1>(nbins-1))){
-			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
-				bin_shift, kk, i, pi);
-			exit(-1);
-			}
-		
-		if(args_info.compute_betas_arg){
-		        beta1=f_cross*f_plus*mod;	
-			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
-			}
-
-		/* prime array pointers */
-		#ifdef WEIGHTED_SUM
-		w2=d->expTMedians[k]*d->weight/mod;
-		w=w2/(3.0*mod);
-		//pr->skymap.total_weight[kk]+=w;
-		aa->total_weight[i]+=w;
-
-		if(args_info.compute_betas_arg){
-			pr->skymap.beta1[kk]+=w*beta1;
-			pr->skymap.beta2[kk]+=w*beta2;
-			}
-		if(!args_info.no_secondary_skymaps_arg)pr->skymap.total_count[kk]++;
-		#else
-		pr->skymap.total_count[kk]++;
-
-		if(args_info.compute_betas_arg){
-			pr->skymap.beta1[kk]+=beta1;
-			pr->skymap.beta2[kk]+=beta2;
-			}
-		#endif
-		
-		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
-		#ifdef COMPUTE_SIGMA
-		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
-		#endif
-		p=&(d->power[k*nbins+b0]);
-		
-		/* cycle over bins */
-		for(b=b0;b<b1;b++){			    
-			#ifdef WEIGHTED_SUM
-			a=(p[-1]+p[0]+p[1])*w2;
-			(*sum)+=a;
-			#else
-			a=(*p)*mod;
-			(*sum)+=a;
-			#ifdef COMPUTE_SIGMA
-			(*sq_sum)+=a*a;
-			sq_sum++;
-			#endif			
-			#endif
-		
-			p++;
-			sum++;
-			}
-		/* subtract lines */
-		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++){
-			b=d->lines_report->lines_list[n];
-			if(b<b0)continue;
-			if(b>=b1)continue;
-			offset=b-side_cut+bin_shift+useful_bins*i;
-			/* prime array pointers */
-			sum=&(aa->fine_grid_sum[offset]);
-			p=&(d->power[k*nbins+b]);
-
-			#ifdef WEIGHTED_SUM
-			aa->fine_grid_weight[offset]+=w;
-			#else
-			aa->fine_grid_count[offset]++;
-			#endif
-			
-			#ifdef WEIGHTED_SUM
-			a=(p[-1]+p[0]+p[1])*w2;
-			(*sum)-=a;
-			#else
-			a=(p[-1]+p[0]+p[1])*mod;
-			(*sum)-=a;
-			#ifdef COMPUTE_SIGMA
-			pr->fine_grid_sq_sum[offset]-=a*a;
-			#endif			
-			#endif
-			}
-		}
-
-}
-
-/* Use matched filter to estimate power */
+/* Power cache - given dataset, SFT number and frequency shift 
+	obtain a pointer to array of powers ready for summing */
 
 struct {
 	DATASET *d;
@@ -393,6 +124,7 @@ for(i=0;i<get_max_threads();i++) {
 	}
 }
 
+/* Use matched filter to estimate power */
 float *get_matched_power(int thread_id, float shift, DATASET *d, int k)
 {
 float *bin_re, *bin_im;
@@ -464,6 +196,368 @@ for(i=nbins-2*side_cut;i>0;i--) {
 
 return(power_cache[thread_id].power[m]);
 }
+
+/* Just return the closest bin - this way we don't have to store precomputed power */
+float *get_closest_bin_power(int thread_id, float shift, DATASET *d, int k)
+{
+float *bin_re, *bin_im;
+int i, m, bin_shift;
+float *power, *fm;
+float x, y;
+
+thread_id++;
+if(thread_id<0) {
+	fprintf(stderr, "Aieee ! - thread id is smaller than -1\n");
+	exit(-1);
+ 	}
+
+if( (power_cache[thread_id].d!=d) || power_cache[thread_id].segment!=k) {
+	power_cache[thread_id].d=d;
+	power_cache[thread_id].segment=k;
+	power_cache[thread_id].free=0;
+	if(power_cache[thread_id].size==0) {
+		power_cache[thread_id].size=100;
+		power_cache[thread_id].power=do_alloc(power_cache[thread_id].size, sizeof(*power_cache[thread_id].power));
+		power_cache[thread_id].shift=do_alloc(power_cache[thread_id].size, sizeof(*power_cache[thread_id].shift));
+		for(i=0;i<power_cache[thread_id].size;i++) {
+			power_cache[thread_id].power[i]=do_alloc(nbins-2*side_cut+2, sizeof(**power_cache[thread_id].power));
+			}
+		}
+	}
+
+for(m=0;m<power_cache[thread_id].free;m++) {
+	/* we want to find closest bin */
+	if(fabs(power_cache[thread_id].shift[m]-shift)<0.5) {
+		power_cache[thread_id].hits++;
+		return(power_cache[thread_id].power[m]+1);
+		}
+	}
+power_cache[thread_id].total_misses++;
+power_cache[thread_id].total_hits+=power_cache[thread_id].hits+1;
+power_cache[thread_id].hits=0;
+m=power_cache[thread_id].free;
+power_cache[thread_id].free++;
+
+if(m>=power_cache[thread_id].size) {
+	fprintf(stderr, "Aieee ! power cache overflowed\n");
+	exit(-1);
+	}
+
+bin_shift=rintf(shift);
+
+power_cache[thread_id].shift[m]=bin_shift;
+
+bin_re=&(d->re[k*nbins+side_cut+bin_shift-1]);
+bin_im=&(d->im[k*nbins+side_cut+bin_shift-1]);
+
+power=power_cache[thread_id].power[m];
+
+/* We could have computed all nbins bins here - however usually bin_shifts are very close together
+and 2*side_cut is comparable (or larger) to nbins */
+
+for(i=nbins-2*side_cut+2;i>0;i--) {
+	
+	x=bin_re[0];
+	y=bin_im[0];
+
+	*power=x*x+y*y;
+	bin_re++;
+	bin_im++;
+	power++;
+	}
+
+if(args_info.subtract_background_arg) {
+	power=power_cache[thread_id].power[m];
+	fm=&(d->expFMedians_plain[side_cut+bin_shift-1]);
+	for(i=nbins-2*side_cut+2;i>0;i--) {
+		(*power)-=d->expTMedians_plain[k]*(*fm);
+		power++;
+		fm++;
+		}
+	}
+
+return(power_cache[thread_id].power[m]+1);
+}
+
+
+void (*process_patch)(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff);
+
+
+
+static void process_patch1(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
+{
+int i,kk,b,b0,b1,n,offset;
+int bin_shift;
+SUM_TYPE mod;
+SUM_TYPE a,w,w2;
+SUM_TYPE *sum,*sq_sum;
+float *p, *power;
+float doppler, bin_offset, shift;
+float f_plus, f_cross, beta1, beta2;
+ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
+POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
+POLARIZATION *pl=&(d->polarizations[pol_index]);
+
+
+CutOff=2*CutOff; /* weighted sum can benefit from more SFTs */
+
+bin_offset=d->coherence_time*(args_info.frequency_offset_arg+spindown*(d->gps[k]-spindown_start)+0.5*args_info.fdotdot_arg*(d->gps[k]-spindown_start)*(d->gps[k]-spindown_start));
+
+for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
+		{
+
+		if(fine_grid->band[kk]<0)continue;
+		
+		/* Get amplitude response */
+		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
+
+
+		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
+
+		if(do_CutOff && (mod>CutOff))continue;
+
+		/* this assumes that both relfreq and spindown are small enough that the bin number
+		   down not change much within the band - usually true */
+		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
+			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
+			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
+		doppler=args_info.doppler_multiplier_arg*doppler;
+
+		shift=((first_bin+nbins*0.5)*doppler+bin_offset);
+		bin_shift=-rint(shift);
+
+		if(bin_shift>max_shift)max_shift=bin_shift;
+		if(bin_shift<min_shift)min_shift=bin_shift;
+		b0=side_cut-bin_shift;
+		b1=(nbins-side_cut)-bin_shift;
+		if((b0<0)||(b1>nbins)){
+			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
+				bin_shift, kk, i, pi);
+			exit(-1);
+			}
+		
+		if(args_info.compute_betas_arg){
+		        beta1=f_cross*f_plus*mod;	
+			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
+			}
+
+		/* prime array pointers */
+		#ifdef WEIGHTED_SUM
+		w2=d->expTMedians[k]*d->weight/mod;
+		w=w2/mod;
+		//pr->skymap.total_weight[kk]+=w;
+		aa->total_weight[i]+=w;
+	
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=w*beta1;
+			pr->skymap.beta2[kk]+=w*beta2;
+			}
+		if(!args_info.no_secondary_skymaps_arg)pr->skymap.total_count[kk]++;
+		#else
+		pr->skymap.total_count[kk]++;
+
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=beta1;
+			pr->skymap.beta2[kk]+=beta2;
+			}
+		#endif
+		
+		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		#ifdef COMPUTE_SIGMA
+		sq_sum=&(aa->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		#endif
+
+		power=get_closest_bin_power(thread_id, shift, d, k);
+		/* p=&(d->power[k*nbins+b0]); */
+		
+		p=power;
+		/* cycle over bins */
+		for(b=b0;b<b1;b++){			    
+			#ifdef WEIGHTED_SUM
+			a=(*p)*w2;
+			(*sum)+=a;
+			#else
+			a=(*p)*mod;
+			(*sum)+=a;
+			#ifdef COMPUTE_SIGMA
+			(*sq_sum)+=a*a;
+			sq_sum++;
+			#endif			
+			#endif
+		
+			p++;
+			sum++;
+			}
+		/* subtract lines */
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
+			b=d->lines_report->lines_list[n];
+			if(b<b0)continue;
+			if(b>=b1)continue;
+			offset=b-side_cut+bin_shift+useful_bins*i;
+			/* prime array pointers */
+			sum=&(aa->fine_grid_sum[offset]);
+			/* p=&(d->power[k*nbins+b]); */
+			p=&(power[k*nbins+b-b0]);
+
+			#ifdef WEIGHTED_SUM
+			aa->fine_grid_weight[offset]+=w;
+			#else
+			aa->fine_grid_count[offset]++;
+			#endif
+			
+			#ifdef WEIGHTED_SUM
+			a=(*p)*w2;
+			(*sum)-=a;
+			#else
+			a=(*p)*mod;
+			(*sum)-=a;
+			#ifdef COMPUTE_SIGMA
+			pr->fine_grid_sq_sum[offset]-=a*a;
+			#endif			
+			#endif
+			}
+		}
+
+}
+
+/* three bin version */
+
+static void process_patch3(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
+{
+int i,kk,b,b0,b1,n,offset;
+int bin_shift;
+SUM_TYPE mod;
+SUM_TYPE a,w,w2;
+SUM_TYPE *sum,*sq_sum;
+float *p, *power;
+float doppler, bin_offset, shift;
+float f_plus, f_cross, beta1, beta2;
+ACCUMULATION_ARRAYS *aa=&(ar[pol_index]);
+POLARIZATION_RESULTS *pr=&(polarization_results[pol_index]);
+POLARIZATION *pl=&(d->polarizations[pol_index]);
+
+CutOff=2*CutOff/3.0; /* weighted sum can benefit from more SFTs */
+
+bin_offset=d->coherence_time*(args_info.frequency_offset_arg+spindown*(d->gps[k]-spindown_start)+0.5*args_info.fdotdot_arg*(d->gps[k]-spindown_start)*(d->gps[k]-spindown_start));
+
+for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
+		{
+		if(fine_grid->band[kk]<0)continue;
+
+		/* Get amplitude response */
+		f_plus=F_plus(k, fine_grid, kk, pl->AM_coeffs);
+		f_cross=F_plus(k, fine_grid, kk, pl->conjugate->AM_coeffs);
+
+
+		mod=1.0/(pl->plus_factor*f_plus*f_plus+pl->cross_factor*f_cross*f_cross); 
+
+		if(do_CutOff && (mod>CutOff))continue;
+
+		
+		/* this assumes that both relfreq and spindown are small enough that the bin number
+		   down not change much within the band - usually true */
+		doppler=fine_grid->e[0][kk]*d->detector_velocity[3*k+0]+
+			fine_grid->e[1][kk]*d->detector_velocity[3*k+1]+
+			fine_grid->e[2][kk]*d->detector_velocity[3*k+2];
+		doppler=args_info.doppler_multiplier_arg*doppler;
+
+		shift=((first_bin+nbins*0.5)*doppler+bin_offset);
+		bin_shift=-rint(shift);
+
+		if(bin_shift>max_shift)max_shift=bin_shift;
+		if(bin_shift<min_shift)min_shift=bin_shift;
+		b0=side_cut-bin_shift;
+		b1=(nbins-side_cut)-bin_shift;
+		if((b0<1)||(b1>(nbins-1))){
+			fprintf(stderr,"Working frequency range obscured by bin_shift shift: bin_shift=%d kk=%d i=%d pi=%d\n",
+				bin_shift, kk, i, pi);
+			exit(-1);
+			}
+		
+		if(args_info.compute_betas_arg){
+		        beta1=f_cross*f_plus*mod;	
+			beta2=(-pl->cross_factor*f_plus*f_plus+pl->plus_factor*f_cross*f_cross)*mod;
+			}
+
+		/* prime array pointers */
+		#ifdef WEIGHTED_SUM
+		w2=d->expTMedians[k]*d->weight/mod;
+		w=w2/(3.0*mod);
+		//pr->skymap.total_weight[kk]+=w;
+		aa->total_weight[i]+=w;
+
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=w*beta1;
+			pr->skymap.beta2[kk]+=w*beta2;
+			}
+		if(!args_info.no_secondary_skymaps_arg)pr->skymap.total_count[kk]++;
+		#else
+		pr->skymap.total_count[kk]++;
+
+		if(args_info.compute_betas_arg){
+			pr->skymap.beta1[kk]+=beta1;
+			pr->skymap.beta2[kk]+=beta2;
+			}
+		#endif
+		
+		sum=&(aa->fine_grid_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		#ifdef COMPUTE_SIGMA
+		sq_sum=&(pr->fine_grid_sq_sum[b0-side_cut+bin_shift+useful_bins*i]);
+		#endif
+
+		power=get_closest_bin_power(thread_id, shift, d, k);
+		/* p=&(d->power[k*nbins+b0]); */
+
+		p=power;		
+		/* cycle over bins */
+		for(b=b0;b<b1;b++){			    
+			#ifdef WEIGHTED_SUM
+			a=(p[-1]+p[0]+p[1])*w2;
+			(*sum)+=a;
+			#else
+			a=(*p)*mod;
+			(*sum)+=a;
+			#ifdef COMPUTE_SIGMA
+			(*sq_sum)+=a*a;
+			sq_sum++;
+			#endif			
+			#endif
+		
+			p++;
+			sum++;
+			}
+		/* subtract lines */
+		for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++){
+			b=d->lines_report->lines_list[n];
+			if(b<b0)continue;
+			if(b>=b1)continue;
+			offset=b-side_cut+bin_shift+useful_bins*i;
+			/* prime array pointers */
+			sum=&(aa->fine_grid_sum[offset]);
+			p=&(power[k*nbins+b-b0]);
+
+			#ifdef WEIGHTED_SUM
+			aa->fine_grid_weight[offset]+=w;
+			#else
+			aa->fine_grid_count[offset]++;
+			#endif
+			
+			#ifdef WEIGHTED_SUM
+			a=(p[-1]+p[0]+p[1])*w2;
+			(*sum)-=a;
+			#else
+			a=(p[-1]+p[0]+p[1])*mod;
+			(*sum)-=a;
+			#ifdef COMPUTE_SIGMA
+			pr->fine_grid_sq_sum[offset]-=a*a;
+			#endif			
+			#endif
+			}
+		}
+
+}
+
 
 static void process_patch_matched(int thread_id, DATASET *d, ACCUMULATION_ARRAYS *ar, int pol_index, int pi, int k, float CutOff)
 {

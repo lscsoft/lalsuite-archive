@@ -47,12 +47,12 @@ typedef struct {
 	float veto_spike_level;
 	unsigned char *sft_veto;
 
+	/* dc factor to apply to further loaded SFTs */
+	float dc_factor;
+
 	/* real and imaginary parts - they are separate to facilitate use of vectorized operations */
 	float *re; 
 	float *im;
-
-	/* precomputed power */
-	float *power; 
 
 	int size;
 	int free;	/* this used to be called nsegments */
@@ -91,9 +91,15 @@ typedef struct {
 
 	double weight; /* additional, user-specified weight factor */
 
+	/* results of noise decomposition - TMedian and LogMedians are log10(power) */
 	float *TMedians;
 	float *FMedians;
-	float *expTMedians;
+
+	float *expTMedians; /* squared relative exponentiated TMedians */
+	float *expTMedians_plain; /* plain exponentiated TMedians */
+
+	float *expFMedians_plain; /* plain exponentiated TMedians */
+
 	float TMedian;
 	float expTMedian;
 
@@ -116,6 +122,7 @@ void compute_noise_curves(DATASET *dataset);
 
 void load_dataset_from_file(char *file);
 long total_segments(void);
+long vetoed_segments(void);
 float datasets_normalizing_weight(void);
 INT64 min_gps(void);
 INT64 max_gps(void);
