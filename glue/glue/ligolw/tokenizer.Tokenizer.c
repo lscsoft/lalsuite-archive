@@ -218,7 +218,8 @@ static const Py_UNICODE *pyunicode_strchr(const Py_UNICODE *s, Py_UNICODE c)
 
 
 /*
- * Unescape a string.
+ * Unescape a string.  This does not recognized the octal escape codes that
+ * metaio understands.
  */
 
 
@@ -231,6 +232,7 @@ static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable
 
 	while(*s) {
 		if(!escaped) {
+			/* are we starting an escape sequence? */
 			escaped = *(s++) == escape_character;
 			continue;
 		}
@@ -374,7 +376,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	if(*end)
 		**end = '\0';
 	if(quote_character) {
-		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, '\0'};
+		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, ',', '\0'};
 		if(unescape(*start, end, escapable_characters, tokenizer->escape_character))
 			return NULL;
 	}
