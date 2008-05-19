@@ -1311,7 +1311,7 @@ double weight, f, total_demod_weight, mean_power, mean_power_sq, power_sd;
 float *response;
 float *doppler;
 int signal_bin;
-float demod_signal_sum[(2*WINDOW+1)*2], *x, *y, power, *pout, demod_weight;
+float demod_signal_sum[(2*WINDOW+1)*2], *x, *y, *efm, power, *pout, demod_weight;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -1362,14 +1362,21 @@ for(j=0;j<d_free;j++) {
 
 		x=&(d->re[k*nbins+signal_bin-WINDOW]);
 		y=&(d->im[k*nbins+signal_bin-WINDOW]);
+		efm=&(d->expFMedians_plain[signal_bin-WINDOW]);
 		pout=demod_signal_sum;
 
 		for(b=0; b< (2*WINDOW+1); b++) {
 			power=(*x)*(*x)+(*y)*(*y);
+
+			if(args_info.subtract_background_arg) {
+				power-=d->expTMedians_plain[k]*(*efm);
+				}
+
 			(*pout)+=(power)*demod_weight;
 			pout++;
 			x++;
 			y++;
+			efm++;
 			}
 		}
 	}
@@ -1697,7 +1704,7 @@ int j, k, b;
 double weight, f;
 float *doppler;
 int signal_bin;
-float *x, *y, power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
+float *x, *y, *efm, power, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
 float f_plus_sq[(2*WINDOW+1)*2];
 float f_cross_sq[(2*WINDOW+1)*2];
@@ -1755,6 +1762,7 @@ for(j=0;j<d_free;j++) {
 
 		x=&(d->re[k*nbins+signal_bin-WINDOW]);
 		y=&(d->im[k*nbins+signal_bin-WINDOW]);
+		efm=&(d->expFMedians_plain[signal_bin-WINDOW]);
 
 		pout=f_plus_sq;
 		cout=f_cross_sq;
@@ -1762,6 +1770,10 @@ for(j=0;j<d_free;j++) {
 
 		for(b=0; b< (2*WINDOW+1); b++) {
 			power=(*x)*(*x)+(*y)*(*y);
+
+			if(args_info.subtract_background_arg) {
+				power-=d->expTMedians_plain[k]*(*efm);
+				}
 
 			(*pout)+=power*pweight;
 			(*cout)+=power*cweight;
@@ -1772,6 +1784,7 @@ for(j=0;j<d_free;j++) {
 			pcout++;
 			x++;
 			y++;
+			efm++;
 			}
 		count++;
 		if(count>100) {
@@ -1803,7 +1816,7 @@ int j, k, b;
 double weight, f, f0;
 float *doppler;
 int signal_bin, signal_bin0;
-float *x, *y, power, *x0, *y0, power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
+float *x, *y, *efm, power, *x0, *y0, *efm0, power0, p, *pout, *cout, *pcout, pweight, cweight, pcweight, f_plus, f_cross;
 POLARIZATION *pl;
 float f_plus_sq[(2*WINDOW+1)*2];
 float f_cross_sq[(2*WINDOW+1)*2];
@@ -1862,8 +1875,10 @@ for(j=0;j<d_free;j++) {
 
 		x=&(d->re[k*nbins+signal_bin-WINDOW]);
 		y=&(d->im[k*nbins+signal_bin-WINDOW]);
+		efm=&(d->expFMedians_plain[signal_bin-WINDOW]);
 		x0=&(d->re[k*nbins+signal_bin0-WINDOW]);
 		y0=&(d->im[k*nbins+signal_bin0-WINDOW]);
+		efm0=&(d->expFMedians_plain[signal_bin0-WINDOW]);
 
 		pout=f_plus_sq;
 		cout=f_cross_sq;
@@ -1872,6 +1887,12 @@ for(j=0;j<d_free;j++) {
 		for(b=0; b< (2*WINDOW+1); b++) {
 			power=(*x)*(*x)+(*y)*(*y);
 			power0=(*x0)*(*x0)+(*y0)*(*y0);
+
+			if(args_info.subtract_background_arg) {
+				power-=d->expTMedians_plain[k]*(*efm);
+				power0-=d->expTMedians_plain[k]*(*efm0);
+				}
+
 			p=(power)-(power0);
 			(*pout)+=p*pweight;
 			(*cout)+=p*cweight;
@@ -1882,8 +1903,10 @@ for(j=0;j<d_free;j++) {
 			pcout++;
 			x++;
 			y++;
+			efm++;
 			x0++;
 			y0++;
+			efm0++;
 			}
 		count++;
 		if(count>100) {
@@ -2149,7 +2172,7 @@ double weight, f, demod_weight, total_demod_weight, mean_power, mean_power_sq, p
 float *response;
 float *doppler;
 int signal_bin, offset;
-float demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS], *x, *y, power, *pout;
+float demod_signal_sum[(2*WINDOW+1)*FREQ_STEPS], *x, *y, *efm, power, *pout;
 
 if((ad->valid & (VALID_RESPONSE | VALID_DOPPLER))!=(VALID_RESPONSE | VALID_DOPPLER)) {
 	cand->strain=-1;
@@ -2196,13 +2219,20 @@ for(j=0;j<d_free;j++) {
 	
 			x=&(d->re[k*nbins+signal_bin-WINDOW]);
 			y=&(d->im[k*nbins+signal_bin-WINDOW]);
+			efm=&(d->expFMedians_plain[signal_bin-WINDOW]);
 			pout=&(demod_signal_sum[offset]);
 	
 			for(b=0; b< (2*WINDOW+1); b++) {
 				power=(*x)*(*x)+(*y)*(*y);
+
+				if(args_info.subtract_background_arg) {
+					power-=d->expTMedians_plain[k]*(*efm);
+					}
+	
 				(*pout)+=power*demod_weight;
 				x++;
 				y++;
+				efm++;
 				pout++;
 				}
 			}
