@@ -53,8 +53,10 @@ from glue.ligolw import lsctables
 from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
+from pylal import SearchSummaryUtils
 from pylal import SnglInspiralUtils
 from pylal import plotutils
+from pylal import rate
 
 
 ##############################################################################
@@ -90,8 +92,21 @@ def get_loudest_stat(coinc_list):
     return max([c.stat for c in coinc_list] + [0])
 
 # some vectorized functions that act on arrays
-vec_len = numpy.frompyfunc(len, 1, 1)
-vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
+_vec_len = numpy.frompyfunc(len, 1, 1)
+def vec_len(arr):
+    """
+    Map the builtin len() to an array and return an output array of the same
+    shape of type numpy.int32.
+    """
+    return _vec_len(arr).astype(numpy.int32)
+
+_vec_get_loudest_stat = numpy.frompyfunc(get_loudest_stat, 1, 1)
+def vec_get_loudest_stat(arr):
+    """
+    Map get_loudest_stat to an array and return an output array of the same
+    shape of type numpy.float32.
+    """
+    return _vec_get_loudest_stat(arr).astype(numpy.float32)
 
 
 ##############################################################################
@@ -119,8 +134,9 @@ parser.add_option("-i", "--cache-file",
     help="lal cache of zero-lag thinca or thinca slide files to read")
 parser.add_option("-p", "--coinc-pattern",
     help="sieve pattern for coincidences of interest (slide or zerolag)")
-parser.add_option("-V", "--veto-file",
-    help="segwizard file with times to ignore")
+parser.add_option("-V", "--veto-files", action="callback", type="string",
+    callback=comma_delimited, default=[],
+    help="list of segwizard-formatted files containing segments to exclude")
 parser.add_option("-t", "--fold-time", type="int",
     help="express result in terms of trials of length FOLD_TIME seconds")
 parser.add_option("", "--coinc-statistic",
@@ -196,38 +212,43 @@ InspiralUtils.initialise(opts, __name__, __version__)
 
 ##############################################################################
 # segment computation
-segs = orig_segs = segmentsUtils.fromfilenames(files).coalesce()
 
-# incorporate veto file
-if opts.veto_file is not None:
-    segs -= segmentsUtils.fromsegwizard(open(opts.veto_file))
+# get analyzed segments; if exttrig_analyze=offsource, then this is the two
+# segments immediately adjacent to the on-source segment
+seg_dict = SearchSummaryUtils.GetSegListFromSearchSummaries(files, opts.verbose)
+segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
+if abs(segs) % opts.fold_time != 0:
+    raise ValueError, "The provided file's analysis segment is not divisible "\
+        "by the fold time."
+extent = segs.extent()
 
-# quantize on fold_time
-start, end = orig_segs.extent()
-segs = segmentlist([seg for seg in \
-    segmentsUtils.segmentlist_range(start, end, opts.fold_time) if seg in segs])
+# generate bins for trials
+num_trials = int(abs(extent)) // opts.fold_time
+bins = rate.LinearBins(extent[0], extent[1], num_trials)
 
-# sanity check: time is quantized correctly
-assert (abs(segs) % opts.fold_time) == 0
+# incorporate veto file; in trial_veto_mask, True means vetoed.
+trial_veto_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
+for veto_file in opts.veto_files:
+    new_veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
+    for seg in new_veto_segs:
+        # this awkward clause comes about because segment(a, b) ==> [a, b),
+        # while naively doing slice(bins[seg[0]], bins[seg[1]] + 1) ==> [a, b].
+        if (seg[1] - extent[0]) % opts.fold_time == 0:
+            trial_veto_mask[bins[seg[0]]:bins[seg[1]]] = True
+        else:
+            trial_veto_mask[bins[seg[0]]:bins[seg[1]] + 1] = True
 
-# count how many fold times we have in a slide
-nsegs = abs(segs) // opts.fold_time
+# count how many unvetoed trials we have
+eff_num_trials = numpy.sum(~trial_veto_mask)
 
 ##############################################################################
-# reconstruct coincidences
-
-# read in, then veto any triggers outside the segments we've decided upon
-# NB: Ignoring SnglInspiral.veto() for speed.  lal.LIGOTimeGPS is really
-#     slow and we only want second resolution, not nanosecond.
-# NB: The coalesce() call makes a large speed difference also because of the
-#     numerous 0 second gaps.
-veto_segs = (~segs).coalesce()
-
+# read triggers, veto them, and reconstruct coincidences
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
 doc = ligolw_add.ligolw_add(ligolw.Document(), files, verbose=opts.verbose)
 
 triggers = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
-triggers = [trig for trig in triggers if trig.end_time not in veto_segs]
+iterutils.inplace_filter(lambda t: not trial_veto_mask[bins[t.end_time]],
+                         triggers)
 
 stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
 coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
@@ -237,35 +258,32 @@ coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
 num_slides = get_num_slides(doc)
 
 # initialize an array of empty lists, into which we will sort our triggers
-coincs = array_of_lists(shape=(2*num_slides + 1, nsegs))
+coincs = array_of_lists(shape=(2*num_slides + 1, num_trials))
 
 # sort into (slide, segment) bins
 for c in coincTable:
     # NB: c.slide_num indexing OK with current inspiral slide implementation
-    coincs[c.slide_num, segs.find(getattr(c, c.get_ifos()[1][0]).end_time)]\
+    coincs[c.slide_num, bins[getattr(c, c.get_ifos()[1][0]).end_time]]\
         .append(c)
 
 # apply a vectorized len function to count how many coincs are in each bin
 counts = vec_len(coincs)
 total_counts = counts.sum()
 
-# sanity check: every coinc has been counted
-assert len(coincTable) == total_counts
-
 ##############################################################################
 # output statistics
 total_num_slides = 2 * num_slides or 1
-norm = 1 / (total_num_slides * nsegs)
+norm = 1 / (total_num_slides * eff_num_trials)
 mean = norm * total_counts
 stdev = numpy.sqrt(norm * ((counts - mean)**2).sum())
 
 info_text = ""
 info_text += InspiralUtils.message(opts, "Total number of slides (pos + neg "\
     "or zerolag): %d" % total_num_slides)
-info_text += InspiralUtils.message(opts, "Total time analyzed (s): %d" % \
-    abs(segs))
+info_text += InspiralUtils.message(opts, "Total time analyzed (s): %d of %d" % \
+    (eff_num_trials * opts.fold_time, abs(extent)))
 info_text += InspiralUtils.message(opts, "Number of %d second segments per "\
-    "slide: %d" % (opts.fold_time, nsegs))
+    "slide: %d" % (opts.fold_time, eff_num_trials))
 info_text += InspiralUtils.message(opts, "Total number of coincidences: %d" % \
     total_counts)
 info_text += InspiralUtils.message(opts, "Mean coincidences per slide per " \
@@ -273,8 +291,11 @@ info_text += InspiralUtils.message(opts, "Mean coincidences per slide per " \
 info_text += InspiralUtils.message(opts, "Stdev of trials: %f" % stdev)
 
 for i in range(min(10, counts.max() + 1)):
-    prob = norm * (counts == i).sum()
+    prob = norm * (counts == i & ~trial_veto_mask).sum()
     info_text += InspiralUtils.message(opts, "p(%d|0): %f" % (i, prob))
+
+if opts.verbose:
+    print info_text
 
 ##############################################################################
 # plots
@@ -316,7 +337,7 @@ if opts.hist_loudest:
 if len(opts.hist_trials) > 0:
     # sanity check
     for trial_num in opts.hist_trials:
-        if trial_num < 0 or trial_num > nsegs:
+        if trial_num < 0 or trial_num > num_trials:
             raise ValueError, "--hist-trials must provide numbers between 1 "\
             "and the number of trials"
 
@@ -336,7 +357,8 @@ if len(opts.hist_trials) > 0:
 
     # prepare background
     data = [[c.stat*c.stat for c in coincs[0, i]] for i in \
-            range(0, nsegs) if i+1 not in opts.hist_trials]
+            xrange(0, num_trials) if i+1 not in opts.hist_trials \
+            and not trial_veto_mask[i]]
     plot.add_background(data, label=r"other\ trials")
 
     # finalize plot
@@ -364,8 +386,9 @@ if opts.plot_slide_loudest:
     x_data = numpy.arange(-num_slides, num_slides + 1)
     y_data = numpy.zeros(len(x_data), dtype=numpy.float32)
     for i, slide_num in enumerate(x_data):
-        relevant_slides = coincTable.getslide(slide_num)
-        y_data[i] = get_loudest_stat(relevant_slides)
+        if not trial_veto_mask[i]:
+            relevant_slides = coincTable.getslide(slide_num)
+            y_data[i] = get_loudest_stat(relevant_slides)
 
     # complete plot
     plot.add_content(x_data, y_data)
@@ -389,7 +412,7 @@ if opts.plot_trials_loudest:
         "Loudest events in each trial")
 
     # prepare data
-    x_data = numpy.arange(nsegs)
+    x_data = numpy.arange(num_trials)
     zerolag_trials = coincs[0, :]
     y_data = vec_get_loudest_stat(zerolag_trials)
 
@@ -397,7 +420,7 @@ if opts.plot_trials_loudest:
     if sum(vec_len(zerolag_trials)) == 0:
         raise ValueError, "error: cannot obey --plot-trials-loudest, "\
             "as no zero-lag coincidences were found."
-    assert len(zerolag_trials) == nsegs
+    assert len(zerolag_trials) == num_trials
 
     # complete plot
     plot.add_content(x_data, y_data)
@@ -422,7 +445,7 @@ if opts.plot_trial_stat_autocorrelation:
         "", r"Autocorrelation of loudest stat vs trial number")
 
     # prepare data
-    x_data = numpy.arange(nsegs) - nsegs//2
+    x_data = numpy.arange(num_trials) - num_trials//2
     zerolag_trials = coincs[0, :]
     loudest = vec_get_loudest_stat(zerolag_trials)
     loudest -= loudest.mean()
@@ -451,7 +474,7 @@ if opts.plot_trial_number_autocorrelation:
         "", r"Autocorrelation of \# coincs vs trial number")
 
     # prepare data
-    x_data = numpy.arange(nsegs) - nsegs//2
+    x_data = numpy.arange(num_trials) - num_trials//2
     zerolag_trials = coincs[0, :]
     num_coincs = vec_len(zerolag_trials)
     num_coincs -= num_coincs.mean()
