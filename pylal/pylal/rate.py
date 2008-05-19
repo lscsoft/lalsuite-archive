@@ -165,7 +165,7 @@ class LinearBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return int((x - self.min) / self.delta)
+			return int(math.floor((x - self.min) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
 			return self.n - 1
@@ -218,7 +218,7 @@ class LogarithmicBins(Bins):
 				stop = self[x.stop]
 			return slice(start, stop)
 		if self.min <= x < self.max:
-			return int(math.log(x / self.min) / self.delta)
+			return int(math.floor(math.log(x / self.min) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
 			return self.n - 1
@@ -282,7 +282,7 @@ class ATanBins(Bins):
 		# map to the domain [0, 1]
 		x = math.atan(float(x - self.mid) * self.scale) / math.pi + 0.5
 		if x < 1:
-			return int(x / self.delta)
+			return int(math.floor(x / self.delta))
 		# x == 1, special "measure zero" corner case
 		return self.n - 1
 
