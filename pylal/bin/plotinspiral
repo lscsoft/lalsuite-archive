@@ -81,9 +81,6 @@ def parse_command_line():
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
       help="make a plot of snr vs chisq" )
-  parser.add_option("-A","--funky-threshold",action="store",type="float",\
-      metavar=" FUNKY_THRESH",\
-      help="specify the funky stat threshold (so we can add to plot)" )
   parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
       help="make a log plot of snr vs chisq" )
   parser.add_option("-B","--chisq-threshold",action="store",type="float",\
@@ -114,9 +111,6 @@ def parse_command_line():
   parser.add_option("-G","--add-vertical-line",action="store",default=None,\
       metavar=" GPS_TIME",type="float",\
       help="add a vertical line at GPS_TIME to the snr vs time plot" )
-  parser.add_option("-q","--funky-offset",action="store",type="float",\
-      metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
- 
   #axis and plotting related
   parser.add_option("", "--log-y", action="store_true", default=False,
       help="set the y axis to have a log scale")
@@ -355,16 +349,6 @@ if opts.chisq_threshold:
   chisq_thresh = opts.chisq_threshold * ( opts.chisq_bins + \
     opts.chisq_delta * snr_range * snr_range )
 
-if opts.funky_threshold:
-  if not ( opts.funky_offset):
-    print >>sys.stderr, "when --funky-threshold is specified, must also give"
-    print >>sys.stderr, "the --funky-offset"
-    sys.exit(1)
-  
-  s3_snr_chi_stat = opts.funky_threshold * ( snr_range * snr_range * \
-      snr_range *snr_range ) / ( opts.funky_offset + (snr_range * \
-      snr_range) ) 
-
 # ============================================================================
 ###################################
 # plot of snr vs time for missed injections
@@ -437,9 +421,6 @@ if opts.snr_chisq is True:
     if opts.chisq_threshold:
       plot(snr_range, chisq_thresh)
       hold(True)
-    if opts.funky_threshold:
-      plot(snr_range, s3_snr_chi_stat, 'r-')
-      hold(True)
     viz.plot_a_v_b(inspTriggers,'snr','chisq','linear',plot_sym)
     xlabel('SNR') 
     if opts.enable_output is True: 
@@ -460,9 +441,6 @@ try:
     figure(figure_number)
     if opts.chisq_threshold:
       loglog(snr_range, chisq_thresh)
-      hold(True)
-    if opts.funky_threshold:
-      loglog(snr_range, s3_snr_chi_stat, 'r-')
       hold(True)
       
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog',plot_sym)
