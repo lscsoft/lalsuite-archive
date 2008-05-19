@@ -134,15 +134,21 @@ for i in range(nb_chain):
   file.write("input[,\"tc" + str(i+1) + "\"] <- input[,\"tc" + str(i+1) + "\"] %% 100\n")
 
 file.write("\n# prepare the input data for the plotting routine\n")
-file.write("dataset = cbind(input[,1],input[,4:10],input[,12:18],input[,20:26],input[,28:34],input[,36:42],input[,44:50])\n\n")
+
+file.write("post <- array(c(as.vector(as.matrix(input[,4:10])), \
+as.vector(as.matrix(input[,12:18])), \
+as.vector(as.matrix(input[,20:26])), \
+as.vector(as.matrix(input[,28:34])), \
+as.vector(as.matrix(input[,36:42])), \
+as.vector(as.matrix(input[,44:50]))), dim=c(nrow(input[,4:10]),7,6))\n")
+file.write("colnames(post) <- colnames(input[,4:10])\n\n")
 
 file.write("# enter injected or inspiral parameters\n")
 file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1, \"loglikeli\"= 1" + ")\n")
-file.write("injpar[\"tc\"] <- injpar[\"tc\"] %% 100\n")
-file.write("trueparList = c(injpar,injpar,injpar,injpar,injpar,injpar)\n\n")
+file.write("injpar[\"tc\"] <- injpar[\"tc\"] %% 100\n\n")
 
 file.write("# execute the \"mcmcsummary\" code:\n")
-file.write("mcmcsummary(data=dataset[,-1],targetdirectory=\"" + opts.output_path + "/" + opts.identity + "\",iteration=dataset[,1],burnin=" + opts.burnin + ",varnames=colnames(dataset[,-1]),truevalue=trueparList,graphicsformats = c(\"png\"), overwrite = T)")
+file.write("mcmcsummary(data=post,targetdirectory=\"" + opts.output_path + "/" + opts.identity + "\",iteration=input[,1],burnin=c(" + opts.burnin + "," + opts.burnin + "," + opts.burnin + "," + opts.burnin + "," + opts.burnin + "," + opts.burnin + "),varnames=colnames(post),truevalue=injpar,graphicsformats = c(\"png\"), overwrite = T)")
 
 file.close()
 
