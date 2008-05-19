@@ -83,42 +83,14 @@ PyObject *_build_attributes(PyObject *sequence)
 
 
 /*
- * Convert a sequence of unicode and/or strings to a tuple of unicodes.
- * Creates a reference to a new object, does not decref its argument.
+ * Convert a sequence of functions to a tuple of functions.  Creates a
+ * reference to a new object, does not decref its argument.
  */
 
 
 PyObject *_build_formats(PyObject *sequence)
 {
-	PyObject *result;
-	int i;
-
-	/* guaranteed to produce a new object */
-	sequence = PySequence_List(sequence);
-	if(!sequence)
-		return NULL;
-
-	for(i = 0; i < PyList_GET_SIZE(sequence); i++) {
-		PyObject *item = PyList_GET_ITEM(sequence, i);
-		if(!item) {
-			Py_DECREF(sequence);
-			return NULL;
-		}
-		if(!PyUnicode_Check(item)) {
-			PyObject *unicd = PyUnicode_FromObject(item);
-			if(!unicd) {
-				Py_DECREF(sequence);
-				return NULL;
-			}
-			Py_DECREF(item);
-			PyList_SET_ITEM(sequence, i, unicd);
-		}
-	}
-
-	result = PySequence_Tuple(sequence);
-	Py_DECREF(sequence);
-
-	return result;
+	return PySequence_Tuple(sequence);
 }
 
 

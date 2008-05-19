@@ -198,14 +198,14 @@ class ArrayStream(ligolw.Stream):
 		# delimiter after the last element.
 		file.write(self.start_tag(indent) + u"\n")
 		delim = self.getAttribute(u"Delimiter")
-		format = types.ToFormat[self.parentNode.getAttribute(u"Type")]
+		format = types.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
 		index = iter(IndexIter(a.shape))
 		try:
 			indeces = index.next()
 			file.write(indent + ligolw.Indent)
 			while True:
-				file.write(xmlescape(format % a[indeces]))
+				file.write(xmlescape(format(a[indeces])))
 				indeces = index.next()
 				file.write(delim)
 				if not indeces[0]:

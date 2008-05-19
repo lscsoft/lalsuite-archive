@@ -192,7 +192,7 @@ class Param(ligolw.Param):
 			# we have to strip quote characters from string
 			# formats (see comment above)
 			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(types.ToFormat[self.getAttribute("Type")].strip(u"\"") % self.pcdata))
+			file.write(xmlescape(types.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 

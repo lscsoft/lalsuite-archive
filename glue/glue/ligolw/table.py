@@ -400,7 +400,7 @@ class TableStream(ligolw.Stream):
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
 		file.write(self.start_tag(indent))
-		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [types.ToFormat[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
+		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [types.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
 		rowdumper.dump(self.parentNode)
 		try:
 			line = rowdumper.next()

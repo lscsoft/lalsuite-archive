@@ -51,11 +51,11 @@ more than an order of magnitude.  If you wish to make a different choice
 for your files, for example if you wish your XML files to be lossless,
 simply include the lines
 
-	glue.ligolw.types.ToFormat.update({
-		"real_4": u"%.9g",
-		"real_8": u"%.17g",
-		"float": u"%.9g",
-		"double": u"%.17g"
+	glue.ligolw.types.FormatFunc.update({
+		"real_4": u"%.9g".__mod__,
+		"real_8": u"%.17g".__mod__,
+		"float": u"%.9g".__mod__,
+		"double": u"%.17g".__mod__
 	})
 
 anywhere in your code, but before you write the document to a file.
@@ -91,24 +91,30 @@ TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
 Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
 
-ToFormat = {
-	u"char_s": u"\"%s\"",
-	u"char_v": u"\"%s\"",
-	u"ilwd:char": u"\"%s\"",
-	u"ilwd:char_u": u"\"%s\"",
-	u"lstring": u"\"%s\"",
-	u"string": u"\"%s\"",
-	u"int_2s": u"%d",
-	u"int_2u": u"%u",
-	u"int_4s": u"%d",
-	u"int_4u": u"%u",
-	u"int_8s": u"%d",
-	u"int_8u": u"%u",
-	u"int": u"%d",
-	u"real_4": u"%.8g",
-	u"real_8": u"%.16g",
-	u"float": u"%.8g",
-	u"double": u"%.16g"
+# FIXME:  disabled until agreed upon
+#def ligolw_string_format_func(s):
+#	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
+ligolw_string_format_func = u"\"%s\"".__mod__
+
+
+FormatFunc = {
+	u"char_s": ligolw_string_format_func,
+	u"char_v": ligolw_string_format_func,
+	u"ilwd:char": ligolw_string_format_func,
+	u"ilwd:char_u": ligolw_string_format_func,
+	u"lstring": ligolw_string_format_func,
+	u"string": ligolw_string_format_func,
+	u"int_2s": u"%d".__mod__,
+	u"int_2u": u"%u".__mod__,
+	u"int_4s": u"%d".__mod__,
+	u"int_4u": u"%u".__mod__,
+	u"int_8s": u"%d".__mod__,
+	u"int_8u": u"%u".__mod__,
+	u"int": u"%d".__mod__,
+	u"real_4": u"%.8g".__mod__,
+	u"real_8": u"%.16g".__mod__,
+	u"float": u"%.8g".__mod__,
+	u"double": u"%.16g".__mod__
 }
 
 

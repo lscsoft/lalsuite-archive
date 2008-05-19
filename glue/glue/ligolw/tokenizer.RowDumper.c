@@ -50,11 +50,11 @@
 
 typedef struct {
 	PyObject_HEAD
-	/* delimiter */
+	/* delimiter character to be used in row construction */
 	PyObject *delimiter;
 	/* tuple of attribute names as Python strings */
 	PyObject *attributes;
-	/* tuple of format strings as Python unicodes */
+	/* tuple of row element format functions */
 	PyObject *formats;
 	/* the source of row objects to be turned to unicode strings */
 	PyObject *iter;
@@ -207,7 +207,7 @@ static PyObject *next(PyObject *self)
 		if(val == Py_None)
 			token = PyUnicode_FromUnicode(NULL, 0); /* u"" */
 		else
-			token = PyNumber_Remainder(PyTuple_GET_ITEM(rowdumper->formats, i), val);
+			token = PyObject_CallFunctionObjArgs(PyTuple_GET_ITEM(rowdumper->formats, i), val, NULL);
 		Py_DECREF(val);
 
 		if(!token) {
@@ -239,7 +239,7 @@ static PyObject *next(PyObject *self)
 static struct PyMemberDef members[] = {
 	{"delimiter", T_OBJECT, offsetof(ligolw_RowDumper, delimiter), READONLY, "The delimiter as a unicode string."},
 	{"attributes", T_OBJECT, offsetof(ligolw_RowDumper, attributes), READONLY, "In-order tuple of attribute names as strings."},
-	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of unicode format strings."},
+	{"formats", T_OBJECT, offsetof(ligolw_RowDumper, formats), READONLY, "In-order tuple of row element format functions."},
 	{"iter", T_OBJECT, offsetof(ligolw_RowDumper, iter), 0, "The iterator being used to provide rows for conversion."},
 	{"rows_converted", T_LONG, offsetof(ligolw_RowDumper, rows_converted), 0, "Count of rows converted."},
 	{"tokens", T_OBJECT, offsetof(ligolw_RowDumper, tokens), READONLY, "In-order tuple of unicode tokens from most recently converted row."},
@@ -272,7 +272,7 @@ PyTypeObject ligolw_RowDumper_Type = {
 ">>> rows[0].status = \"bad\"\n" \
 ">>> rows[1].status = \"bad\"\n" \
 ">>> rows[2].status = \"good\"\n" \
-">>> rowdumper = RowDumper((\"snr\", \"status\"), (\"%.16g\", \"\\\"%s\\\"\"))\n" \
+">>> rowdumper = RowDumper((\"snr\", \"status\"), (\"%.16g\".__mod__, \"\\\"%s\\\"\".__mod__))\n" \
 ">>> for line in rowdumper.dump(rows):\n" \
 "...     print line\n" \
 "... \n" \
