@@ -277,7 +277,7 @@ if opts.cache_file  is not None:
     slideFiles = cache_slidefilelist
     if not len(cache_slidefilelist):
       print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
-      sys.exit(1)
+      sys.exit(0)
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_slidefilelist)) + ' files having the pattern '+opts.slide_pattern)
 
@@ -287,7 +287,7 @@ if opts.cache_file  is not None:
     injFiles = cache_injfilelist
     if not len(cache_injfilelist):
       print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.inj_pattern + " description"
-      sys.exit(1)
+      sys.exit(0)
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_injfilelist)) + ' files having the pattern '+opts.inj_pattern)
 

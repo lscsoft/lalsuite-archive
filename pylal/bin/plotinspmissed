@@ -406,7 +406,7 @@ if opts.cache_file:
       print file
   if len(injFiles) == 0:
     print >>sys.stderr, "no found files match sieve pattern"
-    sys.exit(1)
+    sys.exit(0)
   
 else:
 
