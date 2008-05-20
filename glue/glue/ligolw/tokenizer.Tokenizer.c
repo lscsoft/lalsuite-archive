@@ -225,8 +225,6 @@ static const Py_UNICODE *pyunicode_strchr(const Py_UNICODE *s, Py_UNICODE c)
 
 static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable_characters, Py_UNICODE escape_character)
 {
-	/* FIXME: disabled until agreed upon */
-#if 0
 	Py_UNICODE *start = s;
 	int escaped = 0;
 
@@ -244,7 +242,6 @@ static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable
 		(*end)--;
 		escaped = 0;
 	}
-#endif
 
 	return 0;
 }

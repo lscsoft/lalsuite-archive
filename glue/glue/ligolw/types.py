@@ -91,10 +91,8 @@ TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
 Types = StringTypes + IntTypes + FloatTypes + TimeTypes
 
 
-# FIXME:  disabled until agreed upon
-#def ligolw_string_format_func(s):
-#	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
-ligolw_string_format_func = u"\"%s\"".__mod__
+def ligolw_string_format_func(s):
+	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
 FormatFunc = {
