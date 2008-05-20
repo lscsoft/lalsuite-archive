@@ -38,8 +38,7 @@ def simpleEThinca(trigger1, trigger2):
 
   # HACK
   #dend_time = numpy.sign(dend_time)*max(0.0, abs(dend_time) - light_travel_time(trigger1.ifo, trigger2.ifo))
-  #dend_time = (trigger2.end_time - trigger1.end_time) +\
-  #(trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
+  #dt = (trigger2.end_time - trigger1.end_time) + (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
   #FIX ME end_time for time slides is poorly defined, we should sort it out
   #dend_time = (trigger2.end_time_ns - trigger1.end_time_ns)*10**(-9)
 
@@ -699,7 +698,7 @@ class coincInspiralTable:
 	  # setting which dimension should be used
 	  dim_eff_snr = True
 	  dim_mchirp = True
-	  dim_ethinca = True
+	  dim_ethinca = False
 	  dim_eff_distance = True
 	  
 	  # setting scales for dimensions
@@ -707,9 +706,9 @@ class coincInspiralTable:
 	  #mchirp_scale = 0.1 
 	  ethinca_scale = 0.1
 	  eff_dist_theta_scale = 2.0*cmath.pi/float(180)
-	  eff_dist_phi_scale =  45.0*cmath.pi/float(180)
+	  eff_dist_phi_scale =  10.0*cmath.pi/float(180)
 	  mchirp_theta_scale = 2.0*cmath.pi/float(180)
-	  mchirp_phi_scale = 45.0*cmath.pi/float(180) 
+	  mchirp_phi_scale = 180.0*cmath.pi/float(180) 
 	
 	  # calculating parameters of the candidate 
 	  c_ifos,ifolist = candidate.get_ifos()
@@ -727,6 +726,9 @@ class coincInspiralTable:
 		  c_mchirp_rms, c_mchirp_theta = convert_to_polar_coord(c_ifo1.mchirp, c_ifo2.mchirp)
 		if dim_ethinca:
 		  c_ethinca = simpleEThinca(c_ifo1, c_ifo2)
+                print "eff_snr_dim:", str(c_eff_snr_ifo1), str(c_eff_snr_ifo2)
+                print "D_eff_dim:", str(c_D_eff_rms), str(c_eff_dist_theta)
+                print "mchirp_dim:", str(c_mchirp_rms), str(c_mchirp_theta)
 	  # if candidate is a triple	  
 	  if len(ifolist) == 3:
 		c_ifo1 = getattr(candidate, ifolist[0])
@@ -767,12 +769,26 @@ class coincInspiralTable:
 			  score += 1.0	
 			if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale)):
 			  score += 1.0
-			if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < epsilon_sq) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale)):
+                        #WARNING: epsilon for mchirp is hardcoded to be 0.5 
+			if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < 0.25) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale)):
 			  score += 1.0
 			if not dim_ethinca or (abs(c_ethinca - t_ethinca) < ethinca_scale):
 			  score += 1.0
 			if score == 4.0:
 			  triggers_within_epsilon.append(trig)
+                          print "candidate:" , str(c_ifo1.event_id)
+                          print "eff_snr_dim:", str(c_eff_snr_ifo1), str(c_eff_snr_ifo2)
+                          print "D_eff_dim:", str(c_D_eff_rms), str(c_eff_dist_theta)
+                          print "mchirp_dim:", str(c_mchirp_rms), str(c_mchirp_theta)
+                          print "score=", score
+                          print "trigger:", str(t_ifo1.event_id)
+                          print "eff_snr_dim:", str(t_eff_snr_ifo1), str(t_eff_snr_ifo2)
+                          print "D_eff_dim:", str(t_D_eff_rms), str(t_eff_dist_theta)
+                          print "mchirp_dim:", str(t_mchirp_rms), str(t_mchirp_theta)
+                          print "epsilon_sq=", epsilon_sq
+                          print "snr condition:", str(frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo1)), str(frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2))
+                          print "eff distance condition:", str(frac_error_sq(c_D_eff_rms, t_D_eff_rms)), str(abs(c_eff_dist_theta - t_eff_dist_theta)), str(eff_dist_theta_scale) 
+                          print "mchirp:", str(frac_error_sq(c_mchirp_rms, t_mchirp_rms)), str(abs(c_mchirp_theta - t_mchirp_theta)), str(mchirp_theta_scale) 
 			  
 		  # if candidate is a triple	  
 		  if len(ifolist) == 3:
@@ -796,7 +812,8 @@ class coincInspiralTable:
 			  score += 1.0	
 			if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale) and (abs(c_eff_dist_phi - t_eff_dist_phi) < eff_dist_phi_scale)):
 			  score += 1.0
-			if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < epsilon_sq) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale) and (abs(c_mchirp_phi - t_mchirp_phi) < mchirp_phi_scale)):
+                        #WARNING: epsilon for mchirp is hardcoded to be 0.5
+			if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < 0.25) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale) and (abs(c_mchirp_phi - t_mchirp_phi) < mchirp_phi_scale)):
 			  score += 1.0
 			if not dim_ethinca or ((abs(c_ethinca_12 - t_ethinca_12) < ethinca_scale) and (abs(c_ethinca_13 - t_ethinca_13) < ethinca_scale) and (abs(c_ethinca_23 - t_ethinca_23) < ethinca_scale)):
 			  score += 1.0
