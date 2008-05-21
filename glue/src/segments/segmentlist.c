@@ -215,8 +215,7 @@ static PyObject *make_segment(PyObject *lo, PyObject *hi)
 
 static int pylist_extend(PyListObject *l, PyObject *v)
 {
-#if 0
-	/* faster version Python 2.4 and later */
+#if (PY_MAJOR_VERSION >= 2) && (PY_MINOR_VERSION >= 4)
 	PyObject *result = _PyList_Extend(l, v);
 #else
 	PyObject *result = PyObject_CallMethod((PyObject *) l, "extend", "O", v);
