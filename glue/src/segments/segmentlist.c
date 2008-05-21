@@ -504,9 +504,22 @@ static PyObject *intersects_segment(PyObject *self, PyObject *other)
 
 static int __contains__(PyObject *self, PyObject *other)
 {
-	int i = bisect_left(self, other, -1, -1);
+	int i;
 	int result;
 
+	if(PyObject_TypeCheck(other, self->ob_type)) {
+		for(i = 0; i < PyList_GET_SIZE(other); i++) {
+			PyObject *seg = PyList_GET_ITEM(other, i);
+			Py_INCREF(seg);
+			result = __contains__(self, seg);
+			Py_DECREF(seg);
+			if(result <= 0)
+				return result;
+		}
+		return 1;
+	}
+
+	i = bisect_left(self, other, -1, -1);
 	if(i < 0)
 		/* error */
 		return i;
