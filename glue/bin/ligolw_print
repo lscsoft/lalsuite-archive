@@ -61,21 +61,19 @@ from glue.ligolw import utils
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [url [url ...]]",
-		description = "%prog prints the contents of table elements from a LIGO Light Weight XML files to stdout in delimited ASCII format.  In addition to standard files, the program can read from many common URLs such as http:// and ftp://.  Any file name or URL that ends in \".gz\" is assumed to be gzip-compressed, and will be decompressed on input.  If no file names or URLs are given, then input is read from stdin."
+		usage = "%prog [options] [url ...]",
+		description = "Prints the contents of table elements from one or more LIGO Light Weight XML files to stdout in delimited ASCII format.  In addition to regular files, the program can read from many common URLs such as http:// and ftp://.  Any filename or URL that ends in \".gz\" is assumed to be gzip-compressed, and will be decompressed on input.  If no filenames or URLs are given, then input is read from stdin."
 	)
-	parser.add_option("-i", "--input-cache", metavar = "name", action = "append", help = "get URLs from the LAL cache file;  can be provided multiple times to name several caches to iterate over")
-	parser.add_option("-c", "--column", metavar = "name", action = "append", help = "print only the contents of the given column;  can be provided multiple times to print multiple columns (default is to print all columns from each table)")
-	parser.add_option("-d", "--delimiter", metavar = "string", default = ",", help = "delimit output with the given string (default is \",\")")
-	parser.add_option("-r", "--rows", metavar = "rowspec", default = ":", help = "print rows in the given range(s);  the format is first:last[,first:last,...] where if the start or stop boundary of a individual range is omited it means the first or last row in the table (default is \":\", or to print all rows)")
-	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "dump rows from the given table;  can be provided multiple times to dump rows from multiple tables (default is to dump the contents of all tables)")
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
+	parser.add_option("-i", "--input-cache", metavar = "name", action = "append", default = [], help = "Get URLs from the LAL cache file.  Can be provided multiple times to name several caches to iterate over.")
+	parser.add_option("-c", "--column", metavar = "name", action = "append", help = "Print only the contents of the given column.  Can be provided multiple times to print multiple columns.  The default is to print all columns from each table.")
+	parser.add_option("-d", "--delimiter", metavar = "string", default = ",", help = "Delimit output with the given string.  The default is \",\".")
+	parser.add_option("-r", "--rows", metavar = "rowspec", default = ":", help = "Print rows in the given range(s).  The format is first:last[,first:last,...].  Rows are numbered from 0.  A single first:last pair requests rows in the range [first, last).  If the first or last value of a pair is omited it means 0 or infinity respectively.  The default is \":\", or to print all rows.")
+	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "Dump rows from this table.  Can be provided multiple times to dump rows from multiple tables.  The default is to dump the contents of all tables.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, urls = parser.parse_args()
 
 	# add urls from cache files
-	if options.input_cache:
-		for cache in options.input_cache:
-			urls += [c.url for c in map(CacheEntry, file(cache))]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
 
 	# strip table names
 	if options.table:
@@ -99,6 +97,7 @@ def parse_command_line():
 # =============================================================================
 #
 
+
 #
 # Enable column interning
 #
@@ -115,11 +114,11 @@ table.RowBuilder = table.InterningRowBuilder
 #
 
 
-def ContentHandler(doc):
+def ContentHandler(xmldoc):
 	if options.table:
-		return ligolw.PartialLIGOLWContentHandler(doc, lambda name, attrs: (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in options.table))
+		return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in options.table))
 	else:
-		return ligolw.LIGOLWContentHandler(doc)
+		return ligolw.LIGOLWContentHandler(xmldoc)
 
 
 utils.ContentHandler = ContentHandler
@@ -159,10 +158,10 @@ options, urls = parse_command_line()
 
 
 for url in urls:
-	doc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"))
+	xmldoc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"))
 	table.InterningRowBuilder.strings.clear()
-	for table_elem in doc.getElements(lambda e: (e.tagName == ligolw.Table.tagName)):
+	for table_elem in xmldoc.getElements(lambda e: (e.tagName == ligolw.Table.tagName)):
 		for n, row in enumerate(table_elem):
 			if n in options.rows:
 				print row_string(table_elem, row)
-	doc.unlink()
+	xmldoc.unlink()
