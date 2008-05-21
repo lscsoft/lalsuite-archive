@@ -2031,7 +2031,8 @@ for ifos in ifo_coincs:
       
         sire_segments_individually(analyzed_coinc_data[ifos][ifo], sire_job, 
               dag, opts.sire_inspiral_veto, opts.inspiral_veto, ifo, 
-              inj_file = inj_file, usertag = usertag, ifotag="SECOND_" + ifo)
+              inj_file = inj_file, usertag = usertag, 
+              ifotag="SNGL_SECOND_" + ifo)
 
       print "done"
 
@@ -2130,7 +2131,7 @@ for ifos in ifo_coincs:
           if ifo in ifos: 
             sire_nodes = sire_segments_individually(coire2_slide_nodes[ifos], 
                 sire_job, dag, opts.sire_second_coinc, opts.coire_second_coinc,
-                ifo, inj_file = inj_file, ifotag="SECOND_SLIDE_" + ifos, 
+                ifo, inj_file = inj_file, ifotag="SLIDE_SECOND_" + ifos, 
                 usertag=usertag)
 
             if len(sire_nodes):
