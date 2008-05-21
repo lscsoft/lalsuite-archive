@@ -607,9 +607,6 @@ if opts.plotinspinj:
       pattern_dict = determine_sieve_patterns(cp, this_section, "SECOND", 
           input_user_tag)
       for opt, val in pattern_dict.iteritems():
-        val = val.replace("CAT_4","")
-        val = val.replace("CAT_2","")
-        val = val.replace("CAT_3","")
         plotinspinj_jobs[ifo + "SECOND"].add_opt(opt, val)
       plotinspinj_jobs[ifo + "SECOND"].add_opt("ifo-times", ifo)
       plotinspinj_jobs[ifo + "SECOND"].add_opt("ifo-tag", "SECOND_" + ifo)
@@ -634,9 +631,6 @@ if opts.plotsnrchi:
       pattern_dict = determine_sieve_patterns(cp, this_section, "", 
           input_user_tag)
       for opt, val in pattern_dict.iteritems():
-        val = val.replace("CAT_4","")
-        val = val.replace("CAT_2","")
-        val = val.replace("CAT_3","")
         plotsnrchi_jobs[ifo].add_opt(opt, val)
       plotsnrchi_jobs[ifo].set_sub_file( basename + '.plotsnrchi_SECOND_' + ifo + subsuffix )
 
