@@ -863,7 +863,7 @@ class segmentlistdict(dict):
 	def __init__(self, *args):
 		dict.__init__(self, *args)
 		self.offsets = _offsets(self)
-		if args and isinstance(args[0], segmentlistdict):
+		if args and isinstance(args[0], self.__class__):
 			dict.update(self.offsets, args[0].offsets)
 
 	def copy(self):
