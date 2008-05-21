@@ -271,7 +271,7 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
           + missedFile
       print "Not analyzing %d s, representing %.2f percent of time" %  \
          (missedSegs.__abs__(),
-         100. * missedSegs.__abs__() / analyzedSegs.__abs__() )
+         100. * missedSegs.__abs__() / max(analyzedSegs.__abs__(), 0.1) )
 
     else: analyzedSegs = sciSegs
 
