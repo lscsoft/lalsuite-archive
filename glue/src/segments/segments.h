@@ -18,6 +18,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+
 /*
  * ============================================================================
  *
@@ -26,10 +27,13 @@
  * ============================================================================
  */
 
+
 #ifndef __SEGMENTS_H__
 #define __SEGMENTS_H__
 
+
 #include <Python.h>
+
 
 #define MODULE_NAME "glue.__segments"
 
@@ -47,6 +51,7 @@
  * Structure
  */
 
+
 typedef struct {
 	PyObject_HEAD
 } segments_Infinity;
@@ -56,12 +61,14 @@ typedef struct {
  * Type
  */
 
+
 extern PyTypeObject segments_Infinity_Type;
 
 
 /*
  * Pre-allocated instances
  */
+
 
 extern segments_Infinity *segments_PosInfinity;
 extern segments_Infinity *segments_NegInfinity;
@@ -87,6 +94,7 @@ typedef PyTupleObject segments_Segment;
  * Type
  */
 
+
 extern PyTypeObject segments_Segment_Type;
 PyObject *segments_Segment_New(PyTypeObject *, PyObject *, PyObject *);
 
@@ -104,12 +112,14 @@ PyObject *segments_Segment_New(PyTypeObject *, PyObject *, PyObject *);
  * Structure
  */
 
+
 typedef PyListObject segments_SegmentList;
 
 
 /*
  * Type
  */
+
 
 extern PyTypeObject segments_SegmentList_Type;
 
