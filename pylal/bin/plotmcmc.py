@@ -144,7 +144,7 @@ as.vector(as.matrix(input[,44:50]))), dim=c(nrow(input[,4:10]),7,6))\n")
 file.write("colnames(post) <- colnames(input[,4:10])\n\n")
 
 file.write("# enter injected or inspiral parameters\n")
-file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= 1, \"loglikeli\"= 1" + ")\n")
+file.write("injpar <- c(\"mc\"=" + opts.reference_mchirp + ",\"eta\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= NA, \"loglikeli\"= NA" + ")\n")
 file.write("injpar[\"tc\"] <- injpar[\"tc\"] %% 100\n\n")
 
 file.write("# execute the \"mcmcsummary\" code:\n")
