@@ -76,33 +76,6 @@ def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="", user_t
     suffix = ""
   return prefix, suffix
    			
-def false_alarm_prob(candidate, backgroundTriggers, Nslides, epsilon):
-  '''
-  Return false alarm probability of a candidate.
-  @param candidate: a row of a CoincInspiralTable that represents a coincidence (candidate) for which
-  the false alarm probability should be calculated.
-  @param backgroundTriggers: an instance of CoincInspiralTable() class that contains the background coincs.
-  @param Nslides: number of timeslides performed.
-  @param epsilon: parameter that defines coarse-graining (binning) of the parameter space. More precisely, 
-  it is the radius of the hyper-ball in the paramater space centered  at  the candidate.
-  ''' 
-  c_ifos,ifolist=candidate.get_ifos()
-  # calculating the false alarm probability
-  slide_array=numpy.zeros(2*Nslides)
-  slides_within_epsilon = backgroundTriggers.getTriggersWithinEpsilon(candidate,epsilon)
-
-  for slide in range(1, Nslides+1):
-	#slideTrigger_forward = CoincInspiralUtils.coincInspiralTable()
-	#slideTriggers_backward = CoincInspiralUtils.coincInspiralTable()
-	slideTriggers_forward = slides_within_epsilon.getslide(slide)
-	slideTriggers_backward = slides_within_epsilon.getslide(-slide)
-	if len(slideTriggers_forward) >= 1:
-	  slide_array[slide - 1] = 1.0
-	if len(slideTriggers_backward) >= 1:
-	  slide_array[Nslides-1+slide] = 1.0
-
-  FalseAlarmProb = sum(slide_array)/float(2*Nslides)
-  return FalseAlarmProb
 ################################################################################
 # Main program.
 ################################################################################
@@ -128,8 +101,10 @@ parser.add_option("","--missed-injections-glob",action="store",type="string",\
 		
 parser.add_option("-c","--candidate-events-cache-file",action="store",type="string",\
     default=None, metavar="CANDIDATEEVENTSCACHEFILE",help="name of the cache file (including the path) that points to thinca (coire) files containing candidate events for which the likelihood is going to be calculated " )
-parser.add_option("-I","--background-foreground-cache-files",action="store",type="string",\
-    default=None, metavar="INJECTIONCACHEFILE",help="names of the cache files (including the path) separated by commas that points to thinca (coire) files that are going to be used to estimate the background/foregorund (timeslides/injections) " )
+parser.add_option("","--background-cache-files",action="store",type="string",\
+    default=None, help="names of the cache files (including the path) separated by commas that points to thinca (coire) files that are going to be used to estimate the background (timeslides) " )
+parser.add_option("","--foreground-cache-files",action="store",type="string",\
+    default=None, help="names of the cache files (including the path) separated by commas that points to thinca (coire) files that are going to be used to estimate the foregorund (injections) " )	
 parser.add_option("","--candidate-events-pattern",\
     default="", metavar="CANDIDATEEVENTSPATTERN", help="the candidate events files pattern the corresponding cache file will be seived with.")
 parser.add_option("","--background-pattern",\
@@ -165,9 +140,42 @@ parser.add_option("-v","--verbose",action="store_true",\
 parser.add_option("-S","--statistic",action="store",default='snr', type="string",\
     help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
 
-parser.add_option("-e","--epsilon",action="store",type="float",\
-    default=0.3, metavar=" EPSILON", help="radius of the hypersphere in the parameter space that defines closeness of events" )
+parser.add_option("","--eff-snr-epsilon",action="store",type="float",\
+    default=0.2, help="allowed fractional error in effective snr" )
+	
+parser.add_option("","--eff-dist-epsilon",action="store",type="float",\
+    default=0.2, help="allowed fractional error in rms effective distance" )
+	
+parser.add_option("","--mchirp-epsilon",action="store",type="float",\
+    default=0.5, help="allowed fractional error in chirp mass" )
+	
+parser.add_option("","--eff-dist-theta-scale",action="store",type="float",\
+    default=0.03490, help="allowed absolute error in effective distance theta angle")
 
+parser.add_option("","--eff-dist-phi-scale",action="store",type="float",\
+    default=0.17453, help="allowed absolute error in effective distance phi angle")
+	
+parser.add_option("","--mchirp-theta-scale",action="store",type="float",\
+    default=0.03490, help="allowed absolute error in chirp mass theta angle")
+  
+parser.add_option("","--mchirp-phi-scale",action="store",type="float",\
+    default=3.14159, help="allowed absolute error in chirp mass phi angle")
+
+parser.add_option("","--ethinca-scale",action="store",type="float",\
+    default=0.1, help="allowed absolute error in e-thinca parameter")
+	
+parser.add_option("","--dim-eff-snr", action="store",type="int",\
+    default = 1, help="binary parameter that tunrns on/off effective snr dimension, 0 is off, 1 is on" )
+	
+parser.add_option("","--dim-eff-distance", action="store",type="int",\
+    default = 1, help="binary parameter that tunrns on/off effective distance dimension, 0 is off, 1 is on" )
+	
+parser.add_option("","--dim-mchirp", action="store",type="int",\
+    default = 1, help="binary parameter that tunrns on/off chirp mass dimension, 0 is off, 1 is on" )
+	
+parser.add_option("","--dim-ethinca", action="store",type="int",\
+    default = 1, help="binary parameter that tunrns on/off e-thinca dimension, 0 is off, 1 is on" )
+		
 parser.add_option("-N","--num-slides", action="store",type="int",\
     default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
 
@@ -195,16 +203,19 @@ if len(CandidateEventsFiles) < 1:
 
 
 
-if opts.background_foreground_cache_files:
+if opts.background_cache_files and opts.foreground_cache_files:
   BackgroundFiles = []
   FoundInjectionsFiles = []
   MissedInjectionsFiles = []
-  BackgroundForegroundCacheFiles = opts.background_foreground_cache_files.split(",")
-  for cachefile in BackgroundForegroundCacheFiles:  
-    BackgroundForegroundCache = lal.Cache.fromfile(open(cachefile))
-    BackgroundFiles += BackgroundForegroundCache.sieve(description = opts.background_pattern).checkfilesexist()[0].pfnlist()
-    FoundInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[0].pfnlist()
-    MissedInjectionsFiles += BackgroundForegroundCache.sieve(description = opts.missed_injections_pattern).checkfilesexist()[0].pfnlist() 	
+  BackgroundCacheFiles = opts.background_cache_files.split(",")
+  ForegroundCacheFiles = opts.foreground_cache_files.split(",")
+  for cachefile in BackgroundCacheFiles:  
+    BackgroundCache = lal.Cache.fromfile(open(cachefile))
+    BackgroundFiles += BackgroundCache.sieve(description = opts.background_pattern).checkfilesexist()[0].pfnlist()
+  for cachefile in ForegroundCacheFiles:  
+    ForegroundCache = lal.Cache.fromfile(open(cachefile))
+    FoundInjectionsFiles += ForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[0].pfnlist()
+    MissedInjectionsFiles += ForegroundCache.sieve(description = opts.missed_injections_pattern).checkfilesexist()[0].pfnlist() 	
 elif opts.background_glob and opts.found_injections_glob and opts.missed_injections_glob:
   BackgroundFiles = []
   FoundInjectionsFiles = []
@@ -340,11 +351,24 @@ for file in BackgroundFiles:
   if SlidesCoincTriggers:
     Ntotal_noise += len(SlidesCoincTriggers)
   i = 0
+  # looping over candidate events and calculating the false alarm probability
   for candidate in CandidateEventsCoincTriggers:
-    FAProb = false_alarm_prob(candidate, SlidesCoincTriggers, opts.num_slides, opts.epsilon)
+    c_ifos,ifolist=candidate.get_ifos()
+    slides_array=numpy.zeros(2*opts.num_slides)
+    slides_within_epsilon = SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
+	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale)
+    for slide in range(1, opts.num_slides + 1):
+	  slideTriggers_forward = slides_within_epsilon.getslide(slide)
+	  slideTriggers_backward = slides_within_epsilon.getslide(-slide)
+	  if len(slideTriggers_forward) >= 1:
+	    slides_array[slide - 1] = 1.0
+	  if len(slideTriggers_backward) >= 1:
+	    slides_array[opts.num_slides -1 + slide] = 1.0
+    FAProb = sum(slides_array)/float(2*opts.num_slides)
     FAProduct[i] = FAProduct[i] * (1.0 - FAProb)
     # accumulating statistic for Background Fraction 
-    Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
+	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
     i += 1
 FalseAlarmProb = 1.0 - FAProduct 
   
@@ -369,7 +393,8 @@ for file in FoundInjectionsFiles:
   i = 0
   for candidate in CandidateEventsCoincTriggers:
     # accumulating statistic for Detection Probability
-    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon))
+    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
+	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
     i += 1
 	
 Ntotal_missed_injections = 0
