@@ -217,6 +217,7 @@ InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+comments = ""
 # -- set the proper color code
 ifocolors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -268,17 +269,46 @@ if opts.cache_file is not None:
 trigFiles = []
 if opts.inspiral_glob is not None:
   trigFiles.extend(glob.glob(opts.inspiral_glob))
+  if len(trigFiles == 0):
+    err_msg = "The glob for " + opts.inspiral_glob + " returned no files" 
+    print >>sys.stderr, err_msg
+    comments += InspiralUtils.message(opts, err_msg)
 if opts.trig_pattern is not None:
   trig_cache = cache.sieve(description=opts.trig_pattern)
   trigFiles.extend(trig_cache.checkfilesexist()[0].pfnlist())
+  if len(trigFiles) == 0:
+    err_msg = opts.cache_file + " contains no files with " + \
+        opts.trig_pattern + " description"
+    print >>sys.stderr, err_msg
+    comments += InspiralUtils.message(opts, err_msg)
 
 if len(trigFiles) == 0:
-  print >>sys.stderr, "There are no files in your glob and/or cache or they do not exist."
-  sys.exit(1)
-if opts.verbose:
-  print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
+  # give up and exit
+  if opts.enable_output is True: 
+    html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList, comment=comments)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    if opts.show_plot:
+      sys.exit(1)
+    else:
+      sys.exit(0)
 
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
+if opts.verbose:
+  print >>sys.stdout, "There are " + str(len(trigFiles))+ \
+      " files in your glob and/or lal cache"
+
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
+    verbose=opts.verbose)
+if inspTriggers is None:
+  err_msg = "There were no inspiral triggers in the files read in," + \
+      " no plots generated"
+  print >>sys.stderr, err_msg
+  comments += InspiralUtils.message(opts, err_msg)
+  if opts.enable_output is True: 
+    html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList, comment=comments)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    sys.exit(0)
 
 # read in the template bank if supplied
 bank_files = []
@@ -392,8 +422,8 @@ if opts.snr_time is True:
                                    - int(opts.add_vertical_line)
       
     viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds',plot_sym,\
-		x_min=None, x_max=None, \
-		y_min=opts.threshold, y_max=opts.y_max)
+    x_min=None, x_max=None, \
+    y_min=opts.threshold, y_max=opts.y_max)
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear',plot_sym,\
                    y_min=opts.threshold, y_max=opts.y_max, )
