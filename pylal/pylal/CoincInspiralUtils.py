@@ -277,6 +277,16 @@ class coincInspiralTable:
       if slide_num > 5000: slide_num = 5000 - slide_num
       return slide_num
     slide_num = property(fget=_get_slide_num)
+
+
+    def get_time( self ):
+      ifolist = ['G1','H1','H2','L1','T1','V1']
+      for ifo in ifolist:
+        if hasattr(self,ifo):
+          return getattr(self, ifo).end_time+getattr(self, ifo).end_time_ns*1.0e-9
+
+      print >>sys.stderr, "this coincident trigger does not contain any single trigger. This is weird."
+      sys.exit(1)
   
   def __init__(self, inspTriggers = None, stat = None):
     """
@@ -403,47 +413,87 @@ class coincInspiralTable:
         
     return ifoTrigs
 
-
-  def cluster(self, cluster_window):
+  def cluster_core(self, cluster_window):
     """
     Return the clustered triggers, returning the one with the largest stat in 
-    each fixed cluster_window
+    each fixed cluster_window, exactly as in lalapps_coire
+    (in package/tools/CoincInspiralUtils.c:XLALClusterCoincInspiralTable)
     
     @param cluster_window: length of time over which to cluster (seconds)
     """
-    ifolist = ['G1','H1','H2','L1','T1','V1']
-    # find times when there is a trigger
-    cluster_times = []
-    for coinc in self:
-      for ifo in ifolist:
-        if hasattr(coinc,ifo):
-          end_time = getattr(coinc,ifo).end_time
-          break
-      cluster_times.append(cluster_window * (end_time//cluster_window) )
+
+    # first we need to time-sort the coincidences
+    stat_list = [ (coinc.get_time(), coinc) for coinc in self.rows ]
+    stat_list.sort()
+    self.rows = [coinc for (t,coinc) in stat_list]
+
+    # initialize some indices (could work with just one)
+    # but with two its easier to read
+    thisCoinc = 0
+    nextCoinc = 1
+    while nextCoinc<len(self.rows):
+
+      # get the time for both indices
+      thisTime = self.rows[thisCoinc].get_time()
+      nextTime = self.rows[nextCoinc].get_time()
+
+      # are the two coincs within the time-window?
+      if nextTime-thisTime<cluster_window:
+
+        # get the statistic values
+        thisStat = self.rows[thisCoinc].stat
+        nextStat = self.rows[nextCoinc].stat
+
+        # and remove the coinc which has the lower coinc value
+        if (nextStat>thisStat):          
+          self.rows.pop(thisCoinc)      
+        else:
+          self.rows.pop(nextCoinc)
+
+      else:
+        # the two coincidences are NOT in the time-window
+        # so must increase index
+        thisCoinc+=1
+        nextCoinc+=1
+        
+
+  def cluster(self, cluster_window, numSlides = None):
+    """
+    New clustering method working the same way as the clustering method
+    used in lalapps_coire
+    (in package/tools/CoincInspiralUtils.c:XLALClusterCoincInspiralTable)
+
+    @param cluster_window: length of time over which to cluster (seconds)
+    @param numSlides: number of slides if this are time-slide triggers
+    """
     
-    cluster_triggers = coincInspiralTable(stat = self.stat)
-    cluster_triggers.sngl_table = self.sngl_table
-    for cluster_time in glue.iterutils.uniq(cluster_times):
-      # find all triggers at that time
-      cluster = coincInspiralTable()
-      for coinc in self:
-        for ifo in ifolist:
-          if hasattr(coinc,ifo):
-            end_time = getattr(coinc,ifo).end_time
-            break
-        if ((end_time - cluster_time) < cluster_window):   
-          cluster.append(coinc)
-
-      # find loudest trigger in time and append
-      loudest_stat = 0
-      for trigger in cluster:
-        if trigger.stat > loudest_stat:
-          loudest_trig = trigger
-          loudest_stat = trigger.stat
-
-      cluster_triggers.append(loudest_trig)
+    if not numSlides:
       
-    return cluster_triggers 
+      # just cluster them
+      self.cluster_core(cluster_window)
+
+    else:
+      # create a new coincInspiralTable
+      cluster = coincInspiralTable()
+
+      # need to cluster all triggers from each slide individually
+      for slide in range(-numSlides, numSlides+1):
+
+        # get the coincs belonging to slide 'slide'
+        slideCoinc = self.getslide( slide )
+
+        # and cluster these
+        slideCoinc.cluster_core( cluster_window )
+
+        # add the clustered coincs to 'cluster'
+        cluster.extend( slideCoinc )
+
+      # replace the clustered triggers
+      self.rows = cluster.rows
+
+    # return this object itself
+    return self
+      
   
   def add_sim_inspirals(self,sim_inspiral):
     """
@@ -563,8 +613,12 @@ class coincInspiralTable:
     ethinca = numpy.zeros(len(self), dtype=float)
     for i,coinc in enumerate(self):
       if hasattr(coinc, ifos[0]) and hasattr(coinc, ifos[1]):
-        ethinca[i] = XLALCalculateEThincaParameter(getattr(coinc, ifos[0]),
-                                                   getattr(coinc, ifos[1]))
+        try: 
+          ethinca[i] = XLALCalculateEThincaParameter(getattr(coinc, ifos[0]),
+                                                     getattr(coinc, ifos[1]))
+        except ValueError:
+          ethinca[i] = 2.0
+          
     return ethinca
 
   def getSimpleEThincaValues(self, ifos):
