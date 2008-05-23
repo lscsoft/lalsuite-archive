@@ -111,6 +111,11 @@ def write_html_output(opts, args, fnameList, tagLists, \
     page.addheader("<%method cvsid> $Id$ </%method>")
   else:
     page.h1(opts.name + " results")
+    try:
+      if opts.user_tag:
+        page.p("user-tag: " + opts.user_tag)
+    except NameError:
+      pass
     page.hr()
 
   # -- filename
@@ -277,7 +282,7 @@ def initialise(opts, name, version):
     if opts.ifo_times:
       prefix = opts.ifo_times +"-"+ prefix
   except:
-     print >> sys.stderr, "--ifo-time option not implemented in the "+name +"executable. skipping..."
+     print >> sys.stderr, "--ifo-time option not implemented in the "+name +" executable. skipping..."
      pass
   try:
     if opts.ifo_tag:
