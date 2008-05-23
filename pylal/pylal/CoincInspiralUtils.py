@@ -284,9 +284,8 @@ class coincInspiralTable:
       for ifo in ifolist:
         if hasattr(self,ifo):
           return getattr(self, ifo).end_time+getattr(self, ifo).end_time_ns*1.0e-9
-
-      print >>sys.stderr, "this coincident trigger does not contain any single trigger. This is weird."
-      sys.exit(1)
+      raise ValueError, "This coincident trigger does not contain any "\
+            "single trigger.  This should never happen."
   
   def __init__(self, inspTriggers = None, stat = None):
     """
