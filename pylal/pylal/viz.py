@@ -1221,10 +1221,13 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     if len(foundVal):
       step = (max(foundVal) - min(foundVal)) /nbins
       bins = arange(min(foundVal),max(foundVal), step )
+      if step == 0:
+        bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
     else:
       step = (max(missedVal) - min(missedVal)) /nbins
       bins = arange(min(missedVal),max(missedVal), step )
-   
+      if step == 0:
+        bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
     fig_num = gcf().number
     figure(100)
     [num_found,binsf,stuff] = hist(foundVal, bins)
