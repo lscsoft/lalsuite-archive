@@ -219,6 +219,7 @@ from pylal import viz
 ############
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+comments = ""
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -245,8 +246,19 @@ else:
   sys.exit(1)
 
 if not foundFiles:
-  print >>sys.stdout, "List of found files for given pattern is empty"
-  sys.exit(0)
+  # give up and exit
+  err_msg = "List of found files for given pattern is empty"
+  print >>sys.stderr, err_msg
+  comments += InspiralUtils.message(opts, err_msg)
+  if opts.enable_output is True: 
+    html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList, comment=comments)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+  if opts.show_plot:
+    sys.exit(1)
+  else:
+    sys.exit(0)
+
 
 if opts.missed_glob:
    missedFiles = glob.glob(opts.missed_glob)
