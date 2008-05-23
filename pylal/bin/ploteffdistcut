@@ -321,7 +321,6 @@ for file in injFiles:
   injTriggers.extend(injTrig)
 
 
-print slideFiles
 for file in slideFiles:
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], verbose=opts.verbose)
 
