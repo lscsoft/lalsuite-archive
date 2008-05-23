@@ -729,7 +729,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
                (2.0*opts.num_slides*slideTimeAnalyzed)
       else:
         normalization = 1.0
-        n = len(x_list)
+      n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger
         y_norm = zeros(len(y),float64)
