@@ -972,6 +972,130 @@ class coincInspiralTable:
         #  triggers_within_epsilon.append(trig)
 
 	return triggers_within_epsilon
+  
+  def getTriggersWithinEpsilonBox(self, candidate, dim_eff_snr, dim_mchirp, dim_ethinca, dim_eff_distance, eff_snr_epsilon, eff_dist_epsilon, mchirp_epsilon,\
+	eff_dist_theta_scale, eff_dist_phi_scale, mchirp_theta_scale, mchirp_phi_scale, ethinca_scale):
+	""" 
+	Returns triggers that lie in the parameter region centered around the candidate. 
+	Region is defined by the set of conditions. 
+	"""
+	triggers_within_epsilon = coincInspiralTable()
+	eff_snr_epsilon_sq = eff_snr_epsilon * eff_snr_epsilon
+	eff_dist_epsilon_sq = eff_dist_epsilon * eff_dist_epsilon
+	mchirp_epsilon_sq = mchirp_epsilon * mchirp_epsilon
+	# setting which dimension should be used
+	#dim_eff_snr = True
+	#dim_mchirp = True
+	#dim_ethinca = False
+	#dim_eff_distance = True
+	
+	# setting scales for dimensions
+	#eff_snr_scale = 1.0
+	#mchirp_scale = 0.1 
+	#ethinca_scale = 0.1
+	#eff_dist_theta_scale = 2.0*cmath.pi/float(180)
+	#eff_dist_phi_scale =  10.0*cmath.pi/float(180)
+	#mchirp_theta_scale = 2.0*cmath.pi/float(180)
+	#mchirp_phi_scale = 180.0*cmath.pi/float(180) 
+  
+	# calculating parameters of the candidate 
+	c_ifos,ifolist = candidate.get_ifos()
+	
+	# if candidate is  a double 
+	if len(ifolist) == 2:
+	  c_ifo1 = getattr(candidate, ifolist[0])
+	  c_ifo2 = getattr(candidate, ifolist[1])
+	  if dim_eff_snr:
+		c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
+		c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
+	  if dim_eff_distance:
+		c_D_eff_rms,c_eff_dist_theta = convert_to_polar_coord(c_ifo1.eff_distance, c_ifo2.eff_distance)
+	  if dim_mchirp:
+		c_mchirp_rms, c_mchirp_theta = convert_to_polar_coord(c_ifo1.mchirp, c_ifo2.mchirp)
+	  if dim_ethinca:
+		c_ethinca = simpleEThinca(c_ifo1, c_ifo2)
+	# if candidate is a triple	  
+	if len(ifolist) == 3:
+	  c_ifo1 = getattr(candidate, ifolist[0])
+	  c_ifo2 = getattr(candidate, ifolist[1])
+	  c_ifo3 = getattr(candidate, ifolist[2])
+	  if dim_eff_snr:
+		c_eff_snr_ifo1 = c_ifo1.get_effective_snr()
+		c_eff_snr_ifo2 = c_ifo2.get_effective_snr()
+		c_eff_snr_ifo3 = c_ifo3.get_effective_snr()
+	  if dim_eff_distance:
+		c_D_eff_rms, c_eff_dist_theta, c_eff_dist_phi = convert_to_spherical_coord(c_ifo1.eff_distance, c_ifo2.eff_distance, c_ifo3.eff_distance)
+	  if dim_mchirp:
+		c_mchirp_rms, c_mchirp_theta, c_mchirp_phi = convert_to_spherical_coord(c_ifo1.mchirp, c_ifo2.mchirp, c_ifo3.mchirp)
+	  if dim_ethinca:
+		c_ethinca_12 = simpleEThinca(c_ifo1, c_ifo2)
+		c_ethinca_13 = simpleEThinca(c_ifo1, c_ifo3)
+		c_ethinca_23 = simpleEThinca(c_ifo2, c_ifo3)
+		
+	# loop over triggers
+	for trig in self:
+	  trig_ifos,tmplist = trig.get_ifos()
+	  if c_ifos == trig_ifos:
+	  # if candidate is  a double 
+		if len(ifolist) == 2:
+		  t_ifo1 = getattr(trig, ifolist[0])
+		  t_ifo2 = getattr(trig, ifolist[1])
+		  if dim_eff_snr:
+			t_eff_snr_ifo1 = t_ifo1.get_effective_snr()
+			t_eff_snr_ifo2 = t_ifo2.get_effective_snr()
+		  if dim_eff_distance:
+			t_D_eff_rms,t_eff_dist_theta = convert_to_polar_coord(t_ifo1.eff_distance, t_ifo2.eff_distance)
+		  if dim_mchirp:
+			t_mchirp_rms, t_mchirp_theta = convert_to_polar_coord(t_ifo1.mchirp, t_ifo2.mchirp)
+		  if dim_ethinca:
+			t_ethinca = simpleEThinca(t_ifo1, t_ifo2)
+		  score = 0.0
+		  if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo1) < eff_snr_epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < eff_snr_epsilon_sq)):
+			score += 1.0	
+		  if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < eff_dist_epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale)):
+			score += 1.0
+		  if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < mchirp_epsilon_sq) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale)):
+			score += 1.0
+		  if not dim_ethinca or (abs(c_ethinca - t_ethinca) < ethinca_scale):
+			score += 1.0
+		  if score == 4.0:
+			triggers_within_epsilon.append(trig)
+			
+		# if candidate is a triple	  
+		if len(ifolist) == 3:
+		  t_ifo1 = getattr(trig, ifolist[0])
+		  t_ifo2 = getattr(trig, ifolist[1])
+		  t_ifo3 = getattr(trig, ifolist[2])
+		  if dim_eff_snr:
+			t_eff_snr_ifo1 = t_ifo1.get_effective_snr()
+			t_eff_snr_ifo2 = t_ifo2.get_effective_snr()
+			t_eff_snr_ifo3 = t_ifo3.get_effective_snr()
+		  if dim_eff_distance:
+			t_D_eff_rms, t_eff_dist_theta, t_eff_dist_phi = convert_to_spherical_coord(t_ifo1.eff_distance, t_ifo2.eff_distance, t_ifo3.eff_distance)
+		  if dim_mchirp:
+			t_mchirp_rms, t_mchirp_theta, t_mchirp_phi = convert_to_spherical_coord(t_ifo1.mchirp, t_ifo2.mchirp, t_ifo3.mchirp)
+		  if dim_ethinca:
+			t_ethinca_12 = simpleEThinca(t_ifo1, t_ifo2)
+			t_ethinca_13 = simpleEThinca(t_ifo1, t_ifo3)
+			t_ethinca_23 = simpleEThinca(t_ifo2, t_ifo3)
+		  score = 0.0
+		  if not dim_eff_snr or ((frac_error_sq(c_eff_snr_ifo1, t_eff_snr_ifo1) < eff_snr_epsilon_sq) and (frac_error_sq(c_eff_snr_ifo2, t_eff_snr_ifo2) < eff_snr_epsilon_sq) and (frac_error_sq(c_eff_snr_ifo3, t_eff_snr_ifo3) < eff_snr_epsilon_sq)):
+			score += 1.0	
+		  if not dim_eff_distance or ((frac_error_sq(c_D_eff_rms, t_D_eff_rms) < eff_dist_epsilon_sq) and (abs(c_eff_dist_theta - t_eff_dist_theta) < eff_dist_theta_scale) and (abs(c_eff_dist_phi - t_eff_dist_phi) < eff_dist_phi_scale)):
+			score += 1.0
+		  if not dim_mchirp or ((frac_error_sq(c_mchirp_rms, t_mchirp_rms) < mchirp_epsilon_sq) and (abs(c_mchirp_theta - t_mchirp_theta) < mchirp_theta_scale) and (abs(c_mchirp_phi - t_mchirp_phi) < mchirp_phi_scale)):
+			score += 1.0
+		  if not dim_ethinca or ((abs(c_ethinca_12 - t_ethinca_12) < ethinca_scale) and (abs(c_ethinca_13 - t_ethinca_13) < ethinca_scale) and (abs(c_ethinca_23 - t_ethinca_23) < ethinca_scale)):
+			score += 1.0
+		  if score == 4.0:
+			triggers_within_epsilon.append(trig)
+
+
+  	return triggers_within_epsilon
+
+
+		
+
 
   def getTriggersInSegment(self, segment):
     """
