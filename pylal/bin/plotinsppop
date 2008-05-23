@@ -85,8 +85,7 @@ parser.add_option("-X","--x-value",action="append",type="string",\
 parser.add_option("-Y","--y-value",action="append",type="string",\
     default=None, metavar=" TEXT",\
     help="variable to plot on the y-axis. Add 'LOG' at the end to make it a log  axis" )
-parser.add_option("-H","--hist",action="append",type="string",\
-    default=None, metavar=" HIST",\
+parser.add_option("-H", "--hist", action="append", default=[],
     help="column to histogram; specify multiple times for multiple "\
     "histograms. Add 'LOG' at the end to make it a log "\
     "plot.  Make 'all' or 'allLOG' to histogram all columns of numeric data." )
