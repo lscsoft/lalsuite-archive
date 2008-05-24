@@ -455,6 +455,8 @@ d->size=1000;
 d->free=0;
 d->gps=do_alloc(d->size, sizeof(*d->gps));
 d->dc_factor=1.0;
+d->dc_factor_touched=0;
+d->dc_factor_blocked=0;
 d->re=do_alloc(d->size*d->nbins, sizeof(*d->re));
 d->im=do_alloc(d->size*d->nbins, sizeof(*d->im));
 d->sft_veto=NULL;
@@ -1430,11 +1432,25 @@ if(!strncasecmp(line, "gps_stop", 8)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].gps_stop=atoll(&(line[ai]));
 	} else 
+if(!strncasecmp(line, "block_dc_factor", 15)) {
+	datasets[d_free-1].dc_factor_blocked=1;
+	if(datasets[d_free-1].dc_factor_touched) {
+		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		exit(-1);
+		}
+	} else 
 if(!strncasecmp(line, "dc_factor", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].dc_factor=atof(&(line[ai]));
+	datasets[d_free-1].dc_factor_touched=1;
 	fprintf(LOG, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
 	fprintf(stderr, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
+	if(datasets[d_free-1].dc_factor_blocked) {
+		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		exit(-1);
+		}
 	} else 
 if(!strncasecmp(line, "directory", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1712,10 +1728,17 @@ for(i=0;i<d->free;i++){
 d->expTMedian=exp(-M_LN10*2.0*d->TMedian);
 */
 
+fprintf(stderr, "%s dc_factor_blocked: %d\n", d->name, d->dc_factor_blocked);
+fprintf(LOG, "%s dc_factor_blocked: %d\n", d->name, d->dc_factor_blocked);
+fprintf(stderr, "%s dc_factor_touched: %d\n", d->name, d->dc_factor_touched);
+fprintf(LOG, "%s dc_factor_touched: %d\n", d->name, d->dc_factor_touched);
+
 fprintf(stderr, "%s SFTs veto level: %f\n", d->name, d->veto_level);
 fprintf(LOG, "%s SFTs veto level: %f\n", d->name, d->veto_level);
 fprintf(stderr, "%s SFTs veto spike level: %f\n", d->name, d->veto_spike_level);
 fprintf(LOG, "%s SFTs veto spike level: %f\n", d->name, d->veto_spike_level);
+
+
 
 count=0;
 for(i=0;i<d->free;i++)
@@ -2172,11 +2195,15 @@ for(i=0;i<d_free;i++) {
 
 	fprintf(fdst, "new_dataset \"%s\"\n", d->name);
 	fprintf(fdst, "detector \"%s\"\n\n", d->detector);
+	if(d->dc_factor_touched || d->dc_factor_blocked)fprintf(fdst, "block_dc_factor\n\n");
+
 	fprintf(fdst, "# weight %f\n", d->weight);
 	fprintf(fdst, "# firstbin %d\n", d->first_bin);
 	fprintf(fdst, "# nbins %d\n", d->nbins);
 	fprintf(fdst, "# gps_start %lld\n", d->gps[0]);
 	fprintf(fdst, "# gps_stop %lld\n\n", d->gps[d->free-1]);
+	fprintf(fdst, "# dc_factor_touched %d\n\n", d->dc_factor_touched);
+	fprintf(fdst, "# dc_factor_blocked %d\n\n", d->dc_factor_blocked);
 
 	path=do_alloc(strlen(directory)+strlen(filename)+2, 1);
 	sprintf(path, "%s/%s", directory, filename);

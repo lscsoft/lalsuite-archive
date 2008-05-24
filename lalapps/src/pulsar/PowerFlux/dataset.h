@@ -49,6 +49,8 @@ typedef struct {
 
 	/* dc factor to apply to further loaded SFTs */
 	float dc_factor;
+	int dc_factor_touched;
+	int dc_factor_blocked;
 
 	/* real and imaginary parts - they are separate to facilitate use of vectorized operations */
 	float *re; 
