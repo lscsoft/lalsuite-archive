@@ -84,6 +84,9 @@ class Bins(object):
 		self.max = max
 		self.n = n
 
+	def __len__(self):
+		return self.n
+
 	def __cmp__(self, other):
 		"""
 		Two binnings are the same if they are instances of the same
@@ -97,11 +100,11 @@ class Bins(object):
 	def __getitem__(self, x):
 		"""
 		Convert a co-ordinate into a bin index.  The co-ordinate
-		can be a single number, a Python slice instance, or a
-		glue.segments.segment instance.  The difference between
-		co-ordinate ranges given as slices and ranges given as
-		segments is that a slice is exclusive of the upper bound
-		while a segment is inclusive of the upper bound.
+		can be a single number, or a Python slice instance.  If a
+		single number is given, it is mapped to the bin in which it
+		falls.  If a slice is given, it is converted to a slice
+		whose upper and lower bounds are the bins in which the
+		input slice's upper and lower bounds fall.
 		"""
 		raise NotImplementedError
 
@@ -150,8 +153,6 @@ class LinearBins(Bins):
 		self.delta = float(max - min) / n
 
 	def __getitem__(self, x):
-		if isinstance(x, segments.segment):
-			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
@@ -203,8 +204,6 @@ class LogarithmicBins(Bins):
 		self.delta = math.log(float(max / min)) / n
 
 	def __getitem__(self, x):
-		if isinstance(x, segments.segment):
-			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
@@ -265,8 +264,6 @@ class ATanBins(Bins):
 		self.delta = 1.0 / n
 
 	def __getitem__(self, x):
-		if isinstance(x, segments.segment):
-			return slice(self[x[0]], self[x[1]] + 1)
 		if isinstance(x, slice):
 			if x.step is not None:
 				raise NotImplementedError, x
@@ -326,8 +323,6 @@ class NDBins(tuple):
 	(0, 1)
 	>>> x[1, 1:5]
 	(0, slice(0, 1, None))
-	>>> x[1, segment(1, 5)]
-	(0, slice(0, 2, None))
 	>>> x.centres()
 	(array([  5.,  13.,  21.]), array([  1.70997595,   5.,  14.62008869]))
 
@@ -405,6 +400,48 @@ class NDBins(tuple):
 		for u, l in bounds:
 			volumes = numpy.outer(volumes, u - l)
 		return volumes
+
+
+#
+# =============================================================================
+#
+#                              Segments and Bins
+#
+# =============================================================================
+#
+
+
+def bins_spanned(bins, seglist, dtype = numpy.float64):
+	"""
+	Input is a Bins subclass instance and a glue.segments.segmentlist
+	instance.  The output is an array object the length of the binning,
+	which each element in the array set to the interval in the
+	corresponding bin spanned by the segment list.
+
+	Example:
+
+	>>> from glue.segments import *
+	>>> s = segmentlist([segment(1.5, 10.333), segment(15.8, 24)])
+	>>> b = LinearBins(0, 30, 100)
+	>>> bins_spanned(b, s)
+	array([ 0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.133,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
+	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
+	        0.   ,  0.   ,  0.   ,  0.   ,  0.1  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,  0.3  ,
+	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
+	        0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,  0.   ,
+	        0.   ,  0.   ,  0.   ,  0.   ])
+	"""
+	array = numpy.zeros((len(bins),), dtype = dtype)
+	for i, (a, b) in enumerate(zip(bins.lower(), bins.upper())):
+		array[i] = abs(seglist & segments.segmentlist([segments.segment(a, b)]))
+	return array
 
 
 #
