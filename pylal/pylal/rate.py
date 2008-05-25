@@ -95,7 +95,7 @@ class Bins(object):
 		"""
 		if not isinstance(other, type(self)):
 			return -1
-		return cmp((type(self), self.min, self.max, self.n), (type(other), other.min, other.max, other.n))
+		return cmp((type(self), self.min, self.max, len(self)), (type(other), other.min, other.max, len(other)))
 
 	def __getitem__(self, x):
 		"""
@@ -161,7 +161,7 @@ class LinearBins(Bins):
 			else:
 				start = self[x.start]
 			if x.stop is None:
-				stop = self.n
+				stop = len(self)
 			else:
 				stop = self[x.stop]
 			return slice(start, stop)
@@ -169,17 +169,17 @@ class LinearBins(Bins):
 			return int(math.floor((x - self.min) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
-			return self.n - 1
+			return len(self) - 1
 		raise IndexError, x
 
 	def lower(self):
-		return self.min + self.delta * numpy.arange(0, self.n)
+		return self.min + self.delta * numpy.arange(len(self))
 
 	def centres(self):
-		return self.min + self.delta * (numpy.arange(0, self.n) + 0.5)
+		return self.min + self.delta * (numpy.arange(len(self)) + 0.5)
 
 	def upper(self):
-		return self.min + self.delta * numpy.arange(1, self.n + 1)
+		return self.min + self.delta * (numpy.arange(len(self)) + 1)
 
 
 class LogarithmicBins(Bins):
@@ -212,7 +212,7 @@ class LogarithmicBins(Bins):
 			else:
 				start = self[x.start]
 			if x.stop is None:
-				stop = self.n
+				stop = len(self)
 			else:
 				stop = self[x.stop]
 			return slice(start, stop)
@@ -220,17 +220,17 @@ class LogarithmicBins(Bins):
 			return int(math.floor(math.log(x / self.min) / self.delta))
 		if x == self.max:
 			# special "measure zero" corner case
-			return self.n - 1
+			return len(self) - 1
 		raise IndexError, x
 
 	def lower(self):
-		return self.min * numpy.exp(self.delta * numpy.arange(0, self.n))
+		return self.min * numpy.exp(self.delta * numpy.arange(len(self)))
 
 	def centres(self):
-		return self.min * numpy.exp(self.delta * (numpy.arange(0, self.n) + 0.5))
+		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 0.5))
 
 	def upper(self):
-		return self.min * numpy.exp(self.delta * numpy.arange(1, self.n + 1))
+		return self.min * numpy.exp(self.delta * (numpy.arange(len(self)) + 1))
 
 
 class ATanBins(Bins):
@@ -272,7 +272,7 @@ class ATanBins(Bins):
 			else:
 				start = self[x.start]
 			if x.stop is None:
-				stop = self.n
+				stop = len(self)
 			else:
 				stop = self[x.stop]
 			return slice(start, stop)
@@ -281,18 +281,18 @@ class ATanBins(Bins):
 		if x < 1:
 			return int(math.floor(x / self.delta))
 		# x == 1, special "measure zero" corner case
-		return self.n - 1
+		return len(self) - 1
 
 	def lower(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(0, self.n)) / self.scale + self.mid
+		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(len(self))) / self.scale + self.mid
 		x[0] = float("-inf")
 		return x
 
 	def centres(self):
-		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(0, self.n) + 0.5)) / self.scale + self.mid
+		return numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 0.5)) / self.scale + self.mid
 
 	def upper(self):
-		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * numpy.arange(1, self.n + 1)) / self.scale + self.mid
+		x = numpy.tan(-math.pi / 2 + math.pi * self.delta * (numpy.arange(len(self)) + 1)) / self.scale + self.mid
 		x[-1] = float("+inf")
 		return x
 
@@ -333,7 +333,7 @@ class NDBins(tuple):
 		tuple.__init__(self, *args)
 		self.min = tuple([b.min for b in self])
 		self.max = tuple([b.max for b in self])
-		self.shape = tuple([b.n for b in self])
+		self.shape = tuple([len(b) for b in self])
 
 	def __getitem__(self, coords):
 		"""
@@ -880,7 +880,7 @@ class BinsTable(table.Table):
 def bins_to_xml(bins):
 	"""
 	Construct a LIGO Light Weight XML table representation of the
-	rate.Bins instance bins.
+	NDBins instance bins.
 	"""
 	xml = lsctables.New(BinsTable)
 	for order, bin in enumerate(bins):
@@ -893,7 +893,7 @@ def bins_to_xml(bins):
 		}[bin.__class__]
 		row.min = bin.min
 		row.max = bin.max
-		row.n = bin.n
+		row.n = len(bin)
 		xml.append(row)
 	return xml
 
@@ -901,7 +901,7 @@ def bins_to_xml(bins):
 def bins_from_xml(xml):
 	"""
 	From the XML document tree rooted at xml, retrieve the table
-	describing a binning, and construct and return a rate.Bins object
+	describing a binning, and construct and return a rate.NDBins object
 	from it.
 	"""
 	xml = table.get_table(xml, BinsTable.tableName)
