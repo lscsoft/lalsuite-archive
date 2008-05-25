@@ -907,13 +907,15 @@ def bins_from_xml(xml):
 	xml = table.get_table(xml, BinsTable.tableName)
 	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
 	for row in xml:
+		if binnings[row.order] is not None:
+			raise ValueError, "duplicate binning for dimension %d" % row.order
 		binnings[row.order] = {
 			"lin": LinearBins,
 			"log": LogarithmicBins,
 			"atan": ATanBins
 		}[row.type](row.min, row.max, row.n)
 	if None in binnings:
-		raise ValueError, "incomplete bin spec"
+		raise ValueError, "no binning for dimension %d" % binnings.find(None)
 	return NDBins(binnings)
 
 
@@ -939,6 +941,9 @@ def binned_array_from_xml(xml, name):
 		xml, = xml
 	except ValueError:
 		raise ValueError, "document must contain exactly 1 BinnedArray named '%s'" % name
+	# an empty binning is used for the initial object creation instead
+	# of using the real binning to avoid the creation of a (possibly
+	# large) array that would otherwise accompany this step
 	binnedarray = BinnedArray(NDBins())
 	binnedarray.bins = bins_from_xml(xml)
 	binnedarray.array = array.get_array(xml, u"array").array
