@@ -489,9 +489,11 @@ class Table(ligolw.Table, list):
 		that name.
 		"""
 		try:
-			return getColumnsByName(self, name)[0]
-		except IndexError:
+			col, = getColumnsByName(self, name)
+		except ValueError:
+			# did not find exactly 1 matching child
 			raise KeyError, name
+		return col
 
 
 	def appendColumn(self, name):
@@ -502,8 +504,12 @@ class Table(ligolw.Table, list):
 		this table does not contain an entry for a column by that
 		name.
 		"""
-		if getColumnsByName(self, name):
+		try:
+			self.getColumnByName(name)
+			# if we get here the table already has that column
 			raise ValueError, "duplicate Column '%s'" % name
+		except KeyError:
+			pass
 		column = Column(AttributesImpl({u"Name": "%s:%s" % (StripTableName(self.tableName), name), u"Type": self.validcolumns[name]}))
 		streams = self.getElementsByTagName(ligolw.Stream.tagName)
 		if streams:
