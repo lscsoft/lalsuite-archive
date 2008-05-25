@@ -238,7 +238,7 @@ class Column(ligolw.Column):
 		"""
 		Retrieve the value in this column in row i.
 		"""
-		if type(i) == slice:
+		if isinstance(i, slice):
 			return map(lambda r: getattr(r, self.asattribute), self.parentNode[i])
 		else:
 			return getattr(self.parentNode[i], self.asattribute)
@@ -247,7 +247,7 @@ class Column(ligolw.Column):
 		"""
 		Set the value in this column in row i.
 		"""
-		if type(i) == slice:
+		if isinstance(i, slice):
 			map(lambda r: setattr(r, self.asattribute, value), self.parentNode[i])
 		else:
 			setattr(self.parentNode[i], self.asattribute, value)
