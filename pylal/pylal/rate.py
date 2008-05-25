@@ -905,8 +905,7 @@ def bins_from_xml(xml):
 	from it.
 	"""
 	xml = table.get_table(xml, BinsTable.tableName)
-	xml.sort(lambda a, b: cmp(a.order, b.order))
-	binnings = [None] * (len(xml) and (xml[-1].order + 1))
+	binnings = [None] * (len(xml) and (max(xml.getColumnByName("order")) + 1))
 	for row in xml:
 		binnings[row.order] = {
 			"lin": LinearBins,
