@@ -204,6 +204,43 @@ except NameError:
 #
 # =============================================================================
 #
+#    itertools.groupby() was added in Python 2.4, but I don't want to wait.
+#
+# =============================================================================
+#
+
+try:
+	from itertools import groupby
+except ImportError:
+	class groupby(object):
+		"""
+		Python 2.3 compatibility: reimplement itertools.groupby.
+		Taken directly from the itertools documentation.
+		"""
+		def __init__(self, iterable, key=None):
+			if key is None:
+				key = lambda x: x
+			self.keyfunc = key
+			self.it = iter(iterable)
+			self.tgtkey = self.currkey = self.currvalue = xrange(0)
+		def __iter__(self):
+			return self
+		def next(self):
+			while self.currkey == self.tgtkey:
+				self.currvalue = self.it.next() # Exit on StopIteration
+				self.currkey = self.keyfunc(self.currvalue)
+			self.tgtkey = self.currkey
+			return (self.currkey, self._grouper(self.tgtkey))
+		def _grouper(self, tgtkey):
+			while self.currkey == tgtkey:
+				yield self.currvalue
+				self.currvalue = self.it.next() # Exit on StopIteration
+				self.currkey = self.keyfunc(self.currvalue)
+
+
+#
+# =============================================================================
+#
 #                              In-Place filter()
 #
 # =============================================================================
