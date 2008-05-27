@@ -436,7 +436,7 @@ if opts.run_plots:
 
     # set up parents correctly
     if opts.run_search: 
-      parentNodes = hipeInjNode.keys()
+      parentNodes = hipeInjNode.values()
       parentNodes.append(hipePlayNode)
     else: parentNodes = None
 
