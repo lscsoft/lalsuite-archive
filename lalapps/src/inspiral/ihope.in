@@ -424,7 +424,7 @@ if opts.run_plots:
       else: parentNodes = None
 
       if opts.run_data_quality:
-        parentVetoNodes = [hipePlayNode, hipeInjVetoNode[2][injDir]]
+        parentVetoNodes = [hipePlayVetoNode[2], hipeInjVetoNode[2][injDir]]
       else: parentVetoNodes = None
 
       dag = inspiralutils.injZeroSlidePlots(dag, injDir + "_summary_plots", \
