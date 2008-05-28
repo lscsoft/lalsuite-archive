@@ -1,0 +1,209 @@
+#!/usr/bin/env python
+
+import os
+import sys
+from optparse import OptionParser
+
+
+
+if os.environ.has_key('LARS_LIB'):
+    sys.path.insert(0, os.environ['LARS_LIB'])
+
+searchDbPath = os.environ.get("LARS_DB")
+
+if os.environ.has_key("LARS_DIR"):
+    basedir = os.environ["LARS_DIR"]
+else:
+    homedir = os.environ["HOME"]
+    basedir = os.path.join(homedir, ".lars")
+
+
+
+# make sure we have these things:
+#   lars temp area
+#   search database
+#   mount db
+#   mount point
+
+# maybe check for fuse, fuse permissions, sshfs, ssh, scp, cvs (etc?)
+
+tmpdir = os.path.join(basedir, str(os.getpid()))
+mountdir = os.path.join(basedir, "mnt")
+
+
+try:    pass #os.mkdir(tmpdir)
+except: pass
+try:    os.mkdir(mountdir)
+except: pass
+# make the above things exist now
+
+
+# Options
+#
+
+usage = "%prog: TBD"
+
+parser = OptionParser(\
+            usage=usage, \
+            version= "%prog CVS\n" +
+                "$Id$\n" +
+                "$Name$\n" \
+         )
+
+parser.add_option("", "--search-db",
+                  metavar="SEARCHDB",
+                  action="store",
+                  default=None,
+                  help="location of search database")
+
+parser.add_option("-D", "--search-description",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="search description pattern of interest" )
+
+parser.add_option("-I", "--search-ifos",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="ifos of interest" )
+
+parser.add_option("-T", "--search-time",
+                  action="store",
+                  type="int",
+                  default=0)
+
+parser.add_option("-d", "--file-description",
+                  action="store",
+                  type="string",
+                  default="",
+                  help="file description pattern of interest" )
+
+parser.add_option("", "--mount",
+                  action="store",
+                  type="string",
+                  default=None,
+                  help="where to mount found items")
+parser.add_option("-v", "--verbose",
+                  action="store_true",
+                  default=False,
+                  help="be chatty about what's going on")
+
+parser.add_option("-C","--clone",action="store_true",default=False,\
+    help="copy the data to the working directory" )
+parser.add_option("-f","--file-type",action="store",type="string",\
+    default=None,help="file type" )
+
+(options,args) = parser.parse_args()
+
+verbose = options.verbose
+
+searchDbPath = options.search_db or os.environ.get("LARS_DB")
+
+if not searchDbPath:
+    parser.error("Search DB must be specified with --serch-db or LARS_DB")
+
+
+from tempfile import TemporaryFile, mkdtemp
+from urlparse import urlsplit, urlunsplit
+from subprocess import Popen, PIPE
+
+from glue.lars import Cache
+
+
+def mountSearch(searchUrl, targetDir):
+    global verbose
+    (scheme, netloc, path, query, frag) = urlsplit(searchUrl)
+    # netloc is just host -- we didn't put user/port in there right?
+    fs = "%s:%s" % (netloc, path)
+    try:    os.mkdir(targetDir)
+    except: pass
+    if verbose:
+        print "Mounting '%s' on '%s'" % (fs, targetDir)
+    p = Popen(["sshfs", fs, os.path.abspath(targetDir)], cwd=basedir)
+    p.wait()
+    del p
+
+def mkUrl(loc):
+    (scheme, netloc, path, query, frag) = urlsplit(loc)
+    if not scheme:
+        scheme = "file"
+    if not netloc:
+        netloc = "localhost"
+    if path:
+        path = os.path.abspath(path)
+    return urlunsplit( (scheme, netloc, path, query, frag) )
+
+
+#
+#
+if verbose:
+    print "Using search DB:", searchDbPath
+
+if options.search_db:
+    searchDbPath = mkUrl(options.search_db)
+
+searchDb = Cache.get(searchDbPath)
+
+if verbose:
+    print "Searching on: "
+    print "        IFOs: ", options.search_ifos
+    print " description: ", options.search_description
+
+result = searchDb.sieve(ifos=options.search_ifos,
+                        #segment=options.search_time,
+                        description=options.search_description)
+
+mountPoint = None
+if options.mount:
+    if options.file_description: # we only want selected files -> mount in a scratchy place
+        mountPoint = mkdtemp(dir=mountdir)
+        userDir = os.path.abspath(options.mount)
+        if verbose: print "Creating mount dir: ", userDir
+        try:    os.mkdir(userDir)
+        except: pass
+    else: # we want the full search dir, so mount where we're asked to.
+        mountPoint = os.path.abspath(options.mount)
+
+if len(result) == 1:
+    result=result[0]
+    print "Found search:", result.description, "at", result.url
+
+    if mountPoint:
+        mountSearch(result.url, mountPoint)
+
+    if options.file_description: # link selected files to target dir
+
+        filecache = Cache.getSearch(result.url)
+        interestingFileCache = filecache.sieve(description=options.file_description)
+
+        if len(interestingFileCache) == 0:
+            print "No interesting files:"
+        (_, _, remotepath, _, _) = urlsplit(result.url)
+
+        # remove any trailing '/' in url from search db.
+        if remotepath[-1] == "/":
+            remotepath = remotepath[:-1]
+
+        if verbose:
+            print "Found %d files of interest." % len(interestingFileCache)
+        for entry in interestingFileCache:
+            if mountPoint:
+                (_, _, remoteFile, _, _) = urlsplit(entry.url)
+                mountedFile = remoteFile.replace(remotepath, mountPoint)
+                baseFile = os.path.basename(mountedFile)
+                linkedFile = os.path.join(userDir, baseFile)
+                if os.access(mountedFile, os.F_OK):
+                    #print "linking:",  mountedFile, linkedFile
+                    os.symlink(mountedFile, linkedFile)
+                else:
+                    print "Warning:", mountedFile, "does not exist"
+            else:
+                # no mounting, so print results
+                print entry.url
+elif len(result) > 1:
+    print "More than one search found:"
+    for r in result:
+        print "   ", str(r)
+else:
+    print "No search found"
