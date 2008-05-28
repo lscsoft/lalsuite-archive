@@ -313,11 +313,12 @@ if opts.glob:
     sys.exit(1)
 
 else:
-  zerolagAllCache = lal.Cache.fromfile(open(opts.cache_file))
+  zerolagAllCache = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
   comments += InspiralUtils.message(opts,  'The ifo times selected is ' +opts.ifo_times)
-  
 
-  trigFiles = zerolagAllCache.sieve(ifos = opts.ifo_times, exact_match = opts.exact_match).sieve(description = opts.trig_pattern).pfnlist()
+  trig_cache = zerolagAllCache.sieve(description=opts.trig_pattern)
+  found, missed = trig_cache.checkfilesexist()
+  trigFiles = found.pfnlist()
   if not len(trigFiles):
     print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
     sys.exit(1)
@@ -332,8 +333,9 @@ if opts.inj_glob:
     print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
     sys.exit(1)
 elif opts.cache_file:
-  injCache = lal.Cache.fromfile(open(opts.cache_file))
-  injFiles = injCache.sieve(ifos = opts.ifo_times, exact_match = opts.exact_match).sieve(description = opts.found_pattern).pfnlist()
+  inj_cache = zerolagAllCache.sieve(description = opts.found_pattern)
+  found, missed = inj_cache.checkfilesexist()
+  injFiles = found.pfnlist()
   if not len(injFiles):
     print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
     sys.exit(1)
