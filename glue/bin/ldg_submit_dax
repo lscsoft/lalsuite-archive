@@ -37,6 +37,24 @@ import urlparse
 default_sites = os.environ["GLUE_PREFIX"] + "/etc/ldg-sites.xml"
 default_properties = os.environ["GLUE_PREFIX"] + "/etc/pegasus-properties.bundle"
 
+def get_install_type(path):
+  """
+  Function to attempt to figure out what a binary is.  This is a
+  non issue since we don't use this pegasus feauture yet
+  """
+  INSTALL = 'INTEL32::LINUX'
+  TYPE = 'STATIC_BINARY'
+  pin, pout, perr = os.popen3('file '+path)
+  pid, status = os.wait()
+  output = pout.readlines()[0].strip()
+  if output.find('64-bit') !=-1: 
+     INSTALL = 'INTEL64::LINUX'  
+#  if output.find('dynamically') !=-1: 
+#     TYPE = 'DYNAMIC_BINARY'
+#  if output.find('script') !=-1: 
+#     TYPE = 'INSTALLED'
+  return INSTALL,TYPE
+
 class PegasusTransformationCatalog(list):
     def write_tc_data(self, file_obj):
         file_obj.write("\n".join(map(str, self)) + "\n")
@@ -48,15 +66,17 @@ class PegasusTransformationCatalog(list):
 
         catalog = cls()
         for prog, path in cp.items("condor"):
-            tx = PegasusTransformation()
-            tx.siteID = "local"
-            tx.LogicalTX = "ligo::%s:1.0" % os.path.split(path)[1]
-            tx.PhysicalTX = urlparse.urlunsplit(("gsiftp", hostname,
-                os.path.abspath(path), None, None))
-            tx.Type = "STATIC_BINARY"
-            tx.SystemInfo = "INTEL64::LINUX"
-            tx.Profiles = ""
-            catalog.append(tx)
+            if prog !="universe":
+              tx = PegasusTransformation()
+              tx.siteID = "local"
+              tx.LogicalTX = "ligo::%s:1.0" % os.path.split(path)[1]
+              tx.PhysicalTX = urlparse.urlunsplit(("gsiftp", hostname,
+                  os.path.abspath(path), None, None))
+              tx.SystemInfo,tx.Type = get_install_type(path) 
+              #tx.Type = "STATIC_BINARY"
+              #tx.SystemInfo = "INTEL64::LINUX"
+              tx.Profiles = ""
+              catalog.append(tx)
         return catalog
     from_hipe_ini = classmethod(from_hipe_ini)
 
@@ -77,6 +97,8 @@ def parse_args():
         help="inspiral_hipe's ini file with which to create tc.data")
     parser.add_option("-n", "--no-submit", action="store_true", default=False,
         help="concretize the DAG and generate a sub file for it; do not submit to cluster")
+    parser.add_option("-c", "--pegasus-cache",
+        help="Point to a pegasus RLS cache file (if inputs aren't in catalog)")
     parser.add_option("-v", "--verbose", action="store_true", default=False,
         help="print informative messages")
     
@@ -113,12 +135,16 @@ plan_args.append("-Dpegasus.catalog.site.file=" + opts.sites_file)
 plan_args.append("-Dpegasus.user.properties=" + opts.properties_file)
 plan_args.append("-Dpegasus.catalog.transformation.file=" + os.path.abspath("tc.data"))
 plan_args.append("-Dpegasus.dir.storage=%s" % cwd)
-plan_args.append("--dir=./submit_files")
+plan_args.append("--relative-dir=./")
 plan_args.append("--sites=" + site)
 plan_args.append("--output local")
 plan_args.append("--dax=" + dax_file)
 plan_args.append("--nocleanup")
-plan_args.append("--verbose")
+#plan_args.append("--basename="+dax_file)
+#plan_args.append("--verbose")
+plan_args.append("--randomdir")
+plan_args.append("--force")
+if opts.pegasus_cache: plan_args.append('--cache='+opts.pegasus_cache)
 plan_command = " ".join(plan_args)
 
 if opts.verbose: print "Executing: " + plan_command
@@ -131,7 +157,7 @@ if status != 0:
     print >>sys.stderr, "  stdout: %s" % plan_out.read()
     print >>sys.stderr, "  stderr: %s" % plan_err.read()
     print >>sys.stderr, "  command: %s" % plan_command
-    sys.exit(status)
+    sys.exit(1) 
 plan_out_lines = plan_out.readlines()
 
 # do pegasus-run
@@ -149,9 +175,10 @@ elif len(run_commands) > 1:
     sys.exit(1)
 run_command = run_commands[0]
 run_args = run_command.split(" ")
-
+dax_base = dax_file.strip('.dax')
 if opts.no_submit:
-    dag_filename = os.path.join(run_args[-1], dax_base + ".dag")
-    os.execvp("condor_submit_dag", ("condor_submit_dag", "-nosubmit", dag_filename))
+  pass
+  #dag_filename = os.path.join(run_args[-1], dax_base + ".dag")
+  #os.execvp("condor_submit_dag", ("condor_submit_dag", "-no_submit", dag_filename))
 else:
     os.execvp(run_args[0], run_args)

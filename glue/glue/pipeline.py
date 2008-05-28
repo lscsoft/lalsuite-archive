@@ -906,6 +906,8 @@ class CondorDAG:
     self.__integer_node_names = 0
     self.__node_count = 0
     self.__nodes_finalized = 0
+    self.__rls_filelist = []
+    self.__data_find_files = []
 
   def get_nodes(self):
     """
@@ -1045,9 +1047,9 @@ class CondorDAG:
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
         xsi:schemaLocation="http://www.griphyn.org/chimera/DAX
         http://www.griphyn.org/chimera/dax-1.8.xsd"
-        name="inspiral" index="0" count="1" version="1.8">
 """
-    print >>dagfile, preamble
+    preamble_2 = 'name="' + os.path.split(self.__dag_file_path)[-1]  + '" index="0" count="1" version="1.8">'
+    print >>dagfile, preamble,preamble_2
 
     # find unique input and output files from nodes
     input_file_dict = {}
@@ -1056,7 +1058,10 @@ class CondorDAG:
     # creating dictionary for input- and output-files
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
-        pass
+        # make a list of the output files here so that I can have a 
+        # more sensible rls_cache method that doesn't just ignore .gwf
+        self.__data_find_files.extend(node.get_output())
+        
       else:
         input_files = node.get_input_files()
         output_files = node.get_output_files()
@@ -1077,25 +1082,26 @@ class CondorDAG:
       del output_file_dict[f]
 
     # print input, inout, and output to dax
-    filelist = input_file_dict.keys()
-    filelist.sort()
-    for f in filelist:
+    input_filelist = input_file_dict.keys()
+    input_filelist.sort()
+    self.__rls_filelist = input_filelist
+    for f in input_filelist:
       msg = """\
     <filename file="%s" link="input"/>\
 """
       print >>dagfile, msg % f
 
-    filelist = inout_file_dict.keys()
-    filelist.sort()
-    for f in filelist:
+    inout_filelist = inout_file_dict.keys()
+    inout_filelist.sort()
+    for f in inout_filelist:
       msg = """\
     <filename file="%s" link="inout"/>\
 """
       print >>dagfile, msg % f
 
-    filelist = output_file_dict.keys()
-    filelist.sort()
-    for f in filelist:
+    output_filelist = output_file_dict.keys()
+    output_filelist.sort()
+    for f in output_filelist:
       msg = """\
     <filename file="%s" link="output"/>\
 """
@@ -1149,9 +1155,14 @@ class CondorDAG:
           xml = xml + template % (node.get_vds_group())
 
         print >>dagfile, xml
-
+        
         for f in node.get_input_files():
-          print >>dagfile, """\
+          if f in inout_filelist:
+            print >>dagfile, """\
+     <uses file="%s" link="inout" dontRegister="true" dontTransfer="false"/>\
+""" % f
+          else:
+            print >>dagfile, """\
      <uses file="%s" link="input" dontRegister="true" dontTransfer="false"/>\
 """ % f
 
@@ -1183,6 +1194,18 @@ class CondorDAG:
     print >>dagfile, "</adag>"
 
     dagfile.close()
+
+  def write_pegasus_rls_cache(self,gsiftp,pool):
+    try:
+      outfilename = self.__dag_file_path+'.peg_cache'
+      outfile = open(outfilename, "w")
+    except:
+      raise CondorDAGError, "Cannot open file " + self.__dag_file_path
+    
+    for file in set(self.__rls_filelist):
+      if file in self.__data_find_files: continue
+      # try to figure out if the path is absolute
+      outfile.write(file+' '+'gsiftp://'+gsiftp +os.path.abspath(file)+' pool="'+pool+'"\n')
 
   def write_dag(self):
     """
@@ -2501,6 +2524,9 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     """
     return self.__type
 
+  def get_output_cache(self):
+    return  self.__output
+
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
@@ -2554,6 +2580,37 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
       return self.__lfn_list
     else:        
       return self.__output
+
+class MkdirJob(CondorDAGJob):
+  """
+  Runs an instance of mkdir in a DAG/DAX. Useful for grid submission.
+  """
+  def __init__(self,log_dir, cp, dax=False):
+    self.__executable = cp.get('condor','mkdir')
+    self.__universe = 'local'
+    CondorDAGJob.__init__(self,self.__universe,self.__executable)
+#    AnalysisJob.__init__(self,cp,dax)
+    self.add_condor_cmd('getenv','True')
+    self.set_stdout_file(os.path.join( log_dir, 'mkdir-$(cluster)-$(process).out') )
+    self.set_stderr_file(os.path.join( log_dir, 'mkdir-$(cluster)-$(process).err') )
+    self.set_sub_file('mkdir.sub')
+
+class MkdirNode(CondorDAGNode):
+  """
+  Runs an instance of mkdir in a DAG/DAX. Useful for grid submission.
+  """
+  def __init__(self,job,dir):
+    """
+    @param job: A CondorDAGJob that can run an instance of ligolw_add
+    """
+    CondorDAGNode.__init__(self,job)
+    self.set_name('mkdir_'+dir.replace(' ',''))
+    self.add_var_arg(dir)
+    
+    for file in dir.split():
+      self.add_output_file(file+'/'+'.log')
+      try: os.mkdir(file)
+      except: pass
 
 
 class LigolwAddJob(CondorDAGJob, AnalysisJob):
