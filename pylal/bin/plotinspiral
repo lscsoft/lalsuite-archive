@@ -144,9 +144,6 @@ def parse_command_line():
       metavar=" SECONDS", help="amount of time analyzed" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
-  parser.add_option("-L","--min-distance",action="store",type="float",\
-      default=None, metavar="EFFDIST",
-      help="only look at missed injections closer than EFFDIST")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("","--exttrig-onsource",action="store",type="string",default=None,\
@@ -182,12 +179,6 @@ def parse_command_line():
     help="sieve trigger files of a particular description pattern from cache file" )
   parser.add_option("", "--bank-pattern",
     help="sieve template bank files of a particular description pattern from cache file" )
-  parser.add_option("", "--missed-pattern",
-    help="sieve missed injection files of a particular description pattern from cache file" ) 
-  parser.add_option("-i", "--ifo-times",
-    help="sieve a cache file according to a particular ifo type")
-  parser.add_option("-M","--missed-inj",action="store",type="string",\
-      default=None, metavar=" FILE",help="missed injection file")
   parser.add_option("", "--html-for-cbcweb",action="store",\
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
@@ -253,11 +244,6 @@ if opts.norm_hist_snr and not opts.analyzed_time:
   print >>sys.stderr, "the --analyzed-time must be specified"
   sys.exit(1)
 
-if opts.missed_inj and not opts.min_distance:
-  print >>sys.stderr, "both a missed injections file and a maximum"
-  print >>sys.stderr, "distance should be specified when following"
-  print >>sys.stderr, "up nearby missed injections"
-  sys.exit(1)
 
 # load cache
 if opts.cache_file is not None:
@@ -329,42 +315,6 @@ if opts.exttrig_onsource:
   inspTriggers = inspTriggers.veto(exttrigseg)
 
 
-# determine missed injection file
-missed_files = []
-if opts.missed_inj is not None:
-  missed_files.append(opts.missed_inj)
-if opts.missed_pattern is not None:
-  missed_cache = cache.sieve(description=opts.missed_pattern)
-  missed_files.extend(missed_cache.checkfilesexist()[0].pfnlist())
-
-# load missed injections
-if len(missed_files) > 0:
-  analyzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
-
-  inspDict = {}
-  inspDict["ifo"] = inspTriggers[0].ifo
-  missedDict = {}
-
-  missedDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(missed_files)
-  missedDict["mis_time"] = viz.readcol(missedDict["sim_inspiral"], \
-    "end_time", inspDict["ifo"] )
-  missedDict["mis_dist"] = viz.readcol(missedDict["sim_inspiral"], "eff_dist", \
-    inspDict["ifo"] )
-
-  followupMissed = {}
-  followupMissed["mis_time"] = []
-  followupMissed["mis_triggers"] = []
-  x = segments.segmentlistdict()
-  x["analyzedsegs"] = segments.segmentlist(analyzedsegs[inspDict["ifo"]])
-  for i in range(len(missedDict["mis_time"])):
-    if missedDict["mis_dist"][i] < opts.min_distance:
-      thisSegment = segments.segment(missedDict["mis_time"][i] - 10,
-                                     missedDict["mis_time"][i] + 10)
-      x["missedSeg"] = segments.segmentlist([thisSegment])
-      x["overlapSeg"] = x.intersection(["missedSeg", "analyzedsegs"])
-      followupMissed["mis_time"].append(missedDict["mis_time"][i])
-      followupMissed["mis_triggers"].append(
-          inspTriggers.veto(x["overlapSeg"].__invert__()))
 
 max_snr = max(inspTriggers.get_column('snr'))
 min_snr = min(inspTriggers.get_column('snr'))
@@ -380,28 +330,6 @@ if opts.chisq_threshold:
     opts.chisq_delta * snr_range * snr_range )
 
 # ============================================================================
-###################################
-# plot of snr vs time for missed injections
-if opts.snr_time and opts.missed_pattern:
-  text = "End time versus SNR (missed injections)"
-  InspiralUtils.message(opts, "plotting..."+text)
-  for injTime,triggers in zip(followupMissed["mis_time"],
-       followupMissed["mis_triggers"]):
-    figure_number += 1
-    figure(figure_number)
-    axvline(injTime - int(injTime), linewidth=1, color='r')
-    for idx in range(len(triggers)):
-      triggers[idx].end_time = triggers[idx].end_time - int(injTime)
-
-    viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
-                   x_min=opts.threshold,x_max=None)
-    if opts.enable_output is True:
-      fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
-
-###################################
 # plot of snr vs time
 if opts.snr_time is True:
   text = "SNR versus end time"
