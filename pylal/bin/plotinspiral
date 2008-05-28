@@ -169,6 +169,8 @@ def parse_command_line():
       help="set the resoultion of the thumbnail (50 dpi by default)" )
 
   #input
+  parser.add_option("-i", "--ifo-times",
+    help="sieve a cache file according to a particular ifo type")
   parser.add_option("-u","--template-bank",action="store",type="string",\
       default=None, metavar=" FILE",help="name of a template bank file")
   parser.add_option("-U","--inspiral-glob",action="store",type="string",\
