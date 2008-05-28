@@ -191,72 +191,91 @@ def split_sngl_inspiral_files(cache, max_coinc_number, output_directory):
   """ 
   Splits files containing single inspiral table into smaller files
   """  
-  files = cache.pfnlist()
-  statistic = CoincInspiralUtils.coincStatistic("effective_snr")
-  Triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=False)
-  CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
-  ifo_times = cache[0].observatory
-  files_description =cache[0].description
+  #creat a list of sub-caches each containing files whose combined size does not exceed max_size = 12Mbytes
+  list_of_filecaches = []
+  size = os.stat(cache[0].path()).st_size
+  filecache = lal.Cache()
+  filecache.append(cache[0])
+  max_size = 12000000
+  for entry in cache[1:]:
+    size += os.stat(entry.path()).st_size
+    if size < max_size:
+      filecache.append(entry)
+    else: 
+	  size = 0
+	  list_of_filecaches.append(filecache)
+	  filecache = lal.Cache()
+	  filecache.append(entry)
+  list_of_filecaches.append(filecache)
   new_files_cache = lal.Cache()
-  cum_coinc_number = max_coinc_number
-  while cum_coinc_number <= len(CoincTriggers):
-	#print cum_coinc_number
-	tmp_table = lsctables.New(lsctables.SnglInspiralTable)
-	for i in range(max_coinc_number):
-	  coinc = CoincTriggers[cum_coinc_number - max_coinc_number + i]
-	  ifos,ifolist = coinc.get_ifos()
-	  for ifo in ifolist:
-		tmp_table.append(getattr(coinc, ifo))
-	  if i == 0:
-		start_time = getattr(coinc, ifolist[0]).end_time
-	  if i == (max_coinc_number - 1):
-		end_time = getattr(coinc, ifolist[0]).end_time
-		duration = end_time - start_time
-	  
-	new_file_name = ifo_times + "-" + files_description + "-" + str(start_time) + "-" + str(abs(duration)) +".xml"
-	output = output_directory + "/" + new_file_name
-	new_files_cache.append(lal.Cache.from_urls([output])[0])
-	new_file = open(output, "w")
-	# Fixing the sngl inspiral table
-	#for row in tmp_table:
-	  #row.chisq_dof = 0
-	  #row.kappa = 0.0
-	  #row.chi = 0.0
-	  #row.bank_chisq = 0.0
-	  #row.bank_chisq_dof = 0
-	  #row.cont_chisq = 0.0
-	  #row.cont_chisq_dof = 0
-	tmp_table.write(new_file)
-	new_file.close()
-	cum_coinc_number += max_coinc_number
-  else:
-	tmp_table = lsctables.New(lsctables.SnglInspiralTable)
-	for i in range(len(CoincTriggers) - cum_coinc_number + max_coinc_number):
-	  coinc = CoincTriggers[cum_coinc_number - max_coinc_number + i]
-	  ifos,ifolist = coinc.get_ifos()
-	  for ifo in ifolist:
-		tmp_table.append(getattr(coinc, ifo))
-	  if i == 0:
-		start_time = getattr(coinc, ifolist[0]).end_time
-	  if i == range(len(CoincTriggers) - cum_coinc_number + max_coinc_number)[-1]:
-		end_time = getattr(coinc, ifolist[0]).end_time
-		duration = end_time - start_time
-	  
-	new_file_name = ifo_times + "-" + files_description + "-" + str(start_time) + "-" + str(abs(duration)) + ".xml"
-	output = output_directory + "/" + new_file_name
-	new_files_cache.append(lal.Cache.from_urls([output])[0])
-	new_file = open(output, "w")
+  statistic = CoincInspiralUtils.coincStatistic("effective_snr")
+  # loop over sub-caches
+  for cache in list_of_filecaches: 	  
+	files = cache.pfnlist()
+	Triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=False)
+	CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+	print "coincs: " + str(len(CoincTriggers))
+	ifo_times = cache[0].observatory
+	files_description =cache[0].description
+	cum_coinc_number = max_coinc_number
+	while cum_coinc_number <= len(CoincTriggers):
+	  #print cum_coinc_number
+	  tmp_table = lsctables.New(lsctables.SnglInspiralTable)
+	  for i in range(max_coinc_number):
+		coinc = CoincTriggers[cum_coinc_number - max_coinc_number + i]
+		ifos,ifolist = coinc.get_ifos()
+		for ifo in ifolist:
+		  tmp_table.append(getattr(coinc, ifo))
+		if i == 0:
+		  start_time = getattr(coinc, ifolist[0]).event_id
+		if i == (max_coinc_number - 1):
+		  end_time = getattr(coinc, ifolist[0]).event_id
+		  duration = end_time - start_time
+		
+	  new_file_name = ifo_times + "-" + files_description + "-" + str(start_time) + "-" + str(abs(duration)) +".xml"
+	  output = output_directory + "/" + new_file_name
+	  new_files_cache.append(lal.Cache.from_urls([output])[0])
+	  new_file = open(output, "w")
 	  # Fixing the sngl inspiral table
-	#for row in tmp_table:
-	  #row.chisq_dof = 0
-	  #row.kappa = 0.0
-	  #row.chi = 0.0
-	  #row.bank_chisq = 0.0
-	  #row.bank_chisq_dof = 0
-	  #row.cont_chisq = 0.0
-	  #row.cont_chisq_dof = 0
-	tmp_table.write(new_file)
-	new_file.close()
+	  #for row in tmp_table:
+		#row.chisq_dof = 0
+		#row.kappa = 0.0
+		#row.chi = 0.0
+		#row.bank_chisq = 0.0
+		#row.bank_chisq_dof = 0
+		#row.cont_chisq = 0.0
+		#row.cont_chisq_dof = 0
+	  tmp_table.write(new_file)
+	  new_file.close()
+	  cum_coinc_number += max_coinc_number
+	else:
+	  tmp_table = lsctables.New(lsctables.SnglInspiralTable)
+	  for i in range(len(CoincTriggers) - cum_coinc_number + max_coinc_number):
+		coinc = CoincTriggers[cum_coinc_number - max_coinc_number + i]
+		ifos,ifolist = coinc.get_ifos()
+		for ifo in ifolist:
+		  tmp_table.append(getattr(coinc, ifo))
+		if i == 0:
+		  start_time = getattr(coinc, ifolist[0]).event_id
+		if i == range(len(CoincTriggers) - cum_coinc_number + max_coinc_number)[-1]:
+		  end_time = getattr(coinc, ifolist[0]).event_id
+		  duration = end_time - start_time
+		
+	  new_file_name = ifo_times + "-" + files_description + "-" + str(start_time) + "-" + str(abs(duration)) + ".xml"
+	  output = output_directory + "/" + new_file_name
+	  new_files_cache.append(lal.Cache.from_urls([output])[0])
+	  new_file = open(output, "w")
+		# Fixing the sngl inspiral table
+	  #for row in tmp_table:
+		#row.chisq_dof = 0
+		#row.kappa = 0.0
+		#row.chi = 0.0
+		#row.bank_chisq = 0.0
+		#row.bank_chisq_dof = 0
+		#row.cont_chisq = 0.0
+		#row.cont_chisq_dof = 0
+	  tmp_table.write(new_file)
+	  new_file.close()
   return new_files_cache
   
 # Convert ifo list to string
@@ -385,8 +404,8 @@ likelihood_inj_job.set_sub_file(basename + ".likelihood_inj" +subsuffix)
 if opts.combine_foreground_background_files:
   foreground_background_dir=cp.get("combine-foreground-background-files", "foreground-background-dir")
   lalapps.inspiralutils.mkdir(foreground_background_dir)
-  foreground_cache_file_name = foreground_background_dir + "/" + cp.get("combine-foreground-background-files", "foreground-cache-file-name")
-  background_cache_file_name = foreground_background_dir + "/" + cp.get("combine-foreground-background-files", "background-cache-file-name")
+  foreground_cache_file = foreground_background_dir + "/" + cp.get("combine-foreground-background-files", "foreground-cache-file-name")
+  background_cache_file = foreground_background_dir + "/" + cp.get("combine-foreground-background-files", "background-cache-file-name")
   max_size = cp.getint("combine-foreground-background-files", "max-size")
   IFOS=cp.get("input", "IFOS").split(",")
   ifo_combos=CoincInspiralUtils.get_ifo_combos(IFOS)
@@ -413,8 +432,8 @@ if opts.combine_foreground_background_files:
     background_cache.extend(combined_slides_cache)
     foreground_cache.extend(combined_injections_cache)
   print "Finished combining files, writing the output cache files ..."	
-  foreground_cache.tofile(open(foreground_cache_file_name, "w"))
-  background_cache.tofile(open(background_cache_file_name, "w"))
+  foreground_cache.tofile(open(foreground_cache_file, "w"))
+  background_cache.tofile(open(background_cache_file, "w"))
   # if foregorund/backgorund parameters are set in the corresponding section of ini file
   # use them instead.
   if cp.get("background-foreground", "bf-background-pattern"):
@@ -423,10 +442,10 @@ if opts.combine_foreground_background_files:
     bf_found_injections_pattern = cp.get("background-foreground", "bf-found-injections-pattern")
   if cp.get("background-foreground", "bf-missed-injections-pattern"):
     bf_missed_injections_pattern = cp.get("background-foreground", "bf-missed-injections-pattern")
-  if cp.get("background-foreground", "foreground-cache-file-name"):
-    foreground_cache_file_name = cp.get("background-foreground", "foreground-cache-file-name")
-  if cp.get("background-foreground", "background-cache-file-name"):
-    background_cache_file_name = cp.get("background-foreground", "background-cache-file-name")
+  if cp.get("background-foreground", "foreground-cache-file"):
+    foreground_cache_file_name = cp.get("background-foreground", "foreground-cache-file")
+  if cp.get("background-foreground", "background-cache-file"):
+    background_cache_file_name = cp.get("background-foreground", "background-cache-file")
 else:  
   if cp.get("background-foreground", "bf-background-pattern"):
     bf_background_pattern = cp.get("background-foreground", "bf-background-pattern")
@@ -443,35 +462,35 @@ else:
   else: 
     print >> sys.stderr, "bf-missedinjections-pattern is not set in " + opts.config_file + " ini file"
     sys.exit(1)
-  if cp.get("background-foreground", "foreground-cache-file-name"):
-    foreground_cache_file_name = cp.get("background-foreground", "foreground-cache-file-name")
+  if cp.get("background-foreground", "foreground-cache-file"):
+    foreground_cache_file = cp.get("background-foreground", "foreground-cache-file")
   else:
     print >> sys.stderr, "foreground-cache-file-name is not set in " + opts.config_file + " ini file"
     sys.exit(1)
-  if cp.get("background-foreground", "background-cache-file-name"):
-    background_cache_file_name = cp.get("background-foreground", "background-cache-file-name")
+  if cp.get("background-foreground", "background-cache-file"):
+    background_cache_file = cp.get("background-foreground", "background-cache-file")
   else:
     print >> sys.stderr, " background-cache-file-name is not set in " + opts.config_file + " ini files"
     sys.exit(1)
   
 # setting options related to foreground-background distributions for zero lag likelihood jobs
-likelihood_job.add_opt("foreground-cache-files", foreground_cache_file_name)
-likelihood_job.add_opt("background-cache-files", background_cache_file_name)  
+likelihood_job.add_opt("foreground-cache-files", foreground_cache_file)
+likelihood_job.add_opt("background-cache-files", background_cache_file)  
 likelihood_job.add_opt("background-pattern", bf_background_pattern)
 likelihood_job.add_opt("found-injections-pattern", bf_found_injections_pattern)
 likelihood_job.add_opt("missed-injections-pattern", bf_missed_injections_pattern)
   
 #  setting options  related to foreground-background distributions for time slides likelihood jobs
-likelihood_slide_job.add_opt("foreground-cache-files", foreground_cache_file_name)
-likelihood_slide_job.add_opt("background-cache-files", background_cache_file_name)  
+likelihood_slide_job.add_opt("foreground-cache-files", foreground_cache_file)
+likelihood_slide_job.add_opt("background-cache-files", background_cache_file)  
 likelihood_slide_job.add_opt("background-pattern", bf_background_pattern)
 likelihood_slide_job.add_opt("found-injections-pattern", bf_found_injections_pattern)
 likelihood_slide_job.add_opt("missed-injections-pattern", bf_missed_injections_pattern)
 
   
 #  setting options  related to foreground-background distributions for injections likelihood jobs
-likelihood_inj_job.add_opt("foreground-cache-files", foreground_cache_file_name)
-likelihood_inj_job.add_opt("background-cache-files", background_cache_file_name)  
+likelihood_inj_job.add_opt("foreground-cache-files", foreground_cache_file)
+likelihood_inj_job.add_opt("background-cache-files", background_cache_file)  
 likelihood_inj_job.add_opt("background-pattern", bf_background_pattern)
 likelihood_inj_job.add_opt("found-injections-pattern", bf_found_injections_pattern)
 likelihood_inj_job.add_opt("missed-injections-pattern", bf_missed_injections_pattern)
