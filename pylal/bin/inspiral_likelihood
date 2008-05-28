@@ -137,6 +137,10 @@ parser.add_option("-v","--verbose",action="store_true",\
 ####################################################################################	
 # Options to select parameters for calculation of p(c|0), p(c|h) and likelihood ratio. 
 ####################################################################################
+parser.add_option("","--calculate_DBR", action="store_true",\
+    default = False, help="if given, Background Fraction and Detection Background Ratio (DBR) will be calculated,"\
+	"otherwise they are set to zero for all events." )
+	
 parser.add_option("-S","--statistic",action="store",default='snr', type="string",\
     help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
 
@@ -164,17 +168,17 @@ parser.add_option("","--mchirp-phi-scale",action="store",type="float",\
 parser.add_option("","--ethinca-scale",action="store",type="float",\
     default=0.1, help="allowed absolute error in e-thinca parameter")
 	
-parser.add_option("","--dim-eff-snr", action="store",type="int",\
-    default = 1, help="binary parameter that tunrns on/off effective snr dimension, 0 is off, 1 is on" )
+parser.add_option("","--enable-eff-snr-dimension", action="store_true",\
+    default = False, help="to include effective SNRs in the parameter space" )
 	
-parser.add_option("","--dim-eff-distance", action="store",type="int",\
-    default = 1, help="binary parameter that tunrns on/off effective distance dimension, 0 is off, 1 is on" )
+parser.add_option("","--enable-eff-distance-dimension", action="store_true",\
+    default = False, help="to include effective distances in the parameter space" )
 	
-parser.add_option("","--dim-mchirp", action="store",type="int",\
-    default = 1, help="binary parameter that tunrns on/off chirp mass dimension, 0 is off, 1 is on" )
+parser.add_option("","--enable-mchirp-dimension", action="store_true",\
+    default = False, help="to include chirp masses in the parameter space" )
 	
-parser.add_option("","--dim-ethinca", action="store",type="int",\
-    default = 1, help="binary parameter that tunrns on/off e-thinca dimension, 0 is off, 1 is on" )
+parser.add_option("","--enable-ethinca-dimension", action="store_true",\
+    default = False, help="to include e-thinca in the parameter space" )
 		
 parser.add_option("-N","--num-slides", action="store",type="int",\
     default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file" )
@@ -340,7 +344,8 @@ CandidateEventsCoincTriggers = CoincInspiralUtils.coincInspiralTable(CandidateEv
 array_size = len(CandidateEventsCoincTriggers)
 FAProduct = numpy.zeros(array_size) + 1.0
 Ntotal_noise = 0
-Nnoise_events_within_epsilon = numpy.zeros(array_size)
+if opts.calculate_DBR:
+  Nnoise_events_within_epsilon = numpy.zeros(array_size)
 # loop over time slides files
 for file in BackgroundFiles:
   # read in time slides triggers
@@ -348,14 +353,14 @@ for file in BackgroundFiles:
   # construct the time slides coincs
   SlidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
   # False Alarm Probability for the current time slides file
-  if SlidesCoincTriggers:
+  if opts.calculate_DBR and SlidesCoincTriggers:
     Ntotal_noise += len(SlidesCoincTriggers)
   i = 0
   # looping over candidate events and calculating the false alarm probability
   for candidate in CandidateEventsCoincTriggers:
     c_ifos,ifolist=candidate.get_ifos()
     slides_array=numpy.zeros(2*opts.num_slides)
-    slides_within_epsilon = SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
+    slides_within_epsilon = SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
 	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale)
     for slide in range(1, opts.num_slides + 1):
 	  slideTriggers_forward = slides_within_epsilon.getslide(slide)
@@ -366,16 +371,20 @@ for file in BackgroundFiles:
 	    slides_array[opts.num_slides -1 + slide] = 1.0
     FAProb = sum(slides_array)/float(2*opts.num_slides)
     FAProduct[i] = FAProduct[i] * (1.0 - FAProb)
-    # accumulating statistic for Background Fraction 
-    Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
-	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
+    if opts.calculate_DBR:
+      # accumulating statistic for Background Fraction 
+      Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
+	    opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
     i += 1
 FalseAlarmProb = 1.0 - FAProduct 
-  
-if Ntotal_noise > 0:
-  BackgroundFraction = Nnoise_events_within_epsilon / float(Ntotal_noise)
+if opts.calculate_DBR:  
+  if Ntotal_noise > 0:
+    BackgroundFraction = Nnoise_events_within_epsilon / float(Ntotal_noise)
+  else:
+    BackgroundFraction = numpy.zeros(array_size)
 else:
-  BackgroundFraction = numpy.zeros(array_size)
+  # if option --calculate-DBR is not given we set BackroundFraction to zero for all events
+  BackgroundFraction = numpy.zeros(array_size) 
 	 
 # Calculate Detection Probability
 Ntotal_found_injections = 0
@@ -393,7 +402,7 @@ for file in FoundInjectionsFiles:
   i = 0
   for candidate in CandidateEventsCoincTriggers:
     # accumulating statistic for Detection Probability
-    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.dim_eff_snr, opts.dim_mchirp, opts.dim_ethinca, opts.dim_eff_distance,\
+    N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
 	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
     i += 1
 	
@@ -426,15 +435,19 @@ for i in range(array_size):
 Likelihood = DetectionProb / FalseAlarmProb
    
 # Calculating the ratio of DetectionProb to BackgroundFraction
-for i in range(array_size):  
-  if BackgroundFraction[i] > 0:
-	pass
-  else:
-	#DetectionBackgroundRatio[i] = -1.0
-	# below is a temporary fix for the case of vanishing false alarm probability
-	BackgroundFraction[i] = 1.0 / float(2.0 * Ntotal_noise)
+if opts.calculate_DBR:
+  for i in range(array_size):  
+    if BackgroundFraction[i] > 0:
+	  pass
+    else:
+	  #DetectionBackgroundRatio[i] = -1.0
+	  # below is a temporary fix for the case of vanishing false alarm probability
+	  BackgroundFraction[i] = 1.0 / float(2.0 * Ntotal_noise)
 	
-DetectionBackgroundRatio= DetectionProb / BackgroundFraction
+  DetectionBackgroundRatio= DetectionProb / BackgroundFraction
+else:
+  # if option --calculate-DBR is not given we set DetectionBackroundRatio to zero for all events 
+  DetectionBackgroundRatio = numpy.zeros(array_size)
 
 #populating InspiralLikelihoodTable
 LikelihoodTable = lsctables.New(InspiralLikelihoodTable)
