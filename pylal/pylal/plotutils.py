@@ -220,13 +220,15 @@ class CumulativeHistogramPlot(BasicPlot):
         self.bg_data_sets.extend(bg_data_sets)
         self.bg_label = label
 
-    def finalize(self, num_bins=20):
+    def finalize(self, num_bins=20, normalization=1):
+        epsilon = 1e-8
+
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(\
-            self.fg_data_sets)
+            self.fg_data_sets + self.bg_data_sets)
         bins = numpy.linspace(min_stat, max_stat, num_bins)
 
-        # make plot
+        # plot foreground
         colors = default_colors()
         symbols = default_symbols()
         for data_set, color, symbol, label in \
@@ -237,7 +239,9 @@ class CumulativeHistogramPlot(BasicPlot):
             y = y[::-1].cumsum()[::-1]
 
             # plot
-            self.ax.semilogy(x, y, symbol + color, label=label)
+            y = numpy.array(y, dtype=numpy.float32)
+            y[y <= epsilon] = epsilon
+            self.ax.semilogy(x, y*normalization, symbol + color, label=label)
 
         # shade background region
         if len(self.bg_data_sets) > 0:
@@ -257,23 +261,22 @@ class CumulativeHistogramPlot(BasicPlot):
             stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
           
             # plot mean
-            self.ax.plot(x, means, 'r+', label=r"$\mu_\mathrm{%s}$" % \
-                self.bg_label)
+            self.ax.plot(x, means*normalization, 'r+',
+                label=r"$\mu_\mathrm{%s}$" % self.bg_label)
 
             # shade in the area
             upper = means + stds
             lower = means - stds
-            epsilon = 1e-8
             upper[upper <= epsilon] = epsilon
             lower[lower <= epsilon] = epsilon
             means[means <= epsilon] = epsilon
             tmp_x, tmp_y = viz.makesteps(bins, upper, lower)
-            self.ax.fill(tmp_x, tmp_y, facecolor='y', alpha=0.3,
+            self.ax.fill(tmp_x, tmp_y*normalization, facecolor='y', alpha=0.3,
                 label=r"$\sigma_\mathrm{%s}$" % self.bg_label)
 
         # adjust plot range
         self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
-        self.ax.set_ylim(ymin=0.6)
+        self.ax.set_ylim(ymin=0.6 * normalization)
 
         # add legend if there are any non-trivial labels
         self.data_labels = self.fg_labels + [self.bg_label]
