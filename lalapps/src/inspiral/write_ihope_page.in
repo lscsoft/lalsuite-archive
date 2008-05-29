@@ -1427,9 +1427,10 @@ def get_version(executable):
       pathname = hipecp.get("condor", executable) 
     s =  os.path.split(pathname)
     if len(s[0])==0:
-      cmd = opts.ihope_directory + s[1] + '  --version'
+      cmd = opts.ihope_directory + "/" + opts.gps_start_time + "-" + \
+      opts.gps_end_time + "/executables/" + s[1] + " --version"
     else:
-      cmd = s[1] + ' --version '
+      cmd = s[1] + " --version "
     output,status = make_external_call(cmd, opts.debug, opts.debug, True)
   except:  
     output= '(not found)' 
