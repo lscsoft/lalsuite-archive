@@ -218,7 +218,7 @@ static const Py_UNICODE *pyunicode_strchr(const Py_UNICODE *s, Py_UNICODE c)
 
 
 /*
- * Unescape a string.  This does not recognized the octal escape codes that
+ * Unescape a string.  This does not recognize the octal escape codes that
  * metaio understands.
  */
 
@@ -229,18 +229,47 @@ static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable
 	int escaped = 0;
 
 	while(*s) {
+		/*
+		 * If this character is not escaped, is it the escape
+		 * character?
+		 */
+
 		if(!escaped) {
-			/* are we starting an escape sequence? */
 			escaped = *(s++) == escape_character;
 			continue;
 		}
+
+		/*
+		 * Check for an unrecognized escape sequence.
+		 */
+
 		if(!pyunicode_strchr(escapable_characters, *s)) {
 			parse_error(PyExc_ValueError, start, *end - start - 1, s - 1, "unrecognized escape sequence");
 			return -1;
 		}
+
+		/*
+		 * Shift the data following the escape character back one
+		 * position, on top of the escape character.
+		 */
+
 		memmove(s - 1, s, (*end - s + 1) * sizeof(*s));
 		(*end)--;
+
+		/*
+		 * Reset
+		 */
+
 		escaped = 0;
+	}
+
+	/*
+	 * String ended with an escape character?  Impossible.
+	 */
+
+	if(escaped) {
+		parse_error(PyExc_RuntimeError, start, *end - start - 1, *end - 1, "internal error: impossible unescaped escape character at end of string, please report problem to Glue library maintainer");
+		return -1;
 	}
 
 	return 0;
@@ -259,6 +288,11 @@ static int unescape(Py_UNICODE *s, Py_UNICODE **end, const Py_UNICODE *escapable
  * on error.  On error, the values of start and end are undefined.  Raises
  * StopIteration if the end of the tokenizer's internal buffer is reached,
  * or ValueError if a parse error occurs.
+ *
+ * If an error occurs parsing must stop.  An error can result in the
+ * tokenizer context being left unmodified, causing subsequent calls to
+ * this function to repeatedly parse the same invalid token, leading to the
+ * application getting stuck in an infinite loop.
  */
 
 
@@ -300,7 +334,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 			goto stop_iteration;
 	if(pyunicode_strchr(tokenizer->quote_characters, *pos)) {
 		/*
-		 * found a quoted token
+		 * Found a quoted token.
 		 */
 
 		int escaped = 0;
@@ -320,7 +354,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 			goto stop_iteration;
 	} else {
 		/*
-		 * found an unquoted token
+		 * Found an unquoted token.
 		 */
 
 		quote_character = 0;
@@ -332,8 +366,8 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 		*end = pos;
 		if(*start == *end)
 			/*
-			 * found nothing but unquoted whitespace between
-			 * delimiters, an empty token (not the same as a
+			 * Found nothing but unquoted whitespace between
+			 * delimiters --> an empty token (not the same as a
 			 * zero-length token).
 			 */
 
@@ -371,7 +405,7 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	 */
 
 	if(*end)
-		**end = '\0';
+		**end = 0;
 	if(quote_character) {
 		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, ',', '\0'};
 		if(unescape(*start, end, escapable_characters, tokenizer->escape_character))
@@ -541,7 +575,7 @@ static PyObject *next(PyObject *self)
 			 * float()'s error message
 			 */
 
-			Py_DECREF(token);
+			Py_XDECREF(token);
 			PyErr_Format(PyExc_ValueError, "invalid literal for float(): '%s'", ascii_buffer);
 			token = NULL;
 		}
