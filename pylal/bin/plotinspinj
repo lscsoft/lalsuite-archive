@@ -29,6 +29,14 @@ from pylal import InspiralUtils
 #############################################################################
 def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
     column, units, plot_type = 'linear' ):
+  """
+  opts = the command line options
+  plot_num = plot number
+  injections = set of recovered injections with sim and sngl inspiral entries
+  column = colum to plot
+  units = units of column
+  plot_type = log or linear
+  """
   text = InspiralUtils.message(opts, \
       "Plots of injected versus detected " + column.replace("_"," ") )
   figure(plot_num.next())
@@ -36,8 +44,8 @@ def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
   ifos = injections.keys()
 
   for ifo in ifos:
-    injSet = injSets[ifo]
-    viz.plotval(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
+    injection = injections[ifo]
+    viz.plotval(injection['sim_inspiral'], injection['sngl_inspiral'],\
                 column, plot_type, InspiralUtils.colors[ifo] + 'x')
   viz.labelval(column, units, [0,0,0,0],'Injected','Recovered',\
       None,opts.title_text)
@@ -51,17 +59,27 @@ def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
 #############################################################################
 def plot_parameter_accuracy(opts, plot_num, injections, \
     column, units, axis_width, plot_type = 'linear', error_type = 'actual' ):
+  """
+  opts = the command line options
+  plot_num = plot number
+  injections = set of recovered injections with sim and sngl inspiral entries
+  column = colum to plot
+  units = units of column
+  axis_width = range of the axis
+  plot_type = log or linear
+  error_type = actual or fractional
+  """
   text = InspiralUtils.message(opts, "Plotting errors in recovery of " + \
       column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
   for ifo in ifos:
-    injSet = injSets[ifo]
+    injection = injections[ifo]
     if error_type == 'actual':
-      viz.plotdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
+      viz.plotdiff(injection['sim_inspiral'], injection['sngl_inspiral'],\
           column, plot_type, InspiralUtils.colors[ifo] + 'x')
     elif error_type == 'fractional':
-      viz.plotfracdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'],\
+      viz.plotfracdiff(injection['sim_inspiral'], injection['sngl_inspiral'],\
           column, plot_type, InspiralUtils.colors[ifo] + 'x')
   if error_type == 'actual':
     viz.labeldiff(column, units, [0,0,-axis_width,axis_width],\
@@ -81,24 +99,43 @@ def plot_parameter_accuracy(opts, plot_num, injections, \
 def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
     column, units, axis_width, second_column, second_units, \
     plot_type = 'linear', error_type = 'actual' ):
+  """
+  opts = the command line options
+  plot_num = plot number
+  injections = set of recovered injections with sim and sngl inspiral entries
+  column = colum to plot accuracy of
+  units = units of column
+  axis_width = range of the axis
+  second_column = column to plot on x-axis
+  second_units = units of second column
+  plot_type = log or linear
+  error_type = actual or fractional
+  """
   text = InspiralUtils.message(opts, \
       column.replace("_"," ") + " errors versus " + \
           second_column.replace("_"," ") )
   figure(plot_num.next())
   hold(True) 
   for ifo in ifos:
-    injSet = injSets[ifo]
+    injection = injections[ifo]
     if second_column == 'snr':
-      firstSet = injSet['sngl_inspiral']
-      secondSet = injSet['sim_inspiral']
+      firstSet = injection['sngl_inspiral']
+      secondSet = injection['sim_inspiral']
     else:
-      firstSet = injSet['sim_inspiral']
-      secondSet = injSet['sngl_inspiral']
-    viz.plotfracdiffa_vs_b(firstSet, secondSet,
-                 column, second_column, plot_type, 
-                 InspiralUtils.colors[ifo] + 'x')
-  viz.labelfracdiffa_vs_b(column, second_column, units, second_units, \
-      [0,0,-axis_width,axis_width], None, opts.title_text)
+      firstSet = injection['sim_inspiral']
+      secondSet = injection['sngl_inspiral']
+    if error_type == 'actual':
+      viz.plotdiffa_vs_b(firstSet, secondSet, column, second_column, \
+          plot_type, InspiralUtils.colors[ifo] + 'x')
+    elif error_type == 'fractional':
+      viz.plotfracdiffa_vs_b(firstSet, secondSet, column, second_column, \
+          plot_type, InspiralUtils.colors[ifo] + 'x')
+  if error_type == 'actual': 
+    viz.labeldiffa_vs_b(column, second_column, units, second_units, \
+        [0,0,-axis_width,axis_width], None, opts.title_text)
+  elif error_type == 'fractional': 
+    viz.labelfracdiffa_vs_b(column, second_column, units, second_units, \
+        [0,0,-axis_width,axis_width], None, opts.title_text)
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, column + "_vs_" + \
         second_column)
@@ -110,17 +147,25 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
 #############################################################################
 def hist_parameter_accuracy(opts, plot_num, injections, \
     column, units, axis_width, plot_type = 'hist'):
-
+  """
+  opts = the command line options
+  plot_num = plot number
+  injections = set of recovered injections with sim and sngl inspiral entries
+  column = colum to plot accuracy of
+  units = units of column
+  axis_width = range of the axis
+  plot_type = log or linear
+  """
   text = InspiralUtils.message(opts, "histogram of error in " + \
       column.replace("_"," "))
   figure(plot_num.next())
   hold(True) 
   sym=0
   for ifo in ifos:
-    injSet = injSets[ifo]
-    viz.histdiff(injSet['sim_inspiral'], injSet['sngl_inspiral'], column, \
-         plot_type, sym, len(injSets), opts.nbins, \
-         [-axis_width,axis_width])
+    injection = injections[ifo]
+    viz.histdiff(injection['sim_inspiral'], injection['sngl_inspiral'], \
+        column, plot_type, sym, len(injections), opts.nbins, \
+        [-axis_width,axis_width])
     sym+=1
   viz.labelhistdiff(column, plot_type, units, None, opts.title_text)
   if opts.enable_output:
@@ -131,36 +176,65 @@ def hist_parameter_accuracy(opts, plot_num, injections, \
   return fname, text, plot_num
 
 #############################################################################
-def plot_parameter_accuracy_with_colorbar(injections, column, color_col, 
-    plot_type = 'linear', error = 'fractional'):
+def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
+    injections, column, units, axis_width, second_column, second_units, \
+    color_column, plot_type = 'linear', error_type = 'actual' ):
   """
+  opts = the command line options
+  plot_num = plot number
   injections = set of recovered injections with sim and sngl inspiral entries
-  column = colum to plot
-  color_col = colum to use for colour scale
+  column = colum to plot accuracy of
+  units = units of column
+  axis_width = range of the axis
+  second_column = column to plot on x-axis
+  second_units = units of second column
+  color_column = column to use for color scale
   plot_type = log or linear
-  title_text = text to add at start of title
+  error_type = actual or fractional
   """
-  insp_value= injections['sngl_inspiral'].get_column(column)
-  inj_value = injections['sim_inspiral'].get_column(column)
-  if error == 'actual':
-    insp_minus_inj_diff = insp_value - inj_value
-    ytext = ''
-  elif error == 'fractional':
-    insp_minus_inj_diff = (insp_value - inj_value)/inj_value
-    ytext = 'Fractional'
+  text = InspiralUtils.message(opts, \
+      column.replace("_"," ") + " errors versus " + \
+          second_column.replace("_"," ") + " colorscale from " + \
+          color_column.replace("_"," ") )
+  figure(plot_num.next())
+  hold(True) 
+  for ifo in ifos:
+    injection = injections[ifo]
+    sim_value = viz.readcol(injection['sim_inspiral'], column, ifo)
+    sngl_value = viz.readcol(injection['sngl_inspiral'], column, ifo)
+    if second_column == 'snr':
+      second_value = injection['sngl_inspiral'].get_column('snr')
+    else:
+      second_value = viz.readcol(injection['sim_inspiral'], second_column, ifo)
+    if color_column == 'snr':
+      color_value = injection['sngl_inspiral'].get_column('snr')
+    else:
+      color_value = viz.readcol(injection['sim_inspiral'], color_column, ifo)
 
-  color_value = injections['sngl_inspiral'].get_column(color_col)
-  scatter(inj_value, insp_minus_inj_diff, s=40, c=color_value, edgecolors=None)
-  ax = axes()
-  if plot_type == 'log':
-    ax.set_xscale('log')
-    ax.set_yscale('log')
+    diff = sim_value - sngl_value
+    if error_type == 'fractional':
+      diff /= sim_value
 
-  xlabel('Injected' + column.replace("_"," "), size='x-large')
-  ylabel(ytext + ' error in ' + column.replace("_"," "), size='x-large')
-  title( title_text + " " + column.replace("_"," ") + \
-      " accuracy, color scale = " + color_col.replace("_"," ") )
+    scatter(second_value, diff, s=40, c=color_value, edgecolors=None)
+    ax = axes()
+    if plot_type == 'log':
+      ax.set_xscale('log')
+
+  if error_type == 'actual':
+    viz.labeldiffa_vs_b(column, second_column,units,second_units, \
+        [0,0,-axis_width, axis_width], None, opts.title_text)
+  elif error_type == 'fractional':
+    viz.labelfracdiffa_vs_b(column, second_column,units,second_units, \
+        [0,0,-axis_width, axis_width], None, opts.title_text)
   colorbar()
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, \
+        column + "_vs_" + second_column + "accuracy_scatter_" + color_column)
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+        dpi_thumb=opts.figure_resolution)
+
+  return fname, text, plot_num
 
 #############################################################################
 
@@ -184,19 +258,15 @@ Available plots:
   b) a histogram, using --hist-mchirp
   c) a function of the injected effective distance, using --chirp-dist
   d) a function of the detected SNR, using --chirp-snr
+  e) a function of the detected SNR, with color given by mtotal using
+       --chirp-snr-mtotal
 The width of all these plots is set using --chirp-axis
 
-2) Eta accuracy can be plotted as:
-  a) a function of the injected eta, using --plot-eta
-  b) a histogram, using --hist-eta
-The width of all these plots is set using --eta-axis
+2) Eta accuracy can be plotted in the same way as above, using eta in place of 
+mchirp.  The width of all these plots is set using --eta-axis
 
-3) End time accuracy can be plotted as:
-  a) a function of the injected end time, using --plot-time
-  b) a histogram, using --hist-time
-  c) a function of the injected effective distance, using --time-dist
-  d) a function of the detected SNR, using --time-snr
-The width of all these plots is set using --time-axis
+3) End time accuracy can be plotted in the same way as above, using time 
+in place of chirp. The width of all these plots is set using --eta-axis
 
 4) Effective distance accuracy can be plotted as:
   a) a function of the injected eta, using --plot-dist
@@ -229,6 +299,9 @@ def parse_command_line():
       help="plot of chirp mass accuracy vs effective dist" )
   parser.add_option("-q","--chirp-snr",action="store_true",default=False,\
       help="plot of chirp mass accuracy vs snr" )
+  parser.add_option("-Q","--chirp-snr-mtotal",action="store_true",\
+      default=False,\
+      help="plot of chirp mass accuracy vs snr, colorbar mtotal" )
   parser.add_option("-C","--chirp-axis",action="store",type="float",\
       default=0, metavar=" M_SUN",help="width of chirp mass accuracy in plots" )
   parser.add_option("","--mchirp-mchirp",action="store_true",default=False,\
@@ -240,6 +313,9 @@ def parse_command_line():
       help="histogram of the eta accuracy" ) 
   parser.add_option("-a","--eta-snr",action="store_true",default=False,\
       help="plot of eta accuracy vs snr" )
+  parser.add_option("-L","--eta-snr-mtotal",action="store_true",\
+      default=False,\
+      help="plot of eta accuracy vs snr, colorbar mtotal" )
   parser.add_option("-F","--eta-axis",action="store",type="float",\
       default=0, metavar=" UNITS",help="width of eta accuracy in plots" )
   
@@ -251,6 +327,10 @@ def parse_command_line():
       help="plot of timing accuracy vs effective dist" )
   parser.add_option("-r","--time-snr",action="store_true",default=False,\
       help="plot of timing accuracy vs snr" )
+  parser.add_option("-K","--time-snr-mtotal",action="store_true",\
+      default=False,\
+      help="plot of time accuracy vs snr, colorbar mtotal" )
+
   parser.add_option("-S","--time-axis",action="store",type="float",\
       default=0, metavar=" SEC",help="width of timing accuracy in plots" )
   
@@ -336,7 +416,7 @@ def parse_command_line():
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
       "or in CVS. This only works IF --enable-output is also specified. The "\
-      "argument should be the cvs directory where the html file will be placed "\
+      "argument should be the cvs directory where the html file will be put "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
   (options,args) = parser.parse_args()
@@ -552,34 +632,13 @@ if opts.chirp_snr:
   fnameList.append(fname)
   tagList.append(text)
 
-  text = InspiralUtils.message(opts, \
-      "chirp mass errors versus SNR and total mass")
-  figure(plot_num.next())
-  hold(True)
-  for ifo in ifos:
-    injSet = injSets[ifo]
-    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
-    mchirp_e = viz.readcol(injSet['sngl_inspiral'], 'mchirp')
-    mchirp_i = viz.readcol(injSet['sim_inspiral'], 'mchirp')
-    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
-    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
-    diff_a = 2.*(mchirp_i - mchirp_e)/(mchirp_e + mchirp_i)    
-    scatter(snr, diff_a, s=40, c=mass1+mass2, edgecolors=None)
-    ax = axes()
-    ax.set_xscale('log')
-
-  viz.labelfracdiffa_vs_b('mchirp', 'snr','$M_{\odot}$',None, \
-    [opts.min_snr,power(10.0, ceil(log10(max(snr)))), -opts.chirp_axis, \
-    opts.chirp_axis], None, opts.title_text)
-  colorbar()
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, \
-        "mchirp_vs_snr_accuracy_scatter_totalmass")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(text)
+if opts.chirp_snr_mtotal:
+  fname, text, plot_num = \
+      plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
+      plot_num, injSets, 'mchirp', '$M_{\odot}$', opts.chirp_axis, \
+      'snr', None, 'mtotal' , plot_type = 'log', error_type ='fractional')
+  fnameList.append(fname)
+  tagList.append(text)
 
 ################################
 # plot of end time error vs snr
@@ -590,37 +649,14 @@ if opts.time_snr:
   fnameList.append(fname)
   tagList.append(text)
 
-  text = InspiralUtils.message(opts, \
-      "end_time errors versus SNR and total mass")
-  figure(plot_num.next())
-  hold(True)
-  for ifo in ifos:
-    injSet = injSets[ifo]
-    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
-    time_e = viz.readcol(injSet['sngl_inspiral'], 'end_time', ifo)
-    time_i = viz.readcol(injSet['sim_inspiral'], 'end_time', ifo)
-    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
-    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
-    diff_a = time_i - time_e
-    handle = scatter(snr, diff_a, s=40, c=mass1+mass2, edgecolors=None)
-    ax = axes()
-    ax.set_xscale('log')
+if opts.time_snr_mtotal:
+  fname, text, plot_num = \
+      plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
+      plot_num, injSets, 'end_time', 'seconds', opts.time_axis, \
+      'snr', None, 'mtotal' , plot_type = 'log', error_type ='actual')
+  fnameList.append(fname)
+  tagList.append(text)
 
-
-  viz.labeldiffa_vs_b('end_time', 'snr','seconds',None, \
-    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.time_axis, \
-    opts.time_axis], None, opts.title_text)
-  colorbar()
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, \
-        "end_time_vs_snr_accuracy_scatter_totalmass")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(text)
-
-  
 
 ################################
 # plot of eta error vs snr
@@ -631,35 +667,14 @@ if opts.eta_snr:
   fnameList.append(fname)
   tagList.append(text)
 
-  text = InspiralUtils.message(opts, "Eta errors versus SNR and total mass")
-  figure(plot_num.next())
-  hold(True)
-  for ifo in ifos:
-    injSet = injSets[ifo]
-    snr = viz.readcol(injSet['sngl_inspiral'], 'snr')
-    eta_e = viz.readcol(injSet['sngl_inspiral'], 'eta')
-    eta_i = viz.readcol(injSet['sim_inspiral'], 'eta')
-    mass1 = viz.readcol(injSet['sim_inspiral'], 'mass1')
-    mass2 = viz.readcol(injSet['sim_inspiral'], 'mass2')
-    diff_a = 2.*(eta_i - eta_e)/(eta_e + eta_i)    
-    scatter(snr, diff_a, s=40, c=mass1+mass2, edgecolors=None)
-    ax = axes()
-    ax.set_xscale('log')
+if opts.eta_snr_mtotal:
+  fname, text, plot_num = \
+      plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, \
+      plot_num, injSets, 'eta', None, opts.time_axis, \
+      'snr', None, 'mtotal' , plot_type = 'log', error_type ='fractional')
+  fnameList.append(fname)
+  tagList.append(text)
 
-  viz.labelfracdiffa_vs_b('eta', 'snr',None,None, \
-    [opts.min_snr,power(10.0, ceil(log10(max(snr)))),-opts.eta_axis,\
-    opts.eta_axis], None, opts.title_text)
-  colorbar()
-
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, \
-        "eta_vs_snr_accuracy_scatter_totalmass")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(text)
-
-  
 
 ################################
 # plot of ethinca parameter vs the difference between any parameter's
