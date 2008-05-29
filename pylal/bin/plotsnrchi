@@ -359,7 +359,10 @@ chisq_dof = 0
 # input triggers
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
     verbose=opts.verbose)
-nevents = len(inspTriggers)
+if inspTriggers:
+  nevents = len(inspTriggers)
+else:
+  nevents = 0
 comments += InspiralUtils.message(opts, \
     'Read '+str(nevents)+ ' triggers from from inspiral files')
 
@@ -378,7 +381,7 @@ ninj_events = 0
 if opts.inj_glob or opts.cache_file:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
-  ninj_events = len(injTriggers)
+  if injTriggers: ninj_events = len(injTriggers)
 if ninj_events:
   inj_snr = injTriggers.get_column('snr')
   inj_chisq = injTriggers.get_column('chisq')
