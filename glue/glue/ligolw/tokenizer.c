@@ -97,10 +97,40 @@ PyObject *_build_formats(PyObject *sequence)
 /*
  * ============================================================================
  *
+ *                                   Blobs
+ *
+ * ============================================================================
+ */
+
+
+static PyObject *parse_blob(PyObject *self, PyObject *args)
+{
+	PyErr_SetString(PyExc_NotImplementedError, "ligo light weight blob types not yet supported, please report problem to Glue maintainer");
+	return NULL;
+}
+
+
+static PyObject *blob_format_func(PyObject *self, PyObject *args)
+{
+	PyErr_SetString(PyExc_NotImplementedError, "ligo light weight blob types not yet supported, please report problem to Glue maintainer");
+	return NULL;
+}
+
+
+/*
+ * ============================================================================
+ *
  *                            Module Registration
  *
  * ============================================================================
  */
+
+
+static struct PyMethodDef module_methods[] = {
+	{"parse_blob", parse_blob, METH_VARARGS, NULL},
+	{"blob_format_func", blob_format_func, METH_VARARGS, NULL},
+	{NULL,}
+};
 
 
 void inittokenizer(void)
@@ -109,7 +139,8 @@ void inittokenizer(void)
 	 * Create the module.
 	 */
 
-	PyObject *module = Py_InitModule3(MODULE_NAME, NULL,
+	PyObject *module = Py_InitModule3(MODULE_NAME,
+		module_methods,
 		"This module provides a tokenizer for LIGO Light Weight XML Stream and Array\n" \
 		"elements, as well as other utilities to assist in packing parsed tokens into\n" \
 		"various data storage units."

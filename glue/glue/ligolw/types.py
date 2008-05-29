@@ -67,6 +67,7 @@ References:
 
 
 import ilwd
+import tokenizer
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -83,12 +84,13 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-IDTypes = [u"ilwd:char", u"ilwd:char_u"]
+IDTypes = [u"ilwd:char"]
+BlobTypes = [u"ilwd:char_u", u"blob"]
 StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
 IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
 FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
 TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
-Types = StringTypes + IntTypes + FloatTypes + TimeTypes
+Types = BlobTypes + StringTypes + IntTypes + FloatTypes + TimeTypes
 
 
 def ligolw_string_format_func(s):
@@ -99,7 +101,8 @@ FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
-	u"ilwd:char_u": ligolw_string_format_func,
+	u"ilwd:char_u": tokenizer.blob_format_func,
+	u"blob": tokenizer.blob_format_func,
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
 	u"int_2s": u"%d".__mod__,
@@ -120,7 +123,8 @@ ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
 	u"ilwd:char": ilwd.get_ilwdchar,
-	u"ilwd:char_u": str,
+	u"ilwd:char_u": tokenizer.parse_blob,
+	u"blob": tokenizer.parse_blob,
 	u"lstring": unicode,
 	u"string": unicode,
 	u"int_2s": int,
@@ -139,6 +143,7 @@ ToPyType = {
 
 FromPyType = {
 	ilwd.ilwdchar: u"ilwd:char",
+	array: u"blob",
 	str: u"lstring",
 	unicode: u"lstring",
 	int: u"int_4s",
@@ -178,7 +183,8 @@ ToSQLiteType = {
 	u"char_s": "TEXT",
 	u"char_v": "TEXT",
 	u"ilwd:char": "TEXT",
-	u"ilwd:char_u": "TEXT",
+	u"ilwd:char_u": "BLOB",
+	u"blob": "BLOB",
 	u"lstring": "TEXT",
 	u"string": "TEXT",
 	u"int_2s": "INTEGER",
@@ -196,6 +202,7 @@ ToSQLiteType = {
 
 
 FromSQLiteType = {
+	"BLOB": u"blob",
 	"TEXT": u"lstring",
 	"STRING": u"lstring",
 	"INTEGER": u"int_4s",
