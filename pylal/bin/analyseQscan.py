@@ -406,6 +406,7 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
   else:
     figFileName = opts.output_path + '/' + figName
   savefig(figFileName)
+  close(figNumber)
 
   return figName  
 
@@ -430,21 +431,21 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
 
   if percentiles:
     line1 = axvline(x=percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
-    line2 = axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
-    line3 = axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
+    line2 = axvline(x=percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
+    line3 = axvline(x=percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
     if parameter == 'dt':
       axvline(x=-percentiles[0], ymin=0, ymax=max(histoList), color='g', label='50th percentile', linewidth=2, linestyle='--')
-      axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='90th percentile', linewidth=2, linestyle='--')
-      axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='97th percentile', linewidth=2, linestyle='--')
+      axvline(x=-percentiles[1], ymin=0, ymax=max(histoList), color='m', label='95th percentile', linewidth=2, linestyle='--')
+      axvline(x=-percentiles[2], ymin=0, ymax=max(histoList), color='r', label='99th percentile', linewidth=2, linestyle='--')
 
   if candidate:
     line0 = axvline(x=candidate, ymin=0, ymax=max(histoList), color='k', label='candidate value (%s percentile)' % (candidateRank), linewidth=2, linestyle='-')
 
   if percentiles and candidate:
-    legend((line0,line1,line2,line3),('candidate','50%','90%','97%'),loc = 'upper right')
+    legend((line0,line1,line2,line3),('candidate','50%','95%','99%'),loc = 'upper right')
 
   if percentiles and not candidate:
-    legend((line1,line2,line3),('50%','90%','97%'),loc = 'upper right')
+    legend((line1,line2,line3),('50%','95%','99%'),loc = 'upper right')
 
   xlim(xlimInf,xlimSup)
 
@@ -462,6 +463,7 @@ def plotHistogram(chan,opts,distribution,histoList,binList,figNumber,percentiles
   else:
     figFileName = opts.output_path + '/' + figName
   savefig(figFileName) 
+  close(figNumber)
 
   return figName
 
@@ -701,9 +703,9 @@ if not opts.process_background_only:
         # be careful: the function findPercentile is currently dangerous, as it sorts the list... this is the reason for the deepcopy
         listTempo = copy.deepcopy(zList)
         percentile_50th = findPercentile(listTempo,0.50)
-        percentile_90th = findPercentile(listTempo,0.90)
-        percentile_97th = findPercentile(listTempo,0.97)
-        percentiles = [percentile_50th,percentile_90th,percentile_97th]
+        percentile_95th = findPercentile(listTempo,0.95)
+        percentile_99th = findPercentile(listTempo,0.99)
+        percentiles = [percentile_50th,percentile_95th,percentile_99th]
 
         try:
           zHisto,zBin = makeHistogram(zList,"z-distribution",opts,percentiles,zCandidate)
@@ -730,9 +732,9 @@ if not opts.process_background_only:
 
         absoluteList = absList(dtList)
         dtpercentile_50th = findPercentileForDt(absoluteList,0.50)
-        dtpercentile_90th = findPercentileForDt(absoluteList,0.90)
-        dtpercentile_97th = findPercentileForDt(absoluteList,0.97)
-        dtpercentiles = [dtpercentile_50th,dtpercentile_90th,dtpercentile_97th]
+        dtpercentile_95th = findPercentileForDt(absoluteList,0.95)
+        dtpercentile_99th = findPercentileForDt(absoluteList,0.99)
+        dtpercentiles = [dtpercentile_50th,dtpercentile_95th,dtpercentile_99th]
 
         try:
           dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',opts)
@@ -798,9 +800,9 @@ if opts.process_background_only:
       # be careful: the function findPercentile is currently dangerous, as it sorts the list... this is the reason for the deepcopy
       listTempo = copy.deepcopy(zList)
       percentile_50th = findPercentile(listTempo,0.50)
-      percentile_90th = findPercentile(listTempo,0.90)
-      percentile_97th = findPercentile(listTempo,0.97)
-      percentiles = [percentile_50th,percentile_90th,percentile_97th]
+      percentile_95th = findPercentile(listTempo,0.95)
+      percentile_99th = findPercentile(listTempo,0.99)
+      percentiles = [percentile_50th,percentile_95th,percentile_99th]
       try:
         zHisto,zBin = makeHistogram(zList,'z-distribution',opts,percentiles)
       except:
@@ -820,9 +822,9 @@ if opts.process_background_only:
       dtList = computeDeltaT(backgroundTable,channel,opts,None)
       absoluteList = absList(dtList)
       dtpercentile_50th = findPercentileForDt(absoluteList,0.50)
-      dtpercentile_90th = findPercentileForDt(absoluteList,0.90)
-      dtpercentile_97th = findPercentileForDt(absoluteList,0.97)
-      dtpercentiles = [dtpercentile_50th,dtpercentile_90th,dtpercentile_97th]
+      dtpercentile_95th = findPercentileForDt(absoluteList,0.95)
+      dtpercentile_99th = findPercentileForDt(absoluteList,0.99)
+      dtpercentiles = [dtpercentile_50th,dtpercentile_95th,dtpercentile_99th]
       try:
         dtHisto,dtBin = makeHistogram(dtList,'dt-distribution',opts)
       except:
@@ -836,15 +838,15 @@ if opts.process_background_only:
     webpage.table[0].row[row_number].cell[0].text(channel)
     if opts.plot_z_distribution:
       webpage.table[0].row[row_number].cell[1].text('background median = ' + '%.3f' % percentiles[0])
-      webpage.table[0].row[row_number].cell[1].text('background 90% = ' + '%.3f' % percentiles[1])
-      webpage.table[0].row[row_number].cell[1].text('background 97% = ' + '%.3f' % percentiles[2])
+      webpage.table[0].row[row_number].cell[1].text('background 95% = ' + '%.3f' % percentiles[1])
+      webpage.table[0].row[row_number].cell[1].text('background 99% = ' + '%.3f' % percentiles[2])
       webpage.table[0].row[row_number].cell[1].link(opts.page + '/' + zFigure,"Z distribution,")
     if opts.plot_z_scattered:
       webpage.table[0].row[row_number].cell[1].link(opts.page + '/' + scatteredFigure,"Scattered plot")
     if opts.plot_dt_distribution:
       webpage.table[0].row[row_number].cell[2].text('background median = ' + '%.3f' % dtpercentiles[0])
-      webpage.table[0].row[row_number].cell[2].text('background 90% = ' + '%.3f' % dtpercentiles[1])
-      webpage.table[0].row[row_number].cell[2].text('background 97% = ' + '%.3f' % dtpercentiles[2])
+      webpage.table[0].row[row_number].cell[2].text('background 95% = ' + '%.3f' % dtpercentiles[1])
+      webpage.table[0].row[row_number].cell[2].text('background 99% = ' + '%.3f' % dtpercentiles[2])
       webpage.table[0].row[row_number].cell[2].link(opts.page + '/' + dtFigure,"Delta t distribution")
 
   webpage.cleanWrite('IUL')
