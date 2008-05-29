@@ -1056,10 +1056,11 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     setp(p, alpha=0.3)
     
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
   xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs ' + xlab
+  title_text = 'Cum. hist. of num events vs ' + xlab
   if ifolist:
     title_text += ' for ' 
     for ifo in ifolist:
