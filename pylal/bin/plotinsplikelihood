@@ -1503,8 +1503,8 @@ if opts.parallel_axis_plots:
 	zerolagCandidateTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zerolagCandidateFile,mangle_event_id=False)
 	# construct the zero lag coincs
 	zerolagCandidate = CoincInspiralUtils.coincInspiralTable(zerolagCandidateTriggers, statistic)
-	parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H2','L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H2L1_loudest_822956883")
-        #parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H2','L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H2L1_loudest_822956883")
+	#parallel_axis_plot_double(injectionCoincTriggers, coincType = ['H1','H2'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H1H2_loudest_event")
+        parallel_axis_plot_double(slidesCoincTriggers, coincType = ['H1','H2'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="H1H2_loudest_event")
 	#parallel_axis_plot_triple(injectionCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='injections', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="found_injection")
 	#parallel_axis_plot_triple(slidesCoincTriggers, coincType = ['H1','H2', 'L1'], data_type='time_slides', zerolag=zerolagCandidate, show_epsilon_ball=opts.show_epsilon_ball, zerolag_tag="full_s5_version2_eps_0_2")
   else:
@@ -1800,27 +1800,26 @@ if opts.input_data_type == "all-data":
 	  
     # get loudest events
 	if opts.print_loudest_candidates:
-	  likelihood_sorted_array = numpy.flipud(numpy.asarray(likelihood_dic.values()).sort)
+	  likelihood_sorted_array = numpy.flipud(numpy.sort(numpy.asarray(likelihood_dic.values()), kind="quicksort"))
 	  loudest_likelihood_dic = {}
 	  while len(loudest_likelihood_dic) < opts.print_loudest_candidates:
 		for i in range(len(likelihood_sorted_array)):
 		  for id in likelihood_dic.keys():
 			if likelihood_dic[id] == likelihood_sorted_array[i]:
-			  if len(loudest_likelihood_dic) < (opts.print_loudest_candidates - 1):
-				loudest_likelihood_dic[id] == likelihood_dic[id]
+			  if len(loudest_likelihood_dic) <= (opts.print_loudest_candidates - 1):
+				loudest_likelihood_dic[id] = likelihood_dic[id]
 	  # creating new tables for loudest events
 	  loudest_sngl_table = lsctables.New(lsctables.SnglInspiralTable)
 	  loudest_inspiral_likelihood_table = lsctables.New(InspiralLikelihoodTable)
-	  loudest_coinc_table = CoincInspiralUtils.CoincInspiralTable()
+	  loudest_coinc_table = CoincInspiralUtils.coincInspiralTable()
 	  
-	  for id in loudest_likelihood_dic.keys():
-		for coinc in zerolagCoincTriggers:
-		  ifos,ifolist = coinc.get_ifos()
-		  if getattr(coinc, ifolist[0]).event_id == id:
-			loudest_coinc_table.append(coinc)
-		for coinc in zerolagLikelihoodTriggers:
-			if coinc.event_id == id:
-			  loudest_inspiral_likelihood_table.append(coinc)
+	  for coinc in zerolagCoincTriggers:
+            ifos,ifolist = coinc.get_ifos()
+	    if getattr(coinc, ifolist[0]).event_id in loudest_likelihood_dic.keys():
+	      loudest_coinc_table.append(coinc)
+	  for coinc in zerolagLikelihoodTriggers:
+	    if coinc.event_id in loudest_likelihood_dic.keys():
+	      loudest_inspiral_likelihood_table.append(coinc)
 	  #writing the new tables into a file
 	  loudest_file = open("Loudest_events.xml", "w")		  
 	  loudest_inspiral_likelihood_table.write(loudest_file)
