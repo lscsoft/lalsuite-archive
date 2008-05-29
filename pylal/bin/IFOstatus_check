@@ -116,19 +116,22 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 
 pngLink = plotLink.replace('.pdf','.png')
 
-os.chdir(opts.output_path)
-plot = commands.getoutput('wget '+plotURL+plotLink)
+# the plots posted on london can be reached without password
 if opts.ifo[0] == 'L':
+  os.chdir(opts.output_path)
+  plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
-else:
-  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
-
-os.chdir(currentDir)
-print plot
+  os.chdir(currentDir)
+  print plot
+# the access to the plots posted on blue requires a password. So we just put a link to these pages.
+#else:
+#  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
-
+if opts.ifo[0] == 'L':
+  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+else:
+  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
 utc = xlal.date.XLALGPSToUTC(gps)
 
@@ -147,20 +150,22 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 
 pngLink = plotLink.replace('.pdf','.png')
 
-os.chdir(opts.output_path)
-plot = commands.getoutput('wget '+plotURL+plotLink)
+# the plots posted on london can be reached without password
 if opts.ifo[0] == 'L':
+  os.chdir(opts.output_path)
+  plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
-else:
-  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
-
-
-
-os.chdir(currentDir)
-print plot
+  os.chdir(currentDir)
+  print plot
+# the access to the plots posted on blue requires a password. So we just put a link to these pages.
+#else:
+#  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink) 
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+if opts.ifo[0] == 'L':
+  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+else:
+  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
 utc = xlal.date.XLALGPSToUTC(gpsplus)
 if utc[1] < 10: month = '0'+str(utc[1])
@@ -178,26 +183,26 @@ plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower(
 
 pngLink = plotLink.replace('.pdf','.png')
 
-os.chdir(opts.output_path)
-plot = commands.getoutput('wget '+plotURL+plotLink)
+# the plots posted on london can be reached without password
 if opts.ifo[0] == 'L':
+  os.chdir(opts.output_path)
+  plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
-else:
-  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
+  os.chdir(currentDir)
+  print plot
+# the access to the plots posted on blue requires a password. So we just put a link to these pages.
+#else:
+#  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
 
-
-
-os.chdir(currentDir)
-print plot
 
 webPage.appendSection("day: " + month+day)
-webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+if opts.ifo[0] == 'L':
+  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
+else:
+  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
 webPage.cleanWrite('IUL')
 talk.write()
 
 sys.exit(0)
-
-
-
 
