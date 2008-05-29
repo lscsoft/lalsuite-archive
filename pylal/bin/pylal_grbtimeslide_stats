@@ -144,6 +144,10 @@ parser.add_option("", "--coinc-statistic",
 parser.add_option("", "--hist-loudest", action="store_true", default=False,
     help="make a cumulative histogram that includes the loudest statistic "\
          "from each trial")
+parser.add_option("--plot-num-coincs", action="store_true", default=False,
+    help="plot the number of coincs vs trial number")
+parser.add_option("--hist-num-coincs", action="store_true", default=False,
+    help="histogram the number of coincs in each trial")
 parser.add_option("", "--hist-trials", action="callback", type="string",
     callback=comma_delimited, callback_kwargs={"elem_type":int}, default=[],
     help="make a cumulative histogram of statistics for each of the given "\
@@ -215,7 +219,7 @@ InspiralUtils.initialise(opts, __name__, __version__)
 
 # get analyzed segments; if exttrig_analyze=offsource, then this is the two
 # segments immediately adjacent to the on-source segment
-seg_dict = SearchSummaryUtils.GetSegListFromSearchSummaries(files, opts.verbose)
+seg_dict = SearchSummaryUtils.GetSegListFromSearchSummaries(files)
 segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
 if abs(segs) % opts.fold_time != 0:
     raise ValueError, "The provided file's analysis segment is not divisible "\
@@ -286,16 +290,13 @@ info_text += InspiralUtils.message(opts, "Number of %d second segments per "\
     "slide: %d" % (opts.fold_time, eff_num_trials))
 info_text += InspiralUtils.message(opts, "Total number of coincidences: %d" % \
     total_counts)
-info_text += InspiralUtils.message(opts, "Mean coincidences per slide per " \
-    "segment: %f" % mean)
+info_text += InspiralUtils.message(opts, "Mean coincidences per trial: %f" % \
+    mean)
 info_text += InspiralUtils.message(opts, "Stdev of trials: %f" % stdev)
 
 for i in range(min(10, counts.max() + 1)):
-    prob = norm * (counts == i & ~trial_veto_mask).sum()
+    prob = norm * ((counts == i) & ~trial_veto_mask).sum()
     info_text += InspiralUtils.message(opts, "p(%d|0): %f" % (i, prob))
-
-if opts.verbose:
-    print info_text
 
 ##############################################################################
 # plots
@@ -310,18 +311,19 @@ if opts.hist_loudest:
     # initialize plot
     plot = plotutils.CumulativeHistogramPlot(
             safe_stat,
-            r"$\textrm{\# trials with %s}_\mathrm{loudest} > \mathrm{%s}$" % \
-                (safe_stat, safe_stat),
+            r"$\textrm{\# trials with %s}_\mathrm{loudest}^2 > \mathrm{%s}^2$" \
+                % (safe_stat, safe_stat),
             r"$\textrm{Cumulative histogram of %s}^2\textrm{ "\
                 r"of loudest events}$" % safe_stat)
 
     # prepare data
     zerolag_trials = coincs[0, :]
     data = vec_get_loudest_stat(zerolag_trials)
+    data **= 2
 
     # finalize plot
     plot.add_content(data)
-    plot.finalize(num_bins=50)
+    plot.finalize(num_bins=50, normalization=1/eff_num_trials)
 
     # output it as appropriate
     if opts.enable_output:
@@ -333,7 +335,7 @@ if opts.hist_loudest:
     if not opts.show_plot:
         plot.close()
 
-# plot cumulative histogram of specified trial's statistics
+# plot cumulative histogram of specified trials' statistics
 if len(opts.hist_trials) > 0:
     # sanity check
     for trial_num in opts.hist_trials:
@@ -347,7 +349,7 @@ if len(opts.hist_trials) > 0:
     plot = plotutils.CumulativeHistogramPlot(
             r"$\textrm{%s}^2$" % safe_stat,
             r"$\textrm{\# coincs louder than %s}^2$" % safe_stat,
-            r"$\textrm{Cumulative histogram of %s}^2$" % safe_stat)
+            r"$\textrm{Cumulative histogram of unclustered %s}^2$" % safe_stat)
 
     # prepare data of interest
     for trial_num in opts.hist_trials:
@@ -488,6 +490,58 @@ if opts.plot_trial_number_autocorrelation:
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
             "trial_number_autocorrelation")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+# plot the number of coincs in each trial
+if opts.plot_num_coincs:
+    text = "the number of coincs in each trial"
+
+    # initialize plot
+    plot = plotutils.VerticalBarPlot(r"trial \#", r"\# coincs",
+        r"\# coincs in each trial")
+
+    # prepare data
+    x_data = numpy.arange(counts.size, dtype=numpy.int16) + 1
+    plot.add_content(x_data, counts.flat)
+
+    # complete plot
+    plot.finalize()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "plot_num_coincs")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+
+# plot a histogram of the number of coincs in each trial
+if opts.hist_num_coincs:
+    text = "histogram of number of coincs in each trial"
+
+    # initialize plot
+    plot = plotutils.VerticalBarPlot(r"\# coincs", r"\# trials",
+        r"Histogram of \# coincs in each trial")
+
+    # prepare data
+    x_data = numpy.arange(counts.max(), dtype=int)
+    y_data = [((counts == i) & ~trial_veto_mask).sum() for i in x_data]
+    plot.add_content(x_data, y_data)
+
+    # complete plot
+    plot.finalize()
+
+    # output it as appropriate
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "hist_num_coincs")
         fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
         fnameList.append(fname)
         tagList.append(text)
