@@ -27,53 +27,58 @@
 
 
 """
-The ilwd:char and ilwd:char_u types are used as IDs for objects within LIGO
+The ilwd:char type is used to store ID strings for objects within LIGO
 Light-Weight XML files.  This module provides the ilwdchar class used as a
 parent class for memory-efficient storage of ilwd:char strings.
 
 LIGO Light Weight XML "ilwd:char" IDs are strings of the form
 "table:column:integer", for example "process:process_id:10".  Large complex
 documents can have many millions of these strings, and their storage
-represents a significant RAM burden.  At the same time, however, while
-there can be millions of ID strings in use there may be only a small number
-(e.g. 10 or fewer) unique ID prefixes in use (the table name and column
-name part).  The amount of RAM required to load a document can be
-significantly reduced if the small number of unique string prefixes is
-stored separately.  This module (and the __ilwd C extension module it uses)
-implement the machinery used to do this.
+represents a significant RAM burden.  However, while there can be millions
+of ID strings in use there may be only a small number (e.g. 10 or fewer)
+unique ID prefixes in use (the table name and column name part).  The
+amount of RAM required to load a document can be significantly reduced if
+the small number of unique string prefixes is stored separately.  This
+module (and the __ilwd C extension module it uses) implement the machinery
+used to do this.
 
-The technique makes use of Python's ability to define new classes at
-runtime.  Each unique string prefix, for example "process:process_id", is
-mapped to a class.  The class definitions are stored in a look-up table
-indexed by the (table name, column name) string pairs.  The table and
-column strings are stored as class attributes (shared by all instances of
-the class), while only the integer suffix unique to each ID is stored as an
-instance attribute.  For those who have no idea what this means, an example
-to illustrate:
+To get started, the get_ilwdchar() function provided by this module is the
+means by which an ID string is converted into an instance of the
+appropriate subclass of ilwdchar.
 
-	class Example(object):
-		# a class attribute.  the value of this variable is shared
-		# by all instances of the class, only one copy is stored in
-		# memory
-		prefix = "hello"
+Example:
 
-		def __init__(self):
-			# an instance attribute.  each instance of this
-			# class gets its own variable by this name, each
-			# can have a different value
-			suffix = 10
+>>> x = get_ilwdchar("process:process_id:10")
 
-In detail, the implementation in this module begins with the ilwdchar
-class, coded in C for speed, that acts as the parent class for all
-prefix-specific ID classes.  The parent class implements all the methods
-and features required by an ID object.  The dictionary ilwdchar_class_cache
-is used to store subclasses of ilwd.  The helper function get_ilwdchar() is
-used to convert an ID string of the form "table:column:integer" into an
-instance of the appropriate subclass of ilwdchar.  This is done by parsing
-the string and retrieving the class matching the table and column name
-parts from the class dictionary, or creating a new class on the fly if a
-matching class is not found.  Either way, a new instance of the class is
-created initialized to the integer part of the ID.
+Like strings, the object resulting from this function call is immutable.
+It provides two read-only attributes, "table_name" and "column_name", that
+can be used to access the table and column parts of the original ID string.
+The integer suffix can be retrieved by converting the object to an integer.
+
+Example:
+
+>>> x.table_name
+'process'
+>>> int(x)
+10
+
+The object also provides the read-only attribute "index_offset", giving the
+length of the string preceding the interger suffix.
+
+Example:
+
+>>> x.index_offset
+19
+
+The objects support some arithmetic operations.
+
+Example:
+
+>>> y = x + 5
+>>> str(y)
+'process:process_id:15'
+>>> int(y - x)
+5
 """
 
 
@@ -135,12 +140,31 @@ def get_ilwdchar_class(tbl_name, col_name):
 
 	Example:
 
-	>>> cls = get_ilwdchar_class("process", "process_id")
-	>>> id = cls(10)
-	>>> id
+	>>> process_id = get_ilwdchar_class("process", "process_id")
+	>>> x = process_id(10)
+	>>> x
 	<glue.ligolw.ilwd.cached_ilwdchar_class object at 0x2b8de0a186a8>
-	>>> str(id)
+	>>> str(x)
 	'process:process_id:10'
+
+	Retrieving and storing the class provides a convenient mechanism
+	for quickly constructing new ID objects.
+
+	Example:
+
+	>>> for i in range(10):
+	...	print str(process_id(i))
+	...
+	process:process_id:0
+	process:process_id:1
+	process:process_id:2
+	process:process_id:3
+	process:process_id:4
+	process:process_id:5
+	process:process_id:6
+	process:process_id:7
+	process:process_id:8
+	process:process_id:9
 	"""
 	#
 	# if the class already exists, retrieve it
@@ -171,18 +195,18 @@ def get_ilwdchar(s):
 
 	Example:
 
-	>>> id = get_ilwdchar("process:process_id:10")
-	>>> str(id)
+	>>> x = get_ilwdchar("process:process_id:10")
+	>>> str(x)
 	'process:process_id:10'
-	>>> id.table_name
+	>>> x.table_name
 	'process'
-	>>> id.column_name
+	>>> x.column_name
 	'process_id'
-	>>> int(id)
+	>>> int(x)
 	10
-	>>> id.index_offset
+	>>> x.index_offset
 	19
-	>>> str(id)[id.index_offset:]
+	>>> str(x)[x.index_offset:]
 	'10'
 	"""
 	#
