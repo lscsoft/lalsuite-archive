@@ -230,7 +230,7 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
 
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, \
-        column + "_vs_" + second_column + "accuracy_scatter_" + color_column)
+        column + "_vs_" + second_column + "_accuracy_scatter_" + color_column)
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
 
