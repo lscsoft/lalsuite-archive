@@ -21,6 +21,7 @@ from pylal.tools import XLALCalculateEThincaParameter
 #from pylab import*
 import glue.iterutils
 import numpy
+import cmath
 numpy.seterr("raise")
 
 #######################################################################################
@@ -154,16 +155,16 @@ parser.add_option("","--mchirp-epsilon",action="store",type="float",\
     default=0.5, help="allowed fractional error in chirp mass" )
 	
 parser.add_option("","--eff-dist-theta-scale",action="store",type="float",\
-    default=0.03490, help="allowed absolute error in effective distance theta angle")
+    default=0.03490, help="allowed absolute error in effective distance theta angle in degrees")
 
 parser.add_option("","--eff-dist-phi-scale",action="store",type="float",\
-    default=0.17453, help="allowed absolute error in effective distance phi angle")
+    default=0.17453, help="allowed absolute error in effective distance phi angle in degrees")
 	
 parser.add_option("","--mchirp-theta-scale",action="store",type="float",\
-    default=0.03490, help="allowed absolute error in chirp mass theta angle")
+    default=0.03490, help="allowed absolute error in chirp mass theta angle in degrees")
   
 parser.add_option("","--mchirp-phi-scale",action="store",type="float",\
-    default=3.14159, help="allowed absolute error in chirp mass phi angle")
+    default=3.14159, help="allowed absolute error in chirp mass phi angle degrees")
 
 parser.add_option("","--ethinca-scale",action="store",type="float",\
     default=0.1, help="allowed absolute error in e-thinca parameter")
@@ -215,9 +216,18 @@ if opts.background_cache_files and opts.foreground_cache_files:
   ForegroundCacheFiles = opts.foreground_cache_files.split(",")
   for cachefile in BackgroundCacheFiles:  
     BackgroundCache = lal.Cache.fromfile(open(cachefile))
+	#check that all files containing background events exist
+    if len(BackgroundCache.sieve(description = opts.background_pattern).checkfilesexist()[1].pfnlist()):
+	  print >> sys.stderr, " Not all files from " + cachefile + " containing background events were found."
+	  print BackgroundCache.sieve(description = opts.background_pattern).checkfilesexist()[1].pfnlist()
+	  sys.exit(1)   
     BackgroundFiles += BackgroundCache.sieve(description = opts.background_pattern).checkfilesexist()[0].pfnlist()
   for cachefile in ForegroundCacheFiles:  
     ForegroundCache = lal.Cache.fromfile(open(cachefile))
+	#check that all files containing foreground events exist
+    if len(ForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[1].pfnlist()):
+	  print >> sys.stderr, " Not all files from " + cachefile + " containing foreground events were found."
+	  sys.exit(1)   
     FoundInjectionsFiles += ForegroundCache.sieve(description = opts.found_injections_pattern).checkfilesexist()[0].pfnlist()
     MissedInjectionsFiles += ForegroundCache.sieve(description = opts.missed_injections_pattern).checkfilesexist()[0].pfnlist() 	
 elif opts.background_glob and opts.found_injections_glob and opts.missed_injections_glob:
@@ -257,7 +267,7 @@ if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat', 'effective_s
   print >>sys.stderr, "--statistic must be one of"  
   print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l)"
   sys.exit(1)
-
+  
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
 
 ###############################################################################
@@ -339,7 +349,11 @@ CandidateEventsCoincTriggers = CoincInspiralUtils.coincInspiralTable(CandidateEv
 ##########################################################################################
 # calculate likelihood for candidate events 
 #########################################################################################
-  
+# convert parameters given in degrees into radians
+eff_dist_theta_scale = opts.eff_dist_theta_scale * cmath.pi/float(180)
+eff_dist_phi_scale = opts.eff_dist_phi_scale * cmath.pi/float(180)
+mchirp_theta_scale = opts.mchirp_theta_scale * cmath.pi/float(180)
+mchirp_phi_scale = opts.mchirp_phi_scale * cmath.pi/float(180)   
 # Calculate False Alarm Probability and Background Fraction
 array_size = len(CandidateEventsCoincTriggers)
 FAProduct = numpy.zeros(array_size) + 1.0
@@ -349,19 +363,19 @@ if opts.calculate_DBR:
 # loop over time slides files
 for file in BackgroundFiles:
   # read in time slides triggers
-  SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  SlidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=False)
   # construct the time slides coincs
   SlidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(SlidesTriggers, statistic)
-  # False Alarm Probability for the current time slides file
   if opts.calculate_DBR and SlidesCoincTriggers:
     Ntotal_noise += len(SlidesCoincTriggers)
+  # False Alarm Probability for the current time slides file
   i = 0
   # looping over candidate events and calculating the false alarm probability
   for candidate in CandidateEventsCoincTriggers:
     c_ifos,ifolist=candidate.get_ifos()
     slides_array=numpy.zeros(2*opts.num_slides)
     slides_within_epsilon = SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
-	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale)
+    opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, eff_dist_theta_scale, eff_dist_phi_scale, mchirp_theta_scale, mchirp_phi_scale, opts.ethinca_scale)
     for slide in range(1, opts.num_slides + 1):
 	  slideTriggers_forward = slides_within_epsilon.getslide(slide)
 	  slideTriggers_backward = slides_within_epsilon.getslide(-slide)
@@ -374,7 +388,7 @@ for file in BackgroundFiles:
     if opts.calculate_DBR:
       # accumulating statistic for Background Fraction 
       Nnoise_events_within_epsilon[i] += len(SlidesCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
-	    opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
+	    opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, eff_dist_theta_scale, eff_dist_phi_scale, mchirp_theta_scale, mchirp_phi_scale, opts.ethinca_scale))
     i += 1
 FalseAlarmProb = 1.0 - FAProduct 
 if opts.calculate_DBR:  
@@ -393,7 +407,7 @@ N_injections_within_epsilon = numpy.zeros(array_size)
 for file in FoundInjectionsFiles:
   if opts.verbose:
     print file
-  FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=True)
+  FoundInjectionsTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], mangle_event_id=False)
   FoundInjectionsCoincTriggers = CoincInspiralUtils.coincInspiralTable(FoundInjectionsTriggers, statistic)
   if FoundInjectionsCoincTriggers:
     if opts.verbose:
@@ -403,9 +417,9 @@ for file in FoundInjectionsFiles:
   for candidate in CandidateEventsCoincTriggers:
     # accumulating statistic for Detection Probability
     N_injections_within_epsilon[i] += len(FoundInjectionsCoincTriggers.getTriggersWithinEpsilonBox(candidate, opts.enable_eff_snr_dimension, opts.enable_mchirp_dimension, opts.enable_ethinca_dimension, opts.enable_eff_distance_dimension,\
-	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, opts.eff_dist_theta_scale, opts.eff_dist_phi_scale, opts.mchirp_theta_scale, opts.mchirp_phi_scale, opts.ethinca_scale))
+	  opts.eff_snr_epsilon, opts.eff_dist_epsilon, opts.mchirp_epsilon, eff_dist_theta_scale, eff_dist_phi_scale, mchirp_theta_scale, mchirp_phi_scale, opts.ethinca_scale))
     i += 1
-	
+
 Ntotal_missed_injections = 0
 # loop over missed injections files
 # Currently we assume that all missed injections were made at effective distance exceeding the horizon
