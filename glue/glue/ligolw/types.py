@@ -97,12 +97,16 @@ def ligolw_string_format_func(s):
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
+def ligolw_blob_format_func(b):
+	return ligolw_string_format_func(tokenizer.blob_format_func(b))
+
+
 FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
-	u"ilwd:char_u": tokenizer.blob_format_func,
-	u"blob": tokenizer.blob_format_func,
+	u"ilwd:char_u": ligolw_blob_format_func,
+	u"blob": ligolw_blob_format_func,
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
 	u"int_2s": u"%d".__mod__,
