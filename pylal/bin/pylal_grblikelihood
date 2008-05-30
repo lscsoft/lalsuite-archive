@@ -63,7 +63,7 @@ def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
   @param coincTriggers: data to histogram
   @param simtypeflag: "missed" or "found"
   """
-  ng_x_y = zeros(shape=(len(yedges), len(xedges)), dtype=int)
+  ng_x_y = numpy.zeros(shape=(len(yedges), len(xedges)), dtype=int)
   xstep = xedges[1] - xedges[0]
   ystep = yedges[1] - yedges[0]
 
@@ -91,9 +91,9 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
   uniform, linear spacing.  Optionally, smooth the contour with a 1-D Gaussian
   with a sigma of width.
   """
-  clevel=zeros(len(xedges), dtype=float)
+  clevel=numpy.zeros(len(xedges), dtype=float)
   dy = yedges[1]-yedges[0]
-  centers = asarray(yedges) + dy/2
+  centers = numpy.asarray(yedges) + dy/2
   
   # derive an exclusion distance for each mass bin
   for i in xrange(len(xedges)):
@@ -107,14 +107,14 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
         break
 
   if do_smooth_contour:
-    gauss = exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
+    gauss = numpy.exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
       / sqrt( 2.0 * pi ) / width
-    yarray= convolve(asarray(clevel),gauss,mode=1) 	 
+    yarray= numpy.convolve(asarray(clevel),gauss,mode=1) 	 
     yarray = clevel[0] * yarray / yarray[0]
   else:
     yarray = clevel
   
-  tmpx,tmpy = makesteps(xedges, zeros(len(xedges), dtype=float), yarray) 	 
+  tmpx,tmpy = makesteps(xedges, numpy.zeros(len(xedges), dtype=float), yarray)
 
   return tmpx,tmpy,yarray
 
@@ -150,7 +150,7 @@ def fit_sigmoids(xedges, yedges, image, new_yedges=None):
     p0 = [0.1, 15]
     
     # fit and resample
-    output = zeros((len(new_yedges), len(xedges)), dtype=float)
+    output = numpy.zeros((len(new_yedges), len(xedges)), dtype=float)
     for i in xrange(len(xedges)):
         vals = image[:, i]
         
@@ -292,9 +292,9 @@ assert opts.figure_type in ("png", "ps", "eps", "svg")
 if not opts.show_plot:
   import matplotlib
   matplotlib.use('Agg')
-from pylab import *
+import pylab
 from pylal.viz import makesteps
-rc('text', usetex=True)
+pylab.rc('text', usetex=True)
 
 # Adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
 if opts.figure_type in ("ps", "eps"):
@@ -312,7 +312,7 @@ if opts.figure_type in ("ps", "eps"):
   'xtick.labelsize': 10,
   'ytick.labelsize': 10,
   'figure.figsize': fig_size}
-  rcParams.update(params)
+  pylab.rcParams.update(params)
 
 #####################################################################
 # initialize some basic information
@@ -355,7 +355,8 @@ if opts.verbose:
 #####################################################################
 # read in on-source triggers
 coincfiles = glob.glob(opts.on_source_glob)
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles)
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles,
+    mangle_event_id=True, verbose=opts.verbose)
 
 # perform the veto
 if inspTriggers and opts.veto_file:
@@ -393,7 +394,7 @@ else:
 # make the plot background and foreground
 delta=xhigh-xlow
 ds=0.5*delta/opts.nbins
-bins = arange( xlow, xhigh, delta/opts.nbins)
+bins = numpy.arange( xlow, xhigh, delta/opts.nbins)
 
 # build the histogram. The return values are
 #   the count per bin
@@ -403,12 +404,12 @@ bins = arange( xlow, xhigh, delta/opts.nbins)
 # edges of the bins. I have not looked into the code yet to confirm
 # how it handles that last bin. Since all other bins are equally
 # spaced, this doesn't really matter for us.
-[zero_dist,bin,info] = hist(coincTriggers.getstat(),bins)
+zero_dist, bin = numpy.histogram(coincTriggers.getstat(), bins)
 
 # add a zero to the beginning of the array containing count; this
 # method is so that the cumulative distribution is plotted correctly
 # as we'll see...
-zero_dist = concatenate( (zeros(1),zero_dist) )
+zero_dist = numpy.concatenate( (numpy.zeros(1),zero_dist) )
 
 # construct the cumulative distribution. Here's what is done:
 #   * sum up the total count - unaffected by the zeros(1) added above
@@ -417,35 +418,35 @@ zero_dist = concatenate( (zeros(1),zero_dist) )
 #   above threshold
 #   * note that the cumsum only creates an array with the same length as
 #   bins
-cum_dist_zero = numpy.sum(zero_dist)-cumsum(zero_dist[0:bin.size])
+cum_dist_zero = numpy.sum(zero_dist)-numpy.cumsum(zero_dist[0:bin.size])
 cum_dist_offsource = []
 for seg in trial_segs:
   offsourcetrial = offsourceTriggers.getTriggersInSegment(seg) 
-  [num_offsource,bin,info] = hist(offsourcetrial.getstat(),bins)
-  num_offsource = concatenate( (zeros(1),num_offsource) )
-  cum_offsource = sum(num_offsource)-cumsum(num_offsource[0:bin.size])
+  num_offsource,bin = numpy.histogram(offsourcetrial.getstat(), bins)
+  num_offsource = numpy.concatenate((numpy.zeros(1),num_offsource))
+  cum_offsource = numpy.sum(num_offsource)-numpy.cumsum(num_offsource[0:bin.size])
   # adds a row to the cum_dist_offsource
   cum_dist_offsource.append(cum_offsource)
 
-cum_dist_offsource = array(cum_dist_offsource)
+cum_dist_offsource = numpy.array(cum_dist_offsource)
 #cum_dist_offsource = reshape(array(cum_dist_offsource), \
       #(len(trial_segs),opts.nbins))
 
 # takes the mean over rows for each column
-offsource_mean = mean(cum_dist_offsource)
+offsource_mean = cum_dist_offsource.mean(axis=0)
 # takes the std over rows for each column
-offsource_std = std(cum_dist_offsource)
+offsource_std = cum_dist_offsource.std(axis=0)
 
 ####################################################################
 # Plot the standard histogram of expected number of events based on
 # the off source times.
-clf()
-figure()
+pylab.clf()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
-  axes([0.127,0.21,0.95-0.128,0.95-0.24])
-hold(True)
-semilogy((bins+ds)**2,cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
-semilogy((bins+ds)**2,offsource_mean, 'r+', markersize=12)
+  pylab.axes([0.127,0.21,0.95-0.128,0.95-0.24])
+pylab.hold(True)
+pylab.semilogy((bins+ds)**2, cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
+pylab.semilogy((bins+ds)**2, offsource_mean, 'r+', markersize=12)
 
 # The following loop is needed to make the plot nice when making
 # logarithmic filled regions.
@@ -454,52 +455,53 @@ for i in range( len(offsource_mean) ):
   offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
   offsource_mean[i] = max(offsource_mean[i], 0.0001)
 tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
-p=fill(tmpx**2,tmpy, facecolor='y')
-setp(p, alpha=0.3)
-grid(True)
-axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
-xlabel(r"$\rho_{\mathrm{eff}}^2$")
-ylabel(r"Expected \# of events")
+p=pylab.fill(tmpx**2,tmpy, facecolor='y', alpha=0.3)
+pylab.grid(True)
+pylab.axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
+pylab.xlabel(r"$\rho_{\mathrm{eff}}^2$")
+pylab.ylabel(r"Expected \# of events")
 
 min_snr = min([t.stat for t in offsourceTriggers if t.stat >= 0])
-xlim([min_snr**2, xlim()[1]])
+pylab.xlim([min_snr**2, pylab.xlim()[1]])
 
-savefig("snr_dist.%s" % opts.figure_type)
+pylab.savefig("snr_dist.%s" % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 #####################################################################
 # Plot the number of events in each off-source segment
-figure()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
- axes([0.125,0.2,0.95-0.125,0.95-0.22])
+ pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
 trigsperoffsource=cum_dist_offsource[:,0]
-offsourceindex=arange(len(trigsperoffsource))
-plot(offsourceindex,trigsperoffsource,'ro')
-hold(True)
-plot(offsourceindex,mean(trigsperoffsource)+0.0*offsourceindex,'b',lw=2)
-plot(offsourceindex,mean(trigsperoffsource)+std(trigsperoffsource)+0.0*offsourceindex,'g',lw=2)
-plot(offsourceindex,mean(trigsperoffsource)-std(trigsperoffsource)+0.0*offsourceindex,'g',lw=2)
-grid(True)
-xlabel(r"Off-source segment")
-ylabel(r"Number of triggers")
-savefig("triggers_per_offsource.%s" % opts.figure_type)
+offsourceindex=numpy.arange(len(trigsperoffsource))
+pylab.plot(offsourceindex,trigsperoffsource,'ro')
+pylab.hold(True)
+pylab.plot(offsourceindex, trigsperoffsource.mean()+0.0*offsourceindex,'b',lw=2)
+pylab.plot(offsourceindex, trigsperoffsource.mean()+trigsperoffsource.std()+0.0*offsourceindex,'g',lw=2)
+pylab.plot(offsourceindex, trigsperoffsource.mean()-trigsperoffsource.std()+0.0*offsourceindex,'g',lw=2)
+pylab.grid(True)
+pylab.xlabel(r"Off-source segment")
+pylab.ylabel(r"Number of triggers")
+pylab.savefig("triggers_per_offsource.%s" % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 #####################################################################
 # read in the missed and found files
 injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
-    glob.glob(opts.found_glob) )
+    glob.glob(opts.found_glob), mangle_event_id=True, verbose=opts.verbose)
 
 coincInjTriggers = CoincInspiralUtils.coincInspiralTable(\
     injTriggers,statistic)
 coincInjTriggers.add_sim_inspirals( \
-    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.found_glob)) )
+    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.found_glob),
+    verbose=opts.verbose))
 coincInjTriggers.add_missed_sims( \
-    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob)) )
+    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob),
+    verbose=opts.verbose))
 
 #####################################################################
 # do loudest event cut
@@ -523,9 +525,9 @@ if opts.loudest_event_cut:
 #####################################################################
 # histogram triggers in mass1-distance space
 dx=(opts.max_mass-opts.min_mass)/opts.bins_mass
-xedges = arange( opts.min_mass, opts.max_mass, dx )
+xedges = numpy.arange( opts.min_mass, opts.max_mass, dx )
 dy=(opts.max_distance-opts.min_distance)/opts.bins_distance
-yedges = arange( opts.min_distance, opts.max_distance, dy )
+yedges = numpy.arange( opts.min_distance, opts.max_distance, dy )
 distance_correction = 1.0
 if opts.h_calibration:
   distance_correction = 1.0 - opts.h_calibration
@@ -539,7 +541,7 @@ missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distan
 if coincTriggers and not opts.loudest_event_cut:
   # loop over each candidate
   for candidate in coincTriggers:
-    found_array = zeros(len(trial_segs), dtype=int)
+    found_array = numpy.zeros(len(trial_segs), dtype=int)
 
     # cut out those triggers near to the candidate, and
     # evaluate the p(c|0) based on that
@@ -575,7 +577,7 @@ else:
   #
   # number of segments without a trigger / total number of segments
   # this is also the correct branch to take for the loudest-event analysis
-  found_array = zeros(len(trial_segs), dtype=int)
+  found_array = numpy.zeros(len(trial_segs), dtype=int)
 
   for coinc in offsourceTriggers:
     # index by end time of alphabetically first IFO in coinc
@@ -595,7 +597,7 @@ else:
   # of injections with parameter lambda
   pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
 
-  mcerrorsq = sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
+  mcerrorsq = numpy.sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
          (missedsq + foundsq + 1.0e-10) )
   
   pcsignalsq =  pcsignalsq + 1.28*mcerrorsq
@@ -606,7 +608,7 @@ else:
     kd_foundsq = square(xedges, kd_yedges, coincInjTriggers, "found")
     kd_missedsq = square(xedges, kd_yedges, coincInjTriggers, "missed")
     kd_pcsignalsq = kd_missedsq / (kd_missedsq + kd_foundsq + 1.0e-10)
-    kd_mcerrorsq = sqrt( kd_pcsignalsq * (1.0 - kd_pcsignalsq) /\
+    kd_mcerrorsq = numpy.sqrt( kd_pcsignalsq * (1.0 - kd_pcsignalsq) /\
          (kd_missedsq + kd_foundsq + 1.0e-10))
     kd_pcsignalsq += 1.28*kd_mcerrorsq
 
@@ -621,7 +623,7 @@ else:
 
 im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
 
-new_yedges = linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
+new_yedges = numpy.linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
 if opts.fit_sigmoid:
   pcsignalsq = fit_sigmoids(xedges, yedges, pcsignalsq, new_yedges)
 
@@ -635,96 +637,96 @@ if opts.fit_sigmoid:
 # ylabel(r"$D (\mathrm{Mpc})$")
 # colorbar(IC)
 
-figure()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
-  axes([0.125,0.2,0.95-0.125,0.95-0.22])
-palette = cm
-IM = imshow(pcsignalsq, origin='lower', extent=im_extent,
+  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
+palette = pylab.cm
+IM = pylab.imshow(pcsignalsq, origin='lower', extent=im_extent,
   interpolation='nearest')
-hold(True)
-contour(pcsignalsq, extent=im_extent)
-colorbar(IM)
-axis('tight')
-#axvline(candmass)
-title(r'$p[\mathrm{candidate}|h(m_2,D)]$')
-xlabel(r"$m_2 (M_\odot)$")
-ylabel(r"$D (\mathrm{Mpc})$")
-savefig("pcsignal.%s" % opts.figure_type)
+pylab.hold(True)
+pylab.contour(pcsignalsq, extent=im_extent)
+pylab.colorbar(IM)
+pylab.axis('tight')
+#pylab.axvline(candmass)
+pylab.title(r'$p[\mathrm{candidate}|h(m_2,D)]$')
+pylab.xlabel(r"$m_2 (M_\odot)$")
+pylab.ylabel(r"$D (\mathrm{Mpc})$")
+pylab.savefig("pcsignal.%s" % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 
-figure()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
-  axes([0.125,0.2,0.95-0.125,0.95-0.22])
-palette = cm
-IM = imshow(foundsq + missedsq, origin='lower', extent=im_extent,
+  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
+palette = pylab.cm
+IM = pylab.imshow(foundsq + missedsq, origin='lower', extent=im_extent,
   interpolation='nearest')
-hold(True)
-contour(foundsq + missedsq, extent=im_extent)
-colorbar(IM)
-axis('tight')
-#axvline(candmass)
-title('Number of injections made')
-xlabel(r"$m_2 (M_\odot)$")
-ylabel(r"$D (\mathrm{Mpc})$")
-savefig("made-injections.%s"  % opts.figure_type)
+pylab.hold(True)
+pylab.contour(foundsq + missedsq, extent=im_extent)
+pylab.colorbar(IM)
+pylab.axis('tight')
+#pylab.axvline(candmass)
+pylab.title('Number of injections made')
+pylab.xlabel(r"$m_2 (M_\odot)$")
+pylab.ylabel(r"$D (\mathrm{Mpc})$")
+pylab.savefig("made-injections.%s"  % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 
-figure()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
-  axes([0.125,0.2,0.95-0.125,0.95-0.22])
-palette = cm
-IM = imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
+  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
+pylab.palette = pylab.cm
+IM = pylab.imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
   extent=im_extent, interpolation='nearest')
-hold(True)
-contour(foundsq / (foundsq + missedsq + 1.0e-10), extent=im_extent)
-colorbar(IM)
-axis('tight')
-#axvline(candmass)
-title('Fraction of injections found')
-xlabel(r"$m_2 (M_\odot)$")
-ylabel(r"$D (\mathrm{Mpc})$")
-savefig("found-fraction.%s" % opts.figure_type)
+pylab.hold(True)
+pylab.contour(foundsq / (foundsq + missedsq + 1.0e-10), extent=im_extent)
+pylab.colorbar(IM)
+pylab.axis('tight')
+#pylab.axvline(candmass)
+pylab.title('Fraction of injections found')
+pylab.xlabel(r"$m_2 (M_\odot)$")
+pylab.ylabel(r"$D (\mathrm{Mpc})$")
+pylab.savefig("found-fraction.%s" % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 
-figure()
+pylab.figure()
 if opts.figure_type in ("ps", "eps"):
-  axes([0.125,0.2,0.95-0.125,0.95-0.22])
+  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
 tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.75)
-p1=fill(tmpx,tmpy, facecolor=(0.75, 0.75, 0.75), label='25\% exclusion')
+p1=pylab.fill(tmpx,tmpy, facecolor=(0.75, 0.75, 0.75), label='25\% exclusion')
 tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.50)
-p2=fill(tmpx,tmpy, facecolor=(0.5, 0.5, 0.5), label='50\% exclusion')
+p2=pylab.fill(tmpx,tmpy, facecolor=(0.5, 0.5, 0.5), label='50\% exclusion')
 tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.25)
-p3=fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
+p3=pylab.fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
 tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.1)
-p4=fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
+p4=pylab.fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
 
 if opts.known_distance is not None:
-  axhline(y=opts.known_distance, color=(0.75, 0.75, 0.75), linewidth=2,
+  pylab.axhline(y=opts.known_distance, color=(0.75, 0.75, 0.75), linewidth=2,
     label='_nolegend_')
 
 # label bin boundaries if it's not ridiculous to do so
 if len(xedges) < 15:
-    xticks(xedges, map(str, xedges))
+    pylab.xticks(xedges, map(str, xedges))
 
-axis([min(xedges), max(xedges), 0, max(yedges)])
-xlabel(r"$m_2 (M_\odot)$")
-ylabel(r"$D (\mathrm{Mpc})$")
+pylab.axis([min(xedges), max(xedges), 0, max(yedges)])
+pylab.xlabel(r"$m_2 (M_\odot)$")
+pylab.ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
-  legend(loc="upper right")
-savefig("pcsignal-slice.%s" % opts.figure_type)
+  pylab.legend(loc="upper right")
+pylab.savefig("pcsignal-slice.%s" % opts.figure_type)
 
 if not opts.show_plot:
-  close()
+  pylab.close()
 
 
 if opts.show_plot:
-  show()
+  pylab.show()
