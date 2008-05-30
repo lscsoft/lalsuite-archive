@@ -66,8 +66,11 @@ References:
 """
 
 
+import base64
+
+
 import ilwd
-import tokenizer
+#import tokenizer
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -97,16 +100,18 @@ def ligolw_string_format_func(s):
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
-def ligolw_blob_format_func(b):
-	return ligolw_string_format_func(tokenizer.blob_format_func(b))
+#def ligolw_blob_format_func(b):
+#	return ligolw_string_format_func(tokenizer.blob_format_func(b))
 
 
 FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
-	u"ilwd:char_u": ligolw_blob_format_func,
-	u"blob": ligolw_blob_format_func,
+	#u"ilwd:char_u": ligolw_blob_format_func,
+	#u"blob": ligolw_blob_format_func,
+	u"ilwd:char_u": base64.standard_b64encode,
+	u"blob": base64.standard_b64encode,
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
 	u"int_2s": u"%d".__mod__,
@@ -127,8 +132,10 @@ ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
 	u"ilwd:char": ilwd.get_ilwdchar,
-	u"ilwd:char_u": tokenizer.parse_blob,
-	u"blob": tokenizer.parse_blob,
+	#u"ilwd:char_u": tokenizer.parse_blob,
+	#u"blob": tokenizer.parse_blob,
+	u"ilwd:char_u": lambda s: buffer(base64.standard_b64decode(s)),
+	u"blob": lambda s: buffer(base64.standard_b64decode(s)),
 	u"lstring": unicode,
 	u"string": unicode,
 	u"int_2s": int,
