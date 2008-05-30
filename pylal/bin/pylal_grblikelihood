@@ -399,38 +399,19 @@ bins = numpy.arange( xlow, xhigh, delta/opts.nbins)
 # build the histogram. The return values are
 #   the count per bin
 #   the bin (lower) edges
-#   the patches
 # Note: the matplotlib hist function assumes that these are the lower
 # edges of the bins. I have not looked into the code yet to confirm
 # how it handles that last bin. Since all other bins are equally
 # spaced, this doesn't really matter for us.
 zero_dist, bin = numpy.histogram(coincTriggers.getstat(), bins)
 
-# add a zero to the beginning of the array containing count; this
-# method is so that the cumulative distribution is plotted correctly
-# as we'll see...
-zero_dist = numpy.concatenate( (numpy.zeros(1),zero_dist) )
-
 # construct the cumulative distribution. Here's what is done:
-#   * sum up the total count - unaffected by the zeros(1) added above
-#   * subtract from that the cumulative sum of the modified array
-#   * the first element of the new array is the total number of events
-#   above threshold
-#   * note that the cumsum only creates an array with the same length as
-#   bins
-cum_dist_zero = numpy.sum(zero_dist)-numpy.cumsum(zero_dist[0:bin.size])
-cum_dist_offsource = []
-for seg in trial_segs:
-  offsourcetrial = offsourceTriggers.getTriggersInSegment(seg) 
-  num_offsource,bin = numpy.histogram(offsourcetrial.getstat(), bins)
-  num_offsource = numpy.concatenate((numpy.zeros(1),num_offsource))
-  cum_offsource = numpy.sum(num_offsource)-numpy.cumsum(num_offsource[0:bin.size])
-  # adds a row to the cum_dist_offsource
-  cum_dist_offsource.append(cum_offsource)
-
-cum_dist_offsource = numpy.array(cum_dist_offsource)
-#cum_dist_offsource = reshape(array(cum_dist_offsource), \
-      #(len(trial_segs),opts.nbins))
+cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
+cum_dist_offsource = numpy.zeros(shape=(len(trial_segs), opts.nbins))
+for i, seg in enumerate(trial_segs):
+  offsourcetrial = offsourceTriggers.getTriggersInSegment(seg)
+  num_offsource, bin = numpy.histogram(offsourcetrial.getstat(), bins)
+  cum_dist_offsource[i] = num_offsource[::-1].cumsum()[::-1]
 
 # takes the mean over rows for each column
 offsource_mean = cum_dist_offsource.mean(axis=0)
