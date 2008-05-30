@@ -215,7 +215,7 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
     if error_type == 'fractional':
       diff /= sim_value
 
-    scatter(second_value, diff, s=40, c=color_value, edgecolors=None)
+    scatter(second_value, diff, s=40, c=color_value, faceted=None)
     ax = axes()
     if plot_type == 'log':
       ax.set_xscale('log')
