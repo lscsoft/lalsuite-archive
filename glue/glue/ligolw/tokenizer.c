@@ -223,14 +223,14 @@ static PyObject *blob_format_func(PyObject *self, PyObject *args)
 		return PyErr_NoMemory();
 
 	/*
-	 * Translate buffer.  Spaces, unprintable characters, and things
-	 * with the high bit set go in as octal codes, everything else goes
-	 * in as itself.
+	 * Translate buffer.  Spaces, unprintable characters, backslashes,
+	 * and things with the high bit set go in as octal codes,
+	 * everything else goes in as itself.
 	 */
 
 	pos = string;
 	for(i = 0; i < length; i++) {
-		int count = swprintf(pos, 5, isspace(buffer[i]) || !isprint(buffer[i]) || (buffer[i] < 0) ? L"\\%03hho" : L"%hhc", buffer[i]);
+		int count = swprintf(pos, 5, isspace(buffer[i]) || !isprint(buffer[i]) || (buffer[i] == '\\') || (buffer[i] < 0) ? L"\\%03hho" : L"%hhc", buffer[i]);
 		if(count < 0) {
 			free(string);
 			PyErr_SetFromErrno(PyExc_ValueError);
