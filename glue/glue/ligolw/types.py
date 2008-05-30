@@ -147,7 +147,7 @@ ToPyType = {
 
 FromPyType = {
 	ilwd.ilwdchar: u"ilwd:char",
-	#array: u"blob",
+	buffer: u"blob",
 	str: u"lstring",
 	unicode: u"lstring",
 	int: u"int_4s",
