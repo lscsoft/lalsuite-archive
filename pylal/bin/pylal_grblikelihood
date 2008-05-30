@@ -602,9 +602,12 @@ else:
 #####################################################################
 # generate plots
 
-im_extent = [min(xedges), max(xedges), min(yedges), max(yedges)]
+dx = xedges[1] - xedges[0]
+dy = yedges[1] - yedges[0]
+im_extent = [min(xedges), max(xedges) + dx, min(yedges), max(yedges) + dy]
 
-new_yedges = numpy.linspace(yedges[0], yedges[-1], opts.fit_oversample_factor*(len(yedges)-1)+1)
+new_yedges = numpy.linspace(yedges[0], yedges[-1],
+  opts.fit_oversample_factor*(len(yedges)-1)+1)
 if opts.fit_sigmoid:
   pcsignalsq = fit_sigmoids(xedges, yedges, pcsignalsq, new_yedges)
 
