@@ -111,12 +111,9 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 
 
 class MD5File(file):
-	def __init__(self, fileobj, md5obj = None):
+	def __init__(self, fileobj):
 		self.f = fileobj
-		if md5obj is None:
-			self.md5obj = md5.new()
-		else:
-			self.md5obj = md5obj
+		self.md5obj = md5.new()
 
 	def flush(self):
 		self.f.flush()
@@ -175,14 +172,15 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	# FIXME: enable this when I know it works
-	#fileobj = MD5File(fileobj)
-	#md5obj = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	if verbose:
+		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), filename or "")
 	return xmldoc
 
 
@@ -224,14 +222,15 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
-	# FIXME: enable this when I know it works
-	#fileobj = MD5File(fileobj)
-	#md5obj = fileobj.md5obj
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	if verbose:
+		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), url or "")
 	return xmldoc
 
 
@@ -278,12 +277,13 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = sys.stdout
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	# FIXME: enable this when I know it works
-	#fileobj = MD5File(fileobj)
-	#md5obj = fileobj.md5obj
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	xmldoc.write(fileobj)
 	fileobj.flush()
+	if verbose:
+		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), filename or "")
 
 	# restore original handlers, and report the most recently trapped
 	# signal if any were
