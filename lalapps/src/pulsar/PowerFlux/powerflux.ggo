@@ -96,6 +96,7 @@ option "max-candidates"	- "Do not optimize more than this number of candidates" 
 option "min-candidate-snr" - "Do not optimize candidates with SNR below this level" double default="5.0" no
 option "output-initial" - "write initial candidates into log file" int default="0" no
 option "output-optimized" - "write optimized (second pass) candidates into log file" int default="0" no
+option "output-cache" - "write out all candidates in cache to log file" int default="0" no
 
 option "extended-test" - "Perform extended self test" int default="0" no
 option "max-sft-report" - "Maximum count of SFTs to report with veto information" int default="100" no

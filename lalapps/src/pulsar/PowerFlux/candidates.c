@@ -4477,8 +4477,16 @@ for(i=0;i<nbins;i++) {
 	}
 output_candidate_header(fout);
 for(i=0;i<candidate_cache->free;i++) {
-	if(VELT(candidate_cache, CANDIDATE, i).better_candidate>=0)continue;
-	if(find_next_candidate(&VELT(candidate_cache, CANDIDATE, i))>=0)continue;
+	int a;
+	if(args_info.output_cache_arg)output_candidate(fout, "_cache", &VELT(candidate_cache, CANDIDATE, i));
+	if((a=VELT(candidate_cache, CANDIDATE, i).better_candidate)>=0) {
+		if(args_info.output_cache_arg)fprintf(fout, "Better candidate found: %d\n", a);
+		continue;
+		}
+	if((a=find_next_candidate(&VELT(candidate_cache, CANDIDATE, i)))>=0) {
+		if(args_info.output_cache_arg)fprintf(fout, "Next candidate found: %d\n", a);
+		continue;
+		}
 	output_candidate(fout, "_final", &VELT(candidate_cache, CANDIDATE, i));
 	leaf_count++;
 	}

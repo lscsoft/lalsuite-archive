@@ -106,6 +106,7 @@ const char *gengetopt_args_info_help[] = {
   "      --min-candidate-snr=DOUBLE\n                                Do not optimize candidates with SNR below this \n                                  level  (default=`5.0')",
   "      --output-initial=INT      write initial candidates into log file  \n                                  (default=`0')",
   "      --output-optimized=INT    write optimized (second pass) candidates into \n                                  log file  (default=`0')",
+  "      --output-cache=INT        write out all candidates in cache to log file  \n                                  (default=`0')",
   "      --extended-test=INT       Perform extended self test  (default=`0')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto \n                                  information  (default=`100')",
   "      --num-threads=INT         Use that many threads for computation  \n                                  (default=`-1')",
@@ -239,6 +240,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->min_candidate_snr_given = 0 ;
   args_info->output_initial_given = 0 ;
   args_info->output_optimized_given = 0 ;
+  args_info->output_cache_given = 0 ;
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->num_threads_given = 0 ;
@@ -387,6 +389,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->output_initial_orig = NULL;
   args_info->output_optimized_arg = 0;
   args_info->output_optimized_orig = NULL;
+  args_info->output_cache_arg = 0;
+  args_info->output_cache_orig = NULL;
   args_info->extended_test_arg = 0;
   args_info->extended_test_orig = NULL;
   args_info->max_sft_report_arg = 100;
@@ -480,9 +484,10 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->min_candidate_snr_help = gengetopt_args_info_help[76] ;
   args_info->output_initial_help = gengetopt_args_info_help[77] ;
   args_info->output_optimized_help = gengetopt_args_info_help[78] ;
-  args_info->extended_test_help = gengetopt_args_info_help[79] ;
-  args_info->max_sft_report_help = gengetopt_args_info_help[80] ;
-  args_info->num_threads_help = gengetopt_args_info_help[81] ;
+  args_info->output_cache_help = gengetopt_args_info_help[79] ;
+  args_info->extended_test_help = gengetopt_args_info_help[80] ;
+  args_info->max_sft_report_help = gengetopt_args_info_help[81] ;
+  args_info->num_threads_help = gengetopt_args_info_help[82] ;
   
 }
 
@@ -1015,6 +1020,11 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
     {
       free (args_info->output_optimized_orig); /* free previous argument */
       args_info->output_optimized_orig = 0;
+    }
+  if (args_info->output_cache_orig)
+    {
+      free (args_info->output_cache_orig); /* free previous argument */
+      args_info->output_cache_orig = 0;
     }
   if (args_info->extended_test_orig)
     {
@@ -1589,6 +1599,13 @@ cmdline_parser_file_save(const char *filename, struct gengetopt_args_info *args_
       fprintf(outfile, "%s\n", "output-optimized");
     }
   }
+  if (args_info->output_cache_given) {
+    if (args_info->output_cache_orig) {
+      fprintf(outfile, "%s=\"%s\"\n", "output-cache", args_info->output_cache_orig);
+    } else {
+      fprintf(outfile, "%s\n", "output-cache");
+    }
+  }
   if (args_info->extended_test_given) {
     if (args_info->extended_test_orig) {
       fprintf(outfile, "%s=\"%s\"\n", "extended-test", args_info->extended_test_orig);
@@ -1949,6 +1966,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "min-candidate-snr",	1, NULL, 0 },
         { "output-initial",	1, NULL, 0 },
         { "output-optimized",	1, NULL, 0 },
+        { "output-cache",	1, NULL, 0 },
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
@@ -3539,6 +3557,27 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
             if (args_info->output_optimized_orig)
               free (args_info->output_optimized_orig); /* free previous string */
             args_info->output_optimized_orig = gengetopt_strdup (optarg);
+          }
+          /* write out all candidates in cache to log file.  */
+          else if (strcmp (long_options[option_index].name, "output-cache") == 0)
+          {
+            if (local_args_info.output_cache_given)
+              {
+                fprintf (stderr, "%s: `--output-cache' option given more than once%s\n", argv[0], (additional_error ? additional_error : ""));
+                goto failure;
+              }
+            if (args_info->output_cache_given && ! override)
+              continue;
+            local_args_info.output_cache_given = 1;
+            args_info->output_cache_given = 1;
+            args_info->output_cache_arg = strtol (optarg, &stop_char, 0);
+            if (!(stop_char && *stop_char == '\0')) {
+              fprintf(stderr, "%s: invalid numeric value: %s\n", argv[0], optarg);
+              goto failure;
+            }
+            if (args_info->output_cache_orig)
+              free (args_info->output_cache_orig); /* free previous string */
+            args_info->output_cache_orig = gengetopt_strdup (optarg);
           }
           /* Perform extended self test.  */
           else if (strcmp (long_options[option_index].name, "extended-test") == 0)
