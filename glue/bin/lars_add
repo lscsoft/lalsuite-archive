@@ -86,7 +86,7 @@ if options.search_start or options.search_end:
 if not scheme:
     scheme = "file"
 if not netloc:
-    netloc = socket.gethostname()
+    netloc = gethostname()
 path = os.path.abspath(path)
 
 searchUrl = urlunsplit( (scheme, netloc, path, None, None) )
