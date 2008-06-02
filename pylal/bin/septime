@@ -14,7 +14,6 @@ import os
 from optparse import *
 import re
 import exceptions
-import glob
 from types import *
 
 from glue import segments
@@ -83,6 +82,8 @@ def parse_command_line():
   parser.add_option("","--output-dir",action="store",type="string",\
       default=None,metavar=" DIR",\
       help="directory in which to write output files")
+  parser.add_option("","--write-antime-file",action="store_true",default=False,\
+      help="write files containing time analyzed information" )
 
   parser.add_option("","--gps-start-time",action="store", type="int",
       metavar="GPSSTARTTIME",\
@@ -149,18 +150,8 @@ for coinc in ifo_coincs:
     types[coinc] += ifo
 
 ###################################
-# glob the list of files to read in
+# sort the list of files to read in
 if opts.thinca is not None:
-  allfiles = []
-  for gl in opts.thinca.split(" "):
-    allfiles.extend(glob.glob(gl))
-  if len(allfiles) < 1:
-    print >>sys.stderr, "The glob for " + opts.thinca + " returned no files" 
-    sys.exit(1)
-  if len(allfiles) > 1:
-    print >>sys.stderr, "The glob for " + opts.thinca + " returned more than one file"
-    sys.exit(1)
-
   slidefiles = []
   coincfiles = []
 
@@ -243,15 +234,37 @@ if slidefiles:
     if opts.verbose:
       print (str(slide) + ' ' + str(len(slideTriggers[slide]["sngl_trigs"])))
 
-#########################
-# calculate the different times during this zero-lag segment
+###################################################
+# calculate the different times during this segment
 segs = segments.segmentlistdict()
 
+analyzedTimes = {}
 for coinc in ifo_coincs:
   segs[coinc] = seg & (~vetoes).intersection(coinc)
   if (ifos - set(coinc)):
     segs[coinc] &= vetoes.intersection(ifos - set(coinc))
+  analyzedTimes[coinc] = [(0,segs[coinc].duration())]
 
+if opts.num_slides:
+  slideSegs = {}
+  for slide in slide_num:
+    slideSegs[slide] = segments.segmentlistdict()
+    slides = slideVector.copy()
+    for key in slides.keys():
+      slides[key] *= slide
+
+    slidVetoes = SnglInspiralUtils.slideSegListDictOnRing(seg[0], vetoes,
+      slides)
+
+    for coinc in ifo_coincs:
+      slideSegs[slide][coinc] = seg & (~slidVetoes).intersection(coinc)
+      if (ifos - set(coinc)):
+        slideSegs[slide][coinc] &= slidVetoes.\
+            intersection(ifos - set(coinc))
+      analyzedTimes[coinc].append((slide,slideSegs[slide][coinc].duration()))
+
+################################################
+# sort zero-lag triggers based on times analyzed
 inspSepTimesTriggers = {}
 
 if inspTriggers:
@@ -267,31 +280,23 @@ for coinc in ifo_coincs:
         str(segs[coinc].duration()) + ' sec analyzed ' + \
         types[coinc] + ' time')
 
-#######################################################################
-# calculate the different times during the time slides for this segment
+##################################################
+# sort time-slide triggers based on times analyzed
 if slideTriggers:
   for slide in slide_num:
     thisSlide = {}
     thisSlide["slide_num"] = slide
-    thisSlide["segs"] = segments.segmentlistdict()
+    thisSlide["segs"] = slideSegs[slide]
     thisSlide["sngl_trigs"] = {}
 
     slides = slideVector.copy()
     for key in slides.keys():
       slides[key] *= slide
 
-    slidVetoes = SnglInspiralUtils.slideSegListDictOnRing(seg[0], vetoes,
-        slides)
-
     SnglInspiralUtils.slideTriggersOnRings(slideTriggers[slide]["sngl_trigs"],
         seg, slides)
 
     for coinc in ifo_coincs:
-      thisSlide["segs"][coinc] = seg & (~slidVetoes).intersection(coinc)
-      if (ifos - set(coinc)):
-        thisSlide["segs"][coinc] &= slidVetoes.\
-            intersection(ifos - set(coinc))
-
       if slideTriggers[slide]["sngl_trigs"]:
         thisSlide["sngl_trigs"][coinc] = slideTriggers[slide]["sngl_trigs"].\
             vetoed(thisSlide["segs"][coinc])
@@ -395,6 +400,24 @@ for coinc in ifo_coincs:
     pass
   if len(inspSepTimesTriggers[coinc]):
     llelem.appendChild(inspSepTimesTriggers[coinc])
+
+  timesName = ''
+  if opts.output_dir:
+    timesName += opts.output_dir + '/'
+  timesName += types[coinc] + '-SEPTIME_'
+  if slidefiles:
+    timesName += 'SLIDE_'
+  if opts.user_tag:
+    timesName += opts.user_tag + '_'
+  timesName += time + '-' + str(opts.gps_start_time)
+  timesName += '-' + str(opts.gps_end_time - opts.gps_start_time)
+  timesName += '.txt'
+
+  if opts.write_antime_file:
+    timesFile = open(timesName, 'w')
+    for line in analyzedTimes[coinc]:
+      timesFile.write('%i %f\n' % line)
+    timesFile.close()
 
 #############################
 # write file
