@@ -1229,7 +1229,8 @@ class CondorDAG:
     if not self.__dag_file_path:
       raise CondorDAGError, "No path for DAG file"
     try:
-      outfilename = self.__dag_file_path.replace(".dag", ".sh")
+      dfp = self.__dag_file_path
+      outfilename = ".".join(dfp.split(".")[:-1])
       outfile = open(outfilename, "w")
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
