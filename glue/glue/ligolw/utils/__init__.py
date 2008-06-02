@@ -110,44 +110,36 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
-class MD5File(file):
+class MD5File(object):
 	def __init__(self, fileobj):
-		self.f = fileobj
+		self.fileobj = fileobj
 		self.md5obj = md5.new()
 
-	def flush(self):
-		self.f.flush()
+	def __iter__(self):
+		return self
 
 	def next(self):
-		buf = self.f.next()
+		buf = self.fileobj.next()
 		self.md5obj.update(buf)
 		return buf
 
-	def read(self, *args, **kwargs):
-		buf = self.f.read(*args, **kwargs)
+	def read(self, size = None):
+		buf = self.fileobj.read(size)
 		self.md5obj.update(buf)
 		return buf
-
-	def readline(self, *args, **kwargs):
-		buf = self.f.readline(*args, **kwargs)
-		self.md5obj.update(buf)
-		return buf
-
-	def readlines(self, *args, **kwargs):
-		raise NotImplementedError
-
-	def xreadlines(self, *args, **kwargs):
-		raise NotImplementedError
-
-	def seek(self, *args, **kwargs):
-		raise NotImplementedError
 
 	def write(self, buf):
 		self.md5obj.update(buf)
-		return self.f.write(buf)
+		return self.fileobj.write(buf)
 
-	def writelines(self, *args, **kwargs):
-		raise NotImplementedError
+	def tell(self):
+		return self.fileobj.tell()
+
+	def flush(self):
+		return self.fileobj.flush()
+
+	def close(self):
+		return self.fileobj.close()
 
 
 def load_filename(filename, verbose = False, gz = False, xmldoc = None):
@@ -172,15 +164,21 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
+	if not gz:
+		# FIXME:  MD5File class doesn't support seeking.  it should
+		# be possible to fix this with whatever gets introduced to
+		# fix the same problem with url streams.
+		fileobj = MD5File(fileobj)
+		md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
-	if verbose:
-		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), filename or "")
+	if verbose and not gz:
+		# FIXME:  remove the "and not gz" when md5 summing is put
+		# back in for gzipped files
+		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
 	return xmldoc
 
 
@@ -222,15 +220,21 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
+	if not gz:
+		# FIXME:  MD5File class doesn't support seeking.  it should
+		# be possible to fix this with whatever gets introduced to
+		# fix the same problem with url streams.
+		fileobj = MD5File(fileobj)
+		md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
-	if verbose:
-		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), url or "")
+	if verbose and not gz:
+		# FIXME:  remove the "and not gz" when md5 summing is put
+		# back in for gzipped files
+		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), url or "")
 	return xmldoc
 
 
@@ -283,7 +287,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	xmldoc.write(fileobj)
 	fileobj.flush()
 	if verbose:
-		print >>sys.stderr, "md5sum = %s %s" % (md5obj.hexdigest(), filename or "")
+		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
 
 	# restore original handlers, and report the most recently trapped
 	# signal if any were
