@@ -19,8 +19,10 @@ class Cache(glue.lal.Cache):
         if scheme == "file":
             filePattern = os.path.join(path, "*.cache")
             if netloc == "localhost" or islocalhost(netloc):
-                print "netloc", netloc
-                p = Popen(["cat", filePattern],
+                print "netloc (%s) is local" % netloc
+                print "looking for cache(s): %s" % filePattern
+                p = Popen(["cat %s"% filePattern],
+                           shell=True, stdin=open("/dev/null"),
                            stdout=PIPE, close_fds=True)
             else:
                 # assuming no port or username in netloc and query and frag are nil
