@@ -84,25 +84,24 @@ def parse_command_line():
 	"""
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog -d|--database filename [options] [xml ...]",
-		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML files listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If the database exists, the files' contents will be added to it, otherwise a new database file is created.  If --extract is given on the command line, then the database contents will be converted to XML and written to the given file.  Input XML files ending in .gz will be gzip-decompressed while being read, and if the filename given via --extract ends in .gz then it will be gzip-compressed when written."
+		usage = "%prog -d|--database filename [options] [url ...]",
+		description = "Transfers data between LIGO Light Weight XML files and SQLite database files.  The contents of the XML documents listed on the command line will be inserted, in order, into the SQLite database file identified by the --database argument.  If the database exists the contents of the XML documents will be added to it, otherwise a new database file is created.  If --extract is given on the command line, then the database contents will be converted to XML and written to the file named by this argument.  The input XML documents can be regular files or many common URLs such as ftp:// and http://.  If no input documents are named then input is read from stdin unless --extract is given in which case the datase contents are extracted to XML without reading any input documents.  Input XML documents ending in .gz will be gzip-decompressed while being read, and if the file named by --extract ends in .gz then it will be gzip-compressed when written."
 	)
-	parser.add_option("-d", "--database", metavar = "filename", help = "Use the SQLite3 database named filename (required).")
-	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get XML files to insert from the LAL cache named filename.")
+	parser.add_option("-d", "--database", metavar = "filename", help = "Set the name of the SQLite3 database file (required).")
+	parser.add_option("-i", "--input-cache", metavar = "filename", action = "append", default = [], help = "Get the names of XML documents to insert into the database from this LAL cache.  This option can be given multiple times, and all files from all caches will be loaded.")
 	parser.add_option("-p", "--preserve-ids", action = "store_true", help = "Preserve row IDs from the XML in the database.  The default is to assign new IDs to prevent collisisions.  Inserts will fail if collisions occur.")
 	parser.add_option("-r", "--replace", action = "store_true", help = "If the database file already exists, over-write it instead of inserting into it.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	parser.add_option("-x", "--extract", metavar = "filename", default = None, help = "Extract database contents to the given XML file, \"-\" == stdout (use \"./-\" if you want to write to a file named \"-\").  Extraction is done after any inserts.")
-	options, filenames = parser.parse_args()
+	options, urls = parser.parse_args()
 
-	for cache in options.input_cache:
-		filenames += [CacheEntry(line).path() for line in file(cache)]
+	urls += [CacheEntry(line).url for cache in options.input_cache for line in file(cache)]
 
 	if not options.database:
 		raise ValueError, "missing required argument --database"
 
-	return options, (filenames or [None])
+	return options, (urls or [None])
 
 
 #
@@ -119,21 +118,21 @@ def parse_command_line():
 #
 
 
-def insert(filenames, preserve_ids = True, verbose = False):
+def insert(urls, preserve_ids = True, verbose = False):
 	"""
-	Iterate over the give filenames, and parse and insert each one into
+	Iterate over a sequence of URLs and parse and insert each one into
 	the database the dbtables.DBTable class is currently connected to.
 	"""
 	if not preserve_ids:
 		# enable ID remapping
 		dbtables.DBTable_idmap_create()
 		dbtables.DBTable.append = dbtables.DBTable._remapping_append
-	for n, filename in enumerate(filenames):
+	for n, url in enumerate(urls):
 		# load document (if enabled, row IDs are reassigned on
 		# input)
 		if verbose:
-			print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
-		doc = utils.load_filename(filename, verbose = verbose, gz = (filename or "stdin").endswith(".gz"))
+			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
+		doc = utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"))
 
 		# update references to row IDs
 		if not preserve_ids:
@@ -181,10 +180,10 @@ def extract(filename, verbose = False):
 #
 
 
-options, filenames = parse_command_line()
+options, urls = parse_command_line()
 
 
-will_write_to_file = (options.extract is None) or (filenames != [None])
+will_write_to_file = (options.extract is None) or (urls != [None])
 will_replace_file = will_write_to_file and options.replace
 will_use_tmp_space = will_write_to_file and (options.tmp_space is not None)
 
@@ -214,8 +213,8 @@ for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagNam
 #
 
 
-if (options.extract is None) or (filenames != [None]):
-	insert(filenames, preserve_ids = options.preserve_ids, verbose = options.verbose)
+if (options.extract is None) or (urls != [None]):
+	insert(urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 	#
 	# construct indexes
