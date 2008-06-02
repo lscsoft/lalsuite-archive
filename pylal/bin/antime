@@ -75,7 +75,7 @@ def parse_command_line():
   parser.add_option("","--segment-file",action="store",type="string",\
       default=None,metavar=" FNAME",\
       help="segment file for COINC times = U(--IFO-triggers)" + \
-      " (format ligolw_segments)")
+      " (format segwizard)")
 
   parser.add_option("","--user-tag",action="store",type="string",\
       default=None,metavar=" USERTAG",\
@@ -135,9 +135,8 @@ xmldoc = utils.load_filename(opts.veto_file, gz=opts.veto_file.endswith("gz"))
 vetoes = llwapp.segmenttable_get_by_name(xmldoc, name="vetoes")
 vetoes.coalesce()
 
-xmldoc = utils.load_filename(opts.segment_file,
-    gz=opts.segment_file.endswith("gz"))
-segs = llwapp.segmenttable_get_by_name(xmldoc, name="analyzed_times")
+segs = segments.segmentlistdict()
+segs[time] = segmentsUtils.fromsegwizard(open(opts.segment_file, "r"))
 
 #######################################################################
 # calculate the different times during the zero-lag and
