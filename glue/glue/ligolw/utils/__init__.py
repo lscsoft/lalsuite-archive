@@ -97,9 +97,7 @@ def measure_file_sizes(filenames, reverse = False):
 			l.append((0, None))
 		else:
 			l.append((os.stat(filename)[stat.ST_SIZE], filename))
-	l.sort()
-	if reverse:
-		l.reverse()
+	l.sort(reverse = reverse)
 	return l
 
 
@@ -114,7 +112,7 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 			print >>sys.stderr, "sorting files from largest to smallest ..."
 		else:
 			print >>sys.stderr, "sorting files from smallest to largest ..."
-	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
+	return [filename for size, filename in measure_file_sizes(filenames, reverse = reverse)]
 
 
 class RewindableInputFile(object):
@@ -132,6 +130,9 @@ class RewindableInputFile(object):
 	# provides the buffering needed by GzipFile.  It also does proper
 	# EOF checking, and uses the results to emulate the results of
 	# GzipFile's .seek() games.
+	#
+	# By wrapping your file object in this class before passing it to
+	# GzipFile, you can use GzipFile to read from non-seekable files.
 	#
 	# How GzipFile checks for EOF == call .tell() to get current
 	# position, seek to end of file with .seek(0, 2), call .tell()
@@ -167,10 +168,7 @@ class RewindableInputFile(object):
 		if self.gzip_hack_pretend_to_be_at_eof:
 			return buffer()
 		if self.reuse:
-			if size < 0:
-				buf = self.buf[-self.reuse:]
-				self.reuse = 0
-			elif size < self.reuse:
+			if 0 <= size < self.reuse:
 				buf = self.buf[-self.reuse:-self.reuse + size]
 				self.reuse -= size
 			else:
@@ -286,7 +284,7 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	if verbose:
-		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), filename or "")
 	return xmldoc
 
 
@@ -322,7 +320,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
 	if verbose:
-		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), url or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), url or "")
 	return xmldoc
 
 
@@ -377,7 +375,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	fileobj.close()
 	del fileobj
 	if verbose:
-		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), filename or "")
 
 	# restore original handlers, and report the most recently trapped
 	# signal if any were
