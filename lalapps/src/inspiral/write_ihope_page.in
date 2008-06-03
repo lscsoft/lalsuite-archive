@@ -878,7 +878,8 @@ def write_summaryFiles(page, opts):
           file = opts.datadir + thisSearch+'/'+eachifo\
               +'-COIRE_INJECTIONS*SUMMARY_SECOND_'+eachifo\
               +'_'+thisSearch.upper()+'_CAT_2_VETO' +opts.txt_suffix     
-          file = glob.glob(file)[0]
+          flist = glob.glob(file)
+          if flist: file = flist[0]
         else:
           file = opts.datadir + thisSearch+'/'+eachifo\
               +'-COIRE_SUMMARY_SECOND_'+eachifo\
