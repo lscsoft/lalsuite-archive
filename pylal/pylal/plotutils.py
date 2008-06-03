@@ -227,6 +227,7 @@ class CumulativeHistogramPlot(BasicPlot):
         min_stat, max_stat = determine_common_bin_limits(\
             self.fg_data_sets + self.bg_data_sets)
         bins = numpy.linspace(min_stat, max_stat, num_bins)
+        dx = bins[1] - bins[0]
 
         # plot foreground
         colors = default_colors()
@@ -241,7 +242,7 @@ class CumulativeHistogramPlot(BasicPlot):
             # plot
             y = numpy.array(y, dtype=numpy.float32)
             y[y <= epsilon] = epsilon
-            self.ax.plot(x, y*normalization, symbol + color, label=label)
+            self.ax.plot(x + dx/2, y*normalization, symbol + color, label=label)
 
         # shade background region
         if len(self.bg_data_sets) > 0:
@@ -261,7 +262,7 @@ class CumulativeHistogramPlot(BasicPlot):
             stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
           
             # plot mean
-            self.ax.plot(x, means*normalization, 'r+',
+            self.ax.plot(x + dx/2, means*normalization, 'r+',
                 label=r"$\mu_\mathrm{%s}$" % self.bg_label)
 
             # shade in the area
