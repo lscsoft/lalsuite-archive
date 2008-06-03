@@ -97,9 +97,11 @@ def get_contour(xedges, yedges, pcsignalsq, confidence,
   
   # derive an exclusion distance for each mass bin
   for i in xrange(len(xedges)):
-    # start the distance loop at 1 to handle a threshold crossing in the first
-    # (index 0) bin; in this case, the code as written will correctly
-    # extrapolate, rather than interpolate.
+    # special-case mass columns where we never are above the confidence level
+    if pcsignalsq[0, i] > confidence:
+      clevel[i] = 0
+      continue
+    # in general, we can interpolate the distance at which we cross confidence
     for j in xrange(1, len(yedges)):
       if pcsignalsq[j,i]>confidence: 
         slope = dy / (pcsignalsq[j, i] - pcsignalsq[j-1, i])
