@@ -41,6 +41,12 @@ import signal
 import stat
 import sys
 
+try:
+	os.SEEK_SET
+except:
+	# pre Python 2.5.x is missing these symbols
+	os.SEEK_SET, os.SEEK_CUR, os.SEEK_END = range(3)
+
 
 from glue.ligolw import ligolw
 
