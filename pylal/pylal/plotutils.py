@@ -241,7 +241,7 @@ class CumulativeHistogramPlot(BasicPlot):
             # plot
             y = numpy.array(y, dtype=numpy.float32)
             y[y <= epsilon] = epsilon
-            self.ax.semilogy(x, y*normalization, symbol + color, label=label)
+            self.ax.plot(x, y*normalization, symbol + color, label=label)
 
         # shade background region
         if len(self.bg_data_sets) > 0:
@@ -274,9 +274,15 @@ class CumulativeHistogramPlot(BasicPlot):
             self.ax.fill(tmp_x, tmp_y*normalization, facecolor='y', alpha=0.3,
                 label=r"$\sigma_\mathrm{%s}$" % self.bg_label)
 
+        # make semilogy plot
+        self.ax.set_yscale("log")
+
         # adjust plot range
         self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
-        self.ax.set_ylim(ymin=0.6 * normalization)
+        if len(self.bg_data_sets) > 0 and len(self.fg_data_sets) == 0:
+            self.ax.set_ylim(ymin=0.6 / N)
+        else:
+            self.ax.set_ylim(ymin=0.6 * normalization)
 
         # add legend if there are any non-trivial labels
         self.data_labels = self.fg_labels + [self.bg_label]
