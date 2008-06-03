@@ -962,15 +962,15 @@ def write_injection(page, opts):
   	'*plotinspmissed_SECOND*',\
   	'*plotinspmissed_SECOND*',\
   	'*plotinspinj_FIRST*',\
-  	'*plotinspinj_SECOND*SNGL-*'\
+  	'*plotinspinj_SECOND*'\
 	]
 	#['map-8'],\  # this is not robust but works for GPS <900,000,000
   imagetags=[\
         ['dummy_on_purpose_so_that_no_images_is_passed_to_the_web_page'],\
 	['map-8'],\
         ['efficiency-eff_dist'],\
-        ['mchirp_vs_snr_accuracy_scatter_totalmass'],\
-        ['mchirp_vs_snr_accuracy_scatter_totalmass']\
+        ['mchirp_vs_snr_accuracy_scatter_mtotal'],\
+        ['mchirp_vs_snr_accuracy_scatter_mtotal']\
 	]
   captions = [\
         "Found and Missed injections links (first stage)",\
