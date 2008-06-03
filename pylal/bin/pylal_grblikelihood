@@ -604,7 +604,10 @@ else:
 
 dx = xedges[1] - xedges[0]
 dy = yedges[1] - yedges[0]
-im_extent = [min(xedges), max(xedges) + dx, min(yedges), max(yedges) + dy]
+x_boundaries = numpy.concatenate((xedges, [xedges[-1] + dx]))
+y_boundaries = numpy.concatenate((yedges, [yedges[-1] + dy]))
+im_extent = [x_boundaries[0], x_boundaries[-1],
+             y_boundaries[0], y_boundaries[-1]]
 
 new_yedges = numpy.linspace(yedges[0], yedges[-1],
   opts.fit_oversample_factor*(len(yedges)-1)+1)
@@ -699,9 +702,10 @@ if opts.known_distance is not None:
 
 # label bin boundaries if it's not ridiculous to do so
 if len(xedges) < 15:
-    pylab.xticks(xedges, map(str, xedges))
+    pylab.xticks(x_boundaries, map(str, x_boundaries))
 
-pylab.axis([min(xedges), max(xedges), 0, max(yedges)])
+pylab.grid(True)
+pylab.axis([x_boundaries[0], x_boundaries[-1], 0, y_boundaries[-1]])
 pylab.xlabel(r"$m_2 (M_\odot)$")
 pylab.ylabel(r"$D (\mathrm{Mpc})$")
 if opts.figure_type not in ("ps", "eps"):
