@@ -329,7 +329,7 @@ if opts.hist_loudest:
 
     # finalize plot
     plot.add_content(data)
-    plot.finalize(num_bins=50, normalization=1/eff_num_trials)
+    plot.finalize(num_bins=20, normalization=1/eff_num_trials)
 
     # output it as appropriate
     if opts.enable_output:
@@ -376,7 +376,7 @@ if opts.hist_onsource or opts.hist_background or len(opts.hist_trials) > 0:
         plot.add_background(data, label=r"off-source\ trials")
 
     # finalize plot
-    plot.finalize(num_bins=50)
+    plot.finalize(num_bins=20)
 
     # output it as appropriate
     if opts.enable_output:

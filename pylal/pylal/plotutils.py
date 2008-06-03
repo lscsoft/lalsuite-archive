@@ -35,6 +35,10 @@ from glue import iterutils
 
 from pylal import viz
 
+# general defaults
+pylab.rc("lines", markersize=12)
+pylab.rc("text", usetex=True)
+
 ##############################################################################
 # abstract classes
 
