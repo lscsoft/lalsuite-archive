@@ -41,6 +41,7 @@ import signal
 import stat
 import sys
 
+
 from glue.ligolw import ligolw
 
 
@@ -110,10 +111,117 @@ def sort_files_by_size(filenames, verbose = False, reverse = False):
 	return [pair[1] for pair in measure_file_sizes(filenames, reverse = reverse)]
 
 
-class MD5File(object):
-	def __init__(self, fileobj):
+class RewindableInputFile(object):
+	"""
+	DON'T EVER USE THIS FOR ANYTHING!  I'M NOT EVEN KIDDING!
+	"""
+	# The GzipFile class in Python's standard library is, in my
+	# opinion, somewhat weak.  Instead of relying on the return values
+	# from the file object's .read() method, GzipFile checks for EOF
+	# using calls to .seek().  Furthermore, it uses .seek() instead of
+	# buffering data internally as required.  This makes GzipFile
+	# gratuitously unable to work with pipes, urlfile objects, and
+	# anything else that does not support seeking (including the
+	# MD5File class in this module).  To hack around this, this class
+	# provides the buffering needed by GzipFile.  It also does proper
+	# EOF checking, and uses the results to emulate the results of
+	# GzipFile's .seek() games.
+	#
+	# How GzipFile checks for EOF == call .tell() to get current
+	# position, seek to end of file with .seek(0, 2), call .tell()
+	# again and check if the number has changed from before, if it has
+	# then we weren't at EOF so call .seek() with original position.
+
+	def __init__(self, fileobj, buffer_size = 16384):
+		# the real source of data
 		self.fileobj = fileobj
-		self.md5obj = md5.new()
+		# how many octets of the internal buffer to return before
+		# getting more data
+		self.reuse = 0
+		# the internal buffer
+		self.buf = buffer(" " * buffer_size)
+		# flag indicating a .seek()-based EOF test is in progress
+		self.gzip_hack_pretend_to_be_at_eof = False
+
+	def __iter__(self):
+		return self
+
+	def next(self):
+		if self.gzip_hack_pretend_to_be_at_eof:
+			return buffer()
+		if self.reuse:
+			buf = self.buf[-self.reuse:]
+			self.reuse = 0
+		else:
+			buf = self.fileobj.next()
+			self.buf = (self.buf + buf)[-len(self.buf):]
+		return buf
+
+	def read(self, size = None):
+		if self.gzip_hack_pretend_to_be_at_eof:
+			return buffer()
+		if self.reuse:
+			if size < 0:
+				buf = self.buf[-self.reuse:]
+				self.reuse = 0
+			elif size < self.reuse:
+				buf = self.buf[-self.reuse:-self.reuse + size]
+				self.reuse -= size
+			else:
+				buf = self.buf[-self.reuse:]
+				self.reuse = 0
+				if len(buf) < size:
+					buf += self.read(size - len(buf))
+		else:
+			buf = self.fileobj.read(size)
+			self.buf = (self.buf + buf)[-len(self.buf):]
+		return buf
+
+	def seek(self, offset, whence = os.SEEK_SET):
+		self.gzip_hack_pretend_to_be_at_eof = False
+		if whence == os.SEEK_SET:
+			pos = self.fileobj.tell()
+			if offset >= 0 and pos - len(self.buf) <= offset <= pos:
+				self.reuse = pos - offset
+			else:
+				raise IOError, "seek out of range"
+		elif whence == os.SEEK_CUR:
+			if self.reuse - len(self.buf) <= offset <= self.reuse:
+				self.reuse -= offset
+			else:
+				raise IOError, "seek out of range"
+		elif whence == os.SEEK_END:
+			if offset == 0:
+				self.gzip_hack_pretend_to_be_at_eof = True
+			else:
+				raise IOError, "seek out of range"
+
+	def tell(self):
+		if self.gzip_hack_pretend_to_be_at_eof:
+			# check to see if we are at EOF by seeing if we can
+			# read 1 character.  save it in the internal buffer
+			# to not loose it.
+			c = self.fileobj.read(1)
+			self.buf = (self.buf + c)[-len(self.buf):]
+			self.reuse += len(c)
+			if c:
+				# since we have read a character, this will
+				# not return the same answer as when
+				# GzipFile called it
+				return self.fileobj.tell()
+		return self.fileobj.tell() - self.reuse
+
+	def close(self):
+		return self.fileobj.close()
+
+
+class MD5File(object):
+	def __init__(self, fileobj, md5obj = None):
+		self.fileobj = fileobj
+		if md5obj is None:
+			self.md5obj = md5.new()
+		else:
+			self.md5obj = md5obj
 
 	def __iter__(self):
 		return self
@@ -164,20 +272,14 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	if not gz:
-		# FIXME:  MD5File class doesn't support seeking.  it should
-		# be possible to fix this with whatever gets introduced to
-		# fix the same problem with url streams.
-		fileobj = MD5File(fileobj)
-		md5obj = fileobj.md5obj
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
-	if verbose and not gz:
-		# FIXME:  remove the "and not gz" when md5 summing is put
-		# back in for gzipped files
+	if verbose:
 		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
 	return xmldoc
 
@@ -195,24 +297,10 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 
 	>>> from glue.ligolw import utils
 	>>> xmldoc = utils.load_url("file://localhost/tmp/data.xml")
-
-	Bugs:
-	  - Due to limitations in Python's gzip support and in the way its
-	    URL library transfers data, it is not possible to read gzipped
-	    XML files from remote locations.  Reading gzipped XML files
-	    locally should work correctly.
 	"""
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
-		# hack to detect local files:  urlopen() returns an object
-		# that does not support seeking, which prevents GzipFile
-		# from working correctly;  by opening local files as
-		# regular files, this gets gzip support working for the
-		# local case;  still can't read .xml.gz files from a remote
-		# host, though;  what's needed is some kind of buffering
-		# wrapper to provide seeking (I don't think GzipFile wants
-		# to seek very far, so it wouldn't need a big buffer)
 		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = file(path)
@@ -220,20 +308,14 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
-	if not gz:
-		# FIXME:  MD5File class doesn't support seeking.  it should
-		# be possible to fix this with whatever gets introduced to
-		# fix the same problem with url streams.
-		fileobj = MD5File(fileobj)
-		md5obj = fileobj.md5obj
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = fileobj)
+		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
 	if xmldoc is None:
 		xmldoc = ligolw.Document()
 	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
-	if verbose and not gz:
-		# FIXME:  remove the "and not gz" when md5 summing is put
-		# back in for gzipped files
+	if verbose:
 		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), url or "")
 	return xmldoc
 
@@ -279,13 +361,15 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		fileobj = file(filename, "w")
 	else:
 		fileobj = sys.stdout
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
 	if gz:
 		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
 	xmldoc.write(fileobj)
 	fileobj.flush()
+	fileobj.close()
+	del fileobj
 	if verbose:
 		print >>sys.stderr, "md5sum = %s  %s" % (md5obj.hexdigest(), filename or "")
 
