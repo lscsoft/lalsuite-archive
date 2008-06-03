@@ -52,7 +52,7 @@ from xml.sax.saxutils import escape as xmlescape
 from glue import iterutils
 import ligolw
 import tokenizer
-import types
+import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -118,7 +118,7 @@ def from_array(name, array, dim_names = None):
 	Construct a LIGO Light Weight XML Array document subtree from a
 	numpy array object.
 	"""
-	doc = Array({u"Name": u"%s:array" % name, u"Type": types.FromNumPyType[str(array.dtype)]})
+	doc = Array({u"Name": u"%s:array" % name, u"Type": ligolwtypes.FromNumPyType[str(array.dtype)]})
 	s = list(array.shape)
 	s.reverse()
 	for n, dim in enumerate(s):
@@ -198,7 +198,7 @@ class ArrayStream(ligolw.Stream):
 		# delimiter after the last element.
 		file.write(self.start_tag(indent) + u"\n")
 		delim = self.getAttribute(u"Delimiter")
-		format = types.FormatFunc[self.parentNode.getAttribute(u"Type")]
+		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
 		index = iter(IndexIter(a.shape))
 		try:
@@ -224,8 +224,8 @@ class Array(ligolw.Array):
 		Initialize a new Array element.
 		"""
 		ligolw.Array.__init__(self, *attrs)
-		self.pytype = types.ToPyType[self.getAttribute(u"Type")]
-		self.arraytype = types.ToNumPyType[self.getAttribute(u"Type")]
+		self.pytype = ligolwtypes.ToPyType[self.getAttribute(u"Type")]
+		self.arraytype = ligolwtypes.ToNumPyType[self.getAttribute(u"Type")]
 		self.array = None
 
 	def get_shape(self):

@@ -60,7 +60,7 @@ from xml.sax.xmlreader import AttributesImpl
 
 import ligolw
 import tokenizer
-import types
+import types as ligolwtypes
 
 
 #
@@ -296,10 +296,10 @@ class Column(ligolw.Column):
 		creates a copy of the data, so modifications made to the
 		array will not be recorded in the original document.
 		"""
-		if self.getAttribute("Type") in types.StringTypes:
+		if self.getAttribute("Type") in ligolwtypes.StringTypes:
 			raise TypeError, "Column does not have numeric type"
 		import numpy
-		return numpy.fromiter(self, dtype = types.ToNumPyType[self.getAttribute("Type")])
+		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.getAttribute("Type")])
 
 
 #
@@ -400,7 +400,7 @@ class TableStream(ligolw.Stream):
 		# need to not put a delimiter at the end of the last row
 		# unless it ends with a null token
 		file.write(self.start_tag(indent))
-		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [types.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
+		rowdumper = tokenizer.RowDumper(self.parentNode.columnnames, [ligolwtypes.FormatFunc[coltype] for coltype in self.parentNode.columntypes], self.getAttribute("Delimiter"))
 		rowdumper.dump(self.parentNode)
 		try:
 			line = rowdumper.next()
@@ -546,7 +546,7 @@ class Table(ligolw.Table, list):
 			self.columnnames.append(colname)
 			self.columntypes.append(llwtype)
 			try:
-				self.columnpytypes.append(types.ToPyType[llwtype])
+				self.columnpytypes.append(ligolwtypes.ToPyType[llwtype])
 			except KeyError:
 				raise ligolw.ElementError, "unrecognized Type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 
@@ -671,7 +671,7 @@ class Table(ligolw.Table, list):
 		old row keys with the new values from the mapping.
 		"""
 		for coltype, colname in zip(self.columntypes, self.columnnames):
-			if coltype in types.IDTypes and (self.next_id is None or colname != self.next_id.column_name):
+			if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name):
 				column = self.getColumnByName(colname)
 				for i, old in enumerate(column):
 					if old in mapping:

@@ -37,7 +37,7 @@ from xml.sax.saxutils import escape as xmlescape
 
 
 import ligolw
-import types
+import types as ligolwtypes
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -126,7 +126,7 @@ def from_pyvalue(name, value, comment = None):
 	Convenience wrapper for new_param() that constructs a Param element
 	from an instance of a Python builtin type.
 	"""
-	return new_param(name, types.FromPyType[value.__class__], value, comment = comment)
+	return new_param(name, ligolwtypes.FromPyType[value.__class__], value, comment = comment)
 
 
 def get_pyvalue(xml, name):
@@ -180,7 +180,7 @@ class Param(ligolw.Param):
 		except KeyError:
 			# default
 			t = u"lstring"
-		self.pytype = types.ToPyType[t]
+		self.pytype = ligolwtypes.ToPyType[t]
 
 	def write(self, file = sys.stdout, indent = u""):
 		file.write(self.start_tag(indent) + u"\n")
@@ -192,7 +192,7 @@ class Param(ligolw.Param):
 			# we have to strip quote characters from string
 			# formats (see comment above)
 			file.write(indent + ligolw.Indent)
-			file.write(xmlescape(types.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
+			file.write(xmlescape(ligolwtypes.FormatFunc[self.getAttribute("Type")](self.pcdata).strip(u"\"")))
 			file.write(u"\n")
 		file.write(self.end_tag(indent) + u"\n")
 

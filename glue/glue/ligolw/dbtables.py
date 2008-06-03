@@ -55,7 +55,7 @@ except NameError:
 import ligolw
 import table
 import lsctables
-import types
+import types as ligolwtypes
 from glue import segments
 
 
@@ -327,7 +327,7 @@ def DBTable_get_xml():
 				column_type = table_elem.validcolumns[column_name]
 			else:
 				# guess the column type
-				column_type = types.FromSQLiteType[column_type]
+				column_type = ligolwtypes.FromSQLiteType[column_type]
 			table_elem.appendChild(table.Column(AttributesImpl({u"Name": colnamefmt % column_name, u"Type": column_type})))
 
 		table_elem._end_of_columns()
@@ -430,7 +430,7 @@ class DBTable(table.Table):
 			self.dbcolumntypes = self.columntypes
 
 		# create the table
-		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, types.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
+		statement = "CREATE TABLE IF NOT EXISTS " + self.dbtablename + " (" + ", ".join(map(lambda n, t: "%s %s" % (n, ligolwtypes.ToSQLiteType[t]), self.dbcolumnnames, self.dbcolumntypes))
 		if self.constraints is not None:
 			statement += ", " + self.constraints
 		statement += ")"
@@ -513,7 +513,7 @@ class DBTable(table.Table):
 		old row keys with the new values from the _idmap_ table.
 		"""
 		assignments = []
-		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in types.IDTypes and (self.next_id is None or colname != self.next_id.column_name)]:
+		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name)]:
 			assignments.append("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
 		if not assignments:
 			# table has no columns to update
@@ -563,7 +563,7 @@ class ProcessParamsTable(DBTable):
 	how_to_index = lsctables.ProcessParamsTable.how_to_index
 
 	def append(self, row):
-		if row.type is not None and row.type not in types.Types:
+		if row.type is not None and row.type not in ligolwtypes.Types:
 			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		DBTable.append(self, row)
 

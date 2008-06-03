@@ -51,7 +51,7 @@ from glue import segments
 from glue.lal import LIGOTimeGPS
 import ligolw
 import table
-import types
+import types as ligolwtypes
 import ilwd
 
 
@@ -244,7 +244,7 @@ class ProcessParamsTable(table.Table):
 	#constraints = "PRIMARY KEY (process_id, param)"
 
 	def append(self, row):
-		if row.type is not None and row.type not in types.Types:
+		if row.type is not None and row.type not in ligolwtypes.Types:
 			raise ligolw.ElementError, "unrecognized type '%s'" % row.type
 		table.Table.append(self, row)
 

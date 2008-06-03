@@ -43,7 +43,7 @@ from xml import sax
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
-import types
+import types as ligolwtypes
 
 
 #
@@ -466,7 +466,7 @@ class Time(Element):
 	def __init__(self, attrs = sax.xmlreader.AttributesImpl({})):
 		if not attrs.has_key(u"Type"):
 			attrs._attrs[u"Type"] = u"ISO-8601"
-		if attrs[u"Type"] not in types.TimeTypes:
+		if attrs[u"Type"] not in ligolwtypes.TimeTypes:
 			raise ElementError, "invalid Type for Time: %s" % attrs[u"Type"]
 		Element.__init__(self, attrs)
 
