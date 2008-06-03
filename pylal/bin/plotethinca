@@ -462,7 +462,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
       xValsSNR = coincs.getsngls(ifo).get_column('snr')
       totMass = coincs.getsngls(ifo).get_column('mass1')+ coincs.getsngls(ifo).get_column('mass2')
-      label=ifo+' : ' + str(len(xValsSNR))+' coincidences'
+      label=ifo+' (inj): ' + str(len(xValsSNR))+' coincidences'
       InspiralUtils.message(opts, '         '+label)
       scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False)
     legend([label])
@@ -549,7 +549,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         for slides, ethincaSlideVals, symbolSlide in \
             zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
           xSlideVals = slides.getsngls(ifo).get_column(col)
-          label=ifo+' : ' + str(len(xSlideVals))+' coincidences'
+          label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
           InspiralUtils.message(opts, "....(slide)"+label)
           try:
             if opts.log_x:
@@ -564,7 +564,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for coincs, ethincaVals, symbol in \
           zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
         xVals = coincs.getsngls(ifo).get_column(col)
-        label=ifo+' : ' + str(len(xVals))+' coincidences'
+        label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
         InspiralUtils.message(opts, "...."+label)
         if opts.log_x:
           try:
@@ -611,7 +611,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       for slides, ethincaSlideVals, symbolSlide in \
           zip([slides_list[ifos_index]], [ethinca_slides_list[ifos_index]], symbol_slide_list):
         xSlideVals = [x.stat for x in slides]
-        label=ifo+' : ' + str(len(xSlideVals))+' coincidences'
+        label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
         if opts.log_x:
           try: semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
               markeredgewidth=1, markersize=6, label=label)
@@ -624,7 +624,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     for coincs, ethincaVals, symbol in \
         zip([coincs_list[ifos_index]], [ethinca_list[ifos_index]], symbol_list):
       xVals = [x.stat for x in coincs]
-      label=ifo+' : ' + str(len(xVals))+' coincidences'
+      label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
       if opts.log_x:
         try: semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
         except:pass
