@@ -616,7 +616,7 @@ def write_tuning(page,opts):
   	"distance cut"\
 	]
   tags = [\
-  	'*plotethinca*COINC_CAT_2*',\
+  	'*plotethinca*CAT_2_VETO*',\
 	'*plotsnrchi*',\
 	'*plotsnrchi*',\
 	'*ploteffdistcut*'\
@@ -874,37 +874,37 @@ def write_summaryFiles(page, opts):
     page.add('<h1>' + thisSearch  +' section</h1>')
     for eachifo in get_ifo_coinc():
       if len(eachifo)>2:
+        if 'inj' in thisSearch:
+          file = opts.datadir + thisSearch+'/'+eachifo\
+              +'-COIRE_INJECTIONS*SUMMARY_SECOND_'+eachifo\
+              +'_'+thisSearch.upper()+'_CAT_2_VETO' +opts.txt_suffix     
+        else:
+          file = opts.datadir + thisSearch+'/'+eachifo\
+              +'-COIRE_SUMMARY_SECOND_'+eachifo\
+              +'_'+thisSearch.upper() +'_CAT_2_VETO' +opts.txt_suffix     
         try:
-          if 'inj' in thisSearch:
-            file = opts.datadir + thisSearch+'/'+eachifo\
-                +'-COIRE_INJECTIONS*SUMMARY_SECOND_'+eachifo\
-                +'_'+thisSearch.upper() +opts.txt_suffix     
-            file = glob.glob(file)
-            file = file[0]
-          else:
-            file = opts.datadir + thisSearch+'/'+eachifo\
-                +'-COIRE_SUMMARY_SECOND_'+eachifo\
-                +'_'+thisSearch.upper() +opts.txt_suffix     
           tmp = open(file, "r")
           this = tmp.read()
           tmp.close()
           page.add( "<p>COIRE Summary file "+eachifo+".</p>")
           page.add("<pre>"+file+"<br/>"+this+"</pre>")
         except:
+          page.add( "<p>COIRE Summary file "+eachifo+".</p>")
           page.add('<pre>Could not find '+file+'</pre>')
         # the SLIDE case
-        if 'inj'  not in thisSearch:
+        if 'inj' not in thisSearch:
+          file = opts.datadir + thisSearch+'/'+eachifo\
+              +'-COIRE_SLIDE_SUMMARY_SECOND_'+eachifo\
+              +'_'+thisSearch.upper()+'_CAT_2_VETO' +opts.txt_suffix      
           try : 
-            file = opts.datadir + thisSearch+'/'+eachifo\
-                +'-COIRE_SLIDE_SUMMARY_SECOND_'+eachifo\
-                +'_'+thisSearch.upper() +opts.txt_suffix      
             tmp = open(file, "r")
             this = tmp.read()
             tmp.close()
             page.add("<p>COIRE Summary file "+eachifo+" (slide).</p>")
             page.add("<pre>"+file+"<br/>"+this+"</pre>")
           except:
-            pass
+            page.add( "<p>COIRE Summary file "+eachifo+".</p>")
+            page.add('<pre>Could not find '+file+'</pre>')
    
      #copy all SUMMARY COIRE file 
     try:
@@ -1308,9 +1308,13 @@ def get_segments_tag(tag):
   this_tag  = '-' + tag + opts.txt_suffix
   if tag=="RDS_C03_L2":
     this_tag  = '_' + tag + opts.txt_suffix
+  
+  file = datadir +'/segments/' + ifos[1] + this_tag
+  if not os.path.isfile(file):
+    return thisdata
 
   #reading the segments files and extract the duration
-  command = 'awk \'{print NF}\' ' +  datadir +'/segments/' + ifos[1] + this_tag
+  command = 'awk \'{print NF}\' ' +  file
   try:
     ncols, status = make_external_call(command, False, opts.debug, True)
     ncols = ncols[len(ncols)-2]
