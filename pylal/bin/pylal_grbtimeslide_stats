@@ -148,6 +148,12 @@ parser.add_option("--plot-num-coincs", action="store_true", default=False,
     help="plot the number of coincs vs trial number")
 parser.add_option("--hist-num-coincs", action="store_true", default=False,
     help="histogram the number of coincs in each trial")
+parser.add_option("--hist-onsource", action="store_true", default=False,
+    help="make a cumulative histogram of the on-source trial (If you want "\
+    "this, make sure not to veto the on-source segment)")
+parser.add_option("--hist-background", action="store_true", default=False,
+    help="make a cumulative histogram of the background +/- 1 sigma, "\
+    "including both off-source trials and time-slides.")
 parser.add_option("", "--hist-trials", action="callback", type="string",
     callback=comma_delimited, callback_kwargs={"elem_type":int}, default=[],
     help="make a cumulative histogram of statistics for each of the given "\
@@ -310,7 +316,7 @@ if opts.hist_loudest:
 
     # initialize plot
     plot = plotutils.CumulativeHistogramPlot(
-            safe_stat,
+            r"$\textrm{%s}^2$" % safe_stat,
             r"$\textrm{\# trials with %s}_\mathrm{loudest}^2 > \mathrm{%s}^2$" \
                 % (safe_stat, safe_stat),
             r"$\textrm{Cumulative histogram of %s}^2\textrm{ "\
@@ -336,7 +342,7 @@ if opts.hist_loudest:
         plot.close()
 
 # plot cumulative histogram of specified trials' statistics
-if len(opts.hist_trials) > 0:
+if opts.hist_onsource or opts.hist_background or len(opts.hist_trials) > 0:
     # sanity check
     for trial_num in opts.hist_trials:
         if trial_num < 0 or trial_num > num_trials:
@@ -351,17 +357,23 @@ if len(opts.hist_trials) > 0:
             r"$\textrm{\# coincs louder than %s}^2$" % safe_stat,
             r"$\textrm{Cumulative histogram of unclustered %s}^2$" % safe_stat)
 
-    # prepare data of interest
+    # prepare data of interest: hist_onsource
+    if opts.hist_onsource:
+        data = [c.stat*c.stat for c in coincs[0, num_trials // 2]]
+        plot.add_content(data, "on-source trial")
+
+    # prepare data of interest: hist_trials
     for trial_num in opts.hist_trials:
         trial = coincs[0, trial_num-1]
         data = [c.stat*c.stat for c in trial]
         plot.add_content(data, "trial %d" % trial_num)
 
     # prepare background
-    data = [[c.stat*c.stat for c in coincs[0, i]] for i in \
-            xrange(0, num_trials) if i+1 not in opts.hist_trials \
-            and not trial_veto_mask[i]]
-    plot.add_background(data, label=r"other\ trials")
+    if opts.hist_background:
+        data = [[c.stat*c.stat for c in coincs[0, i]] for i in \
+                xrange(0, num_trials) if i+1 not in opts.hist_trials \
+                and not trial_veto_mask[i]]
+        plot.add_background(data, label=r"off-source\ trials")
 
     # finalize plot
     plot.finalize(num_bins=50)
