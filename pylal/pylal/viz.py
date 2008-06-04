@@ -129,9 +129,7 @@ def timeindays(col_data ):
     - S2:         [729273613, 734367613]
     - S3:         [751658413, 757699213]
     - S4:         [793130413, 795679213]
-    - S5:         [815119213, 883209614]
-  The end of S5 is temporarily set to Jan 1, 2008, 00:00:00 PST, until the
-  actual end of the run is known.
+    - S5:         [815119213, 875232014]
   @param col_data: array containing times
   """
   lvtimes = [700000000, 700086400]
@@ -139,8 +137,10 @@ def timeindays(col_data ):
   s2times = [729273613, 734367613]
   s3times = [751658413, 757699213]
   s4times = [793130413, 795679213]
-  s5times = [815119213, 883209614]
-  
+  s5times = [815119213, 875232014]
+
+  if len(col_data) == 0: return col_data
+
   if col_data[0] > s2times[0] and col_data[0] < s2times[1]:
     start = s2times[0]
   elif col_data[0] > s3times[0] and col_data[0] < s3times[1]:
@@ -1056,10 +1056,11 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     setp(p, alpha=0.3)
     
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
   xlabel(xlab, size='x-large')
   ylabel('Number of events', size='x-large')
-  title_text = 'Cumulative histogram of Number of events vs ' + xlab
+  title_text = 'Cum. hist. of num events vs ' + xlab
   if ifolist:
     title_text += ' for ' 
     for ifo in ifolist:
@@ -1212,51 +1213,63 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
   foundVal = readcol(found,col_name, ifo)
   missedVal = readcol(missed,col_name, ifo)
 
+  if len(foundVal) or len(missedVal):
+    # we have found or missed injections so we can generate the plot
+    if plot_type == 'log':
+      foundVal = log10(foundVal)
+      missedVal = log10(missedVal)
 
-  if plot_type == 'log':
-    foundVal = log10(foundVal)
-    missedVal = log10(missedVal)
-
-  step = (max(foundVal) - min(foundVal)) /nbins
-  bins = arange(min(foundVal),max(foundVal), step )
- 
-  fig_num = gcf().number
-  figure(100)
-  [num_found,binsf,stuff] = hist(foundVal, bins)
-  [num_missed,binsm,stuff] = hist(missedVal ,bins)
-  close(100)
-  
-  figure(fig_num)
-  num_found = array(num_found,'d')
-  eff = num_found / (num_found + num_missed)
-  error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
-  error = array(error)
-
-  if plot_type == 'log':
-    bins = 10**bins
-    if plot_name:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=2, label = plot_name)
+    if len(foundVal):
+      step = (max(foundVal) - min(foundVal)) /nbins
+      bins = arange(min(foundVal),max(foundVal), step )
+      if step == 0:
+        bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
     else:
-      semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=2)
-    if errors:
-      errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth = 2, label = plot_name, \
-          fmt = plotsym)
-            
+      step = (max(missedVal) - min(missedVal)) /nbins
+      bins = arange(min(missedVal),max(missedVal), step )
+      if step == 0:
+        bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
+    fig_num = gcf().number
+    figure(100)
+    [num_found,binsf,stuff] = hist(foundVal, bins)
+    [num_missed,binsm,stuff] = hist(missedVal ,bins)
+    close(100)
+    
+    figure(fig_num)
+    num_found = array(num_found,'d')
+    eff = num_found / (num_found + num_missed)
+    error = sqrt( num_found * num_missed / (num_found + num_missed)**3 )
+    error = array(error)
+
+    if plot_type == 'log':
+      bins = 10**bins
+      if plot_name:
+        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2, label = plot_name)
+      else:
+        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=2)
+      if errors:
+        errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth = 2, label = plot_name, \
+            fmt = plotsym)
+              
+    else:
+      if errors:
+        errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+            markerfacecolor='None',\
+            markeredgewidth=1, linewidth=1, label = plot_name)
+      else:
+        plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+            markeredgewidth=1, linewidth=1, label = plot_name)
+
+    xlabel(col_name.replace("_"," "), size='x-large')
+    ylabel('Efficiency', size='x-large')
+    ylim(0,1.1)
   else:
-    if errors:
-      errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
-          markerfacecolor='None',\
-          markeredgewidth=1, linewidth=1, label = plot_name)
-    else:
-      plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
-          markeredgewidth=1, linewidth=1, label = plot_name)
+    # no found or missed injections
+    figtext(0,0,'No found or missed injections',fontsize=32)
 
-  xlabel(col_name.replace("_"," "), size='x-large')
-  ylabel('Efficiency', size='x-large')
-  ylim(0,1.1)
   if ifo:
     title_string += ' ' + ifo  
   

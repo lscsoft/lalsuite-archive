@@ -41,7 +41,6 @@ from glue import lal
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
-from pylal import GRButils
 
 #################################################################
 # help message
@@ -82,9 +81,6 @@ def parse_command_line():
   #chisq  related
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
       help="make a plot of snr vs chisq" )
-  parser.add_option("-A","--funky-threshold",action="store",type="float",\
-      metavar=" FUNKY_THRESH",\
-      help="specify the funky stat threshold (so we can add to plot)" )
   parser.add_option("-b","--log-snr-chisq",action="store_true",default=False,\
       help="make a log plot of snr vs chisq" )
   parser.add_option("-B","--chisq-threshold",action="store",type="float",\
@@ -115,9 +111,6 @@ def parse_command_line():
   parser.add_option("-G","--add-vertical-line",action="store",default=None,\
       metavar=" GPS_TIME",type="float",\
       help="add a vertical line at GPS_TIME to the snr vs time plot" )
-  parser.add_option("-q","--funky-offset",action="store",type="float",\
-      metavar=" FUNKY_OFFSET", help="specify the offset in funky stat " )
- 
   #axis and plotting related
   parser.add_option("", "--log-y", action="store_true", default=False,
       help="set the y axis to have a log scale")
@@ -152,9 +145,6 @@ def parse_command_line():
       metavar=" SECONDS", help="amount of time analyzed" )
   parser.add_option("-s","--show-plot",action="store_true",default=False,\
       help="display the figures on the terminal" )
-  parser.add_option("-L","--min-distance",action="store",type="float",\
-      default=None, metavar="EFFDIST",
-      help="only look at missed injections closer than EFFDIST")
   parser.add_option("-v","--verbose",action="store_true",\
       default=False,help="print information" )
   parser.add_option("","--exttrig-onsource",action="store",type="string",default=None,\
@@ -180,6 +170,8 @@ def parse_command_line():
       help="set the resoultion of the thumbnail (50 dpi by default)" )
 
   #input
+  parser.add_option("-i", "--ifo-times",
+    help="sieve a cache file according to a particular ifo type")
   parser.add_option("-u","--template-bank",action="store",type="string",\
       default=None, metavar=" FILE",help="name of a template bank file")
   parser.add_option("-U","--inspiral-glob",action="store",type="string",\
@@ -190,12 +182,6 @@ def parse_command_line():
     help="sieve trigger files of a particular description pattern from cache file" )
   parser.add_option("", "--bank-pattern",
     help="sieve template bank files of a particular description pattern from cache file" )
-  parser.add_option("", "--missed-pattern",
-    help="sieve missed injection files of a particular description pattern from cache file" ) 
-  parser.add_option("-i", "--ifo-times",
-    help="sieve a cache file according to a particular ifo type")
-  parser.add_option("-M","--missed-inj",action="store",type="string",\
-      default=None, metavar=" FILE",help="missed injection file")
   parser.add_option("", "--html-for-cbcweb",action="store",\
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
@@ -226,6 +212,7 @@ InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+comments = ""
 # -- set the proper color code
 ifocolors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)
@@ -261,11 +248,6 @@ if opts.norm_hist_snr and not opts.analyzed_time:
   print >>sys.stderr, "the --analyzed-time must be specified"
   sys.exit(1)
 
-if opts.missed_inj and not opts.min_distance:
-  print >>sys.stderr, "both a missed injections file and a maximum"
-  print >>sys.stderr, "distance should be specified when following"
-  print >>sys.stderr, "up nearby missed injections"
-  sys.exit(1)
 
 # load cache
 if opts.cache_file is not None:
@@ -277,17 +259,46 @@ if opts.cache_file is not None:
 trigFiles = []
 if opts.inspiral_glob is not None:
   trigFiles.extend(glob.glob(opts.inspiral_glob))
+  if len(trigFiles == 0):
+    err_msg = "The glob for " + opts.inspiral_glob + " returned no files" 
+    print >>sys.stderr, err_msg
+    comments += InspiralUtils.message(opts, err_msg)
 if opts.trig_pattern is not None:
   trig_cache = cache.sieve(description=opts.trig_pattern)
   trigFiles.extend(trig_cache.checkfilesexist()[0].pfnlist())
+  if len(trigFiles) == 0:
+    err_msg = opts.cache_file + " contains no files with " + \
+        opts.trig_pattern + " description"
+    print >>sys.stderr, err_msg
+    comments += InspiralUtils.message(opts, err_msg)
 
 if len(trigFiles) == 0:
-  print >>sys.stderr, "There are no files in your glob and/or cache or they do not exist."
-  sys.exit(1)
-if opts.verbose:
-  print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
+  # give up and exit
+  if opts.enable_output is True: 
+    html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList, comment=comments)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    if opts.show_plot:
+      sys.exit(1)
+    else:
+      sys.exit(0)
 
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, verbose=opts.verbose)
+if opts.verbose:
+  print >>sys.stdout, "There are " + str(len(trigFiles))+ \
+      " files in your glob and/or lal cache"
+
+inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
+    verbose=opts.verbose)
+if inspTriggers is None:
+  err_msg = "There were no inspiral triggers in the files read in," + \
+      " no plots generated"
+  print >>sys.stderr, err_msg
+  comments += InspiralUtils.message(opts, err_msg)
+  if opts.enable_output is True: 
+    html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList, comment=comments)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    sys.exit(0)
 
 # read in the template bank if supplied
 bank_files = []
@@ -309,42 +320,6 @@ if opts.exttrig_onsource:
   inspTriggers = inspTriggers.veto(exttrigseg)
 
 
-# determine missed injection file
-missed_files = []
-if opts.missed_inj is not None:
-  missed_files.append(opts.missed_inj)
-if opts.missed_pattern is not None:
-  missed_cache = cache.sieve(description=opts.missed_pattern)
-  missed_files.extend(missed_cache.checkfilesexist()[0].pfnlist())
-
-# load missed injections
-if len(missed_files) > 0:
-  analyzedsegs = SearchSummaryUtils.GetSegListFromSearchSummaries(trigFiles)
-
-  inspDict = {}
-  inspDict["ifo"] = inspTriggers[0].ifo
-  missedDict = {}
-
-  missedDict["sim_inspiral"] = SimInspiralUtils.ReadSimInspiralFromFiles(missed_files)
-  missedDict["mis_time"] = viz.readcol(missedDict["sim_inspiral"], \
-    "end_time", inspDict["ifo"] )
-  missedDict["mis_dist"] = viz.readcol(missedDict["sim_inspiral"], "eff_dist", \
-    inspDict["ifo"] )
-
-  followupMissed = {}
-  followupMissed["mis_time"] = []
-  followupMissed["mis_triggers"] = []
-  x = segments.segmentlistdict()
-  x["analyzedsegs"] = segments.segmentlist(analyzedsegs[inspDict["ifo"]])
-  for i in range(len(missedDict["mis_time"])):
-    if missedDict["mis_dist"][i] < opts.min_distance:
-      thisSegment = segments.segment(missedDict["mis_time"][i] - 10,
-                                     missedDict["mis_time"][i] + 10)
-      x["missedSeg"] = segments.segmentlist([thisSegment])
-      x["overlapSeg"] = x.intersection(["missedSeg", "analyzedsegs"])
-      followupMissed["mis_time"].append(missedDict["mis_time"][i])
-      followupMissed["mis_triggers"].append(
-          inspTriggers.veto(x["overlapSeg"].__invert__()))
 
 max_snr = max(inspTriggers.get_column('snr'))
 min_snr = min(inspTriggers.get_column('snr'))
@@ -359,39 +334,7 @@ if opts.chisq_threshold:
   chisq_thresh = opts.chisq_threshold * ( opts.chisq_bins + \
     opts.chisq_delta * snr_range * snr_range )
 
-if opts.funky_threshold:
-  if not ( opts.funky_offset):
-    print >>sys.stderr, "when --funky-threshold is specified, must also give"
-    print >>sys.stderr, "the --funky-offset"
-    sys.exit(1)
-  
-  s3_snr_chi_stat = opts.funky_threshold * ( snr_range * snr_range * \
-      snr_range *snr_range ) / ( opts.funky_offset + (snr_range * \
-      snr_range) ) 
-
 # ============================================================================
-###################################
-# plot of snr vs time for missed injections
-if opts.snr_time and opts.missed_pattern:
-  text = "End time versus SNR (missed injections)"
-  InspiralUtils.message(opts, "plotting..."+text)
-  for injTime,triggers in zip(followupMissed["mis_time"],
-       followupMissed["mis_triggers"]):
-    figure_number += 1
-    figure(figure_number)
-    axvline(injTime - int(injTime), linewidth=1, color='r')
-    for idx in range(len(triggers)):
-      triggers[idx].end_time = triggers[idx].end_time - int(injTime)
-
-    viz.plot_a_v_b(triggers,'end_time','snr','seconds','kx',\
-                   x_min=opts.threshold,x_max=None)
-    if opts.enable_output is True:
-      fname = InspiralUtils.set_figure_name(opts, "end_time_vs_snr")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
-
-###################################
 # plot of snr vs time
 if opts.snr_time is True:
   text = "SNR versus end time"
@@ -412,8 +355,8 @@ if opts.snr_time is True:
                                    - int(opts.add_vertical_line)
       
     viz.plot_a_v_b(inspTriggers,'end_time','snr','seconds',plot_sym,\
-		x_min=None, x_max=None, \
-		y_min=opts.threshold, y_max=opts.y_max)
+    x_min=None, x_max=None, \
+    y_min=opts.threshold, y_max=opts.y_max)
   else:
     viz.plot_a_v_b(inspTriggers,'end_time','snr','linear',plot_sym,\
                    y_min=opts.threshold, y_max=opts.y_max, )
@@ -441,9 +384,6 @@ if opts.snr_chisq is True:
     if opts.chisq_threshold:
       plot(snr_range, chisq_thresh)
       hold(True)
-    if opts.funky_threshold:
-      plot(snr_range, s3_snr_chi_stat, 'r-')
-      hold(True)
     viz.plot_a_v_b(inspTriggers,'snr','chisq','linear',plot_sym)
     xlabel('SNR') 
     if opts.enable_output is True: 
@@ -464,9 +404,6 @@ try:
     figure(figure_number)
     if opts.chisq_threshold:
       loglog(snr_range, chisq_thresh)
-      hold(True)
-    if opts.funky_threshold:
-      loglog(snr_range, s3_snr_chi_stat, 'r-')
       hold(True)
       
     viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog',plot_sym)

@@ -19,6 +19,7 @@ from glue.ligolw import lsctables
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
+symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
 
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   dpi_thumb=50, fig=None):
@@ -370,7 +371,6 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
   @param verbose: True of False (default is False)
   """
 
-  print fList
   output = {}
   massOutput = {}
   count = 0

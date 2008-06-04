@@ -167,7 +167,7 @@ def createImageMap(opts, missedInj, ifo, filename):
 
     # get the distances and sort them
     distVector = viz.readcol( missedInj, 'eff_dist', ifo )
-    index = distVector.argsort()
+    index = argsort(distVector)
     n=min( len(distVector), opts.followup_number)
     missedInjUse = [missedInj[index[i]] for i in range(n)]
   else:
@@ -355,6 +355,11 @@ def parse_command_line():
   if not options.ifo_times:
     raise ValueError, "--ifo-times must be provided"
 
+  if options.do_followup and not options.user_tag:
+    raise ValueError, "--user-tag must be provided when doing followup, "\
+          "specifying the injection tag (e.g. 'GRB060429_injections21')"
+
+
   return options, sys.argv[1:]
 
 
@@ -364,6 +369,7 @@ opts, args = parse_command_line()
 
 # Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
 opts = InspiralUtils.initialise(opts, __name__, __version__)
+comments = ""
 
 # -- set the proper color code
 colors = InspiralUtils.colors
@@ -400,8 +406,18 @@ if opts.cache_file:
     for file in misFiles:
       print file
   if len(injFiles) == 0:
-    print >>sys.stderr, "no found files match sieve pattern"
-    sys.exit(1)
+    err_msg = opts.cache_file + " contains no files with " + \
+        opts.found_pattern + " description"
+    print >>sys.stderr, err_msg
+    comments += InspiralUtils.message(opts, err_msg)
+    if opts.enable_output is True: 
+      html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+          tagList, comment=comments)
+      InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+      if opts.show_plot:
+        sys.exit(1)
+      else:
+        sys.exit(0)
   
 else:
 
