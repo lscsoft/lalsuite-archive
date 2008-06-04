@@ -1205,8 +1205,7 @@ class CondorDAG:
     for file in set(self.__rls_filelist):
       if file in self.__data_find_files: continue
       # try to figure out if the path is absolute
-      outfile.write(file+' '+'gsiftp://'+gsiftp +os.path.abspath(file)+' pool="'+pool+'"\n')
-
+      outfile.write(os.path.split(file)[-1] + ' ' + 'gsiftp://'+gsiftp +os.path.abspath(file)+' pool="'+pool+'"\n')
   def write_dag(self):
     """
     Write either a dag or a dax.
