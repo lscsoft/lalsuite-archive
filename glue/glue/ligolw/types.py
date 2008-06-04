@@ -70,7 +70,6 @@ import base64
 
 
 import ilwd
-#import tokenizer
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -88,7 +87,7 @@ __version__ = "$Revision$"[11:-2]
 
 
 IDTypes = [u"ilwd:char"]
-BlobTypes = [u"ilwd:char_u", u"blob"]
+BlobTypes = [u"blob"]
 StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
 IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
 FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
@@ -100,16 +99,10 @@ def ligolw_string_format_func(s):
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
-#def ligolw_blob_format_func(b):
-#	return ligolw_string_format_func(tokenizer.blob_format_func(b))
-
-
 FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
-	#u"ilwd:char_u": ligolw_blob_format_func,
-	#u"blob": ligolw_blob_format_func,
 	u"ilwd:char_u": base64.standard_b64encode,
 	u"blob": base64.standard_b64encode,
 	u"lstring": ligolw_string_format_func,
@@ -132,10 +125,7 @@ ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
 	u"ilwd:char": ilwd.get_ilwdchar,
-	#u"ilwd:char_u": tokenizer.parse_blob,
-	#u"blob": tokenizer.parse_blob,
-	u"ilwd:char_u": lambda s: buffer(base64.standard_b64decode(s)),
-	u"blob": lambda s: buffer(base64.standard_b64decode(s)),
+	u"blob": lambda s: buffer(base64.urlsafe_b64decode(s)),
 	u"lstring": unicode,
 	u"string": unicode,
 	u"int_2s": int,
@@ -194,7 +184,6 @@ ToSQLiteType = {
 	u"char_s": "TEXT",
 	u"char_v": "TEXT",
 	u"ilwd:char": "TEXT",
-	u"ilwd:char_u": "BLOB",
 	u"blob": "BLOB",
 	u"lstring": "TEXT",
 	u"string": "TEXT",
