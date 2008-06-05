@@ -103,7 +103,7 @@ FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
-	u"blob": base64.standard_b64encode,
+	u"blob": lambda b: "\"%s\"" % base64.standard_b64encode(b),
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
 	u"int_2s": u"%d".__mod__,
