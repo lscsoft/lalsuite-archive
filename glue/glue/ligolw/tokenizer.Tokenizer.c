@@ -407,7 +407,8 @@ static PyObject *next_token(ligolw_Tokenizer *tokenizer, Py_UNICODE **start, Py_
 	if(*end)
 		**end = 0;
 	if(quote_character) {
-		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, ',', '\0'};
+		/* FIXME:  remove the delimiter */
+		Py_UNICODE escapable_characters[] = {quote_character, tokenizer->escape_character, tokenizer->delimiter, '\0'};
 		if(unescape(*start, end, escapable_characters, tokenizer->escape_character))
 			return NULL;
 	}
