@@ -181,9 +181,9 @@ def createImageMap(opts, missedInj, ifo, filename):
 
   # loop over all missed injections
   for inj in missedInjUse:
-    
     # do the followup and create the followup page
     followuphtml = followup.followup( inj, ifo , opts.followup_tag)
+
     # get the coordinates of this missed injection
     totalMass = inj.mass1+inj.mass2
     effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
@@ -200,7 +200,8 @@ def createImageMap(opts, missedInj, ifo, filename):
     mapDict['links'].append( followuphtml )
     
   # save the figure (containing filled circles)
-  savefig( opts.output_path+picname )
+ 
+  if opts.enable_output is True: savePlot( opts, filename+"_map", "fixme" )
 
   # add mapDict to the map vector
   mapList.append( mapDict )
@@ -652,7 +653,6 @@ valueList = [ 'eff_dist', \
               'distance']
 nameList = ["efficiency-eff_dist", "efficiency_dist"]
 tagnameList = ["Efficiency versus distance", "Efficiency versus distance"]
-
 indexPlots = []
 if opts.eff_vs_eff_dist:
   indexPlots.append(0)
@@ -682,14 +682,14 @@ for ifo in ifoList:
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
-  html_filename = InspiralUtils.write_html_output(opts, args, \
-                                                 fnameList, tagList,\
-                                                 doThumb=True,\
-                                                 mapList=mapList)
+  html_filename = \
+      InspiralUtils.write_html_output(opts, args, fnameList, tagList,\
+                                      doThumb=True, mapList=mapList )
   if opts.html_for_cbcweb:
     html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
+  
   if opts.do_followup:
-     fnameList.extend( followup.fnameDict.values() )
+    fnameList.extend( followup.fnameDict.values() )
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #########################################################################
