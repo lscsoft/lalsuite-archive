@@ -78,8 +78,6 @@ class FollowupMissed:
     rcParams.update({'text.usetex': False})
 
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
-    self.stageLabels = ['TMPLTBANK', 'INSPIRAL_FIRST','THINCA_FIRST','TRIGBANK', 'INSPIRAL_SECOND', \
-	'THINCA_SECOND', 'THINCA_SECOND_CAT_2', 'THINCA_SECOND_CAT_3', 'THINCA_SECOND_CAT_4']
 
     # setting all the parameters
     self.cache                = cache
@@ -111,13 +109,9 @@ class FollowupMissed:
     self.triggerCache = {}
     for stage in self.stageLabels:
       pattern = stage
-      if self.opts.user_tag:
-        pattern+='*_'+self.opts.user_tag
       self.triggerCache[stage] = cache.sieve(description=pattern)
 
     pattern = "INJECTION_"
-    if self.opts.user_tag:
-      pattern+='*'+self.opts.user_tag
     self.injectionCache = cache.sieve(description=pattern).sieve(ifos='HL')
   
     # generate a dictionary based on the event-ID
@@ -404,6 +398,8 @@ class FollowupMissed:
       triggerFiles , verbose=self.verbose)
 
     if snglTriggers is None:
+      fig = figure()
+      foundAny = False
       figtext(0,0,'no sngl_inspiral table in %s' % str(triggerFiles))
 
     else:
@@ -455,8 +451,8 @@ class FollowupMissed:
       # save the plot
       grid(True)
       legend()
+      axis([-self.deltaTime, +self.deltaTime, ylims[0], ylims[1]])
       
-    axis([-self.deltaTime, +self.deltaTime, ylims[0], ylims[1]])
     xlabel('time [s]')
     ylabel('SNR')
     title(stage+'_'+str(self.number))    
@@ -466,7 +462,7 @@ class FollowupMissed:
     return foundAny
 
   # -----------------------------------------------------
-  def investigateThinca(self, triggerFiles, inj, ifoName, stage, number ):
+  def investigateThinca(self, triggerFiles, inj, ifoName, stage, number,category=None ):
     """
     Investigate coincdent triggers and create a time-series
     of the SNRs around the injected time
@@ -475,9 +471,15 @@ class FollowupMissed:
     @param ifo: The current IFO    
     @param stage: The name of the stage (FIRST, SECOND)
     @param number: The consecutive number for this inspiral followup
+    @param category: The category to look at
     """
     
     # read and construct the coincident events
+    if category is not None:
+      triggerFiles = selectCategory(triggerFiles, category)
+    
+    # read and construct the coincident events
+    
     if self.verbose: print "Processing THINCA triggers from files "
     snglInspiral = SnglInspiralUtils.ReadSnglInspiralFromFiles( triggerFiles, \
 	mangle_event_id=True, verbose=self.verbose )
@@ -485,8 +487,9 @@ class FollowupMissed:
 	CoincInspiralUtils.coincStatistic("snr") )
 
     if snglInspiral is None:
+      fig=figure()
       figtext(0,0,'no sngl_inspiral table in %s' % str(triggerFiles))
-      
+      foundAny=False 
     else:
 
       # selection segment
@@ -571,26 +574,33 @@ class FollowupMissed:
     snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
       triggerFiles, verbose=self.verbose )
 
+    if snglTriggers is None:
+      fig=figure()
+      figtext(0,0,'no TRIGBANK file found in %s' % str(triggerFiles))
+      foundAny=False 
+    else:
 
-    fig=figure()
-    selected = dict()  
-    for ifo in self.colors.keys():
-
-      # get the singles 
-      snglInspiral = snglTriggers.ifocut(ifo)
-
-      # plot the templatebank
-      plot( snglInspiral.get_column('mass1'), \
-            snglInspiral.get_column('mass2'), self.colors[ifo]+'x', \
-            label=ifo)
-
-    # plot the missed trigger and save the plot
-    xm = injMass[0]
-    ym = injMass[1]
-    plot( [xm], [ym],  'ko', ms=10.0, mfc='None', mec='k', mew=3, \
+      fig=figure()
+      selected = dict()  
+      for ifo in self.colors.keys():
+        print ifo
+        # get the singles 
+      
+        snglInspiral = snglTriggers.ifocut(ifo)
+        print len(snglInspiral)
+        # plot the templatebank
+        plot( snglInspiral.get_column('mass1'), \
+              snglInspiral.get_column('mass2'), self.colors[ifo]+'x', \
+              label=ifo)
+        print 'done'
+      # plot the missed trigger and save the plot
+      xm = injMass[0]
+      ym = injMass[1]
+      plot( [xm], [ym],  'ko', ms=10.0, mfc='None', mec='k', mew=3, \
           label="_nolegend_")
-    grid(True)
-    legend()
+      grid(True)
+      legend()
+
     xlabel('mass1')
     ylabel('mass2')
     title(stage+'_'+str(self.number))    
@@ -607,7 +617,7 @@ class FollowupMissed:
     The return value is the name of the created html file
     @param inj: sim_inspiral table of the missed injection
     @param ifo : The current IFO
-    @param ifo : a description to select files in a cache file. It could be the tag of the injection run.
+    @param description: a description to select files in a cache file. It could be the tag of the injection run.
     """
     
     def fillTable(page, contents ):
@@ -663,7 +673,6 @@ class FollowupMissed:
     # missed injection
     foundDict = {}
     for stage, cache in self.triggerCache.iteritems():
-
       if self.exttrig:
         trigCache = lal.Cache(
           [c for c in cache if ('_'+str(injID)+'-' in os.path.basename(c.url)\
@@ -671,7 +680,6 @@ class FollowupMissed:
       else:
         trigCache = lal.Cache(
           [c for c in cache if inj.geocent_end_time in c.segment])
-
       # check if the pfnlist is empty. `
       if trigCache.pfnlist()==[]:
         print >>sys.stderr, "Error: No files found for stage %s in the "\
@@ -697,10 +705,16 @@ class FollowupMissed:
             trigCache.sieve(description=description).pfnlist(), \
             inj, ifo, stage, self.number)     
         elif 'SECOND' in stage:
-          # by default no "CAT_1" is associated to cat 1 times
-          found = self.investigateThinca( \
-            trigCache.sieve(description=description, exact_match=True).pfnlist(),\
-            inj, ifo, stage, self.number )
+          # by default no "CAT_1" is associated to cat 1 times so we need to remove
+          # all other CAT_2, CAT_3, CAT_4. !! the exact_match-true does not work, so
+          # we need to do it by ourself; this is done within investigateThinca.
+          try:
+            found = self.investigateThinca( \
+              trigCache.sieve(description=description).pfnlist(),\
+              inj, ifo, stage, self.number, category='CAT_1')
+          except:
+            print >>sys.stderr, "Error: Unknown problem within stage ", stage
+            found = []
         foundDict[stage]=found
       elif 'TRIGBANK' in stage:
         found = self.investigateTrigbank( \
@@ -814,3 +828,22 @@ def computeCandleDistance( candleM1, candleM2, fLow, spectrum = None, \
 
   return distance
 
+def selectCategory(triggerFiles, category):
+  """
+  return a trigger list that contains only the category specified as input argument
+  @param triggerList : a list of file names
+  @param category: a category tag
+  @return: a sub list of filename corresponding to the category requested
+  """
+  newList = []
+  if category=='CAT_1':
+    for file in triggerFiles:
+      # for now (June 2008, TC) CAT_1 is not part of the filename, 
+      # so the if is only on 'CAT' and not 'CAT_1'
+      if 'CAT' not in file:
+        newList.append(file)
+  else:
+    for file in triggerFiles:
+      if category in file:
+        newList.append(file)
+  return newList
