@@ -350,7 +350,7 @@ for url in urls:
 
 
 	if url is not None:
-		xmldoc = utils.load_url(url, verbose = options.verbose, gz = url.endswidth(".gz"))
+		xmldoc = utils.load_url(url, verbose = options.verbose, gz = url.endswith(".gz"))
 	else:
 		# create an empty one
 		xmldoc = ligolw.Document()
