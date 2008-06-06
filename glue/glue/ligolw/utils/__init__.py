@@ -383,3 +383,27 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 		signal.signal(sig, oldhandler)
 	if __llwapp_write_filename_got_sig:
 		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+
+
+def write_url(xmldoc, url, verbose = False, gz = False):
+	"""
+	Writes the LIGO Light Weight document tree rooted at xmldoc to the
+	URL name url.  Friendly verbosity messages are printed while doing
+	so if verbose is True.  The output data is gzip compressed on the
+	fly if gz is True.
+
+	See write_filename() for more information about signal trapping.
+
+	NOTE:  only URLs that point to local files can be written to at
+	this time.
+	
+	Example:
+
+	>>> from glue.ligolw import utils
+	>>> utils.write_url(xmldoc, "file:///data.xml")
+	"""
+	(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
+		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
+	else:
+		raise ValueError, "url is not a local file"
