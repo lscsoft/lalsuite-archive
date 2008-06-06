@@ -274,9 +274,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     global logger, db, dbname
 
     logger.debug("Method segmentFindWithMetadata_v1 called")
-    logger.debug("arg="+repr(arg))
-
-
     time_rx = \
       re.compile(r"state_segment\.start_time\s*BETWEEN\s*(\d*)\s*AND\s*(\d*)")
     ifo_rx = re.compile(r"state_segment\.ifo\s*=\s*'([A-Za-z0-9]*)'")
@@ -312,8 +309,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     logger.debug("Method segmentFindWithMetadata_vx called")
     code = 0
 
-    logger.error(repr(arg))
-
     # get the protocol version
     try:
       protocol = int(arg[0])
@@ -321,9 +316,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       result = "Error parsing protocol version %s: %s" % (str(arg), e)
       logger.error(result)
       code = 1
-
-
-    if protocol > 4:
+    if protocol > 3:
       result = "Unknown protocol version %d" % (protocol)
       logger.error(result)
       code = 1
@@ -336,15 +329,10 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     
     # parse out query information
     try:
-      if(protocol==3):
-        start = arg[1]
-        end = arg[2]
-        interferometer = arg[3]
-        type = arg[4]
-      elif(protocol==4):
-        run=arg[1]
-        interferometer = arg[2]
-        type = arg[3]
+      start = arg[1]
+      end = arg[2]
+      interferometer = arg[3]
+      type = arg[4]
     except Exception, e:
       result = "Error parsing query arguments from list %s: %s" % (str(arg), e)
       logger.error(result)
@@ -361,15 +349,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     
     # only executle a query if we managed to construct one
     if code is not 1:
-      if(protocol==3):
-        logger.debug("Query parameters [%s,%s); %s; %s" % 
-                     (start,end,str(ifoList),str(typeList)))
-      elif(protocol==4):
-        logger.debug("Query parameters %s %s; %s" % 
-                     (run,str(ifoList),str(typeList)))
+
+      logger.debug("Query parameters [%s,%s); %s; %s" % 
+        (start,end,str(ifoList),str(typeList)))
 
       # assume failure
       code = 1
+
+      ifoSegList = []
 
       try:
         try:
@@ -386,304 +373,68 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           logger.debug( "Unhandled Error: %s" % str(e) )
           raise
 
-        if(protocol==4):
-          logger.debug("Protocol 4")
-          result=self.segmentFindWithMetadata_vx_p4(c, run, ifoList, typeList)
-        elif(protocol==3):
-          logger.debug("Protocol 3")
-          if(len(typeList)==1 and typeList[0]=='All'):
-            result=self.segmentFindWithMetadata_vx_p3_all(c, start, end, ifoList)
-          else:
-            result=self.segmentFindWithMetadata_vx_p3(c, start, end, ifoList, typeList)
-            
+        for ifo in ifoList:
+          typeList_tmp = copy.deepcopy(typeList)
+          sql = "SELECT segment.start_time, segment.end_time FROM "
+          sql += "segment,segment_def_map,segment_definer WHERE "
+          sql += "segment.active = 1 AND "
+          sql += "segment.segment_id = segment_def_map.segment_id AND "
+          sql += "segment.creator_db = segment_def_map.segment_cdb AND "
+          sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
+          sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
+          sql += "segment.start_time <= %s AND " % end
+          sql += "segment.end_time >= %s " % start
+          sql += "AND segment_definer.ifos = '%s' AND (segment_definer.name = '%s'" % \
+            (ifo, typeList_tmp.pop(0))
+          for x in typeList_tmp:
+            sql += " OR segment_definer.name = '%s'" % (x)
+          sql += ")"
+          del typeList_tmp
+          logger.debug(sql)
+
+          c.execute(sql)
+          result = c.fetchall()
+          logger.debug("Method : segmentFindWithMetadata_vx %d results found" % 
+            len(result))
+
+          ifoSegs = segments.segmentlist()
+          try:
+            for r in result:
+              ifoSegs.append(segments.segment(r[0],r[1]))
+            ifoSegs.coalesce()
+          except:
+            pass
+          ifoSegList.append(ifoSegs)
+
         # close the database cursor
         c.close()
+
       except Exception, e:
         result = "Error querying metadata for segments " + \
           "%s: %s" % (arg[0], e)
         logger.error(result)
 
+      # take the intersection if there is more than one ifo queried
+      result = ifoSegList.pop(0)
+      try:
+        for iseg in ifoSegList: result &= iseg
+      except:
+        pass
+
       # take the intersection of the query result with the requested range
-      if(protocol==3):
-        query_range = segments.segmentlist()
-        query_range.append(segments.segment(int(start),int(end)))
-        try:
-          result &= query_range
-        except:
-          pass
-        
+      query_range = segments.segmentlist()
+      query_range.append(segments.segment(int(start),int(end)))
+      try:
+        result &= query_range
+      except:
+        pass
+
       code = 0
     else:
       logger.error( "segmentFindWithMetadata_vx skipped query" )
 
     self.__reply__(code, result)
+
     del result
+
     return None
-
-
-  def segmentFindWithMetadata_vx_p4(self, c, run, ifoList, typeList):
-    global logger
-    logger.debug("segmentFindWithMetadata_vx_p4 called")
-    
-    iSegs=[]
-
-    for ifo in ifoList:
-      typeSegs=segments.segmentlist()
-      for tt in typeList:          
-        only=0
-        if(tt.find(":")!=-1):
-          try:
-            [t,v,only]=tt.split(":")
-            only=int(only)
-            v=int(v)
-          except:
-            [t,v]=tt.split(":")
-            v=int(v)
-          maxversion=int(v)
-        else:
-          t=tt
-          sql = "SELECT max(version) FROM segment_definer where run='%s' and ifos= '%s' and name = '%s'" % (run,ifo,t)
-          logger.debug(sql)
-          c.execute(sql)
-          result=c.fetchall()
-          maxversion=result[0][0]
-        logger.debug("maxversion="+str(maxversion)+ " for ifo="+ifo+" and type="+t)
-            
-        sql = "SELECT segment.start_time, segment.end_time FROM "
-        sql += "segment,segment_def_map,segment_definer A WHERE "
-        sql += "segment.active = 1 AND "
-        sql += "segment.segment_id = segment_def_map.segment_id AND "
-        sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-        sql += "segment_def_map.segment_def_id = A.segment_def_id AND "
-        sql += "segment_def_map.segment_def_cdb = A.creator_db AND "
-        sql += "A.run = '%s' AND A.ifos = '%s' AND A.name = '%s' AND A.version=%d" % (run, ifo, t, maxversion)
-
-        logger.debug(sql)
-        c.execute(sql)
-        result=c.fetchall()
-
-        mergedSegs=segments.segmentlist()
-
-        try:
-          for r in result:
-            mergedSegs.append(segments.segment(r[0],r[1]))
-          mergedSegs.coalesce()
-          logger.debug("len(mergedSegs)="+repr(len(mergedSegs)))
-        except:
-          logger.debug("Why did mergeSegs try failed?")
-
-        if(only==0):
-          try:
-            sql = "SELECT min(segment.start_time), max(segment.end_time) FROM "
-            sql += "segment,segment_def_map,segment_definer A WHERE "
-            sql += "segment.active = 1 AND "
-            sql += "segment.segment_id = segment_def_map.segment_id AND "
-            sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-            sql += "segment_def_map.segment_def_id = A.segment_def_id AND "
-            sql += "segment_def_map.segment_def_cdb = A.creator_db AND "
-            sql += "A.run = '%s' AND A.ifos = '%s' AND A.name = '%s'" % (run, ifo, t)
-            logger.debug(sql)
-            c.execute(sql)
-            result=c.fetchall()
-            runMaxRange=segments.segment(result[0][0],result[0][1])
-            logger.debug("runMaxRange="+repr(runMaxRange))
-            maxVRange=mergedSegs.extent()
-            logger.debug("maxVRange="+str(maxVRange))
-            remainderRange1=segments.segmentlist([runMaxRange])-segments.segmentlist([maxVRange])
-            logger.debug("remainderRange1="+str(remainderRange1))
-            if(len(remainderRange1)>0):
-              remainderRange=remainderRange1[-1]
-            else:
-              remainderRange=segments.segment(-1,-1)
-          except:
-            logger.debug("Failed to find runMaxRange")
-
-          newSegs=segments.segmentlist()            
-          if(abs(remainderRange)>0):
-            sql = "SELECT segment.start_time, segment.end_time FROM "
-            sql += "segment,segment_def_map,segment_definer WHERE "
-            sql += "segment.active = 1 AND "
-            sql += "segment.segment_id = segment_def_map.segment_id AND "
-            sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-            sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-            sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
-            sql += "segment.start_time <= %d AND " % remainderRange[1]
-            sql += "segment.end_time >= %d " % remainderRange[0]
-            sql += "AND segment_definer.ifos = '%s' AND segment_definer.name = '%s'" % \
-                   (ifo, t)
-            
-            logger.debug(sql)
-            c.execute(sql)
-            result=c.fetchall()
-              
-            try:
-              for r in result:
-                newSegs.append(segments.segment(r[0],r[1]))
-              newSegs.coalesce()
-              logger.debug("len(newSegs)="+repr(len(newSegs)))
-            except:
-              pass
-        elif(only==1):
-          newSegs=segments.segmentlist([])
-        segs=mergedSegs | newSegs  
-        typeSegs|=segs
-            
-      typeSegs.coalesce()
-      logger.debug("len(typeSegs)="+repr(len(typeSegs)))
-      iSegs.append(typeSegs)
-      
-    logger.debug("len(iSegs)="+repr(len(iSegs)))
-    result=reduce(lambda x,y: x & y,iSegs)
-    result.coalesce()
-    logger.debug("len(result)="+repr(len(result)))
-    return result
-
-  def segmentFindWithMetadata_vx_p3_all(self, c, start, end, ifoList):
-    global logger
-    logger.debug("segmentFindWithMetadata_vx_p3_all called")
-    
-    tvseList={}
-    logger.debug("All segment types and versions are requested")
-    try:
-      sql = "SELECT A.ifos, A.name, A.version, B.start_time, B.end_time FROM "
-      sql += "segment B,segment_def_map,segment_definer A WHERE "
-      sql += "B.active = 1 AND "
-      sql += "B.segment_id = segment_def_map.segment_id AND "
-      sql += "B.creator_db = segment_def_map.segment_cdb AND "
-      sql += "segment_def_map.segment_def_id = A.segment_def_id AND "
-      sql += "segment_def_map.segment_def_cdb = A.creator_db AND "
-      sql += "B.start_time <= %s AND " % end
-      sql += "B.end_time >= %s " % start
-      sql += "order by A.ifos, A.name, A.version, B.start_time"
-
-      logger.debug(sql)
-      c.execute(sql)
-      result=c.fetchall()
-          
-      for r in result:
-        logger.debug("r="+repr(r))
-        try:
-          tvseList[(r[0].strip(),r[1],r[2])].append(segments.segment(r[3],r[4]))
-        except:
-          tvseList[(r[0].strip(),r[1],r[2])]=segments.segmentlist([segments.segment(r[3],r[4])])
-              
-      kkk=tvseList.keys()
-      kkk.sort()
-      logger.debug("kkk="+repr(kkk))
-      print kkk
-      for kkkk in kkk:
-        tvseList[kkkk].coalesce()
-      result=tvseList
-      code=0
-    except:
-      raise
-    return result
-                                                                                                                                           
-  def segmentFindWithMetadata_vx_p3(self, c, start, end, ifoList, typeList):
-    global logger
-    logger.debug("segmentFindWithMetadata_vx_p3 called")    
-    iSegs=[]
-
-    for ifo in ifoList:
-      typeSegs=segments.segmentlist()
-      for tt in typeList:
-        only=0
-        if(tt.find(":")!=-1):
-          try:
-            [t,v,only]=tt.split(":")
-            only=int(only)
-            v=int(v)
-          except:
-            [t,v]=tt.split(":")
-            v=int(v)
-          maxversion=int(v)
-        else:
-          t=tt
-          sql = "SELECT max(version) FROM segment_definer where ifos= '%s' and name = '%s'" % (ifo,t)
-          logger.debug(sql)
-          c.execute(sql)
-          result=c.fetchall()
-          maxversion=result[0][0]
-        logger.debug("maxversion="+str(maxversion)+ " for ifo="+ifo+" and type="+t)
-        
-        sql = "SELECT segment.start_time, segment.end_time FROM "
-        sql += "segment,segment_def_map,segment_definer A WHERE "
-        sql += "segment.active = 1 AND "
-        sql += "segment.segment_id = segment_def_map.segment_id AND "
-        sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-        sql += "segment_def_map.segment_def_id = A.segment_def_id AND "
-        sql += "segment_def_map.segment_def_cdb = A.creator_db AND "
-        sql += "segment.start_time <= %s AND " % end
-        sql += "segment.end_time >= %s " % start
-        sql += "AND A.ifos = '%s' AND A.name = '%s'" % \
-               (ifo, t)
-        sql += "AND A.version=%d" % maxversion
-
-        logger.debug(sql)
-        c.execute(sql)
-        result=c.fetchall()
-
-        mergedSegs=segments.segmentlist()
-        try:
-          for r in result:
-            mergedSegs.append(segments.segment(r[0],r[1]))
-          mergedSegs.coalesce()
-          logger.debug("len(mergedSegs)="+repr(len(mergedSegs)))
-        except:
-          logger.debug("megedSegs failed")
-
-        if(only==0):
-          try:
-            maxVRange=mergedSegs.extent()
-            logger.debug("maxVRange="+str(maxVRange))
-            remainderRange1=segments.segmentlist([segments.segment(int(start),int(end))])-segments.segmentlist([maxVRange])
-            logger.debug("remainderRange1="+str(remainderRange1))            
-            remainderRange=remainderRange1[-1]
-          except:
-            remainderRange=segments.segment(int(start),int(end))
-            logger.debug("remainderRange="+str(remainderRange))
-
-          newSegs=segments.segmentlist()            
-          if(remainderRange[0]>int(start) and remainderRange[0]<int(end)):
-            sql = "SELECT segment.start_time, segment.end_time FROM "
-            sql += "segment,segment_def_map,segment_definer WHERE "
-            sql += "segment.active = 1 AND "
-            sql += "segment.segment_id = segment_def_map.segment_id AND "
-            sql += "segment.creator_db = segment_def_map.segment_cdb AND "
-            sql += "segment_def_map.segment_def_id = segment_definer.segment_def_id AND "
-            sql += "segment_def_map.segment_def_cdb = segment_definer.creator_db AND "
-            sql += "segment.start_time <= %d AND " % remainderRange[1]
-            sql += "segment.end_time >= %d " % remainderRange[0]
-            sql += "AND segment_definer.ifos = '%s' AND segment_definer.name = '%s'" % \
-                   (ifo, t)
-
-            logger.debug(sql)
-            c.execute(sql)
-            result=c.fetchall()
-              
-            try:
-              for r in result:
-                newSegs.append(segments.segment(r[0],r[1]))
-              newSegs.coalesce()
-              logger.debug("len(newSegs)="+repr(len(newSegs)))
-            except:
-              pass
-        elif(only==1):
-          newSegs=segments.segmentlist()
-        segs=mergedSegs | newSegs
-        logger.debug("len(segs)="+repr(len(segs)))
-        typeSegs|=segs
-            
-      typeSegs.coalesce()
-      logger.debug("len(typeSegs)="+repr(len(typeSegs)))
-    iSegs.append(typeSegs)
-    logger.debug("len(iSegs)="+repr(len(iSegs)))
-                   
-    result=reduce(lambda x,y: x & y,iSegs)
-    result.coalesce()
-
-    logger.debug("len(result)="+repr(len(result)))
-    
-    return result
-  
-
