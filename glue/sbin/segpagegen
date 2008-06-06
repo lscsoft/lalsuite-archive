@@ -160,7 +160,18 @@ sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 
 #####################################################################
 # Loop over interferometers to get the various segments.
-for ifo in ['V1','G1','H1','H2','L1']:
+if configuration['run']=='A5':
+  IFO = ['H1','H2','G1','L1']
+if configuration['run']=='S5':
+  IFO = ['H1','H2','G1','V1','L1']  
+
+for ifo in IFO:
+  output_dir = os.path.join( seg_path, ifo )
+  print output_dir
+  dirname = output_dir
+  if not os.path.isdir(output_dir+"/"):
+    os.mkdir(output_dir+"/")	
+ 
   # create the names of the segment files
   seg_file['Science'] = os.path.join( seg_path, ifo, 'science_segments')
   seg_file['Injection'] = os.path.join( seg_path, ifo, 'injection_segments')
@@ -227,7 +238,11 @@ for ifo in ['V1','G1','H1','H2','L1']:
         print >> seg_fh, str(r) + ' ' + str(s[0]) + ' ' + str(s[1]) + \
           ' ' + str(s[1] - s[0])
     if segtype is 'Injection' and ifo!='V1' and ifo!='G1':
-      injections=ret_segs_dict[0]
+     try:
+       injections=ret_segs_dict[0]
+     except KeyError:
+       injections=segmentlist()
+
     # close the file
     seg_fh.flush()
     seg_fh.close()
@@ -276,7 +291,10 @@ for ifo in ['V1','G1','H1','H2','L1']:
   print >> seg_fh, "# %s" % configuration['dbname']
   print >> seg_fh, "# %d" % midnight_gps
   print >> seg_fh, "# name version gps_start_time gps_end_time active"
-  prev_type=dq_types[0][0] 
+  try:
+    prev_type=dq_types[0][0] 
+  except IndexError:
+    prev_type=None
 
   ON_SEGS=[]	
   OFF_SEGS=[]
@@ -334,16 +352,19 @@ for ifo in ['V1','G1','H1','H2','L1']:
     seg_fh.flush()
     sys.stdout.flush()
 
-  if(dq[0] is 'Injection'):
-    [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
-    sys.stdout.flush()
-  [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
-  for s in ON:
-    print >> seg_fh, "%s 99 %d %d 1" % (dq[0], s[0], s[1]) 
-  for s in OFF:
-    print >> seg_fh, "%s 99 %d %d 0" % (prev_type, s[0], s[1])         
-  ON_SEGS=[]	
-  OFF_SEGS=[]
+  try:
+    if(dq[0] is 'Injection'):
+      [ON_SEGS,OFF_SEGS]=correct4injections(injections,ON_SEGS, OFF_SEGS)
+      sys.stdout.flush()
+    [ON,OFF]=current_version(ON_SEGS,OFF_SEGS)
+    for s in ON:
+      print >> seg_fh, "%s 99 %d %d 1" % (dq[0], s[0], s[1]) 
+    for s in OFF:
+      print >> seg_fh, "%s 99 %d %d 0" % (prev_type, s[0], s[1])         
+    ON_SEGS=[]	
+    OFF_SEGS=[]
+  except NameError:
+    pass
 
   seg_fh.flush()
   seg_fh.close()
