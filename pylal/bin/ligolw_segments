@@ -155,17 +155,27 @@ class LigolwSegmentList(object):
 		self.comment = comment
 
 	def sort(self, *args):
+		"""
+		Sort the three internal segment lists in time order.
+		"""
 		self.active.sort(*args)
 		self.inactive.sort(*args)
 		self.unknown.sort(*args)
 
 	def coalesce(self):
+		"""
+		Coalesce the three internal segment lists.
+		"""
 		self.active.coalesce()
 		self.inactive.coalesce()
 		self.unknown.coalesce()
 
-
-	def rows(self, tbl, process):
+	def time_order_rows(self, tbl, process):
+		"""
+		A generator, yielding in time order
+		glue.ligolw.lsctables.Segment objects representing all the
+		segments from the three internal segment lists.
+		"""
 		def seglist_iterator(seglist, activity):
 			for seg in seglist:
 				yield seg, activity
@@ -278,16 +288,32 @@ class LigolwSegments(object):
 	def finalize(self):
 		#
 		# Restore the LigolwSegmentList objects to the XML tables
-		# in preparation for output
+		# in preparation for output.  All segments from all segment
+		# lists are inserted into the tables in time order, but
+		# this is NOT behaviour external applications should rely
+		# on.  This is done simply in the belief that it might
+		# assist in constructing well balanced indexed databases
+		# from the resulting files.  If that proves not to be the
+		# case, or for some reason this behaviour proves
+		# inconvenient to preserve, then it might be discontinued
+		# without notice.  You've been warned.
 		#
 
+		def row_iterator(rows, segment_definition):
+			for row in rows:
+				yield row, segment_definition
+
+		row_iterators = []
 		for segment_def_id, ligolw_segment_list in self.segment_lists.items():
 			segment_definition = segment_def(ligolw_segment_list.instruments, ligolw_segment_list.name, ligolw_segment_list.comment, segment_def_id, self.process)
 			self.segment_def_table.append(segment_definition)
-			for row in ligolw_segment_list.rows(self.segment_table, self.process):
-				self.segment_table.append(row)
-				self.segment_def_map_table.append(seg_def_map(row, segment_definition, self.segment_def_map_table, self.process))
-			del self.segment_lists[segment_def_id]
+			row_iterators.append(row_iterator(ligolw_segment_list.time_order_rows(self.segment_table, self.process), segment_definition))
+
+		for row, segment_definition in iterutils.inorder(row_iterators):
+			self.segment_table.append(row)
+			self.segment_def_map_table.append(seg_def_map(row, segment_definition, self.segment_def_map_table, self.process))
+
+		self.segment_lists.clear()
 
 
 	def insert_from_segwizard(self, fileobj, instruments, name, comment):
