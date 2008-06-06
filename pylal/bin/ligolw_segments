@@ -38,6 +38,7 @@ from optparse import OptionParser
 import sys
 
 
+from glue import iterutils
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -68,8 +69,9 @@ def parse_command_line():
 		usage = "%prog [options] [filename ...]",
 		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations.  If a file name is given on the command line, then it is loaded, the segments are added to the segment tables therein, and the file overwritten with the new document.  If multiple file names are given, then the same transformation is performed to each one.  If no file names are given, then a new document is created and written to stdout.  If the --output option is set, then output is written to that file, instead."
 	)
+	parser.add_option("--coalesce", action = "store_true", help = "Coalesce the segment lists (default = don't).")
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process and segment_definer tables (default = None).")
-	parser.add_option("--name", metavar = "text", default = "", help = "When inserting new segments, set the name string in the definer table to this (default = \"\").")
+	parser.add_option("--name", metavar = "text", help = "When inserting new segments, set the name string in the definer table to this (default = None).")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
 	parser.add_option("--insert-from-segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -119,55 +121,16 @@ def append_process(xmldoc, options):
 #
 
 
-def segment_def(ifos, name, comment, tbl, process):
+def segment_def(instruments, name, comment, id, process):
 	row = lsctables.SegmentDef()
 	row.process_id = process.process_id
-	row.segment_def_id = tbl.get_next_id()
-	row.ifos = ifos
+	row.segment_def_id = id
+	instruments = list(instruments)
+	instruments.sort()
+	row.ifos = ",".join(instruments)
 	row.name = name
 	row.comment = comment
 	return row
-
-
-def segment_table_rows(active, inactive, unknown, tbl, process):
-	if active.intersects(inactive):
-		raise ValueError, "active and inactive intersect"
-
-	rows = []
-
-	# "active" segments
-	for seg in active:
-		row = lsctables.Segment()
-		row.process_id = process.process_id
-		row.set(seg)
-		row.active = 1
-		rows.append(row)
-
-	# "inactive" segments
-	for seg in inactive:
-		row = lsctables.Segment()
-		row.process_id = process.process_id
-		row.set(seg)
-		row.active = 0
-		rows.append(row)
-
-	# "unknown" segments
-	for seg in unknown:
-		row = lsctables.Segment()
-		row.process_id = process.process_id
-		row.set(seg)
-		row.active = None
-		rows.append(row)
-
-	# sort by time
-	rows.sort(lambda a, b: cmp(a.get(), b.get()))
-
-	# assign IDs
-	for row in rows:
-		row.segment_id = tbl.get_next_id()
-
-	# done
-	return rows
 
 
 def seg_def_map(seg, seg_def, tbl, process):
@@ -177,6 +140,45 @@ def seg_def_map(seg, seg_def, tbl, process):
 	row.segment_def_id = seg_def.segment_def_id
 	row.seg_def_map_id = tbl.get_next_id()
 	return row
+
+
+class LigolwSegmentList(object):
+	"""
+	A description of a class of segments.
+	"""
+	def __init__(self, active = (), inactive = (), unknown = (), instruments = set(), name = None, comment = None):
+		self.active = segments.segmentlist(active)
+		self.inactive = segments.segmentlist(inactive)
+		self.unknown = segments.segmentlist(unknown)
+		self.instruments = instruments
+		self.name = name
+		self.comment = comment
+
+	def sort(self, *args):
+		self.active.sort(*args)
+		self.inactive.sort(*args)
+		self.unknown.sort(*args)
+
+	def coalesce(self):
+		self.active.coalesce()
+		self.inactive.coalesce()
+		self.unknown.coalesce()
+
+
+	def rows(self, tbl, process):
+		def seglist_iterator(seglist, activity):
+			for seg in seglist:
+				yield seg, activity
+
+		self.sort()
+
+		for seg, activity in iterutils.inorder((seglist_iterator(self.active, True), seglist_iterator(self.inactive, False), seglist_iterator(self.unknown, None))):
+			row = lsctables.Segment()
+			row.set(seg)
+			row.set_active(activity)
+			row.process_id = process.process_id
+			row.segment_id = tbl.get_next_id()
+			yield row
 
 
 #
@@ -223,25 +225,73 @@ class LigolwSegments(object):
 			self.segment_def_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefMapTable, ("process_id", "segment_id", "segment_def_id", "seg_def_map_id")))
 		self.segment_def_map_table.sync_next_id()
 
-
-	def insert_from_segwizard(self, fileobj, instrument, name, comment):
 		#
-		# Create a segment definition for this list
-		#
-
-		segment_definition = segment_def(instrument, name, comment, self.segment_def_table, self.process)
-		self.segment_def_table.append(segment_definition)
-
-		#
-		# Build and insert segments
+		# Transform segment tables into a collection of
+		# LigolwSegmentList objects for more convenient
+		# manipulation
 		#
 
-		active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS)
-		inactive = segments.segmentlist()
-		unknown = segments.segmentlist()
-		for row in segment_table_rows(active, inactive, unknown, self.segment_table, self.process):
-			self.segment_table.append(row)
-			self.segment_def_map_table.append(seg_def_map(row, segment_definition, self.segment_def_map_table, self.process))
+		# segment_def_id --> LigolwSegmentList object mapping
+		self.segment_lists = {}
+		for row in self.segment_def_table:
+			if row.segment_def_id in self.segment_lists:
+				raise ValueError, "segment_definer table contains duplicate segment_definer keys"
+			self.segment_lists[row.segment_def_id] = LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)
+		del self.segment_def_table[:]
+
+		# segment_id --> LigolwSegmentList object mapping
+		segment_def_map = {}
+		for row in self.segment_def_map_table:
+			if row.segment_id in segment_def_map:
+				raise ValueError, "segment_def_map table contains duplicate segment keys"
+			segment_def_map[row.segment_id] = self.segment_lists[row.segment_def_id]
+		del self.segment_def_map_table[:]
+
+		# populate LigolwSegmentList objects from segment table
+		for row in self.segment_table:
+			active = row.get_active()
+			if active is True:
+				segment_def_map[row.segment_id].active.append(row.get())
+			elif row.active is False:
+				segment_def_map[row.segment_id].inactive.append(row.get())
+			elif row.active is None:
+				segment_def_map[row.segment_id].unknown.append(row.get())
+			else:
+				raise ValueError, "execution should not get to this line of code"
+		del self.segment_table[:]
+		del segment_def_map
+
+		#
+		# Done
+		#
+
+
+	def coalesce(self):
+		#
+		# Coalesce the segment lists.
+		#
+
+		for ligolw_segment_list in self.segment_lists.values():
+			ligolw_segment_list.coalesce()
+
+
+	def finalize(self):
+		#
+		# Restore the LigolwSegmentList objects to the XML tables
+		# in preparation for output
+		#
+
+		for segment_def_id, ligolw_segment_list in self.segment_lists.items():
+			segment_definition = segment_def(ligolw_segment_list.instruments, ligolw_segment_list.name, ligolw_segment_list.comment, segment_def_id, self.process)
+			self.segment_def_table.append(segment_definition)
+			for row in ligolw_segment_list.rows(self.segment_table, self.process):
+				self.segment_table.append(row)
+				self.segment_def_map_table.append(seg_def_map(row, segment_definition, self.segment_def_map_table, self.process))
+			del self.segment_lists[segment_def_id]
+
+
+	def insert_from_segwizard(self, fileobj, instruments, name, comment):
+		self.segment_lists[self.segment_def_table.get_next_id()] = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment)
 
 
 #
@@ -279,8 +329,8 @@ for filename in filenames:
 		# create an empty one
 		xmldoc = ligolw.Document()
 		xmldoc.appendChild(ligolw.LIGO_LW())
-		xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ProcessTable))
-		xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ProcessParamsTable))
+		xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessTable))
+		xmldoc.childNodes[-1].appendChild(lsctables.New(lsctables.ProcessParamsTable))
 
 
 	#
@@ -306,9 +356,22 @@ for filename in filenames:
 
 	for instrument, filename in options.insert_from_segwizard.iteritems():
 		if options.verbose:
-			print >>sys.stderr, "reading '%s' for instrument '%s' ..." % (filename, instrument)
+			print >>sys.stderr, "reading \"%s\" for instrument \"%s\" (name %s) ..." % (filename, instrument, repr(options.name))
 
-		segments_tables.insert_from_segwizard(file(filename), instrument, options.name, options.comment)
+		segments_tables.insert_from_segwizard(file(filename), set([instrument]), options.name, options.comment)
+
+
+	#
+	# Restore segment tables.
+	#
+
+	if options.coalesce:
+		if options.verbose:
+			print >>sys.stderr, "coalescing ..."
+		segments_tables.coalesce()
+	if options.verbose:
+		print >>sys.stderr, "reconstructing xml ..."
+	segments_tables.finalize()
 
 
 	#
