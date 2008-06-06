@@ -1547,6 +1547,9 @@ class SegmentTable(table.Table):
 class Segment(object):
 	__slots__ = SegmentTable.validcolumns.keys()
 
+	def __cmp__(self, other):
+		return cmp(self.get(), other.get()) or cmp(self.get_active(), other.get_active())
+
 	def get(self):
 		"""
 		Return the segment described by this row.
