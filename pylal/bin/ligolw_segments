@@ -66,8 +66,8 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [filename ...]",
-		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations.  If a file name is given on the command line, then it is loaded, the segments are added to the segment tables therein, and the file overwritten with the new document.  If multiple file names are given, then the same transformation is performed to each one.  If no file names are given, then a new document is created and written to stdout.  If the --output option is set, then output is written to that file, instead."
+		usage = "%prog [options] [url ...]",
+		description = "Utility for manipulating segment lists in XML form.  At the moment, all this can do is convert segment lists in segwizard format to XML representations.  If a URL is given on the command line then it is loaded and its contents modified by this utility otherwise a new document is created.  The segments from the segwizard files are added to the segment tables in the document, and the document is written to the file identifed by the --output option if provided, otherwise to the original document if one was specified (it must be a local file in this case), otherwise to stdout.  To force output to stdout when reading from a URL use \"-\" as the output filename (use \"./-\") to write to a file literally named \"-\").  If multiple input URLs are given on the command line, then the same transformation is performed to each one."
 	)
 	parser.add_option("--coalesce", action = "store_true", help = "Coalesce the segment lists (default = don't).")
 	parser.add_option("--comment", metavar = "text", help = "Set comment string in process and segment_definer tables (default = None).")
@@ -75,14 +75,14 @@ def parse_command_line():
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to this file (default = stdout).  If the file name ends in \".gz\", it will be gzip compressed.")
 	parser.add_option("--insert-from-segwizard", metavar = "instrument=filename", default = [], action = "append", help = "Read list of active segments from segwizard file and insert into output.  Can be given more than once to specify multiple segwizard inputs, one each for different instruments.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
-	options, filenames = parser.parse_args()
+	options, urls = parser.parse_args()
 
-	if filenames and len(filenames) > 1 and options.output:
+	if urls and len(urls) > 1 and options.output:
 		raise ValueError, "setting --output with multiple input files causes data loss"
 
 	options.insert_from_segwizard = dict([argument.split("=") for argument in options.insert_from_segwizard])
 
-	return options, (filenames or [None])
+	return options, (urls or [None])
 
 
 
@@ -308,7 +308,7 @@ class LigolwSegments(object):
 #
 
 
-options, filenames = parse_command_line()
+options, urls = parse_command_line()
 
 
 #
@@ -317,14 +317,14 @@ options, filenames = parse_command_line()
 #
 
 
-for filename in filenames:
+for url in urls:
 	#
 	# Load document.
 	#
 
 
-	if filename is not None:
-		xmldoc = utils.load_filename(filename, verbose = options.verbose, gz = filename.endswidth(".gz"))
+	if url is not None:
+		xmldoc = utils.load_url(url, verbose = options.verbose, gz = url.endswidth(".gz"))
 	else:
 		# create an empty one
 		xmldoc = ligolw.Document()
@@ -388,6 +388,9 @@ for filename in filenames:
 
 
 	if options.output:
-		utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = options.output.endswith(".gz"))
+		if options.output == "-":
+			utils.write_filename(xmldoc, None, verbose = options.verbose)
+		else:
+			utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = options.output.endswith(".gz"))
 	else:
-		utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+		utils.write_url(xmldoc, url, verbose = options.verbose, gz = (url or "stdout").endswith(".gz"))
