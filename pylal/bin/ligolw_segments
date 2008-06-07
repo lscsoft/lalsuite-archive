@@ -285,6 +285,22 @@ class LigolwSegments(object):
 			ligolw_segment_list.coalesce()
 
 
+	def sort(self):
+		for ligolw_segment_list in self.segment_lists.values():
+			ligolw_segment_list.sort()
+
+
+	def optimize(self):
+		self.sort()
+		mergelist = []
+		for (def_id_a, seglist_a), (def_id_b, seglist_b) in iterutils.choices(self.segment_lists.items(), 2):
+			if seglist_a.active == seglist_b.active and seglist_a.inactive == seglist_b.inactive and seglist_a.unknown == seglist_b.unknown and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment:
+				mergelist.append((def_id_a, def_id_b))
+		for target, source in mergelist:
+			if source in self.segment_lists:
+				self.segment_lists[target].instruments |= self.segment_lists.pop(source).instruments
+
+
 	def finalize(self):
 		#
 		# Restore the LigolwSegmentList objects to the XML tables
@@ -391,10 +407,14 @@ for url in urls:
 	# Restore segment tables.
 	#
 
+
 	if options.coalesce:
 		if options.verbose:
 			print >>sys.stderr, "coalescing ..."
 		segments_tables.coalesce()
+	if options.verbose:
+		print >>sys.stderr, "merging equivalent lists ..."
+	segments_tables.optimize()
 	if options.verbose:
 		print >>sys.stderr, "reconstructing xml ..."
 	segments_tables.finalize()
