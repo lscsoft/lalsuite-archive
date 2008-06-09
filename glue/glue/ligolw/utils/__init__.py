@@ -254,6 +254,33 @@ class MD5File(object):
 		return self.fileobj.close()
 
 
+def load_fileobj(fileobj, gz = False, xmldoc = None):
+	"""
+	Parse the contents of the file object fileobj, and return the
+	contents as a LIGO Light Weight document tree.  The file object
+	does not need to be seekable.  The file is gzip decompressed while
+	reading if gz is set to True.  If the optional xmldoc argument is
+	provided and not None, the parsed XML tree will be appended to that
+	document, otherwise a new document will be created.  The return
+	value is a tuple, the first element of the tuple is the XML
+	document and the second is a string containing the MD5 digest in
+	hex digits of the bytestream that was parsed.
+
+	Example:
+
+	>>> import sys
+	>>> xmldoc, digest = utils.load_fileobj(sys.stdin, verbose = True, gz = True)
+	"""
+	fileobj = MD5File(fileobj)
+	md5obj = fileobj.md5obj
+	if gz:
+		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
+	if xmldoc is None:
+		xmldoc = ligolw.Document()
+	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	return xmldoc, md5obj.hexdigest()
+
+
 def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 	"""
 	Parse the contents of the file identified by filename, and return
@@ -276,15 +303,9 @@ def load_filename(filename, verbose = False, gz = False, xmldoc = None):
 		fileobj = file(filename)
 	else:
 		fileobj = sys.stdin
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
-	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
-	if xmldoc is None:
-		xmldoc = ligolw.Document()
-	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), filename or "")
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 	return xmldoc
 
 
@@ -312,16 +333,67 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 			fileobj = urllib2.urlopen(url)
 	else:
 		fileobj = sys.stdin
+	xmldoc, hexdigest = load_fileobj(fileobj, gz = gz, xmldoc = xmldoc)
+	if verbose:
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, url or "")
+	return xmldoc
+
+
+def write_fileobj(xmldoc, fileobj, gz = False):
+	"""
+	Writes the LIGO Light Weight document tree rooted at xmldoc to the
+	given file object.  The file object need not be seekable.  The
+	output data is gzip compressed on the fly if gz is True.  The
+	return value is a string containing the hex digits of the MD5
+	digest of the output bytestream.
+
+	This function traps SIGTERM and SIGTSTP during the write process,
+	and it does this by temporarily installing its own signal handlers
+	in place of the current handlers.  This is done to prevent Condor
+	eviction during the write process.  If a signal is trapped, then
+	when the write process has successfully concluded, the last thing
+	this function does is raise IOTrappedSignal, with the most-recently
+	trapped signal number as the argument.  This is the only condition
+	in which this function will raise that exception, so calling code
+	that wishes its own handler to be executed can arrange for that to
+	happen by trapping the IOTrappedSignal exception.
+
+	Example:
+
+	>>> import sys
+	>>> utils.write_fileobj(xmldoc, sys.stdout)
+	"""
+	# initialize SIGTERM and SIGTSTP trap
+	global __llwapp_write_filename_got_sig
+	__llwapp_write_filename_got_sig = []
+	def newsigterm(signum, frame):
+		global __llwapp_write_filename_got_sig
+		__llwapp_write_filename_got_sig.append(signum)
+	oldhandlers = {}
+	for sig in (signal.SIGTERM, signal.SIGTSTP):
+		oldhandlers[sig] = signal.getsignal(sig)
+		signal.signal(sig, newsigterm)
+
+	# write the document
 	fileobj = MD5File(fileobj)
 	md5obj = fileobj.md5obj
 	if gz:
-		fileobj = gzip.GzipFile(mode = "rb", fileobj = RewindableInputFile(fileobj))
-	if xmldoc is None:
-		xmldoc = ligolw.Document()
-	ligolw.make_parser(ContentHandler(xmldoc)).parse(fileobj)
-	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), url or "")
-	return xmldoc
+		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
+	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
+	xmldoc.write(fileobj)
+	fileobj.flush()
+	fileobj.close()
+	del fileobj
+
+	# restore original handlers, and report the most recently trapped
+	# signal if any were
+	for sig, oldhandler in oldhandlers.iteritems():
+		signal.signal(sig, oldhandler)
+	if __llwapp_write_filename_got_sig:
+		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+
+	# return the hex digest of the bytestream that was written
+	return md5obj.hexdigest()
 
 
 def write_filename(xmldoc, filename, verbose = False, gz = False):
@@ -347,42 +419,15 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	>>> from glue.ligolw import utils
 	>>> utils.write_filename(xmldoc, "data.xml")
 	"""
-	# initialize SIGTERM and SIGTSTP trap
-	global __llwapp_write_filename_got_sig
-	__llwapp_write_filename_got_sig = []
-	def newsigterm(signum, frame):
-		global __llwapp_write_filename_got_sig
-		__llwapp_write_filename_got_sig.append(signum)
-	oldhandlers = {}
-	for sig in (signal.SIGTERM, signal.SIGTSTP):
-		oldhandlers[sig] = signal.getsignal(sig)
-		signal.signal(sig, newsigterm)
-
-	# write the document
 	if verbose:
 		print >>sys.stderr, "writing %s ..." % (filename and ("'%s'" % filename) or "stdout")
 	if filename is not None:
 		fileobj = file(filename, "w")
 	else:
 		fileobj = sys.stdout
-	fileobj = MD5File(fileobj)
-	md5obj = fileobj.md5obj
-	if gz:
-		fileobj = gzip.GzipFile(mode = "wb", fileobj = fileobj)
-	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
-	xmldoc.write(fileobj)
-	fileobj.flush()
-	fileobj.close()
-	del fileobj
+	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz)
 	if verbose:
-		print >>sys.stderr, "md5sum: %s  %s" % (md5obj.hexdigest(), filename or "")
-
-	# restore original handlers, and report the most recently trapped
-	# signal if any were
-	for sig, oldhandler in oldhandlers.iteritems():
-		signal.signal(sig, oldhandler)
-	if __llwapp_write_filename_got_sig:
-		raise IOTrappedSignal(__llwapp_write_filename_got_sig.pop())
+		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 
 
 def write_url(xmldoc, url, verbose = False, gz = False):
@@ -406,4 +451,4 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
 	else:
-		raise ValueError, "url is not a local file"
+		raise ValueError, "%s is not a local file" % repr(url)
