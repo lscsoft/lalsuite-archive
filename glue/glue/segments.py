@@ -513,11 +513,11 @@ class segmentlist(list):
 		if not len(self):
 			raise ValueError, "empty list"
 		min, max = self[0]
-		for seg in self:
-			if min > seg[0]:
-				min = seg[0]
-			if max < seg[1]:
-				max = seg[1]
+		for lo, hi in self:
+			if min > lo:
+				min = lo
+			if max < hi:
+				max = hi
 		return segment(min, max)
 
 	def find(self, item):
@@ -537,14 +537,16 @@ class segmentlist(list):
 	def __iand__(self, other):
 		"""
 		Replace the segmentlist with the intersection of itself and
-		another.  This operation is O(n).
+		another.  If the two lists have lengths n and m
+		respectively, this operation is O(n + m).
 		"""
 		return self.__isub__(~other)
 
 	def __and__(self, other):
 		"""
-		Return the intersection of the segmentlist and another.
-		This operation is O(n).
+		Return the intersection of the segmentlist and another.  If
+		the two lists have lengths n and m respectively, this
+		operation is O(n + m).
 		"""
 		if len(self) >= len(other):
 			return self.__class__(self).__iand__(other)
@@ -613,26 +615,26 @@ class segmentlist(list):
 		if not other:
 			return self
 		i = j = 0
-		otherseg = other[j]
+		other_lo, other_hi = other[j]
 		while i < len(self):
-			seg = self[i]
-			while otherseg[1] <= seg[0]:
+			self_lo, self_hi = self[i]
+			while other_hi <= self_lo:
 				j += 1
 				if j >= len(other):
 					return self
-				otherseg = other[j]
-			if seg[1] <= otherseg[0]:
+				other_lo, other_hi = other[j]
+			if self_hi <= other_lo:
 				i += 1
-			elif otherseg[0] <= seg[0]:
-				if otherseg[1] >= seg[1]:
+			elif other_lo <= self_lo:
+				if other_hi >= self_hi:
 					del self[i]
 				else:
-					self[i] = segment(otherseg[1], seg[1])
+					self[i] = segment(other_hi, self_hi)
 			else:
-				self[i] = segment(seg[0], otherseg[0])
+				self[i] = segment(self_lo, other_lo)
 				i += 1
-				if otherseg[1] < seg[1]:
-					self.insert(i, segment(otherseg[1], seg[1]))
+				if other_hi < self_hi:
+					self.insert(i, segment(other_hi, self_hi))
 		return self
 
 	def __sub__(self, other):
