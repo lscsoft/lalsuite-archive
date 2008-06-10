@@ -168,7 +168,12 @@ class RewindableInputFile(object):
 		if self.gzip_hack_pretend_to_be_at_eof:
 			return buffer()
 		if self.reuse:
-			if 0 <= size < self.reuse:
+			if self.reuse < 0:
+				buf = self.fileobj.read(size - self.reuse)
+				self.buf = (self.buf + buf)[-len(self.buf):]
+				buf = buf[-self.reuse:]
+				self.reuse = 0
+			elif 0 <= size < self.reuse:
 				buf = self.buf[-self.reuse:-self.reuse + size]
 				self.reuse -= size
 			else:
@@ -190,7 +195,7 @@ class RewindableInputFile(object):
 			else:
 				raise IOError, "seek out of range"
 		elif whence == os.SEEK_CUR:
-			if self.reuse - len(self.buf) <= offset <= self.reuse:
+			if self.reuse - len(self.buf) <= offset:
 				self.reuse -= offset
 			else:
 				raise IOError, "seek out of range"
