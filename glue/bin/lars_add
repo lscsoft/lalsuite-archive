@@ -4,6 +4,7 @@ import os
 import sys
 from optparse import OptionParser
 
+DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
 
 if os.environ.has_key('LARS_LIB'):
     sys.path.insert(0, os.environ['LARS_LIB'])
@@ -62,7 +63,7 @@ if len(args) != 2:
 searchDbUrl = options.search_db or searchDbUrl
 
 if not searchDbUrl:
-    parser.error("Search DB must be specified with --serch-db or LARS_DB")
+    searchDbPath = DEFAULT_DB
 
 description, searchDir = args
 searchIfos = options.search_ifos
