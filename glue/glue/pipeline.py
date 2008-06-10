@@ -111,6 +111,7 @@ class CondorJob:
   def set_universe(self, universe):
     """
     Set the condor universe for the job to run in.
+    @param universe: the condor universe to run the job in.
     """
     self.__universe = universe
 
