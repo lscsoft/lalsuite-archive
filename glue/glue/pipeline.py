@@ -102,6 +102,18 @@ class CondorJob:
     """
     self.__executable = executable
 
+  def get_universe(self):
+    """
+    Return the condor universe that the job will run in.
+    """
+    return self.__universe
+
+  def set_universe(self, universe):
+    """
+    Set the condor universe for the job to run in.
+    """
+    self.__universe = universe
+
   def add_condor_cmd(self, cmd, value):
     """
     Add a Condor command to the submit file (e.g. a class add or evironment).
