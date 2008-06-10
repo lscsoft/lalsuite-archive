@@ -4,6 +4,7 @@ import os
 import sys
 from optparse import OptionParser
 
+DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
 
 
 if os.environ.has_key('LARS_LIB'):
@@ -89,10 +90,12 @@ parser.add_option("-v", "--verbose",
                   default=False,
                   help="be chatty about what's going on")
 
-parser.add_option("-C","--clone",action="store_true",default=False,\
-    help="copy the data to the working directory" )
-parser.add_option("-f","--file-type",action="store",type="string",\
-    default=None,help="file type" )
+parser.add_option("-C","--clone",
+                  action="store",
+		  help="copy the data to a directory" )
+
+#parser.add_option("-f","--file-type",action="store",type="string",\
+#    default=None,help="file type" )
 
 (options,args) = parser.parse_args()
 
@@ -101,14 +104,14 @@ verbose = options.verbose
 searchDbPath = options.search_db or os.environ.get("LARS_DB")
 
 if not searchDbPath:
-    parser.error("Search DB must be specified with --serch-db or LARS_DB")
+    searchDbPath = DEFAULT_DB
 
 
 from tempfile import TemporaryFile, mkdtemp
 from urlparse import urlsplit, urlunsplit
 from subprocess import Popen, PIPE
 
-from glue.lars import Cache
+from glue.lars import Cache, copyFile
 
 
 def mountSearch(searchUrl, targetDir):
@@ -154,6 +157,16 @@ result = searchDb.sieve(ifos=options.search_ifos,
                         #segment=options.search_time,
                         description=options.search_description)
 
+cloneDir = options.clone
+
+if cloneDir:
+    try:
+        os.mkdir(cloneDir)
+    except OSError, e:
+        from errno import EEXIST
+	if e.errno != EEXIST:
+	    raise
+
 mountPoint = None
 if options.mount:
     if options.file_description: # we only want selected files -> mount in a scratchy place
@@ -179,7 +192,7 @@ if len(result) == 1:
 
         if len(interestingFileCache) == 0:
             print "No interesting files:"
-        (_, _, remotepath, _, _) = urlsplit(result.url)
+        (_, remotehost, remotepath, _, _) = urlsplit(result.url)
 
         # remove any trailing '/' in url from search db.
         if remotepath[-1] == "/":
@@ -198,9 +211,18 @@ if len(result) == 1:
                     os.symlink(mountedFile, linkedFile)
                 else:
                     print "Warning:", mountedFile, "does not exist"
+	    elif cloneDir:
+                (scheme, host, remoteFile, _, _) = urlsplit(entry.url)
+		if host == "localhost":
+		    host = remotehost
+                localFile = os.path.basename(remoteFile)
+		localFile = os.path.join(cloneDir, localFile)
+                url = urlunsplit( (scheme, host, remoteFile, "", "") )
+	        print "Retrieving %s => %s" % (url, localFile)
+		copyFile(url, localFile)
             else:
                 # no mounting, so print results
-                print entry.url
+                print entry.description, entry.url
 elif len(result) > 1:
     print "More than one search found:"
     for r in result:

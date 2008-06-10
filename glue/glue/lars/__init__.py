@@ -4,12 +4,15 @@ from subprocess import Popen, PIPE
 from urlparse import urlsplit
 import urllib2
 import os
+import sys
 from tempfile import mkdtemp
 from socket import gethostbyaddr, gethostname
 
 __all__ = ["Cache", "CacheEntry"]
 
 CacheEntry = glue.lal.CacheEntry
+
+class LarsBadPasswordException(Exception): pass
 
 class Cache(glue.lal.Cache):
 
@@ -19,8 +22,8 @@ class Cache(glue.lal.Cache):
         if scheme == "file":
             filePattern = os.path.join(path, "*.cache")
             if netloc == "localhost" or islocalhost(netloc):
-                print "netloc (%s) is local" % netloc
-                print "looking for cache(s): %s" % filePattern
+                #print "netloc (%s) is local" % netloc
+                #print "looking for cache(s): %s" % filePattern
                 p = Popen(["cat %s"% filePattern],
                            shell=True, stdin=open("/dev/null"),
                            stdout=PIPE, close_fds=True)
@@ -77,6 +80,7 @@ class Cache(glue.lal.Cache):
 class CvsFile(file):
     def __init__(self, cvspath, perms="r"):
         self._cvstmpdir = mkdtemp()
+	self._loginattempts = 4
         if not cvspath.startswith(":pserver:"):
             raise Exception("cannot parse cvsroot '%s'" % cvspath)
         try: 
@@ -91,18 +95,39 @@ class CvsFile(file):
         self._cvsfpath = os.path.join(self._cvstmpdir, self._cvsfname)
         file.__init__(self, self._cvsfpath, perms)
 
-    def _cvsop(self, op):
+    def _cvsop(self, op, arg=None, trylogin=True):
         if not isinstance(op, list):
             op = [op]
-        p = Popen(["cvs", "-d", self._cvsroot]+op+[self._cvsfname],
-                  cwd=self._cvstmpdir)
+	if not arg:
+	    arg = [self._cvsfname]
+	if not isinstance(arg, list):
+	    arg = [arg]
+        p = Popen(["cvs", "-d", self._cvsroot] + op + arg,
+                  cwd=self._cvstmpdir,
+                  stdout=open("/dev/null","rw"),
+		  stderr=PIPE)
         p.wait()
-        if ( p.returncode != 0 ):
-            raise Exception("Problem with cvs")
+
+	if ( p.returncode != 0 ):
+	    if "cvs login" in p.stderr.read() and trylogin and sys.stdin.isatty():
+	        for i in range(0, self._loginattempts):
+		    try:
+		        self._cvsop("login", trylogin=False)
+			try:
+			    self._cvsop(op, arg, trylogin=False)
+			except: raise
+		        return
+	    	    except:
+		        pass
+	        raise LarsBadPasswordException()
+	    else:
+	        raise Exception("Problem with cvs")
 
     def __del__(self):
         # XXX "change" should be something better
-        self._cvsop(["commit", "-m", "change"])
+	try:
+	    self._cvsop(["commit", "-m", "change"], trylogin=False)
+        except: pass
         for root, dirs, files in os.walk(self._cvstmpdir, topdown=False):
             for name in files:
                 os.remove(os.path.join(root, name))
@@ -116,3 +141,19 @@ def islocalhost(hostname):
     localhostnames = ["localhost", localhostname, "127.0.0.0"] + aliases + ips
     return hostname in localhostnames
 
+
+def copyFile(src, dest):
+    # lame -- not robust or flexible.  way too many assumptions
+    (scheme, netloc, path, _, _) = urlsplit(src)
+    # should at least check the scheme. and if we could open the out file
+    destFile = open(dest, "w")
+    p = Popen(["ssh", netloc, "cat", path],
+	      stdout=destFile,
+              stderr=open("/dev/null", "rw"),
+	      close_fds=True)
+    p.wait()
+    destFile.close()
+    if p.returncode != 0:
+        # SHOULD BE LOGGED NOT PRINTED
+        print "Could not copy: ", src
+        os.unlink(dest)
