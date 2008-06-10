@@ -32,13 +32,6 @@ tmpdir = os.path.join(basedir, str(os.getpid()))
 mountdir = os.path.join(basedir, "mnt")
 
 
-try:    pass #os.mkdir(tmpdir)
-except: pass
-try:    os.mkdir(mountdir)
-except: pass
-# make the above things exist now
-
-
 # Options
 #
 
@@ -100,6 +93,22 @@ parser.add_option("-C","--clone",
 (options,args) = parser.parse_args()
 
 verbose = options.verbose
+
+## check for the existence of $HOME/.lars If it does not exist create
+## the directory hierarchy needed for working
+if not os.access(basedir,os.F_OK):
+  if verbose: print "Creating .lars directory hierarchy at " + basedir
+  try:
+    os.makedirs(basedir)
+  except:
+    print "Directory " + basedir + " does not exist and could not be created"
+    sys.exit(1)
+  try:    
+    os.mkdir(mountdir)
+  except: 
+    print "Directory " + mountdir + " does not exist and could not be created"
+    sys.exit(1)
+# make the above things exist now
 
 searchDbPath = options.search_db or os.environ.get("LARS_DB")
 
