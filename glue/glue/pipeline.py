@@ -232,7 +232,8 @@ class CondorJob:
     """
     for opt in cp.options(section):
       arg = string.strip(cp.get(section,opt))
-      self.__options[opt] = arg
+      self.__options[opt] = arg 
+
 
   def set_notification(self, value):
     """
@@ -1229,7 +1230,7 @@ class CondorDAG:
       raise CondorDAGError, "No path for DAG file"
     try:
       dfp = self.__dag_file_path
-      outfilename = ".".join(dfp.split(".")[:-1])
+      outfilename = ".".join(dfp.split(".")[:-1]) + ".sh"
       outfile = open(outfilename, "w")
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
