@@ -259,7 +259,7 @@ if opts.cache_file is not None:
 trigFiles = []
 if opts.inspiral_glob is not None:
   trigFiles.extend(glob.glob(opts.inspiral_glob))
-  if len(trigFiles == 0):
+  if len(trigFiles) == 0:
     err_msg = "The glob for " + opts.inspiral_glob + " returned no files" 
     print >>sys.stderr, err_msg
     comments += InspiralUtils.message(opts, err_msg)
