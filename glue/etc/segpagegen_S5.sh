@@ -4,4 +4,4 @@
 #
 # Script which runs segpagegen on ldas-cit to generate the S5 segment dump
 #
-/usr1/ldbd/glue/bin/segpagegen --config-file /export/ldbd/etc/segpagegen_S5.ini
+/usr1/ldbd/glue-1-17/bin/segpagegen --config-file /export/ldbd/etc/segpagegen_S5.ini
