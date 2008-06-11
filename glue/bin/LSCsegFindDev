@@ -39,46 +39,52 @@ def usage():
   """
   msg = """\
 NAME
-        LSCsegFind
+        LSCsegFindDev
 
 SYNOPSIS
-        LSCsegFind [--server=NAME:PORT] --interferometer=NAME --type=NAME[:version[:only]] 
+        LSCsegFindDev [--server=NAME:PORT] 
+               --interferometer=NAME --type=NAME[:version[:only]] 
                --gps-start-time=GPS --gps-end-time=GPS [ --strict-off ] 
                [ --output-format (tcl|python|segwizard) ]
 
           only=1 means only the requested version should be returned,
-          only=0 (default) means that the requested version should be returned on its validity interval
-          and the union of all versions should be returned beyond the validity interval of the requested segment list.
-          Currently, the query runs faster if the version is provided and only=1.
-          If no version is provided, the highest one is returned by default with only=0.
-          To find out which versions are available, use --explain-types option described below.
+          only=0 (default) means that the requested version should be returned
+          on its validity interval and the union of all versions should be
+          returned beyond the validity interval of the requested segment list.
+          Currently, the query runs faster if the version is provided and
+          only=1.  If no version is provided, the highest one is returned by
+          default with only=0.  To find out which versions are available, use
+          --explain-types option described below.
 
-        LSCsegFind [--server=NAME:PORT] --type=All
+        LSCsegFindDev [--server=NAME:PORT] --type=All
                --gps-start-time=GPS --gps-end-time=GPS
 
-          A special type 'All' can be used to return all segment types, all versions, all ifos for the given time interval
-          The results are returned in the following format:
+          A special type 'All' can be used to return all segment types, all
+          versions, all ifos for the given time interval The results are
+          returned in the following format:
           ifo name version start end
    
-        LSCsegFind [--server=NAME:PORT] --type=NAME[:version[:only]] --run=NAME --interferometer=NAME
+        LSCsegFindDev [--server=NAME:PORT] 
+               --type=NAME[:version[:only]] --run=NAME --interferometer=NAME
 
-          Instead of specifying a time interval, one can specify run name. At the moment this does not work with type=All.
+          Instead of specifying a time interval, one can specify run name. At
+          the moment this does not work with type=All.
 
-        LSCsegFind [--server=NAME:PORT] --show-interferometers
+        LSCsegFindDev [--server=NAME:PORT] --show-interferometers
 
-        LSCsegFind [--server=NAME:PORT] --show-types
+        LSCsegFindDev [--server=NAME:PORT] --show-types
 
-        LSCsegFind [--server=NAME:PORT] --explain-types
+        LSCsegFindDev [--server=NAME:PORT] --explain-types
 
-        LSCsegFind [--server=NAME:PORT] --ping
+        LSCsegFindDev [--server=NAME:PORT] --ping
 
-        LSCsegFind [--server=NAME:PORT] --version
+        LSCsegFindDev [--server=NAME:PORT] --version
 
-        LSCsegFind [--server=NAME:PORT] --help
+        LSCsegFindDev [--server=NAME:PORT] --help
 
 
 DESCRIPTION
-        Query a LSCsegFindServer to obtain state vector information from a
+        Query a LSCsegFindServerDev to obtain state vector information from a
         certain instrument and of a particular frame type within a GPS range.
 
         -v, --version
@@ -145,11 +151,12 @@ ENVIRONMENT
 
 EXAMPLES
 
-LSCsegFind --type=All -s `tconvert 10/01/06` -e `tconvert 10/02/06` -r ldas-cit.ligo.caltech.edu:30016
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:30016
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:1 --run=S5 -i H1 -r ldas-cit.ligo.caltech.edu:30016
-LSCsegFind --type=DARM_09_11_dHz_HIGHTHRESH:10:0 -s 834744360 -e 834744960 -i H1 -r ldas-cit.ligo.caltech.edu:30016
-LSCsegFind --explain-types -r ldas-cit.ligo.caltech.edu:30016
+LSCsegFindDev --type=All -s `tconvert 10/01/06` -e `tconvert 10/02/06` 
+LSCsegFindDev --type=DARM_09_11_dHz_HIGHTHRESH --run=S5 -i H1 
+LSCsegFindDev --type=DARM_09_11_dHz_HIGHTHRESH:10:1 --run=S5 -i H1
+LSCsegFindDev --type=DARM_09_11_dHz_HIGHTHRESH:10:0 -s 834744360 -e 834744960 \
+  -i H1
+LSCsegFindDev --explain-types
 
 """
   print >>sys.stderr, msg
