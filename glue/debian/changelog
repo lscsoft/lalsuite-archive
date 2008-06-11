@@ -1,3 +1,9 @@
+python-glue (1.17) testing; urgency=low
+
+  * Initial release of 1.17
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Wed, 11 Jun 2008 10:20:00 -0500
+
 python-glue (1.15-3) unstable; urgency=low
 
   * make this an "all" package
