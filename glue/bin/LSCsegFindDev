@@ -3,7 +3,7 @@
 """
 Client for querying a LSCsegFindServer to find state segments.
 
-Uses pyGlobus and the LSCsegFindClient modules.
+Uses pyGlobus and the LSCsegFindClientDev modules.
 
 $Id$
 """
@@ -215,9 +215,9 @@ for o, a in opts:
     sys.exit(0)
   elif o in ("-v", "--version"):
     print 'LSCsegFind client version', __version__
-    import glue.LSCsegFindClient
-    print 'Built on top of LSCsegFindClient version', \
-      glue.LSCsegFindClient.version()
+    import glue.LSCsegFindClientDev
+    print 'Built on top of LSCsegFindClientDev version', \
+      glue.LSCsegFindClientDev.version()
     sys.exit(0)
   elif o in ("-i", "--interferometer"):
     clientMethodArgDict['interferometer'] = a
@@ -273,7 +273,7 @@ else:
 
 # open connection to LSCsegFindServer
 try:
-  myClient = LSCsegFindClient.LSCsegFind(host, port)
+  myClient = LSCsegFindClientDev.LSCsegFind(host, port)
 
 except Exception, e:
   print >>sys.stderr, \
@@ -331,7 +331,7 @@ try:
         print rdelim
       else:
         msg = "Error: unknown segment format : %s" % format
-        raise LSCsegFindClient.LSCsegFindException, msg
+        raise LSCsegFindClientDev.LSCsegFindException, msg
  
 except Exception, e:
   print >>sys.stderr, "Error querying LSCsegFindServer: %s" % str(e)
