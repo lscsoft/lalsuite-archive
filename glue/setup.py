@@ -137,6 +137,7 @@ setup(
   scripts = [
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','LSCsegFind'),
+    os.path.join('bin','LSCsegFindDev'),
     os.path.join('bin','LSCfileAdd'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
@@ -163,7 +164,12 @@ setup(
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','lscsegfindserver.ini'),
+        os.path.join('etc','lscsegfindserverdev.ini'),
         os.path.join('etc','segpagegen.ini'),
+        os.path.join('etc','segpagegen_S5.ini'),
+        os.path.join('etc','segpagegen_A5.ini'),
+        os.path.join('etc','segpagegen_S5.sh'),
+        os.path.join('etc','segpagegen_A5.sh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ligolw_dtd.txt')
       ]
