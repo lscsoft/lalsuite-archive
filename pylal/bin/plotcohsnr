@@ -36,6 +36,7 @@ from types import *
 
 from pylal import MultiInspiralUtils
 from glue import lal
+from glue.ligolw import lsctables
 from glue import segments
 from glue import segmentsUtils
 from pylal import InspiralUtils
@@ -152,6 +153,13 @@ def parse_command_line():
     help="sieve a cache file according to a particular ifo type")
   parser.add_option("-M","--missed-inj",action="store",type="string",\
       default=None, metavar=" FILE",help="missed injection file")
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
+
 
   (options,args) = parser.parse_args()
 
@@ -227,11 +235,18 @@ if not (trigFiles or slideFiles):
 
   print >>sys.stderr, "There are " + str(len(trigFiles))+" files in your glob and/or lal cache"
 
-inspTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+tmpTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
+inspTriggers = lsctables.table.new_from_template(tmpTriggers)
+inspSlide = lsctables.table.new_from_template(tmpTriggers)
+for row in tmpTriggers:
+  if ( (row.event_id % 1000000000) / 100000 ) == 0:
+    inspTriggers.append(row)
+  else:
+    inspSlide.append(row)
 
 slideTriggers = []
-if slideFiles:
-  inspSlide = MultiInspiralUtils.ReadMultiInspiralFromFiles(slideFiles)
+if opts.num_slides:
+  #inspSlide = MultiInspiralUtils.ReadMultiInspiralFromFiles(slideFiles)
 
   # perform the veto
   if opts.veto_file:
@@ -372,7 +387,8 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList,
       tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
   show()
