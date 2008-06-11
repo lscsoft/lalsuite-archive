@@ -325,8 +325,6 @@ class LSCsegFindClient(object):
 
     ret, output = self.__response__()
 
-#    print "ret="+str(ret)+" output="+str(output)
-
     if ret:
       msg = \
         "Error querying LSCsegFindServer for segments with metadata %s : %s" \
@@ -440,58 +438,31 @@ class LSCsegFind(LSCsegFindClient):
 
     @return: None
     """
+    start = argDict['start']
+    end = argDict['end']
+    interferometer = argDict['interferometer']
+    type = argDict['type']
+    strict = argDict['strict']
 
-#    print "In findStateSegments argDict="+repr(argDict)
-
-    start=None
-    end=None
-    interferometer=None
-    type=None
-    strict=None
-    run=None
-
-    try:
-      start = argDict['start']
-      end = argDict['end']
-    except:
-      pass
-    try:
-      interferometer = argDict['interferometer']
-      type = argDict['type']
-      strict = argDict['strict']
-    except:
-      pass
-    try:
-      run = argDict['run']
-    except:
-      pass
-    
     # check that combination of command-line arguments is sound
-    if((interferometer==None or type==None or start==None or end==None) and (interferometer==None or type==None or run==None )):
+    if (not interferometer) or (not type) or (not start) or (not end):
       msg = """\
 Bad combination of command line arguments:
---interferometer --type --gps-start-time --gps-end-time
-or
---interferometer --type --run
-must all
+--interferometer --type --gps-start-time --gps-end-time must all
 be present when searching for groups of segments 
 """
       raise LSCsegFindException, msg
 
-    if(run==None):
-      self.__check_gps(start)
-      self.__check_gps(end)
-      queryList = ["03",str(start),str(end),str(interferometer),str(type)]
-    else:
-      queryList = ["04",str(run),str(interferometer),str(type)]
+    self.__check_gps(start)
+    self.__check_gps(end)
 
-#    print "queryList="+str(queryList)
-#    sys.stdout.flush()
+    queryList = ["03",str(start),str(end),str(interferometer),str(type)]
 
     seglist = LSCsegFindClient.segmentQueryWithMetadata(self,queryList)
 
-    if strict and (not argDict.has_key('run')):
+    if strict:
       range = segments.segmentlist([segments.segment(long(start),long(end))])
       seglist &= range
 
     return seglist
+
