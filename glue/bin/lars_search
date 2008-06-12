@@ -32,8 +32,8 @@ else:
 
 # maybe check for fuse, fuse permissions, sshfs, ssh, scp, cvs (etc?)
 
-tmpdir = os.path.join(basedir, str(os.getpid()))
 mountdir = os.path.join(basedir, "mnt")
+tmpdir = os.path.join(basedir, "tmp")
 
 
 # Options
@@ -120,6 +120,11 @@ if not os.access(basedir,os.F_OK):
     sys.exit(1)
   try:    
     os.mkdir(mountdir)
+  except: 
+    print "Directory " + mountdir + " does not exist and could not be created"
+    sys.exit(1)
+  try:    
+    os.mkdir(basedir+"/tmp")
   except: 
     print "Directory " + mountdir + " does not exist and could not be created"
     sys.exit(1)
@@ -211,16 +216,18 @@ if options.mount:
     #if options.file_description: # we only want selected files -> mount in a scratchy place
     if options.mount_directory:
         mountPoint = os.path.abspath(options.mount_directory)
-        userDir = os.path.abspath(options.mount_directory)
     else:
         mountPoint = mkdtemp(dir=mountdir)
-        userDir = os.path.abspath(mountPoint)
-    if verbose: print "Creating mount dir: ", userDir
-    try:    os.mkdir(userDir)
+
+    # the users working directory for later use in linking
+    userDir = os.path.abspath(os.getcwd())
+
+    # make mount point if it does not exist
+    if verbose: print "Creating mount dir: ", mountPoint
+    try:    os.mkdir(mountPoint)
     except: 
-      print userDir, " already exists, continuing ..."
+      print mountPoint, " already exists, continuing ..."
       pass
-    #else: # we want the full search dir, so mount where we're asked to.
 
 if len(result) == 1:
     result=result[0]
@@ -232,7 +239,7 @@ if len(result) == 1:
 
     if options.file_description: # link selected files to target dir
 
-        filecache = Cache.getSearch(result.url)
+        filecache = Cache.getSearch(result.url,tmpdir)
         interestingFileCache = filecache.sieve(description=options.file_description)
 
         if len(interestingFileCache) == 0:
@@ -248,7 +255,10 @@ if len(result) == 1:
         for entry in interestingFileCache:
             if mountPoint:
                 (_, _, remoteFile, _, _) = urlsplit(entry.url)
-                mountedFile = remoteFile.replace(remotepath, mountPoint)
+                remoteFile = remoteFile.split(remotepath)[-1]
+                if remoteFile[0] == "/":
+                  remoteFile = remoteFile[1:]
+                mountedFile = os.path.join(mountPoint,remoteFile)
                 baseFile = os.path.basename(mountedFile)
                 linkedFile = os.path.join(userDir, baseFile)
                 if os.access(mountedFile, os.F_OK):
