@@ -329,6 +329,11 @@ if slideTriggers:
       print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
           types[coinc] + ' times')
 
+for coinc in ifo_coincs:
+  if coinc not in inspSepTimesTriggers.keys():
+    inspSepTimesTriggers[coinc] = \
+        lsctables.New(lsctables.SnglInspiralTable)
+
 ##############################################################################
 # write triggers to file
 ##############################################################################
