@@ -5,6 +5,7 @@ from urlparse import urlsplit
 import urllib2
 import os
 import sys
+import glob
 from tempfile import mkdtemp
 from socket import gethostbyaddr, gethostname
 
@@ -16,9 +17,11 @@ class LarsBadPasswordException(Exception): pass
 
 class Cache(glue.lal.Cache):
 
-    def getSearch(cls, searchDirUrl):
+    def getSearch(cls, searchDirUrl, mountdir):
         # retrieve all cache files for a given search
         (scheme, netloc, path, query, frag) = urlsplit(searchDirUrl)
+        tmpCacheDir = mkdtemp(dir=mountdir)
+        print netloc
         if scheme == "file":
             filePattern = os.path.join(path, "*.cache")
             if netloc == "localhost" or islocalhost(netloc):
@@ -29,14 +32,16 @@ class Cache(glue.lal.Cache):
                            stdout=PIPE, close_fds=True)
             else:
                 # assuming no port or username in netloc and query and frag are nil
-                p = Popen(["ssh", netloc, "cat", filePattern],
-                           stdout=PIPE, close_fds=True)
-            retval = cls.fromfile(p.stdout)
-            p.stdout.close()
-            del p
-            return retval
+                os.popen("rsync -e ssh -vz "+netloc+":"+filePattern+" "+tmpCacheDir+"/")
+            os.popen("cat "+tmpCacheDir+"/*.cache | sort | uniq > "+tmpCacheDir+"/all.cache")
+            searchCache = glue.lal.Cache.fromfile(open(tmpCacheDir+"/all.cache"))
+            for file in glob.glob(tmpCacheDir+"/*.cache"):
+              os.remove(file)
+            os.rmdir(tmpCacheDir)
         else:
             raise Exception("unknown scheme '%s' in '%s'" % (scheme, searchDirUrl))
+        return searchCache
+
     getSearch = classmethod(getSearch)
 
     def get(cls, url):
