@@ -1,12 +1,16 @@
 #!/usr/bin/env python
 
+# FIXME:  move all imports to the top of the file
 import os
 import sys
+import glob
 from optparse import OptionParser
 
+# Default variable names
 DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
 
-
+# FIXME:  don't start manipulating tstuff until after the options have
+# been parsed
 if os.environ.has_key('LARS_LIB'):
     sys.path.insert(0, os.environ['LARS_LIB'])
 
@@ -73,11 +77,22 @@ parser.add_option("-d", "--file-description",
                   default="",
                   help="file description pattern of interest" )
 
-parser.add_option("", "--mount",
+parser.add_option("-m", "--mount-directory",
                   action="store",
                   type="string",
                   default=None,
                   help="where to mount found items")
+
+parser.add_option("-n", "--mount",
+                  action="store_true",
+                  default=False,
+                  help="mount the remote directory")
+
+parser.add_option("-c", "--clear-mounts",
+                  action="store_true",
+                  default=False,
+                  help="mount the remote directory")
+
 parser.add_option("-v", "--verbose",
                   action="store_true",
                   default=False,
@@ -110,12 +125,13 @@ if not os.access(basedir,os.F_OK):
     sys.exit(1)
 # make the above things exist now
 
+# FIXME: all searchDBPath manipulations can go here
 searchDbPath = options.search_db or os.environ.get("LARS_DB")
 
 if not searchDbPath:
     searchDbPath = DEFAULT_DB
 
-
+# FIXME: move these imports to the top of the file
 from tempfile import TemporaryFile, mkdtemp
 from urlparse import urlsplit, urlunsplit
 from subprocess import Popen, PIPE
@@ -146,11 +162,25 @@ def mkUrl(loc):
         path = os.path.abspath(path)
     return urlunsplit( (scheme, netloc, path, query, frag) )
 
+def clearMounts():
+  dirs = glob.glob(mountdir+"/tmp*")
+  for dir in dirs:
+    try:
+      os.popen("fusermount -u " + dir)
+    except:
+      print "Could not unmount " + dir
+      print "Resource is probably in use, please fix and try again"
+      sys.exit(1)
+    os.rmdir(dir)
 
 #
 #
 if verbose:
     print "Using search DB:", searchDbPath
+
+if options.clear_mounts:
+  clearMounts()
+  sys.exit(0)
 
 if options.search_db:
     searchDbPath = mkUrl(options.search_db)
@@ -178,20 +208,26 @@ if cloneDir:
 
 mountPoint = None
 if options.mount:
-    if options.file_description: # we only want selected files -> mount in a scratchy place
+    #if options.file_description: # we only want selected files -> mount in a scratchy place
+    if options.mount_directory:
+        mountPoint = os.path.abspath(options.mount_directory)
+        userDir = os.path.abspath(options.mount_directory)
+    else:
         mountPoint = mkdtemp(dir=mountdir)
-        userDir = os.path.abspath(options.mount)
-        if verbose: print "Creating mount dir: ", userDir
-        try:    os.mkdir(userDir)
-        except: pass
-    else: # we want the full search dir, so mount where we're asked to.
-        mountPoint = os.path.abspath(options.mount)
+        userDir = os.path.abspath(mountPoint)
+    if verbose: print "Creating mount dir: ", userDir
+    try:    os.mkdir(userDir)
+    except: 
+      print userDir, " already exists, continuing ..."
+      pass
+    #else: # we want the full search dir, so mount where we're asked to.
 
 if len(result) == 1:
     result=result[0]
     print "Found search:", result.description, "at", result.url
 
     if mountPoint:
+        if verbose: print "Mounting search:", result.description, "at", mountPoint
         mountSearch(result.url, mountPoint)
 
     if options.file_description: # link selected files to target dir
