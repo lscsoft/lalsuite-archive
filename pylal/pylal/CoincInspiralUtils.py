@@ -412,6 +412,35 @@ class coincInspiralTable:
         
     return ifoTrigs
 
+  def vetoed(self, seglist):
+    """
+    Returns a list of coincident triggers that are vetoed
+    entirely by a segment of the segment list.
+    A coincident trigger is added to the list only
+    if all triggers lie within a segment. If any
+    trigger lies outside any segment, it is not added.
+    @param seglist: segment list used to veto coincidences
+    """
+    ifolist = ['G1','H1','H2','L1','T1','V1'] 
+    vetoed_coincs = coincInspiralTable(stat=self.stat)
+
+    # loop over all the coincident triggers
+    for coinc in self:
+      flagVeto = True
+      for ifo in ifolist:
+        if hasattr(coinc, ifo):
+          # if any trigger is outside, do not add
+          if getattr(coinc,ifo).get_end() not in seglist:
+            flagVeto = False
+            break
+
+      # append to list of vetoed coincs if and only if
+      # all triggers lie within the seglist
+      if flagVeto:
+        vetoed_coincs.append( coinc )
+
+    return vetoed_coincs
+
   def cluster_core(self, cluster_window):
     """
     Return the clustered triggers, returning the one with the largest stat in 
