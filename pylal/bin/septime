@@ -271,14 +271,15 @@ if inspTriggers:
   for coinc in ifo_coincs:
     inspSepTimesTriggers[coinc] = inspTriggers.vetoed(segs[coinc])
 
-for coinc in ifo_coincs:
-  if coinc not in inspSepTimesTriggers.keys():
-    inspSepTimesTriggers[coinc] = lsctables.SnglInspiralTable()
+  for coinc in ifo_coincs:
+    if coinc not in inspSepTimesTriggers.keys():
+      inspSepTimesTriggers[coinc] = \
+          lsctables.New(lsctables.SnglInspiralTable)
 
-  if opts.verbose and segs[coinc].duration():
-    print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
-        str(segs[coinc].duration()) + ' sec analyzed ' + \
-        types[coinc] + ' time')
+    if opts.verbose and segs[coinc].duration():
+      print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
+          str(segs[coinc].duration()) + ' sec analyzed ' + \
+          types[coinc] + ' time')
 
 ##################################################
 # sort time-slide triggers based on times analyzed
@@ -320,7 +321,8 @@ if slideTriggers:
 
   for coinc in ifo_coincs:
     if coinc not in inspSepTimesTriggers.keys():
-      inspSepTimesTriggers[coinc] = lsctables.SnglInspiralTable()
+      inspSepTimesTriggers[coinc] = \
+          lsctables.New(lsctables.SnglInspiralTable)
 
   if opts.verbose:
     for coinc in ifo_coincs:
