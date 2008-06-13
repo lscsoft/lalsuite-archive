@@ -69,8 +69,6 @@ Usage: %s [OPTIONS]
   -j, --identity SUBJECT   the subject of the servers service certififcate
 
   -A, --append             add segments to an existing data quality flag
-  -U, --union              take a union of the inserted segments and the previous version,
-                           do not specify validity interval with this option
 
   -r, --run RUN            the name of the run for this flag (S4, S5, etc.)
   -i, --ifos IFOS          the interferometers to which this flag applies
@@ -140,7 +138,7 @@ the specified end time T2.
   print msg
 
 # define the command line arguments
-shortop = "s:j:r:i:n:v:e:c:g:G:I:s:AUph"
+shortop = "s:j:r:i:n:v:e:c:g:G:I:s:Aph"
 longop = [
   "server=",
   "identity=",
@@ -155,7 +153,6 @@ longop = [
   "gps-start-time=",
   "gps-end-time=",
   "append",
-  "union",
   "ping",
   "help"
   ]
@@ -181,7 +178,6 @@ seg_interval = None
 starttime = None
 endtime = None
 append = 0
-union = 0
 ping = None
 
 # environment variables override defaults but not
@@ -221,8 +217,6 @@ for o, a in opts:
     endtime = int(a)
   elif o in ("-A", "--append"):
     append = 1
-  elif o in ("-U", "--union"):
-    union = 1    
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -261,9 +255,9 @@ if not segfile and not seg_interval:
   errmsg += "Error: either --interval or --segment-file must be specified\n"
 if segfile and seg_interval:
   errmsg += "Error: only one of --interval or --segment-file may be specified\n"
-if not starttime and not union:
+if not starttime:
   errmsg += "Error: --gps-start-time must be specified\n"
-if not endtime and not union:
+if not endtime:
   errmsg += "Error: --gps-end-time must be specified\n"
 
 if len(errmsg) and not ping:
@@ -273,9 +267,8 @@ if len(errmsg) and not ping:
 
 # create the total time interval and storage for the active and inactive
 # segments
-if not union:
-  interval_s = segments.segment(starttime,endtime)
-  interval = segments.segmentlist([interval_s])
+interval_s = segments.segment(starttime,endtime)
+interval = segments.segmentlist([interval_s])
 active_segments = segments.segmentlist()
 
 if not ping:
@@ -284,7 +277,7 @@ if not ping:
     if(version>10):
       print >> sys.stdout, "Correcting the previous version %d" % (version-1)
       print >> sys.stdout, "Extracting version %d from the database. Please, wait..." % (version-1)
-      com="LSCsegFind1 --run " + run + " -t " + name + ":%d:1" % (version-1) + " -i "+ifos+" -r " + host + ":300156"
+      com="LSCsegFindDev --run " + run + " -t " + name + ":%d:1" % (version-1) + " -i "+ifos+" -r " + host + ":30016"
       a=commands.getstatusoutput(com)
       if(a[0]!=0):
         print >>sys.stderr, str(a)
@@ -436,7 +429,7 @@ if not ping:
     # parse the segment from the command line
     seg_line = seg_interval.strip().split(",")
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
-    if((this_seg not in interval_s) and (not union)):
+    if this_seg not in interval_s:
       # reject any segment that does not lie entirely in the interval
       # specified on the command line
       msg = "Error: interval %s must lie between %d and %d\n" % (
@@ -452,7 +445,7 @@ if not ping:
     for line in fh.readlines():
       seg_line = line.strip().split(" ")
       this_seg = segments.segment(int(seg_line[0]),int(seg_line[1]))
-      if((not union) and (this_seg not in interval_s)):
+      if this_seg not in interval_s:
         # reject any segment that does not lie entirely in the interval
         # specified on the command line
         msg = "Error: segments in %s must lie between %d and %d\n" % (
@@ -477,20 +470,14 @@ if not ping:
     pass
 
   if(len(previous_version)>0):
-    if(not union):
-      active_segments |= (previous_version - segments.segmentlist([segments.segment(starttime,endtime)]))
-    else:
-      active_segments |= previous_version
+    active_segments |= (previous_version - segments.segmentlist([segments.segment(starttime,endtime)]))
   active_segments.coalesce()
 
   f=open(".new_version","w")
   segmentsUtils.tosegwizard(f,active_segments)
   f.close()
 
-  try:
-    print "%d %d"%(starttime,endtime)
-  except:
-    pass
+  print "%d %d"%(starttime,endtime)
 
   # subtract the active segments from the total interval to get
   # the list of inactive segments to be inserted into the database
@@ -646,7 +633,7 @@ try:
       print "existing_segs="+str(existing_segs)
       print "interval="+str(interval)
       existing_segs &= interval
-      if(len(existing_segs) != 0):
+      if len(existing_segs) != 0:
         msg = "overlap with existing segment times for this version\n"
         msg += "Overlapping times are %s" % str(existing_segs)
         raise LSCdqInsertException, msg
