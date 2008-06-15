@@ -43,9 +43,9 @@ matplotlib.use("Agg")
 import pylab
 pylab.rc("text", usetex=True)
 
+from glue import iterutils
 from glue import lal
 from glue import segmentsUtils
-from glue import iterutils
 from glue.segments import segment, segmentlist
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -227,6 +227,8 @@ InspiralUtils.initialise(opts, __name__, __version__)
 # segments immediately adjacent to the on-source segment
 seg_dict = SearchSummaryUtils.GetSegListFromSearchSummaries(files)
 segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
+# typecast to ints, which are better behaved and faster than LIGOTimeGPS
+segs = segmentlist([segment(int(seg[0]), int(seg[1])) for seg in segs])
 if abs(segs) % opts.fold_time != 0:
     raise ValueError, "The provided file's analysis segment is not divisible "\
         "by the fold time."
@@ -239,14 +241,8 @@ bins = rate.LinearBins(extent[0], extent[1], num_trials)
 # incorporate veto file; in trial_veto_mask, True means vetoed.
 trial_veto_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
 for veto_file in opts.veto_files:
-    new_veto_segs = segmentsUtils.fromsegwizard(open(veto_file))
-    for seg in new_veto_segs:
-        # this awkward clause comes about because segment(a, b) ==> [a, b),
-        # while naively doing slice(bins[seg[0]], bins[seg[1]] + 1) ==> [a, b].
-        if (seg[1] - extent[0]) % opts.fold_time == 0:
-            trial_veto_mask[bins[seg[0]]:bins[seg[1]]] = True
-        else:
-            trial_veto_mask[bins[seg[0]]:bins[seg[1]] + 1] = True
+    new_veto_segs = segmentsUtils.fromsegwizard(open(veto_file), coltype=int)
+    trial_veto_mask |= rate.bins_spanned(bins, new_veto_segs, dtype=numpy.bool8)
 
 # count how many unvetoed trials we have
 eff_num_trials = numpy.sum(~trial_veto_mask)
