@@ -266,15 +266,14 @@ class CumulativeHistogramPlot(BasicPlot):
             stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
           
             # plot mean
+            means[means <= epsilon] = epsilon
             self.ax.plot(x + dx/2, means*normalization, 'r+',
                 label=r"$\mu_\mathrm{%s}$" % self.bg_label)
 
             # shade in the area
             upper = means + stds
             lower = means - stds
-            upper[upper <= epsilon] = epsilon
             lower[lower <= epsilon] = epsilon
-            means[means <= epsilon] = epsilon
             tmp_x, tmp_y = viz.makesteps(bins, upper, lower)
             self.ax.fill(tmp_x, tmp_y*normalization, facecolor='y', alpha=0.3,
                 label=r"$\sigma_\mathrm{%s}$" % self.bg_label)
@@ -284,10 +283,12 @@ class CumulativeHistogramPlot(BasicPlot):
 
         # adjust plot range
         self.ax.set_xlim((0.9 * min_stat, 1.1 * max_stat))
-        if len(self.bg_data_sets) > 0 and len(self.fg_data_sets) == 0:
-            self.ax.set_ylim(ymin=0.6 / N)
+        possible_ymins = [0.6]
+        if len(self.bg_data_sets) > 0:
+            possible_ymins.append(0.6 / N)
         else:
-            self.ax.set_ylim(ymin=0.6 * normalization)
+            possible_ymins.append(0.6 * normalization)
+        self.ax.set_ylim(min(possible_ymins))
 
         # add legend if there are any non-trivial labels
         self.data_labels = self.fg_labels + [self.bg_label]
