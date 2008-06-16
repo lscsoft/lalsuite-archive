@@ -25,12 +25,14 @@
 
 import copy
 
-from pylal.date import LIGOTimeGPS
+from pylal import date
+from pylal import SearchSummaryUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from glue import iterutils
 from glue import segments
 
 #
@@ -103,7 +105,7 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
     inspTriggers = inspTriggers.veto(segList)
 
   # now slide all the triggers within their appropriate ring
-  slideTriggersOnRingWithVector(inspTriggers, rings, shiftVector)
+  slideTriggersOnRingWithVector(inspTriggers, shiftVector, rings)
 
   # return the re-slided triggers
   return inspTriggers
@@ -131,7 +133,7 @@ def CompareSnglInspiralBySnr(a, b):
   return cmp(a.snr, b.snr)
 
 
-def CompareSnglInspiral(a, b, twindow = LIGOTimeGPS(0)):
+def CompareSnglInspiral(a, b, twindow = date.LIGOTimeGPS(0)):
   """
   Returns 0 if a and b are less than twindow appart.
   """
@@ -155,9 +157,9 @@ def slideTimeOnRing(time, shift, ring):
   """
   newTime = time + shift
   if shift > 0:
-    newTime = ring[0] + (newTime - ring[0]) % abs(ring)
+    newTime = ring[0] + (newTime - ring[0]) % float(abs(ring))
   if shift < 0:
-    newTime = ring[1] - (ring[1] - newTime) % abs(ring)
+    newTime = ring[1] - (ring[1] - newTime) % float(abs(ring))
   if newTime == ring[1]:
     newTime = ring[0]
 
@@ -175,7 +177,7 @@ def slideTriggersOnRings(triggerList, rings, shifts):
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
   for trigger in triggerList:
-    oldTime = LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
+    oldTime = date.LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
     ringIdx = rings.find(oldTime)
     ring = rings[ringIdx]
 
