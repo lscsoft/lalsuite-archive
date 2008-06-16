@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import sys
-import os
 import optparse
 
 import numpy
@@ -19,9 +18,12 @@ usage = """usage: %prog [options] file1 (file2 file3)
 Basic frame reading example.
 """
 parser = optparse.OptionParser(usage)
-parser.add_option("-c","--channel-name",action="store",type="string",\
-    default=None, metavar=" CHANNEL",\
-    help="The channel to read from the frame files" ) 
+parser.add_option("-c", "--channel-name",
+  help="The channel to read from the frame files")
+parser.add_option("-p", "--plot-filename",
+  help="the filename to which you wish to save the plot")
+parser.add_option("-s", "--show-plot", action="store_true", default=False,
+  help="draw plot to screen")
 
 opts, args = parser.parse_args()
 
@@ -57,5 +59,10 @@ for filename in filenames:
                               filename + ", " + channel)
   plot.add_content(x_data, y_data)
   plot.finalize()
+  if opts.plot_filename is not None:
+    plot.savefig(opts.plot_filename)
+  if not opts.show_plot:
+    plot.close()
 
-pylab.show()
+if opts.show_plot:
+    pylab.show()
