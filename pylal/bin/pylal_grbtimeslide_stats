@@ -305,6 +305,7 @@ for i in range(min(10, counts.max() + 1)):
 
 ##############################################################################
 # prepare loudest event statistics (squared) for plots
+trial_numbers = numpy.arange(num_trials, dtype=int) + 1
 slide_numbers = numpy.arange(-nominal_num_slides, nominal_num_slides + 1)
 loudest_sq = vec_get_loudest_stat(coincs)**2
 
@@ -402,7 +403,7 @@ if opts.plot_trials_loudest:
         "Loudest events in each trial")
 
     # prepare data
-    x_data = numpy.arange(num_trials)[~trial_veto_mask] + 1
+    x_data = trial_numbers[~trial_veto_mask]
     y_data = vec_get_loudest_stat(coincs[0, ~trial_veto_mask])
 
     # complete plot
@@ -486,7 +487,7 @@ if opts.plot_num_coincs:
         r"\# coincs in each trial")
 
     # prepare data
-    x_data = numpy.arange(num_trials)[~trial_veto_mask] + 1
+    x_data = trial_numbers[~trial_veto_mask]
     plot.add_content(x_data, counts[0, ~trial_veto_mask])
 
     # complete plot
