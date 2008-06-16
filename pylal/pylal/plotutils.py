@@ -125,6 +125,40 @@ def determine_common_bin_limits(data_sets, default_min=0, default_max=0):
 ##############################################################################
 # generic, but usable classes
 
+class SimplePlot(BasicPlot):
+    """
+    Exactly what you get by calling pylab.plot(), but with the handy extras
+    of the BasicPlot class.
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.x_data_sets = []
+        self.y_data_sets = []
+        self.data_labels = []
+
+    def add_content(self, x_data, y_data, label="_nolegend_"):
+        self.x_data_sets.append(x_data)
+        self.y_data_sets.append(y_data)
+        self.data_labels.append(label)
+
+    def finalize(self):
+        # make plot
+        colors = default_colors()
+
+        for x_vals, y_vals, color, label in \
+            itertools.izip(self.x_data_sets, self.y_data_sets, colors,
+                           self.data_labels):
+            self.ax.plot(x_vals, y_vals, color=color, label=label)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist()
+
+        # decrement reference counts
+        del self.x_data_sets
+        del self.y_data_sets
+        del self.data_labels
+
+
 class VerticalBarPlot(BasicPlot):
     """
     A simple vertical bar plot.  Bars are centered on the x values and have
