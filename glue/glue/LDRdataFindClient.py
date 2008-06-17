@@ -160,7 +160,7 @@ class LDRdataFindClient(object):
         that clients for interacting with a LDRdataFindServer will inherit from this base
         class.
         """
-        def __init__(self, host, port, noproxy):
+        def __init__(self, host, port, noproxy, disablehostauth):
                 """
                 Open a connection to a LDRdataFindServer and return an instance of
                 class LDRdataFindClient. One of the public methods can then be 
@@ -185,7 +185,7 @@ class LDRdataFindClient(object):
                 self.host = host
                 self.port = port
                 self.noproxy = noproxy
-                
+                self.disablehostauth = disablehostauth
 
 
         def __del__(self):
@@ -238,31 +238,36 @@ class LDRdataFindClient(object):
                         pass
 
                 try:
-                        if not self.noproxy:
-                                # Try normal GSI-authenticated connection
-                                # create TCPIOAttr instance and set authentication mode to be NONE
-                                myAttr = io.TCPIOAttr()
-                                myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
-
-                        
-                                authData = io.AuthData()
-                                # set authorization, channel, and delegation modes
-                                myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_HOST,authData)
-                                myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
-                                myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
-
-                        else:
+                        if self.noproxy:
                                 # Try connecting without the proxy
                                 # create TCPIOAttr instance and set authentication mode to be NONE
                                 myAttr = io.TCPIOAttr()
                                 myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_NONE)
-
 
                                 authData = io.AuthData()
                                 # set authorization, channel, and delegation modes
                                 myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_NONE,authData)
                                 myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
                                 myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_NONE)
+                        else:
+                                # Try normal GSI-authenticated connection
+                                # create TCPIOAttr instance and set authentication mode to be NONE
+                                myAttr = io.TCPIOAttr()
+                                myAttr.set_authentication_mode(io.ioc.GLOBUS_IO_SECURE_AUTHENTICATION_MODE_GSSAPI)
+
+                                authData = io.AuthData()
+                                # set authorization, channel, and delegation modes
+                                if self.disablehostauth:
+                                        # Disable the GSI hostname checking
+                                        myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_NONE,authData)
+                                        myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+                                        myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_NONE)
+                                else:
+                                        # Use the normal GSI hostname checking
+                                        myAttr.set_authorization_mode(io.ioc.GLOBUS_IO_SECURE_AUTHORIZATION_MODE_HOST,authData)
+                                        myAttr.set_channel_mode(io.ioc.GLOBUS_IO_SECURE_CHANNEL_MODE_CLEAR)
+                                        myAttr.set_delegation_mode(io.ioc.GLOBUS_IO_SECURE_DELEGATION_MODE_LIMITED_PROXY)
+
                         # fi
 
                         # create socket instance and attempt to connect
@@ -644,7 +649,7 @@ class LSCdataFindClient(LDRdataFindClient):
         Class that represents this client interacting with a LDRdataFindServer in
         order to find LSC data.
         """
-        def __init__(self, host, port=30010, noproxy=False):
+        def __init__(self, host, port=30010, noproxy=False, disablehostauth=False ):
                 """
                 Open a connection to a LDRdataFindServer and return an instance of
                 class LDRdataFindClient. One of the public methods can then be 
@@ -660,6 +665,9 @@ class LSCdataFindClient(LDRdataFindClient):
                                 certificate.
                 @type noproxy: boolean
 
+                @param disablehostauth: whether or not to attempt to use GSI
+                                        host authentication.
+                @type disablehostauth: boolean
 
                 @return: Instance of LSCdataFindClient
                 """
@@ -676,7 +684,7 @@ class LSCdataFindClient(LDRdataFindClient):
                         msg = "Argument 'port' must be a positive integer"
                         raise LSCdataFindClientException, msg
                  
-                LDRdataFindClient.__init__(self, host, port, noproxy)
+                LDRdataFindClient.__init__(self, host, port, noproxy, disablehostauth)
 
         def __check_gps(self, gpsString):
                 """

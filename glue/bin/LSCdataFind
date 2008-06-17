@@ -82,7 +82,7 @@ SYNOPSIS
                [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
                [ --names-only ] [ --limit=LIMIT ] [ --offset=OFFSET ]
                [ --strict-time-check ] [--show-times] [ --version ]
-               [ --no-proxy ]
+               [ --disable-host-auth ] [ --no-proxy ]
 
         LSCdataFind --server=NAME:PORT --filename
 
@@ -132,8 +132,11 @@ DESCRIPTION
                 return only the names of files with particular values for
                 instrument, type, start, and end rather than full URLs
 
-        -p, --no-proxy
+        -P, --no-proxy
                 attempt to authenticate without a grid proxy.
+
+        -d, --disable-host-auth
+                disable GSI host authentication
 
         -u, --url-type
                 return only URLs with particular scheme or head such as
@@ -202,7 +205,7 @@ file://localhost/netdata/s001/S1/R/H/714023808-714029599/H-R-714024336-16.gwf
 
 
 # grab command line options
-shortop = "vt:s:e:wyaphlr:f:u:m:o:npO:"
+shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:"
 longop = [
           "version",
           "help", 
@@ -224,6 +227,7 @@ longop = [
           "strict-time-check",
           "show-times",
           "no-proxy",
+          "disable-host-auth",
           "output-file=",
           ]
 
@@ -239,6 +243,7 @@ hostPortString = None
 port = 30010
 lalcache = False
 noproxy = False # i.e., use proxy by default
+disablehostauth = False # i.e. use host auth by default
 
 clientMethodArgDict = {
         'observatory': None,
@@ -336,8 +341,10 @@ for o, a in opts:
         elif o in ("-a","--show-times"):
                 clientMethodArgDict['show-times'] = True
                 clientMethod = 'showTimes'
-        elif o in ("-p","--no-proxy"):
+        elif o in ("-P","--no-proxy"):
                 noproxy = True
+        elif o in ("-d","--disable-host-auth"):
+                disablehostauth = True
         elif o in ("-O", "--output-file"):
                 output_file = open(a, "w")
 
@@ -363,7 +370,7 @@ else:
 
 # open connection to LDRdataFindServer
 try:
-        myClient = LDRdataFindClient.LSCdataFindClient(host, port, noproxy )
+        myClient = LDRdataFindClient.LSCdataFindClient( host, port, noproxy, disablehostauth )
 except Exception, e:
         print >>sys.stderr, "Unable to connect to LDRdataFindServer %s:%d" % (host, port)
         if gsiserverutils.checkCredentials():
