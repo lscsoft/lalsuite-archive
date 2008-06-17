@@ -154,8 +154,6 @@ longop = [
   "show-interferometers",
   "show-types",
   "explain-types",
-  "loose",
-  "lfns",
   "strict-off",
   "ping",
   "output-format=",
@@ -178,7 +176,6 @@ clientMethodArgDict = {
   'explain': None,
   'end': None,
   'start': None,
-  'lfns': False,
   'strict' : True
 }
 
