@@ -732,6 +732,10 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
+                if column == 'reduced_bank_chisq':
+                        return self.get_reduced_bank_chisq()
+                if column == 'reduced_cont_chisq':
+                        return self.get_reduced_cont_chisq()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
@@ -743,6 +747,13 @@ class SnglInspiralTable(table.Table):
 
 	def get_end(self):
 		return [row.get_end() for row in self]
+
+        def get_reduced_bank_chisq(self):
+                return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
+
+        def get_reduced_cont_chisq(self):
+                return self.get_column('cont_chisq') / self.get_column('cont_chi
+sq_dof')
 
 	def get_effective_snr(self):    
 		snr = self.get_column('snr')
