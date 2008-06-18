@@ -1,6 +1,8 @@
 %define _prefix /opt/lscsoft/glue
 %define _sysconfdir %{_prefix}/etc
 %define _docdir %{_datadir}/doc
+%{!?python_sitearch: %define python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib(1,prefix='%{_prefix}')")}
+
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
@@ -11,7 +13,7 @@ Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python >= 2.4
+Requires:	python
 BuildRequires:  python-devel
 Prefix:         %{_prefix}
 
@@ -20,22 +22,26 @@ Glue (Grid LSC User Environment) is a suite of python modules and programs to
 allow users to run LSC codes on the grid.
 
 %prep
-%setup
+%setup 
 
 %build
-python setup.py build
+CFLAGS="%{optflags}" %{__python} setup.py build
 
 %install
-rm -rf $RPM_BUILD_ROOT
-python setup.py install --root=${RPM_BUILD_ROOT} --prefix=/opt/lscsoft/glue --record=INSTALLED_FILES
+rm -rf %{buildroot}
+%{__python} setup.py install -O1 \
+        --skip-build \
+        --root=%{buildroot} \
+        --prefix=%{_prefix}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%{prefix}
-
+%{python_sitearch}/glue/
+%{_prefix}/bin/
+%{_prefix}/etc/
 
 %changelog
 * Wed Jun 11 2008 Duncan Brown <dabrown@physics.syr.edu>
