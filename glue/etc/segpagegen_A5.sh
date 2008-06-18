@@ -1,4 +1,4 @@
-#!/usr/bin/bash -login
+#!/bin/bash -login
 #
 # $Id$
 #
