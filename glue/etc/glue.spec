@@ -44,7 +44,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/etc/
 
 %changelog
-* Wed Jun 11 2008 Duncan Brown <dabrown@physics.syr.edu>
+* Wed Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.17
 
 * Fri Nov 04 2005 Duncan Brown <dbrown@ligo.caltech.edu>
