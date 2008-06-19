@@ -1,0 +1,168 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2008  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Translate int_8s sngl_inspiral and multi_inspiral event_id's to ilwd:char.
+"""
+
+
+from optparse import OptionParser
+import sys
+
+
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file ...]",
+		description = "Converts the event_id column in sngl_inspiral and multi_inspiral tables from int_8s to ilwd:char.  Each file named on the command line is converted in place, or if no file names are given then input is read from stdin and written to stdout.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
+	)
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                             Process Information
+#
+# =============================================================================
+#
+
+
+#
+# create and initialize this job's row in the process table
+#
+
+
+def initialize_process(xmldoc, comment = u""):
+	return llwapp.append_process(xmldoc, program = u"ligolw_conv_inspid", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
+
+
+#
+# =============================================================================
+#
+#                          Translate event_id Column
+#
+# =============================================================================
+#
+
+
+def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
+	#
+	# find the table
+	#
+
+	try:
+		tbl = table.get_table(xmldoc, table_name)
+	except ValueError:
+		return
+
+	#
+	# convert the event_id attribute on every row object
+	#
+
+	for row in tbl:
+		row.event_id = id_class(row.event_id)
+
+	#
+	# give the table instance its own copy of the validcolumns
+	# dictionary from the class so that it can be edited without
+	# affecting other tables
+	#
+
+	tbl.validcolumns = tbl.validcolumns
+
+
+	#
+	# update the table's list of valid column types, and the Type
+	# attribute on the column element, then reset the sngl_inspiral
+	# table's internal variables so that writing will work correctly
+	#
+
+	tbl.validcolumns["event_id"] = "ilwd:char"
+	tbl.getColumnByName("event_id").setAttribute("Type", "ilwd:char")
+	tbl._update_column_info()
+
+	#
+	# done
+	#
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+options, filenames = parse_command_line()
+
+
+lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+
+
+for n, filename in enumerate(filenames):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
+
+	process = initialize_process(xmldoc)
+
+	if options.verbose:
+		print >>sys.stderr, "translating sngl_inspiral event_ids ..."
+	event_id_int_to_ilwd(xmldoc, lsctables.SnglInspiralTable.tableName, lsctables.SnglInspiralID, verbose = options.verbose)
+	event_id_int_to_ilwd(xmldoc, lsctables.MultiInspiralTable.tableName, lsctables.MultiInspiralID, verbose = options.verbose)
+
+	llwapp.set_process_end_time(process)
+
+	utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
