@@ -11,6 +11,10 @@ import numpy
 import cmath
 
 ########################################
+# the list of available IFOs comes up several times
+ifos = ("G1", "H1", "H2", "L1", "T1", "V1")
+
+########################################
 # helper functions
 
 def get_ifo_combos(ifo_list):
@@ -137,48 +141,6 @@ def readCoincInspiralFromFiles(fileList,statistic=None):
   return coincs, sims
 
 
-def regenerateSlides( coincList ):
-  """
-  Regenerates the slides times for a list of coincident triggers.
-  WARNING: The slided times will NOT in general coincide with the real slided time
-  as it was computed in lalapps_thinca!
-  WARNING: This works ONLY when the initial time-slides were integer times!
-  @param coincList: A list of coincidences 
-  """
-  
-  ifoList = ['H1','H2','L1','G1','V1']
-
-  if not coincList:
-    print "Warning: Input list (coincList) is not defined"
-    return coincList
-
-  # loop over all entries in the list
-  for coinc in coincList:
-
-    # the next two loop over all possible two-IFO combinations
-    for i1 in range(4):
-      for i2 in range(i1+1, 5):
-
-        # get the IFO names
-        ifo1 = ifoList[i1]
-        ifo2 = ifoList[i2]
-
-        # check if the IFO's are in this coincident one
-        if hasattr(coinc, ifo1) and hasattr(coinc, ifo2):
-          
-          # get the current time difference and round them
-          timeDiff = getattr(coinc,ifo1).end_time -  getattr(coinc,ifo2).end_time  +\
-                     ( getattr(coinc,ifo1).end_time_ns-getattr(coinc,ifo2).end_time_ns)*1.0e-9
-          timeDiffRound = round(timeDiff)
-
-          # correct the time
-          trigger = getattr( coinc, ifo1)
-          trigger.end_time-=timeDiffRound
-          setattr( coinc, ifo1, trigger)
-
-  # return the list with re-slided times
-  return coincList
-
 ########################################
 class coincStatistic:
   """
@@ -204,21 +166,21 @@ class coincStatistic:
       return blx
     else:
       return min(bl, blx)  
-    
+
 
 #######################################
 class coincInspiralTable:
   """
   Table to hold coincident inspiral triggers.  Coincidences are reconstructed 
   by making use of the event_id contained in the sngl_inspiral table.
-  The coinc is a dictionary with entries: G1, H1, H2, L1, event_id, numifos, 
-  stat.  
+  The coinc is a dictionary with entries: event_id, numifos, stat, and 
+  each available IFO (G1, H1, etc.).
   The stat is set by default to the snrsq: the sum of the squares of the snrs 
   of the individual triggers.
   """
   class row(object):
-    __slots__ = ["event_id", "numifos","stat","likelihood","G1","H1","H2",\
-                 "L1","T1","V1","sim","rsq","bl"]
+    __slots__ = ["event_id", "numifos", "stat", "likelihood",
+                 "sim", "rsq", "bl"] + list(ifos)
     
     def __init__(self, event_id, numifos = 0, stat = 0, likelihood = 0):
       self.event_id = event_id
@@ -262,15 +224,14 @@ class coincInspiralTable:
       setattr(self,"sim",sim)
 
     def get_ifos(self): 
-      ifolist = ['G1','H1','H2','L1','T1','V1']
-      ifos = ""
+      ifo_string = ""
       ifolist_in_coinc = []
-      for ifo in ifolist:
+      for ifo in ifos:
         if hasattr(self,ifo):
-          ifos = ifos + ifo
+          ifo_string = ifo_string + ifo
           ifolist_in_coinc.append(ifo)
 
-      return ifos,ifolist_in_coinc
+      return ifo_string, ifolist_in_coinc
     
     def _get_slide_num(self):
       slide_num = (self.event_id % 1000000000) // 100000
@@ -280,13 +241,12 @@ class coincInspiralTable:
 
 
     def get_time( self ):
-      ifolist = ['G1','H1','H2','L1','T1','V1']
-      for ifo in ifolist:
+      for ifo in ifos:
         if hasattr(self,ifo):
           return getattr(self, ifo).end_time+getattr(self, ifo).end_time_ns*1.0e-9
       raise ValueError, "This coincident trigger does not contain any "\
             "single trigger.  This should never happen."
-  
+
   def __init__(self, inspTriggers = None, stat = None):
     """
     @param inspTriggers: a metaDataTable containing inspiral triggers 
@@ -421,13 +381,12 @@ class coincInspiralTable:
     trigger lies outside any segment, it is not added.
     @param seglist: segment list used to veto coincidences
     """
-    ifolist = ['G1','H1','H2','L1','T1','V1'] 
     vetoed_coincs = coincInspiralTable(stat=self.stat)
 
     # loop over all the coincident triggers
     for coinc in self:
       flagVeto = True
-      for ifo in ifolist:
+      for ifo in ifos:
         if hasattr(coinc, ifo):
           # if any trigger is outside, do not add
           if getattr(coinc,ifo).get_end() not in seglist:
@@ -598,12 +557,10 @@ class coincInspiralTable:
     @param mHigh: a float
     """
     triggers_in_mass_range = coincInspiralTable()
-    ifolist = ['G1','H1','H2','L1','T1','V1']
     for coinc in self:
-      ifos = []
       mass_numer = 0.0
       mass_denom = float(coinc.numifos)
-      for ifo in ifolist:
+      for ifo in ifos:
         if hasattr(coinc,ifo):
           mass_numer += getattr(coinc,ifo).mass1 + getattr(coinc,ifo).mass2
       mean_total_mass = mass_numer / mass_denom
@@ -619,12 +576,10 @@ class coincInspiralTable:
     @param mHigh: a float
     """
     triggers_in_mass_range = coincInspiralTable()
-    ifolist = ['G1','H1','H2','L1','T1','V1']
     for coinc in self:
-      ifos = []
       mass_numer = 0.0
       mass_denom = float(coinc.numifos)
-      for ifo in ifolist:
+      for ifo in ifos:
         if hasattr(coinc,ifo):
           mass_numer += getattr(coinc,ifo).mchirp
       mean_total_mass = mass_numer / mass_denom
