@@ -632,12 +632,15 @@ MultiBurstTable.RowType = MultiBurst
 #
 
 
+SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
+
+
 class SnglInspiralID_old(object):
 	"""
 	Custom row ID thing for sngl_inspiral tables with int_8s event IDs.
 	"""
-	# FIXME: remove this class when the event_id column has been
-	# converted to ilwd:char
+	# FIXME: remove this class when the event_id column no longer
+	# encodes time slide information.
 	column_name = "event_id"
 
 	def __init__(self, n = 0):
@@ -645,13 +648,9 @@ class SnglInspiralID_old(object):
 
 	def new(self, row):
 		self.n += 1
-		x, slidenum, y = row.get_id_parts()
-		x = 100000000 + (self.n // 100000)
 		y = self.n % 100000
-		return x * 1000000000 + slidenum * 100000 + y
-
-
-SnglInspiralID = ilwd.get_ilwdchar_class(u"sngl_inspiral", u"event_id")
+		x = 100000000 + (self.n // 100000)
+		return SnglInspiralID(x * 1000000000 + row.get_slidenum() * 100000 + y)
 
 
 class SnglInspiralTable(table.Table):
@@ -714,16 +713,16 @@ class SnglInspiralTable(table.Table):
 		"Gamma7": "real_4",
 		"Gamma8": "real_4",
 		"Gamma9": "real_4",
-		"event_id": "int_8s"	# FIXME: column should be ilwd:char
+		"event_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (event_id)"
-	# FIXME:  uncomment the next line when the event_id column is
-	# converted to ilwd:char
+	# FIXME:  uncomment the next line when the event_id column no
+	# longer encodes time slide information
 	#next_id = SnglInspiralID(0)
 
 	def updateKeyMapping(self, mapping):
-		# FIXME: remove this method when the event_id column is
-		# converted to ilwd:char
+		# FIXME: remove this method when the event_id column no
+		# longer encodes time slide information
 		if self.next_id is not None:
 			for row in self:
 				if row.event_id not in mapping:
@@ -832,7 +831,7 @@ class SnglInspiralTable(table.Table):
 		if slide_num < 0:
 			slide_num = 5000 - slide_num
 		for row in self:
-			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+			if row.get_slidenum() == slide_num:
 				slideTrigs.append(row)
 		return slideTrigs
 
@@ -857,10 +856,14 @@ class SnglInspiral(object):
 		Return the three pieces of the int_8s-style sngl_inspiral
 		event_id.
 		"""
-		x = self.event_id // 1000000000
-		slidenum = (self.event_id % 1000000000) // 100000
-		y = self.event_id % 100000
+		int_event_id = int(self.event_id)
+		x = int_event_id // 1000000000
+		slidenum = (int_event_id % 1000000000) // 100000
+		y = int_event_id % 100000
 		return x, slidenum, y
+
+	def get_slidenum(self):
+		return self.get_id_parts()[1]
 
 	# FIXME: how are two inspiral events defined to be the same?
 	def __eq__(self, other):
@@ -979,7 +982,7 @@ class MultiInspiralTable(table.Table):
 		"ligo_angle_sig": "real_4",
 		"inclination": "real_4",
 		"polarization": "real_4",
-		"event_id": "int_8s",
+		"event_id": "ilwd:char",
 		"null_statistic": "real_4",
 		"h1quad_re": "real_4",
 		"h1quad_im": "real_4",
@@ -1038,12 +1041,25 @@ class MultiInspiralTable(table.Table):
 		if slide_num < 0:
 			slide_num = 5000 - slide_num
 		for row in self:
-			if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+			if row.get_slidenum() == slide_num:
 				slideTrigs.append(row)
 		return slideTrigs
 
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
+
+	def get_id_parts(self):
+		"""
+		Return the three pieces of the int_8s-style event_id.
+		"""
+		int_event_id = int(self.event_id)
+		x = int_event_id // 1000000000
+		slidenum = (int_event_id % 1000000000) // 100000
+		y = int_event_id % 100000
+		return x, slidenum, y
+
+	def get_slidenum(self):
+		return self.get_id_parts()[1]
 
 
 MultiInspiralTable.RowType = MultiInspiral

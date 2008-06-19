@@ -73,7 +73,7 @@ def parse_command_line():
 	parser.add_option("--lfn-start-time", metavar = "GPS seconds", help = "Set lfn start_time (optional).")
 	parser.add_option("--lfn-end-time", metavar = "GPS seconds", help = "Set lfn end_time (optional).")
 	parser.add_option("--lfn-comment", metavar = "string", help = "Set lfn comment (optional).")
-	parser.add_option("--mangle-sngl-inspiral-ids", metavar = "type", default = None, help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  The type parameter is the column type appearing in the input files, and must be either \"int_8s\" or \"ilwd:char\".  CAUTION:  this messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
+	parser.add_option("--mangle-sngl-inspiral-ids", metavar = "type", default = None, help = "Reassign sngl_inspiral event IDs to prevent collisions, just like other tables.  The type parameter indicates the reassignment style and must be either \"int_8s\" indicating an old-style document with time-slide information encoded in the ID, or \"ilwd:char\" indicating a new-style document using coinc tables for time slide information (the actual IDs themselves must be ilwd:char in both cases).  CAUTION:  enabling ID reassignment messes up a normal inspiral analysis, do not do this unless you know what you are doing!")
 	parser.add_option("--non-lsc-tables-ok", action = "store_true", help = "OK to merge documents containing non-LSC tables.")
 	parser.add_option("-o", "--output", metavar = "filename", help = "Write output to filename (default = stdout).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -179,17 +179,16 @@ options, urls = parse_command_line()
 #
 # sngl_inspiral event_id re-assignment
 #
-# FIXME: remove this when the sngl_inspiral event_id column is converted to
-# ilwd:char
+# FIXME: remove this when the sngl_inspiral event_id column no longer
+# encodes time slide information
 #
 
 
 if options.mangle_sngl_inspiral_ids == "int_8s":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old()
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
 elif options.mangle_sngl_inspiral_ids == "ilwd:char":
 	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 	lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
-	lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
 
 
 #
