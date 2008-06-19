@@ -748,11 +748,11 @@ class SnglInspiralTable(table.Table):
 	def get_end(self):
 		return [row.get_end() for row in self]
 
-        def get_reduced_bank_chisq(self):
-                return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
+	def get_reduced_bank_chisq(self):
+		return self.get_column('bank_chisq') / self.get_column('bank_chisq_dof')
 
-        def get_reduced_cont_chisq(self):
-                return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
+	def get_reduced_cont_chisq(self):
+		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
 	def get_effective_snr(self):    
 		snr = self.get_column('snr')
