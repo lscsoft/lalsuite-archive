@@ -230,7 +230,8 @@ if opts.cache_file and (opts.injection_glob or opts.slide_glob):
 opts.ifo_list = []
 temp_ifo_list = ['H1','H2','L1','G1','V1','T1']
 for ifo in temp_ifo_list:
-  if opts.ifo_tag.count(ifo): opts.ifo_list.append(ifo)
+  if opts.ifo_tag is not None and opts.ifo_tag.count(ifo):
+    opts.ifo_list.append(ifo)
 
 if len(opts.ifo_list) < 2:
   print >>sys.stderr, "Must specify at least 2 ifos with triggers"
@@ -317,9 +318,12 @@ if filelists:
 
 slideTriggersList = []
 if slidefilelists:
+  shift_vector = {"H1": opts.h1_slide_time, "H2": opts.h2_slide_time,
+                  "L1": opts.l1_slide_time}
   for filegroup in slidefilelists:
-    # read raw triggers
-    slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose)
+    # read raw triggers and time-shift them appropriately
+    slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
+      shift_vector, verbose=opts.verbose)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = 0
@@ -335,47 +339,6 @@ if slidefilelists:
     slide_num = range(1 , opts.num_slides + 1)
     slide_num.extend(range(-opts.num_slides, 0))
 
-    for slide in slide_num:
-      dtH1 = slide * opts.h1_slide_time
-      dtH2 = slide * opts.h2_slide_time
-      dtL1 = slide * opts.l1_slide_time
-
-      this_slide = {}
-      this_slide["slide_num"] = slide
-      this_slide["sngl_trigs"] = slideTriggers.getslide(slide)
-
-      # Add the slide times
-      for i in this_slide["sngl_trigs"]:
-        try:
-          segListIdx=segs[opts.ifo_times].find(i.end_time)
-        except:
-          segListIdx=segs[opts.ifo_times].find(i.end_time-.5)
-          print >>sys.stderr, """
-	Warning. Plotethinca problem. end_time occurs 
-	exactly at the end of a segment which causes a 
-	error in me in glue.segment.find which is a 
-	strict comparison to the end_time. For now, we 
-	decrement artificially th end time of this triggers 
-	by half a second (only to find the segments it 
-	belongs to.""" 
-
-        segStartTime=segs[opts.ifo_times][segListIdx][0].seconds
-        segEndTime=segs[opts.ifo_times][segListIdx][1].seconds
-
-        if i.ifo == 'H1':
-          i.end_time += dtH1
-        if i.ifo == 'H2':
-          i.end_time += dtH2
-        if i.ifo == 'L1':
-          i.end_time += dtL1
-
-        while i.end_time + i.end_time_ns * 1.0e-9 > segEndTime or \
-              i.end_time < segStartTime:
-          if i.end_time >= segEndTime:
-            i.end_time = segStartTime + (i.end_time - segEndTime)
-          elif i.end_time < segStartTime:
-            i.end_time = segEndTime - (segStartTime - i.end_time)
-
     # make coincs
     newSlides = CoincInspiralUtils.coincInspiralTable(slideTriggers, statistic)
 
@@ -385,10 +348,6 @@ if slidefilelists:
 
     slideTriggersList.append(newSlides)
 
-
-# regenerate the timeslide-times
-for coincVector in slideTriggersList:
-  CoincInspiralUtils.regenerateSlides( coincVector )
 
 ##################################### plotting here below.
 # first some symbol definitions.
