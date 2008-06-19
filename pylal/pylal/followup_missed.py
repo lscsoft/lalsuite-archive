@@ -1,6 +1,29 @@
-#!/usr/bin/python
+# $Id$
+#
+# Copyright (C) 2006  Alexander Dietz
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import os, sys, exceptions
+#__Id__ = "$Id$"
+#__author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+#__version__ = "$Revision$"[11:-2]
+#__date__ = "$Date$"[7:-2]
+#__name__ = "followup_missed.py"
+#__title__ = "Followup missed injections"
+
+import os, sys, exceptions, copy
 from optparse import *
 
 import matplotlib
@@ -16,17 +39,13 @@ from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from glue import lal
-from glue import segments
-
-from pylal import webUtils      
 from glue import markup
+from glue import segments
+from glue import segmentsUtils
 from glue.markup import oneliner as extra
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from glue import segments
-from glue import segmentsUtils
-
 import numpy
 
 
@@ -57,24 +76,28 @@ class FollowupMissed:
     @param opts: The 'opts' from the main code
     @param deltaTime: The time window that is used in the time-series plots (in seconds)
     """
-    from glue.ligolw import table # must do this within here for unknown reason; error instead
+    # must do this within here for unknown reason; error instead
+    from glue.ligolw import table 
     rcParams.update({'text.usetex': False})
 
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
-    self.stageLabels = ['TMPLTBANK', 'INSPIRAL_FIRST','THINCA_FIRST','TRIGBANK', 'INSPIRAL_SECOND', \
-	'THINCA_SECOND', 'THINCA_SECOND_CAT_2', 'THINCA_SECOND_CAT_3', 'THINCA_SECOND_CAT_4']
+    self.stageLabels = ['TMPLTBANK', 'INSPIRAL_FIRST','THINCA_FIRST',\
+                        'TRIGBANK', 'INSPIRAL_SECOND', 'THINCA_SECOND']
+    self.orderLabels = copy.deepcopy(self.stageLabels)
+    self.orderLabels.extend( [ 'THINCA_SECOND_CAT_1','THINCA_SECOND_CAT_2', \
+                               'THINCA_SECOND_CAT_3','THINCA_SECOND_CAT_4'] )
 
     # setting all the parameters
     self.cache                = cache
     self.coireVetoMissedCache = coireVetoMissedCache
     self.opts                 = opts
     self.deltaTime = deltaTime
+    self.fnameList = []
 
     # set arguments from the options
     self.verbose     = opts.verbose
     self.exttrig     = opts.followup_exttrig
     self.output_path = opts.output_path
-    self.tag         = None
 
     # default value for the injection time-window
     self.injectionWindow = 0.050
@@ -88,50 +111,68 @@ class FollowupMissed:
                                     sampleRate = 4096, \
                                     nPoints = 1048576)
 
-    # getting all the caches
-    self.triggerCache = dict()
-    self.triggerCache['TMPLTBANK'] = lal.Cache([c for c in cache if "TMPLTBANK" in c.description])
-    self.triggerCache['INSPIRAL_FIRST'] = lal.Cache([c for c in cache if "INSPIRAL_FIRST" in c.description])
-    self.triggerCache['INSPIRAL_SECOND'] = lal.Cache([c for c in cache if "INSPIRAL_SECOND" in c.description])
-    self.triggerCache['THINCA_FIRST'] = lal.Cache([c for c in cache if "THINCA_FIRST" in c.description])
-    self.triggerCache['THINCA_SECOND'] = lal.Cache([c for c in cache if "THINCA_SECOND" in c.description])
-    self.triggerCache['THINCA_SECOND_CAT_2'] = lal.Cache([c for c in cache if ("THINCA_SECOND" in c.description) and ("CAT_2" in c.description)])
-    self.triggerCache['THINCA_SECOND_CAT_3'] = lal.Cache([c for c in cache if ("THINCA_SECOND" in c.description) and ("CAT_3" in c.description)])
-    self.triggerCache['THINCA_SECOND_CAT_4'] = lal.Cache([c for c in cache if ("THINCA_SECOND" in c.description) and ("CAT_4" in c.description)])
-    self.triggerCache['TRIGBANK'] = lal.Cache([c for c in cache if "TRIGBANK" in c.description])
-    self.injectionCache = lal.Cache([c for c in cache if "INJECTION" in c.description])
+    # retrieving the caches for the different stages
+    self.triggerCache = {}
+    for stage in self.stageLabels:
+      pattern = stage
+      self.triggerCache[stage] = cache.sieve(description=pattern)
+      if self.opts.verbose:
+        print "%d files found for stage %s" % (len(self.triggerCache[stage]), stage)
 
-    # generate a dictionary based on the event-ID
-    # in the exttrig case
+    pattern = "INJECTION_"
+    self.injectionCache = cache.sieve(description=pattern).\
+                          sieve(description=self.opts.followup_tag).\
+                          sieve(ifos='HL')
+  
+    # generate a dictionary based on the event-ID in the exttrig case
     self.injections=dict()
     if self.exttrig:
       for file in self.injectionCache.pfnlist():
-        basename = os.path.basename(file)
-        injectionID =  basename.split('_')[1].split('-')[0]
-        self.injections[injectionID] = SimInspiralUtils.ReadSimInspiralFromFiles( [file] )
-        
-    if self.verbose:
-      print "parsing of cache files done..."
+        injectionID = self.getInjectionID( file=file )    
+        self.injections[injectionID] = SimInspiralUtils.\
+                                       ReadSimInspiralFromFiles( [file], verbose=False )
+    if self.verbose: print "parsing of cache files done..."
 
     # retrieve the time window used from one of the COIRE files
     coireFile = self.coireVetoMissedCache.pfnlist()[0]
     doc = utils.load_filename( coireFile, gz=(coireFile).endswith(".gz") )
     try:
-      processParams = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+      processParams = table.get_table(doc, lsctables.ProcessParamsTable.\
+                                      tableName)
     except:
-      print >>sys.stderr, "Error while reading process_params table from file ", coireFile
-      print >>sys.stderr, "Probably files does not exist"
-      sys.exit(1)
-
+      raise "Error while reading process_params table from file", coireFile
+    
     for table in processParams:
       if table.param=='--injection-window':
         self.injectionWindow = float(table.value)/1000.0
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
 
-
+    # read the veto files
     self.readVetoFiles()
-    
+
+
+  # -----------------------------------------------------
+  def getInjectionID( self, file=None, url=None ):
+    """
+    Extracting the injection ID from the filename, using
+    the mechanism as used in lalapps_path2cache.
+    (later: from a table in the file; not working now)
+    @param file: filename from which the injection ID is extracted
+    @param url:  url from which the injection ID is extracted
+    """
+
+    if file:
+      path, file = os.path.split(file.strip())
+      url = "file://localhost%s" % os.path.abspath(os.path.join(path, file))
+      
+    try:
+      cache_entry = lal.CacheEntry.from_T050017(url)
+    except ValueError, e:
+      raise "Error while extracting injection ID from file ", filename
+
+    injectionID = int( cache_entry.description.split('_')[-1] )
+    return injectionID
 
   # -----------------------------------------------------
   def readVetoFiles( self ):
@@ -159,41 +200,64 @@ class FollowupMissed:
   # -----------------------------------------------------
   def reset( self ):
     """
-    Resets the counting number
+    Resets the counting number for the time-series plots generated.
     """
     self.number=0
 
+  # -----------------------------------------------------
+  def setTag( self, tag ):
+    """
+    Just sets the tag, called from plotinspmissed (why needed?)
+    @param tag: tag for this followup
+    """
+
+    self.tag = tag
 
   # -----------------------------------------------------
   def print_inj( self, inj, injID ):
     """
-    Print some useful informations to the screen if the verbose
-    flag is set.
-    @param inj: the current missed injection
-    @param injID: the injection ID (useful for exttrig only)
+    Print some useful informations to the screen.
+    @param inj:   the current missed injection
+    @param injID: the injection ID (used for exttrig only)
     """
 
     if self.exttrig:
-      print "\nInjection details for injection %d with injID %s: " % (self.number, injID)
+      print "\nInjection details for injection %d with injID %s: " %\
+            (self.number, injID)
     else:
-      if self.verbose is True :
-        print "\nInjection details for injection %d:" % (self.number)    
-    if self.verbose is True:
-      print "m1: %.2f  m2:%.2f  | end_time: %d.%d | "\
-        "distance: %.2f  eff_dist_h: %.2f eff_dist_l: %.2f" % \
-        ( inj.mass1, inj.mass2, inj.geocent_end_time, inj.geocent_end_time_ns,\
-          inj.distance, inj.eff_dist_h, inj.eff_dist_l )
+      print "\nInjection details for injection %d:" % (self.number)    
+      
+    print "m1: %.2f  m2:%.2f  | end_time: %d.%d | "\
+          "distance: %.2f  eff_dist_h: %.2f eff_dist_l: %.2f" % \
+          ( inj.mass1, inj.mass2, inj.geocent_end_time, inj.geocent_end_time_ns,\
+            inj.distance, inj.eff_dist_h, inj.eff_dist_l )
 
+  # ----------------------------------------------------
+  def savePlot( self, stage ):
+    """
+    Saves the plots and store them in a seperate fnameList.
+    @param stage: the stage this plot belongs to (e.g. INSPIRAL, THINCA,...)
+    """
+    fname = 'Images/'+self.opts.prefix + "_"+self.tag+"_map-"+\
+            stage+"-"+str(self.number) +self.opts.suffix+'.png'
+    fname_thumb = InspiralUtils.\
+                  savefig_pylal( filename = self.output_path+fname,\
+                                 doThumb = True, 
+                                 dpi_thumb = self.opts.figure_resolution)
+    
+    self.fnameList.append( fname ) 
+    return fname
+ 
 
   # -----------------------------------------------------  
   def findInjection( self, missedInj ):
     """
     Find the injection-ID corresponding to this particular
-    missed injection 'missedInj'
-    @param missedInj: This missed injection
+    missed injection.
+    @param missedInj: the missed injection
     """
     
-    # injID: one ID (a number)
+    # injID: the ID (a number)
     # groupInj: a list of SimInspiral tables
     for injID, groupInj in self.injections.iteritems():
       for inj in groupInj:
@@ -207,8 +271,8 @@ class FollowupMissed:
   # -----------------------------------------------------  
   def getTimeTrigger( self, trig ):
     """
-    Just to make life easier...
-    @param trig: A sngl_inspiral table
+    This is a helper function to return a GPS time as one float number
+    @param trig: a sngl_inspiral table entry
     """
 
     return float(trig.end_time) + float(trig.end_time_ns) * 1.0e-9
@@ -217,9 +281,11 @@ class FollowupMissed:
   # -----------------------------------------------------
   def getTimeSim(self, sim, ifo=None ):
     """
-    Just to make life easier...
-    @param sim: A sim_inspiral table
-    @param ifo: The IFO
+    This is a helper function to return a GPS time as one float number
+    for a certain IFO. If no IFO is specified the injected geocentric
+    time is returned.
+    @param sim: a sim_inspiral table entry
+    @param ifo: the IFO for which we want the sim time
     """
     
     time=0
@@ -273,7 +339,7 @@ class FollowupMissed:
     return distance
 
   # -----------------------------------------------------
-  def expectedHorizonDistance(self, triggerFiles, inj,  ifoName, number ):
+  def getExpectedSNR(self, triggerFiles, inj, number ):
     """
     Investigate template bank and returns exepcted horizon distance
     @param triggerFiles: List of files containing the inspiral triggers
@@ -283,22 +349,15 @@ class FollowupMissed:
     """
     
     # read the inspiral file(s)
-    if self.verbose: print "Processing TMPLTBANK triggers from files ", triggerFiles      
-    inspiralSumm, massInspiralSumm = InspiralUtils.readHorizonDistanceFromSummValueTable(triggerFiles, self.verbose)
-    
-#    for ifo in inspiralSumm.keys():
-#      Range = inspiralSumm[ifo].getColumnByName('value').asarray()
-#      startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
-#      style = colors[ifo]
-#      [num[ifo],bins,blah] = hist(Range,bins)
- 
- 
+    if self.verbose: print "Processing TMPLTBANK triggers from files ",\
+       triggerFiles      
+    inspiralSumm, massInspiralSumm = InspiralUtils.\
+                                     readHorizonDistanceFromSummValueTable(\
+                                     triggerFiles, self.verbose)
+
+    # get different informations on the missed injection
     injMass = [inj.mass1, inj.mass2]
-    # selection segment
-    timeInjection = self.getTimeSim( inj )
-    segSmall =  segments.segment( timeInjection-self.injectionWindow, timeInjection+self.injectionWindow )
-    segLarge =  segments.segment( timeInjection-self.deltaTime, timeInjection+self.deltaTime )
-    foundAny = set()
+    timeInjection = self.getTimeSim( inj )    
     totalMass  = inj.mass1 + inj.mass2
     eta = inj.mass1 * inj.mass2 / totalMass / totalMass
 
@@ -315,7 +374,8 @@ class FollowupMissed:
         # looking at the masses and horizon distance (and threshold)
         if horizon > 0:
           break
-        for this, horizon  in zip(massInspiralSumm[ifo][massNum].getColumnByName('comment'),\
+        for this, horizon  in zip(massInspiralSumm[ifo][massNum].\
+                                  getColumnByName('comment'),\
             massInspiralSumm[ifo][massNum].getColumnByName('value').asarray()):
           masses = this.split('_')
           threshold = float(masses[2])
@@ -327,7 +387,8 @@ class FollowupMissed:
               massInspiralSumm[ifo][massNum].getColumnByName('start_time').asarray()
             #sanity check 
             if len(startTimeSec)>1: 
-              print >> sys.stderr, 'warning more than 1 file found at that GPS time. Using the first one.'
+              print >> sys.stderr, 'Warning in fct. expectedHorizonDistance: '\
+                    'More than 1 file found at particular GPS time. Using the first file.' 
             if startTimeSec[0] > inj.geocent_end_time:
               text= """the start time of the template bank must be less than 
 		the end_time of the injection. We found startTime of the bank to be %s and
@@ -336,164 +397,123 @@ class FollowupMissed:
             output[ifo] = horizon * factor * threshold / float(getattr(inj, 'eff_dist_'+ifo[0].lower() ))
             break
           #'otherwise, reset horizon distance
-          else: horizon = 0 
-            
-
+          else: horizon = 0           
 
     return output
 
   # -----------------------------------------------------
-  def investigateInspiral(self, triggerFiles, inj,  ifoName, stage, number ):
+  def putText( self, text ):
+    """
+    Puts some text into an otherwise empty plot.
+    @param text: text to put in the empty plot
+    """
+    newText = ''
+    for i in range( int(len(text)/60.0)+1):
+      newText+=text[60*i:60*i+60]+'\n'
+    figtext(0.15,0.15, newText)
+ 
+  # -----------------------------------------------------
+  def investigateTimeseries(self, triggerFiles, inj,  ifoName, stage, number ):
     """
     Investigate inspiral triggers and create a time-series
     of the SNRs around the injected time
     @param triggerFiles: List of files containing the inspiral triggers
-    @param inj: The current injection
-    @param ifo: The current IFO
-    @param stage: The name of the stage (FIRST, SECOND)
-    @param number: The consecutive number for this inspiral followup
+    @param inj:          the current missed injection
+    @param ifoName:      the IFO for which the plot is made 
+    @param stage:        the name of the stage (FIRST, SECOND)
+    @param number:        the consecutive number for this inspiral followup
     """
     
     # read the inspiral file(s)
     if self.verbose: print "Processing INSPIRAL triggers from files ", triggerFiles   
-    snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( triggerFiles , verbose=self.verbose)
-  
-    # selection segment
-    timeInjection = self.getTimeSim( inj )
-    segSmall =  segments.segment( timeInjection-self.injectionWindow, timeInjection+self.injectionWindow )
-    segLarge =  segments.segment( timeInjection-self.deltaTime, timeInjection+self.deltaTime )
+    snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
+      triggerFiles , verbose=False)
 
-    foundAny = set()
+    # create a figure
     fig=figure()
-    for ifo in self.colors.keys():
-      # get the singles 
-      snglInspiral = snglTriggers.ifocut(ifo)
-      
-      # select a range of triggers
-      selectedLarge = snglInspiral.vetoed( segLarge )
-      timeLarge = [ self.getTimeTrigger( sel )-timeInjection for sel in selectedLarge ]
-
-      selectedSmall = snglInspiral.vetoed( segSmall )
-      timeSmall = [ self.getTimeTrigger( sel )-timeInjection for sel in selectedSmall ]
-
-      if len(timeLarge)==0:
-        continue
-
-      if len(timeSmall)>0:
-        foundAny.add(ifo)
-
-
-      # plot the triggers
-      plot( timeLarge, selectedLarge.get_column('snr'), self.colors[ifo]+'o')
-      plot( timeSmall, selectedSmall.get_column('snr'), self.colors[ifo]+'s', \
-            label=ifo)
-
-    # draw the injection times and other stuff
-    ylims=axes().get_ylim()
-    plot( [0,0], ylims, 'g--')
-    plot( [-self.injectionWindow, -self.injectionWindow], ylims, 'c:')
-    plot( [+self.injectionWindow, +self.injectionWindow], ylims, 'c:')
+    foundSet = set()
     
-    self.highlightVeto( timeInjection, segLarge, ifoName, ylims  )
+    if snglTriggers is None:
+      # put message on the plot instead
+      #print "NO SNGL TRIGGERS HERE"
+      self.putText( 'No sngl_inspiral triggers in %s' % str(triggerFiles))
 
-    # save the plot
-    grid(True)
-    legend()
+    else:
+      # selection segment
+      timeInjection = self.getTimeSim( inj )
+      segSmall =  segments.segment( timeInjection-self.injectionWindow, \
+                                    timeInjection+self.injectionWindow )
+      segLarge =  segments.segment( timeInjection-self.deltaTime, \
+                                    timeInjection+self.deltaTime )
+
+      # create coincidences for THINCA stage
+      coincTriggers = None
+      if 'THINCA' in stage:
+        coincTriggers = CoincInspiralUtils.coincInspiralTable( snglTriggers, \
+                      CoincInspiralUtils.coincStatistic("snr") )
+        selectedCoincs = coincTriggers.vetoed( segSmall )
+      
+      # loop over the IFOs (although this is a plot for IFO 'ifoName')
+      for ifo in self.colors.keys():
+
+        # get the singles for this ifo
+        snglInspiral = snglTriggers.ifocut(ifo)
+
+        # select a range of triggers
+        selectedLarge = snglInspiral.vetoed( segLarge )
+        timeLarge = [ self.getTimeTrigger( sel )-timeInjection \
+                      for sel in selectedLarge ]
+
+        selectedSmall = snglInspiral.vetoed( segSmall )
+        timeSmall = [ self.getTimeTrigger( sel )-timeInjection \
+                      for sel in selectedSmall ]
+
+        # use the set of selected coincident triggers in the THINCA stages
+        if coincTriggers:
+          selectedSmall = selectedCoincs.getsngls(ifo)
+          timeSmall = [ self.getTimeTrigger( sel )-timeInjection \
+                        for sel in selectedSmall ]
+          
+        # skip if no triggers in the large time window
+        if len(timeLarge)==0:
+          self.putText( 'No triggers/coincidences found within time window')
+          continue
+
+        # add IFO to this set; the injection is found for this IFO and stage
+        if len(timeSmall)>0:
+          foundSet.add(ifo)
+
+        # plot the triggers
+        plot( timeLarge, selectedLarge.get_column('snr'),\
+              self.colors[ifo]+'o', label="_nolegend_")
+        plot( timeSmall, selectedSmall.get_column('snr'), \
+              self.colors[ifo]+'s', label=ifo)
+
+      # draw the injection times and other stuff
+      ylims=axes().get_ylim()
+      plot( [0,0], ylims, 'g--', label="_nolegend_")
+      plot( [-self.injectionWindow, -self.injectionWindow], ylims, 'c:',\
+            label="_nolegend_")
+      plot( [+self.injectionWindow, +self.injectionWindow], ylims, 'c:',\
+            label="_nolegend_")
+
+      self.highlightVeto( timeInjection, segLarge, ifoName, ylims  )
+
+      # save the plot
+      grid(True)
+      legend()
+
+    ylims=axes().get_ylim()
     axis([-self.deltaTime, +self.deltaTime, ylims[0], ylims[1]])
     xlabel('time [s]')
     ylabel('SNR')
     title(stage+'_'+str(self.number))    
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix
-    if self.tag:
-      filename+='_'+self.tag
-    filename+='.png'
-    savefig(filename)
-
+    fname = self.savePlot( stage )
     close(fig)
 
-    return foundAny
+    result = {'filename':fname, 'foundset':foundSet}
+    return result
 
-  # -----------------------------------------------------
-  def investigateThinca(self, triggerFiles, inj, ifoName, stage, number ):
-    """
-    Investigate coincdent triggers and create a time-series
-    of the SNRs around the injected time
-    @param triggerFiles: List of files containing the inspiral triggers
-    @param inj: The current injection
-    @param ifo: The current IFO    
-    @param stage: The name of the stage (FIRST, SECOND)
-    @param number: The consecutive number for this inspiral followup
-    """
-    
-    # read and construct the coincident events
-    if self.verbose: print "Processing THINCA triggers from files "
-    snglInspiral = SnglInspiralUtils.ReadSnglInspiralFromFiles( triggerFiles, \
-	mangle_event_id=True, verbose=self.verbose )
-    coincInspiral = CoincInspiralUtils.coincInspiralTable( snglInspiral, \
-	CoincInspiralUtils.coincStatistic("snr") )
-
-    # selection segment
-    timeInjection = self.getTimeSim( inj )
-    segSmall =  segments.segment( timeInjection-self.injectionWindow, timeInjection+self.injectionWindow )
-    segLarge =  segments.segment( timeInjection-self.deltaTime, timeInjection+self.deltaTime )
-
-    plotAny = False
-    foundAny= False
-    fig=figure()
-    selected = dict()  
-    for ifo in self.colors.keys():
-
-      # get the singles 
-      snglInspiral = coincInspiral.getsngls(ifo)
-
-      # select a range of triggers
-      selectedLarge = snglInspiral.vetoed( segLarge )
-      timeLarge = [ self.getTimeTrigger( sel )-timeInjection for sel in selectedLarge ]
-
-      selectedSmall = snglInspiral.vetoed( segSmall )
-      timeSmall = [ self.getTimeTrigger( sel )-timeInjection for sel in selectedSmall ]
-
-      if len(timeLarge)==0:
-        continue
-
-      if len(timeSmall)>0:
-        foundAny=True
-
-      # plot the triggers
-      plotAny = True
-      plot( timeLarge, selectedLarge.get_column('snr'), self.colors[ifo]+'o')
-      plot( timeSmall, selectedSmall.get_column('snr'), self.colors[ifo]+'s', \
-            label=ifo)
-
-
-    # draw the injection times and other stuff
-    if plotAny:
-      ylims=axes().get_ylim()
-    else:
-      ylims=[0,1]
-    plot( [0,0], ylims, 'g--')
-    plot( [-self.injectionWindow, -self.injectionWindow], ylims, 'c:')
-    plot( [+self.injectionWindow, +self.injectionWindow], ylims, 'c:')
-
-    # save the plot
-    grid(True)
-    if plotAny:
-      legend()
-    axis([-self.deltaTime, +self.deltaTime, ylims[0], ylims[1]])
-    xlabel('time [s]')
-    ylabel('SNR')
-    title(stage+'_'+str(self.number))
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix
-    if self.tag:
-      filename+='_'+self.tag
-    filename+='.png'
-    savefig(filename)
-    close(fig)
-
-    return foundAny
-  
   # -----------------------------------------------------
   def investigateTrigbank(self, triggerFiles, inj, ifoName,  stage, number ):
     """
@@ -508,57 +528,78 @@ class FollowupMissed:
     injMass = [inj.mass1, inj.mass2]
 
     # read the trigbank
-    if self.verbose: print "Processing TRIGBANK triggers from files "
-    snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( triggerFiles, verbose=self.verbose )
-
+    if self.verbose: print "Processing TRIGBANK triggers from files ", triggerFiles
+    snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
+      triggerFiles, verbose=False )
 
     fig=figure()
-    selected = dict()  
-    for ifo in self.colors.keys():
+    selected = dict()
+    
+    if snglTriggers is None:
+      self.putText( 'no sngl inspiral triggers found in %s' % str(triggerFiles))
 
-      # get the singles 
-      snglInspiral = snglTriggers.ifocut(ifo)
+    else:
+      for ifo in self.colors.keys():
 
-      # plot the templatebank
-      plot( snglInspiral.get_column('mass1'), snglInspiral.get_column('mass2'), self.colors[ifo]+'x', \
-            label=ifo)
+        # get the singles and plot the tmpltbank
+        snglInspiral = snglTriggers.ifocut(ifo)
+        plot( snglInspiral.get_column('mass1'), \
+              snglInspiral.get_column('mass2'), self.colors[ifo]+'x', \
+              label=ifo)
 
     # plot the missed trigger and save the plot
     xm = injMass[0]
     ym = injMass[1]
-    plot( [xm], [ym],  'ko', ms=10.0, mfc=None, mec='k', mew=3)
+    plot( [xm], [ym],  'ko', ms=10.0, mfc='None', mec='k', mew=3, \
+          label="_nolegend_")
     grid(True)
     legend()
     xlabel('mass1')
     ylabel('mass2')
     title(stage+'_'+str(self.number))    
-    filename = self.output_path+'Images/'+ifoName + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix
-    if self.tag:
-      filename+='_'+self.tag
-    filename+='.png'
-    savefig(filename)
-
+    fname = self.savePlot( stage )
     close(fig)
+
+    result = {'filename':fname, 'foundset':None}
+    return result
+
+  # -----------------------------------------------------    
+  def selectCategory(self, triggerFiles, category):
+    """
+    Return a trigger list that contains only files for the choosen category.
+    @param triggerList : a list of file names
+    @param category: a category number
+    @return: a sub list of filename corresponding to the category requested
+    """
+    
+    if category==1:
+      # for now (June 2008, TC) CAT_1 is not part of the filename,
+      # so choose only files without 'CAT' in the filename
+      newList = [file for file in triggerFiles if 'CAT' not in file]
+                     
+    else:
+      cat = 'CAT_'+str(category)
+      newList = [file for file in triggerFiles if cat in file]      
+          
+    return newList
 
 
   # -----------------------------------------------------
-  def followup(self, inj, ifo ,description=None):
+  def followup(self, inj, selectIFO, description=None ):
     """
     Do the followup procedure for the missed injection 'inj'
     and create the several time-series for INSPIRAL, THINCA and
     the trigbank.
     The return value is the name of the created html file
     @param inj: sim_inspiral table of the missed injection
-    @param ifo : The current IFO
-    @param ifo : a description to select files in a cache file. It could be the tag of the injection run.
+    @param selectIFO: the IFO that is investigated
+    @param description : a description to select files from the cache file (followup_tag).
     """
     
     def fillTable(page, contents ):
       """
       Making life easier...
       """
-
       page.add('<tr>')
       for content in contents:
         page.add('<td>')
@@ -567,17 +608,17 @@ class FollowupMissed:
       page.add('</tr>')
 
    
-    # get the injections that were missed
+    # get the injections that are missed
     injID = 0
     if self.exttrig:
       injID = self.findInjection( inj )
 
-    # increase number:
+    # increase internal number:
     self.number+=1
 
     ## create the web-page
     page = markup.page()
-    page.h1("Followup missed injection #"+str(self.number)+" in "+ifo )
+    page.h1("Followup missed injection #"+str(self.number)+" in "+selectIFO )
     page.hr()
     
     # add a table
@@ -601,91 +642,95 @@ class FollowupMissed:
     page.add('</table></td>')
     
     # print infos to screen as well
-    self.print_inj( inj,  injID)
+    if self.opts.verbose: self.print_inj( inj,  injID)
 
-    # now we can retrieve all the other files for this particular
-    # missed injection
-    foundDict = {}
+    # retrieve other files for this missed injection
+    investDict = {}
     for stage, cache in self.triggerCache.iteritems():
 
-      if self.exttrig:
-        trigCache = lal.Cache(
-          [c for c in cache if ('_'+str(injID)+'-' in os.path.basename(c.url)\
-                                and inj.geocent_end_time in c.segment)])
-      else:
-        trigCache = lal.Cache(
-          [c for c in cache if inj.geocent_end_time in c.segment])
+      trigCache = lal.Cache()
+      for c in cache:
+        if inj.geocent_end_time in c.segment:
+          if self.exttrig and 'TMPLTBANK' not in stage:
+            if self.getInjectionID( url = c.url )==injID:
+              trigCache.append( c )
+          else:
+            trigCache.append( c )            
 
+      # create a filelist
+      fileList = trigCache.sieve(description=description).pfnlist()
+      if 'TRIGBANK' in stage:
+        fileList=trigCache.sieve(description=description).sieve(ifos=selectIFO).pfnlist()        
+        
       # check if the pfnlist is empty. `
-      if trigCache.pfnlist()==[]:
-        print >>sys.stderr, "### WARNING ### No files found for %s in the "\
-              "cache for ID %s and time %d " % \
-              ( stage, injID, inj.geocent_end_time)
+      if len(fileList)==0:
+        print >>sys.stderr, "Error: No files found for stage %s in the "\
+              "cache for ID %s and time %d; probably mismatch of a "\
+              "pattern in the options. " % \
+              ( stage, injID, inj.geocent_end_time)        
         continue
 
       # now create several plots
       if 'TMPLTBANK' in stage:
-        horizon = self.expectedHorizonDistance( trigCache.sieve(description=description).pfnlist(), inj, ifo, self.number )
-        foundDict[stage] = horizon
-      elif 'INSPIRAL' in stage:
-        found = self.investigateInspiral( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number )
-        foundDict[stage] = found
-      elif 'THINCA' in stage:
-        if 'FIRST' in stage:
-          found = self.investigateThinca( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number)
-        elif 'SECOND_CAT_2' in stage:
-          this = description+'_CAT_2'
-          found = self.investigateThinca( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number )
-        elif 'SECOND_CAT_3' in stage:
-          this = description+'_CAT_3'
-          found = self.investigateThinca( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number )
-        elif 'SECOND_CAT_4' in stage:
-          this = description+'_CAT_4'
-          found = self.investigateThinca( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number )
-        elif 'SECOND' in stage:
-          # by default no "CAT_1" is associated to cat 1 times
-          found = self.investigateThinca( trigCache.sieve(description=description, exact_match=True).pfnlist(), inj, ifo, stage, self.number )
-        foundDict[stage]=found
+        investDict[stage]= self.investigateTrigbank( fileList, inj, selectIFO, stage, self.number )
+        investDict[stage]['horizon'] = self.getExpectedSNR( fileList, inj, self.number )
       elif 'TRIGBANK' in stage:
-        found = self.investigateTrigbank( trigCache.sieve(description=description).pfnlist(), inj, ifo, stage, self.number )
-        foundDict[stage]=found
+        investDict[stage] = self.investigateTrigbank( fileList, inj, selectIFO, stage, self.number )
+      elif 'THINCA_SECOND' in stage:
+
+        # loop over the four categories
+        for cat in [1,2,3,4]:
+          selectList=self.selectCategory( fileList, cat)
+          if len(selectList)==0: continue
+          modstage=stage+'_CAT_'+str(cat)
+          investDict[modstage] = self.investigateTimeseries( selectList, inj, selectIFO, modstage, self.number )
       else:
-        print >>sys.stderr, "Error: Unknown pipeline stage ", stage
-#        sys.exit(1)
-        
+        investDict[stage]=self.investigateTimeseries( fileList, inj, selectIFO, stage, self.number)
+          
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
     fillTable( page, ['<b>step','<b>F/M'] )
-    for stage in foundDict.keys():
-      if "TMPLTBANK" in stage:
-        for ifo in foundDict[stage].keys():
-          text = "Expected SNR is " + ifo
-          this_snr = "%.2f" % foundDict[stage][ifo]
-          fillTable( page, [ text,  this_snr]) 
-      
-      elif foundDict[stage]:
-        foundIFOs=''
-        if "INSPIRAL" in stage:
-          foundIFOs=' in '
-          for i in foundDict[stage]:
-            foundIFOs+=i+' '
+    
+    for stage in self.orderLabels:
+      if investDict.has_key(stage):
+        result = investDict[stage]
 
-        fillTable( page, [ stage,  'FOUND'+foundIFOs])          
-      else:
-        fillTable( page, [ stage,  '<font color="red">MISSED'])          
+        # create statements on the followup page
+        if "TRIGBANK" in stage:
+          pass 
+      
+        elif "TMPLTBANK" in stage:
+          for ifo in result['horizon'].keys():
+            text = "Expected SNR for %s is " % ifo
+            this_snr = "%.2f" % result['horizon'][ifo]
+            fillTable( page, [ text,  this_snr]) 
+
+        elif result['foundset']:
+          foundIFOs=''
+          if "INSPIRAL" in stage:
+            foundIFOs=' in '
+            for ifo in result['foundset']:
+              foundIFOs+=ifo+' '
+          fillTable( page, [ stage,  'FOUND'+foundIFOs])
+
+        else:
+          fillTable( page, [ stage,  '<font color="red">MISSED'])      
     page.add('</table>')
     page.add('</td></tr></table><br><br>')
 
+
     ## add the pictures to the webpage
-    for stage in self.stageLabels:
-      if stage!="TMPLTBANK":
-        fname = "Images/"+ifo + "-followup_"+stage+"_"+str(self.number) +\
-               self.opts.suffix+'.png'
-        page.a(extra.img(src=[fname], width=400, \
-                       alt=fname, border="2"), title=fname, href=[ fname])
+    for stage in self.orderLabels:
+      if investDict.has_key(stage):
+        result = investDict[stage]
       
+        if stage!="TMPLTBANK":
+          fname = result['filename']
+          page.a(extra.img(src=[fname], width=400, \
+                           alt=fname, border="2"), title=fname, href=[ fname ])
+        
     # and write the html file
-    htmlfilename = self.opts.prefix + "_"+ifo+"_followup_"+str(self.number) +\
+    htmlfilename = self.opts.prefix + "_"+selectIFO+"_followup_"+str(self.number) +\
                          self.opts.suffix+'.html'
     file = open(self.opts.output_path+htmlfilename,'w')      
     file.write(page(False))
@@ -695,6 +740,7 @@ class FollowupMissed:
     return htmlfilename
 
 
+# -----------------------------------------------------
 def createSpectrum( flow, sampleRate = 4096, nPoints = 1048576):
 
   def calcPSD( f ):
@@ -717,9 +763,8 @@ def createSpectrum( flow, sampleRate = 4096, nPoints = 1048576):
       spectrum.append( calcPSD(f) )
     
   return spectrum
-    
-  
-
+      
+# -----------------------------------------------------
 def computeCandleDistance( candleM1, candleM2, fLow, spectrum = None, \
                            snr=8.0, sampleRate = 4096, nPoints = 1048576):
   """
