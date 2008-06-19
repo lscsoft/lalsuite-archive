@@ -239,7 +239,7 @@ tmpTriggers = MultiInspiralUtils.ReadMultiInspiralFromFiles(trigFiles)
 inspTriggers = lsctables.table.new_from_template(tmpTriggers)
 inspSlide = lsctables.table.new_from_template(tmpTriggers)
 for row in tmpTriggers:
-  if ( (row.event_id % 1000000000) / 100000 ) == 0:
+  if row.get_slidenum() == 0:
     inspTriggers.append(row)
   else:
     inspSlide.append(row)

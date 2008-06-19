@@ -39,7 +39,7 @@ class InspiralLikelihoodTable(table.Table):
 	"likelihood": "real_4",
 	"bg_frac": "real_4",
 	"detect_bg_frac_ratio": "real_4",
-	"event_id": "int_8s"
+	"event_id": "ilwd:char"
   }
   def get_column(self,column):
     return self.getColumnByName(column).asarray()
@@ -53,7 +53,7 @@ class InspiralLikelihoodTable(table.Table):
 	  if slide_num < 0:
 		  slide_num = 5000 - slide_num
 	  for row in self:
-		  if ( (row.event_id % 1000000000) / 100000 ) == slide_num:
+		  if row.get_slidenum() == slide_num:
 			  slideTrigs.append(row)
 	  return slideTrigs
 	  

@@ -234,7 +234,7 @@ class coincInspiralTable:
       return ifo_string, ifolist_in_coinc
     
     def _get_slide_num(self):
-      slide_num = (self.event_id % 1000000000) // 100000
+      slide_num = (int(self.event_id) % 1000000000) // 100000
       if slide_num > 5000: slide_num = 5000 - slide_num
       return slide_num
     slide_num = property(fget=_get_slide_num)
