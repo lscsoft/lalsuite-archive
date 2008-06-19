@@ -8,13 +8,13 @@ try:
   from sys import version_info
 except:
   print >> sys.stderr, "Unable to determine the python version"
-  print >> sys.stderr, "Please check that your python version is >= 2.3"
+  print >> sys.stderr, "Please check that your python version is >= 2.4"
   sys.exit(1)
 
-if version_info < (2, 3):
-  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.3"
-  print >> sys.stderr, "Please check that your python version is >= 2.3"
-  print >> sys.stderr, "Glue requires at least version 2.3"
+if version_info < (2, 4):
+  print >> sys.stderr, "Your python version " + str(version_info) + " appears to be less than 2.4"
+  print >> sys.stderr, "Please check that your python version is >= 2.4"
+  print >> sys.stderr, "Glue requires at least version 2.4"
   sys.exit(1)
 
 from distutils.core import setup, Extension
