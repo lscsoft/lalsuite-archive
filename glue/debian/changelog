@@ -1,3 +1,9 @@
+python-glue (1.17-1) testing; urgency=low
+
+  *  Include extra script and funtions
+
+ -- Ping Wei <piwei@syr.edu>  Wed, 19 Jun 2008 15:12:00 -0500
+
 python-glue (1.17) testing; urgency=low
 
   * Initial release of 1.17
