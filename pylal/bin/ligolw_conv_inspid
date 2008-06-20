@@ -104,6 +104,7 @@ def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
 	try:
 		tbl = table.get_table(xmldoc, table_name)
 	except ValueError:
+		# no table --> no-op
 		return
 
 	#
@@ -160,7 +161,7 @@ for n, filename in enumerate(filenames):
 	process = initialize_process(xmldoc)
 
 	if options.verbose:
-		print >>sys.stderr, "translating sngl_inspiral event_ids ..."
+		print >>sys.stderr, "translating event_ids ..."
 	event_id_int_to_ilwd(xmldoc, lsctables.SnglInspiralTable.tableName, lsctables.SnglInspiralID, verbose = options.verbose)
 	event_id_int_to_ilwd(xmldoc, lsctables.MultiInspiralTable.tableName, lsctables.MultiInspiralID, verbose = options.verbose)
 
