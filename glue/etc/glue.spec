@@ -34,6 +34,8 @@ rm -rf %{buildroot}
         --root=%{buildroot} \
         --prefix=%{_prefix}
 
+echo  %{name} %{version} [06/19/08]  > %{_prefix}/glue-version
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -44,6 +46,10 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/etc/
 
 %changelog
+* Fri Jun 20 2008 Xavier Amador <xavier.amador@gravity.phys.uwm.edu>
+- added 1 line of code to create "glue-version" file with version info
+- under request of Filippo Grimaldi, MIT
+
 * Wed Jun 19 2008 Duncan Brown <dabrown@physics.syr.edu>
 - Build for glue 1.17
 
