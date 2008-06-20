@@ -40,6 +40,7 @@ import sys
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import llwapp
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -165,4 +166,4 @@ for n, filename in enumerate(filenames):
 
 	llwapp.set_process_end_time(process)
 
-	utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
+	utils.write_filename(xmldoc, filename, verbose = options.verbose, gz = (filename or "stdout").endswith(".gz"))
