@@ -60,6 +60,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
   def __init__(self,cp,type='plot'):
 
     inspiral.InspiralJob.__init__(self,cp)
+
     if type == 'head':
       self.set_executable(string.strip(cp.get('condor','inspiral_head')))
     self.name = 'followUpInspJob' + type
@@ -72,8 +73,10 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
     try:
       self.output_file_name = ""
-      inspiral.InspiralNode.__init__(self, inspJob) 
-      injFile = self.checkInjections(cp)      
+      # inspiral.InspiralNode.__init__(self, inspJob)
+      # the use of this class would require some reorganisation in fu_Condor.py and webCondor.py in order to set up the jobs following the same scheme as the way it is done for the Inspiral pipeline... 
+      pipeline.CondorDAGNode.__init__(self,inspJob)
+      injFile = self.checkInjections(cp) 
 
       if type == 'plot':
         bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
@@ -96,8 +99,15 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           bankFile = value
         if param in skipParams: continue
         self.add_var_opt(param,value)
-        if param == 'gps-end-time': self.__end = value
-        if param == 'gps-start-time': self.__start = value
+        # The attributes _AnalysisNode__end, _AnalysisNode__start, _InspiralAnalysisNode__pad_data need to be defined before calling the method "writeAll" of "class webTheDAG". This method calls "write_sub_files()" in pipeline.py, which itself relies on the "finalize()" method of "class InspiralAnalysisNode" in inspiral.py . This is where all these attributes are being used. This hack is required because "inspiral.InspiralNode.__init__(self, inspJob)" currently does not work within "class followUpInspNode"
+        if param == 'gps-end-time':
+          self.__end = value
+          self._AnalysisNode__end = int(value)
+        if param == 'gps-start-time':
+          self.__start = value
+          self._AnalysisNode__start = int(value)
+        if param == 'pad-data':
+          self._InspiralAnalysisNode__pad_data = int(value)
         if param == 'ifo-tag':
           self.__ifotag = value
         if param == 'channel-name': self.inputIfo = value[0:2]
