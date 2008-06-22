@@ -53,8 +53,8 @@ class getCache(UserDict):
     UserDict.__init__(self)
     self.dir = os.listdir(os.getcwd())
     self.options = options
-    self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
-                 'INSPIRAL_H', 'THINCA-', 'THINCA_']
+    self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL_FIRST', \
+                 'INSPIRAL_SECOND', 'THINCA_FIRST', 'THINCA_SECOND']
     self.iniNames = ['tmpltbank-path', 'trigbank-path', 'first-inspiral-path', \
          'second-inspiral-path', 'first-coinc-path', 'second-coinc-path']
     self.iniNameMaps = map(None, self.iniNames, self.types)
@@ -213,7 +213,7 @@ class getCache(UserDict):
     else:
       return process
 
-  def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_"):
+  def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_SECOND_"):
     if cp.has_option('hipe-cache','hipe-intermediate-cache'):
       intermediateCache = string.strip(cp.get('hipe-cache','hipe-intermediate-cache'))
     else:
@@ -223,8 +223,8 @@ class getCache(UserDict):
     else:
       cacheFile = intermediateCache
 
-    if type == "INSPIRAL_":
-      type = type + trig.ifoTag
+    if type == "INSPIRAL_SECOND_":
+      type = type + trig.ifoTag + "_*"
       try:
         inspiral_process_params = self.getProcessParamsFromCache( \
                        self.filesMatchingGPSinCache(cacheFile,\
