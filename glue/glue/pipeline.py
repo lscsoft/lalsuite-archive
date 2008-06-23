@@ -89,6 +89,9 @@ class CondorJob:
     self.__sub_file_path = None
     self.__output_files = []
     self.__input_files = []
+    self.__grid_type = None
+    self.__grid_server = None
+    self.__grid_scheduler = None
 
   def get_executable(self):
     """
@@ -114,6 +117,45 @@ class CondorJob:
     @param universe: the condor universe to run the job in.
     """
     self.__universe = universe
+
+  def get_grid_type(self):
+    """
+    Return the grid type of the job.
+    """
+    return self.__grid_type
+
+  def set_grid_type(self, grid_type):
+    """
+    Set the type of grid resource for the job.
+    @param grid_type: type of grid resource.
+    """
+    self.__grid_type = grid_type
+
+  def get_grid_server(self):
+    """
+    Return the grid server on which the job will run.
+    """
+    return self.__grid_server
+
+  def set_grid_server(self, grid_server):
+    """
+    Set the grid server on which to run the job.
+    @param grid_server: grid server on which to run.
+    """
+    self.__grid_server = grid_server
+
+  def get_grid_scheduler(self):
+    """
+    Return the grid scheduler.
+    """
+    return self.__grid_scheduler
+
+  def set_grid_scheduler(self, grid_scheduler):
+    """
+    Set the grid scheduler.
+    @param grid_scheduler: grid scheduler on which to run.
+    """
+    self.__grid_scheduler = grid_scheduler
 
   def add_condor_cmd(self, cmd, value):
     """
@@ -321,8 +363,30 @@ class CondorJob:
     except:
       raise CondorSubmitError, "Cannot open file " + self.__sub_file_path
 
+    if self.__universe == 'grid':
+      if self.__grid_type == None:
+        raise CondorSubmitError, 'No grid type specified.'
+      elif self.__grid_type == 'gt2':
+        if self.__grid_server == None:
+          raise CondorSubmitError, 'No server specified for grid resource.'
+      elif self.__grid_type == 'gt4':
+        if self.__grid_server == None:
+          raise CondorSubmitError, 'No server specified for grid resource.'
+        if self.__grid_scheduler == None:
+          raise CondorSubmitError, 'No scheduler specified for grid resource.'
+      else:
+        raise CondorSubmitError, 'Unsupported grid resource.'
+
     subfile.write( 'universe = ' + self.__universe + '\n' )
     subfile.write( 'executable = ' + self.__executable + '\n' )
+
+    if self.__universe == 'grid':
+      if self.__grid_type == 'gt2':
+        subfile.write('grid_resource = %s %s\n' % (self.__grid_type,
+          self.__grid_server))
+      if self.__grid_type == 'gt4':
+        subfile.write('grid_resource = %s %s %s\n' % (self.__grid_type,
+          self.__grid_server, self.__grid_scheduler))
 
     if self.__options.keys() or self.__short_options.keys() or self.__arguments:
       subfile.write( 'arguments =' )
