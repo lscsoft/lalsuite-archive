@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.17
+Version:	1.18
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -46,6 +46,9 @@ rm -rf $RPM_BUILD_ROOT
 %{_prefix}/etc/
 
 %changelog
+* Tue Jun 24 2008 Ping Wei <piwei@syr.edu>
+- Build for glue 1.18-1
+
 * Fri Jun 20 2008 Xavier Amador <xavier.amador@gravity.phys.uwm.edu>
 - added 1 line of code to create "glue-version" file with version info
 - under request of Filippo Grimaldi, MIT
