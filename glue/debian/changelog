@@ -1,3 +1,9 @@
+python-glue (1.18-1) testing; urgency=low
+
+  *  Initial release of 1.18
+
+ -- Ping Wei <piwei@syr.edu>  Tue, 24 Jun 2008 16:30:00 -0500
+
 python-glue (1.17-1) testing; urgency=low
 
   *  Include extra script and funtions
