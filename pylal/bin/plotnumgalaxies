@@ -191,7 +191,7 @@ def injMassCut (coinc_table, m_low, m_high):
 ##############################################################################
 # function to read in a list of files and extract the simInspiral tables
 ##############################################################################
-def readFiles(fileGlob,statistic=None):
+def readFiles(fileGlob,statistic=None,dcCalErrorVal=None):
   """
   read in the Sngl and SimInspiralTables from a list of files
   if Sngls are found, construct coincs, add injections (if any)
@@ -214,9 +214,11 @@ def readFiles(fileGlob,statistic=None):
   for thisFile in fList:
     doc = utils.load_filename(thisFile, gz = (thisFile[-3:] == '.gz') )
     # extract the sim inspiral table
-    try: 
+    try:
       simInspiralTable = \
           table.get_table(doc, lsctables.SimInspiralTable.tableName)
+      if dcCalErrorVal != None:
+        dc_calibration_correction(simInspiralTable,dcCalErrorVal)
       if sims: sims.extend(simInspiralTable)
       else: sims = simInspiralTable
     except: simInspiralTable = None
@@ -291,6 +293,22 @@ def add_actual_error( sourceList, distErrorType, magErrorType ):
 
   return sourceList
     
+##############################################################################
+def dc_calibration_correction( simInspiralTable, dcCalErrorVal ):
+  """
+  modify the effective distance columns in the sim_inspiral table by their
+  appropriate DC calibration error factors in dcCalErrorVal
+  @sim_inspiral: a sim_inspiral table to be modified
+  @dcCalErrorVal: a dictionary containing the DC calibration correction factors
+  """
+  for key in dcCalErrorVal.keys():
+    if key == "Hanford_DC_Calibration_Error":
+      for row in simInspiralTable:
+        row.eff_dist_h *= 1. - dcCalErrorVal[key]
+    elif key == "Livingston_DC_Calibration_Error":
+      for row in simInspiralTable:
+        row.eff_dist_l *= 1. - dcCalErrorVal[key]
+
 ##############################################################################
 # Class for storing the time slide information
 ##############################################################################
@@ -643,9 +661,11 @@ class injData:
   """
   class to hold the injection data
   """
-  def __init__(self,foundGlob, missedGlob, statistic, figName):
-    self.found_precut,self.coincs_precut = readFiles(foundGlob,statistic)
-    self.missed_precut,self.nocoincs_precut = readFiles(missedGlob)
+  def __init__(self,foundGlob, missedGlob, statistic, dcCalErrorVal, figName):
+    self.found_precut,self.coincs_precut = readFiles(foundGlob,statistic,
+        dcCalErrorVal=dcCalErrorVal)
+    self.missed_precut,self.nocoincs_precut = readFiles(missedGlob,
+        dcCalErrorVal=dcCalErrorVal)
     #self.missed = lsctables.New(lsctables.SimInspiralTable)
     #self.missed.extend(self.missed_precut) 
     #self.coincs = CoincInspiralUtils.coincInspiralTable()
@@ -660,7 +680,6 @@ class injData:
     self.nocoincs = self.nocoincs_precut
     self.coincs.add_missed_sims(self.missed)
     self.fig_name = figName
-    self.found = self.found_precut
    
   def get_injections(self,threshold):
     """
@@ -899,11 +918,12 @@ class injAstroData:
     self.astro =  astroData(astroGlob, sourceFile, self.fig_name, \
         distErrorType, magErrorType)
 
-  def add_found_missed(self,foundGlob, missedGlob, statistic):
+  def add_found_missed(self,foundGlob, missedGlob, statistic, dcCalErrorVal):
     """
     add the performed injections 
     """
-    self.inj = injData(foundGlob, missedGlob, statistic, self.fig_name) 
+    self.inj = injData(foundGlob, missedGlob, statistic, dcCalErrorVal,
+        self.fig_name) 
 
   ############################################################################
   # General stuff to fix axes etc
@@ -1233,6 +1253,16 @@ plotnumgalaxies [options]
   --plot-effcontour:  A 2-d efficiency plot vs x-value and y-value.
   --plot-injections:  2-d contour plots of total and found injections.
 
+  If there is a DC calibration correction to apply, the following options
+  should be used:
+
+  --h-dc-calibration CAL, --l-dc-calibration CAL
+
+  These options will modify the effective distances by D->(1-/+CAL)*D where CAL
+  is the DC calibration error. A positive CAL corresponds to the noise in the
+  detector getting louder by N=N*(1+CAL) and decreasing the effective distance
+  of an injection by D=D*(1-CAL).
+
   Errors can also be added, using:
   --h-calibration, --l-calibration, --waveform-systematic, --mc-errors
 
@@ -1345,6 +1375,20 @@ parser.add_option("--cut-inj-by-mass",action="store",type="int",default=1,\
     help="cut injections by mass in addition to sources" )
 
 # efficiency errors
+parser.add_option("--h-dc-calibration",action="store",type="float",
+    default=None,metavar=" H_DC_CAL",
+    help="correct for DC calibrtion error for Hanford by rescaling " + \
+    "effective distances D->(1-/+CAL)*D. Positive CAL corresponds to an " + \
+    "increase in detector noise and thus a decrease in the injected " + \
+    "effective distance")
+
+parser.add_option("--l-dc-calibration",action="store",type="float",
+    default=None,metavar=" L_DC_CAL",
+    help="correct for DC calibrtion error for Livingston by rescaling " + \
+    "effective distances D->(1-/+CAL)*D. Positive CAL corresponds to an " + \
+    "increase in detector noise and thus a decrease in the injected " + \
+    "effective distance")
+
 parser.add_option("-C","--h-calibration",action="store",type="float",
     default=None,metavar=" H_CAL",
     help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
@@ -1552,6 +1596,14 @@ if (opts.plot_efficiency or opts.cum_search_ng or opts.plot_effcontour or \
     print >>sys.stderr, "Enter 'plotnumgalaxies --help' for usage"
     sys.exit(1)
 
+# DC calibration error correction values
+dcCalErrorVal = {}
+
+if opts.h_dc_calibration:
+  dcCalErrorVal['Hanford_DC_Calibration_Error'] = opts.h_dc_calibration
+if opts.l_dc_calibration:
+  dcCalErrorVal['Livingston_DC_Calibration_Error'] = opts.l_dc_calibration
+
 # store the error values
 errorVal = {}
 
@@ -1656,7 +1708,8 @@ if astroPlots:
 if injPlots:
   if opts.verbose:
     print "\nReading the found/missed injections"
-  injAstro.add_found_missed(opts.found_glob, opts.missed_glob, statistic)
+  injAstro.add_found_missed(opts.found_glob, opts.missed_glob, statistic,
+      dcCalErrorVal)
 
 if opts.axes_from_found: injAstro.axes_from_found(statThresh)
 
