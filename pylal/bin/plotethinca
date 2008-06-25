@@ -165,6 +165,9 @@ def parse_command_line():
   parser.add_option("","--l1-slide-time",action="store",type="int",default=5,\
       metavar="SEC",help="time slid for L1 per slide number" )
 
+  parser.add_option("","--v1-slide-time",action="store",type="int",default=5,\
+      metavar="SEC",help="time slid for V1 per slide number" )
+
   parser.add_option("","--injection-window",action="store",type="float",\
       default=None,metavar="SEC",\
       help="injection window used for found injections" )
@@ -178,6 +181,13 @@ def parse_command_line():
       default=50, metavar="FIGURERESOLUTION", \
       help="resolution of the thumbnails (50 by default)" )
   
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir") 
+
   
   (options,args) = parser.parse_args()
   
@@ -319,7 +329,7 @@ if filelists:
 slideTriggersList = []
 if slidefilelists:
   shift_vector = {"H1": opts.h1_slide_time, "H2": opts.h2_slide_time,
-                  "L1": opts.l1_slide_time}
+                  "L1": opts.l1_slide_time, "V1": opts.v1_slide_time}
   for filegroup in slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
@@ -730,6 +740,8 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
+  if opts.html_for_cbcweb:
+    html_filename_publish = InspiralUtils.write_html_output(opts, args, fnameList, tagList, cbcweb=True)
 
 
 # ============================================================================
