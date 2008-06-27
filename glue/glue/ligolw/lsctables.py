@@ -865,6 +865,16 @@ class SnglInspiral(object):
 	def get_slidenum(self):
 		return self.get_id_parts()[1]
 
+	def get_slide_number(self):
+		"""
+		Return the slide-number for this trigger
+		"""
+		x, slidenum, y = self.get_id_parts()
+		slide_number = slidenum
+		if slide_number > 5000:
+			slide_number = 5000 - slide_number
+		return slide_number
+
 	# FIXME: how are two inspiral events defined to be the same?
 	def __eq__(self, other):
 		return not (
