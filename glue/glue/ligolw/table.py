@@ -296,7 +296,7 @@ class Column(ligolw.Column):
 		creates a copy of the data, so modifications made to the
 		array will not be recorded in the original document.
 		"""
-		if self.getAttribute("Type") in ligolwtypes.StringTypes:
+		if self.getAttribute("Type") not in ligolwtypes.NumericTypes:
 			raise TypeError, "Column does not have numeric type"
 		import numpy
 		return numpy.fromiter(self, dtype = ligolwtypes.ToNumPyType[self.getAttribute("Type")])

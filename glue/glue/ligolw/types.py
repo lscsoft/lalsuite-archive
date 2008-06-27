@@ -86,13 +86,14 @@ __version__ = "$Revision$"[11:-2]
 #
 
 
-IDTypes = [u"ilwd:char"]
-BlobTypes = [u"blob"]
-StringTypes = IDTypes + [u"char_s", u"char_v", u"lstring", u"string"]
-IntTypes = [u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"]
-FloatTypes = [u"real_4", u"real_8", u"float", u"double"]
-TimeTypes = [u"GPS", u"Unix", u"ISO-8601"]
-Types = BlobTypes + StringTypes + IntTypes + FloatTypes + TimeTypes
+IDTypes = set([u"ilwd:char", u"ilwd:char_u"])
+BlobTypes = set([u"blob", u"ilwd:char_u"])
+StringTypes = set([u"char_s", u"char_v", u"lstring", u"string", u"ilwd:char"])
+IntTypes = set([u"int_2s", u"int_2u", u"int_4s", u"int_4u", u"int_8s", u"int_8u", u"int"])
+FloatTypes = set([u"real_4", u"real_8", u"float", u"double"])
+NumericTypes = IntTypes | FloatTypes
+TimeTypes = set([u"GPS", u"Unix", u"ISO-8601"])
+Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
 
 
 def ligolw_string_format_func(s):
@@ -103,6 +104,7 @@ FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
 	u"ilwd:char": ligolw_string_format_func,
+	u"ilwd:char_u": lambda b: "\"%s\"" % base64.standard_b64encode(b),
 	u"blob": lambda b: "\"%s\"" % base64.standard_b64encode(b),
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
@@ -124,6 +126,7 @@ ToPyType = {
 	u"char_s": unicode,
 	u"char_v": unicode,
 	u"ilwd:char": ilwd.get_ilwdchar,
+	u"ilwd:char_u": lambda s: buffer(base64.b64decode(s)),
 	u"blob": lambda s: buffer(base64.b64decode(s)),
 	u"lstring": unicode,
 	u"string": unicode,
@@ -183,6 +186,7 @@ ToSQLiteType = {
 	u"char_s": "TEXT",
 	u"char_v": "TEXT",
 	u"ilwd:char": "TEXT",
+	u"ilwd:char_u": "BLOB",
 	u"blob": "BLOB",
 	u"lstring": "TEXT",
 	u"string": "TEXT",
