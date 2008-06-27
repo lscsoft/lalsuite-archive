@@ -110,11 +110,6 @@ def update_lfn_table(xmldoc, pathname, start_time = None, end_time = None, comme
 	"""
 	Update the LFN table in the document, adding it if needed.
 	"""
-	# Python 2.3 compatibility
-	try:
-		set
-	except NameError:
-		from sets import Set as set
 	# determine the columns required by the user
 	cols = ["process_id", "lfn_id", "name"]
 	if start_time is not None:
