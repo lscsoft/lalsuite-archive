@@ -252,6 +252,11 @@ class ProcessParamsTable(table.Table):
 class ProcessParams(object):
 	__slots__ = ProcessParamsTable.validcolumns.keys()
 
+	def get_pyvalue(self):
+		if self.value is None:
+			return None
+		return ligolwtypes.ToPyType[self.type or "lstring"](self.value)
+
 
 ProcessParamsTable.RowType = ProcessParams
 
