@@ -214,9 +214,8 @@ class coincInspiralTable:
         self.stat=min( self.bl, self.rsq )
         if statistic.name == 'bitten_lsq' and self.numifos >2:
           self.stat = self.rsq
-      elif 'ifar' == statistic.name:
-        self.stat = trig.get_ifar()
-
+      elif 'far' == statistic.name:
+        self.stat = trig.get_far()
       else:
         self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
       
@@ -437,12 +436,13 @@ class coincInspiralTable:
       row.add_sim(sim)
       self.append(row)
 
-  def return_sim_inspirals(self,thresh = 0):
+  def return_sim_inspirals(self,statistic = None,thresh = 0):
     """
     Method to return the sim_inspiral table associated to the coincs.
     If thresh is specified, only return sims from those coincs whose stat
-    exceeds thresh.
+    exceeds thresh (or is under thresh if statistic == far).
 
+    @param statistic: the statistic to use
     @param thresh: the threshold on the statistic
     """
     from glue.ligolw import table 
@@ -450,8 +450,13 @@ class coincInspiralTable:
     try: simInspirals = table.new_from_template(sim.sngl_table)
     except: simInspirals = lsctables.New(lsctables.SimInspiralTable)
     for coinc in self:
-      if (hasattr(coinc,"sim")) and (coinc.stat >= thresh): 
-        simInspirals.append(coinc.sim)
+      if statistic == 'far':
+        if (hasattr(coinc,"sim")) and \
+            (((coinc.stat <= thresh) and (coinc.stat >= 0)) or (thresh < 0)):
+          simInspirals.append(coinc.sim)
+      else:
+        if (hasattr(coinc,"sim")) and (coinc.stat >= thresh):
+          simInspirals.append(coinc.sim)
     
     return simInspirals
     
