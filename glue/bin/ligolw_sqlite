@@ -52,14 +52,11 @@ from glue.ligolw.utils import ligolw_add
 
 
 # so they can be inserted into a database
-dbtables.types.ToPyType["ilwd:char"] = str
+dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
 
 
-# FIXME: this is a hack to allow documents w/ "valid" sngl_inspiral tables
-# to be inserted;  remove when this is no longer required
-if dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] == "ilwd:char":
-	raise Exception, "FIXME: yay, the sngl_inspiral:event_id hack is no longer required!!  (ask Kipp to remove)"
-dbtables.lsctables.SnglInspiralTable.validcolumns["event_id"] = "ilwd:char"
+# FIXME: remove this hack when the SnglInspiralTable class uses the
+# standard ID generator by default.
 dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
 
 
