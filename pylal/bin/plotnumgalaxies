@@ -327,10 +327,14 @@ class slideZeroData:
     slideLoudest = []
     for slide in slideNum:
       slideTrigs = slideCoinc.getslide(slide)
-      try: stat = max(slideCoinc.getslide(slide).getstat() )
-      except: stat = 0.0
+      if self.statistic.name == 'far':
+        try: stat = min(slideCoinc.getslide(slide).getstat() )
+        except: stat = 100.0
+      else:
+        try: stat = max(slideCoinc.getslide(slide).getstat() )
+        except: stat = 0.0
       slideLoudest.append(stat)
-      
+
     self.slide_loudest = asarray(slideLoudest)
     self.zero_loudest = None
     if self.num_slides:
@@ -345,8 +349,12 @@ class slideZeroData:
     add zero lag data 
     """
     nosims,zeroCoinc = readFiles(zeroGlob,self.statistic)
-    try: stat = max(zeroCoinc.getstat())
-    except: stat = 0.0
+    if self.statistic.name == 'far':
+      try: stat = min(zeroCoinc.getstat())
+      except: stat = 100.0
+    else:
+      try: stat = max(zeroCoinc.getstat())
+      except: stat = 0.0
     self.zero_loudest = stat
   
   def get_cumulative(self, snrArray = None):
@@ -366,13 +374,22 @@ class slideZeroData:
     """
     figure(figNum)
     slideCum = self.get_cumulative()
+    if self.statistic.name == 'far':
+      slideCum = 1. - slideCum
     plot(self.snr_array, slideCum,linewidth=2,label="slide dist")
     grid()
     xlabel(self.statistic.name, size='x-large')
-    ylabel('Probability loudest event < value', size='x-large')
+    if self.statistic.name == 'far':
+      ylabel('Probability loudest event > value', size='x-large')
+    else:
+      ylabel('Probability loudest event < value', size='x-large')
     if self.zero_loudest:
       axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
-      P_b = self.get_cumulative([self.zero_loudest])[0]
+      if self.statistic.name == 'far':
+        P_b = exp(-self.zero_loudest * opts.far_time_correction * \
+            opts.num_categories)
+      else:
+        P_b = self.get_cumulative([self.zero_loudest])[0]
       print 'cumulative probability P_b at loudest event is %.4f' % P_b
     legend()
     if figureName:
@@ -405,7 +422,11 @@ class slideZeroData:
     plot the smooth pdf of the snrs of the slide loudest events
     """
     figure(figNum)
-    slidePDF = self.get_smooth_pdf()
+    if self.statistic.name == 'far':
+      slidePDF = exp(-self.snr_array * opts.far_time_correction * \
+          opts.num_categories)
+    else:
+      slidePDF = self.get_smooth_pdf()
     plot(self.snr_array, slidePDF, 'k',linewidth=2,label="smoothed pdf")
     xlabel(self.statistic.name, size='x-large')
     ylabel('pdf of loudest event', size='x-large')
@@ -413,13 +434,17 @@ class slideZeroData:
     if self.zero_loudest:
       x = arange(len(self.snr_array))
       axvline(self.zero_loudest,linewidth=2,color='r',label="zero lag")
-      if max(self.snr_array) < self.zero_loudest:
-        p_b = 0.5 * (slidePDF[-1] + slidePDF[-2])
-      elif min(self.snr_array) > self.zero_loudest:
-        p_b = 0.5 * (slidePDF[0] + slidePDF[1])
+      if self.statistic.name == 'far':
+        p_b = exp(-self.zero_loudest * opts.far_time_correction * \
+            opts.num_categories)
       else:
-        p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
-                     slidePDF[min(x[self.snr_array > self.zero_loudest])] )
+        if max(self.snr_array) < self.zero_loudest:
+          p_b = 0.5 * (slidePDF[-1] + slidePDF[-2])
+        elif min(self.snr_array) > self.zero_loudest:
+          p_b = 0.5 * (slidePDF[0] + slidePDF[1])
+        else:
+          p_b = 0.5 * (slidePDF[max(x[self.snr_array < self.zero_loudest])] + \
+                       slidePDF[min(x[self.snr_array > self.zero_loudest])] )
       print 'pdf p_b at loudest event is %.4f' % p_b
     legend()
     if figureName:
@@ -431,14 +456,23 @@ class slideZeroData:
     plot the integral of the smoothed pdf, and the original cumulative dist
     """
     figure(figNum)
-    slidePDF = self.get_smooth_pdf()
-    smoothCum = cumsum(slidePDF)*(self.snr_array[1] - self.snr_array[0])
+    if self.statistic.name == 'far':
+      smoothCum = exp(-self.snr_array * opts.far_time_correction * \
+          opts.num_categories)
+    else:
+      slidePDF = self.get_smooth_pdf()
+      smoothCum = cumsum(slidePDF)*(self.snr_array[1] - self.snr_array[0])
     slideCum = self.get_cumulative()
+    if self.statistic.name == 'far':
+      slideCum = 1. - slideCum
     plot(self.snr_array, smoothCum, 'k',linewidth=2,\
         label="integral of smoothed pdf")
     plot(self.snr_array, slideCum, 'b',linewidth=2,label="cumulative dist")
     xlabel(self.statistic.name, size='x-large')
-    ylabel('Probability loudest event < value', size='x-large')
+    if self.statistic.name == 'far':
+      ylabel('Probability loudest event > value', size='x-large')
+    else:
+      ylabel('Probability loudest event < value', size='x-large')
     grid()
     if self.zero_loudest:
       x = arange(len(self.snr_array))
@@ -662,6 +696,7 @@ class injData:
   class to hold the injection data
   """
   def __init__(self,foundGlob, missedGlob, statistic, dcCalErrorVal, figName):
+    self.statistic = statistic.name
     self.found_precut,self.coincs_precut = readFiles(foundGlob,statistic,
         dcCalErrorVal=dcCalErrorVal)
     self.missed_precut,self.nocoincs_precut = readFiles(missedGlob,
@@ -685,7 +720,7 @@ class injData:
     """
     extract the injections found above giventhreshold
     """
-    return self.coincs.return_sim_inspirals(threshold)
+    return self.coincs.return_sim_inspirals(self.statistic,threshold)
 
   def get_values(self,column,threshold):
     """
@@ -1112,8 +1147,8 @@ class injAstroData:
 ##############################################################################
 # Make the plot of N_G and N_G'
 ##############################################################################
-def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None,
-    numPts=None):
+def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
+    figName = None, numPts=None):
   """
   plot the luminosity vs statistic, using stat values taken from 
   slides/zero lag.
@@ -1153,7 +1188,10 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None,
   plot(snrArray, ngArray, 'b', linewidth=2, label="luminosity")
   grid()
   xlabel(slideZero.statistic.name, size='x-large')
-  ylabel('Luminosity visible above threshold', size='x-large')
+  if statistic == 'far':
+    ylabel('Luminosity visible below threshold', size='x-large')
+  else:
+    ylabel('Luminosity visible above threshold', size='x-large')
   if slideZero.zero_loudest:
     axvline(slideZero.zero_loudest,linewidth=2,color='r',label="zero lag")
   if figName:
@@ -1178,6 +1216,8 @@ def plot_ng_vs_stat(injAstro, slideZero, figNum, integrate, figName = None,
       ngArray = ngArray[ (snrArray > (slideZero.zero_loudest - snrStep)) & \
           (snrArray < (slideZero.zero_loudest + snrStep)) ]
     ngPrime = ( ngArray[0] - ngArray[1]) / snrStep
+    if statistic == 'far':
+      ngPrime *= -1.0
     return ngPrime
 
 ##############################################################################
@@ -1246,7 +1286,7 @@ plotnumgalaxies [options]
   
   --found-glob:  A glob of xml files containing found injections and  
   --missed-glob: A glob of xml files containing missed injections
-  
+
   In this case, the available plots are:
 
   --plot-efficiency:  An efficiency plot vs x-value
@@ -1350,6 +1390,17 @@ parser.add_option("-T","--slide-glob",action="store",type="string",\
 parser.add_option("-K","--statistic",action="store",type="string",\
     default="effective_snr",metavar=" STAT",\
     help="coincident statistic (default = effective_snr)")
+
+parser.add_option("--num-categories",action="store",type="int",\
+    default=0,metavar=" NUM_CAT",\
+    help="number of categories of FAR calculations combined for loudest" + \
+        "events (for use with stat = far)")
+
+parser.add_option("--far-time-correction",action="store",type="float",\
+    default=1.,metavar=" T_COR",\
+    help="zero-lag time correction for FAR when calculating P_b and p_b" + \
+        "FAR -> T_COR*FAR (for use with stat = far when FAR calculated " + \
+        "with all_data and need exclude_play FAR)")
 
 parser.add_option("-d","--bittenl_a",action="store",type="float",\
     default="3", help="parameter a of bitten-l")
@@ -1838,8 +1889,8 @@ for i in range(len(massedges)-1):
     # plot ng vs snr/calculate ng'
     if opts.plot_ng_vs_stat:
       figNum +=1
-      xng_prime = plot_ng_vs_stat(injAstro, slideLoudest, figNum,\
-          integrate = 'x', figName = opts.figure_name, \
+      xng_prime = plot_ng_vs_stat(injAstro, slideLoudest, opts.statistic,\
+          figNum, integrate = 'x', figName = opts.figure_name, \
           numPts = opts.ng_vs_stat_points)
       if slideLoudest.zero_loudest:
         print "The derivative of N_G = %.2f L_10" % xng_prime
@@ -1875,8 +1926,8 @@ for i in range(len(massedges)-1):
     # plot ng vs snr/calculate ng'
     if opts.plot_2d_ng_vs_stat:
       figNum +=1
-      ng_prime = plot_ng_vs_stat(injAstro, slideLoudest, figNum, \
-          integrate = 'xy', figName = opts.figure_name, \
+      ng_prime = plot_ng_vs_stat(injAstro, slideLoudest, opts.statistic,\
+          figNum, integrate = 'xy', figName = opts.figure_name, \
           numPts = opts.ng_vs_stat_points )
       if slideLoudest.zero_loudest:
         print "The derivative of N_G = %.2f L_10" % ng_prime
