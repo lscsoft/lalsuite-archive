@@ -31,6 +31,7 @@ from numpy import histogram
 
 import itertools
 import numpy
+import operator
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
@@ -104,6 +105,11 @@ def parse_command_line():
       default=1,metavar="NUM",help="number of categories plotted together")
   parser.add_option("","--combine-types",action="store_true",default=False,
       help="combine the different types together" )
+  parser.add_option("--far-time-correction",action="store",type="float",\
+      default=1.,metavar=" T_COR",\
+      help="zero-lag time correction for FAR: FAR -> T_COR*FAR " + \
+          "(for use when FAR calculated with all_data and need " + \
+          "exclude_play FAR)")
 
   parser.add_option("","--min-ifar",action="store",type= "float",
       default=None,metavar="IFAR",help="the minimum IFAR to plot")
@@ -112,16 +118,9 @@ def parse_command_line():
       help="plot the snr vs ifar of coinc triggers" )
   parser.add_option("-b","--ifar-dist",action="store_true",default=False,\
       help="make the cumulative distribution of IFAR" )
-  parser.add_option("-S","--statistic",action="store",\
-      default='effective_snr',type="string",\
-      help="choice of statistic used in making plots, valid arguments are: "
-            "snr, effective_snr (DEFAULT)") 
-  parser.add_option("-Z","--zero-lag-playground",action="store_true",\
-      default=False,\
-      help="scale number of bkg triggers in slide plots by 600/6370")
-  parser.add_option("-z","--zero-lag-exclude-play",action="store_true",\
-      default=False,\
-      help="scale number of bkg triggers in slide plots by 5770/6370")
+
+  parser.add_option("--add-ifar-errors",action="store_true",default=False,\
+      help="add errors on IFAR to the cumulative distribution of IFAR plot" )
 
   (options,args) = parser.parse_args()
 
@@ -142,13 +141,6 @@ opts, args = parse_command_line()
 if not opts.glob and not opts.cache_file:
   print >>sys.stderr, "Must specify a --glob of files or --cache-input file to read"
   print >>sys.stderr, "Enter 'plotifar --help' for usage"
-  sys.exit(1)
-
-# check that statistic is OK:
-if (opts.statistic != 'snr') \
-    and (opts.statistic != 'effective_snr'):
-  print >>sys.stderr, "--statistic must be one of"
-  print >>sys.stderr, "(snr|effective_snr)"
   sys.exit(1)
 
 #####################################################################
@@ -176,8 +168,8 @@ mangleEventID = False
 
 ####################################################################
 
-statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
-snglStat=opts.statistic
+statistic = CoincInspiralUtils.coincStatistic( 'ifar' )
+snglStat='ifar'
     
 plotsymbols = ['r+','bx','ko','g1']
 hanfordsym = ['b+','bx','r1']
@@ -250,25 +242,36 @@ cumhist ={}
 maxIFAR = -numpy.inf
 minIFAR = numpy.inf
 
+modifierFAR = 1.
+if opts.num_categories:
+  modifierFAR *= float(opts.num_categories)
+if opts.far_time_correction:
+  modifierFAR *= float(opts.far_time_correction)
+
 for combo,ifos in zip(combos,ifo_coincs):
   coincs = coincTriggers.coinctype(ifos)
-  FAR[combo] = coincs.getsngls(ifos[0]).get_column('alpha')
-  for idx in range(len(FAR[combo])):
-    if FAR[combo][idx] == 0:
-      FAR[combo][idx] = 0.0001
-  FAR[combo] = array(FAR[combo])
-  if opts.zero_lag_playground:
-    FAR[combo] *= 600./6370.
-  if opts.zero_lag_exclude_play:
-    FAR[combo] *= 5770./6370.
-  FAR[combo] *= float(opts.num_categories)
+  FAR[combo] = []
+  for row in coincs.getsngls(ifos[0]):
+    FAR[combo].append((modifierFAR*row.alpha, modifierFAR*row.alpha1))
+
   stats['stat'][combo] = coincs.getstat()
-  stats['IFAR'][combo] = 1./(array(FAR[combo]))
-  FAR[combo].sort()
-  IFAR[combo] = 1./(array(FAR[combo]))
+  stats['IFAR'][combo] = []
+  for row in FAR[combo]:
+    stats['IFAR'][combo].append(1./row[0])
+
+  IFAR[combo] = []
+  for row in FAR[combo]:
+    if row[1] >= row[0]:
+      IFAR[combo].append((1./row[0], 1./(row[0] + row[1]), 1e4))
+    else:
+      IFAR[combo].append((1./row[0], 1./(row[0] + row[1]),
+          1./(row[0] - row[1])))
+
+  IFAR[combo].sort(key=operator.itemgetter(0))
+  IFAR[combo].reverse()
   if len(coincs):
-    maxIFAR = max(maxIFAR, max(IFAR[combo]))
-    minIFAR = min(minIFAR, min(IFAR[combo]))
+    maxIFAR = max(maxIFAR, IFAR[combo][0][0])
+    minIFAR = min(minIFAR, IFAR[combo][-1][0])
   cumhist[combo] = array(range(len(IFAR[combo]))) + 1
   if opts.verbose:
     print "%s %d" % (combo,len(IFAR[combo]))
@@ -295,10 +298,15 @@ if opts.ifar_dist and not opts.combine_types:
   figure_number += 1
 
   for combo,color,symbol in zip(combos,colors,symbols):
-    loglog(IFAR[combo], cumhist[combo], color+symbol,
-        markerfacecolor=color, markeredgecolor=color,
+    loglog(map(operator.itemgetter(0),IFAR[combo]), cumhist[combo],
+        color+symbol, markerfacecolor=color, markeredgecolor=color,
         alpha=0.65, label=combo)
     hold(True)
+    if opts.add_ifar_errors:
+      for xmin, xmax, y in zip(map(operator.itemgetter(1), IFAR[combo]),
+          map(operator.itemgetter(2), IFAR[combo]), cumhist[combo]):
+        loglog([xmin,xmax], [y,y], color + '-|', markeredgewidth=4,
+            markersize=15, linewidth=2, label='_nolegend_')
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
   xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
@@ -318,7 +326,7 @@ if opts.combine_types and opts.ifar_dist:
   figure(figure_number)
   figure_number += 1
   combinedIFAR = {}
-  combinedIFAR['IFAR'] = [IFAR[combo][idx] for combo in combos for idx in range(len(IFAR[combo]))]
+  combinedIFAR['IFAR'] = [IFAR[combo][idx][0] for combo in combos for idx in range(len(IFAR[combo]))]
   combinedIFAR['IFAR'].sort()
   combinedIFAR['IFAR'].reverse()
   combinedIFAR['cumhist'] = arange(len(combinedIFAR['IFAR'])) + 1.
@@ -334,7 +342,7 @@ if opts.combine_types and opts.ifar_dist:
   xlabel(r"$1/\langle N \rangle$", size='x-large')
   ylabel(r"Cumulative \#", size='x-large')
   if opts.enable_output is True:
-    name = "cumhist_ifar"
+    name = "cumhist_ifar_combined"
     text = "Cumulative Histogram of IFAR distribution"
     fname = InspiralUtils.set_figure_name(opts, name)
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
