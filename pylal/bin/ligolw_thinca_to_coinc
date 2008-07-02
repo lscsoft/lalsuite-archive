@@ -122,45 +122,6 @@ def set_process_params(xmldoc, process, options):
 #
 # =============================================================================
 #
-#                              Fix Broken Tables
-#
-# =============================================================================
-#
-
-
-def populate_id_column(xmldoc, table_name, column_name):
-	#
-	# this function adds a missing ID column to a table.  it should not
-	# exist:  fix the lal table code please.
-	#
-
-	# find table
-	try:
-		tbl = table.get_table(xmldoc, table_name)
-	except ValueError:
-		# doesn't have one
-		return
-	try:
-		# add id column
-		tbl.appendColumn(column_name)
-	except ValueError:
-		# already has one
-		pass
-	else:
-		# populate id column
-		for row in tbl:
-			setattr(row, column_name, tbl.get_next_id())
-
-
-def fix_broken_tables(xmldoc):
-	populate_id_column(xmldoc,  lsctables.SummValueTable.tableName, "summ_value_id")
-	populate_id_column(xmldoc,  lsctables.SearchSummVarsTable.tableName, "search_summvar_id")
-	populate_id_column(xmldoc,  lsctables.FilterTable.tableName, "filter_id")
-
-
-#
-# =============================================================================
-#
 #                          Populate time_slide Table
 #
 # =============================================================================
@@ -451,10 +412,6 @@ populate_thinca_time_slide_table(xmldoc, process, options.num_slides)
 if options.verbose:
 	print >>sys.stderr, "constructing coincs ..."
 populate_coinc_event_sngls(xmldoc, process)
-
-if options.verbose:
-	print >>sys.stderr, "translating sngl_inspiral event_ids ..."
-fix_broken_tables(xmldoc)
 
 if options.verbose:
 	print >>sys.stderr, "depopulating sngl_inspirals ..."
