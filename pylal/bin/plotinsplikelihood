@@ -453,6 +453,18 @@ def plotroutine(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 			  (y_inj, x_inj) = normalized_hist(coinc_inj_sim, inj_bins)
 		    else:
 			  hist_check_inj = 0
+	      if param == 'ethinca':
+		    coinc_slides_sim = coinc_slides.coinctype(ifolist).getEThincaValues([ifolist[i], ifolist[j]])
+		    coinc_inj_sim = coinc_inj.coinctype(ifolist).getEThincaValues([ifolist[i], ifolist[j]])
+		    if len(coinc_slides_sim) > 1:  
+			  (y_slide, x_slide) = normalized_hist(coinc_slides_sim, slide_bins)
+		    else:
+			  hist_check_slides = 0
+
+		    if len(coinc_inj_sim) > 1:  
+			  (y_inj, x_inj) = normalized_hist(coinc_inj_sim, inj_bins)
+		    else:
+			  hist_check_inj = 0
 
 	      else:
 		    coinc_slides_fir = coinc_slides.coinctype(ifolist).getsngls(ifolist[i]).get_column(param)
@@ -546,6 +558,23 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			savefig(coinc_label + '-' + str(param) + "_" + str(ifopairs[i][0]) + str(ifopairs[i][1]) + "_" +  str(ifopairs[j][0]) + str(ifopairs[j][1]) + "_scatter_plot")
 			figure()
 
+		  if param == 'ethinca':
+			coinc_slides_x = coinc_slides.coinctype(ifolist).getEThincaValues([ifopairs[i][0], ifopairs[i][1]])
+			coinc_inj_x = coinc_inj.coinctype(ifolist).getEThincaValues([ifopairs[i][0], ifopairs[i][1]])
+			coinc_zerolag_x = coinc_zerolag.coinctype(ifolist).getEThincaValues([ifopairs[i][0], ifopairs[i][1]])
+			coinc_slides_y = coinc_slides.coinctype(ifolist).getEThincaValues([ifopairs[j][0], ifopairs[j][1]])
+			coinc_inj_y = coinc_inj.coinctype(ifolist).getEThincaValues([ifopairs[j][0], ifopairs[j][1]])
+			coinc_zerolag_y = coinc_zerolag.coinctype(ifolist).getEThincaValues([ifopairs[j][0], ifopairs[j][1]])
+			l1 = plot(coinc_slides_x, coinc_slides_y, marker='x', linestyle='None', color='k')
+			hold(True)
+			l2 = plot(coinc_inj_x, coinc_inj_y, marker='x', linestyle='None', color='r')
+			hold(True)
+			l3 = plot(coinc_zerolag_x, coinc_zerolag_y, marker='o', linestyle='None', color='g')
+			xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifopairs[i][0]) + '-' + str(ifopairs[i][1]))
+			ylabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifopairs[j][0]) + '-' + str(ifopairs[j][1]))
+			legend((l3, l2, l1), ('zerolag candidates', 'found injections', 'background events'))
+			savefig(coinc_label + '-' + str(param) + "_" + str(ifopairs[i][0]) + str(ifopairs[i][1]) + "_" +  str(ifopairs[j][0]) + str(ifopairs[j][1]) + "_scatter_plot")
+			figure()
 
 def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="All", prefix='False_Alarm_Probability', y_lower_limit=0.00001):
   """
@@ -1409,7 +1438,7 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
     zerolagCoincTriggers = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
   # read in time slides triggers 
   slidesTriggers = None
-  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slidesfiles,mangle_event_id= False)
+  slidesTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(slidesfiles, shiftVector={'H1' : 0, 'H2' : 10, 'L1' : 5}, mangleEventId = False)
   # construct the time slides coincs
   slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
   # read in injections sngl and sim inspirals
@@ -1445,6 +1474,8 @@ if opts.input_data_type == 'sngl-inspiral-table-only':
   if opts.plot_simethinca:
     plotroutine(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'simethinca', opts.slide_bins, opts.injection_bins)
     scatter_plot_param_diff_2D_with_zerolag(ifo_combos, slidesCoincTriggers,injectionCoincTriggers, zerolagCoincTriggers, "simethinca")
+    plotroutine(ifo_combos, slidesCoincTriggers, injectionCoincTriggers,'ethinca', opts.slide_bins, opts.injection_bins)
+    scatter_plot_param_diff_2D_with_zerolag(ifo_combos, slidesCoincTriggers,injectionCoincTriggers, zerolagCoincTriggers, "ethinca")
 	
   # plots of effective distance
   if opts.plot_distcut:
