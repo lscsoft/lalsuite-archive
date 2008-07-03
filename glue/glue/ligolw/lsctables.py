@@ -836,7 +836,7 @@ class SnglInspiralTable(table.Table):
 		if slide_num < 0:
 			slide_num = 5000 - slide_num
 		for row in self:
-			if row.get_slidenum() == slide_num:
+			if row.get_slide_number() == slide_num:
 				slideTrigs.append(row)
 		return slideTrigs
 
@@ -866,9 +866,6 @@ class SnglInspiral(object):
 		slidenum = (int_event_id % 1000000000) // 100000
 		y = int_event_id % 100000
 		return x, slidenum, y
-
-	def get_slidenum(self):
-		return self.get_id_parts()[1]
 
 	def get_slide_number(self):
 		"""
@@ -1056,7 +1053,7 @@ class MultiInspiralTable(table.Table):
 		if slide_num < 0:
 			slide_num = 5000 - slide_num
 		for row in self:
-			if row.get_slidenum() == slide_num:
+			if row.get_slide_number() == slide_num:
 				slideTrigs.append(row)
 		return slideTrigs
 
@@ -1073,9 +1070,15 @@ class MultiInspiral(object):
 		y = int_event_id % 100000
 		return x, slidenum, y
 
-	def get_slidenum(self):
-		return self.get_id_parts()[1]
-
+	def get_slide_number(self):
+		"""
+		Return the slide-number for this trigger
+		"""
+		x, slidenum, y = self.get_id_parts()
+		slide_number = slidenum
+		if slide_number > 5000:
+			slide_number = 5000 - slide_number
+		return slide_number
 
 MultiInspiralTable.RowType = MultiInspiral
 
