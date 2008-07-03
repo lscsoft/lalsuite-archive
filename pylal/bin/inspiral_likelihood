@@ -50,7 +50,7 @@ class InspiralLikelihoodTable(table.Table):
 	  if slide_num < 0:
 		  slide_num = 5000 - slide_num
 	  for row in self:
-		  if row.get_slidenum() == slide_num:
+		  if row.get_slide_number() == slide_num:
 			  slideTrigs.append(row)
 	  return slideTrigs
 
