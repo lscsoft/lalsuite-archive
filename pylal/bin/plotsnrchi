@@ -531,7 +531,7 @@ if opts.snr_chisq:
 
 ###################################
 # plot of snr vs bank_chisq
-if opts.snr_bank_chisq:
+if opts.bank_chisq:
   fig_num +=1
   figure(fig_num)
 
@@ -555,7 +555,7 @@ if opts.snr_bank_chisq:
 
 ###################################
 # plot of snr vs chisq
-if opts.snr_cont_chisq:
+if opts.cont_chisq:
   fig_num +=1
   figure(fig_num)
 
