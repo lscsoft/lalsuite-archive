@@ -368,6 +368,28 @@ class coincInspiralTable:
     return ifoTrigs
 
 
+  def vetoed(self, seglist):
+    """
+    Return a list of coinc triggers that are vetoed
+    by the given segment
+    @param seglist: segment list to be checked
+    """
+    ifolist = ['G1','H1','H2','L1','T1','V1'] 
+    vetoed_coincs = coincInspiralTable(stat=self.stat)
+    for coinc in self:
+      flagVeto = True
+      for ifo in ifolist:
+        if hasattr(coinc, ifo):
+          if getattr(coinc,ifo).get_end() not in seglist:
+            flagVeto = False
+
+      # append to list of vetoed coincs if and only if
+      # all triggers lie within the seglist
+      if flagVeto:
+        vetoed_coincs.append( coinc )
+
+    return vetoed_coincs
+
   def cluster(self, cluster_window):
     """
     Return the clustered triggers, returning the one with the largest stat in 
