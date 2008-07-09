@@ -12,10 +12,12 @@ from glue import lal
 from glue import segments
 import socket, os
 import sys
+import copy
 
 from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from pylal import SnglInspiralUtils
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
@@ -444,5 +446,45 @@ def freeMemory(data, keep=None):
         # simply delete it
         delattr(this, key)
 
+
+
   return data
 
+
+def ReadSnglInspiralFromFiles(injFiles, keep=None, verbose=False):
+  """ 
+  This function takes a list of files as an input and returns a SnglInspiral class 
+  
+  This function is a temporary replacement for ReadSnglInspiralFomFiles to deal with large amount of data.
+  Indeed, ReadSnglInspiralFromFiles reads all the fields, which causes memory allocation problems. 
+  Ideally the fix should be done inside ReadSnglInspiralFromfiles and glue. Once done, this 
+  function can be removed
+    
+  @param injFiles: list of filename
+  @keep fields: a list of string telling which field to keep 
+  """
+
+  trigs = []
+  
+  for inj in injFiles:
+    # read each file individually
+    trig = SnglInspiralUtils.ReadSnglInspiralFromFiles([inj], verbose=verbose)
+    
+    if len(trigs)==0:
+      # if this is the first valid trig, simply copy it
+      try: 
+        # remove all useless fields
+        trig = freeMemory(trig, keep=None)
+        trigs = copy.copy(trig)
+      except:
+        pass
+    else:
+      # otherwise extend it
+      try:
+        # remove all useless fields
+        trig = freeMemory(trig, keep=keep)
+        trigs.extend(trig)	
+      except:
+        pass
+
+  return trigs
