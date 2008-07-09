@@ -426,4 +426,23 @@ def isPlayground(table):
   else:
     return False
 
+def freeMemory(data, keep=None):
+  """ take a ligolw.lsctables.SnglInspiral class and remove the fields that 
+      are not contained in the argument keep
+      @param data : the ligolw.lsctables
+      @param keep:  a list of string.
+  """
+  if keep==None:
+    return data
+
+  # loop over the data
+  for this in data:
+    # loop over the keys
+    for key in this.__slots__:
+      # if we do not want it then
+      if key not in keep:
+        # simply delete it
+        delattr(this, key)
+
+  return data
 
