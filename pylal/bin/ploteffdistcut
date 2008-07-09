@@ -394,16 +394,19 @@ if opts.dist_snr:
   semilogx(inj_snr, inj_error, 'rx')
   leg.append('inj')
 
-  x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
-  if opts.add_fit is True:
-    fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
-    semilogx(x,fit_y,'k',linewidth=2)
-    leg.append('fit')
-  if opts.kappa or opts.epsilon:
-    semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
+  if len(inj_snr)>0:
+    x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
+    if opts.add_fit is True:
+      fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
+      semilogx(x,fit_y,'k',linewidth=2)
+      leg.append('fit')
+    if opts.kappa or opts.epsilon:
+      semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
     leg.append('cut')
-  xlim(min(x),max(x))
-  ylim(0,2)
+    xlim(min(x),max(x))
+    ylim(0,2)
+  else:
+    print 'No injection found. skipping plotting of the injections in dist_snr plots'
 
   xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"))
   ylabel('fractional difference in eff. distance')
@@ -428,14 +431,26 @@ if opts.dist_hist:
   figNum += 1
   figure(figNum)
   if opts.slide_glob or opts.slide_pattern:
-    [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
-    slide_num = slide_num/float(sum(slide_num))
-  [inj_num,inj_bin,junk] = hist(inj_error,bins=20)
-  inj_num = inj_num/float(sum(inj_num))
+    if len(slide_error)>0:
+      [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
+      slide_num = slide_num/float(sum(slide_num))
+    else:
+      slide_num=[]
+      slide_bin=[]
+
+  if len(inj_error)>0:
+    [inj_num,inj_bin,junk] = hist(inj_error,bins=20)
+    inj_num = inj_num/float(sum(inj_num))
+  else: 
+    inj_num = []
+    inj_bin = []
+
   clf()
   if opts.slide_glob or opts.slide_pattern:
-    bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='k')
-  bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
+    if len(slide_num)>0:
+      bar(slide_bin,slide_num,slide_bin[1]-slide_bin[0],color='k')
+  if len(inj_num)>0:
+    bar(inj_bin,inj_num,inj_bin[1]-inj_bin[0],color='r')
   if not opts.epsilon and opts.kappa:
     axvline(opts.kappa,linewidth=2,color='k')
   xticks(fontsize=opts.font_size)
@@ -469,24 +484,25 @@ if opts.dist_dist:
   ax.grid(True)
   ax.set_xscale("log")
   ax.set_yscale("log")
-
   leg = []
   if opts.slide_glob or opts.slide_pattern:
     x = [getattr(coinc, opts.ifoa).eff_distance for coinc in slideTriggers]
     y = [getattr(coinc, opts.ifob).eff_distance for coinc in slideTriggers]
-    ax.plot(x, y, 'k+')
-    if opts.num_slides > 0:
-      leg.append('slide')
-    else: # opts.num_slides == 0
-      leg.append('background')
+    if len(x)!=0 and len(y)!=0:
+      ax.plot(x, y, 'k+')
+      if opts.num_slides > 0:
+        leg.append('slide')
+      else: # opts.num_slides == 0
+        leg.append('background')
   x = [getattr(coinc, opts.ifoa).eff_distance for coinc in injTriggers]
   y = [getattr(coinc, opts.ifob).eff_distance for coinc in injTriggers]
-  ax.plot(x, y, 'rx')
-  leg.append('injections')
-  grid(True)
-
-  ax.axis("tight")
-  viz.square_axis(ax)
+  if len(x)!=0 and len(y)!=0:
+    ax.plot(x, y, 'rx')
+    leg.append('injections')
+    grid(True)
+    if len(x)>1:
+      ax.axis("tight")
+    viz.square_axis(ax)
   ax.set_xlabel('%s effective distance' % opts.ifoa)
   ax.set_ylabel('%s effective distance' % opts.ifob)
   ax.legend(leg, loc='upper left')
