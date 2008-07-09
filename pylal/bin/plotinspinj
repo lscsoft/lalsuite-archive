@@ -472,13 +472,20 @@ if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
 
      
-# read in triggers
-trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles)
+# plotinspinj may fail because it is memory demanding. 
+# In order to reduce the amount of memory needed, I wrote a small hack.
+# Ideally the hack should be inside ReadSnglInspiral and SnglInspiralUtils
+# For now, instead of reading all the files together, we read them one by one
+# AND, each time a file is read, we remove all the fields that are not needed by# using the freeMemory function in InspiralUtils package.
+fields = ['mchirp', 'eta', 'end_time', 'end_time_ns','ifo',  'snr', 'eff_distance']
+trigs = InspiralUtils.ReadSnglInspiralFromFiles(injFiles, keep=fields, verbose=opts.verbose)
+
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
- 
-if (trigs is None) or \
-  (sims is None):
-  raise ValueError, "the number of triggers or number of sims is zero"   
+
+if (trigs is None) :
+  raise ValueError, "the number of triggers   is zero"   
+if (sims is None):
+  raise ValueError, "the number of sims is zero"   
   
 # veto if supplied
 if opts.veto_file:
@@ -499,6 +506,7 @@ if opts.coire_split:
   sims = new_sim_table
 
 if len(trigs) != len(sims):
+  print ' Found '+ str(len(trigs)) +' triggers and ', str(len(sims)) +'simulations'
   raise ValueError, "number of triggers and found injections must be equal"
 
 # sort into bins by IFO
