@@ -72,7 +72,7 @@ __date__ = "$Date$"[7:-2]
 
 
 #
-# Interpolator wrapper.
+# Interpolator wrappers.
 #
 
 
@@ -105,6 +105,32 @@ class interp1d(interpolate.interp1d):
 		interpolate.interp1d.__init__(self, x, y, kind = "linear", bounds_error = False, fill_value = fill_value)
 
 
+class interp2d(interpolate.interp2d):
+	# unlike the real interp2d, this version requires the x and y
+	# arrays to be just the co-ordinates of the columns and rows of a
+	# regular mesh.
+	def __init__(self, x, y, z, fill_value = 0.0):
+		# Extrapolate x, y and z arrays by half a bin at each end.
+		# See interp1d for an explanation.
+
+		x = numpy.hstack((x[0] + (x[0] - x[1]) / 2.0, x, x[-1] + (x[-1] - x[-2]) / 2.0))
+		y = numpy.hstack((y[0] + (y[0] - y[1]) / 2.0, y, y[-1] + (y[-1] - y[-2]) / 2.0))
+		z = numpy.vstack((z[0] + (z[0] - z[1]) / 2.0, z, z[-1] + (z[-1] - z[-2]) / 2.0))
+		z = numpy.transpose(z)
+		z = numpy.vstack((z[0] + (z[0] - z[1]) / 2.0, z, z[-1] + (z[-1] - z[-2]) / 2.0))
+		z = numpy.transpose(z)
+
+		# Clip the z array to 0.  See interp1d for an explanation.
+
+		z = numpy.clip(z, 0.0, float("inf"))
+
+		# Build the interpolator.  Note the use of fill_value as
+		# the return value for co-ordinates outside the domain of
+		# the interpolator.
+
+		interpolate.interp2d.__init__(self, x, y, z, kind = "linear", bounds_error = False, fill_value = fill_value)
+
+
 #
 # Class for computing foreground likelihoods from the measurements in a
 # CoincParamsDistributions instance.
@@ -113,24 +139,49 @@ class interp1d(interpolate.interp1d):
 
 class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
+		# check input
+		if set(self.background_rates.keys()) != set(self.injection_rates.keys()):
+			raise ValueError, "distribution density name mismatch"
+		for name, binnedarray in coinc_param_distributions.background_rates.items():
+			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
+				raise ValueError, "distribution density dimension mismatch"
+
 		# construct interpolators from the distribution data
 		self.background_rates = {}
 		self.injection_rates = {}
-		for name, binnedarray in coinc_param_distributions.background_rates.iteritems():
-			self.background_rates[name] = interp1d(binnedarray.centres()[0], binnedarray.array)
-		for name, binnedarray in coinc_param_distributions.injection_rates.iteritems():
-			self.injection_rates[name] = interp1d(binnedarray.centres()[0], binnedarray.array)
+		for name, binnedarray in coinc_param_distributions.background_rates.items():
+			if len(binnedarray.array.shape) == 1:
+				x, = binnedarray.centres()
+				self.background_rates[name] = interp1d(x, binnedarray.array)
+			elif len(binnedarray.array.shape) == 2:
+				x, y = binnedarray.centres()
+				self.background_rates[name] = interp2d(x, y, binnedarray.array)
+			else:
+				raise ValueError, "distribution densities with >2 dimensions not supported"
+		for name, binnedarray in coinc_param_distributions.injection_rates.items():
+			if len(binnedarray.array.shape) == 1:
+				x, = binnedarray.centres()
+				self.injection_rates[name] = interp1d(x, binnedarray.array)
+			elif len(binnedarray.array.shape) == 2:
+				x, y = binnedarray.centres()
+				self.injection_rates[name] = interp2d(x, y, binnedarray.array)
+			else:
+				raise ValueError, "distribution densities with >2 dimensions not supported"
 
 	def set_P_gw(self, P):
 		self.P_gw = P
 
 	def P(self, param_func, events, offsetdict, *args):
-		P_background = 1.0
-		P_injection = 1.0
-		for name, value in param_func(events, offsetdict, *args).iteritems():
-			P_background *= self.background_rates[name](value)[0]
-			P_injection *= self.injection_rates[name](value)[0]
-		return P_background, P_injection
+		P_bak = 1.0
+		P_inj = 1.0
+		for name, value in param_func(events, offsetdict, *args).items():
+			if isinstance(value, tuple):
+				P_bak *= self.background_rates[name](*value)[0]
+				P_inj *= self.injection_rates[name](*value)[0]
+			else:
+				P_bak *= self.background_rates[name](value)[0]
+				P_inj *= self.injection_rates[name](value)[0]
+		return P_bak, P_inj
 
 	def __call__(self, param_func, events, offsetdict, *args):
 		"""
@@ -143,8 +194,8 @@ class Likelihood(object):
 		is a dictionary of instrument --> offset mappings to be
 		used to time shift the events before comparison.
 		"""
-		P_background, P_injection = self.P(param_func, events, offsetdict, *args)
-		return (P_injection * self.P_gw) / (P_background + (P_injection - P_background) * self.P_gw)
+		P_bak, P_inj = self.P(param_func, events, offsetdict, *args)
+		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
 class Confidence(Likelihood):
