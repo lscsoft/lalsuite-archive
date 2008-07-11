@@ -175,12 +175,8 @@ class Likelihood(object):
 		P_bak = 1.0
 		P_inj = 1.0
 		for name, value in param_func(events, offsetdict, *args).items():
-			if isinstance(value, tuple):
-				P_bak *= self.background_rates[name](*value)[0]
-				P_inj *= self.injection_rates[name](*value)[0]
-			else:
-				P_bak *= self.background_rates[name](value)[0]
-				P_inj *= self.injection_rates[name](value)[0]
+			P_bak *= self.background_rates[name](*value)[0]
+			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
 
 	def __call__(self, param_func, events, offsetdict, *args):
