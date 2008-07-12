@@ -654,7 +654,7 @@ class SnglInspiralID_old(object):
 	def new(self, row):
 		self.n += 1
 		y = self.n % 100000
-		x = 100000000 + (self.n // 100000)
+		x = self.n // 100000
 		return SnglInspiralID(x * 1000000000 + row.get_id_parts()[1] * 100000 + y)
 
 
