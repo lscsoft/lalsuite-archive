@@ -77,6 +77,7 @@ lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
 def coinc_params(events, offsetdict):
 	params = {}
+	events = list(events)
 	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
 
 	if events:
@@ -92,7 +93,7 @@ def coinc_params(events, offsetdict):
 
 		t = events[0].get_peak()
 		t += sum(float(event.get_peak() - t) * event.ms_snr**2.0 for event in events) / sum(event.ms_snr**2.0 for event in events)
-		#params["gmst"] = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
+		gmst = date.XLALGreenwichMeanSiderealTime(t) % (2 * math.pi)
 
 	for event1, event2 in iterutils.choices(events, 2):
 		if event1.ifo == event2.ifo:
@@ -108,32 +109,35 @@ def coinc_params(events, offsetdict):
 
 		dt = float(event1.get_peak() + offsetdict[event1.ifo] - event2.get_peak() - offsetdict[event2.ifo])
 		name = "%sdt" % prefix
-		if name not in params or abs(params[name]) > abs(dt):
-			params[name] = dt
+		if name not in params or abs(params[name][0]) > abs(dt):
+			#params[name] = (dt,)
+			params[name] = (dt, gmst)
 
 		df = (event1.peak_frequency - event2.peak_frequency) / ((event1.peak_frequency + event2.peak_frequency) / 2)
 		name = "%sdf" % prefix
-		if name not in params or abs(params[name]) > abs(df):
-			params[name] = df
+		if name not in params or abs(params[name][0]) > abs(df):
+			#params[name] = (df,)
+			params[name] = (df, gmst)
 
 		dh = (event1.ms_hrss - event2.ms_hrss) / ((event1.ms_hrss + event2.ms_hrss) / 2)
 		name = "%sdh" % prefix
-		if name not in params or abs(params[name]) > abs(dh):
-			params[name] = dh
+		if name not in params or abs(params[name][0]) > abs(dh):
+			#params[name] = (dh,)
+			params[name] = (dh, gmst)
 
 		dband = (event1.ms_bandwidth - event2.ms_bandwidth) / ((event1.ms_bandwidth + event2.ms_bandwidth) / 2)
 		name = "%sdband" % prefix
-		if name not in params or abs(params[name]) > abs(dband):
-			params[name] = dband
+		if name not in params or abs(params[name][0]) > abs(dband):
+			#params[name] = (dband,)
+			params[name] = (dband, gmst)
 
 		ddur = (event1.ms_duration - event2.ms_duration) / ((event1.ms_duration + event2.ms_duration) / 2)
 		name = "%sddur" % prefix
-		if name not in params or abs(params[name]) > abs(ddur):
-			params[name] = ddur
+		if name not in params or abs(params[name][0]) > abs(ddur):
+			#params[name] = (ddur,)
+			params[name] = (ddur, gmst)
 
-	# convert values to 1-D tuples, and we're done
-
-	return dict([(name, (value,)) for name, value in params.items()])
+	return params
 
 
 #
@@ -168,7 +172,7 @@ def delay_and_amplitude_correct(event, ra, dec):
 
 
 def targeted_coinc_params(events, offsetdict, ra, dec):
-	return coinc_params([delay_and_amplitude_correct(event, ra, dec) for event in events], offsetdict)
+	return coinc_params((delay_and_amplitude_correct(event, ra, dec) for event in events), offsetdict)
 
 
 #
@@ -470,8 +474,10 @@ class Covariance(Stats):
 
 
 def dt_binning(instrument1, instrument2):
-	dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 24001),))
+	# FIXME:  hard-coded for directional search
+	#dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
+	dt = 0.02
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801)))
 
 
 class DistributionsStats(Stats):
@@ -482,41 +488,39 @@ class DistributionsStats(Stats):
 	"""
 
 	binnings = {
-		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
-		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001),)),
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 4801))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
-		"H2_L1_dt": dt_binning("H2", "L1")#,
-		#"gmst": rate.NDBins((rate.LinearBins(0.0, 2 * math.pi, 4801),))
+		"H2_L1_dt": dt_binning("H2", "L1")
 	}
 
 	filters = {
-		"H1_H2_dband": rate.gaussian_window(21),
-		"H1_L1_dband": rate.gaussian_window(21),
-		"H2_L1_dband": rate.gaussian_window(21),
-		"H1_H2_ddur": rate.gaussian_window(21),
-		"H1_L1_ddur": rate.gaussian_window(21),
-		"H2_L1_ddur": rate.gaussian_window(21),
-		"H1_H2_df": rate.gaussian_window(21),
-		"H1_L1_df": rate.gaussian_window(21),
-		"H2_L1_df": rate.gaussian_window(21),
-		"H1_H2_dh": rate.gaussian_window(21),
-		"H1_L1_dh": rate.gaussian_window(21),
-		"H2_L1_dh": rate.gaussian_window(21),
-		"H1_H2_dt": rate.gaussian_window(21),
-		"H1_L1_dt": rate.gaussian_window(21),
-		"H2_L1_dt": rate.gaussian_window(21)#,
-		#"gmst": rate.gaussian_window(21)
+		"H1_H2_dband": rate.gaussian_window2d(21, 21),
+		"H1_L1_dband": rate.gaussian_window2d(21, 21),
+		"H2_L1_dband": rate.gaussian_window2d(21, 21),
+		"H1_H2_ddur": rate.gaussian_window2d(21, 21),
+		"H1_L1_ddur": rate.gaussian_window2d(21, 21),
+		"H2_L1_ddur": rate.gaussian_window2d(21, 21),
+		"H1_H2_df": rate.gaussian_window2d(21, 21),
+		"H1_L1_df": rate.gaussian_window2d(21, 21),
+		"H2_L1_df": rate.gaussian_window2d(21, 21),
+		"H1_H2_dh": rate.gaussian_window2d(21, 21),
+		"H1_L1_dh": rate.gaussian_window2d(21, 21),
+		"H2_L1_dh": rate.gaussian_window2d(21, 21),
+		"H1_H2_dt": rate.gaussian_window2d(21, 21),
+		"H1_L1_dt": rate.gaussian_window2d(21, 21),
+		"H2_L1_dt": rate.gaussian_window2d(21, 21)
 	}
 
 	def __init__(self):
