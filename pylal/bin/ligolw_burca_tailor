@@ -53,7 +53,7 @@ __date__ = "$Date$"[7:-2]
 
 
 # so they can be inserted into a database
-dbtables.types.ToPyType["ilwd:char"] = str
+dbtables.ligolwtypes.ToPyType["ilwd:char"] = str
 
 
 # so they aren't inserted into a database
