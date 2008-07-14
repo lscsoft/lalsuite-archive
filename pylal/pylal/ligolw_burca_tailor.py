@@ -194,7 +194,7 @@ class CoincParamsDistributions(object):
 		self.zero_lag_rates = {}
 		self.background_rates = {}
 		self.injection_rates = {}
-		for param, binning in kwargs.iteritems():
+		for param, binning in kwargs.items():
 			self.zero_lag_rates[param] = rate.BinnedArray(binning)
 			self.background_rates[param] = rate.BinnedArray(binning)
 			self.injection_rates[param] = rate.BinnedArray(binning)
@@ -202,17 +202,17 @@ class CoincParamsDistributions(object):
 	def __iadd__(self, other):
 		if type(other) != type(self):
 			raise TypeError, other
-		for param, rate in other.zero_lag_rates.iteritems():
+		for param, rate in other.zero_lag_rates.items():
 			if param in self.zero_lag_rates:
 				self.zero_lag_rates[param] += rate
 			else:
 				self.zero_lag_rates[param] = rate
-		for param, rate in other.background_rates.iteritems():
+		for param, rate in other.background_rates.items():
 			if param in self.background_rates:
 				self.background_rates[param] += rate
 			else:
 				self.background_rates[param] = rate
-		for param, rate in other.injection_rates.iteritems():
+		for param, rate in other.injection_rates.items():
 			if param in self.injection_rates:
 				self.injection_rates[param] += rate
 			else:
@@ -220,7 +220,7 @@ class CoincParamsDistributions(object):
 		return self
 
 	def add_zero_lag(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).iteritems():
+		for param, value in param_func(events, timeslide, *args).items():
 			rate = self.zero_lag_rates[param]
 			try:
 				rate[value] += 1.0
@@ -229,7 +229,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_background(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).iteritems():
+		for param, value in param_func(events, timeslide, *args).items():
 			rate = self.background_rates[param]
 			try:
 				rate[value] += 1.0
@@ -238,7 +238,7 @@ class CoincParamsDistributions(object):
 				pass
 
 	def add_injection(self, param_func, events, timeslide, *args):
-		for param, value in param_func(events, timeslide, *args).iteritems():
+		for param, value in param_func(events, timeslide, *args).items():
 			rate = self.injection_rates[param]
 			try:
 				rate[value] += 1.0
@@ -477,7 +477,7 @@ def dt_binning(instrument1, instrument2):
 	# FIXME:  hard-coded for directional search
 	#dt = 0.02 + inject.light_travel_time(instrument1, instrument2)
 	dt = 0.02
-	return rate.NDBins((rate.ATanBins(-dt, +dt, 24001), rate.LinearBins(0.0, 2 * math.pi, 481)))
+	return rate.NDBins((rate.ATanBins(-dt, +dt, 12001), rate.LinearBins(0.0, 2 * math.pi, 241)))
 
 
 class DistributionsStats(Stats):
@@ -488,39 +488,39 @@ class DistributionsStats(Stats):
 	"""
 
 	binnings = {
-		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
-		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 24001), rate.LinearBins(0.0, 2 * math.pi, 481))),
+		"H1_H2_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H2_L1_dband": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_H2_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H2_L1_ddur": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_H2_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H2_L1_df": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_H2_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H1_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
+		"H2_L1_dh": rate.NDBins((rate.LinearBins(-2.0, +2.0, 12001), rate.LinearBins(0.0, 2 * math.pi, 241))),
 		"H1_H2_dt": dt_binning("H1", "H2"),
 		"H1_L1_dt": dt_binning("H1", "L1"),
 		"H2_L1_dt": dt_binning("H2", "L1")
 	}
 
 	filters = {
-		"H1_H2_dband": rate.gaussian_window2d(21, 21),
-		"H1_L1_dband": rate.gaussian_window2d(21, 21),
-		"H2_L1_dband": rate.gaussian_window2d(21, 21),
-		"H1_H2_ddur": rate.gaussian_window2d(21, 21),
-		"H1_L1_ddur": rate.gaussian_window2d(21, 21),
-		"H2_L1_ddur": rate.gaussian_window2d(21, 21),
-		"H1_H2_df": rate.gaussian_window2d(21, 21),
-		"H1_L1_df": rate.gaussian_window2d(21, 21),
-		"H2_L1_df": rate.gaussian_window2d(21, 21),
-		"H1_H2_dh": rate.gaussian_window2d(21, 21),
-		"H1_L1_dh": rate.gaussian_window2d(21, 21),
-		"H2_L1_dh": rate.gaussian_window2d(21, 21),
-		"H1_H2_dt": rate.gaussian_window2d(21, 21),
-		"H1_L1_dt": rate.gaussian_window2d(21, 21),
-		"H2_L1_dt": rate.gaussian_window2d(21, 21)
+		"H1_H2_dband": rate.gaussian_window2d(11, 11),
+		"H1_L1_dband": rate.gaussian_window2d(11, 11),
+		"H2_L1_dband": rate.gaussian_window2d(11, 11),
+		"H1_H2_ddur": rate.gaussian_window2d(11, 11),
+		"H1_L1_ddur": rate.gaussian_window2d(11, 11),
+		"H2_L1_ddur": rate.gaussian_window2d(11, 11),
+		"H1_H2_df": rate.gaussian_window2d(11, 11),
+		"H1_L1_df": rate.gaussian_window2d(11, 11),
+		"H2_L1_df": rate.gaussian_window2d(11, 11),
+		"H1_H2_dh": rate.gaussian_window2d(11, 11),
+		"H1_L1_dh": rate.gaussian_window2d(11, 11),
+		"H2_L1_dh": rate.gaussian_window2d(11, 11),
+		"H1_H2_dt": rate.gaussian_window2d(11, 11),
+		"H1_L1_dt": rate.gaussian_window2d(11, 11),
+		"H2_L1_dt": rate.gaussian_window2d(11, 11)
 	}
 
 	def __init__(self):
@@ -552,11 +552,11 @@ class DistributionsStats(Stats):
 def coinc_params_distributions_to_xml(process, coinc_params_distributions, name):
 	xml = ligolw.LIGO_LW({u"Name": u"%s:pylal_ligolw_burca_tailor_coincparamsdistributions" % name})
 	xml.appendChild(param.new_param(u"process_id", u"ilwd:char", process.process_id))
-	for name, binnedarray in coinc_params_distributions.zero_lag_rates.iteritems():
+	for name, binnedarray in coinc_params_distributions.zero_lag_rates.items():
 		xml.appendChild(rate.binned_array_to_xml(binnedarray, "zero_lag:%s" % name))
-	for name, binnedarray in coinc_params_distributions.background_rates.iteritems():
+	for name, binnedarray in coinc_params_distributions.background_rates.items():
 		xml.appendChild(rate.binned_array_to_xml(binnedarray, "background:%s" % name))
-	for name, binnedarray in coinc_params_distributions.injection_rates.iteritems():
+	for name, binnedarray in coinc_params_distributions.injection_rates.items():
 		xml.appendChild(rate.binned_array_to_xml(binnedarray, "injection:%s" % name))
 	return xml
 
