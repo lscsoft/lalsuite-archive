@@ -238,13 +238,20 @@ class coincInspiralTable:
       return slide_num
     slide_num = property(fget=_get_slide_num)
 
-
     def get_time( self ):
       for ifo in ifos:
         if hasattr(self,ifo):
           return getattr(self, ifo).end_time+getattr(self, ifo).end_time_ns*1.0e-9
       raise ValueError, "This coincident trigger does not contain any "\
             "single trigger.  This should never happen."
+
+    def __iter__(self):
+      """
+      Return an iterator over the triggers in this coinc.
+      """
+      for ifo in ifos:
+        if hasattr(self, ifo):
+          yield getattr(self, ifo)
 
   def __init__(self, inspTriggers = None, stat = None):
     """
