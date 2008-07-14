@@ -411,7 +411,7 @@ class NDBins(tuple):
 #
 
 
-def bins_spanned(bins, seglist, dtype = numpy.float64):
+def bins_spanned(bins, seglist, dtype = "double"):
 	"""
 	Input is a Bins subclass instance and a glue.segments.segmentlist
 	instance.  The output is an array object the length of the binning,
@@ -472,7 +472,7 @@ class BinnedArray(object):
 
 	Note that even for 1 dimensional arrays the index must be a tuple.
 	"""
-	def __init__(self, bins, dtype = numpy.float64):
+	def __init__(self, bins, dtype = "double"):
 		self.bins = bins
 		self.array = numpy.zeros(bins.shape, dtype = dtype)
 
@@ -536,7 +536,7 @@ class BinnedRatios(object):
 	accessible as the numerator and denominator attributes, which are
 	both BinnedArray objects.
 	"""
-	def __init__(self, bins, dtype = numpy.float64):
+	def __init__(self, bins, dtype = "double"):
 		self.numerator = BinnedArray(bins, dtype = dtype)
 		self.denominator = BinnedArray(bins, dtype = dtype)
 
