@@ -67,22 +67,24 @@ def get_num_slides(xmldoc):
     Return the value of --num-slides found in the process_params table of
     xmldoc.  If no such entry is found, return 0.
     """
+    tbl_name = lsctables.ProcessParamsTable.tableName
+
     # don't be too picky what program had --num-slides
-    slide_params = [int(row.value) for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.param == "--num-slides")] + [0]
-    return max(slide_params)
+    for tbl in table.getTablesByName(xmldoc, tbl_name):
+        for row in tbl:
+           if row.param == "--num-slides":
+               return int(row.value)
+    return 0
 
 def array_of_lists(shape):
     """
-    Return a 2D array of empty lists given shape, a 2-tuple of dimensions.
+    Return an array of empty lists given shape, a tuple of dimensions.
     """
-    if len(shape) != 2:
-        raise ValueError, "array_of_lists only takes a 2-tuple shape argument"
-
-    arr = numpy.empty(shape, dtype=object)
-    for i in xrange(shape[0]):
-        for j in xrange(shape[1]):
-            arr[i, j] = []
-    return arr
+    size = numpy.prod(shape)
+    arr = numpy.empty(size, dtype=object)
+    for i in xrange(size):
+        arr[i] = []
+    return arr.reshape(shape)
 
 def get_loudest_stat(coinc_list):
     """
