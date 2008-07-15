@@ -158,8 +158,7 @@ class SimplePlot(BasicPlot):
         del self.y_data_sets
         del self.data_labels
 
-
-class VerticalBarPlot(BasicPlot):
+class BarPlot(BasicPlot):
     """
     A simple vertical bar plot.  Bars are centered on the x values and have
     height equal to the y values.
@@ -175,7 +174,7 @@ class VerticalBarPlot(BasicPlot):
         self.y_data_sets.append(y_data)
         self.data_labels.append(label)
 
-    def finalize(self):
+    def finalize(self, orientation="vertical"):
         # make plot
         colors = default_colors()
 
@@ -183,7 +182,7 @@ class VerticalBarPlot(BasicPlot):
             itertools.izip(self.x_data_sets, self.y_data_sets, colors,
                            self.data_labels):
             self.ax.bar(x_vals, y_vals, color=color, label=label,
-                        align="center", linewidth=0)
+                        align="center", linewidth=0, orientation=orientation)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist()
@@ -192,7 +191,6 @@ class VerticalBarPlot(BasicPlot):
         del self.x_data_sets
         del self.y_data_sets
         del self.data_labels
-
 
 class VerticalBarHistogram(BasicPlot):
     """
@@ -235,6 +233,51 @@ class VerticalBarHistogram(BasicPlot):
 
         # decrement reference counts
         del self.data_sets
+        del self.data_labels
+
+class NumberVsBinBarPlot(BasicPlot):
+    """
+    Make a bar plot in which the width and placement of the bars are set
+    by the given bins.
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.bin_sets = []
+        self.value_sets = []
+        self.data_labels = []
+
+    def add_content(self, bins, values, label="_nolabel_"):
+        if len(bins) != len(values):
+            raise ValueError, "length of bins and values do not match"
+        self.bin_sets.append(bins)
+        self.value_sets.append(values)
+        self.data_labels.append(label)
+
+    def finalize(self, orientation="vertical"):
+        colors = default_colors()
+        for bins, values, color, label in itertools.izip(self.bin_sets,
+            self.value_sets, colors, self.data_labels):
+            x_vals = bins.centres()
+            widths = bins.upper() - bins.lower()
+
+            if orientation == "vertical":
+                self.ax.bar(x_vals, values, width=widths, color=color,
+                    label=label, align="center", linewidth=0)
+            elif orientation == "horizontal":
+                self.ax.barh(x_vals, values, height=widths, color=color,
+                    label=label, align="center", linewidth=0)
+            else:
+                raise ValueError, orientation + " must be 'vertical' " \
+                    "or 'horizontal'"
+
+        pylab.axis('tight')
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist()
+
+        # decrement reference counts
+        del self.bin_sets
+        del self.value_sets
         del self.data_labels
 
 class CumulativeHistogramPlot(BasicPlot):
@@ -334,4 +377,86 @@ class CumulativeHistogramPlot(BasicPlot):
         del self.fg_labels
         del self.bg_label
         del self.data_labels
+
+
+class ImagePlot(BasicPlot):
+    """
+    The equivalent of pylab.imshow(), but with the BasicPlot niceties and
+    some defaults that are more in tune with what a scientist wants --
+    origin="lower", requiring x and y bins so that we can label axes
+    correctly, and a colorbar.
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.image = None
+
+    def add_content(self, image, x_bins, y_bins):
+        """
+        Add a given image to this plot.
+
+        @param image: two-dimensional numpy array to plot
+        @param x_bins: pylal.rate.Bins instance describing the x binning
+        @param y_bins: pylal.rate.Bins instance describing the y binning
+        """
+        if self.image is not None:
+            raise ValueError, "can only plot one image"
+        if image.ndim != 2:
+            raise ValueError, "require 2-D array"
+        self.image = image
+        self.x_bins = x_bins
+        self.y_bins = y_bins
+
+    def finalize(self, colormap=None, colorbar=True):
+        if self.image is None:
+            raise ValueError, "nothing to finalize"
+
+        extent = [self.x_bins.lower()[0], self.x_bins.upper()[-1],
+                  self.y_bins.lower()[0], self.y_bins.upper()[-1]]
+
+        im = self.ax.imshow(self.image, origin="lower", extent=extent,
+                            cmap=colormap, interpolation="nearest")
+
+        pylab.axis('tight')
+
+        if colorbar:
+            self.fig.colorbar(im)
+
+class FillPlot(BasicPlot):
+    """
+    Given a list of vertices (passed by x-coords and y-coords), fill the
+    regions (by default with successively darker gray shades).
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.x_coord_sets = []
+        self.y_coord_sets = []
+        self.data_labels = []
+        self.shades = []
+
+    def add_content(self, x_coords, y_coords, label="_nolabel_", shade=None):
+        if len(x_coords) != len(y_coords):
+            raise ValueError, "x and y coords have different length"
+        if iterutils.any(s is None for s in self.shades) and shade is not None \
+        or iterutils.any(s is not None for s in self.shades) and shade is None:
+            raise ValueError, "cannot mix explicit and automatic shading"
+
+        self.x_coord_sets.append(x_coords)
+        self.y_coord_sets.append(y_coords)
+        self.data_labels.append(label)
+        self.shades.append(shade)
+
+    def finalize(self):
+        # fill in default shades if necessary
+        if iterutils.any(s is None for s in self.shades):
+            n = len(self.shades)
+            grays = numpy.linspace(0, 1, n, endpoint=False)[::-1]
+            self.shades = numpy.vstack((grays, grays, grays)).T
+
+        # plot
+        for x, y, s, l in zip(self.x_coord_sets, self.y_coord_sets,
+                              self.shades, self.data_labels):
+            self.ax.fill(x, y, facecolor=s, label=l)
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist()
 
