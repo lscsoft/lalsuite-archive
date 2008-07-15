@@ -299,7 +299,7 @@ def burca2(options, filenames):
 
 
 	# so they can be inserted into a database
-	dbtables.types.ToPyType["ilwd:char"] = str
+	dbtables.ligolwtypes.ToPyType["ilwd:char"] = str
 
 
 	# so they aren't insterted into a database
