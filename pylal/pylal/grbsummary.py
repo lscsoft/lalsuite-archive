@@ -20,6 +20,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from pylal import rate
 
 ##############################################################################
 # Custom classes
@@ -173,6 +174,54 @@ def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
         break
     
     return off_source_segment, the_ifo_combo
+
+def get_exttrig_trials(on_source_doc, off_source_doc, veto_files):
+    """
+    Return a tuple of (off-source time bins, off-source veto mask,
+    index of trial that is on source).
+    The off-source veto mask is a one-dimensional boolean array where True
+    means vetoed.
+    """
+    # identify trial time (== on-source length)
+    on_seg_dict = llwapp.segmentlistdict_fromsearchsummary(onsource_doc)
+    on_segs = on_seg_dict.union(on_seg_dict.iterkeys()).coalesce()
+    trial_len = int(abs(on_segs))
+
+    # get analyzed segments; if exttrig_analyze=offsource, then this is the two
+    # segments immediately adjacent to the on-source segment
+    off_seg_dict = llwapp.segmentlistdict_fromsearchsummary(offsource_doc)
+    off_segs = off_seg_dict.union(off_seg_dict.iterkeys()).coalesce()
+    # typecast to ints, which are better behaved and faster than LIGOTimeGPS
+    off_segs = segmentlist([segment(int(seg[0]), int(seg[1])) \
+        for seg in off_segs])
+    if abs(off_segs) % trial_len != 0:
+        raise ValueError, "The provided file's analysis segment is not "\
+            "divisible by the fold time."
+    extent = off_segs.extent()
+
+    # generate bins for trials
+    num_trials = int(abs(extent)) // trial_len
+    trial_bins = rate.LinearBins(extent[0], extent[1], num_trials)
+
+    # incorporate veto file; in trial_veto_mask, True means vetoed.
+    trial_veto_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
+    for veto_file in veto_files:
+        new_veto_segs = segmentsUtils.fromsegwizard(open(veto_file),
+                                                    coltype=int)
+        if new_veto_segs.intersects(on_segs):
+            print >>sys.stderr, "warning: %s overlaps on-source segment" \
+                % veto_file
+        trial_veto_mask |= rate.bins_spanned(trial_bins, new_veto_segs,
+                                             dtype=numpy.bool8)
+
+    # identify onsource trial index
+    onsource_mask = rate.bins_spanned(trial_bins, on_segs, dtype=numpy.bool8)
+    if sum(onsource_mask) != 1:
+        raise ValueError, "on-source segment spans more or less than one trial"
+    onsource_ind = numpy.arange(len(onsource_mask))[onsource_mask]
+
+    return trial_bins, trial_veto_mask, onsource_ind
+
 
 ##############################################################################
 # XML convenience code
