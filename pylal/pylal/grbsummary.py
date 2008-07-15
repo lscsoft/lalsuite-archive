@@ -9,8 +9,9 @@ import time
 import urlparse
 itertools = __import__("itertools")  # absolute import of system-wide itertools
 
-from lalapps import inspiral
+import numpy
 
+from lalapps import inspiral
 from glue import lal
 from glue import iterutils
 from glue import pipeline
@@ -20,6 +21,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from pylal import llwapp
 from pylal import rate
 
 ##############################################################################
@@ -175,7 +177,7 @@ def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
     
     return off_source_segment, the_ifo_combo
 
-def get_exttrig_trials(on_source_doc, off_source_doc, veto_files):
+def get_exttrig_trials(onsource_doc, offsource_doc, veto_files):
     """
     Return a tuple of (off-source time bins, off-source veto mask,
     index of trial that is on source).
@@ -192,7 +194,7 @@ def get_exttrig_trials(on_source_doc, off_source_doc, veto_files):
     off_seg_dict = llwapp.segmentlistdict_fromsearchsummary(offsource_doc)
     off_segs = off_seg_dict.union(off_seg_dict.iterkeys()).coalesce()
     # typecast to ints, which are better behaved and faster than LIGOTimeGPS
-    off_segs = segmentlist([segment(int(seg[0]), int(seg[1])) \
+    off_segs = segments.segmentlist([segments.segment(int(seg[0]), int(seg[1]))\
         for seg in off_segs])
     if abs(off_segs) % trial_len != 0:
         raise ValueError, "The provided file's analysis segment is not "\
