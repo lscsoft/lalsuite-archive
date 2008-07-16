@@ -105,9 +105,11 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 	rowdumper->attributes = _build_attributes(rowdumper->attributes);
 	rowdumper->formats = _build_formats(rowdumper->formats);
 	if(!rowdumper->delimiter || !rowdumper->attributes || !rowdumper->formats)
+		/* memory clean-up happens in __del__() */
 		return -1;
 
 	if(PyTuple_GET_SIZE(rowdumper->attributes) != PyTuple_GET_SIZE(rowdumper->formats)) {
+		/* memory clean-up happens in __del__() */
 		PyErr_SetString(PyExc_ValueError, "len(attributes) != len(formats)");
 		return -1;
 	}
