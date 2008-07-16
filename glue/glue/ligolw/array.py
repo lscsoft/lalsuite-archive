@@ -201,12 +201,13 @@ class ArrayStream(ligolw.Stream):
 		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
 		index = iter(IndexIter(a.shape))
+		n = index.next
 		try:
-			indeces = index.next()
+			indeces = n()
 			file.write(indent + ligolw.Indent)
 			while True:
 				file.write(xmlescape(format(a[indeces])))
-				indeces = index.next()
+				indeces = n()
 				file.write(delim)
 				if not indeces[0]:
 					file.write(u"\n" + indent + ligolw.Indent)
