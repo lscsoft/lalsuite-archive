@@ -149,7 +149,11 @@ class inspiral_ilwdchar(long):
 #
 
 
-ilwdchar_class_cache = {}
+# FIXME:  remove the special initializer when the inspiral ids no longer
+# contain a bazillion digits.
+ilwdchar_class_cache = {
+	("sngl_inspiral", "event_id"): inspiral_ilwdchar
+}
 
 
 #
@@ -249,10 +253,5 @@ def get_ilwdchar(s):
 	# retrieve the matching class from the ID class cache, and return
 	# an instance initialized to the desired value
 	#
-
-	# FIXME:  remove this conditional when the inspiral event_ids no
-	# longer contain a bazillion digits.
-	if (table_name, column_name) == ("sngl_inspiral", "event_id"):
-		return inspiral_ilwdchar(long(i))
 
 	return get_ilwdchar_class(table_name, column_name)(int(i))
