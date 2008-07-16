@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
-# Copyright (C) 2007  Patrick Brady, Nickolas Fotopoulos
+# Copyright (C) 2007  Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -16,707 +16,651 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
+"""
+Skeleton for pylal_grblikelihood revision.
 
-from __future__ import division  # float division for integers
+Invasive internal changes:
+* HTML output
+* rate.py integration
+* plotutils integration
+* 3D arrays to pass around quantities of interest
 
-import sys
-import os
-import optparse
+There is a lot of advanced indexing technique here.  Reference:
+http://scipy.org/Cookbook/Indexing
+"""
+
+from __future__ import division
+
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"
+__Id__ = "$Id$"
+__name__ = "pylal_grblikelihood"
+__title__ = "GRB interpretation"
+
+import bisect
 import glob
-import re
+itertools = __import__("itertools")  # system-wide itertools
+import optparse
+import sys
 
 import numpy
-numpy.seterr('raise')  # throw an exception on floating point errors
+numpy.seterr(all="raise")  # throw an exception on any funny business
 
-from glue import segments
-from glue import segmentsUtils
-from glue.ligolw import lsctables
-import pylal.date
-from pylal import CoincInspiralUtils
-from pylal import SnglInspiralUtils
-from pylal import SimInspiralUtils
-
-__author__ = "Patrick Brady <patrick@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
-
-##############################################################################
-# Speed hack
-##############################################################################
-"""
-lal.LIGOTimeGPS is horrifically slow.  Replace its use with the C version
-from pylal.date.  This speeds up vetoes by an order of magnitude or so,
-about 10\% of the total run time of this program in my tests.
-"""
-
-lsctables.LIGOTimeGPS = pylal.date.LIGOTimeGPS
-
-##############################################################################
-# Define a Square Array
-##############################################################################
-def square(xedges, yedges, coincTriggers, simtypeflag, calibration=1.0):
-  """
-  Histogram coincTriggers in the mass1-distance plane.
-
-  @param xedges: bin boundaries for parameter x
-  @param yedges: bin boundaries for parameter y
-  @param coincTriggers: data to histogram
-  @param simtypeflag: "missed" or "found"
-  """
-  ng_x_y = numpy.zeros(shape=(len(yedges), len(xedges)), dtype=int)
-  xstep = xedges[1] - xedges[0]
-  ystep = yedges[1] - yedges[0]
-
-  for coinc in coincTriggers:
-    if ((simtypeflag == "found" and coinc.stat >= 0) or\
-        (simtypeflag == "missed" and coinc.stat < 0)):
-      xdata = coinc.sim.mass1
-      """@ivar xdata:  array of data for parameter x"""
-      ydata = coinc.sim.distance * calibration
-      """@ivar ydata:  array of data for parameter y"""
-      k = int((xdata-xedges[0]) // xstep)
-      l = int((ydata-yedges[0]) // ystep)
-
-      if (k >= 0 and k < len(xedges)) and (l >= 0 and l < len(yedges)):
-        ng_x_y[l][k] += 1
-
-  return ng_x_y
-
-#######################################################################
-def get_contour(xedges, yedges, pcsignalsq, confidence,
-                do_smooth_contour=False, width=3.0):
-  """
-  Return the vertices of a polygon bounding the region with
-  pcsignalsq < confidence.  This is performed conservatively.  We assume
-  uniform, linear spacing.  Optionally, smooth the contour with a 1-D Gaussian
-  with a sigma of width.
-  """
-  clevel=numpy.zeros(len(xedges), dtype=float)
-  dy = yedges[1]-yedges[0]
-  centers = numpy.asarray(yedges) + dy/2
-  
-  # derive an exclusion distance for each mass bin
-  for i in xrange(len(xedges)):
-    # special-case mass columns where we never are above the confidence level
-    if pcsignalsq[0, i] > confidence:
-      clevel[i] = 0
-      continue
-    # in general, we can interpolate the distance at which we cross confidence
-    for j in xrange(1, len(yedges)):
-      if pcsignalsq[j,i]>confidence: 
-        slope = dy / (pcsignalsq[j, i] - pcsignalsq[j-1, i])
-        clevel[i] = centers[j-1] + (confidence-pcsignalsq[j-1,i])*slope
-        break
-
-  if do_smooth_contour:
-    gauss = numpy.exp( - 0.5 * ( ( xedges - mean( xedges ) ) / width )**2  )\
-      / sqrt( 2.0 * pi ) / width
-    yarray= numpy.convolve(asarray(clevel),gauss,mode=1) 	 
-    yarray = clevel[0] * yarray / yarray[0]
-  else:
-    yarray = clevel
-  
-  tmpx,tmpy = makesteps(xedges, numpy.zeros(len(xedges), dtype=float), yarray)
-
-  return tmpx,tmpy,yarray
-
-class FitError(Exception):
-    pass
-
-def fit_sigmoids(xedges, yedges, image, new_yedges=None):
-    """
-    Apply a (logistic) sigmoid fit to each mass slice and return a replacement
-    pcsignalsq, sampled on the grid new_yedges.  If new_yedges is None,
-    the output will be sampled on yedges.
-    """
-    # make sure that we understand the image orientation
-    assert image.shape[0] == len(yedges)
-    assert image.shape[1] == len(xedges)
-    
-    if new_yedges is None:
-      new_yedges = yedges
-    
-    old_dy = yedges[1] - yedges[0]
-    new_dy = new_yedges[1] - new_yedges[0]
-    
-    old_centers = yedges + old_dy / 2
-    new_centers = new_yedges + new_dy / 2
-    
-    from scipy import optimize
-    
-    # logistic sigmoid function
-    fit_func = lambda p, x: (1 + tanh(p[0]*(x-p[1])/2)) / 2
-    err_func = lambda p, x, y: fit_func(p, x) - y
-    
-    # initial guess
-    p0 = [0.1, 15]
-    
-    # fit and resample
-    output = numpy.zeros((len(new_yedges), len(xedges)), dtype=float)
-    for i in xrange(len(xedges)):
-        vals = image[:, i]
-        
-        # HACK: fill in gaps at the top; anything is better than 0
-        ind = (vals == 0)  # find zeros
-        ind[:len(vals)//2] = False  # ignore bottom half
-        vals[ind] = 1  # set to 1
-        
-        p1, err_flag = optimize.leastsq(err_func, p0[:], args=(old_centers, vals))
-        if err_flag != 1:
-            raise FitError, "sigmoid fit did not converge"
-        
-        # sample at the prescribed distances
-        output[:, i] = fit_func(p1, new_centers)
-    return output
-
-##############################################################################
-usage = """%prog [options]
-
-GRB Likelihood calculation
-
-We attempt to compute the posterior distribution
-
-p[ h(lambda) | c ]
-
-where c is the event candidate and h(lambda) is a signal with
-parameters lambda.
-"""
-
-parser = optparse.OptionParser(usage=usage, version="%prog CVS $Id$ ")
-parser.add_option("-g", "--on-source-glob",
-  help="GLOB on-source thinca files to read")
-parser.add_option("-m", "--missed-glob",
-  help="GLOB missed injection files to read")
-parser.add_option("-u", "--found-glob",
-  help="GLOB found injection files to read")
-parser.add_option("-e", "--epsilon", type="float", default=0.,
-  help="if metric distance squared > EPSILON, discard")
-parser.add_option("-n", "--ntrials", type="int", default=0,
-  help="number off source segments")
-parser.add_option("-l", "--loudest-event-cut", action="store_true",
-  default=False, help="evaluate probabilities with a loudest-event cut")
-parser.add_option("-c", "--min-loudest-event-stat", type="float",
-    default=0.0, help="if there are no candidates, use this as the loudest event statistic")
-parser.add_option("-P", "--figure-type", default="ps",
-  help="generate figures with this extension (e.g. ps or png")
-parser.add_option("-x", "--min-snr", type="float",
-  help="minimum value of snr on plot")
-parser.add_option("-X", "--max-snr", type="float",
-  help="maximum value of snr on plot")
-parser.add_option("-o", "--open-box", action="store_true", default=False,
-  help="run with the open box")
-parser.add_option("-s", "--show-plot", action="store_true", default=False,
-  help="display the figures on the terminal")
-parser.add_option("-v", "--verbose", action="store_true", default=False,
-  help="verbose debugging output")
-parser.add_option("-B", "--h1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from H1")
-parser.add_option("-C", "--h2-triggers",action="store_true", default=False,\
-  help="input files contain triggers from H2")
-parser.add_option("-D", "--l1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from L1")
-parser.add_option("-E", "--g1-triggers",action="store_true", default=False,\
-  help="input files contain triggers from G1")
-parser.add_option("-S", "--statistic", default='snr',
-  help="choice of statistic used in making plots, valid arguments are: "
-       "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, "
-       "bitten_l, bitten_lsq")
-parser.add_option("-V","--veto-file",
-  help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-F","--full-segs",
-  help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-O","--on-source-segs",
-  help="read in segments from FNAME (assumed segwizard format)")
-parser.add_option("-N", "--nbins", type="float", default=20,\
-  help="number of bins")
-parser.add_option("-a", "--min-mass", type="float", default=0.5,\
-  help="minimum value for the mass range in solar masses")
-parser.add_option("-b", "--max-mass", type="float", default=20.0,\
-  help="maximum value for the mass range in solar masses")
-parser.add_option("-d", "--bins-mass", type="float", default=8.0,\
-  help="number of bins for the mass range")
-parser.add_option("-f", "--min-distance", type="float", default=1.0,\
-  help="minimum value for the distance range in Mpc")
-parser.add_option("-i", "--max-distance", type="float", default=20.0,\
-  help="maximum value for the distance range in Mpc")
-parser.add_option("-j", "--bins-distance", type="float",default=13.0,\
-  help="number of bins for the distance range")
-
-# efficiency errors
-parser.add_option("-H","--h-calibration",action="store",type="float",
-    default=None,metavar=" H_CAL",
-    help="systematic error in h calibration, rescale distances D->(1+/-CAL)*D")
-parser.add_option("-L","--l-calibration",action="store",type="float",
-    default=None,metavar=" L_CAL",
-    help="systematic error in y calibration, rescale distances D->(1+/-CAL)*D")
-
-parser.add_option("-k","--known-distance",action="store",type="float",
-    default=None, metavar=" KD",
-    help="Distance at which GRB is thought to be in Mpc")
-parser.add_option("-K", "--kd-epsilon", type="float", default=1e-6,
-  help="for the known-distance calculation, accept injections at distances "\
-       "in the range [KD - KD_EPSILON, KD + KD_EPSILON] (default: %default)")
-
-parser.add_option("-y", "--fit-sigmoid", action="store_true", default=False,
-  help="for each mass bin, fit a logistic sigmoid to the 1-D probability" \
-       " distribution in distance")
-parser.add_option("-Y", "--fit-oversample-factor", type=float, default=1.0,
-  help="after fit parameters have been found, resample the distance a factor "\
-       "of FIT_OVERSAMPLE_FACTOR more finely")
-
-
-(opts,args) = parser.parse_args()
-
-if opts.on_source_glob is None:
-  print >>sys.stderr, "Must specify a GLOB of on-source files to read"
-  print >>sys.stderr, "Enter 'plotthinca --help' for usage"
-  sys.exit(2)
-
-if (opts.full_segs is None) or (opts.on_source_segs is None):
-  print >>sys.stderr, "There must be full-segs and on-source-segs"
-  sys.exit(2)
-
-# check that statistic is OK:
-if opts.statistic not in ('snr', 'snr_over_chi', 's3_snr_chi_stat',
-    'effective_snr', 'bitten_l', 'bitten_lsq'):
-  print >>sys.stderr, "--statistic must be one of"
-  print >>sys.stderr, "(snr|snr_over_chi|s3_snr_chi_stat|effective_snr|bitten_l|bitten_lsq)"
-  sys.exit(2)
-
-# check plot type; strip leading periods
-opts.figure_type = opts.figure_type.strip(".")
-assert opts.figure_type in ("png", "ps", "eps", "svg")
-
-##############################################################################
-# Set up plots
-
-# Change to Agg back-end if show() will not be called
-if not opts.show_plot:
-  import matplotlib
-  matplotlib.use('Agg')
+import matplotlib
+matplotlib.use("Agg")
 import pylab
-from pylal.viz import makesteps
-pylab.rc('text', usetex=True)
+pylab.rc("text", usetex=True)
 
-# Adapted from http://www.scipy.org/Cookbook/Matplotlib/LaTeX_Examples
-if opts.figure_type in ("ps", "eps"):
-  fig_width_pt = 245.26653  # Get this from LaTeX using \showthe\columnwidth
-  inches_per_pt = 1.0/72.27               # Convert pt to inch
-  golden_mean = (sqrt(5)-1.0)/2.0         # Aesthetic ratio
-  fig_width = fig_width_pt*inches_per_pt  # width in inches
-  fig_height = fig_width*golden_mean      # height in inches
-  fig_size =  [fig_width, fig_height]
-  
-  params = {'backend': 'ps',
-  'font.size': 10,
-  'axes.labelsize': 10,
-  'text.fontsize': 10,
-  'xtick.labelsize': 10,
-  'ytick.labelsize': 10,
-  'figure.figsize': fig_size}
-  pylab.rcParams.update(params)
+from glue import iterutils
+from glue import lal
 
-#####################################################################
-# initialize some basic information
+from glue import segmentsUtils
+from glue.segments import segment, segmentlist
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
+from pylal import CoincInspiralUtils
+from pylal import InspiralUtils
+from pylal import SearchSummaryUtils
+from pylal import SnglInspiralUtils
+from pylal import grbsummary
+from pylal import llwapp
+from pylal import plotutils
+from pylal import rate
+from pylal import viz
 
-statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
+################################################################################
+# utility functions
+def get_mean_mchirp(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc.
+    """
+    return sum(t.mchirp for t in coinc) / coinc.numifos
 
-pat = re.compile(r"^(\w\d)_triggers")
-ifo_list = [opt[:2].upper() for opt in opts.__dict__ \
-            if (pat.match(opt) is not None) and getattr(opts, opt)]
+def get_num_slides(xmldoc):
+    """
+    Return the value of --num-slides found in the process_params table of
+    xmldoc.  If no such entry is found, return 0.
+    """
+    tbl_name = lsctables.ProcessParamsTable.tableName
 
-ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
+    # don't be too picky what program had --num-slides
+    for tbl in table.getTablesByName(xmldoc, tbl_name):
+        for row in tbl:
+           if row.param == "--num-slides":
+               return int(row.value)
+    return 0
 
-#####################################################################
-# Read in all the segment lists
-fullseglist = segmentsUtils.fromsegwizard(open(opts.full_segs))
-onsourceseglist = segmentsUtils.fromsegwizard(open(opts.on_source_segs))
-trial_length = abs(onsourceseglist)
+def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
+    verbose=False):
+    """
+    Return a parsed XML document from the files matched by sieve_pattern in
+    the given cache.
+    """
+    subcache = cache.sieve(description=sieve_pattern, exact_match=exact_match)
+    found, missed = subcache.checkfilesexist()
+    if len(found) == 0:
+        print >>sys.stderr, "warning: no files found for pattern %s" \
+            % sieve_pattern
 
-# take padding into account
-fullseglist &= segments.segmentlist([fullseglist.extent().contract(72)])
+    # turn on event_id mangling
+    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
 
-# take veto into account
-if opts.veto_file:
-  vetolist = segmentsUtils.fromsegwizard(open(opts.veto_file))
-  fullseglist -= vetolist
+    # reduce memory footprint
+    table.RowBuilder = table.InterningRowBuilder
 
-# define off-source segments
-offsourceseglist = fullseglist - onsourceseglist
+    urls = [c.url for c in found]
+    try:
+        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
+    except ligolw.ElementError:
+        # FIXME: backwards compatibility for int_8s SnglInspiralTable event_ids
+        lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+        lsctables.SnglInspiralID = int
+        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
 
-# make a list of off source trials
-trial_segs = segments.segmentlist()
-for seg in offsourceseglist:
-  trial_segs.extend(segmentsUtils.segmentlist_range(seg[0], seg[1], trial_length))
-num_trials = len(trial_segs)
+    # turn off event_id mangling
+    lsctables.SnglInspiralTable.next_id = None
 
+    return xmldoc
+
+class IrregularBins(rate.Bins):
+    """
+    Bins with arbitrary, irregular spacing.  We only require strict monotonicity
+    of the bin boundaries.  N boundaries define N-1 bins.
+
+    Example:
+
+    >>> x = IrregularBins([0.0, 11.0, 15.0, numpy.inf])
+    >>> len(x)
+    3
+    >>> x[1]
+    0
+    >>> x[1.5]
+    0
+    >>> x[13]
+    1
+    >>> x[25]
+    2
+    """
+    def __init__(self, boundaries):
+        """
+        Initialize a set of custom bins with the bin boundaries.  This includes
+        all left edges plus the right edge.  The boundaries must be monotonic
+        and there must be at least two elements.
+        """
+        # check pre-conditions
+        if len(boundaries) < 2:
+            raise ValueError, "less than two boundaries provided"
+        boundaries = numpy.array(boundaries)
+        if (boundaries[:-1] > boundaries[1:]).any():
+            raise ValueError, "non-monotonic boundaries provided"
+
+        self.boundaries = boundaries
+        self.n = len(boundaries) - 1
+
+    def __getitem__(self, x):
+        if isinstance(x, slice):
+            if x.step is not None:
+                raise NotImplementedError, x
+            if x.start is None:
+                start = 0
+            else:
+                start = self[x.start]
+            if x.stop is None:
+                stop = len(self)
+            else:
+                stop = self[x.stop]
+            return slice(start, stop)
+        ind = bisect.bisect_left(self.boundaries, x)
+        # raise exception if x is outside of all bins
+        # allow the "measure zero" corner case of (x == right boundary)
+        if ind == 0 or (ind == len(self.boundaries) and \
+                        x != self.boundaries[-1]):
+            raise IndexError, x
+        return ind - 1
+
+    def lower(self):
+        return self.boundaries[:-1]
+
+    def upper(self):
+        return self.boundaries[1:]
+
+    def centres(self):
+        return (self.lower() + self.upper()) / 2
+
+def get_loudest_coinc_by_mc(xmldoc, mc_bins):
+    # read unclustered on-source coincs
+    onsource_trigs = table.get_table(xmldoc,
+        lsctables.SnglInspiralTable.tableName)
+    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+        coinc_stat)
+
+    # get loudest stat in each average mchirp bin
+    num_discarded = 0
+    loudest_by_mc = numpy.zeros(len(mc_bins), dtype=numpy.float32) - 1
+    for coinc in onsource_coincs:
+        try:
+            ind = mc_bins[get_mean_mchirp(coinc)]
+        except IndexError:
+            num_discarded += 1
+            continue
+        loudest_by_mc[ind] = max(coinc.stat, loudest_by_mc[ind])
+    if num_discarded > 0:
+        print >>sys.stderr, "warning: %d on-source coincs fell outside "\
+            "mchirp bins" % num_discarded
+
+    return loudest_by_mc
+
+def mark_loud_background_by_trial_mc(offsource_doc, onsource_loudest_by_mc,
+    trial_bins, mc_bins):
+    """
+    Return a 2-D boolean array, binned by trial and mchirp,
+    whose entries are True iff there is a coinc in a given bin louder
+    than the loudest on-source event in its mchirp bin.
+    """
+    # read unclustered background coincs
+    offsource_trigs = table.get_table(offsource_doc,
+        lsctables.SnglInspiralTable.tableName)
+    offsource_coincs = CoincInspiralUtils.coincInspiralTable(offsource_trigs,
+        coinc_stat)
+
+    # mark the (trial, average mchirp) bin where a coinc is louder than the
+    # loudest on-source event
+    num_discarded = 0
+    louder_by_trial_mc = numpy.zeros((len(trial_bins), len(mc_bins)),
+                                     dtype=numpy.bool8)
+    for coinc in offsource_coincs:
+        try:
+            trial_ind = trial_bins[coinc.get_time()]
+            mc_ind = mc_bins[get_mean_mchirp(coinc)]
+        except IndexError:
+            num_discarded += 1
+            continue
+        if coinc.stat > onsource_loudest_by_mc[mc_ind]:
+            louder_by_trial_mc[trial_ind, mc_ind] = True
+    if num_discarded > 0:
+        print >>sys.stderr, "warning: %d of %d off-source coincs fell outside "\
+            "mchirp bins" % (num_discarded, len(offsource_coincs))
+
+    return louder_by_trial_mc
+
+def mark_loud_injections_by_mc_m2_D(inj_doc, coinc_doc, onsource_loudest_by_mc,
+    trial_bins, mc_bins, m2_bins, D_bins):
+    """
+    Return a 3-D integer array, binned by mean mchirp and injected m2 and D,
+    and the number of sims in inj_doc.  The array tallies for how many
+    injections there are coincs in a given bin are louder than the loudest
+    on-source event in its mchirp bin.
+    """
+    # get injection info
+    sims = table.get_table(inj_doc, lsctables.SimInspiralTable.tableName)
+    sim_trials = [trial_bins[s.geocent_end_time] for s in sims]
+    assert len(sim_trials) == len(set(sim_trials))
+
+    # tabulate each sim and its properties
+    num_discarded = 0
+    num_sims_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
+    m2_indices = []
+    D_indices = []
+    for sim in sims:
+        try:
+            m2_ind = m2_bins[sim.mass1]
+            D_ind = D_bins[sim.distance]
+        except IndexError:
+            num_discarded += 1
+            continue
+        num_sims_by_m2_D[m2_ind, D_ind] += 1
+        m2_indices.append(m2_ind)
+        D_indices.append(D_ind)
+
+    # reconstruct coincidences
+    trigs = table.get_table(coinc_doc, lsctables.SnglInspiralTable.tableName)
+    coincs = CoincInspiralUtils.coincInspiralTable(trigs, coinc_stat)
+
+    # do the marking for each sim separately
+    num_discarded = 0
+    num_found_by_sim_mc_m2_D = numpy.zeros((len(sim_trials), len(mc_bins),
+        len(m2_bins), len(D_bins)), dtype=numpy.bool8)
+    for coinc in coincs:
+        try:
+            trial_ind = trial_bins[coinc.get_time()]
+            mc_ind = mc_bins[get_mean_mchirp(coinc)]
+        except IndexError:
+            num_discarded += 1
+            continue
+
+        # filtered times from injections do not overlap
+        if trial_ind not in sim_trials:
+            num_discarded += 1
+            continue
+        sim_ind = sim_trials.index(trial_ind)
+
+        if coinc.stat > onsource_loudest_by_mc[mc_ind]:
+            num_found_by_sim_mc_m2_D[sim_ind, mc_ind,
+                m2_indices[sim_ind], D_indices[sim_ind]] = True
+
+    # now add up how many sims had coincs in each (mc, m2, D) bin
+    num_found_by_mc_m2_D = num_found_by_sim_mc_m2_D.sum(axis=0, dtype=int)
+
+    return num_found_by_mc_m2_D, num_sims_by_m2_D
+
+def get_level_crossings(xy_array, level, y_bins):
+    """
+    Return the linearly interpolated y values where the xy_array dips first
+    dips below level, iterating upwards.
+    """
+    # sanity checks
+    if xy_array.ndim != 2:
+        raise ValueError, "require a two-dimensional xy_array"
+    if xy_array.shape[1] != len(y_bins):
+        raise ValueError, "xy_array y-dimension does not match y_bin length"
+
+    def _first_below_val(column, target):
+        """
+        Return the index of the first entry that is less than target.
+        If no entry is less than the target, return the length of the column.
+        """
+        for i, val in enumerate(column):
+            if column[i] < target:
+                return i
+        return len(column)
+
+    def _interp_column(column, level, y_vals):
+        """
+        Return the linearly interpolated value of y where the column first
+        dips below level.
+        """
+        ind = _first_below_val(column, level)
+        if ind == 0:
+            return 0
+        elif ind == len(column):
+            return y_vals[-1]
+        else:
+            # interpolate between ind-1 and ind
+            slope = (y_vals[ind] - y_vals[ind-1]) / \
+                    (column[ind] - column[ind-1])
+            return y_vals[ind-1] + (level - column[ind-1]) * slope
+
+    y = y_bins.centres()
+    return numpy.array([_interp_column(col, level, y) for col in xy_array])
+
+def parse_args():
+    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+
+    # cache input
+    parser.add_option("--cache-file", help="LAL-formatted cache file "
+        "containing entries for all XML filies of interest")
+    parser.add_option("--onsource-pattern", metavar="PAT", help="sieve the "
+        "cache descriptions for on-source coincidences files with PAT")
+    parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
+        "cache descriptions for off-source coincidence files with PAT")
+    parser.add_option("--injection-pattern", metavar="PAT",
+        help="sieve the cache descriptions for injection files with PAT")
+    parser.add_option("--inj-coinc-pattern", metavar="PAT",
+        help="sieve the cache descriptions for injection THINCA files with PAT")
+
+    # segments
+    parser.add_option("--veto-segfiles", default="",
+        help="comma-separated list of segwizard-formatted segment files that "
+        "contain segments to veto")
+
+    # binning
+    parser.add_option("--m2-min", type="float", help="minimum of the range in "
+        "injected companion mass")
+    parser.add_option("--m2-max", type="float", help="maximum of the range in "
+        "injected companion mass")
+    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected companion mass")
+    parser.add_option("--D-min", type="float", help="minimum of the range in "
+        "injected distance")
+    parser.add_option("--D-max", type="float", help="maximum of the range in "
+        "injected distance")
+    parser.add_option("--D-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected distance")
+    parser.add_option("--mc-boundaries", help="comma-delimited list of "
+        "boundaries in average recovered chirp mass")
+
+    # calibration uncertainty
+    parser.add_option("--calibration-uncertainty", type="float", metavar="CAL",
+        help="calibration uncertainty (D -> (1+/-CAL)*D)")
+
+    # InspiralUtils compatibility
+    parser.add_option("", "--gps-start-time", type="int",
+        help="GPS start time of data analyzed")
+    parser.add_option("", "--gps-end-time", type="int",
+        help="GPS end time of data analyzed")
+    parser.add_option("", "--ifo-tag", help="IFO coincidence time analyzed")
+    parser.add_option("", "--user-tag", help="a tag to label your plots")
+    parser.add_option("", "--output-path", help="root of the HTML output")
+    parser.add_option("", "--enable-output", action="store_true",
+        default=False, help="enable plots and HTML output")
+    parser.add_option("", "--html-for-cbcweb", action="store_true",
+        default=False, help="enable HTML output with the appropriate headers "
+        "for the CBC website")
+    parser.add_option("--show-plot", action="store_true", default=False,
+        help="display the plots to screen if an X11 display is available")
+
+    # odds and ends
+    parser.add_option("--statistic", default="snr",
+        help="choice of statistic used in making plots, valid arguments are: "
+        "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr")
+    parser.add_option("--stat-threshold", default=0, type="float",
+        help="default statistic to use in the case of no loudest event")
+    parser.add_option("--verbose", action="store_true", default=False,
+        help="print extra information to the console")
+
+    opts, args = parser.parse_args()
+
+    # check that mandatory switches are present
+    for opt in ("cache_file", "onsource_pattern", "offsource_pattern",
+        "injection_pattern", "inj_coinc_pattern", "veto_segfiles", "m2_min",
+        "m2_max", "m2_nbins", "D_min", "D_max", "D_nbins", "mc_boundaries",
+        "statistic"):
+        if not hasattr(opts, opt):
+            raise ValueError, "%s is required" % opt.replace("_", "-")
+
+    # split comma-separated lists
+    for opt in ("veto_segfiles", "mc_boundaries"):
+        if hasattr(opts, opt):
+            setattr(opts, opt, getattr(opts, opt).split(","))
+
+    opts.mc_boundaries = map(float, opts.mc_boundaries)
+
+    return opts, args
+
+################################################################################
+# parse arguments
+opts, args = parse_args()
+
+##############################################################################
+# generic initialization
+InspiralUtils.initialise(opts, __name__, __version__)
+coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+##############################################################################
+# read in non-injection documents (do so here to get num slides and segments)
+cache = lal.Cache.fromfile(open(opts.cache_file))
+
+onsource_doc = load_cache(ligolw.Document(), cache,
+    opts.onsource_pattern, verbose=opts.verbose)
+offsource_doc = load_cache(ligolw.Document(), cache,
+    opts.offsource_pattern, verbose=opts.verbose)
+
+nominal_num_slides = get_num_slides(offsource_doc)
+total_num_slides = 2 * nominal_num_slides or 1
+
+################################################################################
+# choose segments/trials/vetoes (match grbtimeslide_stats)
+
+trial_bins, trial_veto_mask, onsource_ind = \
+    grbsummary.get_exttrig_trials(onsource_doc, offsource_doc,
+                                  opts.veto_segfiles)
+num_trials = len(trial_bins)
+
+# count how many unvetoed trials we have
+eff_num_trials = numpy.sum(~trial_veto_mask)
+
+################################################################################
+# choose other binnings: mchirp, m2, D
+mc_bins = IrregularBins(opts.mc_boundaries)
+m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
+
+################################################################################
+# get loudest stats of on-source
+
+# get loudest stat in each mchirp bin
+onsource_loudest_by_mc = get_loudest_coinc_by_mc(onsource_doc, mc_bins)
+
+# if no candidate, use threshold from command line
+onsource_loudest_by_mc[onsource_loudest_by_mc <= 0] = opts.stat_threshold
+
+# print summary
+print "on-source loudest combined " + opts.statistic + " by mchirp category:"
+for low, hi, stat in zip(mc_bins.lower(), mc_bins.upper(),
+                         onsource_loudest_by_mc):
+    print "  [%f, %f): %f" % (low, hi, stat)
+
+################################################################################
+# compute p(c|0)
+
+# in (trial, mean mchirp) bins, mark the trials with a coinc louder than loudest
+# on-source coinc in mchirp category
+louder_by_trial_mc = mark_loud_background_by_trial_mc(offsource_doc,
+    onsource_loudest_by_mc, trial_bins, mc_bins)
+
+# for each mchirp bin, determine p(c|0) by summing across trials
+pc0_by_mc = louder_by_trial_mc[~trial_veto_mask, :].sum(axis=0, dtype=float) \
+    / eff_num_trials
+
+print "p(c(mchirp) | 0):"
+for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), pc0_by_mc):
+    print "  [%f, %f): %f" % (low, hi, pc0)
+
+################################################################################
+# compute p(c|h) using the optimal mchirp region for each m2 bin
+
+# sieve down to just injection coinc files
+injection_cache = cache.sieve(description=opts.injection_pattern)
+inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
+
+# get all unique descriptions (can have multiple segments per description)
+inj_patterns = set("*_" + entry.description.split("_")[-1] \
+                   for entry in inj_coinc_cache)
+
+# tally up the numerator and denominator for p(c|h) for each inj pattern
 if opts.verbose:
-  print "The length of each trial is %d" % trial_length
-  print "The number of trial segments is %i" % num_trials
+    print "Tallying injections:"
+num_found_by_mc_m2_D = numpy.zeros((len(mc_bins), len(m2_bins), len(D_bins)),
+                                   dtype=int)
+num_sims_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
+for pattern in inj_patterns:
+    if opts.verbose:
+        sys.stdout.write(".")
+        sys.stdout.flush()
 
-#####################################################################
-# read in on-source triggers
-coincfiles = glob.glob(opts.on_source_glob)
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(coincfiles,
-    mangle_event_id=True, verbose=opts.verbose)
+    # read injection and its corresponding coincs
+    inj_doc = load_cache(ligolw.Document(), injection_cache, pattern,
+                         exact_match=True)
+    coinc_doc = load_cache(ligolw.Document(), inj_coinc_cache, pattern,
+                           exact_match=True)
 
-# perform the veto
-if inspTriggers and opts.veto_file:
-  inspTriggers = inspTriggers.veto(vetolist)
+    # For each (mean mchirp, injected m2, injected D) bin, tally the found
+    # coincs louder than the loudest on-source event in their recovered mchirp
+    # bins.  Also, tally the total injections in each m2 bin
+    # TODO: calibration uncertainty in distance
+    tmp_found, tmp_total = \
+        mark_loud_injections_by_mc_m2_D(inj_doc, coinc_doc,
+            onsource_loudest_by_mc, trial_bins, mc_bins, m2_bins, D_bins)
 
-# construct the off source listing, including vetoes and quantization
-offsourceTriggers = CoincInspiralUtils.coincInspiralTable(\
-    inspTriggers.veto((~trial_segs).coalesce()), statistic)
+    num_found_by_mc_m2_D += tmp_found
+    num_sims_by_m2_D += tmp_total
+if opts.verbose:
+    print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
-# construct the coincs
-if opts.open_box:
-  coincTriggers = CoincInspiralUtils.coincInspiralTable(\
-      inspTriggers.veto(offsourceseglist),statistic)
-else:
-  coincTriggers = CoincInspiralUtils.coincInspiralTable()
-  coincTriggers.append(offsourceTriggers[0])
+# get p(c|h) for each (mean mchirp, injected m2) bin
+pch_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2) / \
+    (num_sims_by_m2_D.sum(axis=1)[None, :] + 1e-10)
 
-if opts.max_snr is None:
-  if len(inspTriggers) > 0:
-    xhigh = max(inspTriggers.get_column(opts.statistic))
-  else:
-    xhigh = 50.0
-else:
-  xhigh = opts.max_snr + 1
+# for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
+mc_ind_by_m2 = (pch_by_mc_m2 / (pc0_by_mc[:, None] + 1e-10)).argmax(axis=0)
 
-if opts.min_snr is None:
-  if len(inspTriggers) > 0:
-    xlow = min(inspTriggers.get_column(opts.statistic))
-  else:
-    xlow = 1.0
-else:
-  xlow = opts.min_snr
+# numpy indexer to pick the right mchirp category for each m2; returns (m2, D)
+mc_indexer = (mc_ind_by_m2, range(len(m2_bins)), slice(None, None, None))
 
-#####################################################################
-# make the plot background and foreground
-delta=xhigh-xlow
-ds=0.5*delta/opts.nbins
-bins = numpy.arange( xlow, xhigh, delta/opts.nbins)
+# get p(c|h) for each injected (m2, D) bin
+pch_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
 
-# build the histogram. The return values are
-#   the count per bin
-#   the bin (lower) edges
-# Note: the matplotlib hist function assumes that these are the lower
-# edges of the bins. I have not looked into the code yet to confirm
-# how it handles that last bin. Since all other bins are equally
-# spaced, this doesn't really matter for us.
-zero_dist, bin = numpy.histogram(coincTriggers.getstat(), bins)
+# TODO: correct for MC counting uncertainty
 
-# construct the cumulative distribution. Here's what is done:
-cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
-cum_dist_offsource = numpy.zeros(shape=(len(trial_segs), opts.nbins))
-for i, seg in enumerate(trial_segs):
-  offsourcetrial = offsourceTriggers.getTriggersInSegment(seg)
-  num_offsource, bin = numpy.histogram(offsourcetrial.getstat(), bins)
-  cum_dist_offsource[i] = num_offsource[::-1].cumsum()[::-1]
+################################################################################
+# plots
+fnameList = []
+tagList = []
 
-# takes the mean over rows for each column
-offsource_mean = cum_dist_offsource.mean(axis=0)
-# takes the std over rows for each column
-offsource_std = cum_dist_offsource.std(axis=0)
+## injection count vs (m2, D) image
+text = "Injection count"
 
-####################################################################
-# Plot the standard histogram of expected number of events based on
-# the off source times.
-pylab.clf()
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
-  pylab.axes([0.127,0.21,0.95-0.128,0.95-0.24])
-pylab.hold(True)
-pylab.semilogy((bins+ds)**2, cum_dist_zero+0.0001,'r^',markerfacecolor="b",markersize=12)
-pylab.semilogy((bins+ds)**2, offsource_mean, 'r+', markersize=12)
+plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$", r"Injections made")
+plot.add_content(num_sims_by_m2_D, m2_bins, D_bins)
+plot.finalize()
 
-# The following loop is needed to make the plot nice when making
-# logarithmic filled regions.
-offsource_min = []
-for i in range( len(offsource_mean) ):
-  offsource_min.append( max(offsource_mean[i] - offsource_std[i], 0.0001) )
-  offsource_mean[i] = max(offsource_mean[i], 0.0001)
-tmpx,tmpy = makesteps(bins,offsource_min,offsource_mean+offsource_std)
-p=pylab.fill(tmpx**2,tmpy, facecolor='y', alpha=0.3)
-pylab.grid(True)
-pylab.axis([ xlow*xlow, (xhigh-2*ds)*(xhigh-2*ds), 0.001, 10.0])
-pylab.xlabel(r"$\rho_{\mathrm{eff}}^2$")
-pylab.ylabel(r"Expected \# of events")
-
-min_snr = min([t.stat for t in offsourceTriggers if t.stat >= 0])
-pylab.xlim([min_snr**2, pylab.xlim()[1]])
-
-pylab.savefig("snr_dist.%s" % opts.figure_type)
-
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "injection_count_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
 if not opts.show_plot:
-  pylab.close()
+    plot.close()
 
-#####################################################################
-# Plot the number of events in each off-source segment
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
- pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
-trigsperoffsource=cum_dist_offsource[:,0]
-offsourceindex=numpy.arange(len(trigsperoffsource))
-pylab.plot(offsourceindex,trigsperoffsource,'ro')
-pylab.hold(True)
-pylab.plot(offsourceindex, trigsperoffsource.mean()+0.0*offsourceindex,'b',lw=2)
-pylab.plot(offsourceindex, trigsperoffsource.mean()+trigsperoffsource.std()+0.0*offsourceindex,'g',lw=2)
-pylab.plot(offsourceindex, trigsperoffsource.mean()-trigsperoffsource.std()+0.0*offsourceindex,'g',lw=2)
-pylab.grid(True)
-pylab.xlabel(r"Off-source segment")
-pylab.ylabel(r"Number of triggers")
-pylab.savefig("triggers_per_offsource.%s" % opts.figure_type)
+## mchirp vs loudest stat horizontal bar graph
+text = "mchirp vs loudest statistic"
 
+plot = plotutils.NumberVsBinBarPlot(opts.statistic.replace("_", r"\_"),
+    r"$M_\mathrm{chirp}$", "Loudest statistics by mchirp")
+plot.add_content(mc_bins, onsource_loudest_by_mc)
+plot.finalize(orientation="horizontal")
+
+# add p(c|0) on top as text
+for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
+    plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
 if not opts.show_plot:
-  pylab.close()
+    plot.close()
 
-#####################################################################
-# read in the missed and found files
-injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
-    glob.glob(opts.found_glob), mangle_event_id=True, verbose=opts.verbose)
+## for each mchirp, p(c|h) vs (m2, D) image
+# TODO: before and after MC and calibration systematics
+text = "p(c|h)"
 
-coincInjTriggers = CoincInspiralUtils.coincInspiralTable(\
-    injTriggers,statistic)
-coincInjTriggers.add_sim_inspirals( \
-    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.found_glob),
-    verbose=opts.verbose))
-coincInjTriggers.add_missed_sims( \
-    SimInspiralUtils.ReadSimInspiralFromFiles(glob.glob(opts.missed_glob),
-    verbose=opts.verbose))
+plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    "$p(c|h)$")
+plot.add_content(pch_by_m2_D, m2_bins, D_bins)
+plot.finalize()
 
-#####################################################################
-# do loudest event cut
-if opts.loudest_event_cut:
-  # determine loudest event statistic
-  if len(coincTriggers) > 0:
-    loudest_stat = coincTriggers.getstat().max()
-  else:
-    loudest_stat = opts.min_loudest_event_stat
-
-  # trim off-source candidate list
-  lt, eq, gt = offsourceTriggers.partition_by_stat(loudest_stat)
-  offsourceTriggers = gt
-  offsourceTriggers.extend(eq.rows)
-
-  # mark found injections with smaller stat as missed
-  for coinc in coincInjTriggers:
-    if coinc.stat < loudest_stat:
-      coinc.stat = -1
-
-#####################################################################
-# histogram triggers in mass1-distance space
-dx=(opts.max_mass-opts.min_mass)/opts.bins_mass
-xedges = numpy.arange( opts.min_mass, opts.max_mass, dx )
-dy=(opts.max_distance-opts.min_distance)/opts.bins_distance
-yedges = numpy.arange( opts.min_distance, opts.max_distance, dy )
-distance_correction = 1.0
-if opts.h_calibration:
-  distance_correction = 1.0 - opts.h_calibration
-if opts.l_calibration:
-  distance_correction = min( 1.0 - opts.l_calibration, distance_correction )
-foundsq = square(xedges, yedges, coincInjTriggers, "found", calibration=distance_correction)
-missedsq = square(xedges, yedges, coincInjTriggers, "missed", calibration=distance_correction)
-
-#####################################################################
-# if there are coincident triggers on source
-if coincTriggers and not opts.loudest_event_cut:
-  # loop over each candidate
-  for candidate in coincTriggers:
-    found_array = numpy.zeros(len(trial_segs), dtype=int)
-
-    # cut out those triggers near to the candidate, and
-    # evaluate the p(c|0) based on that
-    triggers_within_epsilon = \
-        offsourceTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-
-    for coinc in triggers_within_epsilon:
-      # index by end time of alphabetically first IFO in coinc
-      end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-      if end_time in trial_segs:
-        found_array[trial_segs.find(end_time)] = 1
-
-    if opts.verbose: print found_array
-    pczero = found_array.sum() / len(trial_segs)
-
-    # c refers to *this* candidate
-    print "p(c|0) = %f" % pczero
-
-    # cut out those injection triggers near to the candidate, and
-    # evaulate the p(c|signal with lambda) based on that
-    injTriggers_within_epsilon = \
-        coincInjTriggers.getTriggersWithinEpsilon(candidate, opts.epsilon)
-
-    print "Number of injections within epsilon: %f" % \
-        len(injTriggers_within_epsilon)
-
-    foundwithinepsilonsq = \
-        square(xedges, yedges, injTriggers_within_epsilon, "found", calibration=distance_correction)
-
-    pcsignalsq = foundwithinepsilonsq / (missedsq + foundsq + 1.0e-10)
-else:
-  # p( triggers | no signal )
-  #
-  # number of segments without a trigger / total number of segments
-  # this is also the correct branch to take for the loudest-event analysis
-  found_array = numpy.zeros(len(trial_segs), dtype=int)
-
-  for coinc in offsourceTriggers:
-    # index by end time of alphabetically first IFO in coinc
-    end_time = getattr(coinc, coinc.get_ifos()[1][0]).end_time
-    if end_time in trial_segs:
-      found_array[trial_segs.find(end_time)] = 1
-
-  if opts.verbose: print found_array
-  pczero = 1.0 - found_array.sum() / len(trial_segs)
-
-  # c refers to *any* candidate
-  print "p(c|0) = %f" % pczero
-
-  # p(no triggers | signal with parameters lambda)
-  #
-  # number of missed injections with parameters lambda / total number
-  # of injections with parameter lambda
-  pcsignalsq = missedsq / (missedsq + foundsq + 1.0e-10)
-
-  mcerrorsq = numpy.sqrt( pcsignalsq * ( 1.0 - pcsignalsq ) /\
-         (missedsq + foundsq + 1.0e-10) )
-  
-  pcsignalsq =  pcsignalsq + 1.28*mcerrorsq
-
-  if opts.known_distance:
-    kd_yedges = [opts.known_distance-opts.kd_epsilon,
-                 opts.known_distance+opts.kd_epsilon]
-    kd_foundsq = square(xedges, kd_yedges, coincInjTriggers, "found")
-    kd_missedsq = square(xedges, kd_yedges, coincInjTriggers, "missed")
-    kd_pcsignalsq = kd_missedsq / (kd_missedsq + kd_foundsq + 1.0e-10)
-    kd_mcerrorsq = numpy.sqrt( kd_pcsignalsq * (1.0 - kd_pcsignalsq) /\
-         (kd_missedsq + kd_foundsq + 1.0e-10))
-    kd_pcsignalsq += 1.28*kd_mcerrorsq
-
-    print "The known distance p(0|h) per mass bin are", kd_pcsignalsq[0, :]
-    print "The max, known distance p(c|h) is %e" % kd_pcsignalsq[0, :].max()
-
-  pcsignal = missedsq.sum() / (missedsq.sum() + foundsq.sum() + 1.0e-10)
-  print "p(c|h) = %f" % pcsignal
-
-#####################################################################
-# generate plots
-
-dx = xedges[1] - xedges[0]
-dy = yedges[1] - yedges[0]
-x_boundaries = numpy.concatenate((xedges, [xedges[-1] + dx]))
-y_boundaries = numpy.concatenate((yedges, [yedges[-1] + dy]))
-im_extent = [x_boundaries[0], x_boundaries[-1],
-             y_boundaries[0], y_boundaries[-1]]
-
-new_yedges = numpy.linspace(yedges[0], yedges[-1],
-  opts.fit_oversample_factor*(len(yedges)-1)+1)
-if opts.fit_sigmoid:
-  pcsignalsq = fit_sigmoids(xedges, yedges, pcsignalsq, new_yedges)
-
-# figure()
-# if opts.figure_type in ("ps", "eps"):
-#  axes([0.125,0.2,0.95-0.125,0.95-0.22])
-# #imshow(pcsignalsq, origin='lower')
-# hold(True)
-# IC = contourf(xedges, yedges, pcsignalsq)
-# xlabel(r"$m_2 (M_\odot)$")
-# ylabel(r"$D (\mathrm{Mpc})$")
-# colorbar(IC)
-
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
-  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
-palette = pylab.cm
-IM = pylab.imshow(pcsignalsq, origin='lower', extent=im_extent,
-  interpolation='nearest')
-pylab.hold(True)
-pylab.contour(pcsignalsq, extent=im_extent)
-pylab.colorbar(IM)
-pylab.axis('tight')
-#pylab.axvline(candmass)
-pylab.title(r'$p[\mathrm{candidate}|h(m_2,D)]$')
-pylab.xlabel(r"$m_2 (M_\odot)$")
-pylab.ylabel(r"$D (\mathrm{Mpc})$")
-pylab.savefig("pcsignal.%s" % opts.figure_type)
-
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pch_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
 if not opts.show_plot:
-  pylab.close()
+    plot.close()
 
+## upper limit contours (m2, D) image
+text = "(m2, D) exclusion plot"
 
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
-  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
-palette = pylab.cm
-IM = pylab.imshow(foundsq + missedsq, origin='lower', extent=im_extent,
-  interpolation='nearest')
-pylab.hold(True)
-pylab.contour(foundsq + missedsq, extent=im_extent)
-pylab.colorbar(IM)
-pylab.axis('tight')
-#pylab.axvline(candmass)
-pylab.title('Number of injections made')
-pylab.xlabel(r"$m_2 (M_\odot)$")
-pylab.ylabel(r"$D (\mathrm{Mpc})$")
-pylab.savefig("made-injections.%s"  % opts.figure_type)
+plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    "Exclusion regions")
 
+x = m2_bins.lower()
+zero = numpy.zeros(len(m2_bins), dtype=float)
+
+y = get_level_crossings(pch_by_m2_D, 0.9, D_bins)
+tmpx, tmpy = viz.makesteps(x, zero, y)
+plot.add_content(tmpx, tmpy, label=r"10\% exclusion")
+
+y = get_level_crossings(pch_by_m2_D, 0.75, D_bins)
+tmpx, tmpy = viz.makesteps(x, zero, y)
+plot.add_content(tmpx, tmpy, label=r"25\% exclusion")
+
+y = get_level_crossings(pch_by_m2_D, 0.5, D_bins)
+tmpx, tmpy = viz.makesteps(x, zero, y)
+plot.add_content(tmpx, tmpy, label=r"50\% exclusion")
+
+y = get_level_crossings(pch_by_m2_D, 0.1, D_bins)
+tmpx, tmpy = viz.makesteps(x, zero, y)
+plot.add_content(tmpx, tmpy, label=r"90\% exclusion")
+
+plot.finalize()
+
+plot.ax.set_ylim((0, D_bins.upper()[-1]))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "exclusion_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
 if not opts.show_plot:
-  pylab.close()
+    plot.close()
 
 
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
-  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
-pylab.palette = pylab.cm
-IM = pylab.imshow(foundsq / (foundsq + missedsq + 1.0e-10), origin='lower',
-  extent=im_extent, interpolation='nearest')
-pylab.hold(True)
-pylab.contour(foundsq / (foundsq + missedsq + 1.0e-10), extent=im_extent)
-pylab.colorbar(IM)
-pylab.axis('tight')
-#pylab.axvline(candmass)
-pylab.title('Fraction of injections found')
-pylab.xlabel(r"$m_2 (M_\odot)$")
-pylab.ylabel(r"$D (\mathrm{Mpc})$")
-pylab.savefig("found-fraction.%s" % opts.figure_type)
+#############################################################################
+# Generate HTML and cache file
+if opts.enable_output:
+    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
+        fnameList, tagList)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
-if not opts.show_plot:
-  pylab.close()
-
-
-pylab.figure()
-if opts.figure_type in ("ps", "eps"):
-  pylab.axes([0.125,0.2,0.95-0.125,0.95-0.22])
-tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.75)
-p1=pylab.fill(tmpx,tmpy, facecolor=(0.75, 0.75, 0.75), label='25\% exclusion')
-tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.50)
-p2=pylab.fill(tmpx,tmpy, facecolor=(0.5, 0.5, 0.5), label='50\% exclusion')
-tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.25)
-p3=pylab.fill(tmpx,tmpy, facecolor=(0.25, 0.25, 0.25), label='75\% exclusion')
-tmpx,tmpy,yarray = get_contour(xedges,new_yedges,pcsignalsq,0.1)
-p4=pylab.fill(tmpx,tmpy, facecolor=(0.1, 0.1, 0.1), label='90\% exclusion')
-
-if opts.known_distance is not None:
-  pylab.axhline(y=opts.known_distance, color=(0.75, 0.75, 0.75), linewidth=2,
-    label='_nolegend_')
-
-# label bin boundaries if it's not ridiculous to do so
-if len(xedges) < 15:
-    pylab.xticks(x_boundaries, map(str, x_boundaries))
-
-pylab.grid(True)
-pylab.axis([x_boundaries[0], x_boundaries[-1], 0, y_boundaries[-1]])
-pylab.xlabel(r"$m_2 (M_\odot)$")
-pylab.ylabel(r"$D (\mathrm{Mpc})$")
-if opts.figure_type not in ("ps", "eps"):
-  pylab.legend(loc="upper right")
-pylab.savefig("pcsignal-slice.%s" % opts.figure_type)
-
-if not opts.show_plot:
-  pylab.close()
-
+    if opts.html_for_cbcweb:
+        html_filename_publish = InspiralUtils.write_html_output(opts,
+            sys.argv[1:], fnameList, tagList, comment=info_text, cbcweb=True)
 
 if opts.show_plot:
-  pylab.show()
+    pylab.show()
