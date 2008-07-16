@@ -723,7 +723,10 @@ class SnglInspiralTable(table.Table):
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  uncomment the next line when the event_id column no
 	# longer encodes time slide information
-	#next_id = SnglInspiralID(0)
+	# FIXME:  lal uses an ID of 0 to indicate "no valid ID has been
+	# set", so we start at 1 for safety, but eventually that should be
+	# fixed in LAL and then this can be put back to 0 for cleanliness.
+	#next_id = SnglInspiralID(1)
 
 	def updateKeyMapping(self, mapping):
 		# FIXME: remove this method when the event_id column no

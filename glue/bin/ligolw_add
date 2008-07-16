@@ -177,12 +177,17 @@ options, urls = parse_command_line()
 # FIXME: remove this when the sngl_inspiral event_id column no longer
 # encodes time slide information
 #
+# FIXME: in the meantime, LAL uses ID 0 to indicate "no valid ID has been
+# set", so for safety we start at 1.  If that gets fixed in LAL before this
+# code is simply removed, then set the initial value back to 0 for
+# cleanliness.
+#
 
 
 if options.mangle_sngl_inspiral_ids == "int_8s":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(1)
 elif options.mangle_sngl_inspiral_ids == "ilwd:char":
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(1)
 	lsctables.SnglInspiralTable.updateKeyMapping = lsctables.table.Table.updateKeyMapping
 
 
