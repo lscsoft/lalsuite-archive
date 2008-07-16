@@ -167,22 +167,22 @@ class ArrayStream(ligolw.Stream):
 	"""
 	def __init__(self, attrs):
 		ligolw.Stream.__init__(self, attrs)
-		self.tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
-		self.index = None
+		self._tokenizer = tokenizer.Tokenizer(self.getAttribute(u"Delimiter"))
+		self._index = None
 
 	def config(self, parentNode):
 		# some initialization that can only be done once parentNode
 		# has been set.
-		self.tokenizer.set_types([parentNode.pytype])
+		self._tokenizer.set_types([parentNode.pytype])
 		parentNode.array = numpy.zeros(parentNode.get_shape(), parentNode.arraytype)
-		self.index = iter(IndexIter(parentNode.array.shape))
+		self._index = iter(IndexIter(parentNode.array.shape))
 		return self
 
 	def appendData(self, content):
 		# tokenize buffer, and assign to array
 		a = self.parentNode.array
-		n = self.index.next
-		for token in self.tokenizer.append(content):
+		n = self._index.next
+		for token in self._tokenizer.append(content):
 			a[n()] = token
 
 	def unlink(self):
@@ -190,7 +190,7 @@ class ArrayStream(ligolw.Stream):
 		Break internal references within the document tree rooted
 		on this element to promote garbage collection.
 		"""
-		self.index = None
+		self._index = None
 		ligolw.Stream.unlink(self)
 
 	def write(self, file = sys.stdout, indent = u""):
@@ -199,8 +199,7 @@ class ArrayStream(ligolw.Stream):
 		delim = self.getAttribute(u"Delimiter")
 		format = ligolwtypes.FormatFunc[self.parentNode.getAttribute(u"Type")]
 		a = self.parentNode.array
-		index = iter(IndexIter(a.shape))
-		n = index.next
+		n = iter(IndexIter(a.shape)).next
 		file.write(self.start_tag(indent))
 		try:
 			indeces = n()
