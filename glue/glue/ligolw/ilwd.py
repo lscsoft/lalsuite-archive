@@ -108,6 +108,33 @@ from __ilwd import *
 
 
 #
+# Special version for inspirals
+#
+# FIXME:  remove this when sngl_inspiral tables no longer contain 20
+# bazillion digit long ids
+#
+
+
+class inspiral_ilwdchar(long):
+	__slots__ = ()
+
+	table_name = "sngl_inspiral"
+	column_name = "event_id"
+
+	def __hash__(self):
+		return hash(self.table_name) ^ hash(self.column_name) ^ long.__hash__(self)
+
+	def __cmp__(self, other):
+		return cmp(self.table_name, other.table_name) or cmp(self.column_name, other.column_name) or long.__cmp__(self, other)
+
+	def __str__(self):
+		return "%s:%s:%d" % (self.table_name, self.column_name, long(self))
+
+	def __sub__(self, other):
+		return long.__sub__(self, other)
+
+
+#
 # =============================================================================
 #
 #                                Cached Classes
@@ -222,5 +249,10 @@ def get_ilwdchar(s):
 	# retrieve the matching class from the ID class cache, and return
 	# an instance initialized to the desired value
 	#
+
+	# FIXME:  remove this conditional when the inspiral event_ids no
+	# longer contain a bazillion digits.
+	if (table_name, column_name) == ("sngl_inspiral", "event_id"):
+		return inspiral_ilwdchar(long(i))
 
 	return get_ilwdchar_class(table_name, column_name)(int(i))
