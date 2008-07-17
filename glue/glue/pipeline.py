@@ -1570,10 +1570,12 @@ class AnalysisNode(CondorDAGNode):
       if isinstance( file, LDRdataFindClient.lfnlist ):
         self.add_var_opt('glob-frame-data',' ')
         # only add the LFNs that actually overlap with this job
+        # FIXME this doesnt handle edge cases!!!!
+        # I have added a 130 second padding
         for lfn in file:
           a, b, c, d = lfn.split('.')[0].split('-')
-          t_start = int(c)
-          t_end = int(c) + int(d)
+          t_start = int(c)-130
+          t_end = int(c) + int(d)+130
           if ( t_start <= self.__data_end and t_end >= self.__data_start ):
             self.add_input_file(lfn)
         # set the frame type based on the LFNs returned by datafind
