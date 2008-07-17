@@ -7,15 +7,11 @@ import glob
 import re
 
 from glue import lal
-from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-from glue.ligolw import ilwd
-from glue.ligolw import types
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from pylal import inspiral_likelihood
 from pylal.tools import XLALCalculateEThincaParameter
 
 #from pylab import*
@@ -24,59 +20,6 @@ import numpy
 import cmath
 numpy.seterr("raise")
 
-#######################################################################################
-# Definitions of some of the classes and functions that are used in the main program.
-#######################################################################################
-class InspiralLikelihoodTable(table.Table):
-  tableName = "Inspiral_Likelihood:table"
-  validcolumns = {
-	"ifo": "lstring",
-	"false_alarm_prob": "real_4",
-	"detect_prob": "real_4",
-	"likelihood": "real_4",
-	"bg_frac": "real_4",
-	"detect_bg_frac_ratio": "real_4",
-	"event_id": "ilwd:char"
-  }
-  def get_column(self,column):
-    return self.getColumnByName(column).asarray()
-	
-  def getslide(self,slide_num):
-	  """
-	  Return the triggers with a specific slide number.
-	  @param slide_num: the slide number to recover (contained in the event_id)
-	  """
-	  slideTrigs = table.new_from_template(self)
-	  if slide_num < 0:
-		  slide_num = 5000 - slide_num
-	  for row in self:
-		  if row.get_slide_number() == slide_num:
-			  slideTrigs.append(row)
-	  return slideTrigs
-
-class InspiralLikelihood(object):
-  __slots__ = InspiralLikelihoodTable.validcolumns.keys()
-  
-InspiralLikelihoodTable.RowType = InspiralLikelihood
-
-def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="", user_tag="", gps_start_time=0, gps_end_time=0):
-  """
-  Generates the string according to inspiral pipeline conventions, that can be used as a name of a file.
-  """ 
-  prefix = program_name
-  if ifo_times:
-    prefix = ifo_times + "-" + prefix
-  if ifo_tag:
-    prefix = prefix + "_" + ifo_tag
-  if user_tag:
-    prefix = prefix + "_" + user_tag
-	
-  if gps_start_time > 0 and gps_end_time > 0:
-    suffix = "_" +str(gps_start_time) + "-" + str(gps_end_time - gps_start_time)
-  else:
-    suffix = ""
-  return prefix, suffix
-   			
 ################################################################################
 # Main program.
 ################################################################################
@@ -464,10 +407,10 @@ else:
   DetectionBackgroundRatio = numpy.zeros(array_size)
 
 #populating InspiralLikelihoodTable
-LikelihoodTable = lsctables.New(InspiralLikelihoodTable)
+LikelihoodTable = lsctables.New(inspiral_likelihood.InspiralLikelihoodTable)
 i = 0
 for candidate in CandidateEventsCoincTriggers:
-  inspLikelihood = InspiralLikelihood()
+  inspLikelihood = inspiral_likelihood.InspiralLikelihood()
   c_ifos,ifolist = candidate.get_ifos()
   inspLikelihood.ifo = c_ifos
   inspLikelihood.event_id = candidate.event_id 	
@@ -484,7 +427,7 @@ for candidate in CandidateEventsCoincTriggers:
 if opts.output_file:
   output_file_name = opts.output_file
 else:
-  prefix, suffix = generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
+  prefix, suffix = inspiral_likelihood.generate_prefix_and_suffix(ifo_times=opts.ifo_times, program_name="Likelihood", ifo_tag=opts.ifo_tag, user_tag=opts.user_tag, gps_start_time=opts.gps_start_time, gps_end_time=opts.gps_end_time)
   output_file_name = prefix + suffix + ".xml"
   
 LikelihoodFile = open(output_file_name, "w")

@@ -6,14 +6,12 @@ from optparse import *
 import glob
 
 from glue import lal
-from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
+from pylal import inspiral_likelihood
 from pylal.tools import XLALCalculateEThincaParameter
-from glue.ligolw import ligolw
 #from pylab import*
 import glue.iterutils
 import numpy
@@ -27,89 +25,6 @@ import cmath
 #from ROOT import kRed,kGreen,kBlue,kYellow,kViolet,kOrange
 
 
-#######################################################################################
-# Definitions of some of the classes and functions that are used in the main program.
-#######################################################################################
-class InspiralLikelihoodTable(table.Table):
-  tableName = "Inspiral_Likelihood:table"
-  validcolumns = {
-	"ifo": "lstring",
-	"false_alarm_prob": "real_4",
-	"detect_prob": "real_4",
-	"likelihood": "real_4",
-	"bg_frac": "real_4",
-	"detect_bg_frac_ratio": "real_4",
-	"event_id": "ilwd:char"
-  }
-  def get_column(self,column):
-    return self.getColumnByName(column).asarray()
-	
-  def getslide(self,slide_num):
-	  """
-	  Return the triggers with a specific slide number.
-	  @param slide_num: the slide number to recover (contained in the event_id)
-	  """
-	  slideTrigs = lsctables.New(InspiralLikelihoodTable)
-	  if slide_num < 0:
-		  slide_num = 5000 - slide_num
-	  for row in self:
-		  if row.get_slide_number() == slide_num:
-			  slideTrigs.append(row)
-	  return slideTrigs
-	  
-  def coinctype(self, ifo):
-	"""
-	Return the events with the given IFO.
-	@param ifo: parameter specifying the IFO ( e.g. "H1H2L1")  
-	"""
-	ifo_triggers=lsctables.New(InspiralLikelihoodTable)
-	
-	for row in self:
-	  if row.ifo == ifo:
-	    ifo_triggers.append(row)
-	
-	return ifo_triggers
-			
-class InspiralLikelihood(object):
-  __slots__ = InspiralLikelihoodTable.validcolumns.keys()
-  
-InspiralLikelihoodTable.RowType = InspiralLikelihood
-
-
-def ReadInspiralLikelihoodFromFiles(fileList):
-  """
-  Read the InspiralLikelihoodTables from a list of files
-  @param fileList: list of input files
-  """
-  FullTable = lsctables.New(InspiralLikelihoodTable)
-  for file in fileList:
-    doc = utils.load_url(file, verbose = False, gz = file[-3:] == ".gz", xmldoc = ligolw.Document())
-    try:
-      SubTable = glue.ligolw.table.get_table(doc, InspiralLikelihoodTable.tableName)
-    except:
-      SubTable = None
-    if SubTable:  
-	  for row in SubTable:
-	    FullTable.append(row)
-  return FullTable
-
-def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="", user_tag="", gps_start_time=0, gps_end_time=0):
-  """
-  Generates the string according to inspiral pipeline conventions, that can be used as a name of a file.
-  """ 
-  prefix = program_name
-  if ifo_times:
-    prefix = ifo_times + "-" + prefix
-  if ifo_tag:
-    prefix = prefix + "_" + ifo_tag
-  if user_tag:
-    prefix = prefix + "_" + user_tag
-	
-  if gps_start_time > 0 and gps_end_time > 0:
-    suffix = "_" +str(gps_start_time) + "-" + str(gps_end_time - gps_start_time)
-  else:
-    suffix = ""
-  return prefix, suffix
 
 ########################################################################
 # Functions that are relevant to plots
@@ -1578,25 +1493,25 @@ if opts.input_data_type == "inspiral-likelihood-table-only":
     coinc_IFO=opts.plot_only_ifo.replace("_", "")
     # read in zero lag coinc triggers
     zerolagLikelihoodTriggers = None
-    zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles).coinctype(coinc_IFO)
+    zerolagLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles).coinctype(coinc_IFO)
     # read in time slides triggers 
     slidesLikelihoodTriggers = None
-    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles).coinctype(coinc_IFO
+    slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles).coinctype(coinc_IFO
 )
     # read in injections sngl and sim inspirals
     injectionLikelihoodTriggers = None
-    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles).coinctype(coinc_IFO
+    injectionLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles).coinctype(coinc_IFO
 )
   else:
     # read in zero lag coinc triggers
     zerolagLikelihoodTriggers = None
-    zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
+    zerolagLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
     # read in time slides triggers 
     slidesLikelihoodTriggers = None
-    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
+    slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
     # read in injections sngl and sim inspirals
     injectionLikelihoodTriggers = None
-    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
+    injectionLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
 	
   # generation of plots
   #####################
@@ -1767,11 +1682,11 @@ if opts.input_data_type == "all-data":
   if opts.plot_only_ifo:
 	zerolagCoincTriggers = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic).coinctype(coinc_ifos_list)
 	zerolagLikelihoodTriggers = None
-	zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles).coinctype(coinc_IFO)
+	zerolagLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles).coinctype(coinc_IFO)
   else:
     zerolagCoincTriggers = CoincInspiralUtils.coincInspiralTable(zerolagTriggers, statistic)
     zerolagLikelihoodTriggers = None
-    zerolagLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
+    zerolagLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodZerolagFiles)
   # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(zerolagLikelihoodTriggers) == len(zerolagCoincTriggers):
 	print >>sys.stderr, "zero lag: inspiral likelihood table is incompatible with the inspiral coinc table"
@@ -1784,11 +1699,11 @@ if opts.input_data_type == "all-data":
   if opts.plot_only_ifo:
     slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic).coinctype(coinc_ifos_list)
     slidesLikelihoodTriggers = None
-    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles).coinctype(coinc_IFO)  
+    slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles).coinctype(coinc_IFO)  
   else:
     slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
     slidesLikelihoodTriggers = None
-    slidesLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
+    slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodSlidesFiles)
    # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(slidesLikelihoodTriggers) == len(slidesCoincTriggers):
 	print >>sys.stderr, "time slides: inspiral likelihood table is incompatible with the inspiral coinc table"
@@ -1803,11 +1718,11 @@ if opts.input_data_type == "all-data":
   if opts.plot_only_ifo:
     injectionCoincTriggers = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic).coinctype(coinc_ifos_list)
     injectionLikelihoodTriggers = None
-    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles).coinctype(coinc_IFO)  
+    injectionLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles).coinctype(coinc_IFO)  
   else:
     injectionCoincTriggers = CoincInspiralUtils.coincInspiralTable(injectionTriggers, statistic)
     injectionLikelihoodTriggers = None
-    injectionLikelihoodTriggers = ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
+    injectionLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(LikelihoodInjFiles)
   # check if inspiral likelihood table is compatible with the inspiral coinc table
   if not len(injectionLikelihoodTriggers) == len(injectionCoincTriggers):
 	print >>sys.stderr, "injections: inspiral likelihood table is incompatible with the inspiral coinc table"
@@ -1841,7 +1756,7 @@ if opts.input_data_type == "all-data":
 				loudest_likelihood_dic[id] = likelihood_dic[id]
 	  # creating new tables for loudest events
 	  loudest_sngl_table = lsctables.New(lsctables.SnglInspiralTable)
-	  loudest_inspiral_likelihood_table = lsctables.New(InspiralLikelihoodTable)
+	  loudest_inspiral_likelihood_table = lsctables.New(inspiral_likelihood.InspiralLikelihoodTable)
 	  loudest_coinc_table = CoincInspiralUtils.coincInspiralTable()
 	  
 	  for coinc in zerolagCoincTriggers:
