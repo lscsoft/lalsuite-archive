@@ -143,7 +143,6 @@ setup(
     os.path.join('bin','lars_search'),
     os.path.join('bin','ldbdc'),
     os.path.join('bin','ldg_submit_dax'),
-    os.path.join('bin','ldg_mkdir'),
     os.path.join('bin','dmtdq_seg_insert'),
     os.path.join('bin','ligolw_add'),
     os.path.join('bin','ligolw_cut'),
