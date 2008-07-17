@@ -1575,7 +1575,7 @@ class AnalysisNode(CondorDAGNode):
           a, b, c, d = lfn.split('.')[0].split('-')
           t_start = int(c)
           t_end = int(c) + int(d)
-          if (t_start <= (self.__data_end+int(d)) and t_end >= (self.__data_start-int(d))):
+          if (t_start <= (self.__data_end+int(d)+1) and t_end >= (self.__data_start-int(d)-1)):
             self.add_input_file(lfn)
         # set the frame type based on the LFNs returned by datafind
         self.add_var_opt('frame-type',b)
