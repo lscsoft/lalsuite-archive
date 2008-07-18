@@ -26,6 +26,7 @@
 #
 
 
+import bisect
 import math
 import numpy
 from scipy.interpolate import interpolate
@@ -128,7 +129,17 @@ class interp2d(interpolate.interp2d):
 		# the return value for co-ordinates outside the domain of
 		# the interpolator.
 
-		interpolate.interp2d.__init__(self, x, y, z, kind = "linear", bounds_error = False, fill_value = fill_value)
+		# FIXME:  scipy's 2D interpolator is busted, put this back
+		# when it's fixed.
+		#interpolate.interp2d.__init__(self, x, y, z, kind = "linear", bounds_error = False, fill_value = fill_value)
+		self.x = x
+		self.y = y
+		self.z = z
+
+	# FIXME:  scipy's 2D interpolator is busted.  remove this when it's
+	# fixed.
+	def __call__(self, x, y):
+		return (z[bisect.bisect(self.x, x), bisect.bisect(self.y.y)],)
 
 
 #
