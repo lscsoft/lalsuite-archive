@@ -140,7 +140,7 @@ class interp2d(interpolate.interp2d):
 class Likelihood(object):
 	def __init__(self, coinc_param_distributions):
 		# check input
-		if set(self.background_rates.keys()) != set(self.injection_rates.keys()):
+		if set(coinc_param_distributions.background_rates.keys()) != set(coinc_param_distributions.injection_rates.keys()):
 			raise ValueError, "distribution density name mismatch"
 		for name, binnedarray in coinc_param_distributions.background_rates.items():
 			if len(binnedarray.array.shape) != len(coinc_param_distributions.injection_rates[name].array.shape):
