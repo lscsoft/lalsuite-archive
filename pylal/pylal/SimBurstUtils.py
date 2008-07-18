@@ -141,7 +141,7 @@ def hrss_in_instrument(sim, instrument):
 #
 
 
-burst_is_near_injection_window = 2
+burst_is_near_injection_window = 2.0
 
 
 def burst_is_near_injection(sim, start, start_ns, duration, instrument):
@@ -149,13 +149,13 @@ def burst_is_near_injection(sim, start, start_ns, duration, instrument):
 	In the low background rate limit, there are two distinct tests used
 	to compare burst events to injections.  A strict test is used to
 	find bursts that represent properly-recovered injections, to assess
-	parameter reconstruction accuracy.  This is the looser test, used
-	after the final coincidence test, to check if an injection has
-	survived the pipeline.  In this test it is only necessary to see if
-	a multi-event coincidence survived somewhere near the injection,
-	without requiring a good match, since in the low-background limit
-	the only coincidences to survive the pipeline at all are
-	injections.
+	parameter reconstruction accuracy.  This function is the looser
+	test, used after the final coincidence test, to check if an
+	injection has survived the pipeline.  In this test it is only
+	necessary to see if a multi-event coincidence survived somewhere
+	near the injection, without requiring a good match, since in the
+	low-background limit the only coincidences to survive the pipeline
+	at all are injections.
 
 	This function compares one burst to an injection.  This function
 	defines a burst to be "near" an injection if the injection's peak
