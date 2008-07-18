@@ -55,6 +55,7 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import SnglInspiralUtils
+from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
 
@@ -134,7 +135,10 @@ parser.add_option("-g", "--glob",
     help="glob of zero-lag thinca or thinca slide files to read")
 parser.add_option("-i", "--cache-file",
     help="lal cache of zero-lag thinca or thinca slide files to read")
-parser.add_option("-p", "--coinc-pattern",
+parser.add_option("-o", "--onsource-pattern",
+    help="on-source coinc file; only used for segment information without "
+         "--hist-onsource")
+parser.add_option("-p", "--offsource-pattern",
     help="sieve pattern for coincidences of interest (slide or zerolag)")
 parser.add_option("-V", "--veto-files", action="callback", type="string",
     callback=comma_delimited, default=[],
@@ -204,18 +208,14 @@ if opts.coinc_statistic is None:
     print >>sys.stderr, "A coincidence statistic is required."
     sys.exit(2)
 
-# discover files containing coincs
+# turn a glob into a cache
 if opts.glob is not None:
-    files = glob.glob(opts.glob)
-    if len(files) == 0:
+    tmp_files = glob.glob(opts.glob)
+    if len(tmp_files) == 0:
         raise ValueError, "no files match glob"
+    cache = Cache.fromfilenames(tmp_files, coltype=int)
 else:
-    cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
-    cache = cache.sieve(description=opts.coinc_pattern)
-    if len(cache) == 0:
-        raise ValueError, "no files in cache match coinc pattern"
-    present, missing = cache.checkfilesexist()
-    files = present.pfnlist()
+    cache = lal.Cache.fromfile(open(opts.cache_file))
 
 ##############################################################################
 # HTML initialization
@@ -223,35 +223,21 @@ InspiralUtils.initialise(opts, __name__, __version__)
 
 ##############################################################################
 # read in document
-lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
-doc = ligolw_add.ligolw_add(ligolw.Document(), files, verbose=opts.verbose)
+onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
+    opts.onsource_pattern, exact_match=True, verbose=opts.verbose)
+offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
+    opts.offsource_pattern, exact_match=True, verbose=opts.verbose)
 
-nominal_num_slides = get_num_slides(doc)
+nominal_num_slides = get_num_slides(offsource_doc)
 total_num_slides = 2 * nominal_num_slides or 1
 
 ##############################################################################
 # segment computation
+bins, trial_veto_mask, onsource_ind = \
+    grbsummary.get_exttrig_trials(onsource_doc, offsource_doc, opts.veto_files)
+num_trials = len(bins)
 
-# get analyzed segments; if exttrig_analyze=offsource, then this is the two
-# segments immediately adjacent to the on-source segment
-seg_dict = SearchSummaryUtils.GetSegListFromSearchSummaries(files)
-segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
-# typecast to ints, which are better behaved and faster than LIGOTimeGPS
-segs = segmentlist([segment(int(seg[0]), int(seg[1])) for seg in segs])
-if abs(segs) % opts.fold_time != 0:
-    raise ValueError, "The provided file's analysis segment is not divisible "\
-        "by the fold time."
-extent = segs.extent()
-
-# generate bins for trials
-num_trials = int(abs(extent)) // opts.fold_time
-bins = rate.LinearBins(extent[0], extent[1], num_trials)
-
-# incorporate veto file; in trial_veto_mask, True means vetoed.
-trial_veto_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
-for veto_file in opts.veto_files:
-    new_veto_segs = segmentsUtils.fromsegwizard(open(veto_file), coltype=int)
-    trial_veto_mask |= rate.bins_spanned(bins, new_veto_segs, dtype=numpy.bool8)
+# derive a 2D trial mask for convenience
 trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials),
                                  dtype=numpy.bool8)
 trial_veto_mask_2d[0, trial_veto_mask] = True
@@ -261,7 +247,7 @@ eff_num_trials = numpy.sum(~trial_veto_mask)
 
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
-triggers = table.get_table(doc, lsctables.SnglInspiralTable.tableName)
+triggers = table.get_table(offsource_doc, lsctables.SnglInspiralTable.tableName)
 
 stat = CoincInspiralUtils.coincStatistic(opts.coinc_statistic)
 coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
@@ -292,7 +278,7 @@ info_text = ""
 info_text += InspiralUtils.message(opts, "Total number of slides (pos + neg "\
     "or zerolag): %d" % total_num_slides)
 info_text += InspiralUtils.message(opts, "Total time analyzed (s): %d of %d" % \
-    (eff_num_trials * opts.fold_time, abs(extent)))
+    (eff_num_trials * opts.fold_time, bins.max - bins.min))
 info_text += InspiralUtils.message(opts, "Number of %d second segments per "\
     "slide: %d" % (opts.fold_time, eff_num_trials))
 info_text += InspiralUtils.message(opts, "Total number of coincidences: %d" % \
@@ -401,7 +387,7 @@ if opts.plot_trials_loudest:
     text = "Loudest event statistic vs trial number"
 
     # initialize plot
-    plot = plotutils.VerticalBarPlot("trial number", safe_stat,
+    plot = plotutils.BarPlot("trial number", safe_stat,
         "Loudest events in each trial")
 
     # prepare data
@@ -427,7 +413,7 @@ if opts.plot_trial_stat_autocorrelation:
     text = "Autocorrelation of the loudest event statistic vs trial number"
 
     # initialize plot
-    plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
+    plot = plotutils.BarPlot(r"$\Delta(\textrm{trial number})$",
         "", r"Autocorrelation of loudest stat vs trial number")
 
     # prepare data
@@ -456,7 +442,7 @@ if opts.plot_trial_number_autocorrelation:
     text = "autocorrelation of the number of coincs vs trial number"
 
     # initialize plot
-    plot = plotutils.VerticalBarPlot(r"$\Delta(\textrm{trial number})$",
+    plot = plotutils.BarPlot(r"$\Delta(\textrm{trial number})$",
         "", r"Autocorrelation of \# coincs vs trial number")
 
     # prepare data
@@ -485,7 +471,7 @@ if opts.plot_num_coincs:
     text = "the number of coincs in each trial"
 
     # initialize plot
-    plot = plotutils.VerticalBarPlot(r"trial \#", r"\# coincs",
+    plot = plotutils.BarPlot(r"trial \#", r"\# coincs",
         r"\# coincs in each trial")
 
     # prepare data
@@ -511,7 +497,7 @@ if opts.hist_num_coincs:
     text = "histogram of number of coincs in each trial"
 
     # initialize plot
-    plot = plotutils.VerticalBarPlot(r"\# coincs", r"\# trials",
+    plot = plotutils.BarPlot(r"\# coincs", r"\# trials",
         r"Histogram of \# coincs in each trial")
 
     # prepare data

@@ -255,3 +255,35 @@ def write_rows(rows, table_type, filename):
     
     # write out the document
     utils.write_filename(xmldoc, filename)
+
+def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
+    verbose=False):
+    """
+    Return a parsed and ligolw_added XML document from the files matched by
+    sieve_pattern in the given cache.
+    """
+    subcache = cache.sieve(description=sieve_pattern, exact_match=exact_match)
+    found, missed = subcache.checkfilesexist()
+    if len(found) == 0:
+        print >>sys.stderr, "warning: no files found for pattern %s" \
+            % sieve_pattern
+
+    # turn on event_id mangling
+    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
+
+    # reduce memory footprint at the expense of speed
+    # table.RowBuilder = table.InterningRowBuilder
+
+    urls = [c.url for c in found]
+    try:
+        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
+    except ligolw.ElementError:
+        # FIXME: backwards compatibility for int_8s SnglInspiralTable event_ids
+        lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+        lsctables.SnglInspiralID = int
+        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
+
+    # turn off event_id mangling
+    lsctables.SnglInspiralTable.next_id = None
+
+    return xmldoc

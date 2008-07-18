@@ -94,38 +94,6 @@ def get_num_slides(xmldoc):
                return int(row.value)
     return 0
 
-def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
-    verbose=False):
-    """
-    Return a parsed XML document from the files matched by sieve_pattern in
-    the given cache.
-    """
-    subcache = cache.sieve(description=sieve_pattern, exact_match=exact_match)
-    found, missed = subcache.checkfilesexist()
-    if len(found) == 0:
-        print >>sys.stderr, "warning: no files found for pattern %s" \
-            % sieve_pattern
-
-    # turn on event_id mangling
-    lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
-
-    # reduce memory footprint
-    table.RowBuilder = table.InterningRowBuilder
-
-    urls = [c.url for c in found]
-    try:
-        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
-    except ligolw.ElementError:
-        # FIXME: backwards compatibility for int_8s SnglInspiralTable event_ids
-        lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
-        lsctables.SnglInspiralID = int
-        xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
-
-    # turn off event_id mangling
-    lsctables.SnglInspiralTable.next_id = None
-
-    return xmldoc
-
 class IrregularBins(rate.Bins):
     """
     Bins with arbitrary, irregular spacing.  We only require strict monotonicity
@@ -258,6 +226,8 @@ def mark_loud_injections_by_mc_m2_D(inj_doc, coinc_doc, onsource_loudest_by_mc,
     # get injection info
     sims = table.get_table(inj_doc, lsctables.SimInspiralTable.tableName)
     sim_trials = [trial_bins[s.geocent_end_time] for s in sims]
+
+    # sanity check: no two injections went into the same trial
     assert len(sim_trials) == len(set(sim_trials))
 
     # tabulate each sim and its properties
@@ -444,9 +414,9 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 # read in non-injection documents (do so here to get num slides and segments)
 cache = lal.Cache.fromfile(open(opts.cache_file))
 
-onsource_doc = load_cache(ligolw.Document(), cache,
+onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.onsource_pattern, verbose=opts.verbose)
-offsource_doc = load_cache(ligolw.Document(), cache,
+offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
 
 nominal_num_slides = get_num_slides(offsource_doc)
@@ -508,7 +478,7 @@ injection_cache = cache.sieve(description=opts.injection_pattern)
 inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
 
 # get all unique descriptions (can have multiple segments per description)
-inj_patterns = set("*_" + entry.description.split("_")[-1] \
+inj_patterns = set("*_" + "_".join(entry.description.split("_")[-2:]) \
                    for entry in inj_coinc_cache)
 
 # tally up the numerator and denominator for p(c|h) for each inj pattern
@@ -523,10 +493,10 @@ for pattern in inj_patterns:
         sys.stdout.flush()
 
     # read injection and its corresponding coincs
-    inj_doc = load_cache(ligolw.Document(), injection_cache, pattern,
-                         exact_match=True)
-    coinc_doc = load_cache(ligolw.Document(), inj_coinc_cache, pattern,
-                           exact_match=True)
+    inj_doc = grbsummary.load_cache(ligolw.Document(), injection_cache,
+                                    pattern, exact_match=True)
+    coinc_doc = grbsummary.load_cache(ligolw.Document(), inj_coinc_cache,
+                                      pattern, exact_match=True)
 
     # For each (mean mchirp, injected m2, injected D) bin, tally the found
     # coincs louder than the loudest on-source event in their recovered mchirp
@@ -565,7 +535,7 @@ tagList = []
 text = "Injection count"
 
 plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$", r"Injections made")
-plot.add_content(num_sims_by_m2_D, m2_bins, D_bins)
+plot.add_content(num_sims_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
 
 if opts.enable_output:
@@ -602,7 +572,7 @@ text = "p(c|h)"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     "$p(c|h)$")
-plot.add_content(pch_by_m2_D, m2_bins, D_bins)
+plot.add_content(pch_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
 
 if opts.enable_output:
@@ -622,11 +592,7 @@ plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
 x = m2_bins.lower()
 zero = numpy.zeros(len(m2_bins), dtype=float)
 
-y = get_level_crossings(pch_by_m2_D, 0.9, D_bins)
-tmpx, tmpy = viz.makesteps(x, zero, y)
-plot.add_content(tmpx, tmpy, label=r"10\% exclusion")
-
-y = get_level_crossings(pch_by_m2_D, 0.75, D_bins)
+y = get_level_crossings(pch_by_m2_D, 0.25, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"25\% exclusion")
 
@@ -634,7 +600,11 @@ y = get_level_crossings(pch_by_m2_D, 0.5, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"50\% exclusion")
 
-y = get_level_crossings(pch_by_m2_D, 0.1, D_bins)
+y = get_level_crossings(pch_by_m2_D, 0.75, D_bins)
+tmpx, tmpy = viz.makesteps(x, zero, y)
+plot.add_content(tmpx, tmpy, label=r"75\% exclusion")
+
+y = get_level_crossings(pch_by_m2_D, 0.9, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"90\% exclusion")
 
