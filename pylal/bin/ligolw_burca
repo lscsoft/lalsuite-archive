@@ -314,7 +314,7 @@ def burca2(options, filenames):
 			c, ignored = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, u"ligolw_burca_tailor", verbose = verbose)
 			coinc_params_distributions += c
 			connection.close()
-		coinc_params_distributions.finish()
+		coinc_params_distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
 		return ligolw_burca2.LikelihoodRatio(coinc_params_distributions)
 
 

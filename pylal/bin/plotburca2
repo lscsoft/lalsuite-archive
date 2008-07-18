@@ -276,7 +276,7 @@ for filename in filenames:
 	c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, "ligolw_burca_tailor", verbose = options.verbose)
 	distributions += c
 	seglists |= s
-distributions.finish()
+distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
 
 
 filename = "%s-%%s-%d-%d.%s" % (options.base, int(seglists.extent_all()[0]), int(abs(seglists.extent_all())), options.format)
