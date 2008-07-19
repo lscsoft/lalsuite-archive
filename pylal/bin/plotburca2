@@ -76,15 +76,20 @@ def parse_command_line():
 #
 
 
-def add_to_plot(axes, red, black, blue = None, plottype = "LR"):
+def add_to_plot(axes, red, black, blue, gmst, plottype = "LR"):
 	if plottype == "P":
 		if blue is not None:
-			axes.plot(numpy.compress(blue.array > 0, blue.centres()[0]), numpy.compress(blue.array > 0, blue.array), "b")
-		l, = axes.plot(numpy.compress(black.array > 0, black.centres()[0]), numpy.compress(black.array > 0, black.array), "k")
+			y = blue.array[:,gmst]
+			l, = axes.plot(numpy.compress(y > 0, blue.centres()[0]), numpy.compress(y > 0, y), "b")
+		y = black.array[:,gmst]
+		l, = axes.plot(numpy.compress(y > 0, black.centres()[0]), numpy.compress(y > 0, y), "k")
 		#l.set_dashes([8, 4])
-		l, = axes.plot(numpy.compress(red.array > 0, red.centres()[0]), numpy.compress(red.array > 0, red.array), "r")
+		y = red.array[:,gmst]
+		l, = axes.plot(numpy.compress(y > 0, red.centres()[0]), numpy.compress(y > 0, y), "r")
 	elif plottype == "LR":
-		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), black.centres()[0]), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
+		y1 = red.array[:,gmst]
+		y2 = black.array[:,gmst]
+		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), black.centres()[0]), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
 		raise ValueError, plottype
 
@@ -95,16 +100,21 @@ def add_to_plot(axes, red, black, blue = None, plottype = "LR"):
 	axes.set_xlim((-2.0, +2.0))
 
 
-def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
-	x = numpy.arange(len(black.array), dtype = "double")
+def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
+	x = numpy.arange(len(black.array[:,gmst]), dtype = "double")
 	if plottype == "P":
 		if blue is not None:
-			axes.plot(numpy.compress(blue.array > 0, x), numpy.compress(blue.array > 0, blue.array), "b")
-		l, = axes.plot(numpy.compress(black.array > 0, x), numpy.compress(black.array > 0, black.array), "k")
+			y = blue.array[:,gmst]
+			l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "b")
+		y = black.array[:,gmst]
+		l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "k")
 		#l.set_dashes([8, 4])
-		l, = axes.plot(numpy.compress(red.array > 0, x), numpy.compress(red.array > 0, red.array), "r")
+		y = red.array[:,gmst]
+		l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "r")
 	elif plottype == "LR":
-		axes.plot(numpy.compress((red.array > 0) & (black.array > 0), x), numpy.compress((red.array > 0) & (black.array > 0), red.array / black.array), "k")
+		y1 = red.array[:,gmst]
+		y2 = black.array[:,gmst]
+		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), x), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
 		raise ValueError, plottype
 
@@ -119,7 +129,7 @@ def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
 	else:
 		xticks = (float("-inf"), -0.05, -0.02, -0.01, -0.005, 0, 0.005, 0.01, 0.02, 0.05, float("inf"))
 	xticklabels = [r"$-\infty$"] + [r"$%.3g$" % (1000 * x) for x in xticks[1:-1]] + [r"$\infty$"]
-	axes.set_xticks([black.bins[x,][0] for x in xticks])
+	axes.set_xticks([black.bins[x,:][0] for x in xticks])
 	axes.set_xticklabels(xticklabels)
 
 
@@ -128,7 +138,7 @@ def add_to_dtplot(axes, red, black, blue = None, plottype = "LR"):
 #
 
 
-def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
+def plot_coinc_params(distributions, gmst, plottype = "LR", with_zero_lag = False):
 	#
 	# Create a figure.
 	#
@@ -214,7 +224,7 @@ def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
 				blue = distributions.zero_lag_rates[prefix + suffix]
 			else:
 				blue = None
-			add_to_plot(axes, red, black, blue, plottype = plottype)
+			add_to_plot(axes, red, black, blue, gmst, plottype = plottype)
 
 		suffix = "dt"
 		red = distributions.injection_rates[prefix + suffix]
@@ -223,7 +233,7 @@ def plot_coinc_params(distributions, plottype = "LR", with_zero_lag = False):
 			blue = distributions.zero_lag_rates[prefix + suffix]
 		else:
 			blue = None
-		add_to_dtplot(dt_axes, red, black, blue, plottype = plottype)
+		add_to_dtplot(dt_axes, red, black, blue, gmst, plottype = plottype)
 
 	#
 	# Done.
@@ -247,22 +257,25 @@ filenames.sort()
 
 distributions = ligolw_burca_tailor.CoincParamsDistributions()
 seglists = segments.segmentlistdict()
-for filename in filenames:
+for n, filename in enumerate(filenames):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	c, s = ligolw_burca_tailor.coinc_params_distributions_from_filename(filename, "ligolw_burca_tailor", verbose = options.verbose)
 	distributions += c
 	seglists |= s
+if options.verbose:
+	print >>sys.stderr, "applying filters ..."
 distributions.finish(filters = ligolw_burca_tailor.DistributionsStats.filters)
 
 
-filename = "%s-%%s-%d-%d.%s" % (options.base, int(seglists.extent_all()[0]), int(abs(seglists.extent_all())), options.format)
-if options.verbose:
-	print >>sys.stderr, "writing %s ..." % (filename % "P")
-plot_coinc_params(distributions, plottype = "P", with_zero_lag = options.with_zero_lag).savefig(filename % "P")
-if options.verbose:
-	print >>sys.stderr, "writing %s ..." % (filename % "LR")
-plot_coinc_params(distributions, plottype = "LR").savefig(filename % "LR")
-
-sys.exit()
+for gmst in numpy.arange(0.0, 2 * math.pi, 2 * math.pi / 10):
+	filename = "%s-%%s-%d-%d-%s.%s" % (options.base, int(seglists.extent_all()[0]), int(abs(seglists.extent_all())), ("%.2f" % gmst).replace(".", "_"), options.format)
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % (filename % "P")
+	plot_coinc_params(distributions, gmst, plottype = "P", with_zero_lag = options.with_zero_lag).savefig(filename % "P")
+	if options.verbose:
+		print >>sys.stderr, "writing %s ..." % (filename % "LR")
+	plot_coinc_params(distributions, gmst, plottype = "LR").savefig(filename % "LR")
 
 
 if options.verbose:
