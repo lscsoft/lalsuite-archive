@@ -182,15 +182,15 @@ class Likelihood(object):
 	def set_P_gw(self, P):
 		self.P_gw = P
 
-	def P(self, param_func, events, offsetdict, *args):
+	def P(self, params_func, events, offsetdict, *params_func_extra_args):
 		P_bak = 1.0
 		P_inj = 1.0
-		for name, value in param_func(events, offsetdict, *args).items():
+		for name, value in params_func(events, offsetdict, *params_func_extra_args).items():
 			P_bak *= self.background_rates[name](*value)[0]
 			P_inj *= self.injection_rates[name](*value)[0]
 		return P_bak, P_inj
 
-	def __call__(self, param_func, events, offsetdict, *args):
+	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
 		"""
 		Compute the likelihood that the coincident n-tuple of
 		events is the result of a gravitational wave:  the
@@ -201,12 +201,12 @@ class Likelihood(object):
 		is a dictionary of instrument --> offset mappings to be
 		used to time shift the events before comparison.
 		"""
-		P_bak, P_inj = self.P(param_func, events, offsetdict, *args)
+		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
 		return (P_inj * self.P_gw) / (P_bak + (P_inj - P_bak) * self.P_gw)
 
 
 class Confidence(Likelihood):
-	def __call__(self, param_func, events, offsetdict, *args):
+	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
 		"""
 		Compute the confidence that the list of events are the
 		result of a gravitational wave:  -ln[1 - P(gw)], where
@@ -216,7 +216,7 @@ class Confidence(Likelihood):
 		to 1, so 1 - P is a small positive number, and so -ln of
 		that is a large positive number.
 		"""
-		P_bak, P_inj = self.P(param_func, events, offsetdict, *args)
+		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
 		return  math.log(P_bak + (P_inj - P_bak) * self.P_gw) - math.log(P_inj) - math.log(self.P_gw)
 
 
@@ -228,7 +228,7 @@ class LikelihoodRatio(Likelihood):
 		"""
 		raise NotImplementedError
 
-	def __call__(self, param_func, events, offsetdict, *args):
+	def __call__(self, params_func, events, offsetdict, *params_func_extra_args):
 		"""
 		Compute the likelihood ratio for the hypothesis that the
 		list of events are the result of a gravitational wave.  The
@@ -241,7 +241,7 @@ class LikelihoodRatio(Likelihood):
 		likelihood ratios, which has the advantage of not requiring
 		a prior probability to be provided.
 		"""
-		P_bak, P_inj = self.P(param_func, events, offsetdict, *args)
+		P_bak, P_inj = self.P(params_func, events, offsetdict, *params_func_extra_args)
 		if P_bak == 0.0 and P_inj == 0.0:
 			# this can happen.  "correct" answer is 0, not NaN,
 			# because if a tuple of events has been found in a
@@ -272,7 +272,7 @@ class LikelihoodRatio(Likelihood):
 #
 
 
-def ligolw_burca2(database, likelihood_ratio, param_func, verbose = False, *args):
+def ligolw_burca2(database, likelihood_ratio, params_func, verbose = False, params_func_extra_args = ()):
 	"""
 	Assigns likelihood ratio values to excess power coincidences.
 	database is pylal.SnglBurstUtils.CoincDatabase instance, and
@@ -322,7 +322,7 @@ SET
 	likelihood = ?
 WHERE
 	coinc_event_id == ?
-		""", (likelihood_ratio(param_func, events, time_slides[time_slide_id], *args), coinc_event_id))
+		""", (likelihood_ratio(params_func, events, time_slides[time_slide_id], *params_func_extra_args), coinc_event_id))
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
