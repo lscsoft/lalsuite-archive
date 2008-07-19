@@ -139,7 +139,7 @@ class interp2d(interpolate.interp2d):
 	# FIXME:  scipy's 2D interpolator is busted.  remove this when it's
 	# fixed.
 	def __call__(self, x, y):
-		return (z[bisect.bisect(self.x, x), bisect.bisect(self.y.y)],)
+		return (self.z[bisect.bisect(self.x, x), bisect.bisect(self.y.y)],)
 
 
 #
