@@ -72,7 +72,8 @@ class Bins(object):
 		Initialize a Bins instance.  The three arguments are the
 		minimum and maximum of the values spanned by the bins, and
 		the number of bins to place between them.  Subclasses may
-		require additional arguments.
+		require additional arguments, or different arguments
+		altogether.
 		"""
 		# convenience code to do some common initialization and
 		# input checking
