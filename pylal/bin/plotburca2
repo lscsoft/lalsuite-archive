@@ -79,16 +79,16 @@ def parse_command_line():
 def add_to_plot(axes, red, black, blue, gmst, plottype = "LR"):
 	if plottype == "P":
 		if blue is not None:
-			y = blue.array[:,gmst]
+			y = blue[:,gmst]
 			l, = axes.plot(numpy.compress(y > 0, blue.centres()[0]), numpy.compress(y > 0, y), "b")
-		y = black.array[:,gmst]
+		y = black[:,gmst]
 		l, = axes.plot(numpy.compress(y > 0, black.centres()[0]), numpy.compress(y > 0, y), "k")
 		#l.set_dashes([8, 4])
-		y = red.array[:,gmst]
+		y = red[:,gmst]
 		l, = axes.plot(numpy.compress(y > 0, red.centres()[0]), numpy.compress(y > 0, y), "r")
 	elif plottype == "LR":
-		y1 = red.array[:,gmst]
-		y2 = black.array[:,gmst]
+		y1 = red[:,gmst]
+		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), black.centres()[0]), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
 		raise ValueError, plottype
@@ -101,19 +101,19 @@ def add_to_plot(axes, red, black, blue, gmst, plottype = "LR"):
 
 
 def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
-	x = numpy.arange(len(black.array[:,gmst]), dtype = "double")
+	x = numpy.arange(len(black[:,gmst]), dtype = "double")
 	if plottype == "P":
 		if blue is not None:
-			y = blue.array[:,gmst]
+			y = blue[:,gmst]
 			l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "b")
-		y = black.array[:,gmst]
+		y = black[:,gmst]
 		l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "k")
 		#l.set_dashes([8, 4])
-		y = red.array[:,gmst]
+		y = red[:,gmst]
 		l, = axes.plot(numpy.compress(y > 0, x), numpy.compress(y > 0, y), "r")
 	elif plottype == "LR":
-		y1 = red.array[:,gmst]
-		y2 = black.array[:,gmst]
+		y1 = red[:,gmst]
+		y2 = black[:,gmst]
 		l, = axes.plot(numpy.compress((y1 > 0) & (y2 > 0), x), numpy.compress((y1 > 0) & (y2 > 0), y1 / y2), "k")
 	else:
 		raise ValueError, plottype
@@ -122,7 +122,7 @@ def add_to_dtplot(axes, red, black, blue, gmst, plottype = "LR"):
 	if ymin < 1e-5 * ymax:
 		ymin = 1e-5 * ymax
 		axes.set_ylim((ymin, ymax))
-	axes.set_xlim((0, len(black.array) - 1))
+	axes.set_xlim((0, len(x) - 1))
 
 	if black.bins[0].scale > 150:
 		xticks = (float("-inf"), -0.02, -0.01, -0.005, -0.002, 0, 0.002, 0.005, 0.01, 0.02, float("inf"))
