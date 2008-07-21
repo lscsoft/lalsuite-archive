@@ -511,12 +511,11 @@ for pattern in inj_patterns:
 if opts.verbose:
     print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
-# get p(c|h) for each (mean mchirp, injected m2) bin
+# for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
 pch_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2) / \
     (num_sims_by_m2_D.sum(axis=1)[None, :] + 1e-10)
-
-# for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
-mc_ind_by_m2 = (pch_by_mc_m2 / (pc0_by_mc[:, None] + 1e-10)).argmax(axis=0)
+L_by_mc_m2 = pch_by_mc_m2 / (pc0_by_mc[:, None] + 1e-10)
+mc_ind_by_m2 = L_by_mc_m2.argmax(axis=0)
 
 # numpy indexer to pick the right mchirp category for each m2; returns (m2, D)
 mc_indexer = (mc_ind_by_m2, range(len(m2_bins)), slice(None, None, None))
@@ -530,6 +529,8 @@ pch_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
 # plots
 fnameList = []
 tagList = []
+
+mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 
 ## injection count vs (m2, D) image
 text = "Injection count"
@@ -550,7 +551,7 @@ if not opts.show_plot:
 text = "mchirp vs loudest statistic"
 
 plot = plotutils.NumberVsBinBarPlot(opts.statistic.replace("_", r"\_"),
-    r"$M_\mathrm{chirp}$", "Loudest statistics by mchirp")
+    "$" + mc_latex + "$", "Loudest statistics by mchirp")
 plot.add_content(mc_bins, onsource_loudest_by_mc)
 plot.finalize(orientation="horizontal")
 
@@ -568,7 +569,7 @@ if not opts.show_plot:
 
 ## for each mchirp, p(c|h) vs (m2, D) image
 # TODO: before and after MC and calibration systematics
-text = "p(c|h)"
+text = "p(c|h(m2, D))"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     "$p(c|h)$")
@@ -577,6 +578,25 @@ plot.finalize()
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "pch_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## for L(c|h) vs (m2, mc) image
+# TODO: before and after MC and calibration systematics
+text = "L(c(mc)|h(m2))"
+
+plot = plotutils.ImagePlot(\
+    r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)$",
+    r"$m_2\ (M_\odot)$",
+    r"$L(c(" + mc_latex + r")|h(m_2))$")
+plot.add_content(L_by_mc_m2.T, mc_bins, m2_bins)
+plot.finalize()
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
