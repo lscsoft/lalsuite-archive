@@ -84,7 +84,7 @@ def get_loudest_coinc_by_mc(xmldoc, mc_bins):
 
     # get loudest stat in each average mchirp bin
     num_discarded = 0
-    loudest_by_mc = numpy.zeros(len(mc_bins), dtype=numpy.float32) - 1
+    loudest_by_mc = numpy.zeros(len(mc_bins), dtype=numpy.float32)
     for coinc in onsource_coincs:
         try:
             ind = mc_bins[grbsummary.get_mean_mchirp(coinc)]
@@ -293,8 +293,6 @@ def parse_args():
     parser.add_option("--statistic", default="snr",
         help="choice of statistic used in making plots, valid arguments are: "
         "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr")
-    parser.add_option("--stat-threshold", default=0, type="float",
-        help="default statistic to use in the case of no loudest event")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
 
@@ -361,9 +359,6 @@ D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 # get loudest stat in each mchirp bin
 onsource_loudest_by_mc = get_loudest_coinc_by_mc(onsource_doc, mc_bins)
 
-# if no candidate, use threshold from command line
-onsource_loudest_by_mc[onsource_loudest_by_mc <= 0] = opts.stat_threshold
-
 # print summary
 print "on-source loudest combined " + opts.statistic + " by mchirp category:"
 for low, hi, stat in zip(mc_bins.lower(), mc_bins.upper(),
@@ -379,7 +374,8 @@ louder_by_trial_mc = mark_loud_background_by_trial_mc(offsource_doc,
     onsource_loudest_by_mc, trial_bins, mc_bins)
 
 # for each mchirp bin, determine p(c|0) by summing across trials
-pc0_by_mc = louder_by_trial_mc[~trial_veto_mask, :].sum(axis=0, dtype=float) \
+pc0_by_mc = 1 - \
+    louder_by_trial_mc[~trial_veto_mask, :].sum(axis=0, dtype=float) \
     / eff_num_trials
 
 print "p(c(mchirp) | 0):"
@@ -428,7 +424,7 @@ if opts.verbose:
     print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
 # for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
-pch_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2) / \
+pch_by_mc_m2 = 1 - num_found_by_mc_m2_D.sum(axis=2) / \
     (num_sims_by_m2_D.sum(axis=1)[None, :] + 1e-10)
 L_by_mc_m2 = pch_by_mc_m2 / (pc0_by_mc[:, None] + 1e-10)
 mc_ind_by_m2 = L_by_mc_m2.argmax(axis=0)
@@ -437,7 +433,7 @@ mc_ind_by_m2 = L_by_mc_m2.argmax(axis=0)
 mc_indexer = (mc_ind_by_m2, range(len(m2_bins)), slice(None, None, None))
 
 # get p(c|h) for each injected (m2, D) bin
-pch_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
+pch_by_m2_D = 1 - num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
 
 # TODO: correct for MC counting uncertainty
 
@@ -474,6 +470,9 @@ plot.finalize(orientation="horizontal")
 # add p(c|0) on top as text
 for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
     plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
+
+if plot.ax.get_xlim()[1] < 6:
+    plot.ax.set_xlim(xmax=6)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
