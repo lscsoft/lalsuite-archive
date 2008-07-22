@@ -837,7 +837,7 @@ class SnglInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_num() == slide_num])
+		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
 		return slideTrigs
 
 
@@ -871,8 +871,7 @@ class SnglInspiral(object):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slidenum, y = self.get_id_parts()
-		slide_number = slidenum
+		x, slide_number, y = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
@@ -1052,7 +1051,7 @@ class MultiInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_num() == slide_num])
+		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
 		return slideTrigs
 
 class MultiInspiral(object):
@@ -1072,8 +1071,7 @@ class MultiInspiral(object):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slidenum, y = self.get_id_parts()
-		slide_number = slidenum
+		x, slide_number, y = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
