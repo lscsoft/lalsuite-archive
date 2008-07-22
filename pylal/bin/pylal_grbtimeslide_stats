@@ -145,6 +145,10 @@ parser.add_option("-V", "--veto-files", action="callback", type="string",
     help="list of segwizard-formatted files containing segments to exclude")
 parser.add_option("-t", "--fold-time", type="int",
     help="express result in terms of trials of length FOLD_TIME seconds")
+parser.add_option("--mc-boundaries", action="callback", type="string",
+    callback=comma_delimited, default=[-numpy.inf, numpy.inf],
+    callback_kwargs={"elem_type":float},
+    help="comma-separated list of mchirp bin boundaries")
 parser.add_option("", "--coinc-statistic",
     help="coincidence statistic of interest (snr or effective_snr)")
 parser.add_option("", "--hist-loudest", action="store_true", default=False,
@@ -244,6 +248,10 @@ trial_veto_mask_2d[0, trial_veto_mask] = True
 
 # count how many unvetoed trials we have
 eff_num_trials = numpy.sum(~trial_veto_mask)
+
+##############################################################################
+# make mchirp bins
+mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
 # read triggers, veto them, and reconstruct coincidences
