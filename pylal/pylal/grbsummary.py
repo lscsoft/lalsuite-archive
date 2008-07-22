@@ -224,6 +224,11 @@ def get_exttrig_trials(onsource_doc, offsource_doc, veto_files):
 
     return trial_bins, trial_veto_mask, onsource_ind
 
+def get_mean_mchirp(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc.
+    """
+    return sum(t.mchirp for t in coinc) / coinc.numifos
 
 ##############################################################################
 # XML convenience code
@@ -287,3 +292,18 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
     lsctables.SnglInspiralTable.next_id = None
 
     return xmldoc
+
+def get_num_slides(xmldoc):
+    """
+    Return the value of --num-slides found in the process_params table of
+    xmldoc.  If no such entry is found, return 0.
+    """
+    tbl_name = lsctables.ProcessParamsTable.tableName
+
+    # don't be too picky what program had --num-slides
+    for tbl in table.getTablesByName(xmldoc, tbl_name):
+        for row in tbl:
+           if row.param == "--num-slides":
+               return int(row.value)
+    return 0
+
