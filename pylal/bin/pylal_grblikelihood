@@ -444,6 +444,7 @@ fnameList = []
 tagList = []
 
 mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
+mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
 ## injection count vs (m2, D) image
 text = "Injection count"
@@ -459,6 +460,26 @@ if opts.enable_output:
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
+
+## injections found vs (m2, D) image
+for num_found_by_m2_D, mc_range in itertools.izip(num_found_by_mc_m2_D, mc_ranges):
+    mc_range_str = mc_latex + " \in [%f, %f)" % mc_range
+
+    text = r"$\textrm{Injections found with }" + mc_range_str + "$"
+
+    plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$",
+        r"$\textrm{Injections found with }" + mc_range_str + "$")
+    plot.add_content(num_found_by_m2_D.T, m2_bins, D_bins)
+    plot.finalize()
+
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "injection_count_by_m2_D_and_mc_%4.2f-%4.2f" % mc_range)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
 
 ## mchirp vs loudest stat horizontal bar graph
 text = "mchirp vs loudest statistic"
