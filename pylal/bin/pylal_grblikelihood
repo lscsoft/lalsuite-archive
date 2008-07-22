@@ -40,7 +40,7 @@ __title__ = "GRB interpretation"
 
 import bisect
 import glob
-itertools = __import__("itertools")  # system-wide itertools
+import itertools
 import optparse
 import sys
 
@@ -326,7 +326,7 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 
 ##############################################################################
 # read in non-injection documents (do so here to get num slides and segments)
-cache = lal.Cache.fromfile(open(opts.cache_file))
+cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
 
 onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.onsource_pattern, verbose=opts.verbose)
