@@ -400,10 +400,6 @@ num_found_by_mc_m2_D = numpy.zeros((len(mc_bins), len(m2_bins), len(D_bins)),
                                    dtype=int)
 num_sims_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
 for pattern in inj_patterns:
-    if opts.verbose:
-        sys.stdout.write(".")
-        sys.stdout.flush()
-
     # read injection and its corresponding coincs
     inj_doc = grbsummary.load_cache(ligolw.Document(), injection_cache,
                                     pattern, exact_match=True)
@@ -420,6 +416,11 @@ for pattern in inj_patterns:
 
     num_found_by_mc_m2_D += tmp_found
     num_sims_by_m2_D += tmp_total
+
+    if opts.verbose:
+        sys.stdout.write(".")
+        sys.stdout.flush()
+
 if opts.verbose:
     print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
