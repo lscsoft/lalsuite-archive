@@ -446,6 +446,29 @@ tagList = []
 mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
+## mchirp vs loudest stat horizontal bar graph
+text = "mchirp vs loudest statistic"
+
+plot = plotutils.NumberVsBinBarPlot(opts.statistic.replace("_", r"\_"),
+    "$" + mc_latex + "$", "Loudest statistics by mchirp")
+plot.add_content(mc_bins, onsource_loudest_by_mc)
+plot.finalize(orientation="horizontal")
+
+# add p(c|0) on top as text
+for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
+    plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
+
+if plot.ax.get_xlim()[1] < 6:
+    plot.ax.set_xlim(xmax=6)
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
 ## injection count vs (m2, D) image
 text = "Injection count"
 
@@ -481,23 +504,19 @@ for num_found_by_m2_D, mc_range in itertools.izip(num_found_by_mc_m2_D, mc_range
     if not opts.show_plot:
         plot.close()
 
-## mchirp vs loudest stat horizontal bar graph
-text = "mchirp vs loudest statistic"
+## for L(c|h) vs (m2, mc) image
+# TODO: before and after MC and calibration systematics
+text = "L(c(mc)|h(m2))"
 
-plot = plotutils.NumberVsBinBarPlot(opts.statistic.replace("_", r"\_"),
-    "$" + mc_latex + "$", "Loudest statistics by mchirp")
-plot.add_content(mc_bins, onsource_loudest_by_mc)
-plot.finalize(orientation="horizontal")
-
-# add p(c|0) on top as text
-for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
-    plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
-
-if plot.ax.get_xlim()[1] < 6:
-    plot.ax.set_xlim(xmax=6)
+plot = plotutils.ImagePlot(\
+    r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
+    r"$m_2\ (M_\odot)$",
+    r"$L(c(" + mc_latex + r")|h(m_2))$")
+plot.add_content(L_by_mc_m2.T, mc_bins, m2_bins)
+plot.finalize()
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
+    fname = InspiralUtils.set_figure_name(opts, "L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -515,25 +534,6 @@ plot.finalize()
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "pch_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## for L(c|h) vs (m2, mc) image
-# TODO: before and after MC and calibration systematics
-text = "L(c(mc)|h(m2))"
-
-plot = plotutils.ImagePlot(\
-    r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
-    r"$m_2\ (M_\odot)$",
-    r"$L(c(" + mc_latex + r")|h(m_2))$")
-plot.add_content(L_by_mc_m2.T, mc_bins, m2_bins)
-plot.finalize()
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
