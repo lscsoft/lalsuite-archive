@@ -727,6 +727,7 @@ class SnglInspiralTable(table.Table):
 	# set", so we start at 1 for safety, but eventually that should be
 	# fixed in LAL and then this can be put back to 0 for cleanliness.
 	#next_id = SnglInspiralID(1)
+	interncolumns = ("process_id", "ifo", "search", "channel")
 
 	def updateKeyMapping(self, mapping):
 		# FIXME: remove this method when the event_id column no
@@ -836,11 +837,7 @@ class SnglInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		if slide_num < 0:
-			slide_num = 5000 - slide_num
-		for row in self:
-			if row.get_slide_number() == slide_num:
-				slideTrigs.append(row)
+		slideTrigs.extend([row for row in self if row.get_slide_num() == slide_num])
 		return slideTrigs
 
 
@@ -934,6 +931,7 @@ class SnglRingDownTable(table.Table):
 	constraints = "PRIMARY KEY (event_id)"
 	# FIXME:  ringdown pipeline needs to not encode data in event_id
 	#next_id = SnglRingDownID(0)
+	interncolumns = ("process_id", "ifo", "search", "channel")
 
 
 class SnglRingDown(object):
@@ -1014,6 +1012,7 @@ class MultiInspiralTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (event_id)"
 	next_id = MultiInspiralID(0)
+	interncolumns = ("process_id", "ifos", "search")
 
 	def get_column(self,column):
 		return self.getColumnByName(column).asarray()
@@ -1053,11 +1052,7 @@ class MultiInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		if slide_num < 0:
-			slide_num = 5000 - slide_num
-		for row in self:
-			if row.get_slide_number() == slide_num:
-				slideTrigs.append(row)
+		slideTrigs.extend([row for row in self if row.get_slide_num() == slide_num])
 		return slideTrigs
 
 class MultiInspiral(object):
@@ -1160,6 +1155,7 @@ class SimInspiralTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
 	next_id = SimInspiralID(0)
+	interncolumns = ("process_id", "waveform", "source")
 
 	def get_column(self,column):
 		if 'chirp_dist' in column:
@@ -1309,6 +1305,7 @@ class SimRingDownTable(table.Table):
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
 	next_id = SimRingDownID(0)
+	interncolumns = ("process_id", "waveform", "coordinates")
 
 
 class SimRingDown(object):
