@@ -375,9 +375,16 @@ class TableStream(ligolw.Stream):
 		# some initialization that requires access to the
 		# parentNode, and so cannot be done inside the __init__()
 		# function.
-		self._tokenizer.set_types([(parentNode.loadcolumns is None or colname in parentNode.loadcolumns or None) and pytype for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
-		columnnames = [name for name in parentNode.columnnames if parentNode.loadcolumns is None or name in parentNode.loadcolumns]
-		interncolumns = [name for name in (parentNode.interncolumns or tuple()) if name in columnnames]
+		loadcolumns = set(parentNode.columnnames)
+		if parentNode.loadcolumns is not None:
+			# FIXME:  convert loadcolumns attributes to sets to
+			# avoid the conversion.
+			loadcolumns &= set(parentNode.loadcolumns)
+		self._tokenizer.set_types([(colname in loadcolumns) and pytype or None for pytype, colname in zip(parentNode.columnpytypes, parentNode.columnnames)])
+		columnnames = [name for name in parentNode.columnnames if name in loadcolumns]
+		# FIXME:  convert interncolumns attributes to sets to
+		# simplify computing the intersection
+		interncolumns = [name for name in (parentNode.interncolumns or set()) if name in columnnames]
 		self._rowbuilder = RowBuilder(parentNode.RowType, columnnames, interncolumns)
 		return self
 
