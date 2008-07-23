@@ -171,18 +171,18 @@ def mark_loud_injections_by_mc_m2_D(inj_doc, coinc_doc, onsource_loudest_by_mc,
     num_found_by_sim_mc_m2_D = numpy.zeros((len(sim_trials), len(mc_bins),
         len(m2_bins), len(D_bins)), dtype=numpy.bool8)
     for coinc in coincs:
+        # filtered times from injections do not overlap
+        trial_ind = trial_bins[coinc.get_time()]
+        if trial_ind not in sim_trials:
+            # not surprising; h(t) is filtered outside the trial of interest
+            continue
+        sim_ind = sim_trials.index(trial_ind)
+
         try:
-            trial_ind = trial_bins[coinc.get_time()]
             mc_ind = mc_bins[grbsummary.get_mean_mchirp(coinc)]
         except IndexError:
             num_discarded += 1
             continue
-
-        # filtered times from injections do not overlap
-        if trial_ind not in sim_trials:
-            num_discarded += 1
-            continue
-        sim_ind = sim_trials.index(trial_ind)
 
         if coinc.stat > onsource_loudest_by_mc[mc_ind]:
             num_found_by_sim_mc_m2_D[sim_ind, mc_ind,
