@@ -539,18 +539,17 @@ class Table(ligolw.Table, list):
 		del self.columnnames[:]
 		del self.columntypes[:]
 		del self.columnpytypes[:]
-		for child in self.childNodes:
-			if child.tagName != ligolw.Column.tagName:
-				continue
+		for child in self.getElementsByTagName(ligolw.Column.tagName):
 			colname = StripColumnName(child.getAttribute("Name"))
 			llwtype = child.getAttribute("Type")
 			if self.validcolumns is not None:
-				if colname not in self.validcolumns.keys():
+				try:
+					if self.validcolumns[colname] != llwtype:
+						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
+				except KeyError:
 					raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
-				if self.validcolumns[colname] != llwtype:
-					raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
 			if colname in self.columnnames:
-				raise ligolw.ElementError, "duplicate Column '%s'" % child.getAttribute("Name")
+				raise ligolw.ElementError, "duplicate Column '%s' in Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
 			self.columnnames.append(colname)
 			self.columntypes.append(llwtype)
 			try:
