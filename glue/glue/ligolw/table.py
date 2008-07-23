@@ -180,6 +180,7 @@ def new_from_template(template):
 		child.parentNode = new
 	del new[:]
 	new._end_of_columns()
+	new._end_of_rows()
 	return new
 
 
