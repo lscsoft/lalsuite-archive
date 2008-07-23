@@ -113,6 +113,8 @@ class Bin(object):
 #
 
 
+# FIXME:  this should probably also be a subclass of list.
+
 class Packer(object):
 	"""
 	Parent class for packing algorithms.  Specific packing algorithms
