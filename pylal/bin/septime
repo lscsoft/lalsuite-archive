@@ -208,6 +208,10 @@ if coincfiles:
 # read in slide triggers
 slideTriggers = None
 
+if opts.num_slides:
+  slide_num = range(1 , opts.num_slides + 1)
+  slide_num.extend(range(-opts.num_slides, 0))
+
 if slidefiles:
   inspSlide = SnglInspiralUtils.\
               ReadSnglInspiralFromFiles(slidefiles,
@@ -219,9 +223,6 @@ if slidefiles:
     inspSlide = inspSlide.vetoed(seg)
     inspSlide = inspSlide.veto_seglistdict(vetoes)
  
-  slide_num = range(1 , opts.num_slides + 1)
-  slide_num.extend(range(-opts.num_slides, 0))
-
   slideTriggers = {}
   for slide in slide_num:
     slideTriggers[slide] = {}
@@ -403,7 +404,7 @@ for coinc in ifo_coincs:
     oldsnglinspiral = tab.get_table(xmldoc,
         lsctables.SnglInspiralTable.tableName)
     llelem.removeChild(oldsnglinspiral)
-  except:
+  except ValueError:
     pass
   if len(inspSepTimesTriggers[coinc]):
     llelem.appendChild(inspSepTimesTriggers[coinc])
