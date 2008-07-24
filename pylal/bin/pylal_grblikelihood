@@ -396,8 +396,14 @@ for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), pc0_by_mc):
 injection_cache = cache.sieve(description=opts.injection_pattern)
 inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
 
+# speed hack: only iterate over IFOs of interest for mchirp calculation
+unique_ifostrings = set(c.observatory for c in inj_coinc_cache)
+unique_ifos = set(s[i:i+2] for s in unique_ifostrings \
+                  for i in xrange(0, len(s), 2))
+CoincInspiralUtils.ifos = tuple(unique_ifos)
+
 # get all unique descriptions (can have multiple segments per description)
-inj_patterns = set("*_" + "_".join(entry.description.split("_")[-2:]) \
+inj_patterns = set("*" + "_".join(entry.description.split("_")[-2:]) \
                    for entry in inj_coinc_cache)
 
 # tally up the numerator and denominator for p(c|h) for each inj pattern
