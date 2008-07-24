@@ -72,6 +72,13 @@ from pylal import plotutils
 from pylal import rate
 from pylal import viz
 
+# speed up on systems with psyco installed
+try:
+    import psyco
+    psyco.full()
+except ImportError:
+    pass
+
 ################################################################################
 # utility functions
 
@@ -458,8 +465,12 @@ plot.finalize(orientation="horizontal")
 for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
     plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
 
-if plot.ax.get_xlim()[1] < 6:
-    plot.ax.set_xlim(xmax=6)
+if plot.ax.get_xlim()[1] < 20:
+    plot.ax.set_xlim(xmax=20)
+
+# add mchirp dividers
+for divider in mc_bins.boundaries:
+    plot.ax.hlines(divider, 0, plot.ax.get_xlim()[1], linestyle="dashed")
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
