@@ -63,20 +63,6 @@ from pylal import rate
 ##############################################################################
 # utility functions
 
-def get_num_slides(xmldoc):
-    """
-    Return the value of --num-slides found in the process_params table of
-    xmldoc.  If no such entry is found, return 0.
-    """
-    tbl_name = lsctables.ProcessParamsTable.tableName
-
-    # don't be too picky what program had --num-slides
-    for tbl in table.getTablesByName(xmldoc, tbl_name):
-        for row in tbl:
-           if row.param == "--num-slides":
-               return int(row.value)
-    return 0
-
 def array_of_lists(shape):
     """
     Return an array of empty lists given shape, a tuple of dimensions.
@@ -92,7 +78,9 @@ def get_loudest_stat(coinc_list):
     Return the loudest statistic in coinc_list.  If coinc_list is empty,
     return 0.
     """
-    return max([c.stat for c in coinc_list] + [0])
+    if len(coinc_list) > 0:
+        return max(c.stat for c in coinc_list)
+    return 0
 
 # some vectorized functions that act on arrays
 _vec_len = numpy.frompyfunc(len, 1, 1)
@@ -228,12 +216,16 @@ InspiralUtils.initialise(opts, __name__, __version__)
 ##############################################################################
 # read in document
 onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
-    opts.onsource_pattern, exact_match=True, verbose=opts.verbose)
+    opts.onsource_pattern, verbose=opts.verbose)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
-    opts.offsource_pattern, exact_match=True, verbose=opts.verbose)
+    opts.offsource_pattern, verbose=opts.verbose)
 
-nominal_num_slides = get_num_slides(offsource_doc)
+nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
 total_num_slides = 2 * nominal_num_slides or 1
+
+##############################################################################
+# make mchirp bins
+mc_bins = rate.IrregularBins(opts.mc_boundaries)
 
 ##############################################################################
 # segment computation
@@ -241,10 +233,13 @@ bins, trial_veto_mask, onsource_ind = \
     grbsummary.get_exttrig_trials(onsource_doc, offsource_doc, opts.veto_files)
 num_trials = len(bins)
 
-# derive a 2D trial mask for convenience
+# derive a 2D and 3D trial masks for convenience
 trial_veto_mask_2d = numpy.zeros((total_num_slides, num_trials),
                                  dtype=numpy.bool8)
 trial_veto_mask_2d[0, trial_veto_mask] = True
+trial_veto_mask_3d = numpy.zeros((len(mc_bins), total_num_slides, num_trials),
+                                 dtype=numpy.bool8)
+trial_veto_mask_3d[:, trial_veto_mask_2d] = True
 
 # count how many unvetoed trials we have
 eff_num_trials = numpy.sum(~trial_veto_mask)
@@ -264,46 +259,87 @@ coincTable = CoincInspiralUtils.coincInspiralTable(triggers, stat)
 # sort coincidences in each opts.fold_time second segment
 
 # initialize an array of empty lists, into which we will sort our triggers
-coincs = array_of_lists(shape=(total_num_slides, num_trials))
+coincs = array_of_lists(shape=(len(mc_bins), total_num_slides, num_trials))
 
-# sort into (slide, segment) bins
+# sort into (mchirp, slide, segment) bins
+num_discarded = 0
 for c in coincTable:
+    try:
+        mc_ind = mc_bins[grbsummary.get_mean_mchirp(c)]
+    except IndexError:
+        num_discarded += 1
+        continue
+
     # NB: c.slide_num indexing OK with current inspiral slide implementation
-    coincs[c.slide_num, bins[getattr(c, c.get_ifos()[1][0]).end_time]]\
+    coincs[mc_ind, c.slide_num, bins[c.get_time()]]\
         .append(c)
+if num_discarded > 0:
+    print >>sys.stderr, "warning: %d coincs outside mchirp binning" \
+        % num_discarded
 
 # apply a vectorized len function to count how many coincs are in each bin
-counts = vec_len(coincs)
-total_counts = counts[~trial_veto_mask_2d].sum()
+counts_by_mc_slide_trial = vec_len(coincs)
 
 ##############################################################################
-# output statistics
-norm = 1 / (total_num_slides * eff_num_trials)
-mean = norm * total_counts
-stdev = numpy.sqrt(norm * ((counts[~trial_veto_mask_2d] - mean)**2).sum())
+# output statistics by mchirp
 
 info_text = ""
-info_text += InspiralUtils.message(opts, "Total number of slides (pos + neg "\
-    "or zerolag): %d" % total_num_slides)
-info_text += InspiralUtils.message(opts, "Total time analyzed (s): %d of %d" % \
-    (eff_num_trials * opts.fold_time, bins.max - bins.min))
-info_text += InspiralUtils.message(opts, "Number of %d second segments per "\
-    "slide: %d" % (opts.fold_time, eff_num_trials))
-info_text += InspiralUtils.message(opts, "Total number of coincidences: %d" % \
-    total_counts)
-info_text += InspiralUtils.message(opts, "Mean coincidences per trial: %f" % \
-    mean)
-info_text += InspiralUtils.message(opts, "Stdev of trials: %f" % stdev)
+info_text += InspiralUtils.message(opts, "Total number of slides "\
+    "(pos + neg or zerolag): %d" % total_num_slides)
+info_text += InspiralUtils.message(opts, "Total time analyzed (s): "\
+    "%d of %d" % (eff_num_trials * opts.fold_time, bins.max - bins.min))
+info_text += InspiralUtils.message(opts, "Number of %d second "\
+    "segments per slide: %d" % (opts.fold_time, eff_num_trials))
 
-for i in range(min(10, counts.max() + 1)):
-    prob = norm * (counts[~trial_veto_mask_2d] == i).sum()
-    info_text += InspiralUtils.message(opts, "p(%d|0): %f" % (i, prob))
+# by mchirp range
+for counts_by_slide_trial, mc_range in \
+    zip(counts_by_mc_slide_trial, zip(mc_bins.lower(), mc_bins.upper())):
+
+    total_counts = counts_by_slide_trial[~trial_veto_mask_2d].sum()
+    norm = 1 / (total_num_slides * eff_num_trials)
+    mean = norm * total_counts
+    stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
+                                - mean)**2).sum())
+
+    info_text += InspiralUtils.message(opts, "Mean mchirp in [%f, %f):" \
+        % mc_range)
+    info_text += InspiralUtils.message(opts, "  Total number of coincidences: "\
+        "%d" % total_counts)
+    info_text += InspiralUtils.message(opts, "  Mean coincidences per trial: "\
+        "%f" % mean)
+    info_text += InspiralUtils.message(opts, "  Stdev of trials: %f" % stdev)
+
+    for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
+        prob = norm * (counts_by_slide_trial[~trial_veto_mask_2d] == i).sum()
+        info_text += InspiralUtils.message(opts, "  p(%d|0): %f" % (i, prob))
+
+    info_text += "<br>"
+
+# all together
+if len(mc_bins) > 1:
+    counts_by_slide_trial = counts_by_mc_slide_trial.sum(axis=0)
+    total_counts = counts_by_slide_trial[~trial_veto_mask_2d].sum()
+    norm = 1 / (total_num_slides * eff_num_trials)
+    mean = norm * total_counts
+    stdev = numpy.sqrt(norm * ((counts_by_slide_trial[~trial_veto_mask_2d] \
+                                - mean)**2).sum())
+
+    info_text += InspiralUtils.message(opts, "Combined mchirp bins:")
+    info_text += InspiralUtils.message(opts, "  Total number of coincidences: "\
+        "%d" % total_counts)
+    info_text += InspiralUtils.message(opts, "  Mean coincidences per trial: "\
+        "%f" % mean)
+    info_text += InspiralUtils.message(opts, "  Stdev of trials: %f" % stdev)
+
+    for i in range(min(10, counts_by_slide_trial[~trial_veto_mask_2d].max()+1)):
+        prob = norm * (counts_by_slide_trial[~trial_veto_mask_2d] == i).sum()
+        info_text += InspiralUtils.message(opts, "  p(%d|0): %f" % (i, prob))
 
 ##############################################################################
 # prepare loudest event statistics (squared) for plots
 trial_numbers = numpy.arange(num_trials, dtype=int) + 1
 slide_numbers = numpy.arange(-nominal_num_slides, nominal_num_slides + 1)
-loudest_sq = vec_get_loudest_stat(coincs)**2
+loudest_sq_by_mc_slide_trial = vec_get_loudest_stat(coincs)**2
 
 ##############################################################################
 # plots
@@ -311,220 +347,178 @@ safe_stat = opts.coinc_statistic.replace("_", r"\_")
 fnameList = []
 tagList = []
 
-# plot cumulative histogram of zero-lag trials' loudest event statistics
-if opts.hist_loudest:
-    text = "Cumulative histogram of zero-lag trials' loudest event statistics"
+# decide what to iterate over
+mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
-    # initialize plot
-    plot = plotutils.CumulativeHistogramPlot(
+# make plots for each mchirp range
+for loudest_sq, counts, mc_range in \
+    zip(loudest_sq_by_mc_slide_trial, counts_by_mc_slide_trial, mc_ranges):
+
+    mc_str = r"\textrm{ for }\langle \hat{M}_\mathrm{chirp} \rangle" \
+        r"\in [%4.2f, %4.2f)" % mc_range
+    fname_suffix = "-%4.2f-%4.2f" % mc_range
+
+    # plot cumulative histogram of zero-lag trials' loudest event statistics
+    if opts.hist_loudest:
+        text = "Cumulative histogram of zero-lag trials' loudest event" \
+            "statistics"
+
+        # initialize plot
+        plot = plotutils.CumulativeHistogramPlot(
             r"$\textrm{%s}^2$" % safe_stat,
-            r"$\textrm{\# trials with %s}_\mathrm{loudest}^2 > \mathrm{%s}^2$" \
-                % (safe_stat, safe_stat),
-            r"$\textrm{Cumulative histogram of %s}^2\textrm{ "\
-                r"of loudest events}$" % safe_stat)
+            r"$\textrm{\# trials with " + safe_stat \
+                + r"}_\mathrm{loudest}^2 > \mathrm{" + safe_stat + "}^2$",
+            r"$\textrm{Cumulative histogram of " + safe_stat \
+                + r"}^2\textrm{ of loudest events}" + mc_str + "$")
 
-    # finalize plot
-    plot.add_content(loudest_sq[0, ~trial_veto_mask])
-    plot.finalize(num_bins=50, normalization=1/eff_num_trials)
+        # finalize plot
+        plot.add_content(loudest_sq[0, ~trial_veto_mask])
+        plot.finalize(num_bins=50, normalization=1/eff_num_trials)
 
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "trial_loudest_%s_cum_hist" % opts.coinc_statistic)
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+        # output it as appropriate
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "trial_loudest_%s_cum_hist_mchirp" % opts.coinc_statistic + \
+                fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            plot.close()
 
-# plot cumulative histogram of specified trials' loudest statistics
-if opts.hist_onsource or opts.hist_background or len(opts.hist_trials) > 0:
-    # sanity check
-    for trial_num in opts.hist_trials:
-        if trial_num < 0 or trial_num > num_trials:
-            raise ValueError, "--hist-trials must provide numbers between 1 "\
-            "and the number of trials"
+    # plot cumulative histogram of specified trials' loudest statistics
+    if opts.hist_onsource or opts.hist_background or len(opts.hist_trials) > 0:
+        # sanity check
+        for trial_num in opts.hist_trials:
+            if trial_num < 0 or trial_num > num_trials:
+                raise ValueError, "--hist-trials must provide numbers "
+                "between 1 and the number of trials"
 
-    text = "Cumulative histogram of statistics"
+        text = "Cumulative histogram of statistics"
 
-    # initialize plot
-    plot = plotutils.CumulativeHistogramPlot(
-            r"$\textrm{%s}^2$" % safe_stat,
-            r"$\textrm{\# loudest events louder than %s}^2$" % safe_stat,
-            r"$\textrm{Cumulative histogram of loudest %s}^2$" % safe_stat)
+        # initialize plot
+        plot = plotutils.CumulativeHistogramPlot(
+                r"$\textrm{%s}^2$" % safe_stat,
+                r"$\textrm{\# loudest events louder than %s}^2$" % safe_stat,
+                r"$\textrm{Cumulative histogram of loudest %s}^2" % safe_stat \
+                + mc_str + "$")
 
-    # add on-source
-    if opts.hist_onsource:
-        plot.add_content([loudest_sq[0, num_trials // 2]], "on-source trial")
+        # add on-source
+        if opts.hist_onsource:
+            plot.add_content([loudest_sq[0, num_trials // 2]],
+                             "on-source trial")
 
-    # add hist_trials (assume zero lag)
-    for trial_num in opts.hist_trials:
-        plot.add_content([loudest_sq[0, trial_num - 1]], "trial %d" % trial_num)
+        # add hist_trials (assume zero lag)
+        for trial_num in opts.hist_trials:
+            plot.add_content([loudest_sq[0, trial_num - 1]],
+                             "trial %d" % trial_num)
 
-    # create a mask so that we know to veto hist_trials trials from the bg
-    hist_trials_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
-    hist_trials_mask[opts.hist_trials] = True
+        # create a mask so that we know to veto hist_trials trials from the bg
+        hist_trials_mask = numpy.zeros(num_trials, dtype=numpy.bool8)
+        hist_trials_mask[opts.hist_trials] = True
 
-    # add background
-    if opts.hist_background:
-        bg_slice = numpy.ones(loudest_sq.shape, dtype=numpy.bool8)
-        # only mask zero-lag trials
-        bg_slice[0, trial_veto_mask | hist_trials_mask] = False
-        # add_background expects a list of trials, but loudest_sq[bg_slice] is
-        # a one-dimensional array.  The [:, None] construct separates each
-        # element into a separate trial.
-        plot.add_background(loudest_sq[bg_slice][:, None],
-                            label=r"off-source\ trials")
+        # add background
+        if opts.hist_background:
+            bg_slice = numpy.ones(loudest_sq.shape, dtype=numpy.bool8)
+            # only mask zero-lag trials
+            bg_slice[0, trial_veto_mask | hist_trials_mask] = False
+            # add_background expects a list of trials, but loudest_sq[bg_slice]
+            # is a one-dimensional array.  The [:, None] construct separates
+            # each element into a separate trial.
+            plot.add_background(loudest_sq[bg_slice][:, None],
+                                label=r"off-source\ trials")
 
-    # finalize plot
-    plot.finalize(num_bins=50)
-    plot.ax.set_ylim(ymax=1.2)
+        # finalize plot
+        plot.finalize(num_bins=50)
+        plot.ax.set_ylim(ymax=1.2)
 
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "trials_%s_cum_hist" % (opts.coinc_statistic))
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+        # output it as appropriate
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "trials_%s_cum_hist" % opts.coinc_statistic + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            plot.close()
 
-# plot loudest event statistic vs trial number
-if opts.plot_trials_loudest:
-    text = "Loudest event statistic vs trial number"
+    # plot loudest event statistic vs trial number
+    if opts.plot_trials_loudest:
+        text = "Loudest event statistic vs trial number"
 
-    # initialize plot
-    plot = plotutils.BarPlot("trial number", safe_stat,
-        "Loudest events in each trial")
+        # initialize plot
+        plot = plotutils.BarPlot("trial number", safe_stat,
+            r"$\textrm{Loudest events in each trial}" + mc_str + "$")
 
-    # prepare data
-    x_data = trial_numbers[~trial_veto_mask]
-    y_data = vec_get_loudest_stat(coincs[0, ~trial_veto_mask])
+        # prepare data
+        x_data = trial_numbers[~trial_veto_mask]
+        y_data = loudest_sq[0, ~trial_veto_mask]
 
-    # complete plot
-    plot.add_content(x_data, y_data)
-    plot.finalize()
+        # complete plot
+        plot.add_content(x_data, y_data)
+        plot.finalize()
 
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "trial_loudest_%s" % opts.coinc_statistic)
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+        # output it as appropriate
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "trial_loudest_%s" % opts.coinc_statistic + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            plot.close()
 
-# plot the autocorrelation of the loudest event statistic vs trial number
-if opts.plot_trial_stat_autocorrelation:
-    text = "Autocorrelation of the loudest event statistic vs trial number"
+    # plot the number of coincs in each trial
+    if opts.plot_num_coincs:
+        text = "the number of coincs in each trial"
 
-    # initialize plot
-    plot = plotutils.BarPlot(r"$\Delta(\textrm{trial number})$",
-        "", r"Autocorrelation of loudest stat vs trial number")
+        # initialize plot
+        plot = plotutils.BarPlot(r"trial \#", r"\# coincs",
+            r"$\textrm{\# coincs in each trial}" + mc_str + "$")
 
-    # prepare data
-    x_data = numpy.arange(num_trials) - num_trials//2
-    zerolag_trials = coincs[0, :]
-    loudest = vec_get_loudest_stat(zerolag_trials)
-    loudest -= loudest.mean()
-    y_data = numpy.correlate(loudest, loudest, "same")
+        # prepare data
+        x_data = trial_numbers[~trial_veto_mask]
+        plot.add_content(x_data, counts[0, ~trial_veto_mask])
 
-    # complete plot
-    plot.add_content(x_data, y_data)
-    plot.finalize()
+        # complete plot
+        plot.finalize()
 
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "trial_%s_autocorrelation" % opts.coinc_statistic)
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
-
-# plot the autocorrelation of the number of coincs vs trial number
-if opts.plot_trial_number_autocorrelation:
-    text = "autocorrelation of the number of coincs vs trial number"
-
-    # initialize plot
-    plot = plotutils.BarPlot(r"$\Delta(\textrm{trial number})$",
-        "", r"Autocorrelation of \# coincs vs trial number")
-
-    # prepare data
-    x_data = numpy.arange(num_trials)[~trial_veto_mask] - num_trials//2
-    zerolag_trials = coincs[0, ~trial_veto_mask]
-    num_coincs = vec_len(zerolag_trials)
-    num_coincs -= num_coincs.mean()
-    y_data = numpy.correlate(num_coincs, num_coincs, "same")
-
-    # complete plot
-    plot.add_content(x_data, y_data)
-    plot.finalize()
-
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "trial_number_autocorrelation")
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
-
-# plot the number of coincs in each trial
-if opts.plot_num_coincs:
-    text = "the number of coincs in each trial"
-
-    # initialize plot
-    plot = plotutils.BarPlot(r"trial \#", r"\# coincs",
-        r"\# coincs in each trial")
-
-    # prepare data
-    x_data = trial_numbers[~trial_veto_mask]
-    plot.add_content(x_data, counts[0, ~trial_veto_mask])
-
-    # complete plot
-    plot.finalize()
-
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "plot_num_coincs")
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+        # output it as appropriate
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "plot_num_coincs" + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            plot.close()
 
 
-# plot a histogram of the number of coincs in each trial
-if opts.hist_num_coincs:
-    text = "histogram of number of coincs in each trial"
+    # plot a histogram of the number of coincs in each trial
+    if opts.hist_num_coincs:
+        text = "histogram of number of coincs in each trial"
 
-    # initialize plot
-    plot = plotutils.BarPlot(r"\# coincs", r"\# trials",
-        r"Histogram of \# coincs in each trial")
+        # initialize plot
+        plot = plotutils.BarPlot(r"\# coincs", r"\# trials",
+            r"$\textrm{Histogram of \# coincs in each trial}" + mc_str + "$")
 
-    # prepare data
-    x_data = numpy.arange(counts.max(), dtype=int)
-    y_data = [(counts[~trial_veto_mask_2d] == i).sum() for i in x_data]
-    plot.add_content(x_data, y_data)
+        # prepare data
+        x_data = numpy.arange(counts.max(), dtype=int)
+        y_data = [(counts[~trial_veto_mask_2d] == i).sum() for i in x_data]
+        plot.add_content(x_data, y_data)
 
-    # complete plot
-    plot.finalize()
+        # complete plot
+        plot.finalize()
 
-    # output it as appropriate
-    if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "hist_num_coincs")
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
-    if not opts.show_plot:
-        plot.close()
+        # output it as appropriate
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "hist_num_coincs" + fname_suffix)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            plot.close()
 
 #############################################################################
 # Generate HTML and cache file
