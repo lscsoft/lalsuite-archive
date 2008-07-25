@@ -312,14 +312,6 @@ class coincInspiralTable:
       stat_list.reverse()
     self.rows = [coinc for (stat,coinc) in stat_list]
 
-  def get_slide_numbers(self):
-    """
-    Return all the slides numbers present in the table.
-    """
-    nums = list(glue.iterutils.uniq([c.slide_num for c in self.rows]))
-    nums.sort()
-    return nums
-
   def getslide(self, slide_num):
     """
     Return the triggers with a specific slide number.
