@@ -618,13 +618,11 @@ class Cache(list):
 		
 		if ifos is not None:
 			ifos_regexp = re.compile(fnmatch.translate(ifos))
-			match_func = lambda entry: ifos_regexp.match(entry.observatory) is not None
-			c = [entry for entry in c if match_func(entry)]
+			c = [entry for entry in c if ifos_regexp.match(entry.observatory) is not None]
 		
 		if description is not None:
 			descr_regexp = re.compile(fnmatch.translate(description))
-			match_func = lambda entry: descr_regexp.match(entry.description) is not None
-			c = [entry for entry in c if match_func(entry)]
+			c = [entry for entry in c if descr_regexp.match(entry.description) is not None]
 		
 		if segment is not None:
 			c = [entry for entry in c if segment_func(entry)]
