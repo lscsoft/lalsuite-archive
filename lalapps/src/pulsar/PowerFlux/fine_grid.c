@@ -398,7 +398,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			/* prime array pointers */
 			sum=&(aa->fine_grid_sum[offset]);
 			/* p=&(d->power[k*nbins+b]); */
-			p=&(power[k*nbins+b-b0]);
+			p=&(power[b-b0]);
 
 			#ifdef WEIGHTED_SUM
 			aa->fine_grid_weight[offset]+=w;
@@ -535,7 +535,7 @@ for(i=0,kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk],i++)
 			offset=b-side_cut+bin_shift+useful_bins*i;
 			/* prime array pointers */
 			sum=&(aa->fine_grid_sum[offset]);
-			p=&(power[k*nbins+b-b0]);
+			p=&(power[b-b0]);
 
 			#ifdef WEIGHTED_SUM
 			aa->fine_grid_weight[offset]+=w;
