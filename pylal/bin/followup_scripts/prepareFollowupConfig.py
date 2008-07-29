@@ -64,11 +64,11 @@ for coinc in ["H1H2L1","H1L1","H2L1","H1H2"]:
   if coinc == "H1H2L1":
     timeList = [["H1H2L1","triples"]]
   if coinc == "H1L1":
-    timeList = [["H1L1","triples"],["H1L1","doubles"]]
+    timeList = [["H1H2L1","triples"],["H1L1","doubles"]]
   if coinc == "H2L1":
-    timeList = [["H2L1","triples"],["H2L1","doubles"]]
+    timeList = [["H1H2L1","triples"],["H2L1","doubles"]]
   if coinc == "H1H2":
-    timeList = [["H1H2","triples"],["H1H2","doubles"]]
+    timeList = [["H1H2L1","triples"],["H1H2","doubles"]]
 
   xmlfile = opts.xml_glob_template.replace("COINC",coinc)
   outputdir = opts.output_template.replace("COINC",coinc)
@@ -84,7 +84,10 @@ for coinc in ["H1H2L1","H1L1","H2L1","H1H2"]:
       for cat in ["cat1","cat12","cat123","cat1234"]:
         xmlfile3 = xmlfile2.replace("CAT",cat)
         outputdir3 = outputdir2.replace("CAT",cat)
-        hipefile = opts.hipe_path_template.replace("CAT",cat)
+        if cat == "cat123" or cat == "cat1234":
+          hipefile = opts.hipe_path_template.replace("CAT",cat+"_rsq")
+        else:
+          hipefile = opts.hipe_path_template.replace("CAT",cat)
 
         iniOrig.set('triggers','xml-glob',xmlfile3)
         iniOrig.set('output','page',outputdir3)
