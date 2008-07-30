@@ -39,6 +39,8 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
+from pylal import itertools # For the 2nd year analysis, this has to be replaced by
+# from glue import iterutils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
@@ -72,8 +74,9 @@ class getCache(UserDict):
       os.chdir("cache")
       os.chdir(currentPath)
     except:
-      os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
-
+      if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
+        os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
+      else: pass
 
 
   def ifoDict(self):
@@ -128,10 +131,10 @@ class getCache(UserDict):
 
 
   def getListFromCache(self,cache):
-    list = []
+    listInstance = []
     for ifo in cache:
-      list = list + cache[ifo].pfnlist()
-    return list
+      listInstance = listInstance + cache[ifo].pfnlist()
+    return listInstance
 
   def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None, ifo_tag=None, ifo_in_coinc=None):
     cacheSubSet = self.ifoDict()
@@ -158,21 +161,26 @@ class getCache(UserDict):
             seg2 = segments.segment(time_ifo-1,time_ifo)
           else:
             seg1 = None
-            seg2 = None
-          list = cacheList.sieve(ifo,cacheType,None,True)
-          list = list.sieve(None,None,seg1)
-          list = list.sieve(None,None,seg2)
-          cacheSubSet[ifo] = list
+            seg2 = None          
+          listInstance = cacheList.sieve(ifo,cacheType,None,True)
+          listInstance = listInstance.sieve(None,None,seg1)
+          listInstance = listInstance.sieve(None,None,seg2)
+          cacheSubSet[ifo] = listInstance
         except:
           continue
     return(cacheSubSet)
 
 
   def getProcessParamsFromCache(self, subCache, tag, time, getInsp = False, ifo_in_coinc=None):
+
     process = self.ifoDict()
     inspTable = self.ifoDict()
     for ifo in subCache:
       for f in subCache[ifo]:
+        # As soon as process[ifo] is filled we can stop iterating in this loop.
+        if process[ifo]:
+          break
+
         path = f.path()
         extension = path.split('.')[len(path.split('.'))-1]
         if extension == 'gz': gz = True
@@ -191,11 +199,30 @@ class getCache(UserDict):
              row.param = "--user-tag"
           # end of the hack...
 
-        if ifoTag == tag:
+        # We check that the ifo names appearing in the tag (input argument) are 
+        # found in the ifoTag of the process param table. But we don't require 
+        # an exact match. We allow a "tag" being double times, and an "ifoTag"
+        #  being triple times. This is to handle the case of candidates which 
+        # were identified when one ifo was vetoed while still in science mode.
+        # Notice that this method is a hack. However implementing
+        # this loose condition on the ifo-tag was required in order to be able
+        # to run the followup robustly over the candidates of the 1st calendar
+        # of S5 (after the IFO TIME SEPARATION).
+        # THIS SHOULD BE IMPROVED IN FUTURE ANALYSES #
+
+        ifoTagTest = True
+        for j in range(0,len(tag)-1,2):
+          ifostring = tag[j:j+2]
+          if ifostring not in ifoTag:
+            ifoTagTest = False
+            break
+        if ifoTagTest:
+
           if time[ifo]:
             time_ifo = time[ifo]
           else:
-            # if time[ifo] is not defined (happens for a double coinc in triple times) then use the end_time in the first ifo of the coinc
+            # if time[ifo] is not defined (happens for a double coinc in triple
+            #  times) then use the end_time in the first ifo of the coinc
             time_ifo = time[ifo_in_coinc[0]]
           search = table.get_table(doc, lsctables.SearchSummaryTable.tableName)
           for row in search:
@@ -206,7 +233,7 @@ class getCache(UserDict):
             if ( (time_ifo >= (out_start_time+out_start_time_ns)) and (time_ifo <= (out_end_time+out_end_time_ns)) ):
               process[ifo] = proc
               if getInsp: inspTable[ifo] = insp
-              break
+              break          
 
     if getInsp:
       return process, inspTable
@@ -224,11 +251,22 @@ class getCache(UserDict):
       cacheFile = intermediateCache
 
     if type == "INSPIRAL_":
-      type = type + trig.ifoTag
+      # get the list of interferometers from the ifoTag
+      listIfoTime = []
+      for j in range(0,len(trig.ifoTag)-1,2):
+        ifo = trig.ifoTag[j:j+2]
+        listIfoTime.append(ifo)
+
+      # get an ifo tag with wild cards (example: *H1*H2*)
+      wildIfoTag = "*" + "*".join(listIfoTime) + "*"
+      # now we define a wildIfoTag type, for example '*H1*H2*'
+      # This type will be used to sieve (in filesMatchingGPSinCache())
+      wildType = type + wildIfoTag
+
       try:
         inspiral_process_params = self.getProcessParamsFromCache( \
                        self.filesMatchingGPSinCache(cacheFile,\
-                       trig.gpsTime, type, trig.ifoTag, trig.ifolist_in_coinc), \
+                       trig.gpsTime, wildType, trig.ifoTag, trig.ifolist_in_coinc), \
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
@@ -272,7 +310,6 @@ class getCache(UserDict):
     blb =  string.strip(cp.get('triggers','bitten-l-b'))
     found, coincs, search = readFiles(xml_glob,getstatistic(statistic,bla,blb))
     return numtrigs, found, coincs, search
-
 
 ##############################################################################
 # functions to parse qscan cache files (used in analyseQscan)
@@ -400,23 +437,23 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
 # function to read/write a list of strings in a file
 ##############################################################################
 def listFromFile(fileName):
-  list = []
+  listInstance = []
   try:
     file = open(fileName,"r")
   except:
     print >> sys.stderr, "could not open file " + fileName
-    return list
+    return listInstance
   list_in_file = file.readlines()
   file.close()
   if not len(list_in_file):
     print >> sys.stderr, "No lines found in file " + fileName
     print >> sys.stderr, "Is the first line blank ?"
-    return list
+    return listInstance
   for line in list_in_file:
     if not line[0] == '#':
-      list.append(string.strip(line))
+      listInstance.append(string.strip(line))
     else: pass
-  return list
+  return listInstance
 
 def saveRandomTimes(timeList,fileName):
   file = open(fileName,"w")
