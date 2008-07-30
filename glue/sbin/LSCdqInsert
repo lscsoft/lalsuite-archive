@@ -273,7 +273,7 @@ active_segments = segments.segmentlist()
 
 if not ping:
   # get the previous version
-  if(run=='S5'):
+  if(run=='S5' or run=='VSR1'):
     if(version>10):
       print >> sys.stdout, "Correcting the previous version %d" % (version-1)
       print >> sys.stdout, "Extracting version %d from the database. Please, wait..." % (version-1)
