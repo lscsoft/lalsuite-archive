@@ -52,6 +52,16 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
     self.set_dag_file(self.basename)
     self.jobsDict = {}
  
+########################################################
+#### Methods common to several followup classes ########
+########################################################
+
+def checkHipeCachePath(cp):
+  if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
+    hipeCachePath = string.strip(cp.get('hipe-cache','hipe-cache-path'))
+  else:
+    hipeCachePath = None
+  return(hipeCachePath)
 
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
@@ -68,12 +78,13 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
-  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, type='plot',sngl_table = None):    
+  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot',sngl_table = None):
 
     try:
       self.output_file_name = ""
       inspiral.InspiralNode.__init__(self, inspJob) 
       injFile = self.checkInjections(cp)      
+      hipeCache = checkHipeCachePath(cp)
 
       if type == 'plot':
         bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
@@ -86,8 +97,12 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       if injFile: 
         self.set_injections( injFile )
-      
+
       skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+
+      if not hipeCache:
+        skipParams.append('frame-cache')
+        self.add_var_opt('frame-cache',datafindCache)        
 
       for row in procParams:
         param = row.param.strip("-")
@@ -135,6 +150,11 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
       self.add_var_opt("output-path",inspJob.outputPath)
 
+      try:
+        if d_node.validNode and eval('opts.' + datafindCommand):
+          self.add_parent(d_node)
+      except: pass
+
       if type == 'plot':
         if opts.inspiral:
           dag.addNode(self,'inspiral')
@@ -154,13 +174,13 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       except:
         print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
 
-
   def checkInjections(self,cp):
     if len(string.strip(cp.get('triggers','injection-file'))) > 0:
       injectionFile = string.strip(cp.get('triggers','injection-file'))
     else:
       injectionFile = None
-   
+    return(injectionFile)
+
 ########## PLOT SNR  CHISQ TIME SERIES ########################################
 ###############################################################################
 
@@ -221,13 +241,18 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.invalidate()
       print "couldn't add plot job for " + str(ifo) + "@ "+ str(time)
 
-############### QSCAN CLASSES #################################################
+############### DATAFIND CLASSES ##############################################
 ###############################################################################
 
-class qscanDataFindJob(pipeline.LSCDataFindJob,webTheJob):
+class followupDataFindJob(pipeline.LSCDataFindJob,webTheJob):
 
   def __init__(self, config_file, source):
-    self.name = 'qscanDataFindJob'
+
+    if source == 'futrig':
+      self.name = 'qscanDataFindJob'
+    if source == 'inspiral':
+      self.name = 'inspiralDataFindJob'
+
     # unfortunately the logs directory has to be created before we call LSCDataFindJob
     try:
       os.mkdir(self.name)
@@ -251,28 +276,46 @@ class qscanDataFindJob(pipeline.LSCDataFindJob,webTheJob):
     convert_script.close()
     os.chmod(self.name + '/cacheconv.sh',0755)
 
-class qscanDataFindNode(pipeline.LSCDataFindNode,webTheNode):
+
+class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
  
-  def __init__(self, job, source, type, cp, time, ifo, opts, dag, prev_dNode, datafindCommand):
+  def __init__(self, job, source, type, cp, time, ifo, opts, dag, prev_dNode, datafindCommand, procParams=None):
     try:
       pipeline.LSCDataFindNode.__init__(self,job)
       self.id = str(ifo) + '-' + repr(time) + '-' + str(type)
       self.setupNodeWeb(job,False,None,None,None,dag.cache)
       if source == 'futrig':
         self.outputFileName = self.setup_fu_trig(job, cp, time, ifo, type)
+        nodeName = "qscan data find"
+      if source == 'inspiral':
+        self.outputFileName = self.setup_inspiral(cp,ifo,type,procParams)
+        nodeName = "inspiral data find"
       try:
         if prev_dNode and eval('opts.' + datafindCommand):
           self.add_parent(prev_dNode)
       except: pass
 
       if eval('opts.' + datafindCommand):
-        dag.addNode(self,'qscan data find')
+        dag.addNode(self,nodeName)
         self.validNode = True
       else: self.validNode = False
     except:
       self.validNode = False
       print >> sys.stderr, "could not set up the datafind jobs for " + type
 
+  def setup_inspiral(self,cp,ifo,type,procParams):
+    for row in procParams:
+      param = row.param.strip("-")
+      value = row.value
+      if param == 'gps-start-time': startTime = value
+      if param == 'gps-end-time': endTime = value
+      if param == 'pad-data': paddataTime = value
+    self.set_observatory(ifo[0])
+    self.set_start(int(startTime) - int(paddataTime))
+    self.set_end(int(endTime) + int(paddataTime))
+    self.set_type(ifo + '_' + cp.get(type,'type'))
+    lalCache = self.get_output()
+    return(lalCache)
 
   def setup_fu_trig(self, job, cp, time, ifo, type):
     # 1s is substracted to the expected startTime to make sure the window
@@ -363,6 +406,14 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
     except: 
       self.setupNodeWeb(job,False,None,None,None,dag.cache) 
+
+    # This command will force Condor to see the qscan jobs successful even
+    # they fail. This is useful when the followups are rerun on candidates 
+    # already analysed, since when a qscan directory exists, the qscan job
+    # will fail. By setting the post_script to true the qscan job will
+    # still be reported as successful, so that an analyseQscan job can be run
+    # immediately after. 
+    self.set_post_script("/bin/true")
 
     # only add a parent if it exists
     try:
@@ -592,16 +643,20 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a FrCheck followup job
   """
-  def __init__(self, FrCheckJob, procParams, ifo, trig, cp,opts,dag):
+  def __init__(self, FrCheckJob, procParams, ifo, trig, cp, opts, dag, datafindCache, d_node, datafindCommand):
 
     try:
-      for row in procParams:
-        param = row.param.strip("-")
-        value = row.value
-        if param == 'frame-cache': cacheFile = value 
+      hipeCache = checkHipeCachePath(cp)
+
+      if not hipeCache:
+        cacheFile = datafindCache
+      else:
+        for row in procParams:
+          param = row.param.strip("-")
+          value = row.value
+          if param == 'frame-cache': cacheFile = value
 
       self.friendlyName = 'Frame Check'
-
     
       pipeline.CondorDAGNode.__init__(self,FrCheckJob)
       self.add_var_opt("frame-cache", cacheFile)
@@ -609,6 +664,12 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
 
       self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+
+      try:
+        if d_node.validNode and eval('opts.' + datafindCommand):
+          self.add_parent(d_node)
+      except: pass
+
       if opts.frame_check:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -673,9 +734,10 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of an mcmc followup job
   """
-  def __init__(self, mcmcJob, procParams, ifo, trig, cp,opts,dag):
-
+  def __init__(self, mcmcJob, procParams, ifo, trig, cp, opts, dag, datafindCache, d_node, datafindCommand):
     try:
+      hipeCache = checkHipeCachePath(cp)
+
       time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
 
       self.friendlyName = 'MCMC followup'
@@ -692,6 +754,12 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
         if param == 'channel-name': channel = value
         if param == 'gps-end-time': chunk_end = value
         if param == 'gps-start-time': chunk_start = value
+
+      if not hipeCache:
+        cacheFile = datafindCache
+        # WARNING !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # if the cache files are obtained by using the option inspiral-datafind
+        # the MCMC jobs will have to be set up during a second rerun 
 
       # add the arguments that I know now...
       self.add_var_opt("low-cut", lowCut)
@@ -767,6 +835,12 @@ class mcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.setupNodeWeb(mcmcJob)
       self.add_var_opt("output-file-name",mcmcJob.name+'/'+self.id+'.txt') 
+
+      try:
+        if d_node.validNode and eval('opts.' + datafindCommand):
+          self.add_parent(d_node)
+      except: pass
+
       if opts.mcmc:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -801,8 +875,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, plotmcmcjob, ifo, trig, cp,opts,dag,mcmcnode):
 
-    if 1:
-    #try:
+    try:
       self.friendlyName = 'plot MCMC'
       pipeline.CondorDAGNode.__init__(self,plotmcmcjob)
 
@@ -863,8 +936,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
         self.validate()
       else:
         self.invalidate()
-    else:
-    #except:
+    except:
       self.invalidate()
       print "couldn't add plot mcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
