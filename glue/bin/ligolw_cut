@@ -39,7 +39,7 @@ import sys
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
-from glue.ligolw import lsctables
+#from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 
@@ -60,13 +60,13 @@ __version__ = "$Revision$"[11:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] [file [file ...]]",
+		usage = "%prog [options] [file ...]",
 		description = "%prog removes XML elements from a LIGO Light Weight XML file.  If file names are given on the command line, those files are read, processed, and rewritten one at a time, otherwise input is read from stdin and output written to stdout.  Any file name ending in \".gz\" is assumed to be gzip-compressed and will be decompressed and recompressed during I/O."
 	)
-	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
-	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "delete matching columns")
-	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "delete matching elements")
-	parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "delete matching tables")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	parser.add_option("--delete-column", metavar = "name", action = "append", default = [], help = "Delete matching columns.  Example \"--delete-column sim_burst:dtminus\".")
+	parser.add_option("--delete-element", metavar = "tag[,attr=value[,...]]", action = "append", default = [], help = "Delete matching elements.  Example \"--delete-element Table,Name=search_summary\".")
+	parser.add_option("--delete-table", metavar = "name", action = "append", default = [], help = "Delete matching tables.  Example \"--delete-table search_summary\".")
 	options, filenames = parser.parse_args()
 
 	# strip column names
@@ -75,13 +75,8 @@ def parse_command_line():
 	# parse element specs
 	def parse_delete_element(arg):
 		arg = arg.split(",")
-		attrs = {}
-		for i in range(1, len(arg)):
-			name, value = arg[i].split("=")
-			attrs[name] = value
-		return arg[0], attrs
-	# FIXME: remove duplicates
-	options.delete_element = map(parse_delete_element, options.delete_element)
+		return arg[0], dict([a.split("=") for a in arg[1:]])
+	options.delete_element = set(map(parse_delete_element, options.delete_element))
 
 	# strip table names
 	options.delete_table = set(map(table.StripTableName, options.delete_table))
