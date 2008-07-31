@@ -1,4 +1,4 @@
-#!/ldcg/bin/python
+#!/usr/bin/python
 """
 segpagegen creates three web pages that can be parsed by segwizard to obtain
 information from the segment database.
@@ -205,7 +205,8 @@ sqlj += "segment_def_map.segment_def_cdb = segment_definer.creator_db "
 if configuration['run']=='A5':
   interferometers = ['H1','H2','G1','L1']
 elif configuration['run']=='S5':
-  interferometers = ['H1','H2','G1','L1','V1']
+  interferometers = ['V1'] 
+#  interferometers = ['H1','H2','G1','L1','V1']
 
 for ifo in interferometers:
   output_dir = os.path.join( seg_path, ifo )
@@ -480,7 +481,10 @@ for ifo in interferometers:
   # Get the list of names of non-statevec data quality segments:
   if verbose: print "fetching list of data quality segments"
   sql = "SELECT distinct(name) FROM segment_definer WHERE "
-  sql += "run = '%s' AND ifos = '%s' AND state_vec_major is NULL " \
+  if ifo == 'V1':
+     sql += "run = 'VSR1' And ifos = '%s' AND state_vec_major is NULL " % ifo 
+  else:
+     sql += "run = '%s' AND ifos = '%s' AND state_vec_major is NULL " \
       % (configuration['run'], ifo)
   # Exclude version 10 science segments from dq_segment dump
   sql += "AND name != 'Science' "
@@ -495,7 +499,10 @@ for ifo in interferometers:
   
     # Get the list of corresponding versions:
     sql = "SELECT distinct(version) FROM segment_definer WHERE  "
-    sql += "run = '%s' AND " % configuration['run']
+    if ifo == 'V1':
+       sql += "run = 'VSR1' AND "
+    else:
+       sql += "run = '%s' AND " % configuration['run']
     sql += "ifos = '%s' AND " % ifo
     sql += "name ='%s' AND " % n
     sql += "state_vec_major is NULL "
@@ -512,7 +519,10 @@ for ifo in interferometers:
       sql =  "SELECT segment.start_time, segment.end_time, segment.active FROM "
       sql += sqlj + "AND segment.end_time < %d " % midnight_gps
       sql += "AND segment_definer.ifos = '%s' " % ifo
-      sql += "AND segment_definer.run = '%s' " % configuration['run']
+      if (ifo=='V1'):
+          sql += "AND segment_definer.run = 'VSR1'"
+      else:
+          sql += "AND segment_definer.run = '%s' " % configuration['run']
       sql += "AND segment_definer.name = '%s' " % n
       sql += "AND segment_definer.version = %d " % v
       sql += "AND state_vec_major is NULL "
