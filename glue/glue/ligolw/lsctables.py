@@ -1235,9 +1235,7 @@ class SimBurstTable(table.Table):
 		"amplitude": "real_8",
 		"hrss": "real_8",
 		"egw_over_rsquared": "real_8",
-		# FIXME:  waveform_number should be int_8u but metaio can't
-		# handle that yet
-		"waveform_number": "int_8s",
+		"waveform_number": "int_8u",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
