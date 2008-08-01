@@ -169,5 +169,24 @@
     <workdirectory>/opt/osg/data</workdirectory>
   </site>
 
+<site handle="lsu" sysinfo="INTEL32::LINUX"
+gridlaunch="/opt/osg/pegasus/bin/kickstart">
+<profile namespace="env"
+key="GLOBUS_LOCATION">/opt/osg/globus</profile>
+<profile namespace="env"
+key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
+<profile namespace="env" key="PEGASUS_HOME">/opt/osg/pegasus</profile>
+<profile namespace="env" key="app">/usr/local/packages/ligo</profile>
+<profile namespace="env" key="data">/ligo/data</profile>
+<profile namespace="env" key="grid3">/usr/local/packages/osg-1.0.0/wn</profile>
+<profile namespace="env" key="tmp">/var/scratch</profile>
+<profile namespace="env" key="wntmp">/var/scratch</profile>
+<lrc url="rlsn://smarty.isi.edu"/>
+<gridftp url="gsiftp://osg2.loni.org" storage="/ligo/data" major="4" minor="0" patch="4"/>
+<jobmanager universe="vanilla" url="osg2.loni.org/jobmanager-pbs" major="4" minor="0" patch="4" total-nodes="1"/>
+<jobmanager universe="transfer" url="osg2.loni.org/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="1"/>
+<workdirectory>/ligo/data</workdirectory>
+</site>
+
 
 </sitecatalog>
