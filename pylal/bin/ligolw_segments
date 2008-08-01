@@ -85,7 +85,6 @@ def parse_command_line():
 	return options, (urls or [None])
 
 
-
 #
 # =============================================================================
 #
@@ -182,7 +181,7 @@ class LigolwSegmentList(object):
 
 		self.sort()
 
-		for seg, activity in iterutils.inorder((seglist_iterator(self.active, True), seglist_iterator(self.inactive, False), seglist_iterator(self.unknown, None))):
+		for seg, activity in iterutils.inorder(seglist_iterator(self.active, True), seglist_iterator(self.inactive, False), seglist_iterator(self.unknown, None)):
 			row = lsctables.Segment()
 			row.set(seg)
 			row.set_active(activity)
@@ -291,6 +290,13 @@ class LigolwSegments(object):
 
 
 	def optimize(self):
+		"""
+		Identifies segment lists that differ only in their
+		instruments --- they have the same active, inactive, and
+		unknown segments, the same name and the same comment ---
+		and then deletes all but one of them, leaving just a single
+		list having the union of the instruments.
+		"""
 		self.sort()
 		mergelist = []
 		for (def_id_a, seglist_a), (def_id_b, seglist_b) in iterutils.choices(self.segment_lists.items(), 2):
@@ -325,7 +331,7 @@ class LigolwSegments(object):
 			self.segment_def_table.append(segment_definition)
 			row_iterators.append(row_iterator(ligolw_segment_list.time_order_rows(self.segment_table, self.process), segment_definition))
 
-		for row, segment_definition in iterutils.inorder(row_iterators):
+		for row, segment_definition in iterutils.inorder(*row_iterators):
 			self.segment_table.append(row)
 			self.segment_def_map_table.append(seg_def_map(row, segment_definition, self.segment_def_map_table, self.process))
 
