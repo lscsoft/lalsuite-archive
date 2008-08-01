@@ -395,7 +395,7 @@ class Highest(list):
 #
 
 
-def inorder(iterables):
+def inorder(*iterables):
 	"""
 	A generator that yields the values from several ordered iterables
 	in order.
@@ -404,7 +404,7 @@ def inorder(iterables):
 
 	>>> x = [0, 1, 2, 3]
 	>>> y = [1.5, 2.5, 3.5, 4.5]
-	>>> list(inorder((x, y)))
+	>>> list(inorder(x, y))
 	[0, 1, 1.5, 2, 2.5, 3, 3.5, 4.5]
 	"""
 	nextvals = []
