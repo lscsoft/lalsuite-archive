@@ -78,7 +78,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
-  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot',sngl_table = None):
+  def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
 
     try:
       self.output_file_name = ""
@@ -86,14 +86,18 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       injFile = self.checkInjections(cp)      
       hipeCache = checkHipeCachePath(cp)
 
-      if type == 'plot':
+      if type == "plot" or type == "notrig":
         bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
         self.add_var_opt("write-snrsq","")
         self.add_var_opt("write-chisq","")
         self.add_var_opt("write-spectrum","")
         self.set_bank(bankFile)
-        self.set_trig_start( int(trig.gpsTime[ifo]) - 1)
-        self.set_trig_end( int(trig.gpsTime[ifo]) + 1 )
+        # Here we define the trig-start-time and the trig-end-time;
+        # The difference between these two times should be kept to 2s
+        # Otherwise change the clustering window also
+        hLengthAnalyzed = 1
+        self.set_trig_start( int(trig.gpsTime[ifo]) - int(hLengthAnalyzed) )
+        self.set_trig_end( int(trig.gpsTime[ifo]) + int(hLengthAnalyzed) )
 
       if injFile: 
         self.set_injections( injFile )
@@ -109,6 +113,21 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         value = row.value
         if param == 'bank-file':
           bankFile = value
+        if type == "notrig":
+        # if forceTrigger is true, we loose the thresholds to
+        # make sure to get a trigger
+          if param == 'snr-threshold': value = "0.1"
+          # rsq veto must be disabled
+          if param == 'do-rsq-veto': continue
+          if param == 'enable-rsq-veto': continue
+          # chisq veto is disabled by loosing its threshold 
+          # we still want to generate the chisq time-series
+          if param == 'chisq-threshold': value = "1.0e+06"
+          # Using a window of 1s for clustering will allow us to always get
+          # at least one trigger
+          if param == 'cluster-method': value = 'window'
+          if param == 'cluster-window': continue
+          pass
         if param in skipParams: continue
         self.add_var_opt(param,value)
         if param == 'gps-end-time': self.__end = value
@@ -120,6 +139,10 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           extension = '.xml.gz'
         else:
           extension = '.xml'
+
+      if type == "notrig":
+        self.add_var_opt('cluster-window',str(hLengthAnalyzed))
+        self.add_var_opt('disable-rsq-veto',' ')
 
       if not ifo == self.inputIfo:
         second_user_tag = "_" + ifo + "tmplt"
@@ -155,11 +178,12 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           self.add_parent(d_node)
       except: pass
 
-      if type == 'plot':
+      if type == "plot" or type == "notrig":
         if opts.inspiral:
           dag.addNode(self,'inspiral')
           self.validate()
         else: self.invalidate()
+
       if type == 'head':
         if opts.inspiral_head:
           dag.addNode(self,'inspiral-head')
