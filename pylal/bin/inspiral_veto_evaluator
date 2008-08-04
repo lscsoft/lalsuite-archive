@@ -34,16 +34,56 @@
 
 
 from optparse import OptionParser
-import sys
 
 
+import matplotlib
+matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0,
+	"figure.dpi": 300,
+	"savefig.dpi": 300,
+	"text.usetex": True	# render all text with TeX
+})
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
+from pylal.xlal.date import LIGOTimeGPS
 
 
 __author__ = ""
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Speed Hacks
+#
+# =============================================================================
+#
+
+
+#
+# replace Glue's pure Python LIGOTimeGPS class with pyLAL's C version
+#
+
+
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 #
@@ -59,20 +99,236 @@ def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
 		usage = "%prog [options] [file ...]",
-		description = "Accepts as input one or more LIGO Light Weight XML files, each containing burst candidates and a list of injections, and adds entries to the coincidence tables indicating which burst events match which injections."
+		description = "This program probably does something useful."
 	)
-	parser.add_option("-f", "--force", action = "store_true", help = "Process even if file has already been processed.")
-	parser.add_option("--comment", metavar = "text", help = "Set the comment string to be written to the process table (default = None).")
-	parser.add_option("-c", "--match-algorithm", metavar = "[stringcusp|excesspower]", default = None, help = "Set the algorithm used to match burst candidates with injections (required).")
+	parser.add_option("--clustered-trigger-cache", metavar = "filename", help = "Set the name of the LAL cache of the clustered trigger files (required).")
+	parser.add_option("--snr-thresholds", metavar = "snr[,snr...]", help = "Comma-delimited list of SNR break-points (required).")
+	parser.add_option("-c", "--config-file", metavar = "filename", help = "Specify the ihope .ini file from which to obtain configuration information (required).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.match_algorithm is None:
-		raise ValueError, "missing required --match-algorithm option"
-	if options.match_algorithm not in ("stringcusp", "excesspower"):
-		raise ValueError, "unrecognized match algorithm \"%s\"" % options.match_algorithm
+	if not options.clustered_trigger_cache:
+		raise ValueError, "missing required option --clustered-trigger-cache"
+	if not options.config_file:
+		raise ValueError, "missing required option --config-file"
+	if not options.snr_thresholds:
+		raise ValueError, "missing required option --snr-thresholds"
+
+	# Jake:  this probably needs to be changed to suit your needs
+	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "INSPIRAL_FIRST_FULL_DATA")
+
+	options.snr_thresholds = map(float, options.snr_thresholds.split(","))
 
 	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                    Input
+#
+# =============================================================================
+#
+
+
+#
+# get trigger list and analyzed segments from trigger files
+#
+
+
+def load_trigger_files(urls, verbose = False):
+	#
+	# load trigger files
+	#
+
+	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
+
+
+	#
+	# find the sngl_inspiral table
+	#
+
+	sngl_inspiral_table = table.get_table(clustered_xmldoc, lsctables.SnglInspiralTable.tableName)
+
+
+	#
+	# extract set of unique instrument names from trigger list
+	#
+
+
+	instruments = set(sngl_inspiral_table.getColumn("ifo"))
+
+
+	#
+	# extract search summary "out" segments for lalapps_inspiral jobs
+	# ("inspiral" is the name lalapps_inspiral records for itself in
+	# the process table)
+	#
+
+
+	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "inspiral").coalesce()
+
+
+	#
+	# check that the search_summary table has segments for all the
+	# instruments represented in the trigger list
+	#
+
+	if set(sngl_inspiral_table.getColumn("ifo")) not in set(analyzed_segs.keys()):
+		raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
+
+
+	#
+	# done
+	#
+
+	return sngl_inspiral_table, analyzed_segs
+
+
+#
+# get veto segment lists
+#
+
+
+def load_vetos(FIXME):
+	#
+	# FIXME:  I don't know how to do this.
+	#
+
+	return {
+		"H1": {
+			1: segments.segmentlistdict({
+				"OUT_OF_LOCK":
+					segments.segmentlist([])
+			}),
+			2: segments.segmentlistdict({
+			}),
+			3: segments.segmentlistdict({
+			}),
+			4: segments.segmentlistdict({
+			})
+		}
+	}
+
+
+#
+# =============================================================================
+#
+#                                  Arithmetic
+#
+# =============================================================================
+#
+
+
+#
+# intersect veto segments with analyzed segments
+#
+
+
+def trim_vetos(vetos, analyzed_segments):
+	"""
+	Performs an in-place intersection of each veto segment list with
+	the list of analyzed segments from the same instrument.  Any list
+	of veto segments for instruments that were not analyzed are
+	removed.
+	"""
+	for veto_instrument, veto_categories in vetos.items():
+		if veto_instrument not in analyzed_segments:
+			del vetos[veto_instrument]
+			continue
+		for veto_category, veto_seglistdict in veto_categories.items():
+			for veto_flag, veto_seglist in veto_seglistdict.items():
+				veto_seglist &= analyzed_segments[veto_instrument]
+	return veto_segments
+
+
+#
+# Blah blah blah.
+#
+
+
+def get_triggers(triggers, instrument, min_snr):
+	return [trigger for trigger in triggers if trigger.ifo == instrument and trigger.snr >= min_snr]
+
+
+def veto_triggers(triggers, vetosegs):
+	vetoed = []
+	nonvetoed = []
+	for trigger in triggers:
+		if trigger.get_end() in vetosegs:
+			vetoed.append(trigger)
+		else:
+			nonvetoed.append(trigger)
+	return vetoed, nonvetoed
+
+
+def veto_efficiency(triggers, vetosegs):
+	n = 0
+	for trigger in triggers:
+		if trigger.get_end() in vetosegs:
+			n += 1
+	return float(n) / len(triggers)
+
+
+def veto_use_fraction(triggers, vetosegs):
+	# make a copy so we can modify it
+	vetosegs = segments.segmentlist(vetosegs)
+
+	N = len(vetosegs)
+	for trigger in triggers:
+		try:
+			del vetosegs[vetosegs.find(trigger.get_end())]
+		except ValueError:
+			pass
+	return float(N - len(vetosegs)) / N
+
+
+def veto_dead_time_fraction(veto_seglist, analyzed_seglist):
+	return abs(veto_seglist) / abs(analyzed_seglist)
+
+
+#
+# =============================================================================
+#
+#                                    Output
+#
+# =============================================================================
+#
+
+
+#
+# A place to store results for a single ifo, a single veto category, a
+# single veto flag.
+#
+
+
+class Results(object):
+	def __init__(self, snr_thresholds, veto_seglist, analyzed_seglist, triggers):
+		self.snr_thresholds = snr_thresholds
+		self.dead_time_fraction = veto_dead_time_fraction(veto_seglist, analyzed_seglist)
+		self.efficiency = []
+		self.use_fraction = []
+		for snr_threshold in snr_threshods:
+			selected_triggers = [trigger for trigger in triggers if trigger.snr >= snr_threshold]
+			self.efficiency.append(veto_efficiency(selected_triggers, veto_seglist))
+			self.use_fraction.append(veto_use_fraction(selected_triggers, veto_seglist))
+
+
+#
+# plot
+#
+
+
+class Plot(object):
+	def __init__(self, x_label, y_label):
+		self.fig = figure.Figure()
+		FigureCanvas(self.fig)
+		# 6.5" wide, golden ratio high
+		self.fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel(x_label)
+		self.axes.set_ylabel(y_label)
 
 
 #
@@ -91,3 +347,53 @@ def parse_command_line():
 
 options, filenames = parse_command_line()
 
+
+#
+# input
+#
+
+
+sngl_inspiral_table, analyzed_segs = load_trigger_files([cache_entry.url for cache_entry in options.clustered_trigger_cache], verbose = options.verbose)
+
+
+vetos = load_vetos("FIXME")
+
+
+#
+# intersect the veto segments with the analyzed segments
+#
+
+
+trim_vetos(vetos, analyzed_segments)
+
+
+#
+# loops.  the "results" thing is really friggin ugly.
+#
+
+
+results = {}
+
+for veto_instrument, veto_categories in vetos.items():
+
+	triggers = [trigger for trigger in sngl_inspiral_table if trigger.ifo == veto_instrument]
+
+	results[veto_instrument] = {}
+
+	for veto_category, veto_seglistdict in veto_categories.items():
+
+		results[veto_instrument][veto_category] = {}
+
+		plot = Plot("SNR Threshold", "Count")
+
+		for veto_flag, veto_seglist in veto_seglistdict.items():
+
+			results[veto_instrument][veto_category][veto_flag] = Results(options.snr_thresholds, veto_seglist, analyzed_segments[veto_instrument], triggers)
+
+			x = results[veto_instrument][veto_category][veto_flag].snr_thresholds
+			y = results[veto_instrument][veto_category][veto_flag].efficiency
+			plot.axes.plot(x, y)
+
+		plot.axes.legend(veto_seglistdict.keys())
+
+		plot.fig.savefig("%s_%d.png" % (veto_instrument, veto_category))
