@@ -742,7 +742,7 @@ class CondorDAGNode:
     self.__opts['macro' + macro] = value
     self.__job.add_var_opt(opt)
 
-  def add_file_opt(self,opt,file):
+  def add_file_opt(self,opt,file,file_is_output_file=False):
     """
     Add a variable (macro) option for this node. If the option
     specified does not exist in the CondorJob, it is added so the submit
@@ -750,10 +750,12 @@ class CondorDAGNode:
     added to the list of input files for the DAX.
     @param opt: option name.
     @param value: value of the option for this node in the DAG.
+    @param file_is_output_file: A boolean if the file will be an output file
+    instead of an input file.  The default is to have it be an input.
     """
-    macro = self.__bad_macro_chars.sub( r'', opt )
-    self.__opts['macro' + macro] = file
-    self.__job.add_var_opt(file)
+    self.add_var_opt(opt,file) 
+    if file_is_output_file: self.add_output_file(file)
+    else: self.add_input_file(file)
 
   def add_var_arg(self, arg):
     """
