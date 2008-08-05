@@ -141,12 +141,14 @@ def load_trigger_files(urls, verbose = False):
 	# load trigger files
 	#
 
+
 	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
 
 
 	#
 	# find the sngl_inspiral table
 	#
+
 
 	sngl_inspiral_table = table.get_table(clustered_xmldoc, lsctables.SnglInspiralTable.tableName)
 
@@ -181,6 +183,7 @@ def load_trigger_files(urls, verbose = False):
 	#
 	# done
 	#
+
 
 	return sngl_inspiral_table, analyzed_segs
 
@@ -368,7 +371,12 @@ trim_vetos(vetos, analyzed_segments)
 
 
 #
-# loops.  the "results" thing is really friggin ugly.
+# loops.  the "results" thing is really friggin ugly.  it's a nested
+# dictionary of instances of the Results class.  For example
+#
+#	results["H1"][1]["OUT_OF_SCIENCE"]
+#
+# is the Results instance for the H1, category 1, "OUT_OF_SCIENCE" flag.
 #
 
 
@@ -384,7 +392,7 @@ for veto_instrument, veto_categories in vetos.items():
 
 		results[veto_instrument][veto_category] = {}
 
-		plot = Plot("SNR Threshold", "Count")
+		efficiency_plot = Plot("SNR Threshold", "Veto Efficiency")
 
 		for veto_flag, veto_seglist in veto_seglistdict.items():
 
@@ -392,8 +400,9 @@ for veto_instrument, veto_categories in vetos.items():
 
 			x = results[veto_instrument][veto_category][veto_flag].snr_thresholds
 			y = results[veto_instrument][veto_category][veto_flag].efficiency
-			plot.axes.plot(x, y)
+			efficiency_plot.axes.plot(x, y)
 
-		plot.axes.legend(veto_seglistdict.keys())
+		efficiency_plot.axes.legend(veto_seglistdict.keys())
+		efficiency_plot.axes.set_ylim((0.0, 1.0))
 
-		plot.fig.savefig("%s_%d.png" % (veto_instrument, veto_category))
+		efficiency_plot.fig.savefig("veto_efficiency_%s_%d.png" % (veto_instrument, veto_category))
