@@ -33,7 +33,10 @@
 """
 
 
+import math
 from optparse import OptionParser
+import ConfigParser
+import sys
 
 
 import matplotlib
@@ -116,7 +119,7 @@ def parse_command_line():
 		raise ValueError, "missing required option --snr-thresholds"
 
 	# Jake:  this probably needs to be changed to suit your needs
-	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "INSPIRAL_FIRST_FULL_DATA")
+	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "SIRE_FIRST_FULL_DATA")
 
 	options.snr_thresholds = map(float, options.snr_thresholds.split(","))
 
@@ -133,11 +136,14 @@ def parse_command_line():
 
 
 #
-# get trigger list and analyzed segments from trigger files
+# get trigger list and analyzed segments from trigger files.  the
+# program_name is the name of the program whose search_summary rows will be
+# used to define the "analyzed_segments".  For lalapps_inspiral output the
+# string is "inspiral", for lalapps_sire output the string is "sire".
 #
 
 
-def load_trigger_files(urls, verbose = False):
+def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 	# load trigger files
 	#
@@ -164,12 +170,10 @@ def load_trigger_files(urls, verbose = False):
 
 	#
 	# extract search summary "out" segments for lalapps_inspiral jobs
-	# ("inspiral" is the name lalapps_inspiral records for itself in
-	# the process table)
 	#
 
 
-	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(clustered_xmldoc, program = "inspiral").coalesce()
+	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(clustered_xmldoc, program = program_name).coalesce()
 
 
 	#
@@ -177,8 +181,9 @@ def load_trigger_files(urls, verbose = False):
 	# instruments represented in the trigger list
 	#
 
-	if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
-		raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
+
+	#if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
+	#	raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
 
 
 	#
@@ -194,27 +199,36 @@ def load_trigger_files(urls, verbose = False):
 #
 
 
-def load_vetos(options):
-  #
-  # This is a hack!  Namely the ifos and categories are hardcoded.  
-  # Should these parameters be
-  # command line arguments or are they derived from something else?
-  
-  cp = ConfigParser.ConfigParser()
-  cp.read(options.config_file) 
-  ifolist = ['H1','H2','L1']
-  catlist = [1, 2, 3, 4]
-  output = {}
-  for ifo in ifolist:
-    output[ifo] = {}
-    dqfile = open(dqutils.get_dq_file(ifo),'r')
-    dqseglistdict = dqutils.fromDQsegments(dqfile)
-    for cat in catlist:
-      dqflagsfile = open(cp.get('segments',ifo.lower()+'-cat-'+str(cat)+'-veto-file'),'r')
-      dqwindows = dqutils.from_veto_file(dqflagsfile)
-      output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict,dqwindows)
-            
-  return output
+def load_vetos(options, verbose = False):
+	#
+	# This is a hack!  Namely the ifos and categories are hardcoded.  
+	# Should these parameters be
+	# command line arguments or are they derived from something else?
+
+	if verbose:
+		print >>sys.stderr, "loading veto segments ...",
+
+	cp = ConfigParser.ConfigParser()
+	cp.read(options.config_file) 
+	ifolist = ['H1','H2','L1']
+	catlist = [1, 2, 3, 4]
+	output = {}
+	for ifo in ifolist:
+		if verbose:
+			print >>sys.stderr, ifo,
+		output[ifo] = {}
+		dqfilepath = dqutils.get_dq_file(ifo)
+		dqfile = open(dqfilepath,'r')
+		dqseglistdict = dqutils.fromDQsegments(dqfile)
+		for cat in catlist:
+			dqflagsfile = open(cp.get('segments',ifo.lower()+'-cat-'+str(cat)+'-veto-file'),'r')
+			dqwindows = dqutils.from_veto_file(dqflagsfile,flags_have_ifo_colon=True)
+			output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict,dqwindows)
+
+	if verbose:
+		print >>sys.stderr, "\n"
+	    
+	return output
 
 
 #	return {
@@ -261,7 +275,7 @@ def trim_vetos(vetos, analyzed_segments):
 		for veto_category, veto_seglistdict in veto_categories.items():
 			for veto_flag, veto_seglist in veto_seglistdict.items():
 				veto_seglist &= analyzed_segments[veto_instrument]
-	return veto_segments
+	return vetos
 
 
 #
@@ -289,7 +303,8 @@ def veto_efficiency(triggers, vetosegs):
 	for trigger in triggers:
 		if trigger.get_end() in vetosegs:
 			n += 1
-	return float(n) / len(triggers)
+	# "or 1" --> efficiency is 0% when there are no triggers
+	return float(n) / (len(triggers) or 1)
 
 
 def veto_use_fraction(triggers, vetosegs):
@@ -302,7 +317,8 @@ def veto_use_fraction(triggers, vetosegs):
 			del vetosegs[vetosegs.find(trigger.get_end())]
 		except ValueError:
 			pass
-	return float(N - len(vetosegs)) / N
+	# "or 1" --> use fraction is 0% when there are no veto segments
+	return float(N - len(vetosegs)) / (N or 1)
 
 
 def veto_dead_time_fraction(veto_seglist, analyzed_seglist):
@@ -330,7 +346,7 @@ class Results(object):
 		self.dead_time_fraction = veto_dead_time_fraction(veto_seglist, analyzed_seglist)
 		self.efficiency = []
 		self.use_fraction = []
-		for snr_threshold in snr_threshods:
+		for snr_threshold in snr_thresholds:
 			selected_triggers = [trigger for trigger in triggers if trigger.snr >= snr_threshold]
 			self.efficiency.append(veto_efficiency(selected_triggers, veto_seglist))
 			self.use_fraction.append(veto_use_fraction(selected_triggers, veto_seglist))
@@ -375,10 +391,10 @@ options, filenames = parse_command_line()
 #
 
 
-sngl_inspiral_table, analyzed_segs = load_trigger_files([cache_entry.url for cache_entry in options.clustered_trigger_cache], verbose = options.verbose)
+sngl_inspiral_table, analyzed_segments = load_trigger_files([cache_entry.url for cache_entry in options.clustered_trigger_cache], program_name = "sire", verbose = options.verbose)
 
 
-vetos = load_vetos(options)
+vetos = load_vetos(options, verbose = options.verbose)
 
 
 #
@@ -386,6 +402,8 @@ vetos = load_vetos(options)
 #
 
 
+if options.verbose:
+	print >>sys.stderr, "intersecting vetos with analyzed segments ..."
 trim_vetos(vetos, analyzed_segments)
 
 
@@ -414,6 +432,8 @@ for veto_instrument, veto_categories in vetos.items():
 		efficiency_plot = Plot("SNR Threshold", "Veto Efficiency")
 
 		for veto_flag, veto_seglist in veto_seglistdict.items():
+			if options.verbose:
+				print >>sys.stderr, "%s, category %d, %s" % (veto_instrument, veto_category, veto_flag)
 
 			results[veto_instrument][veto_category][veto_flag] = Results(options.snr_thresholds, veto_seglist, analyzed_segments[veto_instrument], triggers)
 
@@ -421,7 +441,7 @@ for veto_instrument, veto_categories in vetos.items():
 			y = results[veto_instrument][veto_category][veto_flag].efficiency
 			efficiency_plot.axes.plot(x, y)
 
-		efficiency_plot.axes.legend(veto_seglistdict.keys())
+		efficiency_plot.axes.legend([s.replace("_", "\_") for s in veto_seglistdict.keys()])
 		efficiency_plot.axes.set_ylim((0.0, 1.0))
 
 		efficiency_plot.fig.savefig("veto_efficiency_%s_%d.png" % (veto_instrument, veto_category))
