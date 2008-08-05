@@ -182,8 +182,8 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 
 
-	#if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
-	#	raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
+	if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
+		raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
 
 
 	#
@@ -195,12 +195,30 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 
 
 #
-# get veto segment lists
+# get veto segment lists.  the return value is a giant nested dictionary.
+# the outer-most dictionary's keys are instrument names, inside those are
+# dictionaries of categories, insde those are glue.segments.segmentlistdict
+# objects whose keys are data quality flag names and whose values are
+# glue.segments.segmentlist objects.  like this:
+#
+#	return {
+#		"H1": {
+#			1: segments.segmentlistdict({
+#				"OUT_OF_LOCK":
+#					segments.segmentlist([])
+#			}),
+#			2: segments.segmentlistdict({
+#			}),
+#			3: segments.segmentlistdict({
+#			}),
+#			4: segments.segmentlistdict({
+#			})
+#		}
+#	}
 #
 
 
 def load_vetos(options, verbose = False):
-	#
 	# This is a hack!  Namely the ifos and categories are hardcoded.  
 	# Should these parameters be
 	# command line arguments or are they derived from something else?
@@ -226,25 +244,9 @@ def load_vetos(options, verbose = False):
 			output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict,dqwindows)
 
 	if verbose:
-		print >>sys.stderr, "\n"
-	    
+		print >>sys.stderr
+
 	return output
-
-
-#	return {
-#		"H1": {
-#			1: segments.segmentlistdict({
-#				"OUT_OF_LOCK":
-#					segments.segmentlist([])
-#			}),
-#			2: segments.segmentlistdict({
-#			}),
-#			3: segments.segmentlistdict({
-#			}),
-#			4: segments.segmentlistdict({
-#			})
-#		}
-#	}
 
 
 #
