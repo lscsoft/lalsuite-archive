@@ -427,7 +427,7 @@ class FollowupMissed:
     # read the inspiral file(s)
     if self.verbose: print "Processing INSPIRAL triggers from files ", triggerFiles   
     snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-      triggerFiles , verbose=False)
+      triggerFiles , verbose=False, mangle_event_id = True)
 
     # create a figure
     fig=figure()
