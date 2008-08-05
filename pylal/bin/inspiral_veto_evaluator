@@ -62,6 +62,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
 from pylal.xlal.date import LIGOTimeGPS
+from pylal import dqutils
 
 
 __author__ = ""
@@ -142,7 +143,7 @@ def load_trigger_files(urls, verbose = False):
 	#
 
 
-	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
+	clustered_xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
 
 
 	#
@@ -158,7 +159,7 @@ def load_trigger_files(urls, verbose = False):
 	#
 
 
-	instruments = set(sngl_inspiral_table.getColumn("ifo"))
+	instruments = set(sngl_inspiral_table.getColumnByName("ifo"))
 
 
 	#
@@ -168,7 +169,7 @@ def load_trigger_files(urls, verbose = False):
 	#
 
 
-	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "inspiral").coalesce()
+	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(clustered_xmldoc, program = "inspiral").coalesce()
 
 
 	#
@@ -176,7 +177,7 @@ def load_trigger_files(urls, verbose = False):
 	# instruments represented in the trigger list
 	#
 
-	if set(sngl_inspiral_table.getColumn("ifo")) not in set(analyzed_segs.keys()):
+	if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
 		raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
 
 
@@ -193,25 +194,43 @@ def load_trigger_files(urls, verbose = False):
 #
 
 
-def load_vetos(FIXME):
-	#
-	# FIXME:  I don't know how to do this.
-	#
+def load_vetos(options):
+  #
+  # This is a hack!  Namely the ifos and categories are hardcoded.  
+  # Should these parameters be
+  # command line arguments or are they derived from something else?
+  
+  cp = ConfigParser.ConfigParser()
+  cp.read(options.config_file) 
+  ifolist = ['H1','H2','L1']
+  catlist = [1, 2, 3, 4]
+  output = {}
+  for ifo in ifolist:
+    output[ifo] = {}
+    dqfile = open(dqutils.get_dq_file(ifo),'r')
+    dqseglistdict = dqutils.fromDQsegments(dqfile)
+    for cat in catlist:
+      dqflagsfile = open(cp.get('segments',ifo.lower()+'-cat-'+str(cat)+'-veto-file'),'r')
+      dqwindows = dqutils.from_veto_file(dqflagsfile)
+      output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict,dqwindows)
+            
+  return output
 
-	return {
-		"H1": {
-			1: segments.segmentlistdict({
-				"OUT_OF_LOCK":
-					segments.segmentlist([])
-			}),
-			2: segments.segmentlistdict({
-			}),
-			3: segments.segmentlistdict({
-			}),
-			4: segments.segmentlistdict({
-			})
-		}
-	}
+
+#	return {
+#		"H1": {
+#			1: segments.segmentlistdict({
+#				"OUT_OF_LOCK":
+#					segments.segmentlist([])
+#			}),
+#			2: segments.segmentlistdict({
+#			}),
+#			3: segments.segmentlistdict({
+#			}),
+#			4: segments.segmentlistdict({
+#			})
+#		}
+#	}
 
 
 #
@@ -359,7 +378,7 @@ options, filenames = parse_command_line()
 sngl_inspiral_table, analyzed_segs = load_trigger_files([cache_entry.url for cache_entry in options.clustered_trigger_cache], verbose = options.verbose)
 
 
-vetos = load_vetos("FIXME")
+vetos = load_vetos(options)
 
 
 #
