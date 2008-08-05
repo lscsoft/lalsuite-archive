@@ -506,7 +506,7 @@ for entry, injfile in zip(injcache,injFiles):
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
   # check if there are any sims here
-  if not sims:
+  if not len(sims):
     continue
 
   if opts.sire:
