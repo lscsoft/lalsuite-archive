@@ -280,7 +280,7 @@ def parse_command_line():
     help="sieve the cache for missed injection files with this pattern")
   parser.add_option("", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("", "--sire",action="store_true",\
-      default="false", help="Indicating the use of single-trigger sire files")
+      default=false, help="Indicating the use of single-trigger sire files")
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
