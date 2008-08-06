@@ -210,8 +210,7 @@ class scrapePage:
                 print "****************************************"
                 print "*Ignoring error not inserting anything!*"
                 print "****************************************"
-                raise
-
+                raise ValueError
     #End insertTextGivenText()
 
     def __buildMiddleOfPage__(self):
