@@ -203,10 +203,15 @@ class scrapePage:
                 self.tableObject[foundRow][colNum]=Text
             except: 
                 print "Exception Encountered"
-                print "Match Text: "+str(matchText)
+                print "String to match with           : "+str(matchText)
+                print "Destination Table Column Count : "+str(self.tableObject[foundRow].__len__())
                 print "Row: "+str(foundRow)+" Col:"+str(colNum)
-                print str(Text)
-                os.abort()
+                print "Text that should be inserted   : "+str(Text)
+                print "****************************************"
+                print "*Ignoring error not inserting anything!*"
+                print "****************************************"
+                raise
+
     #End insertTextGivenText()
 
     def __buildMiddleOfPage__(self):
