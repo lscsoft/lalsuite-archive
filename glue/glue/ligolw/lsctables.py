@@ -1970,6 +1970,48 @@ CoincMapTable.RowType = CoincMap
 #
 # =============================================================================
 #
+#                                dq_list Table
+#
+# =============================================================================
+#
+
+
+DQSpecListID = ilwd.get_ilwdchar_class(u"dq_list", u"dq_list_id")
+DQSpecListRowID = ilwd.get_ilwdchar_class(u"dq_list", u"dq_list_row_id")
+
+
+class DQSpecListTable(table.Table):
+	tableName = "dq_list:table"
+	validcolumns = {
+		"dq_list_id": "ilwd:char",
+		"dq_list_row_id": "ilwd:char",
+		"instrument": "lstring",
+		"flag": "lstring",
+		"low_window": "real_8",
+		"high_window": "real_8"
+	}
+	constraints = "PRIMARY KEY (dq_list_id, dq_list_row_id)"
+	next_id = DQSpecListID(0)
+
+
+class DQSpec(object):
+	__slots__ = DQSpecListTable.validcolumns.keys()
+
+	def apply_to_segmentlist(self, seglist):
+		"""
+		Apply our low and high windows to the segments in a
+		segmentlist.
+		"""
+		for i, seg in enumerate(seglist):
+			seglist[i] = seg.__class__(seg[0] - self.low_window, seg[1] + self.high_window)
+
+
+DQSpecListTable.RowType = DQSpec
+
+
+#
+# =============================================================================
+#
 #                               ligolw_mon:table
 #
 # =============================================================================
@@ -2050,6 +2092,7 @@ TableByName = {
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
+	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
 	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
 }
 
