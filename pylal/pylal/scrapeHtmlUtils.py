@@ -203,8 +203,9 @@ class scrapePage:
                 self.tableObject[foundRow][colNum]=Text
             except: 
                 print "Exception Encountered"
-                print "Row: "+foundRow+" Col:"+colNum
-                print Text
+                print "Match Text: "+str(matchText)
+                print "Row: "+str(foundRow)+" Col:"+str(colNum)
+                print str(Text)
                 os.abort()
     #End insertTextGivenText()
 
