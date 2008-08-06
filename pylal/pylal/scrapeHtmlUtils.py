@@ -1,4 +1,4 @@
-#!/usr/bin/env @PYTHONPROG@
+#!/usr/bin/python
 #
 """
 followup web page scraping utilities
@@ -77,6 +77,8 @@ class scrapePage:
         foundEndKey=False
         currentLine=0
         while (currentLine < self.originalText.__len__()):
+            if self.originalText[currentLine].__contains__(self.endKey):
+                foundEndKey=True
             if not(foundStartKey):
                 self.topOfPage.append(self.originalText[currentLine])
             if foundStartKey and not(foundEndKey):
@@ -85,8 +87,6 @@ class scrapePage:
                 self.endOfPage.append(self.originalText[currentLine])
             if self.originalText[currentLine].__contains__(self.startKey):
                 foundStartKey=True
-            if self.originalText[currentLine].__contains__(self.endKey):
-                foundEndKey=True
                 self.endOfPage.append(self.originalText[currentLine])
             currentLine=currentLine+1
         cleantext=list()
@@ -102,7 +102,7 @@ class scrapePage:
         text=str().join(cleantext)
         tableObject=list()
         for row in text.replace("<tr","<MARK><tr").split("<MARK>"):
-            self.tableObject.append(row.replace("<td","<MARK><td").split("<MARK>"))
+            self.tableObject.append(row.replace("<th","<MARK><th").replace("<td","<MARK><td").split("<MARK>"))
         rowNames=list()
         rowNumber=0
         for row in self.tableObject:
@@ -223,6 +223,33 @@ class scrapePage:
         self.middleOfPage.append(str().join([middleTop,middleMid,middleBot]))
     #End __buildMiddleOfPage__()
 
+    def buildTableHTML(self,formattingTxt=""):
+        """
+        Call this method to build a single string that corresponds the
+        the html you want to have that will begin with <table> and end
+        with </table>.  
+        """
+        self.__buildMiddleOfPage__()
+        htmlTable=self.middleOfPage
+        self.middleOfPage=list()
+        txtStringA="<table %s>"%(formattingTxt)
+        txtStringB=str(htmlTable[0])
+        txtStringC="</table>"
+        return txtStringA+txtStringB+txtStringC
+    
+    #End buildTableHTML()
+
+    def writeTableHTML(self,filename="table.html",formattingTxt=""):
+        """
+        Call this method to write just the html for creating the table
+        to a file.
+        """
+        fp=open(filename,'w')
+        outputText=self.buildTableHTML(formattingTxt)
+        fp.writelines(outputText)
+        fp.close()
+    #End writeTableHTML()
+
     def __stripHTMLTags__(self,stringIN):
         """
         Take input string and remove all tags inside of < >
@@ -233,7 +260,7 @@ class scrapePage:
         input=stringIN
         result=''
         maxloop=0
-        ignoreKeys=["http","em","br","h1","h2","h3","hr"]
+        ignoreKeys=["td","tr","em","br","h1","h2","h3","hr"]
         ignoreKeysMatch=list()
         for match in ignoreKeys:
             ignoreKeysMatch.append("/"+match.strip("<"))
