@@ -25,14 +25,14 @@ sys.path.append('@PYTHONLIBDIR@')
 ###########################################################################
 
 # provide the list of mass bins (example: mass_bins = ['mchirp_2_8','mchirp_8_17','mchirp_17_35'])
-mass_bins = ['mchirp_8_17','mchirp_17_35']
+mass_bins = ['mchirp_2_8','mchirp_8_17','mchirp_17_35']
 # provide the list of DQ flags (example: cat_vetoes = ['cat12'])
 cat_vetoes = ['cat1','cat12','cat123','cat1234']
-# coincs = ['H1L1','H2L1']
-coincs = ['H1H2L1']
+# provide the list of coincidence types to analyze (example: coincs = ['H1L1','H2L1'])
+coincs = ['H1H2L1','H1L1','H2L1','H1H2']
 
 # Specify the path to the executable
-executable = "./generate_checklist.py"
+executable = "/archive/home/romain/cvs/pylal/bin/followup_scripts/generate_checklist.py"
 
 # path to the COIRE or CORSE files containing the list of the loudest candidates
 input_path = "/archive/home/dkeppel/post_processing/lowcbc/20051104-20061114/upperlimits_v99/corse_dag/corse/"
@@ -59,7 +59,7 @@ qscan_page = "http://ldas-jobs.ligo.caltech.edu/~romain/S5_followup/LowMassCBC/2
 qscan_dir = "/archive/home/romain/public_html/S5_followup/LowMassCBC/20051104-20061114/full_zerolag/"
 
 # Number of coincident triggers to follow-up in each COIRE file
-nb_triggers = 1
+nb_triggers = 3
 
 ############################################################################
 # Main program
