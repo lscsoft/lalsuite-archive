@@ -459,7 +459,7 @@ def write_general(page,opts):
 
 
 # ***************************************************************************
-def write_title(page, text, tag):
+def write_title(page, text, tag, checked=False):
   """
   create a title (h2 tag) with a toggle on/off and a link to the TOC.
 
@@ -471,6 +471,8 @@ def write_title(page, text, tag):
   @type text: string
   @param tag: a tag to include within the link/name 
   @type tag: string
+  @param checked: whether the checkbox near the title should be initially checked
+  @type checked: bool
   @return: an update of HTML document
   """
   global h2_num
@@ -478,7 +480,10 @@ def write_title(page, text, tag):
   page.h2()
   page.add("<a name=\""+tag+"\">")
   input = "input_"+tag
-  page.input(id=input, type="checkbox", checked="checked", onclick="toggleVisible('"+tag+"')")
+  if checked:
+    page.input(id=input, type="checkbox", checked=None, onclick="toggleVisible('"+tag+"')")
+  else:
+    page.input(id=input, type="checkbox", onclick="toggleVisible('"+tag+"')")    
 
   h2_num+=1  # we incremnt the section number
   page.add(str(h2_num)+". "+text)
@@ -1919,7 +1924,7 @@ for each_section in html_order:
         value="expand all figures and sections" )
       page.input(type="button" ,onclick="clearall("+str(maxdiv)+")", \
         value="clear all (come back to the original page)" )
-      page = write_title(page,  html_sections[each_section],id)
+      page = write_title(page,  html_sections[each_section],id,checked=True)
       page.div(id="div_"+id, style='display:block')
     else:
       page = write_title(page,  html_sections[each_section],id)
