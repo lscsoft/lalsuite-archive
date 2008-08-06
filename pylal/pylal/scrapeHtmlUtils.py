@@ -106,11 +106,13 @@ class scrapePage:
         rowNames=list()
         rowNumber=0
         for row in self.tableObject:
+            #Setting self.rowNames list of lists 
+            #[[Index,Row C1 Text,Col Count],[a,b,c],...,[]]
             if row.__len__() > 2:
-                self.rowNames.append([rowNumber,row[1]])
+                self.rowNames.append([rowNumber,row[1],row.__len__()])
                 rowNumber=rowNumber+1
             else:
-                self.rowNames.append([rowNumber,"\n"])
+                self.rowNames.append([rowNumber,"\n",-1])
                 rowNumber=rowNumber+1
         colNumber=0
         for col in range(0,self.tableObject[1].__len__()):
@@ -145,7 +147,7 @@ class scrapePage:
         the row labels inside the HTML table we are manipulating.
         """
         for row in self.rowNames:
-            sys.stdout.write("Row %i, %s"%(int(row[0]),str(row[1])))
+            sys.stdout.write("Row %i, %s %i"%(int(row[0]),str(row[1]),int(row[2])))
             sys.stdout.flush()
      #End showRows()
 
@@ -201,7 +203,7 @@ class scrapePage:
         if foundRow > -1:
             try:
                 self.tableObject[foundRow][colNum]=Text
-            except: 
+            except: IndexError 
                 print "Exception Encountered"
                 print "String to match with           : "+str(matchText)
                 print "Destination Table Column Count : "+str(self.tableObject[foundRow].__len__())
@@ -210,7 +212,7 @@ class scrapePage:
                 print "****************************************"
                 print "*Ignoring error not inserting anything!*"
                 print "****************************************"
-                raise ValueError
+                raise 
     #End insertTextGivenText()
 
     def __buildMiddleOfPage__(self):
