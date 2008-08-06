@@ -199,7 +199,13 @@ class scrapePage:
                 currentRow=rowCount+1
             currentRow=currentRow+1
         if foundRow > -1:
-            self.tableObject[foundRow][colNum]=Text
+            try:
+                self.tableObject[foundRow][colNum]=Text
+            except: 
+                print "Exception Encountered"
+                print "Row: "+foundRow+" Col:"+colNum
+                print Text
+                os.abort()
     #End insertTextGivenText()
 
     def __buildMiddleOfPage__(self):
