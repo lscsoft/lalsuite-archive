@@ -39,6 +39,7 @@ from pylal.fu_utils import *
 from pylal.fu_writeXMLparams import *
 from pylal.webUtils import *
 from pylal import Fr
+from pylal.scrapeHtmlUtils import scrapePage
 from lalapps import inspiral
 
 ######################## OPTION PARSING  #####################################
@@ -80,8 +81,14 @@ parser.add_option("-H","--histo-page",action="store",type="string",\
 parser.add_option("-I","--ifar-page",action="store",type="string",\
     metavar=" STRING",help="url to the ifar plot")
 
+parser.add_option("","--ifar-combined-page",action="store",type="string",\
+    metavar=" STRING",help="url to the combined ifar plot")
+
 parser.add_option("-q","--qscan-page",action="store",type="string",\
     metavar=" STRING",help="basic url of the qscan pages.\n Example: \"http://ldas-jobs.ligo.caltech.edu/~romain/S5_followup/LowMassCBC/20051104-20061114/full_zerolag/\"\n WARNING: This script makes the assumption that the qscan subdirectories are chosen following the convention \"qscantype/ifo/\", where qscantype is one of [qscan, hoft-qscan, seismic-qscan] and ifo is one of [H1,H2,L1]")
+
+parser.add_option("-Q","--qscan-dir",action="store",type="string",\
+    metavar=" STRING",help="path to the qscan output directories.\n Example: \"/archive/home/romain/public_html/S5_followup/LowMassCBC/20051104-20061114/full_zerolag/\"")
 
 parser.add_option("","--string-id",action="store",type="string",\
     metavar=" STRING",help="string which allows to identify the veto category and the mass bin in which these candidates have been found.\n An example would be: \"cat12_17-35\", for candidates found after cat12 vetoes in the 17-35 mass bin.\n This argument is used when writing text in the checklist, but can be safely omitted")
@@ -109,6 +116,29 @@ followuptrigs = getfollowuptrigs(str(opts.num_triggers),None,coincs,None,search,
 for i,trig in enumerate(followuptrigs):
   gpsTime = trig.gpsTime[trig.ifolist_in_coinc[0]]
   gps_int = int(gpsTime)
+
+  # get the path to the qscan "context.html" file which will be parsed to get the DQ information
+  qscanContextFile = os.path.normpath(opts.qscan_dir + "/hoft-qscan/" + trig.ifolist_in_coinc[0] + "/" + repr(gpsTime) + "/context.html")
+
+  qscanContext = scrapePage()
+  DQflagsTable = scrapePage()
+  ScSegTable = scrapePage()
+  # specify the context keys to select the Data_Quality table
+  # from the qscan context.html file.
+  qscanContext.setContextKeys(\
+        "<div id=\"div_Data_Quality\" style=\"display: block;\">",\
+        "<a name=\"Detector_Logs\"></a>")
+  # Read qscan "context.html" file into memory
+  qscanContext.readfile(qscanContextFile)
+
+  # copy the rows from the qscanContext table into the relevant objects.
+  # if the row contains the string "Science" it should go into the science segments table. If not it must go into the DQ table.
+  for row in qscanContext.tableObject:
+    if row.__len__() > 3:
+      if not row[2].__contains__("Science"):
+        DQflagsTable.tableObject.append(row)
+      if row[2].__contains__("Science") or row[2].__contains__("flag"):
+        ScSegTable.tableObject.append(row)  
 
   outputFile = "followup_" + str(gps_int) + ".html"
   file = open(outputFile,'w')
@@ -234,11 +264,15 @@ for i,trig in enumerate(followuptrigs):
     if opts.histo_page:
       file.write("      <a href=\"" + opts.histo_page + "\">Non-cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
     file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
+    if opts.ifar_combined_page:
+      file.write("      <a href=\"" + opts.ifar_combined_page + "\">Combined IFAR plot (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
   else:
     file.write("  <td><a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram</a><br>\n")
     if opts.histo_page:
       file.write("      <a href=\"" + opts.histo_page + "\">Non-cumulative histogram</a><br>\n")
     file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot</a><br>\n")
+    if opts.ifar_combined_page:
+      file.write("      <a href=\"" + opts.ifar_combined_page + "\">Combined IFAR plot</a><br>\n")
   file.write("  <td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
@@ -248,7 +282,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td>#1 DQ flags</td>\n")
   file.write("  <td>What data quality flags may have been on when these candidates were identified?</td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
+  file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "</td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
@@ -260,6 +294,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td><a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
     file.write(" <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>")
+  file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n",""))
   file.write("  </td>")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
@@ -269,15 +304,19 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td>#3 Candidate appearance</td>\n")
   file.write("  <td>What does the candidate look like in Qscan?</td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td>h(t) Qscans:")
+  file.write("  <td>h(t) Qscans:<br>")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
-    file.write(" <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a>")
+    file.write(" <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>")
+    file.write(" <img src=\"" + hoft_qscan[j] + "/" + repr(trig.gpsTime[ifo]) + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">")
+    file.write(" <img src=\"" + hoft_qscan[j] + "/" + repr(trig.gpsTime[ifo]) + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br><br>")
   i=0
   for k in range(0,len(trig.ifoTag)-1,2):
     ifo = trig.ifoTag[k:k+2]
     if not trig.ifolist_in_coinc.count(ifo):
       i=i+1
-      file.write(" <a href=\"" + hoft_qscan[i + len(trig.ifolist_in_coinc) - 1] + "\">" + ifo + "</a>")
+      file.write(" <a href=\"" + hoft_qscan[i + len(trig.ifolist_in_coinc) - 1] + "\">" + ifo + "</a><br>")
+      file.write(" <img src=\"" + hoft_qscan[i + len(trig.ifolist_in_coinc) - 1] + "/" + repr(trig.gpsTime[trig.ifolist_in_coinc[0]]) + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">")
+      file.write(" <img src=\"" + hoft_qscan[i + len(trig.ifolist_in_coinc) - 1] + "/" + repr(trig.gpsTime[trig.ifolist_in_coinc[0]]) + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br><br>")
   file.write("  </td>")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
@@ -351,17 +390,17 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #8
   file.write("<tr>\n")
-  file.write("  <td>#8 Snr versus time</td>\n")
-  file.write("  <td>First inspiral SNR vs time compared to first coincidence SNR vs time</td>\n")
+  file.write("  <td>#8 Glitch report</td>\n")
+  file.write("  <td>Was there anything strange happening in the instrument according to the weekly report provided by the glitch group ?</td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
+  file.write("  <td><a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
   # Row #9
   file.write("<tr>\n")
   file.write("  <td>#9 Snr versus time</td>\n")
-  file.write("  <td>What is the likelihood of the candidate of being a gravitational wave given its parameters?<br></td>\n")
+  file.write("  <td>First inspiral SNR vs time compared to first coincidence SNR vs time</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -369,7 +408,16 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #10
   file.write("<tr>\n")
-  file.write("  <td>#10 Snr and Chisq</td>\n")
+  file.write("  <td>#10 Parameters of the candidate</td>\n")
+  file.write("  <td>What is the likelihood of the candidate of being a gravitational wave given its parameters?<br></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #11
+  file.write("<tr>\n")
+  file.write("  <td>#11 Snr and Chisq</td>\n")
   file.write("  <td>How do the snr vs time and chisq vs time plot look?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>")
@@ -387,18 +435,18 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #11
+  # Row #12
   file.write("<tr>\n")
-  file.write("  <td>#11 Template bank veto</td>\n")
+  file.write("  <td>#12 Template bank veto</td>\n")
   file.write("  <td>Did the template bank ring-off all over? Is it consistent with a signal?<br>Check the Bank Veto value.</td>\n")  
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #12
+  # Row #13
   file.write("<tr>\n")
-  file.write("  <td>#12 Coherent studies</td>\n")
+  file.write("  <td>#13 Coherent studies</td>\n")
   file.write("  <td>Is the trigger coherent between the different interferometers where it was found?</td>\n")
   file.write("  <td></td>\n")
   if coherent_qscan:
@@ -408,19 +456,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #13
-  file.write("<tr>\n")
-  file.write("  <td>#13</td>\n")
-  file.write("  <td>Are the candidate stable against changes in segmentation?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #14
   file.write("<tr>\n")
   file.write("  <td>#14</td>\n")
-  file.write("  <td>Are the candidates stable against small changes in calibration consistent with systematic uncertainties?</td>\n")
+  file.write("  <td>Are the candidate stable against changes in segmentation?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -429,6 +468,15 @@ for i,trig in enumerate(followuptrigs):
   # Row #15
   file.write("<tr>\n")
   file.write("  <td>#15</td>\n")
+  file.write("  <td>Are the candidates stable against small changes in calibration consistent with systematic uncertainties?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #16
+  file.write("<tr>\n")
+  file.write("  <td>#16</td>\n")
   file.write("  <td>Is there any data corruption evidence between the data used in the analysis and the raw data archived at Caltech ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>Frame checks: ")
@@ -438,19 +486,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #16
-  file.write("<tr>\n")
-  file.write("  <td>#16</td>\n")
-  file.write("  <td>Is there anything visible in the burst analysis of the same data?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #17
   file.write("<tr>\n")
   file.write("  <td>#17</td>\n")
-  file.write("  <td>What about ringdown?</td>\n")
+  file.write("  <td>Is there anything visible in the burst analysis of the same data?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -458,10 +497,19 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #18
   file.write("<tr>\n")
-  file.write("  <td>#18 EM triggers</td>\n")
+  file.write("  <td>#18</td>\n")
+  file.write("  <td>What about ringdown?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #19
+  file.write("<tr>\n")
+  file.write("  <td>#19 EM triggers</td>\n")
   file.write("  <td>Are there any EM triggers in coincidence?<br>Is the distance consistent with electro-magnetic observations?<br><br>What information is available via the time-delays? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
+  file.write("  <td><a href=\"http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/S5grbs_list.html\">List of GRBs during S5</a></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
