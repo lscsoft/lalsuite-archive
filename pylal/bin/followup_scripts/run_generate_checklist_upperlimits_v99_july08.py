@@ -77,6 +77,8 @@ for cat_veto in cat_vetoes:
         ifo_times = [["H1H2L1","triples"],["H1L1","doubles"]]
       if coinc == "H2L1":
         ifo_times = [["H1H2L1","triples"],["H2L1","doubles"]]
+      if coinc == "H1H2":
+        ifo_times = [["H1H2","triples"],["H1H2","doubles"]]
 
       for ifo_time in ifo_times:
 
