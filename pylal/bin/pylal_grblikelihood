@@ -354,6 +354,9 @@ num_trials = len(trial_bins)
 # count how many unvetoed trials we have
 eff_num_trials = numpy.sum(~trial_veto_mask)
 
+# the best we can estimate the false alarm rate p(c|0) is ~ 1/eff_num_trials
+eps = 0.5 / eff_num_trials
+
 ################################################################################
 # choose other binnings: mchirp, m2, D
 mc_bins = rate.IrregularBins(opts.mc_boundaries)
@@ -381,7 +384,7 @@ louder_by_trial_mc = mark_loud_background_by_trial_mc(offsource_doc,
     onsource_loudest_by_mc, trial_bins, mc_bins)
 
 # for each mchirp bin, determine p(c|0) by summing across trials
-pc0_by_mc = 1 - \
+pc0_by_mc = \
     louder_by_trial_mc[~trial_veto_mask, :].sum(axis=0, dtype=float) \
     / eff_num_trials
 
@@ -438,16 +441,16 @@ if opts.verbose:
     print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
 # for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
-pch_by_mc_m2 = 1 - num_found_by_mc_m2_D.sum(axis=2) / \
-    (num_sims_by_m2_D.sum(axis=1)[None, :] + 1e-10)
-L_by_mc_m2 = pch_by_mc_m2 / (pc0_by_mc[:, None] + 1e-10)
+pch_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2) / \
+    (num_sims_by_m2_D.sum(axis=1)[None, :] + eps)
+L_by_mc_m2 = pch_by_mc_m2 / (pc0_by_mc[:, None] + eps)
 mc_ind_by_m2 = L_by_mc_m2.argmax(axis=0)
 
 # numpy indexer to pick the right mchirp category for each m2; returns (m2, D)
 mc_indexer = (mc_ind_by_m2, range(len(m2_bins)), slice(None, None, None))
 
 # get p(c|h) for each injected (m2, D) bin
-pch_maxL_by_m2_D = 1 - num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
+pch_maxL_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + eps)
 
 # TODO: correct for MC counting uncertainty
 
@@ -456,6 +459,8 @@ pch_maxL_by_m2_D = 1 - num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e
 fnameList = []
 tagList = []
 
+c_in_E = r"c \in \mathcal{E}(c_0)"
+c_in_E_m2 = r"c \in \mathcal{E}(c_0(m_2))"
 mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
@@ -469,7 +474,7 @@ plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
 for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
-    plot.ax.text(0.5, mc, "$p(c|0) = $" + str(pc0))
+    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"|0) = $" + str(pc0))
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -528,7 +533,7 @@ text = "L(c(mc)|h(m2))"
 plot = plotutils.ImagePlot(\
     r"$m_2\ (M_\odot)$",
     r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
-    r"$L(c(" + mc_latex + r")|h(m_2))$")
+    r"$\Lambda(c(" + mc_latex + r") \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
 plot.add_content(L_by_mc_m2, m2_bins, mc_bins)
 plot.finalize()
 
@@ -542,13 +547,13 @@ if not opts.show_plot:
 
 ## for each mchirp, p(c|h) vs (m2, D) image
 pch_by_mc_m2_D = 1 - num_found_by_mc_m2_D / \
-    (num_sims_by_m2_D[None, :, :] + 1e-10)
+    (num_sims_by_m2_D[None, :, :] + eps)
 for pch_by_m2_D, mc_range in itertools.izip(pch_by_mc_m2_D, mc_ranges):
     mc_range_str = mc_latex + " \in [%f, %f)" % mc_range
     text = "p(c|h(m2, D))"
 
     plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-        r"$p(c|h)\textrm{ for }" + mc_range_str + "$")
+        r"$p(" + c_in_E_m2 + r"\,|\,h)\textrm{ for }" + mc_range_str + "$")
     plot.add_content(pch_by_m2_D.T, m2_bins, D_bins)
     plot.finalize()
 
@@ -566,7 +571,7 @@ for pch_by_m2_D, mc_range in itertools.izip(pch_by_mc_m2_D, mc_ranges):
 text = "p(c|h(m2, D))"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    "$p(c|h)$")
+    "$p(" + c_in_E_m2 + r"|h)$")
 plot.add_content(pch_maxL_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
 

@@ -274,6 +274,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
             % sieve_pattern
 
     # turn on event_id mangling
+    old_id = lsctables.SnglInspiralTable.next_id
     lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID_old(0)
 
     # reduce memory footprint at the expense of speed
@@ -289,7 +290,7 @@ def load_cache(xmldoc, cache, sieve_pattern, exact_match=False,
         xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose=verbose)
 
     # turn off event_id mangling
-    lsctables.SnglInspiralTable.next_id = None
+    lsctables.SnglInspiralTable.next_id = old_id
 
     return xmldoc
 
