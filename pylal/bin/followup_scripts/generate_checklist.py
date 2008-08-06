@@ -273,7 +273,7 @@ for i,trig in enumerate(followuptrigs):
     file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot</a><br>\n")
     if opts.ifar_combined_page:
       file.write("      <a href=\"" + opts.ifar_combined_page + "\">Combined IFAR plot</a><br>\n")
-  file.write("  <td>\n")
+  file.write("  </td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
