@@ -203,7 +203,7 @@ class scrapePage:
         if foundRow > -1:
             try:
                 self.tableObject[foundRow][colNum]=Text
-            except: IndexError 
+            except IndexError:
                 print "Exception Encountered"
                 print "String to match with           : "+str(matchText)
                 print "Destination Table Column Count : "+str(self.tableObject[foundRow].__len__())
