@@ -155,7 +155,7 @@ for i,trig in enumerate(followuptrigs):
     if row.__len__() > 3:
       ScSegTable.tableObject.append(row)
 
-  dateScSeg = commands.getoutput("grep \"Detector state\" -A 3 -i + " + qscanContextFile + " | grep \"(as of\"") 
+  dateScSeg = commands.getoutput("grep \"Detector state\" -A 3 -i " + qscanContextFile + " | grep \"(as of\"") 
 
   outputFile = "followup_" + str(gps_int) + ".html"
   file = open(outputFile,'w')
@@ -204,7 +204,7 @@ for i,trig in enumerate(followuptrigs):
   linkToStat = opts.statistic_page 
   file.write("<br><a href=\"" + linkToStat + "\">Statistical information</a>\n")
   if opts.old_followup_page:
-    file.write("<br><a href=\"" + opts.old_followup_page + "\">Link to old checklist</a>\n")
+    file.write("<br><a href=\"" + opts.old_followup_page + "/" + outputFile + "\">Link to old checklist</a>\n")
 
   dailyStat = []
   hoft_qscan = []
@@ -300,7 +300,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td>#1 DQ flags</td>\n")
   file.write("  <td>What data quality flags may have been on when these candidates were identified?</td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "\n" + dateDQflags + "</td>\n")
+  file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "<br>" + dateDQflags + "</td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
@@ -312,7 +312,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td><a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
     file.write(" <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>")
-  file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "\n" + dateScSeg)
+  file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "<br>" + dateScSeg)
   file.write("  </td>")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
