@@ -69,6 +69,9 @@ parser.add_option("-b","--blb",action="store",type="float",\
 parser.add_option("-A","--automated-page",action="store",type="string",\
     metavar=" STRING",help="url of the automated follow-up page")
 
+parser.add_option("","--old-followup-page",action="store",type="string",\
+    metavar=" STRING",help="url to the old checklist (optional)")
+
 parser.add_option("-S","--statistic-page",action="store",type="string",\
     metavar=" STRING",help="url of the statistic page")
 
@@ -200,7 +203,8 @@ for i,trig in enumerate(followuptrigs):
   file.write("<br><a href=\"" + linkToAutoFollowup + "\">Automated follow-up</a>")
   linkToStat = opts.statistic_page 
   file.write("<br><a href=\"" + linkToStat + "\">Statistical information</a>\n")
-
+  if opts.old_followup_page:
+    file.write("<br><a href=\"" + opts.old_followup_page + "\">Link to old checklist</a>\n")
 
   dailyStat = []
   hoft_qscan = []
