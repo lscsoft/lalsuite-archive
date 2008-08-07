@@ -139,7 +139,7 @@ class scrapePage:
             tableText,tableSep,tableFootString=tableText.rpartition("</tr>")
         except AttributeError:
             tableSep="</tr>"
-            tableText,tableSep,tableFootString=tableText.rsplit(tableSep,1)
+            tableText,tableFootString=tableText.rsplit(tableSep,1)
 
         tableText=tableText+tableSep
         #Save the text from the tableHead and tableFoot
