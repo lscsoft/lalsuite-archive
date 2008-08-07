@@ -193,6 +193,8 @@ class scrapePage:
         if (foundRow > -1):
             try:
                 outputData=self.tableObject[foundRow][colNum]
+                if outputData.__len__()==0:
+                    outputData=" "
                 return outputData            
             except IndexError:
                 return ""
@@ -253,6 +255,8 @@ class scrapePage:
         inserts the Text into the column specified by ColNum.  If
         there is no match or ColNum is out of bound nothing is done.
         """
+        if matchText="":
+            return
         currentRow=0
         rowCount=self.rowNames.__len__()-1
         foundRow=-1
