@@ -255,7 +255,7 @@ class scrapePage:
         inserts the Text into the column specified by ColNum.  If
         there is no match or ColNum is out of bound nothing is done.
         """
-        if matchText=="":
+        if Text=="":
             return
         currentRow=0
         rowCount=self.rowNames.__len__()-1
