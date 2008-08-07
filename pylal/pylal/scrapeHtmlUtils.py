@@ -32,6 +32,8 @@ class scrapePage:
         self.startKey="<h3>Follow-up tests</h3>\n"
         self.endKey="<h3>Parameter estimation</h3>\n"
         self.saveLines=list()
+        self.tableHead=str()
+        self.tableFoot=str()
         self.topOfPage=list()
         self.middleOfPage=list()
         self.endOfPage=list()
@@ -43,6 +45,7 @@ class scrapePage:
         for match in self.removeKey:
             ignoreKeysMatch.append("/"+match.strip("<"))
         self.removeKey.extend(ignoreKeysMatch)
+        self.tmpTableText=str()
     #End Init
 
     def setContextKeys(self,newStartKey="",newEndKey=""):
@@ -90,19 +93,7 @@ class scrapePage:
                 self.endOfPage.append(self.originalText[currentLine])
             currentLine=currentLine+1
         cleantext=list()
-        for line in self.middleOfPage:
-            foundKey=0
-            for key in self.removeKey:
-                if line.lower().__contains__(key):
-                    foundKey=foundKey+1
-            if foundKey == 0:
-                cleantext.append(line)
-            else:
-                self.saveLines.append(line)
-        text=str().join(cleantext)
-        tableObject=list()
-        for row in text.replace("<tr","<MARK><tr").split("<MARK>"):
-            self.tableObject.append(row.replace("<th","<MARK><th").replace("<td","<MARK><td").split("<MARK>"))
+        self.__createTableObject__(self.middleOfPage)
         rowNames=list()
         rowNumber=0
         for row in self.tableObject:
@@ -118,7 +109,60 @@ class scrapePage:
         for col in range(0,self.tableObject[1].__len__()):
             self.colNames.append([colNumber,self.tableObject[1][col]])
             colNumber=colNumber+1
-#End read method
+    #End read method
+
+    def __createTableObject__(self,inputHTML=None):
+        """
+        Given a list of text string we want to manipulate these
+        strings to create a table object.  If the inputHTML is None
+        then we assume we want to work with self.middleOfPage
+        variable.
+        """
+        if inputHTML == None:
+            inputHTML=self.middleOfPage
+        #Join all lines into a single text string
+        tableText=str().join(inputHTML)
+        #Remove all "\n" symbols
+        tableText=tableText.replace("\n","")
+        #Split of table head or the HTML before first occurence of
+        #the key <tr
+        tableHeadString,tableSep,tableBodyString=tableText.partition("<tr")
+        tableText=tableSep+tableBodyString
+        #Split of the table foot or the HTML after the last occurence
+        #of the key </tr
+        tableText,tableSep,tableFootString=tableText.rpartition("</tr>")
+        tableText=tableText+tableSep
+        #Save the text from the tableHead and tableFoot
+        self.tableHead=tableHeadString
+        self.tableFoot=tableFootString
+        #Search for internal tables replace the table with the string 
+        #<MARKIT1> numbering for each subtable.
+        #subTableList -> [[MARKIT1,TXT],[MARKIT2,TXT]...[MARKITn,TXT]]
+        subTableList=list()
+        self.tmpTableText=tableText
+        while tableText.__contains__("<table"):
+            tableLabel="<MARKIT%i>"%(subTableList.__len__())
+            tableStart=tableText.find("<table")
+            tableStop=tableText.find("</table")
+            if ((tableStop == -1) or (tableStart == -1)):
+                print "Found unmatched table tag!?!?!?!"
+                print "Not creating table object!"
+                print "Read self.tmpTableText to diagnose html."
+                raise SyntaxError
+            thisSubTable=tableText.__getslice__(tableStart,tableStop)+"</table>"
+            tableText=tableText.replace(thisSubTable,tableLabel)
+            subTableList.append([tableLabel,thisSubTable])
+        #Convert the text into the tableObject variable
+        for row in tableText.replace("<tr","<MARK><tr").split("<MARK>"):
+            self.tableObject.append(row.replace("<th","<MARK><th").replace("<td","<MARK><td").split("<MARK>"))
+        #Scan the table object fields for the markers in subTableList
+        for rIndex in range(self.tableObject.__len__()):
+            for cIndex in range(self.tableObject[rIndex].__len__()):
+                for tableLabel,subTableText in subTableList:
+                    if self.tableObject[rIndex][cIndex].__contains__(tableLabel):
+                        self.tableObject[rIndex][cIndex]=self.tableObject[rIndex][cIndex].replace(tableLabel,subTableText)
+    #End self.__createTableObject__()
+
 
     def getColumnByText(self,textString='',colNum=1):
         """
@@ -135,10 +179,13 @@ class scrapePage:
                 currentRow=rowCount+1
             currentRow=currentRow+1
         if (foundRow > -1):
-            outputData=self.tableObject[foundRow][colNum]
-            return outputData            
+            try:
+                outputData=self.tableObject[foundRow][colNum]
+                return outputData            
+            except IndexError:
+                return ""
         else:
-            return""
+            return ""
     #End getColumnByText()
 
     def showRows(self):
@@ -147,7 +194,9 @@ class scrapePage:
         the row labels inside the HTML table we are manipulating.
         """
         for row in self.rowNames:
-            sys.stdout.write("Row %i, %s %i"%(int(row[0]),str(row[1]),int(row[2])))
+            sys.stdout.write("Row %i, %s, %i\n"%(int(row[0]),
+                                                 str(row[1]),
+                                                 int(row[2])))
             sys.stdout.flush()
      #End showRows()
 
@@ -166,7 +215,7 @@ class scrapePage:
         """
         colNum=1
         for col in self.colNames:
-            sys.stdout.write("Col %i, %s"%(int(col[0]),str(col[1])))
+            sys.stdout.write("Col %i, %s\n"%(int(col[0]),str(col[1])))
             sys.stdout.flush()
 
     def getColumnByCoord(self,RowNum,ColNum):
@@ -222,18 +271,10 @@ class scrapePage:
         the disk.
         """
         tmpMiddle=list()
-        saveCount=self.saveLines.__len__()/2
-        topSave=list()
-        bottomSave=list()
-        for i in range(0,saveCount-1):
-            topSave.append(self.saveLines[i])
-        for i in range(saveCount,self.saveLines.__len__()):
-            bottomSave.append(self.saveLines[i])
-        middleTop=str().join(topSave)
-        middleMid=str().join([str().join(x) for x in self.tableObject])
-        middleBot=str().join(bottomSave)
-        self.middleOfPage=list()
-        self.middleOfPage.append(str().join([middleTop,middleMid,middleBot]))
+        tmpMiddle.append(self.tableHead)
+        tmpMiddle.append(str().join([str().join(x) for x in self.tableObject]))
+        tmpMiddle.append(self.tableFoot)
+        self.middleOfPage=list((str().join(tmpMiddle)))
     #End __buildMiddleOfPage__()
 
     def buildTableHTML(self,formattingTxt=""):
