@@ -290,7 +290,7 @@ class scrapePage:
         tmpMiddle.append(self.tableHead)
         tmpMiddle.append(str().join([str().join(x) for x in self.tableObject]))
         tmpMiddle.append(self.tableFoot)
-        self.middleOfPage=list((str().join(tmpMiddle)))
+        self.middleOfPage=list([str().join(tmpMiddle)])
     #End __buildMiddleOfPage__()
 
     def buildTableHTML(self,formattingTxt=""):
