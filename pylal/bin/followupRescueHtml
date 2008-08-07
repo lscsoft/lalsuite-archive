@@ -71,7 +71,6 @@ new.readfile(newfile)
 #Extract list of rows from new html file to begin copy process.
 newRowList=new.getRowList()
 oldRowList=original.getRowList()
-
 if showRows:
     print "***"
     print "New Row Definitions"
@@ -81,16 +80,22 @@ if showRows:
     print "Old Row Definitions"
     for entry in oldRowList:
         print entry
+    print "******"
+    new.showCols()
     print "***"
+    original.showCols()
+    print "******"
+
 
 #Interate through the rows of this list looking for entries in the original
 #html table to copy over to create the new table.
 for newRow in newRowList:
     originalTextColThree=original.getColumnByText(newRow[1],3)
     originalTextColFive=original.getColumnByText(newRow[1],5)
-    combinedText="%s<br>%s"%(originalTextColThree,originalTextColFive)
+    #Consider new method to strip specified tag or list of tags!
+    combinedText="<td><table><tr>%s</tr><tr>%s</tr></table></td>"%(originalTextColThree,originalTextColFive)
     new.insertTextGivenText(newRow[1],
-                            3,
+                            5,
                             combinedText)
 
 # Manual workaroud for the very first row of the table row [0]
