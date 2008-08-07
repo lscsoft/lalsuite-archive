@@ -126,11 +126,21 @@ class scrapePage:
         tableText=tableText.replace("\n","")
         #Split of table head or the HTML before first occurence of
         #the key <tr
-        tableHeadString,tableSep,tableBodyString=tableText.partition("<tr")
+        try:
+            tableHeadString,tableSep,tableBodyString=tableText.partition("<tr")
+        except AttributeError:
+            tableSep="<tr"
+            tableHeadString,tableBodyString=tableText.split(tableSep,1)
+
         tableText=tableSep+tableBodyString
         #Split of the table foot or the HTML after the last occurence
         #of the key </tr
-        tableText,tableSep,tableFootString=tableText.rpartition("</tr>")
+        try:
+            tableText,tableSep,tableFootString=tableText.rpartition("</tr>")
+        except AttributeError:
+            tableSep="</tr>"
+            tableText,tableSep,tableFootString=tableText.rsplit(tableSep,1)
+
         tableText=tableText+tableSep
         #Save the text from the tableHead and tableFoot
         self.tableHead=tableHeadString
