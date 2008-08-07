@@ -37,6 +37,9 @@ executable = "/archive/home/romain/cvs/pylal/bin/followup_scripts/generate_check
 # path to the COIRE or CORSE files containing the list of the loudest candidates
 input_path = "/archive/home/dkeppel/post_processing/lowcbc/20051104-20061114/upperlimits_v99/corse_dag/corse/"
 
+# link to the old checklist
+oldCheckList = "http://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/protected/projects/s5/followup/official_candidates/LowMassCBC/20051104-20061114/full_zerolag/"
+
 # link the automated followup web pages
 automated_page = "http://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/protected/projects/s5/followup/LowMassCBC/20051104-20061114/full_zerolag/upperlimits_v99_july08/" 
 
@@ -94,7 +97,8 @@ for cat_veto in cat_vetoes:
         " --ifar-combined-page " + ifar_page + ifo_time[0] + "-plotifar_ALL_DATA_" + cat_veto.upper() + "_cumhist_ifar_combined-815160323-32395247.png" + \
         " --qscan-page " + qscan_page + \
         " --string-id " + cat_veto + "_" + mass_bin.split("_")[1] + "-" + mass_bin.split("_")[2] + \
-        " --qscan-dir " + qscan_dir
+        " --qscan-dir " + qscan_dir + \
+        " --old-followup-page " + oldCheckList
 
         result = commands.getoutput(command)
         print result
