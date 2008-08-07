@@ -94,7 +94,7 @@ def fromDQsegments_fast(fileobj):
         target_seglist.append(seg)
     return d
 
-def from_veto_file(fileobj):
+def from_veto_file(fileobj,flags_have_ifo_colon=False):
     """
     Return a dictionary keyed by the flag name and mapping to windows to be
     added to the start and end times of DQ-flagged segments.
@@ -102,7 +102,11 @@ def from_veto_file(fileobj):
     veto_window_lines = [line.split() for line in fileobj\
                          if len(line.strip()) > 0 \
                             and not line.startswith("#")]
-    veto_windows = dict([(key, (int(minus), int(plus))) for key, minus, plus\
+    if flags_have_ifo_colon: 
+      veto_windows = dict([(key.split(':')[1], (int(minus), int(plus))) \
+                   for key, minus, plus in veto_window_lines])
+    else:
+      veto_windows = dict([(key, (int(minus), int(plus))) for key, minus, plus\
                          in veto_window_lines])
     return veto_windows
 
