@@ -355,7 +355,7 @@ num_trials = len(trial_bins)
 eff_num_trials = numpy.sum(~trial_veto_mask)
 
 # the best we can estimate the false alarm rate p(c|0) is ~ 1/eff_num_trials
-eps = 0.5 / eff_num_trials
+pc0_eps = 0.5 / eff_num_trials
 
 ################################################################################
 # choose other binnings: mchirp, m2, D
@@ -387,6 +387,9 @@ louder_by_trial_mc = mark_loud_background_by_trial_mc(offsource_doc,
 pc0_by_mc = \
     louder_by_trial_mc[~trial_veto_mask, :].sum(axis=0, dtype=float) \
     / eff_num_trials
+
+# if 0, then set to minimum resolvable
+pc0_by_mc[pc0_by_mc < pc0_eps] = pc0_eps
 
 print "p(c(mchirp) | 0):"
 for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), pc0_by_mc):
@@ -440,17 +443,34 @@ for pattern in inj_patterns:
 if opts.verbose:
     print "Done. Tallied %d injections." % num_sims_by_m2_D.sum()
 
+# define these sums for clarity
+num_found_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2)
+num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
+
+# minimum resolvable is ~0.5 / num_sims; pathological if num_sims == 0, but
+# we will be careful to apply it only if num_sims != 0.
+pch_eps_by_mc_m2 = 0.5 / \
+    (num_sims_by_m2[None, :].repeat(len(mc_bins), axis=0) + 1e-10)
+pch_eps_by_m2_D = 0.5 / (num_sims_by_m2_D + 1e-10)
+pch_eps_by_mc_m2_D = 0.5 / \
+    (num_sims_by_m2_D[None, :, :].repeat(len(mc_bins), axis=0) + 1e-10)
+
+# compute p(c|h) vs (mc, m2) for finding most likely mc per m2
+pch_by_mc_m2 = num_found_by_mc_m2 / (num_sims_by_m2[None, :] + 1e-10)
+zero_ind = (num_found_by_mc_m2 == 0) & (num_sims_by_m2[None, :] != 0)
+pch_by_mc_m2[zero_ind] = pch_eps_by_mc_m2[zero_ind]
+
 # for each m2 bin, find the mchirp that gives the max L=p(c|h)/p(c|0)
-pch_by_mc_m2 = num_found_by_mc_m2_D.sum(axis=2) / \
-    (num_sims_by_m2_D.sum(axis=1)[None, :] + eps)
-L_by_mc_m2 = pch_by_mc_m2 / (pc0_by_mc[:, None] + eps)
+L_by_mc_m2 = pch_by_mc_m2 / pc0_by_mc[:, None]
 mc_ind_by_m2 = L_by_mc_m2.argmax(axis=0)
 
 # numpy indexer to pick the right mchirp category for each m2; returns (m2, D)
 mc_indexer = (mc_ind_by_m2, range(len(m2_bins)), slice(None, None, None))
 
 # get p(c|h) for each injected (m2, D) bin
-pch_maxL_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + eps)
+pch_maxL_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
+zero_ind = (num_found_by_mc_m2_D[mc_indexer] == 0) & (num_sims_by_m2_D != 0)
+pch_maxL_by_m2_D[zero_ind] = pch_eps_by_m2_D[zero_ind]
 
 # TODO: correct for MC counting uncertainty
 
@@ -546,8 +566,10 @@ if not opts.show_plot:
     plot.close()
 
 ## for each mchirp, p(c|h) vs (m2, D) image
-pch_by_mc_m2_D = 1 - num_found_by_mc_m2_D / \
-    (num_sims_by_m2_D[None, :, :] + eps)
+pch_by_mc_m2_D = num_found_by_mc_m2_D / \
+    (num_sims_by_m2_D[None, :, :] + 1e-10)
+zero_ind = (num_found_by_mc_m2_D == 0) & (num_sims_by_m2_D[None, :, :] != 0)
+pch_by_mc_m2_D[zero_ind] = pch_eps_by_mc_m2_D[zero_ind]
 for pch_by_m2_D, mc_range in itertools.izip(pch_by_mc_m2_D, mc_ranges):
     mc_range_str = mc_latex + " \in [%f, %f)" % mc_range
     text = "p(c|h(m2, D))"
