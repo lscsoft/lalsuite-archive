@@ -86,12 +86,12 @@ if showRows:
 #Interate through the rows of this list looking for entries in the original
 #html table to copy over to create the new table.
 for newRow in newRowList:
+    originalTextColThree=original.getColumnByText(newRow[1],3)
+    originalTextColFive=original.getColumnByText(newRow[1],5)
+    combinedText="%s<br>%s"%(originalTextColThree,originalTextColFive)
     new.insertTextGivenText(newRow[1],
                             3,
-                            original.getColumnByText(newRow[1],3))
-    new.insertTextGivenText(newRow[1],
-                            5,
-                            original.getColumnByText(newRow[1],5))
+                            combinedText)
 
 # Manual workaroud for the very first row of the table row [0]
 manual=True
