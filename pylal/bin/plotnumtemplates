@@ -34,7 +34,7 @@ import glob
 import gzip
 from optparse import *
 from glue.ligolw import ligolw
-from glue.ligolw import table
+from glue.ligolw import table as ligolw_table  # conflicts with pylab.table
 from glue.ligolw import lsctables
 from glue import lal
 from pylal import InspiralUtils
@@ -91,11 +91,9 @@ def plotnumtemplates_tmpltbank_size(opts):
 
 # ============================================================================
 # function to read in a list of files
-def isSearchSumm(name, attrs):
-  return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)
-
-def isProcess(name, attrs):
-  return lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
+def isSearchSummOrProcess(name, attrs):
+  return lsctables.IsTableProperties(lsctables.SearchSummaryTable, name, attrs)\
+    or lsctables.IsTableProperties(lsctables.ProcessTable, name, attrs)
 
 def readFiles(fList):
   """
@@ -115,22 +113,20 @@ def readFiles(fList):
       fileobj = gzip.GzipFile(mode = "rb", fileobj=fileobj)
     else:
       fileobj = thisFile
- 
+
     doc = ligolw.Document()
+    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
+        isSearchSummOrProcess)).parse(fileobj)
+
     # read in ifo from process, as not stored in SearchSumm
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isProcess)).parse(fileobj)
-    ifo = doc.childNodes[0].getColumnByName('ifos')[0]
-    if thisFile.endswith(".gz"):
-       fileobj.seek(0)
-    else: pass
-  
+    process_table = ligolw_table.get_table(doc,
+        lsctables.ProcessTable.tableName)
+    ifo = process_table.getColumnByName('ifos')[0]
+
     # read in SearchSummary
-    doc = ligolw.Document()
-    ligolw.make_parser(ligolw.PartialLIGOLWContentHandler(doc, \
-        isSearchSumm)).parse(fileobj)
-    searchSummTable = doc.childNodes[0]
-    if output.has_key(ifo):
+    searchSummTable = ligolw_table.get_table(doc,
+        lsctables.SearchSummaryTable.tableName)
+    if ifo in output:
       output[ifo].extend(searchSummTable)
     else:
       output[ifo] = searchSummTable
