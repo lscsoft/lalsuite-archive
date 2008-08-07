@@ -119,7 +119,7 @@ def parse_command_line():
 		raise ValueError, "missing required option --snr-thresholds"
 
 	# Jake:  this probably needs to be changed to suit your needs
-	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "SIRE_FIRST_FULL_DATA")
+	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "SIRE_FIRST_PLAYGROUND")
 	if not options.clustered_trigger_cache:
 		raise ValueError, "input cache is empty"
 
