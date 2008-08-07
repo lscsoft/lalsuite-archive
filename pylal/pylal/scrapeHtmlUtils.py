@@ -162,6 +162,8 @@ class scrapePage:
             thisSubTable=tableText.__getslice__(tableStart,tableStop)+"</table>"
             tableText=tableText.replace(thisSubTable,tableLabel)
             subTableList.append([tableLabel,thisSubTable])
+        #Add carriage returns to help clean up table formatting
+        tableText=tableText.replace("</td>","</td>\n").replace("</th>","</th>\n").replace("</table>","</table>\n").replace("<tr>","<tr>\n").replace("</tr>","</tr>\n")
         #Convert the text into the tableObject variable
         for row in tableText.replace("<tr","<MARK><tr").split("<MARK>"):
             self.tableObject.append(row.replace("<th","<MARK><th").replace("<td","<MARK><td").split("<MARK>"))
