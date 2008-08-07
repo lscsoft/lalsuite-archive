@@ -120,25 +120,39 @@ for i,trig in enumerate(followuptrigs):
   # get the path to the qscan "context.html" file which will be parsed to get the DQ information
   qscanContextFile = os.path.normpath(opts.qscan_dir + "/hoft-qscan/" + trig.ifolist_in_coinc[0] + "/" + repr(gpsTime) + "/context.html")
 
-  qscanContext = scrapePage()
+  qscanContextForDQ = scrapePage()
   DQflagsTable = scrapePage()
-  ScSegTable = scrapePage()
   # specify the context keys to select the Data_Quality table
   # from the qscan context.html file.
-  qscanContext.setContextKeys(\
+  qscanContextForDQ.setContextKeys(\
         "<div id=\"div_Data_Quality\" style=\"display: block;\">",\
         "<a name=\"Detector_Logs\"></a>")
   # Read qscan "context.html" file into memory
-  qscanContext.readfile(qscanContextFile)
-
-  # copy the rows from the qscanContext table into the relevant objects.
-  # if the row contains the string "Science" it should go into the science segments table. If not it must go into the DQ table.
-  for row in qscanContext.tableObject:
+  qscanContextForDQ.readfile(qscanContextFile)
+  # copy the rows from the Data_Quality table.
+  # if the row contains the string "Science" it must be stripped off from the DQ table.
+  for row in qscanContextForDQ.tableObject:
     if row.__len__() > 3:
       if not row[2].__contains__("Science"):
         DQflagsTable.tableObject.append(row)
-      if row[2].__contains__("Science") or row[2].__contains__("flag"):
-        ScSegTable.tableObject.append(row)  
+
+  dateDQflags = commands.getoutput("grep \"Data quality flags\" -A 3 -i " + qscanContextFile + " | grep \"(as of\"")
+
+  qscanContextForSc = scrapePage()
+  ScSegTable = scrapePage()
+  # specify the context keys to select the Segments table
+  # from the qscan context.html file.
+  qscanContextForSc.setContextKeys(\
+        "<div id=\"div_Segments\" style=\"display: block;\">",\
+        "<a name=\"Data_Quality\"></a>")
+  # Read qscan "context.html" file into memory
+  qscanContextForSc.readfile(qscanContextFile)
+  # copy the rows from the Segments table.
+  for row in qscanContextForSc.tableObject:
+    if row.__len__() > 3:
+      ScSegTable.tableObject.append(row)
+
+  dateScSeg = commands.getoutput("grep \"Detector state\" -A 3 -i + " + qscanContextFile + " | grep \"(as of\"") 
 
   outputFile = "followup_" + str(gps_int) + ".html"
   file = open(outputFile,'w')
@@ -282,7 +296,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td>#1 DQ flags</td>\n")
   file.write("  <td>What data quality flags may have been on when these candidates were identified?</td>\n")
   file.write("  <td></td>\n")
-  file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "</td>\n")
+  file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "\n" + dateDQflags + "</td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
@@ -294,7 +308,7 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td><a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
     file.write(" <a href=\"" + dailyStat[j] + "\">" + ifo + "</a>")
-  file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n",""))
+  file.write("\n" + ScSegTable.buildTableHTML("border=1 bgcolor=green").replace("\n","") + "\n" + dateScSeg)
   file.write("  </td>")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
