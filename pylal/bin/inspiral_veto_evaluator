@@ -120,6 +120,8 @@ def parse_command_line():
 
 	# Jake:  this probably needs to be changed to suit your needs
 	options.clustered_trigger_cache = lal.Cache.fromfilenames([options.clustered_trigger_cache]).sieve(description = "SIRE_FIRST_FULL_DATA")
+	if not options.clustered_trigger_cache:
+		raise ValueError, "input cache is empty"
 
 	options.snr_thresholds = map(float, options.snr_thresholds.split(","))
 
