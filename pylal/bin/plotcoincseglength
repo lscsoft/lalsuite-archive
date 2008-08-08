@@ -115,6 +115,8 @@ if opts.trigger_rate:
   ylabel('Trigger rate (Hz)', size='x-large')
   if opts.figure_name:
     savefig(opts.figure_name + "_trigger_rate.png")
+  if not opts.show_plot:
+    close()
 
 if opts.length_threshold:
   time = sum(duration)
@@ -139,6 +141,8 @@ if opts.hist_seg_length:
   ylabel('Number of occurrances', size='x-large')
   if opts.figure_name:
     savefig(opts.figure_name + "_seg_length.png")
+  if not opts.show_plot:
+    close()
 
 if opts.show_plot:
   show()  

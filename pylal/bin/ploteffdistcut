@@ -422,6 +422,8 @@ if opts.dist_snr:
 
   if opts.figure_name:  
     savefig(opts.figure_name + "_eff_dist_cut.png")
+  if not opts.show_plot:
+    close()
 
 #######################################################################
 # histogram of distance accuracy
@@ -470,7 +472,8 @@ if opts.dist_hist:
           doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
-
+  if not opts.show_plot:
+    close()
 
 #######################################################################
 # effective distance vs effective distance plot
@@ -515,6 +518,8 @@ if opts.dist_dist:
           doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 #######################################################################
 # calculate triggers surviving cut

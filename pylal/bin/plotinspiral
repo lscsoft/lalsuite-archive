@@ -368,7 +368,8 @@ if opts.snr_time is True:
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
-
+  if not opts.show_plot:
+    close()
 
 ###################################
 # plot of snr vs chisq
@@ -391,6 +392,8 @@ if opts.snr_chisq is True:
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 ###################################
 # plot of snr vs chisq
@@ -413,6 +416,8 @@ try:
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 except:
   InspiralUtils.ErrorMessagePlotting(opts, "snrvschisq")
   pass

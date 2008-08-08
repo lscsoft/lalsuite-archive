@@ -528,6 +528,8 @@ if opts.snr_chisq:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Chi square versus SNR")
+  if not opts.show_plot:
+    close()
 
 ###################################
 # plot of snr vs bank_chisq
@@ -552,6 +554,8 @@ if opts.bank_chisq:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Bank chi square versus SNR")
+  if not opts.show_plot:
+    close()
 
 ###################################
 # plot of snr vs chisq
@@ -576,6 +580,8 @@ if opts.cont_chisq:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Cont chi square versus SNR")
+  if not opts.show_plot:
+    close()
 
 ###################################
 # plot of snr vs chisq with contours
@@ -598,7 +604,8 @@ if opts.trig_contour and nevents:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Chi square versus SNR and iso-contour")
-
+  if not opts.show_plot:
+    close()
 
 ###################################
 # plot of snr vs chisq with contours and lines
@@ -623,6 +630,8 @@ if opts.contour_lines and nevents:
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("Chi square versus SNR and iso-line contours")
+    if not opts.show_plot:
+      close()
 
   if opts.denominator_variable:
     fig_num +=1
@@ -642,6 +651,8 @@ if opts.contour_lines and nevents:
       fnameList.append(fname)
       tagList.append("Chi square versus SNR and iso-contours and " + \
           "iso-line contours")
+    if not opts.show_plot:
+      close()
 
 ###################################
 # plot of snr vs chisq with lines
@@ -663,6 +674,8 @@ if opts.trig_lines and nevents:
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("SNR vs chisq with lines and constant denominator")
+    if not opts.show_plot:
+      close()
 
   if opts.denominator_variable:
     fig_num +=1
@@ -681,6 +694,8 @@ if opts.trig_lines and nevents:
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("SNR vs chisq with lines and variable denominator")
+    if not opts.show_plot:
+      close()
 
 ###################################
 # plot of snr vs chisq with injections and lines
@@ -706,6 +721,8 @@ if opts.trig_inj_lines:
       fnameList.append(fname)
       tagList.append(" plot of snr vs chisq with injections and " + \
           "lines (constant denominator)")
+    if not opts.show_plot:
+      close()
 
   if opts.denominator_variable:
     fig_num +=1
@@ -728,6 +745,8 @@ if opts.trig_inj_lines:
       fnameList.append(fname)
       tagList.append(" plot of snr vs chisq with injections and " + \
           "lines (variable denominator)")
+    if not opts.show_plot:
+      close()
 
 ###################################
 # plot of snr vs chisq with injections and contours
@@ -752,6 +771,8 @@ if opts.trig_inj_contour:
     fnameList.append(fname)
     tagList.append(" plot of snr vs chisq with injections and " + \
         "contours (variable denominator)")
+    if not opts.show_plot:
+      close()
 
 ###################################
 # plot of snr vs chisq with contours and lines
@@ -776,6 +797,8 @@ if opts.trig_contour_lines and nevents:
       fnameList.append(fname)
       tagList.append(" plot of snr vs chisq with " + \
           "contours and lines (constant method)")
+    if not opts.show_plot:
+      close()
 
   if opts.denominator_variable:
     fig_num +=1
@@ -796,6 +819,8 @@ if opts.trig_contour_lines and nevents:
       fnameList.append(fname)
       tagList.append(" plot of snr vs chisq with " + \
           "contours and lines (variable method)")
+    if not opts.show_plot:
+      close()
 
 
 ###################################
@@ -814,6 +839,8 @@ if opts.hist_snr:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("SNR histogram")
+  if not opts.show_plot:
+    close()
   
 ###################################
 # histogram of snr/chi
@@ -831,6 +858,8 @@ if opts.hist_snr_chi:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("snr_chi_efficiency")
+  if not opts.show_plot:
+    close()
 
 
 ###################################
@@ -856,6 +885,8 @@ if opts.hist_stat:
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("var_den_efficiency")
+    if not opts.show_plot:
+      close()
 
  
   if opts.denominator_constant:
@@ -877,6 +908,8 @@ if opts.hist_stat:
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("const_den_efficiency")
+    if not opts.show_plot:
+      close()
 
 
 ###################################
@@ -913,6 +946,8 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("SNR versus RSQ")
+  if not opts.show_plot:
+    close()
 
 elif opts.snr_rsq:
   fig_num +=1
@@ -937,6 +972,8 @@ elif opts.snr_rsq:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("SNR versus RSQ")
+  if not opts.show_plot:
+    close()
 
 # ============================================================================
 # final step: html, cache file generation

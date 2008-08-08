@@ -321,6 +321,8 @@ if opts.ifar_dist and not opts.combine_types:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 if opts.combine_types and opts.ifar_dist:
   figure(figure_number)
@@ -348,6 +350,8 @@ if opts.combine_types and opts.ifar_dist:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 if opts.snr_ifar:
   figure(figure_number)
@@ -367,7 +371,8 @@ if opts.snr_ifar:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
-
+  if not opts.show_plot:
+    close()
 
 # ============================================================================
 # final step: html, cache file generation

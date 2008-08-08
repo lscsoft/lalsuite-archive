@@ -86,6 +86,8 @@ def plotnumtemplates_tmpltbank_size(opts):
     fname = InspiralUtils.set_figure_name(opts, "banksize")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, 
         dpi_thumb=opts.figure_resolution)
+    if not opts.show_plot:
+      close()
     return fname,fname_thumb
   else: return [], []
 

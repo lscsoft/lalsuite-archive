@@ -156,7 +156,8 @@ def plotinspiralrange_histogram(opts):
     fname = InspiralUtils.set_figure_name(opts, "range_hist")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
       dpi_thumb=opts.figure_resolution)
-  
+  if not opts.show_plot:
+    close()
   return fname,fname_thumb
 
 # ============================================================================
@@ -199,6 +200,8 @@ def plotinspiralrange_range_versus_time(opts):
     fname = InspiralUtils.set_figure_name(opts, "range_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
       dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname,fname_thumb
 
@@ -263,7 +266,9 @@ def plotinspiralrange_range_versus_total_mass(opts):
     fname = InspiralUtils.set_figure_name(opts, "range_mass")
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname, doThumb=True, \
       dpi_thumb=opts.figure_resolution)
-  
+  if not opts.show_plot:
+    close()
+
   return fname,fname_thumb
 
 # ============================================================================

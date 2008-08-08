@@ -141,6 +141,8 @@ if opts.m1_m2:
   print len(templates)
   if opts.figure_name:
     savefig(opts.figure_name + '_' + 'm1_and_m2' + '.png')
+  if not opts.show_plot:
+    close()
 
 if opts.mchirp_eta:
   fig_num += 1
@@ -160,6 +162,8 @@ if opts.mchirp_eta:
 
   if opts.figure_name:
     savefig(opts.figure_name + '_' + 'mchirp_and_eta' + '.png')
+  if not opts.show_plot:
+    close()
 
 
 if opts.tau0_tau3:
@@ -181,6 +185,8 @@ if opts.tau0_tau3:
   ylabel('tau3')
   if opts.figure_name:
     savefig(opts.figure_name + '_tau0_and_tau3' + '.png')
+  if not opts.show_plot:
+    close()
 
 if opts.inj_time:
   injTemplates = [[],[]]
@@ -200,6 +206,8 @@ if opts.inj_time:
   ylabel('tau3')
   if opts.figure_name:
     savefig(opts.figure_name + '_' + str(int(opts.inj_time)) + '.png')
+  if not opts.show_plot:
+    close()
 
 if opts.show_plot:
   show()

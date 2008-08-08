@@ -107,6 +107,8 @@ def plotparam(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 		  coinc_label+=ifo1
 		xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifo))
 		savefig(coinc_label + '-' + str(param) + "_" + str(ifo) )
+		if not opts.show:
+			close()
 		figure()
 	  else:
 		if hist_check_slides == 1:
@@ -117,6 +119,8 @@ def plotparam(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 			coinc_label+=ifo1
 		  xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifo))
 		  savefig(coinc_label + '-' + str(param) + "_" + str(ifo))
+		  if not opts.show:
+		    close()
 		  figure()
 		else:
 		  if hist_check_inj == 1:
@@ -127,6 +131,8 @@ def plotparam(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 			  coinc_label+=ifo1
 			xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + str(ifo))
 			savefig(coinc_label + '-' + str(param) + "_" + str(ifo))
+			if not opts.show:
+				close()
 			figure()
 
 def plot_hist_param(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
@@ -223,6 +229,8 @@ def plot_hist_param(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 		coinc_label += ifo
 	  xlabel(str(param) + " for " + coinc_label + " triggers")
 	  savefig(coinc_label + '-' + str(param))
+	  if not opts.show:
+	    close()
 	  figure()
 	elif hist_check_slides == 1:
 	  slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
@@ -232,6 +240,8 @@ def plot_hist_param(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 		coinc_label+=ifo
 	  xlabel(str(param) + " for " + coinc_label + " triggers")
 	  savefig(coinc_label + '-' + str(param))
+	  if not opts.show:
+	    close()
 	  figure()
 	elif hist_check_inj == 1:
 	  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
@@ -241,6 +251,8 @@ def plot_hist_param(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 		coinc_label+=ifo
 	  xlabel(str(param) + " for " + coinc_label + " triggers")
 	  savefig(coinc_label + '-' + str(param))
+	  if not opts.show:
+	    close()
 	  figure()
 	  
 	  
@@ -334,6 +346,8 @@ def plot_param_vs_stat(ifos, coinc_slides, coinc_inj, param):
 	for ifo in ifolist:
 	  coinc_label += ifo
 	savefig(coinc_label + "_" + param + "_vs_" + "eff_snr")
+	if not opts.show:
+	  close()
 	figure()
 
 
@@ -411,6 +425,8 @@ def plotroutine(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 		    else:
 		      xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
 		      savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+		    if not opts.show:
+		      close()
 		    figure()
 	      else:
 			if hist_check_slides == 1:
@@ -422,9 +438,13 @@ def plotroutine(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 			  if param == 'simethinca':
 				xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
 				savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+				if not opts.show:
+					close()
 			  else:
 				xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
 				savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+				if not opts.show:
+					close()
 			  figure()
 			else:
 			  if hist_check_inj == 1:
@@ -436,9 +456,13 @@ def plotroutine(ifos, coinc_slides, coinc_inj, param, slide_bins, inj_bins):
 				if param == 'simethinca':
 				  xlabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
 				  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+				  if not opts.show:
+				    close()
 				else:
 				  xlabel(coinc_label + ':' + ' ' + str(param) + ' ' + 'difference' + ' ' + str(ifolist[i]) + '-' + str(ifolist[j]))
 				  savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
+				  if not opts.show:
+				    close()
 				figure()
 
 def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zerolag, param, logscale=False):
@@ -471,6 +495,8 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			ylabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifopairs[j][0]) + '-' + str(ifopairs[j][1]))
 			legend((l3, l2, l1), ('zerolag candidates', 'found injections', 'background events'))
 			savefig(coinc_label + '-' + str(param) + "_" + str(ifopairs[i][0]) + str(ifopairs[i][1]) + "_" +  str(ifopairs[j][0]) + str(ifopairs[j][1]) + "_scatter_plot")
+			if not opts.show:
+				close()
 			figure()
 
 		  if param == 'ethinca':
@@ -489,6 +515,8 @@ def scatter_plot_param_diff_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc
 			ylabel(coinc_label + ':' + ' ' +  str(param)  + ' ' +  str(ifopairs[j][0]) + '-' + str(ifopairs[j][1]))
 			legend((l3, l2, l1), ('zerolag candidates', 'found injections', 'background events'))
 			savefig(coinc_label + '-' + str(param) + "_" + str(ifopairs[i][0]) + str(ifopairs[i][1]) + "_" +  str(ifopairs[j][0]) + str(ifopairs[j][1]) + "_scatter_plot")
+			if not opts.show:
+				close()
 			figure()
 
 def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0_background, pc_background, y_label, ifo="All", prefix='False_Alarm_Probability', y_lower_limit=0.00001):
@@ -521,6 +549,8 @@ def triple_scatter_plot(p0_zerolag, pc_zerolag, p0_injections, pc_injections, p0
   title(y_label.replace("_", " ") + " " + prefix.replace("_", " ") + " " + ifo.replace("_", ""))
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
   savefig(ifo.replace("_", "") + "_" + y_label +'_vs_' + prefix)
+  if not opts.show:
+    close()
   figure()
 
 def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injections, background_stat, p0_background, new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
@@ -551,6 +581,8 @@ def triple_scatter_plot_stat(zerolag_stat, p0_zerolag, injections_stat, p0_injec
   title(new_statistic.replace("_", " ") + " vs combined effective SNR " + ifo.replace("_","")) 
   legend((l1, l2, l3), ('zerolag candidates', 'found injections', 'background events'))
   savefig(ifo.replace("_","") + "_" + new_statistic + '_' + old_statistic)
+  if not opts.show:
+    close()
   figure()
 
 def scatter_plot(p0, pc, y_label, ifo="All", y_lower_limit=0.00001):
@@ -570,6 +602,8 @@ def scatter_plot(p0, pc, y_label, ifo="All", y_lower_limit=0.00001):
   ylabel(y_label.replace("_", " "))
   title(y_label.replace("_", " ") + " vs False Alarm Probability" + " " +  ifo.replace("_", ""))
   savefig(ifo.replace("_", "") + "_" + y_label + '_vs_FalseAlarmProb')
+  if not opts.show:
+    close()
   figure()
 
 def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', old_statistic='snr', ifo="All", y_lower_limit=0.00001):
@@ -587,6 +621,8 @@ def scatter_plot_stat(stat_array, p0,  new_statistic='FalseAlarmProbability', ol
   xlabel(old_statistic.replace("_", " "))
   title("Likelihood vs combined effective SNR" + " " + ifo) 
   savefig(ifo.replace("_","") + "_" + 'zerolag_' + new_statistic + '_' + old_statistic)
+  if not opts.show:
+    close()
   figure()
 
 def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
@@ -618,6 +654,8 @@ def scatter_plot_param_2D(ifos, coinc_slides, coinc_inj, param, logscale=False):
 		 xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
 		 ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
 		 savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) + "_scatterplot")
+		 if not opts.show:
+		   close()
 		 figure()
 		 
 def scatter_plot_param_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zerolag, param, logscale=False):
@@ -656,6 +694,8 @@ def scatter_plot_param_2D_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zero
 		 xlabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[i]))
 		 ylabel(coinc_label + ':' + ' ' +  str(param) + ' ' + str(ifolist[j]))
 		 savefig(coinc_label + '-' + str(param) + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) +"_with_zerolag" + "_scatterplot")
+		 if not opts.show:
+		   close()
 		 figure()
 			   
 def scatter_plot_param1_vs_param2(ifos, coinc_slides, coinc_inj, param1, param2, logscale=False, ylogscale=False):
@@ -688,6 +728,8 @@ def scatter_plot_param1_vs_param2(ifos, coinc_slides, coinc_inj, param1, param2,
 	  xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
 	  ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
 	  savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_scatterplot")
+	  if not opts.show:
+	    close()
 	  figure()
  
 def scatter_plot_param1_vs_param2_with_zerolag(ifos, coinc_slides, coinc_inj, coinc_zerolag, param1, param2, logscale=False, ylogscale=False):
@@ -728,6 +770,8 @@ def scatter_plot_param1_vs_param2_with_zerolag(ifos, coinc_slides, coinc_inj, co
 	  xlabel(coinc_label + ':' + ' ' +  str(param1) + ' ' + str(ifolist[i]))
 	  ylabel(coinc_label + ':' + ' ' +  str(param2) + ' ' + str(ifolist[i]))
 	  savefig(coinc_label + '-' + str(param2) + "_" + "_vs_" + str(param1)+ "_" +  str(ifolist[i]) + "_with_zerolag" + "_scatterplot")
+	  if not opts.show:
+	    close()
 	  figure()
 
 
@@ -755,6 +799,8 @@ def plot_cumhist(statistic_foreground, sigma, expect, x_middle, postfix, ifo="Al
   title('Combined statistic '+ postfix.replace("_", " ") + " " + ifo.replace("_", ""))
   legend((l1,l2),('foreground', 'background'))
   savefig(ifo.replace("_", "") + "_" + 'Combined_statistic' + postfix)
+  if not opts.show:
+    close()
   figure()
 
 def plot_likelihood(likelihood_foreground, bins, prefix, ifo="All",  label_x='likelihood'):
@@ -782,6 +828,8 @@ def plot_likelihood(likelihood_foreground, bins, prefix, ifo="All",  label_x='li
   title("cumulative histogram " + ifo.replace("_", ""))
   legend()
   savefig(ifo.replace("_", "") + "_" + prefix+'_statistic')
+  if not opts.show:
+    close()
   figure()
 
 def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="All", prefix='likelihood'):
@@ -822,6 +870,8 @@ def inj_vs_slides_hist(likelihood_foreground, likelihood_background, bins, ifo="
   xlabel(prefix)
   title(prefix + " injections vs, time slides histogram " + ifo.replace("_", ""))
   savefig(ifo.replace("_", "") + "_" + prefix+'_inj_vs_slides_hist')
+  if not opts.show:
+    close()
   figure()
 
 

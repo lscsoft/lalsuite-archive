@@ -109,6 +109,8 @@ def savePlot(opts, filename, tag ):
                                             dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append( tag )
+  if not opts.show_plot:
+    close()
   return fname
 
 #######################################################################
@@ -280,12 +282,12 @@ def parse_command_line():
     help="sieve the cache for missed injection files with this pattern")
   parser.add_option("", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("", "--sire",action="store_true",\
-      default=false, help="Indicating the use of single-trigger sire files")
+      default=False, help="Indicating the use of single-trigger sire files")
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
   parser.add_option("-O","--enable-output",action="store_true",\
-      default="false",  metavar="OUTPUT",\
+      default=False,  metavar="OUTPUT",\
         help="enable the generation of the html and cache documents")
   parser.add_option("","--gps-start-time",action="store",\
       type="int",  metavar="GPSSTARTTIME",\
@@ -506,7 +508,7 @@ for entry, injfile in zip(injcache,injFiles):
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
   # check if there are any sims here
-  if not len(sims):
+  if sims is None:
     continue
 
   if opts.sire:
@@ -691,6 +693,8 @@ for ifo in ifoList:
                                                 dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(tagnameList[index]+ifo)
+    if not opts.show_plot:
+      close()
 
 
 

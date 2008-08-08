@@ -458,6 +458,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 ###################################### same as above but for the slide only
 if numSlides>0:
@@ -501,7 +503,8 @@ if numSlides>0:
         fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
         fnameList.append(fname)
         tagList.append(text)
-
+      if not opts.show_plot:
+        close()
 
 #####################################  now we combine the slide and injections        
 for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nCombi)):
@@ -568,8 +571,9 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
         fnameList.append(fname)
         tagList.append(text)
-        
-  
+      if not opts.show_plot:
+        close()
+
   if opts.ethinca_vs_stat:  # ethinca-param vs combined statistic
     text = "E-thinca parameter vs combined %s for %s and %s triggers" % \
         (opts.statistic.replace('_', r'\_'), ifos[0], ifos[1]) + " in " + opts.ifo_times + " times"
@@ -625,7 +629,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
-        
+    if not opts.show_plot:
+      close()
 
   if opts.hist_stat:  # hist combined statistic
     text = "Histogram of combined %s for %s and %s triggers" % \
@@ -677,7 +682,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
-        
+    if not opts.show_plot:
+      close()
  
   if opts.hist:
     text = "E-thinca parameter Histogram for " + ifos[0] + \
@@ -733,7 +739,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
-        
+    if not opts.show_plot:
+      close()
 
 # ============================================================================
 # final step: html, cache file generation
