@@ -79,21 +79,43 @@ class scrapePage:
         foundStartKey=False
         foundEndKey=False
         currentLine=0
-        while (currentLine < self.originalText.__len__()):
-            if self.originalText[currentLine].__contains__(self.endKey):
-                foundEndKey=True
+        newWay=True
+        #Cutting up html page to extract table
+        if newWay:
+            allHTMLPage=str().join(self.originalText)
+            try:
+                pageHead,pageRemainder=allHTMLPage.split(self.startKey,1)
+                pageHead=pageHead+self.startKey
+            except ValueError:
+                pageRemainder=allHTMLPage
+            try:
+                pageMiddle,pageRemainder=pageRemainder.split(self.endKey,1)
+                pageRemainder=self.endKey+pageRemainder
+            except ValueError:
+                pageMiddle=pageRemainder
+            self.topOfPage.append(pageHead)
+            self.middleOfPage.append(pageMiddle)
+            self.endOfPage.append(pageRemainder)
+        else: #This is depricated and prone to errors will be removed soon.
+            while (currentLine < self.originalText.__len__()):
+                if self.originalText[currentLine].__contains__(self.endKey):
+                    foundEndKey=True
+                if not(foundStartKey):
+                    self.topOfPage.append(self.originalText[currentLine])
+                if foundStartKey and not(foundEndKey):
+                    self.middleOfPage.append(self.originalText[currentLine])
+                if foundStartKey and foundEndKey:
+                    self.endOfPage.append(self.originalText[currentLine])
+                if self.originalText[currentLine].__contains__(self.startKey):
+                    foundStartKey=True
+                    self.endOfPage.append(self.originalText[currentLine])
+                currentLine=currentLine+1
+            cleantext=list()
             if not(foundStartKey):
-                self.topOfPage.append(self.originalText[currentLine])
-            if foundStartKey and not(foundEndKey):
-                self.middleOfPage.append(self.originalText[currentLine])
-            if foundStartKey and foundEndKey:
-                self.endOfPage.append(self.originalText[currentLine])
-            if self.originalText[currentLine].__contains__(self.startKey):
-                foundStartKey=True
-                self.endOfPage.append(self.originalText[currentLine])
-            currentLine=currentLine+1
-        cleantext=list()
-        self.__createTableObject__(self.middleOfPage)
+                print "Problem finding start key."
+            if not(foundEndKey):
+                print "Problem finding end key."
+        self.__createTableObject__()
         rowNames=list()
         rowNumber=0
         for row in self.tableObject:
@@ -119,9 +141,9 @@ class scrapePage:
         variable.
         """
         if inputHTML == None:
-            inputHTML=self.middleOfPage
+            inputHTML=str().join(self.middleOfPage)
         #Join all lines into a single text string
-        tableText=str().join(inputHTML)
+        tableText=inputHTML
         #Remove all "\n" symbols
         tableText=tableText.replace("\n","")
         #Split of table head or the HTML before first occurence of
