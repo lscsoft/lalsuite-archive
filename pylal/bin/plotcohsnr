@@ -286,6 +286,8 @@ if opts.snr_time is True:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 
 ###################################
@@ -314,6 +316,8 @@ if opts.null_snr is True:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 
 ###################################
@@ -339,6 +343,8 @@ if opts.cum_hist_snr is True:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 
 ###################################
@@ -364,6 +370,8 @@ if opts.hist_snr is True:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 
 #########################################

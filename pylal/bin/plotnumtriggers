@@ -224,6 +224,8 @@ if opts.figure_name:
   fname=__name__+"_"+opts.figure_name+".png" 
   savefig(fname)
   savefig(__name__+"_"+opts.figure_name + ".eps")
+if not opts.show_plot:
+  close()
 
 if opts.html_output is True:
   try:

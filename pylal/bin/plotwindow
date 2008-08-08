@@ -307,6 +307,8 @@ while revision == True:
       output_name = opts.figure_name + '_' + col_name + '_revised_' + \
           str(revision_number) + '.png'
       savefig(output_name)
+    if not opts.show_plot:
+      close()
 
   # work out the revised windows
   new_window = {}

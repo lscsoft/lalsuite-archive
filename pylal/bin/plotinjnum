@@ -117,10 +117,14 @@ def plot_found_missed(figNum, opts, missed, found, xtype, ytype):
     fname = InspiralUtils.set_figure_name(opts, 'found_missed_' + \
         ytype + '_vs_' + xtype)
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
+    if not opts.show_plot:
+      close()
     return fname
   else:
     figName = opts.ifo_type + 'found_missed_' + ytype + '_vs_' + xtype + '.png'
     fname_thumb = InspiralUtils.savefig_pylal(filename=figName, doThumb=True, dpi_thumb=opts.figure_resolution)
+    if not opts.show_plot:
+      close()
     return figName 
 
 ###################################

@@ -180,7 +180,8 @@ if opts.x_value and opts.y_value:
       savefig(fname)
       fnameList.append( fname )
       tagList.append(xval +' vs. '+yval)
-
+    if not opts.show_plot:
+      close()
 
 
 ## create all the histograms
@@ -207,7 +208,8 @@ if opts.hist:
       savefig(fname)
       fnameList.append( fname )
       tagList.append('histogram '+hist)
-      
+    if not opts.show_plot:
+      close()
 
 # generate html and cache
 if opts.enable_output:

@@ -53,6 +53,8 @@ def plot_injected_vs_recovered_parameter(opts, plot_num, injections, \
     fname = InspiralUtils.set_figure_name(opts, column + "_plot")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname, text, plot_num
 
@@ -92,6 +94,8 @@ def plot_parameter_accuracy(opts, plot_num, injections, \
     fname = InspiralUtils.set_figure_name(opts, column + "_accuracy")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname, text, plot_num
 
@@ -141,6 +145,8 @@ def plot_parameter_accuracy_vs_second_parameter(opts, plot_num, injections, \
         second_column)
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True,\
         dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname, text, plot_num
 
@@ -172,6 +178,8 @@ def hist_parameter_accuracy(opts, plot_num, injections, \
     fname = InspiralUtils.set_figure_name(opts, column + "_histogram")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname, text, plot_num
 
@@ -233,6 +241,8 @@ def plot_parameter_accuracy_vs_second_parameter_with_colorbar(opts, plot_num, \
         column + "_vs_" + second_column + "_accuracy_scatter_" + color_column)
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
         dpi_thumb=opts.figure_resolution)
+  if not opts.show_plot:
+    close()
 
   return fname, text, plot_num
 
@@ -723,6 +733,8 @@ for ethinca_vs_diff in opts.ethinca_vs_diff:
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 # Plot of ethinca values vs snr
 if opts.ethinca_vs_snr:
@@ -762,6 +774,8 @@ if opts.ethinca_vs_snr:
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append("fix me")
+    if not opts.show_plot:
+      close()
 
 # Histogram of ethinca values
 if opts.hist_ethinca:
@@ -800,7 +814,8 @@ if opts.hist_ethinca:
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("fix me")
-
+  if not opts.show_plot:
+    close()
 
 
 

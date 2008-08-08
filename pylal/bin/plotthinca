@@ -635,6 +635,8 @@ if opts.snr_snr or opts.slide_snr:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 
 
@@ -680,6 +682,8 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
 
  
 
@@ -764,6 +768,8 @@ if opts.snr_snr or opts.slide_snr:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
  
 
 if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
@@ -850,6 +856,8 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
           fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
+        if not opts.show_plot:
+          close()
 
 ################################
 # plot of non hanford snr
@@ -893,6 +901,8 @@ if opts.snr_snr or opts.slide_snr:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 
 
@@ -939,6 +949,8 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
   
 
 
@@ -991,6 +1003,8 @@ if opts.dist_dist:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
   
 if opts.dist_dist and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -1034,6 +1048,8 @@ if opts.dist_dist and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
 
 
 ####################################
@@ -1071,6 +1087,8 @@ if opts.snr_time:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 if opts.snr_time and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -1111,6 +1129,8 @@ if opts.snr_time and opts.mass_dependent:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 
 ################################################
@@ -1132,6 +1152,8 @@ if opts.hist_slides or opts.plot_slides:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
   if opts.plot_slides and len(ifo_list) > 2:
     figure(figure_number)
@@ -1145,6 +1167,8 @@ if opts.hist_slides or opts.plot_slides:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
   for ifos in ifo_coincs:
     if opts.hist_slides:
@@ -1163,6 +1187,8 @@ if opts.hist_slides or opts.plot_slides:
           fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
+        if not opts.show_plot:
+          close()
 
     if opts.plot_slides:
       figure(figure_number)
@@ -1180,6 +1206,8 @@ if opts.hist_slides or opts.plot_slides:
           fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
+        if not opts.show_plot:
+          close()
 
 if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
   for i in range(len(mass_range)-1):
@@ -1202,6 +1230,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
 
       
     if opts.plot_slides:
@@ -1218,6 +1248,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
 
     for ifos in ifo_coincs:
       if opts.hist_slides:
@@ -1236,6 +1268,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
           fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
+        if not opts.show_plot:
+          close()
 
       if opts.plot_slides:
         figure(figure_number)
@@ -1255,6 +1289,8 @@ if (opts.hist_slides or opts.plot_slides) and opts.mass_dependent:
           fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
           fnameList.append(fname)
           tagList.append(text)
+        if not opts.show_plot:
+          close()
 
 
 ################################################
@@ -1273,6 +1309,8 @@ if opts.snr_hist:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
+  if not opts.show_plot:
+    close()
  
 if opts.snr_dist:
   if len(ifo_list) > 2:
@@ -1290,6 +1328,8 @@ if opts.snr_dist:
       text = "Cumulative histogram of " + statistic.name + " distribution"
       fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    if not opts.show_plot:
+      close()
       fnameList.append(fname)
       tagList.append(text)
 
@@ -1315,6 +1355,8 @@ if opts.snr_dist:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
 
 
 if opts.snr_dist and opts.mass_dependent:
@@ -1334,6 +1376,8 @@ if opts.snr_dist and opts.mass_dependent:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+    if not opts.show_plot:
+      close()
  
 
 
@@ -1354,6 +1398,8 @@ if opts.snr_dist and opts.mass_dependent:
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
         fnameList.append(fname)
         tagList.append(text)
+      if not opts.show_plot:
+        close()
 
 # ============================================================================
 # plot inverse expectation number

@@ -108,6 +108,8 @@ def savePlot(opts, filename, tag ):
                                             dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append( tag )
+  if not opts.show_plot:
+    close()
   return fname
 
 #######################################################################
@@ -661,6 +663,8 @@ for ifo in ifoList:
                                                 dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
       tagList.append(tagnameList[index]+ifo)
+    if not opts.show_plot:
+      close()
 
 
 
