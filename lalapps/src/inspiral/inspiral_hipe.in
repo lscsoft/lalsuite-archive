@@ -742,6 +742,9 @@ def sire_segments(segments, sire_job, dag, do_sire, do_input, ifo,
   usertag   = the usertag to add to the output file name
   write_input_file = write an input file (default to false: use glob)
   """
+  # only write the input file if we're doing the job
+  if not do_sire: write_input_file = False
+
   sire = inspiral.SireNode(sire_job)
   if not opts.disable_dag_categories:
     sire.set_category('sire')
@@ -837,6 +840,8 @@ def coire_segments(segments, coire_job, dag, do_coire, do_input, ifos,
   usertag   = the usertag to add to the output file name
   write_input_file = whether to write an input file (default to glob)
   """
+  # only write the input file if we're running the coires
+  if not do_coire: write_input_file = False
 
   coire = inspiral.CoireNode(coire_job)
   if not opts.disable_dag_categories:
