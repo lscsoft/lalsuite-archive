@@ -473,14 +473,8 @@ else:
 if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
 
-     
-# plotinspinj may fail because it is memory demanding. 
-# In order to reduce the amount of memory needed, I wrote a small hack.
-# Ideally the hack should be inside ReadSnglInspiral and SnglInspiralUtils
-# For now, instead of reading all the files together, we read them one by one
-# AND, each time a file is read, we remove all the fields that are not needed by# using the freeMemory function in InspiralUtils package.
-fields = ['mchirp', 'eta', 'end_time', 'end_time_ns','ifo',  'snr', 'eff_distance']
-trigs = InspiralUtils.ReadSnglInspiralFromFiles(injFiles, keep=fields, verbose=opts.verbose)
+lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
+trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose)
 
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 
