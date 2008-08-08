@@ -1,0 +1,313 @@
+#!/usr/bin/python
+__author__ = "David McKechan"
+__title__ = "Track the SNR of found triggers"
+__name__ = "plotinspfound"
+###############################################################################
+import sys, os, re, glob, exceptions
+from optparse import *
+from matplotlib.ticker import FormatStrFormatter
+from glue import segments
+from glue import segmentsUtils
+from glue import lal
+from glue.ligolw import lsctables
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import InspiralUtils
+import numpy
+from pylab import *
+
+
+###############################################################################
+usage =  """Usage: %prog [options]
+
+plotinspfound --cache-file triggers.cache --bbhinj --sire-first --coire-second
+
+"""
+
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage) 
+  parser.add_option("-c", "--cache-file", help="LAL cache of relevant files")
+  parser.add_option("-t", "--threshold", action="store", type="float", \
+                    default=0.,help="actual loss in  SNR to flag.")
+  parser.add_option("-d", "--display", action="store_true",\
+                     default=False, help="print triggers with reduced snr on \
+                     screen" )
+  parser.add_option("-v", "--verbose",action="store_true",\
+                     default=False,help="print information" )
+  parser.add_option("-m", "--plot-mchirp",action="store_true",\
+                     default=False,help="plot snr loss against mchirp" )
+  parser.add_option("-e", "--plot-end-time",action="store_true",\
+                     default=False,help="plot snr loss agains end_time" )
+  parser.add_option("-b", "--bbhinj",action="store_true",\
+                     default=False,help="use bbhinj trigger files" )
+  parser.add_option("-n", "--nsbhinj",action="store_true",\
+                     default=False,help="use nsbhinj trigger files" )
+  parser.add_option("-l", "--bnsinj",action="store_true",\
+                     default=False,help="use bnsinj trigger files" )
+  parser.add_option("-f", "--coire-first",action="store_true",\
+                     default=False,help="check snr at first coincidence stage" )
+  parser.add_option("-s", "--sire-second",action="store_true",\
+                     default=False,help="check snr at second inspiral stage" )
+  command_line = sys.argv[1:]
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+if opts.verbose:
+  opts.display = True
+comments = ""
+
+if opts.cache_file:
+  cache = lal.Cache.fromfile(open(opts.cache_file))
+
+else:
+  print "--cache-file must be specified!"
+  sys.exit()
+
+inj_pattern=[]
+if opts.bbhinj:
+  inj_pattern.append( "BBHINJ" )
+if opts.bnsinj:
+  inj_pattern.append( "BNSINJ" )
+if opts.nsbhinj:
+  inj_pattern.append( "NSBHINJ" )
+if len( inj_pattern ) == 0:
+  print "ERROR! must specify one of --bbhinj, --bnsinj or --nsbhinj"
+  sys.exit()
+
+columns=["snr"]
+if opts.plot_mchirp:
+  columns.append("mchirp")
+if opts.plot_end_time:
+  columns.append("end_time")
+
+##############################################################################
+def getSnglTriggers(opts, observatory, pattern):
+ 
+  trigcache = cache.sieve(ifos = observatory, description = pattern)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+  if opts.verbose:
+    print "\n reading the following trig files..."
+    for file in trigFiles:
+      print file
+    print "\n"
+
+  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  
+  return triggers
+
+
+##############################################################################
+def getCoincTriggers(opts, observatory, pattern):
+
+  trigcache = cache.sieve(ifos = observatory, description = pattern)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+  if opts.verbose:
+    print "\n reading the following trig files..."
+    for file in trigFiles:
+      print file
+    print "\n"
+
+  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers, \
+                             CoincInspiralUtils.coincStatistic( "snr") )
+  
+  triggers = coincTriggers.getsngls(observatory)
+
+  return triggers
+
+
+##############################################################################
+def checksnrloss(opts, observatory, triggers_before, triggers_after):
+  """
+  Checks the snrs and end times between different stages of the pipeline.
+  """
+  loss = []
+  above = [[],[]]
+  below = [[],[]]
+  
+  # Convert end_end_times before to a list so we can use list.index
+  end_times_before = list( triggers_before.get_column("end_time") )
+  snrs_before = triggers_before.get_column("snr")
+  
+  
+  end_times_after  = triggers_after.get_column("end_time")
+  snrs_after  = triggers_after.get_column("snr") 
+  
+  for i in xrange( len(end_times_after) ):
+   
+    if end_times_after[i] in end_times_before:
+      j = end_times_before.index( end_times_after[i] )
+      
+      loss.append( snrs_before[j] - snrs_after[i])
+ 
+      if loss[i] >= opts.threshold:
+        below[0].append( end_times_after[i] )
+        below[1].append( loss[i] )
+        if opts.display:
+          loss_print = '%2.2f' % (loss[i])
+          snr1_print = '%3.3f' % (snrs_before[j])
+          snr2_print = '%3.3f' % (snrs_after[i])
+          print " Warning! ", loss_print, " loss in SNR for trigger:"
+          print "   ", observatory, "snr = ", snr1_print, \
+                "end time = ", end_times_before[j]
+          print "      ", "snr = ", snr2_print, \
+                "end time = ", end_times_after[i]
+      else:
+        above[0].append( end_times_after[i] )
+        above[1].append( loss[i] )
+
+    else:
+      print "ERROR! Can't find original trigger, check cache file."
+      print "       Setting loss=0 for this trigger."
+      loss.append( 0 )  
+      
+  return loss #, above, below
+
+
+##############################################################################
+def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
+                                                     stages, snr_loss):
+  # y-axis is always the same
+  graph_ylabel = 'SNR loss'
+  delta = 0.05*(max(snr_loss) - min(snr_loss))
+  ymin = min(snr_loss) - delta
+  ymax = max(snr_loss) + delta
+  
+  for i in xrange( len(columns) ): 
+    if columns[i] == "end_time":
+      end_times_after  = triggers_after.get_column("end_time")
+
+      plot(end_times_after, snr_loss, 'ro');
+  
+      graph_title  = stages +'\n' +observatory +' end_time ' +inj_pattern
+      graph_xlabel = 'GPS end time'
+      title(graph_title)
+      xlabel(graph_xlabel)
+      ylabel(graph_ylabel)
+
+      delta = 0.05*(max(end_times_after) - min(end_times_after))
+      xmin = min(end_times_after) - delta
+      xmax = max(end_times_after) + delta
+      axis([xmin, xmax, ymin, ymax])
+
+      name = observatory + '_' +inj_pattern +'_end_time_' +stages
+      savefig(name)
+      clf()
+ 
+ 
+    elif columns[i] == "snr":
+      snrs_after  = triggers_after.get_column("snr")
+      semilogx(snrs_after, snr_loss, 'ro');
+
+      graph_title = stages +'\n' +observatory +' SNR ' +inj_pattern
+      graph_xlabel = 'SNR'
+      title(graph_title)
+      xlabel(graph_xlabel)
+      ylabel(graph_ylabel)
+
+      xmin = 4
+      xmax = 1.4*max(snrs_after)
+      axis([xmin, xmax, ymin, ymax])
+
+      name = observatory + '_' +inj_pattern +'_SNR_' +stages
+      savefig(name)
+      clf()
+ 
+ 
+    else:
+      values = triggers_after.get_column( columns[i] )
+      plot(values, snr_loss, 'ro');
+      
+      graph_title = stages +'\n' +observatory +' ' +columns[i] \
+                    +' ' +inj_pattern
+      graph_xlabel = columns[i]
+      title(graph_title)
+      xlabel(graph_xlabel)
+      ylabel(graph_ylabel)
+
+      delta = 0.05*(max(values) - min(values))
+      xmin = min(values) - delta
+      xmax = max(values) + delta
+      axis([xmin, xmax, ymin, ymax])
+      
+      name = observatory +'_' +inj_pattern +'_' +columns[i] +'_' +stages
+      savefig(name)
+      clf()
+
+
+##############################################################################
+def doEverything(opts, observatory, inj_pattern, columns):
+
+  for i in xrange( len(inj_pattern) ):
+    pattern = 'SIRE*FOUND*FIRST*' +inj_pattern[i]
+    sireFirst   = getSnglTriggers(opts, observatory, pattern)
+    pattern = 'COIRE*FOUND*SECOND*' +inj_pattern[i]
+    coireSecond = getCoincTriggers(opts, observatory, pattern)
+
+    if opts.coire_first:
+      pattern = 'COIRE*FOUND*FIRST*' +inj_pattern[i]
+      coireFirst  = getCoincTriggers(opts, observatory, pattern)
+      
+      loss = checksnrloss(opts, observatory, sireFirst, coireFirst)
+      stages = "SIRE_FIRST_to_COIRE_FIRST"
+      makePlots(opts, observatory, inj_pattern[i], columns, coireFirst, \
+                                                          stages, loss)
+
+      if opts.sire_second:
+        pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[i]
+        sireSecond  = getSnglTriggers(opts, observatory, pattern)
+
+        loss = checksnrloss(opts, observatory, coireFirst, sireSecond)
+        stages = "COIRE_FIRST_to_SIRE_SECOND"
+        makePlots(opts, observatory, inj_pattern[i], columns, sireSecond, \
+                                                            stages, loss)
+
+        loss = checksnrloss(opts, observatory, sireSecond, coireSecond)
+        stages = "SIRE_SECOND_to_COIRE_SECOND"
+        makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+                                                             stages, loss)
+
+      else:
+        loss = checksnrloss(opts, observatory, coireFirst, coireSecond)
+        stages = "COIRE_FIRST_to_COIRE_SECOND"
+        makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+                                                             stages, loss)
+
+    elif opts.sire_second:
+      pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[i]
+      sireSecond  = getSnglTriggers(opts, observatory, pattern)
+  
+      loss = checksnrloss(opts, observatory, sireFirst, sireSecond)
+      stages = "SIRE_FIRST_to_SIRE_SECOND"
+      makePlots(opts, observatory, inj_pattern[i], columns, sireSecond, \
+                                                          stages, loss)
+
+      loss = checksnrloss(opts, observatory, sireSecond, coireSecond)
+      stages = "SIRE_SECOND_to_COIRE_SECOND"
+      makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+                                                           stages, loss)
+
+    else:
+      loss = checksnrloss(opts, observatory, sireFirst, coireSecond)
+      stages = "SIRE_FIRST_to_COIRE_SECOND"
+      makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+                                                           stages, loss)
+
+
+##############################################################################
+
+observatory="H1"
+doEverything(opts, observatory, inj_pattern, columns)
+#observatory="H2"
+#doEverything(opts, observatory, inj_pattern, columns)
+#observatory="L1"
+#doEverything(opts, observatory, inj_pattern, columns)
