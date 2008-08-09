@@ -38,13 +38,13 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-#CVT from pylal import CoincInspiralUtils
-#CVT from pylal import itertools # For the 2nd year analysis, this has to be replaced by
+from pylal import CoincInspiralUtils
+from pylal import itertools # For the 2nd year analysis, this has to be replaced by
 # from glue import iterutils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
-#CVT from lalapps import inspiralutils
+from lalapps import inspiralutils
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
