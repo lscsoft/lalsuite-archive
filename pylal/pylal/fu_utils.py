@@ -38,13 +38,13 @@ from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from pylal import CoincInspiralUtils
-from pylal import itertools # For the 2nd year analysis, this has to be replaced by
+#CVT from pylal import CoincInspiralUtils
+#CVT from pylal import itertools # For the 2nd year analysis, this has to be replaced by
 # from glue import iterutils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
-from lalapps import inspiralutils
+#CVT from lalapps import inspiralutils
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -1059,3 +1059,124 @@ def publishOnHydra(page):
             'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/'+
             page + '.')
 
+############################################################
+# Class for checking follow up GPS times to Nelson's veto lists.
+############################################################
+class nVeto:
+  """
+  Author: Cristina Valeria Torres
+  Provides a method for checking S5y1 and S5y2 follow up candidates
+  against locally cached static veto lists produced by Nelson Christensen
+  """
+  def __init__(self):
+    """
+    Initialize this class.
+    """
+    self.database=list([["L1","/path/to/L1/lists",list()],
+                        ["H1","/path/to/H1/lists",list()],
+                        ["H2","/path/to/H2/lists",list()]])
+      #Form [[filename,list(gpsIntervals)],[filename2,list(gpsIntervals)]...
+    self.L1path="/path/to/L1/lists"
+    self.H1path="/path/to/H1/lists"
+    self.H2path="/path/to/H2/lists"
+    self.L1VetoLists=list()
+    self.H1VetoLists=list()
+    self.H2VetoLists=list()
+    self.tolWin=float(0.01)
+    self.filesLoaded=bool(False)
+  #End self.__init__()
+
+  def __loadFiles__(self):
+    """
+    This method is invoked automatically if required.
+    It creates the dynamically structures to hold the veto lists.
+    """
+    #Check that the paths specified exist
+
+    for ifoName,ifoPath,vetoData in self.database:
+        if not os.path.exists(ifoPath):
+          raise IOError("%s Path Invalid: %s"%(ifoName,ifoPath))
+    for index in range(self.database.__len__()):
+      self.__processPath__(index)
+    self.filesLoaded=True
+  #End self.__loadFiles__()
+
+  def __processPath__(self,index=""):
+    """
+    This method is not to be called explicity.  It is called by
+    self.__loadFiles__(). The role of this method is to fill up 
+    the instance with the data required to check the veto intervals.
+    """
+    path=self.database[index][1]
+    listOfFiles=os.listdir(path)
+    listOfFiles=[os.path.normpath(path+file) for file in listOfFiles]
+    for filename in listOfFiles:
+      fileData=list()
+      fp=open(str(filename),'r')
+      txtData=fp.readlines()
+      fp.close()
+      for row in txtData:
+        a,b,c=map(float,row.split())
+        fileData.append([a,b,c])
+      self.database[index][2].append([filename,fileData])
+  #End self.__processPath__()
+
+  def __checkIntervals__(self,vList,gpsTime):
+    """
+    This method is not to be called explicity. It is called by
+    self.findInterval(IFO,gpsTime).  This method returns a 
+    text string giving the veto list names and intervals that
+    the gpsTime intersects with.
+    """
+    vetoMatch=list()
+    for vetoName,vetoList in vList:
+      for startT,stopT,KWSig in vetoList:
+        if ((startT-self.tolWin)<=gpsTime<=(stopT+self.tolWin)):
+          vetoMatch.append([vetoName,startT,stopT])
+    tmpList=list()
+    for a,b,c in vetoMatch:
+      tmpList.append("%s %s %s\n"%(str(a),str(b),str(c)))
+    outputString=str().join(tmpList)
+    if vetoMatch.__len__()==0:
+      outputString="%s %s %s\n"%("NONE","0","0")
+    return outputString
+  #End self.__checkIntervals__()
+
+  def setIfoPath(self,ifoName="",ifoPath=""):
+    """
+    If you want to use something other than the hardwired path
+    defaults to the veto files invoke this method with the IFO
+    for which you need to adjust the path to those veto files.
+    ie To adjust L1 paths do
+    self.setIfopath("L1","/path/to/new/veto/files")
+    """
+    myIndex=-1
+    for i in range(self.database):
+      if (self.database[i][0].lower()==ifoName.lower()):
+        myIndex=i
+    if myIndex==-1:
+      raise IOError("%s Invalid IFO Name Path Unchanged."%(ifoName))
+    self.database[myIndex][2]=ifoPath
+  #End self.setIfoPath()
+
+  def findInterval(self,ifoName,gpsTime):
+    """
+    Given an IFO name and GPS time it searches the veto lists to
+    determine which if any of the veto intervals interset this
+    gps time.
+    """
+    if not self.filesLoaded:
+      self.__loadfiles__()
+    myIndex=-1
+    for i in range(self.database):
+      if (self.database[i][0].lower()==ifoName.lower()):
+        myIndex=i
+    if myIndex==-1:
+      raise IOError("%s Invalid IFO Name"%(ifoName))
+    vList=self.database[myIndex][2]
+    outputString=self.__checkIntervals__(vList,gpsTime)
+    return outputString
+  #End self.findInterval()
+#
+#End nVeto() Class Definition
+############################################################
