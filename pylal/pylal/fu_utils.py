@@ -1109,7 +1109,7 @@ class nVeto:
     """
     path=self.database[index][1]
     listOfFiles=os.listdir(path)
-    listOfFiles=[os.path.normpath(path+file) for file in listOfFiles]
+    listOfFiles=[os.path.normpath(path+"/"+file) for file in listOfFiles]
     for filename in listOfFiles:
       fileData=list()
       fp=open(str(filename),'r')
@@ -1151,12 +1151,12 @@ class nVeto:
     self.setIfopath("L1","/path/to/new/veto/files")
     """
     myIndex=-1
-    for i in range(self.database):
+    for i in range(self.database.__len__()):
       if (self.database[i][0].lower()==ifoName.lower()):
         myIndex=i
     if myIndex==-1:
       raise IOError("%s Invalid IFO Name Path Unchanged."%(ifoName))
-    self.database[myIndex][2]=ifoPath
+    self.database[myIndex][1]=ifoPath
   #End self.setIfoPath()
 
   def findInterval(self,ifoName,gpsTime):
@@ -1166,9 +1166,9 @@ class nVeto:
     gps time.
     """
     if not self.filesLoaded:
-      self.__loadfiles__()
+      self.__loadFiles__()
     myIndex=-1
-    for i in range(self.database):
+    for i in range(self.database.__len__()):
       if (self.database[i][0].lower()==ifoName.lower()):
         myIndex=i
     if myIndex==-1:
