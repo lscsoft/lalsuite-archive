@@ -46,20 +46,20 @@ def get_png_array(data,time):
   @param time:  the analyzed time associated to this png data
   """
   param = {}
-  param["mlo"]           = data[0]
-  param["mhi"]           = data[1]
-  param["ng"]            = max(data[2],1e-7)
-  param["ngprime"]       = data[3]
-  param["pb"]            = data[4]
-  param["pbprime"]       = data[5]
-  param["dn_lhocal"]     = data[6]
-  param["dn_llocal"]     = data[7]
-  param["dn_distance"]   = data[9]
-  param["dn_waveform"]   = data[10]
-  param["dn_mc"]         = data[11]
-  param["dn_lummu"]      = log( param["ng"] )
-  param["dn_lumsigma"]   = log( param["ng"] + data[8]) - log( param["ng"])
-  param["tobs"]          = float(time)
+  param["mlo"]                    = data[0]
+  param["mhi"]                    = data[1]
+  param["ng"]                     = max(data[2],1e-7)
+  param["ngprime"]                = data[3]
+  param["pb"]                     = data[4]
+  param["pbprime"]                = data[5]
+  param["dn_lummu"]               = log( param["ng"] )
+  param["dn_lumsigma_lhocal"]     = log( 1. + data[6]/param["ng"])
+  param["dn_lumsigma_llocal"]     = log( 1. + data[7]/param["ng"])
+  param["dn_lumsigma_magnitude"]  = log( 1. + data[8]/param["ng"])
+  param["dn_lumsigma_distance"]   = log( 1. + data[9]/param["ng"])
+  param["dn_lumsigma_waveform"]   = log( 1. + data[10]/param["ng"])
+  param["dn_lumsigma_mc"]         = log( 1. + data[11]/param["ng"])
+  param["tobs"]                   = float(time)
 
   return param
 
@@ -128,7 +128,21 @@ def makesteps(ularray,ymax,k):
 
   return xnew,ynew
 
+#############################################################################
+# generate a lognormal distribution
+def lognormal_pdf(x, mu, sigma, sides=2):
+  yout = exp(-(log(x) - mu)**2./(2.*sigma**2.))/(x*sigma*(2.*pi)**.5)
+  if sides == 1:
+    step = []
+    for idx in range(len(x)):
+      if log(x[idx]) <= mu:
+        step.append(1.)
+      else:
+        step.append(0.)
+    step = array(step)
+    yout *= step
 
+  return array(yout)
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -240,6 +254,9 @@ for epoch in range(nepochs):
 massBins = len(png_matrix[0])
 ularray = zeros((massBins,4),Float32)
 
+# the confidence level to use in the upper limit calculation
+confLevel=0.9
+
 # loop over the mass bins
 for bin in range(massBins):
   
@@ -261,76 +278,131 @@ for bin in range(massBins):
     data = png_matrix[epoch][bin]
     ngt += data["ng"] * data["tobs"]
     ngprimet += data["ngprime"] * data["tobs"]
-    if opts.verbose:
-      print "mu = %f and sigma = %f" % (data["dn_lummu"],data["dn_lumsigma"])
+  ngt0 = ngt
   exprate = exp( - rate * ngt )
   nomarginpost = rateprior * exprate \
         * ( data["pbprime"] + data["pb"] * rate * ngprimet )
-  
-  # set exprate to zero
+
+  # set exprate to zero to calculate marginalization calculation
   exprate *= 0.0
- 
-  # perform the marginalization by generating ntrials worth of samples
-  # from the given distributions for the various systematics
-  for j in arange(opts.ntrials):
-    ngt = 0
-    for epoch in range(nepochs):
-      data = png_matrix[epoch][bin]
-      # magnitude error is lognormal
-      if opts.magnitude_error:
-        ngt += random.lognormvariate(data["dn_lummu"],data["dn_lumsigma"]) * \
-            data["tobs"]
-      else:
-        ngt += data["ng"] * data["tobs"]
-      
-      # lho calibration error is normal
-      if ( opts.calibration_error and data["dn_lhocal"] != 0.0 ):
-        tmpngt = -1.0
-        while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,data["dn_lhocal"]) \
-              * data["tobs"]
-        ngt = tmpngt
-  
-      # llo calibration error is normal
-      if ( opts.calibration_error and data["dn_llocal"] != 0.0 ):
-        tmpngt = -1.0
-        while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,data["dn_llocal"]) \
-              * data["tobs"]
-        ngt = tmpngt
-  
-      # monte carlo error is normal
-      if opts.montecarlo_error:
-        tmpngt = -1.0
-        while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,data["dn_mc"]) \
-              * data["tobs"]
-        ngt = tmpngt
-  
-      # waveform error is normal
-      if opts.waveform_error:
-        tmpngt = ngt + 1.0
-        while (tmpngt > ngt) or (tmpngt < 0.0):
-          tmpngt = ngt + random.normalvariate(0.0,data["dn_waveform"]) \
-              * data["tobs"]
-        ngt = tmpngt
-  
-      # distance error is normal
-      if opts.distance_error:
-        tmpngt = -1.0
-        while tmpngt < 0.0:
-          tmpngt = ngt + random.normalvariate(0.0,data["dn_distance"]) \
-              * data["tobs"]
-        ngt = tmpngt
-    exprate += ngt * exp( - rate * ( ngt ) )
-  exprate /= float(opts.ntrials)
-  
+
+  # if only one epoch, do a convolution and integrate directly, otherwise
+  # do a Monte Carlo integral
+  if nepochs == 1:
+    data = png_matrix[0][bin]
+    numPoints = 1000
+    xRange = 100
+    ngs = arange(numPoints)*(log(xRange))/numPoints + \
+        log(ngt0/(data["tobs"]*xRange**.5))
+    ngs = exp(ngs)
+
+    pdfNg = zeros(numPoints)*0.
+    for idx in range(numPoints-1):
+      if ngs[idx] <= ngt0/data["tobs"] and ngs[idx+1] > ngt0/data["tobs"]:
+        pdfNg[idx] += 1.
+
+    pdfNgErrorMag = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_magnitude"])
+    pdfNgErrorCalH = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_lhocal"])
+    pdfNgErrorCalL = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_llocal"])
+    pdfNgErrorMC = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_mc"])
+    pdfNgErrorWave = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_waveform"], sides=1)
+    pdfNgErrorDist = lognormal_pdf(ngs, data["dn_lummu"],
+        data["dn_lumsigma_distance"])
+
+    pdfNg = convolve(pdfNg, pdfNgErrorMag,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    pdfNg = convolve(pdfNg, pdfNgErrorCalH,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    pdfNg = convolve(pdfNg, pdfNgErrorCalL,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    pdfNg = convolve(pdfNg, pdfNgErrorMC,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    pdfNg = convolve(pdfNg, pdfNgErrorWave,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    pdfNg = convolve(pdfNg, pdfNgErrorDist,
+        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+
+    ngts = ngs*data["tobs"]
+    pdfNgt = pdfNg/sum(ngts*pdfNg*log(ngts[1]/ngts[0]))
+
+    for p_ngt,ngt in zip(pdfNgt,ngts):
+      # exprate = p_ngt * ngt * exp( - rate * ( ngt ) )
+      # but since these ngt points are equally spaced on a log scale
+      # we need to mutliply by another factor of ngt
+      exprate += p_ngt * ngt * exp( - rate * ( ngt ) ) * ngt
+
+  else:  
+    # perform the marginalization by generating ntrials worth of samples
+    # from the given distributions for the various systematics
+    ngts = []
+    for j in arange(opts.ntrials):
+      ngt = 0
+      for epoch in range(nepochs):
+        data = png_matrix[epoch][bin]
+
+        thisngt = data["ng"] * data["tobs"]
+        # magnitude error is lognormal
+        if opts.magnitude_error:
+          thisngt *= random.lognormvariate(data["dn_lummu"],
+              data["dn_lumsigma_magnitude"]) * data["tobs"] / ngt0
+
+        # lho calibration error is lognormal
+        if ( opts.calibration_error and data["dn_lumsigma_lhocal"] != 0.0 ):
+          thisngt *= random.lognormvariate(data["dn_lummu"],
+              data["dn_lumsigma_lhocal"]) * data["tobs"] / ngt0
+
+        # llo calibration error is lognormal
+        if ( opts.calibration_error and data["dn_lumsigma_llocal"] != 0.0 ):
+          thisngt *= random.lognormvariate(data["dn_lummu"],
+              data["dn_lumsigma_llocal"]) * data["tobs"] / ngt0
+
+        # monte carlo error is lognormal
+        if opts.montecarlo_error:
+          thisngt *= random.lognormvariate(data["dn_lummu"],
+              data["dn_lumsigma_mc"]) * data["tobs"] / ngt0
+
+        # waveform error is lognormal and one-sided
+        if opts.waveform_error:
+          tmpngt = 2.*thisngt
+          while (tmpngt > thisngt):
+            tmpngt = thisngt * (random.lognormvariate(data["dn_lummu"],
+                data["dn_lumsigma_waveform"]) * data["tobs"] / ngt0)
+          thisngt = tmpngt
+
+        # distance error is lognormal
+        if opts.distance_error:
+          thisngt *= random.lognormvariate(data["dn_lummu"],
+              data["dn_lumsigma_distance"]) * data["tobs"] / ngt0
+
+        ngt +=  thisngt
+      ngts.append(ngt)
+      exprate += ngt * exp( - rate * ( ngt ) )
+    exprate /= float(opts.ntrials)
+
+  # end if statement for integration by convolution or Monte Carlo
+  # for calculating exprate  
   marginpost = rateprior * exprate \
         * ( data["pbprime"] + data["pb"] * rate * ngprimet )
   
   # normalize the distributions
-  nomarginpost  /= sum(nomarginpost)
+  nomarginpost /= sum(nomarginpost)
   marginpost /= sum(marginpost)
+
+  # create the cumulative distributions
+  cumnomarginpost = cumsum(nomarginpost)
+  cummarginpost = cumsum(marginpost)
+
+  # find the NgT corresponding to the marginalized upper limit
+  idx90pcnomargin = [idx for idx in range(len(cumnomarginpost)) \
+      if cumnomarginpost[idx] >= confLevel][0]
+  idx90pcmargin = [idx for idx in range(len(cummarginpost)) \
+      if cummarginpost[idx] >= confLevel][0]
+  ngtmargin = ngt0 * rate[idx90pcnomargin] / rate[idx90pcmargin]
 
   # check that we have neglible probability at max rate
   lastidx = len(nomarginpost)-1
@@ -358,7 +430,22 @@ for bin in range(massBins):
   # write out the data to a text file
   if opts.figure_name:
     write_file(rate, marginpost, outputName + "-posterior-pdf.txt")
-  
+
+  # plot the NgT distribution
+  figure()
+  if nepochs == 1:
+    plot(ngts, pdfNgt, 'r', linewidth=2)
+  else:
+    hist(ngts, bins=20, normed=True)
+  hold(True)
+  axvline(ngt0, color='k', linestyle='--', linewidth=2)
+  axvline(ngtmargin, color='g', linestyle=':', linewidth=2)
+  xlabel('$\mathcal{C}_{L} T (L_{10} \cdot yr)$', size='x-large')
+  ylabel('Probability', size='x-large')
+  grid()
+  if opts.figure_name:
+    savefig( outputName + "-ngt-dist.png" )
+
   # plot the posterior pdf
   figure()
   plot(rate,nomarginpost,rate,marginpost,linewidth=2)
@@ -374,8 +461,6 @@ for bin in range(massBins):
     savefig( outputName + "-posterior-pdf.png" )
 
   # plot the cumulative probability
-  cumnomarginpost=cumsum(nomarginpost)
-  cummarginpost=cumsum(marginpost)
   if opts.verbose:
     print "unmarginalized value at R=0 is %f" %  (cumnomarginpost[1])
     print "marginalized value at R=0 is %f" % (cummarginpost[1])
@@ -393,9 +478,7 @@ for bin in range(massBins):
   if opts.figure_name:
     savefig( outputName + "-posterior-cdf.png")
  
-  # print out the upper limit based on 90% confidence
-  confLevel=0.9
-
+  # print out the upper limit based on the confidence level confLevel
   ularray[bin,0]=data["mlo"]
   ularray[bin,1]=data["mhi"]
   if (massBins > 1):
