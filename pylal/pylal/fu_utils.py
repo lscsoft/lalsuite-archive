@@ -1072,16 +1072,10 @@ class nVeto:
     """
     Initialize this class.
     """
-    self.database=list([["L1","/path/to/L1/lists",list()],
-                        ["H1","/path/to/H1/lists",list()],
-                        ["H2","/path/to/H2/lists",list()]])
+    self.database=list([["L1","/archive/home/romain/Projects/LowMassCBC/20051104-20061114/triggers/upperlimits_v99_july08/nelsonVetoes/L1/VetoLists",list()],
+                        ["H1","/archive/home/romain/Projects/LowMassCBC/20051104-20061114/triggers/upperlimits_v99_july08/nelsonVetoes/H1/VetoLists",list()],
+                        ["H2","/archive/home/romain/Projects/LowMassCBC/20051104-20061114/triggers/upperlimits_v99_july08/nelsonVetoes/H2/VetoLists",list()]])
       #Form [[filename,list(gpsIntervals)],[filename2,list(gpsIntervals)]...
-    self.L1path="/path/to/L1/lists"
-    self.H1path="/path/to/H1/lists"
-    self.H2path="/path/to/H2/lists"
-    self.L1VetoLists=list()
-    self.H1VetoLists=list()
-    self.H2VetoLists=list()
     self.tolWin=float(0.01)
     self.filesLoaded=bool(False)
   #End self.__init__()
