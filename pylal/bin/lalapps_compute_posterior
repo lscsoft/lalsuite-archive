@@ -262,7 +262,12 @@ for bin in range(massBins):
   
   # generate the prior
   if opts.prior == "fromfile":
-    rate,rateprior = read_file(opts.prior_file)
+    if massBins > 1:
+      rate,rateprior = read_file(opts.prior_file + "-" + \
+          str(png_matrix[0][bin]["mlo"]) + "-" + \
+          str(png_matrix[0][bin]["mhi"]) + "-posterior-pdf.txt")
+    else:
+      rate,rateprior = read_file(opts.prior_file)
   elif opts.prior == "uniform":
     maxrate = opts.max_rate
     dr = opts.dr
@@ -290,7 +295,7 @@ for bin in range(massBins):
   # do a Monte Carlo integral
   if nepochs == 1:
     data = png_matrix[0][bin]
-    numPoints = 1000
+    numPoints = opts.ntrials
     xRange = 100
     ngs = arange(numPoints)*(log(xRange))/numPoints + \
         log(ngt0/(data["tobs"]*xRange**.5))
@@ -301,31 +306,41 @@ for bin in range(massBins):
       if ngs[idx] <= ngt0/data["tobs"] and ngs[idx+1] > ngt0/data["tobs"]:
         pdfNg[idx] += 1.
 
-    pdfNgErrorMag = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_magnitude"])
-    pdfNgErrorCalH = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_lhocal"])
-    pdfNgErrorCalL = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_llocal"])
-    pdfNgErrorMC = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_mc"])
-    pdfNgErrorWave = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_waveform"], sides=1)
-    pdfNgErrorDist = lognormal_pdf(ngs, data["dn_lummu"],
-        data["dn_lumsigma_distance"])
+    if ( opts.magnitude_error and data["dn_lumsigma_magnitude"] != 0.0 ):
+      pdfNgErrorMag = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_magnitude"])
+      pdfNg = convolve(pdfNg, pdfNgErrorMag,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
 
-    pdfNg = convolve(pdfNg, pdfNgErrorMag,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
-    pdfNg = convolve(pdfNg, pdfNgErrorCalH,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
-    pdfNg = convolve(pdfNg, pdfNgErrorCalL,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
-    pdfNg = convolve(pdfNg, pdfNgErrorMC,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
-    pdfNg = convolve(pdfNg, pdfNgErrorWave,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
-    pdfNg = convolve(pdfNg, pdfNgErrorDist,
-        mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+    if ( opts.calibration_error and data["dn_lumsigma_lhocal"] != 0.0 ):
+      pdfNgErrorCalH = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_lhocal"])
+      pdfNg = convolve(pdfNg, pdfNgErrorCalH,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+
+    if ( opts.calibration_error and data["dn_lumsigma_llocal"] != 0.0 ):
+      pdfNgErrorCalL = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_llocal"])
+      pdfNg = convolve(pdfNg, pdfNgErrorCalL,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+
+    if ( opts.montecarlo_error and data["dn_lumsigma_mc"] != 0.0 ):
+      pdfNgErrorMC = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_mc"])
+      pdfNg = convolve(pdfNg, pdfNgErrorMC,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+
+    if ( opts.waveform_error and data["dn_lumsigma_waveform"] != 0.0 ):
+      pdfNgErrorWave = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_waveform"], sides=1)
+      pdfNg = convolve(pdfNg, pdfNgErrorWave,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
+
+    if ( opts.distance_error and data["dn_lumsigma_distance"] != 0.0 ):
+      pdfNgErrorDist = lognormal_pdf(ngs, data["dn_lummu"],
+          data["dn_lumsigma_distance"])
+      pdfNg = convolve(pdfNg, pdfNgErrorDist,
+          mode=2)[len(pdfNg)/2:len(pdfNg)+len(pdfNg)/2]
 
     ngts = ngs*data["tobs"]
     pdfNgt = pdfNg/sum(ngts*pdfNg*log(ngts[1]/ngts[0]))
@@ -397,16 +412,10 @@ for bin in range(massBins):
   cumnomarginpost = cumsum(nomarginpost)
   cummarginpost = cumsum(marginpost)
 
-  # find the NgT corresponding to the marginalized upper limit
-  idx90pcnomargin = [idx for idx in range(len(cumnomarginpost)) \
-      if cumnomarginpost[idx] >= confLevel][0]
-  idx90pcmargin = [idx for idx in range(len(cummarginpost)) \
-      if cummarginpost[idx] >= confLevel][0]
-  ngtmargin = ngt0 * rate[idx90pcnomargin] / rate[idx90pcmargin]
-
   # check that we have neglible probability at max rate
   lastidx = len(nomarginpost)-1
-  ratio = nomarginpost[lastidx]/max(nomarginpost)
+  ratio = max(nomarginpost[lastidx]/max(nomarginpost),
+      marginpost[lastidx]/max(marginpost))
   eps = 1e-4;
 
   if ratio > eps:
@@ -415,15 +424,22 @@ for bin in range(massBins):
     print >>sys.stderr, "ratio of p(max_rate) to max(p(rate)) = %f" % ratio
     print >>sys.stderr, "reduce this ratio to <%f by increasing max-rate" % eps
     sys.exit(0)
-  
+
+  # find the NgT corresponding to the marginalized upper limit
+  idx90pcnomargin = [idx for idx in range(len(cumnomarginpost)) \
+      if cumnomarginpost[idx] >= confLevel][0]
+  idx90pcmargin = [idx for idx in range(len(cummarginpost)) \
+      if cummarginpost[idx] >= confLevel][0]
+  ngtmargin = ngt0 * rate[idx90pcnomargin] / rate[idx90pcmargin]
+
   if opts.verbose:
     print "unmarginalized value at R=0 is %f" %  (nomarginpost[0])
     print "marginalized value at R=0 is %f" % (marginpost[0])
   
   if opts.figure_name:
     if massBins > 1:
-      outputName = opts.figure_name + "-" + str(data["mlo"]) + "-" + \
-          str(data["mhi"])
+      outputName = opts.figure_name + "-" + str(png_matrix[0][bin]["mlo"]) + \
+          "-" + str(png_matrix[0][bin]["mhi"])
     else:
       outputName = opts.figure_name
 
