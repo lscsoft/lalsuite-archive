@@ -108,6 +108,9 @@ if opts.version:
 ##############################################################################
 # main program
 
+# List of ifos (used to check for Nelson KW vetoes)
+ifoList = ['H1','H2','L1']
+
 stat = opts.statistic
 if stat == "effective_snrsq":
   stat = "effective_snr"
@@ -206,6 +209,8 @@ for i,trig in enumerate(followuptrigs):
   if opts.old_followup_page:
     file.write("<br><a href=\"" + opts.old_followup_page + "/" + outputFile + "\">Link to old checklist</a>\n")
 
+  n_veto = nVeto()
+  nelsonVeto = []
   dailyStat = []
   hoft_qscan = []
   rds_qscan = []
@@ -216,7 +221,15 @@ for i,trig in enumerate(followuptrigs):
   coherent_qscan = []
   framecheck = []
 
+  # prepare strings containing information on Nelson's DQ investigations
+  for ifo in ifoList:
+    if ifo in trig.ifolist_in_coinc:
+      nelsonVeto.append(n_veto.findInterval(ifo,trig.gpsTime[ifo]))
+    else:
+      nelsonVeto.append(n_veto.findInterval(ifo,trig.gpsTime[trig.ifolist_in_coinc[0]]))
+
   for ifo in trig.ifolist_in_coinc:
+
     # links to daily stats
     dailyStat.append(automated_page + "/IFOstatus_checkJob/IFOstatus_checkJob-" + ifo + "-" + str(trig.statValue) + "_" + str(trig.eventID) + ".html")
 
@@ -266,7 +279,7 @@ for i,trig in enumerate(followuptrigs):
 
   file.write("<tr bgcolor=red>\n")
   file.write("  <td> </td>\n")
-  file.write("  <td><b>Is this candidate a detection?</b></td>\n")
+  file.write("  <td><b>Is this candidate a possible gravitational-wave ?</b></td>\n")
   file.write("  <td><b>YES/NO</b></td>\n")
   file.write("  <td> </td>\n")
   file.write("  <td>Main arguments</td>\n")
@@ -275,7 +288,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #0
   file.write("<tr>\n")
   file.write("  <td>#0 False alarm probability</td>\n")
-  file.write("  <td>Candidate identification: what is the probability for this candidate of being a false alarm?</td>\n")
+  file.write("  <td>Is the false alarm rate associated with this candidate reasonably low ?</td>\n")
   file.write("  <td> </td>\n")
   if opts.string_id:
     file.write("  <td><a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
@@ -298,7 +311,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #1
   file.write("<tr>\n")
   file.write("  <td>#1 DQ flags</td>\n")
-  file.write("  <td>What data quality flags may have been on when these candidates were identified?</td>\n")
+  file.write("  <td>Can the data quality flags coincident with this candidate be safely disregarded ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "<br>" + dateDQflags + "</td>\n")
   file.write("  <td></td>\n")
@@ -306,8 +319,23 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #2
   file.write("<tr>\n")
-  file.write("  <td>#2 Ifo status</td>\n")
-  file.write("  <td>What is the status of the interferometers around the time of the candidate?<br>\n Inspiral range, state vector, main anthropogenic channels?</td>\n")
+  file.write("  <td>#2 Veto investigations</td>\n")
+  file.write("  <td>Does the candidate survive the veto investigations performed at its time ?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td>")
+  for j,ifo in enumerate(ifoList):
+    file.write("<table>")
+    file.write("\n<b>" + ifo + ":</b>\n")
+    file.write('<tr><td>' + nelsonVeto[j].strip("\n").replace("\n","</td></tr><tr><td>").replace(" ", "</td><td>") + '</td></tr>')
+    file.write("</table>")
+  file.write("</td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #3
+  file.write("<tr>\n")
+  file.write("  <td>#3 Ifo status</td>\n")
+  file.write("  <td>Are the interferometers operating normally with a reasonable level of sensitivity around the time of the candidate ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td><a href=\"http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/\">Daily Stats pages</a>:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -317,10 +345,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #3
+  # Row #4
   file.write("<tr>\n")
-  file.write("  <td>#3 Candidate appearance</td>\n")
-  file.write("  <td>What does the candidate look like in Qscan?</td>\n")
+  file.write("  <td>#4 Candidate appearance</td>\n")
+  file.write("  <td>Do the Qscan figures show what we would expect for a gravitational-wave event ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>h(t) Qscans:<br>")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -339,10 +367,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #4
+  # Row #5
   file.write("<tr>\n")
-  file.write("  <td>#4 Seismic plots</td>\n")
-  file.write("  <td>Could the candidate be related to a seismic event?</td>\n")
+  file.write("  <td>#5 Seismic plots</td>\n")
+  file.write("  <td>Is the seismic activity insignificant around the time of the candidate ? </td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>Seismic Qscans:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -354,31 +382,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #5
-  file.write("<tr>\n")
-  file.write("  <td>#5 Environmental causes</td>\n")
-  file.write("  <td>Are there any other environmental disturbance which might couple to the detector output?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td>RDS Qscans:")
-  for j,ifo in enumerate(trig.ifolist_in_coinc):
-    file.write(" <a href=\"" + rds_qscan[j] + "\">" + ifo + "</a>")
-  i=0
-  for k in range(0,len(trig.ifoTag)-1,2):
-    ifo = trig.ifoTag[k:k+2]
-    if not trig.ifolist_in_coinc.count(ifo):
-      i=i+1
-      file.write(" <a href=\"" + rds_qscan[i + len(trig.ifolist_in_coinc) - 1] + "\">" + ifo + "</a>")
-  file.write("<br>Background information on qscans:")
-  for j,ifo in enumerate(trig.ifolist_in_coinc):
-    file.write(" <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>")
-  file.write("  </td>")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #6
   file.write("<tr>\n")
-  file.write("  <td>#6 Auxiliary degree of freedom</td>\n")
-  file.write("  <td>Are there any auxiliary channels which indicate that the instrument was not behaving correctly?</td>\n")
+  file.write("  <td>#6 Environmental causes</td>\n")
+  file.write("  <td>Were the environmental disturbances insignificant at the time of the candidate ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>RDS Qscans:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -398,36 +405,48 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #7
   file.write("<tr>\n")
-  file.write("  <td>#7 Elog</td>\n")
-  file.write("  <td>Was there anything strange happening in the instrument according to the sci-mons or the operators in e-log?</td>\n")
+  file.write("  <td>#7 Auxiliary degree of freedom</td>\n")
+  file.write("  <td>Were the auxiliary channel transients coincident with the candidate insignificant ?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td>RDS Qscans:")
+  for j,ifo in enumerate(trig.ifolist_in_coinc):
+    file.write(" <a href=\"" + rds_qscan[j] + "\">" + ifo + "</a>")
+  i=0
+  for k in range(0,len(trig.ifoTag)-1,2):
+    ifo = trig.ifoTag[k:k+2]
+    if not trig.ifolist_in_coinc.count(ifo):
+      i=i+1
+      file.write(" <a href=\"" + rds_qscan[i + len(trig.ifolist_in_coinc) - 1] + "\">" + ifo + "</a>")
+  file.write("<br>Background information on qscans:")
+  for j,ifo in enumerate(trig.ifolist_in_coinc):
+    file.write(" <a href=\"" + analyse_rds_qscan[j] + "\">" + ifo + "</a>")
+  file.write("  </td>")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #8
+  file.write("<tr>\n")
+  file.write("  <td>#8 Elog</td>\n")
+  file.write("  <td>Were the instruments behaving normally according to the comments posted by the sci-mons or the operators in the e-log ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td><a href=\"http://ilog.ligo-wa.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Hanford elog</a><br>\n")
   file.write("      <a href=\"http://ilog.ligo-la.caltech.edu/ilog/pub/ilog.cgi?group=detector\">Livingston elog</a></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #8
+  # Row #9
   file.write("<tr>\n")
-  file.write("  <td>#8 Glitch report</td>\n")
-  file.write("  <td>Was there anything strange happening in the instrument according to the weekly report provided by the glitch group ?</td>\n")
+  file.write("  <td>#9 Glitch report</td>\n")
+  file.write("  <td>Were the instruments behaving normally according to the weekly glitch report ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td><a href=\"http://www.lsc-group.phys.uwm.edu/glitch/investigations/s5index.html#shift\">Glitch reports</a><br></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #9
-  file.write("<tr>\n")
-  file.write("  <td>#9 Snr versus time</td>\n")
-  file.write("  <td>First inspiral SNR vs time compared to first coincidence SNR vs time</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #10
   file.write("<tr>\n")
-  file.write("  <td>#10 Parameters of the candidate</td>\n")
-  file.write("  <td>What is the likelihood of the candidate of being a gravitational wave given its parameters?<br></td>\n")
+  file.write("  <td>#10 Snr versus time</td>\n")
+  file.write("  <td>Does the evolution of the triggers'snr versus time show that this candidate is significant among other triggers present in the analyzed chunk ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -435,8 +454,17 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #11
   file.write("<tr>\n")
-  file.write("  <td>#11 Snr and Chisq</td>\n")
-  file.write("  <td>How do the snr vs time and chisq vs time plot look?</td>\n")
+  file.write("  <td>#11 Parameters of the candidate</td>\n")
+  file.write("  <td>Are the parameters of the candidate consistent with our expectations for a gravitational wave ?<br></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #12
+  file.write("<tr>\n")
+  file.write("  <td>#12 Snr and Chisq</td>\n")
+  file.write("  <td>Are the SNR and CHISQ time series consistent with our expectations for a gravitational wave ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -453,19 +481,19 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #12
+  # Row #13
   file.write("<tr>\n")
-  file.write("  <td>#12 Template bank veto</td>\n")
-  file.write("  <td>Did the template bank ring-off all over? Is it consistent with a signal?<br>Check the Bank Veto value.</td>\n")  
+  file.write("  <td>#13 Template bank veto</td>\n")
+  file.write("  <td>Is the bank veto value consistent with our expectations for a gravitational wave ?</td>\n")  
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #13
+  # Row #14
   file.write("<tr>\n")
-  file.write("  <td>#13 Coherent studies</td>\n")
-  file.write("  <td>Is the trigger coherent between the different interferometers where it was found?</td>\n")
+  file.write("  <td>#14 Coherent studies</td>\n")
+  file.write("  <td>Are the triggers found in multiple interferometers coherent with each other ?</td>\n")
   file.write("  <td></td>\n")
   if coherent_qscan:
     file.write("  <td><a href=\"" + coherent_qscan[0] + "\">H1H2 coherent qevent</a></td>\n")
@@ -474,19 +502,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #14
-  file.write("<tr>\n")
-  file.write("  <td>#14</td>\n")
-  file.write("  <td>Are the candidate stable against changes in segmentation?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #15
   file.write("<tr>\n")
   file.write("  <td>#15</td>\n")
-  file.write("  <td>Are the candidates stable against small changes in calibration consistent with systematic uncertainties?</td>\n")
+  file.write("  <td>Is the candidate stable against changes in segmentation ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -495,7 +514,16 @@ for i,trig in enumerate(followuptrigs):
   # Row #16
   file.write("<tr>\n")
   file.write("  <td>#16</td>\n")
-  file.write("  <td>Is there any data corruption evidence between the data used in the analysis and the raw data archived at Caltech ?</td>\n")
+  file.write("  <td>Is the candidate stable against changes in calibration that are consistent with systematic uncertainties ?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #17
+  file.write("<tr>\n")
+  file.write("  <td>#17</td>\n")
+  file.write("  <td>Is the data used in the analysis free from corruption at the time of the candidate ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>Frame checks: ")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -504,19 +532,10 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #17
-  file.write("<tr>\n")
-  file.write("  <td>#17</td>\n")
-  file.write("  <td>Is there anything visible in the burst analysis of the same data?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   # Row #18
   file.write("<tr>\n")
   file.write("  <td>#18</td>\n")
-  file.write("  <td>What about ringdown?</td>\n")
+  file.write("  <td>Do the results of the Burst analysis confirm a possible detection ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -524,8 +543,17 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #19
   file.write("<tr>\n")
-  file.write("  <td>#19 EM triggers</td>\n")
-  file.write("  <td>Are there any EM triggers in coincidence?<br>Is the distance consistent with electro-magnetic observations?<br><br>What information is available via the time-delays? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
+  file.write("  <td>#19</td>\n")
+  file.write("  <td>Do the results of a ringdown search confirm a possible detection ?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #20
+  file.write("<tr>\n")
+  file.write("  <td>#20 EM triggers</td>\n")
+  file.write("  <td>Are there any EM triggers in coincidence with the candidate ?<br>Is the distance estimated from interferometer time-delays or coherent analysis consistent with electro-magnetic observations?<br>? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td><a href=\"http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/S5grbs_list.html\">List of GRBs during S5</a></td>\n")
   file.write("  <td></td>\n")
@@ -548,7 +576,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #1
   file.write("<tr>\n")
   file.write("  <td>#1 Parameters of the candidate</td>\n")
-  file.write("  <td>Can we get more accurate information on the parameters of this candidate?</td>\n")
+  file.write("  <td>Can we get more accurate information on the parameters of this candidate using MCMC or Bayesian methods ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>MCMC results:</td>\n")
   file.write("  <td></td>\n")
