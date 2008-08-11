@@ -1076,6 +1076,7 @@ class nVeto:
                         ["H1","/archive/home/romain/Projects/LowMassCBC/20051104-20061114/triggers/upperlimits_v99_july08/nelsonVetoes/H1/VetoLists",list()],
                         ["H2","/archive/home/romain/Projects/LowMassCBC/20051104-20061114/triggers/upperlimits_v99_july08/nelsonVetoes/H2/VetoLists",list()]])
       #Form [[filename,list(gpsIntervals)],[filename2,list(gpsIntervals)]...
+    self.vetoExtension=".veto"
     self.tolWin=float(0.01)
     self.filesLoaded=bool(False)
   #End self.__init__()
@@ -1103,7 +1104,11 @@ class nVeto:
     """
     path=self.database[index][1]
     listOfFiles=os.listdir(path)
-    listOfFiles=[os.path.normpath(path+"/"+file) for file in listOfFiles]
+    listOfVetoFiles=list()
+    for file in listOfFiles:
+      if file.endswith(self.vetoExtension):
+        listOfVetoFiles.append(file)
+    listOfFiles=[os.path.normpath(path+"/"+file) for file in listOfVetoFiles]
     for filename in listOfFiles:
       fileData=list()
       fp=open(str(filename),'r')
@@ -1123,10 +1128,10 @@ class nVeto:
     the gpsTime intersects with.
     """
     vetoMatch=list()
-    for vetoName,vetoList in vList:
+    for vetoNameLong,vetoList in vList:
       for startT,stopT,KWSig in vetoList:
         if ((startT-self.tolWin)<=gpsTime<=(stopT+self.tolWin)):
-          vetoMatch.append([vetoName,startT,stopT])
+          vetoMatch.append([os.path.basename(vetoNameLong).split(self.vetoExtension,1)[0],startT,stopT])
     tmpList=list()
     for a,b,c in vetoMatch:
       tmpList.append("%s %s %s\n"%(str(a),str(b),str(c)))
