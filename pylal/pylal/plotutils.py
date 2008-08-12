@@ -460,3 +460,98 @@ class FillPlot(BasicPlot):
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist()
 
+class SixStripSeriesPlot(BasicPlot):
+    """
+    Given a time- or frequency-series, plot it across six horizontal axes,
+    stacked on top of one another.  This is good for representing a
+    high-resolution one-dimensional data set.  To support missing data,
+    we require x and y coordinates for each data set.
+    """
+    def __init__(self, xlabel="", ylabel="", title=""):
+        self.fig = pylab.figure(figsize=(5.54, 7.5))
+        self.title = title
+
+        # do not want to create axes yet
+        self.xlabel = xlabel
+        self.ylabel = ylabel
+
+        self.x_coord_sets = []
+        self.y_coord_sets = []
+        self.data_labels = []
+        self.formats = []
+
+    def add_content(self, x_coords, y_coords, label="_nolabel_", format=None):
+        if len(x_coords) != len(y_coords):
+            raise ValueError, "x and y coords have different length"
+        if iterutils.any(c is None for c in self.formats) and format is not None \
+        or iterutils.any(c is not None for c in self.formats) and format is None:
+            raise ValueError, "cannot mix explicit and automatic formating"
+
+        self.x_coord_sets.append(x_coords)
+        self.y_coord_sets.append(y_coords)
+        self.data_labels.append(label)
+        self.formats.append(format)
+
+    def finalize(self, yscale="linear"):
+
+        min_x, max_x = determine_common_bin_limits(self.x_coord_sets)
+
+        numaxes = 6  # This is hardcoded below.  Change at your own risk.
+        ticks_per_axis = 6 # Hardcoded, but you can change it if it looks bad.
+        fperaxis = (max_x - min_x) / numaxes
+        freq_boundaries = numpy.linspace(min_x, max_x, numaxes + 1)
+        freq_ranges = zip(freq_boundaries[:-1], freq_boundaries[1:])
+
+        # attempt to put ticks at every multiple of 10 unless there are too few
+        # or too many
+        tickspacing = int(numpy.ceil(fperaxis / ticks_per_axis / 10)) * 10
+        if abs(fperaxis / tickspacing - ticks_per_axis) > 2:
+            tickspacing = int(numpy.ceil(fperaxis / ticks_per_axis))
+
+        # iterate over axes
+        for j, freq_range in enumerate(freq_ranges):
+            # create one of the 6 axes
+            ax = self.fig.add_axes([.12, .84-.155*j, .86, 0.124])
+
+            # Since default_colors() returns an infinite iterator, we need to
+            # initialize it again and again.
+            if iterutils.any(c is None for c in self.formats):
+                formats = default_colors()
+            else:
+                formats = self.formats
+
+            for x_coords, y_coords, label, format in zip(self.x_coord_sets,
+                self.y_coord_sets, self.data_labels, formats):
+                # just look at the region relevant to our axis
+                ind = (x_coords >= freq_range[0]) & (x_coords < freq_range[1])
+                x = x_coords[ind]
+                y = y_coords[ind]
+
+                # add data to axes
+                ax.plot(x, y, format, label=label, markersize=1)
+
+                # fix the limits and ticks
+                ax.set_xlim(freq_range)
+
+                mintick = int(numpy.ceil(freq_range[0] / tickspacing)) \
+                    * tickspacing
+                maxtick = int(numpy.floor(freq_range[1] / tickspacing)) \
+                    * tickspacing
+                ax.set_xticks(xrange(mintick, maxtick+1, tickspacing))
+
+                ax.set_ylabel(self.ylabel)
+                ax.set_yscale(yscale)
+                ax.grid(True)
+
+        # label bottom row
+        ax.set_xlabel(self.xlabel)
+
+        # title top row
+        self.fig.axes[0].set_title(self.title)
+
+        # apply common y limits
+        y_lims = [ax.get_ylim() for ax in self.fig.axes]
+        new_y_lims = determine_common_bin_limits(y_lims)
+        for ax in self.fig.axes:
+            ax.set_ylim(new_y_lims)
+
