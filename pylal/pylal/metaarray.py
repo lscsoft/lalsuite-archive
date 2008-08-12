@@ -562,6 +562,7 @@ class SpectrumMetadata(Metadata):
         # add, but do not join segments
         self.segments.extend([seg for seg in other.segments \
             if seg not in self.segments])
+        self.segments.sort()
         
         # add only new comments
         self.comments.extend([comment for comment in other.comments \
