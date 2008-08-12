@@ -532,6 +532,12 @@ def write_summary(page,opts):
   ini = opts.config_file
   ifos = get_ifos()
 
+  page.add("<p>This section summarizes the data which was available for analysis.")
+  page.add("All of the segment files are linked in")
+  page = add_href(page, href= webdir + "segments", name="this directory")
+  page.add(".<p>")
+
+  page.add("Segments were generated using the following information:")
   page = add_config_section(page, "segments")
 
   page = heading(page, "Selected segments", "Switch details on/off")  
