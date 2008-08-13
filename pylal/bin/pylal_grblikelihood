@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2007  Nickolas Fotopoulos
+# Copyright (C) 2007  Patrick Brady, Nickolas Fotopoulos
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -460,7 +460,7 @@ pch_maxL_by_m2_D[zero_ind] = pch_eps_by_m2_D[zero_ind]
 # get p(c|0) for each m2 bin
 pc0_maxL_by_m2 = pc0_by_mc[mc_ind_by_m2]
 
-# get likelihood
+# get likelihood; both of these probabilities should be sanitized
 L_maxL_by_m2_D = pch_maxL_by_m2_D / pc0_maxL_by_m2[:, None]
 
 # TODO: correct for MC counting uncertainty
@@ -660,7 +660,7 @@ if opts.enable_output:
 
     if opts.html_for_cbcweb:
         html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, comment=info_text, cbcweb=True)
+            sys.argv[1:], fnameList, tagList, cbcweb=True)
 
 if opts.show_plot:
     pylab.show()
