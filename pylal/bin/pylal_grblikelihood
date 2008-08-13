@@ -17,13 +17,8 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 """
-Skeleton for pylal_grblikelihood revision.
-
-Invasive internal changes:
-* HTML output
-* rate.py integration
-* plotutils integration
-* 3D arrays to pass around quantities of interest
+This code computes the probabilities that go into the distance upper limits
+for the CBC external trigger search.
 
 There is a lot of advanced indexing technique here.  Reference:
 http://scipy.org/Cookbook/Indexing
@@ -38,7 +33,6 @@ __Id__ = "$Id$"
 __name__ = "pylal_grblikelihood"
 __title__ = "GRB interpretation"
 
-import bisect
 import glob
 import itertools
 import optparse
@@ -52,22 +46,13 @@ matplotlib.use("Agg")
 import pylab
 pylab.rc("text", usetex=True)
 
-from glue import iterutils
 from glue import lal
-
-from glue import segmentsUtils
-from glue.segments import segment, segmentlist
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
-from glue.ligolw import utils
-from glue.ligolw.utils import ligolw_add
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
-from pylal import SearchSummaryUtils
-from pylal import SnglInspiralUtils
 from pylal import grbsummary
-from pylal import llwapp
 from pylal import plotutils
 from pylal import rate
 from pylal import viz
@@ -472,6 +457,12 @@ pch_maxL_by_m2_D = num_found_by_mc_m2_D[mc_indexer] / (num_sims_by_m2_D + 1e-10)
 zero_ind = (num_found_by_mc_m2_D[mc_indexer] == 0) & (num_sims_by_m2_D != 0)
 pch_maxL_by_m2_D[zero_ind] = pch_eps_by_m2_D[zero_ind]
 
+# get p(c|0) for each m2 bin
+pc0_maxL_by_m2 = pc0_by_mc[mc_ind_by_m2]
+
+# get likelihood
+L_maxL_by_m2_D = pch_maxL_by_m2_D / pc0_maxL_by_m2[:, None]
+
 # TODO: correct for MC counting uncertainty
 
 ################################################################################
@@ -605,6 +596,23 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
+## L(c|h) from max L mchirp bins vs (m2, D) image
+text = "L(c|h(m2, D))"
+
+plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    "$\Lambda_i(m_2, D)$")
+plot.add_content(L_maxL_by_m2_D.T, m2_bins, D_bins)
+plot.finalize()
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "L_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+
 ## upper limit contours (m2, D) image
 text = "(m2, D) exclusion plot"
 
@@ -614,19 +622,19 @@ plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
 x = m2_bins.lower()
 zero = numpy.zeros(len(m2_bins), dtype=float)
 
-y = get_level_crossings(pch_by_m2_D, 0.25, D_bins)
+y = get_level_crossings(pch_maxL_by_m2_D, 0.25, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"25\% exclusion")
 
-y = get_level_crossings(pch_by_m2_D, 0.5, D_bins)
+y = get_level_crossings(pch_maxL_by_m2_D, 0.5, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"50\% exclusion")
 
-y = get_level_crossings(pch_by_m2_D, 0.75, D_bins)
+y = get_level_crossings(pch_maxL_by_m2_D, 0.75, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"75\% exclusion")
 
-y = get_level_crossings(pch_by_m2_D, 0.9, D_bins)
+y = get_level_crossings(pch_maxL_by_m2_D, 0.9, D_bins)
 tmpx, tmpy = viz.makesteps(x, zero, y)
 plot.add_content(tmpx, tmpy, label=r"90\% exclusion")
 
