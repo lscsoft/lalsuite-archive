@@ -14,14 +14,15 @@ from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 import numpy
+import matplotlib
+matplotlib.use('Agg')
 from pylab import *
 
 
 ###############################################################################
 usage =  """Usage: %prog [options]
 
-plotinspfound --cache-file triggers.cache --bbhinj --sire-second --core-first
---h-one --h-two --l-one
+plotinspfound --cache-file triggers.cache --bbhinj --core-first --h1-triggers
 
 """
 
@@ -35,10 +36,9 @@ def parse_command_line():
   parser.add_option("-t", "--threshold", action="store", type="float", \
                     default=0.,help="actual loss in  SNR to flag.")
   parser.add_option("-d", "--display", action="store_true",\
-                     default=False, help="print triggers with reduced snr on \
-                     screen" )
+                     default=False, help="print snr loss information" )
   parser.add_option("-v", "--verbose",action="store_true",\
-                     default=False,help="print information" )
+                     default=False,help="print all information" )
   parser.add_option("-m", "--plot-mchirp",action="store_true",\
                      default=False,help="plot snr loss against mchirp" )
   parser.add_option("-e", "--plot-end-time",action="store_true",\
@@ -55,13 +55,13 @@ def parse_command_line():
                      default=False,help="check snr at first coincidence stage" )
   parser.add_option("-r", "--sire-second",action="store_true",\
                      default=False,help="check snr at second inspiral stage" )
-  parser.add_option("-w", "--h-one",action="store_true",\
+  parser.add_option("-H", "--h1-triggers",action="store_true",\
                      default=False,help="use H1 triggers" )
-  parser.add_option("-a", "--h-two",action="store_true",\
+  parser.add_option("-w", "--h2-triggers",action="store_true",\
                      default=False,help="use H2 triggers" )
-  parser.add_option("-o", "--l-one",action="store_true",\
-
+  parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
+
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
@@ -94,14 +94,15 @@ if len( inj_pattern ) == 0:
   sys.exit()
 
 ifos=[]
-if opts.h_one:
+if opts.h1_triggers:
   ifos.append( "H1" )
-if opts.h_two:
+if opts.h2_triggers:
   ifos.append( "H2" )
-if opts.l_one:
+if opts.l1_triggers:
   ifos.append( "L1" )
 if len( ifos ) == 0:
-  print "ERROR! must specify one of --h-one, --h-two or --l-one"
+  print "ERROR! must specify one of --h1-triggers, --h2-triggers or ", \
+        "--l1-triggers"
   sys.exit()
 
 columns=[]
@@ -112,8 +113,8 @@ if opts.plot_mchirp:
 if opts.plot_end_time:
   columns.append("end_time")
 if len( columns ) == 0:
-  print "ERROR! must specify one of --plot-snr, --plot-end-time"
-  print "       or --plot-mchir"
+  print "ERROR! must specify one of --plot-snr, --plot-end-time ", \
+        "or --plot-mchir"
   sys.exit()
 
 ##############################################################################
@@ -238,7 +239,7 @@ def make_plots(opts, observatory, inj_pattern, columns, triggers_after, \
       semilogx(snrs_after, snr_loss, 'ro');
 
       graph_title = observatory +' SNR ' +inj_pattern +'\n' +stages
-      graph_xlabel = 'SNR'
+      graph_xlabel = 'SNR (after loss)'
       title(graph_title)
       xlabel(graph_xlabel)
       ylabel(graph_ylabel)
