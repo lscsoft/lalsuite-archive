@@ -1,0 +1,830 @@
+#!/usr/bin/env python
+"""
+Tomoki Isogai (isogait@carleton.edu)
+
+This program creates a report page for a channel.
+
+Input:
+    name tag: Name tag used for result files
+    result file: Path to the result file
+    critical used percentage: The program recognize the channel that goes beyand
+                             this use percentage as veto candidate channel
+    plots directory: Path to the plots
+    veto segment file: Path to the veto segment file
+    trigger file: Path to the trigger file 
+    segment file: Path to the segment file
+    log directory: Path to the log directory
+    error directory: Path to the error directory
+    param file: Path to the paramfiles
+    output directory: Output directory for the webpage
+    qscan option: Whether to include qscan pages in summary
+    injection option: Whether to include injection information in summary
+    injection file: Path to the injection file, necessary when injection option
+                    is true
+    
+$Id$
+"""
+from __future__ import division
+from glue import pipeline, segmentsUtils
+from glue.segments import segment, segmentlist
+import optparse
+import sys, os, time
+import glob
+
+__author__ = "Tomoki Isogai <isogait@carleton.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+def parse_commandline():
+    """
+    Parse the options given on the command-line.
+    """
+    parser = optparse.OptionParser(usage=__doc__,\
+                             version="$Id: KW_veto_channelPage,v 1.00 2008/7/7")
+    parser.add_option("-n","--name_tag", default="",\
+                      help="name tag used for KW_veto_calc")
+    parser.add_option("-r", "--result_file",\
+                      help="the result file from KW_veto_calcz")
+    parser.add_option("-C", "--critical_usePer",default=50,type="int",
+                      help="the program recognize channels above this "+\
+                           "used percentage as veto candidate channel")
+    parser.add_option("-g", "--graph_dir",\
+                      help="directory where plots are stored")
+    parser.add_option("-V","--veto_seg", default=None,\
+                      help="veto segment file")
+    parser.add_option("-t", "--trigger_file",\
+                      help="path to the trigger file")
+    parser.add_option("-s", "--segment_file",\
+                      help="path to the segment file")
+    parser.add_option("-l", "--log_dir",\
+                      help="path to the log directory")
+    parser.add_option("-e", "--error_dir",\
+                      help="path to the error directory")
+    parser.add_option("-p", "--param_file",\
+                      help="path to the param file")
+    parser.add_option("-o", "--out_dir", default=".",\
+                      help="output directory")
+    parser.add_option("-q", "--qscan", action="store_true", default=False,\
+                      help="include qscan page or not")
+    parser.add_option("-i", "--injection", action="store_true", default=False,\
+                      help="include injection section or not")
+    parser.add_option("-I", "--injection_file", default=None,\
+                      help="path to the injection file if injection is true")
+    parser.add_option("-v", "--verbose", action="store_true",\
+                      default=False, help="run verbosely")
+    
+    opts, args = parser.parse_args()
+    
+    ########################### sanity check ###################################
+    
+    # normalize path name
+    opts.graph_dir = os.path.normpath(opts.graph_dir)
+    opts.log_dir = os.path.normpath(opts.log_dir)
+    opts.error_dir = os.path.normpath(opts.error_dir)
+    opts.out_dir = os.path.normpath(opts.out_dir)
+    
+    # create necessary directories if not exist
+    try:
+        # directory where all the page/info will be stored
+        baseDir = os.path.join(opts.out_dir,"%s_webpage"%opts.name_tag)
+        if not os.path.exists(baseDir): 
+            os.makedirs(baseDir)
+        if not os.path.exists(baseDir+"/channel_pages"): 
+            os.mkdir(baseDir+"/channel_pages")
+        if not os.path.exists(baseDir+"/plots"): 
+            os.mkdir(baseDir+"/plots")
+        if not os.path.exists(baseDir+"/info"): 
+            os.mkdir(baseDir+"/info")
+        if not os.path.exists(baseDir+"/results"): 
+            os.mkdir(baseDir+"/results")
+        if not os.path.exists(baseDir+"/logs"): 
+            os.mkdir(baseDir+"/logs")
+        if not os.path.exists(baseDir+"/errors"): 
+            os.mkdir(baseDir+"/errors")
+        if opts.qscan:
+            if not os.path.exists(baseDir+"/qscans"): 
+                os.mkdir(baseDir+"/qscans")
+            if not os.path.exists(baseDir+"/qscanPages"): 
+                os.mkdir(baseDir+"/qscanPages")
+    except(OSError):
+        # when running parallel with other channels, OSError can occur by time 
+        # lag: just ignore
+        pass
+    
+    # check if necessary input exists
+    for o in ("graph_dir","result_file","trigger_file",\
+                           "segment_file","log_dir","error_dir","param_file"):
+        if getattr(opts,o) is None:
+            print >> sys.stderr, "Error: --%s is a required parameter"%o
+            sys.exit(1)
+    if opts.injection:
+        if opts.injection_file is None:
+            print >>sys.stderr, "Error: injection_file is a required parameter"\
+                                " if injection is true"
+    
+    # check if necessary file exists
+    for f in [opts.result_file,opts.trigger_file,\
+                                             opts.segment_file,opts.param_file]:
+        if not os.path.isfile(f):
+            print >> sys.stderr, "Error: %s not found"%f
+            sys.exit(1)
+        
+    # check check if necessary directory exist
+    if not os.path.exists(opts.graph_dir):
+        print >> sys.stderr, "Error: graph_dir not found"
+        sys.exit(1)
+    for d in [opts.log_dir,opts.error_dir]:
+        if not os.path.exists(d):
+            print >> sys.stderr, "Warning: %s not found, ignoring"%d
+        
+    ######################### show parameters ##################################
+    if opts.verbose:
+        print
+        print "running channelPage_maker..."
+        print
+        print "********************** PARAMETERS ******************************"
+        print 'name tag:'; print opts.name_tag;
+        print 'result file:'; print opts.result_file;
+        print 'critical used percentage'; print opts.critical_usePer
+        print 'plots location:'; print opts.graph_dir;
+        print 'veto segment file:'; print opts.veto_seg
+        print 'trigger file:'; print opts.trigger_file;
+        print 'segment file:'; print opts.segment_file;
+        print 'log directory:'; print opts.log_dir;
+        print 'error directory:'; print opts.error_dir;
+        print 'param file:'; print opts.param_file;
+        print 'output directory:'; print opts.out_dir
+        print 'qscan option:'; print opts.qscan;
+        print 'injection option:'; print opts.injection;
+        print 'injection file:'; print opts.injection_file;
+        print
+    
+    return opts
+    
+def channel_page(prefix, names, summary, vetoedTrigHist, baseDir):
+    """
+    This is the main function that makes the channel page.
+    directly write html code in string so that it's easier to read
+    """
+    # prepare necessary info
+    tag = prefix.split("-")[0]
+    ifo = prefix.split("-")[1]
+    channel = prefix.split("-")[2]
+    title = "%s * %s Triggers"%(channel.upper(),ifo)
+    ic=tag+"-"+ifo+"-"+channel
+    user=os.environ['USER']
+    curTime=time.strftime('%m-%d-%Y %H:%M:%S',time.localtime())
+    # below are path to files to be linked
+    trig=names[0]
+    seg=names[1]
+    param=names[2]
+    result=names[3]
+    log=names[4]
+    err=names[5]
+    
+    ################## main html code for the report page ######################
+    
+    contents = """
+    <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+    <html>
+    <head>
+      <title>%s</title>
+      <link rel="stylesheet" href="vstyle.css" type="text/css">
+      <script type="text/javascript">
+    function toggleVisible(division) {
+      if (document.getElementById("div_" + division).style.display == "none") {
+        document.getElementById("div_" + division).style.display = "block";
+        document.getElementById("input_" + division).checked = true;
+      } else {
+        document.getElementById("div_" + division).style.display = "none";
+        document.getElementById("input_" + division).checked = false;
+      } 
+    }
+    function gotoSection(section) {
+      document.getElementById("div_" + section).style.display = "block";
+      document.getElementById("input_" + section).checked = true;
+      window.location.hash = section;
+    }
+      </script>
+    </head>
+    <body>
+    <div class="title">
+    <h1> %s </h1>
+    </div>
+    <div class="index">
+    <h2>Index</h2>
+    <p>
+    <a href="javascript:gotoSection('summary')">Summary</a><br>
+    <a href="javascript:gotoSection('usePercentage')">Used Percentage</a><br>
+    <a href="javascript:gotoSection('trigNumHist')">Trigger Histograms</a><br>
+    <a href="javascript:gotoSection('vetoEff')">Veto Efficiency</a><br>
+    <a href="javascript:gotoSection('timeSeries')">Time Series</a><br>
+    <a href="javascript:gotoSection('deadTimePer')">Dead Time Percentage</a><br>
+    <a href="javascript:gotoSection('coinKW')">Coincident KW Events</a><br>
+    <a href="javascript:gotoSection('totalKW')">Total KW Evevnts</a><br>
+    <a href="javascript:gotoSection('vetoedNum')">Vetoed Trigers</a><br>
+    <a href="javascript:gotoSection('deadTime')">Dead Time</a><br>
+    <a href="../info/%s">GW Triggers</a><br>
+    <a href="../info/%s">Analyzed Segments</a><br>
+    <a href="../results/%s">Result</a><br>
+    <a href="../info/%s">Configuration</a><br>
+    <a href="../logs/%s">Log</a><br>
+    <a href="../errors/%s">Error</a><br>
+    </p>
+    </div>
+    <div class="content">
+    <!--summary-->
+    %s
+    <a name="usePercentage"></a>
+    <h2 class="usePercentage"><input id="input_usePercentage"
+     checked="checked" onclick="toggleVisible('usePercentage');"
+     type="checkbox">Used Percentage
+    </h2>
+    <div id="div_usePercentage" style="display: block;">
+    <a name="usePercentage"></a>
+    100 * (Number of Coincident KW Triggers) / (Number of Total KW Triggers)<br><br>
+    <a id="a_%s-usePercentage_plot"
+     href="../plots/%s-usePercentage_plot.png"><img
+     id="img_%s-usePercentage_plot"
+     src="../plots/%s-usePercentage_plot-thumbnail.png"
+     alt="%s_usePercentage_plot"></a><br>
+    </div>
+    <a name="trigNumHist"></a>
+    <h2 class="trigNumHist"><input id="input_trigNumHist"
+     checked="checked" onclick="toggleVisible('trigNumHist');"
+     type="checkbox">GW Triggers Histograms
+    </h2>
+    <div id="div_trigNumHist" style="display: block;">
+    <a name="trigNumHist"></a><a id="a-%s_trigNumHist_plot_lowSnr"
+     href="../plots/%s-triggers_hist_lowSnr.png"><img
+     id="img_%s-trigNumHist_plot_lowSnr"
+     src="../plots/%s-triggers_hist_lowSnr-thumbnail.png"
+     alt="%s-TrigNumHist_plot_lowSnr"></a>
+     <a name="trigNumHist"></a><a id="a_%s-trigNumHist_plot"
+     href="../plots/%s-triggers_hist.png"><img
+     id="img_%s-trigNumHist_plot"
+     src="../plots/%s-triggers_hist-thumbnail.png"
+     alt="%s-TrigNumHist_plot"></a><br>
+     %s <!--vetoed triggers histogram-->
+    </div>
+    
+    <a name="timeSeries"></a>
+    <h2 class="timeSeries"><input id="input_timeSeries"
+     checked="checked" onclick="toggleVisible('timeSeries');"
+     type="checkbox">Time Series
+    </h2>
+    <div id="div_timeSeries" style="display: block;">
+    <a name="timeSeries"></a>
+    <a id="a_%s-timeSeries_plot"
+     href="../plots/%s-timeSeries.png"><img
+     id="img_%s-timeSeries_plot"
+     src="../plots/%s-timeSeries-thumbnail.png"
+     alt="%s-timeSeries_plot"></a><br>
+    </div>
+    
+    <a name="vetoEff"></a>
+    <h2 class="vetoEff"><input id="input_vetoEff"
+     checked="checked" onclick="toggleVisible('vetoEff');"
+     type="checkbox">Veto Efficiency
+    </h2>
+    <div id="div_vetoEff" style="display: block;">
+    <a name="vetoEff"></a>
+    100 * (Number of Vetoed Triggers) / (Number of Total Triggers)<br><br>
+    <a id="a_%s-vetoEff_plot"
+     href="../plots/%s-vetoEff_plot.png"><img
+     id="img_%s-vetoEff_plot"
+     src="../plots/%s-vetoEff_plot-thumbnail.png"
+     alt="%s-vetoEff_plot"></a><br>
+    </div>
+    <a name="deadTimePer"></a>
+    <h2 class="deadTimePer"><input id="input_deadTimePer" checked="checked"
+     onclick="toggleVisible('deadTimePer');" type="checkbox">Dead Time
+    Percentage
+    </h2>
+    <div id="div_deadTimePer" style="display: block;">
+    <a name="deadTimePer"></a>
+    100 * (Total Duration of Veto Segments) / (Total Duration of Analyzed Segments)<br><br>
+    <a id="a_%s-deadTimePer_plot"
+     href="../plots/%s-deadTimePer_plot.png"><img
+     id="img_%s_deadTimePer_plot"
+     src="../plots/%s-deadTimePer_plot-thumbnail.png"
+     alt="%s-deadTimePer_plot"></a><br>
+    </div>
+    <a name="coinKW"></a>
+    <h2 class="coinKW"><input id="input_coinKW" checked="checked"
+     onclick="toggleVisible('coinKW');" type="checkbox">Coincident KW
+    events
+    </h2>
+    <div id="div_coinKW" style="display: block;">
+    <a name="coinKW"></a><a id="a_%s-coinKW_plot"
+     href="../plots/%s-coincidentKW_plot.png"><img
+     id="img_%s-coinKW_plot"
+     src="../plots/%s-coincidentKW_plot-thumbnail.png"
+     alt="%s_coinKW_plot"></a><br>
+    </div>
+    <a name="totalKW"></a>
+    <h2 class="totalKW"><input id="input_totalKW" checked="checked"
+     onclick="toggleVisible('totalKW');" type="checkbox">Total KW events
+    </h2>
+    <div id="div_totalKW" style="display: block;">
+    <a name="totalKW"></a><a id="a_%s_totalKW_plot"
+     href="../plots/%s-totalKW_plot.png"><img
+     id="img_%s_totalKW_plot"
+     src="../plots/%s-totalKW_plot-thumbnail.png"
+     alt="%s-totalKW_plot"></a><br>
+    </div>
+    <a name="vetoedNum"></a>
+    <h2 class="vetoedNum"><input id="input_vetoedNum"
+     checked="checked" onclick="toggleVisible('vetoedNum');"
+     type="checkbox">Vetoed Triggers
+    </h2>
+    <div id="div_vetoedNum" style="display: block;">
+    <a name="vetoedNum"></a><a id="a_%s-vetoedNum_plot"
+     href="../plots/%s-vetoedNum_plot.png"><img
+     id="img_%s-vetoedNum_plot"
+     src="../plots/%s-vetoedNum_plot-thumbnail.png"
+     alt="%s-vetoedNum_plot"></a><br>
+    </div>
+    <a name="deadTime"></a>
+    <h2 class="deadTime"><input id="input_deadTime"
+     checked="checked" onclick="toggleVisible('deadTime');"
+     type="checkbox">Dead Time
+    </h2>
+    <div id="div_deadTime" style="display: block;">
+    <a name="deadTime"></a><a id="a_%s-deadTime_plot"
+     href="../plots/%s-deadTime_plot.png"><img
+     id="img_%s-deadTime_plot"
+     src="../plots/%s-deadTime_plot-thumbnail.png"
+     alt="%s-deadTime_plot"></a><br>
+    </div>
+    </div>
+    <div class="footer">
+    Created by user %s on %s<br>
+    </div>
+    </body>
+    </html>
+    """ % (title,title,trig,seg,result,param,log,err,summary,ic,ic,ic,ic,ic,ic,\
+           ic,ic,ic,ic,ic,ic,ic,ic,ic,vetoedTrigHist,ic,ic,ic,ic,ic,ic,ic,ic,\
+           ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,ic,\
+           ic,ic,ic,ic,ic,user,curTime) # ic is (tag)-(ifo)-(channel)
+           
+    # write down
+    chan_page = open(baseDir+"/channel_pages/%s-report_page.html"%(ic),"w")
+    chan_page.write(contents)
+    
+def summary_maker(prefix, result, totalTrigNum, totalTime, half_window_size,\
+                  veto_file, critical_usePer, qscan,injection, injection_file):
+    """
+    This function makes a veto summary for this channel and returns a html 
+    code for the summary part, which will be inserted to the body
+    in addition, makes vetoed inspiral triggers histogram part for candidate
+    channel, which will also be inserted to the body
+    """
+    # figure out if this is a veto candidate channel and if yes,
+    # retrieve information at critical threshold
+    candidate=False
+    for i in xrange(len(result["thresh"])):
+        if result["usePercentage"][i] > critical_usePer:
+            candidate=True
+            thresh=result["thresh"][i]
+            usePercentage=result["usePercentage"][i]
+            coinKW=result["coinKW"][i]
+            totalKW=result["totalKW"][i]
+            deadTime=result["deadTimes"][i]
+            deadTimePer=result["deadTimePer"][i]
+            vetoedNum=result["vetoedNum"][i]
+            vetoEff=result["vetoEff"][i]
+            break
+            
+    ############################################################################
+    # case 1: veto candidate channel
+    ############################################################################
+    
+    if candidate:
+        ######################### qscan part of summary ########################
+        if qscan:
+            qscan_part="""
+            <a name="qscan"></a>
+            <h3>
+            <input id="input_qscan" type="checkbox" checked
+            onclick="toggleVisible('qscan');" />
+            QScans
+            </h3>
+            <br />
+            <div id="div_qscan" style="display: block;">
+            <a href="../qscanPages/%s-qscan_page.html">Sample QScans</a><br>
+            </div>
+            """%(prefix)
+        else: # no qscan
+            qscan_part=""
+            
+        #################### injection part of summary #########################
+        if injection:
+            # the first line of injection_file is a summary of injection check 
+            # information
+            # put that info in the page
+            # also make a link to injection_file
+            injection_summary=open(injection_file).readline()
+            injection_file_name = os.path.split(injection_file)[-1]
+            injection_part="""
+            <a name="injection"></a>
+            <h3>
+            <input id="input_injection" type="checkbox" checked
+            onclick="toggleVisible('injection');" />
+            Vetoed HW Injections
+            </h3>
+            <br />
+            <div id="div_injection" style="display: block;">
+            <br>%s <!--injection summary--><br>
+            <a href="../results/%s">HW Injections Report</a><br>
+            </div>
+            """%(injection_summary,injection_file_name)
+        else: # no injection
+            injection_part=""
+            
+        ###################### html code for summary part ######################
+        summary=\
+        """
+        <a name="Summary"></a>
+        <h2 class="Summary"><input id="input_Summary" checked="checked"
+         onclick="toggleVisible('deadTimePer');" type="checkbox">Summary
+        </h2>
+        <div id="div_Summary" style="display: block;">
+        <a name="report"></a>
+        <h3>
+        <input id="input_report" type="checkbox" checked
+        onclick="toggleVisible('report');" />
+        Veto Infomation
+        </h3>
+        <br />
+        <div id="div_report" style="display: block;">
+        For veto window +-%.2f s, KW significance threshold at %d<br>
+        <center>
+        <table>
+        <tbody>
+        <tr><td><b>Used Percentage:</b></td>       <td>%.4f%%</td> <td>(%d/%d)</td>
+        <tr><td><b>Veto Efficiency:</b></td>      <td>%.4f%%</td> <td>(%d/%d)</td>
+        <tr><td><b>Dead Time Percentage:</b></td> <td>%.4f%%</td> <td>(%.2f s/%.2f s)</td>
+        </tbody>
+        </table>
+        </center>
+        </div>
+        <a name="segment"></a>
+        <h3>
+        <input id="input_segment" type="checkbox" checked
+        onclick="toggleVisible('segment');" />
+        Veto Segment List
+        </h3>
+        <br />
+        <div id="div_segment" style="display: block;">
+        <a href="../results/%s">Veto Segment List</a><br><br>
+        </div>
+        %s <br> <!-- qscan part -->
+        %s <br> <!-- injection part -->
+        </div>
+        """%(half_window_size,thresh,usePercentage,coinKW,totalKW,vetoEff,\
+            vetoedNum,totalTrigNum,deadTimePer,deadTime,totalTime,veto_file,\
+            qscan_part,injection_part)
+        
+        p = prefix # short notation
+        
+        ################### vetoed insp triggers histogram part ################
+        
+        vetoedTrigHist=\
+        """
+        <br><big><big><center><b>
+        Vetoed GW Triggers
+        </b></center></big></big><br><br>
+        <a name="trigNumHist"></a><a id="a_%s-vetoed_trigNumHist_plot_lowSnr"
+        href="../plots/%s-vetoed_triggers_hist_lowSnr.png"><img
+        id="img_%s-vetoed_trigNumHist_plot_lowSnr"
+        src="../plots/%s-vetoed_triggers_hist_lowSnr-thumbnail.png"
+        alt="%s-vetoed_TrigNumHist_plot_lowSnr"></a>
+        <a name="trigNumHist"></a><a id="a_%s-vetoed_trigNumHist_plot"
+        href="../plots/%s-vetoed_triggers_hist.png"><img
+        id="img_%s-vetoed_trigNumHist_plot"
+        src="../plots/%s-vetoed_triggers_hist-thumbnail.png"
+        alt="%s-vetoed_TrigNumHist_plot"></a><br>
+        """%(p,p,p,p,p,p,p,p,p,p)
+        
+    ############################################################################
+    # case 2: non veto candidate channel
+    ############################################################################
+    else:
+        summary="""
+        <a name="Summary"></a>
+        <h2 class="Summary"><input id="input_Summary" checked="checked"
+         onclick="toggleVisible('deadTimePer');" type="checkbox">Summary
+        </h2>
+        <div id="div_Summary" style="display: block;">
+        This channel does not go over %d%% of Used Percentage.<br>
+        <center>
+        <table>
+        <tbody>
+        <tr><td><b>Max Used Percentage:</b></td>       <td>%.4f%%</td>
+        
+        </tbody>
+        </table>
+        </center>
+        </div>
+        """%(critical_usePer,max(result["usePercentage"]))
+        
+        ################### vetoed insp triggers histogram part ################
+        
+        # no need for non candidate channel
+        vetoedTrigHist=""
+        
+    return summary, vetoedTrigHist
+
+def qscan_page(q_timefile,info,channel,baseDir):
+    """
+    this function creates html file that links to each qscan
+    """
+    
+    events=[]
+    
+    # existance of file means this is candidate channel and qscan option is on
+    if os.path.isfile(q_timefile):
+        ## read the data
+        for line in open(q_timefile):
+            trig=line.strip().split() # trig: [time,snr]
+            if trig[0][0]!="#" and trig[0][0]!="%":
+                events.append([float(trig[0]),float(trig[1])])
+        
+        # derive other info to be used in the page 
+        user=os.environ['USER']
+        curTime=time.strftime('%m-%d-%Y %H:%M:%S',time.localtime()) 
+        
+        ############################# header part ##############################
+        contents = ["""
+        <html><head>
+        <meta content="text/html; charset=ISO-8859-1"
+        http-equiv="content-type"><title>
+        %s
+        </title></head>
+        <body><big><big>
+        %s Sample Qscans
+        </big></big><br><small>
+        <br><big>Two events are randomly chosen for each 100 KW significance (if there are two). The list is sorted by KW significance. Click the time to see QScan of the event.<br>
+        Note that only thumbnails of whitened spectograms, autoscaled eventgrams and raw time series are availabe in order to reduce space usage.</big>
+        <br><br>
+        """ % (channel.upper(), channel.upper())]
+        
+        ########################## link to each qscan ##########################
+        for t, s in sorted(events,cmp = KW_compare):
+            contents.append("""
+        Event at <a href="../qscans/%s/%f">%f</a> (KW significance: %.2f)<br>
+        """%(info,t,t,s)) # t is GPS time, s in SNR
+        
+        ############################# closing ##################################
+        contents.append("""
+        <br><a href="../channel_pages/%s-report_page.html">
+        <big><br>Back to channel summary page</big></a>
+        <br><br>
+        This page is created by user %s on %s
+        </body>
+        </html>
+        </small></body></html>
+        """%(info,user,curTime))
+        qscan_page = open("%s/qscanPages/%s-qscan_page.html"%(baseDir,info),"w")
+        qscan_page.write("\n".join(contents))
+        
+def KW_compare(x, y):
+    """
+    Comparison rule used in sort_trigs() to sort trigs by significance from 
+    high to low
+    x, y are in the form (time,snr)
+    """
+    if x[1]<y[1]: return 1
+    elif x[1]==y[1]: return 0
+    else: return -1 # case where x[1]>y[1]
+
+def setup_dir(prefix,opts):
+    """
+    gather necessary files if not in place already
+    return file paths
+    
+    prefix: (name tag)-(ifo)-(channel)
+    opts: option parser object
+    """
+    ## short notation / figure out necessary var
+    tag = opts.name_tag
+    ifo = prefix.split("-")[1]
+    channel = prefix.split("-")[2]
+    # a directory where all the files will be
+    baseDir = os.path.join(opts.out_dir,"%s_webpage"%tag)
+    
+    ## get style sheet for the html page
+    vstyle_loc = 'inputfiles/vstyle.css'
+    exitNum = os.system("cp %s %s/channel_pages/"%(vstyle_loc,baseDir))
+    if exitNum != 0:
+        print >>sys.stderr, "Error: %s not found"%vstyle_loc
+        sys.exit(1)
+        
+    ## get plots if not there already
+    # make a list of plot files for this prefix in graph_loc
+    plots = [f for f in os.listdir(opts.graph_dir) if f.find(prefix)!=-1]
+    for p in plots:
+        # path of source and destination of plots
+        plot_src = os.path.join(opts.graph_dir,p)
+        plot_dst = os.path.join(baseDir,'plots')
+        # presumably plots are already there if using setup_veto
+        # if not there yet, copy them over
+        if os.path.samefile(plot_src,plot_dst):
+            exitNum = os.system("cp %s %s"%(plot_src,plot_dst))
+            if exitNum != 0:
+                print >>sys.stderr, "Error: could not copy plot file, ignoring"
+    
+    ## get trigger file
+    path = opts.trigger_file
+    file_name = os.path.split(path)[-1]
+    trigger_name = file_name
+    exitNum=os.system("cp %s %s/info/"%(path,baseDir))
+    if exitNum != 0:
+        print >>sys.stderr, "Error: could not copy trigger file, ignoring"
+            
+    ## get segment file
+    path = opts.segment_file
+    file_name = os.path.split(path)[-1]
+    segment_name = file_name
+    if not os.path.isfile("%s/info/%s"%(baseDir,file_name)):
+        exitNum = os.system("cp %s %s/info/"%(path,baseDir))
+        if exitNum != 0:
+            print >>sys.stderr, "Error: could not copy segment file, ignoring"
+            
+    ## get param file
+    path = opts.param_file
+    file_name = os.path.split(path)[-1]
+    param_name = file_name
+    if not os.path.isfile("%s/info/%s"%(baseDir,file_name)):
+        exitNum = os.system("cp %s %s/info/"%(path,baseDir))
+        if exitNum != 0:
+            print >>sys.stderr, "Error: could not copy param file, ignoring"
+            
+    ## get result file
+    path = opts.result_file
+    file_name = os.path.split(path)[-1]
+    result_name = file_name
+    exitNum = os.system("cp %s %s/results/"%(path,baseDir))
+    if exitNum != 0:
+            print >>sys.stderr, "Error: could not copy result file, ignoring"
+            
+    ## get veto segment file
+    path = opts.veto_seg
+    # existance of the file means this is candidate channel
+    if path is not None and os.path.isfile(path):
+        file_name = os.path.split(path)[-1]
+        veto_name = file_name
+        exitNum = os.system("cp %s %s/results/"%(path,baseDir))
+        if exitNum != 0:
+            print >>sys.stderr, "Error: could not copy veto_seg file, ignoring"
+    # case where the channel is not veto candidate so veto file wasn't created
+    else: veto_name = None
+            
+    ## get injection file
+    path = opts.injection_file
+    # existance of the file means this is candidate channel
+    if path is not None and os.path.isfile(path):
+        file_name = os.path.split(path)[-1]
+        exitNum = os.system("cp %s %s/results/"%(path,baseDir))
+        if exitNum != 0:
+            print >>sys.stderr, "Error: could not copy injection file, ignoring"
+    # case where the channel is not veto candidate so injection file wasn't created                                                                  
+    else: injection_name = None
+            
+    ## put several log files together
+    # erase already existing file
+    if glob.glob('%s/logs/%s_log.txt'%(baseDir, prefix))!=[]:
+        os.system("rm %s/logs/%s_log.txt"%(baseDir, prefix))
+    # copy log files
+    exitNum = os.system(\
+     "for f in %s/*%s-%s*.out;do cat $f >> %s/logs/%s_log.txt;done"\
+                                     %(opts.log_dir,ifo,channel,baseDir,prefix))
+    if exitNum != 0:
+        print >>sys.stderr, "Error: could not copy log files, ignoring"
+    log_name = prefix+"_log.txt"
+    
+    ## put several err files together
+    # erase already existing file
+    if glob.glob('%s/errors/%s_err.txt'%(baseDir, prefix))!=[]:
+        os.system("rm %s/errors/%s_err.txt"%(baseDir,prefix))
+    # copy error files
+    exitNum = os.system(\
+     "for f in %s/*%s-%s*.err;do cat $f >> %s/errors/%s_err.txt;done"\
+                                     %(opts.log_dir,ifo,channel,baseDir,prefix))
+    if exitNum != 0:
+        print >>sys.stderr, "Error: could not copy error files, ignoring"
+    err_name = prefix+"_err.txt"
+    
+    return trigger_name, segment_name, param_name, result_name, log_name,\
+           err_name, veto_name
+
+def load_info(filename):
+    """
+    Adapted from io.py written by Nickolas Fotopoulos, modified.
+    """
+    if filename == '':
+        raise ValueError, "Empty filename"
+    # get extension
+    ext = os.path.splitext(filename)[-1]
+    # case 1: mat file
+    if ext == '.mat':
+        try:
+            import scipy.io
+        except (ImportError):
+            print >>sys.stderr, "Error: need scipy to read in mat files"
+            sys.exit(1)
+        mat_data=scipy.io.loadmat(filename)
+        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
+             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+        output["thresh"] = mat_data["thresh"].tolist()
+        output["coinKW"] = mat_data["coinKW"].tolist()
+        output["totalKW"] = mat_data["totalKW"].tolist()
+        output["usePercentage"] = mat_data["usePercentage"].tolist()
+        output["deadTimes"] = mat_data["deadTimes"].tolist()[:-1]
+        output["deadTimePer"] = mat_data["deadTimePer"].tolist()
+        output["vetoedNum"] = mat_data["vetoedNum"].tolist()[:-1]
+        output["vetoEff"] = mat_data["vetoEff"].tolist()
+        # the last element in vetoedNum is actually total triggers number
+        totalTrigNum = mat_data["vetoedNum"].tolist()[-1]
+        # the last element in deadTimes is actually total time
+        totalTime = mat_data["deadTimes"].tolist()[-1]
+        return output, totalTrigNum, totalTime
+    
+    ## Set up file_handle:
+    file_handle = file(filename, 'rb')
+    # case 2: txt file
+    if ext == '.txt':
+        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
+             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+        lines=file_handle.readlines()
+        totalTrigNum = float(lines[0].split(":")[1].strip())
+        totalTime = float(lines[1].split(":")[1].strip())
+        for line in lines:
+            info=line.strip().split()
+            if info[0][0]!="#" and info[0][0]!="%":
+                output["thresh"].append(float(info[0]))
+                output["coinKW"].append(float(info[1]))
+                output["totalKW"].append(float(info[2]))
+                output["usePercentage"].append(float(info[3]))
+                output["deadTimes"].append(float(info[4]))
+                output["deadTimePer"].append(float(info[5]))
+                output["vetoedNum"].append(float(info[6]))
+                output["vetoEff"].append(float(info[7]))
+        return output, totalTrigNum, totalTime
+    # case 3: pickle file
+    if ext == '.pickle':
+        import cPickle
+        output = cPickle.load(file_handle)
+        totalTrigNum = output["vetoedNum"].pop()
+        totalTime = output["deadTimes"].pop()
+        return output, totalTrigNum, totalTime
+    # case 4: unsupported file type
+    else:
+        raise ValueError, "Unrecognized file extension"
+
+def main(opts):
+    
+    # figure out necessary info from file name
+    name_parts = os.path.splitext(opts.result_file)[0].split("-")
+    half_window_size = name_parts[-2]
+    channel = name_parts[-3]
+    ifo = name_parts[-4].upper()
+    info = "-".join([opts.name_tag,ifo,channel])
+    # folder where all the output goes
+    baseDir = os.path.join(opts.out_dir,"%s_webpage"%opts.name_tag)
+    
+    # copy necessary files if not there already
+    # name is a list that contains paths to each file to be linked
+    if opts.verbose: print "setting directory for the page..."
+    names = setup_dir(info,opts)
+    
+    # get the result from vetoStats
+    if opts.verbose: print "loading the result info..."
+    result, totalTrigNum, totalTime = load_info(opts.result_file)
+    
+    ## create html file for the page
+    if opts.verbose: print "creating page..."
+    # make summary report / vetoed insp trigs histogram section
+    veto_file=names[6]
+    summary, vetoedTrigHist = summary_maker(info, result, totalTrigNum,\
+                                totalTime, float(half_window_size), veto_file,\
+                                opts.critical_usePer, opts.qscan,\
+                                opts.injection, opts.injection_file)
+    
+    # put together and make a webpage
+    channel_page(info, names, summary, vetoedTrigHist, baseDir)
+    
+    # make qscan page
+    if opts.qscan:
+        if opts.verbose: print "making qscan page..."
+        q_timefile = opts.result_file.replace("veto_data","qscanTimes")
+        qscan_page(q_timefile,info,channel,baseDir)
+    if opts.verbose: print "channelPage_maker for %s trigger * %s done!"\
+                                                            %(ifo,channel)
+    
+if __name__=="__main__":
+    # parse commandline
+    opts = parse_commandline()
+    # do the work
+    main(opts)
