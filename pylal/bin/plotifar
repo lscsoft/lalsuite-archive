@@ -113,6 +113,8 @@ def parse_command_line():
 
   parser.add_option("","--min-ifar",action="store",type= "float",
       default=None,metavar="IFAR",help="the minimum IFAR to plot")
+  parser.add_option("","--max-ifar",action="store",type= "float",
+      default=None,metavar="IFAR",help="the maximum IFAR to plot")
 
   parser.add_option("-a","--snr-ifar",action="store_true",default=False,\
       help="plot the snr vs ifar of coinc triggers" )
@@ -168,9 +170,8 @@ mangleEventID = False
 
 ####################################################################
 
-statistic = CoincInspiralUtils.coincStatistic( 'ifar' )
-snglStat='ifar'
-    
+statistic = CoincInspiralUtils.coincStatistic( 'effective_snr' )
+
 plotsymbols = ['r+','bx','ko','g1']
 hanfordsym = ['b+','bx','r1']
 addsym = ['k+','kx','k1']
@@ -252,7 +253,7 @@ for combo,ifos in zip(combos,ifo_coincs):
   coincs = coincTriggers.coinctype(ifos)
   FAR[combo] = []
   for row in coincs.getsngls(ifos[0]):
-    FAR[combo].append((modifierFAR*row.alpha, modifierFAR*row.alpha1))
+    FAR[combo].append((max(modifierFAR*row.alpha,0.01), modifierFAR*row.alpha1))
 
   stats['stat'][combo] = coincs.getstat()
   stats['IFAR'][combo] = []
@@ -278,12 +279,14 @@ for combo,ifos in zip(combos,ifo_coincs):
 
 if opts.min_ifar:
   minIFAR = opts.min_ifar
-  
+if opts.max_ifar:
+  maxIFAR = opts.max_ifar
+
 bkgmin = 0.8*minIFAR
 bkgmax = 1.2*maxIFAR
-
-bkg = bkgmin*exp(array(range(10001))/10000.*log(bkgmax/bkgmin))
+bkg = bkgmin*exp(array(range(10001))*log(bkgmax/bkgmin)/10000.)
 ibkg = 1./bkg
+ibkg = array(ibkg)
 ibkg_p1 = ibkg + sqrt(ibkg)
 ibkg_m1 = array([max(x - sqrt(x), 0.1) for x in ibkg])
 bkg_x1,bkg_y1 = viz.makesteps(bkg, ibkg_p1, ibkg_m1)
@@ -309,10 +312,17 @@ if opts.ifar_dist and not opts.combine_types:
             markersize=15, linewidth=2, label='_nolegend_')
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
-  xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
-  ylim(ymin=0.6,ymax=opts.num_categories*1.1/minIFAR)
+  if opts.min_ifar:
+    xlim(xmin=opts.min_ifar)
+  else:
+    xlim(xmin=0.9*minIFAR)
+  if opts.max_ifar:
+    xlim(xmax=opts.max_ifar)
+  else:
+    xlim(xmax=1.1*maxIFAR)
+  ylim(ymin=0.6,ymax=3./minIFAR)
   legend()
-  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  xlabel(r"IFAR (per analysis time)", size='x-large')
   ylabel(r"Cumulative \#", size='x-large')
   if opts.enable_output is True:
     name = "cumhist_ifar"
@@ -321,8 +331,6 @@ if opts.ifar_dist and not opts.combine_types:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
-  if not opts.show_plot:
-    close()
 
 if opts.combine_types and opts.ifar_dist:
   figure(figure_number)
@@ -338,10 +346,17 @@ if opts.combine_types and opts.ifar_dist:
   hold(True)
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
-  xlim(xmin=0.9*minIFAR,xmax=1.1*maxIFAR)
-  ylim(ymin=0.6,ymax=opts.num_categories*1.1/minIFAR)
+  if opts.min_ifar:
+    xlim(xmin=opts.min_ifar)
+  else:
+    xlim(xmin=0.9*minIFAR)
+  if opts.max_ifar:
+    xlim(xmax=opts.max_ifar)
+  else:
+    xlim(xmax=1.1*maxIFAR)
+  ylim(ymin=0.6,ymax=3./minIFAR)
   legend()
-  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  xlabel(r"IFAR (per analysis time)", size='x-large')
   ylabel(r"Cumulative \#", size='x-large')
   if opts.enable_output is True:
     name = "cumhist_ifar_combined"
@@ -350,8 +365,6 @@ if opts.combine_types and opts.ifar_dist:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
-  if not opts.show_plot:
-    close()
 
 if opts.snr_ifar:
   figure(figure_number)
@@ -362,7 +375,7 @@ if opts.snr_ifar:
     hold(True)
   grid(True)
   legend(loc='lower right')
-  xlabel(r"$1/\langle N \rangle$", size='x-large')
+  xlabel(r"IFAR (per analysis time)", size='x-large')
   ylabel(r"Combined Effective SNR", size='x-large')
   if opts.enable_output is True:
     name = "stat_vs_ifar"
@@ -371,8 +384,7 @@ if opts.snr_ifar:
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
     tagList.append(text)
-  if not opts.show_plot:
-    close()
+
 
 # ============================================================================
 # final step: html, cache file generation
