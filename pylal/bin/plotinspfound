@@ -20,7 +20,8 @@ from pylab import *
 ###############################################################################
 usage =  """Usage: %prog [options]
 
-plotinspfound --cache-file triggers.cache --bbhinj --sire-first --coire-second
+plotinspfound --cache-file triggers.cache --bbhinj --sire-second --core-first
+--h-one --h-two --l-one
 
 """
 
@@ -42,6 +43,8 @@ def parse_command_line():
                      default=False,help="plot snr loss against mchirp" )
   parser.add_option("-e", "--plot-end-time",action="store_true",\
                      default=False,help="plot snr loss agains end_time" )
+  parser.add_option("-s", "--plot-snr",action="store_true",\
+                     default=False,help="plot snr loss agains snr" )
   parser.add_option("-b", "--bbhinj",action="store_true",\
                      default=False,help="use bbhinj trigger files" )
   parser.add_option("-n", "--nsbhinj",action="store_true",\
@@ -50,8 +53,15 @@ def parse_command_line():
                      default=False,help="use bnsinj trigger files" )
   parser.add_option("-f", "--coire-first",action="store_true",\
                      default=False,help="check snr at first coincidence stage" )
-  parser.add_option("-s", "--sire-second",action="store_true",\
+  parser.add_option("-r", "--sire-second",action="store_true",\
                      default=False,help="check snr at second inspiral stage" )
+  parser.add_option("-w", "--h-one",action="store_true",\
+                     default=False,help="use H1 triggers" )
+  parser.add_option("-a", "--h-two",action="store_true",\
+                     default=False,help="use H2 triggers" )
+  parser.add_option("-o", "--l-one",action="store_true",\
+
+                     default=False,help="use L1 triggers" )
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
@@ -83,14 +93,31 @@ if len( inj_pattern ) == 0:
   print "ERROR! must specify one of --bbhinj, --bnsinj or --nsbhinj"
   sys.exit()
 
-columns=["snr"]
+ifos=[]
+if opts.h_one:
+  ifos.append( "H1" )
+if opts.h_two:
+  ifos.append( "H2" )
+if opts.l_one:
+  ifos.append( "L1" )
+if len( ifos ) == 0:
+  print "ERROR! must specify one of --h-one, --h-two or --l-one"
+  sys.exit()
+
+columns=[]
+if opts.plot_snr:
+  columns.append("snr")
 if opts.plot_mchirp:
   columns.append("mchirp")
 if opts.plot_end_time:
   columns.append("end_time")
+if len( columns ) == 0:
+  print "ERROR! must specify one of --plot-snr, --plot-end-time"
+  print "       or --plot-mchir"
+  sys.exit()
 
 ##############################################################################
-def getSnglTriggers(opts, observatory, pattern):
+def get_sngl_triggers(opts, observatory, pattern):
  
   trigcache = cache.sieve(ifos = observatory, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
@@ -106,7 +133,7 @@ def getSnglTriggers(opts, observatory, pattern):
 
 
 ##############################################################################
-def getCoincTriggers(opts, observatory, pattern):
+def get_coinc_triggers(opts, observatory, pattern):
 
   trigcache = cache.sieve(ifos = observatory, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
@@ -126,7 +153,7 @@ def getCoincTriggers(opts, observatory, pattern):
 
 
 ##############################################################################
-def checksnrloss(opts, observatory, triggers_before, triggers_after):
+def check_snr_loss(opts, observatory, triggers_before, triggers_after, stages):
   """
   Checks the snrs and end times between different stages of the pipeline.
   """
@@ -156,10 +183,11 @@ def checksnrloss(opts, observatory, triggers_before, triggers_after):
           loss_print = '%2.2f' % (loss[i])
           snr1_print = '%3.3f' % (snrs_before[j])
           snr2_print = '%3.3f' % (snrs_after[i])
-          print " Warning! ", loss_print, " loss in SNR for trigger:"
-          print "   ", observatory, "snr = ", snr1_print, \
+          print " Warning! ", loss_print, " loss in SNR for trigger in ", \
+                observatory, " ", stages
+          print "          snr = ", snr1_print, \
                 "end time = ", end_times_before[j]
-          print "      ", "snr = ", snr2_print, \
+          print "          snr = ", snr2_print, \
                 "end time = ", end_times_after[i]
       else:
         above[0].append( end_times_after[i] )
@@ -167,14 +195,15 @@ def checksnrloss(opts, observatory, triggers_before, triggers_after):
 
     else:
       print "ERROR! Can't find original trigger, check cache file."
-      print "       Setting loss=0 for this trigger."
+      print "       Setting loss=0 for this trigger, end_time = ", \
+                                               end_times_after[i]
       loss.append( 0 )  
       
   return loss #, above, below
 
 
 ##############################################################################
-def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
+def make_plots(opts, observatory, inj_pattern, columns, triggers_after, \
                                                      stages, snr_loss):
   # y-axis is always the same
   graph_ylabel = 'SNR loss'
@@ -188,7 +217,7 @@ def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
 
       plot(end_times_after, snr_loss, 'ro');
   
-      graph_title  = stages +'\n' +observatory +' end_time ' +inj_pattern
+      graph_title  = observatory +' end_time ' +inj_pattern +'\n' +stages
       graph_xlabel = 'GPS end time'
       title(graph_title)
       xlabel(graph_xlabel)
@@ -201,14 +230,14 @@ def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
 
       name = observatory + '_' +inj_pattern +'_end_time_' +stages
       savefig(name)
-      clf()
+      close()
  
  
     elif columns[i] == "snr":
       snrs_after  = triggers_after.get_column("snr")
       semilogx(snrs_after, snr_loss, 'ro');
 
-      graph_title = stages +'\n' +observatory +' SNR ' +inj_pattern
+      graph_title = observatory +' SNR ' +inj_pattern +'\n' +stages
       graph_xlabel = 'SNR'
       title(graph_title)
       xlabel(graph_xlabel)
@@ -220,15 +249,15 @@ def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
 
       name = observatory + '_' +inj_pattern +'_SNR_' +stages
       savefig(name)
-      clf()
+      close()
  
  
     else:
       values = triggers_after.get_column( columns[i] )
       plot(values, snr_loss, 'ro');
       
-      graph_title = stages +'\n' +observatory +' ' +columns[i] \
-                    +' ' +inj_pattern
+      graph_title = observatory +' ' +columns[i] +' ' +inj_pattern +'\n' \
+			              +stages
       graph_xlabel = columns[i]
       title(graph_title)
       xlabel(graph_xlabel)
@@ -241,73 +270,82 @@ def makePlots(opts, observatory, inj_pattern, columns, triggers_after, \
       
       name = observatory +'_' +inj_pattern +'_' +columns[i] +'_' +stages
       savefig(name)
-      clf()
+      close()
+		
 
 
 ##############################################################################
-def doEverything(opts, observatory, inj_pattern, columns):
+def do_everything(opts, ifos, inj_pattern, columns):
 
-  for i in xrange( len(inj_pattern) ):
-    pattern = 'SIRE*FOUND*FIRST*' +inj_pattern[i]
-    sireFirst   = getSnglTriggers(opts, observatory, pattern)
-    pattern = 'COIRE*FOUND*SECOND*' +inj_pattern[i]
-    coireSecond = getCoincTriggers(opts, observatory, pattern)
+  for i in xrange( len(ifos) ):
+    observatory = ifos[i]
 
-    if opts.coire_first:
-      pattern = 'COIRE*FOUND*FIRST*' +inj_pattern[i]
-      coireFirst  = getCoincTriggers(opts, observatory, pattern)
-      
-      loss = checksnrloss(opts, observatory, sireFirst, coireFirst)
-      stages = "SIRE_FIRST_to_COIRE_FIRST"
-      makePlots(opts, observatory, inj_pattern[i], columns, coireFirst, \
-                                                          stages, loss)
+    for j in xrange( len(inj_pattern) ):
+      pattern = 'SIRE*FOUND*FIRST*' +inj_pattern[j]
+      sireFirst   = get_sngl_triggers(opts, observatory, pattern)
+      pattern = 'COIRE*FOUND*SECOND*' +inj_pattern[j]
+      coireSecond = get_coinc_triggers(opts, observatory, pattern)
 
-      if opts.sire_second:
-        pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[i]
-        sireSecond  = getSnglTriggers(opts, observatory, pattern)
-
-        loss = checksnrloss(opts, observatory, coireFirst, sireSecond)
-        stages = "COIRE_FIRST_to_SIRE_SECOND"
-        makePlots(opts, observatory, inj_pattern[i], columns, sireSecond, \
+      stages = "SIRE_FIRST_to_COIRE_SECOND"
+      loss = check_snr_loss(opts, observatory, sireFirst, coireSecond, stages)
+      make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
                                                             stages, loss)
 
-        loss = checksnrloss(opts, observatory, sireSecond, coireSecond)
-        stages = "SIRE_SECOND_to_COIRE_SECOND"
-        makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+      if opts.coire_first:
+        pattern = 'COIRE*FOUND*FIRST*' +inj_pattern[j]
+        coireFirst  = get_coinc_triggers(opts, observatory, pattern)
+      
+        stages = "SIRE_FIRST_to_COIRE_FIRST"
+        loss = check_snr_loss(opts, observatory, sireFirst, coireFirst, stages)
+        make_plots(opts, observatory, inj_pattern[j], columns, coireFirst, \
                                                              stages, loss)
 
-      else:
-        loss = checksnrloss(opts, observatory, coireFirst, coireSecond)
         stages = "COIRE_FIRST_to_COIRE_SECOND"
-        makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
+        loss = check_snr_loss(opts, observatory, coireFirst, coireSecond, \
+                                                                stages)
+        make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
+                                                              stages, loss)
+
+        if opts.sire_second:
+          pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[j]
+          sireSecond  = get_sngl_triggers(opts, observatory, pattern)
+
+          stages = "COIRE_FIRST_to_SIRE_SECOND"
+          loss = check_snr_loss(opts, observatory, coireFirst, sireSecond, \
+                                                                   stages)
+          make_plots(opts, observatory, inj_pattern[j], columns, sireSecond, \
+                                                               stages, loss)
+
+          stages = "SIRE_SECOND_to_COIRE_SECOND"
+          loss = check_snr_loss(opts, observatory, sireSecond, coireSecond, \
+                                                                    stages)
+          make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
+                                                                stages, loss)
+ 
+          stages = "SIRE_FIRST_to_SIRE_SECOND"
+          loss = check_snr_loss(opts, observatory, sireFirst, sireSecond, \
+                                                                  stages)
+          make_plots(opts, observatory, inj_pattern[j], columns, sireSecond, \
+                                                               stages, loss)
+
+
+      elif opts.sire_second:
+        pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[j]
+        sireSecond  = get_sngl_triggers(opts, observatory, pattern)
+  
+        stages = "SIRE_FIRST_to_SIRE_SECOND"
+        loss = check_snr_loss(opts, observatory, sireFirst, sireSecond, stages)
+        make_plots(opts, observatory, inj_pattern[j], columns, sireSecond, \
                                                              stages, loss)
 
-    elif opts.sire_second:
-      pattern = 'SIRE*FOUND*SECOND*' +inj_pattern[i]
-      sireSecond  = getSnglTriggers(opts, observatory, pattern)
-  
-      loss = checksnrloss(opts, observatory, sireFirst, sireSecond)
-      stages = "SIRE_FIRST_to_SIRE_SECOND"
-      makePlots(opts, observatory, inj_pattern[i], columns, sireSecond, \
-                                                          stages, loss)
+        stages = "SIRE_SECOND_to_COIRE_SECOND"
+        loss = check_snr_loss(opts, observatory, sireSecond, coireSecond, \
+                                                                  stages)
+        make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
+                                                              stages, loss)
 
-      loss = checksnrloss(opts, observatory, sireSecond, coireSecond)
-      stages = "SIRE_SECOND_to_COIRE_SECOND"
-      makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
-                                                           stages, loss)
-
-    else:
-      loss = checksnrloss(opts, observatory, sireFirst, coireSecond)
-      stages = "SIRE_FIRST_to_COIRE_SECOND"
-      makePlots(opts, observatory, inj_pattern[i], columns, coireSecond, \
-                                                           stages, loss)
 
 
 ##############################################################################
 
-observatory="H1"
-doEverything(opts, observatory, inj_pattern, columns)
-#observatory="H2"
-#doEverything(opts, observatory, inj_pattern, columns)
-#observatory="L1"
-#doEverything(opts, observatory, inj_pattern, columns)
+do_everything(opts, ifos, inj_pattern, columns)
