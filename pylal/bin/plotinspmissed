@@ -96,11 +96,12 @@ def getData( table, xname, yname, ifo  ):
   return xp, yp, legx, legy
 
 #######################################################################
-def savePlot(opts, filename, tag ):
+def savePlot(opts, filename, tag, keep=False):
   """
   This is a helper function to save a plot.
   @param filename: name of the plot
   @param tag:      tag for the plot
+  @param keep:     whether to close plot (boolean, default=False)
   """
        
   fname = InspiralUtils.set_figure_name(opts, filename)
@@ -108,7 +109,7 @@ def savePlot(opts, filename, tag ):
                                             dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
   tagList.append( tag )
-  if not opts.show_plot:
+  if not opts.show_plot and not keep:
     close()
   return fname
 
@@ -282,7 +283,7 @@ def parse_command_line():
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
   parser.add_option("-O","--enable-output",action="store_true",\
-      default="false",  metavar="OUTPUT",\
+      default=False,  metavar="OUTPUT",\
         help="enable the generation of the html and cache documents")
   parser.add_option("","--gps-start-time",action="store",\
       type="int",  metavar="GPSSTARTTIME",\
@@ -624,11 +625,14 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
       if ys=='log':
         axes().set_yscale('log')    
         filename = xname+'-'+yname+'-log-'+ifo
-        savePlot( opts, filename, titleText)
+        savePlot( opts, filename, titleText, keep=True)
         
         # include followup links
         if xname=="mtotal" and yname=="eff_dist" and opts.do_followup:
           createImageMap(opts, missedInj, ifo,  filename)
+
+        if not opts.show_plot:
+          close()
 
     
 ##########################################
