@@ -24,11 +24,11 @@
 #__title__ = "Followup missed injections"
 
 import os, sys, exceptions, copy
-from optparse import *
+from math import sqrt, pi
 
 import matplotlib
 matplotlib.use('Agg')
-from pylab import *
+from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
 try:
   set
 except NameError:
@@ -76,8 +76,6 @@ class FollowupMissed:
     @param opts: The 'opts' from the main code
     @param deltaTime: The time window that is used in the time-series plots (in seconds)
     """
-    # must do this within here for unknown reason; error instead
-    from glue.ligolw import table 
     rcParams.update({'text.usetex': False})
 
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
@@ -142,9 +140,9 @@ class FollowupMissed:
     except:
       raise "Error while reading process_params table from file", coireFile
     
-    for table in processParams:
-      if table.param=='--injection-window':
-        self.injectionWindow = float(table.value)/1000.0
+    for tab in processParams:
+      if tab.param=='--injection-window':
+        self.injectionWindow = float(tab.value)/1000.0
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
 
@@ -362,7 +360,7 @@ class FollowupMissed:
     eta = inj.mass1 * inj.mass2 / totalMass / totalMass
 
     # Given the masses (and therefore eta), the expected horizon distance(SNR) has to be scaled by this factor
-    factor = math.sqrt(4 * eta)
+    factor = sqrt(4 * eta)
 
     output = {}
     # for each ifo that has been found
