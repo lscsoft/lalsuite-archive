@@ -316,7 +316,6 @@ if opts.quantization_time is not None:
   live_time = [segment(s[0], s[0] + (abs(s)//T)*T) for s in naive_live_time]
   veto_segs = full_segs - live_time
 
-
 for file in injFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], \
       verbose=opts.verbose)
@@ -329,6 +328,7 @@ for file in injFiles:
     injTrig = injTrig.cluster(opts.cluster_window)
   injTriggers.extend(injTrig)
 
+slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
 
 for file in slideFiles:
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], \
@@ -337,32 +337,19 @@ for file in slideFiles:
   if (opts.veto_file is not None) or (opts.quantization_time is not None):
       inspSlide = inspSlide.veto(veto_segs)
 
-  if opts.num_slides > 0:
-    slide_num = range(1 , opts.num_slides + 1)
-    slide_num.extend(range(-opts.num_slides, 0))
-  else:
-    slide_num = [0]
-
-  slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
   if inspSlide is not None:
-    for slide in slide_num:
-      this_slide = {}
-      this_slide["slide_num"] = slide
-      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+    # make coincs
+    this_slide = \
+        CoincInspiralUtils.coincInspiralTable(inspSlide,stat)
+    this_slide = \
+        this_slide.coincinclude([opts.ifoa,opts.ifob])
 
-      # make coincs
-      this_slide["coinc_trigs"] = \
-          CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],stat)
-      this_slide["coinc_trigs"] = \
-          this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
-
-      # cluster triggers
-      if opts.cluster_window:
-        this_slide["coinc_trigs"] = \
-          this_slide["coinc_trigs"].cluster(opts.cluster_window)  
+    # cluster triggers
+    if opts.cluster_window:
+      this_slide = this_slide.cluster(opts.cluster_window)  
     
-      # add slide to list
-      slideTriggers.extend(this_slide["coinc_trigs"])
+    # add slide to list
+    slideTriggers.extend(this_slide)
 
 #######################################################################
 # extract the information from the tables
