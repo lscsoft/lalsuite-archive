@@ -61,8 +61,11 @@ def parse_command_line():
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
-  parser.add_option("-o", "--output",action="store_true",\
-                     default="False",help="write trigger informtion to file")
+  parser.add_option("-W", "--write-output",action="store_true", \
+                     default=False,help="write trigger informtion to file")
+  parser.add_option("-o","--output-path",action="store", type="string", \
+                     default=None,help="specify output path")
+
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
@@ -114,6 +117,16 @@ if opts.plot_mchirp:
 if opts.plot_end_time:
   columns.append("end_time")
   sys.exit()
+
+if opts.write_output:
+  if opts.output_path:
+    outfile = opts.output_path
+  else:
+    outfile = "pinspfound_log.txt"
+else:
+  if opts.output_path:
+    print "Error! cannot specify --output-path without using --write-output"
+    sys.exit()
 
 
 ##############################################################################
@@ -189,7 +202,7 @@ def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
                 "         ", observatory, ",", inj_pattern, ",", stages
           print " end_time = ", end_times_before[j], " snr = ", snr1_print 
           print " end_time = ", end_times_after[i],  " snr = ", snr2_print 
-        if opts.output:
+        if opts.write_output:
           outstring = observatory + ' ' + inj_pattern + ' '
           outstring = outstring + str(end_times_after[i]) + ' '
           outstring = outstring + str(snrs_before[j]) + ' '
@@ -324,13 +337,13 @@ def do_everything(opts, ifos, inj_pattern, columns):
 
 
 ##############################################################################
-if opts.output:
-  fout = open("snrloss.txt", "w")
+if opts.write_output:
+  fout = open(outfile, "w")
   outstring = " ifo, inj_pattern, end_time, snr_before, snr_after,"
   outstring = outstring + ',snr_loss, stages' + '\n'
   fout.write(outstring);
 
 do_everything(opts, ifos, inj_pattern, columns)
 
-if opts.output:
+if opts.write_output:
   fout.close()
