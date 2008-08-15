@@ -51,6 +51,8 @@ def parse_command_line():
                      default=False,help="use nsbhinj trigger files" )
   parser.add_option("-l", "--bnsinj",action="store_true",\
                      default=False,help="use bnsinj trigger files" )
+  parser.add_option("-S", "--spininj",action="store_true",\
+                     default=False,help="use spininj trigger files" )
   parser.add_option("-f", "--coire-first",action="store_true",\
                      default=False,help="check snr at first coincidence stage" )
   parser.add_option("-r", "--sire-second",action="store_true",\
@@ -93,8 +95,10 @@ if opts.bnsinj:
   inj_pattern.append( "BNSINJ" )
 if opts.nsbhinj:
   inj_pattern.append( "NSBHINJ" )
+if opts.spininj:
+  inj_pattern.append( "SPININJ" )
 if len( inj_pattern ) == 0:
-  print "ERROR! must specify one of --bbhinj, --bnsinj or --nsbhinj"
+  print "ERROR! must specify one of --bbhinj, --bnsinj, --nsbhinj or --spininj"
   sys.exit()
 
 ifos=[]
