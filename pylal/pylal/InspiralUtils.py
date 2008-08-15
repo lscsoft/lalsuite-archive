@@ -114,12 +114,9 @@ def write_html_output(opts, args, fnameList, tagLists, \
     page.addheader("<%method cvsid> $Id$ </%method>")
   else:
     page.h1(opts.name + " results")
-    try:
-      if opts.user_tag:
-        page.p("user-tag: " + opts.user_tag)
-    except NameError:
-      pass
-    page.hr()
+
+  page.p(opts.prefix + opts.suffix)
+  page.hr()
 
   # -- filename
   if cbcweb:
