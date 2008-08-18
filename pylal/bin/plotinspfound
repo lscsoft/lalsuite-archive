@@ -13,6 +13,7 @@ from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
+from pylal import SimInspiralUtils
 import numpy
 import matplotlib
 matplotlib.use('Agg')
@@ -120,7 +121,6 @@ if opts.plot_mchirp:
   columns.append("mchirp")
 if opts.plot_end_time:
   columns.append("end_time")
-  sys.exit()
 
 if opts.write_output:
   if opts.output_path:
@@ -155,7 +155,7 @@ def get_coinc_triggers(opts, observatory, pattern):
   trigcache = cache.sieve(ifos = observatory, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
   if opts.verbose:
-    print "\n reading the following trig files..."
+    print "\n reading the following trigger files..."
     for file in trigFiles:
       print file
     print "\n"
@@ -170,19 +170,34 @@ def get_coinc_triggers(opts, observatory, pattern):
 
 
 ##############################################################################
+def get_injections(opts, observatory, pattern): 
+  injcache = cache.sieve(ifos = observatory, description = pattern)
+  injFiles = injcache.checkfilesexist()[0].pfnlist()
+
+  if opts.verbose:
+    print "\n reading the following injection files..."
+    for file in injFiles:
+      print file
+    print "\n"
+
+  injections = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
+
+  return injections
+
+
+##############################################################################
 def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
                                                   inj_pattern, stages):
   """
   Checks the snrs and end times between different stages of the pipeline.
   """
   loss = []
-  above = [[],[]]
-  below = [[],[]]
+#  above = [[],[]]
+#  below = [[],[]]
   
   # Convert end_end_times before to a list so we can use list.index
   end_times_before = list( triggers_before.get_column("end_time") )
   snrs_before = triggers_before.get_column("snr")
-  
   
   end_times_after  = triggers_after.get_column("end_time")
   snrs_after  = triggers_after.get_column("snr") 
@@ -195,8 +210,8 @@ def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
       loss.append( snrs_before[j] - snrs_after[i])
  
       if loss[i] >= opts.threshold:
-        below[0].append( end_times_after[i] )
-        below[1].append( loss[i] )
+#        below[0].append( end_times_after[i] )
+#        below[1].append( loss[i] )
         if opts.display:
           loss_print = '%3.2f' % (loss[i])
           snr1_print = '%3.2f' % (snrs_before[j])
@@ -215,9 +230,9 @@ def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
  
           fout.write(outstring)
 
-      else:
-        above[0].append( end_times_after[i] )
-        above[1].append( loss[i] )
+#      else:
+#       above[0].append( end_times_after[i] )
+#       above[1].append( loss[i] )
 
     else:
       if opts.verbose:
@@ -230,8 +245,36 @@ def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
 
 
 ##############################################################################
+def track_column(opts, observatory, triggers_before, triggers_after, column):
+
+  change=[]
+
+  # Convert end_end_times before to a list so we can use list.index
+  end_times_before = list( triggers_before.get_column("end_time") )
+  column_before = triggers_before.get_column(column)
+  
+  end_times_after  = triggers_after.get_column("end_time")
+  column_after  = triggers_after.get_column(column) 
+
+  for i in xrange( len(end_times_after) ):
+   
+    if end_times_after[i] in end_times_before:
+      j = end_times_before.index( end_times_after[i] )
+      
+      change.append( column_before[j] - column_after[i])
+
+      if opts.verbose:
+        print "ERROR! Can't find original trigger, check cache file."
+        print "       Setting change=0 for this trigger, end_time = ", \
+                                                 end_times_after[i]
+    else:
+      change.append( 0 )  
+      
+  return change
+
+##############################################################################
 def make_plots(opts, observatory, inj_pattern, columns, triggers_after, \
-                                                     stages, snr_loss):
+                                                     snr_loss):
   # y-axis is always the same
   graph_ylabel = 'SNR loss'
   delta = 0.05*(max(snr_loss) - min(snr_loss))
@@ -345,9 +388,17 @@ if opts.write_output:
   fout = open(outfile, "w")
   outstring = " ifo, inj_pattern, end_time, snr_before, snr_after,"
   outstring = outstring + ',snr_loss, stages' + '\n'
-  fout.write(outstring);
+  fout.write(outstring)
 
-do_everything(opts, ifos, inj_pattern, columns)
+# do_everything(opts, ifos, inj_pattern, columns)
+injections = get_injections(opts, "HL", "INJECTIONS*BBHINJ*" )
+
+observatory = "H1"
+pattern = 'SIRE*FOUND*FIRST*' + inj_pattern[0]
+sireFirst = get_sngl_triggers(opts, observatory, pattern)
+pattern = 'COIRE*FOUND*FIRST*' + inj_pattern[0]
+coireFirst = get_coinc_triggers(opts, observatory, pattern)
+change = track_column(opts, observatory, sireFirst, coireFirst, "mchirp")
 
 if opts.write_output:
   fout.close()
