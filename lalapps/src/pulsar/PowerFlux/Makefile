@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.25-64
+VERSION=1.4.26-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
@@ -230,6 +230,23 @@ test4f: powerflux.dyn
 		--max-candidates=10000 --skymap-resolution-ratio=1 \
 	)
 
+test4g: powerflux-mt
+	( export LD_LIBRARY_PATH=$(LD_LIBRARY_PATH):$(LALROOT)/lib:$(LALROOT)/support-lib ; \
+	valgrind --tool=memcheck --error-limit=no  --leak-check=full ./powerflux-mt --dataset=random.dst -f 360000 -n 501 \
+		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
+		--averaging-mode=one --do-cutoff=1 --lock-file=test.lock \
+		--subtract-background=0 --ks-test=1 --filter-lines=0 \
+		--spindown-start=0.0 --spindown-step=2e-10 --spindown-count=2 \
+		--dump-candidates=0 \
+		--dump-points=0 \
+		--sky-marks-file=all_sky_marks.txt \
+	        --earth-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/earth05-09.dat \
+        	--sun-ephemeris=/home/volodya/LIGO/LAL/lal/packages/pulsar/test/sun05-09.dat  \
+ 		--write-dat=NONE \
+ 		--focus-dec=$(DEC) --focus-ra=$(RA) --focus-radius=0.1 \
+		--max-candidates=10000 --skymap-resolution-ratio=1 \
+	)
+
 test5: powerflux
 	time ./powerflux -i /home/volodya/LIGO/S2/S2.L1.op/power.L1. -f $(BAND) -n 501 \
 		--ephemeris-path=/home/volodya/LIGO/LAL/lalapps/src/detresponse \
@@ -358,6 +375,11 @@ upload: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
+upload.a: powerflux-condor powerflux-mt
+	globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
+	globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
+	
 upload.g: powerflux-condor powerflux-mt
 	scp -C powerflux-condor gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-condor.$(VERSION)
 	scp -C powerflux-mt gallatin.physics.lsa.umich.edu:PowerFlux/powerflux-mt.$(VERSION)
@@ -375,3 +397,9 @@ upload.c: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-condor ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt ldas-grid.ligo.caltech.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) ldas-grid.ligo.caltech.edu:PowerFlux/
+
+upload.m: powerflux-condor powerflux-mt
+	globus-scp -C powerflux-condor vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-condor.$(VERSION)
+	globus-scp -C powerflux-mt vdergach@morgane.aei.mpg.de:PowerFlux/powerflux-mt.$(VERSION)
+	globus-scp -C $(FILES) vdergach@morgane.aei.mpg.de:PowerFlux/
+	

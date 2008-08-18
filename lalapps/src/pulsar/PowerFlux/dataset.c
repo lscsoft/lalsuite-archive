@@ -881,16 +881,18 @@ get_whole_sky_AM_response(d->gps, d->free, args_info.orientation_arg, &(d->AM_co
 fprintf(stderr, "Initializing polarizations for dataset %s\n", d->name);
 init_polarizations1(d->polarizations, d->AM_coeffs_plus, d->AM_coeffs_cross, d->AM_coeffs_size);
 
-precompute_values(fine_grid);
-/* Check AM_response for correctness */
-fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
-for(i=0;i<ntotal_polarizations;i++) {
-	verify_whole_sky_AM_response(d->gps, d->free, d->polarizations[i].orientation, 
-		fine_grid, 
-		d->polarizations[i].AM_coeffs, d->polarizations[i].name);	
+if(args_info.extended_test_arg) {
+	precompute_values(fine_grid);
+	/* Check AM_response for correctness */
+	fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
+	for(i=0;i<ntotal_polarizations;i++) {
+		verify_whole_sky_AM_response(d->gps, d->free, d->polarizations[i].orientation, 
+			fine_grid, 
+			d->polarizations[i].AM_coeffs, d->polarizations[i].name);	
+		}
+	
+	free_values(fine_grid);
 	}
-
-free_values(fine_grid);
 
 fprintf(stderr,"Computing cutoff values for dataset %s\n", d->name);
 /* compute CutOff values for each patch */
@@ -1273,7 +1275,7 @@ while(1) {
 	}
 }
 
-static void d_read_directory(DATASET *dst, char *dir, int length)
+static void d_read_directory(DATASET *dst, char *line, int length)
 {
 DIR * d;
 struct dirent *de;
@@ -1282,16 +1284,36 @@ struct timeval start_time, end_time, last_time;
 int i, last_i, limit=100;
 double delta, delta_avg;
 long retries;
+int alternative, ai, aj;
 s=do_alloc(length+20001, sizeof(*s));
-memcpy(s, dir, length);
-s[length]=0;
-fprintf(stderr, "Reading directory %s\n", s);
+
 
 retries=0;
-errno=0;
-while((d=opendir(s))==NULL) {
+alternative=1;
+while(1) {
+
+	locate_arg(line, length, alternative, &ai, &aj);
+
+	if(ai==aj) {
+		if(alternative==1) {
+			fprintf(stderr, "Could not pass directory line \"%s\"\n", line);
+			exit(-1);
+			}
+		alternative=1;
+		continue;
+		}
+
+	memcpy(s, &(line[ai]), aj-ai);
+	s[aj-ai]=0;
+	fprintf(stderr, "Reading directory %s\n", s);
+
+	errno=0;
+	if((d=opendir(s))!=NULL)break;
+
 	int errsv=errno;
 	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
+
+	alternative++;
 	retries++;
 	condor_safe_sleep(1);
 	}
@@ -1419,6 +1441,22 @@ if(!strncasecmp(line, "expand_sft_array", 16)) {
 	count=atoll(&(line[ai]));
 	if(count> 0)expand_sft_array(&(datasets[d_free-1]), count);
 	} else 
+if(!strncasecmp(line, "expected_sft_count", 18)) {
+	int count;
+	locate_arg(line, length, 1, &ai, &aj);
+	count=atoll(&(line[ai]));
+	if(count>= 0) {
+		if(count!=datasets[d_free-1].free) {
+			fprintf(stderr, "**** ERROR: SFT count mismatch have %d versus expected %d\n", datasets[d_free-1].free, count);
+			exit(-1);
+			}
+		} else {
+		if(-count >datasets[d_free-1].free) {
+			fprintf(stderr, "**** ERROR: SFT count mismatch have only %d but expected at least %d\n", datasets[d_free-1].free, -count);
+			exit(-1);
+			}
+		}
+	} else 
 if(!strncasecmp(line, "lock_file", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	if(datasets[d_free-1].lock_file!=NULL)free(datasets[d_free-1].lock_file);
@@ -1435,8 +1473,8 @@ if(!strncasecmp(line, "gps_stop", 8)) {
 if(!strncasecmp(line, "block_dc_factor", 15)) {
 	datasets[d_free-1].dc_factor_blocked=1;
 	if(datasets[d_free-1].dc_factor_touched) {
-		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
-		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n", datasets[d_free].name);
+		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n", datasets[d_free].name);
 		exit(-1);
 		}
 	} else 
@@ -1447,14 +1485,15 @@ if(!strncasecmp(line, "dc_factor", 9)) {
 	fprintf(LOG, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
 	fprintf(stderr, "Set dc_factor=%f for dataset \"%s\" sft count=%d\n", datasets[d_free-1].dc_factor, datasets[d_free-1].name, datasets[d_free-1].free);
 	if(datasets[d_free-1].dc_factor_blocked) {
-		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
-		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n");
+		fprintf(stderr, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n", datasets[d_free].name);
+		fprintf(LOG, "Dataset \"%s\" has dc_factor blocked, but attempted to apply dc correction, exiting\n", datasets[d_free].name);
 		exit(-1);
 		}
 	} else 
 if(!strncasecmp(line, "directory", 9)) {
-	locate_arg(line, length, 1, &ai, &aj);
-	d_read_directory(&(datasets[d_free-1]), &(line[ai]), aj-ai);
+	//locate_arg(line, length, 1, &ai, &aj);
+	//d_read_directory(&(datasets[d_free-1]), &(line[ai]), aj-ai);
+	d_read_directory(&(datasets[d_free-1]), line, length);
 	} else 
 if(!strncasecmp(line, "file", 4)) {
 	char *s;
