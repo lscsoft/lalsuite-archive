@@ -52,27 +52,16 @@ def disterr(coinc_table, ifo_list, use_avg, statistic):
   ifoa_snr = coinc_table.getsngls(ifo_list[0]).get_column(statistic)
   ifob_snr = coinc_table.getsngls(ifo_list[1]).get_column(statistic)
 
-  ifoa_sigma = coinc_table.getsngls(ifo_list[0]).get_column('sigmasq')
-  ifob_sigma = coinc_table.getsngls(ifo_list[1]).get_column('sigmasq')
-
   if use_avg:
     denoma = (ifoa_dist + ifob_dist) / 2.0
-    denomb = (ifoa_dist + ifob_dist) / 2.0
   else:
     denoma = ifob_dist
-    denomb = ifoa_dist
  
   ifoa_error = abs(ifoa_dist - ifob_dist) / denoma
-  ifob_error = abs(ifob_dist - ifoa_dist) / denomb
 
   dist_error = ifoa_error
   small_snr = ifoa_snr
   
-  for j in range(len(dist_error)):
-    if ifoa_sigma[j] > ifob_sigma[j]:
-      dist_error[j] = ifob_error[j]
-      small_snr[j] = ifob_snr[j]
-
   return([small_snr,dist_error])
                                                 
 
@@ -316,7 +305,6 @@ if opts.quantization_time is not None:
   live_time = [segment(s[0], s[0] + (abs(s)//T)*T) for s in naive_live_time]
   veto_segs = full_segs - live_time
 
-
 for file in injFiles:
   inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], \
       verbose=opts.verbose)
@@ -329,6 +317,7 @@ for file in injFiles:
     injTrig = injTrig.cluster(opts.cluster_window)
   injTriggers.extend(injTrig)
 
+slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
 
 for file in slideFiles:
   inspSlide = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], \
@@ -337,111 +326,133 @@ for file in slideFiles:
   if (opts.veto_file is not None) or (opts.quantization_time is not None):
       inspSlide = inspSlide.veto(veto_segs)
 
-  if opts.num_slides > 0:
-    slide_num = range(1 , opts.num_slides + 1)
-    slide_num.extend(range(-opts.num_slides, 0))
-  else:
-    slide_num = [0]
-
-  slideTriggers = CoincInspiralUtils.coincInspiralTable(stat=stat)
   if inspSlide is not None:
-    for slide in slide_num:
-      this_slide = {}
-      this_slide["slide_num"] = slide
-      this_slide["sngl_trigs"] = inspSlide.getslide(slide)
+    # make coincs
+    this_slide = \
+        CoincInspiralUtils.coincInspiralTable(inspSlide,stat)
+    this_slide = \
+        this_slide.coincinclude([opts.ifoa,opts.ifob])
 
-      # make coincs
-      this_slide["coinc_trigs"] = \
-          CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],stat)
-      this_slide["coinc_trigs"] = \
-          this_slide["coinc_trigs"].coincinclude([opts.ifoa,opts.ifob])
-
-      # cluster triggers
-      if opts.cluster_window:
-        this_slide["coinc_trigs"] = \
-          this_slide["coinc_trigs"].cluster(opts.cluster_window)  
+    # cluster triggers
+    if opts.cluster_window:
+      this_slide = this_slide.cluster(opts.cluster_window)  
     
-      # add slide to list
-      slideTriggers.extend(this_slide["coinc_trigs"])
+    # add slide to list
+    slideTriggers.extend(this_slide)
 
 #######################################################################
 # extract the information from the tables
-[inj_snr,inj_error] = disterr(injTriggers,[opts.ifoa,opts.ifob], \
+# Calculate the distance error for the injections and get snr for ifo_A
+[inj_snr_A,inj_error_A] = disterr(injTriggers,[opts.ifoa,opts.ifob], \
     opts.use_avg_distance, opts.statistic)
 
+# Calculate the distance error for the injections and get snr for ifo_B
+[inj_snr_B,inj_error_B] = disterr(injTriggers,[opts.ifob,opts.ifoa], \
+    opts.use_avg_distance, opts.statistic)
+
+# Calculate the distance error for the slide triggers and get snr 
+# values first for ifo_A, then ifo_B
 if opts.slide_glob or opts.slide_pattern:
-  [slide_snr,slide_error] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
+  [slide_snr_A,slide_error_A] = disterr(slideTriggers,[opts.ifoa,opts.ifob], \
+      opts.use_avg_distance, opts.statistic)
+  [slide_snr_B,slide_error_B] = disterr(slideTriggers,[opts.ifob,opts.ifoa], \
       opts.use_avg_distance, opts.statistic)
 
 figNum = 0
 #######################################################################
 # plot of distance accuracy vs snr
 if opts.dist_snr:
-  text = "Fractional difference in effective distance versus SNR"
-  InspiralUtils.message(opts,"        "+ text)
 
-  figNum += 1
-  figure(figNum)
-  leg = []
-  # plot the slides
-  if opts.slide_glob or opts.slide_pattern:
-    semilogx(slide_snr, slide_error, 'k+')
-    if opts.num_slides > 0:
-      leg.append('slide')
-    else: # opts.num_slides == 0
-      leg.append('background')
-  # plot the injections
-  semilogx(inj_snr, inj_error, 'rx')
-  leg.append('inj')
+  # Make two distance_accuracy vs snr plots (one with snr of IFO_A 
+  # on the x-axis, one with snr of IFO_B on the x-axis)
+  for ifo in [opts.ifoa,opts.ifob]:
+    text = "Fractional difference in effective distance versus " + ifo + " SNR"
+    InspiralUtils.message(opts,"        "+ text)
 
-  if len(inj_snr)>0:
-    x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
-    if opts.add_fit is True:
-      fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
-      semilogx(x,fit_y,'k',linewidth=2)
-      leg.append('fit')
-    if opts.kappa or opts.epsilon:
-      semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
-    leg.append('cut')
-    xlim(min(x),max(x))
-    ylim(0,2)
-  else:
-    print 'No injection found. skipping plotting of the injections in dist_snr plots'
+    figNum += 1
+    figure(figNum)
+    leg = []
 
-  xlabel('%s of trigger' % opts.statistic.replace("_", r"\_"))
-  ylabel('fractional difference in eff. distance')
-  legend(leg, loc='best')
-  grid(True)
-  if opts.enable_output:
-      name = "eff_dist_cut"
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-          dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append(text)
+    # Set these values to get ifo_A on the x-axis
+    if ifo == opts.ifoa:
+      inj_snr = inj_snr_A
+      inj_error = inj_error_A
+      if opts.slide_glob or opts.slide_pattern:
+        slide_snr = slide_snr_A
+        slide_error = slide_error_A
+    # Set these values to get ifo_B on the x-axis
+    if ifo == opts.ifob:
+      inj_snr = inj_snr_B
+      inj_error = inj_error_B
+      if opts.slide_glob or opts.slide_pattern:
+        slide_snr = slide_snr_B
+        slide_error = slide_error_B
 
-  if opts.figure_name:  
-    savefig(opts.figure_name + "_eff_dist_cut.png")
-  if not opts.show_plot:
-    close()
+    # plot the slides
+    if opts.slide_glob or opts.slide_pattern:
+      semilogx(slide_snr, slide_error, 'k+')
+      if opts.num_slides > 0:
+        leg.append('slide')
+      else: # opts.num_slides == 0
+        leg.append('background')
+    # plot the injections
+    semilogx(inj_snr, inj_error, 'rx')
+    leg.append('inj')
+
+    if len(inj_snr)>0:
+      x = arange(int(min(inj_snr)), int(max(inj_snr)) + 2)
+      if opts.add_fit is True:
+        if ifo == "H1":
+          fit_y = 2.0*abs(16.0/5.5 - 32.0/x)/(16.0/5.5 + 32.0/x)
+        if ifo == "H2":
+          fit_y = 2.0*abs(16.0/x - 32.0/5.5)/(16.0/x + 32.0/5.5)
+        semilogx(x,fit_y,'k',linewidth=2)
+        leg.append('fit')
+      if opts.kappa or opts.epsilon:
+        semilogx(x, opts.kappa + opts.epsilon/x,'k',linewidth=1)
+      leg.append('cut')
+      xlim(min(x),max(x))
+      ylim(0,2)
+    else:
+      print 'No injection found. skipping plotting of the injections in dist_snr plots'
+
+    xlabel('%s of %s trigger' % (opts.statistic.replace("_", r"\_"), ifo))
+    ylabel('fractional difference in eff. distance')
+    legend(leg, loc='best')
+    grid(True)
+    if opts.enable_output:
+        name = "eff_dist_cut_" + ifo + "_snr"
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+            dpi_thumb=opts.figure_resolution)
+        fnameList.append(fname)
+        tagList.append(text)
+
+    if opts.figure_name:  
+      savefig(opts.figure_name + "_eff_dist_cut_" + ifo + "_snr.png")
+    if not opts.show_plot:
+      close()
 
 #######################################################################
 # histogram of distance accuracy
 if opts.dist_hist:
+  # Make the histogram with the distance accuracy calculated by 
+  # using ifo_A, ifo_B when disterr was called above (as opposed to 
+  # using ifo_B, ifo_A) (These are the same if --use-avg is used).
   text = "Histogram of fractional difference in effective distance"
   InspiralUtils.message(opts,"        "+ text)
   figNum += 1
   figure(figNum)
   if opts.slide_glob or opts.slide_pattern:
-    if len(slide_error)>0:
-      [slide_num,slide_bin,junk] = hist(slide_error,bins=20)
+    if len(slide_error_A)>0:
+      [slide_num,slide_bin,junk] = hist(slide_error_A,bins=20)
       slide_num = slide_num/float(sum(slide_num))
     else:
       slide_num=[]
       slide_bin=[]
 
-  if len(inj_error)>0:
-    [inj_num,inj_bin,junk] = hist(inj_error,bins=20)
+  if len(inj_error_A)>0:
+    [inj_num,inj_bin,junk] = hist(inj_error_A,bins=20)
     inj_num = inj_num/float(sum(inj_num))
   else: 
     inj_num = []
@@ -525,14 +536,14 @@ if opts.dist_dist:
 # calculate triggers surviving cut
 if (opts.kappa or opts.epsilon) and opts.dist_cut:
   if opts.slide_glob or opts.slide_pattern:
-    slide_trigs = len(slide_error)
-    slide_cut = sum(asarray(slide_error > opts.kappa + opts.epsilon/slide_snr))
+    slide_trigs = len(slide_error_A)
+    slide_cut = sum(asarray(slide_error_A > opts.kappa + opts.epsilon/slide_snr_A))
     comments += InspiralUtils.message(opts, 'Number of time slide triggers '+ \
         str(slide_trigs))
     comments += InspiralUtils.message(opts, 'Number surviving distance cut '+ \
         str(slide_trigs - slide_cut))
-  inj_trigs = len(inj_error)
-  inj_cut = sum( asarray(inj_error > opts.kappa + opts.epsilon/inj_snr) )
+  inj_trigs = len(inj_error_A)
+  inj_cut = sum( asarray(inj_error_A > opts.kappa + opts.epsilon/inj_snr_A) )
   comments += InspiralUtils.message(opts, 'Number of injection triggers  ' + \
       str(inj_trigs))
   comments += InspiralUtils.message(opts, 'Number surviving distance cut ' + \
