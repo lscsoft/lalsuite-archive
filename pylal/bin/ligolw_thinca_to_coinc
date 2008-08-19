@@ -120,6 +120,51 @@ def set_process_params(xmldoc, process, options):
 #
 # =============================================================================
 #
+#                            Add Missing ID Columns
+#
+# =============================================================================
+#
+
+
+#
+# this is needed because the cbc 2yr tags are on versions of LAL that don't
+# have these columns in the tables.  current versions of lal do.
+#
+
+
+def add_missing_id_columns(xmldoc):
+	#
+	# summ_value table
+	#
+
+	tbl = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
+	try:
+		tbl.appendColumn("summ_value_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in tbl:
+			row.summ_value_id = tbl.get_next_id()
+
+	#
+	# search_summvars table
+	#
+
+	tbl = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
+	try:
+		tbl.appendColumn("search_summvar_id")
+	except ValueError:
+		# already has one
+		pass
+	else:
+		for row in tbl:
+			row.search_summvar_id = tbl.get_next_id()
+
+
+#
+# =============================================================================
+#
 #                          Populate time_slide Table
 #
 # =============================================================================
@@ -437,6 +482,9 @@ lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 process = initialize_process(xmldoc)
 set_process_params(xmldoc, process, options)
 
+if options.verbose:
+	print >>sys.stderr, "adding missing ID columns ..."
+add_missing_id_columns(xmldoc)
 if options.verbose:
 	print >>sys.stderr, "populating thinca time_slide table ..."
 populate_thinca_time_slide_table(xmldoc, process)
