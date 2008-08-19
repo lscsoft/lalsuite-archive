@@ -4,13 +4,8 @@ import sys
 import optparse
 
 import numpy
-import pylab
 
 from pylal import Fr
-from pylal import plotutils
-
-# channel names have characters of significance to LaTeX
-pylab.rc("text", usetex=False)
 
 ##############################################################################
 usage = """usage: %prog [options] file1 (file2 file3)
@@ -18,8 +13,8 @@ usage = """usage: %prog [options] file1 (file2 file3)
 Basic frame reading example.
 """
 parser = optparse.OptionParser(usage)
-parser.add_option("-c", "--channel-name",
-  help="The channel to read from the frame files")
+parser.add_option("-c", "--channels",
+  help="comma-delimited channels to read from the frame files")
 parser.add_option("-p", "--plot-filename",
   help="the filename to which you wish to save the plot")
 parser.add_option("-s", "--show-plot", action="store_true", default=False,
@@ -27,37 +22,49 @@ parser.add_option("-s", "--show-plot", action="store_true", default=False,
 
 opts, args = parser.parse_args()
 
-# check at least one trig file was specified
+# check at least one file was specified
 if len(args) == 0:
   print >>sys.stderr, "Error: a frame file must be specified"
   print >>sys.stderr, "Enter 'plotchannel --help' for usage"
-  sys.exit(1)
+  sys.exit(2)
 
-if not opts.channel_name:
+if opts.channels is None:
   print >>sys.stderr, "Error: a channel name must be specified"
   print >>sys.stderr, "Enter 'plotchannel --help' for usage"
-  sys.exit(1)
+  sys.exit(2)
 
-channel = opts.channel_name
+# switch to non-graphical backend to prevent X server dependence
+if not opts.show_plot:
+    import matplotlib
+    matplotlib.use("Agg")
+import pylab
+from pylal import plotutils
+
+# channel names have characters of significance to LaTeX
+pylab.rc("text", usetex=False)
+
+
+channels = opts.channels.split(",")
 filenames = args
 
-for filename in filenames:
-  y_data, x0, x1, dx, x_unit, y_unit = Fr.frgetvect1d(filename, channel)
-  n = len(y_data)
+for channel in channels:
+  plot = plotutils.SimplePlot()
+  for filename in filenames:
+    y_data, x0, x1, dx, x_unit, y_unit = Fr.frgetvect1d(filename, channel)
+    n = len(y_data)
 
-  # I choose to plot from the offset and report the absolute reference in
-  # the x-axis label.
-  x_data = numpy.arange(x1, x1 + n*dx, dx)
+    x_data = numpy.arange(x0 + x1, x0 + x1 + n*dx, dx)
 
-  print "len(y_data) =", n
-  print "x_0 =", x0
-  print "dx =", dx
-  print "x_unit =", x_unit
-  print "y_unit =", y_unit
+    print filename + ": " + channel
+    print "len(y_data) =", n
+    print "x_0 =", x0
+    print "x_1 =", x1
+    print "dx =", dx
+    print "x_unit =", x_unit
+    print "y_unit =", y_unit
 
-  plot = plotutils.SimplePlot(x_unit + " - " + str(x0), y_unit,
-                              filename + ", " + channel)
-  plot.add_content(x_data, y_data)
+    plot.add_content(x_data, y_data, filename + ": " + channel)
+
   plot.finalize()
   if opts.plot_filename is not None:
     plot.savefig(opts.plot_filename)
