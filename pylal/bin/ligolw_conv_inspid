@@ -115,18 +115,12 @@ def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
 		row.event_id = id_class(row.event_id)
 
 	#
-	# give the table instance its own copy of the validcolumns
-	# dictionary from the class so that it can be edited without
-	# affecting other tables
-	#
-
-	tbl.validcolumns = tbl.validcolumns
-
-
-	#
 	# update the table's list of valid column types, and the Type
 	# attribute on the column element, then reset the sngl_inspiral
-	# table's internal variables so that writing will work correctly
+	# table's internal variables so that writing will work correctly.
+	# note that this modifies the global validcolumns mapping for all
+	# sngl_inspiral tables, so the column type has to be reset to
+	# "int_8s" in the loop over files before loading the next file.
 	#
 
 	tbl.validcolumns["event_id"] = "ilwd:char"
@@ -150,12 +144,12 @@ def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
 options, filenames = parse_command_line()
 
 
-lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
-
-
 for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
+
+	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
 
 	process = initialize_process(xmldoc)
