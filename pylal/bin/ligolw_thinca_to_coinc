@@ -70,13 +70,12 @@ def parse_command_line():
 	)
 	parser.add_option("--zero-lag-file", help = "Thinca file containing zero lag triggers (required).")
 	parser.add_option("--time-slide-file", help = "Thinca file containing time slide triggers (reqired).")
-	parser.add_option("--num-slides", type = "int", help = "Number of time slides (required).")
 	parser.add_option("--output", help = "Output file name (required).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
-	if not (options.zero_lag_file and options.time_slide_file and options.num_slides and options.output):
-		raise ValueError, "must specify all of --zero-lag-file, --time-slide-file, --num-slides and --output"
+	if not (options.zero_lag_file and options.time_slide_file and options.output):
+		raise ValueError, "must specify all of --zero-lag-file, --time-slide-file, and --output"
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -111,7 +110,6 @@ def set_process_params(xmldoc, process, options):
 	params = []
 	params.append(("--zero-lag-file", "lstring", options.zero_lag_file))
 	params.append(("--time-slide-file", "lstring", options.time_slide_file))
-	params.append(("--num-slides", "int_4s", options.num_slides))
 	params.append(("--output", "lstring", options.output))
 
 	llwapp.append_process_params(xmldoc, process, params)
@@ -128,7 +126,7 @@ def set_process_params(xmldoc, process, options):
 #
 
 
-def populate_thinca_time_slide_table(xmldoc, process, num_slides):
+def populate_thinca_time_slide_table(xmldoc, process):
 	"""
 	Reconstruct the list of time slides from lalapps_thinca's command
 	line arguments.
@@ -159,6 +157,7 @@ def populate_thinca_time_slide_table(xmldoc, process, num_slides):
 	# identify lalapps_thinca's time slides
 	#
 
+	num_slides = None
 	offset_vector = {}
         slide_option_pattern = re.compile("--(?P<ifo>[a-zA-Z][0-9])-slide")
 
@@ -166,12 +165,44 @@ def populate_thinca_time_slide_table(xmldoc, process, num_slides):
 	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
 		if row.process_id in process_ids:
 			if row.param == "--num-slides":
-				if row.get_pyvalue() != num_slides:
-					raise ValueError, "Incorrect number of time slides in time slide file"
+				num_slides = row.get_pyvalue()
 			else:
 				match = re.search(slide_option_pattern, row.param)
 				if match is not None:
 					offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
+
+	#
+	# identify the instrument names in play from the search_summary
+	# table
+	#
+
+	instruments = set()
+	for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName):
+		if row.process_id in process_ids:
+			instruments.add(row.ifos)
+	if len(instruments) < 1:
+		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
+	if len(instruments) > 1:
+		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(instruments)
+	# instruments is now a set containing a single string in the form
+	# set(["H1H2L1"]).  the following converts this into a set of
+	# 2-character strings in the form set(["H1", "H2", "L1"]).
+	instruments = [instruments.pop()]
+	while len(instruments[-1]) > 2:
+		instruments = instruments[:-1] + [instruments[-1][:2], instruments[-1][2:]]
+	instruments = set(instruments)
+
+	#
+	# remove instruments from the offset vector that are were not named
+	# in the search summary table entries, and confirm that the offset
+	# vector contains entries for all the instruments are were named in
+	# the search summary table entries.
+	#
+
+	for instrument in set(offset_vector.keys()) - instruments:
+		del offset_vector[instrument]
+	if set(offset_vector.keys()) != instruments:
+		raise ValueError, "instruments named in thinca --??-slide command line options do not match instruments found in search_summary table:  found %s in command line options, %s in search summary table" % (", ".join(offset_vector.keys()), ", ".join(instruments))
 
 	#
 	# build the time slides
@@ -408,7 +439,7 @@ set_process_params(xmldoc, process, options)
 
 if options.verbose:
 	print >>sys.stderr, "populating thinca time_slide table ..."
-populate_thinca_time_slide_table(xmldoc, process, options.num_slides)
+populate_thinca_time_slide_table(xmldoc, process)
 if options.verbose:
 	print >>sys.stderr, "constructing coincs ..."
 populate_coinc_event_sngls(xmldoc, process)
