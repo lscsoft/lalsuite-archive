@@ -64,7 +64,7 @@ def parse_command_line():
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
-  parser.add_option("-W", "--write-output",action="store_true", \
+  parser.add_option("-W", "--summary-file",action="store_true", \
                      default=False,help="write trigger informtion to file")
   parser.add_option("-o","--output-path",action="store", type="string", \
                      default=None,help="specify output path")
@@ -89,16 +89,16 @@ else:
   print "--cache-file must be specified!"
   sys.exit()
 
-inj_pattern=[]
+injPattern=[]
 if opts.bbhinj:
-  inj_pattern.append( "BBHINJ" )
+  injPattern.append( "BBHINJ" )
 if opts.bnsinj:
-  inj_pattern.append( "BNSINJ" )
+  injPattern.append( "BNSINJ" )
 if opts.nsbhinj:
-  inj_pattern.append( "NSBHINJ" )
+  injPattern.append( "NSBHINJ" )
 if opts.spininj:
-  inj_pattern.append( "SPININJ" )
-if len( inj_pattern ) == 0:
+  injPattern.append( "SPININJ" )
+if len( injPattern ) == 0:
   print "ERROR! must specify one of --bbhinj, --bnsinj, --nsbhinj or --spininj"
   sys.exit()
 
@@ -114,22 +114,22 @@ if len( ifos ) == 0:
         "--l1-triggers"
   sys.exit()
 
-columns=[]
+snrPlots=[]
 if opts.plot_snr:
-  columns.append("snr")
+  snrPlots.append("snr")
 if opts.plot_mchirp:
-  columns.append("mchirp")
+  snrPlots.append("mchirp")
 if opts.plot_end_time:
-  columns.append("end_time")
+  snrPlots.append("end_time")
 
-if opts.write_output:
+if opts.summary_file:
   if opts.output_path:
     outfile = opts.output_path
   else:
     outfile = "pinspfound_log.txt"
 else:
   if opts.output_path:
-    print "Error! cannot specify --output-path without using --write-output"
+    print "Error! cannot specify --output-path without using --summary-file"
     sys.exit()
 
 
@@ -139,7 +139,7 @@ def get_sngl_triggers(opts, observatory, pattern):
   trigcache = cache.sieve(ifos = observatory, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
   if opts.verbose:
-    print "\n reading the following trig files..."
+    print "\n reading the following trigger files..."
     for file in trigFiles:
       print file
     print "\n"
@@ -170,8 +170,10 @@ def get_coinc_triggers(opts, observatory, pattern):
 
 
 ##############################################################################
-def get_injections(opts, observatory, pattern): 
-  injcache = cache.sieve(ifos = observatory, description = pattern)
+def get_injections(opts,  pattern):
+  pattern = 'INJECTIONS*' +pattern
+   
+  injcache = cache.sieve(ifos = "HL", description = pattern)
   injFiles = injcache.checkfilesexist()[0].pfnlist()
 
   if opts.verbose:
@@ -186,149 +188,156 @@ def get_injections(opts, observatory, pattern):
 
 
 ##############################################################################
-def check_snr_loss(opts, observatory, triggers_before, triggers_after, \
-                                                  inj_pattern, stages):
+def check_snr_loss(opts, observatory, triggersBefore, triggersAfter, \
+                                                  injPattern, stages):
   """
   Checks the snrs and end times between different stages of the pipeline.
   """
   loss = []
+  aboveBefore = lsctables.SnglInspiralTable()
+  aboveAfter  = lsctables.SnglInspiralTable()
+
 #  above = [[],[]]
 #  below = [[],[]]
   
-  # Convert end_end_times before to a list so we can use list.index
-  end_times_before = list( triggers_before.get_column("end_time") )
-  snrs_before = triggers_before.get_column("snr")
+  # Convert endTimesBefore to a list so we can use list.index
+  endTimesBefore = list( triggersBefore.get_column("end_time") )
+  snrsBefore = triggersBefore.get_column("snr")
   
-  end_times_after  = triggers_after.get_column("end_time")
-  snrs_after  = triggers_after.get_column("snr") 
+  endTimesAfter  = triggersAfter.get_column("end_time")
+  snrsAfter  = triggersAfter.get_column("snr") 
   
-  for i in xrange( len(end_times_after) ):
+  for i in xrange( len(endTimesAfter) ):
    
-    if end_times_after[i] in end_times_before:
-      j = end_times_before.index( end_times_after[i] )
+    if endTimesAfter[i] in endTimesBefore:
+      j = endTimesBefore.index( endTimesAfter[i] )
       
-      loss.append( snrs_before[j] - snrs_after[i])
+      loss.append( snrsBefore[j] - snrsAfter[i])
  
       if loss[i] >= opts.threshold:
-#        below[0].append( end_times_after[i] )
+        aboveBefore.append( triggersBefore[j] )
+        aboveAfter.append( triggersAfter[i] )
+
+#        below[0].append( endTimesAfter[i] )
 #        below[1].append( loss[i] )
         if opts.display:
-          loss_print = '%3.2f' % (loss[i])
-          snr1_print = '%3.2f' % (snrs_before[j])
-          snr2_print = '%3.2f' % (snrs_after[i])
+          lossPrint = '%3.2f' % (loss[i])
+          snr1Print = '%3.2f' % (snrsBefore[j])
+          snr2Print = '%3.2f' % (snrsAfter[i])
 
-          print " Warning!", loss_print, "loss in SNR for trigger in \n", \
-                "         ", observatory, ",", inj_pattern, ",", stages
-          print " end_time = ", end_times_before[j], " snr = ", snr1_print 
-          print " end_time = ", end_times_after[i],  " snr = ", snr2_print 
-        if opts.write_output:
-          outstring = observatory + ' ' + inj_pattern + ' '
-          outstring = outstring + str(end_times_after[i]) + ' '
-          outstring = outstring + str(snrs_before[j]) + ' '
-          outstring = outstring + str(snrs_after[i]) + ' '
+          print " Warning!", lossPrint, "loss in SNR for trigger in \n", \
+                "         ", observatory, ",", injPattern, ",", stages
+          print " end_time = ", endTimesBefore[j], " snr = ", snr1Print 
+          print " end_time = ", endTimesAfter[i],  " snr = ", snr2Print 
+        if opts.summary_file:
+          outstring = observatory + ' ' + injPattern + ' '
+          outstring = outstring + str(endTimesAfter[i]) + ' '
+          outstring = outstring + str(snrsBefore[j]) + ' '
+          outstring = outstring + str(snrsAfter[i]) + ' '
           outstring = outstring + str(loss[i]) + ' ' + stages + '\n'
  
           fout.write(outstring)
 
 #      else:
-#       above[0].append( end_times_after[i] )
+#       above[0].append( endTimesAfter[i] )
 #       above[1].append( loss[i] )
 
     else:
       if opts.verbose:
         print "ERROR! Can't find original trigger, check cache file."
         print "       Setting loss=0 for this trigger, end_time = ", \
-                                                 end_times_after[i]
+                                                 endTimesAfter[i]
       loss.append( 0 )  
       
-  return loss #, above, below
+  return loss, aboveBefore, aboveAfter #, above, below
 
 
 ##############################################################################
-def track_column(opts, observatory, triggers_before, triggers_after, column):
+def track_column(opts, observatory, triggersBefore, triggersAfter, column):
 
   change=[]
 
-  # Convert end_end_times before to a list so we can use list.index
-  end_times_before = list( triggers_before.get_column("end_time") )
-  column_before = triggers_before.get_column(column)
+  # Convert endTimesBEfore to a list so we can use list.index
+  endTimesBefore = list( triggersBefore.get_column("end_time") )
+  columnBefore = triggersBefore.get_column(column)
   
-  end_times_after  = triggers_after.get_column("end_time")
-  column_after  = triggers_after.get_column(column) 
+  endTimesAfter  = triggersAfter.get_column("end_time")
+  columnAfter  = triggersAfter.get_column(column) 
 
-  for i in xrange( len(end_times_after) ):
+  for i in xrange( len(endTimesAfter) ):
    
-    if end_times_after[i] in end_times_before:
-      j = end_times_before.index( end_times_after[i] )
+    if endTimesAfter[i] in endTimesBefore:
+      j = endTimesBefore.index( endTimesAfter[i] )
       
-      change.append( column_before[j] - column_after[i])
+      change.append( columnBefore[j] - columnAfter[i])
 
       if opts.verbose:
         print "ERROR! Can't find original trigger, check cache file."
         print "       Setting change=0 for this trigger, end_time = ", \
-                                                 end_times_after[i]
+                                                 endTimesAfter[i]
     else:
       change.append( 0 )  
       
   return change
 
+
 ##############################################################################
-def make_plots(opts, observatory, inj_pattern, columns, triggers_after, \
-                                                     snr_loss):
+def plot_snr_loss(opts, observatory, injPattern, snrPlots, triggersAfter, \
+                                                         stages, snrLoss):
   # y-axis is always the same
   graph_ylabel = 'SNR loss'
-  delta = 0.05*(max(snr_loss) - min(snr_loss))
-  ymin = min(snr_loss) - delta
-  ymax = max(snr_loss) + delta
+  delta = 0.05*(max(snrLoss) - min(snrLoss))
+  ymin = min(snrLoss) - delta
+  ymax = max(snrLoss) + delta
   
-  for i in xrange( len(columns) ): 
-    if columns[i] == "end_time":
-      end_times_after  = triggers_after.get_column("end_time")
+  for i in xrange( len(snrPlots) ): 
+    if snrPlots[i] == "end_time":
+      endTimesAfter  = triggersAfter.get_column("end_time")
 
-      plot(end_times_after, snr_loss, 'ro');
+      plot(endTimesAfter, snrLoss, 'ro');
   
-      graph_title  = observatory +' end_time ' +inj_pattern +'\n' +stages
+      graph_title  = observatory +' end_time ' +injPattern +'\n' +stages
       graph_xlabel = 'GPS end time'
       title(graph_title)
       xlabel(graph_xlabel)
       ylabel(graph_ylabel)
 
-      delta = 0.05*(max(end_times_after) - min(end_times_after))
-      xmin = min(end_times_after) - delta
-      xmax = max(end_times_after) + delta
+      delta = 0.05*(max(endTimesAfter) - min(endTimesAfter))
+      xmin = min(endTimesAfter) - delta
+      xmax = max(endTimesAfter) + delta
       axis([xmin, xmax, ymin, ymax])
 
-      name = observatory + '_' +inj_pattern +'_end_time_' +stages
+      name = observatory + '_' +injPattern +'_end_time_' +stages
       savefig(name)
       close()
  
  
-    elif columns[i] == "snr":
-      snrs_after  = triggers_after.get_column("snr")
-      semilogx(snrs_after, snr_loss, 'ro');
+    elif snrPlots[i] == "snr":
+      snrsAfter  = triggersAfter.get_column("snr")
+      semilogx(snrsAfter, snrLoss, 'ro');
 
-      graph_title = observatory +' SNR ' +inj_pattern +'\n' +stages
+      graph_title = observatory +' SNR ' +injPattern +'\n' +stages
       graph_xlabel = 'SNR (after loss)'
       title(graph_title)
       xlabel(graph_xlabel)
       ylabel(graph_ylabel)
 
       xmin = 4
-      xmax = 1.4*max(snrs_after)
+      xmax = 1.4*max(snrsAfter)
       axis([xmin, xmax, ymin, ymax])
 
-      name = observatory + '_' +inj_pattern +'_SNR_' +stages
+      name = observatory + '_' +injPattern +'_SNR_' +stages
       savefig(name)
       close()
  
  
     else:
-      values = triggers_after.get_column( columns[i] )
-      plot(values, snr_loss, 'ro');
+      values = triggersAfter.get_column( snrPlots[i] )
+      plot(values, snrLoss, 'ro');
       
-      graph_title = observatory +' ' +columns[i] +' ' +inj_pattern +'\n' \
+      graph_title = observatory +' ' +snrPlots[i] +' ' +injPattern +'\n' \
 			              +stages
-      graph_xlabel = columns[i]
+      graph_xlabel = snrPlots[i]
       title(graph_title)
       xlabel(graph_xlabel)
       ylabel(graph_ylabel)
@@ -338,67 +347,67 @@ def make_plots(opts, observatory, inj_pattern, columns, triggers_after, \
       xmax = max(values) + delta
       axis([xmin, xmax, ymin, ymax])
       
-      name = observatory +'_' +inj_pattern +'_' +columns[i] +'_' +stages
+      name = observatory +'_' +injPattern +'_' +snrPlots[i] +'_' +stages
       savefig(name)
       close()
 		
 
 
 ##############################################################################
-def do_everything(opts, ifos, inj_pattern, columns):
+def plot_changes(opts, before, after, stages, injPattern):
+ print 'hi'
+
+
+##############################################################################
+def do_everything(opts, ifos, injPattern, snrPlots):
 
   for i in xrange( len(ifos) ):
     observatory = ifos[i]
 
-    for j in xrange( len(inj_pattern) ):
-      pattern = 'SIRE*FOUND*FIRST*' +inj_pattern[j]
+    for j in xrange( len(injPattern) ):
+      pattern = 'SIRE*FOUND*FIRST*' +injPattern[j]
       sireFirst   = get_sngl_triggers(opts, observatory, pattern)
 
-      pattern = 'COIRE*FOUND*SECOND*' +inj_pattern[j]
+      pattern = 'COIRE*FOUND*SECOND*' +injPattern[j]
       coireSecond  = get_coinc_triggers(opts, observatory, pattern)
        
       if opts.coire_first:
-        pattern = 'COIRE*FOUND*FIRST*' +inj_pattern[j]
+        pattern = 'COIRE*FOUND*FIRST*' +injPattern[j]
         coireFirst  = get_coinc_triggers(opts, observatory, pattern)
 
         stages = "SIRE_FIRST_to_COIRE_FIRST"
         loss = check_snr_loss(opts, observatory, sireFirst, coireFirst, \
-                                                inj_pattern[j], stages)
-        make_plots(opts, observatory, inj_pattern[j], columns, coireFirst, \
-                                                             stages, loss)
+                                                 injPattern[j], stages)
+        if len( snrPlots ) > 0:
+          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
+                                          coireFirst, stages, loss[0])
 
         stages = "COIRE_FIRST_to_COIRE_SECOND"
-        loss = check_snr_loss(opts, observatory, coireFirst, coireSecond, \
-                                                  inj_pattern[j], stages)
-        make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
-                                                              stages, loss)
+        loss  = check_snr_loss(opts, observatory, coireFirst, coireSecond, \
+                                                    injPattern[j], stages)
+        if len( snrPlots ) > 0 :
+          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
+                                         coireSecond, stages, loss[0])
 
       else:
         stages = "SIRE_FIRST_to_COIRE_SECOND"
         loss = check_snr_loss(opts, observatory, sireFirst, coireSecond, \
-                                                 inj_pattern[j], stages)
-        make_plots(opts, observatory, inj_pattern[j], columns, coireSecond, \
-                                                              stages, loss)
+                                                 injPattern[j], stages)
+        if len( snrPlots ) > 0 :
+          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
+                                         coireSecond, stages, loss[0])
         
 
 
 
 ##############################################################################
-if opts.write_output:
+if opts.summary_file:
   fout = open(outfile, "w")
-  outstring = " ifo, inj_pattern, end_time, snr_before, snr_after,"
-  outstring = outstring + ',snr_loss, stages' + '\n'
+  outstring = " ifo, injPattern, end_time, snrBefore, snrAfter,"
+  outstring = outstring + ',snrLoss, stages' + '\n'
   fout.write(outstring)
 
-# do_everything(opts, ifos, inj_pattern, columns)
-injections = get_injections(opts, "HL", "INJECTIONS*BBHINJ*" )
+  do_everything(opts, ifos, injPattern, snrPlots)
 
-observatory = "H1"
-pattern = 'SIRE*FOUND*FIRST*' + inj_pattern[0]
-sireFirst = get_sngl_triggers(opts, observatory, pattern)
-pattern = 'COIRE*FOUND*FIRST*' + inj_pattern[0]
-coireFirst = get_coinc_triggers(opts, observatory, pattern)
-change = track_column(opts, observatory, sireFirst, coireFirst, "mchirp")
-
-if opts.write_output:
+if opts.summary_file:
   fout.close()
