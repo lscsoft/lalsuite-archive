@@ -160,7 +160,7 @@ def populate_thinca_time_slide_table(xmldoc, process, num_slides):
 	#
 
 	offset_vector = {}
-        slide_option_pattern = re.compile("--(?P<ifo>[a-z][0-9])--slide")
+        slide_option_pattern = re.compile("--(?P<ifo>[a-zA-Z][0-9])-slide")
 
 	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
 	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
@@ -171,7 +171,7 @@ def populate_thinca_time_slide_table(xmldoc, process, num_slides):
 			else:
 				match = re.search(slide_option_pattern, row.param)
 				if match is not None:
-					offset_vector[match.groupdict()["ifo"]] = row.get_pyvalue()
+					offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
 
 	#
 	# build the time slides
