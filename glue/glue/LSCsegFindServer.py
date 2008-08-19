@@ -355,7 +355,13 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     # split the interferometers and types into lists
     try:
       ifoList = interferometer.split(',')
-      typeList = type.split(',')
+
+      typeList=[]
+      types = type.split(',')
+      for t in types:
+        # Add stripped type name to typeList:
+        typeList.append(t.strip())
+
     except:
       result = "Unable to parse ifo or type string %s : %s" % (str(arg), e)
       logger.error(result)
