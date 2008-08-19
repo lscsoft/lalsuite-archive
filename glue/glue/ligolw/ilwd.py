@@ -124,6 +124,9 @@ class inspiral_ilwdchar(long):
 	def __hash__(self):
 		return hash(self.table_name) ^ hash(self.column_name) ^ long.__hash__(self)
 
+	def __add__(self, other):
+		return self.__class__(long.__add__(self, other))
+
 	def __cmp__(self, other):
 		return cmp(self.table_name, other.table_name) or cmp(self.column_name, other.column_name) or long.__cmp__(self, other)
 
