@@ -65,17 +65,17 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] --zero-lag-file filename --time-slide-file filename --num-slides integer --output filename",
+		usage = "%prog [options] --output filename",
 		description = "Converts thinca output files to coinc tables format.  Files whose names end in \".gz\" are assumed to be gzip-compressed."
 	)
-	parser.add_option("--zero-lag-file", help = "Thinca file containing zero lag triggers (required).")
-	parser.add_option("--time-slide-file", help = "Thinca file containing time slide triggers (reqired).")
+	parser.add_option("--zero-lag-file", help = "Thinca output file containing zero lag triggers.")
+	parser.add_option("--time-slide-file", help = "Thinca output file containing time slide triggers.")
 	parser.add_option("--output", help = "Output file name (required).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
-	if not (options.zero_lag_file and options.time_slide_file and options.output):
-		raise ValueError, "must specify all of --zero-lag-file, --time-slide-file, and --output"
+	if not ((options.zero_lag_file or options.time_slide_file) and options.output):
+		raise ValueError, "must specify --output and at least one of --zero-lag-file and --time-slide-file"
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -108,8 +108,10 @@ def initialize_process(xmldoc, comment = u""):
 
 def set_process_params(xmldoc, process, options):
 	params = []
-	params.append(("--zero-lag-file", "lstring", options.zero_lag_file))
-	params.append(("--time-slide-file", "lstring", options.time_slide_file))
+	if options.zero_lag_file:
+		params.append(("--zero-lag-file", "lstring", options.zero_lag_file))
+	if options.time_slide_file:
+		params.append(("--time-slide-file", "lstring", options.time_slide_file))
 	params.append(("--output", "lstring", options.output))
 
 	llwapp.append_process_params(xmldoc, process, params)
@@ -236,6 +238,17 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	while len(instruments[-1]) > 2:
 		instruments = instruments[:-1] + [instruments[-1][:2], instruments[-1][2:]]
 	instruments = set(instruments)
+
+	#
+	# if the offset vector is empty, assume we've only loaded a
+	# zero-lag thinca file, and so synthesize an all-zero vector from
+	# the instruments we've retrieved from the search_summary table,
+	# and set num_slides to 0
+	#
+
+	if not offset_vector:
+		offset_vector = dict([(instrument, 0.0) for instrument in instruments])
+		num_slides = 0
 
 	#
 	# remove instruments from the offset vector that are were not named
@@ -476,14 +489,14 @@ def depopulate_sngl_inspiral(xmldoc):
 
 options = parse_command_line()
 
-xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [options.zero_lag_file, options.time_slide_file], verbose = options.verbose)
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file) if filename], verbose = options.verbose)
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 process = initialize_process(xmldoc)
 set_process_params(xmldoc, process, options)
 
 if options.verbose:
-	print >>sys.stderr, "adding missing ID columns ..."
+	print >>sys.stderr, "adding any missing ID columns ..."
 add_missing_id_columns(xmldoc)
 if options.verbose:
 	print >>sys.stderr, "populating thinca time_slide table ..."
