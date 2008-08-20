@@ -243,6 +243,7 @@ setup(
 		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi"),
+		os.path.join("bin", "ligolw_thinca_to_coinc"),
 		os.path.join("bin", "ligolw_veto"),
 		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "inspiral_likelihood_hipe"),
