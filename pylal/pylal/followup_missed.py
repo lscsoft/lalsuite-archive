@@ -733,6 +733,9 @@ class FollowupMissed:
     file = open(self.opts.output_path+htmlfilename,'w')      
     file.write(page(False))
     file.close()
+
+    # store html file in fnameList
+    self.fnameList.append(htmlfilename)
     
     # supply the output
     return htmlfilename
