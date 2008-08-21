@@ -55,6 +55,14 @@ ligolw_thinca.table.RowBuilder = ligolw_thinca.table.InterningRowBuilder
 
 
 #
+# Don't use the Python kludged sngl_inspiral ID class.
+#
+
+
+ligolw_thinca.lsctables.ilwd.ilwdchar_class_cache.clear()
+
+
+#
 # =============================================================================
 #
 #                                 Command Line
@@ -150,6 +158,18 @@ for n, filename in enumerate(filenames):
 	)
 
 	#
+	# Hack the IDs.  LAL writes all triggers with event_id = 0, which
+	# is used by other LAL programs to check if coincidence has been
+	# performed yet so that behaviour can't be changed.  We need the
+	# IDs to be unique.
+	#
+
+	tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
+	for row in tbl
+		row.event_id = tbl.get_next_id()
+
+	#
 	# Run coincidence algorithm.
 	#
 
@@ -177,5 +197,3 @@ for n, filename in enumerate(filenames):
 
 	utils.write_filename(xmldoc, filename, options.verbose, gz = (filename or "stdout").endswith(".gz"))
 	xmldoc.unlink()
-
-
