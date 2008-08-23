@@ -1,8 +1,18 @@
 #!/usr/bin/python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
 __author__ = "David McKechan"
 __title__ = "Track the SNR of found triggers"
 __name__ = "plotinspfound"
-###############################################################################
+
+
 import sys, os, re, glob, exceptions
 from optparse import *
 from matplotlib.ticker import FormatStrFormatter
@@ -20,13 +30,21 @@ matplotlib.use('Agg')
 from pylab import *
 
 
-###############################################################################
 usage =  """Usage: %prog [options]
 
 plotinspfound --cache-file triggers.cache --bbhinj --core-first --h1-triggers
 
 """
 
+
+
+#
+# =============================================================================
+#
+#                           Parse Command Line
+#
+# =============================================================================
+#
 
 def parse_command_line():
   """
@@ -36,8 +54,10 @@ def parse_command_line():
   parser.add_option("-c", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("-t", "--threshold", action="store", type="float", \
                     default=0.,help="actual loss in  SNR to flag.")
-  parser.add_option("-d", "--display", action="store_true",\
-                     default=False, help="print snr loss information" )
+  parser.add_option("-q", "--quiet", action="store_true",\
+                     default=False, help="print only error information" )
+  parser.add_option("-d", "--vocal", action="store_true",\
+                     default=False, help="print some information" )
   parser.add_option("-v", "--verbose",action="store_true",\
                      default=False,help="print all information" )
   parser.add_option("-m", "--plot-mchirp",action="store_true",\
@@ -46,6 +66,15 @@ def parse_command_line():
                      default=False,help="plot snr loss agains end_time" )
   parser.add_option("-s", "--plot-snr",action="store_true",\
                      default=False,help="plot snr loss agains snr" )
+  parser.add_option("-M", "--check-mchirp",action="store_true",\
+                     default=False,help="check the value of mchirp for \
+triggers that lose snr" )
+  parser.add_option("-C", "--check-chisq",action="store_true",\
+                     default=False,help="check the value of chisq for \
+coire_first triggers that lose snr" )
+  parser.add_option("-E", "--check-eff-dist",action="store_true",\
+                     default=False,help="check the value of eff_dist for \
+triggers that lose snr" )
   parser.add_option("-b", "--bbhinj",action="store_true",\
                      default=False,help="use bbhinj trigger files" )
   parser.add_option("-n", "--nsbhinj",action="store_true",\
@@ -54,20 +83,18 @@ def parse_command_line():
                      default=False,help="use bnsinj trigger files" )
   parser.add_option("-S", "--spininj",action="store_true",\
                      default=False,help="use spininj trigger files" )
-  parser.add_option("-f", "--coire-first",action="store_true",\
-                     default=False,help="check snr at first coincidence stage" )
-  parser.add_option("-r", "--sire-second",action="store_true",\
-                     default=False,help="check snr at second inspiral stage" )
+  parser.add_option("-f", "--skip-coire-first",action="store_true",\
+                     default=False,help="skip snr check at coireFirst stage" )
   parser.add_option("-H", "--h1-triggers",action="store_true",\
                      default=False,help="use H1 triggers" )
   parser.add_option("-w", "--h2-triggers",action="store_true",\
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
-  parser.add_option("-W", "--summary-file",action="store_true", \
+  parser.add_option("-W", "--write-html",action="store_true", \
                      default=False,help="write trigger informtion to file")
-  parser.add_option("-o","--output-path",action="store", type="string", \
-                     default=None,help="specify output path")
+  parser.add_option("-u","--user-tag",action="store", type="string", \
+                     default=None,help="specify user tag for file names")
 
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -79,8 +106,12 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 if opts.verbose:
-  opts.display = True
+  opts.vocal = True
 comments = ""
+
+if opts.vocal:
+  opts.guiet = True
+  print "Parsing the command line..."
 
 if opts.cache_file:
   cache = lal.Cache.fromfile(open(opts.cache_file))
@@ -89,16 +120,16 @@ else:
   print "--cache-file must be specified!"
   sys.exit()
 
-injPattern=[]
+injPatterns=[]
 if opts.bbhinj:
-  injPattern.append( "BBHINJ" )
+  injPatterns.append( "BBHINJ" )
 if opts.bnsinj:
-  injPattern.append( "BNSINJ" )
+  injPatterns.append( "BNSINJ" )
 if opts.nsbhinj:
-  injPattern.append( "NSBHINJ" )
+  injPatterns.append( "NSBHINJ" )
 if opts.spininj:
-  injPattern.append( "SPININJ" )
-if len( injPattern ) == 0:
+  injPatterns.append( "SPININJ" )
+if len( injPatterns ) == 0:
   print "ERROR! must specify one of --bbhinj, --bnsinj, --nsbhinj or --spininj"
   sys.exit()
 
@@ -110,7 +141,7 @@ if opts.h2_triggers:
 if opts.l1_triggers:
   ifos.append( "L1" )
 if len( ifos ) == 0:
-  print "ERROR! must specify one of --h1-triggers, --h2-triggers or ", \
+  print "ERROR! must specify one of --h1-triggers, --h2-triggers or", \
         "--l1-triggers"
   sys.exit()
 
@@ -122,168 +153,303 @@ if opts.plot_mchirp:
 if opts.plot_end_time:
   snrPlots.append("end_time")
 
-if opts.summary_file:
-  if opts.output_path:
-    outfile = opts.output_path
-  else:
-    outfile = "pinspfound_log.txt"
-else:
-  if opts.output_path:
-    print "Error! cannot specify --output-path without using --summary-file"
+# Look at the columns we want to track. chisq will be added later since it does
+# is only checked between coire_first and coire_second
+check=[]
+if opts.check_mchirp:
+  check.append("mchirp") 
+if opts.check_eff_dist:
+  check.append("eff_distance")
+
+
+
+#
+# =============================================================================
+#
+#                      Specific functions for reading triggers
+#
+# =============================================================================
+#
+
+def get_sire_triggers(opts, ifo, pattern):
+  """
+  Returns sngl triggers and injections from sire files
+  """ 
+
+  trigcache = cache.sieve(ifos = ifo, description = pattern)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+
+  if len( trigFiles ) == 0:
+    if opts.quiet:
+      print "ERROR! Cannot find specified sire files. Check cache file and/or",\
+            "specified ifos/injections."
     sys.exit()
+
+  if opts.vocal:
+    print "Reading sire files..."
+    if opts.verbose:
+      for file in trigFiles:
+        print file
+
+  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  injections = SimInspiralUtils.ReadSimInspiralFromFiles(trigFiles)
+  
+  return triggers, injections
+
 
 
 ##############################################################################
-def get_sngl_triggers(opts, observatory, pattern):
- 
-  trigcache = cache.sieve(ifos = observatory, description = pattern)
+def get_coire_triggers(opts, ifo, pattern):
+  """
+  Returns sngl triggers from coire files
+  """
+
+  trigcache = cache.sieve(ifos = ifo, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+ 
+  if len( trigFiles ) == 0:
+    if opts.quiet:
+      print "ERROR! Cannot find specified coire files. Check cache file", \
+            "and/or specified ifos/injections or --skip-coire-first option.\n"
+    sys.exit()
+
+  if opts.vocal:
+    print "Reading coire files..."
+    if opts.verbose:
+      for file in trigFiles:
+        print file
+
+  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers, \
+                             CoincInspiralUtils.coincStatistic( "snr") )
+  
+  triggers = coincTriggers.getsngls(ifo)
+
+  return triggers
+
+
+
+##############################################################################
+def get_inspiral_triggers(opts, ifo, pattern, times):
+  """
+  Returns sngl triggers from inspiral files
+  """
+
+  trigcache = cache.sieve(ifos = ifo, description = pattern, segment = times)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+
+  if len( trigFiles ) == 0:
+    if opts.quiet:
+      print "ERROR! Cannot find specified inspiral files. Either check cache", \
+            "file or remove --check-chisq option."
+    sys.exit()
+
+
+  # This one gets called a lot so we only mention it for verbose
   if opts.verbose:
-    print "\n reading the following trigger files..."
-    for file in trigFiles:
-      print file
-    print "\n"
+    print "Reading the following inspiral files..."
+    if opts.verbose:
+      for file in trigFiles:
+        print file
 
   triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
   
   return triggers
 
 
-##############################################################################
-def get_coinc_triggers(opts, observatory, pattern):
 
-  trigcache = cache.sieve(ifos = observatory, description = pattern)
-  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
-  if opts.verbose:
-    print "\n reading the following trigger files..."
-    for file in trigFiles:
-      print file
-    print "\n"
+#
+# =============================================================================
+#
+#                        Functions that compare the triggers
+#
+# =============================================================================
+#
 
-  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
-  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers, \
-                             CoincInspiralUtils.coincStatistic( "snr") )
-  
-  triggers = coincTriggers.getsngls(observatory)
-
-  return triggers
-
-
-##############################################################################
-def get_injections(opts,  pattern):
-  pattern = 'INJECTIONS*' +pattern
-   
-  injcache = cache.sieve(ifos = "HL", description = pattern)
-  injFiles = injcache.checkfilesexist()[0].pfnlist()
-
-  if opts.verbose:
-    print "\n reading the following injection files..."
-    for file in injFiles:
-      print file
-    print "\n"
-
-  injections = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
-
-  return injections
-
-
-##############################################################################
-def check_snr_loss(opts, observatory, triggersBefore, triggersAfter, \
-                                                  injPattern, stages):
+def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
   """
   Checks the snrs and end times between different stages of the pipeline.
   """
+  
+  if opts.vocal:
+    print "Checking SNR loss for", ifo, stages, injPattern, "..."
+
   loss = []
   aboveBefore = lsctables.SnglInspiralTable()
   aboveAfter  = lsctables.SnglInspiralTable()
-
-#  above = [[],[]]
-#  below = [[],[]]
   
   # Convert endTimesBefore to a list so we can use list.index
-  endTimesBefore = list( triggersBefore.get_column("end_time") )
-  snrsBefore = triggersBefore.get_column("snr")
+  endTimesBefore = list( trigBefore.get_column("end_time") )
+  snrsBefore = trigBefore.get_column("snr")
   
-  endTimesAfter  = triggersAfter.get_column("end_time")
-  snrsAfter  = triggersAfter.get_column("snr") 
+  endTimesAfter  = trigAfter.get_column("end_time")
+  snrsAfter  = trigAfter.get_column("snr") 
   
   for i in xrange( len(endTimesAfter) ):
    
     if endTimesAfter[i] in endTimesBefore:
       j = endTimesBefore.index( endTimesAfter[i] )
       
-      loss.append( snrsBefore[j] - snrsAfter[i])
+      loss.append( snrsBefore[j] - snrsAfter[i] )
  
       if loss[i] >= opts.threshold:
-        aboveBefore.append( triggersBefore[j] )
-        aboveAfter.append( triggersAfter[i] )
+        aboveBefore.append( trigBefore[j] )
+        aboveAfter.append( trigAfter[i] )
 
-#        below[0].append( endTimesAfter[i] )
-#        below[1].append( loss[i] )
-        if opts.display:
+        if opts.vocal:
           lossPrint = '%3.2f' % (loss[i])
           snr1Print = '%3.2f' % (snrsBefore[j])
           snr2Print = '%3.2f' % (snrsAfter[i])
 
-          print " Warning!", lossPrint, "loss in SNR for trigger in \n", \
-                "         ", observatory, ",", injPattern, ",", stages
-          print " end_time = ", endTimesBefore[j], " snr = ", snr1Print 
-          print " end_time = ", endTimesAfter[i],  " snr = ", snr2Print 
-        if opts.summary_file:
-          outstring = observatory + ' ' + injPattern + ' '
-          outstring = outstring + str(endTimesAfter[i]) + ' '
-          outstring = outstring + str(snrsBefore[j]) + ' '
-          outstring = outstring + str(snrsAfter[i]) + ' '
-          outstring = outstring + str(loss[i]) + ' ' + stages + '\n'
- 
-          fout.write(outstring)
-
-#      else:
-#       above[0].append( endTimesAfter[i] )
-#       above[1].append( loss[i] )
+          print "Found", lossPrint, "loss in SNR for trigger:"
+          print "end_time =", endTimesBefore[j], " snr =", snr1Print 
+          print "end_time =", endTimesAfter[i],  " snr =", snr2Print 
 
     else:
-      if opts.verbose:
-        print "ERROR! Can't find original trigger, check cache file."
-        print "       Setting loss=0 for this trigger, end_time = ", \
-                                                 endTimesAfter[i]
+      if opts.quiet:
+        print "ERROR! Can't find original trigger, check cache file.", \
+              "Setting snr loss = 0 for this trigger, end_time =", \
+              endTimesAfter[i]
       loss.append( 0 )  
       
-  return loss, aboveBefore, aboveAfter #, above, below
+  return loss, aboveBefore, aboveAfter  
 
-
-##############################################################################
-def track_column(opts, observatory, triggersBefore, triggersAfter, column):
-
-  change=[]
-
-  # Convert endTimesBEfore to a list so we can use list.index
-  endTimesBefore = list( triggersBefore.get_column("end_time") )
-  columnBefore = triggersBefore.get_column(column)
-  
-  endTimesAfter  = triggersAfter.get_column("end_time")
-  columnAfter  = triggersAfter.get_column(column) 
-
-  for i in xrange( len(endTimesAfter) ):
-   
-    if endTimesAfter[i] in endTimesBefore:
-      j = endTimesBefore.index( endTimesAfter[i] )
-      
-      change.append( columnBefore[j] - columnAfter[i])
-
-      if opts.verbose:
-        print "ERROR! Can't find original trigger, check cache file."
-        print "       Setting change=0 for this trigger, end_time = ", \
-                                                 endTimesAfter[i]
-    else:
-      change.append( 0 )  
-      
-  return change
 
 
 ##############################################################################
-def plot_snr_loss(opts, observatory, injPattern, snrPlots, triggersAfter, \
-                                                         stages, snrLoss):
+def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
+                                             injections, check):
+  """
+  Check the specified columns of the sngl_inspiral table. Where possible,
+  check with injected parameters.
+  """
+
+  if opts.vocal:
+    print "Checking specified sngl_inspiral columns for", ifo, injPattern, "..."
+
+  delta=[]
+  times=[]
+
+  # Get the trigger and injection times
+  for trigger in trigAfter:
+    times.append( getattr( trigger, "end_time" ) )
+
+  # Use Hanford for the else statement since there is both H1 and H2
+  if ifo == "L1":
+    end_time = "l_end_time"
+  else:
+    end_time = "h_end_time"
+  # Make injection times a list so we can use injections.index
+  injectionTimes = list( injections.get_column( end_time ) )
+
+
+  # Begin checking the columns
+  for i in xrange( len(check) ):
+    if opts.vocal:
+      print "Checking", check[i], "..."
+
+    columnsBefore = []
+    columnsAfter = []
+
+    deltaBefore = []
+    deltaAfter = []
+
+    # Get triggers 
+    if check[i] != "chisq":
+      for trigger in trigBefore:
+        columnsBefore.append( getattr( trigger, check[i] ) )
+
+    for trigger in trigAfter:
+      columnsAfter.append( getattr( trigger, check[i] ) )   
+
+
+    # If we are not checking chisq get the injections 
+    if check[i] != "chisq":
+      if check[i] == "eff_distance":
+        if ifo == "L1":
+          column = "eff_dist_l"
+        else: 
+          column = "eff_dist_h"
+      else:
+        column = check[i]
+
+    injectionColumns = injections.get_column( column )
+
+    # Begin Checking specified column
+    for j in xrange( len(times) ):
+      
+      if check[i] != "chisq":
+        if times[j] in injectionTimes:
+          k = injectionTimes.index( times[j] )
+        else:
+          if opts.quiet:
+            print "ERROR! Cannot find inspiral trigger for", ifo, times[j], \
+                  injPattern, ". Error for", column, " check incorrect for ", \
+                  "this trigger."
+          k = 0
+          
+        deltaBefore.append( columnsBefore[j] - injectionColumns[k] )
+        deltaAfter.append( columnsAfter[j] - injectionColumns[k] )
+
+      else:
+        # There are too many inspiral files so we hone in on the end time
+        segTimes = segments.segment( times[j]-300, times[j]+300 )
+        pattern = 'INSPIRAL_SECOND*' + injPattern
+        inspTrig = get_inspiral_triggers(opts, ifo, pattern, segTimes)
+
+        # Find exact trigger bu using GPS nanoseconds
+        inspTimes = list(  inspTrig.get_column("end_time") )
+        inspTimesNs = list(  inspTrig.get_column("end_time_ns") )
+
+        if times[j] in inspTimes:
+          k = inspTimes.index( times[j] )
+          # Increment k to find the correct nanosecond time
+          flag = 0
+          while not flag:
+            try:
+             if inspTimesNs[k] == trigAfter[j].end_time_ns:
+               flag = 1
+             else:
+               k += 1
+            except IndexError:
+              k -= 1
+              flag = 1
+              if opts.quiet:
+                print "ERROR! Cannot find inspiral trigger for", ifo, \
+                      times[j], injPattern, ". chisq check incorrect for ", \
+                      "this trigger. \n"
+
+        else:
+          if opts.quiet:
+            print "ERROR! Cannot find inspiral trigger for", ifo, times[j], \
+                  injPattern, ". chisq check incorrect for this trigger."
+          k = 0
+
+        deltaBefore.append( inspTrig[k].chisq )
+        deltaAfter.append( columnsAfter[j] )
+        
+    delta.append( [deltaBefore, deltaAfter] )
+
+  return delta
+
+
+#
+# =============================================================================
+#
+#                         Functions  for plotting
+#
+# =============================================================================
+#
+
+def plot_snr_loss(opts, ifo, stages, injPattern, trigAfter, snrLoss, snrPlots):
+  """
+  Plots loss in SNR against the specified columns in snrPlots
+  """
+ 
+  if opts.vocal:
+    print "Generating plots..."
+
+
   # y-axis is always the same
   graph_ylabel = 'SNR loss'
   delta = 0.05*(max(snrLoss) - min(snrLoss))
@@ -291,32 +457,14 @@ def plot_snr_loss(opts, observatory, injPattern, snrPlots, triggersAfter, \
   ymax = max(snrLoss) + delta
   
   for i in xrange( len(snrPlots) ): 
-    if snrPlots[i] == "end_time":
-      endTimesAfter  = triggersAfter.get_column("end_time")
-
-      plot(endTimesAfter, snrLoss, 'ro');
-  
-      graph_title  = observatory +' end_time ' +injPattern +'\n' +stages
-      graph_xlabel = 'GPS end time'
-      title(graph_title)
-      xlabel(graph_xlabel)
-      ylabel(graph_ylabel)
-
-      delta = 0.05*(max(endTimesAfter) - min(endTimesAfter))
-      xmin = min(endTimesAfter) - delta
-      xmax = max(endTimesAfter) + delta
-      axis([xmin, xmax, ymin, ymax])
-
-      name = observatory + '_' +injPattern +'_end_time_' +stages
-      savefig(name)
-      close()
- 
- 
-    elif snrPlots[i] == "snr":
-      snrsAfter  = triggersAfter.get_column("snr")
+    # For the SNR we use a logarithmic axis
+    if snrPlots[i] == "snr":
+      snrsAfter  = trigAfter.get_column("snr")
       semilogx(snrsAfter, snrLoss, 'ro');
 
-      graph_title = observatory +' SNR ' +injPattern +'\n' +stages
+      graph_title = ifo + ' SNR ' + injPattern + '\n' + stages
+      if opts.user_tag:
+        graph_title = graph_title + ' ' + opts.user_tag
       graph_xlabel = 'SNR (after loss)'
       title(graph_title)
       xlabel(graph_xlabel)
@@ -326,17 +474,21 @@ def plot_snr_loss(opts, observatory, injPattern, snrPlots, triggersAfter, \
       xmax = 1.4*max(snrsAfter)
       axis([xmin, xmax, ymin, ymax])
 
-      name = observatory + '_' +injPattern +'_SNR_' +stages
+      name = ifo + '_' + injPattern + '_snr_' + stages
+      if opts.user_tag:
+        name = name + '_' + opts.user_tag
       savefig(name)
       close()
  
- 
+
     else:
-      values = triggersAfter.get_column( snrPlots[i] )
+      values = trigAfter.get_column( snrPlots[i] )
       plot(values, snrLoss, 'ro');
       
-      graph_title = observatory +' ' +snrPlots[i] +' ' +injPattern +'\n' \
-			              +stages
+      graph_title = ifo + ' ' + snrPlots[i] + ' ' + injPattern +'\n' 
+      graph_title = graph_title + stages
+      if opts.user_tag:
+        graph_title = graph_title + opts.user_tag
       graph_xlabel = snrPlots[i]
       title(graph_title)
       xlabel(graph_xlabel)
@@ -347,67 +499,426 @@ def plot_snr_loss(opts, observatory, injPattern, snrPlots, triggersAfter, \
       xmax = max(values) + delta
       axis([xmin, xmax, ymin, ymax])
       
-      name = observatory +'_' +injPattern +'_' +snrPlots[i] +'_' +stages
+      name = ifo + '_' + injPattern + '_' + snrPlots[i] + '_' + stages
+      if opts.user_tag:
+        name = name + opts.user_tag
       savefig(name)
       close()
-		
+
+
+
+#
+# =============================================================================
+#
+#                 Functions to write the output to a web page
+#
+# =============================================================================
+#
+
+def write_html_head(opts, ifos, injPattern, title): 
+  """
+  Creates a new html document wih the contents for the output
+  """
+
+  if opts.vocal:
+    print "Initiating output web page..."
+
+  # Begin html
+  line = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"'
+  line = line + '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> \n'
+  fout.write(line)
+  line = '<html xmlns="http://www.w3.org/1999/xhtml"> \n'
+  fout.write(line)
+  line = '<head> \n'
+  fout.write(line)
+  line = '<meta http-equiv="Content-Type" content="text/html;'
+  line = line + ' charset=UTF-8" /> \n'
+  fout.write(line)
+  line = '<link media="all" href="style.css" type="text/css"'
+  line = line + 'rel="stylesheet" /> \n'
+  fout.write(line)
+  line = '<title>' + title + '</title> \n'
+  fout.write(line)
+  line = '</head> \n'
+  fout.write(line)
+  line = '<body> \n\n'
+  fout.write(line)
+
+  line = '<h1>' + title +'</h1> \n\n'
+  fout.write(line)
+  line = '<div class="table-of-contents"> \n'
+  fout.write(line)
+  line = '<p class="table-of-contents-heading"> Triggers looked at: \n'
+  fout.write(line)
+  line = '<ol> \n'
+  fout.write(line)
+  line = '<li><a href"' + title + '#info"> Information </a> \n'
+  fout.write(line)
+
+  for i in xrange( len( ifos ) ):
+    for j in xrange( len( injPattern ) ):
+       if opts.skip_coire_first:
+         stages = 'siireFirst_ to_coireSecond'
+         line = '<li><a href="' + title + '#' + ifos[i] + injPattern[j] + stages
+         line = line + '">' 
+         line = line + ifos[i] + ' ' + injPattern[j] + ' ' + stages + '</a>\n' 
+         fout.write(line)
+       else:
+         stages = 'sireFirst_to_ coireFirst'
+         line = '<li><a href="' + title + '#' + ifos[i] + injPattern[j] + stages
+         line = line + '">' 
+         line = line + ifos[i] + ' ' + injPattern[j] + ' ' + stages + '</a>\n' 
+         fout.write(line)
+         stages = 'coireFirst_to_coireSecond'
+         line = '<li><a href="' + title + '#' + ifos[i] + injPattern[j] + stages
+         line = line + '">' 
+         line = line + ifos[i] + ' ' + injPattern[j] + ' ' + stages + '</a>\n' 
+         fout.write(line)
+
+  line = '</li> \n'
+  fout.write(line)
+  line = '</ol> \n'
+  fout.write(line)
+  line = '</p> \n'
+  fout.write(line)
+  line = '</div> \n'
+  fout.write(line)
+  line = '<h2> Information </h2>'
+  fout.write(line)
+  line = '<p> User Options: <br />' + str(sys.argv[1:]) + '</p> \n'
+  fout.write(line)
+  line = '<a name="info" id="info""></a> \n'
+  fout.write(line)
+
 
 
 ##############################################################################
-def plot_changes(opts, before, after, stages, injPattern):
- print 'hi'
+def write_html_plots(opts, ifo, stages, injPattern, snrPlots):
+  """
+  Adds the plots to the web page
+  """
+
+  if opts.vocal:
+          print "Adding generated plots for", ifo, injPattern, stages, \
+                "to the output web page..."
+
+  line = '<a name="' + ifo + injPattern + stages + '" \n'
+  fout.write(line)
+  line = 'id="' + ifo + injPattern + stages +'"></a> \n'
+  fout.write(line)
+  line = '<h1> ' + ifo + ' ' + stages + ' ' + injPattern + '</h1> \n'
+  fout.write(line)
+  line = '<h3> Plots: </h3> \n'
+  fout.write(line)
+
+  if len( snrPlots ) > 0:
+
+    for plot in snrPlots:
+      href= ifo + '_' + injPattern + '_' + plot + '_' + stages
+      if opts.user_tag:
+        href = href + opts.user_tag
+      href = href + '.png'
+      line = '<a href="' + href + '">\n<img src="' + href + '" width="200"'
+      line = line + 'height="200"></a> \n'
+      fout.write(line)
+
+  else:
+    line = '<p> No plots specified! Please run <tt> plotinspfound --help </tt>'
+    line = line + '</p> \n'
+    fout.write(line)
+
 
 
 ##############################################################################
-def do_everything(opts, ifos, injPattern, snrPlots):
+def write_html_table(opts, ifo, stages, injPattern, trigBefore, trigAfter, \
+                                                             check, delta):
+  """
+  Adds follow up information to the web page in a table using colours to
+  highlight significant values
+  """
+  
+  if opts.vocal:
+    print "Adding follow up information for", ifo, injPattern, stages, \
+          "to the output web page..."
+
+  line = '<h3> Table: </h3> \n'
+  fout.write(line)
+
+  line = '<table width="60%" border=1 cellpadding=2> \n'
+  fout.write(line)
+ 
+  line = '  <tr> \n'
+  fout.write(line)
+  line = '    <td bgcolor="#ffffff"> \n'
+  fout.write(line)
+  line = '    <b>gps_end_time</b> \n'
+  fout.write(line)
+  line = '    </td> \n'
+  fout.write(line)
+  line = '    <td bgcolor="#ffffff"> \n'
+  fout.write(line)
+  line = '    <b>snr before</b> \n'
+  fout.write(line)
+  line = '    </td> \n'
+  fout.write(line)
+  line = '    <td bgcolor="#ffffff"> \n'
+  fout.write(line)
+  line = '    <b>snr after</b> \n'
+  fout.write(line)
+  line = '    </td> \n'
+  fout.write(line)
+
+  for column in check:
+    line = '    <td bgcolor="#ffffff"> \n'
+    fout.write(line)
+    if column != "chisq":
+      line = '    <b> Error in <br />' + column + '<br/> before </b> \n'
+    else:
+      line = '    <b> ' + column + ' before </b> \n'
+    fout.write(line)
+    line = '    </td> \n'
+    fout.write(line)
+    line = '    <td bgcolor="#ffffff"> \n'
+    fout.write(line)
+    if column != "chisq":
+      line = '    <b> Error in <br/>' + column + '<br/> after </b>\n'
+    else:
+      line = '    <b> ' + column + ' after </b>\n'
+    fout.write(line)
+    line = '    </td> \n'
+    fout.write(line)
+
+  line = '  </tr> \n'
+  fout.write(line)
+
+  for j in xrange( len( trigBefore ) ):
+    line = '  <tr> \n'
+    fout.write(line)
+    
+    line = '    <td bgcolor="#ffffff"> \n'
+    fout.write(line)
+    line = '    ' + str( getattr( trigBefore[j], "end_time" ) ) + ' \n'
+    fout.write(line)
+    line = '    </td> \n'
+    fout.write(line)
+
+    snrBefore = getattr( trigBefore[j], "snr" )
+    snrAfter = getattr( trigAfter[j], "snr" )
+    if snrBefore < snrAfter:
+      cellColour = "#00ff00"
+    elif snrBefore > snrAfter:
+      cellColour = "#ff0000"
+    else:
+      cellColour = "#50ebec"
+
+    line = '    <td bgcolor="#ffffff"> \n'
+    fout.write(line)
+    line = '    ' + str( snrBefore ) + ' \n'
+    fout.write(line)
+    line = '    </td> \n'
+    fout.write(line)
+    line = '    <td bgcolor="' + cellColour +'"> \n'
+    fout.write(line)
+    line = '    ' + str( snrAfter ) + ' \n'
+    fout.write(line)
+    line = '    </td> \n'
+    fout.write(line)
+
+    for i in xrange( len( check ) ):
+      line = '    <td bgcolor="#ffffff"> \n'
+      fout.write(line)
+      line = '    ' + str(delta[i][0][j]) + ' \n'
+      fout.write(line)
+      line = '    </td> \n'
+      fout.write(line)
+
+      # Change background colour accorfingly
+      if abs( delta[i][1][j] ) < abs( delta[i][0][j] ):
+        cellColour = "#00ff00"
+      elif abs( delta[i][1][j] ) > abs( delta[i][0][j] ):
+        cellColour ="#ff0000"
+      else:
+        cellColour = "#50ebec"
+
+      line = '    <td bgcolor="' + cellColour +'"> \n'
+      fout.write(line)
+      line = '    ' + str(delta[i][1][j]) + ' \n'
+      fout.write(line)
+      line = '    </td> \n'
+      fout.write(line)
+
+    line = '  </tr> \n'
+    fout.write(line)
+
+
+  line = '</table> \n'
+  fout.write(line)
+ 
+  line = '<br /> \n'
+  fout.write(line)
+  line = '<br /> \n'
+  fout.write(line)
+  line = '<br /> \n\n\n'
+  fout.write(line)
+
+
+
+##############################################################################
+def write_html_line(opts):
+  line = '\n <hr /> \n\n'
+  fout.write(line)
+
+
+
+##############################################################################
+def write_html_tail(opts):
+  """
+  Finalize  the output web page
+  """
+  if opts.vocal:
+    print "Finalising the output web page..."
+
+  # End html
+  line = '</body> \n'
+  fout.write(line)
+  line = '</html> \n'
+  fout.write(line)
+
+
+
+#
+# =============================================================================
+#
+#                                 Main
+#
+# =============================================================================
+#
+
+def do_everything(opts, ifos, injPatterns, snrPlots, check):
+  """
+  Does everything! This funciton loops over the specified ifos and injection
+  patterns and makes the plots and web pages as required.
+
+  It could be part of main but by keeping it a separate function it is easier 
+  to test new features while developing.
+  """
 
   for i in xrange( len(ifos) ):
-    observatory = ifos[i]
+    ifo = ifos[i]
 
-    for j in xrange( len(injPattern) ):
-      pattern = 'SIRE*FOUND*FIRST*' +injPattern[j]
-      sireFirst   = get_sngl_triggers(opts, observatory, pattern)
+    for j in xrange( len(injPatterns) ):
+      injPattern = injPatterns[j]
+      # Always need sireFirst and coireSecond triggers
+      pattern = 'SIRE*FOUND*FIRST*' +injPattern
+      [sireFirst, injections] = get_sire_triggers(opts, ifo, pattern)
 
-      pattern = 'COIRE*FOUND*SECOND*' +injPattern[j]
-      coireSecond  = get_coinc_triggers(opts, observatory, pattern)
-       
-      if opts.coire_first:
-        pattern = 'COIRE*FOUND*FIRST*' +injPattern[j]
-        coireFirst  = get_coinc_triggers(opts, observatory, pattern)
+      pattern = 'COIRE*FOUND*SECOND*' +injPattern
+      coireSecond  = get_coire_triggers(opts, ifo, pattern)
 
-        stages = "SIRE_FIRST_to_COIRE_FIRST"
-        loss = check_snr_loss(opts, observatory, sireFirst, coireFirst, \
-                                                 injPattern[j], stages)
-        if len( snrPlots ) > 0:
-          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
-                                          coireFirst, stages, loss[0])
 
-        stages = "COIRE_FIRST_to_COIRE_SECOND"
-        loss  = check_snr_loss(opts, observatory, coireFirst, coireSecond, \
-                                                    injPattern[j], stages)
+      if opts.skip_coire_first:
+        stages = "sireFirst_to_coireSecond"
+        if opts.vocal:
+          print "Begining plotinspfound for", ifo, injPattern, stages, "..."
+        [loss, trigBefore, trigAfter] = \
+               check_snr_loss(opts, ifo, stages, injPattern, \
+                                       sireFirst, coireSecond)
+        delta = check_columns(opts, ifo, injPattern, trigBefore, trigAfter,\
+                                                            injections, check)
+
+        # Make plots and add to web page
         if len( snrPlots ) > 0 :
-          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
-                                         coireSecond, stages, loss[0])
-
-      else:
-        stages = "SIRE_FIRST_to_COIRE_SECOND"
-        loss = check_snr_loss(opts, observatory, sireFirst, coireSecond, \
-                                                 injPattern[j], stages)
-        if len( snrPlots ) > 0 :
-          plot_snr_loss(opts, observatory, injPattern[j], snrPlots, \
-                                         coireSecond, stages, loss[0])
+          plot_snr_loss(opts, ifo, stages, injPattern, coireSecond, \
+                                                       loss, snrPlots)
+ 
+        if opts.write_html:
+          write_html_line(opts)
+          write_html_plots(opts, ifo, stages, injPattern, snrPlots)
+          write_html_table(opts, ifo, stages, injPattern, \
+                        trigBefore, trigAfter, check, delta)
+        if opts.vocal:
+          print "Finished plotinspfound for", ifo, injPattern, stages, "..."
         
+      else:
+        pattern = 'COIRE*FOUND*FIRST*' +injPattern
+        coireFirst  = get_coire_triggers(opts, ifo, pattern)
+
+        stages = "sireFirst_to_coireFirst"
+        if opts.vocal:
+          print "Begining plotinspfound for", ifo, injPattern, stages, "..."
+        [loss, trigBefore, trigAfter] = \
+               check_snr_loss(opts, ifo, stages, injPattern, \
+                                         sireFirst, coireFirst)
+        delta = check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
+                                                            injections, check)
+
+        # Make plots and add to web page
+        if len( snrPlots ) > 0:
+          plot_snr_loss(opts, ifo, stages, injPattern, coireFirst, \
+                                                   loss, snrPlots)
+        if opts.write_html:
+          write_html_line(opts)
+          write_html_plots(opts, ifo, stages, injPattern, snrPlots)
+          write_html_table(opts, ifo, stages, injPattern, \
+                        trigBefore, trigAfter, check, delta)
+        if opts.vocal:
+          print "Finished plotinspfound for", ifo, injPattern, stages, "..."
+
+
+        stages = "coireFirst_to_coireSecond"
+        if opts.vocal:
+          print "Begining plotinspfound for", ifo, injPattern, stages, "..."
+
+        # Check chisq between these stages
+        if opts.check_chisq:
+          check.append("chisq")
+
+        [loss, trigBefore, trigAfter] = \
+                check_snr_loss(opts, ifo, stages, injPattern, \
+                                        coireFirst, coireSecond)
+        delta = check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
+                                                            injections, check)
+
+        # Make plots and add to web page
+        if len( snrPlots ) > 0 :
+          plot_snr_loss(opts, ifo, stages, injPattern, coireSecond, \
+                                                    loss, snrPlots)
+        if opts.write_html:
+          write_html_line(opts)
+          write_html_plots(opts, ifo, stages, injPattern, snrPlots)
+          write_html_table(opts, ifo, stages, injPattern, \
+                        trigBefore, trigAfter, check, delta)
+
+        # pop chisq so it doesn't get used incorrectly in the future
+        if opts.check_chisq:
+          check.pop()
+
+        if opts.vocal:
+          print "Finished plotinspfound for", ifo, injPattern, stages, "..."
+
 
 
 
 ##############################################################################
-if opts.summary_file:
-  fout = open(outfile, "w")
-  outstring = " ifo, injPattern, end_time, snrBefore, snrAfter,"
-  outstring = outstring + ',snrLoss, stages' + '\n'
-  fout.write(outstring)
+# Begin summary page
+if opts.write_html:
+  htmlfile = "pinspfound_webpage"
+  if opts.user_tag:
+    htmlfile = htmlfile + '_' + opts.user_tag
+  htmlfile = htmlfile + '.html'
 
-  do_everything(opts, ifos, injPattern, snrPlots)
+  fout = open(htmlfile,"w");
+  write_html_head(opts, ifos, injPatterns, htmlfile)
 
-if opts.summary_file:
+
+
+do_everything(opts, ifos, injPatterns, snrPlots, check)
+
+
+
+# End summary page
+if opts.write_html:
+  write_html_tail(opts)
   fout.close()
+
+
