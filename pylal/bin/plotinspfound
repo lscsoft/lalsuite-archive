@@ -422,8 +422,7 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
             print "ERROR! Cannot find inspiral trigger for", ifo, times[j], \
                   injPattern, ". chisq check incorrect for this trigger."
           k = 0
-        print inspTrig[k].chisq
-        print columnsAfter[j]
+
         deltaBefore.append( inspTrig[k].chisq )
         deltaAfter.append( columnsAfter[j] )
         
@@ -586,7 +585,7 @@ def write_html_head(opts, ifos, injPattern, title):
   fout.write(line)
   line = '<p> User Options: <br />' + str(sys.argv[1:]) + '</p> \n'
   fout.write(line)
-  line = '<a name="info" id="info""></a> \n'
+  line = '<a name="info" id="info"></a> \n'
   fout.write(line)
 
 
@@ -801,7 +800,7 @@ def do_everything(opts, ifos, injPatterns, snrPlots, check):
   It could be part of main but by keeping it a separate function it is easier 
   to test new features while developing.
   """
-
+ 
   for i in xrange( len(ifos) ):
     ifo = ifos[i]
 
@@ -908,7 +907,6 @@ if opts.write_html:
 
   fout = open(htmlfile,"w");
   write_html_head(opts, ifos, injPatterns, htmlfile)
-
 
 
 do_everything(opts, ifos, injPatterns, snrPlots, check)
