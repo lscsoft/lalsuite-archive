@@ -162,7 +162,6 @@ if opts.check_eff_dist:
   check.append("eff_distance")
 
 
-
 #
 # =============================================================================
 #
@@ -331,7 +330,7 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
   times=[]
 
   # Get the trigger and injection times
-  for trigger in trigAfter:
+  for trigger in trigBefore:
     times.append( getattr( trigger, "end_time" ) )
 
   # Use Hanford for the else statement since there is both H1 and H2
@@ -355,9 +354,8 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
     deltaAfter = []
 
     # Get triggers 
-    if check[i] != "chisq":
-      for trigger in trigBefore:
-        columnsBefore.append( getattr( trigger, check[i] ) )
+    for trigger in trigBefore:
+      columnsBefore.append( getattr( trigger, check[i] ) )
 
     for trigger in trigAfter:
       columnsAfter.append( getattr( trigger, check[i] ) )   
@@ -407,7 +405,7 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
           flag = 0
           while not flag:
             try:
-             if inspTimesNs[k] == trigAfter[j].end_time_ns:
+             if inspTimesNs[k] == trigBefore[j].end_time_ns:
                flag = 1
              else:
                k += 1
@@ -424,7 +422,8 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
             print "ERROR! Cannot find inspiral trigger for", ifo, times[j], \
                   injPattern, ". chisq check incorrect for this trigger."
           k = 0
-
+        print inspTrig[k].chisq
+        print columnsAfter[j]
         deltaBefore.append( inspTrig[k].chisq )
         deltaAfter.append( columnsAfter[j] )
         
@@ -501,7 +500,7 @@ def plot_snr_loss(opts, ifo, stages, injPattern, trigAfter, snrLoss, snrPlots):
       
       name = ifo + '_' + injPattern + '_' + snrPlots[i] + '_' + stages
       if opts.user_tag:
-        name = name + opts.user_tag
+        name = name + '_' + opts.user_tag
       savefig(name)
       close()
 
@@ -552,7 +551,7 @@ def write_html_head(opts, ifos, injPattern, title):
   fout.write(line)
   line = '<ol> \n'
   fout.write(line)
-  line = '<li><a href"' + title + '#info"> Information </a> \n'
+  line = '<li><a href="' + title + '#info"> Information </a> \n'
   fout.write(line)
 
   for i in xrange( len( ifos ) ):
@@ -616,7 +615,7 @@ def write_html_plots(opts, ifo, stages, injPattern, snrPlots):
     for plot in snrPlots:
       href= ifo + '_' + injPattern + '_' + plot + '_' + stages
       if opts.user_tag:
-        href = href + opts.user_tag
+        href = href + '_' +  opts.user_tag
       href = href + '.png'
       line = '<a href="' + href + '">\n<img src="' + href + '" width="200"'
       line = line + 'height="200"></a> \n'
@@ -889,7 +888,7 @@ def do_everything(opts, ifos, injPatterns, snrPlots, check):
           write_html_table(opts, ifo, stages, injPattern, \
                         trigBefore, trigAfter, check, delta)
 
-        # pop chisq so it doesn't get used incorrectly in the future
+        # pop chisq so it doesn't get appended twice
         if opts.check_chisq:
           check.pop()
 
