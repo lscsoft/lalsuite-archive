@@ -131,7 +131,7 @@ nearcoinccomparefunc = {
 #
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	#
 	# load the document
 	#
