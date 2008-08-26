@@ -291,7 +291,7 @@ def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
       
       loss.append( snrsBefore[j] - snrsAfter[i] )
  
-      if loss[i] >= opts.threshold:
+      if abs( loss[i] ) >= opts.threshold:
         aboveBefore.append( trigBefore[j] )
         aboveAfter.append( trigAfter[i] )
 
@@ -300,7 +300,7 @@ def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
           snr1Print = '%3.2f' % (snrsBefore[j])
           snr2Print = '%3.2f' % (snrsAfter[i])
 
-          print "Found", lossPrint, "loss in SNR for trigger:"
+          print "Found", lossPrint, "change in SNR for trigger:"
           print "end_time =", endTimesBefore[j], " snr =", snr1Print 
           print "end_time =", endTimesAfter[i],  " snr =", snr2Print 
 
