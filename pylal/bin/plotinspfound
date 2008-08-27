@@ -53,7 +53,7 @@ def parse_command_line():
   parser = OptionParser( usage=usage) 
   parser.add_option("-c", "--cache-file", help="LAL cache of relevant files")
   parser.add_option("-t", "--threshold", action="store", type="float", \
-                    default=0.,help="actual loss in  SNR to flag.")
+                    default=0.001,help="actual loss in  SNR to flag.")
   parser.add_option("-q", "--quiet", action="store_true",\
                      default=False, help="print only error information" )
   parser.add_option("-d", "--vocal", action="store_true",\
@@ -71,6 +71,9 @@ def parse_command_line():
 triggers that lose snr" )
   parser.add_option("-C", "--check-chisq",action="store_true",\
                      default=False,help="check the value of chisq for \
+coire_first triggers that lose snr" )
+  parser.add_option("-N", "--check-eff-snr",action="store_true",\
+                     default=False,help="check the value of effective_snr for \
 coire_first triggers that lose snr" )
   parser.add_option("-E", "--check-eff-dist",action="store_true",\
                      default=False,help="check the value of eff_dist for \
@@ -110,7 +113,7 @@ if opts.verbose:
 comments = ""
 
 if opts.vocal:
-  opts.guiet = True
+  opts.quiet = True
   print "Parsing the command line..."
 
 if opts.cache_file:
@@ -144,6 +147,14 @@ if len( ifos ) == 0:
   print "ERROR! must specify one of --h1-triggers, --h2-triggers or", \
         "--l1-triggers"
   sys.exit()
+
+if opts.threshold == 0:
+  if opts.quiet:
+    print "ERROR! threshold = 0.0. if plotinspfound cannot find a matching ", \
+          "trigger when checking the loss it will set the loss equal to ", \
+          "0.0. This can lead to incorrect output. Setting threshold = 0.001.\n"
+  opts.threshold = 0.001
+
 
 snrPlots=[]
 if opts.plot_snr:
@@ -274,8 +285,8 @@ def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
     print "Checking SNR loss for", ifo, stages, injPattern, "..."
 
   loss = []
-  aboveBefore = lsctables.SnglInspiralTable()
-  aboveAfter  = lsctables.SnglInspiralTable()
+  aboveBefore = lsctables.New( lsctables.SnglInspiralTable )
+  aboveAfter  = lsctables.New( lsctables.SnglInspiralTable )
   
   # Convert endTimesBefore to a list so we can use list.index
   endTimesBefore = list( trigBefore.get_column("end_time") )
@@ -295,7 +306,7 @@ def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
         aboveBefore.append( trigBefore[j] )
         aboveAfter.append( trigAfter[i] )
 
-        if opts.vocal:
+        if opts.verbose:
           lossPrint = '%3.2f' % (loss[i])
           snr1Print = '%3.2f' % (snrsBefore[j])
           snr2Print = '%3.2f' % (snrsAfter[i])
@@ -308,7 +319,7 @@ def check_snr_loss(opts, ifo, stages, injPattern, trigBefore, trigAfter):
       if opts.quiet:
         print "ERROR! Can't find original trigger, check cache file.", \
               "Setting snr loss = 0 for this trigger, end_time =", \
-              endTimesAfter[i]
+              endTimesAfter[i], "\n"
       loss.append( 0 )  
       
   return loss, aboveBefore, aboveAfter  
@@ -347,22 +358,20 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
     if opts.vocal:
       print "Checking", check[i], "..."
 
-    columnsBefore = []
-    columnsAfter = []
-
     deltaBefore = []
     deltaAfter = []
 
-    # Get triggers 
-    for trigger in trigBefore:
-      columnsBefore.append( getattr( trigger, check[i] ) )
+    # Get triggers
+    if (check[i] != "chisq" and check[i] != "effective_snr"):
+      columnsBefore = []
+      columnsBefore = trigBefore.get_column( check[i] )
 
-    for trigger in trigAfter:
-      columnsAfter.append( getattr( trigger, check[i] ) )   
+    columnsAfter = []
+    columnsAfter = trigAfter.get_column( check[i] )
 
 
     # If we are not checking chisq get the injections 
-    if check[i] != "chisq":
+    if (check[i] != "chisq" and check[i] != "effective_snr"):
       if check[i] == "eff_distance":
         if ifo == "L1":
           column = "eff_dist_l"
@@ -371,12 +380,12 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
       else:
         column = check[i]
 
-    injectionColumns = injections.get_column( column )
+      injectionColumns = injections.get_column( column )
 
     # Begin Checking specified column
     for j in xrange( len(times) ):
       
-      if check[i] != "chisq":
+      if (check[i] != "chisq" and check[i] != "effective_snr"):
         if times[j] in injectionTimes:
           k = injectionTimes.index( times[j] )
         else:
@@ -420,10 +429,14 @@ def check_columns(opts, ifo, injPattern, trigBefore, trigAfter, \
         else:
           if opts.quiet:
             print "ERROR! Cannot find inspiral trigger for", ifo, times[j], \
-                  injPattern, ". chisq check incorrect for this trigger."
+                  injPattern, ". chisq check incorrect for this trigger. \n"
           k = 0
 
-        deltaBefore.append( inspTrig[k].chisq )
+        if check[i] == "chisq":
+          deltaBefore.append( inspTrig[k].chisq )
+        if check[i] == "effective_snr":
+          inspEffSnr = inspTrig.get_column("effective_snr")
+          deltaBefore.append( inspEffSnr[k] )
         deltaAfter.append( columnsAfter[j] )
         
     delta.append( [deltaBefore, deltaAfter] )
@@ -669,7 +682,7 @@ def write_html_table(opts, ifo, stages, injPattern, trigBefore, trigAfter, \
   for column in check:
     line = '    <td bgcolor="#ffffff"> \n'
     fout.write(line)
-    if column != "chisq":
+    if (column != "chisq" and column != "effective_snr"):
       line = '    <b> Error in <br />' + column + '<br/> before </b> \n'
     else:
       line = '    <b> ' + column + ' before </b> \n'
@@ -678,7 +691,7 @@ def write_html_table(opts, ifo, stages, injPattern, trigBefore, trigAfter, \
     fout.write(line)
     line = '    <td bgcolor="#ffffff"> \n'
     fout.write(line)
-    if column != "chisq":
+    if (column != "chisq" and column != "effective_snr"):
       line = '    <b> Error in <br/>' + column + '<br/> after </b>\n'
     else:
       line = '    <b> ' + column + ' after </b>\n'
@@ -711,36 +724,44 @@ def write_html_table(opts, ifo, stages, injPattern, trigBefore, trigAfter, \
 
     line = '    <td bgcolor="#ffffff"> \n'
     fout.write(line)
-    line = '    ' + str( snrBefore ) + ' \n'
+    line = '    ' + '%.3f' % snrBefore  + ' \n'
     fout.write(line)
     line = '    </td> \n'
     fout.write(line)
     line = '    <td bgcolor="' + cellColour +'"> \n'
     fout.write(line)
-    line = '    ' + str( snrAfter ) + ' \n'
+    line = '    ' + '%.3f' % snrAfter  + ' \n'
     fout.write(line)
     line = '    </td> \n'
     fout.write(line)
 
     for i in xrange( len( check ) ):
-      line = '    <td bgcolor="#ffffff"> \n'
+      line = '    <td align=right bgcolor="#ffffff"> \n'
       fout.write(line)
-      line = '    ' + str(delta[i][0][j]) + ' \n'
+      line = '    ' + '%.3f' % delta[i][0][j] + ' \n'
       fout.write(line)
       line = '    </td> \n'
       fout.write(line)
 
       # Change background colour accorfingly
       if abs( delta[i][1][j] ) < abs( delta[i][0][j] ):
-        cellColour = "#00ff00"
+        if check[i] != "effective_snr":
+          cellColour = "#00ff00"
+        else:
+          cellColout = "#ff0000"
+
       elif abs( delta[i][1][j] ) > abs( delta[i][0][j] ):
-        cellColour ="#ff0000"
+        if check[i] != "effective_snr":
+          cellColour ="#ff0000"
+        else:
+          cellColour = "#00ff00"
+
       else:
         cellColour = "#50ebec"
 
-      line = '    <td bgcolor="' + cellColour +'"> \n'
+      line = '    <td align=right bgcolor="' + cellColour +'"> \n'
       fout.write(line)
-      line = '    ' + str(delta[i][1][j]) + ' \n'
+      line = '    ' + '%.3f' % delta[i][1][j] + ' \n'
       fout.write(line)
       line = '    </td> \n'
       fout.write(line)
@@ -867,9 +888,11 @@ def do_everything(opts, ifos, injPatterns, snrPlots, check):
         if opts.vocal:
           print "Begining plotinspfound for", ifo, injPattern, stages, "..."
 
-        # Check chisq between these stages
+        # Check chisq/eff_snr between these stages
         if opts.check_chisq:
           check.append("chisq")
+        if opts.check_eff_snr:
+          check.append("effective_snr")
 
         [loss, trigBefore, trigAfter] = \
                 check_snr_loss(opts, ifo, stages, injPattern, \
@@ -887,8 +910,10 @@ def do_everything(opts, ifos, injPatterns, snrPlots, check):
           write_html_table(opts, ifo, stages, injPattern, \
                         trigBefore, trigAfter, check, delta)
 
-        # pop chisq so it doesn't get appended twice
+        # pop chisq/eff_dist so it doesn't get appended twice
         if opts.check_chisq:
+          check.pop()
+        if opts.check_eff_snr:
           check.pop()
 
         if opts.vocal:
