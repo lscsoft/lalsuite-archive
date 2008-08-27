@@ -1,0 +1,250 @@
+#!/usr/bin/python
+# $Id$
+#
+# Copyright (C) 2008  Stephen Fairhurst
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+__Id__ = "$Id$"
+__author__ = "Stephen Fairhurst <stephen.fairhurst@astro.cf.ac.uk>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__name__ = "plotcoincmissed"
+__title__ = "Plot coinc missed"
+
+import os, sys, exceptions, copy
+import optparse
+
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import InspiralUtils
+from glue import lal
+from glue.ligolw import lsctables
+from pylal import followup_missed
+
+from glue import markup
+from glue.markup import oneliner as extra
+
+
+#################################################################
+usage = """Usage: %prog [options] 
+
+Create a list of those injections which were found in 2 or more
+detectors, but not registered as coincidences."""
+
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = optparse.OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name$\n")
+    
+  # input details
+  parser.add_option("","--cache-file",action="store",type="string",\
+      default=None, metavar=" CACHE-FILE",\
+      help=" reads the cache file as an input" )
+  parser.add_option("", "--found-pattern",
+    help="sieve the cache for found injection files with this pattern."\
+    "The code will look for injections found in single ifo but missed in coinc")
+  parser.add_option("", "--missed-pattern",
+    help="sieve the cache for missed injection files with this pattern."\
+    "This should be the pattern for missed injections in coincidence")
+
+  # followup details
+  parser.add_option("","--do-followup",action="store_true",\
+    default=False,help="activates the followup of missed injections" )
+  parser.add_option("","--followup-tag",action="store",\
+      type="string",default=None,  metavar="FOLLOWUPTAG",\
+      help="a tag to select the proper xml files in a cache file." \
+      "Should be the injecion tag ideally.")
+
+  # output related
+  parser.add_option("-s","--show-plot",action="store_true",default=False,\
+      help="display the figures on the terminal" )
+  parser.add_option("-z","--user-tag",action="store",type="string",\
+      default=None,metavar=" FNAME",\
+      help="a user tag for the output filenames" )
+  parser.add_option("-o","--output-path",action="store",\
+      type="string",default="",  metavar="PATH",\
+      help="path where the figures would be stored")
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+  parser.add_option("","--ifo-tag",action="store",\
+      type="string",  metavar=" IFOTAG",\
+      help="ifo tag gives the information about ifo times and stage")
+  parser.add_option("", "--verbose", action="store_true", default=False,\
+      metavar="VERBOSE", help="verbose option")
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, help="dpi of the thumbnails (50 by default)")
+
+  command_line = sys.argv[1:]
+  (options,args) = parser.parse_args()
+
+  options.followup_exttrig = False
+  options.followup_flow = 40.0
+  # test the input options
+  if not options.cache_file:
+    raise ValueError, "--ifo-times must be provided"
+
+  return options, sys.argv[1:]
+
+##############################################################################
+def add_href(page, href="", name="click here"):
+  page.add("<a href=\"" + href + "\" rel=\"external\"> " + name + "</a>")
+  return page
+
+##############################################################################
+def get_sngl_triggers(observatory, pattern, verbose = False):
+  trigcache = cache.sieve(ifos = observatory, description = pattern)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+  if verbose:
+    print "\n reading the following trigger files..."
+    for file in trigFiles:
+      print file
+    print "\n"
+  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  return triggers
+
+
+##############################################################################
+def get_coinc_triggers(opts, observatory, pattern):
+
+  trigcache = cache.sieve(ifos = observatory, description = pattern)
+  trigFiles = trigcache.checkfilesexist()[0].pfnlist()
+  if opts.verbose:
+    print "\n reading the following trigger files..."
+    for file in trigFiles:
+      print file
+    print "\n"
+
+  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers, \
+                             CoincInspiralUtils.coincStatistic( "snr") )
+  
+  triggers = coincTriggers.getsngls(observatory)
+
+  return triggers
+
+
+##############################################################################
+def get_injections(ifos = None, pattern = None, verbose=False):
+  injcache = cache.sieve(ifos = ifos, description = pattern)
+  injFiles = injcache.checkfilesexist()[0].pfnlist()
+  if verbose:
+    print "\n reading the following injection files..."
+    for file in injFiles:
+      print file
+    print "\n"
+  injections = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
+  return injections
+
+
+##############################################################################
+# MAIN code
+#
+##############################################################################
+
+# -- get command line arguments
+opts, args = parse_command_line()
+comments = ""
+
+# Initialise: add prefix and suffix to the opts strucutre. 
+# To be used for filenames
+opts = InspiralUtils.initialise(opts, __name__, __version__)
+
+# to avoid  display problem when show plot is not used
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
+
+# generate the cache and missed cache
+cache = lal.Cache.fromfile(open(opts.cache_file))
+missed_cache = cache.sieve(description=opts.missed_pattern)
+
+ifolist = ["H1", "H2", "L1","V1"]
+coincMissed = lsctables.New(lsctables.SimInspiralTable)
+
+# initialize the followup class
+if opts.do_followup:
+  followup = followup_missed.FollowupMissed( cache, missed_cache, opts)
+
+# and the page
+page = markup.page()
+page.h1("Followup of injections missed in coincidence")
+
+
+# loop over missed files
+for entry in missed_cache:
+  ifos = entry.observatory
+  page.h2(ifos)
+  page.ul()
+  missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path()])
+
+  single_found = {}
+  single_found_times = {}
+  for ifo in ifolist:
+    if ifo in ifos: 
+      single_found[ifo] = get_injections(ifo, opts.found_pattern)
+      single_found_times[ifo] = single_found[ifo].get_column("geocent_end_time")
+
+  for inj in missed_inj: 
+    found_ifos = [] 
+    end_time = inj.geocent_end_time
+    for ifo in ifolist:
+      if ifo in ifos and end_time in single_found_times[ifo]:
+        found_ifos.append(ifo)
+    if len(found_ifos) > 1:
+      page.a("<li>Missed inj at " + str(end_time) + " found in " + \
+          str(found_ifos))
+
+      coincMissed.append( inj )
+      if opts.do_followup:
+        followup.setTag( "TEST")
+        followuphtml = followup.followup( inj, "H1", opts.followup_tag )
+        page = add_href(page, followuphtml, "details here")
+  page.ul.close()
+
+# add the details
+if opts.enable_output is True:
+  page.hr()
+  text = InspiralUtils.writeProcessParams( opts.name, opts.version,  args)
+  page.add(text)
+
+# write the page
+if opts.enable_output is True: 
+  html_filename = opts.output_path + "/" + opts.prefix + opts.suffix + ".html"
+  html_file = file(html_filename, "w")
+  html_file.write(page(False))
+  html_file.close()
+
+  if opts.do_followup:
+    fnameList =  followup.fnameList 
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+    
