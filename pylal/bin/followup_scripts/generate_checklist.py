@@ -288,7 +288,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #0
   file.write("<tr>\n")
   file.write("  <td>#0 False alarm probability</td>\n")
-  file.write("  <td>Is the false alarm rate associated with this candidate reasonably low ?</td>\n")
+  file.write("  <td>What is the false alarm rate associated with this candidate ?</td>\n")
   file.write("  <td> </td>\n")
   if opts.string_id:
     file.write("  <td><a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
@@ -384,8 +384,8 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #6
   file.write("<tr>\n")
-  file.write("  <td>#6 Environmental causes</td>\n")
-  file.write("  <td>Were the environmental disturbances insignificant at the time of the candidate ?</td>\n")
+  file.write("  <td>#6 Other environmental causes</td>\n")
+  file.write("  <td>Were the environmental disturbances (other than seismic) insignificant at the time of the candidate ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td>RDS Qscans:")
   for j,ifo in enumerate(trig.ifolist_in_coinc):
@@ -446,7 +446,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #10
   file.write("<tr>\n")
   file.write("  <td>#10 Snr versus time</td>\n")
-  file.write("  <td>Does the evolution of the triggers'snr versus time show that this candidate is significant among other triggers present in the analyzed chunk ?</td>\n")
+  file.write("  <td>Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -455,7 +455,7 @@ for i,trig in enumerate(followuptrigs):
   # Row #11
   file.write("<tr>\n")
   file.write("  <td>#11 Parameters of the candidate</td>\n")
-  file.write("  <td>Are the parameters of the candidate consistent with our expectations for a gravitational wave ?<br></td>\n")
+  file.write("  <td>Does the candidate have a high likelihood of being a gravitational-wave according to its parameters ?<br></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
@@ -532,33 +532,6 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
-  # Row #18
-  file.write("<tr>\n")
-  file.write("  <td>#18</td>\n")
-  file.write("  <td>Do the results of the Burst analysis confirm a possible detection ?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
-  # Row #19
-  file.write("<tr>\n")
-  file.write("  <td>#19</td>\n")
-  file.write("  <td>Do the results of a ringdown search confirm a possible detection ?</td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
-  # Row #20
-  file.write("<tr>\n")
-  file.write("  <td>#20 EM triggers</td>\n")
-  file.write("  <td>Are there any EM triggers in coincidence with the candidate ?<br>Is the distance estimated from interferometer time-delays or coherent analysis consistent with electro-magnetic observations?<br>? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
-  file.write("  <td></td>\n")
-  file.write("  <td><a href=\"http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/S5grbs_list.html\">List of GRBs during S5</a></td>\n")
-  file.write("  <td></td>\n")
-  file.write("</tr>\n\n")
-
   file.write("</tbody>\n</table><br>\n\n")
 
 
@@ -593,10 +566,28 @@ for i,trig in enumerate(followuptrigs):
 
   # Row #3
   file.write("<tr>\n")
-  file.write("  <td>#3 EM triggers</td>\n")
-  file.write("  <td>Are there any EM triggers in coincidence?<br>Is the distance consistent with electro-magnetic observations?<br><br>What information is available via the time-delays? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
+  file.write("  <td>#3</td>\n")
+  file.write("  <td>Are the results of the Burst analysis astrophysically consistent with a possible detection ?</td>\n")
   file.write("  <td></td>\n")
   file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #4
+  file.write("<tr>\n")
+  file.write("  <td>#4</td>\n")
+  file.write("  <td>Are the results of a ringdown search astrophisycally consistent with a possible detection ?</td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td></td>\n")
+  file.write("</tr>\n\n")
+
+  # Row #5
+  file.write("<tr>\n")
+  file.write("  <td>#5 EM triggers</td>\n")
+  file.write("  <td>Are there any EM triggers in coincidence with the candidate ?<br>Is the distance estimated from interferometer time-delays or coherent analysis consistent with electro-magnetic observations?<br>? Are the distances as measured in several instruments consistent with position information?<br></td>\n")
+  file.write("  <td></td>\n")
+  file.write("  <td><a href=\"http://www.uoregon.edu/~ileonor/ligo/s5/grb/online/S5grbs_list.html\">List of GRBs during S5</a><br><a href=\"http://ldas-jobs.ligo.caltech.edu/~dietz/pages/s5/GRB/CVS/overviewS5.html\">CBC compiled list of GRBs</a></td>\n")
   file.write("  <td></td>\n")
   file.write("</tr>\n\n")
 
