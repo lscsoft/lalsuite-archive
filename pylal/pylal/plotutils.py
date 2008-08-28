@@ -98,6 +98,16 @@ class BasicPlot(object):
                 self.ax.legend(*args, **kwargs)
                 return
 
+    def get_colors(self):
+        """
+        If self.colors are specified, use those.  Else, use the default
+        colors.
+        """
+        if iterutils.any(c is None for c in self.colors):
+            return default_colors()
+        else:
+            return self.colors
+
 
 ##############################################################################
 # utility functions
@@ -245,30 +255,38 @@ class NumberVsBinBarPlot(BasicPlot):
         self.bin_sets = []
         self.value_sets = []
         self.data_labels = []
+        self.colors = []
 
-    def add_content(self, bins, values, label="_nolabel_"):
+    def add_content(self, bins, values, color=None, label="_nolabel_"):
         if len(bins) != len(values):
             raise ValueError, "length of bins and values do not match"
+        if iterutils.any((c is None) != (color is None) for c in self.colors):
+            raise ValueError, "you can explicitly specify all colors or none"
+
         self.bin_sets.append(bins)
         self.value_sets.append(values)
+        self.colors.append(color)
         self.data_labels.append(label)
 
     def finalize(self, orientation="vertical"):
-        colors = default_colors()
         for bins, values, color, label in itertools.izip(self.bin_sets,
-            self.value_sets, colors, self.data_labels):
+            self.value_sets, self.get_colors(), self.data_labels):
             x_vals = bins.centres()
             widths = bins.upper() - bins.lower()
 
             if orientation == "vertical":
-                self.ax.bar(x_vals, values, width=widths, color=color,
-                    label=label, align="center", linewidth=0)
+                patches = self.ax.bar(x_vals, values, width=widths, color=color,
+                    align="center", linewidth=0)
             elif orientation == "horizontal":
-                self.ax.barh(x_vals, values, height=widths, color=color,
-                    label=label, align="center", linewidth=0)
+                patches = self.ax.barh(x_vals, values, height=widths,
+                    color=color, align="center", linewidth=0)
             else:
                 raise ValueError, orientation + " must be 'vertical' " \
                     "or 'horizontal'"
+
+            # prevent each bar from getting a separate legend entry
+            if len(patches) > 0:
+                patches[0].set_label(label)
 
         pylab.axis('tight')
 
