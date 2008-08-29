@@ -1030,7 +1030,7 @@ int main( int argc, char *argv[] )
 
     /* reconstruct the coincs */
     numFileCoincs = XLALRecreateCoincFromSngls( &coincFileHead,
-        inspiralFileList );
+        &inspiralFileList );
     if( numFileCoincs < 0 )
     {
       fprintf(stderr,
