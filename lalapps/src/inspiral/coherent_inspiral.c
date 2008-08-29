@@ -294,7 +294,7 @@ int main( int argc, char *argv[] )
 	}
       
       /* reconstruct the coincs */
-      numCoincs = XLALRecreateCoincFromSngls( &coincHead, cohbankEventList );
+      numCoincs = XLALRecreateCoincFromSngls( &coincHead, &cohbankEventList );
       if( numCoincs < 0 )
 	{
 	  fprintf(stderr, "Unable to reconstruct coincs from single ifo triggers");
