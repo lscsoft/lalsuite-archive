@@ -422,13 +422,13 @@ def write_trig_table_head( opts, check ):
   fout.write( line )
   line = '  <th> ifo </th> \n'
   fout.write( line )
+  line = '  <th> SNR <br/> before </th> \n'
+  fout.write( line )
+  line = '  <th> SNR <br/> after </th> \n'
+  fout.write( line )
   line = '  <th> end_time /<br/> &Delta;t <br/> before</th> \n'
   fout.write( line )
   line = '  <th> end_time /<br/> &Delta;t <br/> after</th> \n'
-  fout.write( line )
-  line = '  <th> SNR <br/> before </th> \n'
-  fout.write( line )
-  line = '  <th> SNR </br> after </th> \n'
   fout.write( line )
   for column in check:
     line = '  <th>' + column + '<br/> before </th> \n'
@@ -448,6 +448,20 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   fout.write( line )
 
   line = '  <td>' + ifo + '</td> \n'
+  fout.write( line )
+
+  line = '  <td align=right bgcolor="#ffffff">' 
+  line = line + str( trigBefore.snr ) + '</td> \n'
+  fout.write( line )
+
+  if trigAfter.snr < trigBefore.snr:
+    colour = "#ff0000"
+  elif trigAfter.snr > trigBefore.snr:
+    colour = "#00ff00"
+  else:
+    colour = "#50ebec"
+  line = '  <td align=right bgcolor="' + colour + '">'
+  line = line + str( trigAfter.snr ) + '</td> \n'
   fout.write( line )
 
   timeInj = injection.h_end_time + injection.h_end_time_ns/1000000000.0
@@ -473,22 +487,6 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   line = '/ <br/>    &Delta;t = ' + '%.4f' % ( dtAfter ) + '</td> \n'
   fout.write( line )
 
-  line = '  <td align=right bgcolor="#ffffff">' 
-  line = line + str( trigBefore.snr ) + '</td> \n'
-  fout.write( line )
-
-
-
-
-  if trigAfter.snr < trigBefore.snr:
-    colour = "#ff0000"
-  elif trigAfter.snr > trigBefore.snr:
-    colour = "#00ff00"
-  else:
-    colour = "#50ebec"
-  line = '  <td align=right bgcolor="' + colour + '">'
-  line = line + str( trigAfter.snr ) + '</td> \n'
-  fout.write( line )
 
   for column in check:
     if column == "chisq" or column == "effective_snr":
