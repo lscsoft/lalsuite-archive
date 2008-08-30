@@ -428,7 +428,7 @@ def write_trig_table_head( opts, check ):
   fout.write( line )
   line = '  <th> SNR <br/> before </th> \n'
   fout.write( line )
-  line = '  <th> SNR </br> after </th> \n'
+  line = '  <th> SNR <br/> after </th> \n'
   fout.write( line )
   for column in check:
     line = '  <th>' + column + '<br/> before </th> \n'
