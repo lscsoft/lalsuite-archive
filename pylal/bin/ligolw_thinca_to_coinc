@@ -222,9 +222,6 @@ def populate_thinca_time_slide_table(xmldoc, process):
 				if match is not None:
 					offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
 
-	if num_slides is None:
-		raise ValueError, "cannot find --num-slides thinca command line option in process_params table"
-
 	#
 	# identify the instrument names in play from the search_summary
 	# table
@@ -257,12 +254,15 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	# if the offset vector is empty, assume we've only loaded a
 	# zero-lag thinca file, and so synthesize an all-zero vector from
 	# the instruments we've retrieved from the search_summary table,
-	# and set num_slides to 0
+	# and set num_slides to 0.  otherwise, verify there was a
+	# --num-slides option in the process_params table.
 	#
 
 	if not offset_vector:
 		offset_vector = dict([(instrument, 0.0) for instrument in instruments])
 		num_slides = 0
+	elif num_slides is None:
+		raise ValueError, "cannot find --num-slides thinca command line option in process_params table"
 
 	#
 	# remove instruments from the offset vector that are were not named
