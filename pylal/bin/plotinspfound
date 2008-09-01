@@ -624,11 +624,11 @@ def do_everything(opts, ifos, injPatterns, check):
       [h1_sireFirst, h1Injections] = get_sire_triggers( opts, "H1", pattern )   
       h1_sireFirstTimes = list( h1_sireFirst.get_column( "end_time" ) )
       
-      pattern = 'COIRE*FOUND*FIRST*' + injPattern
+      pattern = 'COIRE*FOUND_FIRST*' + injPattern
       h1_coireFirst = get_coire_triggers( opts, "H1", pattern )      
       h1_coireFirstTimes = list( h1_coireFirst.get_column( "end_time" ) )
       
-      pattern = 'COIRE*FOUND*SECOND*' + injPattern
+      pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
       h1_coireSecond = get_coire_triggers( opts, "H1", pattern )      
       h1_coireSecondTimes = list( h1_coireSecond.get_column( "end_time" ) )
       
@@ -641,11 +641,11 @@ def do_everything(opts, ifos, injPatterns, check):
       [h2_sireFirst, h2Injections] = get_sire_triggers( opts, "H2", pattern )
       h2_sireFirstTimes = list( h2_sireFirst.get_column( "end_time" ) )
 
-      pattern = 'COIRE*FOUND*FIRST*' + injPattern
+      pattern = 'COIRE*FOUND_FIRST*' + injPattern
       h2_coireFirst = get_coire_triggers( opts, "H2", pattern )      
       h2_coireFirstTimes = list( h2_coireFirst.get_column( "end_time" ) )
 
-      pattern = 'COIRE*FOUND*SECOND*' + injPattern
+      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
       h2_coireSecond = get_coire_triggers( opts, "H2", pattern )      
       h2_coireSecondTimes = list( h2_coireSecond.get_column( "end_time" ) )
 
@@ -660,11 +660,11 @@ def do_everything(opts, ifos, injPatterns, check):
       [l1_sireFirst, l1Injections] = get_sire_triggers( opts, "L1", pattern )
       l1_sireFirstTimes = list( l1_sireFirst.get_column( "end_time" ) )
       
-      pattern = 'COIRE*FOUND*FIRST*' + injPattern
+      pattern = 'COIRE*FOUND_FIRST*' + injPattern
       l1_coireFirst = get_coire_triggers( opts, "L1", pattern )      
       l1_coireFirstTimes = list( l1_coireFirst.get_column( "end_time" ) )
       
-      pattern = 'COIRE*FOUND*SECOND*' + injPattern
+      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
       l1_coireSecond = get_coire_triggers( opts, "L1", pattern )      
       l1_coireSecondTimes = list( l1_coireSecond.get_column( "end_time" ) )
 
