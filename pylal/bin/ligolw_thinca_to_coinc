@@ -578,7 +578,7 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 
 	#
 	# turn the time slide table into a dictionary, and retrieve the
-	# veto segment lists and thinca segment lists.
+	# veto segment lists.
 	#
 
 	if verbose:
@@ -671,6 +671,7 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 			coinc_event.time_slide_id = time_slide_table.get_next_id()
 			for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, coinc_event.time_slide_id, process):
 				time_slide_table.append(row)
+			time_slides[coinc_event.time_slide_id] = offset_vector
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
