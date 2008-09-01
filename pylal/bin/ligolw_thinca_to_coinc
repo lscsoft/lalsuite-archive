@@ -47,6 +47,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
 from pylal import ligolw_tisi
+from pylal import SnglInspiralUtils
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -72,11 +73,15 @@ def parse_command_line():
 	parser.add_option("--zero-lag-file", help = "Thinca output file containing zero lag triggers.")
 	parser.add_option("--time-slide-file", help = "Thinca output file containing time slide triggers.")
 	parser.add_option("--output", help = "Output file name (required).")
+	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
+	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
 	if not ((options.zero_lag_file or options.time_slide_file) and options.output):
 		raise ValueError, "must specify --output and at least one of --zero-lag-file and --time-slide-file"
+	if options.veto_segments and not options.veto_segments_name:
+		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -135,7 +140,10 @@ def set_process_params(xmldoc, process, options):
 #
 
 
-def add_missing_id_columns(xmldoc):
+def add_missing_id_columns(xmldoc, verbose = False):
+	if verbose:
+		print >>sys.stderr, "adding any missing ID columns ...",
+
 	#
 	# summ_value table
 	#
@@ -147,6 +155,8 @@ def add_missing_id_columns(xmldoc):
 		# already has one
 		pass
 	else:
+		if verbose:
+			print >>sys.stderr, lsctables.SummValueTable.tableName,
 		for row in tbl:
 			row.summ_value_id = tbl.get_next_id()
 
@@ -161,8 +171,17 @@ def add_missing_id_columns(xmldoc):
 		# already has one
 		pass
 	else:
+		if verbose:
+			print >>sys.stderr, lsctables.SearchSummVarsTable.tableName,
 		for row in tbl:
 			row.search_summvar_id = tbl.get_next_id()
+
+	#
+	# done
+	#
+
+	if verbose:
+		print >>sys.stderr
 
 
 #
@@ -174,11 +193,14 @@ def add_missing_id_columns(xmldoc):
 #
 
 
-def populate_thinca_time_slide_table(xmldoc, process):
+def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	"""
 	Reconstruct the list of time slides from lalapps_thinca's command
 	line arguments.
 	"""
+	if verbose:
+		print >>sys.stderr, "populating thinca time_slide table ...",
+
 	#
 	# find the time_slide table or add one if needed
 	#
@@ -227,15 +249,12 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	# table
 	#
 
-	thinca_segments = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName).get_out_segmentlistdict(process_ids)
-	instruments = set(thinca_segments.keys())
+	instruments = set([row.ifos for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in process_ids])
 	if len(instruments) < 1:
 		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
 	if len(instruments) > 1:
 		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(instruments)
 	instruments = instruments.pop()
-	thinca_segments = thinca_segments[instruments]
-	thinca_segments.sort()
 	# instruments is now a single string in the form "H1H2L1".  the
 	# following converts this into a set of 2-character strings in the
 	# form set(["H1", "H2", "L1"]).
@@ -243,12 +262,6 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	while len(instruments[-1]) > 2:
 		instruments = instruments[:-1] + [instruments[-1][:2], instruments[-1][2:]]
 	instruments = set(instruments)
-
-	#
-	# reconstruct the segmentlistdict.  NOTE it is NOT coalesced.
-	#
-
-	thinca_segments = segments.segmentlistdict([(instrument, thinca_segments) for instrument in instruments])
 
 	#
 	# if the offset vector is empty, assume we've only loaded a
@@ -274,7 +287,8 @@ def populate_thinca_time_slide_table(xmldoc, process):
 	for instrument in set(offset_vector.keys()) - instruments:
 		del offset_vector[instrument]
 	if set(offset_vector.keys()) != instruments:
-		raise ValueError, "instruments named in thinca --??-slide command line options do not match instruments found in search_summary table:  found %s in command line options, %s in search summary table" % (", ".join(offset_vector.keys()), ", ".join(instruments))
+		missing_instruments = set(offset_vector.keys()) - instruments
+		raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
 
 	#
 	# build the time slides
@@ -289,21 +303,35 @@ def populate_thinca_time_slide_table(xmldoc, process):
 			else:
 				yield type(time_slide_table.next_id)(n)
 
+	n = 0
 	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(num_slides)):
+		n += 1
 		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
 			time_slide_table.append(row)
 
+	#
+	# done
+	#
 
-def depopulate_time_slide_table(xmldoc):
+	if verbose:
+		print >>sys.stderr, "added %d time slide vectors" % n
+
+
+def depopulate_time_slide_table(xmldoc, verbose = False):
 	"""
 	Search for and remove duplicate time slide definitions from the
 	time_slide table.
 	"""
+	if verbose:
+		print >>sys.stderr, "depopulating time_slides ...",
+
 	#
 	# find the time_slide table
 	#
 
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+
+	length_before = len(time_slide_table)
 
 	#
 	# translate time_slide table into a dictionary, and identify
@@ -326,6 +354,13 @@ def depopulate_time_slide_table(xmldoc):
 
 	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
 		tbl.applyKeyMapping(mapping)
+
+	#
+	# done
+	#
+
+	if verbose:
+		print >>sys.stderr, "removed %d redundant time slide vectors" % (length_before - len(time_slide_table))
 
 
 #
@@ -356,7 +391,10 @@ InspiralCoincTypes = {
 #
 
 
-def populate_coinc_event_sngls(xmldoc, process):
+def populate_coinc_event_sngls(xmldoc, process, verbose = False):
+	if verbose:
+		print >>sys.stderr, "constructing coincs ...",
+
 	#
 	# find the sngl_inspiral table
 	#
@@ -364,7 +402,9 @@ def populate_coinc_event_sngls(xmldoc, process):
 	try:
 		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
+		# no sngl_inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "cannot find sngl_inspiral table"
 		return
 
 	#
@@ -447,6 +487,13 @@ def populate_coinc_event_sngls(xmldoc, process):
 			coincmap.table_name = coincmap.event_id.table_name
 			coinc_event_map.append(coincmap)
 
+	#
+	# done
+	#
+
+	if verbose:
+		print >>sys.stderr, "constructed %d coincs" % len(coinc_event)
+
 
 #
 # =============================================================================
@@ -457,7 +504,10 @@ def populate_coinc_event_sngls(xmldoc, process):
 #
 
 
-def depopulate_sngl_inspiral(xmldoc):
+def depopulate_sngl_inspiral(xmldoc, verbose = False):
+	if verbose:
+		print >>sys.stderr, "depopulating sngl_inspirals ...",
+
 	#
 	# find the sngl_inspiral table
 	#
@@ -465,8 +515,12 @@ def depopulate_sngl_inspiral(xmldoc):
 	try:
 		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
-		print >>sys.stderr, "document does not contain a sngl_inspiral table, will try to continue ..."
+		# no sngl_inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "cannot find sngl_inspiral table"
 		return
+
+	length_before = len(sngl_inspiral_table)
 
 	#
 	# delete duplicates, recording replacement event_ids.  this relies
@@ -491,6 +545,136 @@ def depopulate_sngl_inspiral(xmldoc):
 	for tbl in xmldoc.getElementsByTagName(sngl_inspiral_table.tagName):
 		tbl.applyKeyMapping(mapping)
 
+	#
+	# done
+	#
+
+	if verbose:
+		print >>sys.stderr, "removed %d redundant sngl_inspiral events" % (length_before - len(sngl_inspiral_table))
+
+
+#
+# =============================================================================
+#
+#                                 Apply Vetoes
+#
+# =============================================================================
+#
+
+
+def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
+	if verbose:
+		print >>sys.stderr, "applying vetos ..."
+
+	#
+	# find the tables we'll need
+	#
+
+	sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	coinc_event_table = table.get_table(xmldoc, lsctables.CoincEventTable.tableName)
+	coinc_event_map_table = table.get_table(xmldoc, lsctables.CoincEventMapTable.tableName)
+	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	time_slide_table.sync_next_id()
+
+	#
+	# turn the time slide table into a dictionary, and retrieve the
+	# veto segment lists and thinca segment lists.
+	#
+
+	if verbose:
+		print >>sys.stderr, "\tindexing time_slide table and retrieving segment lists ..."
+	time_slides = time_slide_table.as_dict()
+	veto_segments = llwapp.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
+
+	#
+	# retrieve the ring boundaries.  the program has already confirmed
+	# that the search_summary table has 1 unique thinca entry so we
+	# assume that to be the case here
+	#
+
+	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").pop()
+	rings.sort()
+
+	#
+	# create the coinc_event_id --> sngl_inspiral index.
+	#
+
+	if verbose:
+		print >>sys.stderr, "\tindexing coinc tables ..."
+	index = {}
+	for row in sngl_inspiral_table:
+		index[row.event_id] = row
+	for row in coinc_event_map:
+		if row.table_name == "sngl_inspiral":
+			if row.coinc_event_id not in index:
+				index[row.coinc_event_id] = []
+			index[row.coinc_event_id].append(index[row.event_id])
+
+	#
+	# iterate over coincs
+	#
+
+	if verbose:
+		print >>sys.stderr, "\tchecking for vetoed coincs ..."
+
+	cached_vetos = {}
+	N = len(coinc_event_table) / 1000 or 1
+
+	for n, coinc_event in enumerate(coinc_event_table):
+		if verbose and not (n % N):
+			print >>sys.stderr, "\t\t%.1f%%\r" % (100.0 * n / len(coinc_event_table)),
+
+		# find the triggers and the time slide vector
+		triggers = index[coinc_event.coinc_event_id]
+		offset_vector = time_slides[coinc_event.time_slide_id]
+
+		# check the instruments
+		expected_instruments = set(offset_vector.keys())
+		found_instruments = set([trigger.ifo for trigger in triggers])
+		if found_instruments == expected_instruments:
+			# this coinc is OK, move on to the next
+			continue
+		if found_instruments not in expected_instruments:
+			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s'" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id)
+
+		# the coinc's time is the time of the first trigger in alphabetical order
+		triggers.sort(lambda a, b: cmp(a.ifo, b.ifo))
+		coinc_time = triggers[0].get_end()
+
+		# which ring is it in?
+		ring = rings[rings.find(coinc_time)]
+
+		# slide the coinc's time on that ring
+		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector, ring)
+
+		# slide the veto segments on that ring, cache the results
+		# to avoid recalculation.
+		if (ring, coinc_event.time_slide_id) in cached_vetos:
+			vetos = cached_vetos[(ring, coinc_event.time_slide_id)]
+		else:
+			vetos = cached_vetos[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
+
+		# which instruments were on at the coinc's time?
+		on_instruments = set([instrument for instrument in expected_instruments if coinc_time not in vetos[instrument]])
+		if found_instruments not in on_instruments:
+			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
+
+		# construct a new time slide vector with just the
+		# instruments that were on
+		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector if instrument in on_instruments])
+
+		# point coinc at it, and add it to the time_slide table
+		# if needed
+		try:
+			coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector)
+		except KeyError:
+			coinc_event.time_slide_id = time_slide_table.get_next_id()
+			for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, coinc_event.time_slide_id, process):
+				time_slide_table.append(row)
+
+	if verbose:
+		print >>sys.stderr, "\t\t100.0%"
+
 
 #
 # =============================================================================
@@ -503,28 +687,26 @@ def depopulate_sngl_inspiral(xmldoc):
 
 options = parse_command_line()
 
-xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file) if filename], verbose = options.verbose)
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file, options.veto_segments) if filename], verbose = options.verbose)
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 process = initialize_process(xmldoc)
 set_process_params(xmldoc, process, options)
 
-if options.verbose:
-	print >>sys.stderr, "adding any missing ID columns ..."
-add_missing_id_columns(xmldoc)
-if options.verbose:
-	print >>sys.stderr, "populating thinca time_slide table ..."
-populate_thinca_time_slide_table(xmldoc, process)
-if options.verbose:
-	print >>sys.stderr, "constructing coincs ..."
-populate_coinc_event_sngls(xmldoc, process)
+add_missing_id_columns(xmldoc, verbose = options.verbose)
 
-if options.verbose:
-	print >>sys.stderr, "depopulating sngl_inspirals ..."
-depopulate_sngl_inspiral(xmldoc)
-if options.verbose:
-	print >>sys.stderr, "depopulating time_slides ..."
-depopulate_time_slide_table(xmldoc)
+populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
+
+populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
+
+depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
+
+if options.veto_segments:
+	apply_vetos(xmldoc, options.veto_segments_name, process, verbose = options.verbose)
+elif options.verbose:
+	print >>sys.stderr, "no vetos applied"
+
+depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
 llwapp.set_process_end_time(process)
 
