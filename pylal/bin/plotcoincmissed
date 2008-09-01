@@ -43,7 +43,13 @@ from glue.markup import oneliner as extra
 usage = """Usage: %prog [options] 
 
 Create a list of those injections which were found in 2 or more
-detectors, but not registered as coincidences."""
+detectors, but not registered as coincidences.
+
+plotcoincmissed --cache bnsinj/test.cache 
+  --found-pattern "SIRE_INJECTIONS_1234_BNSINJ_FOUND_SUMMARY_FIRST_BNSINJ" 
+  --missed-pattern "BNSINJ_MISSED_SUMMARY_SECOND_*_BNSINJ_CAT_2_VETO" 
+  --do-followup --followup-tag "BNSINJ" --enable-output 
+  --gps-start-time 852600000 --gps-end-time 852650000 --output-path ."""
 
 
 def parse_command_line():
