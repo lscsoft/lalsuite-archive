@@ -303,6 +303,21 @@ def time_slide_cmp(offsetdict1, offsetdict2):
 	return cmp(offsetdict1, offsetdict2)
 
 
+def time_slides_find(time_slides, offset_vector):
+	"""
+	Given a dictionary mapping time slide IDs to instrument-->offset
+	mappings, for example as returned by the as_dict() method of the
+	TimeSlideTable class in glue.ligolw.lsctables, find and return the
+	ID of the instrument-->offset mapping equivalent to offset_vector
+	as defined by time_slide_cmp().  Raises KeyError if offset_vector
+	is not found.
+	"""
+	for id, offsetdict in time_slides.items():
+		if not time_slide_cmp(offsetdict, offset_vector):
+			return id
+	raise KeyError, offset_vector
+
+
 def time_slides_vacuum(time_slides, verbose = False):
 	"""
 	Given a dictionary mapping time slide IDs to instrument-->offset
