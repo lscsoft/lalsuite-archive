@@ -387,7 +387,6 @@ def write_fileobj(xmldoc, fileobj, gz = False):
 	fileobj = codecs.EncodedFile(fileobj, "unicode_internal", "utf_8")
 	xmldoc.write(fileobj)
 	fileobj.flush()
-	fileobj.close()
 	del fileobj
 
 	# restore original handlers, and report the most recently trapped
@@ -431,6 +430,7 @@ def write_filename(xmldoc, filename, verbose = False, gz = False):
 	else:
 		fileobj = sys.stdout
 	hexdigest = write_fileobj(xmldoc, fileobj, gz = gz)
+	fileobj.close()
 	if verbose:
 		print >>sys.stderr, "md5sum: %s  %s" % (hexdigest, filename or "")
 
