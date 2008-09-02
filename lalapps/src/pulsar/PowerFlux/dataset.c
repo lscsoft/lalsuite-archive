@@ -121,7 +121,7 @@ while((lock_file<0) || (direct_fcntl(lock_file, F_SETLK, &fl)<0)){
 		i=0;
 		}
 	if(lock_file>=0)close(lock_file);
-	condor_safe_sleep(10);
+	condor_safe_sleep(args_info.lock_retry_delay_arg);
 	lock_file=open(filename, O_CREAT | O_RDWR, 0666);
 	i++;
 	}
@@ -436,9 +436,11 @@ sft_params.nSamples=5;
 
 static void init_dataset(DATASET *d)
 {
+int i;
 memset(d, 0, sizeof(*d));
 d->name="unknown";
-d->lock_file=NULL;
+for(i=0;i<MAX_LOCKS;i++)
+	d->lock_file[i]=NULL;
 d->validated=0;
 d->detector="unknown";
 d->gps_start=0;
@@ -450,6 +452,7 @@ d->first_bin=first_bin;
 
 d->segment_list=NULL;
 d->veto_segment_list=NULL;
+d->no_duplicate_gps=1;
 
 d->size=1000;
 d->free=0;
@@ -1037,6 +1040,15 @@ fprintf(stderr, "Output dataset summary data\n");
 for(i=0;i<d_free;i++)output_dataset_info(&(datasets[i]));
 }
 
+static int gps_exists(DATASET *d, INT64 gps)
+{
+int i;
+for(i=0;i<d->free;i++) {
+	if(d->gps[i]==gps)return 1;
+	}
+return 0;
+}
+
 static int get_geo_range(DATASET *d, char *filename, FILE *fin, long startbin, long count, float *re, float *im, INT64 *gps)
 {
 REAL8 a, timebase;
@@ -1059,6 +1071,10 @@ if(check_intervals(d->veto_segment_list, *gps)>0){
 	return -1;
 	}
 
+if(d->no_duplicate_gps && gps_exists(d, *gps)) {
+	return -1;
+	}
+
 
 /* skip nsec */
 fread(&b, sizeof(b), 1, fin);
@@ -1075,7 +1091,7 @@ if(fread(tmp,4,count*2,fin)<count*2){
 	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
 	free(tmp);
 	fclose(fin);
-	return -1;
+	return -3;
 	}
 /* reverse normalization applied to geo format files */
 if(timebase < 0) {
@@ -1131,6 +1147,10 @@ if(!check_intervals(d->segment_list, *gps)){
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 if(check_intervals(d->veto_segment_list, *gps)>0){
+	return -(48+ht.nsamples*8+ht.comment_length);
+	}
+
+if(d->no_duplicate_gps && gps_exists(d, *gps)) {
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 
@@ -1221,7 +1241,7 @@ while((fin=fopen(filename,"r"))==NULL) {
 	fprintf(stderr,"Error opening file \"%s\":", filename);
 	perror("");
 	retries++;
-	condor_safe_sleep(1);
+	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened file \"%s\"\n", filename);
@@ -1252,7 +1272,7 @@ while(1) {
 		i=get_geo_range(d, filename, fin,  d->first_bin, d->nbins, &(d->re[d->free*d->nbins]), &(d->im[d->free*d->nbins]), &(d->gps[d->free]));
 		fclose(fin);
 		if(!i)d->free++;
-			else fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
+			else if(i< -1)fprintf(stderr, "Skipped file %s (%lld)\n", filename, d->gps[d->free]);
 		return;
 		} else
 	if(a==2.0) {
@@ -1296,7 +1316,7 @@ while(1) {
 
 	if(ai==aj) {
 		if(alternative==1) {
-			fprintf(stderr, "Could not pass directory line \"%s\"\n", line);
+			fprintf(stderr, "Could not parse directory line \"%s\"\n", line);
 			exit(-1);
 			}
 		alternative=1;
@@ -1305,27 +1325,31 @@ while(1) {
 
 	memcpy(s, &(line[ai]), aj-ai);
 	s[aj-ai]=0;
+
 	fprintf(stderr, "Reading directory %s\n", s);
 
 	errno=0;
 	if((d=opendir(s))!=NULL)break;
-
 	int errsv=errno;
+
 	fprintf(stderr, "Error reading directory %s: %s\n", s, strerror(errsv));
 
 	alternative++;
 	retries++;
-	condor_safe_sleep(1);
+	condor_safe_sleep(args_info.retry_delay_arg);
 	}
 if(retries>0) {
 	fprintf(stderr, "Successfully opened directory %s\n", s);
 	}
-if(args_info.enable_dataset_locking_arg && (dst->lock_file != NULL)) {
-	acquire_lock(dst->lock_file);
+
+if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
+	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
+	acquire_lock(dst->lock_file[i]);
 	} else 
 if(args_info.lock_file_given) {
 	acquire_lock(args_info.lock_file_arg);
 	}
+
 gettimeofday(&start_time, NULL);
 last_time=start_time;
 i=0;
@@ -1333,7 +1357,7 @@ last_i=0;
 while((de=readdir(d))!=NULL) {
 	if(de->d_name[0]!='.') {
 		/* fprintf(stderr, "Found file \"%s\"\n", de->d_name); */
-		snprintf(s+length, 20000, "/%s", de->d_name);
+		snprintf(s+aj-ai, 20000, "/%s", de->d_name);
 		add_file(dst, s);
 		i++;
 		}
@@ -1458,9 +1482,17 @@ if(!strncasecmp(line, "expected_sft_count", 18)) {
 		}
 	} else 
 if(!strncasecmp(line, "lock_file", 9)) {
+	int i;
+	for(i=0;i<MAX_LOCKS;i++) {
+		locate_arg(line, length, i+1, &ai, &aj);
+		if(datasets[d_free-1].lock_file[i]!=NULL)free(datasets[d_free-1].lock_file[i]);
+		if(aj>ai)datasets[d_free-1].lock_file[i]=strndup(&(line[ai]), aj-ai);
+			else datasets[d_free-1].lock_file[i]=NULL;
+		}
+	} else 
+if(!strncasecmp(line, "sleep", 5)) {
 	locate_arg(line, length, 1, &ai, &aj);
-	if(datasets[d_free-1].lock_file!=NULL)free(datasets[d_free-1].lock_file);
-	datasets[d_free-1].lock_file=strndup(&(line[ai]), aj-ai);
+	condor_safe_sleep(atoi(&(line[ai])));
 	} else 
 if(!strncasecmp(line, "gps_start", 9)) {
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1528,6 +1560,10 @@ if(!strncasecmp(line, "veto_segments_file", 18)) {
 	add_intervals_from_file(datasets[d_free-1].veto_segment_list, s2);
 	free(s2);
 	} else
+if(!strncasecmp(line, "no_duplicate_gps", 15)) {
+	locate_arg(line, length, 1, &ai, &aj);
+	datasets[d_free-1].no_duplicate_gps=atoi(&(line[ai]));	
+	} else 
 if(!strncasecmp(line, "veto_level", 10)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].veto_level=atof(&(line[ai]));

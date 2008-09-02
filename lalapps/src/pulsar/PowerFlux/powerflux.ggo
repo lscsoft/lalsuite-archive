@@ -20,7 +20,9 @@ option "small-weight-ratio" - "ratio that determines which weight is too small t
 option "strain-norm-factor" - "strain normalization factor to prevent overflowing of the exponent" double default="1e-20" no
 
 option "lock-file"	- "file to lock when reading SFTs in order to globally serialize disk access"	string no
-option "enable-dataset-locking"	- "set to 1 to enable dataset level locking"	int default="0" no
+option "enable-dataset-locking"	- "set to 1 to enable dataset level locking"	int default="1" no
+option "retry-delay" - "number of seconds to wait before retrying I/O" int default="2" no
+option "lock-retry-delay" - "number of seconds to wait before trying to acquire lock again" int default="10" no
 option "dataset"	s "dataset file" string no
 option "input-format"   - "format of input files (GEO, SFT, Power)" string default="GEO" no 
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no

@@ -25,15 +25,21 @@
 #include "lines.h"
 #include "intervals.h"
 
+#define MAX_LOCKS 10
+
 typedef struct {
 	/* name of the data set - for logging purposes */
 	char *name; 
-	char *lock_file;
+	char *lock_file[MAX_LOCKS];
+
 	int validated; /* has this data set been validated ? see corresponding functions */
 
 	/* these describe which time periods we are interested in */
 	INTERVAL_SET *segment_list;
 	INTERVAL_SET *veto_segment_list;
+
+	/* when on, ignore segments with duplicate GPS times - useful for implementing poor mans RAID of the nodes */
+	int no_duplicate_gps;
 
 	/* detector this dataset was observed on */
 	char *detector;
