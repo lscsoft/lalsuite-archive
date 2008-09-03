@@ -592,7 +592,7 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 	# assume that to be the case here
 	#
 
-	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").pop()
+	[(ignored, rings)] = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").items()
 	rings.sort()
 
 	#
@@ -637,7 +637,8 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 		if found_instruments not in expected_instruments:
 			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s'" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id)
 
-		# the coinc's time is the time of the first trigger in alphabetical order
+		# the coinc's time is the time of the first trigger in
+		# alphabetical order by instrument
 		triggers.sort(lambda a, b: cmp(a.ifo, b.ifo))
 		coinc_time = triggers[0].get_end()
 
@@ -649,19 +650,16 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 
 		# slide the veto segments on that ring, cache the results
 		# to avoid recalculation.
-		if (ring, coinc_event.time_slide_id) in cached_vetos:
+		try:
 			vetos = cached_vetos[(ring, coinc_event.time_slide_id)]
-		else:
+		except KeyError:
 			vetos = cached_vetos[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
-
-		# which instruments were on at the coinc's time?
-		on_instruments = set([instrument for instrument in expected_instruments if coinc_time not in vetos[instrument]])
-		if found_instruments not in on_instruments:
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
 
 		# construct a new time slide vector with just the
 		# instruments that were on
-		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector if instrument in on_instruments])
+		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetos[instrument]])
+		if found_instruments not in set(offset_vector.keys()):
+			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time))
 
 		# point coinc at it, and add it to the time_slide table
 		# if needed
