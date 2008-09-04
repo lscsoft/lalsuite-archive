@@ -132,6 +132,8 @@ if opts.vocal:
 
 if opts.cache_file:
   cache = lal.Cache.fromfile(open(opts.cache_file))
+  missed_cache = cache.sieve(description="COIRE*MISSED")
+
 
 else:
   print "--cache-file must be specified!"
@@ -929,7 +931,7 @@ if opts.write_html:
 
 
 if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, None, opts)
+  followup = followup_missed.FollowupMissed( cache, missed_cache, opts)
 
 do_everything(opts, ifos, injPatterns, check)
 
