@@ -76,7 +76,7 @@ def remove_input(urls, preserves, verbose = False):
 		if True in map(os.path.samefile, [path] * len(preserves), preserves):
 			continue
 		if verbose:
-			print >>sys.stderr, "removing %s ..." % path
+			print >>sys.stderr, "removing \"%s\" ..." % path
 		try:
 			os.remove(path)
 		except:
