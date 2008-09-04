@@ -617,6 +617,16 @@ class Table(ligolw.Table, list):
 		return id
 	get_next_id = classmethod(get_next_id)
 
+	def set_next_id(cls, id):
+		"""
+		Sets the value of the next_id class attribute.  This is a
+		convenience function to help prevent accidentally assigning
+		a value to an instance attribute instead of the class
+		attribute.
+		"""
+		cls.next_id = id
+	set_next_id = classmethod(set_next_id)
+
 	def sync_next_id(self):
 		"""
 		Determines the highest-numbered ID in this table, and sets
@@ -642,10 +652,7 @@ class Table(ligolw.Table, list):
 			else:
 				n = type(self.next_id)(0)
 			if n > self.next_id:
-				# the left-hand-side is the way it is to
-				# ensure we assign to the class attribute
-				# instead of creating an instance attribute
-				type(self).next_id = n
+				self.set_next_id(n)
 		return self.next_id
 
 	def updateKeyMapping(self, mapping):
