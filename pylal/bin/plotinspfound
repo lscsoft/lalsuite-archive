@@ -8,9 +8,12 @@
 # =============================================================================
 #
 
+__Id__ = "$Id$"
 __author__ = "David McKechan"
 __title__ = "Track the SNR of found triggers"
 __name__ = "plotinspfound"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
 
 
 import sys, os, re, glob, exceptions
@@ -89,6 +92,13 @@ triggers that lose snr" )
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time (for naming figure and output files")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time (for naming figure and output files")
+
   parser.add_option("-W", "--write-html",action="store_true", \
                      default=False,help="write trigger informtion to file")
   parser.add_option("-u","--user-tag",action="store", type="string", \
@@ -100,7 +110,12 @@ triggers that lose snr" )
 
   options.followup_exttrig = False
   options.followup_flow = 40.0
+  options.output_path = "."
+  options.enable_output = True
+  options.figure_resolution = 50
+  options.followup_tag = "plotinspfound"
 
+  options = InspiralUtils.initialise(options, __name__, __version__)
   return options, sys.argv[1:]
 
 
@@ -189,7 +204,6 @@ def get_sire_triggers(opts, ifo, pattern):
   """
   Returns sngl triggers and injections from sire files
   """ 
-
   trigcache = cache.sieve(ifos = ifo, description = pattern)
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
 
@@ -784,9 +798,10 @@ def do_everything(opts, ifos, injPatterns, check):
       line = '</table> \n'
       fout.write( line )
 
-      followup.setTag( "TEST")
-      followuphtml = followup.followup( inj, "H1", injPattern)
-      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+      if opts.do_followup:
+        followup.setTag( "TEST")
+        followuphtml = followup.followup( injections[index], "H1", injPattern)
+        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
       line = '<br/> \n'
       fout.write( line )
@@ -908,11 +923,7 @@ def do_everything(opts, ifos, injPatterns, check):
 ##############################################################################
 # Begin summary page
 if opts.write_html:
-  htmlfile = "pinspfound_webpage"
-  if opts.user_tag:
-    htmlfile = htmlfile + '_' + opts.user_tag
-  htmlfile = htmlfile + '.html'
-
+  htmlfile = opts.output_path + "/" + opts.prefix + opts.suffix + ".html"
   fout = open(htmlfile,"w");
   write_html_head(opts, injPatterns, htmlfile)
 
@@ -931,7 +942,7 @@ if opts.write_html:
   
   if opts.do_followup:
     fnameList =  followup.fnameList 
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    InspiralUtils.write_cache_output(opts, htmlfile, fnameList)
 
 
 
