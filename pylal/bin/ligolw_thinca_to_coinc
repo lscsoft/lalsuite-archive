@@ -217,7 +217,7 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	#
 
 	if time_slide_table.next_id < type(time_slide_table.next_id)(10000):
-		time_slide_table.next_id = type(time_slide_table.next_id)(10000)
+		time_slide_table.set_next_id(type(time_slide_table.next_id)(10000))
 	mapping = {}
 	time_slide_table.updateKeyMapping(mapping)
 	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
@@ -562,17 +562,17 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 #
 
 
-def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
+def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 	if verbose:
-		print >>sys.stderr, "applying vetos ..."
+		print >>sys.stderr, "applying vetoes ..."
 
 	#
 	# find the tables we'll need
 	#
 
 	sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-	coinc_event_table = table.get_table(xmldoc, lsctables.CoincEventTable.tableName)
-	coinc_event_map_table = table.get_table(xmldoc, lsctables.CoincEventMapTable.tableName)
+	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
 
@@ -604,7 +604,7 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 	index = {}
 	for row in sngl_inspiral_table:
 		index[row.event_id] = row
-	for row in coinc_event_map:
+	for row in coinc_map_table:
 		if row.table_name == "sngl_inspiral":
 			if row.coinc_event_id not in index:
 				index[row.coinc_event_id] = []
@@ -617,12 +617,12 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 	if verbose:
 		print >>sys.stderr, "\tchecking for vetoed coincs ..."
 
-	cached_vetos = {}
-	N = len(coinc_event_table) / 1000 or 1
+	cached_vetoes = {}
+	N = len(coinc_table) / 1000 or 1
 
-	for n, coinc_event in enumerate(coinc_event_table):
+	for n, coinc_event in enumerate(coinc_table):
 		if verbose and not (n % N):
-			print >>sys.stderr, "\t\t%.1f%%\r" % (100.0 * n / len(coinc_event_table)),
+			print >>sys.stderr, "\t\t%.1f%%\r" % (100.0 * n / len(coinc_table)),
 
 		# find the triggers and the time slide vector
 		triggers = index[coinc_event.coinc_event_id]
@@ -634,8 +634,8 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 		if found_instruments == expected_instruments:
 			# this coinc is OK, move on to the next
 			continue
-		if found_instruments not in expected_instruments:
-			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s'" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id)
+		if found_instruments - expected_instruments:
+			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
 
 		# the coinc's time is the time of the first trigger in
 		# alphabetical order by instrument
@@ -645,21 +645,23 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 		# which ring is it in?
 		ring = rings[rings.find(coinc_time)]
 
-		# slide the coinc's time on that ring
-		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector, ring)
+		# slide the coinc's time on that ring using the offset for
+		# the instrument from which the coinc_time was taken to
+		# choose the the offset from the offset vector
+		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector[triggers[0].ifo], ring)
 
 		# slide the veto segments on that ring, cache the results
 		# to avoid recalculation.
 		try:
-			vetos = cached_vetos[(ring, coinc_event.time_slide_id)]
+			vetoes = cached_vetoes[(ring, coinc_event.time_slide_id)]
 		except KeyError:
-			vetos = cached_vetos[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
+			vetoes = cached_vetoes[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
 
 		# construct a new time slide vector with just the
 		# instruments that were on
-		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetos[instrument]])
-		if found_instruments not in set(offset_vector.keys()):
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time))
+		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetoes[instrument]])
+		if found_instruments - set(offset_vector.keys()):
+			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time)))
 
 		# point coinc at it, and add it to the time_slide table
 		# if needed
@@ -670,6 +672,8 @@ def apply_vetos(xmldoc, veto_segments_name, process, verbose = False):
 			for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, coinc_event.time_slide_id, process):
 				time_slide_table.append(row)
 			time_slides[coinc_event.time_slide_id] = offset_vector
+			if verbose:
+				print >>sys.stderr, "\tadded '%s': %s" % (coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector]))
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
@@ -701,9 +705,9 @@ populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
 depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 if options.veto_segments:
-	apply_vetos(xmldoc, options.veto_segments_name, process, verbose = options.verbose)
+	apply_vetoes(xmldoc, options.veto_segments_name, process, verbose = options.verbose)
 elif options.verbose:
-	print >>sys.stderr, "no vetos applied"
+	print >>sys.stderr, "no vetoes applied"
 
 depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
