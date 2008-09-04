@@ -27,6 +27,7 @@ from pylal import SimInspiralUtils
 import numpy
 import matplotlib
 matplotlib.use('Agg')
+from pylal import followup_missed
 from pylab import *
 
 
@@ -92,9 +93,13 @@ triggers that lose snr" )
                      default=False,help="write trigger informtion to file")
   parser.add_option("-u","--user-tag",action="store", type="string", \
                      default=None,help="specify user tag for file names")
-
+  parser.add_option("","--do-followup",action="store_true",\
+    default=False,help="activates the followup of missed injections" )
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
+
+  options.followup_exttrig = False
+  options.followup_flow = 40.0
 
   return options, sys.argv[1:]
 
@@ -778,6 +783,11 @@ def do_everything(opts, ifos, injPatterns, check):
       
       line = '</table> \n'
       fout.write( line )
+
+      followup.setTag( "TEST")
+      followuphtml = followup.followup( inj, "H1", injPattern)
+      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+
       line = '<br/> \n'
       fout.write( line )
       line = '<br/> \n'
@@ -907,6 +917,9 @@ if opts.write_html:
   write_html_head(opts, injPatterns, htmlfile)
 
 
+if opts.do_followup:
+  followup = followup_missed.FollowupMissed( cache, None, opts)
+
 do_everything(opts, ifos, injPatterns, check)
 
 
@@ -915,5 +928,10 @@ do_everything(opts, ifos, injPatterns, check)
 if opts.write_html:
   write_html_tail(opts)
   fout.close()
+  
+  if opts.do_followup:
+    fnameList =  followup.fnameList 
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
 
 
