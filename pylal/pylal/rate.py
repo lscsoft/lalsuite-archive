@@ -332,6 +332,8 @@ class IrregularBins(Bins):
 
 		self.boundaries = boundaries
 		self.n = len(boundaries) - 1
+		self.min = boundaries[0]
+		self.max = boundaries[-1]
 
 	def __cmp__(self, other):
 		"""
