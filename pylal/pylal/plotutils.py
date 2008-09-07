@@ -476,7 +476,7 @@ class FillPlot(BasicPlot):
             self.ax.fill(x, y, facecolor=s, label=l)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist()
+        self.add_legend_if_labels_exist(loc=0)
 
 class SixStripSeriesPlot(BasicPlot):
     """
