@@ -1,0 +1,421 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2008  Nickolas Fotopoulos
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+"""
+pylal_relic
+REcord Loudest Injection Coincidences
+
+Loop over injection trials and keep only the stats from the loudest coincs
+for each mean measured mchirp, injected m2, and injected D bin.
+"""
+
+import cPickle as pickle
+import operator
+import optparse
+import sys
+
+import numpy
+numpy.seterr(all="raise")  # throw an exception on any funny business
+
+from glue import lal
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from pylal import CoincInspiralUtils
+from pylal import grbsummary
+from pylal import rate
+
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"
+
+
+#
+# get loudest coincs from each category
+#
+
+class DictBins(dict, rate.Bins):
+    """
+    This is a dict that can act as a Bins object.
+    """
+    def __init__(self, *args, **kwargs):
+        dict.__init__(self, *args, **kwargs)
+        self.min = min(self.iterkeys())
+        self.max = max(self.iterkeys())
+        self.n = len(self)
+
+    def upper(self): raise NotImplemented
+    def lower(self): raise NotImplemented
+    def centres(self): raise NotImplemented
+
+def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
+    verbose=False):
+    """
+    Return an array of dimension equal to nd_bins containing the loudest
+    stats in rows.  The length of the key_funcs must be equal to the
+    length of nd_bins.  The key_funcs are the functions used to
+    extract the quantities being binned.  stat_func is called to extract
+    the statistic of interest from each row.
+
+    Example:
+    >>> bins = NDBins((LinearBins(1, 25, 3), LogarithmicBins(1, 25, 3)))
+    >>> stat = lambda trig: trig.snr
+    >>> keys = (lambda trig: trig.mass1, lambda trig: trig.mass2)
+    >>> loudest_by_m1_m2 = get_loudest_stats_by_bins(triggers, stat, bins, keys)
+    """
+    if len(nd_bins) != len(key_funcs):
+        raise ValueError, "number of bins does not match number of keys"
+
+    num_discarded = 0
+    loudest_stats = numpy.zeros(shape=nd_bins.shape, dtype=float)
+    for coinc in rows:
+        bin_val = tuple([key_func(coinc) for key_func in key_funcs])
+        try:
+            ind = nd_bins[bin_val]
+        except (IndexError, KeyError):
+            num_discarded += 1
+            continue
+        stat = stat_func(coinc)
+        if stat > loudest_stats[ind]:
+            loudest_stats[ind] = stat
+    if verbose and num_discarded > 0:
+        sys.stderr.write("warning: %d coincs fell outside bins\n" \
+                         % num_discarded)
+
+    return loudest_stats
+
+def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
+    """
+    Return a 1-D array containing the loudest stats in the SnglInspiralTable
+    in xmldoc for each mean mchirp bin.  coinc_stat must be an instance
+    of CoincInspiralUtils.coincStatistic and mc_bins must be an instance
+    of rate.Bins.
+    """
+    # read unclustered on-source coincs
+    onsource_trigs = table.get_table(xmldoc,
+        lsctables.SnglInspiralTable.tableName)
+    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+        coinc_stat)
+
+    # define bins and keys
+    nd_bins = rate.NDBins((mc_bins,))
+    stat_func = operator.attrgetter("stat")
+    keys = (grbsummary.get_mean_mchirp,)
+
+    # get loudest stat in each bin
+    return get_loudest_stats_by_bins(onsource_coincs, stat_func, nd_bins, keys,
+        verbose=True)
+
+def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
+    trial_bins, mc_bins):
+    """
+    Return a 2-D array containing the loudest stats in the SnglInspiralTable
+    in xmldoc for each (trial, mchirp) bin.  coinc_stat must be an instance
+    of CoincInspiralUtils.coincStatistic and trial_bins and mc_bins must be
+    instances of rate.Bins.
+    """
+    # read unclustered background coincs
+    offsource_trigs = table.get_table(offsource_doc,
+        lsctables.SnglInspiralTable.tableName)
+    offsource_coincs = CoincInspiralUtils.coincInspiralTable(offsource_trigs,
+        coinc_stat)
+
+    # define bins and keys
+    nd_bins = rate.NDBins((trial_bins, mc_bins))
+    stat_func = operator.attrgetter("stat")
+    keys = (CoincInspiralUtils.coincInspiralTable.row.get_time,
+            grbsummary.get_mean_mchirp)
+
+    # get loudest stat in each bin
+    return get_loudest_stats_by_bins(offsource_coincs, stat_func, nd_bins,
+        keys, verbose=True)
+
+def get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
+    trial_bins, mc_bins, m2_bins, D_bins):
+    """
+    Return a list of injections and a 4-D array of the loudest coincs binned
+    by injection trial, mean mchirp, injected m2, and injected D.  The order
+    of the injections and the order of the 0-axis of the array are the same.
+
+    TODO: It is convenient, but inefficient to return a 4-D array since a
+    single trial corresponds to a unique (m2, D) bin.  However, this form
+    does lead to very easy manipulations (sum, max, etc).  Perhaps
+    investigate sparse arrays?
+    """
+    # get injection info
+    sims = table.get_table(inj_doc, lsctables.SimInspiralTable.tableName)
+    sim_trials = [trial_bins[s.geocent_end_time] for s in sims]
+
+    # sanity check: no two injections went into the same trial
+    assert len(sim_trials) == len(set(sim_trials))
+
+    # tabulate each sim and its properties
+    num_discarded = 0
+    m2_indices = []
+    D_indices = []
+    num_sims_by_trial_m2_D = numpy.zeros((len(sims), len(m2_bins),
+                                          len(D_bins)), dtype=int)
+    for i, sim in enumerate(sims):
+        try:
+            m2_ind = m2_bins[sim.mass1]
+            D_ind = D_bins[sim.distance]
+        except IndexError:
+            num_discarded += 1
+            continue
+        m2_indices.append(m2_ind)
+        D_indices.append(D_ind)
+        num_sims_by_trial_m2_D[i, m2_ind, D_ind] += 1
+    if num_discarded > 0:
+        sys.stderr.write("warning: %d of %d injections fell outside of "\
+            "m2 or D bins.\n" % (num_discarded, len(sims)))
+
+    # get coincs
+    inj_trigs = table.get_table(coinc_doc,
+        lsctables.SnglInspiralTable.tableName)
+    inj_coincs = CoincInspiralUtils.coincInspiralTable(inj_trigs, coinc_stat)
+
+    # find loudest coincs
+    # convert time -> trial index -> sim index
+    keys = (lambda row: trial_bins[row.get_time()],
+            grbsummary.get_mean_mchirp)
+    sim_bins = DictBins([(trial_ind, i) for i, trial_ind \
+                         in enumerate(sim_trials)])
+    nd_bins = rate.NDBins((sim_bins, mc_bins))
+    stat_func = operator.attrgetter("stat")
+    loudest_by_sim_mc = get_loudest_stats_by_bins(inj_coincs, stat_func,
+        nd_bins, keys)
+
+    # FIXME: repackage into 4-D array
+    loudest_by_sim_mc_m2_D = numpy.zeros((len(sims), len(mc_bins), \
+        len(m2_bins), len(D_bins)), dtype=float)
+    loudest_by_sim_mc_m2_D[range(len(sims)), :, m2_indices, D_indices] = \
+        loudest_by_sim_mc
+
+    return sims, num_sims_by_trial_m2_D, loudest_by_sim_mc_m2_D
+
+def parse_args():
+    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+
+    # cache input
+    parser.add_option("--cache-file", help="LAL-formatted cache file "
+        "containing entries for all XML filies of interest")
+    parser.add_option("--onsource-pattern", metavar="PAT", help="sieve the "
+        "cache descriptions for on-source coincidences files with PAT")
+    parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
+        "cache descriptions for off-source coincidence files with PAT")
+    parser.add_option("--injection-pattern", metavar="PAT",
+        help="sieve the cache descriptions for injection files with PAT")
+    parser.add_option("--inj-coinc-pattern", metavar="PAT",
+        help="sieve the cache descriptions for injection THINCA files with PAT")
+
+    # output
+    parser.add_option("--user-tag", default="",
+        help="identifying string for these data")
+    parser.add_option("--write-onsource", action="store_true", default=False,
+        help="specify to write the onsource loudest coincidences")
+    parser.add_option("--write-offsource", action="store_true", default=False,
+        help="specify to write the offsource loudest coincidences")
+    parser.add_option("--write-injections", action="store_true", default=False,
+        help="specify to write the loudest injection coincidences")
+
+    # segments
+    parser.add_option("--veto-segfiles", default="",
+        help="comma-separated list of segwizard-formatted segment files that "
+        "contain segments to veto")
+
+    # binning
+    parser.add_option("--m2-min", type="float", help="minimum of the range in "
+        "injected companion mass")
+    parser.add_option("--m2-max", type="float", help="maximum of the range in "
+        "injected companion mass")
+    parser.add_option("--m2-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected companion mass")
+    parser.add_option("--D-min", type="float", help="minimum of the range in "
+        "injected distance")
+    parser.add_option("--D-max", type="float", help="maximum of the range in "
+        "injected distance")
+    parser.add_option("--D-nbins", type="int", help="number of evenly-spaced "
+        "bins in injected distance")
+    parser.add_option("--mc-boundaries", help="comma-delimited list of "
+        "boundaries in average recovered chirp mass")
+
+    # odds and ends
+    parser.add_option("--statistic", default="snr",
+        help="choice of statistic used in making plots, valid arguments are: "
+        "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr")
+    parser.add_option("--verbose", action="store_true", default=False,
+        help="print extra information to the console")
+
+    options, arguments = parser.parse_args()
+
+    # check that mandatory switches are present
+    for opt in ("cache_file", "onsource_pattern", "offsource_pattern",
+        "veto_segfiles", "m2_min", "m2_max", "m2_nbins", "D_min", "D_max",
+        "D_nbins", "mc_boundaries", "statistic"):
+        if getattr(options, opt) is None:
+            raise ValueError, "--%s is required" % opt.replace("_", "-")
+    if not (options.write_onsource or options.write_offsource \
+            or options.write_injections):
+        raise ValueError, "must specify at least one of {--write-onsource, "\
+            "--write-offsource, --write-injections}"
+    if options.write_injections and not (options.injection_pattern \
+        and options.inj_coinc_pattern):
+        raise ValueError, "if --write-injections is specified, you must also "\
+            "provide --injection-pattern and --inj-coinc-pattern."
+
+    # split comma-separated lists
+    for opt in ("veto_segfiles", "mc_boundaries"):
+        if hasattr(options, opt):
+            setattr(options, opt, getattr(options, opt).split(","))
+
+    options.mc_boundaries = map(float, options.mc_boundaries)
+
+    return options, arguments
+
+################################################################################
+# parse arguments
+opts, args = parse_args()
+
+##############################################################################
+# generic initialization
+coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
+
+##############################################################################
+# read in non-injection documents
+cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
+
+# XXX: Speed hack
+lsctables.SimInspiralTable.loadcolumns = ["simulation_id", "mass1", "mass2",
+    "distance", "geocent_end_time", "geocent_end_time_ns", "process_id"]
+lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
+    "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
+
+onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
+    opts.onsource_pattern, verbose=opts.verbose)
+offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
+    opts.offsource_pattern, verbose=opts.verbose)
+
+################################################################################
+# choose segments/trials/vetoes (match grbtimeslide_stats)
+
+trial_bins, trial_veto_mask, _ = \
+    grbsummary.get_exttrig_trials(onsource_doc, offsource_doc,
+                                  opts.veto_segfiles)
+
+################################################################################
+# choose other binnings: mchirp, m2, D
+mc_bins = rate.IrregularBins(opts.mc_boundaries)
+m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
+
+################################################################################
+# get loudest on-source coincs
+onsource_loudest_by_mc = get_loudest_stats_by_mc(onsource_doc, coinc_stat,
+    mc_bins)
+
+################################################################################
+# get loudest off-source coincs
+if opts.write_offsource or opts.write_injections:
+    offsource_loudest_by_trial_mc = get_loudest_stats_by_trial_mc(offsource_doc,
+        coinc_stat, trial_bins, mc_bins)
+
+    # throw out vetoed trials
+    offsource_loudest_by_trial_mc = \
+        offsource_loudest_by_trial_mc[~trial_veto_mask, :]
+
+################################################################################
+# get loudest injection coincs
+if opts.write_injections:
+    # sieve down to just injection coinc files
+    injection_cache = cache.sieve(description=opts.injection_pattern)
+    inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
+
+    # speed hack: only iterate over IFOs of interest for mchirp calculation
+    unique_ifostrings = set(c.observatory for c in inj_coinc_cache)
+    unique_ifos = set(s[i:i+2] for s in unique_ifostrings \
+                      for i in xrange(0, len(s), 2))
+    CoincInspiralUtils.ifos = tuple(unique_ifos)
+
+    # get all unique descriptions (can have multiple segments per description)
+    inj_patterns = set("*" + "_".join(entry.description.split("_")[-2:]) \
+                       for entry in inj_coinc_cache)
+
+    # tally up the numerator and denominator for p(c|h) for each inj pattern
+    if opts.verbose:
+        print "Tallying injections:"
+    sims = []
+    sim_count_by_inj_m2_D = []
+    inj_loudest_by_inj_mc_m2_D = []
+    for pattern in inj_patterns:
+        # read injection and its corresponding coincs
+        inj_doc = grbsummary.load_cache(ligolw.Document(), injection_cache,
+                                        pattern, exact_match=True)
+        coinc_doc = grbsummary.load_cache(ligolw.Document(), inj_coinc_cache,
+                                          pattern, exact_match=True)
+
+        tmp_sims, tmp_sim_count, tmp_coinc_count = \
+            get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
+                trial_bins, mc_bins, m2_bins, D_bins)
+
+        sims.extend(tmp_sims)
+        sim_count_by_inj_m2_D.extend(tmp_sim_count)
+        inj_loudest_by_inj_mc_m2_D.extend(tmp_coinc_count)
+
+        if opts.verbose:
+            sys.stdout.write(".")
+            sys.stdout.flush()
+    sims = numpy.array(sims)
+    sim_count_by_inj_m2_D = numpy.array(sim_count_by_inj_m2_D)
+    inj_loudest_by_inj_mc_m2_D = numpy.array(inj_loudest_by_inj_mc_m2_D)
+
+    # throw out vetoed injection trials
+    inj_mask = trial_veto_mask[[trial_bins[sim.geocent_end_time] for sim \
+                                in sims]]
+    sims = sims[~inj_mask]
+    sim_count_by_inj_m2_D = sim_count_by_inj_m2_D[~inj_mask]
+    inj_loudest_by_inj_mc_m2_D = inj_loudest_by_inj_mc_m2_D[~inj_mask, ...]
+
+    if opts.verbose:
+        print "Done. Found loudest coincs for %d injections." % len(sims)
+
+################################################################################
+# write loudest coincs to disk
+# my proprietary file format: a pickled tuple
+fname_prefix = "pylal_relic"
+if opts.user_tag != "":
+    fname_suffix = "_" + opts.user_tag + ".pickle"
+else:
+    fname_suffix = ".pickle"
+
+if opts.write_onsource:
+    fname = fname_prefix + "_onsource" + fname_suffix
+    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
+        onsource_loudest_by_mc), open(fname, "wb"), -1)
+    sys.stdout.write("Loudest on-source coincs written.\n")
+if opts.write_offsource:
+    fname = fname_prefix + "_offsource" + fname_suffix
+    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
+        offsource_loudest_by_trial_mc), open(fname, "wb"), -1)
+    sys.stdout.write("Loudest off-source coincs written.\n")
+if opts.write_injections:
+    fname = fname_prefix + "_injections" + fname_suffix
+    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
+                 sim_count_by_inj_m2_D, inj_loudest_by_inj_mc_m2_D),
+                open(fname, "wb"), -1)
+    sys.stdout.write("Loudest injection coincs written.\n")
+
