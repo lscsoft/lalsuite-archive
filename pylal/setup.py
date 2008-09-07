@@ -210,6 +210,7 @@ setup(
 		os.path.join("bin", "pylal_grbsummary"),
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_query_dq"),
+		os.path.join("bin", "pylal_relic"),
 		os.path.join("bin", "plotethinca"),
 		os.path.join("bin", "plotwindow"),
 		os.path.join("bin", "plotcoincwindow"),
