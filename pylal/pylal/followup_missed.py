@@ -194,7 +194,6 @@ class FollowupMissed:
            #read the segment lists
            self.vetodict[ifoName] = segmentsUtils.fromsegwizard(open(filename))
 
-
   # -----------------------------------------------------
   def reset( self ):
     """
@@ -322,6 +321,18 @@ class FollowupMissed:
 
 
   # -----------------------------------------------------
+  def isThereVeto( self, timeTrigger, ifoName ):
+    
+    flag = False
+    vetoSegs = self.vetodict[ifoName]
+    for seg in vetoSegs :
+      if ( timeTrigger > seg[0] and timeTrigger < seg[1] ):
+        flag = True
+
+    return flag
+
+
+  # -----------------------------------------------------
   def estimatedDistance( self, mass1, mass2, distTarget):
 
     snrActual = 8.0
@@ -430,6 +441,8 @@ class FollowupMissed:
     # create a figure
     fig=figure()
     foundSet = set()
+    trigger_details = {}
+    loudest_details = {}
     
     if snglTriggers is None:
       # put message on the plot instead
@@ -468,7 +481,8 @@ class FollowupMissed:
 
         # use the set of selected coincident triggers in the THINCA stages
         if coincTriggers:
-          selectedSmall = selectedCoincs.getsngls(ifo)
+#          selectedSmall = selectedCoincs.getsngls(ifo)
+          selectedSmall = selectedCoincs.cluster(2* self.injectionWindow).getsngls(ifo)
           timeSmall = [ self.getTimeTrigger( sel )-timeInjection \
                         for sel in selectedSmall ]
           
@@ -480,7 +494,26 @@ class FollowupMissed:
         # add IFO to this set; the injection is found for this IFO and stage
         if len(timeSmall)>0:
           foundSet.add(ifo)
+          
+          # record some details from the 50ms triggers
+          trigger_details[ifo] = {}
+          trigger_details[ifo]["snr"] = selectedSmall.get_column('snr')
+          trigger_details[ifo]["chisq"] = selectedSmall.get_column('chisq')
+          trigger_details[ifo]["eff_dist"] = selectedSmall.get_column('eff_distance')
+          trigger_details[ifo]["mchirp"] = selectedSmall.get_column('mchirp')
 
+          # record details of the loudest trigger
+          loudest_details[ifo] = {}
+          loudest = selectedSmall[selectedSmall.get_column('snr').argmax()]
+          loudest_details[ifo]["snr"] = loudest.snr
+          loudest_details[ifo]["mchirp"] = loudest.mchirp
+          loudest_details[ifo]["eff_dist"] = loudest.eff_distance
+          loudest_details[ifo]["chisq"] = loudest.chisq
+          loudest_details[ifo]["timeTrigger"] = self.getTimeTrigger( loudest )
+
+          timeTrigger = self.getTimeTrigger( loudest )
+          vetoSegs = self.vetodict[ifoName]
+          
         # plot the triggers
         plot( timeLarge, selectedLarge.get_column('snr'),\
               self.colors[ifo]+'o', label="_nolegend_")
@@ -509,7 +542,7 @@ class FollowupMissed:
     fname = self.savePlot( stage )
     close(fig)
 
-    result = {'filename':fname, 'foundset':foundSet}
+    result = {'filename':fname, 'foundset':foundSet, 'trigger_details':trigger_details, 'loudest_details':loudest_details}
     return result
 
   # -----------------------------------------------------
@@ -605,6 +638,18 @@ class FollowupMissed:
         page.add('</td>')
       page.add('</tr>')
 
+
+    def fillTableMore(page, contents, moreContents ):
+      """
+      Making life easier...
+      """
+      page.add('<tr>')
+      for content in contents:
+        page.add('<td>')
+        page.add( str(content) )
+        page.add('</td>')
+      page.add('</tr>')
+
    
     # get the injections that are missed
     injID = 0
@@ -687,7 +732,7 @@ class FollowupMissed:
           
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
-    fillTable( page, ['<b>step','<b>F/M'] )
+    fillTable( page, ['<b>step','<b>F/M', '<b>Rec. SNR', '<b>Rec. mchirp', '<b>Rec. eff_dist', '<b>Rec. chisq', '<b>Veto ON/OFF'] )
     
     for stage in self.orderLabels:
       if investDict.has_key(stage):
@@ -707,9 +752,42 @@ class FollowupMissed:
           foundIFOs=''
           if "INSPIRAL" in stage:
             foundIFOs=' in '
+            recSnr=''
+            recChirpMass=''
+            recEffDist=''
+            recChisq=''
+            loudestSnr=''
+            loudestChirpMass=''
+            loudestEffDist=''
+            loudestChisq=''
+            vetoOnOff=''
             for ifo in result['foundset']:
               foundIFOs+=ifo+' '
-          fillTable( page, [ stage,  'FOUND'+foundIFOs])
+              # Pars of the 50ms recovered triggers
+              recSnr+=ifo+str(result['trigger_details'][ifo]['snr'])+'<br>'
+              recChirpMass+=ifo+str(result['trigger_details'][ifo]['mchirp'])+'<br>'
+              recEffDist+=ifo+str(result['trigger_details'][ifo]['eff_dist'])+'<br>'
+              recChisq+=ifo+str(result['trigger_details'][ifo]['chisq'])+'<br>'
+              # Pars of the loudest trigger
+              loudestSnr+=ifo+': '+str(result['loudest_details'][ifo]['snr'])+'<br>'
+              loudestChirpMass+=ifo+': '+str(result['loudest_details'][ifo]['mchirp'])+'<br>'
+              loudestEffDist+=ifo+': '+str(result['loudest_details'][ifo]['eff_dist'])+'<br>'
+              loudestChisq+=ifo+': '+str(result['loudest_details'][ifo]['chisq'])+'<br>'
+              # Whether some of the ifo times is vetoed
+              timeTrigger = float(result['loudest_details'][ifo]['timeTrigger'])
+	      print self.vetodict
+	      print self.vetodict[ifo]	
+	      if (self.vetodict[ifo]):
+                Veto = self.isThereVeto ( timeTrigger, ifo )
+                if (Veto):
+                  onOff = 'ON'
+                  vetoOnOff+=ifo+': '+onOff+'<br>'
+                else:
+                  onOff = 'OFF'
+                  vetoOnOff+=ifo+': '+onOff+'<br>'
+	      else: 
+		  vetoOnOff+=ifo+': No info<br>'
+          fillTable( page, [ stage,  'FOUND'+foundIFOs, 'loudest<br>'+loudestSnr, 'loudest<br>'+loudestChirpMass, 'loudest<br>'+loudestEffDist, 'loudest<br>'+loudestChisq, vetoOnOff])
 
         else:
           fillTable( page, [ stage,  '<font color="red">MISSED'])      
