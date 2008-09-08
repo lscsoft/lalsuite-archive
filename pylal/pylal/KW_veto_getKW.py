@@ -113,7 +113,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
     
     ## virgo case
     if ifo=="V1":
-        data_loc="/archive/home/mabizoua/public_html/VSR1/KW/cleandata_DQinspiral"
+        data_loc="/archive/home/mabizoua/public_html/VSR1/KW/cleandata_DQ_cat1/"
         try:
             # check local first
             # if not there, use the Internet to get KW triggers
