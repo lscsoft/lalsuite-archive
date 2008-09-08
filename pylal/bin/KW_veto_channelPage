@@ -420,11 +420,11 @@ def summary_maker(prefix, result, totalTrigNum, totalTime, half_window_size,\
             
         #################### injection part of summary #########################
         if injection:
-            # the first line of injection_file is a summary of injection check 
-            # information
+            # the first two lines of injection_file is a summary of injection 
+            # check information
             # put that info in the page
             # also make a link to injection_file
-            injection_summary=open(injection_file).readline()
+            injection_summary="<br>".join(open(injection_file).readlines()[:2])
             injection_file_name = os.path.split(injection_file)[-1]
             injection_part="""
             <a name="injection"></a>
