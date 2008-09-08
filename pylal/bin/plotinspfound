@@ -100,7 +100,7 @@ triggers that lose snr" )
       help="gps end time (for naming figure and output files")
 
   parser.add_option("-W", "--write-html",action="store_true", \
-                     default=False,help="write trigger informtion to file")
+                     default=True,help="write trigger informtion to file")
   parser.add_option("-u","--user-tag",action="store", type="string", \
                      default=None,help="specify user tag for file names")
   parser.add_option("","--do-followup",action="store_true",\
@@ -358,6 +358,13 @@ def write_html_head(opts, injPatterns, title):
 
 
 
+##############################################################################
+def write_inj_numbers( opts, injections, injIndex):
+  line = '<p> ' + str( len( injIndex ) ) + '/' + str( len( injections ) )
+  line = line + ' injections flagged! </p> \n'
+  fout.write( line )
+
+
 
 ##############################################################################
 def write_inj_table( opts, injection ):
@@ -396,33 +403,39 @@ def write_inj_table( opts, injection ):
 
   line = '<tr>'            
   fout.write( line )
-  line = '  <td>' + str( injection.geocent_end_time ) 
-  line = line + '.' + '%d' % ( injection.geocent_end_time_ns/10000 )
+  line = '  <td align=right bgcolor="#ffffff"> ' 
+  line = line + str( injection.geocent_end_time ) 
+  line = line + '.' + '%d' % ( injection.geocent_end_time_ns/100000 )
   line = line + '</td> \n'
   fout.write( line )
 
   if opts.h1_triggers or opts.h2_triggers:
-    line = '  <td>' + str( injection.h_end_time ) 
-    line = line + '.' + '%d' % ( injection.h_end_time_ns/10000 ) 
+    line = '  <td align=right bgcolor="#ffffff"> ' 
+    line = line + str( injection.h_end_time ) 
+    line = line + '.' + '%d' % ( injection.h_end_time_ns/100000 ) 
     line = line + '</td> \n'
     fout.write( line )
   if opts.l1_triggers:
-    line = '  <td>' + str( injection.l_end_time ) 
-    line = line + '.' + '%d' % ( injection.l_end_time_ns/10000 ) 
+    line = '  <td align=right bgcolor="#ffffff"> ' 
+    line = line + str( injection.l_end_time ) 
+    line = line + '.' + '%d' % ( injection.l_end_time_ns/100000 ) 
     line = line + '</td> \n'
     fout.write( line )
 
   for column in check:
     if column == "eff_distance":
       if opts.h1_triggers or opts.h2_triggers:
-        line = '  <td>' + str( injection.eff_dist_h ) + '</td> \n'
+        line = '  <td align=right bgcolor="#ffffff">' 
+        line = line + '%.4f' % ( injection.eff_dist_h ) + '</td> \n'
         fout.write( line )
       if opts.l1_triggers:
-        line = '  <td>' + str( injection.eff_dist_l ) + '</td> \n'
+        line = '  <td align=right bgcolor="#ffffff">' 
+        line = line + '%.4f' % ( injection.eff_dist_l ) + '</td> \n'
         fout.write( line )      
     elif column != "chisq" and column !="effective_snr":
       value = getattr( injection,  column )
-      line = '  <td>' + str( value ) + '</td> \n'
+      line = '  <td align=right bgcolor="#ffffff" >' 
+      line = line + '%.4f' %  ( value ) + '</td> \n'
       fout.write( line )
   line = '</tr> \n'
   fout.write( line )
@@ -447,9 +460,9 @@ def write_trig_table_head( opts, check ):
   fout.write( line )
   line = '  <th> SNR <br/> after </th> \n'
   fout.write( line )
-  line = '  <th> end_time /<br/> &Delta;t <br/> before</th> \n'
+  line = '  <th> end_time / &Delta;t <br/> before</th> \n'
   fout.write( line )
-  line = '  <th> end_time /<br/> &Delta;t <br/> after</th> \n'
+  line = '  <th> end_time / &Delta;t <br/> after</th> \n'
   fout.write( line )
   for column in check:
     line = '  <th>' + column + '<br/> before </th> \n'
@@ -472,7 +485,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   fout.write( line )
 
   line = '  <td align=right bgcolor="#ffffff">' 
-  line = line + str( trigBefore.snr ) + '</td> \n'
+  line = line + '%.4f' % ( trigBefore.snr ) + '</td> \n'
   fout.write( line )
 
   if trigAfter.snr < trigBefore.snr:
@@ -482,7 +495,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   else:
     colour = "#50ebec"
   line = '  <td align=right bgcolor="' + colour + '">'
-  line = line + str( trigAfter.snr ) + '</td> \n'
+  line = line + '%.4f' % ( trigAfter.snr ) + '</td> \n'
   fout.write( line )
 
   timeInj = injection.h_end_time + injection.h_end_time_ns/1000000000.0
@@ -505,7 +518,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   line = '  <td align=center bgcolor="' + colour +'">' 
   line = line = line + '%.4f' % timeAfter + '\n'
   fout.write( line )
-  line = '/ <br/>    &Delta;t = ' + '%.4f' % ( dtAfter ) + '</td> \n'
+  line = '<br/>    &Delta;t = ' + '%.4f' % ( dtAfter ) + '</td> \n'
   fout.write( line )
 
 
@@ -559,11 +572,15 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
         else:
           colour = "#50ebec"
      
-
-      line = '  <td align=right bgcolor="#ffffff">' + str( value ) + '</td> \n'
-      fout.write( line )
+      if value == "not found":
+        line = '  <td align=right bgcolor="#ffffff"> not found </td> \n'
+        fout.write( line )
+      else:
+        line = '  <td align=right bgcolor="#ffffff"> '
+        line = line + '%.4f' % ( value )  + ' </td> \n'
+        fout.write( line )
       line = '  <td align=right bgcolor="' + colour + '">' 
-      line = line + str( valueAfter ) + '</td> \n'
+      line = line + '%.4f' % ( valueAfter ) + '</td> \n'
       fout.write( line )
 
 
@@ -579,7 +596,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
 
       valueBefore = getattr( trigBefore, column )
       line = '  <td align=right bgcolor="#ffffff">' 
-      line = line + str( valueBefore ) + '</td> \n'
+      line = line + '%.4f' % ( valueBefore ) + '</td> \n'
       fout.write( line )
 
       valueAfter = getattr( trigAfter, column )
@@ -593,7 +610,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
         colour = "#50ebec"
       
       line = '  <td align=right bgcolor="' + colour + '">' 
-      line = line + str( valueAfter ) + '</td> \n'
+      line = line + '%.4f' % ( valueAfter ) + '</td> \n'
       fout.write( line )
 
   line = '</tr> \n'
@@ -750,7 +767,7 @@ def do_everything(opts, ifos, injPatterns, check):
               if x not in injIndex:        
                 injIndex.append( x )
 
-
+    write_inj_numbers( opts, injections, injIndex)
 
     for index in injIndex:
       h_time = injections[index].h_end_time
@@ -866,6 +883,7 @@ def do_everything(opts, ifos, injPatterns, check):
               if x not in injIndex:        
                 injIndex.append( x )
 
+    write_inj_numbers( opts, injections, injIndex)
 
     for index in injIndex:
       h_time = injections[index].h_end_time
