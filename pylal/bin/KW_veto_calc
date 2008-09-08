@@ -113,7 +113,7 @@ def parse_commandline():
     parser.add_option("-s", "--segment_file",
                       help="file which contains segments to be analyzed")
     parser.add_option("-c", "--channel", help="channel to be analyzed")
-    parser.add_option("-f","--trigger_filter",default=8,type="int",
+    parser.add_option("-f","--trigger_filter",default=8,type="float",
                       help="minimum snr to filter triggers")
     parser.add_option("-w","--half_window",type="float",
                       help="half of veto-window size in second")
@@ -503,7 +503,6 @@ def injection_count(ifo,veto_seg,analyze_segment,injection_time_file,out_name):
             i_time=float(line.strip())
             if i_time in analyze_segs:
                 injection_times.append(i_time)
-    del analyze_segs
       
     # check which injections are vetoed
     vetoed_injection=[]
@@ -511,9 +510,16 @@ def injection_count(ifo,veto_seg,analyze_segment,injection_time_file,out_name):
         if t in veto_seg:
             vetoed_injection.append(t)
             
+    # calculate expected injections number:
+    # total injection * dead time / analyzed time
+    expectedNum =\
+         len(injection_times) * veto_seg.duration() / analyze_segs.duration()
+            
     # save the result in txt format
     line=["Vetoed Injections / Total Injections in analyzed segments:"+\
-          " %d / %d"%(len(vetoed_injection),len(injection_times)),""]
+          " %d / %d"%(len(vetoed_injection),len(injection_times))]
+    line.append("Expected Number: %.4f"%expectedNum)
+    line.append("")
     line.append("Vetoed Injections:")
     for t in vetoed_injection: line.append("%f"%t)
     line.append("")
