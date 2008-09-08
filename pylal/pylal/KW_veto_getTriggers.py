@@ -130,8 +130,8 @@ def get_trigs_xml(trigger_file,min_thresh,verbose):
     from glue.ligolw import utils
     # speed hacks
     # replace Glue's pure Python LIGOTimeGPS class with pyLAL's C version
-    from pylal.xlal.date import LIGOTimeGPS
-    lsctables.LIGOTimeGPS = LIGOTimeGPS
+    #from pylal.xlal.date import LIGOTimeGPS
+    #lsctables.LIGOTimeGPS = LIGOTimeGPS
     
     # Enable column interning to save memory
     table.RowBuilder = table.InterningRowBuilder
