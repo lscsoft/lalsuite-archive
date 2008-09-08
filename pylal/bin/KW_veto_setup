@@ -465,14 +465,14 @@ def get_analyze_segment(cp,ifo_list,tag,verbose):
                 each_list=segmentsUtils.fromsegwizard(open(fileName),\
                                                      coltype=float,strict=False)
                 if each_list.duration()==0:
-                    print >>sys.stderr, """
+                    sys.exit(1)
+            except:
+                print >>sys.stderr, """
         Error: file contains no segments or glue.segmentsUtils.fromsegwizard is
                not reading segments correctly. Please check the seg file. 
                (possibly comments in the file is causing this)
-        """
-                    sys.exit(1)
-            except:
-                print >>sys.stderr, "file contents must be segwizard like form"
+               %s
+               """%fileName
                 raise
             analyzed_segs = analyzed_segs.__or__(each_list)
         
@@ -497,12 +497,14 @@ def get_analyze_segment(cp,ifo_list,tag,verbose):
                 each_list=segmentsUtils.fromsegwizard(open(fileName),\
                                                      coltype=float,strict=False)
                 if each_list.duration()==0:
-                    print >>sys.stderr, """
-        Error: this file has no segment or the program failed to read the file.
-                    """
                     sys.exit(1)
             except:
-                print >>sys.stderr, "file contents must be segwizard like form"
+                print >>sys.stderr, """
+        Error: file contains no segments or glue.segmentsUtils.fromsegwizard is
+               not reading segments correctly. Please check the seg file. 
+               (possibly comments in the file is causing this)
+               %s
+               """%fileName
                 raise
             analyzed_segs = analyzed_segs - each_list
         analyzed_segs.coalesce()
@@ -838,7 +840,7 @@ def main(opts,cp):
         if cp.get("data_conditioning",d)=="":
             print >> sys.stderr, "Error: %s is a required in param file."%d
             sys.exit(1)
-        if d == "half_window":
+        if d == "half_window" or d == "trigger_filter":
             try:
                 cp.getfloat("data_conditioning",d)
             except:
@@ -851,9 +853,13 @@ def main(opts,cp):
         
     ######################### [output] section #################################
     
-    # if not specified, set the output of vetoStats to "results"
+    # if not specified, set the output of KW_veto_calc to "results"
     if cp.get("output","out_dir")=="": 
         cp.set("output","out_dir","results")
+        
+    # create output directory if not exist yet
+    if not os.path.exists(cp.get("output","out_dir")): 
+        os.makedirs(cp.get("output","out_dir"))
         
     # if not specified, set the output extension to .txt
     if cp.get("output","extension") == "": 
