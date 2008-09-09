@@ -359,8 +359,8 @@ def write_html_head(opts, injPatterns, title):
 
 
 ##############################################################################
-def write_inj_numbers( opts, injections, injIndex):
-  line = '<p> ' + str( len( injIndex ) ) + '/' + str( len( injections ) )
+def write_inj_numbers( opts, numTotal, numFlagged):
+  line = '<p> ' + str( numFlagged ) + '/' + str( numTotal ) 
   line = line + ' injections flagged! </p> \n'
   fout.write( line )
 
@@ -730,6 +730,7 @@ def do_everything(opts, ifos, injPatterns, check):
 
     # Find triggers whose SNRs change and index the injections.
     injIndex = []
+    injFound = []
 
     for x in xrange( len( injections ) ):
       inj = injections[x]
@@ -745,7 +746,7 @@ def do_everything(opts, ifos, injPatterns, check):
             change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
             if abs( change ) >= opts.threshold:
               injIndex.append( x )
-
+            injFound.append( x )
       
       if opts.h2_triggers:
         if h_time in h2_coireFirstTimes:
@@ -756,6 +757,8 @@ def do_everything(opts, ifos, injPatterns, check):
             if abs( change ) >= opts.threshold:
               if x not in injIndex:  
                 injIndex.append( x )
+            if x not in injFound:
+              injFound.append( x )
 
       if opts.l1_triggers:
         if l_time in l1_coireFirstTimes:
@@ -766,8 +769,10 @@ def do_everything(opts, ifos, injPatterns, check):
             if abs( change ) >= opts.threshold:
               if x not in injIndex:        
                 injIndex.append( x )
+            if x not in injFound:
+              injFound.append( x )
 
-    write_inj_numbers( opts, injections, injIndex)
+    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
     for index in injIndex:
       h_time = injections[index].h_end_time
@@ -847,6 +852,7 @@ def do_everything(opts, ifos, injPatterns, check):
       
     # Find triggers whose SNRs change and index the injections.
     injIndex = []
+    injFound = []
 
     for x in xrange( len( injections ) ):
       inj = injections[x]
@@ -862,7 +868,8 @@ def do_everything(opts, ifos, injPatterns, check):
             change = h1_coireSecond[i].snr - h1_coireFirst[j].snr
             if abs( change ) >= opts.threshold:
               injIndex.append( x )
-     
+            injFound.append( x )
+
       if opts.h2_triggers:
         if h_time in h2_coireSecondTimes:
           if h_time in h2_coireFirstTimes:
@@ -872,6 +879,8 @@ def do_everything(opts, ifos, injPatterns, check):
             if abs( change ) >= opts.threshold:
               if x not in injIndex:  
                 injIndex.append( x )
+            if x not in injFound:
+              injFound.append( x )
  
       if opts.l1_triggers:
         if l_time in l1_coireSecondTimes:
@@ -882,8 +891,10 @@ def do_everything(opts, ifos, injPatterns, check):
             if abs( change ) >= opts.threshold:
               if x not in injIndex:        
                 injIndex.append( x )
+            if x not in injFound:
+              injFound.append( x )
 
-    write_inj_numbers( opts, injections, injIndex)
+    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
     for index in injIndex:
       h_time = injections[index].h_end_time
@@ -932,10 +943,10 @@ def do_everything(opts, ifos, injPatterns, check):
       
       line = '</table> \n'
       fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
+      if opts.do_followup:
+        followup.setTag( "TEST")
+        followuphtml = followup.followup( injections[index], "H1", injPattern)
+        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
 
 
