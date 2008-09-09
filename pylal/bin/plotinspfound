@@ -656,6 +656,7 @@ def do_everything(opts, ifos, injPatterns, check):
   for injPattern in injPatterns:
     # Get triggers and injections
     injections = lsctables.New( lsctables.SimInspiralTable )
+    injTimes = []
 
     if opts.h1_triggers:
       pattern = 'SIRE*FOUND*FIRST*' + injPattern
@@ -671,8 +672,12 @@ def do_everything(opts, ifos, injPatterns, check):
       h1_coireSecondTimes = list( h1_coireSecond.get_column( "end_time" ) )
       
       for inj in h1Injections:
-        injections.append( inj )
-
+        if inj.geocent_end_time not in injTimes:
+          injections.append( inj )
+          injTimes.append( inj.geocent_end_time )
+        else:
+          print "ERROR! Trying to add H1 found injection for the second", \
+                "time. \n"
 
     if opts.h2_triggers:
       pattern = 'SIRE*FOUND*FIRST*' + injPattern
@@ -687,11 +692,10 @@ def do_everything(opts, ifos, injPatterns, check):
       h2_coireSecond = get_coire_triggers( opts, "H2", pattern )      
       h2_coireSecondTimes = list( h2_coireSecond.get_column( "end_time" ) )
 
-      injTimes = injections.get_column( "geocent_end_time" )
       for inj in h2Injections:
         if inj.geocent_end_time not in injTimes:
           injections.append( inj )
-
+          injTimes.append( inj.geocent_end_time )
 
     if opts.l1_triggers:
       pattern = 'SIRE*FOUND*FIRST*' + injPattern
@@ -706,11 +710,11 @@ def do_everything(opts, ifos, injPatterns, check):
       l1_coireSecond = get_coire_triggers( opts, "L1", pattern )      
       l1_coireSecondTimes = list( l1_coireSecond.get_column( "end_time" ) )
 
-      injTimes = injections.get_column( "geocent_end_time" )
       for inj in l1Injections:
         if inj.geocent_end_time not in injTimes:
           injections.append( inj )
-
+          injTimes.append( inj.geocent_end_time )
+    
 
 
 
