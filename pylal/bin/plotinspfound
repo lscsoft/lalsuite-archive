@@ -64,6 +64,9 @@ def parse_command_line():
                      default=False, help="print some information" )
   parser.add_option("-v", "--verbose",action="store_true",\
                      default=False,help="print all information" )
+  parser.add_option("-a", "--all-coire-first",action="store_true",\
+                     default=False,help="check injections found at coireFirst \
+even if they are missed at coireSecond" )
   parser.add_option("-M", "--check-mchirp",action="store_true",\
                      default=False,help="check the value of mchirp for \
 triggers that lose snr" )
@@ -167,7 +170,7 @@ if opts.l1_triggers:
   ifos.append( "L1" )
 if len( ifos ) == 0:
   print "ERROR! must specify one of --h1-triggers, --h2-triggers,", \
-        "--l1-triggers or l1-triggers"
+        "--l1-triggers or --all-triggers"
   sys.exit()
 
 if opts.threshold < 0:
@@ -675,9 +678,6 @@ def do_everything(opts, ifos, injPatterns, check):
         if inj.geocent_end_time not in injTimes:
           injections.append( inj )
           injTimes.append( inj.geocent_end_time )
-        else:
-          print "ERROR! Trying to add H1 found injection for the second", \
-                "time. \n"
 
     if opts.h2_triggers:
       pattern = 'SIRE*FOUND*FIRST*' + injPattern
@@ -743,38 +743,76 @@ def do_everything(opts, ifos, injPatterns, check):
       l_time = inj.l_end_time
 
       if opts.h1_triggers:
-        if h_time in h1_coireFirstTimes:
-          if h_time in h1_sireFirstTimes:
-            i = h1_coireFirstTimes.index( h_time )
-            j = h1_sireFirstTimes.index( h_time )
-            change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              injIndex.append( x )
-            injFound.append( x )
+        if opts.all_coire_first: 
+          if h_time in h1_coireFirstTimes:
+            if h_time in h1_sireFirstTimes:
+              i = h1_coireFirstTimes.index( h_time )
+              j = h1_sireFirstTimes.index( h_time )
+              change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
+              if abs( change ) >= opts.threshold:
+                injIndex.append( x )
+              injFound.append( x )
+        else:
+          if h_time in h1_coireSecondTimes:
+            if h_time in h1_coireFirstTimes:
+              if h_time in h1_sireFirstTimes:
+                i = h1_coireFirstTimes.index( h_time )
+                j = h1_sireFirstTimes.index( h_time )
+                change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
+                if abs( change ) >= opts.threshold:
+                  injIndex.append( x )
+                injFound.append( x )
       
       if opts.h2_triggers:
-        if h_time in h2_coireFirstTimes:
-          if h_time in h2_sireFirstTimes:
-            i = h2_coireFirstTimes.index( h_time )
-            j = h2_sireFirstTimes.index( h_time )
-            change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:  
-                injIndex.append( x )
-            if x not in injFound:
-              injFound.append( x )
+        if opts.all_coire_first: 
+          if h_time in h2_coireFirstTimes:
+            if h_time in h2_sireFirstTimes:
+              i = h2_coireFirstTimes.index( h_time )
+              j = h2_sireFirstTimes.index( h_time )
+              change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
+              if abs( change ) >= opts.threshold:
+                if x not in injIndex:
+                  injIndex.append( x )
+              if x not in injFound:
+                injFound.append( x )
+        else:
+          if h_time in h2_coireSecondTimes:
+            if h_time in h2_coireFirstTimes:
+              if h_time in h2_sireFirstTimes:
+                i = h2_coireFirstTimes.index( h_time )
+                j = h2_sireFirstTimes.index( h_time )
+                change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
+                if abs( change ) >= opts.threshold:
+                  if x not in injIndex:
+                    injIndex.append( x )
+                if x not in injFound:
+                  injFound.append( x )
+
 
       if opts.l1_triggers:
-        if l_time in l1_coireFirstTimes:
-          if l_time in l1_sireFirstTimes:
-            i = l1_coireFirstTimes.index( l_time )
-            j = l1_sireFirstTimes.index( l_time )
-            change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:        
-                injIndex.append( x )
-            if x not in injFound:
-              injFound.append( x )
+        if opts.all_coire_first: 
+          if l_time in l1_coireFirstTimes:
+            if l_time in l1_sireFirstTimes:
+              i = l1_coireFirstTimes.index( l_time )
+              j = l1_sireFirstTimes.index( l_time )
+              change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
+              if abs( change ) >= opts.threshold:
+                if x not in injIndex:
+                  injIndex.append( x )
+              if x not in injFound:
+                injFound.append( x )
+        else:
+          if l_time in l1_coireSecondTimes:
+            if l_time in l1_coireFirstTimes:
+              if l_time in l1_sireFirstTimes:
+                i = l1_coireFirstTimes.index( l_time )
+                j = l1_sireFirstTimes.index( l_time )
+                change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
+                if abs( change ) >= opts.threshold:
+                  if x not in injIndex:
+                    injIndex.append( x )
+                if x not in injFound:
+                  injFound.append( x )
 
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
@@ -831,11 +869,6 @@ def do_everything(opts, ifos, injPatterns, check):
         followuphtml = followup.followup( injections[index], "H1", injPattern)
         fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
-      line = '<br/> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-          
 
 
 
