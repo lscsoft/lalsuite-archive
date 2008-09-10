@@ -775,8 +775,6 @@ class FollowupMissed:
               loudestChisq+=ifo+': '+str(result['loudest_details'][ifo]['chisq'])+'<br>'
               # Whether some of the ifo times is vetoed
               timeTrigger = float(result['loudest_details'][ifo]['timeTrigger'])
-	      print self.vetodict
-	      print self.vetodict[ifo]	
 	      if (self.vetodict[ifo]):
                 Veto = self.isThereVeto ( timeTrigger, ifo )
                 if (Veto):
