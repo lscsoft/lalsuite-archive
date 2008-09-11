@@ -578,7 +578,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
       if value == "not found":
         line = '  <td align=right bgcolor="#ffffff"> not found </td> \n'
         fout.write( line )
-        colour = "#0000ff"
+        colour = "#50ebec"
       else:
         line = '  <td align=right bgcolor="#ffffff"> '
         line = line + '%.4f' % ( value )  + ' </td> \n'
