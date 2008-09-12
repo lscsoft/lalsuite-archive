@@ -2231,7 +2231,7 @@ else:
 
 ##############################################################################
 # Step 11: Setup the Maximum number of jobs for different categories
-if not opts.disable_dag_categories:
+if not opts.disable_dag_categories and cp.has_section('condor-max-jobs'):
   for cp_opt in cp.options('condor-max-jobs'):
     dag.add_maxjobs_category(cp_opt,cp.getint('condor-max-jobs',cp_opt))
      
