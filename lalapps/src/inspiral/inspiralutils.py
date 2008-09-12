@@ -472,7 +472,6 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
   # make hipe job/node
   hipeDag = iniFile.rstrip("ini") + usertag + ".dag"
   hipeJob = pipeline.CondorDAGManJob(hipeDag, hipeDir)
-  if vetoCat: hipeJob.add_opt("maxjobs", "5")
   hipeNode = pipeline.CondorDAGNode(hipeJob)
 
   hipeNode.add_output_file( hipe_cache(ifos, usertag, \
@@ -620,7 +619,6 @@ def plot_setup(plotDir, config, logPath, stage, injectionSuffix,
   # make hipe job/node
   plotDag = iniFile.rstrip("ini") + usertag + ".dag"
   plotJob = pipeline.CondorDAGManJob(plotDag, plotDir)
-  plotJob.add_opt("maxjobs", "2")
   plotNode = pipeline.CondorDAGNode(plotJob)
 
   # add postscript to deal with rescue dag
