@@ -484,7 +484,8 @@ if opts.veto_file:
   seglist = segmentsUtils.fromsegwizard(file(opts.veto_file, 'r'))
 
 lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
-trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose)
+trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose,\
+          mangle_event_id = True)
 
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 
