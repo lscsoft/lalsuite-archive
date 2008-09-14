@@ -39,6 +39,7 @@ from glue.ligolw import table
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import rate
+from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
@@ -297,7 +298,7 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 
 ##############################################################################
 # read in non-injection documents
-cache = lal.Cache.fromfile(open(opts.cache_file), coltype=int)
+cache = lal.Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
 
 # XXX: Speed hack
 lsctables.SimInspiralTable.loadcolumns = ["simulation_id", "mass1", "mass2",
@@ -384,8 +385,7 @@ if opts.write_injections:
     inj_loudest_by_inj_mc_m2_D = numpy.array(inj_loudest_by_inj_mc_m2_D)
 
     # throw out vetoed injection trials
-    inj_mask = trial_veto_mask[[trial_bins[sim.geocent_end_time] for sim \
-                                in sims]]
+    inj_mask = trial_veto_mask[[trial_bins[sim.get_end()] for sim in sims]]
     sims = sims[~inj_mask]
     sim_count_by_inj_m2_D = sim_count_by_inj_m2_D[~inj_mask]
     inj_loudest_by_inj_mc_m2_D = inj_loudest_by_inj_mc_m2_D[~inj_mask, ...]
