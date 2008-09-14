@@ -138,6 +138,11 @@ def parse_args():
     parser.add_option("--restrict-source-times", action="store_true",
         default=False, help="only take triggers from the source lying in the "\
         "destination analyzed times")
+    parser.add_option("--take-offsource-trial", type="int", metavar="TRIAL_NUM",
+        help="For the GRB analysis, it is instructive to take one of the "\
+        "off-source trials and treat it as an on-source trial.  This option " \
+        "basically fills in --shift-triggers and --restrict-source-times for "\
+        "you.  It assumes that SRC is the offsource and DEST is onsource.")
 
     parser.add_option("--event-id-type", default="ilwd:char",
         choices=("int_8s", "ilwd:char"),
@@ -146,6 +151,11 @@ def parse_args():
         help="increase verbosity")
 
     options, arguments = parser.parse_args()
+
+    if (options.take_offsource_trial is not None) \
+        and (options.shift_triggers is not None):
+        raise ValueError, "cannot specify --take-offsource-trial and "\
+            "--shift-triggers at the same time"
 
     return options, arguments
 
@@ -171,6 +181,22 @@ dest_doc = utils.load_filename(opts.destination, opts.verbose,
 process_table = append_process(dest_doc, opts)
 dest_segs = extract_seglist(dest_doc)
 
+# if this is an off-source trial we're preparing, set shift and restriction
+# source = offsource, dest = onsource
+if opts.take_offsource_trial is not None:
+    if abs(source_segs) % abs(dest_segs) != 0:
+        sys.stderr.write("The length of off-source is not commensurate with "\
+            "length of on-source.  Did you specify the right files?\n")
+    if opts.take_offsource_trial < 0 \
+        or opts.take_offsource_trial > \
+        (abs(source_segs) / float(abs(dest_segs))):
+        raise ValueError, "not a valid trial number"
+    opts.shift_triggers = \
+        dest_segs[0][0] - (source_segs[0][0] + (opts.take_offsource_trial - 1)*abs(dest_segs))
+    opts.restrict_source_times = True
+
+    print opts.shift_triggers
+
 # shift source triggers as appropriate
 if opts.shift_triggers is not None:
     shift_time = LIGOTimeGPS(opts.shift_triggers)
@@ -187,7 +213,6 @@ if opts.paste_strategy == "delete_all":
     old_trigs = table.get_table(dest_doc, lsctables.SnglInspiralTable.tableName)
     del old_trigs[:]
 elif opts.paste_strategy == "delete_overlapping":
-    old_trigs = table.get_table(dest_doc, lsctables.SnglInspiralTable.tableName)
     delete_triggers_in_region(dest_doc, source_segs)
 elif opts.paste_strategy == "do_nothing":
     pass
