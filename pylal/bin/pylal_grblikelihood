@@ -52,27 +52,78 @@ from pylal import viz
 ################################################################################
 # utility functions
 
-def compute_pc0_by_mc(offsource_loudest_by_trial_mc, onsource_loudest_by_mc):
+class BackgroundEstimator(object):
     """
-    Compute p(c \in neighborhood(c_0) | 0) for each possible on-source
-    loudest event, c_0.  What m_2 this corresponds to will be chosen later.
+    Abstract class to define an interface for background estimation.
+    After initializing with loudest (binned) background data, __call__
+    becomes active and will return the p(c|0) (for each bin).
     """
-    num_trials = offsource_loudest_by_trial_mc.shape[0]
+    def __init__(self, loudest_in_bg_trials):
+        self.loudest_in_bg_trials = loudest_in_bg_trials
 
-    # minimum resolvable pc0 is approximately this
-    pc0_eps = 0.5 / num_trials
+    def __call__(self, loudest_in_trial):
+        raise NotImplemented
 
-    # for each mc, count how many trials have c \in neighborhood(c_0)
-    num_louder_by_mc = \
-        (offsource_loudest_by_trial_mc > onsource_loudest_by_mc[None, :])\
-        .sum(axis=0, dtype=float)
+class ConstantBackgroundEstimator(BackgroundEstimator):
+    """
+    BackgroundEstimator that assumes a constant value for loudest_in_trial
+    greater than the loudest_bg.
+    """
+    def __init__(self, loudest_in_bg_trials, eps):
+        """
+        Initialize ConstantBackgroundEstimator to return a pc0 such that
+        pc0[pc0 < eps] = eps. loudest_in_bg_trials can be any shape as long
+        as the first axis (axis=0) is the trials axis.  If eps is a vector,
+        then we require eps.shape == loudest_in_bg_trials.shape[1:]
+        """
+        if not numpy.isscalar(eps) \
+            and eps.shape != loudest_in_bg_trials.shape[1:]:
+            raise ValueError, "eps.shape != loudest_in_bg_trials.shape[1:]"
+        self.eps = eps
+        BackgroundEstimator.__init__(self, loudest_in_bg_trials)
 
-    # for each mchirp bin, determine p(c|0) by summing across trials
-    pc0_by_mc = num_louder_by_mc / num_trials
+    def __call__(self, loudest_in_trial):
+        """
+        Return p(c|0).  Where p(c|0) < eps, we return eps.
+        """
+        num_louder = (self.loudest_in_bg_trials > loudest_in_trial[None, ...])\
+            .sum(axis=0, dtype=float)
+        pc0 = num_louder / self.loudest_in_bg_trials.shape[0]
+        pc0[pc0 < self.eps] = self.eps
+        return pc0
 
-    # if 0, then set to minimum resolvable
-    pc0_by_mc[pc0_by_mc < pc0_eps] = pc0_eps
-    return pc0_by_mc
+class SimpleExpExtrapEstimator(BackgroundEstimator):
+    """
+    BackgroundEstimator that takes the Nth loudest point and extrapolates
+    an exponential distribution based on its value.
+    """
+    def __init__(self, loudest_in_bg_trials, N):
+        """
+        Initialize SimpleExpExtrapolator with the extrapolation parameters.
+        Use the Nth point from the end as a fiducial point.
+        """
+        self.N = N
+
+        sorted_loudest = loudest_in_bg_trials.copy()
+        sorted_loudest.sort(axis=0)
+
+        self.default_evaluator = \
+            ConstantBackgroundEstimator(loudest_in_bg_trials, -1)
+
+        self.fiducial_x = sorted_loudest[-N, ...]
+        self.fiducial_y = self.default_evaluator(self.fiducial_x)
+
+    def __call__(self, loudest_in_trial):
+        """
+        Return p(c|0).  Where c is loudest than the Nth loudest, use the
+        the simplest possible extrapolation based on the Nth loudest event.
+        """
+        pc0 = self.default_evaluator(loudest_in_trial)
+        extrap = self.fiducial_y * \
+            numpy.exp(self.fiducial_x**1.4 - loudest_in_trial**1.4)
+        extrap_ind = loudest_in_trial > self.fiducial_x
+        pc0[extrap_ind] = extrap[extrap_ind]
+        return pc0
 
 def compute_pch_by_mc_m2(inj_loudest_by_inj_mc_m2, num_sims_by_m2,
     onsource_loudest_by_mc):
@@ -219,11 +270,18 @@ print "Number of injections read:", len(inj_loudest_by_inj_mc_m2_D)
 # generic initialization
 InspiralUtils.initialise(opts, __prog__, __version__)
 
+# initialize background estimation function
+
+compute_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 2)
+
+# Example of how to switch to constant extrapolator
+#compute_pc0_by_mc = ConstantBackgroundEstimator(offsource_loudest_by_trial_mc,
+#    0.5 / offsource_loudest_by_trial_mc.shape[0])
+
 ################################################################################
 # identify the loudest (by likelihood) on-source coincidences by m2
 
-pc0_by_mc = compute_pc0_by_mc(offsource_loudest_by_trial_mc,
-                              onsource_loudest_by_mc)
+pc0_by_mc = compute_pc0_by_mc(onsource_loudest_by_mc)
 
 print "p(c(mchirp) | 0):"
 for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), pc0_by_mc):
@@ -238,6 +296,10 @@ for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), pch_by_mc_m2):
     print "  [%f, %f): %s" % (low, hi, str(pch_by_m2))
 
 L_by_mc_m2 = pch_by_mc_m2 / pc0_by_mc[:, None]
+
+# Examples of how to swap in IFAR or pure effective SNR
+# L_by_mc_m2 = numpy.ones(pch_by_mc_m2.shape) / pc0_by_mc[:, None]
+# L_by_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
 
 print "Lambda(c(mchirp) | h(m2)):"
 for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), L_by_mc_m2):
@@ -256,8 +318,10 @@ max_L_by_m2 = L_by_mc_m2[mc_m2_map]
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
 
-inj_pc0_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=float) + 1e-10
-inj_pch_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=float) + 1e-10
+L_by_inj_mc = []
+pc0_by_inj_mc = []
+pch_by_inj_mc = []
+rho_by_inj_mc = []
 inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
 for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
 
@@ -274,14 +338,20 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
     inj_trial_loudest_by_mc_m2 = inj_trial_loudest_by_mc_m2_D.max(axis=2)
     inj_trial_loudest_by_mc = inj_trial_loudest_by_mc_m2.max(axis=1)
 
-    inj_trial_pc0_by_mc = compute_pc0_by_mc(offsource_loudest_by_trial_mc,
-        inj_trial_loudest_by_mc)
+    inj_trial_pc0_by_mc = compute_pc0_by_mc(inj_trial_loudest_by_mc)
 
     # this inner loop makes the algorithm O(n^2)
     inj_trial_pch_by_mc_m2 = compute_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
         num_sims_by_m2, inj_trial_loudest_by_mc)
 
     inj_trial_L_by_mc_m2 = inj_trial_pch_by_mc_m2 / inj_trial_pc0_by_mc[:, None]
+
+    # Examples of how to swap in IFAR or pure effective SNR
+    # inj_trial_L_by_mc_m2 = numpy.ones(inj_trial_pch_by_mc_m2.shape) / \
+    #     inj_trial_pc0_by_mc[:, None]
+    # inj_trial_L_by_mc_m2 = inj_trial_loudest_by_mc[:, None]\
+    #     .repeat(len(m2_bins), axis=1)
+
     inj_trial_L = inj_trial_L_by_mc_m2[:, m2_ind].max()
 
     # record if anything is louder than the loudest on-source coinc for this m2
@@ -289,12 +359,15 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
         inj_louder_count_by_m2_D[m2_D_mask] += 1
 
     # record diagnostics
-    mc_ind = inj_trial_L_by_mc_m2[:, m2_ind].argmax()
-    inj_pc0_by_m2_D[m2_D_mask] += numpy.log10(inj_trial_pc0_by_mc[mc_ind])
-    inj_pch_by_m2_D[m2_D_mask] += numpy.log10(inj_trial_pch_by_mc_m2[mc_ind, m2_ind])
-nonzero_ind = num_sims_by_m2_D.nonzero()
-inj_pc0_by_m2_D[nonzero_ind] /= num_sims_by_m2_D[nonzero_ind]
-inj_pch_by_m2_D[nonzero_ind] /= num_sims_by_m2_D[nonzero_ind]
+    if m2_ind == 8:
+        L_by_inj_mc.append(inj_trial_L_by_mc_m2[:, m2_ind].squeeze())
+        pc0_by_inj_mc.append(inj_trial_pc0_by_mc)
+        pch_by_inj_mc.append(inj_trial_pch_by_mc_m2[:, m2_ind].squeeze())
+        rho_by_inj_mc.append(inj_trial_loudest_by_mc)
+L_by_inj_mc = numpy.array(L_by_inj_mc)
+pc0_by_inj_mc = numpy.array(pc0_by_inj_mc)
+pch_by_inj_mc = numpy.array(pch_by_inj_mc)
+rho_by_inj_mc = numpy.array(rho_by_inj_mc)
 
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
@@ -318,10 +391,12 @@ plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
 for mc, pc0 in zip(mc_bins.centres(), pc0_by_mc):
-    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"|0) = $" + str(pc0))
+    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"|0) = %6.4f$" % pc0)
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
+
+plot.ax.set_ylim((mc_bins.min, mc_bins.max))
 
 # add mchirp dividers
 for divider in mc_bins.boundaries:
@@ -370,7 +445,6 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-
 ## for L(c|h) vs m2
 # TODO: before and after MC and calibration systematics
 text = "ln L(c(mc)|h(m2))"
@@ -383,7 +457,7 @@ for mc_range, L_by_m2 in zip(mc_ranges, L_by_mc_m2):
     L_by_m2[L_by_m2 < 1e-10] = 1e-10
     plot.add_content(m2_bins.centres(), numpy.log10(L_by_m2),
                      label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize()
+plot.finalize(loc=4)
 plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
@@ -415,33 +489,76 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## p(c|h) and p(c|0) vs D for an m2 slice
-#m2_ind = len(m2_bins) // 2
-m2_ind = 8
-m2_val = m2_bins.centres()[m2_ind]
-text = "p(c|h) and p(c|0) vs D for m2=%4.2f" % m2_val
+## p(c|h) vs rho for each mc bin
+text = "p(c|h) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[8])
 
-plot = plotutils.SimplePlot(\
-    r"$D\textrm{ (Mpc)}$", "",
-    r"$\textrm{Probabilities calculated with }m_2=%4.2f$" % m2_val)
-plot.add_content(D_bins.centres(), inj_pc0_by_m2_D[m2_ind, :],
-    label=r"$\left\langle \log p(c \in \mathcal{E}(c_0(m_2, D)) \,|\, 0) "\
-        r"\right\rangle$")
-plot.add_content(D_bins.centres(), inj_pch_by_m2_D[m2_ind, :],
-    label=r"$\left\langle \log p(c \in \mathcal{E}(c_0(m_2, D)) \,|\, "\
-        r"h(m_2, D)\right\rangle$")
-plot.add_content(D_bins.centres(), inj_pch_by_m2_D[m2_ind, :] \
-    - inj_pc0_by_m2_D[m2_ind, :], label=r"ratio")
-plot.finalize()
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$",
+    "", text)
+for mc_ind, mc_range in enumerate(mc_ranges):
+    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = pch_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label= r"$p(" + c_in_E + r"\,|\,h)\textrm{ for }" + label_suffix)
+
+plot.finalize(loc=4)
+plot.ax.set_yscale("log")
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "probabilities_by_D")
+    fname = InspiralUtils.set_figure_name(opts, "pch_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
 
+## p(c|0) vs rho for each mc bin
+text = "p(c|0) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[8])
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$",
+    "", text)
+for mc_ind, mc_range in enumerate(mc_ranges):
+    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = pc0_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label= r"$p(" + c_in_E + r"\,|\,0)\textrm{ for }" + label_suffix)
+
+plot.finalize(loc=4)
+plot.ax.set_yscale("log")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pc0_vs_rho")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L vs rho for each mc bin
+text = "L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[8])
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$",
+    "", text)
+for mc_ind, mc_range in enumerate(mc_ranges):
+    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = L_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label= r"$\Lambda\textrm{ for }" + label_suffix)
+
+plot.finalize(loc=4)
+plot.ax.set_yscale("log")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "L_vs_rho")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
 
 ## upper limit contours (m2, D) image
 text = "(m2, D) exclusion plot"
