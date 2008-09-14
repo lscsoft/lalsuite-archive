@@ -63,7 +63,7 @@ for channel in channels:
     print "x_unit =", x_unit
     print "y_unit =", y_unit
 
-    plot.add_content(x_data, y_data, filename + ": " + channel)
+    plot.add_content(x_data, y_data, label=filename + ": " + channel)
 
   plot.finalize()
   if opts.plot_filename is not None:
