@@ -93,29 +93,25 @@ class BasicPlot(object):
         """
         Create a legend if there are any non-trivial labels.
         """
-        for label in self.data_labels:
-            if not (label is None or label.startswith("_")):
+        for plot_kwargs in self.kwarg_sets:
+            if "label" in plot_kwargs and \
+                not plot_kwargs["label"].startswith("_"):
                 self.ax.legend(*args, **kwargs)
                 return
-
-    def get_colors(self):
-        """
-        If self.colors are specified, use those.  Else, use the default
-        colors.
-        """
-        if iterutils.any(c is None for c in self.colors):
-            return default_colors()
-        else:
-            return self.colors
-
 
 ##############################################################################
 # utility functions
 
 def default_colors():
+    """
+    An infinite iterator of some default colors.
+    """
     return itertools.cycle(('b', 'g', 'r', 'c', 'm', 'y', 'k'))
 
 def default_symbols():
+    """
+    An infinite iterator of some default symbols.
+    """
     return itertools.cycle(('x', '^', 'D', 'H', 'o', '1', '+'))
 
 def determine_common_bin_limits(data_sets, default_min=0, default_max=0):
@@ -144,29 +140,26 @@ class SimplePlot(BasicPlot):
         BasicPlot.__init__(self, *args, **kwargs)
         self.x_data_sets = []
         self.y_data_sets = []
-        self.data_labels = []
+        self.kwarg_sets = []
 
-    def add_content(self, x_data, y_data, label="_nolegend_"):
+    def add_content(self, x_data, y_data, **kwargs):
         self.x_data_sets.append(x_data)
         self.y_data_sets.append(y_data)
-        self.data_labels.append(label)
+        self.kwarg_sets.append(kwargs)
 
-    def finalize(self):
+    def finalize(self, loc=0):
         # make plot
-        colors = default_colors()
-
-        for x_vals, y_vals, color, label in \
-            itertools.izip(self.x_data_sets, self.y_data_sets, colors,
-                           self.data_labels):
-            self.ax.plot(x_vals, y_vals, color=color, label=label)
+        for x_vals, y_vals, plot_kwargs in \
+            itertools.izip(self.x_data_sets, self.y_data_sets, self.kwarg_sets):
+            self.ax.plot(x_vals, y_vals, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist()
+        self.add_legend_if_labels_exist(loc=loc)
 
         # decrement reference counts
         del self.x_data_sets
         del self.y_data_sets
-        del self.data_labels
+        del self.kwarg_sets
 
 class BarPlot(BasicPlot):
     """
@@ -177,22 +170,22 @@ class BarPlot(BasicPlot):
         BasicPlot.__init__(self, *args, **kwargs)
         self.x_data_sets = []
         self.y_data_sets = []
-        self.data_labels = []
+        self.kwarg_sets = []
 
-    def add_content(self, x_data, y_data, label="_nolabel_"):
+    def add_content(self, x_data, y_data, **kwargs):
         self.x_data_sets.append(x_data)
         self.y_data_sets.append(y_data)
-        self.data_labels.append(label)
+        self.kwarg_sets.append(kwargs)
 
     def finalize(self, orientation="vertical"):
         # make plot
-        colors = default_colors()
-
-        for x_vals, y_vals, color, label in \
-            itertools.izip(self.x_data_sets, self.y_data_sets, colors,
-                           self.data_labels):
-            self.ax.bar(x_vals, y_vals, color=color, label=label,
-                        align="center", linewidth=0, orientation=orientation)
+        for x_vals, y_vals, plot_kwargs in \
+            itertools.izip(self.x_data_sets, self.y_data_sets,
+                           self.kwarg_sets):
+            plot_kwargs.setdefault("align", "center")
+            plot_kwargs.setdefault("linewidth", 0)
+            plot_kwargs.setdefault("orientation", orientation)
+            self.ax.bar(x_vals, y_vals, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist()
@@ -200,7 +193,7 @@ class BarPlot(BasicPlot):
         # decrement reference counts
         del self.x_data_sets
         del self.y_data_sets
-        del self.data_labels
+        del self.kwarg_sets
 
 class VerticalBarHistogram(BasicPlot):
     """
@@ -209,11 +202,11 @@ class VerticalBarHistogram(BasicPlot):
     def __init__(self, *args, **kwargs):
         BasicPlot.__init__(self, *args, **kwargs)
         self.data_sets = []
-        self.data_labels = []
+        self.kwarg_sets = []
 
-    def add_content(self, data, label="_nolabel_"):
+    def add_content(self, data, **kwargs):
         self.data_sets.append(data)
-        self.data_labels.append(label)
+        self.kwarg_sets.append(kwargs)
 
     def finalize(self, num_bins=20):
         # determine binning
@@ -224,26 +217,27 @@ class VerticalBarHistogram(BasicPlot):
         width = (1 - 0.1 * len(self.data_sets)) * max_stat / num_bins
 
         # make plot
-        colors = default_colors()
-        count = itertools.count()
-        for i, data_set, color, label in \
-            itertools.izip(count, self.data_sets, colors, self.labels):
+        for i, (data_set, plot_kwargs) in \
+            enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
+            # set default values
+            plot_kwargs.setdefault("alpha", 0.6)
+            plot_kwargs.setdefault("align", "center")
+
             # make histogram
-            y, x = numpy.histogram(stats, bins=bins)
+            y, x = numpy.histogram(data_set, bins=bins)
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
 
             # plot
-            self.ax.bar(x, y, color, label=label, width=width, alpha=0.6,
-                        align="center")
+            self.ax.bar(x, y, color, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist()
 
         # decrement reference counts
         del self.data_sets
-        del self.data_labels
+        del self.kwarg_sets
 
 class NumberVsBinBarPlot(BasicPlot):
     """
@@ -254,32 +248,36 @@ class NumberVsBinBarPlot(BasicPlot):
         BasicPlot.__init__(self, *args, **kwargs)
         self.bin_sets = []
         self.value_sets = []
-        self.data_labels = []
-        self.colors = []
+        self.kwarg_sets = []
 
-    def add_content(self, bins, values, color=None, label="_nolabel_"):
+    def add_content(self, bins, values, **kwargs):
         if len(bins) != len(values):
             raise ValueError, "length of bins and values do not match"
-        if iterutils.any((c is None) != (color is None) for c in self.colors):
-            raise ValueError, "you can explicitly specify all colors or none"
 
         self.bin_sets.append(bins)
         self.value_sets.append(values)
-        self.colors.append(color)
-        self.data_labels.append(label)
+        self.kwarg_sets.append(kwargs)
 
     def finalize(self, orientation="vertical"):
-        for bins, values, color, label in itertools.izip(self.bin_sets,
-            self.value_sets, self.get_colors(), self.data_labels):
+        for bins, values, plot_kwargs in itertools.izip(self.bin_sets,
+            self.value_sets, self.kwarg_sets):
             x_vals = bins.centres()
-            widths = bins.upper() - bins.lower()
+
+            # prevent each bar from getting a separate legend entry
+            label = "_nolegend_"
+            if "label" in plot_kwargs:
+                label = plot_kwargs["label"]
+                del plot_kwargs["label"]
+
+            # set default
+            plot_kwargs.setdefault("align", "center")
 
             if orientation == "vertical":
-                patches = self.ax.bar(x_vals, values, width=widths, color=color,
-                    align="center", linewidth=0)
+                plot_kwargs.setdefault("width", bins.upper() - bins.lower())
+                patches = self.ax.bar(x_vals, values, **plot_kwargs)
             elif orientation == "horizontal":
-                patches = self.ax.barh(x_vals, values, height=widths,
-                    color=color, align="center", linewidth=0)
+                plot_kwargs.setdefault("height", bins.upper() - bins.lower())
+                patches = self.ax.barh(x_vals, values, **plot_kwargs)
             else:
                 raise ValueError, orientation + " must be 'vertical' " \
                     "or 'horizontal'"
@@ -296,7 +294,7 @@ class NumberVsBinBarPlot(BasicPlot):
         # decrement reference counts
         del self.bin_sets
         del self.value_sets
-        del self.data_labels
+        del self.kwarg_sets
 
 class CumulativeHistogramPlot(BasicPlot):
     """
@@ -307,17 +305,17 @@ class CumulativeHistogramPlot(BasicPlot):
     def __init__(self, *args, **kwargs):
         BasicPlot.__init__(self, *args, **kwargs)
         self.fg_data_sets = []
-        self.fg_labels = []
+        self.fg_kwarg_sets = []
         self.bg_data_sets = []
-        self.bg_label = "_nolegend_"
+        self.bg_kwargs = {}
 
-    def add_content(self, fg_data_set, label="_nolegend_"):
+    def add_content(self, fg_data_set, **kwargs):
         self.fg_data_sets.append(fg_data_set)
-        self.fg_labels.append(label)
+        self.fg_kwarg_sets.append(kwargs)
 
-    def add_background(self, bg_data_sets, label="_nolegend_"):
+    def add_background(self, bg_data_sets, **kwargs):
         self.bg_data_sets.extend(bg_data_sets)
-        self.bg_label = label
+        self.bg_kwargs = kwargs
 
     def finalize(self, num_bins=20, normalization=1):
         epsilon = 1e-8
@@ -329,11 +327,8 @@ class CumulativeHistogramPlot(BasicPlot):
         dx = bins[1] - bins[0]
 
         # plot foreground
-        colors = default_colors()
-        symbols = default_symbols()
-        for data_set, color, symbol, label in \
-            itertools.izip(self.fg_data_sets, colors, symbols,
-            self.fg_labels):
+        for data_set, plot_kwargs in \
+            itertools.izip(self.fg_data_sets, self.fg_kwarg_sets):
             # make histogram
             y, x = numpy.histogram(data_set, bins=bins)
             y = y[::-1].cumsum()[::-1]
@@ -341,7 +336,7 @@ class CumulativeHistogramPlot(BasicPlot):
             # plot
             y = numpy.array(y, dtype=numpy.float32)
             y[y <= epsilon] = epsilon
-            self.ax.plot(x + dx/2, y*normalization, symbol + color, label=label)
+            self.ax.plot(x + dx/2, y*normalization, **plot_kwargs)
 
         # shade background region
         if len(self.bg_data_sets) > 0:
@@ -354,24 +349,27 @@ class CumulativeHistogramPlot(BasicPlot):
                 y = y[::-1].cumsum()[::-1]
                 hist_sum += y
                 sq_hist_sum += y*y
-          
+
             # get statistics
             N = len(self.bg_data_sets)
             means = hist_sum / N
             stds = numpy.sqrt((sq_hist_sum - hist_sum*means) / (N - 1))
-          
+
             # plot mean
             means[means <= epsilon] = epsilon
-            self.ax.plot(x + dx/2, means*normalization, 'r+',
-                label=r"$\mu_\mathrm{%s}$" % self.bg_label)
+            self.ax.plot(x + dx/2, means*normalization, 'r+', **self.bg_kwargs)
 
             # shade in the area
+            if "label" in self.bg_kwargs:
+                self.bg_kwargs["label"] = r"$\mu_\mathrm{%s}$" \
+                    % self.bg_kwargs["label"]
+            self.bg_kwargs.setdefault("alpha", 0.3)
+            self.bg_kwargs.setdefault("facecolor", "y")
             upper = means + stds
             lower = means - stds
             lower[lower <= epsilon] = epsilon
             tmp_x, tmp_y = viz.makesteps(bins, upper, lower)
-            self.ax.fill(tmp_x, tmp_y*normalization, facecolor='y', alpha=0.3,
-                label=r"$\sigma_\mathrm{%s}$" % self.bg_label)
+            self.ax.fill(tmp_x, tmp_y*normalization, **self.bg_kwargs)
 
         # make semilogy plot
         self.ax.set_yscale("log")
@@ -386,15 +384,15 @@ class CumulativeHistogramPlot(BasicPlot):
         self.ax.set_ylim(min(possible_ymins))
 
         # add legend if there are any non-trivial labels
-        self.data_labels = self.fg_labels + [self.bg_label]
+        self.kwarg_sets = self.fg_kwarg_sets
         self.add_legend_if_labels_exist()
 
         # decrement reference counts
+        del self.kwarg_sets
         del self.fg_data_sets
+        del self.fg_kwarg_sets
         del self.bg_data_sets
-        del self.fg_labels
-        del self.bg_label
-        del self.data_labels
+        del self.bg_kwargs
 
 
 class ImagePlot(BasicPlot):
@@ -448,10 +446,10 @@ class FillPlot(BasicPlot):
         BasicPlot.__init__(self, *args, **kwargs)
         self.x_coord_sets = []
         self.y_coord_sets = []
-        self.data_labels = []
+        self.kwarg_sets = []
         self.shades = []
 
-    def add_content(self, x_coords, y_coords, label="_nolabel_", shade=None):
+    def add_content(self, x_coords, y_coords, shade=None, **kwargs):
         if len(x_coords) != len(y_coords):
             raise ValueError, "x and y coords have different length"
         if iterutils.any(s is None for s in self.shades) and shade is not None \
@@ -460,7 +458,7 @@ class FillPlot(BasicPlot):
 
         self.x_coord_sets.append(x_coords)
         self.y_coord_sets.append(y_coords)
-        self.data_labels.append(label)
+        self.kwarg_sets.append(kwargs)
         self.shades.append(shade)
 
     def finalize(self):
@@ -471,9 +469,9 @@ class FillPlot(BasicPlot):
             self.shades = numpy.vstack((grays, grays, grays)).T
 
         # plot
-        for x, y, s, l in zip(self.x_coord_sets, self.y_coord_sets,
-                              self.shades, self.data_labels):
-            self.ax.fill(x, y, facecolor=s, label=l)
+        for x, y, s, plot_kwargs in zip(self.x_coord_sets, self.y_coord_sets,
+                              self.shades, self.kwarg_sets):
+            self.ax.fill(x, y, facecolor=s, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist(loc=0)
@@ -501,8 +499,10 @@ class SixStripSeriesPlot(BasicPlot):
     def add_content(self, x_coords, y_coords, label="_nolabel_", format=None):
         if len(x_coords) != len(y_coords):
             raise ValueError, "x and y coords have different length"
-        if iterutils.any(c is None for c in self.formats) and format is not None \
-        or iterutils.any(c is not None for c in self.formats) and format is None:
+        if (iterutils.any(c is None for c in self.formats) \
+            and format is not None) \
+           or (iterutils.any(c is not None for c in self.formats) \
+               and format is None):
             raise ValueError, "cannot mix explicit and automatic formating"
 
         self.x_coord_sets.append(x_coords)
