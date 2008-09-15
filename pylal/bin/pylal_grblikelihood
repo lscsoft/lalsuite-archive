@@ -272,7 +272,7 @@ InspiralUtils.initialise(opts, __prog__, __version__)
 
 # initialize background estimation function
 
-compute_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 2)
+compute_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 10)
 
 # Example of how to switch to constant extrapolator
 #compute_pc0_by_mc = ConstantBackgroundEstimator(offsource_loudest_by_trial_mc,
