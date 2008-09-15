@@ -663,6 +663,14 @@ class FollowupMissed:
     page = markup.page()
     page.h1("Followup missed injection #"+str(self.number)+" in "+selectIFO )
     page.hr()
+
+    # Check if this is a spin Taylor injection and calculate spin values
+
+    if 'SpinTaylor' in inj.waveform:
+      chi1 = sqrt(inj.spin1x*inj.spin1x \
+                  +inj.spin1y*inj.spin1y+inj.spin1z*inj.spin1z)
+      chi2 = sqrt(inj.spin2x*inj.spin2x \
+                  +inj.spin2y*inj.spin2y+inj.spin2z*inj.spin2z)
     
     # add a table
     page.add('<table border="3" ><tr><td>')
@@ -674,6 +682,17 @@ class FollowupMissed:
     fillTable( page, ['mass2', '%.2f'%inj.mass2] )
     fillTable( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     fillTable( page, ['mchirp', '%.2f' % (inj.mchirp)] )
+    if 'SpinTaylor' in inj.waveform:
+      fillTable( page, ['chi1', '%.4f' % chi1] )
+      fillTable( page, ['chi2', '%.4f' % chi2] )
+      fillTable( page, ['spin1x', '%.4f' % inj.spin1x] )
+      fillTable( page, ['spin1y', '%.4f' % inj.spin1y] )
+      fillTable( page, ['spin1z', '%.4f' % inj.spin1z] )
+      fillTable( page, ['spin2x', '%.4f' % inj.spin2x] )
+      fillTable( page, ['spin2y', '%.4f' % inj.spin2y] )
+      fillTable( page, ['spin2z', '%.4f' % inj.spin2z] )
+      fillTable( page, ['theta0', '%.4f' % inj.theta0] )
+      fillTable( page, ['phi0', '%.4f' % inj.phi0] )
     fillTable( page, ['end_time', inj.geocent_end_time] )
     fillTable( page, ['end_time_ns', inj.geocent_end_time_ns] )    
     fillTable( page, ['distance', '%.1f' % inj.distance] )
