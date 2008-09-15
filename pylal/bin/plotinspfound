@@ -471,9 +471,9 @@ def write_inj_table( opts, injection ):
                + injection.spin2y * injection.spin2y \
                + injection.spin2z * injection.spin2z )
 
-    line = '  <td> ' + '%.4f' % ( injection.mass1 ) + ' </td> \n'
+    line = '  <td> ' + '%.2f' % ( injection.mass1 ) + ' </td> \n'
     fout.write( line )
-    line = '  <td> ' + '%.4f' % ( injection.mass2 ) + ' </td> \n'
+    line = '  <td> ' + '%.2f' % ( injection.mass2 ) + ' </td> \n'
     fout.write( line )
     line = '  <td> ' + '%.4f' % ( chi1 ) + ' </td> \n'
     fout.write( line )
