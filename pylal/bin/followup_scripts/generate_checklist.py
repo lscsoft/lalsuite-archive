@@ -204,8 +204,9 @@ for i,trig in enumerate(followuptrigs):
     linkToAutoFollowup = opts.automated_page
     automated_page = opts.automated_page.split("index.html")[0]
   file.write("<br><a href=\"" + linkToAutoFollowup + "\">Automated follow-up</a>")
-  linkToStat = opts.statistic_page 
-  file.write("<br><a href=\"" + linkToStat + "\">Statistical information</a>\n")
+  if opts.statistic_page:
+    linkToStat = opts.statistic_page 
+    file.write("<br><a href=\"" + linkToStat + "\">Statistical information</a>\n")
   if opts.old_followup_page:
     file.write("<br><a href=\"" + opts.old_followup_page + "/" + outputFile + "\">Link to old checklist</a>\n")
 
@@ -290,18 +291,23 @@ for i,trig in enumerate(followuptrigs):
   file.write("  <td>#0 False alarm probability</td>\n")
   file.write("  <td>What is the false alarm rate associated with this candidate ?</td>\n")
   file.write("  <td> </td>\n")
+  file.write("  <td>")
   if opts.string_id:
-    file.write("  <td><a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
+    if opts.cumulhisto_page:
+      file.write("      <a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
     if opts.histo_page:
       file.write("      <a href=\"" + opts.histo_page + "\">Non-cumulative histogram (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
-    file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
+    if opts.ifar_page:
+      file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
     if opts.ifar_combined_page:
       file.write("      <a href=\"" + opts.ifar_combined_page + "\">Combined IFAR plot (after " + opts.string_id.split("_")[0] + ", " + opts.string_id.split("_")[1] + " mass bin)</a><br>\n")
   else:
-    file.write("  <td><a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram</a><br>\n")
+    if opts.cumulhisto_page:
+      file.write("      <a href=\"" + opts.cumulhisto_page + "\">Cumulative histogram</a><br>\n")
     if opts.histo_page:
       file.write("      <a href=\"" + opts.histo_page + "\">Non-cumulative histogram</a><br>\n")
-    file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot</a><br>\n")
+    if opts.ifar_page:
+      file.write("      <a href=\"" + opts.ifar_page + "\">IFAR plot</a><br>\n")
     if opts.ifar_combined_page:
       file.write("      <a href=\"" + opts.ifar_combined_page + "\">Combined IFAR plot</a><br>\n")
   file.write("  </td>\n")
