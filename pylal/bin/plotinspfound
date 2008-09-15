@@ -413,9 +413,13 @@ def write_inj_table( opts, injection ):
       fout.write( line )
   
   if "SpinTaylor" in injection.waveform:
-    line = '  <th> &#967; <sub> 1 </sub> </th> \n'
+    line = '  <th> Mass<sub>1</sub> </th> \n'
     fout.write( line )
-    line = '  <th> &#967; <sub> 2 </sub> </th> \n'
+    line = '  <th> Mass<sub>2</sub> </th> \n'
+    fout.write( line )
+    line = '  <th> &#967;<sub>1</sub> </th> \n'
+    fout.write( line )
+    line = '  <th> &#967;<sub>2</sub> </th> \n'
     fout.write( line )
 
   line = '</tr>'            
@@ -467,6 +471,10 @@ def write_inj_table( opts, injection ):
                + injection.spin2y * injection.spin2y \
                + injection.spin2z * injection.spin2z )
 
+    line = '  <td> ' + '%.4f' % ( injection.mass1 ) + ' </td> \n'
+    fout.write( line )
+    line = '  <td> ' + '%.4f' % ( injection.mass2 ) + ' </td> \n'
+    fout.write( line )
     line = '  <td> ' + '%.4f' % ( chi1 ) + ' </td> \n'
     fout.write( line )
     line = '  <td> ' + '%.4f' % ( chi2 ) + ' </td> \n'
