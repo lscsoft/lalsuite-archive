@@ -1153,6 +1153,8 @@ class SimInspiralTable(table.Table):
                 "numrel_mode_max": "int_4s",
                 "numrel_data": "lstring",
                 "amp_order": "int_4s",
+                "taper": "lstring",
+                "bandpass": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
