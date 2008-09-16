@@ -12,18 +12,19 @@ import pickle
 
 __all__ = ["Cache", "CacheEntry", "initializeCli", "initializeLogging"]
 
+DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
+
 config = {}
 
-def initializeLogging(defaultLevel=logging.WARNING):
+def initializeLogging(defaultLogLevel=logging.WARNING):
     # Initialize the logging facility
     #  XXX This is very crude.  Output looks ugly.
-    logging.basicConfig(level=defaultLevel)
+    logging.basicConfig(level=defaultLogLevel)
     return logging.getLogger('lars')
 
 
 def initializeCli():
     # Default database -- in some ini or something...  ??
-    DEFAULT_DB = "cvs::pserver:gravity.phys.uwm.edu:2401/usr/local/cvs/larsdb?file=inspiral/advertising.cache"
 
     global config
 
