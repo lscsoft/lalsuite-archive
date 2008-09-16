@@ -236,6 +236,8 @@ def parse_command_line():
       help="efficiency plot versus effective distance (logarithmic dist axis)" )
   parser.add_option("-g","--eff-vs-distance",action="store_true",default=False,\
       help="efficiency plot versus distance (logarithmic dist axis)" )
+  parser.add_option("-j","--mchirp-distance-lin",action="store_true",default=False,\ 	 
+       help="plot distance v mchirp (linear dist axis)" )
   parser.add_option("-T","--time-offset",action="store",type="float",\
       default=0.0,metavar=" TIME-OFFSET",\
       help="time offset when plotting times")
@@ -279,6 +281,8 @@ def parse_command_line():
   parser.add_option("", "--missed-pattern",
     help="sieve the cache for missed injection files with this pattern")
   parser.add_option("", "--cache-file", help="LAL cache of relevant files")
+  parser.add_option("", "--sire",action="store_true",\ 	 
+       default=False, help="Indicating the use of single-trigger sire files")
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
       help="path where the figures would be stored")
@@ -497,27 +501,45 @@ for entry, injfile in zip(injcache,injFiles):
   # read the found injections and get the coincidences
   sims =  SimInspiralUtils.ReadSimInspiralFromFiles([injfile])
   snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile])
+
+  # mange event_id's by hand for sire triggers 	 
+   if snglInspiralTable and opts.sire: 	 
+     for i in range(len(snglInspiralTable)): 	 
+       snglInspiralTable[i].event_id=i
+
   triggers = CoincInspiralUtils.coincInspiralTable(
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
 
   # check if there are any sims here
-  if not sims:
+  if sims is None:
     continue
 
-  # loop over each sim, trigger
-  for sim, trigger in zip(sims, triggers):
+  if opts.sire: 	 
+     if not opts.ifo in foundInj: 	 
+       foundInj[opts.ifo]  = lsctables.New(lsctables.SimInspiralTable) 	 
+       foundTrig[opts.ifo] = lsctables.New(lsctables.SnglInspiralTable) 	 
+  	 
+     for sim, trigger in zip(sims, snglInspiralTable): 	 
+       foundInj[opts.ifo].append( sim ) 	 
+       foundTrig[opts.ifo].append(trigger) 	 
+       allFoundTrig.append( trigger ) 	 
+       allFoundInj.append( sim ) 	 
+  	 
+  else:
+    # loop over each sim, trigger
+    for sim, trigger in zip(sims, triggers):
 
-    # get the IFOs in which the trigger was recovered
-    ifos, dummyList= trigger.get_ifos()
+      # get the IFOs in which the trigger was recovered
+      ifos, dummyList= trigger.get_ifos()
 
-    if ifos not in foundInj:
-      foundInj[ifos]  = lsctables.New(lsctables.SimInspiralTable)
-      foundTrig[ifos] = lsctables.New(lsctables.SnglInspiralTable)
+      if ifos not in foundInj:
+        foundInj[ifos]  = lsctables.New(lsctables.SimInspiralTable)
+        foundTrig[ifos] = lsctables.New(lsctables.SnglInspiralTable)
 
-    foundInj[ifos].append( sim )
-    foundTrig[ifos].append(trigger)
-    allFoundTrig.append( trigger )
-    allFoundInj.append( sim )
+      foundInj[ifos].append( sim )
+      foundTrig[ifos].append(trigger)
+      allFoundTrig.append( trigger )
+      allFoundInj.append( sim )
 
 ## read the missed injections
 for misentry, misfile in zip(miscache,misFiles):
@@ -550,9 +572,9 @@ plot2symbol=['rx','ro','r+','r^','r>','r<']
 allsymbols=['^','v','<','>','s','+','x','D','d','1','2','3','4','h','H','p']
 
 # GEO tags missing...
-foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2L1':'<','L1V1':'>', \
-               'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\
-               'H1H2L1V1':'p'}
+ foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2V1':'<','L1V1':'>',\ 
+                'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\	      
+                'H1H2L1V1':'p', 'H1':'x', 'H2':'x', 'L1':'x', 'V1':'x'}
 foundSymbols = ['','','','','','','','' ]
 
 gpsDigits = "9"
@@ -560,9 +582,9 @@ xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")
 ##############################################################################
 # Create all the plots
 
-xplot=['mchirp']
-yplot=['distance']
-yscale = ['lin']
+xplot=]
+yplot=[]
+yscale = []
 if opts.time_dist:
   xplot.append('time')
   yplot.append('eff_dist')
@@ -583,7 +605,10 @@ if opts.mtotal_dist_log:
   xplot.append('mtotal')
   yplot.append('eff_dist')
   yscale.append('log')
-
+if opts.mchirp_distance_lin: 	 
+   xplot.append('mchirp') 	 
+   yplot.append('distance') 	 
+   yscale.append('lin')
 
 # loop over all the plotting types
 for xname, yname, ys in zip( xplot, yplot, yscale):
