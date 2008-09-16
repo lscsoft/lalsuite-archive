@@ -4,7 +4,9 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw import ilwd
 from glue.ligolw import types
-
+from pylal import grbsummary
+from scipy import *
+from pylal import rate
 ################################################################################
 # Definitions of some of the classes and functions that are used in the main
 # program.
@@ -90,6 +92,27 @@ def ReadInspiralLikelihoodFromFiles(fileList):
         FullTable.append(row)
   return FullTable
 
+
+def add_likelihood(coinc_table, likelihood_table):
+  """
+  Assigns likelihood to coincs using values that were stored as InspiralLikelihood table
+  """
+  #check if the length of coincs is equal to the length of likelihood table
+  if not len(coinc_table)==len(likelihood_table):
+    print >>sys.stderr, "Error: number of coincident events does not match the number of entries in the likelihood table."\
+	    "Can not combined InspiralCoinc and InspiralLikelihood tables."
+    sys.exit(1)
+  for (coinc, likelihood_row) in zip(coinc_table, likelihood_table):
+    #check if event ids are the same
+    if not coinc.event_id == likelihood_row.event_id: 
+      print >>sys.stderr, "Event ID of an element of the likelihood table does not match coinc's event ID"\
+	  "Can not merge InspiralCoinc and InspiralLikelihood tables"
+      sys.exit(1)
+    coinc.likelihood = likelihood_row.likelihood  
+
+
+
+
 def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="",
   user_tag="", gps_start_time=0, gps_end_time=0):
   """
@@ -111,3 +134,107 @@ def generate_prefix_and_suffix(ifo_times="", program_name="", ifo_tag="",
     suffix = ""
   return prefix, suffix
 
+
+def loudest_stat_in_1D_bins(coincs, bins):
+  """Returns one-dimensional array containg maximum value of statistic in each bin.
+  """ 
+  loudest_stat = numpy.array(len(bins))
+  num_discarded = 0
+  for coinc in coincs:
+    try:
+      ind = mc_bins[grbsummary.get_mean_mchirp(coinc)]
+    except IndexError:
+      num_discarded += 1
+      continue
+    loudest_stat[ind] = max(coinc.stat, loudest_stat[ind])
+
+  if num_discarded > 0:
+        print >>sys.stderr, "warning: %d coincs fell outside "\
+          "bins" % num_discarded
+
+  return loudest_stat
+
+
+
+
+
+def loudest_stat_in_slides_by_mc(slidescoincs, num_slides, mc_bins):
+  """ Returns two-dimensional array (number of mc_bins, 2*num_slides) with max statistic in each 
+      slide and mass chirp bin
+  """
+  
+  loudest_stat_by_mc = numpy.zeros((len(mc_bins), 2*num_slides))
+  # loop over slides
+  for slide in range(1, opts.num_slides + 1):
+    forward_slide_coincs = slidescoincs.getslide(slide)
+    loudest_stat_by_mc[:, (slide - 1)] = loudest_stat_in_1D_bins(forward_slide_coincs, mc_bins)	  
+    backward_slide_coincs = slidescoincs.getslide(-slide)
+    loudest_stat_by_mc[:, (num_slides + slide - 1)] = loudest_stat_in_1D_bins(backward_slide_coincs, mc_bins)
+	  
+  return loudest_stat_by_mc
+
+
+
+  
+def get_cum_prob(x):
+  """Return the array of cumulative probabilities calculated based on frequencies with which each uniq element of data array x is appearing.
+     @param x: array containing values of stochastic variable X
+	 The array of probabilities is a two-dimesional. Zeroth row contains all unique values of variable X sorted in ascending order,
+	 whereas first row contains the corresponding to these values cumulative probabilities. Being cumulative (and right sided or "more than")
+	 the probability for the first (smallest value of X) entry must be 1. 
+  """
+  p1 = numpy.fliplr(stats.itemfreq(x).transpose())
+  p1[1] = p1[1].cumsum() / numpy.sum(p1[1])
+  p = numpy.fliplr(p1)
+  return p 
+  
+  
+def get_prob_by_mc(loudest_stat_by_mc):
+  """Return a list wich elements are two-dimensional arrays of cumulative probabilites for each of chirp mass bin.
+     Length of the list is equal to number of bins.
+	 @param loudest_stat_by_mc: two-dimensional array containg the loudest stat in each bin, trial
+  """
+  prob_list = []
+  
+  for i in range(len(loudest_stat_by_mc[:,0])):
+    prob_list.append(get_cum_prob(loudest_stat_by_mc[i]))
+  return prob_list
+  
+def get_prob_by_mc_for_injections(stat_lists):
+  """Return a list wich elements are two-dimensional arrays of cumulative probabilites for each of chirp mass bin.
+     Length of the list is equal to number of bins.
+	 @param stat_lists: list of lists of injection stats in each bin.
+  """		
+  prob_list = []
+  
+  for stat_list in stat_lists:
+    prob_list.append(get_cum_prob(numpy.asarray(stat_list)))
+  return prob_list	
+	  
+  	 
+# Convert ifo list to string
+def combo2str(combo):
+  ifo_list = ""
+  for ifo in combo:
+    ifo_list += ifo
+  return ifo_list
+
+
+
+		
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
