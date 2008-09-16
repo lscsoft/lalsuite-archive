@@ -236,7 +236,7 @@ def parse_command_line():
       help="efficiency plot versus effective distance (logarithmic dist axis)" )
   parser.add_option("-g","--eff-vs-distance",action="store_true",default=False,\
       help="efficiency plot versus distance (logarithmic dist axis)" )
-  parser.add_option("-j","--mchirp-distance-lin",action="store_true",default=False,\ 	 
+  parser.add_option("-j","--mchirp-distance-lin",action="store_true",default=False,\
        help="plot distance v mchirp (linear dist axis)" )
   parser.add_option("-T","--time-offset",action="store",type="float",\
       default=0.0,metavar=" TIME-OFFSET",\
@@ -281,7 +281,7 @@ def parse_command_line():
   parser.add_option("", "--missed-pattern",
     help="sieve the cache for missed injection files with this pattern")
   parser.add_option("", "--cache-file", help="LAL cache of relevant files")
-  parser.add_option("", "--sire",action="store_true",\ 	 
+  parser.add_option("", "--sire",action="store_true",\
        default=False, help="Indicating the use of single-trigger sire files")
   parser.add_option("-P","--output-path",action="store",\
       type="string",default="",  metavar="PATH",\
@@ -503,9 +503,9 @@ for entry, injfile in zip(injcache,injFiles):
   snglInspiralTable = SnglInspiralUtils.ReadSnglInspiralFromFiles([injfile])
 
   # mange event_id's by hand for sire triggers 	 
-   if snglInspiralTable and opts.sire: 	 
-     for i in range(len(snglInspiralTable)): 	 
-       snglInspiralTable[i].event_id=i
+  if snglInspiralTable and opts.sire: 	 
+    for i in range(len(snglInspiralTable)): 	 
+      snglInspiralTable[i].event_id=i
 
   triggers = CoincInspiralUtils.coincInspiralTable(
     snglInspiralTable,CoincInspiralUtils.coincStatistic( "snr") )
@@ -572,9 +572,9 @@ plot2symbol=['rx','ro','r+','r^','r>','r<']
 allsymbols=['^','v','<','>','s','+','x','D','d','1','2','3','4','h','H','p']
 
 # GEO tags missing...
- foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2V1':'<','L1V1':'>',\ 
-                'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\	      
-                'H1H2L1V1':'p', 'H1':'x', 'H2':'x', 'L1':'x', 'V1':'x'}
+foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2V1':'<','L1V1':'>',\
+               'H1H2L1':'s', 'H1H2V1':'D', 'H2L1V1':'d', 'H1L1V1':'1',\
+               'H1H2L1V1':'p', 'H1':'x', 'H2':'x', 'L1':'x', 'V1':'x'}
 foundSymbols = ['','','','','','','','' ]
 
 gpsDigits = "9"
@@ -582,7 +582,7 @@ xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")
 ##############################################################################
 # Create all the plots
 
-xplot=]
+xplot=[]
 yplot=[]
 yscale = []
 if opts.time_dist:
