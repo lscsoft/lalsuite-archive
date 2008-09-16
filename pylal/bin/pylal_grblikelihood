@@ -394,7 +394,7 @@ plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
 for mc, log_pc0 in zip(mc_bins.centres(), log_pc0_by_mc):
-    plot.ax.text(0.5, mc, r"$\ln p(" + c_in_E + r"\,|\,0) = %6.4f$" % log_pc0)
+    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"\,|\,0) = %7.5f$" % numpy.exp(log_pc0))
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -423,6 +423,73 @@ plot.finalize()
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "injection_count_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## p(c|h) vs rho for each mc bin
+text = "ln p(c|h) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[8])
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+    r"$\ln p(" + c_in_E + r"\,|\,h)\textrm{ vs stat for }m_2 = %s$" \
+    % str(m2_bins.centres()[8]))
+for mc_ind, mc_range in enumerate(mc_ranges):
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = log_pch_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+
+plot.finalize(loc=4)
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_pch_vs_rho")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## p(c|0) vs rho for each mc bin
+text = "ln p(c|0) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[8])
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+    r"$\ln p(" + c_in_E + r"\,|\,0)\textrm{ vs stat for }m_2 = %s$" \
+    % str(m2_bins.centres()[8]))
+for mc_ind, mc_range in enumerate(mc_ranges):
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = log_pc0_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+
+plot.finalize(loc=3)
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L vs rho for each mc bin
+text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[8])
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
+    r"$\ln \Lambda\textrm{ vs stat for }m_2 = %s$" % str(m2_bins.centres()[8]))
+for mc_ind, mc_range in enumerate(mc_ranges):
+    x_data = rho_by_inj_mc[:, mc_ind]
+    y_data = log_L_by_inj_mc[:, mc_ind]
+    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+        label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+
+plot.finalize(loc=4)
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -485,76 +552,6 @@ image.set_clim((0, 1))
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "pLh_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## p(c|h) vs rho for each mc bin
-text = "ln p(c|h) vs rho for each mc bin for m2 = " \
-    + str(m2_bins.centres()[8])
-
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln p(" + c_in_E + r"\,|\,h)\textrm{ vs stat for }m_2 = %s$" \
-    % str(m2_bins.centres()[8]))
-for mc_ind, mc_range in enumerate(mc_ranges):
-    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
-    x_data = rho_by_inj_mc[:, mc_ind]
-    y_data = log_pch_by_inj_mc[:, mc_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
-        label= r"$\ln p(" + c_in_E + r"\,|\,h)\textrm{ for }" + label_suffix)
-
-plot.finalize(loc=4)
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_pch_vs_rho")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## p(c|0) vs rho for each mc bin
-text = "ln p(c|0) vs rho for each mc bin for m2 = " \
-    + str(m2_bins.centres()[8])
-
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln p(" + c_in_E + r"\,|\,0)\textrm{ vs stat for }m_2 = %s$" \
-    % str(m2_bins.centres()[8]))
-for mc_ind, mc_range in enumerate(mc_ranges):
-    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
-    x_data = rho_by_inj_mc[:, mc_ind]
-    y_data = log_pc0_by_inj_mc[:, mc_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
-        label= r"$p(" + c_in_E + r"\,|\,0)\textrm{ for }" + label_suffix)
-
-plot.finalize(loc=4)
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## L vs rho for each mc bin
-text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[8])
-
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln \Lambda\textrm{ vs stat for }m_2 = %s$" % str(m2_bins.centres()[8]))
-for mc_ind, mc_range in enumerate(mc_ranges):
-    label_suffix = mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range
-    x_data = rho_by_inj_mc[:, mc_ind]
-    y_data = log_L_by_inj_mc[:, mc_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
-        label= r"$\ln \Lambda\textrm{ for }" + label_suffix)
-
-plot.finalize(loc=3)
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
