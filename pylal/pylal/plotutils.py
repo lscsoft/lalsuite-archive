@@ -183,7 +183,10 @@ class BarPlot(BasicPlot):
             itertools.izip(self.x_data_sets, self.y_data_sets,
                            self.kwarg_sets):
             plot_kwargs.setdefault("align", "center")
-            plot_kwargs.setdefault("linewidth", 0)
+            # FIXME: linewidth is not a valid kwarg in matplotlib 0.87.7
+            # Reenable once clusters upgrade to CentOS 5.  Until then,
+            # all bars have thick, black borders.
+            #plot_kwargs.setdefault("linewidth", 0)
             plot_kwargs.setdefault("orientation", orientation)
             self.ax.bar(x_vals, y_vals, **plot_kwargs)
 
