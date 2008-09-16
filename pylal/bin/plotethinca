@@ -102,7 +102,7 @@ def parse_command_line():
 
   parser.add_option("","--inj-pattern", action="store", type="string", default=None,metavar="INJPATTERN")
 
-#  parser.add_option("","--bank-pattern", action="store", type="string", default= None,metavar="BANKPATTERN")
+  parser.add_option("","--offsource-pattern", action="store", type="string", default= None,metavar="OFFSOURCEPATTERN")
 
 #  parser.add_option("","--trig-pattern", action="store", type="string", default= None,metavar="TRIGPATTERN")
 
@@ -261,10 +261,12 @@ comments+=InspiralUtils.message(opts, "Ifo times requested is "+opts.ifo_times+"
 InspiralUtils.message(opts, "Reading data...")
 
 slidefilelists = []
+offsourcefilelists = []
 if opts.cache_file  is not None:
   InspiralUtils.message(opts, 'Reading cache')
   cache_injfilelist = []
   cache_slidefilelist = []
+  cache_offsourcefilelist = []
   allfilesCache = lal.Cache.fromfile(open(opts.cache_file))
   if opts.slide_pattern:
     cache_slidefilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.slide_pattern).checkfilesexist()[0].pfnlist()
@@ -286,7 +288,21 @@ if opts.cache_file  is not None:
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_injfilelist)) + ' files having the pattern '+opts.inj_pattern)
 
-  if len(cache_slidefilelist) == 0 or len(cache_injfilelist) == 0:
+  if opts.offsource_pattern:
+    cache_offsourcefilelist = allfilesCache.sieve(ifos=opts.ifo_times, exact_match=True).sieve(description=opts.offsource_pattern).checkfilesexist()[0].pfnlist()
+    offsourcefilelists = [cache_offsourcefilelist]
+    if not len(cache_offsourcefilelist):
+      err_msg = opts.cache_file+ " contains no files with " + opts.offsource_pattern + " description"
+      print >>sys.stderr, err_msg
+      comments += InspiralUtils.message(opts, err_msg)
+    else:
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(cache_offsourcefilelist)) + ' files having the pattern '+opts.offsource_pattern)
+
+  if ( len(cache_slidefilelist) == 0 and len(cache_offsourcefilelist) == 0) or len(cache_injfilelist) == 0:
+    if len(cache_injfilelist) == 0:
+      print >>sys.stderr, "ERROR: No injection triggers found."
+    else:
+      print >>sys.stderr,"ERROR: No background triggers found."
     # give up and exit
     if opts.enable_output is True:
       html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
@@ -336,10 +352,7 @@ if slidefilelists:
       shift_vector, verbose=opts.verbose)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
-    slideTimeAnalyzed = 0
-    for i in range(len(segs[opts.ifo_times])):
-      slideTimeAnalyzed += segs[opts.ifo_times][i][1].seconds \
-        - segs[opts.ifo_times][i][0].seconds
+    slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
 
     # perform the veto
     if opts.veto_file is not None:
@@ -358,6 +371,28 @@ if slidefilelists:
 
     slideTriggersList.append(newSlides)
 
+if offsourcefilelists:
+  for filegroup in offsourcefilelists:
+       # read raw triggers and time-shift them appropriately
+    offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup,
+      verbose=opts.verbose)
+
+    segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
+    slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
+
+    # perform the veto
+    if opts.veto_file is not None:
+      seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
+      offsourceTriggers = offsourceTriggers.veto(seglist)
+
+    # make coincs
+    newOffsource = CoincInspiralUtils.coincInspiralTable(offsourceTriggers, statistic)
+
+    # cluster triggers
+    if opts.cluster_window:
+      newOffsource = newOffsource.cluster(opts.cluster_window)
+
+    slideTriggersList.append(newOffsource)
 
 ##################################### plotting here below.
 # first some symbol definitions.
