@@ -24,11 +24,11 @@
 #__title__ = "Followup missed injections"
 
 import os, sys, exceptions, copy
-from optparse import *
+from math import sqrt, pi
 
 import matplotlib
 matplotlib.use('Agg')
-from pylab import *
+from pylab import rcParams, fill, figtext, figure, plot, axes, axis, xlabel, ylabel, title, close, grid, legend
 try:
   set
 except NameError:
@@ -67,7 +67,7 @@ class FollowupMissed:
 
 
   # -----------------------------------------------------
-  def __init__(self, cache, coireVetoMissedCache, opts, deltaTime=20):
+  def __init__(self, cache, coireVetoMissedCache, opts):
     """
     Initialize this class and sets up all the cache files.
     @param cache: the cache of all files
@@ -76,8 +76,6 @@ class FollowupMissed:
     @param opts: The 'opts' from the main code
     @param deltaTime: The time window that is used in the time-series plots (in seconds)
     """
-    # must do this within here for unknown reason; error instead
-    from glue.ligolw import table 
     rcParams.update({'text.usetex': False})
 
     self.colors = {'H1':'r','H2':'b','L1':'g','V1':'m','G1':'c'}
@@ -91,7 +89,7 @@ class FollowupMissed:
     self.cache                = cache
     self.coireVetoMissedCache = coireVetoMissedCache
     self.opts                 = opts
-    self.deltaTime = deltaTime
+    self.deltaTime = opts.followup_time_window
     self.fnameList = []
 
     # set arguments from the options
@@ -115,20 +113,20 @@ class FollowupMissed:
     self.triggerCache = {}
     for stage in self.stageLabels:
       pattern = stage
-      self.triggerCache[stage] = cache.sieve(description=pattern)
+      self.triggerCache[stage] = cache.sieve(description=pattern).checkfilesexist()[0]
       if self.opts.verbose:
         print "%d files found for stage %s" % (len(self.triggerCache[stage]), stage)
 
     pattern = "INJECTION_"
     self.injectionCache = cache.sieve(description=pattern).\
                           sieve(description=self.opts.followup_tag).\
-                          sieve(ifos='HL')
+                          sieve(ifos='HL').checkfilesexist()[0]
   
     # generate a dictionary based on the event-ID in the exttrig case
     self.injections=dict()
     if self.exttrig:
-      for file in self.injectionCache.pfnlist():
-        injectionID = self.getInjectionID( file=file )    
+      for file,entry in zip(self.injectionCache.pfnlist(), self.injectionCache):
+        injectionID = int( entry.description.split('_')[-1] )
         self.injections[injectionID] = SimInspiralUtils.\
                                        ReadSimInspiralFromFiles( [file], verbose=False )
     if self.verbose: print "parsing of cache files done..."
@@ -142,9 +140,9 @@ class FollowupMissed:
     except:
       raise "Error while reading process_params table from file", coireFile
     
-    for table in processParams:
-      if table.param=='--injection-window':
-        self.injectionWindow = float(table.value)/1000.0
+    for tab in processParams:
+      if tab.param=='--injection-window':
+        self.injectionWindow = float(tab.value)/1000.0
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
 
@@ -195,7 +193,6 @@ class FollowupMissed:
          if filename:
            #read the segment lists
            self.vetodict[ifoName] = segmentsUtils.fromsegwizard(open(filename))
-
 
   # -----------------------------------------------------
   def reset( self ):
@@ -265,6 +262,8 @@ class FollowupMissed:
                missedInj.geocent_end_time_ns==inj.geocent_end_time_ns:
           return injID
           
+    self.print_inj( missedInj, None)
+    raise "No injection ID found for the above particular missed Injection " 
 
     return None
 
@@ -324,6 +323,18 @@ class FollowupMissed:
 
 
   # -----------------------------------------------------
+  def isThereVeto( self, timeTrigger, ifoName ):
+    
+    flag = False
+    vetoSegs = self.vetodict[ifoName]
+    for seg in vetoSegs :
+      if ( timeTrigger > seg[0] and timeTrigger < seg[1] ):
+        flag = True
+
+    return flag
+
+
+  # -----------------------------------------------------
   def estimatedDistance( self, mass1, mass2, distTarget):
 
     snrActual = 8.0
@@ -362,7 +373,7 @@ class FollowupMissed:
     eta = inj.mass1 * inj.mass2 / totalMass / totalMass
 
     # Given the masses (and therefore eta), the expected horizon distance(SNR) has to be scaled by this factor
-    factor = math.sqrt(4 * eta)
+    factor = sqrt(4 * eta)
 
     output = {}
     # for each ifo that has been found
@@ -427,15 +438,17 @@ class FollowupMissed:
     # read the inspiral file(s)
     if self.verbose: print "Processing INSPIRAL triggers from files ", triggerFiles   
     snglTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-      triggerFiles , verbose=False, mangle_event_id = True)
+      triggerFiles , verbose=False)
 
     # create a figure
     fig=figure()
     foundSet = set()
+    trigger_details = {}
+    loudest_details = {}
+    noTriggersFound = True
     
     if snglTriggers is None:
       # put message on the plot instead
-      #print "NO SNGL TRIGGERS HERE"
       self.putText( 'No sngl_inspiral triggers in %s' % str(triggerFiles))
 
     else:
@@ -470,19 +483,38 @@ class FollowupMissed:
 
         # use the set of selected coincident triggers in the THINCA stages
         if coincTriggers:
-          selectedSmall = selectedCoincs.getsngls(ifo)
+          selectedSmall = selectedCoincs.cluster(2* self.injectionWindow).getsngls(ifo)
           timeSmall = [ self.getTimeTrigger( sel )-timeInjection \
                         for sel in selectedSmall ]
           
         # skip if no triggers in the large time window
         if len(timeLarge)==0:
-          self.putText( 'No triggers/coincidences found within time window')
           continue
+        noTriggersFound = False
 
         # add IFO to this set; the injection is found for this IFO and stage
         if len(timeSmall)>0:
           foundSet.add(ifo)
+          
+          # record some details from the 50ms triggers
+          trigger_details[ifo] = {}
+          trigger_details[ifo]["snr"] = selectedSmall.get_column('snr')
+          trigger_details[ifo]["chisq"] = selectedSmall.get_column('chisq')
+          trigger_details[ifo]["eff_dist"] = selectedSmall.get_column('eff_distance')
+          trigger_details[ifo]["mchirp"] = selectedSmall.get_column('mchirp')
 
+          # record details of the loudest trigger
+          loudest_details[ifo] = {}
+          loudest = selectedSmall[selectedSmall.get_column('snr').argmax()]
+          loudest_details[ifo]["snr"] = loudest.snr
+          loudest_details[ifo]["mchirp"] = loudest.mchirp
+          loudest_details[ifo]["eff_dist"] = loudest.eff_distance
+          loudest_details[ifo]["chisq"] = loudest.chisq
+          loudest_details[ifo]["timeTrigger"] = self.getTimeTrigger( loudest )
+
+          timeTrigger = self.getTimeTrigger( loudest )
+          vetoSegs = self.vetodict[ifoName]
+          
         # plot the triggers
         plot( timeLarge, selectedLarge.get_column('snr'),\
               self.colors[ifo]+'o', label="_nolegend_")
@@ -490,6 +522,9 @@ class FollowupMissed:
               self.colors[ifo]+'s', label=ifo)
 
       # draw the injection times and other stuff
+      if noTriggersFound:
+        self.putText( 'No triggers/coincidences found within time window')
+        
       ylims=axes().get_ylim()
       plot( [0,0], ylims, 'g--', label="_nolegend_")
       plot( [-self.injectionWindow, -self.injectionWindow], ylims, 'c:',\
@@ -511,7 +546,7 @@ class FollowupMissed:
     fname = self.savePlot( stage )
     close(fig)
 
-    result = {'filename':fname, 'foundset':foundSet}
+    result = {'filename':fname, 'foundset':foundSet, 'trigger_details':trigger_details, 'loudest_details':loudest_details}
     return result
 
   # -----------------------------------------------------
@@ -607,6 +642,18 @@ class FollowupMissed:
         page.add('</td>')
       page.add('</tr>')
 
+
+    def fillTableMore(page, contents, moreContents ):
+      """
+      Making life easier...
+      """
+      page.add('<tr>')
+      for content in contents:
+        page.add('<td>')
+        page.add( str(content) )
+        page.add('</td>')
+      page.add('</tr>')
+
    
     # get the injections that are missed
     injID = 0
@@ -685,11 +732,12 @@ class FollowupMissed:
           modstage=stage+'_CAT_'+str(cat)
           investDict[modstage] = self.investigateTimeseries( selectList, inj, selectIFO, modstage, self.number )
       else:
+        print fileList
         investDict[stage]=self.investigateTimeseries( fileList, inj, selectIFO, stage, self.number)
           
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
-    fillTable( page, ['<b>step','<b>F/M'] )
+    fillTable( page, ['<b>step','<b>F/M', '<b>Rec. SNR', '<b>Rec. mchirp', '<b>Rec. eff_dist', '<b>Rec. chisq', '<b>Veto ON/OFF'] )
     
     for stage in self.orderLabels:
       if investDict.has_key(stage):
@@ -709,9 +757,31 @@ class FollowupMissed:
           foundIFOs=''
           if "INSPIRAL" in stage:
             foundIFOs=' in '
+            loudestSnr=''
+            loudestChirpMass=''
+            loudestEffDist=''
+            loudestChisq=''
+            vetoOnOff=''
             for ifo in result['foundset']:
               foundIFOs+=ifo+' '
-          fillTable( page, [ stage,  'FOUND'+foundIFOs])
+              # Pars of the loudest trigger
+              loudestSnr+=ifo+': '+str(result['loudest_details'][ifo]['snr'])+'<br>'
+              loudestChirpMass+=ifo+': '+str(result['loudest_details'][ifo]['mchirp'])+'<br>'
+              loudestEffDist+=ifo+': '+str(result['loudest_details'][ifo]['eff_dist'])+'<br>'
+              loudestChisq+=ifo+': '+str(result['loudest_details'][ifo]['chisq'])+'<br>'
+              # Whether some of the ifo times is vetoed
+              timeTrigger = float(result['loudest_details'][ifo]['timeTrigger'])
+	      if (self.vetodict[ifo]):
+                Veto = self.isThereVeto ( timeTrigger, ifo )
+                if (Veto):
+                  onOff = 'ON'
+                  vetoOnOff+=ifo+': '+onOff+'<br>'
+                else:
+                  onOff = 'OFF'
+                  vetoOnOff+=ifo+': '+onOff+'<br>'
+	      else: 
+		  vetoOnOff+=ifo+': No info<br>'
+          fillTable( page, [ stage,  'FOUND'+foundIFOs, 'loudest<br>'+loudestSnr, 'loudest<br>'+loudestChirpMass, 'loudest<br>'+loudestEffDist, 'loudest<br>'+loudestChisq, vetoOnOff])
 
         else:
           fillTable( page, [ stage,  '<font color="red">MISSED'])      
