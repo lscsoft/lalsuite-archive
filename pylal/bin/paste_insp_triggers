@@ -52,6 +52,32 @@ def extract_seglist(doc):
     segs.coalesce()
     return segs
 
+def create_sngl_inspiral_table_if_missing(doc1, doc2):
+    """
+    If there is no sngl_inspiral table in doc1 or doc2, create an empty one
+    that is compatible with the other and attach it.  If both are missing
+    tables, create the default one.
+
+    FIXME: On the cbc_s5_1yr_20070129 branch, lalapps_inspiral omits
+    the sngl_inspiral table if there are no triggers.  When no analysis
+    will use this code with documents from the branch, remove this function.
+    """
+    tables1 = table.getTablesByName(doc1, lsctables.SnglInspiralTable.tableName)
+    tables2 = table.getTablesByName(doc2, lsctables.SnglInspiralTable.tableName)
+
+    if len(tables1) > 1 or len(tables2) > 1:
+        raise ValueError, "why is there more than one sngl_inspiral table?"
+    if len(tables1) == 1 and len(tables2) == 1:
+        pass
+    elif len(tables1) == 0 and len(tables2) == 0:
+        doc1.appendChild(lsctables.New(lsctables.SnglInspiralTable))
+        doc2.appendChild(lsctables.New(lsctables.SnglInspiralTable))
+    elif len(tables1) == 0:
+        doc1.appendChild(table.new_from_template(tables2[0]))
+    else:
+        doc2.appendChild(table.new_from_template(tables1[0]))
+    return
+
 def delete_triggers_in_region(doc, target_seglist):
     """
     Delete triggers in doc that lie in target_seglist.
@@ -180,6 +206,9 @@ dest_doc = utils.load_filename(opts.destination, opts.verbose,
                                gz=opts.destination.endswith(".gz"))
 process_table = append_process(dest_doc, opts)
 dest_segs = extract_seglist(dest_doc)
+
+# FIXME: must create a compatible table if it's missing
+create_sngl_inspiral_table_if_missing(src_doc, dest_doc)
 
 # if this is an off-source trial we're preparing, set shift and restriction
 # source = offsource, dest = onsource
