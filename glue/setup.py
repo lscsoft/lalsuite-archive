@@ -102,7 +102,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.lars', 'glue.ligolw', 'glue.ligolw.utils' ],
+  packages = [ 'glue', 'glue.lars', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils' ],
   cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
   py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
   ext_modules = [
