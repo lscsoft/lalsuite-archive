@@ -809,50 +809,93 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None):
+def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True):
 
   followups = []
   if coincs:
-    sim = None
-    try:
-      sim = isinstance(coincs[0].sim,lsctables.SimInspiral)
-    except: pass
-    if sim: 
-      coincs.sort(False) # This does an ascending sort instead for found inj
-    else: coincs.sort()
-    numTrigs = 0
-    for ckey in coincs:
-      numTrigs += 1
-      if numTrigs > eval(numtrigs):
-        break
-      fuList = followUpList()
-      fuList.add_coincs(ckey)
-      if page:
-        fuList.add_page(page)
-      ifo_list = ['H1','H2','L1','G1','V1','T1']
-      for ifo in ifo_list:
-        try:
-          getattr(ckey,ifo)
-          fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
-        except: fuList.gpsTime[ifo] = None
-        if fuList.gpsTime[ifo] and trigbank_test:
-          generateXMLfile(ckey,ifo,'trigTemplateBank')
-
-      # now, find the ifoTag associated with the triggers, 
-      # using the search summary tables...
-      if fuList.ifolist_in_coinc:
-        firstIfo = fuList.ifolist_in_coinc[0]
-        triggerTime = fuList.gpsTime[firstIfo]
-        if search:  
-          for chunk in search:
-            out_start_time = float(chunk.out_start_time)
-            out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
-            out_end_time = float(chunk.out_end_time)
-            out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
-            if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
-              fuList.ifoTag = chunk.ifos
-              break 
-      followups.append(fuList)
+      if not ifar:
+          sim = None
+          try:
+              sim = isinstance(coincs[0].sim,lsctables.SimInspiral)
+          except: pass
+          if sim: 
+              coincs.sort(False) # This does an ascending sort instead for found inj
+          else:
+              coincs.sort()
+          numTrigs = 0
+          for ckey in coincs:
+              numTrigs += 1
+              if numTrigs > int(numtrigs):
+                  break
+              fuList = followUpList()
+              fuList.add_coincs(ckey)
+              if page:
+                  fuList.add_page(page)
+              ifo_list = ['H1','H2','L1','G1','V1','T1']
+              for ifo in ifo_list:
+                  try:
+                      getattr(ckey,ifo)
+                      fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
+                  except: fuList.gpsTime[ifo] = None
+                  if fuList.gpsTime[ifo] and trigbank_test:
+                      generateXMLfile(ckey,ifo,'trigTemplateBank')
+              # now, find the ifoTag associated with the triggers, 
+              # using the search summary tables...
+              if fuList.ifolist_in_coinc:
+                  firstIfo = fuList.ifolist_in_coinc[0]
+                  triggerTime = fuList.gpsTime[firstIfo]
+                  if search:  
+                      for chunk in search:
+                          out_start_time = float(chunk.out_start_time)
+                          out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+                          out_end_time = float(chunk.out_end_time)
+                          out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
+                          if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+                              fuList.ifoTag = chunk.ifos
+                              break 
+              followups.append(fuList)
+      else:
+          ifarList=list()
+          for ckey in coincs:
+              myIFAR = getattr(ckey,ckey.get_ifos()[1][0]).alpha
+              myKey = ckey
+              ifarList.append([myIFAR,myKey])
+          ifarList.sort()
+          try:
+              topIFAR = ifarList[0:int(numtrigs)]
+          except:
+              topIFAR = ifarList
+          ckeyList=list()
+          for key in topIFAR:
+              ckeyList.append(key[1])
+          for ckey in ckeyList:
+              fuList = followUpList()
+              fuList.add_coincs(ckey)
+              if page:
+                  fuList.add_page(page)
+              ifo_list = ['H1','H2','L1','G1','V1','T1']
+              for ifo in ifo_list:
+                  try:
+                      getattr(ckey,ifo)
+                      fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
+                  except: fuList.gpsTime[ifo] = None
+                  if fuList.gpsTime[ifo] and trigbank_test:
+                      generateXMLfile(ckey,ifo,'trigTemplateBank')
+              # now, find the ifoTag associated with the triggers, 
+              # using the search summary tables...
+              if fuList.ifolist_in_coinc:
+                  firstIfo = fuList.ifolist_in_coinc[0]
+                  triggerTime = fuList.gpsTime[firstIfo]
+                  if search:  
+                      for chunk in search:
+                          out_start_time = float(chunk.out_start_time)
+                          out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+                          out_end_time = float(chunk.out_end_time)
+                          out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
+                          if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+                              fuList.ifoTag = chunk.ifos
+                              break 
+              followups.append(fuList)
   # the missed stuff doesnt work yet!!!
   if missed:
     followups
