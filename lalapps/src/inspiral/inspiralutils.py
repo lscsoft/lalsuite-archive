@@ -657,6 +657,10 @@ def zeroSlidePlots(dag, plotDir, config, logPath, zerolagSuffix, slideSuffix,
   plotcp.set("plot-arguments","plotinspiral","")
   plotcp.set("plot-arguments","plotthinca","")
   plotcp.set("plot-arguments","write-script","")
+  # Add plotthinca scaling option for zero lag play full data slide plots
+  if zerolagSuffix == "PLAYGROUND" and slideSuffix == "FULL_DATA":
+    plotcp.set("plotthinca","zero-lag-playground","")
+
   plotNode = plot_setup(plotDir, plotcp, logPath, "first", \
       "", zerolagSuffix, slideSuffix, slideSuffix, cacheFile)
   if doDagCategories:
@@ -673,6 +677,8 @@ def zeroSlidePlots(dag, plotDir, config, logPath, zerolagSuffix, slideSuffix,
   plotcp.set("plot-arguments","plotinspiral","")
   plotcp.set("plot-arguments","plotthinca","")
   plotcp.set("plot-arguments","write-script","")
+  if zerolagSuffix == "PLAYGROUND" and slideSuffix == "FULL_DATA":
+    plotcp.set("plotthinca","zero-lag-playground","")
   plotVetoNode = plot_setup(plotDir, plotcp, logPath, "second", \
       "", zerolagSuffix + vetoString, slideSuffix + vetoString, \
       slideSuffix + vetoString, cacheFile, tag=vetoString[1:])
