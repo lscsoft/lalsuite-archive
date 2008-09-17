@@ -1026,7 +1026,8 @@ def write_summaryFiles(page, opts):
             command = 'cp ' +src +' ' + dest
             make_external_call(command, opts.debug, opts.debug, True)
           page.add("All COIRE zero lag files are available in coire directory")
-          page = add_href(page, href= webdir +thisSearch+"/coire", name="here")
+          page = add_href(page, href= webdir +thisSearch+"/coire_zero_lag",\
+	         name="here")
         except:
           page.add("<pre>Problem while copying the coire summary files.</pre>")
         page.div.close()
@@ -1057,7 +1058,8 @@ def write_summaryFiles(page, opts):
             command = 'cp ' +src +' ' + dest
             make_external_call(command, opts.debug, opts.debug, True)
           page.add("All COIRE slide files are available in coire directory")
-          page = add_href(page, href= webdir +thisSearch+"/coire", name="here")
+          page = add_href(page, href= webdir +thisSearch+"/coire_slide",\
+	         name="here")
         except:
           page.add("<pre>Problem while copying the coire summary files.</pre>")
 	page.div.close()
