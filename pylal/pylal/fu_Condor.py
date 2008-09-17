@@ -305,6 +305,7 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
  
   def __init__(self, job, source, type, cp, time, ifo, opts, dag, prev_dNode, datafindCommand, procParams=None):
     try:
+      self.outputFileName = ""
       pipeline.LSCDataFindNode.__init__(self,job)
       self.id = str(ifo) + '-' + repr(time) + '-' + str(type)
       self.setupNodeWeb(job,False,None,None,None,dag.cache)
@@ -633,7 +634,6 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
       self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifoString+'-web'))+repr(times[ifoList[0]]),dag.cache)
     except:
       self.setupNodeWeb(job,False,None,None,None,dag.cache)
-
 
     for ifo in ifoList:
       if dNode[ifo].validNode: self.add_parent(dNode[ifo])
