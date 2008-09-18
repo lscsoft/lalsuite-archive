@@ -3,14 +3,17 @@
 #
 # =============================================================================
 #
-#                                   Preamble
+#                    Preamble
 #
 # =============================================================================
 #
 
+__Id__ = "$Id$"
 __author__ = "David McKechan"
 __title__ = "Track the SNR of found triggers"
 __name__ = "plotinspfound"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
 
 
 import sys, os, re, glob, exceptions
@@ -27,12 +30,13 @@ from pylal import SimInspiralUtils
 import numpy
 import matplotlib
 matplotlib.use('Agg')
+from pylal import followup_missed
 from pylab import *
 
 
 usage =  """Usage: %prog [options]
 
-plotinspfound --cache-file triggers.cache --bbhinj --all-triggers
+plotinspfound --cache-file triggers.cache --bbhinj --all-triggers --gps-start-time GPSSTARTTIME --gps-end-time GPSENDTIME --check-mchirp
 
 """
 
@@ -41,7 +45,7 @@ plotinspfound --cache-file triggers.cache --bbhinj --all-triggers
 #
 # =============================================================================
 #
-#                           Parse Command Line
+#                     Parse Command Line
 #
 # =============================================================================
 #
@@ -60,6 +64,9 @@ def parse_command_line():
                      default=False, help="print some information" )
   parser.add_option("-v", "--verbose",action="store_true",\
                      default=False,help="print all information" )
+  parser.add_option("-a", "--all-coire-first",action="store_true",\
+                     default=False,help="check injections found at coireFirst \
+even if they are missed at coireSecond" )
   parser.add_option("-M", "--check-mchirp",action="store_true",\
                      default=False,help="check the value of mchirp for \
 triggers that lose snr" )
@@ -88,14 +95,30 @@ triggers that lose snr" )
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
+  parser.add_option("","--gps-start-time",action="store",\
+      type="int",  metavar="GPSSTARTTIME",\
+      help="gps start time")
+  parser.add_option("","--gps-end-time",action="store",\
+      type="int",  metavar=" GPSENDTIME",\
+      help="gps end time")
+
   parser.add_option("-W", "--write-html",action="store_true", \
-                     default=False,help="write trigger informtion to file")
+                     default=True,help="write trigger informtion to file")
   parser.add_option("-u","--user-tag",action="store", type="string", \
                      default=None,help="specify user tag for file names")
-
+  parser.add_option("","--do-followup",action="store_true",\
+    default=False,help="activates the followup of missed injections" )
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
+  options.followup_exttrig = False
+  options.followup_flow = 40.0
+  options.output_path = "."
+  options.enable_output = True
+  options.figure_resolution = 50
+  options.followup_tag = "plotinspfound"
+
+  options = InspiralUtils.initialise(options, __name__, __version__)
   return options, sys.argv[1:]
 
 
@@ -111,11 +134,22 @@ if opts.vocal:
   print "Parsing the command line..."
 
 if opts.cache_file:
-  cache = lal.Cache.fromfile(open(opts.cache_file))
-
+  cache = lal.Cache.fromfile( open( opts.cache_file ) )
+  missed_cache = cache.sieve( description="COIRE*MISSED" )
 else:
   print "--cache-file must be specified!"
   sys.exit()
+
+if not opts.gps_start_time:
+  print "ERROR! --gps-start-time must be specified."
+  sys.exit()
+
+if not opts.gps_end_time:
+  print "ERROR! --gps-end-time must be specified."
+  sys.exit()
+  
+times = segments.segment( opts.gps_start_time, opts.gps_end_time )
+
 
 injPatterns=[]
 if opts.bbhinj:
@@ -145,7 +179,7 @@ if opts.l1_triggers:
   ifos.append( "L1" )
 if len( ifos ) == 0:
   print "ERROR! must specify one of --h1-triggers, --h2-triggers,", \
-        "--l1-triggers or l1-triggers"
+        "--l1-triggers or --all-triggers"
   sys.exit()
 
 if opts.threshold < 0:
@@ -167,25 +201,25 @@ if opts.threshold == 0:
 # is only checked between coire_first and coire_second
 check=[]
 if opts.check_mchirp:
-  check.append("mchirp") 
+  check.append( "mchirp" ) 
 if opts.check_eff_dist:
-  check.append("eff_distance")
+  check.append( "eff_distance" )
 
 
 #
 # =============================================================================
 #
-#                      Specific functions for reading triggers
+#                    Specific functions for reading triggers
 #
 # =============================================================================
 #
 
-def get_sire_triggers(opts, ifo, pattern):
+def get_sire_triggers( opts, ifo, pattern, times ):
   """
   Returns sngl triggers and injections from sire files
   """ 
-
-  trigcache = cache.sieve(ifos = ifo, description = pattern)
+ 
+  trigcache = cache.sieve( ifos = ifo, description = pattern, segment = times )
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
 
   if len( trigFiles ) == 0:
@@ -200,24 +234,24 @@ def get_sire_triggers(opts, ifo, pattern):
       for file in trigFiles:
         print file
 
-  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
-  injections = SimInspiralUtils.ReadSimInspiralFromFiles(trigFiles)
+  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles( trigFiles )
+  injections = SimInspiralUtils.ReadSimInspiralFromFiles( trigFiles )
   return triggers, injections
 
 
 ##############################################################################
-def get_coire_triggers(opts, ifo, pattern):
+def get_coire_triggers( opts, ifo, pattern, times ):
   """
   Returns sngl triggers from coire files
   """
 
-  trigcache = cache.sieve(ifos = ifo, description = pattern)
+  trigcache = cache.sieve( ifos = ifo, description = pattern, segment = times )
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
  
   if len( trigFiles ) == 0:
     if opts.quiet:
       print "ERROR! Cannot find specified coire files. Check cache file", \
-            "and/or specified ifos/injections or --skip-coire-first option.\n"
+            "and/or specified ifos/injections/gps times.\n"
     sys.exit()
 
   if opts.vocal:
@@ -226,23 +260,23 @@ def get_coire_triggers(opts, ifo, pattern):
       for file in trigFiles:
         print file
 
-  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
-  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers, \
+  inspTriggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles( trigFiles )
+  coincTriggers = CoincInspiralUtils.coincInspiralTable( inspTriggers, \
                              CoincInspiralUtils.coincStatistic( "snr") )
   
-  triggers = coincTriggers.getsngls(ifo)
+  triggers = coincTriggers.getsngls( ifo )
 
   return triggers
 
 
 
 ##############################################################################
-def get_inspiral_triggers(opts, ifo, pattern, times):
+def get_inspiral_triggers( opts, ifo, pattern, times ):
   """
   Returns sngl triggers from inspiral files
   """
 
-  trigcache = cache.sieve(ifos = ifo, description = pattern, segment = times)
+  trigcache = cache.sieve( ifos = ifo, description = pattern, segment = times )
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
 
   if len( trigFiles ) == 0:
@@ -259,7 +293,7 @@ def get_inspiral_triggers(opts, ifo, pattern, times):
       for file in trigFiles:
         print file
 
-  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles)
+  triggers  = SnglInspiralUtils.ReadSnglInspiralFromFiles( trigFiles )
   
   return triggers
 
@@ -267,12 +301,115 @@ def get_inspiral_triggers(opts, ifo, pattern, times):
 
 # =============================================================================
 #
-#                 Functions to write the output to a web page
+#                    A new class to store all the info for each ifo
 #
 # =============================================================================
 #
 
-def write_html_head(opts, injPatterns, title): 
+class Triggers( object ):
+  """__init__() functions as the class constructor"""
+  def __init__( self, injections=None, sirefirst=None, sirefirstTimes=None, \
+                   coirefirst=None, coirefirstTimes=None, coiresecond=None, \
+                                                     coiresecondTimes=None ):
+
+    Triggers.injections       = injections
+    Triggers.sirefirst        = sirefirst
+    Triggers.sirefirstTimes   = sirefirstTimes
+    Triggers.coirefirst       = coirefirst
+    Triggers.coirefirstTimes  = coirefirstTimes
+    Triggers.coiresecond      = coiresecond
+    Triggers.coiresecondTimes = coiresecondTimes
+
+
+
+# =============================================================================
+#
+#                    Functions that operate on the Trigger class
+#
+# =============================================================================
+#
+
+def get_all_triggers( opts, ifo, injPattern ):
+  theseTrigs = Triggers() 
+  
+  pattern = 'SIRE*FOUND*FIRST*' + injPattern
+  [theseTrigs.sirefirst, theseTrigs.injections] = \
+                                 get_sire_triggers( opts, ifo, pattern, times ) 
+  theseTrigs.sirefirstTimes = \
+                          list( theseTrigs.sirefirst.get_column( "end_time" ) )
+      
+  pattern = 'COIRE*FOUND_FIRST*' + injPattern
+  theseTrigs.coirefirst = get_coire_triggers( opts, ifo, pattern, times )      
+  theseTrigs.coirefirstTimes = \
+                         list( theseTrigs.coirefirst.get_column( "end_time" ) )
+      
+  pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
+  theseTrigs.coiresecond = get_coire_triggers( opts, ifo, pattern, times )      
+  theseTrigs.coiresecondTimes = \
+                        list( theseTrigs.coiresecond.get_column( "end_time" ) )
+
+  return theseTrigs
+
+
+
+##############################################################################
+def check_snr_coirefirst( opts, Triggers, time ):
+
+  foundInj = False
+  flagInj  = False
+
+  if time in Triggers.coirefirstTimes:
+    if time in Triggers.sirefirstTimes:
+      i = Triggers.coirefirstTimes.index( time )
+      j = Triggers.sirefirstTimes.index( time )
+   
+      if opts.all_coire_first:      
+        change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
+        foundInj = True
+      else:
+        if time in Triggers.coiresecondTimes:
+          change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
+          foundInj = True
+        else:
+          change = 0
+         
+      if abs( change ) >= opts.threshold:
+        flagInj = True
+
+  return flagInj, foundInj
+
+
+
+##############################################################################
+def check_snr_coiresecond( opts, Triggers, time ):
+
+  foundInj = False
+  flagInj  = False
+
+  if time in Triggers.coiresecondTimes:
+    if time in Triggers.coirefirstTimes:
+      i = Triggers.coiresecondTimes.index( time )
+      j = Triggers.coirefirstTimes.index( time )
+   
+      foundInj = True
+      
+      change = Triggers.coiresecond[i].snr - Triggers.coirefirst[j].snr
+         
+      if abs( change ) >= opts.threshold:
+        flagInj = True
+
+  return flagInj, foundInj
+
+
+
+# =============================================================================
+#
+#                    Functions to write the output to a web page
+#
+# =============================================================================
+#
+
+def write_html_head( opts, injPatterns, title ): 
   """
   Creates a new html document wih the contents for the output
   """
@@ -283,58 +420,65 @@ def write_html_head(opts, injPatterns, title):
   # Begin html
   line = '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"'
   line = line + '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<html xmlns="http://www.w3.org/1999/xhtml"> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<head> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<meta http-equiv="Content-Type" content="text/html;'
   line = line + ' charset=UTF-8" /> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<link media="all" href="style.css" type="text/css"'
   line = line + 'rel="stylesheet" /> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<title>' + title + '</title> \n'
-  fout.write(line)
+  fout.write( line )
   line = '</head> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<body> \n\n'
-  fout.write(line)
+  fout.write( line )
 
   line = '<h1>' + title +'</h1> \n\n'
-  fout.write(line)
+  fout.write( line )
   line = '<div class="table-of-contents"> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<p class="table-of-contents-heading"> Triggers looked at: \n'
-  fout.write(line)
+  fout.write( line )
   line = '<ol> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<li><a href="' + title + '#info"> Information </a> \n'
-  fout.write(line)
+  fout.write( line )
 
   for j in xrange( len( injPatterns ) ):
     line = '<li><a href="#sireFirst_coireFirst' + injPatterns[j] + '">' 
     line = line + 'sireFirst_coireFirst' + injPatterns[j] + '</a>\n' 
-    fout.write(line)
+    fout.write( line )
     line = '<li><a href="#coireFirst_coireSecond' + injPatterns[j] + '">' 
     line = line + 'coireFirst_coireSecond' + injPatterns[j] + '</a>\n' 
-    fout.write(line)
+    fout.write( line )
 
   line = '</li> \n'
-  fout.write(line)
+  fout.write( line )
   line = '</ol> \n'
-  fout.write(line)
+  fout.write( line )
   line = '</p> \n'
-  fout.write(line)
+  fout.write( line )
   line = '</div> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<a name="info" id="info"></a> \n'
-  fout.write(line)
+  fout.write( line )
   line = '<h2> Information </h2>'
-  fout.write(line)
-  line = '<p> User Options: <br />' + str(sys.argv[1:]) + '</p> \n'
-  fout.write(line)
+  fout.write( line )
+  line = '<p> User Options: <br />' + str( sys.argv[1:] ) + '</p> \n'
+  fout.write( line )
 
+
+
+##############################################################################
+def write_inj_numbers( opts, numTotal, numFlagged ):
+  line = '<p> ' + str( numFlagged ) + '/' + str( numTotal ) 
+  line = line + ' injections flagged! </p> \n'
+  fout.write( line )
 
 
 
@@ -370,39 +514,75 @@ def write_inj_table( opts, injection ):
     elif column != "chisq" and column != "effective_snr":
       line = '  <th>' + column + '</th> \n'
       fout.write( line )
+  
+  if "SpinTaylor" in injection.waveform:
+    line = '  <th> Mass<sub>1</sub> </th> \n'
+    fout.write( line )
+    line = '  <th> Mass<sub>2</sub> </th> \n'
+    fout.write( line )
+    line = '  <th> &#967;<sub>1</sub> </th> \n'
+    fout.write( line )
+    line = '  <th> &#967;<sub>2</sub> </th> \n'
+    fout.write( line )
+
   line = '</tr>'            
   fout.write( line )
 
   line = '<tr>'            
   fout.write( line )
-  line = '  <td>' + str( injection.geocent_end_time ) 
-  line = line + '.' + '%d' % ( injection.geocent_end_time_ns/10000 )
+  line = '  <td align=right bgcolor="#ffffff"> ' 
+  line = line + str( injection.geocent_end_time ) 
+  line = line + '.' + '%d' % ( injection.geocent_end_time_ns/100000 )
   line = line + '</td> \n'
   fout.write( line )
 
   if opts.h1_triggers or opts.h2_triggers:
-    line = '  <td>' + str( injection.h_end_time ) 
-    line = line + '.' + '%d' % ( injection.h_end_time_ns/10000 ) 
+    line = '  <td align=right bgcolor="#ffffff"> ' 
+    line = line + str( injection.h_end_time ) 
+    line = line + '.' + '%d' % ( injection.h_end_time_ns/100000 ) 
     line = line + '</td> \n'
     fout.write( line )
   if opts.l1_triggers:
-    line = '  <td>' + str( injection.l_end_time ) 
-    line = line + '.' + '%d' % ( injection.l_end_time_ns/10000 ) 
+    line = '  <td align=right bgcolor="#ffffff"> ' 
+    line = line + str( injection.l_end_time ) 
+    line = line + '.' + '%d' % ( injection.l_end_time_ns/100000 ) 
     line = line + '</td> \n'
     fout.write( line )
 
   for column in check:
     if column == "eff_distance":
       if opts.h1_triggers or opts.h2_triggers:
-        line = '  <td>' + str( injection.eff_dist_h ) + '</td> \n'
+        line = '  <td align=right bgcolor="#ffffff">' 
+        line = line + '%.4f' % ( injection.eff_dist_h ) + '</td> \n'
         fout.write( line )
       if opts.l1_triggers:
-        line = '  <td>' + str( injection.eff_dist_l ) + '</td> \n'
+        line = '  <td align=right bgcolor="#ffffff">' 
+        line = line + '%.4f' % ( injection.eff_dist_l ) + '</td> \n'
         fout.write( line )      
     elif column != "chisq" and column !="effective_snr":
       value = getattr( injection,  column )
-      line = '  <td>' + str( value ) + '</td> \n'
+      line = '  <td align=right bgcolor="#ffffff" >' 
+      line = line + '%.4f' %  ( value ) + '</td> \n'
       fout.write( line )
+
+  if "SpinTaylor" in injection.waveform:
+    chi1 = sqrt( injection.spin1x * injection.spin1x \
+               + injection.spin1y * injection.spin1y \
+               + injection.spin1z * injection.spin1z )
+ 
+    chi2 = sqrt( injection.spin2x * injection.spin2x \
+               + injection.spin2y * injection.spin2y \
+               + injection.spin2z * injection.spin2z )
+
+    line = '  <td> ' + '%.2f' % ( injection.mass1 ) + ' </td> \n'
+    fout.write( line )
+    line = '  <td> ' + '%.2f' % ( injection.mass2 ) + ' </td> \n'
+    fout.write( line )
+    line = '  <td> ' + '%.4f' % ( chi1 ) + ' </td> \n'
+    fout.write( line )
+    line = '  <td> ' + '%.4f' % ( chi2 ) + ' </td> \n'
+    fout.write( line )
+
   line = '</tr> \n'
   fout.write( line )
   line = '</table \n>'
@@ -426,9 +606,9 @@ def write_trig_table_head( opts, check ):
   fout.write( line )
   line = '  <th> SNR <br/> after </th> \n'
   fout.write( line )
-  line = '  <th> end_time /<br/> &Delta;t <br/> before</th> \n'
+  line = '  <th> end_time / &Delta;t <br/> before</th> \n'
   fout.write( line )
-  line = '  <th> end_time /<br/> &Delta;t <br/> after</th> \n'
+  line = '  <th> end_time / &Delta;t <br/> after</th> \n'
   fout.write( line )
   for column in check:
     line = '  <th>' + column + '<br/> before </th> \n'
@@ -451,7 +631,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   fout.write( line )
 
   line = '  <td align=right bgcolor="#ffffff">' 
-  line = line + str( trigBefore.snr ) + '</td> \n'
+  line = line + '%.4f' % ( trigBefore.snr ) + '</td> \n'
   fout.write( line )
 
   if trigAfter.snr < trigBefore.snr:
@@ -461,7 +641,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   else:
     colour = "#50ebec"
   line = '  <td align=right bgcolor="' + colour + '">'
-  line = line + str( trigAfter.snr ) + '</td> \n'
+  line = line + '%.4f' % ( trigAfter.snr ) + '</td> \n'
   fout.write( line )
 
   timeInj = injection.h_end_time + injection.h_end_time_ns/1000000000.0
@@ -484,16 +664,16 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
   line = '  <td align=center bgcolor="' + colour +'">' 
   line = line = line + '%.4f' % timeAfter + '\n'
   fout.write( line )
-  line = '/ <br/>    &Delta;t = ' + '%.4f' % ( dtAfter ) + '</td> \n'
+  line = '<br/>    &Delta;t = ' + '%.4f' % ( dtAfter ) + '</td> \n'
   fout.write( line )
 
 
   for column in check:
     if column == "chisq" or column == "effective_snr":
       # Now we need the inspiral tigger!
-      segTimes = segments.segment( time - 720, time + 720 )
+      inspSegTimes = segments.segment( time - 720, time + 720 )
       pattern = 'INSPIRAL_SECOND*' + injPattern
-      inspTrig = get_inspiral_triggers( opts, ifo, pattern, segTimes )
+      inspTrig = get_inspiral_triggers( opts, ifo, pattern, inspSegTimes )
       inspTimes = list( inspTrig.get_column( "end_time" ) )
       inspTimesNS = list( inspTrig.get_column( "end_time_ns" ) )
       
@@ -538,11 +718,16 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
         else:
           colour = "#50ebec"
      
-
-      line = '  <td align=right bgcolor="#ffffff">' + str( value ) + '</td> \n'
-      fout.write( line )
+      if value == "not found":
+        line = '  <td align=right bgcolor="#ffffff"> not found </td> \n'
+        fout.write( line )
+        colour = "#50ebec"
+      else:
+        line = '  <td align=right bgcolor="#ffffff"> '
+        line = line + '%.4f' % ( value )  + ' </td> \n'
+        fout.write( line )
       line = '  <td align=right bgcolor="' + colour + '">' 
-      line = line + str( valueAfter ) + '</td> \n'
+      line = line + '%.4f' % ( valueAfter ) + '</td> \n'
       fout.write( line )
 
 
@@ -558,7 +743,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
 
       valueBefore = getattr( trigBefore, column )
       line = '  <td align=right bgcolor="#ffffff">' 
-      line = line + str( valueBefore ) + '</td> \n'
+      line = line + '%.4f' % ( valueBefore ) + '</td> \n'
       fout.write( line )
 
       valueAfter = getattr( trigAfter, column )
@@ -572,7 +757,7 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
         colour = "#50ebec"
       
       line = '  <td align=right bgcolor="' + colour + '">' 
-      line = line + str( valueAfter ) + '</td> \n'
+      line = line + '%.4f' % ( valueAfter ) + '</td> \n'
       fout.write( line )
 
   line = '</tr> \n'
@@ -606,314 +791,299 @@ def write_html_tail(opts):
 #
 # =============================================================================
 #
-#                                 Main
+#                    Main
 #
 # =============================================================================
 #
 
-def do_everything(opts, ifos, injPatterns, check):
-  """
-  Does it all
-  """
-  for injPattern in injPatterns:
-    # Get triggers and injections
-    injections = lsctables.New( lsctables.SimInspiralTable )
+# Begin summary page
+if opts.write_html:
+  htmlfile = opts.output_path + "/" + opts.prefix + opts.suffix + ".html"
+  fout = open( htmlfile,"w" )
+  write_html_head( opts, injPatterns, htmlfile )
+
+
+if opts.do_followup:
+  followup = followup_missed.FollowupMissed( cache, missed_cache, opts )
+
+for injPattern in injPatterns:
+  if opts.vocal:
+    print "Checking", injPattern, "triggers."
+
+  # Get triggers and injections
+  injections = lsctables.New( lsctables.SimInspiralTable )
+  injTimes = []
+
+  if opts.h1_triggers:
+    h1Trigs = get_all_triggers( opts, "H1", injPattern )
+
+    for inj in h1Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+
+
+  if opts.h2_triggers:
+    h2Trigs = get_all_triggers( opts, "H2", injPattern )
+
+    for inj in h2Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+
+
+  if opts.l1_triggers:
+    l1Trigs = get_all_triggers( opts, "L1", injPattern )    
+
+    for inj in l1Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+    
+
+
+
+
+  # ==========================================================================
+  # -- sirefirst to coirefirst
+  if opts.vocal:
+    print "Checking snr changes between sire first and coire first."
+
+  # Inset Anchor
+  line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
+  fout.write(line)
+  line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
+  fout.write(line)
+  line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
+  fout.write(line)
+
+
+
+  # Find triggers whose SNRs change and index the injections.
+  injIndex = []
+  injFound = []
+
+  for x in xrange( len( injections ) ):
+    inj = injections[x]
+      
+    h_time = inj.h_end_time
+    l_time = inj.l_end_time
+
 
     if opts.h1_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [h1_sireFirst, h1Injections] = get_sire_triggers( opts, "H1", pattern )   
-      h1_sireFirstTimes = list( h1_sireFirst.get_column( "end_time" ) )
+      flagInj, foundInj = check_snr_coirefirst( opts, h1Trigs, h_time )
+      if flagInj:
+        injIndex.append( x )
+      if foundInj:
+        injFound.append( x )
       
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      h1_coireFirst = get_coire_triggers( opts, "H1", pattern )      
-      h1_coireFirstTimes = list( h1_coireFirst.get_column( "end_time" ) )
+    if opts.h2_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, h2Trigs, h_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+    if opts.l1_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time ) 
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+
+  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+
+
+  for index in injIndex:
+    h_time = injections[index].h_end_time
+    l_time = injections[index].l_end_time
+
+    write_html_line()
+     
+    write_inj_table( opts, injections[index] )
+
+    write_trig_table_head( opts, check )
       
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
-      h1_coireSecond = get_coire_triggers( opts, "H1", pattern )      
-      h1_coireSecondTimes = list( h1_coireSecond.get_column( "end_time" ) )
-      
-      for inj in h1Injections:
-        injections.append( inj )
+    if opts.h1_triggers:
+      if h_time in h1Trigs.coirefirstTimes:
+        if h_time in h1Trigs.sirefirstTimes:
+          i = h1Trigs.coirefirstTimes.index( h_time )
+          j = h1Trigs.sirefirstTimes.index( h_time )
+
+          trigBefore = h1Trigs.sirefirst[j]
+          trigAfter = h1Trigs.coirefirst[i]
+          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
 
 
     if opts.h2_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [h2_sireFirst, h2Injections] = get_sire_triggers( opts, "H2", pattern )
-      h2_sireFirstTimes = list( h2_sireFirst.get_column( "end_time" ) )
+      if h_time in h2Trigs.coirefirstTimes:
+        if h_time in h2Trigs.sirefirstTimes:
+          i = h2Trigs.coirefirstTimes.index( h_time )
+          j = h2Trigs.sirefirstTimes.index( h_time )
 
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      h2_coireFirst = get_coire_triggers( opts, "H2", pattern )      
-      h2_coireFirstTimes = list( h2_coireFirst.get_column( "end_time" ) )
-
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
-      h2_coireSecond = get_coire_triggers( opts, "H2", pattern )      
-      h2_coireSecondTimes = list( h2_coireSecond.get_column( "end_time" ) )
-
-      injTimes = injections.get_column( "geocent_end_time" )
-      for inj in h2Injections:
-        if inj.geocent_end_time not in injTimes:
-          injections.append( inj )
+          trigBefore = h2Trigs.sirefirst[j]
+          trigAfter = h2Trigs.coirefirst[i]
+          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
 
 
     if opts.l1_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [l1_sireFirst, l1Injections] = get_sire_triggers( opts, "L1", pattern )
-      l1_sireFirstTimes = list( l1_sireFirst.get_column( "end_time" ) )
+      if h_time in l1Trigs.coirefirstTimes:
+        if h_time in l1Trigs.sirefirstTimes:
+          i = l1Trigs.coirefirstTimes.index( l_time )
+          j = l1Trigs.sirefirstTimes.index( l_time )
+
+          trigBefore = l1Trigs.sirefirst[j]
+          trigAfter = l1Trigs.coirefirst[i]
+          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+                                    trigAfter, injections[index], check )
       
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      l1_coireFirst = get_coire_triggers( opts, "L1", pattern )      
-      l1_coireFirstTimes = list( l1_coireFirst.get_column( "end_time" ) )
+
+    line = '</table> \n'
+    fout.write( line )
+
+    if opts.do_followup:
+      followup.setTag( "TEST" )
+      followuphtml = followup.followup( injections[index], "H1", injPattern )
+      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+
+
+
+
+  # ========================================================================
+  # -- coirefirst to coiresecond
+  if opts.vocal:
+    print "Checking snr changes between coire first and coire second."
+
+
+  # Insert Anchor
+  line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
+  fout.write( line )
+  line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
+  fout.write( line )
+  line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
+  fout.write( line )
+
+  if opts.check_chisq:
+    check.append( "chisq" )
+  if opts.check_eff_snr:
+    check.append( "effective_snr" )
       
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
-      l1_coireSecond = get_coire_triggers( opts, "L1", pattern )      
-      l1_coireSecondTimes = list( l1_coireSecond.get_column( "end_time" ) )
+  # Find triggers whose SNRs change and index the injections.
+  injIndex = []
+  injFound = []
 
-      injTimes = injections.get_column( "geocent_end_time" )
-      for inj in l1Injections:
-        if inj.geocent_end_time not in injTimes:
-          injections.append( inj )
+  for x in xrange( len( injections ) ):
+    inj = injections[x]
 
+    h_time = inj.h_end_time
+    l_time = inj.l_end_time
 
+    if opts.h1_triggers:
+      flagInj, foundInj = check_snr_coiresecond( opts, h1Trigs, h_time )
+      if flagInj:
+        injIndex.append( x )
+      if foundInj:
+        injFound.append( x )
 
+    if opts.h2_triggers:
+      flagInj, foundInj = check_snr_coiresecond( opts, h2Trigs, h_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
 
-
-######################
-#SIRE_FIRST TO COIRE_FIRST
-######################
-    # Inset Anchor
-    line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
-    fout.write(line)
-    line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
-    fout.write(line)
-    line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
-    fout.write(line)
-
-
-
-    # Find triggers whose SNRs change and index the injections.
-    injIndex = []
-
-    for x in xrange( len( injections ) ):
-      inj = injections[x]
-      
-      h_time = inj.h_end_time
-      l_time = inj.l_end_time
-
-      if opts.h1_triggers:
-        if h_time in h1_coireFirstTimes:
-          if h_time in h1_sireFirstTimes:
-            i = h1_coireFirstTimes.index( h_time )
-            j = h1_sireFirstTimes.index( h_time )
-            change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              injIndex.append( x )
-
-      
-      if opts.h2_triggers:
-        if h_time in h2_coireFirstTimes:
-          if h_time in h2_sireFirstTimes:
-            i = h2_coireFirstTimes.index( h_time )
-            j = h2_sireFirstTimes.index( h_time )
-            change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:  
-                injIndex.append( x )
-
-      if opts.l1_triggers:
-        if l_time in l1_coireFirstTimes:
-          if l_time in l1_sireFirstTimes:
-            i = l1_coireFirstTimes.index( l_time )
-            j = l1_sireFirstTimes.index( l_time )
-            change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:        
-                injIndex.append( x )
+    if opts.l1_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
 
 
+  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
-    for index in injIndex:
-      h_time = injections[index].h_end_time
-      l_time = injections[index].l_end_time
 
-      write_html_line()
+  for index in injIndex:
+    h_time = injections[index].h_end_time
+    l_time = injections[index].l_end_time
+
+    write_html_line()
      
-      write_inj_table( opts, injections[index] )
+    write_inj_table( opts, injections[index] )
 
-      write_trig_table_head( opts, check )
+    write_trig_table_head( opts, check )
       
-      if opts.h1_triggers:
-        if h_time in h1_coireFirstTimes:
-          if h_time in h1_sireFirstTimes:
-            i = h1_coireFirstTimes.index( h_time )
-            j = h1_sireFirstTimes.index( h_time )
 
-            trigBefore = h1_sireFirst[j]
-            trigAfter = h1_coireFirst[i]
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
+    if opts.h1_triggers:
+      if h_time in h1Trigs.coiresecondTimes:
+        if h_time in h1Trigs.coirefirstTimes:
+          i = h1Trigs.coiresecondTimes.index( h_time )
+          j = h1Trigs.coirefirstTimes.index( h_time )
 
-
-      if opts.h2_triggers:
-        if h_time in h2_coireFirstTimes:
-          if h_time in h2_sireFirstTimes:
-            i = h2_coireFirstTimes.index( h_time )
-            j = h2_sireFirstTimes.index( h_time )
-
-            trigBefore = h2_sireFirst[j]
-            trigAfter = h2_coireFirst[i]
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
+          trigBefore = h1Trigs.coirefirst[j]
+          trigAfter = h1Trigs.coiresecond[i]
+          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
 
 
-      if opts.l1_triggers:
-        if h_time in l1_coireFirstTimes:
-          if h_time in l1_sireFirstTimes:
-            i = l1_coireFirstTimes.index( l_time )
-            j = l1_sireFirstTimes.index( l_time )
+    if opts.h2_triggers:
+      if h_time in h2Trigs.coiresecondTimes:
+        if h_time in h2Trigs.coirefirstTimes:
+          i = h2Trigs.coiresecondTimes.index( h_time )
+          j = h2Trigs.coirefirstTimes.index( h_time )
 
-            trigBefore = l1_sireFirst[j]
-            trigAfter = l1_coireFirst[i]
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                      trigAfter, injections[index], check )
+          trigBefore = h2Trigs.coirefirst[j]
+          trigAfter = h2Trigs.coiresecond[i]
+          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+
+
+    if opts.l1_triggers:
+      if h_time in l1Trigs.coiresecondTimes:
+        if h_time in l1Trigs.coirefirstTimes:
+          i = l1Trigs.coiresecondTimes.index( l_time )
+          j = l1Trigs.coirefirstTimes.index( l_time )
+
+          trigBefore = l1Trigs.coirefirst[j]
+          trigAfter = l1Trigs.coiresecond[i]
+          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+                                    trigAfter, injections[index], check )
       
-      line = '</table> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-          
+    line = '</table> \n'
+    fout.write( line )
 
+    if opts.do_followup:
+      followup.setTag( "TEST")
+      followuphtml = followup.followup( injections[index], "H1", injPattern )
+      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
+  if opts.check_eff_snr:
+    check.pop()
+  if opts.check_chisq:
+    check.pop()
 
-######################
-#COIRE_FIRST TO COIRE_SECOND
-######################
-    # Inset Anchor
-    line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
-    fout.write(line)
-    line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
-    fout.write(line)
-    line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
-    fout.write(line)
-    if opts.check_chisq:
-      check.append( "chisq" )
-    if opts.check_eff_snr:
-      check.append( "effective_snr" )
-      
-    # Find triggers whose SNRs change and index the injections.
-    injIndex = []
-
-    for x in xrange( len( injections ) ):
-      inj = injections[x]
-
-      h_time = inj.h_end_time
-      l_time = inj.l_end_time
-
-      if opts.h1_triggers:
-        if h_time in h1_coireSecondTimes:
-          if h_time in h1_coireFirstTimes:
-            i = h1_coireSecondTimes.index( h_time )
-            j = h1_coireFirstTimes.index( h_time )
-            change = h1_coireSecond[i].snr - h1_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              injIndex.append( x )
-     
-      if opts.h2_triggers:
-        if h_time in h2_coireSecondTimes:
-          if h_time in h2_coireFirstTimes:
-            i = h2_coireSecondTimes.index( h_time )
-            j = h2_coireFirstTimes.index( h_time )
-            change = h2_coireSecond[i].snr - h2_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:  
-                injIndex.append( x )
- 
-      if opts.l1_triggers:
-        if l_time in l1_coireSecondTimes:
-          if l_time in l1_coireFirstTimes:
-            i = l1_coireSecondTimes.index( l_time )
-            j = l1_coireFirstTimes.index( l_time )
-            change = l1_coireSecond[i].snr - l1_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:        
-                injIndex.append( x )
-
-
-    for index in injIndex:
-      h_time = injections[index].h_end_time
-      l_time = injections[index].l_end_time
-
-      write_html_line()
-
-      write_inj_table( opts, injections[index] )
-
-      write_trig_table_head( opts, check )
-      
-      if opts.h1_triggers:
-        if h_time in h1_coireSecondTimes:
-          if h_time in h1_coireFirstTimes:
-            i = h1_coireSecondTimes.index( h_time )
-            j = h1_coireFirstTimes.index( h_time )
-
-            trigBefore = h1_coireFirst[j]
-            trigAfter = h1_coireSecond[i]
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
-                                       trigAfter, injections[index], check )
-
-
-      if opts.h2_triggers:
-        if h_time in h2_coireSecondTimes:
-          if h_time in h2_coireFirstTimes:
-            i = h2_coireSecondTimes.index( h_time )
-            j = h2_coireFirstTimes.index( h_time )
-
-            trigBefore = h2_coireFirst[j]
-            trigAfter = h2_coireSecond[i]
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-
-
-      if opts.l1_triggers:
-        if h_time in l1_coireSecondTimes:
-          if h_time in l1_coireFirstTimes:
-            i = l1_coireSecondTimes.index( l_time )
-            j = l1_coireFirstTimes.index( l_time )
-
-            trigBefore = l1_coireFirst[j]
-            trigAfter = l1_coireSecond[i]
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-      
-      line = '</table> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-      line = '<br/> \n'
-      fout.write( line )
-
-
-
-
-##############################################################################
-# Begin summary page
-if opts.write_html:
-  htmlfile = "pinspfound_webpage"
-  if opts.user_tag:
-    htmlfile = htmlfile + '_' + opts.user_tag
-  htmlfile = htmlfile + '.html'
-
-  fout = open(htmlfile,"w");
-  write_html_head(opts, injPatterns, htmlfile)
-
-
-do_everything(opts, ifos, injPatterns, check)
 
 
 
 # End summary page
 if opts.write_html:
-  write_html_tail(opts)
+  write_html_tail( opts )
   fout.close()
+  
+  if opts.do_followup:
+    fnameList =  followup.fnameList 
+    InspiralUtils.write_cache_output( opts, htmlfile, fnameList )
+
 
 
