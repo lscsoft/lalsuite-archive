@@ -390,6 +390,12 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
     # set the correct pipeline usertag
     usertag += "_CAT_" + str(vetoCat) + "_VETO"
 
+    for cat in range(2, vetoCat+1):
+      section = "coire-2-cat-" + str(cat)
+      if config.has_section(section):
+        for opt, arg in config.items(section):
+          hipecp.set("coire-2",opt,arg)
+
     # add the veto files in the thinca section
     for ifo in ifos:
       hipecp.set("thinca", ifo.lower() + "-veto-file", vetoFiles[ifo][vetoCat])
