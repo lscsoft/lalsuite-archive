@@ -873,9 +873,11 @@ for injPattern in injPatterns:
     if opts.h1_triggers:
       flagInj, foundInj = check_snr_coirefirst( opts, h1Trigs, h_time )
       if flagInj:
-        injIndex.append( x )
+        if x not in injIndex:
+          injIndex.append( x )
       if foundInj:
-        injFound.append( x )
+        if x not in injFound:
+          injFound.append( x )
       
     if opts.h2_triggers:
       flagInj, foundInj = check_snr_coirefirst( opts, h2Trigs, h_time )
@@ -988,9 +990,11 @@ for injPattern in injPatterns:
     if opts.h1_triggers:
       flagInj, foundInj = check_snr_coiresecond( opts, h1Trigs, h_time )
       if flagInj:
-        injIndex.append( x )
+        if x not in injIndex:
+          injIndex.append( x )
       if foundInj:
-        injFound.append( x )
+        if x not in injFound:
+          injFound.append( x )
 
     if opts.h2_triggers:
       flagInj, foundInj = check_snr_coiresecond( opts, h2Trigs, h_time )
@@ -1002,7 +1006,7 @@ for injPattern in injPatterns:
           injFound.append( x )
 
     if opts.l1_triggers:
-      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time )
+      flagInj, foundInj = check_snr_coiresecond( opts, l1Trigs, l_time )
       if flagInj:
         if x not in injIndex:
           injIndex.append( x )
