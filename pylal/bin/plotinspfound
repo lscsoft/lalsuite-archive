@@ -3,7 +3,7 @@
 #
 # =============================================================================
 #
-#                                   Preamble
+#                    Preamble
 #
 # =============================================================================
 #
@@ -45,7 +45,7 @@ plotinspfound --cache-file triggers.cache --bbhinj --all-triggers --gps-start-ti
 #
 # =============================================================================
 #
-#                           Parse Command Line
+#                     Parse Command Line
 #
 # =============================================================================
 #
@@ -209,7 +209,7 @@ if opts.check_eff_dist:
 #
 # =============================================================================
 #
-#                      Specific functions for reading triggers
+#                    Specific functions for reading triggers
 #
 # =============================================================================
 #
@@ -251,7 +251,7 @@ def get_coire_triggers( opts, ifo, pattern, times ):
   if len( trigFiles ) == 0:
     if opts.quiet:
       print "ERROR! Cannot find specified coire files. Check cache file", \
-            "and/or specified ifos/injections or --skip-coire-first option.\n"
+            "and/or specified ifos/injections/gps times.\n"
     sys.exit()
 
   if opts.vocal:
@@ -301,7 +301,110 @@ def get_inspiral_triggers( opts, ifo, pattern, times ):
 
 # =============================================================================
 #
-#                 Functions to write the output to a web page
+#                    A new class to store all the info for each ifo
+#
+# =============================================================================
+#
+
+class Triggers( object ):
+  """__init__() functions as the class constructor"""
+  def __init__( self, injections=None, sirefirst=None, sirefirstTimes=None, \
+                   coirefirst=None, coirefirstTimes=None, coiresecond=None, \
+                                                     coiresecondTimes=None ):
+
+    Triggers.injections       = injections
+    Triggers.sirefirst        = sirefirst
+    Triggers.sirefirstTimes   = sirefirstTimes
+    Triggers.coirefirst       = coirefirst
+    Triggers.coirefirstTimes  = coirefirstTimes
+    Triggers.coiresecond      = coiresecond
+    Triggers.coiresecondTimes = coiresecondTimes
+
+
+
+# =============================================================================
+#
+#                    Functions that operate on the Trigger class
+#
+# =============================================================================
+#
+
+def get_all_triggers( opts, ifo, injPattern ):
+  theseTrigs = Triggers() 
+  
+  pattern = 'SIRE*FOUND*FIRST*' + injPattern
+  [theseTrigs.sirefirst, theseTrigs.injections] = \
+                                 get_sire_triggers( opts, ifo, pattern, times ) 
+  theseTrigs.sirefirstTimes = \
+                          list( theseTrigs.sirefirst.get_column( "end_time" ) )
+      
+  pattern = 'COIRE*FOUND_FIRST*' + injPattern
+  theseTrigs.coirefirst = get_coire_triggers( opts, ifo, pattern, times )      
+  theseTrigs.coirefirstTimes = \
+                         list( theseTrigs.coirefirst.get_column( "end_time" ) )
+      
+  pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
+  theseTrigs.coiresecond = get_coire_triggers( opts, ifo, pattern, times )      
+  theseTrigs.coiresecondTimes = \
+                        list( theseTrigs.coiresecond.get_column( "end_time" ) )
+
+  return theseTrigs
+
+
+
+##############################################################################
+def check_snr_coirefirst( opts, Triggers, time ):
+
+  foundInj = False
+  flagInj  = False
+
+  if time in Triggers.coirefirstTimes:
+    if time in Triggers.sirefirstTimes:
+      i = Triggers.coirefirstTimes.index( time )
+      j = Triggers.sirefirstTimes.index( time )
+   
+      if opts.all_coire_first:      
+        change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
+        foundInj = True
+      else:
+        if time in Triggers.coiresecondTimes:
+          change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
+          foundInj = True
+        else:
+          change = 0
+         
+      if abs( change ) >= opts.threshold:
+        flagInj = True
+
+  return flagInj, foundInj
+
+
+
+##############################################################################
+def check_snr_coiresecond( opts, Triggers, time ):
+
+  foundInj = False
+  flagInj  = False
+
+  if time in Triggers.coiresecondTimes:
+    if time in Triggers.coirefirstTimes:
+      i = Triggers.coiresecondTimes.index( time )
+      j = Triggers.coirefirstTimes.index( time )
+   
+      foundInj = True
+      
+      change = Triggers.coiresecond[i].snr - Triggers.coirefirst[j].snr
+         
+      if abs( change ) >= opts.threshold:
+        flagInj = True
+
+  return flagInj, foundInj
+
+
+
+# =============================================================================
+#
+#                    Functions to write the output to a web page
 #
 # =============================================================================
 #
@@ -688,359 +791,11 @@ def write_html_tail(opts):
 #
 # =============================================================================
 #
-#                                 Main
+#                    Main
 #
 # =============================================================================
 #
 
-def do_everything( opts, ifos, injPatterns, check, times ):
-  """
-  Does it all
-  """
-  for injPattern in injPatterns:
-    if opts.vocal:
-      print "Checking", injPattern, "triggers."
-
-    # Get triggers and injections
-    injections = lsctables.New( lsctables.SimInspiralTable )
-    injTimes = []
-
-    if opts.h1_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [h1_sireFirst, h1Injections] = \
-                                get_sire_triggers( opts, "H1", pattern, times ) 
-      h1_sireFirstTimes = list( h1_sireFirst.get_column( "end_time" ) )
-      
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      h1_coireFirst = get_coire_triggers( opts, "H1", pattern, times )      
-      h1_coireFirstTimes = list( h1_coireFirst.get_column( "end_time" ) )
-      
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
-      h1_coireSecond = get_coire_triggers( opts, "H1", pattern, times )      
-      h1_coireSecondTimes = list( h1_coireSecond.get_column( "end_time" ) )
-      
-      for inj in h1Injections:
-        if inj.geocent_end_time not in injTimes:
-          injections.append( inj )
-          injTimes.append( inj.geocent_end_time )
-
-    if opts.h2_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [h2_sireFirst, h2Injections] = \
-                                get_sire_triggers( opts, "H2", pattern, times )
-      h2_sireFirstTimes = list( h2_sireFirst.get_column( "end_time" ) )
-
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      h2_coireFirst = get_coire_triggers( opts, "H2", pattern, times )      
-      h2_coireFirstTimes = list( h2_coireFirst.get_column( "end_time" ) )
-
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
-      h2_coireSecond = get_coire_triggers( opts, "H2", pattern, times )      
-      h2_coireSecondTimes = list( h2_coireSecond.get_column( "end_time" ) )
-
-      for inj in h2Injections:
-        if inj.geocent_end_time not in injTimes:
-          injections.append( inj )
-          injTimes.append( inj.geocent_end_time )
-
-    if opts.l1_triggers:
-      pattern = 'SIRE*FOUND*FIRST*' + injPattern
-      [l1_sireFirst, l1Injections] = \
-                                get_sire_triggers( opts, "L1", pattern, times )
-      l1_sireFirstTimes = list( l1_sireFirst.get_column( "end_time" ) )
-      
-      pattern = 'COIRE*FOUND_FIRST*' + injPattern
-      l1_coireFirst = get_coire_triggers( opts, "L1", pattern, times )      
-      l1_coireFirstTimes = list( l1_coireFirst.get_column( "end_time" ) )
-      
-      pattern = 'COIRE*FOUND_SECOND*' + injPattern+ '*CAT_2_VETO'
-      l1_coireSecond = get_coire_triggers( opts, "L1", pattern, times )      
-      l1_coireSecondTimes = list( l1_coireSecond.get_column( "end_time" ) )
-
-      for inj in l1Injections:
-        if inj.geocent_end_time not in injTimes:
-          injections.append( inj )
-          injTimes.append( inj.geocent_end_time )
-    
-
-
-
-
-######################
-#SIRE_FIRST TO COIRE_FIRST
-######################
-    # Inset Anchor
-    line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
-    fout.write(line)
-    line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
-    fout.write(line)
-    line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
-    fout.write(line)
-
-
-
-    # Find triggers whose SNRs change and index the injections.
-    injIndex = []
-    injFound = []
-
-    for x in xrange( len( injections ) ):
-      inj = injections[x]
-      
-      h_time = inj.h_end_time
-      l_time = inj.l_end_time
-
-      if opts.h1_triggers:
-        if opts.all_coire_first: 
-          if h_time in h1_coireFirstTimes:
-            if h_time in h1_sireFirstTimes:
-              i = h1_coireFirstTimes.index( h_time )
-              j = h1_sireFirstTimes.index( h_time )
-              change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
-              if abs( change ) >= opts.threshold:
-                injIndex.append( x )
-              injFound.append( x )
-        else:
-          if h_time in h1_coireSecondTimes:
-            if h_time in h1_coireFirstTimes:
-              if h_time in h1_sireFirstTimes:
-                i = h1_coireFirstTimes.index( h_time )
-                j = h1_sireFirstTimes.index( h_time )
-                change = h1_coireFirst[i].snr - h1_sireFirst[j].snr
-                if abs( change ) >= opts.threshold:
-                  injIndex.append( x )
-                injFound.append( x )
-      
-      if opts.h2_triggers:
-        if opts.all_coire_first: 
-          if h_time in h2_coireFirstTimes:
-            if h_time in h2_sireFirstTimes:
-              i = h2_coireFirstTimes.index( h_time )
-              j = h2_sireFirstTimes.index( h_time )
-              change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
-              if abs( change ) >= opts.threshold:
-                if x not in injIndex:
-                  injIndex.append( x )
-              if x not in injFound:
-                injFound.append( x )
-        else:
-          if h_time in h2_coireSecondTimes:
-            if h_time in h2_coireFirstTimes:
-              if h_time in h2_sireFirstTimes:
-                i = h2_coireFirstTimes.index( h_time )
-                j = h2_sireFirstTimes.index( h_time )
-                change = h2_coireFirst[i].snr - h2_sireFirst[j].snr
-                if abs( change ) >= opts.threshold:
-                  if x not in injIndex:
-                    injIndex.append( x )
-                if x not in injFound:
-                  injFound.append( x )
-
-
-      if opts.l1_triggers:
-        if opts.all_coire_first: 
-          if l_time in l1_coireFirstTimes:
-            if l_time in l1_sireFirstTimes:
-              i = l1_coireFirstTimes.index( l_time )
-              j = l1_sireFirstTimes.index( l_time )
-              change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
-              if abs( change ) >= opts.threshold:
-                if x not in injIndex:
-                  injIndex.append( x )
-              if x not in injFound:
-                injFound.append( x )
-        else:
-          if l_time in l1_coireSecondTimes:
-            if l_time in l1_coireFirstTimes:
-              if l_time in l1_sireFirstTimes:
-                i = l1_coireFirstTimes.index( l_time )
-                j = l1_sireFirstTimes.index( l_time )
-                change = l1_coireFirst[i].snr - l1_sireFirst[j].snr
-                if abs( change ) >= opts.threshold:
-                  if x not in injIndex:
-                    injIndex.append( x )
-                if x not in injFound:
-                  injFound.append( x )
-
-    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
-
-    for index in injIndex:
-      h_time = injections[index].h_end_time
-      l_time = injections[index].l_end_time
-
-      write_html_line()
-     
-      write_inj_table( opts, injections[index] )
-
-      write_trig_table_head( opts, check )
-      
-      if opts.h1_triggers:
-        if h_time in h1_coireFirstTimes:
-          if h_time in h1_sireFirstTimes:
-            i = h1_coireFirstTimes.index( h_time )
-            j = h1_sireFirstTimes.index( h_time )
-
-            trigBefore = h1_sireFirst[j]
-            trigAfter = h1_coireFirst[i]
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-
-
-      if opts.h2_triggers:
-        if h_time in h2_coireFirstTimes:
-          if h_time in h2_sireFirstTimes:
-            i = h2_coireFirstTimes.index( h_time )
-            j = h2_sireFirstTimes.index( h_time )
-
-            trigBefore = h2_sireFirst[j]
-            trigAfter = h2_coireFirst[i]
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-
-
-      if opts.l1_triggers:
-        if h_time in l1_coireFirstTimes:
-          if h_time in l1_sireFirstTimes:
-            i = l1_coireFirstTimes.index( l_time )
-            j = l1_sireFirstTimes.index( l_time )
-
-            trigBefore = l1_sireFirst[j]
-            trigAfter = l1_coireFirst[i]
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-      
-      line = '</table> \n'
-      fout.write( line )
-
-      if opts.do_followup:
-        followup.setTag( "TEST" )
-        followuphtml = followup.followup( injections[index], "H1", injPattern )
-        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
-
-
-
-
-######################
-#COIRE_FIRST TO COIRE_SECOND
-######################
-    # Inset Anchor
-    line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
-    fout.write( line )
-    line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
-    fout.write( line )
-    line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
-    fout.write( line )
-
-    if opts.check_chisq:
-      check.append( "chisq" )
-    if opts.check_eff_snr:
-      check.append( "effective_snr" )
-      
-    # Find triggers whose SNRs change and index the injections.
-    injIndex = []
-    injFound = []
-
-    for x in xrange( len( injections ) ):
-      inj = injections[x]
-
-      h_time = inj.h_end_time
-      l_time = inj.l_end_time
-
-      if opts.h1_triggers:
-        if h_time in h1_coireSecondTimes:
-          if h_time in h1_coireFirstTimes:
-            i = h1_coireSecondTimes.index( h_time )
-            j = h1_coireFirstTimes.index( h_time )
-            change = h1_coireSecond[i].snr - h1_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              injIndex.append( x )
-            injFound.append( x )
-
-      if opts.h2_triggers:
-        if h_time in h2_coireSecondTimes:
-          if h_time in h2_coireFirstTimes:
-            i = h2_coireSecondTimes.index( h_time )
-            j = h2_coireFirstTimes.index( h_time )
-            change = h2_coireSecond[i].snr - h2_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:  
-                injIndex.append( x )
-            if x not in injFound:
-              injFound.append( x )
- 
-      if opts.l1_triggers:
-        if l_time in l1_coireSecondTimes:
-          if l_time in l1_coireFirstTimes:
-            i = l1_coireSecondTimes.index( l_time )
-            j = l1_coireFirstTimes.index( l_time )
-            change = l1_coireSecond[i].snr - l1_coireFirst[j].snr
-            if abs( change ) >= opts.threshold:
-              if x not in injIndex:        
-                injIndex.append( x )
-            if x not in injFound:
-              injFound.append( x )
-
-    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
-
-    for index in injIndex:
-      h_time = injections[index].h_end_time
-      l_time = injections[index].l_end_time
-
-      write_html_line()
-
-      write_inj_table( opts, injections[index] )
-
-      write_trig_table_head( opts, check )
-      
-      if opts.h1_triggers:
-        if h_time in h1_coireSecondTimes:
-          if h_time in h1_coireFirstTimes:
-            i = h1_coireSecondTimes.index( h_time )
-            j = h1_coireFirstTimes.index( h_time )
-
-            trigBefore = h1_coireFirst[j]
-            trigAfter = h1_coireSecond[i]
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
-                                       trigAfter, injections[index], check )
-
-
-      if opts.h2_triggers:
-        if h_time in h2_coireSecondTimes:
-          if h_time in h2_coireFirstTimes:
-            i = h2_coireSecondTimes.index( h_time )
-            j = h2_coireFirstTimes.index( h_time )
-
-            trigBefore = h2_coireFirst[j]
-            trigAfter = h2_coireSecond[i]
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-
-
-      if opts.l1_triggers:
-        if h_time in l1_coireSecondTimes:
-          if h_time in l1_coireFirstTimes:
-            i = l1_coireSecondTimes.index( l_time )
-            j = l1_coireFirstTimes.index( l_time )
-
-            trigBefore = l1_coireFirst[j]
-            trigAfter = l1_coireSecond[i]
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                      trigAfter, injections[index], check )
-      
-      line = '</table> \n'
-      fout.write( line )
-      if opts.do_followup:
-        followup.setTag( "TEST")
-        followuphtml = followup.followup( injections[index], "H1", injPattern )
-        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
-
-    if opts.check_eff_snr:
-      check.pop()
-    if opts.check_chisq:
-      check.pop()
-
-
-
-##############################################################################
 # Begin summary page
 if opts.write_html:
   htmlfile = opts.output_path + "/" + opts.prefix + opts.suffix + ".html"
@@ -1051,7 +806,273 @@ if opts.write_html:
 if opts.do_followup:
   followup = followup_missed.FollowupMissed( cache, missed_cache, opts )
 
-do_everything( opts, ifos, injPatterns, check, times )
+for injPattern in injPatterns:
+  if opts.vocal:
+    print "Checking", injPattern, "triggers."
+
+  # Get triggers and injections
+  injections = lsctables.New( lsctables.SimInspiralTable )
+  injTimes = []
+
+  if opts.h1_triggers:
+    h1Trigs = get_all_triggers( opts, "H1", injPattern )
+
+    for inj in h1Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+
+
+  if opts.h2_triggers:
+    h2Trigs = get_all_triggers( opts, "H2", injPattern )
+
+    for inj in h2Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+
+
+  if opts.l1_triggers:
+    l1Trigs = get_all_triggers( opts, "L1", injPattern )    
+
+    for inj in l1Trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
+    
+
+
+
+
+  # ==========================================================================
+  # -- sirefirst to coirefirst
+  if opts.vocal:
+    print "Checking snr changes between sire first and coire first."
+
+  # Inset Anchor
+  line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
+  fout.write(line)
+  line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
+  fout.write(line)
+  line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
+  fout.write(line)
+
+
+
+  # Find triggers whose SNRs change and index the injections.
+  injIndex = []
+  injFound = []
+
+  for x in xrange( len( injections ) ):
+    inj = injections[x]
+      
+    h_time = inj.h_end_time
+    l_time = inj.l_end_time
+
+
+    if opts.h1_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, h1Trigs, h_time )
+      if flagInj:
+        injIndex.append( x )
+      if foundInj:
+        injFound.append( x )
+      
+    if opts.h2_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, h2Trigs, h_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+    if opts.l1_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time ) 
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+
+  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+
+
+  for index in injIndex:
+    h_time = injections[index].h_end_time
+    l_time = injections[index].l_end_time
+
+    write_html_line()
+     
+    write_inj_table( opts, injections[index] )
+
+    write_trig_table_head( opts, check )
+      
+    if opts.h1_triggers:
+      if h_time in h1Trigs.coirefirstTimes:
+        if h_time in h1Trigs.sirefirstTimes:
+          i = h1Trigs.coirefirstTimes.index( h_time )
+          j = h1Trigs.sirefirstTimes.index( h_time )
+
+          trigBefore = h1Trigs.sirefirst[j]
+          trigAfter = h1Trigs.coirefirst[i]
+          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+
+
+    if opts.h2_triggers:
+      if h_time in h2Trigs.coirefirstTimes:
+        if h_time in h2Trigs.sirefirstTimes:
+          i = h2Trigs.coirefirstTimes.index( h_time )
+          j = h2Trigs.sirefirstTimes.index( h_time )
+
+          trigBefore = h2Trigs.sirefirst[j]
+          trigAfter = h2Trigs.coirefirst[i]
+          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+
+
+    if opts.l1_triggers:
+      if h_time in l1Trigs.coirefirstTimes:
+        if h_time in l1Trigs.sirefirstTimes:
+          i = l1Trigs.coirefirstTimes.index( l_time )
+          j = l1Trigs.sirefirstTimes.index( l_time )
+
+          trigBefore = l1Trigs.sirefirst[j]
+          trigAfter = l1Trigs.coirefirst[i]
+          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+      
+
+    line = '</table> \n'
+    fout.write( line )
+
+    if opts.do_followup:
+      followup.setTag( "TEST" )
+      followuphtml = followup.followup( injections[index], "H1", injPattern )
+      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+
+
+
+
+  # ========================================================================
+  # -- coirefirst to coiresecond
+  if opts.vocal:
+    print "Checking snr changes between coire first and coire second."
+
+
+  # Insert Anchor
+  line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
+  fout.write( line )
+  line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
+  fout.write( line )
+  line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
+  fout.write( line )
+
+  if opts.check_chisq:
+    check.append( "chisq" )
+  if opts.check_eff_snr:
+    check.append( "effective_snr" )
+      
+  # Find triggers whose SNRs change and index the injections.
+  injIndex = []
+  injFound = []
+
+  for x in xrange( len( injections ) ):
+    inj = injections[x]
+
+    h_time = inj.h_end_time
+    l_time = inj.l_end_time
+
+    if opts.h1_triggers:
+      flagInj, foundInj = check_snr_coiresecond( opts, h1Trigs, h_time )
+      if flagInj:
+        injIndex.append( x )
+      if foundInj:
+        injFound.append( x )
+
+    if opts.h2_triggers:
+      flagInj, foundInj = check_snr_coiresecond( opts, h2Trigs, h_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+    if opts.l1_triggers:
+      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time )
+      if flagInj:
+        if x not in injIndex:
+          injIndex.append( x )
+      if foundInj:
+        if x not in injFound:
+          injFound.append( x )
+
+
+  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+
+
+  for index in injIndex:
+    h_time = injections[index].h_end_time
+    l_time = injections[index].l_end_time
+
+    write_html_line()
+     
+    write_inj_table( opts, injections[index] )
+
+    write_trig_table_head( opts, check )
+      
+
+    if opts.h1_triggers:
+      if h_time in h1Trigs.coiresecondTimes:
+        if h_time in h1Trigs.coirefirstTimes:
+          i = h1Trigs.coiresecondTimes.index( h_time )
+          j = h1Trigs.coirefirstTimes.index( h_time )
+
+          trigBefore = h1Trigs.coirefirst[j]
+          trigAfter = h1Trigs.coiresecond[i]
+          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+
+
+    if opts.h2_triggers:
+      if h_time in h2Trigs.coiresecondTimes:
+        if h_time in h2Trigs.coirefirstTimes:
+          i = h2Trigs.coiresecondTimes.index( h_time )
+          j = h2Trigs.coirefirstTimes.index( h_time )
+
+          trigBefore = h2Trigs.coirefirst[j]
+          trigAfter = h2Trigs.coiresecond[i]
+          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+
+
+    if opts.l1_triggers:
+      if h_time in l1Trigs.coiresecondTimes:
+        if h_time in l1Trigs.coirefirstTimes:
+          i = l1Trigs.coiresecondTimes.index( l_time )
+          j = l1Trigs.coirefirstTimes.index( l_time )
+
+          trigBefore = l1Trigs.coirefirst[j]
+          trigAfter = l1Trigs.coiresecond[i]
+          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+                                    trigAfter, injections[index], check )
+      
+    line = '</table> \n'
+    fout.write( line )
+
+    if opts.do_followup:
+      followup.setTag( "TEST")
+      followuphtml = followup.followup( injections[index], "H1", injPattern )
+      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+
+  if opts.check_eff_snr:
+    check.pop()
+  if opts.check_chisq:
+    check.pop()
+
 
 
 
