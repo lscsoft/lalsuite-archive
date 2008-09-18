@@ -3,18 +3,18 @@
 ################################################################################
 # edit these appropriately
 
-cat='cat123'
-gpstime='852393970-2419200'
-category='CAT_3'
-playorfull='FULL_DATA'
+month_gps_time='847555570'
+month_duration='2419200'
+cat='CAT_3'
+
 septime_path='../executables/septime'
 log_path='/local/spxiwh/IFARdaglogs'
 
-# These shouldn't need changing below.
+# These shouldn't need changing
 
-h1_veto_file='../segments/H1-COMBINED_'${category}'_VETO_SEGS-'${gpstime}'.txt'
-h2_veto_file='../segments/H2-COMBINED_'${category}'_VETO_SEGS-'${gpstime}'.txt'
-l1_veto_file='../segments/L1-COMBINED_'${category}'_VETO_SEGS-'${gpstime}'.txt'
+h1_veto_file='../segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
+h2_veto_file='../segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
+l1_veto_file='../segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
 hipe_cache='../ihope.cache'
 condor_priority='20'
 
@@ -31,15 +31,15 @@ echo "done."
 
 #generate zero-lag dag
 echo "Generating septime_zero_lag.dag and .sub files... "
-num_thincas=`grep THINCA_SECOND.*${playorfull}_${category} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
+num_thincas=`grep THINCA_SECOND.*FULL_DATA_${cat} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
 thinca_idx=1
 
 if [ 1 ]; then
-  for file in `grep THINCA_SECOND.*${playorfull}_${category} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
+  for file in `grep THINCA_SECOND.*FULL_DATA_${cat} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
     echo -ne "processing ${thinca_idx} / ${num_thincas}\r" >&2
     thinca_idx=$(( ${thinca_idx} + 1 ))
     infile=`basename $file`
-    outfile=`echo $infile | awk 'gsub("THINCA","SEPTIME")'`
+    job_name=`echo $infile | awk 'gsub("THINCA","SEPTIME")'`
     starttime=`echo $infile | awk 'gsub("-"," ") {print $3}'`
     duration=`echo $infile | sed 's/\./ /g' | awk 'gsub("-"," ") {print $4}'`
     endtime=$(($starttime + $duration))
@@ -54,11 +54,11 @@ if [ 1 ]; then
       triggers="--h2-triggers --l1-triggers"
     fi
 
-    echo "JOB $outfile septime_zero_lag.septime.sub"
-    echo "RETRY $outfile 3"
-    echo "VARS $outfile macroinfile=\"$file\" macrotriggers=\"$triggers\" macrogpsstarttime=\"$starttime\" macrogpsendtime=\"$endtime\""
-    echo "CATEGORY $outfile septime"
-    echo "## JOB $outfile requires input file $infile"
+    echo "JOB $job_name septime_zero_lag.septime.sub"
+    echo "RETRY $job_name 3"
+    echo "VARS $job_name macroinfile=\"$file\" macrotriggers=\"$triggers\" macrogpsstarttime=\"$starttime\" macrogpsendtime=\"$endtime\""
+    echo "CATEGORY $job_name septime"
+    echo "## JOB $job_name requires input file $infile"
   done
   echo "MAXJOBS septime 20"
 fi > septime_zero_lag.dag
@@ -66,7 +66,7 @@ fi > septime_zero_lag.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${septime_path}"
-  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime)"
+  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime)"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/septime-\$(cluster)-\$(process).err"
@@ -79,15 +79,15 @@ echo -e "\n...done."
 
 #generate time-slide dag
 echo "Genearting septime_slide.dag and .sub files..."
-num_thincas=`grep THINCA_SLIDE_SECOND.*${playorfull}_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
+num_thincas=`grep THINCA_SLIDE_SECOND.*FULL_DATA_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
 thinca_idx=1
 
 if [ 1 ]; then
-  for file in `grep THINCA_SLIDE_SECOND.*${playorfull}_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
+  for file in `grep THINCA_SLIDE_SECOND.*FULL_DATA_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
     echo -ne "processing ${thinca_idx} / ${num_thincas}\r" >&2
     thinca_idx=$(( ${thinca_idx} + 1 ))
     infile=`basename $file`
-    outfile=`echo $infile | awk 'gsub("THINCA","SEPTIME")'`
+    job_name=`echo $infile | awk 'gsub("THINCA","SEPTIME")'`
     starttime=`echo $infile | awk 'gsub("-"," ") {print $3}'`
     duration=`echo $infile | sed 's/\./ /g' | awk 'gsub("-"," ") {print $4}'`
     endtime=$(($starttime + $duration))
@@ -102,11 +102,11 @@ if [ 1 ]; then
       triggers="--h2-triggers --l1-triggers"
     fi
 
-    echo "JOB $outfile septime_slide.septime.sub"
-    echo "RETRY $outfile 3"
-    echo "VARS $outfile macroinfile=\"$file\" macrotriggers=\"$triggers\" macrogpsstarttime=\"$starttime\" macrogpsendtime=\"$endtime\""
-    echo "CATEGORY $outfile septime_slide"
-    echo "## JOB $outfile requires input file $infile"
+    echo "JOB $job_name septime_slide.septime.sub"
+    echo "RETRY $job_name 3"
+    echo "VARS $job_name macroinfile=\"$file\" macrotriggers=\"$triggers\" macrogpsstarttime=\"$starttime\" macrogpsendtime=\"$endtime\""
+    echo "CATEGORY $job_name septime_slide"
+    echo "## JOB $job_name requires input file $infile"
   done
   echo "MAXJOBS septime_slide 40"
 fi> septime_slide.dag
@@ -114,7 +114,7 @@ fi> septime_slide.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${septime_path}"
-  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --h1-slide 0 --h2-slide 10 --l1-slide 5 --num-slides 50 --write-antime-file"
+  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --h1-slide 0 --h2-slide 10 --l1-slide 5 --num-slides 50 --write-antime-file"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/septime_slide-\$(cluster)-\$(process).err"
@@ -129,7 +129,9 @@ echo -e "\n...done."
 if [ ! -d septime_files ] ; then
   mkdir septime_files
 fi
-
+if [ ! -d septime_files/${cat} ] ; then
+  mkdir septime_files/${cat}
+fi
 if [ ! -d logs ] ; then
   mkdir logs
 fi
