@@ -769,7 +769,7 @@ class FollowupMissed:
 
         elif result['foundset']:
           foundIFOs=''
-          if "INSPIRAL" in stage:
+          if "INSPIRAL" or "THINCA" in stage:
             foundIFOs=' in '
             recSnr=''
             recChirpMass=''
