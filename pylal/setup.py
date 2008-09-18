@@ -176,6 +176,7 @@ setup(
 		os.path.join("bin", "analyseQscan.py"),
 		os.path.join("bin", "grbSelect"),
 		os.path.join("bin", "galaxies_in_polygon"),
+		os.path.join("bin", "lal_query_cache"),
 		os.path.join("bin", "paste_insp_triggers"),
 		os.path.join("bin", "plotbank"),
 		os.path.join("bin", "plotbinj"),
