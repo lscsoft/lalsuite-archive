@@ -158,7 +158,12 @@ filelist = []
 # names, the items in "runs" must be repeated (hence the multiplication
 # by len(filetypes)).
 
-for filetype,filedir in zip(filetypes,runs*(len(filetypes)//len(runs))):
+directoryList = []
+for run in runs:
+  for i in range(0,len(filetypes)//len(runs)):
+    directoryList.append(run)
+
+for filetype,filedir in zip(filetypes,directoryList):
   tmpcache = cache.sieve(description=filetype,exact_match=True)
   # Check if files from the old cache exist on disk and place 
   # them in the found and missed lists.
