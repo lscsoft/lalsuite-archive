@@ -1,16 +1,22 @@
 #!/bin/bash 
 
 ################################################################################
-# edit these appropriately
+# get needed options from ini file
 
-cat='CAT_3'
+cat=`cat write_ifar_scripts.ini | grep 'cat' | awk '{print $3}'`
 
-coire_path='/home/cdcapano/local/s5_2yr_lowcbc_20080829/bin/lalapps_coire'
+coire_path=`cat write_ifar_scripts.ini | grep 'coire_path' | awk '{print $3}'`
 
-log_path='/usr1/cdcapano/log'
-condor_priority='20'
+log_path=`cat write_ifar_scripts.ini | grep 'log_path' | awk '{print $3}'`
+condor_priority=`cat write_ifar_scripts.ini | grep 'condor_priority' | awk '{print $3}'`
 
-# don't touch anything below here
+#Print options out to screen for verification
+echo "Options used are:"
+echo "  cat = ${cat}"
+echo "  coire_path = ${coire_path}"
+echo "  log_path = ${log_path}"
+echo "  condor_priority = ${condor_priority}"
+echo
 ################################################################################
 
 #get septime zero-lag files
@@ -72,7 +78,7 @@ if [ 1 ]; then
   for infile in `cat septime_files/septime_slide_${cat}.cache`; do
     echo -ne "processing ${septime_idx} / ${num_septimes}\r" >&2
     septime_idx=$(( ${septime_idx} + 1))
-    outfile=`echo $infile | sed s/SEPTIME/COIRE_${cat}/g`
+    outfile=`echo $infile | sed s/SEPTIME_SLIDE_${cat}/COIRE_SLIDE_${cat}/g`
     echo "JOB $outfile first_coire_slide.coire.sub"
     echo "RETRY $outfile 1"
     echo "VARS $outfile macroinfile=\"$infile\" macrooutfile=\"$outfile\""

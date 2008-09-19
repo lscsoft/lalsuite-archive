@@ -1,23 +1,35 @@
-#!bin/bash  
+#!/bin/bash  
 
 ################################################################################
-# edit these appropriately
+# get needed options from ini file
 
-month_gps_time='847555570'
-month_duration='2419200'
-cat='CAT_3'
+month_gps_time=`cat write_ifar_scripts.ini | grep 'month_gps_time' | awk '{print $3}'`
+month_duration=`cat write_ifar_scripts.ini | grep 'month_duration' | awk '{print $3}'`
+cat=`cat write_ifar_scripts.ini | grep 'cat' | awk '{print $3}'`
 
-septime_path='../executables/septime'
-log_path='/local/spxiwh/IFARdaglogs'
+septime_path=`cat write_ifar_scripts.ini | grep 'septime_path' | awk '{print $3}'`
+
+log_path=`cat write_ifar_scripts.ini | grep 'log_path' | awk '{print $3}'`
+condor_priority=`cat write_ifar_scripts.ini | grep 'condor_priority' | awk '{print $3}'`
+
+hipe_cache=`cat write_ifar_scripts.ini | grep 'hipe_cache' | awk '{print $3}'`
+
+#Print options out to screen for verification
+echo "Options used are:"
+echo "  month_gps_time = ${month_gps_time}"
+echo "  month_duration = ${month_duration}"
+echo "  cat = ${cat}"
+echo "  septime_path = ${septime_path}"
+echo "  log_path = ${log_path}"
+echo "  condor_priority = ${condor_priority}"
+echo "  hipe_cache = ${hipe_cache}"
+echo
 
 # These shouldn't need changing
 
-h1_veto_file='../segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
-h2_veto_file='../segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
-l1_veto_file='../segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${gpstime}'.txt'
-hipe_cache='../ihope.cache'
-condor_priority='20'
-
+h1_veto_file='../segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+h2_veto_file='../segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+l1_veto_file='../segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
 # don't touch anything below here
 ################################################################################
 

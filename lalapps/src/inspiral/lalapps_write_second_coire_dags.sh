@@ -1,18 +1,26 @@
 #!/bin/bash
 
 ################################################################################
-# edit these appropriately
+# get needed options from ini file
 
-month_gps_time='847555570'
-month_duration='2419200'
-cat='CAT_3'
+month_gps_time=`cat write_ifar_scripts.ini | grep 'month_gps_time' | awk '{print $3}'`
+month_duration=`cat write_ifar_scripts.ini | grep 'month_duration' | awk '{print $3}'`
+cat=`cat write_ifar_scripts.ini | grep 'cat' | awk '{print $3}'`
 
-coire_path='/home/cdcapano/local/s5_2yr_lowcbc_20080829/bin/lalapps_coire'
+coire_path=`cat write_ifar_scripts.ini | grep 'coire_path' | awk '{print $3}'`
 
-log_path='/usr1/cdcapano/log'
-condor_priority='20'
+log_path=`cat write_ifar_scripts.ini | grep 'log_path' | awk '{print $3}'`
+condor_priority=`cat write_ifar_scripts.ini | grep 'condor_priority' | awk '{print $3}'`
 
-# don't touch anything below here
+#Print options out to screen for verification
+echo "Options used are:"
+echo "  month_gps_time = ${month_gps_time}"
+echo "  month_duration = ${month_duration}"
+echo "  cat = ${cat}"
+echo "  coire_path = ${coire_path}"
+echo "  log_path = ${log_path}"
+echo "  condor_priority = ${condor_priority}"
+echo
 ################################################################################
 
 
