@@ -320,6 +320,9 @@ if slidefilelists:
   for filegroup in slidefilelists:
     # read raw triggers
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose)
+    if slideTriggers is None:
+      print >> sys.stderr, "No timeslide triggers input file:\n" + str(filegroup) + "\n"
+      continue
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = 0
