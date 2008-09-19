@@ -78,7 +78,7 @@ if [ 1 ]; then
   for infile in `cat septime_files/septime_slide_${cat}.cache`; do
     echo -ne "processing ${septime_idx} / ${num_septimes}\r" >&2
     septime_idx=$(( ${septime_idx} + 1))
-    outfile=`echo $infile | sed s/SEPTIME_SLIDE_${cat}/COIRE_SLIDE_${cat}/g`
+    outfile=`echo $infile | sed s/SEPTIME_SLIDE/COIRE_SLIDE_${cat}/g`
     echo "JOB $outfile first_coire_slide.coire.sub"
     echo "RETRY $outfile 1"
     echo "VARS $outfile macroinfile=\"$infile\" macrooutfile=\"$outfile\""
