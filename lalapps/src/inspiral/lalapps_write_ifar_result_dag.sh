@@ -87,7 +87,7 @@ if [ 1 ]; then
       fi
       user_tag="${mass}-${data_type}"
       t_correct_num="ifar_result_files/summ_files/${combo}-CORSE_${data_type}_${cat}-${month_gps_time}-${month_duration}.txt"
-      t_correct_denom="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${combo}-${month_gps_time}-${month_duration}.txt"
+      t_correct_denom="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
       echo "JOB $job_name ifar_result_${data_type}.plotifar.sub"
       echo "RETRY $job_name 1"
       echo "VARS $job_name macroglob=\"$glob_file\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotriggers=\"$triggers\" macronumcat=\"$num_cat\"  macrousertag=\"$user_tag\" macrotcorrnum=\"$t_correct_num\" macrotcorrdenom=\"$t_correct_denom\""
@@ -125,7 +125,7 @@ if [ 1 ]; then
       num_cat='3' #because 1 type of trigger in double time * 3 mass bins
     fi
     t_correct_num="ifar_result_files/summ_files/${combo}-CORSE_${data_type}_${cat}-${month_gps_time}-${month_duration}.txt"
-    t_correct_denom="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${combo}-${month_gps_time}-${month_duration}.txt"
+    t_correct_denom="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
     echo "JOB $job_name ifar_result_${data_type}.plotifar.sub"
     echo "RETRY $job_name 1"
     echo "VARS $job_name macroglob=\"$glob_file\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotriggers=\"$triggers\" macronumcat=\"$num_cat\"  macrousertag=\"$data_type\" macrotcorrnum=\"$t_correct_num\" macrotcorrdenom=\"$t_correct_denom\""
