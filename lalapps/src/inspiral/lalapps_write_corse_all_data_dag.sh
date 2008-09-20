@@ -29,7 +29,7 @@ pushd septime_files/${cat}/ > /dev/null
 for combo in H1H2L1 H1H2 H1L1 H2L1; do
   echo -n "  Getting ${cat}/${combo}-SEPTIME_SLIDE*.txt files..."
   for file in ${combo}-SEPTIME_SLIDE_H*.txt; do
-    echo ${file}
+    echo "septime_files/${cat}/${file}"
   done > ../septime_${cat}_${combo}_times.cache
   echo " done."
 done
@@ -66,8 +66,8 @@ if [ 1 ]; then
     done
     #write corse jobs for double-in_triple and triple-in_triple files
     for combo in H1L1 H2L1 H1H2L1; do
-      zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
-      slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
+      zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
+      slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
       outfile="corse_all_data_files/${mass}/H1H2L1_${combo}-CORSE_ALL_DATA_${cat}-${month_gps_time}-${month_duration}.xml.gz"
       timeanalyzedfile="septime_files/H1H2L1_V3_${cat}.txt"
       echo "JOB $outfile corse_all_data.corse.sub"
