@@ -16,6 +16,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+
 #
 # =============================================================================
 #
@@ -23,6 +24,7 @@
 #
 # =============================================================================
 #
+
 
 """
 This module provides class definitions corresponding to the elements that
@@ -43,6 +45,7 @@ from xml import sax
 from xml.sax.saxutils import escape as xmlescape
 from xml.sax.saxutils import unescape as xmlunescape
 
+
 import types as ligolwtypes
 
 
@@ -54,8 +57,10 @@ import types as ligolwtypes
 # =============================================================================
 #
 
+
 Header = u"""<?xml version='1.0' encoding='utf-8'?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">"""
+
 
 Indent = u"\t"
 
@@ -67,6 +72,7 @@ Indent = u"\t"
 #
 # =============================================================================
 #
+
 
 class ElementError(Exception):
 	"""
@@ -267,6 +273,15 @@ class Element(object):
 		file.write(self.end_tag(indent) + u"\n")
 
 
+def WalkChildren(elem):
+	"""
+	Walk the XML tree of children below elem, returning each in order.
+	"""
+	for child in elem.childNodes:
+		for elem in xmlWalk(child):
+			yield elem
+
+
 #
 # =============================================================================
 #
@@ -274,6 +289,7 @@ class Element(object):
 #
 # =============================================================================
 #
+
 
 class LIGO_LW(Element):
 	"""
@@ -496,6 +512,7 @@ class Document(Element):
 #
 # =============================================================================
 #
+
 
 class LIGOLWContentHandler(sax.handler.ContentHandler):
 	"""
@@ -730,6 +747,7 @@ class FilteringLIGOLWContentHandler(LIGOLWContentHandler):
 #
 # =============================================================================
 #
+
 
 def make_parser(handler):
 	"""
