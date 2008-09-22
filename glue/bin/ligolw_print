@@ -45,6 +45,7 @@ from glue.lal import CacheEntry
 from glue import segmentsUtils
 from glue.ligolw import ligolw
 from glue.ligolw import table
+from glue.ligolw import array
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 
@@ -68,7 +69,8 @@ def parse_command_line():
 	parser.add_option("-c", "--column", metavar = "name", action = "append", help = "Print only the contents of the given column.  Can be provided multiple times to print multiple columns.  The default is to print all columns from each table.")
 	parser.add_option("-d", "--delimiter", metavar = "string", default = ",", help = "Delimit output with the given string.  The default is \",\".")
 	parser.add_option("-r", "--rows", metavar = "rowspec", default = ":", help = "Print rows in the given range(s).  The format is first:last[,first:last,...].  Rows are numbered from 0.  A single first:last pair requests rows in the range [first, last).  If the first or last value of a pair is omited it means 0 or infinity respectively.  The default is \":\", or to print all rows.")
-	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "Dump rows from this table.  Can be provided multiple times to dump rows from multiple tables.  The default is to dump the contents of all tables.")
+	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "Print rows from this table.  Can be provided multiple times to print rows from multiple tables.  The default is to print the contents of all tables.")
+	parser.add_option("-a", "--array", metavar = "name", action = "append", help = "Print the contents of this array.  Can be provided multiple times to print the elements from multiple arrays.  The default is to print the contents of all arrays.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, urls = parser.parse_args()
 
@@ -78,6 +80,9 @@ def parse_command_line():
 	# strip table names
 	if options.table:
 		options.table = map(table.StripTableName, options.table)
+
+	if options.array:
+		options.array = map(array.StripArrayName, options.array)
 
 	# turn row requests into a segment list
 	try:
@@ -115,10 +120,12 @@ table.RowBuilder = table.InterningRowBuilder
 
 
 def ContentHandler(xmldoc):
-	if options.table:
-		return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name == ligolw.Table.tagName) and (table.StripTableName(attrs["Name"]) in options.table))
-	else:
+	if not (options.table or options.array):
+		# parse the entire document
 		return ligolw.LIGOLWContentHandler(xmldoc)
+
+	# parse just the desired table and/or array elements
+	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripTableName(attrs["Name"]) in options.array))
 
 
 utils.ContentHandler = ContentHandler
@@ -134,15 +141,35 @@ utils.ContentHandler = ContentHandler
 
 
 #
-# How to print a row
+# How to print a table
 #
 
 
-def row_string(table_elem, row):
-	if options.column:
-		return options.delimiter.join(map(lambda key: str(getattr(row, key)), options.column))
+def print_table(table_elem, columns, rows):
+	if not columns:
+		columns = table_elem.columnnames
+	for n, row in enumerate(table_elem):
+		if n in rows:
+			print options.delimiter.join(map(lambda key: str(getattr(row, key)), columns))
+
+
+#
+# How to print an array
+#
+
+
+def print_array(array_elem):
+	a = array_elem.array
+	if len(a.shape) == 1:
+		# a one-dimensional array
+		for row in a:
+			print repr(row)
+	elif len(a.shape) == 2:
+		for row in a.transpose()[:]:
+			print options.delimiter.join(map(repr, row))
 	else:
-		return options.delimiter.join(map(lambda colname: str(getattr(row, colname)), table_elem.columnnames))
+		# a three or more dimensional array
+		raise ValueError, "array has more than 2 dimensions"
 
 
 #
@@ -160,8 +187,9 @@ options, urls = parse_command_line()
 for url in urls:
 	xmldoc = utils.load_url(url, verbose = options.verbose, gz = (url or "stdin").endswith(".gz"))
 	table.InterningRowBuilder.strings.clear()
-	for table_elem in xmldoc.getElements(lambda e: (e.tagName == ligolw.Table.tagName)):
-		for n, row in enumerate(table_elem):
-			if n in options.rows:
-				print row_string(table_elem, row)
+	for elem in ligolw.WalkChildren(xmldoc):
+		if elem.tagName == ligolw.Table.tagName:
+			print_table(elem, options.column, options.rows)
+		elif elem.tagName == ligolw.Array.tagName:
+			print_array(elem)
 	xmldoc.unlink()
