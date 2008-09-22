@@ -469,7 +469,18 @@ def write_html_head( opts, injPatterns, title ):
   fout.write( line )
   line = '<h2> Information </h2>'
   fout.write( line )
-  line = '<p> User Options: <br />' + str( sys.argv[1:] ) + '</p> \n'
+  line = '<p> User Options: <br /> \n'
+  fout.write( line )
+  line = '  <code> \n'
+  fout.write( line )
+  line = ''
+  for i in xrange( len( sys.argv ) ):
+    line = line + sys.argv[i] + ' '  
+  line = line + ' \n'
+  fout.write( line )
+  line = '  </code> \n'
+  fout.write( line )
+  line = '</p> \n'
   fout.write( line )
 
 
