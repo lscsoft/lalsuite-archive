@@ -98,6 +98,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
     # read segment file
     seg_list =\
           segmentsUtils.fromsegwizard(open(segfile),coltype=float,strict=False)
+    seg_list.coalesce()
     if seg_list==[]:
         print >> sys.stderr, """
         Error: file contains no segments or glue.segmentsUtils.fromsegwizard is
@@ -122,16 +123,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
                 if verbose: print "retreiving data from %s ..."%trigs_loc
                 trig_file=open(trigs_loc)
             else:
-                # get the info via Internet
-                import urllib2
-                password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-                password_mgr.add_password(None,"http://ldas-jobs.ligo.caltech.edu/",\
-                                                                     'LVC','DiscGWoveR')
-                handler = urllib2.HTTPBasicAuthHandler(password_mgr)
-                opener = urllib2.build_opener(handler)
-                trigs_loc="http://ldas-jobs.ligo.caltech.edu/~mabizoua/VSR1/KW/cleandata_DQburst/%s.dat"%channel
-                if verbose: print "retreiving data from %s ..."%trigs_loc
-                trig_file = opener.open(trigs_loc)
+                sys.exit(1)
         except (IOError):
             print >>sys.stderr, "Error: file for channel %s not found" % channel 
             sys.exit(1)
@@ -181,33 +173,12 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
                     if verbose: print "retreiving data from %s..."%data_loc
                     trig_file=open(data_loc)
                 else:
-                    # get the info via Internet
-                    import urllib2
-                    password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-                    password_mgr.add_password(None,"http://ldas-jobs.ligo.caltech.edu/",\
-                                                                         'LVC','DiscGWoveR')
-                    handler = urllib2.HTTPBasicAuthHandler(password_mgr)
-                    opener = urllib2.build_opener(handler)
-                    data_loc="http://ldas-jobs.ligo.caltech.edu/~lindy/triggers/s5/"+\
-                             "_".join(day.split(":"))+"/s5_"+channel+".trg"
-                    if verbose: print "retreiving data from %s ..."%data_loc
-                    trig_file = opener.open(data_loc)
-                    print trig_file
+                    sys.exit(1)
             except (IOError):
                 # some channel are not in all the daily folder
                 print >>sys.stderr, "channel %s not found in day %s, ignoring"\
                                      %(channel, "-".join(day.split(":")))
-            for line in trig_file:
-                trig=line.split()
-                # exclude comment part
-                if trig[0][0]!="#":
-                    t=float(trig[0]); s=float(trig[7])
-                    # check if that KW event is in analyzed segment and also
-                    # check if its snr is bigger than specified minimum snr
-                    # inf is bad, cause trouble later
-                    if t in seg_list and s > min_thresh and s != float('inf'):
-                        times.append(float(trig[0]))
-                        snr.append(float(trig[7]))
+            
                         
                         
     ## sanity check
