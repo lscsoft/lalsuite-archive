@@ -1194,7 +1194,7 @@ for(i=0;i<count;i++){
 	if(!isfinite(re[i]) || !isfinite(im[i])) {
 		free(tmp);
 		fprintf(stderr, "Infinite value encountered in file \"%s\"\n", filename);
-		return -2;
+		return -(48+ht.nsamples*8+ht.comment_length);
 		}
 	}
 free(tmp);
