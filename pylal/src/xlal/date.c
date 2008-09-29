@@ -732,10 +732,14 @@ static PyObject *pylal_XLALArrivalTimeDiff(PyObject *self, PyObject *args)
 	if(!PyArg_ParseTuple(args, "OOddO!:XLALArrivalTimeDiff", &pos1, &pos2, &ra, &dec, &pylal_LIGOTimeGPS_Type, &gps))
 		return NULL;
 	pos1 = PyArray_FromAny(pos1, PyArray_DescrFromType(NPY_FLOAT64), 1, 1, NPY_CONTIGUOUS, NULL);
+	if(!pos1) {
+		PyErr_SetString(PyExc_TypeError, "XLALArrivalTimeDiff() unable to convert argument 1 to array");
+		return NULL;
+	}
 	pos2 = PyArray_FromAny(pos2, PyArray_DescrFromType(NPY_FLOAT64), 1, 1, NPY_CONTIGUOUS, NULL);
-	if(!pos1 || !pos2) {
-		Py_XDECREF(pos1);
-		Py_XDECREF(pos2);
+	if(!pos2) {
+		PyErr_SetString(PyExc_TypeError, "XLALArrivalTimeDiff() unable to convert argument 2 to array");
+		Py_DECREF(pos1);
 		return NULL;
 	}
 	if(PyArray_DIM(pos1, 0) != 3) {
