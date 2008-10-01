@@ -393,10 +393,8 @@ if opts.write_injections:
     for pattern in inj_patterns:
         
         # read injection and its corresponding coincs
-        print "Reading inj_doc"
         inj_doc = grbsummary.load_cache(ligolw.Document(), injection_cache,
                                         pattern, exact_match=True)
-        print "Reading coinc_doc"
         coinc_doc = grbsummary.load_cache(ligolw.Document(), inj_coinc_cache,
                                           pattern, exact_match=True)
 
