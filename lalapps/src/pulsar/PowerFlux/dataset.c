@@ -18,6 +18,7 @@
 */
 
 #define _GNU_SOURCE
+#define _FILE_OFFSET_BITS 64
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1137,7 +1138,12 @@ long i;
 SFTv2_header2 ht;
 /* read header */	
 
-fread(&ht, sizeof(ht), 1, fin);
+if(fread(&ht, sizeof(ht), 1, fin)<1) {
+	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
+	free(tmp);
+	fclose(fin);
+	return -1;
+	}
 
 /* fprintf(stderr, "%s gps=%d nsamples=%d\n", filename, ht.gps_sec, ht.nsamples); */
 
@@ -1172,7 +1178,12 @@ if(startbin+count>bin_start+ht.nsamples) {
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 
-fseek(fin, ht.comment_length+(startbin-bin_start)*8,SEEK_CUR);
+if(fseek(fin, ht.comment_length+(startbin-bin_start)*8,SEEK_CUR)<0) {
+	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
+	free(tmp);
+	fclose(fin);
+	return -1;
+	}
 if(fread(tmp,4,count*2,fin)<count*2){
 	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
 	free(tmp);
@@ -1250,11 +1261,11 @@ if(retries>0) {
 header_offset=0;
 while(1) {
 	/* find header */
-	fseek(fin, header_offset, SEEK_SET);
-	if(ftell(fin)!=header_offset) {
+	if(fseek(fin, header_offset, SEEK_SET)<0) {
 		/* no header to find */
-		if(!header_offset) {
-			fprintf(stderr, "Error seeking to start of file %s !!\n", filename);
+		if(!feof(fin)) {
+			fprintf(stderr, "*** Error seeking to offset %ld in file %s !!\n", header_offset, filename);
+			if(header_offset>=(1<<31)) fprintf(stderr, "*** Possible 2GB filelimit condor issue\n");
 			exit(-1);
 			}
 		return;
