@@ -28,14 +28,17 @@ import cPickle as pickle
 import operator
 import optparse
 import sys
+import glob
 
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
 
 from glue import lal
 from glue.ligolw import ligolw
+from glue.ligolw.utils import ligolw_add
 from glue.ligolw import lsctables
 from glue.ligolw import table
+from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import rate
@@ -108,8 +111,11 @@ def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
     of rate.Bins.
     """
     # read unclustered on-source coincs
-    onsource_trigs = table.get_table(xmldoc,
-        lsctables.SnglInspiralTable.tableName)
+    try:
+      onsource_trigs = table.get_table(xmldoc,
+          lsctables.SnglInspiralTable.tableName)
+    except ValueError:
+      onsource_trigs = lsctables.New(lsctables.SnglInspiralTable)
     onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
         coinc_stat)
 
@@ -186,8 +192,13 @@ def get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
             "m2 or D bins.\n" % (num_discarded, len(sims)))
 
     # get coincs
-    inj_trigs = table.get_table(coinc_doc,
-        lsctables.SnglInspiralTable.tableName)
+    try:
+      inj_trigs = table.get_table(coinc_doc,
+          lsctables.SnglInspiralTable.tableName)
+    except ValueError:
+      print "WARNING: coinc_doc contains no triggers."
+      inj_trigs = lsctables.New(lsctables.SnglInspiralTable)
+
     inj_coincs = CoincInspiralUtils.coincInspiralTable(inj_trigs, coinc_stat)
 
     # find loudest coincs
@@ -215,8 +226,8 @@ def parse_args():
     # cache input
     parser.add_option("--cache-file", help="LAL-formatted cache file "
         "containing entries for all XML filies of interest")
-    parser.add_option("--onsource-pattern", metavar="PAT", help="sieve the "
-        "cache descriptions for on-source coincidences files with PAT")
+    parser.add_option("--onsource-glob", metavar="GLOB", help="glob the "
+        "on-source files with GLOB")
     parser.add_option("--offsource-pattern", metavar="PAT", help="sieve the "
         "cache descriptions for off-source coincidence files with PAT")
     parser.add_option("--injection-pattern", metavar="PAT",
@@ -238,6 +249,11 @@ def parse_args():
     parser.add_option("--veto-segfiles", default="",
         help="comma-separated list of segwizard-formatted segment files that "
         "contain segments to veto")
+
+    parser.add_option( "--onsource-seg", action="store", type="string",
+        default=None,
+        help="segwizard-formatted file containing onsource segment")
+
 
     # binning
     parser.add_option("--m2-min", type="float", help="minimum of the range in "
@@ -265,7 +281,7 @@ def parse_args():
     options, arguments = parser.parse_args()
 
     # check that mandatory switches are present
-    for opt in ("cache_file", "onsource_pattern", "offsource_pattern",
+    for opt in ("cache_file","offsource_pattern",
         "veto_segfiles", "m2_min", "m2_max", "m2_nbins", "D_min", "D_max",
         "D_nbins", "mc_boundaries", "statistic"):
         if getattr(options, opt) is None:
@@ -306,16 +322,18 @@ lsctables.SimInspiralTable.loadcolumns = ["simulation_id", "mass1", "mass2",
 lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
     "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
-onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
-    opts.onsource_pattern, verbose=opts.verbose)
+# always read offsource triggers (needed in any case)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
+off_segs = grbsummary.get_segs_from_doc(offsource_doc)
 
 ################################################################################
 # choose segments/trials/vetoes (match grbtimeslide_stats)
 
+on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
+                                                    coltype=int)
 trial_bins, trial_veto_mask, _ = \
-    grbsummary.get_exttrig_trials(onsource_doc, offsource_doc,
+    grbsummary.get_exttrig_trials(on_segs, off_segs,
                                   opts.veto_segfiles)
 
 ################################################################################
@@ -326,24 +344,34 @@ D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 ################################################################################
 # get loudest on-source coincs
-onsource_loudest_by_mc = get_loudest_stats_by_mc(onsource_doc, coinc_stat,
-    mc_bins)
+if opts.write_onsource:
+
+  # read the onsource file(s)
+  fileList = glob.glob(opts.onsource_glob)
+  if len(fileList)!=1:
+    raise ValueError, "Number of on-source fils must be 1, it is %d " % len(fileList)
+  onsource_doc = ligolw_add.ligolw_add(ligolw.Document(), fileList, verbose=opts.verbose)
+
+  # and extract the loudest for each MC bin
+  onsource_loudest_by_mc = get_loudest_stats_by_mc(onsource_doc, coinc_stat,
+      mc_bins)
 
 ################################################################################
 # get loudest off-source coincs
 if opts.write_offsource or opts.write_injections:
-    offsource_loudest_by_trial_mc = get_loudest_stats_by_trial_mc(offsource_doc,
-        coinc_stat, trial_bins, mc_bins)
 
-    # throw out vetoed trials
-    offsource_loudest_by_trial_mc = \
-        offsource_loudest_by_trial_mc[~trial_veto_mask, :]
+  offsource_loudest_by_trial_mc = get_loudest_stats_by_trial_mc(offsource_doc,
+      coinc_stat, trial_bins, mc_bins)
+
+  # throw out vetoed trials
+  offsource_loudest_by_trial_mc = \
+      offsource_loudest_by_trial_mc[~trial_veto_mask, :]
 
 ################################################################################
 # get loudest injection coincs
 if opts.write_injections:
     # sieve down to just injection coinc files
-    injection_cache = cache.sieve(description=opts.injection_pattern)
+    injection_cache = cache.sieve(description=opts.injection_pattern).sieve(ifos='HL')
     inj_coinc_cache = cache.sieve(description=opts.inj_coinc_pattern)
 
     # speed hack: only iterate over IFOs of interest for mchirp calculation
@@ -363,9 +391,12 @@ if opts.write_injections:
     sim_count_by_inj_m2_D = []
     inj_loudest_by_inj_mc_m2_D = []
     for pattern in inj_patterns:
+        
         # read injection and its corresponding coincs
+        print "Reading inj_doc"
         inj_doc = grbsummary.load_cache(ligolw.Document(), injection_cache,
                                         pattern, exact_match=True)
+        print "Reading coinc_doc"
         coinc_doc = grbsummary.load_cache(ligolw.Document(), inj_coinc_cache,
                                           pattern, exact_match=True)
 
