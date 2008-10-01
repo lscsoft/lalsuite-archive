@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # $Id$
 #
 # Copyright (C) 2006  Nickolas Fotopoulos, Chad Hanna
@@ -33,6 +33,7 @@ import socket
 import sys
 import urllib
 import urlparse
+import subprocess
 
 default_sites = os.environ["GLUE_PREFIX"] + "/etc/ldg-sites.xml"
 default_properties = os.environ["GLUE_PREFIX"] + "/etc/pegasus-properties.bundle"
@@ -145,41 +146,27 @@ plan_args.append("--job-prefix="+dax_file)
 #plan_args.append("--verbose")
 plan_args.append("--randomdir")
 plan_args.append("--force")
+if not opts.no_submit:
+  plan_args.append("--submit")
+
 if opts.pegasus_cache: plan_args.append('--cache='+opts.pegasus_cache)
 plan_command = " ".join(plan_args)
 
 if opts.verbose: print "Executing: " + plan_command
-plan_in, plan_out, plan_err = os.popen3(plan_command)
-pid, status = os.wait()
+sto = open(".ldg_submit_dax.stdout","w");
+ste = open(".ldg_submit_dax.stderr","w");
+
+
+popen = subprocess.Popen(plan_command.split(), stderr = ste, stdout = sto)
+(stdout, stderr) = popen.communicate()
+status = popen.returncode
+sto.close()
+ste.close()
 
 if status != 0:
     print >>sys.stderr, "External call failed."
     print >>sys.stderr, "  status: %d" % status
-    print >>sys.stderr, "  stdout: %s" % plan_out.read()
-    print >>sys.stderr, "  stderr: %s" % plan_err.read()
+    print >>sys.stderr, "  stdout: %s" % open(".ldg_submit_dax.stdout","r").readlines()
+    print >>sys.stderr, "  stderr: %s" % open(".ldg_submit_dax.stderr","r").readlines()
     print >>sys.stderr, "  command: %s" % plan_command
     sys.exit(1) 
-plan_out_lines = plan_out.readlines()
-
-# do pegasus-run
-run_commands = [line.strip() for line in plan_out_lines if line.startswith("pegasus-run")]
-if len(run_commands) == 0:
-    print >>sys.stderr, "Where is the run command?  I couldn't find it in the following:"
-    print >>sys.stderr, plan_out_lines
-    sys.exit(1)
-elif len(run_commands) > 1:
-    print >>sys.stderr, "I are t3h confus3d.  Why do I find more than one command to run?"
-    print >>sys.stderr, "Matching lines:"
-    print >>sys.stderr, run_commands
-    print >>sys.stderr, "All lines:"
-    print >>sys.stderr, "".join(plan_out_lines)
-    sys.exit(1)
-run_command = run_commands[0]
-run_args = run_command.split(" ")
-dax_base = dax_file.strip('.dax')
-if opts.no_submit:
-  pass
-  #dag_filename = os.path.join(run_args[-1], dax_base + ".dag")
-  #os.execvp("condor_submit_dag", ("condor_submit_dag", "-no_submit", dag_filename))
-else:
-    os.execvp(run_args[0], run_args)
