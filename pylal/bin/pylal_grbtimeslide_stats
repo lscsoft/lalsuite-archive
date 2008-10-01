@@ -131,8 +131,9 @@ parser.add_option("-p", "--offsource-pattern",
 parser.add_option("-V", "--veto-files", action="callback", type="string",
     callback=comma_delimited, default=[],
     help="list of segwizard-formatted files containing segments to exclude")
-parser.add_option("-t", "--fold-time", type="int",
-    help="express result in terms of trials of length FOLD_TIME seconds")
+parser.add_option("-t", "--onsource-seg", action="store", type="string",
+    default=None,
+    help="segwizard-formatted file containing onsource segment")
 parser.add_option("--mc-boundaries", action="callback", type="string",
     callback=comma_delimited, default=[-numpy.inf, numpy.inf],
     callback_kwargs={"elem_type":float},
@@ -192,8 +193,8 @@ if not ((opts.glob is None) ^ (opts.cache_file is None)):
     print >>sys.stderr, "A glob or input file is required (but not both)"
     sys.exit(2)
 
-if opts.fold_time is None:
-    print >>sys.stderr, "A fold time is required."
+if opts.onsource_seg is None:
+    print >>sys.stderr, "An onsource segment is required."
     sys.exit(2)
 
 if opts.coinc_statistic is None:
@@ -215,13 +216,17 @@ InspiralUtils.initialise(opts, __name__, __version__)
 
 ##############################################################################
 # read in document
-onsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
-    opts.onsource_pattern, verbose=opts.verbose)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
     opts.offsource_pattern, verbose=opts.verbose)
+off_segs = grbsummary.get_segs_from_doc(offsource_doc)
 
 nominal_num_slides = grbsummary.get_num_slides(offsource_doc)
 total_num_slides = 2 * nominal_num_slides or 1
+
+# get the onsource and offsource segments
+on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
+                                                    coltype=int)
+trial_len =  int(abs(on_segs))
 
 ##############################################################################
 # make mchirp bins
@@ -230,7 +235,7 @@ mc_bins = rate.IrregularBins(opts.mc_boundaries)
 ##############################################################################
 # segment computation
 bins, trial_veto_mask, onsource_ind = \
-    grbsummary.get_exttrig_trials(onsource_doc, offsource_doc, opts.veto_files)
+    grbsummary.get_exttrig_trials( on_segs, off_segs, opts.veto_files)
 num_trials = len(bins)
 
 # derive a 2D and 3D trial masks for convenience
@@ -287,9 +292,9 @@ info_text = ""
 info_text += InspiralUtils.message(opts, "Total number of slides "\
     "(pos + neg or zerolag): %d" % total_num_slides)
 info_text += InspiralUtils.message(opts, "Total time analyzed (s): "\
-    "%d of %d" % (eff_num_trials * opts.fold_time, bins.max - bins.min))
+    "%d of %d" % (eff_num_trials * trial_len, bins.max - bins.min))
 info_text += InspiralUtils.message(opts, "Number of %d second "\
-    "segments per slide: %d" % (opts.fold_time, eff_num_trials))
+    "segments per slide: %d" % (trial_len, eff_num_trials))
 
 # by mchirp range
 for counts_by_slide_trial, mc_range in \
