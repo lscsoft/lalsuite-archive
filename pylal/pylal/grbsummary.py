@@ -177,25 +177,52 @@ def multi_ifo_compute_offsource_segment(analyzable_dict, on_source, **kwargs):
     
     return off_source_segment, the_ifo_combo
 
-def get_exttrig_trials(onsource_doc, offsource_doc, veto_files):
+def get_segs_from_doc(doc):
+    """
+    Return the segments from a document
+    @param doc: document containing the desired segments
+    """
+
+    # get segments
+    seg_dict = llwapp.segmentlistdict_fromsearchsummary(doc)
+    segs = seg_dict.union(seg_dict.iterkeys()).coalesce()
+    # typecast to ints, which are better behaved and faster than LIGOTimeGPS
+    segs = segments.segmentlist([segments.segment(int(seg[0]), int(seg[1]))\
+        for seg in segs])
+
+    return segs
+   
+
+def get_exttrig_trials_from_docs(onsource_doc, offsource_doc, veto_files):
     """
     Return a tuple of (off-source time bins, off-source veto mask,
     index of trial that is on source).
     The off-source veto mask is a one-dimensional boolean array where True
     means vetoed.
+    @param onsource_doc: Document describing the on-source files
+    @param offsource_doc: Document describing the off-source files
+    @param veto_files: List of filenames containing vetoes 
     """
-    # identify trial time (== on-source length)
-    on_seg_dict = llwapp.segmentlistdict_fromsearchsummary(onsource_doc)
-    on_segs = on_seg_dict.union(on_seg_dict.iterkeys()).coalesce()
-    trial_len = int(abs(on_segs))
 
-    # get analyzed segments; if exttrig_analyze=offsource, then this is the two
-    # segments immediately adjacent to the on-source segment
-    off_seg_dict = llwapp.segmentlistdict_fromsearchsummary(offsource_doc)
-    off_segs = off_seg_dict.union(off_seg_dict.iterkeys()).coalesce()
-    # typecast to ints, which are better behaved and faster than LIGOTimeGPS
-    off_segs = segments.segmentlist([segments.segment(int(seg[0]), int(seg[1]))\
-        for seg in off_segs])
+    # extract the segments
+    on_segs = get_segs_from_docs(onsource_doc)
+    off_segs = get_segs_from_docs(offsource_doc)
+
+    return get_exttrig_trials(on_segs, off_segs, veto_files)
+
+def get_exttrig_trials(on_segs, off_segs, veto_files):
+    """
+    Return a tuple of (off-source time bins, off-source veto mask,
+    index of trial that is on source).
+    The off-source veto mask is a one-dimensional boolean array where True
+    means vetoed.
+    @param on_segs: On-source segments
+    @param off_segs: Off-source segments 
+    @param veto_files: List of filenames containing vetoes
+    """
+   
+    # Check that offsource length is a multiple of the onsource segment length
+    trial_len = int(abs(on_segs))
     if abs(off_segs) % trial_len != 0:
         raise ValueError, "The provided file's analysis segment is not "\
             "divisible by the fold time."
