@@ -111,6 +111,7 @@ parser.add_option("-q", "--quiet",
 import logging
 from glue import lars
 from glue.lars import Cache, copyFile, copyDir, util
+from glue.lars.util import mountSearch
 
 
 # We must first initialize logging
@@ -214,8 +215,20 @@ if options.show:
                 print "   ", item.url
 
 if options.mount:
-    # Mount selected item(s)
-    pass
+    # Mount selected item
+    if not results or len(results) != 1:
+        log.error("Number of results is not equal to one.")
+        sys.exit(1)
+    mountSearch(results[0].url, options.mount)
+#   (scheme, netloc, path, query, frag) = urlsplit(results[0].url)
+#   # netloc is just host -- we didn't put user/port in there right?
+#   fs = "%s:%s" % (netloc, path)
+#   try:    os.mkdir(targetDir)
+#   except: pass
+#   log.info("Mounting '%s' on '%s'" % (fs, targetDir))
+#   p = Popen(["sshfs", fs, os.path.abspath(targetDir)], cwd=basedir)
+#   p.wait()
+#   del p
 
 if options.copy:
     # Copy selected items
