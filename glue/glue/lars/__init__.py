@@ -27,6 +27,7 @@ def initializeCli():
     # Default database -- in some ini or something...  ??
 
     global config
+    log = logging.getLogger("lars.cli")
 
     if os.environ.has_key('LARS_LIB'):
         sys.path.insert(0, os.environ['LARS_LIB'])
@@ -45,21 +46,21 @@ def initializeCli():
     #
 
     if not os.access(basedir,os.F_OK):
-      if verbose: print "Creating .lars directory hierarchy at " + basedir
+      log.info("Creating .lars directory hierarchy at " + basedir)
       try:
         os.makedirs(basedir)
       except:
-        print "Directory " + basedir + " does not exist and could not be created"
+        log.critical("Directory " + basedir + " does not exist and could not be created")
         sys.exit(1)
       try:    
         os.mkdir(mountdir)
       except: 
-        print "Directory " + mountdir + " does not exist and could not be created"
+        log.critical("Directory " + mountdir + " does not exist and could not be created")
         sys.exit(1)
       try:    
         os.mkdir(basedir+"/tmp")
       except: 
-        print "Directory " + mountdir + " does not exist and could not be created"
+        log.critical("Directory " + mountdir + " does not exist and could not be created")
         sys.exit(1)
     # make the above things exist now
 
@@ -131,7 +132,7 @@ class Cache(glue.lal.Cache):
                 p = Popen(["ssh", netloc, "cat", ">", path],
                            stdin=PIPE, close_fds=True)
                 f = p.stdin
-        if scheme == "cvs":
+        elif scheme == "cvs":
             f = CvsFile(url[4:], "w")
         else:
             raise Exception("Unknown scheme: %s" % scheme)
@@ -276,7 +277,7 @@ def copyFile(src, dest):
     destFile.close()
     if p.returncode != 0:
         # SHOULD BE LOGGED NOT PRINTED
-        print "Could not copy: ", src
+        log.error("Could not copy: ", src)
         os.unlink(dest)
 
 class SshFsManager:

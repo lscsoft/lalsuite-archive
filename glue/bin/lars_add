@@ -26,11 +26,11 @@ parser = OptionParser(usage=usage,
                       "$Id$\n" +
                       "$Name$\n")
 
-parser.add_option("", "--search-db",
-                  metavar="SEARCHDB",
+parser.add_option("", "--lars-db",
+                  metavar="LARSDB",
                   action="store",
                   default=None,
-                  help="location of search database to add new entry")
+                  help="location of lars search database for new entry")
 
 parser.add_option("-I", "--search-ifos",
                   action="store",
@@ -60,7 +60,7 @@ if len(args) != 2:
     parser.error("Description and search directory (only) are required.")
 
 
-searchDbUrl = options.search_db or searchDbUrl
+searchDbUrl = options.lars_db or searchDbUrl
 
 if not searchDbUrl:
     searchDbPath = DEFAULT_DB
@@ -135,6 +135,9 @@ if not searchIfos or not searchSegment:
         segments = segmentlist()
         for seg in segmentdict.values():
             segments.extend(seg)
+        if not segments:
+            print "No GPS times found.  GPS times must be specified on the command line or in the LAL cache of the search directory."
+            sys.exit(1)
         searchSegment = segments.extent()
         if verbose:
             sys.stdout.write(str(searchSegment))
