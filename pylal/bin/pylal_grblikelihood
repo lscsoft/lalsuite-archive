@@ -39,7 +39,7 @@ import sys
 
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
-
+from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 import pylab
@@ -204,10 +204,6 @@ def parse_args():
     parser.add_option("--relic-injections", help="output of pylal_relic "\
         "containing the loudest injection coincs.")
 
-    # calibration uncertainty
-    parser.add_option("--calibration-uncertainty", type="float", metavar="CAL",
-        help="calibration uncertainty (D -> (1+/-CAL)*D)")
-
     # InspiralUtils compatibility
     parser.add_option("--gps-start-time", type="int",
         help="GPS start time of data analyzed")
@@ -225,6 +221,18 @@ def parse_args():
         help="display the plots to screen if an X11 display is available")
 
     # odds and ends
+    parser.add_option("--h1-calibration-uncertainty", metavar="FAC",
+        type="float", default=0.,
+        help="fractional uncertainty in the DC calibration of "
+        "H1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--h2-calibration-uncertainty", metavar="FAC",
+        type="float", default=0.,
+        help="fractional uncertainty in the DC calibration of "
+        "H2; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--l1-calibration-uncertainty", metavar="FAC",
+        type="float", default=0.,
+        help="fractional uncertainty in the DC calibration of "
+        "L1; rescale distances by (1 +/- max(FAC))*D")
     parser.add_option("--verbose", action="store_true", default=False,
         help="print extra information to the console")
 
@@ -234,9 +242,6 @@ def parse_args():
     for opt in ("relic_onsource", "relic_offsource", "relic_injections"):
         if getattr(options, opt) is None:
             raise ValueError, "%s is required" % opt.replace("_", "-")
-
-    if options.calibration_uncertainty is not None:
-        raise NotImplemented
 
     return options, arguments
 
@@ -268,6 +273,17 @@ for low, hi, stat in zip(mc_bins.lower(), mc_bins.upper(),
 print "Number of injections read:", len(inj_loudest_by_inj_mc_m2_D)
 
 ##############################################################################
+# Take calibration systematics into account by rescaling D bins
+# NB: Does not check what IFOs participated in the GRB search
+
+calib_fac = 1 + max((opts.h1_calibration_uncertainty,
+                     opts.h2_calibration_uncertainty,
+                     opts.l1_calibration_uncertainty))
+D_bins.min /= calib_fac
+D_bins.max /= calib_fac
+D_bins.delta /= calib_fac
+
+##############################################################################
 # generic initialization
 InspiralUtils.initialise(opts, __prog__, __version__)
 
@@ -280,7 +296,7 @@ compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 
 #    0.5 / offsource_loudest_by_trial_mc.shape[0])
 
 ################################################################################
-# identify the loudest (by likelihood) on-source coincidences by m2
+# compute the likelihoods of the loudest on-source coincidences by m2
 
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
 
@@ -373,6 +389,11 @@ log_pch_by_inj_mc = numpy.array(log_pch_by_inj_mc)
 rho_by_inj_mc = numpy.array(rho_by_inj_mc)
 
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
+
+################################################################################
+# Take MC errors into account
+
+MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
 ################################################################################
 # plots
@@ -538,8 +559,7 @@ if not opts.show_plot:
     plot.close()
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
-# TODO: before and after MC and calibration systematics
-text = "p(L(m_2) > L_0(m_2)|h(m2, D))"
+text = "p(L(m_2) > L_0(m_2)|h(m2, D)) before MC errors"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D))$")
@@ -558,8 +578,31 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
+
+## p(c|h) from max L mchirp bins vs (m2, D) image
+text = "p(L(m_2) > L_0(m_2)|h(m2, D)) after 90% MC errors"
+
+num_sigmas = stats.norm.ppf(0.9)
+plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D)) "
+    r"incl. 90\% MC uncertainty$")
+plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
+plot.finalize()
+
+image = [c for c in plot.ax.get_children() \
+         if isinstance(c, matplotlib.image.AxesImage)][0]
+image.set_clim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pLh_afterMCerr_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
 ## upper limit contours (m2, D) image
-text = "(m2, D) exclusion plot"
+text = "(m2, D) exclusion plot including MC error"
 
 plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     "Exclusion regions")
@@ -567,24 +610,15 @@ plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
 exclusion_x = m2_bins.lower()
 zero = numpy.zeros(len(m2_bins), dtype=float)
 
-exclusion_y = get_level_crossings(pLh_by_m2_D, 0.25, D_bins)
-tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-plot.add_content(tmpx, tmpy, label=r"25\% exclusion")
-
-exclusion_y = get_level_crossings(pLh_by_m2_D, 0.5, D_bins)
-tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-plot.add_content(tmpx, tmpy, label=r"50\% exclusion")
-
-exclusion_y = get_level_crossings(pLh_by_m2_D, 0.75, D_bins)
-tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-plot.add_content(tmpx, tmpy, label=r"75\% exclusion")
-
-exclusion_y = get_level_crossings(pLh_by_m2_D, 0.9, D_bins)
-tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-plot.add_content(tmpx, tmpy, label=r"90\% exclusion")
+for exclusion_level in (0.25, 0.5, 0.75, 0.9):
+    num_sigmas = stats.norm.ppf(exclusion_level)
+    exclusion_y = get_level_crossings(pLh_by_m2_D - num_sigmas * MC_sigma,
+        exclusion_level, D_bins)
+    tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
+    plot.add_content(tmpx, tmpy,
+        label=str(int(exclusion_level * 100)) + r"\% exclusion")
 
 plot.finalize()
-
 plot.ax.set_ylim((0, D_bins.max))
 
 if opts.enable_output:
