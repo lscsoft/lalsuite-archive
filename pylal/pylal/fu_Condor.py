@@ -82,7 +82,11 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
     try:
       self.output_file_name = ""
-      inspiral.InspiralNode.__init__(self, inspJob) 
+      #inspiral.InspiralNode.__init__(self, inspJob) 
+      # the use of this class would require some reorganisation in fu_Condor.py
+      # and webCondor.py in order to set up the jobs following the same scheme
+      # as the way it is done for the Inspiral pipeline...
+      pipeline.CondorDAGNode.__init__(self,inspJob)
       injFile = self.checkInjections(cp)      
       hipeCache = checkHipeCachePath(cp)
 
@@ -108,6 +112,11 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         skipParams.append('frame-cache')
         self.add_var_opt('frame-cache',datafindCache)        
 
+      # initialize the extension of the output file. If the option 
+      # write_compress is found in procParams the extension will be overwritten
+      # later as .xml.gz
+      extension = ".xml"
+
       for row in procParams:
         param = row.param.strip("-")
         value = row.value
@@ -130,15 +139,27 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           pass
         if param in skipParams: continue
         self.add_var_opt(param,value)
-        if param == 'gps-end-time': self.__end = value
-        if param == 'gps-start-time': self.__start = value
+        # The attributes _AnalysisNode__end, _AnalysisNode__start,
+        # _InspiralAnalysisNode__pad_data need to be defined before calling the
+        # method "writeAll" of "class webTheDAG". This method calls
+        # "write_sub_files()" in pipeline.py, which itself relies on the
+        # "finalize()" method of "class InspiralAnalysisNode" in inspiral.py .
+        # This is where all these attributes are being used. This hack is 
+        # required because "inspiral.InspiralNode.__init__(self, inspJob)"
+        # currently does not work within "class followUpInspNoDE"
+        if param == 'gps-end-time':
+          self.__end = value
+          self._AnalysisNode__end = int(value)
+        if param == 'gps-start-time':
+          self.__start = value
+          self._AnalysisNode__start = int(value)
+        if param == 'pad-data': 
+          self._InspiralAnalysisNode__pad_data = int(value)
         if param == 'ifo-tag':
           self.__ifotag = value
         if param == 'channel-name': self.inputIfo = value[0:2]
-        if param == 'write-compress': 
+        if param == 'write-compress':
           extension = '.xml.gz'
-        else:
-          extension = '.xml'
 
       if type == "notrig":
         self.add_var_opt('cluster-window',str(hLengthAnalyzed))
@@ -244,7 +265,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      self.add_var_opt("frame-file",fileName.replace(".xml",".gwf"))
+      self.add_var_opt("frame-file",fileName.replace(".xml",".gwf").strip(".gz"))
       self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
       if ifoString:
