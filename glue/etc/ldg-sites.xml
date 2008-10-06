@@ -36,9 +36,9 @@
   </site>
 
   <site handle="uwm_nemo" sysinfo="INTEL64::LINUX" gridlaunch="/opt/ldg-4.5/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/opt/ldg-4.5/vdt/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/ldg-4.5/vdt/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/opt/ldg-4.5/vdt/pegasus</profile>
+    <profile namespace="env" key="GLOBUS_LOCATION">/opt/ldg-4.7/globus</profile>
+    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/ldg-4.7/globus/lib</profile>
+    <profile namespace="env" key="PEGASUS_HOME">/opt/ldg-4.7/pegasus</profile>
     <lrc url="rlsn://smarty.isi.edu"/>
     <gridftp url="gsiftp://hydra.phys.uwm.edu" storage="/tmp" major="4" minor="0" patch="4"/>
     <jobmanager universe="vanilla" url="hydra.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
