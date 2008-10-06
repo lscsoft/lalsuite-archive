@@ -39,8 +39,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
-from pylal import itertools # For the 2nd year analysis, this has to be replaced by
-# from glue import iterutils
+from glue import iterutils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
@@ -55,15 +54,17 @@ class getCache(UserDict):
     UserDict.__init__(self)
     self.dir = os.listdir(os.getcwd())
     self.options = options
-    self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL-', \
-                 'INSPIRAL_H', 'THINCA-', 'THINCA_']
+    self.types = ['TMPLTBANK', 'TRIGBANK', 'INSPIRAL_FIRST', \
+                 'INSPIRAL_SECOND', 'THINCA_FIRST', 'THINCA_SECOND']
     self.iniNames = ['tmpltbank-path', 'trigbank-path', 'first-inspiral-path', \
          'second-inspiral-path', 'first-coinc-path', 'second-coinc-path']
     self.iniNameMaps = map(None, self.iniNames, self.types)
     self.oNames = ['bank.cache', 'trigbank.cache', 'first_inspiral.cache', \
          'second_inspiral.cache', 'first_thinca.cache', 'second_thinca.cache']
     self.nameMaps = map(None, self.oNames, self.types)
-    self.ifoTypes = ['H1','H2','L1','H1H2','H1L1','H2L1','H1H2L1']
+    self.ifoTypes = ['H1','H2','L1','V1','H1H2','H1L1','H2L1','H1V1', \
+                          'H2V1','L1V1','H1H2L1','H1H2V1','H1L1V1', \
+                          'H2L1V1','H1H2L1V1']
 
     if options.generate_fu_cache:
       print >> sys.stderr, "\nOption --generate-fu-cache is specified, it overwrites the hipe cache files  which already exist"
@@ -80,8 +81,9 @@ class getCache(UserDict):
 
 
   def ifoDict(self):
-    return {'H1':[],'H2':[],'L1':[],'H1H2':[], \
-                    'H1L1':[],'H2L1':[],'H1H2L1':[]}
+    return {'H1':[],'H2':[],'L1':[],'V1':[],'H1H2':[], 'H1L1':[],'H2L1':[], \
+                   'H1V1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1H2V1':[], \
+                   'H1L1V1':[],'H2L1V1':[],'H1H2L1V1':[]}
 
   def getCacheType(self, iniName, type, cp=None):
     self[type] = []
@@ -240,7 +242,7 @@ class getCache(UserDict):
     else:
       return process
 
-  def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_"):
+  def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_SECOND_"):
     if cp.has_option('hipe-cache','hipe-intermediate-cache'):
       intermediateCache = string.strip(cp.get('hipe-cache','hipe-intermediate-cache'))
     else:
@@ -250,7 +252,7 @@ class getCache(UserDict):
     else:
       cacheFile = intermediateCache
 
-    if type == "INSPIRAL_":
+    if type == "INSPIRAL_SECOND_":
       # get the list of interferometers from the ifoTag
       listIfoTime = []
       for j in range(0,len(trig.ifoTag)-1,2):
@@ -701,7 +703,9 @@ class followUpList:
 
   def add_coincs(self,Coincs):
     setattr(self,"coincs",Coincs)
-    self.eventID = Coincs.event_id
+    # convert the ilwdchar "Coincs.event_id" into an integer. This removes
+    # the extra table_name and column_name and keeps only the ID string
+    self.eventID = int(Coincs.event_id)
     self.statValue = Coincs.stat
     self.ifos, self.ifolist_in_coinc = Coincs.get_ifos()
     if self.is_trigs():
@@ -759,7 +763,7 @@ def generateXMLfile(ckey,ifo,outputPath=None,table_type='pre-bank-veto'):
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   sngl_inspiral_table.append(trig)
 
-  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + str(ckey.event_id) + ".xml.gz"
+  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + str(int(ckey.event_id)) + ".xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
@@ -793,7 +797,7 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
     sngl_sub = sngl[index+fromEnd-int(subBankSize/2):-1]
   else: 
     sngl_sub = sngl[index-int(subBankSize/2):index+int(subBankSize/2)]
-    
+ 
   for row in sngl_sub:
     for col in notcolumns:
       setattr(row,col,0)
