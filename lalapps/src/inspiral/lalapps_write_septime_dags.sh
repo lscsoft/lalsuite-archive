@@ -126,7 +126,7 @@ fi> septime_slide.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${septime_path}"
-  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --h1-slide 0 --h2-slide 10 --l1-slide 5 --num-slides 50 --write-antime-file"
+  echo "arguments = --thinca \$(macroinfile) \$(macrotriggers) --veto-file vetoes_${cat}.xml.gz --output-dir septime_files/${cat} --gps-start-time \$(macrogpsstarttime) --gps-end-time \$(macrogpsendtime) --h1-slide 0 --h2-slide 0 --l1-slide 5 --num-slides 50 --write-antime-file"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/septime_slide-\$(cluster)-\$(process).err"
