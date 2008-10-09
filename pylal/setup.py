@@ -197,6 +197,7 @@ setup(
 		os.path.join("bin", "plotulvsmass"), 
 		os.path.join("bin", "plotifar"),
 		os.path.join("bin", "plotinjnum"),
+		os.path.join("bin", "plotinspfound"),
 		os.path.join("bin", "plotinspiral"),
 		os.path.join("bin", "plotinspinj"),
 		os.path.join("bin", "plotinspdiff"),
