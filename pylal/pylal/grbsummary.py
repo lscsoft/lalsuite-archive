@@ -11,7 +11,6 @@ itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
 
-from lalapps import inspiral
 from glue import lal
 from glue import iterutils
 from glue import pipeline
