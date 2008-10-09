@@ -65,17 +65,21 @@ def create_sngl_inspiral_table_if_missing(doc1, doc2):
     tables1 = table.getTablesByName(doc1, lsctables.SnglInspiralTable.tableName)
     tables2 = table.getTablesByName(doc2, lsctables.SnglInspiralTable.tableName)
 
+    # will want to append tables to the LIGO_LW tags of the documents
+    ligolw1 = doc1.childNodes[-1]
+    ligolw2 = doc2.childNodes[-1]
+
     if len(tables1) > 1 or len(tables2) > 1:
         raise ValueError, "why is there more than one sngl_inspiral table?"
     if len(tables1) == 1 and len(tables2) == 1:
         pass
     elif len(tables1) == 0 and len(tables2) == 0:
-        doc1.appendChild(lsctables.New(lsctables.SnglInspiralTable))
-        doc2.appendChild(lsctables.New(lsctables.SnglInspiralTable))
+        ligolw1.appendChild(lsctables.New(lsctables.SnglInspiralTable))
+        ligolw2.appendChild(lsctables.New(lsctables.SnglInspiralTable))
     elif len(tables1) == 0:
-        doc1.appendChild(table.new_from_template(tables2[0]))
+        ligolw1.appendChild(table.new_from_template(tables2[0]))
     else:
-        doc2.appendChild(table.new_from_template(tables1[0]))
+        ligolw2.appendChild(table.new_from_template(tables1[0]))
     return
 
 def delete_triggers_in_region(doc, target_seglist):
@@ -155,8 +159,7 @@ def parse_args():
         "delete_overlapping", "do_nothing"), help="what to do with triggers "\
         "already present in DEST; options are {delete_all, "\
         "delete_overlapping, do_nothing}")
-    parser.add_option("--output-filename", default="stdin",
-        help="file to which to send output")
+    parser.add_option("--output-filename", help="file to which to send output")
 
     parser.add_option("--shift-triggers", metavar="OFFSET",
         help="apply OFFSET to source triggers before pasting "\
@@ -177,6 +180,10 @@ def parse_args():
         help="increase verbosity")
 
     options, arguments = parser.parse_args()
+
+    for opt in ("source", "destination", "paste_strategy", "output_filename"):
+        if getattr(options, opt) is None:
+            raise ValueError, opt + " is a required option"
 
     if (options.take_offsource_trial is not None) \
         and (options.shift_triggers is not None):
