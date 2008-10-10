@@ -372,6 +372,7 @@ if slidefilelists:
     slideTriggersList.append(newSlides)
 
 if offsourcefilelists:
+  haveOffsource = False
   for filegroup in offsourcefilelists:
        # read raw triggers and time-shift them appropriately
     offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup,
@@ -393,6 +394,13 @@ if offsourcefilelists:
       newOffsource = newOffsource.cluster(opts.cluster_window)
 
     slideTriggersList.append(newOffsource)
+
+    if len(newOffsource) > 0:
+      haveOffsource = True
+
+  # get normalization right on slide histograms
+  if haveOffsource:
+    opts.num_slides += 0.5
 
 ##################################### plotting here below.
 # first some symbol definitions.
