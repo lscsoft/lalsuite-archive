@@ -676,7 +676,7 @@ if (opts.snr_snr or opts.slide_snr) and opts.mass_dependent:
       if opts.enable_output is True:
         text = "Plot of H1 vs H2 " + snglStat.replace("_"," ") + " for " + \
             str(mass_range[i]) + str(mass_range[i+1]) +  " mass range"
-        name = "H1_vs_H2_"+snglStat+"_"+(mass_range[i]) + "_" + \
+        name = "H1_vs_H2_"+snglStat+"_"+str(mass_range[i]) + "_" + \
             str(mass_range[i+1]) 
         fname = InspiralUtils.set_figure_name(opts, name)
         fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
