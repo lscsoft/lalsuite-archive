@@ -1,0 +1,245 @@
+#!/usr/bin/python
+
+# $Id$
+
+__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__name__="plotthinca"
+__Id__ = "$Id$"
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
+
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+import glue.iterutils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import InspiralUtils
+from pylal.xlal import date
+from pylal.xlal import tools
+import numpy
+
+from glue.ligolw import ligolw, table as tab, lsctables, utils
+
+from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+
+def compute_deltarms(longitude,latitude,ifo_list,ifo_coincs,detector_locations):
+  earth_center = numpy.zeros(3)
+  tgeo={}
+  # compute the geocentric time from each trigger
+  for ifo in ifo_list:
+    tgeo[ifo] = gps[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
+
+  # compute differences in these geocentric times
+  time={}
+  for ifos in ifo_coincs:
+    time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS( tgeo[ifos[0]] - tgeo[ifos[1]] )
+  deltarms = 0.0
+  for ifos in ifo_coincs:
+    deltarms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
+  return sqrt(deltarms)
+
+
+def skyplot(deltarms, time_threshold, longitude, latitude):
+  if deltarms < opts.time_threshold:
+    plot(asarray([longitude]), asarray([latitude]),'r+')
+    return 1
+  elif deltarms > opts.time_threshold and deltarms < 2.0* opts.time_threshold:
+    plot(asarray([longitude]), asarray([latitude]),'y+')
+    return 2
+  else:
+    plot(asarray([longitude]), asarray([latitude]),'b+')
+    return 0
+
+
+
+# What we want to do:
+# read in the coinc
+# extract the GPS time for each trigger
+# loop over random sky points
+#   determine the geo centric time for each and compute rms difference
+
+##############################################################################
+usage = """
+usage: %prog [options] 
+
+Estimate the sky position from a coincident trigger.
+
+"""
+
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+  # options related to input and output
+  parser.add_option("-g","--glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+  parser.add_option("-I", "--cache-file", \
+      help="read thinca filenames from cache input file")  
+  parser.add_option("-a","--time-threshold",action="store",type="float",\
+      default=0.001, metavar=" TIME_THRESHOLD",help="threshold on rms time difference" )
+  parser.add_option("-b","--n-sky",action="store",type="int",\
+      default=1000, metavar=" N_SKY",help="number of sky points to throw" )
+  parser.add_option("-S","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
+            "snr (DEFAULT), snr_over_chi, effective_snr, " 
+            "bitten_l, bitten_lsq") 
+
+  (options,args) = parser.parse_args()
+
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+
+
+#####################################################################
+# -- some initialisation
+#opts = InspiralUtils.initialise(opts, __name__, __version__)
+# -- set the proper color code
+#colors = InspiralUtils.colors
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+
+# Change to Agg back-end if show() will not be called 
+# thus avoiding display problem
+from pylab import *
+rc('text', usetex=True)
+
+
+####################################################################
+
+statistic = CoincInspiralUtils.coincStatistic( opts.statistic, None, None)
+    
+plotsymbols = ['r+','bx','ko','g1']
+hanfordsym = ['b+','bx','r1']
+addsym = ['k+','kx','k1']
+
+xlow = 20
+xhigh = 0
+
+###################################
+# glob the list of files to read in
+
+slidefiles = []
+coincfiles = []
+offsourcefiles = []
+
+if opts.glob is not None:
+  allfiles = []
+  for gl in opts.glob.split(" "):
+    allfiles.extend(glob.glob(gl))
+  if len(allfiles) < 1:
+    print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+    sys.exit(1)
+  else:
+    for file in allfiles:
+      if 'SLIDE' in file:
+        slidefiles.append(file)
+      else:
+        coincfiles.append(file)
+
+  # check if the file lists are not empty
+  if not (coincfiles or slidefiles):
+    print >>sys.stdout, "No files match your description."
+    sys.exit(0) 
+         
+########################
+# read in coinc triggers
+inspTriggers = None
+coincTriggers = CoincInspiralUtils.coincInspiralTable()
+
+if coincfiles:
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(coincfiles,
+                                           mangle_event_id = None,
+                                           verbose=None)
+  inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
+  injlong = inspInj.get_column('longitude')
+  injlat = inspInj.get_column('latitude')
+  
+  # construct the coincs
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+detector_locations = {}
+detector_locations["L1"] = tools.cached_detector["LLO_4k"].location   
+detector_locations["H1"] =tools.cached_detector["LHO_4k"].location 
+detector_locations["V1"] =tools.cached_detector["VIRGO"].location
+figure()
+for coinc in coincTriggers:
+  # get gps times of events
+  gps = coinc.get_gps_times()
+ 
+  # extract ifos that gave this
+  (coinc_type, ifo_list) = coinc.get_ifos()
+
+  #remove H2 if it's there
+  ifo_list = [ifo for ifo in ifo_list if ifo != "H2"]
+ 
+  # get the list of pairs
+  ifo_coincs = []
+  ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, 2)))
+
+  # a few counting parameters
+  count = zeros(3)
+
+  # search the sky
+  while count[0] < opts.n_sky :
+    count[0] += 1
+
+    # generate a random sky position
+    skyposition = numpy.random.rand(2)
+    latitude = arcsin( 2.0 * skyposition[0] - 1.0 ) 
+    longitude = 2.0 * pi * skyposition[1]
+
+    deltarms = compute_deltarms(longitude,latitude,ifo_list,\
+        ifo_coincs,detector_locations)
+
+    countindex = skyplot(deltarms, opts.time_threshold, longitude, latitude)
+
+    if not countindex:
+      count[countindex] += 1
+
+    if not (count[0] % 1000):
+      print count[0]
+
+deltarms = compute_deltarms(injlong,injlat,ifo_list,\
+        ifo_coincs,detector_locations)
+
+countindex = skyplot(deltarms, opts.time_threshold, injlong, injlat)
+if countindex == 1:
+  plot(asarray([injlong]), asarray([injlat]),'ro')
+elif countindex == 2:
+  plot(asarray([injlong]), asarray([injlat]),'yo')
+else:
+  plot(asarray([injlong]), asarray([injlat]),'bo')
+
+narrowcount=count[1]
+widecount=count[2]
+print "Narrow field volume: %f" % (180*sqrt( (4.0*pi*narrowcount)/count[0] )/pi)
+print "Wide field volume: %f" % (180*sqrt( (4.0*pi*widecount)/count[0] )/pi)
+axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+show()
