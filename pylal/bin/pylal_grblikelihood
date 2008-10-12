@@ -424,7 +424,8 @@ plot.ax.set_ylim((mc_bins.min, mc_bins.max))
 
 # add mchirp dividers
 for divider in mc_bins.boundaries:
-    plot.ax.hlines(divider, 0, plot.ax.get_xlim()[1], linestyle="dashed")
+    plot.ax.plot(plot.ax.get_xlim(), (divider, divider),
+        "k--", label="_nolegend_")
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "loudest_stats_by_mchirp")
@@ -589,9 +590,14 @@ plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
 plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
 plot.finalize()
 
-image = [c for c in plot.ax.get_children() \
-         if isinstance(c, matplotlib.image.AxesImage)][0]
-image.set_clim((0, 1))
+# XXX: Hack around an apparent matplotlib API backwards-incompatibility
+# When all clusters have 0.90 or higher, remove the try-except.
+try:
+  image = [c for c in plot.ax.get_children() \
+           if isinstance(c, matplotlib.image.AxesImage)][0]
+  image.set_clim((0, 1))
+except AttributeError:
+  pass
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "pLh_afterMCerr_by_m2_D")
