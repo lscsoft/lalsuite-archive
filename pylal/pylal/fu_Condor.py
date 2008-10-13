@@ -359,7 +359,8 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     self.set_observatory(ifo[0])
     self.set_start(int(startTime) - int(paddataTime))
     self.set_end(int(endTime) + int(paddataTime))
-    self.set_type(ifo + '_' + cp.get(type,'type'))
+    #self.set_type(ifo + '_' + cp.get(type,'type'))
+    self.set_type(cp.get(type,ifo + '_type'))
     lalCache = self.get_output()
     return(lalCache)
 
