@@ -9,6 +9,7 @@ from optparse import *
 from pylab    import *
 import numpy
 from numpy import power
+from pylal import rate
 
 #####################################################################
 # use tex labels
@@ -1639,79 +1640,150 @@ def tfplot(*args, **kwargs):
   return collection
 
 ######################################################################
-def _getTicks(minVal, maxVal, n):
+def rescale_axis(limNew, limOld):    
   """
-  Calculate tick positions when creating a contour plot
-  from a matrix or from a set of vectors describing the locations
-  of points.
-  Internal use only
-  """
-
-  Delta=maxVal-minVal
-  Delta+=Delta/float(n-1)
-  pot=int(log10(Delta)+0.000001)-1
-  DeltaReduced=Delta/pow(10, pot)
-  deltaApprox=DeltaReduced/5.0
-  if deltaApprox<1.5:
-    delta=1.0
-  elif deltaApprox<3.0:
-    delta=2.0
-  else:
-    delta=5.0
-    
-  delta*=pow(10,pot)
-  nTicks=int(Delta/delta+1.0000000001)
-  tickPos= arange(nTicks+1)* float(n-1)/float(nTicks-1)
-  tickLabel=[minVal + i*delta for i in range(nTicks)]
+  Rescaling axes, i.e. converting one axis to the other.
+  This is useful to make a contour plot with the correct
+  axis labels.
+  @param limOld: Two-component vector containing the new limits
+  @param limNew: Two component vector containing the original limits
   
-  return tickPos, tickLabel
+  Example:
+  
+  If you plot a 20x20 matrix as a contour plot the axis limits
+  go from 0 to 20. But the x-axis really spans values from e.g.
+  3 to 10. Then, to get the tick positions and the tick labels
+  to correct for this, you do:
+  
+  tickPos, tickLabels = rescale_axis([0, 20], [3, 10])
+  tickPos = [1.4799985170355541, 5.1799948096244393, \
+             8.8799911022133244, 12.57998739480221, \
+             16.279983687391095, 19.97997997997998]
+  tickLimits = [5.0, 10.0, 15.0, 20.0, 25.0, 30.0]
+  
+  tickPos contains the position at which you have to put the labels
+  in the vector tickLimits    
+  """
 
+  # get the difference of the new labels
+  Delta=limNew[1]-limNew[0]
 
+  # calculate a first order step width for the tick labels        
+  a = round( log10(3*Delta/20.0) )
+  step = pow(10, a)
+
+  # fine-tuning of the step-width on the new axis,
+  # so there are neither too many tick nor too few
+  nc = Delta/step
+  if nc<4:
+    step/=2
+  if nc>15:
+    step*=2
+
+  # get the starting and end-points of the axes
+  # adding one to cover the entire senseful range
+  startTick = step*int(limNew[0]/step+1.0)
+  endTick = step*int(limNew[1]/step+1.0)
+
+  # calculate the linear transformation parameters
+  slope = Delta/(limOld[1]-limOld[0])
+  intercept = limNew[0]
+        
+  # compute the axis positions and labels
+  tickPos = []
+  tickLabel = []
+  for t in arange( startTick, endTick, step):
+    tickLabel.append(t)
+    tickPos.append((t-intercept)/slope)
+    
+  # returning the results
+  return tickPos, tickLabel, intercept, slope
+
+###############################
+def create_contour( datax, datay ):
+
+    # create the array
+    xbins = rate.LinearBins(min(datax), max(datax), 20)
+    ybins = rate.LinearBins(min(datay), max(datay), 20)    
+    h = rate.BinnedArray(rate.NDBins((ybins,xbins)))
+
+    # fill this array
+    for x, y in zip(datax, datay):
+        h[y,x]+=1
+
+    mat = h.array
+    defX = xbins.centres()
+    defY = ybins.centres()
+
+    # get the dimensions
+    n=len(numpy.unique(defX))
+    m=len(numpy.unique(defY))
+
+    # get the boundaries
+    minX=min(defX)
+    maxX=max(defX)  
+    minY=min(defY)
+    maxY=max(defY)
+
+    # create the plot
+    contourf(mat,40, alpha=0.3)
+
+    # set the axes
+    ax = gca()
+    [xtick, xlabel, interX, slopeX]=rescale_axis([minX, maxX], [0,n])
+    ax.set_xticks(xtick)
+    ax.set_xticklabels(xlabel)
+    [ytick, ylabel, interY, slopeY]=rescale_axis([minY, maxY],[0, m])
+    ax.set_yticks(ytick)
+    ax.set_yticklabels(ylabel)
+
+   
 
 ######################################################################
-def plotContMat( matrix, defX, defY):
+def test_rescale_axis():
   """
-  Function to make a contour plot of a matrix
-  with the scaling information of the axis given in 'defX' and 'defY'.
-  The definition of the matrix is then:
-  matrix[j,i]
-  with i in defX
-  and j in defY
-  
-  @param matrix: contour matrix
-  @param defX: vector describing the x-scale
-  @param defY: vector describing the y-scale
+  Unit test(?) for rescale_axis
   """
   
-  # let numpy not interfer with something else
-  import numpy
+  # define input values
+  input = []
+  input.append([[0,20],[0,20]])
+  input.append([[0,200],[0,20]])
+  input.append([[-45.5, 300], [0, 20]])
   
-  # get the dimensions
-  n=len(numpy.unique(defX))
-  m=len(numpy.unique(defY))
-
-  # get the boundaries
-  minX=min(defX)
-  maxX=max(defX)  
-  minY=min(defY)
-  maxY=max(defY)
-
-  # create the plot
-  clf()
-  contourf(matrix,40)
-  colorbar()
-
-  # set the axes
-  ax = gca()
-  [xtick, xlabel]=_getTicks(minX, maxX, n)
-  ax.set_xticks( xtick )
-  ax.set_xticklabels( xlabel )
-  [ytick, ylabel]=_getTicks(minY, maxY, m)
-  ax.set_yticks( ytick )
-  ax.set_yticklabels( ylabel )
-  axis('tight')
+  # define output values
+  output = []
+  output.append([[2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0],\
+                 [2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0]])
+  output.append([[2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0, 20.0],\
+                 [20.0, 40.0, 60.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0]])
+  output.append([[2.6338639652677283, 5.5282199710564406, 8.4225759768451525,\
+                  11.316931982633864, 14.211287988422578, 17.105643994211288, 20.0],\
+                 [0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0]])
   
+  # accuracy of this test
+  eps = 1.0e-5
+  
+  # do the test
+  test=[None,None]
+  for inp, out in zip(input, output):
 
+    # test the unit
+    test[0], test[1] = rescale_axis(inp[0], inp[1])
+
+    for k in range(2):
+      if len(test[k])!=len(out[k]):
+        print "Length of output vectors inequal"
+        return 0
+      for x, y in zip( out[k], test[k]):
+        if abs(x-y)>eps:
+          print "Test variables inequal. Expected %f got %f " %\
+                (y,x)
+          return 0
+
+  # module succesfull tested
+  return 1
+      
 ######################################################################
 def main():
   # define usage and command line options and arguments - parse
