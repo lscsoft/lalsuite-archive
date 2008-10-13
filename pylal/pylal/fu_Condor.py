@@ -530,7 +530,11 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option('analyse-qscan','plot-z-scattered'):
         self.add_var_opt('plot-z-scattered','')
       if cp.has_option('analyse-qscan','plot-z-scattered') or cp.has_option('analyse-qscan','plot-dt-distribution'):
-        self.add_var_opt('ref-channel',cp.get('analyse-qscan','ref-channel'))
+        if not ifo=='V1':
+          refChannel = cp.get('analyse-qscan',shortName + 'ref-channel').split(',')[0].strip()
+        else:
+          refChannel = cp.get('analyse-qscan',shortName + 'ref-channel').split(',')[1].strip()
+        self.add_var_opt('ref-channel',refChannel)
       self.add_var_opt('qscan-id',name + '_' + ifo + '_' + repr(time)) 
 
       self.add_var_opt('qscan-cache-foreground',foregroundCache)
