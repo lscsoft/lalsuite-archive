@@ -380,7 +380,7 @@ def makeScatteredPlot(chan,opts,distribution,list11=None,list12=None,list21=None
 
   grid()
   xlabel('Z in ' + chan,size='x-large')
-  ylabel('Z in ' + 'DARM_ERR',size='x-large')
+  ylabel('Z in ' + opts.ref_channel,size='x-large')
   title('Scattered plot of significance for channel: ' + chan)
 
   if p1 and p2 and p3:
@@ -716,7 +716,6 @@ if not opts.process_background_only:
         figNumber = figNumber + 1
         zFigure = plotHistogram(channel,opts,'z-distribution',zHisto,zBin,figNumber,percentiles,zCandidate,z_candidate_rank,outputdir)
 
-      #if opts.plot_z_scattered and not channel=='H1:LSC-DARM_ERR' :
       if opts.plot_z_scattered:
         aux_list_back,darm_list_back = getAuxVsDarmList(backgroundSubTable,channel,opts,candidate[3])
         aux_list_fore,darm_list_fore = getAuxVsDarmList(foregroundSubTable,channel,opts,candidate[3])
