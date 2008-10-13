@@ -954,7 +954,7 @@ def cumhistcol(table1, col_name, plot_type = 'logy', normalization=None, \
 ######################################################################
 # function to make a cumulative histogram of the coinc inspiral statistic
 def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
-  max_val = None, nbins = 20, stat=None):
+  max_val = None, nbins = 20, stat=None,scalebkg=False):
   """
   function to plot a cumulative histogram of the snr of coincident events
   in the zero lag and times slides
@@ -966,6 +966,8 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
   @param max_val: maximum of snr to be plotted
   @param nbins: number of bins to use in histogram
   @param stat: the statistic being used
+  @param scalebkg: Use this option if plotting playground zero lag against
+  full data time slides (it will rescale the time slides).
   """
   internal_min = numpy.inf
   internal_max = -numpy.inf
@@ -1047,12 +1049,21 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
+    if scalebkg:  
+      semilogy(xvals,asarray(slide_mean)*600.0/6370.0, 'r+', markersize=12)
+    else:
+      semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
     if "bitten_l" in stat:
-       p=fill((tmpx-ds),tmpy, facecolor='y')
+      if scalebkg:
+        p=fill((tmpx-ds),tmpy*600.0/6370.0, facecolor='y')
+      else:
+        p=fill((tmpx-ds),tmpy, facecolor='y')
     else:
-       p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
+      if scalebkg:
+        p=fill((tmpx-ds)*(tmpx-ds),tmpy*600.0/6370.0, facecolor='y')
+      else:
+        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
     
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
