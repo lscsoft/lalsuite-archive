@@ -420,8 +420,18 @@ if opts.run_plots:
         opts.do_dag_categories, parentNodes, parentVetoNodes, 3)
 
   # Setting up plots for injection run.
-  if opts.run_injections and opts.run_playground:
+  if opts.run_injections:
     print "Making plots depending on the injection runs"
+    if opts.run_full_data:
+      slideSuffix = "FULL_DATA"
+    elif opts.run_playground:
+      slideSuffix = "PLAYGROUND"
+    else:
+      slideSuffix = "NONE_AVAILABLE"
+    if opts.run_playground:
+      zeroLagSuffix = "PLAYGROUND"
+    else:
+      zeroLagSuffix = "NONE_AVAILABLE"
     for (injDir, injSeed) in cp.items("injections"):
   
       # set up parents correctly
@@ -434,7 +444,7 @@ if opts.run_plots:
       else: parentVetoNodes = None
 
       dag = inspiralutils.injZeroSlidePlots(dag, injDir + "_summary_plots", \
-          cp, opts.log_path, injDir.upper(), "PLAYGROUND", "PLAYGROUND", \
+          cp, opts.log_path, injDir.upper(), zeroLagSuffix, slideSuffix, \
           "../" + cachefilename, opts.do_dag_categories, parentNodes, 
           parentVetoNodes, 3)
 
@@ -452,7 +462,7 @@ if opts.run_plots:
     else: parentVetoNodes = None
 
     dag = inspiralutils.injZeroSlidePlots(dag, "allinj_summary_plots", cp, \
-        opts.log_path, "*INJ", "PLAYGROUND", "PLAYGROUND", \
+        opts.log_path, "*INJ", zeroLagSuffix, slideSuffix, \
         "../" + cachefilename, opts.do_dag_categories, parentNodes, 
         parentVetoNodes, 3)
 
