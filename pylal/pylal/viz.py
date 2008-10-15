@@ -1050,7 +1050,8 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
     if scalebkg:  
-      semilogy(xvals,asarray(slide_mean)*600.0/6370.0, 'r+', markersize=12)
+      semilogy(xvals,asarray(slide_mean)*power(600.0/6370.0,0.5),\
+               'r+', markersize=12)
     else:
       semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
