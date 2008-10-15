@@ -102,8 +102,8 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
         injection_part = ""
     
     table=["""
-    <big>Veto Candidate Channels </big><br>
-    Channels whose used percentage exceeds %d%% are on this table. <br>
+    <big>Veto Candidate Channels</big><br>
+    Channels with the used percentage > %d%% and the number of coincident KW triggers >= 100 are on this table. <br>
     Some channels (gravitational channel, ASI, ASQ etc.) are already excluded since they are not safe. <br>
     (A list of all the analyzed channels follows below the table.)
     <br><br>
@@ -147,6 +147,9 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
         else: sub = ""
         # table
         # exclude DARMERR, DARMCTRL, ASI, ASQ because we know they are not safe
+        #if candidate and coincident >= 100 and chan.find("darmerr")==-1 and\
+        #  chan.find("darmctrl")==-1 and chan.find("asi")==-1 and\
+        #  chan.find("asq")==-1:
         if candidate and chan.find("darmerr")==-1 and\
           chan.find("darmctrl")==-1 and chan.find("asi")==-1 and\
           chan.find("asq")==-1:
