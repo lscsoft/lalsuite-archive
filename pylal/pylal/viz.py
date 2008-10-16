@@ -1687,7 +1687,7 @@ def rescale_axis(limNew, limOld):
 
   # calculate the linear transformation parameters
   slope = Delta/(limOld[1]-limOld[0])
-  intercept = limNew[0]
+  intercept = limNew[0]-slope*limOld[0]
         
   # compute the axis positions and labels
   tickPos = []
@@ -1698,6 +1698,7 @@ def rescale_axis(limNew, limOld):
     
   # returning the results
   return tickPos, tickLabel, intercept, slope
+
 
 ###############################
 def create_contour( datax, datay ):
