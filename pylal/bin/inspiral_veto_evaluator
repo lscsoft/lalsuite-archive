@@ -151,7 +151,7 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 
 
-	clustered_xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
+	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), urls, verbose = verbose)
 
 
 	#
@@ -159,7 +159,7 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 
 
-	sngl_inspiral_table = table.get_table(clustered_xmldoc, lsctables.SnglInspiralTable.tableName)
+	sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 
 
 	#
@@ -175,7 +175,7 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 
 
-	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(clustered_xmldoc, program = program_name).coalesce()
+	analyzed_segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = program_name).coalesce()
 
 
 	#
@@ -184,7 +184,7 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 	#
 
 
-	if set(sngl_inspiral_table.getColumnByName("ifo")) not in set(analyzed_segs.keys()):
+	if not instruments.issubset(set(analyzed_segs.keys())):
 		raise ValueError, "trigger table contains triggers for instruments not listed in the search_summary table"
 
 
@@ -198,9 +198,10 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 
 #
 # get veto segment lists.  the return value is a giant nested dictionary.
-# the outer-most dictionary's keys are instrument names, inside those are
-# dictionaries of categories, insde those are glue.segments.segmentlistdict
-# objects whose keys are data quality flag names and whose values are
+# the outer-most dictionary's keys are instrument names, the values are
+# dictionaries whose keys are category numbers (1, 2, 3, etc.), the values
+# of those dictionaries are glue.segments.segmentlistdict objects whose
+# keys are data quality flag names and whose values are
 # glue.segments.segmentlist objects.  like this:
 #
 #	return {
@@ -218,9 +219,16 @@ def load_trigger_files(urls, program_name = "inspiral", verbose = False):
 #		}
 #	}
 #
+# If x is the return value of this function, then
+#
+#	x["H1"][1]["OUT_OF_LOCK"]
+#
+# is a segmentlist containing the "OUT_OF_LOCK" segments at category 1 for
+# instrument H1.
+#
 
 
-def load_vetos(options, verbose = False):
+def load_vetos(config_filename, verbose = False):
 	# This is a hack!  Namely the ifos and categories are hardcoded.  
 	# Should these parameters be
 	# command line arguments or are they derived from something else?
@@ -229,9 +237,9 @@ def load_vetos(options, verbose = False):
 		print >>sys.stderr, "loading veto segments ...",
 
 	cp = ConfigParser.ConfigParser()
-	cp.read(options.config_file) 
-	ifolist = ['H1','H2','L1']
-	catlist = [1, 2, 3, 4]
+	cp.read(config_filename) 
+	ifolist = ('H1','H2','L1')
+	catlist = (1, 2, 3, 4)
 	output = {}
 	for ifo in ifolist:
 		if verbose:
@@ -241,9 +249,10 @@ def load_vetos(options, verbose = False):
 		dqfile = open(dqfilepath,'r')
 		dqseglistdict = dqutils.fromDQsegments(dqfile)
 		for cat in catlist:
-			dqflagsfile = open(cp.get('segments',ifo.lower()+'-cat-'+str(cat)+'-veto-file'),'r')
-			dqwindows = dqutils.from_veto_file(dqflagsfile,flags_have_ifo_colon=True)
-			output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict,dqwindows)
+			dqflagsfilename = cp.get("segments", "%s-cat-%d-veto-file" % (ifo.lower(), cat))
+			dqflagsfile = open(dqflagsfilename, "r")
+			dqwindows = dqutils.from_veto_file(dqflagsfile, flags_have_ifo_colon = True)
+			output[ifo][cat] = dqutils.apply_veto_windows(dqseglistdict, dqwindows)
 
 	if verbose:
 		print >>sys.stderr
@@ -398,7 +407,7 @@ options, filenames = parse_command_line()
 sngl_inspiral_table, analyzed_segments = load_trigger_files([cache_entry.url for cache_entry in options.clustered_trigger_cache], program_name = "sire", verbose = options.verbose)
 
 
-vetos = load_vetos(options, verbose = options.verbose)
+vetos = load_vetos(options.config_file, verbose = options.verbose)
 
 
 #
