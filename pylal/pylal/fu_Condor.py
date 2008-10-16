@@ -341,9 +341,13 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
           self.add_parent(prev_dNode)
       except: pass
 
-      if eval('opts.' + datafindCommand):
-        dag.addNode(self,nodeName)
-        self.validNode = True
+      # if the selected "ifo" needs to be done remotely (this the case for 
+      # Virgo qscan datafind) do not add the node to the dag
+      if eval('opts.' + datafindCommand) and \
+        not( cp.has_option(type,"remote-ifo") and \
+        cp.get(type,"remote-ifo")==ifo ):
+          dag.addNode(self,nodeName)
+          self.validNode = True
       else: self.validNode = False
     except:
       self.validNode = False
@@ -359,7 +363,6 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     self.set_observatory(ifo[0])
     self.set_start(int(startTime) - int(paddataTime))
     self.set_end(int(endTime) + int(paddataTime))
-    #self.set_type(ifo + '_' + cp.get(type,'type'))
     self.set_type(cp.get(type,ifo + '_type'))
     lalCache = self.get_output()
     return(lalCache)
@@ -468,9 +471,13 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
         self.add_parent(d_node)
     except: pass
 
-    if eval('opts.' + qscanCommand):
-      dag.addNode(self,self.friendlyName)
-      self.validNode = True
+    # if the selected "ifo" needs to be done remotely (this the case for 
+    # Virgo qscans) do not add the node to the dag
+    if eval('opts.' + qscanCommand) and \
+      not(cp.has_option(name,"remote-ifo") and \
+      cp.get(name,"remote-ifo")==ifo):
+        dag.addNode(self,self.friendlyName)
+        self.validNode = True
     else: self.validNode = False
  #   except: 
  #     self.validNode = False
