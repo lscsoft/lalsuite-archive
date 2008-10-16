@@ -56,47 +56,59 @@ def plotconstlines(snr_range, const, chisq_dof):
 
 
 ##############################################################################
-def loghistval(trig_val,inj_val,comments,nbins=20):
+def loghistval(trig_val,slide_val,inj_val,comments,nbins=20):
 
   figure(100)
-  max_val = max(concatenate((trig_val,inj_val)))
-  min_val = min(concatenate((trig_val,inj_val)))
+  max_val = max(concatenate((trig_val,slide_val,inj_val)))
+  min_val = min(concatenate((trig_val,slide_val,inj_val)))
   
   
   max_val = log10(max_val)
   min_val = log10(min_val)
-  trig_val = log10(trig_val)
+  if len(trig_val):
+    trig_val = log10(trig_val)
   if len(inj_val):
     inj_val = log10(inj_val)
+  if len(slide_val):
+    slide_val = log10(slide_val)
     
   bins = arange(min_val, max_val , (max_val - min_val) /nbins )
-  [trigs,bins,stuff] = hist(trig_val, bins, normed=True)
+  if len(trig_val):
+    [trigs,bins,stuff] = hist(trig_val, bins, normed=True)
   if len(inj_val):
     [inj,bins,stuff] = hist(inj_val,bins, normed=True)
+  if len(slide_val):
+    [slide,bins,stuff] = hist(slide_val, bins, normed=True)
   close(100)
 
   bins = 10**bins
   trig_val = 10**trig_val
   inj_val = 10**inj_val
+  slide_val = 10**slide_val
   leg = []
   if len(inj_val):
     semilogx(bins,inj, 'r-',markersize=12, markerfacecolor='None',\
         markeredgewidth=1, linewidth=1)
     leg.append('Injections')
-  semilogx(bins,trigs, 'k-',markersize=12, markerfacecolor='None',\
-      markeredgewidth=1, linewidth=1)
-  leg.append('Triggers')
+  if len(trig_val):
+    semilogx(bins,trigs, 'b-',markersize=12, markerfacecolor='None',\
+        markeredgewidth=1, linewidth=1)
+    leg.append('Triggers')
+  if len(slide_val):
+    semilogx(bins,slide, 'k-',markersize=12, markerfacecolor='None',\
+        markeredgewidth=1, linewidth=1)
+    leg.append('Time slides')
   legend(leg) 
   xlim(10**min_val, 10**max_val)
  
   grid(True)
 
-  if len(trig_val):
-    max_snr = max(trig_val)
+  if len(slide_val):
+    max_snr = max(slide_val)
   else:
     max_snr = 0
-    comments = InspiralUtils.message(opts,  'loudest noise trigger = ' + \
-        str(max_snr) )
+  comments = InspiralUtils.message(opts,  'loudest noise trigger = ' + \
+      str(max_snr) )
   num_above = sum(inj_val > max_snr) 
   comments += InspiralUtils.message(opts,  'total number of injections = ' + \
       str(len(inj_val)))
@@ -110,21 +122,15 @@ usage = """
 prog [options] 
 
 Plots snr vs chisq for a glob of triggers that are read in.  The code expects
-a GLOB of input triggers.  It can also accept an INJGLOB containing triggers
-associated with injections.  It makes various different plots
+a GLOB of input triggers,time slides and/or injections. Alternatively a cache file can be used. The code will run given any combination of time slides, zero lag triggers and injections as input.  It makes various different plots
 
-1) A plot of SNR vs chisq for the triggers.  Injections are also plotted if
-specified.  Called with --snr-chisq
+1) A plot of SNR vs chisq.  Called with --snr-chisq
 
-2) A plot of SNR vs chisq with contours.  Called with --trig-contour
+2) A plot of the triggers, with lines of constant effective SNR drawn.  Called with
+--snr-chisq-lines.
 
-3) A plot of the contours and curves meant to appoximate these contours.
-Called with --contour-lines.
-
-4) A plot of the triggers, contours and lines.  Called with
---trig-contour-lines.
-
-5) A plot of triggers and lines.  Called with --trig-lines.
+3) A plot of triggers, with lines and contours drawn from either the time slides or the zero lag. (Needs time slides or zero lag to be created). Called with
+--snr-chisq-contours
 
 The function used to specify the lines is either:
 
@@ -142,17 +148,17 @@ b) chisq = A * snr^4 / (snr^2 + VAR * (15 - A) )
 Additionally, various plots of the distribution of background and injection
 triggers can be made.  Three such plots are available:
 
-6) Histograms as a function of snr.  Called with --hist-snr
+4) Histograms as a function of snr.  Called with --hist-snr
 
-7) Histogramw as a function of snr/chi.  Called with --hist-snr-chi
+5) Histogramw as a function of snr/chi.  Called with --hist-snr-chi
 
-8) Histograms as a function of the statistic given above.  Called with
+6) Histograms as a function of the statistic given above.  Called with
    --hist-stat.
 
-A plot of snr vs rsq can also be made for a glob of triggers that are read in.
-If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
+7) A plot of snr vs rsq can also be made for a glob of triggers that are read in. If the --rsq-VETO-OPTIONS are used, it will show the triggers cut by that veto
 in a different color than those kept by that veto. Injections are also plotted
-if specified.
+if specified. Called with
+--rsq-snr
 """
 def parse_command_line():
   """
@@ -166,6 +172,8 @@ def parse_command_line():
   ## arguments for data reading
   parser.add_option("-g","--glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB of trigger files to read" )
+  parser.add_option("-G","--slide-glob",action="store",type="string",\
+        default=None, metavar=" GLOB",help="GLOB of background files to read" )
   parser.add_option("-I","--inj-glob",action="store",type="string",\
       default=None, metavar=" INJGLOB",
       help="GLOB of injection trigger files to read" )
@@ -178,8 +186,8 @@ def parse_command_line():
       default=None, metavar="TRIGPTTRN", help="sieve pattern for trig-files" )
 #  parser.add_option("","--coinc-pattern", action="store",type="string",\
 #      default=None, metavar="COINCPTTRN", help="sieve pattern for coinc-files" )
-#  parser.add_option("","--slide-pattern", action="store",type="string",\
-#      default=None, metavar="SLIDEPTTRN", help="sieve pattern for trig-files" )
+  parser.add_option("","--slide-pattern", action="store",type="string",\
+      default=None, metavar="SLIDEPTTRN", help="sieve pattern for background" )
   parser.add_option("","--found-pattern",
       metavar="FOUNDPTTRN", help="sieve pattern for found injection files")
 
@@ -188,20 +196,10 @@ def parse_command_line():
       help="display the figures on the terminal" )
   parser.add_option("-a","--snr-chisq",action="store_true",default=False,\
       help="make a plot of snr vs chisq" )
-  parser.add_option("-c","--trig-contour",action="store_true",default=False,\
-      help="make a contour plot of snr vs chisq" )
-  parser.add_option("-C","--contour-lines",action="store_true",default=False,\
-      help="make a contour plot of snr vs chisq, with fit lines" )
-  parser.add_option("-b","--trig-contour-lines",action="store_true",\
-      default=False,\
-      help="make a contour plot of snr vs chisq with fitting lines" )
-  parser.add_option("-A","--trig-lines",action="store_true",default=False,\
-      help="plot triggers and lines" )
-  parser.add_option("-B","--trig-inj-lines",action="store_true",default=False,\
+  parser.add_option("-B","--snr-chisq-contours",action="store_true",default=False,\
       help="plot triggers, injections and lines" )
-  parser.add_option("-K","--trig-inj-contour",action="store_true",default=False,\
-      help="plot triggers, injections and contours" )
-      
+  parser.add_option("-L","--snr-chisq-lines",action="store_true",default=False,\
+        help="plot triggers, injections and lines" )
   parser.add_option("-E","--hist-snr",action="store_true",default=False,\
       help="histogram of the snr for triggers/injections" )
   parser.add_option("-e","--hist-snr-chi",action="store_true",default=False,\
@@ -265,6 +263,35 @@ def parse_command_line():
   if not options.ifo_times:
     raise ValueError, "--ifo-times must be provided in (H1, H2, L1, V1, G1)"
 
+  if not options.output_path:
+    raise ValueError, "You must specify a --output-path."
+
+  if not options.denominator_constant and not options.denominator_variable:
+    print >>sys.stderr, "One of --denominator-constant CONST or"
+    print >>sys.stderr, "--denominator-variable VAR must be specified"
+    sys.exit(1)
+
+  if (options.hist_stat or options.hist_snr or options.hist_snr_chi) and not \
+      (options.inj_glob or options.cache_file):
+    print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
+    print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
+    sys.exit(1)
+
+  if not (options.glob or options.inj_glob or options.slide_glob) \
+       and not options.cache_file:
+    print >>sys.stderr, "Must specify a GLOB of files to read or a cache input file"
+    print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
+    sys.exit(1)
+
+  if (options.glob or options.inj_glob or options.slide_glob) \
+       and options.cache_file:
+    print >>sys.stderr, "Please use a glob OR a cache file, not both."
+    print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
+    sys.exit(1)
+
+  if options.cache_file and not (options.trig_pattern or options.slide_pattern \
+       or options.found_pattern):
+    raise ValueError, "You must specify --XXX-pattern (s) to search for."
 
   return options, sys.argv[1:]
 
@@ -293,60 +320,73 @@ fnameList = []   # use for the cache file
 tagList= []   # use for the cache file
 comments = ""  # for the html output if needed
 
-# check at least one trig file was specified
-if not opts.glob and  not opts.cache_file:
-  print >>sys.stderr, "Must specify a GLOB of files to read or a cache input file"
-  print >>sys.stderr, "Enter 'plotsnrchi --help' for usage"
-  sys.exit(1)
-
 ## compile a list of trigger-files
-if opts.glob:
-  trigFiles = glob.glob(opts.glob)
-  if not len(trigFiles):
-    print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
-    sys.exit(1)
 
-else:
-  zerolagAllCache = lal.Cache.fromfile(open(opts.cache_file)).sieve(ifos=opts.ifo_times, exact_match=opts.exact_match)
+if opts.cache_file:
+  allCache = lal.Cache.fromfile(open(opts.cache_file)).sieve(\
+             ifos=opts.ifo_times, exact_match=opts.exact_match)
   comments += InspiralUtils.message(opts,  'The ifo times selected is ' +opts.ifo_times)
 
-  trig_cache = zerolagAllCache.sieve(description=opts.trig_pattern)
-  found, missed = trig_cache.checkfilesexist()
-  trigFiles = found.pfnlist()
-  if not len(trigFiles):
-    print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
-    sys.exit(1)
-  else: 
-    comments += InspiralUtils.message(opts,  'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
+if opts.trig_pattern:
+  if opts.glob:
+    trigFiles = glob.glob(opts.glob)
+    if not len(trigFiles):
+      print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+      sys.exit(1)
 
+  else:
+    trig_cache = allCache.sieve(description=opts.trig_pattern,\
+                 exact_match=opts.exact_match)
+    found, missed = trig_cache.checkfilesexist()
+    trigFiles = found.pfnlist()
+    if not len(trigFiles):
+      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
+      sys.exit(1)
+    else: 
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
+else:
+  trigFiles = None
+
+## compile a list of time slide files
+if opts.slide_pattern:
+  if opts.slide_glob:
+    slideFiles = glob.glob(opts.slide_glob)
+    if not len(slideFiles):
+      print >>sys.stderr, "The glob for " + opts.glob + " returned no files"
+      sys.exit(1)
+
+  else:
+    slide_cache = allCache.sieve(description=opts.slide_pattern,\
+                 exact_match=opts.exact_match)
+    found, missed = slide_cache.checkfilesexist()
+    slideFiles = found.pfnlist()
+    if not len(slideFiles):
+      print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
+      sys.exit(1)
+    else:
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
+else:
+  slideFiles = None
 
 # compile a list of injection-files
-if opts.inj_glob:
-  injFiles = glob.glob(opts.inj_glob)
-  if not len(injFiles):
-    print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
-    sys.exit(1)
-elif opts.cache_file:
-  inj_cache = zerolagAllCache.sieve(description = opts.found_pattern)
-  found, missed = inj_cache.checkfilesexist()
-  injFiles = found.pfnlist()
-  if not len(injFiles):
-    print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
-    sys.exit(1)
-  else: 
-    comments += InspiralUtils.message(opts,  'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
-
- 
-if not opts.denominator_constant and not opts.denominator_variable:
-  print >>sys.stderr, "One of --denominator-constant CONST or"
-  print >>sys.stderr, "--denominator-variable VAR must be specified"
-  sys.exit(1)
-
-if (opts.hist_stat or opts.hist_snr or opts.hist_snr_chi) and not \
-    (opts.inj_glob or opts.cache_file):
-  print >>sys.stderr, "Must specify an INJ_GLOB if you want to do one of"
-  print >>sys.stderr, "--hist-snr, --hist-snr-chi --hist-stat"
-  sys.exit(1)
+if opts.found_pattern:
+  if opts.inj_glob:
+    injFiles = glob.glob(opts.inj_glob)
+    if not len(injFiles):
+      print >>sys.stderr, "The glob for " + opts.inj_glob + " returned no files"
+      sys.exit(1)
+  elif opts.cache_file:
+    inj_cache = allCache.sieve(description = opts.found_pattern,\
+                exact_match=opts.exact_match)
+    found, missed = inj_cache.checkfilesexist()
+    injFiles = found.pfnlist()
+    if not len(injFiles):
+      print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
+      sys.exit(1)
+    else: 
+      comments += InspiralUtils.message(opts,  'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
+else:
+  injFiles = None
 
 if not opts.show_plot:
   import matplotlib
@@ -356,48 +396,69 @@ from pylal import viz
 
 chisq_dof = 0   
 ###################################
-# input triggers
-inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
-    verbose=opts.verbose)
-if inspTriggers:
-  nevents = len(inspTriggers)
-else:
-  nevents = 0
-comments += InspiralUtils.message(opts, \
-    'Read '+str(nevents)+ ' triggers from from inspiral files')
+# Input triggers
 
-if nevents:
-  snr = inspTriggers.get_column('snr')
-  chisq = inspTriggers.get_column('chisq')
-  chisq_dof = 2 * (inspTriggers.get_column('chisq_dof')[0] - 1 )
-  rsq = inspTriggers.get_column('rsqveto_duration') + 0.00001
-else:
-  snr = array([])
-  chisq = array([])
-  rsq = array([])
+snr = array([])
+chisq = array([])
+rsq = array([])
+nevents = 0
+
+if trigFiles:
+  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
+      verbose=opts.verbose)
+  if inspTriggers:
+    nevents = len(inspTriggers)
+  comments += InspiralUtils.message(opts, \
+      'Read '+str(nevents)+ ' triggers from from inspiral files')
+  if nevents:
+    snr = inspTriggers.get_column('snr')
+    chisq = inspTriggers.get_column('chisq')
+    chisq_dof = 2 * (inspTriggers.get_column('chisq_dof')[0] - 1 )
+    rsq = inspTriggers.get_column('rsqveto_duration') + 0.00001
+
+# Time slide triggers
+
+slide_events = 0
+slide_snr = array([])
+slide_chisq = array([])
+slide_rsq = array([])
+
+if slideFiles:
+  slideTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(slideFiles, \
+      verbose=opts.verbose)
+  if slideTriggers:
+    slide_events = len(slideTriggers)
+  comments += InspiralUtils.message(opts, \
+      'Read '+str(slide_events)+ ' triggers from from inspiral files')
+  if slide_events:
+    slide_snr = slideTriggers.get_column('snr')
+    slide_chisq = slideTriggers.get_column('chisq')
+    chisq_dof = 2 * (slideTriggers.get_column('chisq_dof')[0] - 1 )
+    slide_rsq = slideTriggers.get_column('rsqveto_duration') + 0.00001
 
 # input injections:
+
 ninj_events = 0
-if opts.inj_glob or opts.cache_file:
+inj_snr = array([])
+inj_chisq = array([])
+inj_rsq = array([])
+
+if injFiles:
   injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
-  if injTriggers: ninj_events = len(injTriggers)
-if ninj_events:
-  inj_snr = injTriggers.get_column('snr')
-  inj_chisq = injTriggers.get_column('chisq')
-  inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
-  chisq_dof =  2 * (injTriggers.get_column('chisq_dof')[0] - 1)
-else:
-  inj_snr = array([])
-  inj_chisq = array([])
-  inj_rsq = array([])
+  if injTriggers:
+    ninj_events = len(injTriggers)
+  if ninj_events:
+    inj_snr = injTriggers.get_column('snr')
+    inj_chisq = injTriggers.get_column('chisq')
+    inj_rsq = injTriggers.get_column('rsqveto_duration') + 0.00001
+    chisq_dof =  2 * (injTriggers.get_column('chisq_dof')[0] - 1)
+  comments += InspiralUtils.message(opts, \
+      'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
 
-comments += InspiralUtils.message(opts, \
-    'Read '+str(ninj_events)+ ' triggers from inspiral injection files')
-
-if (nevents == 0) and (ninj_events == 0):
+if (nevents == 0) and (ninj_events == 0) and (slide_events == 0):
   ## give up and exit
-  err_msg = "There were no inspiral triggers or injection triggers in the" + \
+  err_msg = "There were no triggers in the" + \
       " files read in, no plots generated"
   print >>sys.stderr, err_msg
   comments += InspiralUtils.message(opts, err_msg)
@@ -405,15 +466,15 @@ if (nevents == 0) and (ninj_events == 0):
     html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
         tagList, comment=comments)
     InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-    if opts.show_plot:
-      sys.exit(1)
-    else:
-      sys.exit(0)
+  if opts.show_plot:
+    sys.exit(1)
+  else:
+    sys.exit(0)
 
 ###################################
 # Determine SNR range
-max_snr = max(concatenate((snr,inj_snr)))
-min_snr = min(concatenate((snr,inj_snr)))
+max_snr = max(concatenate((snr,slide_snr,inj_snr)))
+min_snr = min(concatenate((snr,slide_snr,inj_snr)))
 
 log_min = log10(min_snr)
 log_max = 1.1*log10(max_snr)
@@ -423,8 +484,8 @@ snr_range = 10**snr_range
 
 ###################################
 # Determine chisq range
-max_chisq = max(concatenate((chisq,inj_chisq)))
-min_chisq = min(concatenate((chisq,inj_chisq)))
+max_chisq = max(concatenate((chisq,slide_chisq,inj_chisq)))
+min_chisq = min(concatenate((chisq,slide_chisq,inj_chisq)))
 
 log_min = log10(min_chisq)
 log_max = 1.1*log10(max_chisq)
@@ -432,23 +493,26 @@ log_max = 1.1*log10(max_chisq)
 chisq_range = arange( log_min, log_max, (log_max - log_min)/20)
 chisq_range = 10**chisq_range
 
-
 ###################################
 # Determine rsq range
-max_rsq = max(concatenate((rsq,inj_rsq)))
+max_rsq = max(concatenate((rsq,slide_rsq,inj_rsq)))
 
 
 ###################################
 # calculate the contours
-if (opts.trig_contour or opts.trig_contour_lines or opts.contour_lines \
-  or opts.trig_inj_lines) and nevents:
+if (opts.snr_chisq_contours) and (nevents or slide_events):
   cont = zeros(shape=(20, 20), dtype='f')
   for i in xrange(20):  
     for j in xrange(20):
-      cont[i, j] = sum( asarray(snr > snr_range[j]) * \
-          asarray(chisq < chisq_range[i]) )
+      if slide_events:
+        cont[i, j] = sum( asarray(slide_snr > snr_range[j]) * \
+            asarray(slide_chisq < chisq_range[i]) )
+        v = arange(0,log10(slide_events),log10(slide_events)/20)
+      else:
+        cont[i, j] = sum( asarray(snr > snr_range[j]) * \
+            asarray(chisq < chisq_range[i]) )
+        v = arange(0,log10(nevents),log10(nevents)/20)
 
-  v = arange(0,log10(nevents),log10(nevents)/20)
   v = 10**v
   v = concatenate( (v,zeros(1)) )
 
@@ -465,18 +529,33 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
     rsq_cut_line_y = [opts.rsq_threshold, opts.rsq_threshold,max_rsq]
 
   # determine cuts for triggers
-  cut_index = (snr < opts.rsq_max_snr)
-  cut_index &= (rsq > opts.rsq_threshold)
-  if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
-    cut_index |= (rsq > opts.rsq_coeff * snr**opts.rsq_pow)
 
-  snr_cut = snr[cut_index]
-  snr_kept = snr[~cut_index]
-  rsq_cut = rsq[cut_index]
-  rsq_kept = rsq[~cut_index]
+  if nevents:
+    cut_index = (snr < opts.rsq_max_snr)
+    cut_index &= (rsq > opts.rsq_threshold)
+    if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
+      cut_index |= (rsq > opts.rsq_coeff * snr**opts.rsq_pow)
+
+    snr_cut = snr[cut_index]
+    snr_kept = snr[~cut_index]
+    rsq_cut = rsq[cut_index]
+    rsq_kept = rsq[~cut_index]
+
+  # Determine cuts for time slides
+
+  if slide_events:
+    cut_index = (slide_snr < opts.rsq_max_snr)
+    cut_index &= (slide_rsq > opts.rsq_threshold)
+    if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
+      cut_index |= (slide_rsq > opts.rsq_coeff * slide_snr**opts.rsq_pow)
+
+    slide_snr_cut = slide_snr[cut_index]
+    slide_snr_kept = slide_snr[~cut_index]
+    slide_rsq_cut = slide_rsq[cut_index]
+    slide_rsq_kept = slide_rsq[~cut_index]
 
   # determine cuts for injections
-  if opts.inj_glob or opts.found_pattern:
+  if ninj_events:
     cut_index = (inj_snr < opts.rsq_max_snr)
     cut_index &= (inj_rsq > opts.rsq_threshold)
     if opts.rsq_coeff > 0 and opts.rsq_pow > 0:
@@ -487,10 +566,21 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
     inj_rsq_cut = inj_rsq[cut_index]
     inj_rsq_kept = inj_rsq[~cut_index]
 
-comments += InspiralUtils.message(opts, 'After the rsq cut, we kept '+ \
-    str(len(rsq_kept)) +' events.')
-comments += InspiralUtils.message(opts, 'After the rsq cut, we removed '+ \
-    str(len(rsq_cut))+' events.')
+if nevents:
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we kept '+ \
+      str(len(rsq_kept)) +' zero lag triggers.')
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we removed '+ \
+      str(len(rsq_cut))+' zero lag triggers.')
+if slide_events:
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we kept '+ \
+    str(len(slide_rsq_kept)) +' background triggers.')
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we removed '+ \
+    str(len(slide_rsq_cut))+' background triggers.')
+if ninj_events:
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we kept '+ \
+    str(len(inj_rsq_kept)) +' injections.')
+  comments += InspiralUtils.message(opts, 'After the rsq cut, we removed '+ \
+    str(len(inj_rsq_cut))+' injections.')
 
 
 fig_num = 0
@@ -499,18 +589,22 @@ fig_num = 0
 if opts.snr_chisq:
   fig_num +=1
   figure(fig_num)
-  
+  legendText = []
+  if slide_events:
+    viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
+    legendText.append('Background')
   if nevents:
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    hold(True)
+    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
+    legendText.append('Triggers')
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+    legendText.append('Injections')
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$\chi^2$', size='x-large')
   xlim(min_snr, max_snr)
   ylim(min_chisq, max_chisq)
 
-  legend(['Triggers', 'Injections'])
+  legend(legendText,loc='lower right')
   if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "snr_vs_chisq")
     fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
@@ -520,139 +614,30 @@ if opts.snr_chisq:
   if not opts.show_plot:
     close()
 
-
 ###################################
-# plot of snr vs chisq with contours
-if opts.trig_contour and nevents:
-  fig_num +=1
-  figure(fig_num)
-  
-  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
-  contour(snr_range,chisq_range,cont,v)
-  
-  xlabel(r'$\rho$', size='x-large')
-  ylabel(r'$\chi^2$', size='x-large')
-  xlim(min_snr, max_snr)
-  ylim(min_chisq, max_chisq)
-  legend(['Triggers', 'Injections'])
+# plot of snr vs chisq with injections and constant lines
 
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append("Chi square versus SNR and iso-contour")
-  if not opts.show_plot:
-    close()
-
-
-###################################
-# plot of snr vs chisq with contours and lines
-if opts.contour_lines and nevents:
+if opts.snr_chisq_lines:
   if opts.denominator_constant:
     fig_num +=1
     figure(fig_num)
-
-    plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
-    contour(snr_range,chisq_range,cont,v)
-
-    xlabel(r'\rho', size='x-large')
-    ylabel(r'\chi^2', size='x-large')
-    legend(['Triggers'])
-
-    title(opts.ifo_times)
-    xlim(min_snr, max_snr)
-    ylim(min_chisq, max_chisq)
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "contour_const_lines")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-          dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("Chi square versus SNR and iso-line contours")
-    if not opts.show_plot:
-      close()
-
-  if opts.denominator_variable:
-    fig_num +=1
-    figure(fig_num)
-
-    plotvarlines(snr_range, opts.denominator_variable)
-    contour(snr_range,chisq_range,cont,v)
-    xlabel(r'$\rho$', size='x-large')
-    ylabel(r'$\chi^2$', size='x-large')
-    title(opts.ifo_times)
-    xlim(min_snr, max_snr)
-    ylim(min_chisq, max_chisq)
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "contour_var_lines")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-          dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("Chi square versus SNR and iso-contours and " + \
-          "iso-line contours")
-    if not opts.show_plot:
-      close()
-
-###################################
-# plot of snr vs chisq with lines
-if opts.trig_lines and nevents:
-  if opts.denominator_constant:
-    fig_num +=1
-    figure(fig_num)
-
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
-    xlabel(r'$\rho$', size='x-large')
-    ylabel(r'$\chi^2$', size='x-large')
-
-    xlim(min_snr,max_snr)
-    ylim(min_chisq,max_chisq)  
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "snr_chisq_const_lines")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-          dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("SNR vs chisq with lines and constant denominator")
-    if not opts.show_plot:
-      close()
-
-  if opts.denominator_variable:
-    fig_num +=1
-    figure(fig_num)
-
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    plotvarlines(snr_range, opts.denominator_variable)
-    xlabel(r'$\rho$', size='x-large')
-    ylabel(r'$\chi^2$', size='x-large')
-
-    xlim(min_snr, max_snr)
-    ylim(min_chisq, max_chisq)
-    if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "snr_chisq_var_lines")
-      fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-          dpi_thumb=opts.figure_resolution)
-      fnameList.append(fname)
-      tagList.append("SNR vs chisq with lines and variable denominator")
-    if not opts.show_plot:
-      close()
-
-###################################
-# plot of snr vs chisq with injections and lines
-if opts.trig_inj_lines:
-  if opts.denominator_constant:
-    fig_num +=1
-    figure(fig_num)
-
+    legendText = []
+    if slide_events:
+      viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
+      legendText.append('Background')
     if nevents:
-      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    if ninj_events: 
+      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
+      legendText.append('Triggers')
+    if ninj_events:
       viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
+
     xlabel(r'$\rho$', size='x-large')
     ylabel(r'$\chi^2$', size='x-large')
-
+    legend(legendText,loc='lower right')
     xlim(min_snr,max_snr)
-    ylim(min_chisq,max_chisq)  
+    ylim(min_chisq,max_chisq)
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_const_lines")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
@@ -666,15 +651,20 @@ if opts.trig_inj_lines:
   if opts.denominator_variable:
     fig_num +=1
     figure(fig_num)
-
+    legendText = []
+    if slide_events:
+      viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
+      legendText.append('Background')
     if nevents:
-      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
+      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
+      legendText.append('Triggers')
     if ninj_events:
       viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     plotvarlines(snr_range, opts.denominator_variable)
     xlabel(r'$\rho$', size='x-large')
     ylabel(r'$\chi^2$', size='x-large')
-
+    legend(legendText,loc='lower right')
     xlim(min_snr, max_snr)
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
@@ -688,87 +678,81 @@ if opts.trig_inj_lines:
       close()
 
 ###################################
-# plot of snr vs chisq with injections and contours
-if opts.trig_inj_contour:
-  fig_num +=1
-  figure(fig_num)
-
-  if nevents: 
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    contour(snr_range,chisq_range,cont,v)
-  if ninj_events: 
-    viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
-  xlabel(r'$\rho$', size='x-large')
-  ylabel(r'$\chi^2$', size='x-large')
- 
-  xlim(min_snr,max_snr)
-  ylim(min_chisq,max_chisq)  
-  if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "snr_chisq_inj_contour")
-    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
-        dpi_thumb=opts.figure_resolution)
-    fnameList.append(fname)
-    tagList.append(" plot of snr vs chisq with injections and " + \
-        "contours (variable denominator)")
-  if not opts.show_plot:
-    close()
-
-###################################
-# plot of snr vs chisq with contours and lines
-if opts.trig_contour_lines and nevents:
+# plot of snr vs chisq with injections constant lines and contours
+if opts.snr_chisq_contours and (nevents or slide_events):
   if opts.denominator_constant:
     fig_num +=1
     figure(fig_num)
-
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    contour(snr_range,chisq_range,cont,v)
+    legendText = []
+    if slide_events:
+      viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
+      legendText.append('Background')
+    if nevents:
+      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
+      legendText.append('Triggers')
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
     plotconstlines(snr_range, opts.denominator_constant, chisq_dof)
+    contour(snr_range,chisq_range,cont,v)
     xlabel(r'$\rho$', size='x-large')
     ylabel(r'$\chi^2$', size='x-large')
-
+    legend(legendText,loc='lower right')
     xlim(min_snr,max_snr)
     ylim(min_chisq,max_chisq)  
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, 
-          "snr_chisq_contour_const_lines")
+      fname = InspiralUtils.set_figure_name(opts,\
+                 "snr_chisq_inj_const_lines_contours")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append(" plot of snr vs chisq with " + \
-          "contours and lines (constant method)")
+      tagList.append(" plot of snr vs chisq with injections, " + \
+          "lines (constant denominator) and contours.")
     if not opts.show_plot:
       close()
 
   if opts.denominator_variable:
     fig_num +=1
     figure(fig_num)
+    legendText = []
+    if slide_events:
+      viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
+      legendText.append('Background')
+    if nevents:
+      viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','b2')
+      legendText.append('Triggers')
+    if ninj_events:
+      viz.plot_a_v_b(injTriggers,'snr','chisq','loglog','r+')
+      legendText.append('Injections')
 
-    viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx')
-    contour(snr_range,chisq_range,cont,v)
     plotvarlines(snr_range, opts.denominator_variable)
+    contour(snr_range,chisq_range,cont,v)
     xlabel(r'$\rho$', size='x-large')
     ylabel(r'$\chi^2$', size='x-large')
-
+    legend(legendText,loc='lower right')
     xlim(min_snr, max_snr)
     ylim(min_chisq, max_chisq)
     if opts.enable_output:
-      fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour_var_lines")
+      fname = InspiralUtils.set_figure_name(opts,\
+                           "snr_chisq_inj_var_lines_contours")
       fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
           dpi_thumb=opts.figure_resolution)
       fnameList.append(fname)
-      tagList.append(" plot of snr vs chisq with " + \
-          "contours and lines (variable method)")
+      tagList.append(" plot of snr vs chisq with injections, " + \
+          "lines (variable denominator) and contours.")
     if not opts.show_plot:
       close()
-
-
+else:
+  print >>sys.stderr , "I cannot plot contours without any background" +\
+                          "or zero lag triggers."
 ###################################
 # histogram of snrs
 if opts.hist_snr:
   fig_num +=1
   figure(fig_num)
-  InspiralUtils.message(opts, '\nPlotting snr histogram')
-  comments += loghistval(snr,inj_snr,comments,opts.nbins)
+  comments += InspiralUtils.message(opts, '\nSNR histogram')
+  comments += loghistval(snr,slide_snr,inj_snr,comments,opts.nbins)
+  title('Histogram of SNRs',size='x-large')
   xlabel(r'$\rho$', size='x-large')
   ylabel('pdf', size='x-large')
 
@@ -786,9 +770,10 @@ if opts.hist_snr:
 if opts.hist_snr_chi:
   fig_num +=1
   figure(fig_num)
-  InspiralUtils.message(opts, '\nPlotting snr/chi histrogam')
-  comments += loghistval(snr/sqrt(chisq),inj_snr/sqrt(inj_chisq),\
-      comments,opts.nbins)
+  comments += InspiralUtils.message(opts, '\nSNR/chi histogram')
+  comments += loghistval(snr/sqrt(chisq),slide_snr/sqrt(slide_chisq),\
+      inj_snr/sqrt(inj_chisq),comments,opts.nbins)
+  title('Histogram of snr divided by chi')
   xlabel(r'$\rho/\chi$', size='x-large')
   ylabel('pdf', size='x-large')
   if opts.enable_output:
@@ -807,14 +792,16 @@ if opts.hist_stat:
   if opts.denominator_variable:
     fig_num +=1
     figure(fig_num)
-
+    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
     B = opts.denominator_variable
     p = 15
     stat = (snr**4 + B * chisq) / (chisq * ( snr**2 + p * B)) 
     inj_stat = (inj_snr**4 + B*inj_chisq) / (inj_chisq * ( inj_snr**2 + p*B))
-
-    InspiralUtils.message(opts, 'Statistic is variable denominator snr chi')
-    comment += loghistval(stat,inj_stat, comments,opts.nbins)
+    slide_stat = (slide_snr**4 + B*slide_chisq) / \
+                 (slide_chisq * (slide_snr**2 + p*B))
+    comments += InspiralUtils.message(opts,\
+                   'Statistic is variable denominator snr chi')
+    comments += loghistval(stat,slide_stat,inj_stat, comments,opts.nbins)
     title(opts.ifo_times, size='x-large')
     xlabel('variable den. statistic', size='x-large')
     ylabel('pdf', size='x-large')
@@ -831,13 +818,15 @@ if opts.hist_stat:
   if opts.denominator_constant:
     fig_num +=1
     figure(fig_num)
-
+    comments += InspiralUtils.message(opts, '\nFunky SNR/chi histogram')
     C = opts.denominator_constant
     stat = (snr**4) / (chisq * ( 1 + snr**2/C)) 
     inj_stat = (inj_snr**4) / (inj_chisq * ( 1 + inj_snr**2/C))
+    slide_stat = (slide_snr**4) / (slide_chisq * ( 1 + slide_snr**2/C))
 
-    InspiralUtils.message(opts,  'Statistic is constant denominator snr chi')
-    loghistval(stat,inj_stat,comments,opts.nbins)
+    comments += InspiralUtils.message(opts,\
+                    'Statistic is constant denominator snr chi')
+    comments += loghistval(stat,slide_stat,inj_stat,comments,opts.nbins)
     title(opts.ifo_times + ' statistic', size='x-large')
     xlabel("Effective SNR", size='x-large')
     ylabel('pdf', size='x-large')
@@ -858,22 +847,29 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
   figure(fig_num)
   leg=[]
 
-  loglog(snr_kept,rsq_kept,'bx',snr_cut,rsq_cut,'bo')
-  leg.append('Kept triggers')
-  leg.append('Vetoed triggers')
+  if slide_events:
+    loglog(slide_snr_kept,slide_rsq_kept,'ko',slide_snr_cut,slide_rsq_cut,'kx')
+    leg.append('Kept background')
+    leg.append('Vetoed background')
 
-  hold(True)
-  if opts.inj_glob or opts.cache_file:
-    loglog(inj_snr_kept,inj_rsq_kept,'ro',inj_snr_cut,inj_rsq_cut,'ko')
+  if nevents:
+    loglog(snr_kept,rsq_kept,'bo',snr_cut,rsq_cut,'bx')
+    leg.append('Kept zero lag triggers')
+    leg.append('Vetoed zero lag triggers')
+
+  if ninj_events:
+    loglog(inj_snr_kept,inj_rsq_kept,'ro',inj_snr_cut,inj_rsq_cut,'rx')
+    leg.append('Kept injections')
+    leg.append('Vetoed injections')
+    
   loglog(rsq_cut_line_x,rsq_cut_line_y,'k',linewidth=2)
-  leg.append('Kept injections')
-  leg.append('Vetoed injections')
 
   xlim(min_snr, max_snr)
   
   grid(True)
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$r^2$', size='x-large')
+  legend(leg,loc='lower right')
   title(r'$r_d=$ '	+ str(opts.rsq_threshold)+\
     r', $\rho_r=$ '	+ str(opts.rsq_max_snr) +\
     r', $r_c=$'		+ str(opts.rsq_coeff) +\
@@ -891,11 +887,19 @@ if opts.snr_rsq and (opts.rsq_threshold and opts.rsq_max_snr):
 elif opts.snr_rsq:
   fig_num +=1
   figure(fig_num)
+  leg = []
+  
+  if nevents:
+    loglog(snr,rsq,'bo')
+    leg.append('Zero lag triggers')
 
-  loglog(snr,rsq,'bx')
-  hold(True)
-  if opts.inj_glob or opts.cache_file:
-    loglog(inj_snr,inj_rsq,'ro', 'marker')
+  if ninj_events:
+    loglog(inj_snr,inj_rsq,'ro')
+    leg.append('Found injections')
+
+  if slide_events:
+    loglog(slide_snr,slide_rsq,'ko')
+    leg.append('Background triggers')
 
   xlim(min_snr, max_snr)
 
@@ -903,6 +907,7 @@ elif opts.snr_rsq:
   xlabel(r'$\rho$', size='x-large')
   ylabel(r'$r^2$', size='x-large')
   title('threshold is '+str(opts.rsq_threshold))
+  legend(leg,loc='lower right')
  
   #ylim(1e-5, 10)
   if opts.enable_output:
