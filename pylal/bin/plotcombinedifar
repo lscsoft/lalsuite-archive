@@ -32,7 +32,8 @@ import numpy
 import operator
 import matplotlib.mlab as mlab
 
-
+usage =  """
+"""
 # ============================================================================
 # def poly_between; needed if using older version of matplotlib
 def poly_between(x, ylower, yupper):
@@ -384,8 +385,8 @@ if opts.combine_ifan:
   ylabel( r"Cumulative \#", size='x-large' )
   legend()
   if opts.enable_output is True:
-    name = "cumhist_ifan"
-    text = "Cumulative Histogram of IFAN distribution"
+    name = "cumhist_ifan_combined"
+    text = "Combined Cumulative Histogram of IFAN distribution"
     fname = InspiralUtils.set_figure_name(opts, name)
     fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
     fnameList.append(fname)
