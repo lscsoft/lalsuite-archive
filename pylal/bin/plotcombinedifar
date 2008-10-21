@@ -1,0 +1,429 @@
+#!/usr/bin/python
+
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__name__ = "plotcombinedifar"
+__Id__ = "$Id$"
+
+import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import * #!!!what does this do?
+
+from glue import lal
+from glue import segments #!!!do I need this?
+from glue import segmentsUtils #!!!do I need this?
+from glue.ligolw import ligolw 
+from glue.ligolw import table as tab #!!!why as tab?
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+import glue.iterutils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import InspiralUtils
+from numpy import histogram
+
+import itertools
+import numpy
+import operator
+import matplotlib.mlab as mlab
+
+
+# ============================================================================
+# def poly_between; needed if using older version of matplotlib
+def poly_between(x, ylower, yupper):
+    """
+    given a sequence of x, ylower and yupper, return the polygon that
+    fills the regions between them.  ylower or yupper can be scalar or
+    iterable.  If they are iterable, they must be equal in length to x
+
+    return value is x, y arrays for use with Axes.fill
+    """
+    Nx = len(x)
+    if not iterable(ylower):
+      ylower = ylower*numpy.ones(Nx)
+
+    if not iterable(yupper):
+      yupper = yupper*numpy.ones(Nx)
+
+    x = numpy.concatenate( (x,x[::-1]) )
+    y = numpy.concatenate( (yupper, ylower[::-1]) )
+    return x,y
+#  End poly_between ==========================================================
+# ============================================================================
+# Set options: --glob or --cache-file and --output-path are required
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+
+  parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+  # following are related to file input and output naming
+  parser.add_option( "-g", "--glob", action = "store", type = "string", \
+        default = None, metavar = " GLOB", \
+        help = "glob of CORSE files to read" )
+  parser.add_option( "-I", "--cache-file", \
+        help = "read CORSE file names from cache input file" )
+  parser.add_option( "-P", "--output-path", action = "store", type = "string", \
+        default = "", metavar = "PATH", \
+        help = "path where the figures should be stored" )
+  parser.add_option( "-O", "--enable-output", action = "store_true", \
+        default =  False, metavar = "OUTPUT", \
+        help = "enable the generation of html and cache documents" )
+  parser.add_option( "-s", "--show-plot", action = "store_true", default = False, \
+        help = "display the plots on the terminal" )
+  parser.add_option( "-v", "--verbose", action = "store_true", default = False, \
+        help = "print information to stdout" )
+  # following (gps-start/stop-time, ifo-times, ifo-tag, user-tag) are options
+  # required by InspiralUtils to generate a file name. They are only used for
+  # file naming. they aren't used in any calculations in the plot, so they are
+  # all optional.
+  parser.add_option( "", "--gps-start-time", action = "store", type = "int", \
+        default = None, metavar = "GPSSTARTTIME", \
+        help = "gps start time used in the figure and output file names" )
+  parser.add_option( "", "--gps-end-time", action = "store", type = "int", \
+        default = None, metavar = "GSPENDTIME", \
+        help = "gps end time used in the figure and output file names" )
+  parser.add_option( "", "--ifo-times", action = "store", default = None, metavar = "IFOS", \
+        help = "puts the ifo times for which the plots were made into output file name." )
+  parser.add_option( "", "--ifo-tag", action = "store", type = "string", \
+        default = None, metavar = "IFOTAG", \
+        help = "the ifo tag used in the name of the figure (e.g. SECOND_H1H2L1)" )
+  parser.add_option( "-u", "--user-tag", action = "store", type = "string", \
+        default = None, metavar = "USERTAG", \
+        help = "user tag used in the name of the figures" )
+  # following are ifar plot specific options
+  parser.add_option( "", "--far-time-correction", action = "store", type = "float", \
+        default = None, metavar = "T_COR", \
+        help = "zero-lag time correction for FAR: FAR -> T_COR*FAR " + \
+        "(for use when FAR calculated with all_data and need exclude_play " + \
+        "or playground_only FAR)" )
+  parser.add_option( "", "--t-correct-num", action= "store", type= "string", \
+        default = None, metavar= "T_COR_NUM", \
+        help = "coire summary file that contains the amount of analyzed time " + \
+        "for the data-type you need to generate a correction factor for. " + \
+        "Requires denominator file; precludes far-time-correction option." )
+  parser.add_option( "", "--t-correct-denom", action = "store", type= "string", \
+        default = None, metavar = "T_COR_DENOM", \
+        help="coire summary file that contains the amount of all_data analyzed time. " + \
+        "Dividing the value in the numerator file by this gives the " + \
+        "far-time-correction factor as opposed to manually specifying. " + \
+        "Requires numerator file; precludes far-time-correction option." )
+  parser.add_option( "", "--min-ifar", action = "store", type = "float", \
+        default = None, metavar = "MIN_IFAR", \
+        help = "the minimum IFAR to plot" )
+  parser.add_option( "", "--max-ifar", action = "store", type = "float", \
+        default = None, metavar = "MAX_IFAR", \
+        help = "the maximum IFAR to plot" )
+  parser.add_option( "-a", "--ifar-dist", action = "store_true", default = False, \
+        help = "plot a cumulative histogram of IFAR normalized in terms of a year" )
+  parser.add_option( "-b", "--ifan-dist", action = "store_true", default = False, \
+        help = "plot a cumulative histogram of IFAR*analysis time (the " + \
+        "inverse false alarm number). This generates ifar plots as they " + \
+        "were in the first year analysis." )
+  parser.add_option( "-c", "--snr-ifar", action = "store_true", default = False, \
+        help = "plot effective snr vs time-normalized ifar" )
+  parser.add_option( "", "--show-min-bkg-ifar", action = "store_true", default = False, \
+        help = "put a vertical line indicating where the background begins for some " + \
+        "category. Requires num-slides option and a corse summary file with " + \
+        "the same name and location as the input file with file extension .txt " + \
+        "as opposed to .xml.gz"  )
+  parser.add_option( "", "--show-max-bkg-ifar", action = "store_true", default = False, \
+        help = "put a vertical line indicating where the background ends for some " + \
+        "category. Requires num-slides option." )
+  parser.add_option( "", "--num-slides", action = "store", default = None, \
+        help = "Number of time slides performed. Only needed if using " + \
+        "show min/max bkg ifar options." )
+  parser.add_option( "", "--make-uncombined-plot", action = "store_true", default = False, \
+        help = "make an uncombined plot of however many categories there are" )
+  parser.add_option("", "--combine-ifan", action = "store_true", default = False, \
+        help = "Combine IFANs from different experiments into one cum. hist." )
+  parser.add_option("", "--combine-ifar-n-kink-bkg", action = "store_true", default = False, \
+        help = "Combine IFARs from different experiments and kink the background" )
+   
+  (options,args) = parser.parse_args()
+
+  #check if required options specified and for self-consistency
+  if not options.glob or options.cache_file:
+    raise ValueError, "--glob or --cache-file must be specified"
+  if not options.output_path:
+    raise ValueError, "--output-path must be specified"
+  if options.t_correct_num and not options.t_correct_denom:
+    raise ValueError, "--t-correct-num requires --t-correct-denom."
+  if options.t_correct_denom and not options.t_correct_num:
+    raise ValueError, "--t-correct-denom requires --t-correct-num."
+  if options.t_correct_num and options.far_time_correction:
+    raise ValueError, "If using --t-correct files, cannot use --far-time-correction."
+  if options.show_min_bkg_ifar and not options.num_slides:
+    raise ValueError, "--show-min-bkg-ifar requires --num-slides"
+  if options.show_max_bkg_ifar and not options.num_slides:
+    raise ValueError, "--show-max-bkg-ifar requires --num-slides"
+
+  return options, sys.argv[1:]
+
+# ============= End parse_command_line =======================================
+
+# ============================================================================
+# Initialization: get arguments and input files; store to tables
+
+# parse command line
+opts, args = parse_command_line()
+# Change to Agg back-end if show() will not be called 
+# thus avoiding display problem
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+from numpy import histogram
+rc('text', usetex=True)
+
+# set InspiralUtils options for file and plot naming
+opts = InspiralUtils.initialise( opts, __name__, __version__ )
+# set the proper color code and symbols
+colors = InspiralUtils.colors
+plotsymbols = ['r+','bx','ko','g1']
+hanfordsym = ['b+','bx','r1']
+addsym = ['k+','kx','k1']
+figure_number = 0 # used for the figure label (showplot)
+fnameList = [] # used for the html cache file
+tagList = [] # ditto
+
+# get input files
+corsefiles = []
+if opts.glob is not None:
+  for gl in opts.glob.split(" "):
+    corsefiles.extend(glob.glob(gl))
+#elif opts.cache_file is not None:
+  #!!! not sure what to do here
+if not corsefiles:
+  print >> stderr, "No corse files could be found. Check input args."
+  sys.exit(1)
+
+# if computing bkg min/max ifar, need the corse relevant corse summary files.
+# These are found using the corsefiles list; assumption is that summary file
+# has same name and location as the corse file, but has file extenstion .txt
+if opts.show_min_bkg_ifar or opts.ifar_dist or opts.snr_ifar:
+  summfiles = []
+  for file in corsefiles:
+    summfiles.extend(glob.glob(rstrip('.xml.gz') + '.txt'))
+  # check if every corse file has a corresponding summary file
+  if len(corsefiles) != len(summfiles):
+    print >>sys.stderr, "One or more of the globbed files do not have summary files."
+    sys.exit(1)
+  # get needed info from summary file
+  for thisfile in summfiles:
+    file = open(thisfile, 'r')
+    for line in file:
+      if line.startswith( 'number of reconstructed slide coincidences:' ):
+        Nbkg = float( line.split()[5] )
+      elif line.startswith( 'amount of time analysed for triggers' ):
+        time = float( line.split()[6] ) + float( line.split()[8] ) #sec + ns
+        time = time / 31556925.9936 #divide by num of secs in a year
+    file.close()
+    thisfile = [thisfile, Nbkg, time]
+
+# set statistic arg for the coincTable to far
+coincStat = CoincInspiralUtils.coincStatistic("far")
+
+# store coinc triggers to a CoincInspiralTable; this has to be done by first
+# reading in the SnglInspiralTable, then constructing a coincident table from
+# it. Since will need info from each file spearately (e.g., if normalizing by
+# time, each FAN will need to be divided by the time analyzed for that corse
+# file) am saving each coincTable to a dictionary of coinc tables
+# referenced by the corresponding file name
+coincT = {}
+for thisfile in corsefiles:
+  insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [thisfile] )
+  coincT[ thisfile ] = CoincInspiralUtils.coincInspiralTable( insptrigs, coincStat )
+  coincT[ thisfile ].sort() # sort by descending FAN
+
+# ============================================================================
+# ============================================================================
+# Apply necessary algorithims
+
+if opts.combine_ifan:
+  maxFANs = [] # for storing max FAN in each coinc table
+  FANc = [] # for storing the combined FANs
+  for thisfile in corsefiles:
+    if coincT[thisfile].sngl_table: # if have foreground trigs
+      maxFANs.append( coincT[thisfile][0].stat )
+      for coinc in coincT[thisfile]:
+        FANc.append( coinc.stat )
+  FANc.sort(reverse=True)
+  maxFANs.sort(reverse=True)
+  for ii in range(0, len(FANc)):
+    for jj in range(1, len(maxFANs)):
+      if FANc[ii] >= maxFANs[jj]:
+        FANc[ii] = FANc[ii] * (jj)
+        for kk in range(jj, len(maxFANs)):
+          FANc[ii] = FANc[ii] + maxFANs[kk]
+        break
+      elif jj == len(maxFANs)-1:
+        FANc[ii] = FANc[ii] * len(maxFANs)
+
+# ============================================================================
+# ============================================================================
+# Make plots
+colors = itertools.cycle(('b', 'g', 'r', 'c', 'm', 'k'))
+symbols = itertools.cycle(('^', 'D', 'H', 'o', '1', '+', 'x'))
+
+if opts.make_uncombined_plot:
+  if opts.ifan_dist:
+    figure(figure_number)
+    figure_number += 1
+    xmin = numpy.inf
+    xmax = float(opts.num_slides)*2.2
+    ymin = 0.8
+    ymax = 0
+    for thisfile in corsefiles:
+      if coincT[thisfile].sngl_table: # if have foreground trigs
+        IFAN = []
+        for coinc in coincT[thisfile]:
+          if coinc.stat == 0: # set IFAN to maximum IFAN, which is the num. of slides
+            IFAN.append( float(opts.num_slides)*2 )
+          else:
+            IFAN.append( 1./coinc.stat )
+        IFAN = array(IFAN) # turn into a matplotlib array
+        # generate cumnum array (the y-axis in the plot)
+        cumnum = []
+        for ii in range(len(IFAN)):
+          cumnum.append( len( (IFAN>=IFAN[ii]).nonzero()[0] ))
+        # set colors and symbos and plot IFAN for this category;
+        # note that assuming the ifos are all the same in that file
+        if coincT[thisfile][0].get_ifos()[0] == 'H1L1':
+          color = 'g'
+          symbol = 'D'
+        elif coincT[thisfile][0].get_ifos()[0] == 'H2L1':
+          color = 'r'
+          symbol = 'H'
+        elif coincT[thisfile][0].get_ifos()[0] == 'H1H2L1':
+          color = 'c'
+          symbol = 'o'
+        loglog( IFAN, cumnum, color+symbol, markerfacecolor=color,
+                  markeredgecolor=color, alpha=0.65, 
+                  label=coincT[thisfile][0].get_ifos()[0] )
+        hold(True)
+        if xmin > IFAN[0]: # reset xmin
+          xmin = IFAN[0]
+        if ymax < cumnum[0]: # reset max
+          ymax = cumnum[0]
+      else:
+        warn_msg = "File %s has no foreground triggers" %(thisfile)
+        print >> sys.stdout, warn_msg
+    # end loop over coinc tables
+    # set xmin and ymax to be slightly smaller/larger
+    xmin = xmin * 0.8
+    ymax = ymax * 1.2
+    # plot background
+    xbkg = numpy.logspace( -4, 2, num=100, endpoint=True, base=10.0 )
+    ybkg = 1./xbkg
+    loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
+    # plot error
+    bkgplus = ybkg + sqrt(ybkg)
+    bkgminus = ybkg - sqrt(ybkg)
+    bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+    xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+    fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
+    xlim(xmin,xmax)
+    ylim(ymin,ymax)
+    xlabel( r"Inverse False Alarm Number", size='x-large' )
+    ylabel( r"Cumulative \#", size='x-large' )
+    legend()
+    if opts.enable_output is True:
+      name = "cumhist_ifan"
+      text = "Cumulative Histogram of IFAN distribution"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+      fnameList.append(fname)
+      tagList.append(text)
+
+if opts.combine_ifan:
+  figure(figure_number)
+  figure_number += 1
+  xmin = numpy.inf
+  xmax = float(opts.num_slides)*2.2
+  ymin = 0.8
+  ymax = 0
+  # plotting method is similar as uncombined plots, but since all FANs are
+  # already in the list FANc, can just use this to make the IFANc array
+  IFANc = []
+  for fan in FANc:
+    if fan == 0: 
+      IFANc.append( float(opts.num_slides)*2 )
+    else:
+      IFANc.append( 1./fan )
+  IFANc = array(IFANc)
+  cumnum = []
+  for ii in range( len(IFANc)):
+    cumnum.append( len( (IFANc>=IFANc[ii]).nonzero()[0] ))
+  loglog( IFANc, cumnum, 'b'+'^', markerfacecolor='b',
+        markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
+  hold(True)
+  # set xmin and ymax to be slightly smaller/larger then minIFANc/maxnum
+  xmin = IFANc[0] * 0.8
+  ymax = cumnum[0] * 1.2
+  # plot background
+  xbkg = numpy.logspace( -4, 2, num=100, endpoint=True, base=10.0 )
+  ybkg = 1./xbkg
+  loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
+  # plot error
+  bkgplus = ybkg + sqrt(ybkg)
+  bkgminus = ybkg - sqrt(ybkg)
+  bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+  xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+  fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
+  xlim(xmin,xmax)
+  ylim(ymin,ymax)
+  xlabel( r"Inverse False Alarm Number", size='x-large' )
+  ylabel( r"Cumulative \#", size='x-large' )
+  legend()
+  if opts.enable_output is True:
+    name = "cumhist_ifan"
+    text = "Cumulative Histogram of IFAN distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    fnameList.append(fname)
+    tagList.append(text)
+
+# ============================================================================
+# final step: html, cache file generation
+if opts.enable_output is True:
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+# ============================================================================
+
+if opts.show_plot:
+  show()
+
+
+
+
+
+# store coinc triggers to a CoincInspiralTable; this has to be done by first
+# reading in the SnglInspiralTable, then constructing a coincident table from
+# it. Since the normalization time might be different for each file, if want
+# ifar, (i.e., if want to normalize by time) must read in one file at a time.
+# Once this is done, storing coincifos and IFAR to a 2-d array strategically named 'IFAR'
+# if opts.ifar_dist or opts.snr_ifar:
+#   IFAR = []
+#   for ii in range(0, len(corsefiles)):
+#     insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [corsefiles[ii]] )
+#     coincTable = coincInspiralTable( insptrigs, coincStat )
+#     for coinc in coincTable:
+#       IFAR.append( [ coinc.get_ifos()[0], (1./coinc.stat)*summfiles[ii][2] ] )
+
+# if plotting ifan, normalization isn't important, so can read in all the
+# triggers at once; storing to a 2-d array that, like IFAR, stores coinc ifos
+# as first column, ifan as second
+# if opts.ifan_dist:
+#   IFAN = []
+#   insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( corsefiles )
+#   coincTable = CoincInspiralUtils.coincInspiralTable( insptrigs,stat )
+#   for coinc in coincTable:
+#     IFAN.append( [ coinc.get_ifos()[0], (1./coinc.stat) ] )
