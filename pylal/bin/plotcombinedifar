@@ -129,12 +129,12 @@ def parse_command_line():
         "were in the first year analysis." )
   parser.add_option( "-c", "--snr-ifar", action = "store_true", default = False, \
         help = "plot effective snr vs time-normalized ifar" )
-  parser.add_option( "", "--show-min-bkg-ifar", action = "store_true", default = False, \
+  parser.add_option( "", "--show-min-bkg", action = "store_true", default = False, \
         help = "put a vertical line indicating where the background begins for some " + \
         "category. Requires num-slides option and a corse summary file with " + \
         "the same name and location as the input file with file extension .txt " + \
         "as opposed to .xml.gz"  )
-  parser.add_option( "", "--show-max-bkg-ifar", action = "store_true", default = False, \
+  parser.add_option( "", "--show-max-bkg", action = "store_true", default = False, \
         help = "put a vertical line indicating where the background ends for some " + \
         "category. Requires num-slides option." )
   parser.add_option( "", "--num-slides", action = "store", default = None, \
@@ -160,10 +160,10 @@ def parse_command_line():
     raise ValueError, "--t-correct-denom requires --t-correct-num."
   if options.t_correct_num and options.far_time_correction:
     raise ValueError, "If using --t-correct files, cannot use --far-time-correction."
-  if options.show_min_bkg_ifar and not options.num_slides:
-    raise ValueError, "--show-min-bkg-ifar requires --num-slides"
-  if options.show_max_bkg_ifar and not options.num_slides:
-    raise ValueError, "--show-max-bkg-ifar requires --num-slides"
+  if options.show_min_bkg and not options.num_slides:
+    raise ValueError, "--show-min-bkg requires --num-slides"
+  if options.show_max_bkg and not options.num_slides:
+    raise ValueError, "--show-max-bkg requires --num-slides"
 
   return options, sys.argv[1:]
 
@@ -210,7 +210,7 @@ if not corsefiles:
 # time analyzed; this info is in the relevant corse summary files.
 # These are found using the corsefiles list; assumption is that summary file
 # has same name and location as the corse file, but has file extenstion .txt
-if opts.show_min_bkg_ifar or opts.ifar_dist or opts.snr_ifar or opts.combine_ifan:
+if opts.show_min_bkg or opts.ifar_dist or opts.snr_ifar or opts.combine_ifan:
   # save num. bkg coincs and analyzed time to relevant dict. referenced by
   # corse file name
   NbkgCoinc = {}
@@ -330,16 +330,17 @@ if opts.make_uncombined_plot:
       else:
         warn_msg = "File %s has no foreground triggers" %(thisfile)
         print >> sys.stdout, warn_msg
-        if opts.show_min_bkg_ifar or opts.show_max_bkg_ifar:
+        if opts.show_min_bkg or opts.show_max_bkg:
           color = 'm' # for background lines
           if ymax == 0: ymax = 100
       # end if have foreground trigs
       # plot min bkg lines
-      if opts.show_min_bkg_ifar:
+      if opts.show_min_bkg:
         xminbkg = 2*float(opts.num_slides) / NbkgCoinc[thisfile]
         loglog( [xminbkg,xminbkg], [ymin,ymax*1.2], color, linestyle=lnsymbol,
                 linewidth=2 )
-        xmin = xminbkg
+        if xmin > xminbkg:
+          xmin = xminbkg
     # end loop over coinc tables
     # set xmin and ymax to be slightly smaller/larger
     xmin = xmin * 0.8
@@ -355,7 +356,7 @@ if opts.make_uncombined_plot:
     xs, ys = poly_between( xbkg, bkgminus, bkgplus )
     fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
     # plot max bkg line (note that this is only approx.
-    if opts.show_max_bkg_ifar:
+    if opts.show_max_bkg:
       xmaxbkg = 2*float(opts.num_slides)
       loglog( [xmaxbkg,xmaxbkg], [ymin,ymax*1.2], color='k', linestyle='-',
         linewidth=2, alpha=0.6 )
@@ -427,15 +428,16 @@ if opts.make_uncombined_plot:
       else:
         warn_msg = "File %s has no foreground triggers" %(thisfile)
         print >> sys.stdout, warn_msg
-        if opts.show_min_bkg_ifar or opts.show_max_bkg_ifar:
+        if opts.show_min_bkg or opts.show_max_bkg:
           color = 'm' # for background lines
           if ymax == 0: ymax = 100
       # plot min bkg lines
-      if opts.show_min_bkg_ifar:
+      if opts.show_min_bkg:
         xminbkg = (2*float(opts.num_slides)/NbkgCoinc[thisfile])*AnTime[thisfile]
         loglog( [xminbkg,xminbkg], [ymin,ymax*1.2], color, linestyle=lnsymbol,
                 linewidth=2 )
-        xmin = xminbkg
+        if xmin > xminbkg:
+          xmin = xminbkg
       # end if have foreground eval.
       # plot background; note that this is occuring in the corsefiles loop,
       # whereas in IFAN plots it happens outside. This is because if a
@@ -451,11 +453,13 @@ if opts.make_uncombined_plot:
       bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
       xs, ys = poly_between( xbkg, bkgminus, bkgplus )
       fill( xs, ys, facecolor='y', alpha=0.2 )
-      # plot max bkg line (note that this is only approx.
-      if opts.show_max_bkg_ifar:
+      # plot max bkg line (note that this is only approx.)
+      if opts.show_max_bkg:
         xmaxbkg = 2*float(opts.num_slides)*AnTime[thisfile]
         loglog( [xmaxbkg,xmaxbkg], [ymin,ymax*1.2], color, linestyle='-',
                 linewidth=2, alpha=0.6)
+        if xmaxbkg > xmax:
+          xmax = xmaxbkg
       # end loop over coinc tables
     # set xmin, xmax, ymax to be slightly smaller/larger
     xmin = xmin * 0.8
