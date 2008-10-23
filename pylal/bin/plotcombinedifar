@@ -206,30 +206,30 @@ if not corsefiles:
   print >> stderr, "No corse files could be found. Check input args."
   sys.exit(1)
 
-# if computing bkg min/max ifar, need the corse relevant corse summary files.
+# if combining experiments or calculating FAR, need number of bkg coinc. and 
+# time analyzed; this info is in the relevant corse summary files.
 # These are found using the corsefiles list; assumption is that summary file
 # has same name and location as the corse file, but has file extenstion .txt
-if opts.show_min_bkg_ifar or opts.ifar_dist or opts.snr_ifar:
-  summfiles = []
+if opts.show_min_bkg_ifar or opts.ifar_dist or opts.snr_ifar or opts.combine_ifan:
+  # save num. bkg coincs and analyzed time to relevant dict. referenced by
+  # corse file name
+  NbkgCoinc = {}
+  AnTime = {}
   for file in corsefiles:
-    summfiles.extend(glob.glob(file.rstrip('.xml.gz') + '.txt'))
-  # check if every corse file has a corresponding summary file
-  if len(corsefiles) != len(summfiles):
-    print >>sys.stderr, "One or more of the globbed files do not have summary files."
-    sys.exit(1)
-  # get needed info from summary file
-  ii = 0
-  for thisfile in summfiles:
-    file = open(thisfile, 'r')
-    for line in file:
+    summfile = glob.glob(file.rstrip('.xml.gz') + '.txt')
+    # check if corse file has a corresponding summary file
+    if not summfile:
+      print >>sys.stderr, "The file: %s does not have a summary file." %(file)
+      sys.exit(1)
+    # get needed info from summary file
+    thisfile = open(summfile[0], 'r')
+    for line in thisfile:
       if line.startswith( 'number of reconstructed slide coincidences:' ):
-        Nbkg = float( line.split()[5] )
+        NbkgCoinc[file] = float( line.split()[5] )
       elif line.startswith( 'amount of time analysed for triggers' ):
         time = float( line.split()[6] ) + float( line.split()[8] ) #sec + ns
-        time = time / 31556925.9936 #divide by num of secs in a year
-    file.close()
-    summfiles[ii] = [thisfile, Nbkg, time]
-    ii = ii + 1
+        AnTime[file] = time / 31556925.9936 #divide by num of secs in a year
+    thisfile.close()
 
 # set statistic arg for the coincTable to far
 coincStat = CoincInspiralUtils.coincStatistic("far")
@@ -251,23 +251,25 @@ for thisfile in corsefiles:
 # Apply necessary algorithims
 
 if opts.combine_ifan:
-  maxFANs = [] # for storing max FAN in each coinc table
-  FANc = [] # for storing the combined FANs
+  maxFANs = [] # for storing max FAN of bkg
+  FANc = [] # for storing the combined FANs of foreground
   for thisfile in corsefiles:
+    maxFANs.append( NbkgCoinc[thisfile]/(2*float(opts.num_slides)) )
     if coincT[thisfile].sngl_table: # if have foreground trigs
-      maxFANs.append( coincT[thisfile][0].stat )
       for coinc in coincT[thisfile]:
         FANc.append( coinc.stat )
-  FANc.sort(reverse=True)
+  FANc.sort(reverse=True) # order from weakest to strongest
   maxFANs.sort(reverse=True)
-  for ii in range(0, len(FANc)):
-    for jj in range(1, len(maxFANs)):
-      if FANc[ii] >= maxFANs[jj]:
-        FANc[ii] = FANc[ii] * (jj)
+  # following works by starting from highest fan values and moving down (like
+  # moving left to right on an IFAN plot)
+  for ii in range(0,len(FANc)):
+    for jj in range(1, len(maxFANs)): # cycle through bkg fans, skipping first one
+      if FANc[ii] > maxFANs[jj]: # find the largest bkg fan < this foreground fan
+        FANc[ii] = FANc[ii] * (jj) # multiply by number of active categories
         for kk in range(jj, len(maxFANs)):
-          FANc[ii] = FANc[ii] + maxFANs[kk]
-        break
-      elif jj == len(maxFANs)-1:
+          FANc[ii] = FANc[ii] + maxFANs[kk] # add bkg fans of inactive categories
+        break # go to next fan in FANc
+      elif jj == len(maxFANs)-1: # all categories active
         FANc[ii] = FANc[ii] * len(maxFANs)
 
 # ============================================================================
@@ -361,15 +363,14 @@ if opts.make_uncombined_plot:
     xmax = -numpy.inf
     ymin = 0.8
     ymax = 0
-    nn = 0 # for getting summfile
     for thisfile in corsefiles:
       if coincT[thisfile].sngl_table: # if have foreground trigs
         IFAR = []
         for coinc in coincT[thisfile]:
           if coinc.stat == 0.: # set IFAR to maximum IFAR, which is the num. of slides * time(y)
-            IFAR.append( float(opts.num_slides)*2 * summfiles[nn][2] )
+            IFAR.append( float(opts.num_slides)*2 * AnTime[thisfile] )
           else:
-            IFAR.append( (1./coinc.stat) * summfiles[nn][2] )
+            IFAR.append( (1./coinc.stat) * AnTime[thisfile] )
         IFAR = array(IFAR) # turn into a matplotlib array
         # generate cumnum array (the y-axis in the plot)
         cumnum = []
@@ -377,7 +378,7 @@ if opts.make_uncombined_plot:
           cumnum.append( len( (IFAR>=IFAR[ii]).nonzero()[0] ))
         # set colors and symbos and plot IFAR for this category;
         # note that assuming the ifos are all the same in that file
-        # !!! FOLLOWING COLOR CODES FOR IFO COINC, AND MASS BIN IS A TEMP
+        # !!! FOLLOWING COLOR CODES FOR IFO COINC AND MASS BIN IS A TEMP
         # HACK; NEEDS TO BE AUTOMATED
         coinc_ifos = coincT[thisfile][0].get_ifos()[0]
         if coinc_ifos == 'H1L1':
@@ -410,22 +411,26 @@ if opts.make_uncombined_plot:
       else:
         warn_msg = "File %s has no foreground triggers" %(thisfile)
         print >> sys.stdout, warn_msg
-      nn = nn + 1
-    # end loop over coinc tables
+      # end if have foreground eval.
+      # plot background; note that this is occuring in the corsefiles loop,
+      # whereas in IFAN plots it happens outside. This is because if a
+      # category has a different amount of analysis time, the background will
+      # be different (i.e., we have to normalize the background according to
+      # whatever the analysis time was) 
+      xbkg = numpy.logspace( -6, 2, num=100, endpoint=True, base=10.0 )
+      ybkg = (1./xbkg) * AnTime[thisfile] # normalize
+      loglog( xbkg, ybkg, 'k--', linewidth=2 )
+      # plot error
+      bkgplus = ybkg + sqrt(ybkg)
+      bkgminus = ybkg - sqrt(ybkg)
+      bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+      xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+      fill( xs, ys, facecolor='y', alpha=0.2 )
+      # end loop over coinc tables
     # set xmin, xmax, ymax to be slightly smaller/larger
     xmin = xmin * 0.8
     xmax = xmax * 1.2
     ymax = ymax * 1.2
-    # plot background
-    xbkg = numpy.logspace( -6, 2, num=100, endpoint=True, base=10.0 )
-    ybkg = (1./xbkg) * summfiles[0][2] # normalize
-    loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
-    # plot error
-    bkgplus = ybkg + sqrt(ybkg)
-    bkgminus = ybkg - sqrt(ybkg)
-    bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
-    xs, ys = poly_between( xbkg, bkgminus, bkgplus )
-    fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
     xlim(xmin,xmax)
     ylim(ymin,ymax)
     xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
