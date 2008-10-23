@@ -276,7 +276,7 @@ if opts.combine_ifan:
 # ============================================================================
 # Make plots
 colors = itertools.cycle(('b', 'g', 'r', 'c', 'm', 'k'))
-symbols = itertools.cycle(('^', 'D', 'H', 'o', '1', '+', 'x'))
+symbols = itertools.cycle(( '--', ':', '-.' ))
 
 if opts.make_uncombined_plot:
   if opts.ifan_dist:
@@ -286,7 +286,7 @@ if opts.make_uncombined_plot:
     xmax = float(opts.num_slides)*2.2
     ymin = 0.8
     ymax = 0
-    for thisfile in corsefiles:
+    for thisfile, lnsymbol in zip(corsefiles,symbols):
       if coincT[thisfile].sngl_table: # if have foreground trigs
         IFAN = []
         for coinc in coincT[thisfile]:
@@ -330,6 +330,16 @@ if opts.make_uncombined_plot:
       else:
         warn_msg = "File %s has no foreground triggers" %(thisfile)
         print >> sys.stdout, warn_msg
+        if opts.show_min_bkg_ifar or opts.show_max_bkg_ifar:
+          color = 'm' # for background lines
+          if ymax == 0: ymax = 100
+      # end if have foreground trigs
+      # plot min bkg lines
+      if opts.show_min_bkg_ifar:
+        xminbkg = 2*float(opts.num_slides) / NbkgCoinc[thisfile]
+        loglog( [xminbkg,xminbkg], [ymin,ymax*1.2], color, linestyle=lnsymbol,
+                linewidth=2 )
+        xmin = xminbkg
     # end loop over coinc tables
     # set xmin and ymax to be slightly smaller/larger
     xmin = xmin * 0.8
@@ -344,6 +354,11 @@ if opts.make_uncombined_plot:
     bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
     xs, ys = poly_between( xbkg, bkgminus, bkgplus )
     fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
+    # plot max bkg line (note that this is only approx.
+    if opts.show_max_bkg_ifar:
+      xmaxbkg = 2*float(opts.num_slides)
+      loglog( [xmaxbkg,xmaxbkg], [ymin,ymax*1.2], color='k', linestyle='-',
+        linewidth=2, alpha=0.6 )
     xlim(xmin,xmax)
     ylim(ymin,ymax)
     xlabel( r"Inverse False Alarm Number", size='x-large' )
@@ -356,6 +371,7 @@ if opts.make_uncombined_plot:
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(text)
+
   if opts.ifar_dist:
     figure(figure_number)
     figure_number += 1
@@ -363,7 +379,7 @@ if opts.make_uncombined_plot:
     xmax = -numpy.inf
     ymin = 0.8
     ymax = 0
-    for thisfile in corsefiles:
+    for thisfile,lnsymbol in zip(corsefiles,symbols):
       if coincT[thisfile].sngl_table: # if have foreground trigs
         IFAR = []
         for coinc in coincT[thisfile]:
@@ -411,6 +427,15 @@ if opts.make_uncombined_plot:
       else:
         warn_msg = "File %s has no foreground triggers" %(thisfile)
         print >> sys.stdout, warn_msg
+        if opts.show_min_bkg_ifar or opts.show_max_bkg_ifar:
+          color = 'm' # for background lines
+          if ymax == 0: ymax = 100
+      # plot min bkg lines
+      if opts.show_min_bkg_ifar:
+        xminbkg = (2*float(opts.num_slides)/NbkgCoinc[thisfile])*AnTime[thisfile]
+        loglog( [xminbkg,xminbkg], [ymin,ymax*1.2], color, linestyle=lnsymbol,
+                linewidth=2 )
+        xmin = xminbkg
       # end if have foreground eval.
       # plot background; note that this is occuring in the corsefiles loop,
       # whereas in IFAN plots it happens outside. This is because if a
@@ -426,6 +451,11 @@ if opts.make_uncombined_plot:
       bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
       xs, ys = poly_between( xbkg, bkgminus, bkgplus )
       fill( xs, ys, facecolor='y', alpha=0.2 )
+      # plot max bkg line (note that this is only approx.
+      if opts.show_max_bkg_ifar:
+        xmaxbkg = 2*float(opts.num_slides)*AnTime[thisfile]
+        loglog( [xmaxbkg,xmaxbkg], [ymin,ymax*1.2], color, linestyle='-',
+                linewidth=2, alpha=0.6)
       # end loop over coinc tables
     # set xmin, xmax, ymax to be slightly smaller/larger
     xmin = xmin * 0.8
