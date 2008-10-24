@@ -2662,38 +2662,6 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     else:        
       return self.__output
 
-class MkdirJob(CondorDAGJob):
-  """
-  Runs an instance of mkdir in a DAG/DAX. Useful for grid submission.
-  """
-  def __init__(self,log_dir, cp, dax=False):
-    self.__executable = cp.get('condor','mkdir')
-    self.__universe = 'local'
-    CondorDAGJob.__init__(self,self.__universe,self.__executable)
-#    AnalysisJob.__init__(self,cp,dax)
-    self.add_condor_cmd('getenv','True')
-    self.set_stdout_file(os.path.join( log_dir, 'mkdir-$(cluster)-$(process).out') )
-    self.set_stderr_file(os.path.join( log_dir, 'mkdir-$(cluster)-$(process).err') )
-    self.set_sub_file('mkdir.sub')
-
-class MkdirNode(CondorDAGNode):
-  """
-  Runs an instance of mkdir in a DAG/DAX. Useful for grid submission.
-  """
-  def __init__(self,job,dir):
-    """
-    @param job: A CondorDAGJob that can run an instance of ligolw_add
-    """
-    CondorDAGNode.__init__(self,job)
-    self.set_name('mkdir_'+dir.replace(' ',''))
-    self.add_var_arg(dir)
-    
-    for file in dir.split():
-      self.add_output_file(file+'/'+'.log')
-      try: os.mkdir(file)
-      except: pass
-
-
 class LigolwAddJob(CondorDAGJob, AnalysisJob):
   """
   A ligolw_add job can be used to concatenate several ligo lw files
