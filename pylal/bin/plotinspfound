@@ -469,7 +469,18 @@ def write_html_head( opts, injPatterns, title ):
   fout.write( line )
   line = '<h2> Information </h2>'
   fout.write( line )
-  line = '<p> User Options: <br />' + str( sys.argv[1:] ) + '</p> \n'
+  line = '<p> User Options: <br /> \n'
+  fout.write( line )
+  line = '  <code> \n'
+  fout.write( line )
+  line = ''
+  for i in xrange( len( sys.argv ) ):
+    line = line + sys.argv[i] + ' '  
+  line = line + ' \n'
+  fout.write( line )
+  line = '  </code> \n'
+  fout.write( line )
+  line = '</p> \n'
   fout.write( line )
 
 
@@ -873,9 +884,11 @@ for injPattern in injPatterns:
     if opts.h1_triggers:
       flagInj, foundInj = check_snr_coirefirst( opts, h1Trigs, h_time )
       if flagInj:
-        injIndex.append( x )
+        if x not in injIndex:
+          injIndex.append( x )
       if foundInj:
-        injFound.append( x )
+        if x not in injFound:
+          injFound.append( x )
       
     if opts.h2_triggers:
       flagInj, foundInj = check_snr_coirefirst( opts, h2Trigs, h_time )
@@ -934,8 +947,8 @@ for injPattern in injPatterns:
 
 
     if opts.l1_triggers:
-      if h_time in l1Trigs.coirefirstTimes:
-        if h_time in l1Trigs.sirefirstTimes:
+      if l_time in l1Trigs.coirefirstTimes:
+        if l_time in l1Trigs.sirefirstTimes:
           i = l1Trigs.coirefirstTimes.index( l_time )
           j = l1Trigs.sirefirstTimes.index( l_time )
 
@@ -988,9 +1001,11 @@ for injPattern in injPatterns:
     if opts.h1_triggers:
       flagInj, foundInj = check_snr_coiresecond( opts, h1Trigs, h_time )
       if flagInj:
-        injIndex.append( x )
+        if x not in injIndex:
+          injIndex.append( x )
       if foundInj:
-        injFound.append( x )
+        if x not in injFound:
+          injFound.append( x )
 
     if opts.h2_triggers:
       flagInj, foundInj = check_snr_coiresecond( opts, h2Trigs, h_time )
@@ -1002,7 +1017,7 @@ for injPattern in injPatterns:
           injFound.append( x )
 
     if opts.l1_triggers:
-      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time )
+      flagInj, foundInj = check_snr_coiresecond( opts, l1Trigs, l_time )
       if flagInj:
         if x not in injIndex:
           injIndex.append( x )
@@ -1050,8 +1065,8 @@ for injPattern in injPatterns:
 
 
     if opts.l1_triggers:
-      if h_time in l1Trigs.coiresecondTimes:
-        if h_time in l1Trigs.coirefirstTimes:
+      if l_time in l1Trigs.coiresecondTimes:
+        if l_time in l1Trigs.coirefirstTimes:
           i = l1Trigs.coiresecondTimes.index( l_time )
           j = l1Trigs.coirefirstTimes.index( l_time )
 
