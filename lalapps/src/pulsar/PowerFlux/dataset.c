@@ -135,9 +135,6 @@ lock_file=-1;
 }
 
 typedef struct {
-	float e[26];
-	int bin;
-
 	double a_plus;
 	double a_cross;
 	double cos_e;
@@ -152,20 +149,27 @@ typedef struct {
 
 	double ra;
 	double dec;
+	double iota;
+	double psi;
+	double phi;
+
+	double strain;
 
 	double coherence_time;
 
 	double extra_phase; /* phase accumulated from the start of the run */
 	double phase_integration_factor;
 
+	float e[26];
+	int bin;
 	} SIGNAL_PARAMS;
 
 static void compute_signal(double *re, double *im, double *f, double t, SIGNAL_PARAMS *p)
 {
-float det_vel[3]={NAN, NAN, NAN};
-float f_plus, f_cross;
 double doppler, omega_t, c_omega_t, s_omega_t;
 double hann;
+float det_vel[3]={NAN, NAN, NAN};
+float f_plus, f_cross;
 
 get_detector_vel(round(t), det_vel);
 
@@ -241,7 +245,7 @@ omega=2.0*M_PI*p->freq*doppler-p->phase_integration_factor;
 return(omega);
 }
 
-static double compute_phase(gsl_integration_workspace *giw, int giw_size, double start_time, double end_time)
+static double compute_phase(SIGNAL_PARAMS *sp, gsl_integration_workspace *giw, int giw_size, double start_time, double end_time)
 {
 SIGNAL_PARAMS p;
 gsl_function F; 
@@ -251,21 +255,13 @@ double T=end_time-start_time;
 
 if(!(fabs(T)>0))return 0.0;
 
+memcpy(&p, sp, sizeof(*sp));
+
 F.params=&p;
 p.bin=0;
 
-p.ra=args_info.fake_ra_arg;
-p.dec=args_info.fake_dec_arg;
-p.freq=args_info.fake_freq_arg;
-p.spindown=args_info.fake_spindown_arg;
-p.ref_time=args_info.fake_ref_time_arg;
 p.segment_start=0;
 p.coherence_time=0;
-
-p.cos_e=cos(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
-p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
-
-precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
 
 F.function=signal_omega;
 p.phase_integration_factor=0.0;
@@ -357,42 +353,60 @@ if(status) {
 	}
 }
 
-static void inject_fake_signal(DATASET *d, int segment, double accumulated_phase)
+static void precompute_signal_params(SIGNAL_PARAMS *p)
+{
+double cos_i;
+
+cos_i=cos(p->iota);
+
+p->a_plus=(1+cos_i*cos_i)*0.5;
+p->a_cross=cos_i;
+
+p->cos_e=cos(2.0*(p->psi-p->phi));
+p->sin_e=sin(2.0*(p->psi-p->phi));
+
+precompute_am_constants(p->e, p->ra, p->dec);
+}
+
+static void fill_signal_params_from_args_info(SIGNAL_PARAMS *p)
+{
+p->bin=0;
+
+p->ra=args_info.fake_ra_arg;
+p->dec=args_info.fake_dec_arg;
+p->freq=args_info.fake_freq_arg;
+p->spindown=args_info.fake_spindown_arg;
+p->ref_time=args_info.fake_ref_time_arg;
+p->strain=args_info.fake_strain_arg;
+p->iota=args_info.fake_iota_arg;
+p->psi=args_info.fake_psi_arg;
+p->phi=args_info.fake_phi_arg;
+
+precompute_signal_params(p);
+//fprintf(stderr, "frequency=%f spindown=%g ra=%f dec=%f\n", p.freq, p.spindown, p.ra, p.dec);
+
+
+// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p.a_plus, p.a_cross, p.cos_e, p.sin_e);
+}
+
+static void inject_fake_signal(SIGNAL_PARAMS *p, DATASET *d, int segment, double accumulated_phase)
 {
 double result, abserr;
 size_t neval;
 int err;
 int window=5, bin;
 int i;
-double re, im, f, cos_i;
-SIGNAL_PARAMS p;
+double re, im, f;
 gsl_function F; 
 
-F.params=&p;
-p.bin=0;
+F.params=p;
+p->bin=0;
 
-p.ra=args_info.fake_ra_arg;
-p.dec=args_info.fake_dec_arg;
-p.freq=args_info.fake_freq_arg;
-p.spindown=args_info.fake_spindown_arg;
-p.ref_time=args_info.fake_ref_time_arg;
-p.segment_start=d->gps[segment];
-p.coherence_time=d->coherence_time;
+p->segment_start=d->gps[segment];
+p->coherence_time=d->coherence_time;
 
-//fprintf(stderr, "frequency=%f spindown=%g ra=%f dec=%f\n", p.freq, p.spindown, p.ra, p.dec);
 
-cos_i=cos(args_info.fake_iota_arg);
-
-p.a_plus=(1+cos_i*cos_i)*0.5;
-p.a_cross=cos_i;
-
-p.cos_e=cos(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
-p.sin_e=sin(2.0*(args_info.fake_psi_arg-args_info.fake_phi_arg));
-
-// fprintf(stderr, "a_plus=%f a_cross=%f cos_e=%f sin_e=%f\n", p.a_plus, p.a_cross, p.cos_e, p.sin_e);
-
-precompute_am_constants(p.e, args_info.fake_ra_arg, args_info.fake_dec_arg);
-compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), &p);
+compute_signal(&re, &im, &f, d->gps[segment]+(int)(d->coherence_time/2), p);
 
 
 bin=round(f*1800.0-d->first_bin);
@@ -400,18 +414,18 @@ if((bin+window>nbins) || (bin<window))fprintf(stderr, "Injected signal outside l
 if(bin+window>nbins)bin=nbins-window;
 if(bin<window)bin=window;
 
-p.extra_phase=accumulated_phase;
+p->extra_phase=accumulated_phase;
 
 
 for(i=bin-window; i<=bin+window; i++) {
-	p.bin=i+d->first_bin;
+	p->bin=i+d->first_bin;
 
 	F.function=signal_re;
 	err=gsl_integration_qng(&F, d->gps[segment], d->gps[segment]+d->coherence_time,
 		1, 1e-3,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "re %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->re[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
+	d->re[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
 
 
 	F.function=signal_im;
@@ -419,19 +433,8 @@ for(i=bin-window; i<=bin+window; i++) {
 		1, 1e-3,
 		&result, &abserr, &neval);
 /*	fprintf(stderr, "im %d %d result=%g abserr=%g %d %s\n", segment, i, result, abserr, neval, gsl_strerror(err)); */
-	d->im[segment*d->nbins+i]+=args_info.fake_strain_arg*result*16384.0/args_info.strain_norm_factor_arg;
+	d->im[segment*d->nbins+i]+=p->strain*result*16384.0/args_info.strain_norm_factor_arg;
 	}
-
-}
-
-static void inject_fake_signal2(DATASET *d, int segment)
-{
-SFTandSignalParams sft_params;
-PulsarSignalParams pulsar_params;
-
-sft_params.resTrig=0;
-sft_params.Dterms=5;
-sft_params.nSamples=5;
 
 }
 
@@ -682,12 +685,29 @@ if(e1->gps>e2->gps)return(1);
 return 0;
 }
 
+/* check whether dataset is sorted in increasing order by GPS time 
+   This is useful to reduce influence of phase errors when doing software injections
+   and to increase effectiveness of caches.
+
+   Loading SFTs in increasing order by GPS reduces memory requirements as we don't need to reserve space for sorting.
+*/
+int is_dataset_sorted(DATASET *d)
+{
+int i;
+for(i=1;i<d->free;i++) {
+	if(d->gps[i]<=d->gps[i-1])return 0;
+	}
+return 1;
+}
+
 void sort_dataset(DATASET *d)
 {
 ELEMENT *p;
 float *bin_re, *bin_im;
 INT64 *gps;
 int i, k;
+
+if(d->free==d->size && is_dataset_sorted(d))return;
 
 p=do_alloc(d->free, sizeof(*p));
 for(i=0;i<d->free;i++) {
@@ -781,8 +801,7 @@ free(tm);
 
 static int validate_dataset(DATASET *d)
 {
-int i,j, m, k;
-float *tm;
+int i, k;
 CUTOFF_DATA *cd;
 
 if(d->validated)return 1;
@@ -816,18 +835,22 @@ sort_dataset(d);
 
 if(fake_injection) {
 	gsl_integration_workspace *giw;
+	SIGNAL_PARAMS sp;
 	double accumulated_phase, current_phase, start_time;
 	int workspace_size=10000;
 
 	fprintf(stderr, "Injecting fake signal.\n");
 	fprintf(LOG, "Injecting fake signal.\n");
+
+	fill_signal_params_from_args_info(&sp);
+
 	giw=gsl_integration_workspace_alloc(workspace_size);
 
-	start_time=args_info.fake_ref_time_arg;
+	start_time=sp.ref_time;
 	accumulated_phase=0;
 	for(i=0;i<d->free;i++) {
-		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(d, i, accumulated_phase+current_phase);
+		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
+		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;
@@ -1052,7 +1075,7 @@ return 0;
 
 static int get_geo_range(DATASET *d, char *filename, FILE *fin, long startbin, long count, float *re, float *im, INT64 *gps)
 {
-REAL8 a, timebase;
+REAL8 timebase;
 INT4 b, bin_start, nbins;
 REAL4 *tmp;
 float factor;
@@ -1080,7 +1103,7 @@ if(d->no_duplicate_gps && gps_exists(d, *gps)) {
 /* skip nsec */
 fread(&b, sizeof(b), 1, fin);
 /* timebase */
-fread(&timebase, sizeof(a), 1, fin);
+fread(&timebase, sizeof(timebase), 1, fin);
 
 fread(&bin_start, sizeof(bin_start), 1, fin);
 fread(&nbins, sizeof(nbins), 1, fin);
@@ -1130,8 +1153,8 @@ typedef struct {
 
 static int get_sftv2_range(DATASET *d, char *filename, FILE *fin, long startbin, long count, float *re, float *im, INT64 *gps)
 {
-REAL8 a, timebase;
-INT4 b, bin_start, nbins;
+REAL8 timebase;
+INT4 bin_start, nbins;
 REAL4 *tmp;
 float factor;
 long i;
@@ -1140,7 +1163,6 @@ SFTv2_header2 ht;
 
 if(fread(&ht, sizeof(ht), 1, fin)<1) {
 	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
-	free(tmp);
 	fclose(fin);
 	return -1;
 	}
@@ -1166,24 +1188,24 @@ timebase=ht.tbase;
 bin_start=ht.first_frequency_index;
 nbins=ht.nsamples;
 
-tmp=do_alloc(count*2, sizeof(*tmp));
-
 if(startbin<bin_start) {
-	fprintf(stderr, "Requested frequency range is below region covered by SFT %s gps=%lld bin_start=%d requested=%d\n", filename, *gps, bin_start, startbin);
+	fprintf(stderr, "Requested frequency range is below region covered by SFT %s gps=%lld bin_start=%d requested=%ld\n", filename, *gps, bin_start, startbin);
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 
 if(startbin+count>bin_start+ht.nsamples) {
-	fprintf(stderr, "Requested frequency range is above region covered by SFT %s gps=%lld SFT end=%d requested=%d\n", filename, *gps, bin_start+ht.nsamples, startbin+count);
+	fprintf(stderr, "Requested frequency range is above region covered by SFT %s gps=%lld SFT end=%d requested=%ld\n", filename, *gps, bin_start+ht.nsamples, startbin+count);
 	return -(48+ht.nsamples*8+ht.comment_length);
 	}
 
 if(fseek(fin, ht.comment_length+(startbin-bin_start)*8,SEEK_CUR)<0) {
 	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
-	free(tmp);
 	fclose(fin);
 	return -1;
 	}
+
+tmp=do_alloc(count*2, sizeof(*tmp));
+
 if(fread(tmp,4,count*2,fin)<count*2){
 	fprintf(stderr,"Not enough data in file \"%s\" gps=%lld.\n",filename,*gps);
 	free(tmp);
@@ -1469,6 +1491,7 @@ if(d_free<1) {
 if(!strncasecmp(line, "detector", 8)) {
 	locate_arg(line, length, 1, &ai, &aj);
 	datasets[d_free-1].detector=strndup(&(line[ai]), aj-ai);
+	get_detector(datasets[d_free-1].detector);
 	} else 
 if(!strncasecmp(line, "expand_sft_array", 16)) {
 	int count;
@@ -1608,6 +1631,90 @@ if(!strncasecmp(line, "gaussian_fill", 13)) {
 	sscanf(&(line[ai]), "%lg", &amp);
 
 	gaussian_fill(&(datasets[d_free-1]), gps_start, step, count, amp*datasets[d_free-1].coherence_time*16384.0);
+	} else
+if(!strncasecmp(line, "inject_cw_signal", 16)) {
+	INT64 gps_start, gps_stop;
+	gsl_integration_workspace *giw;
+	SIGNAL_PARAMS sp;
+	double accumulated_phase, current_phase, start_time;
+	int workspace_size=10000, i;
+	DATASET *d=&(datasets[d_free-1]);
+
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_start);
+
+	locate_arg(line, length, 2, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_stop);
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.ref_time);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.strain);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.freq);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.spindown);
+
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.ra);
+
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.dec);
+
+	locate_arg(line, length, 9, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.iota);
+
+	locate_arg(line, length, 10, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.psi);
+
+	locate_arg(line, length, 11, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &sp.phi);
+
+	fprintf(stderr, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf\n", gps_start, gps_stop,
+			sp.ref_time,
+			sp.strain,
+			sp.freq,
+			sp.spindown,
+			sp.ra,
+			sp.dec,
+			sp.iota,
+			sp.psi,
+			sp.phi);
+	fprintf(LOG, "Injecting fake signal for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg ra=%lf dec=%lf iota=%lf psi=%lf phi=%lf\n", gps_start, gps_stop,
+			sp.ref_time,
+			sp.strain,
+			sp.freq,
+			sp.spindown,
+			sp.ra,
+			sp.dec,
+			sp.iota,
+			sp.psi,
+			sp.phi);
+
+	precompute_signal_params(&sp);
+
+	sort_dataset(d);
+
+	giw=gsl_integration_workspace_alloc(workspace_size);
+
+	start_time=sp.ref_time;
+	accumulated_phase=0;
+	for(i=0;i<d->free;i++) {
+		if(gps_start>0 && d->gps[i]<gps_start)continue;
+		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
+
+		current_phase=compute_phase(&sp, giw, workspace_size, start_time, d->gps[i]);
+		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
+		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
+			start_time=d->gps[i];
+			accumulated_phase+=current_phase;
+			}
+		}
+	gsl_integration_workspace_free(giw);
+
 	} else {
 	fprintf(stderr, "*** Could not parse line: \n%*s\n *** Exiting.\n", length, line);
 	exit(-1);
@@ -2165,7 +2272,7 @@ for(i=0;i<d_free;i++) {
 return f1/total_weight;
 }
 
-void inject_signal(void) 
+void inject_signal(SIGNAL_PARAMS *sp)
 {
 int i,j;
 DATASET *d;
@@ -2179,12 +2286,12 @@ for(i=0;i<d_free;i++){
 
 	d=&(datasets[i]);
 
-	start_time=args_info.fake_ref_time_arg;
+	start_time=sp->ref_time;
 	accumulated_phase=0;
 
 	for(j=0;j<d->free;j++) {
-		current_phase=compute_phase(giw, workspace_size, start_time, d->gps[i]);
-		inject_fake_signal(d, i, accumulated_phase+current_phase);
+		current_phase=compute_phase(sp, giw, workspace_size, start_time, d->gps[i]);
+		inject_fake_signal(&sp, d, i, accumulated_phase+current_phase);
 		if(fabs(d->gps[i]-start_time)>PHASE_ACCUMULATION_TIMEOUT) {
 			start_time=d->gps[i];
 			accumulated_phase+=current_phase;
@@ -2343,6 +2450,7 @@ int i,j;
 for(j=0;j<d_free;j++) {
 	d=&(datasets[j]);
 	fprintf(stderr, "Verifying AM response computation for dataset %s\n", d->name);
+	get_detector(d->detector);
 	for(i=0;i<ntotal_polarizations;i++){
 		verify_whole_sky_AM_response(d->gps, d->free, d->polarizations[i].orientation, 
 			fine_grid, 
