@@ -947,8 +947,8 @@ for injPattern in injPatterns:
 
 
     if opts.l1_triggers:
-      if h_time in l1Trigs.coirefirstTimes:
-        if h_time in l1Trigs.sirefirstTimes:
+      if l_time in l1Trigs.coirefirstTimes:
+        if l_time in l1Trigs.sirefirstTimes:
           i = l1Trigs.coirefirstTimes.index( l_time )
           j = l1Trigs.sirefirstTimes.index( l_time )
 
@@ -1065,8 +1065,8 @@ for injPattern in injPatterns:
 
 
     if opts.l1_triggers:
-      if h_time in l1Trigs.coiresecondTimes:
-        if h_time in l1Trigs.coirefirstTimes:
+      if l_time in l1Trigs.coiresecondTimes:
+        if l_time in l1Trigs.coirefirstTimes:
           i = l1Trigs.coiresecondTimes.index( l_time )
           j = l1Trigs.coirefirstTimes.index( l_time )
 
