@@ -171,7 +171,8 @@ class CondorJob:
 
     @param filename: input filename to add
     """
-    self.__input_files.append(filename)
+    if filename not in self.__input_files:
+      self.__input_files.append(filename)
 
   def add_output_file(self, filename):
     """
@@ -179,7 +180,8 @@ class CondorJob:
 
     @param filename: output filename to add
     """
-    self.__output_files.append(filename)
+    if filename not in self.__output_files:
+      self.__output_files.append(filename)
 
   def get_input_files(self):
     """
@@ -209,7 +211,8 @@ class CondorJob:
     @param file: file to add as argument.
     """
     self.__arguments.append(file)
-    self.__input_files.append(file)
+    if file not in self.__input_files:
+      self.__input_files.append(file)
 
   def get_args(self):
     """
@@ -250,7 +253,8 @@ class CondorJob:
     @param value: value to pass to the option (None for no argument).
     """
     self.__options[opt] = file
-    self.__input_files.append(file)
+    if file not in self.__input_file:
+      self.__input_files.append(file)
 
   def get_opts(self):
     """
@@ -668,7 +672,8 @@ class CondorDAGNode:
 
     @param filename: input filename to add
     """
-    self.__input_files.append(filename)
+    if filename not in self.__input_files:
+      self.__input_files.append(filename)
 
   def add_output_file(self, filename):
     """
@@ -676,7 +681,8 @@ class CondorDAGNode:
 
     @param filename: output filename to add
     """
-    self.__output_files.append(filename)
+    if filename not in self.__output_files:
+      self.__output_files.append(filename)
 
   def get_input_files(self):
     """
@@ -1103,6 +1109,7 @@ class CondorDAG:
       node.write_pre_script(dagfile)
       node.write_post_script(dagfile)
       node.write_input_files(dagfile)
+      node.write_output_files(dagfile)
     for node in self.__nodes:
       node.write_parents(dagfile)
     for category in self.__maxjobs_categories:
