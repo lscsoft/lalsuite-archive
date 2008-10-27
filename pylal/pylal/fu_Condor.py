@@ -57,11 +57,15 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
 ########################################################
 
 def checkHipeCachePath(cp):
-  if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
-    hipeCachePath = string.strip(cp.get('hipe-cache','hipe-cache-path'))
-  else:
-    hipeCachePath = None
-  return(hipeCachePath)
+  try:
+    if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
+      hipeCachePath = string.strip(cp.get('hipe-cache','hipe-cache-path'))
+    else:
+      hipeCachePath = None
+    return(hipeCachePath)
+  except:
+    print >> sys.stderr, "ERROR: failure in checkHipeCachePath()"
+    return None
 
 #### A CLASS TO DO FOLLOWUP INSPIRAL JOBS ####################################
 ###############################################################################
@@ -70,6 +74,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
   def __init__(self,cp,type='plot'):
 
     inspiral.InspiralJob.__init__(self,cp)
+    
     if type == 'head':
       self.set_executable(string.strip(cp.get('condor','inspiral_head')))
     self.name = 'followUpInspJob' + type
@@ -90,11 +95,13 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       injFile = self.checkInjections(cp)      
       hipeCache = checkHipeCachePath(cp)
 
-      if type == "plot" or type == "notrig":
-        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
+      if type == "plot" or type == "notrig" or type == "coh":
+        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
         self.add_var_opt("write-snrsq","")
         self.add_var_opt("write-chisq","")
         self.add_var_opt("write-spectrum","")
+        self.add_var_opt("write-cdata","")
+        #self.add_var_opt("verbose","")
         self.set_bank(bankFile)
         # Here we define the trig-start-time and the trig-end-time;
         # The difference between these two times should be kept to 2s
@@ -197,7 +204,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
           self.add_parent(d_node)
-      except: pass
+      except: 
+        print >> sys.stderr, "Didn't find a datafind job, I'll assume I don't need it"
 
       if type == "plot" or type == "notrig":
         if opts.inspiral:
@@ -211,20 +219,29 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           self.validate()
         else: self.invalidate()
 
+      if type == 'coh':
+        if opts.coh_inspiral:
+          dag.addNode(self,'coh-inspiral')
+          self.validate()
+        else: self.invalidate()
+
     except:
-      self.invalidate()
       try:
         print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
-      # if self.inputIfo does not exist (happens when inspiral cache and xml files not available), then use ifo in the string.
+        # if self.inputIfo does not exist (happens when inspiral cache and xml files not available), then use ifo in the string.
       except:
         print "couldn't add inspiral job for " + ifo + "@ "+ str(trig.gpsTime[ifo])
 
   def checkInjections(self,cp):
-    if len(string.strip(cp.get('triggers','injection-file'))) > 0:
-      injectionFile = string.strip(cp.get('triggers','injection-file'))
-    else:
-      injectionFile = None
-    return(injectionFile)
+    try:
+      if len(string.strip(cp.get('triggers','injection-file'))) > 0:
+        injectionFile = string.strip(cp.get('triggers','injection-file'))
+      else:
+        injectionFile = None
+      return(injectionFile)
+    except:
+      print >> sys.stderr, "ERROR: failure in followUpInspNode.checkInjections()"
+      return None
 
 ########## PLOT SNR  CHISQ TIME SERIES ########################################
 ###############################################################################
@@ -275,9 +292,9 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
         self.add_var_opt("user-tag",ifo+'_'+str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
-      try: 
-        if inspiralNode.validNode: self.add_parent(inspiralNode)
-      except: pass
+      #try: 
+      if inspiralNode.validNode: self.add_parent(inspiralNode)
+      #except: pass
       if opts.plots:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -285,6 +302,144 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
     except: 
       self.invalidate()
       print "couldn't add plot job for " + str(ifo) + "@ "+ str(time)
+
+##############################################################################
+# job class for producing the skymap
+
+class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  Generates sky map data
+  """
+  def __init__(self, options, cp, tag_base='SKY_MAP'):
+    """
+    """
+    self.__name__ = 'lalapps_skyMapJob'
+    self.__executable = string.strip(cp.get('condor','lalapps_skymap'))
+    self.__universe = "standard"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__,tag_base)
+
+##############################################################################
+# job class for producing the skymap
+
+class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  Plots the sky map output of lalapps_skymap
+  """
+  def __init__(self, options, cp, tag_base='SKY_PLOT'):
+    """
+    """
+    self.__name__ = 'pylal_skyPlotJob'
+    self.__executable = string.strip(cp.get('condor','pylal_skyPlotJob'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__,tag_base)
+
+
+##############################################################################
+# job class for producing the skymap
+
+class lalapps_skyMapNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  A C code for computing the sky map
+  An example command line is:
+
+lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --l1-frame-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --v1-frame-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.gwf --event-id 866088314000001908 --ra-res 512 --dec-res 256 --h1-xml-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --l1-xml-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --v1-xml-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.xml.gz --output-file chad.txt
+  """
+  def __init__(self,job,trig):
+    self.ifo_list = ["H1","L1","V1"]
+    #self.already_added_ifo_list = []
+    self.ra_res = 512
+    self.dec_res = 256
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.friendlyName = 'Produce sky map of event'    
+    self.id = job.name + '-skymap-' + str(trig.statValue) + '_' + str(trig.eventID)
+    self.setupNodeWeb(job)
+    # required by pylal_skyPlotNode
+    self.output_file_name = job.outputPath + self.id+".txt"
+    self.add_var_opt("output-file",self.output_file_name)
+    self.add_var_opt("ra-res",self.ra_res)
+    self.add_var_opt("dec-res",self.dec_res)
+    self.add_var_opt("event-id",trig.eventID)
+    self.add_var_opt("h1-frame-file","none");
+    self.add_var_opt("h1-xml-file","none");
+    self.add_var_opt("l1-frame-file","none");
+    self.add_var_opt("l1-xml-file","none");
+    self.add_var_opt("v1-frame-file","none");
+    self.add_var_opt("v1-xml-file","none");
+
+
+
+  def append_insp_node(self,inspNode,ifo):
+    if ifo in self.ifo_list:
+      fileName = str(inspNode.output_file_name)
+      self.add_var_opt(ifo.lower()+"-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
+      self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
+      if inspNode.validNode: self.add_parent(inspNode)
+      
+    else: print >> sys.stderr, "WARNING: Already added that ifo!"
+
+
+  def add_node_to_dag(self,dag,opts,trig):
+    if opts.sky_map:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: 
+      self.invalidate()
+      print "couldn't add sky map job for " + str(trig.eventID)
+
+
+
+##############################################################################
+# job class for producing the skymap
+
+class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  A python code for plotting the sky map
+  An example command line is
+
+  /pylal_plot_inspiral_skymap --event-id 866088314000001908 --ra-res 512 --dec-res 256 --output-path . --page-rel-path . --output-web-file test.html --page . --injection-right-ascension 0 --injection-declination 0 --map-data-file chad.txt 
+  """
+  def __init__(self,job,trig,skyMapNode,dag,page,opts):
+    # Always initialize the CondorDAGNode
+    pipeline.CondorDAGNode.__init__(self,job)
+    
+    self.friendlyName = 'Produce a plot of the sky map of an event'
+    
+    self.id = job.name + '-skymap-plot' + str(trig.statValue) + '_' + str(trig.eventID)
+    # This node outputs pretty pictures, so we need to tell the setupNodeWeb()
+    # method where to put these things.  We'll put it in the last section 
+    # not the last subsection since this is an "event" plot not a single ifo
+    # trigger plot
+    self.setupNodeWeb(job,True, dag.webPage.lastSection,page,None,dag.cache)
+    # this is the output of the skyMapNode.  It contains the data to make a
+    # sky map plot.  (RA,DEC,Probability)
+    # an example sky map plotting command line is:
+    #
+
+    self.add_var_opt("map-data-file",skyMapNode.output_file_name)
+    self.add_var_opt("event-id",str(trig.eventID))
+    self.add_var_opt("ra-res",str(skyMapNode.ra_res))
+    self.add_var_opt("dec-res",str(skyMapNode.dec_res))
+    # if this is a software injection pass along the information to the
+    # plotting code so that it can make a mark where the injection should have
+    # been :)
+    if trig.is_found():
+      inj_ra = trig.coincs.sim.longitude
+      inj_dec = trig.coincs.sim.latitude
+      self.add_var_opt("injection-right-ascension",str(inj_ra))
+      self.add_var_opt("injection-declination",str(inj_dec))
+
+    try:
+      if skyMapNode.validNode: self.add_parent(skyMapNode)
+    except: pass
+    if opts.sky_map_plot:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: self.invalidate()
+ 
 
 ############### DATAFIND CLASSES ##############################################
 ###############################################################################

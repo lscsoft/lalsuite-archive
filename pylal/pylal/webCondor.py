@@ -116,14 +116,15 @@ class webTheNode:
     content.appendTable(1,2,0,700)
     self.webTable = content.lastTable;
     content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
+    self.talkBack.readAppend(content.lastTable.row[0].cell[1])
     # Each time the dag is generated it checks for the existance of the
     # appropriate config file to include the contents in the web page
-    if self.talkBack.summaryText:
+    if 0 and self.talkBack.summaryText:
       content.lastTable.row[0].cell[0].linebreak()
       content.lastTable.row[0].cell[0].text(self.talkBack.summaryText)
-    if self.talkBack.summaryPlot:
+    if 0 and self.talkBack.summaryPlot:
       content.lastTable.row[0].cell[1].image(self.talkBack.summaryPlot)
-    if self.talkBack.summaryPlotCaption:
+    if 0 and self.talkBack.summaryPlotCaption:
       content.lastTable.row[0].cell[1].linebreak()
       content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
  
@@ -208,13 +209,16 @@ class webTheDAG:
     self.add_node(node)
 
 
-  def publishToHydra(self):
+  def publishToHydra(self,publish_path=None):
     dirStr = ''
     for dir in self.webDirs:
       dirStr += dir + ' '
     dirStr = 'rsync -vrz '+dirStr+' DAGWeb index.html '
     print dirStr
-    os.system(dirStr+'hydra.phys.uwm.edu:/home/htdocs/uwmlsc/root/.'+self.page)
+    if publish_path:
+      os.system(dirStr+'hydra.phys.uwm.edu:'+publish_path)
+    else:
+      os.system(dirStr+'hydra.phys.uwm.edu:'+self.page)
 
   def printNodeCounts(self):
     for jobs in self.jobsDict:
@@ -225,6 +229,7 @@ class webTheDAG:
     print "\n\n.......Writing DAG"
     self.write_sub_files()
     self.write_dag()
+    self.write_script()
     self.writeDAGWeb(type)
     print "\n\n  Created a DAG file which can be submitted by executing"
     print "    condor_submit_dag " + self.get_dag_file()

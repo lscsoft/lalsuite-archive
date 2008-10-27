@@ -76,7 +76,9 @@ class getCache(UserDict):
       os.chdir(currentPath)
     except:
       if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
-        os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
+        try:
+          os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
+        except: print >> sys.stderr, "WARNING: cache directory exists, cannot link"
       else: pass
 
 
@@ -739,7 +741,7 @@ class followUpList:
 #############################################################################
 # Function to generate a trigbank xml file
 #############################################################################
-def generateXMLfile(ckey,ifo,outputPath=None,table_type='pre-bank-veto'):
+def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None):
 
   if outputPath:
     try:
@@ -748,7 +750,23 @@ def generateXMLfile(ckey,ifo,outputPath=None,table_type='pre-bank-veto'):
 
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
-  trig = getattr(ckey,ifo)
+ 
+  # if we want our trigbank files to use the loudest template
+  if use_max_template:
+    maxSNR = 0;
+    maxIFO = ""
+    for t in ckey:
+      snr = t.snr
+      if snr > maxSNR:
+        maxSNR = snr
+        maxIFO = t.ifo
+    trig = getattr(ckey,maxIFO)
+  else:
+    trig = getattr(ckey,ifo)
+  
+  properChannelTrig = getattr(ckey,ifo)
+  trig.channel = properChannelTrig.channel
+  trig.ifo = properChannelTrig.ifo
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
   valid_columns = trig.__slots__
   columns = []
@@ -762,10 +780,11 @@ def generateXMLfile(ckey,ifo,outputPath=None,table_type='pre-bank-veto'):
   xmldoc.childNodes[-1].appendChild(process_params_table) 
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
+  print sngl_inspiral_table
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   sngl_inspiral_table.append(trig)
 
-  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + str(int(ckey.event_id)) + ".xml.gz"
+  fileName = ifo + '-TRIGBANK_FOLLOWUP_' + type + str(int(ckey.event_id)) + ".xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
@@ -845,6 +864,9 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                   except: fuList.gpsTime[ifo] = None
                   if fuList.gpsTime[ifo] and trigbank_test:
                       generateXMLfile(ckey,ifo,'trigTemplateBank')
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig")
+                      # Also make a trigbank xml with the max template
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True)
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -887,6 +909,9 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                   except: fuList.gpsTime[ifo] = None
                   if fuList.gpsTime[ifo] and trigbank_test:
                       generateXMLfile(ckey,ifo,'trigTemplateBank')
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig")
+                      # Also make a trigbank xml with the max template
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True)
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
