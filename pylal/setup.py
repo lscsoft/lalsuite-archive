@@ -258,10 +258,17 @@ setup(
 		os.path.join("bin", "KW_veto_plots"),
                 os.path.join("bin", "KW_veto_channelPage"),
                 os.path.join("bin", "KW_veto_reportPage"),
-		os.path.join("bin", "KW_veto_qscanSetup")
+		os.path.join("bin", "KW_veto_qscanSetup"),
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
 		os.path.join("etc", "pylal-user-env.csh")
+		] ), (os.path.join("bin","followup_virgo_scripts"), [
+		os.path.join("bin", "followup_virgo_scripts", "wscan_in2p3.sh"),
+		os.path.join("bin", "followup_virgo_scripts", "wscanlite_in2p3.sh"),
+		os.path.join("bin", "followup_virgo_scripts", "qsub_wscan.sh"),
+		os.path.join("bin", "followup_virgo_scripts", "qsub_wscanlite.sh"),
+		os.path.join("bin", "followup_virgo_scripts", "virgo_qscan_in2p3.py"),
+		os.path.join("bin", "followup_virgo_scripts", "prepare_sendback.py")
 	] ) ]
 )

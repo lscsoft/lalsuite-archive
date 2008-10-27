@@ -363,6 +363,7 @@ class QscanIntermediateTable(table.Table):
 
 def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     times = []
+    fileName = ''
   
     if cp.has_option('background-qscan-times',ifo+'range'):
       rangeString = string.strip(cp.get('background-qscan-times',ifo+'range'))
@@ -428,12 +429,13 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
       # Use the time-list file if provided
       if len(segmentListFile) == 0 and not len(timeListFile) == 0:
         timeList = listFromFile(timeListFile)
+        fileName = timeListFile
         if not timeList:
           print >> sys.stderr, "the list of times in file " + timeListFile + " could not be found"
           sys.exit(1)
         times = stringToFloatList(timeList)
 
-    return times
+    return times, fileName
 
 ##############################################################################
 # function to read/write a list of strings in a file
