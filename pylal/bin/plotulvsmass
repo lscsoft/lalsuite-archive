@@ -163,7 +163,7 @@ keys = massOrder.keys()
 keys.sort()
 
 bin = 0
-ularray = zeros((massBins,4),Float32)
+ularray = zeros((massBins,4),"float32")
 massLimits = []
 for key in keys:
   for idx in range(len(ulmatrix[massOrder[key]])):

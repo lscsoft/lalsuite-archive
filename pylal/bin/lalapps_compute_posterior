@@ -252,7 +252,7 @@ for epoch in range(nepochs):
 # massBins is given by the number of rows in the png files 
 # (assumed the same for all files)
 massBins = len(png_matrix[0])
-ularray = zeros((massBins,4),Float32)
+ularray = zeros((massBins,4),"float32")
 
 # the confidence level to use in the upper limit calculation
 confLevel=0.9
