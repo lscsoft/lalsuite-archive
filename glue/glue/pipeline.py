@@ -203,16 +203,16 @@ class CondorJob:
     """
     self.__arguments.append(arg)
 
-  def add_file_arg(self, file):
+  def add_file_arg(self, filename):
     """
     Add a file argument to the executable. Arguments are appended after any
     options and their order is guaranteed. Also adds the file name to the
     list of required input data for this job.
-    @param file: file to add as argument.
+    @param filename: file to add as argument.
     """
-    self.__arguments.append(file)
-    if file not in self.__input_files:
-      self.__input_files.append(file)
+    self.__arguments.append(filename)
+    if filename not in self.__input_files:
+      self.__input_files.append(filename)
 
   def get_args(self):
     """
@@ -242,7 +242,7 @@ class CondorJob:
       return self.__options[opt]
     return None
 
-  def add_file_opt(self, opt, file):
+  def add_file_opt(self, opt, filename):
     """
     Add a command line option to the executable. The order that the arguments
     will be appended to the command line is not guaranteed, but they will
@@ -252,9 +252,9 @@ class CondorJob:
     @param opt: command line option to add.
     @param value: value to pass to the option (None for no argument).
     """
-    self.__options[opt] = file
-    if file not in self.__input_file:
-      self.__input_files.append(file)
+    self.__options[opt] = filename
+    if filename not in self.__input_file:
+      self.__input_files.append(filename)
 
   def get_opts(self):
     """
@@ -748,7 +748,7 @@ class CondorDAGNode:
     self.__opts['macro' + macro] = value
     self.__job.add_var_opt(opt)
 
-  def add_file_opt(self,opt,file,file_is_output_file=False):
+  def add_file_opt(self,opt,filename,file_is_output_file=False):
     """
     Add a variable (macro) option for this node. If the option
     specified does not exist in the CondorJob, it is added so the submit
@@ -759,9 +759,9 @@ class CondorDAGNode:
     @param file_is_output_file: A boolean if the file will be an output file
     instead of an input file.  The default is to have it be an input.
     """
-    self.add_var_opt(opt,file) 
-    if file_is_output_file: self.add_output_file(file)
-    else: self.add_input_file(file)
+    self.add_var_opt(opt,filename)
+    if file_is_output_file: self.add_output_file(filename)
+    else: self.add_input_file(filename)
 
   def add_var_arg(self, arg):
     """
@@ -773,17 +773,17 @@ class CondorDAGNode:
     self.__args.append(arg)
     self.__job.add_var_arg()
 
-  def add_file_arg(self, file):
+  def add_file_arg(self, filename):
     """
     Add a variable (or macro) file name argument to the condor job. The
     argument is added to the submit file and a different value of the 
     argument can be set for each node in the DAG. The file name is also
     added to the list of input files for the DAX.
-    @param file: name of option to add.
+    @param filename: name of option to add.
     """
-    self.__args.append(file)
+    self.__args.append(filename)
     self.__job.add_var_arg()
-    self.add_input_file(file)
+    self.add_input_file(filename)
 
   def get_args(self):
     """
@@ -1289,10 +1289,10 @@ class CondorDAG:
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
     
-    for file in set(self.__rls_filelist):
-      if file in self.__data_find_files: continue
+    for filename in set(self.__rls_filelist):
+      if filename in self.__data_find_files: continue
       # try to figure out if the path is absolute
-      outfile.write(os.path.split(file)[-1] + ' ' + 'gsiftp://'+gsiftp +os.path.abspath(file)+' pool="'+pool+'"\n')
+      outfile.write(os.path.split(filename)[-1] + ' ' + 'gsiftp://'+gsiftp +os.path.abspath(filename)+' pool="'+pool+'"\n')
   def write_dag(self):
     """
     Write either a dag or a dax.
@@ -1488,14 +1488,14 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__trig_end
 
-  def set_input(self,file):
+  def set_input(self,filename):
     """
     Add an input to the node by adding a --input option.
-    @param file: option argument to pass as input.
+    @param filename: option argument to pass as input.
     """
-    self.__input = file
-    self.add_var_opt('input', file)
-    self.add_input_file(file)
+    self.__input = filename
+    self.add_var_opt('input', filename)
+    self.add_input_file(filename)
 
   def get_input(self):
     """
@@ -1503,14 +1503,14 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__input
 
-  def set_output(self, file):
+  def set_output(self, filename):
     """
     Add an output to the node by adding a --output option.
-    @param file: option argument to pass as output.
+    @param filename: option argument to pass as output.
     """
-    self.__output = file
-    self.add_var_opt('output', file)
-    self.add_output_file(file)
+    self.__output = filename
+    self.add_var_opt('output', filename)
+    self.add_output_file(filename)
 
   def get_output(self):
     """
@@ -1563,16 +1563,16 @@ class AnalysisNode(CondorDAGNode):
     """
     return self.__user_tag
 
-  def set_cache(self,file):
+  def set_cache(self,filename):
     """
     Set the LAL frame cache to to use. The frame cache is passed to the job
     with the --frame-cache argument.
-    @param file: calibration file to use.
+    @param filename: calibration file to use.
     """
-    if isinstance( file, str ):
+    if isinstance( filename, str ):
       # the name of a lal cache file created by a datafind node
-      self.add_var_opt('frame-cache', file)
-      self.add_input_file(file)
+      self.add_var_opt('frame-cache', filename)
+      self.add_input_file(filename)
     else:
       # check we have an LFN list
       from glue import LDRdataFindClient
@@ -1580,7 +1580,7 @@ class AnalysisNode(CondorDAGNode):
         self.add_var_opt('glob-frame-data',' ')
         # only add the LFNs that actually overlap with this job
         # FIXME this doesnt handle edge cases quite right
-        for lfn in file:
+        for lfn in filename:
           a, b, c, d = lfn.split('.')[0].split('-')
           t_start = int(c)
           t_end = int(c) + int(d)
@@ -1936,7 +1936,7 @@ class ScienceData:
   """
   def __init__(self):
     self.__sci_segs = []
-    self.__file = None
+    self.__filename = None
 
   def __getitem__(self,i):
     """
@@ -1946,7 +1946,7 @@ class ScienceData:
     return self.__sci_segs[i]
 
   def __repr__(self):
-    return '<ScienceData: file %s>' % self.__file
+    return '<ScienceData: file %s>' % self.__filename
 
   def __len__(self):
     """
@@ -1954,10 +1954,10 @@ class ScienceData:
     """
     return len(self.__sci_segs)
 
-  def read(self,file,min_length,slide_sec=0,buffer=0):
+  def read(self,filename,min_length,slide_sec=0,buffer=0):
     """
     Parse the science segments from the segwizard output contained in file.
-    @param file: input text file containing a list of science segments generated by
+    @param filename: input text file containing a list of science segments generated by
     segwizard.
     @param min_length: only append science segments that are longer than min_length.
     @param slide_sec: Slide each ScienceSegment by::
@@ -1971,9 +1971,9 @@ class ScienceData:
 
       [s,e] -> [s+buffer,e-buffer]
     """
-    self.__file = file
+    self.__filename = filename
     octothorpe = re.compile(r'\A#')
-    for line in open(file):
+    for line in open(filename):
       if not octothorpe.match(line) and int(line.split()[3]) >= min_length:
         (id,st,en,du) = map(int,line.split())
 
@@ -1997,14 +1997,14 @@ class ScienceData:
     x = ScienceSegment(seg_tuple)
     self.__sci_segs.append(x)
 
-  def tama_read(self,file):
+  def tama_read(self,filename):
     """
     Parse the science segments from a tama list of locked segments contained in
                 file.
-    @param file: input text file containing a list of tama segments.
+    @param filename: input text file containing a list of tama segments.
     """
-    self.__file = file
-    for line in open(file):
+    self.__filename = filename
+    for line in open(filename):
       columns = line.split()
       id = int(columns[0])
       start = int(math.ceil(float(columns[3])))
