@@ -36,8 +36,21 @@ import operator
 from glue.ligolw import ligolw, table as tab, lsctables, utils
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
-from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
+year = 31556925.9747
+
+##############################################################################
+# redefine the SnglInspiral columns of interest
+##############################################################################
+lsctables.SnglInspiralTable.loadcolumns = [
+    "process_id",
+    "ifo",
+    "snr",
+    "chisq",
+    "chisq_dof",
+    "alpha",
+    "alpha1",
+    "event_id"]
 
 ##############################################################################
 usage = """
@@ -53,8 +66,10 @@ def parse_command_line():
 
   # options related to input and output
   parser.add_option("-g","--glob",action="store",type="string",\
-      default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
-  parser.add_option("-I", "--cache-file", help="read thinca filenames from cache input file")  
+      default=None, metavar=" GLOB",help="GLOB of corse files to read" )
+  parser.add_option("","--slide-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB of slide corse files to read" )
+  parser.add_option("-I", "--cache-file", help="read corse filenames from cache input file")  
   parser.add_option("-O","--enable-output",action="store_true",\
       default="false",  metavar="OUTPUT",\
       help="enable the generation of the html and cache documents")
@@ -106,43 +121,34 @@ def parse_command_line():
   parser.add_option("","--combine-types",action="store_true",default=False,
       help="combine the different types together" )
   parser.add_option("--far-time-correction",action="store",type="float",\
-      default=None,metavar=" T_COR",\
+      default=1.,metavar=" T_COR",\
       help="zero-lag time correction for FAR: FAR -> T_COR*FAR " + \
           "(for use when FAR calculated with all_data and need " + \
           "exclude_play FAR)")
-  parser.add_option("--t-correct-num",action="store",type="string",\
-      default=None,metavar=" T_COR_NUM",\
-      help="coire summary file that contains the amount of analyzed time " + \
-          "for the data-type you need to generate a correction factor for. " + \
-          "Requires denominator file; precludes far-time-correction option.")
-  parser.add_option("--t-correct-denom",action="store",type="string",\
-      default=None,metavar=" T_COR_DENOM",\
-      help="coire summary file that contains the amount of all_data analyzed time. " + \
-          "Dividing the value in the numerator file by this gives the " + \
-          "far-time-correction as opposed to manually specifying. " + \
-          "Requires numerator file; precludes far-time-correction option.")
+
   parser.add_option("","--min-ifar",action="store",type= "float",
       default=None,metavar="IFAR",help="the minimum IFAR to plot")
   parser.add_option("","--max-ifar",action="store",type= "float",
       default=None,metavar="IFAR",help="the maximum IFAR to plot")
+
   parser.add_option("-a","--snr-ifar",action="store_true",default=False,\
       help="plot the snr vs ifar of coinc triggers" )
   parser.add_option("-b","--ifar-dist",action="store_true",default=False,\
       help="make the cumulative distribution of IFAR" )
-  parser.add_option("--add-ifar-errors",action="store_true",default=False,\
-      help="add errors on IFAR to the cumulative distribution of IFAR plot" )
+
+  parser.add_option("","--time-analyzed-file",action="store",type="string",\
+      default=None,metavar="FILE",\
+      help="the analyzed time file" )
+  parser.add_option("--add-num-background",action="append",type="float",
+      default=[],metavar="NUM",
+      help="add the total number of background triggers for a category" )
 
   (options,args) = parser.parse_args()
 
   # test the input options
   if not options.ifo_times:
     raise ValueError, "--ifo-times (which ifos were analysed) must be provided"
-  if options.t_correct_num and not options.t_correct_denom:
-    raise ValueError, "--t-correct-num requires --t-correct-denom."
-  if options.t_correct_denom and not options.t_correct_num:
-    raise ValueError, "--t-correct-denom requires --t-correct-num."
-  if options.t_correct_num and options.far_time_correction:
-    raise ValueError, "If using --t-correct files, cannot use --far-time-correction."
+
 
   return options, sys.argv[1:]
 
@@ -157,7 +163,6 @@ if not opts.glob and not opts.cache_file:
   print >>sys.stderr, "Must specify a --glob of files or --cache-input file to read"
   print >>sys.stderr, "Enter 'plotifar --help' for usage"
   sys.exit(1)
-
 
 #####################################################################
 # -- some initialisation
@@ -179,9 +184,6 @@ from numpy import histogram
 rc('text', usetex=True)
 
 
-## mangle the event-IDs in the case of the exttrig analysis
-mangleEventID = False
-
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( 'effective_snr' )
@@ -192,6 +194,52 @@ addsym = ['k+','kx','k1']
 
 xlow = 20
 xhigh = 0
+
+##################################
+# compute the background min IFARs
+
+modifierFAR = 1.
+if opts.num_categories:
+  modifierFAR *= float(opts.num_categories)
+if opts.far_time_correction:
+  modifierFAR *= float(opts.far_time_correction)
+
+if len(opts.add_num_background) and opts.combine_types:
+  fp = open(opts.time_analyzed_file,'r')
+  slideTime = 0.
+  slideTimes = {}
+  for line in fp.readlines():
+    thisSlide,thisTime = (line.replace('\n','')).split(' ')
+    if not int(thisSlide):
+      zeroTime = float(thisTime)
+    if int(thisSlide):
+      slideTime += float(thisTime)
+      slideTimes[int(thisSlide)] = float(thisTime)
+  fp.close()
+
+  numKinks=len(opts.add_num_background)
+  kinks = []
+  for num in opts.add_num_background:
+    kinks.append(num/(slideTime/zeroTime))
+  kinks.sort()
+  kinks = array(kinks)*modifierFAR
+  numKinks = len(kinks)-1
+  A = []
+  B = []
+  for kink,kinkNum in zip(kinks[:-1],range(numKinks)):
+    thisA = 1. - float(kinkNum)/float(numKinks + 1)
+    thisB = 0.
+    if len(A):
+      thisB += B[-1] + A[-1]*prevKink - thisA*prevKink
+    A.append(thisA)
+    B.append(thisB)
+    prevKink = kink
+  thisA = 1./float(numKinks + 1)
+  thisB = 0.
+  if len(A):
+    thisB += B[-1] + A[-1]*prevKink - thisA*prevKink
+  A.append(thisA)
+  B.append(thisB)
 
 #######################################################
 # determine IFOs and IFO combos in play
@@ -231,7 +279,16 @@ if opts.glob is not None or opts.cache_file is not None:
   # check if the file lists are not empty
   if not (coincfiles):
     print >>sys.stdout, "No files match your description."
-    sys.exit(0) 
+    sys.exit(1) 
+
+if opts.slide_glob is not None:
+  if opts.slide_glob is not None:
+    slidefiles = []
+    for gl in opts.slide_glob.split(" "):
+      slidefiles.extend(glob.glob(gl))
+    if len(slidefiles) < 1:
+      print >>sys.stderr, "The glob for " + opts.slide_glob + " returned no files"
+      sys.exit(1)
          
 ########################
 # read in coinc triggers
@@ -241,7 +298,7 @@ coincTriggers = CoincInspiralUtils.coincInspiralTable()
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = mangleEventID,
+                                           mangle_event_id = True,
                                            verbose=opts.verbose)
   
   # construct the coincs
@@ -257,53 +314,96 @@ cumhist ={}
 maxIFAR = -numpy.inf
 minIFAR = numpy.inf
 
-modifierFAR = 1.
-if opts.num_categories:
-  modifierFAR *= float(opts.num_categories)
-if opts.far_time_correction:
-  modifierFAR *= float(opts.far_time_correction)
-#if specifying tcorrection files, calculate the time correction factor
-if opts.t_correct_num:
-  numfile = open(opts.t_correct_num,'r')
-  for line in numfile:
-    if line.startswith( 'amount of time analysed' ):
-      t_cor_num = float( line.split()[6] )
-  numfile.close()
-  denomfile = open(opts.t_correct_denom,'r')
-  for line in denomfile:
-    if line.startswith( 'amount of time analysed' ):
-      t_cor_denom = float( line.split()[6] )
-  denomfile.close()
-  modifierFAR *= t_cor_num / t_cor_denom
-  if opts.verbose:
-    print "modifierFAR = %f" %(modifierFAR)
 for combo,ifos in zip(combos,ifo_coincs):
   coincs = coincTriggers.coinctype(ifos)
   FAR[combo] = []
   for row in coincs.getsngls(ifos[0]):
-    FAR[combo].append((max(modifierFAR*row.alpha,0.01), modifierFAR*row.alpha1))
+    FAR[combo].append(modifierFAR*max(row.alpha,zeroTime/slideTime))
+
+  if len(opts.add_num_background) and opts.combine_types:
+    A=array(A)
+    B=array(B)
+    if len(FAR[combo]):
+      FAR[combo] = [(max(A[kinks >= thisFAR])*thisFAR \
+          + min(B[kinks >= thisFAR])) \
+          for thisFAR in FAR[combo]]
+
+  FAR[combo] = array(FAR[combo])
 
   stats['stat'][combo] = coincs.getstat()
   stats['IFAR'][combo] = []
-  for row in FAR[combo]:
-    stats['IFAR'][combo].append(1./row[0])
+  stats['IFAR'][combo] = 1./FAR[combo]
 
-  IFAR[combo] = []
-  for row in FAR[combo]:
-    if row[1] >= row[0]:
-      IFAR[combo].append((1./row[0], 1./(row[0] + row[1]), 1e4))
-    else:
-      IFAR[combo].append((1./row[0], 1./(row[0] + row[1]),
-          1./(row[0] - row[1])))
+  IFAR[combo] = list(1./FAR[combo])
 
-  IFAR[combo].sort(key=operator.itemgetter(0))
+  IFAR[combo].sort()
   IFAR[combo].reverse()
+  IFAR[combo] = array(IFAR[combo])
   if len(coincs):
-    maxIFAR = max(maxIFAR, IFAR[combo][0][0])
-    minIFAR = min(minIFAR, IFAR[combo][-1][0])
+    maxIFAR = max(maxIFAR, IFAR[combo][0])
+    minIFAR = min(minIFAR, IFAR[combo][-1])
   cumhist[combo] = array(range(len(IFAR[combo]))) + 1
   if opts.verbose:
     print "%s %d" % (combo,len(IFAR[combo]))
+
+########################
+# read in coinc triggers
+
+inspTriggers = None
+slideTriggers = CoincInspiralUtils.coincInspiralTable()
+
+if slidefiles:
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(slidefiles,
+                                           mangle_event_id = True,
+                                           verbose=opts.verbose)
+
+  # construct the coincs
+  slideTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+slideVals = {}
+
+for slide in slideTimes.keys():
+  theseSlideTriggers = slideTriggers.getslide(slide)
+  slideTimeCorrection = slideTimes[slide]/zeroTime
+  slideVals[slide] = {}
+  slideVals[slide]['FAR'] = {}
+  slideVals[slide]['IFAR'] = {}
+  slideVals[slide]['cumhist'] = {}
+  for combo,ifos in zip(combos,ifo_coincs):
+    coincs = theseSlideTriggers.coinctype(ifos)
+    slideVals[slide]['FAR'][combo] = []
+    for row in coincs.getsngls(ifos[0]):
+      slideVals[slide]['FAR'][combo].append(\
+          slideTimeCorrection * modifierFAR * \
+          max(row.alpha,slideTimes[slide]/slideTime))
+
+    if len(opts.add_num_background) and opts.combine_types:
+      A=array(A)
+      B=array(B)
+      if len(slideVals[slide]['FAR'][combo]):
+        slideVals[slide]['FAR'][combo] = [\
+            (max(A[kinks*slideTimeCorrection >= thisFAR])*thisFAR + \
+             min(B[kinks*slideTimeCorrection >= thisFAR])) \
+            for thisFAR in slideVals[slide]['FAR'][combo]]
+
+    slideVals[slide]['FAR'][combo] = array(slideVals[slide]['FAR'][combo])
+
+    slideVals[slide]['IFAR'][combo] = list(1./slideVals[slide]['FAR'][combo])
+    slideVals[slide]['IFAR'][combo].sort()
+    slideVals[slide]['IFAR'][combo].reverse()
+    slideVals[slide]['IFAR'][combo] = array(slideVals[slide]['IFAR'][combo])
+    if len(coincs):
+      maxIFAR = max(maxIFAR, slideVals[slide]['IFAR'][combo][0])
+      minIFAR = min(minIFAR, slideVals[slide]['IFAR'][combo][-1])
+    slideVals[slide]['cumhist'][combo] = \
+        array(range(len(slideVals[slide]['IFAR'][combo]))) + 1
+
+
+######################################
+# calculate the background line to use
+if opts.verbose:
+  print "calculating background line"
 
 if opts.min_ifar:
   minIFAR = opts.min_ifar
@@ -314,10 +414,39 @@ bkgmin = 0.8*minIFAR
 bkgmax = 1.2*maxIFAR
 bkg = bkgmin*exp(array(range(10001))*log(bkgmax/bkgmin)/10000.)
 ibkg = 1./bkg
+
+if len(opts.add_num_background) and opts.combine_types and False:
+  A=array(A)
+  B=array(B)
+  ibkg = [(max(list(A[kinks >= thisNum]) + [A[-1]])*thisNum \
+      + min(list(B[kinks >= thisNum]) + [B[-1]])) \
+      for thisNum in ibkg]
+
 ibkg = array(ibkg)
 ibkg_p1 = ibkg + sqrt(ibkg)
 ibkg_m1 = array([max(x - sqrt(x), 0.1) for x in ibkg])
 bkg_x1,bkg_y1 = viz.makesteps(bkg, ibkg_p1, ibkg_m1)
+
+if True:
+  if opts.verbose:
+    print "normalizing FAR to be in units of yr"
+  for combo in combos:
+    for slide in slideTimes.keys():
+      if len(slideVals[slide]['FAR'][combo]):
+       slideVals[slide]['FAR'][combo] /= zeroTime/year
+       slideVals[slide]['IFAR'][combo] *= zeroTime/year
+    if len(FAR[combo]):
+      FAR[combo] /= zeroTime/year
+      IFAR[combo] *= zeroTime/year
+  bkg *= zeroTime/year
+  bkg_x1 *= zeroTime/year
+  minIFAR *= zeroTime/year
+  maxIFAR *= zeroTime/year
+  if opts.min_ifar:
+    opts.min_ifar *= zeroTime/year
+  if opts.max_ifar:
+    opts.max_ifar *= zeroTime/year
+
 
 colors = itertools.cycle(('b', 'g', 'r', 'c', 'm', 'k'))
 symbols = itertools.cycle(('^', 'D', 'H', 'o', '1', '+', 'x'))
@@ -329,15 +458,10 @@ if opts.ifar_dist and not opts.combine_types:
   figure_number += 1
 
   for combo,color,symbol in zip(combos,colors,symbols):
-    loglog(map(operator.itemgetter(0),IFAR[combo]), cumhist[combo],
+    loglog(IFAR[combo], cumhist[combo],
         color+symbol, markerfacecolor=color, markeredgecolor=color,
         alpha=0.65, label=combo)
     hold(True)
-    if opts.add_ifar_errors:
-      for xmin, xmax, y in zip(map(operator.itemgetter(1), IFAR[combo]),
-          map(operator.itemgetter(2), IFAR[combo]), cumhist[combo]):
-        loglog([xmin,xmax], [y,y], color + '-|', markeredgewidth=4,
-            markersize=15, linewidth=2, label='_nolegend_')
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
   if opts.min_ifar:
@@ -348,9 +472,9 @@ if opts.ifar_dist and not opts.combine_types:
     xlim(xmax=opts.max_ifar)
   else:
     xlim(xmax=1.1*maxIFAR)
-  ylim(ymin=0.6,ymax=3./minIFAR)
+  ylim(ymin=0.6)
   legend()
-  xlabel(r"IFAR (per analysis time)", size='x-large')
+  xlabel(r"IFAR (${\rm yr}$)", size='x-large')
   ylabel(r"Cumulative \#", size='x-large')
   if opts.enable_output is True:
     name = "cumhist_ifar"
@@ -364,15 +488,23 @@ if opts.combine_types and opts.ifar_dist:
   figure(figure_number)
   figure_number += 1
   combinedIFAR = {}
-  combinedIFAR['IFAR'] = [IFAR[combo][idx][0] for combo in combos for idx in range(len(IFAR[combo]))]
+  for slide in slideVals.keys():
+    combinedIFAR['IFAR'] = [slideVals[slide]['IFAR'][combo][idx] for combo in combos for idx in range(len(slideVals[slide]['IFAR'][combo]))]
+    combinedIFAR['IFAR'].sort()
+    combinedIFAR['IFAR'].reverse()
+    combinedIFAR['cumhist'] = arange(len(combinedIFAR['IFAR'])) + 1.
+    loglog(combinedIFAR['IFAR'], combinedIFAR['cumhist'], '-',
+        color=(0.5, 0.5, 0.5), alpha=0.65, label='_nolegend_')
+  hold(True)
+  combinedIFAR['IFAR'] = [IFAR[combo][idx] for combo in combos for idx in range(len(IFAR[combo]))]
   combinedIFAR['IFAR'].sort()
   combinedIFAR['IFAR'].reverse()
   combinedIFAR['cumhist'] = arange(len(combinedIFAR['IFAR'])) + 1.
   loglog(combinedIFAR['IFAR'], combinedIFAR['cumhist'], 'b^',
       markerfacecolor='b', markeredgecolor='b',
       alpha=0.65, label='zero-lag')
-  hold(True)
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
+#  if not len(slideVals.keys()):
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
   if opts.min_ifar:
     xlim(xmin=opts.min_ifar)
@@ -382,9 +514,9 @@ if opts.combine_types and opts.ifar_dist:
     xlim(xmax=opts.max_ifar)
   else:
     xlim(xmax=1.1*maxIFAR)
-  ylim(ymin=0.6,ymax=3./minIFAR)
+  ylim(ymin=0.6)
   legend()
-  xlabel(r"IFAR (per analysis time)", size='x-large')
+  xlabel(r"IFAR (${\rm yr}$)", size='x-large')
   ylabel(r"Cumulative \#", size='x-large')
   if opts.enable_output is True:
     name = "cumhist_ifar_combined"
