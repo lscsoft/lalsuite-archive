@@ -687,7 +687,8 @@ for ifo in ifoList:
     figure()
     viz.efficiencyplot( allFoundInj, missedInj, valueList[index],ifo=ifo,\
                         plot_type = 'log', \
-                        nbins = 20, output_name = None, errors=True )
+                        nbins = 20, output_name = None, errors=True,\
+                        title_string = opts.title)
 
     if opts.enable_output:
       fname = InspiralUtils.set_figure_name(opts, ifo+'-'+nameList[index])
