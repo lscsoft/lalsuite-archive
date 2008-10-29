@@ -123,6 +123,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
                 if verbose: print "retreiving data from %s ..."%trigs_loc
                 trig_file=open(trigs_loc)
             else:
+                print >> sys.stderr, "Error: KW triggers not found"
                 sys.exit(1)
         except (IOError):
             print >>sys.stderr, "Error: file for channel %s not found" % channel 
@@ -166,14 +167,24 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
         ## retreive the data
         for day in analyze_days:
             try:
-                # check local first
-                # if not there, use the Internet to get KW triggers
                 if p.exists(trigs_loc):
                     data_loc=trigs_loc+"_".join(day.split(":"))+"/s5_"+channel+".trg"
                     if verbose: print "retreiving data from %s..."%data_loc
                     trig_file=open(data_loc)
                 else:
+                    print >> sys.stderr, "Error: KW triggers not found"
                     sys.exit(1)
+                for line in trig_file:
+                    trig=line.split()
+                    # exclude comment part
+                    if trig[0][0]!="#":
+                        t=float(trig[0]); s=float(trig[7])
+                        # check if that KW event is in analyzed segment and also
+                        # check if its snr is bigger than specified minimum snr
+                        # inf is bad, cause trouble later
+                        if t in seg_list and s > min_thresh and s != float('inf'):
+                            times.append(float(trig[0]))
+                            snr.append(float(trig[7]))
             except (IOError):
                 # some channel are not in all the daily folder
                 print >>sys.stderr, "channel %s not found in day %s, ignoring"\
