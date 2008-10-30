@@ -4,6 +4,7 @@ import os
 import sys
 import glob
 import time
+import datetime
 
 import matplotlib
 matplotlib.use('Agg')
@@ -21,13 +22,13 @@ def convert_date(date_string, time_string):
   
   time_class = time.strptime(string, "%y/%m/%d %H:%M:%S")
   time_sec = time.mktime( time_class )
-
+    
   return time_sec
 
 #################################  
 def add_job(job_dict, id):
   job_dict[id]={'id':id, 'start':-1, 'end':None, \
-                'startVec':[],'endVec':[],'sub': None, 'time':0}
+                'startVec':[],'endVec':[],'sub': None, 'time':0, 'status':-1}
   
       
 #################################
@@ -56,11 +57,13 @@ def parse_outfile(job_dict, all_lines):
       # add a new job to the dictionary if not already contained
       if not job_dict.has_key(id):
         add_job( job_dict, id )
-
-      # store the maximum start time (because jobs might get evicted)
-      if job_dict[id]['start'] is not None:
-        job_dict[id]['start'] = max(  job_dict[id]['start'], time_sec)
-      job_dict[id]['startVec'].append( time_sec )
+    
+      if job_dict[id]['status'] != 1:
+        # store the maximum start time (because jobs might get evicted)
+        if job_dict[id]['start'] is not None:
+          job_dict[id]['start'] = max(  job_dict[id]['start'], time_sec)
+        job_dict[id]['startVec'].append( time_sec )
+        job_dict[id]['status'] = 1
 
     ## end of a job
     if 'ULOG_JOB_TERMINATED' in line:
@@ -71,12 +74,15 @@ def parse_outfile(job_dict, all_lines):
       # store it
       if not job_dict.has_key( id):
         add_job( job_ict, id )
-      job_dict[id]['end']=time_sec
-      job_dict[id]['endVec'].append( time_sec )
+
+      if job_dict[id]['status'] != 0:
+        job_dict[id]['end']=time_sec
+        job_dict[id]['endVec'].append( time_sec )
+	job_dict[id]['status'] = 0
 
     ## end of a job
-    if 'ULOG_JOB_EVICTED' in line:
-
+    if 'ULOG_JOB_EVICTED' in line or 'ULOG_SHADOW_EXCEPTION' in line:
+      print line
       time_sec = convert_date(words[0], words[1])
       id = words[7]
 
@@ -84,7 +90,10 @@ def parse_outfile(job_dict, all_lines):
       if not job_dict.has_key( id):
         print ">>> This line should never be called !!!"
         add_job( job_dict, id )
-      job_dict[id]['endVec'].append( time_sec )
+
+      if job_dict[id]['status'] != 0:
+        job_dict[id]['endVec'].append( time_sec )
+	job_dict[id]['status'] = 0
 
     ## type of the job
     if 'submitting' in line:
@@ -191,9 +200,6 @@ for id, job in job_dict.iteritems():
     
   else:
     number_incorrect += 1
-    #print "The following job has problems:"
-    #print job
-
 
 print "\n"
 
@@ -217,7 +223,7 @@ for job_type in ['inspiral_H1','inspiral_H2','inspiral_L1',\
           (job_type, len(list_duration), numpy.mean(list_duration) )
     total_time += sum(list_duration)
     total_jobs += len(list_duration)
-    
+  
 
     data =  numpy.asarray(list_duration)
     pylab.clf()
