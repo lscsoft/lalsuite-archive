@@ -36,7 +36,7 @@ from pylab import *
 
 usage =  """Usage: %prog [options]
 
-plotinspfound --cache-file triggers.cache --bbhinj --all-triggers --gps-start-time GPSSTARTTIME --gps-end-time GPSENDTIME --check-mchirp
+plotinspfound --cache-file triggers.cache --inj-suffixes INJ1,INJ2 --all-triggers --gps-start-time GPSSTARTTIME --gps-end-time GPSENDTIME --check-mchirp
 
 """
 
@@ -56,6 +56,10 @@ def parse_command_line():
   """
   parser = OptionParser( usage=usage) 
   parser.add_option("-c", "--cache-file", help="LAL cache of relevant files")
+  parser.add_option("-e", "--enable-output", action="store_true",\
+                     default=False, help="write output to webpage" )
+  parser.add_option("-o", "--output-path", action="store", type="string", \
+                    default=".", help="specify output path");
   parser.add_option("-t", "--threshold", action="store", type="float", \
                     default=0.001,help="actual loss in  SNR to flag.")
   parser.add_option("-q", "--quiet", action="store_true",\
@@ -79,14 +83,8 @@ coire_first triggers that lose snr" )
   parser.add_option("-E", "--check-eff-dist",action="store_true",\
                      default=False,help="check the value of eff_dist for \
 triggers that lose snr" )
-  parser.add_option("-b", "--bbhinj",action="store_true",\
-                     default=False,help="use bbhinj trigger files" )
-  parser.add_option("-n", "--nsbhinj",action="store_true",\
-                     default=False,help="use nsbhinj trigger files" )
-  parser.add_option("-l", "--bnsinj",action="store_true",\
-                     default=False,help="use bnsinj trigger files" )
-  parser.add_option("-S", "--spininj",action="store_true",\
-                     default=False,help="use spininj trigger files" )
+  parser.add_option("-i", "--inj-suffixes",help="analyze only the injection \
+runs in this comma separated list" )
   parser.add_option("-A", "--all-triggers",action="store_true",\
                      default=False,help="use ALL triggers" )
   parser.add_option("-H", "--h1-triggers",action="store_true",\
@@ -96,14 +94,11 @@ triggers that lose snr" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
   parser.add_option("","--gps-start-time",action="store",\
-      type="int",  metavar="GPSSTARTTIME",\
-      help="gps start time")
+                    type="int",  metavar="GPSSTARTTIME",\
+                    help="gps start time")
   parser.add_option("","--gps-end-time",action="store",\
-      type="int",  metavar=" GPSENDTIME",\
-      help="gps end time")
-
-  parser.add_option("-W", "--write-html",action="store_true", \
-                     default=True,help="write trigger informtion to file")
+                    type="int",  metavar=" GPSENDTIME",\
+                    help="gps end time")
   parser.add_option("-u","--user-tag",action="store", type="string", \
                      default=None,help="specify user tag for file names")
   parser.add_option("","--do-followup",action="store_true",\
@@ -113,7 +108,6 @@ triggers that lose snr" )
 
   options.followup_exttrig = False
   options.followup_flow = 40.0
-  options.output_path = "."
   options.enable_output = True
   options.figure_resolution = 50
   options.followup_tag = "plotinspfound"
@@ -150,18 +144,12 @@ if not opts.gps_end_time:
   
 times = segments.segment( opts.gps_start_time, opts.gps_end_time )
 
-
 injPatterns=[]
-if opts.bbhinj:
-  injPatterns.append( "BBHINJ" )
-if opts.bnsinj:
-  injPatterns.append( "BNSINJ" )
-if opts.nsbhinj:
-  injPatterns.append( "NSBHINJ" )
-if opts.spininj:
-  injPatterns.append( "SPININJ" )
+if opts.inj_suffixes:
+  injPatterns = opts.inj_suffixes.split(",")
+
 if len( injPatterns ) == 0:
-  print "ERROR! must specify one of --bbhinj, --bnsinj, --nsbhinj or --spininj"
+  print "ERROR! must specify --inj-suffixes"    
   sys.exit()
 
 
@@ -332,7 +320,7 @@ class Triggers( object ):
 def get_all_triggers( opts, ifo, injPattern ):
   theseTrigs = Triggers() 
   
-  pattern = 'SIRE*FOUND*FIRST*' + injPattern
+  pattern = 'SIRE*FOUND_FIRST*' + injPattern
   [theseTrigs.sirefirst, theseTrigs.injections] = \
                                  get_sire_triggers( opts, ifo, pattern, times ) 
   theseTrigs.sirefirstTimes = \
@@ -808,14 +796,13 @@ def write_html_tail(opts):
 #
 
 # Begin summary page
-if opts.write_html:
+if opts.enable_output:
   htmlfile = opts.output_path + "/" + opts.prefix + opts.suffix + ".html"
   fout = open( htmlfile,"w" )
   write_html_head( opts, injPatterns, htmlfile )
 
-
-if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, missed_cache, opts )
+  if opts.do_followup:
+    followup = followup_missed.FollowupMissed( cache, missed_cache, opts )
 
 for injPattern in injPatterns:
   if opts.vocal:
@@ -860,13 +847,14 @@ for injPattern in injPatterns:
   if opts.vocal:
     print "Checking snr changes between sire first and coire first."
 
-  # Inset Anchor
-  line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
-  fout.write(line)
-  line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
-  fout.write(line)
-  line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
-  fout.write(line)
+  if opts.enable_output:
+    # Inset Anchor
+    line = '<a name="sireFirst_coireFirst'  + injPattern + '" \n'
+    fout.write(line)
+    line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
+    fout.write(line)
+    line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
+    fout.write(line)
 
 
 
@@ -908,19 +896,18 @@ for injPattern in injPatterns:
         if x not in injFound:
           injFound.append( x )
 
-
-  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+  if opts.enable_output:
+    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
 
   for index in injIndex:
     h_time = injections[index].h_end_time
     l_time = injections[index].l_end_time
 
-    write_html_line()
-     
-    write_inj_table( opts, injections[index] )
-
-    write_trig_table_head( opts, check )
+    if opts.enable_output:
+      write_html_line()
+      write_inj_table( opts, injections[index] )
+      write_trig_table_head( opts, check )
       
     if opts.h1_triggers:
       if h_time in h1Trigs.coirefirstTimes:
@@ -930,7 +917,9 @@ for injPattern in injPatterns:
 
           trigBefore = h1Trigs.sirefirst[j]
           trigAfter = h1Trigs.coirefirst[i]
-          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+   
+          if opts.enable_output:          
+            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
                                     trigAfter, injections[index], check )
 
 
@@ -942,7 +931,9 @@ for injPattern in injPatterns:
 
           trigBefore = h2Trigs.sirefirst[j]
           trigAfter = h2Trigs.coirefirst[i]
-          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+
+          if opts.enable_output:
+            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
                                     trigAfter, injections[index], check )
 
 
@@ -954,17 +945,20 @@ for injPattern in injPatterns:
 
           trigBefore = l1Trigs.sirefirst[j]
           trigAfter = l1Trigs.coirefirst[i]
-          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+
+          if opts.enable_output:
+            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
                                     trigAfter, injections[index], check )
       
 
-    line = '</table> \n'
-    fout.write( line )
+    if opts.enable_output:
+      line = '</table> \n'
+      fout.write( line )
 
-    if opts.do_followup:
-      followup.setTag( "TEST" )
-      followuphtml = followup.followup( injections[index], "H1", injPattern )
-      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+      if opts.do_followup:
+        followup.setTag( "TEST" )
+        followuphtml = followup.followup( injections[index], "H1", injPattern )
+        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
 
 
@@ -974,14 +968,14 @@ for injPattern in injPatterns:
   if opts.vocal:
     print "Checking snr changes between coire first and coire second."
 
-
-  # Insert Anchor
-  line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
-  fout.write( line )
-  line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
-  fout.write( line )
-  line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
-  fout.write( line )
+  if opts.enable_output:
+    # Insert Anchor
+    line = '<a name="coireFirst_coireSecond'  + injPattern + '" \n'
+    fout.write( line )
+    line = 'id="coireFirst_coireSecond' + injPattern + '"></a> \n'
+    fout.write( line )
+    line = '<h1> coire_first to coire_second, ' + injPattern + '</h1> \n'
+    fout.write( line )
 
   if opts.check_chisq:
     check.append( "chisq" )
@@ -1025,19 +1019,18 @@ for injPattern in injPatterns:
         if x not in injFound:
           injFound.append( x )
 
-
-  write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+  if opts.enable_output:
+    write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
 
   for index in injIndex:
     h_time = injections[index].h_end_time
     l_time = injections[index].l_end_time
 
-    write_html_line()
-     
-    write_inj_table( opts, injections[index] )
-
-    write_trig_table_head( opts, check )
+    if opts.enable_output:
+      write_html_line()  
+      write_inj_table( opts, injections[index] )
+      write_trig_table_head( opts, check )
       
 
     if opts.h1_triggers:
@@ -1048,7 +1041,9 @@ for injPattern in injPatterns:
 
           trigBefore = h1Trigs.coirefirst[j]
           trigAfter = h1Trigs.coiresecond[i]
-          write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+
+          if opts.enable_output:
+            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
                                     trigAfter, injections[index], check )
 
 
@@ -1060,7 +1055,9 @@ for injPattern in injPatterns:
 
           trigBefore = h2Trigs.coirefirst[j]
           trigAfter = h2Trigs.coiresecond[i]
-          write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
+
+          if opts.enable_output:
+            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
                                     trigAfter, injections[index], check )
 
 
@@ -1072,16 +1069,19 @@ for injPattern in injPatterns:
 
           trigBefore = l1Trigs.coirefirst[j]
           trigAfter = l1Trigs.coiresecond[i]
-          write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                    trigAfter, injections[index], check )
-      
-    line = '</table> \n'
-    fout.write( line )
 
-    if opts.do_followup:
-      followup.setTag( "TEST")
-      followuphtml = followup.followup( injections[index], "H1", injPattern )
-      fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+          if opts.enable_output:
+            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
+                                  trigAfter, injections[index], check )
+      
+    if opts.enable_output:
+      line = '</table> \n'
+      fout.write( line )
+
+      if opts.do_followup:
+        followup.setTag( "TEST")
+        followuphtml = followup.followup( injections[index], "H1", injPattern )
+        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
 
   if opts.check_eff_snr:
     check.pop()
@@ -1090,9 +1090,8 @@ for injPattern in injPatterns:
 
 
 
-
-# End summary page
-if opts.write_html:
+if opts.enable_output:
+  # End summary page
   write_html_tail( opts )
   fout.close()
   
