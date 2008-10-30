@@ -125,7 +125,7 @@ def ContentHandler(xmldoc):
 		return ligolw.LIGOLWContentHandler(xmldoc)
 
 	# parse just the desired table and/or array elements
-	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripTableName(attrs["Name"]) in options.array))
+	return ligolw.PartialLIGOLWContentHandler(xmldoc, lambda name, attrs: (name in (ligolw.Table.tagName, ligolw.Array.tagName)) and (table.StripTableName(attrs["Name"]) in options.table or array.StripArrayName(attrs["Name"]) in options.array))
 
 
 utils.ContentHandler = ContentHandler
