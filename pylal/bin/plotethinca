@@ -198,9 +198,14 @@ def parse_command_line():
 
   return options, sys.argv[1:]
 
-
-
-
+def populate_mtotal(sngl_table):
+  """
+  Iterate over a sngl_inspiral table and populate its mtotal column.
+  This is necessary with working with documents created with old XML table
+  definitions (i.e. the S5 low mass branch).
+  """
+  for trig in sngl_table:
+      trig.mtotal = trig.mass1 + trig.mass2
 
 # ============================================================================
 # -- get command line arguments
@@ -327,6 +332,8 @@ if filelists:
   for filegroup in filelists:
     # read raw triggers
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True) 
+    populate_mtotal(inspTriggers)
+
     # perform the veto
     if opts.veto_file is not None:
       seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
@@ -350,6 +357,7 @@ if slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
       shift_vector, verbose=opts.verbose)
+    populate_mtotal(slideTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
@@ -377,6 +385,7 @@ if offsourcefilelists:
        # read raw triggers and time-shift them appropriately
     offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup,
       verbose=opts.verbose)
+    populate_mtotal(offsourceTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
