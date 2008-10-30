@@ -69,8 +69,8 @@ def parse_command_line():
 	parser.add_option("-c", "--column", metavar = "name", action = "append", help = "Print only the contents of the given column.  Can be provided multiple times to print multiple columns.  The default is to print all columns from each table.")
 	parser.add_option("-d", "--delimiter", metavar = "string", default = ",", help = "Delimit output with the given string.  The default is \",\".")
 	parser.add_option("-r", "--rows", metavar = "rowspec", default = ":", help = "Print rows in the given range(s).  The format is first:last[,first:last,...].  Rows are numbered from 0.  A single first:last pair requests rows in the range [first, last).  If the first or last value of a pair is omited it means 0 or infinity respectively.  The default is \":\", or to print all rows.")
-	parser.add_option("-t", "--table", metavar = "name", action = "append", help = "Print rows from this table.  Can be provided multiple times to print rows from multiple tables.  The default is to print the contents of all tables.")
-	parser.add_option("-a", "--array", metavar = "name", action = "append", help = "Print the contents of this array.  Can be provided multiple times to print the elements from multiple arrays.  The default is to print the contents of all arrays.")
+	parser.add_option("-t", "--table", metavar = "name", action = "append", default = [], help = "Print rows from this table.  Can be provided multiple times to print rows from multiple tables.  The default is to print the contents of all tables.")
+	parser.add_option("-a", "--array", metavar = "name", action = "append", default = [], help = "Print the contents of this array.  Can be provided multiple times to print the elements from multiple arrays.  The default is to print the contents of all arrays.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, urls = parser.parse_args()
 
