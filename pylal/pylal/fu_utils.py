@@ -14,7 +14,8 @@ __version__ = '$Revision$'[11:-2]
 
 
 import sys
-import os
+import os, shutil
+from subprocess import *
 import copy
 import re
 import exceptions
@@ -175,7 +176,7 @@ class getCache(UserDict):
     return(cacheSubSet)
 
 
-  def getProcessParamsFromCache(self, subCache, tag, time, getInsp = False, ifo_in_coinc=None):
+  def getProcessParamsFromCache(self, opts, cp, subCache, tag, time, getInsp = False, ifo_in_coinc=None):
 
     process = self.ifoDict()
     inspTable = self.ifoDict()
@@ -189,6 +190,13 @@ class getCache(UserDict):
         extension = path.split('.')[len(path.split('.'))-1]
         if extension == 'gz': gz = True
         else: gz = False
+
+        # if the option "--convert-evenid" is called, a copy of the xml file
+        # is made under LOCAL_XML_COPY, and the event_id is converted 
+        # from int_8s to ilwd:char
+        if opts.convert_eventid:
+          path = self.doFileCopyAndEventIdConvert(cp,path)
+
         doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         if getInsp:
@@ -269,7 +277,7 @@ class getCache(UserDict):
 
       try:
         inspiral_process_params = self.getProcessParamsFromCache( \
-                       self.filesMatchingGPSinCache(cacheFile,\
+                       opts,cp, self.filesMatchingGPSinCache(cacheFile,\
                        trig.gpsTime, wildType, trig.ifoTag, trig.ifolist_in_coinc), \
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
       except:
@@ -279,7 +287,7 @@ class getCache(UserDict):
     else:
       try:
         inspiral_process_params, sngl = self.getProcessParamsFromCache( \
-                       self.filesMatchingGPSinCache(cacheFile,\
+                       opts,cp, self.filesMatchingGPSinCache(cacheFile,\
                        trig.gpsTime, type), \
                        trig.ifoTag, trig.gpsTime,True)
       except:
@@ -288,7 +296,7 @@ class getCache(UserDict):
         sngl = []
       return inspiral_process_params, sngl
 
-  def readTriggerFiles(self,cp):
+  def readTriggerFiles(self,cp,opts):
 
     # Since we are continuing get useful stuff from the ini file.
     if cp.has_option('triggers','hipe-output-cache'):
@@ -306,14 +314,32 @@ class getCache(UserDict):
       triggerCache = self.filesMatchingGPSinCache(triggerCacheString,None,triggerTag)
       triggerList = self.getListFromCache(triggerCache)
       xml_glob = triggerList[0]
-      print xml_glob
+    print xml_glob
 
+    # if the option "--convert-evenid" is called, a copy of the xml file 
+    # is made under LOCAL_XML_COPY, and the event_id is converted
+    # from int_8s to ilwd:char
+    if opts.convert_eventid:
+      xml_glob = self.doFileCopyAndEventIdConvert(cp,xml_glob)
+      
     numtrigs = string.strip(cp.get('triggers','num-trigs'))
     statistic =  string.strip(cp.get('triggers','statistic'))
     bla =  string.strip(cp.get('triggers','bitten-l-a'))
     blb =  string.strip(cp.get('triggers','bitten-l-b'))
     found, coincs, search = readFiles(xml_glob,getstatistic(statistic,bla,blb))
     return numtrigs, found, coincs, search
+
+
+  def doFileCopyAndEventIdConvert(self,cp,inputxmlfile):
+    if not os.path.isfile("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]):
+      shutil.copy(inputxmlfile,'LOCAL_XML_COPY')
+      convert_process = call(cp.get('condor','pylal_conv_eventid') + " LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1], shell=True)
+      if convert_process != 0:
+        print >> sys.stderr, "ligolw_conv_inspid could not be run on file " + inputxmlfile.split('/')[-1]
+        sys.exit(1)
+    else:
+      print "The file " + inputxmlfile.split('/')[-1] + " already exist in LOCAL_XML_COPY. It will not be overwritten"
+    return "LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]
 
 ##############################################################################
 # functions to parse qscan cache files (used in analyseQscan)
