@@ -198,8 +198,6 @@ def parse_command_line():
       help="make a plot of snr vs chisq" )
   parser.add_option("-X", "--bank-chisq",action="store_true",default=False,\
       help="make a plot of bank chisq vs snr" )
-  parser.add_option("-Y", "--cont-chisq",action="store_true",default=False,\
-      help="make a plot of cont chisq vs snr")
   parser.add_option("-B","--snr-chisq-contours",action="store_true",default=False,\
       help="plot triggers, injections and lines" )
   parser.add_option("-L","--snr-chisq-lines",action="store_true",default=False,\
@@ -352,7 +350,7 @@ if opts.trig_pattern:
     trigFiles = found.pfnlist()
     if not len(trigFiles):
       print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.trig_pattern + " description"
-      trigFiles = None
+      sys.exit(1)
     else: 
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(trigFiles)) + ' files having the pattern '+opts.trig_pattern)
 else:
@@ -373,7 +371,7 @@ if opts.slide_pattern:
     slideFiles = found.pfnlist()
     if not len(slideFiles):
       print >>sys.stderr, opts.cache_file+ " contains no files with " + opts.slide_pattern + " description"
-      slideFiles = None
+      sys.exit(1)
     else:
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(slideFiles)) + ' files having the pattern '+opts.slide_pattern)
 else:
@@ -393,7 +391,7 @@ if opts.found_pattern:
     injFiles = found.pfnlist()
     if not len(injFiles):
       print >>sys.stderr, opts.cache_file + " contains no files with " + opts.found_pattern + " description"
-      injFiles = None
+      sys.exit(1)
     else: 
       comments += InspiralUtils.message(opts,  'Reading ' +str(len(injFiles)) + ' files having the pattern '+opts.found_pattern)
 else:
@@ -632,7 +630,7 @@ if opts.bank_chisq:
   figure(fig_num)
   legendText= []
   if slide_events:
-    viz.plot_a_v_b(slideTriggers,'snr','reduced_bank_chisq','loglog','kx')
+    viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
   if nevents:
     viz.plot_a_v_b(inspTriggers,'snr','reduced_bank_chisq','loglog','b2')
@@ -664,7 +662,7 @@ if opts.cont_chisq:
     viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','kx')
     legendText.append('Triggers')
   if slide_events:
-    viz.plot_a_v_b(slideTriggers,'snr','reduced_cont_chisq','loglog','kx')
+    viz.plot_a_v_b(slideTriggers,'snr','chisq','loglog','kx')
     legendText.append('Background')
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','reduced_cont_chisq','loglog','r+')
@@ -680,6 +678,30 @@ if opts.cont_chisq:
         dpi_thumb=opts.figure_resolution)
     fnameList.append(fname)
     tagList.append("Cont chi square versus SNR")
+  if not opts.show_plot:
+    close()
+
+###################################
+# plot of snr vs chisq with contours
+if opts.trig_contour and nevents:
+  fig_num +=1
+  figure(fig_num)
+  
+  viz.plot_a_v_b(inspTriggers,'snr','chisq','loglog','kx',opts.figure_name)
+  contour(snr_range,chisq_range,cont,v)
+  
+  xlabel(r'$\rho$', size='x-large')
+  ylabel(r'$\chi^2$', size='x-large')
+  xlim(min_snr, max_snr)
+  ylim(min_chisq, max_chisq)
+  legend(['Triggers', 'Injections'])
+
+  if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "snr_chisq_contour")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, \
+        dpi_thumb=opts.figure_resolution)
+    fnameList.append(fname)
+    tagList.append("Chi square versus SNR and iso-contour")
   if not opts.show_plot:
     close()
 
