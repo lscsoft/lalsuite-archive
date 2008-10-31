@@ -253,7 +253,7 @@ class CondorJob:
     @param value: value to pass to the option (None for no argument).
     """
     self.__options[opt] = filename
-    if filename not in self.__input_file:
+    if filename not in self.__input_files:
       self.__input_files.append(filename)
 
   def get_opts(self):
