@@ -37,7 +37,7 @@ from glue.ligolw import ligolw, table as tab, lsctables, utils
 
 from pylal import SnglInspiralUtils, SimInspiralUtils
 
-year = 31556925.9747
+year = 31557600.
 
 ##############################################################################
 # redefine the SnglInspiral columns of interest
@@ -157,12 +157,23 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 
-
-
 if not opts.glob and not opts.cache_file:
   print >>sys.stderr, "Must specify a --glob of files or --cache-input file to read"
   print >>sys.stderr, "Enter 'plotifar --help' for usage"
   sys.exit(1)
+
+if len(opts.add_num_background) and not opts.combine_types:
+  print >>sys.stderr, "--add-num-background only used with --combine-types"
+  sys.exit(1)
+
+if opts.num_categories and not opts.combine_types:
+  print >>sys.stderr, "--num-categories only used with --combine-types"
+  sys.exit(1)
+
+if len(opts.add_num_background) != opts.num_categories and opts.combine_types:
+  print >>sys.stderr, "Must have same number of --add-num-background as given in --num-categories"
+  sys.exit(1)
+
 
 #####################################################################
 # -- some initialisation
@@ -199,7 +210,7 @@ xhigh = 0
 # compute the background min IFARs
 
 modifierFAR = 1.
-if opts.num_categories:
+if opts.num_categories and opts.combine_types:
   modifierFAR *= float(opts.num_categories)
 if opts.far_time_correction:
   modifierFAR *= float(opts.far_time_correction)
