@@ -49,34 +49,38 @@ if [ 1 ]; then
     echo "CATEGORY $outfile add_septime"
     echo
   done
-  for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
+  for data in all_data playground_only exclude_play; do
+    for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
     #write corse jobs for double-in_double files
-    for combo in H1L1 H2L1; do
-      zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
-      slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
-      outfile="corse_all_data_files/${mass}/${combo}-CORSE_ALL_DATA_${cat}-${month_gps_time}-${month_duration}.xml.gz"
-      timeanalyzedfile="septime_files/${combo}_V3_${cat}.txt"
-      echo "JOB $outfile corse_all_data.corse.sub"
-      echo "RETRY $outfile 1"
-      echo "VARS $outfile macrozerofile=\"$zerofile\" macroslidefile=\"$slidefile\" macrooutfile=\"$outfile\" macrotimeanalyzedfile=\"$timeanalyzedfile\""
-      echo "CATEGORY $outfile corse"
-      parent_file="${combo}_V3_${cat}.txt"
-      echo "PARENT $parent_file CHILD $outfile"
-      echo
-    done
+      for combo in H1L1 H2L1; do
+        zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
+        slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
+        outfile="corse_all_data_files/${data}/${combo}_${combo}-CORSE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+        summfile=`echo ${outfile} | sed s/.xml.gz/.txt/g`
+        timeanalyzedfile="septime_files/${combo}_V3_${cat}.txt"
+        echo "JOB $outfile corse_all_data.corse.sub"
+        echo "RETRY $outfile 1"
+        echo "VARS $outfile macrozerofile=\"$zerofile\" macroslidefile=\"$slidefile\" macrooutfile=\"$outfile\" macrotimeanalyzedfile=\"$timeanalyzedfile\" macrodatatype=\"$data\" macrosummaryfile=\"$summfile\" macromasstag=\"$mass\""
+        echo "CATEGORY $outfile corse"
+        parent_file="${combo}_V3_${cat}.txt"
+        echo "PARENT $parent_file CHILD $outfile"
+        echo
+      done
     #write corse jobs for double-in_triple and triple-in_triple files
-    for combo in H1L1 H2L1 H1H2L1; do
-      zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
-      slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
-      outfile="corse_all_data_files/${mass}/H1H2L1_${combo}-CORSE_ALL_DATA_${cat}-${month_gps_time}-${month_duration}.xml.gz"
-      timeanalyzedfile="septime_files/H1H2L1_V3_${cat}.txt"
-      echo "JOB $outfile corse_all_data.corse.sub"
-      echo "RETRY $outfile 1"
-      echo "VARS $outfile macrozerofile=\"$zerofile\" macroslidefile=\"$slidefile\" macrooutfile=\"$outfile\" macrotimeanalyzedfile=\"$timeanalyzedfile\""
-      echo "CATEGORY $outfile corse"
-      parent_file="H1H2L1_V3_${cat}.txt"
-      echo "PARENT $parent_file CHILD $outfile"
-      echo
+      for combo in H1L1 H2L1 H1H2L1; do
+        zerofile="second_coire_files/${mass}/${combo}-SECOND_COIRE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
+        slidefile="second_coire_files/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
+        outfile="corse_all_data_files/${data}/H1H2L1_${combo}-CORSE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+        summfile=`echo ${outfile} | sed s/.xml.gz/.txt/g`
+        timeanalyzedfile="septime_files/H1H2L1_V3_${cat}.txt"
+        echo "JOB $outfile corse_all_data.corse.sub"
+        echo "RETRY $outfile 1"
+        echo "VARS $outfile macrozerofile=\"$zerofile\" macroslidefile=\"$slidefile\" macrooutfile=\"$outfile\" macrotimeanalyzedfile=\"$timeanalyzedfile\" macrodatatype=\"$data\" macrosummaryfile=\"$summfile\" macromasstag=\"$mass\""
+        echo "CATEGORY $outfile corse"
+        parent_file="H1H2L1_V3_${cat}.txt"
+        echo "PARENT $parent_file CHILD $outfile"
+        echo
+      done
     done
   done
   echo "MAXJOBS corse 20"
@@ -87,7 +91,7 @@ fi > corse_all_data.dag
 if [ 1 ] ; then
   echo "universe = vanilla"
   echo "executable = add_septime.py"
-  echo "arguments = --input-file septime_files/\$(macroinfile) --output-file septime_files/\$(macrooutfile) --num-slides 50"
+  echo "arguments = --input-file septime_files/\$(macroinfile) --output-file septime_files/\$(macrooutfile) --num-slides 50" 
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/add_septime-\$(cluster)-\$(process).err"
@@ -97,11 +101,11 @@ if [ 1 ] ; then
   echo "queue 1"
 fi > corse_all_data.add_septime.sub
  
-#write corse.sub file
+#write corse.sub files
 if [ 1 ] ; then
   echo "universe = standard"
   echo "executable = ${corse_path}"
-  echo "arguments = --glob-zero \$(macrozerofile) --glob-slide \$(macroslidefile) --output \$(macrooutfile) --data-type all_data --coinc-stat effective_snrsq --num-slides 50 --time-analyzed-file  \$(macrotimeanalyzedfile)"
+  echo "arguments = --glob-zero \$(macrozerofile) --glob-slide \$(macroslidefile) --output \$(macrooutfile) --data-type \$(macrodatatype) --coinc-stat effective_snrsq --num-slides 50 --time-analyzed-file  \$(macrotimeanalyzedfile) --summary-file \$(macrosummaryfile) --mass-tag \$(macromasstag)"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/corse-\$(cluster)-\$(process).err"
   echo "output = logs/corse-\$(cluster)-\$(process).out"
@@ -116,9 +120,9 @@ echo " done."
 if [ ! -d corse_all_data_files ] ; then
   mkdir corse_all_data_files
 fi
-for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
-  if [ ! -d corse_all_data_files/${mass} ] ; then
-    mkdir corse_all_data_files/${mass}
+for data in all_data playground_only exclude_play; do
+  if [ ! -d corse_all_data_files/${data} ] ; then
+    mkdir corse_all_data_files/${data}
   fi
 done
 echo " done."
