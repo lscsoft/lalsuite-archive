@@ -1,192 +1,130 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- $Id$ -->
-<sitecatalog xmlns="http://vds.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://vds.isi.edu/schema/sitecatalog http://vds.isi.edu/schema/sc-2.0.xsd" version="2.0">
-
-  <site handle="cit" sysinfo="INTEL64::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://ldas-grid.ligo.caltech.edu" storage="/tmp" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="ldas-grid.ligo.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="ldas-grid.ligo.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/archive/home/channa/pegasus_scratch</workdirectory>
-  </site>
-
-  <site handle="lho" sysinfo="INTEL32::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://ldas-grid.ligo-wa.caltech.edu" storage="/tmp" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="ldas-grid.ligo-wa.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="ldas-grid.ligo-wa.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/archive/home/channa/pegasus_scratch</workdirectory>
-  </site>
-
-  <site handle="llo" sysinfo="INTEL32::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://ldas-grid.ligo-la.caltech.edu" storage="/tmp" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="ldas-grid.ligo-la.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="ldas-grid.ligo-la.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/archive/home/channa/pegasus_scratch</workdirectory>
-  </site>
-
-  <site handle="uwm_nemo" sysinfo="INTEL64::LINUX" gridlaunch="/opt/ldg-4.5/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/opt/ldg-4.7/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/ldg-4.7/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/opt/ldg-4.7/pegasus</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://hydra.phys.uwm.edu" storage="/tmp" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="hydra.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="hydra.phys.uwm.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/home/channa/pegasus_scratch</workdirectory>
-  </site>
-
-  <!-- [50] OSG_LIGO_PSU @ grid3.aset.psu.edu : 50 -->
-  <site handle="OSG_LIGO_PSU" sysinfo="INTEL32::LINUX" gridlaunch="/usr1/grid3/osg-wn/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/usr1/grid3/osg-wn/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/usr1/grid3/osg-wn/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/usr1/grid3/osg-wn/pegasus</profile>
-    <profile namespace="env" key="app">/usr1/grid3/app</profile>
-    <profile namespace="env" key="data">/usr1/grid3/data</profile>
-    <profile namespace="env" key="grid3">/usr1/grid3/osg-wn</profile>
-    <profile namespace="env" key="tmp">/usr1/grid3/data</profile>
-    <profile namespace="env" key="wntmp">/tmp</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://grid3.aset.psu.edu" storage="/usr1/grid3/data" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="grid3.aset.psu.edu/jobmanager-pbs" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="grid3.aset.psu.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/usr1/grid3/data</workdirectory>
-  </site>
-
-  <!-- [23] OSG_LIGO_MIT @ osg-ligo.mit.edu : 50 -->
-  <site handle="OSG_LIGO_MIT" sysinfo="INTEL32::LINUX" gridlaunch="/opt/grid/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/opt/grid/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/grid/globus/lib</profile>   
-    <profile namespace="env" key="PEGASUS_HOME">/opt/grid/pegasus</profile>
-    <profile namespace="env" key="app">/opt/storage/app</profile>
-    <profile namespace="env" key="data">/opt/storage/data</profile>
-    <profile namespace="env" key="grid3">/opt/grid</profile>
-    <profile namespace="env" key="tmp">/opt/storage/data</profile>
-    <profile namespace="env" key="wntmp">/opt/storage/wn_tmp</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://osg-ligo.mit.edu" storage="/opt/storage/data" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="osg-ligo.mit.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="osg-ligo.mit.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/opt/storage/data</workdirectory>
-  </site>
-
-  <!-- [3] FNAL_FERMIGRID @ fermigrid1.fnal.gov : 50 -->
-  <site handle="FNAL_FERMIGRID" sysinfo="INTEL32::LINUX" gridlaunch="/usr/local/grid/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/usr/local/grid/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/usr/local/grid/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/usr/local/grid/pegasus</profile>
-    <profile namespace="env" key="app">/grid/app</profile>
-    <profile namespace="env" key="data">/grid/data</profile>
-    <profile namespace="env" key="grid3">/usr/local/grid</profile>
-    <profile namespace="env" key="tmp">/grid/data</profile>
-    <profile namespace="env" key="wntmp">/local/stage1</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://fermigrid1.fnal.gov" storage="/grid/data" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="fermigrid1.fnal.gov/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="fermigrid1.fnal.gov/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/grid/data</workdirectory>
-  </site>
-
-
-
-  <!-- [41] BNL_ATLAS_1 @ gridgk01.racf.bnl.gov : 50 -->
-  <site handle="BNL_ATLAS_1" sysinfo="INTEL32::LINUX" gridlaunch="/usatlas/OSG/osg_wn_client/current/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/usatlas/OSG/osg_wn_client/current/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/usatlas/OSG/osg_wn_client/current/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/usatlas/OSG/osg_wn_client/current/pegasus</profile>
-    <profile namespace="env" key="app">/usatlas/OSG</profile>
-    <profile namespace="env" key="data">/usatlas/prodjob/share</profile>
-    <profile namespace="env" key="grid3">/usatlas/OSG/osg_wn_client/current</profile>
-    <profile namespace="env" key="tmp">/usatlas/prodjob/share</profile>
-    <profile namespace="env" key="wntmp">/tmp</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://gridgk01.racf.bnl.gov" storage="/usatlas/prodjob/share" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="gridgk01.racf.bnl.gov/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="gridgk01.racf.bnl.gov/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/usatlas/prodjob/share</workdirectory>
-  </site>
-
-
-<!-- [L 1] local @ ldas-pcdev1.ligo.caltech.edu : 50 -->
-  <site handle="local" sysinfo="INTEL64::LINUX" gridlaunch="/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
-    <profile namespace="pegasus" key="grid">local</profile>
-    <gridftp url="gsiftp://ldas-pcdev1.ligo.caltech.edu" storage="/archive/home/channa/pegasus-scratch" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/archive/home/channa/pegasus-scratch</workdirectory>
-  </site>
-
-  <site handle="UWMilwaukee" sysinfo="INTEL32::LINUX" gridlaunch="/opt/osg/grid/pegasus/bin/kickstart">
-    <profile namespace="env" key="GLOBUS_LOCATION">/opt/osg/grid/globus</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/osg/grid/globus/lib</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/opt/osg/grid/pegasus</profile>
-    <profile namespace="env" key="app">/opt/osg/app</profile>
-    <profile namespace="env" key="data">/opt/osg/data</profile>
-    <profile namespace="env" key="grid3">/opt/osg/grid</profile>
-    <profile namespace="env" key="tmp">/opt/osg/data</profile>
-    <profile namespace="env" key="wntmp">/localscratch</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://nest.phys.uwm.edu" storage="/opt/osg/data" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="nest.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="nest.phys.uwm.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/opt/osg/data</workdirectory>
-  </site>
-
-
- <!-- [63] LIGO_UWM_NEMO @ osg-nemo-ce.phys.uwm.edu : 50 -->
-  <site handle="LIGO_UWM_NEMO" sysinfo="INTEL32::LINUX" gridlaunch="/opt/osg/app/wn-client/pegasus/bin/kickstart">
- <profile namespace="env" key="GLOBUS_LOCATION">/opt/osg/app/wn-client/globus/</profile>
-    <profile namespace="env" key="LD_LIBRARY_PATH">/opt/osg/app/wn-client/globus/libi</profile>
-    <profile namespace="env" key="PEGASUS_HOME">/opt/osg/app/wn-client/pegasus</profile>
-    <profile namespace="env" key="app">/opt/osg/app</profile>
-    <profile namespace="env" key="data">/opt/osg/data</profile>
-    <profile namespace="env" key="grid3">/opt/osg/app/wn-client</profile>
-    <profile namespace="env" key="tmp">/opt/osg/data</profile>
-    <profile namespace="env" key="wntmp">/localscratch</profile>
-    <profile namespace="pegasus" key="grid">osg</profile>
-    <lrc url="rlsn://smarty.isi.edu"/>
-    <gridftp url="gsiftp://osg-nemo-ce.phys.uwm.edu" storage="/opt/osg/data" major="4" minor="0" patch="4"/>
-    <jobmanager universe="vanilla" url="osg-nemo-ce.phys.uwm.edu/jobmanager-condor" major="4" minor="0" patch="4" total-nodes="50"/>
-    <jobmanager universe="transfer" url="osg-nemo-ce.phys.uwm.edu/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="50"/>
-    <workdirectory>/opt/osg/data</workdirectory>
-  </site>
-
-<site handle="lsu" sysinfo="INTEL32::LINUX"
-gridlaunch="/opt/osg/pegasus/bin/kickstart">
-<profile namespace="env"
-key="GLOBUS_LOCATION">/opt/osg/globus</profile>
-<profile namespace="env"
-key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
-<profile namespace="env" key="PEGASUS_HOME">/opt/osg/pegasus</profile>
-<profile namespace="env" key="app">/usr/local/packages/ligo</profile>
-<profile namespace="env" key="data">/ligo/data</profile>
-<profile namespace="env" key="grid3">/usr/local/packages/osg-1.0.0/wn</profile>
-<profile namespace="env" key="tmp">/var/scratch</profile>
-<profile namespace="env" key="wntmp">/var/scratch</profile>
-<lrc url="rlsn://smarty.isi.edu"/>
-<gridftp url="gsiftp://osg2.loni.org" storage="/ligo/data" major="4" minor="0" patch="4"/>
-<jobmanager universe="vanilla" url="osg2.loni.org/jobmanager-pbs" major="4" minor="0" patch="4" total-nodes="1"/>
-<jobmanager universe="transfer" url="osg2.loni.org/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="1"/>
-<workdirectory>/ligo/data</workdirectory>
-</site>
-
-
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- generated: 2008-10-16T10:17:24-07:00 -->
+<!-- generated by: bdaudert [??] -->
+<sitecatalog xmlns="http://pegasus.isi.edu/schema/sitecatalog" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pegasus.isi.edu/schema/sitecatalog http://pegasus.isi.edu/schema/sc-3.0.xsd" version="3.0">
+	<site  handle="lho" arch="x86" os="LINUX">
+		<grid  type="gt2" contact="ldas-grid.ligo-wa.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+		<grid  type="gt2" contact="ldas-grid.ligo-wa.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+		<head-fs>
+			<scratch>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-wa.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</scratch>
+			<storage>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-wa.caltech.edu" mount-point="/tmp">
+					</file-server>
+					<internal-mount-point mount-point="/tmp" free-size="null" total-size="null"/>
+				</shared>
+			</storage>
+		</head-fs>
+		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+		</replica-catalog>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+	</site>
+	<site  handle="uwm_nemo" arch="x86_64" os="LINUX">
+		<grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+		<grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+		<head-fs>
+			<scratch>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</scratch>
+			<storage>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/tmp">
+					</file-server>
+					<internal-mount-point mount-point="/tmp" free-size="null" total-size="null"/>
+				</shared>
+			</storage>
+		</head-fs>
+		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+		</replica-catalog>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.5/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.5/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.5/vdt/pegasus</profile>
+	</site>
+	<site  handle="local" arch="x86_64" os="LINUX">
+		<grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+		<grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+		<head-fs>
+			<scratch>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</scratch>
+			<storage>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</storage>
+		</head-fs>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+		<profile namespace="pegasus" key="grid" >local</profile>
+	</site>
+	<site  handle="llo" arch="x86" os="LINUX">
+		<grid  type="gt2" contact="ldas-grid.ligo-la.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+		<grid  type="gt2" contact="ldas-grid.ligo-la.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+		<head-fs>
+			<scratch>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-la.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</scratch>
+			<storage>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-la.caltech.edu" mount-point="/tmp">
+					</file-server>
+					<internal-mount-point mount-point="/tmp" free-size="null" total-size="null"/>
+				</shared>
+			</storage>
+		</head-fs>
+		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+		</replica-catalog>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+	</site>
+	<site  handle="cit" arch="x86_64" os="LINUX">
+		<grid  type="gt2" contact="ldas-grid.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+		<grid  type="gt2" contact="ldas-grid.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+		<head-fs>
+			<scratch>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					</file-server>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+				</shared>
+			</scratch>
+			<storage>
+				<shared>
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo.caltech.edu" mount-point="/tmp">
+					</file-server>
+					<internal-mount-point mount-point="/tmp" free-size="null" total-size="null"/>
+				</shared>
+			</storage>
+		</head-fs>
+		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+		</replica-catalog>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
+	</site>
 </sitecatalog>
+
