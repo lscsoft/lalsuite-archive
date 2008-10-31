@@ -212,7 +212,7 @@ parser.add_option("-Y","--ymax",action="store",type="float",\
 
 if not opts.prior:
   print >>sys.stderr, "Must supply a prior for calculation\n" 
-  sys.exit(0)
+  sys.exit(1)
 
 if (len(opts.galaxies_file)-len(opts.observation_time)):
   print >>sys.stderr, "Must give same number of galaxy files and " +\
@@ -220,7 +220,7 @@ if (len(opts.galaxies_file)-len(opts.observation_time)):
   print >> sys.stderr, "Number of galaxy-files (-f):" + \
       str(len(opts.galaxies_file)) + \
       "  number of observation times (-t):" + str(len(opts.observation_time))
-  sys.exit(0)
+  sys.exit(1)
 
 #####################################################################
 # Do the pylab import in such a way that doesn't require an X display
@@ -284,12 +284,12 @@ for bin in range(massBins):
     ngt += data["ng"] * data["tobs"]
     ngprimet += data["ngprime"] * data["tobs"]
   ngt0 = ngt
-  exprate = exp( - rate * ngt )
-  nomarginpost = rateprior * exprate \
-        * ( data["pbprime"] + data["pb"] * rate * ngprimet )
+  lambda = ( ngprimet / ngt ) * ( data["pb"] / data["pbprime"] )
+  nomarginpost = rateprior * exp( - rate * ngt ) \
+        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
 
   # set exprate to zero to calculate marginalization calculation
-  exprate *= 0.0
+  marginpost = 0. * rate
 
   # if only one epoch, do a convolution and integrate directly, otherwise
   # do a Monte Carlo integral
@@ -349,7 +349,8 @@ for bin in range(massBins):
       # exprate = p_ngt * ngt * exp( - rate * ( ngt ) )
       # but since these ngt points are equally spaced on a log scale
       # we need to mutliply by another factor of ngt
-      exprate += p_ngt * ngt * exp( - rate * ( ngt ) ) * ngt
+      marginpost += ngt * rateprior * p_ngt * exp( - rate * ngt ) \
+        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
 
   else:  
     # perform the marginalization by generating ntrials worth of samples
@@ -364,45 +365,44 @@ for bin in range(massBins):
         # magnitude error is lognormal
         if opts.magnitude_error:
           thisngt *= random.lognormvariate(data["dn_lummu"],
-              data["dn_lumsigma_magnitude"]) * data["tobs"] / ngt0
+              data["dn_lumsigma_magnitude"]) / data["ng"]
 
         # lho calibration error is lognormal
         if ( opts.calibration_error and data["dn_lumsigma_lhocal"] != 0.0 ):
           thisngt *= random.lognormvariate(data["dn_lummu"],
-              data["dn_lumsigma_lhocal"]) * data["tobs"] / ngt0
+              data["dn_lumsigma_lhocal"]) / data["ng"]
 
         # llo calibration error is lognormal
         if ( opts.calibration_error and data["dn_lumsigma_llocal"] != 0.0 ):
           thisngt *= random.lognormvariate(data["dn_lummu"],
-              data["dn_lumsigma_llocal"]) * data["tobs"] / ngt0
+              data["dn_lumsigma_llocal"]) / data["ng"]
 
         # monte carlo error is lognormal
         if opts.montecarlo_error:
           thisngt *= random.lognormvariate(data["dn_lummu"],
-              data["dn_lumsigma_mc"]) * data["tobs"] / ngt0
+              data["dn_lumsigma_mc"]) / data["ng"]
 
         # waveform error is lognormal and one-sided
         if opts.waveform_error:
           tmpngt = 2.*thisngt
           while (tmpngt > thisngt):
             tmpngt = thisngt * (random.lognormvariate(data["dn_lummu"],
-                data["dn_lumsigma_waveform"]) * data["tobs"] / ngt0)
+                data["dn_lumsigma_waveform"]) / data["ng"] )
           thisngt = tmpngt
 
         # distance error is lognormal
         if opts.distance_error:
           thisngt *= random.lognormvariate(data["dn_lummu"],
-              data["dn_lumsigma_distance"]) * data["tobs"] / ngt0
+              data["dn_lumsigma_distance"]) / data["ng"]
 
         ngt +=  thisngt
       ngts.append(ngt)
-      exprate += ngt * exp( - rate * ( ngt ) )
-    exprate /= float(opts.ntrials)
+      marginpost += rateprior * exp( - rate * ngt ) \
+        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
+    marginpost /= float(opts.ntrials)
 
   # end if statement for integration by convolution or Monte Carlo
-  # for calculating exprate  
-  marginpost = rateprior * exprate \
-        * ( data["pbprime"] + data["pb"] * rate * ngprimet )
+  # for calculating marginpost
   
   # normalize the distributions
   nomarginpost /= sum(nomarginpost)
@@ -423,7 +423,7 @@ for bin in range(massBins):
     print >>sys.stderr, "90% confidence upper limit may be wrong"
     print >>sys.stderr, "ratio of p(max_rate) to max(p(rate)) = %f" % ratio
     print >>sys.stderr, "reduce this ratio to <%f by increasing max-rate" % eps
-    sys.exit(0)
+    sys.exit(1)
 
   # find the NgT corresponding to the marginalized upper limit
   idx90pcnomargin = [idx for idx in range(len(cumnomarginpost)) \
