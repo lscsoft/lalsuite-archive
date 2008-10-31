@@ -469,10 +469,14 @@ if opts.ifar_dist and not opts.combine_types:
   figure_number += 1
 
   for combo,color,symbol in zip(combos,colors,symbols):
+    hold(True)
+    for slide in slideVals.keys():
+      loglog(slideVals[slide]['IFAR'][combo],
+          slideVals[slide]['cumhist'][combo], '-',
+          color=(0.5, 0.5, 0.5), alpha=0.65, label='_nolegend_')
     loglog(IFAR[combo], cumhist[combo],
         color+symbol, markerfacecolor=color, markeredgecolor=color,
         alpha=0.65, label=combo)
-    hold(True)
   loglog(bkg, ibkg, 'k--', linewidth=2, label='background')
   fill(bkg_x1, bkg_y1, facecolor='y', alpha=.2, label='$N^{1/2}$ errors')
   if opts.min_ifar:
