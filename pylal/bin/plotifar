@@ -659,7 +659,7 @@ if opts.plot_uncombined or opts.snr_ifar:
 # End opts.plot_uncombined
 
 if opts.plot_combined:
-  if not FANc:
+  if not FANc.any():
     # this can happen if there were no foreground triggers in any of the files;
     # in this case, can't make a combined IFAN or IFAR plot, so just print 
     # warn_msg to an empty plot
