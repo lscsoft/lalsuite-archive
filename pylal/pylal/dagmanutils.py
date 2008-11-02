@@ -21,70 +21,88 @@ try:
 except ImportError:
   from pysqlite2 import dbapi2 as sqlite3
 
+import datetime
 import sys
+
+itertools = __import__("itertools")
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"[11:-2]
 
 #
+# Enums
+#
+STATE_NOT_YET_RUN = 0
+STATE_IDLE = 1
+STATE_RUNNING = 2
+STATE_HELD = 3
+STATE_SUCCEEDED = 4
+STATE_FAILED = 5
+STATE_TERMINATED = 6
+
+#
 # DAGManLog class, to represent the state of a DAGMan run
 #
 
-class DAGManLog(object):  
+class DAGManLog(object):
   # specify state as (state_id, name)
-  states = ((0, "not yet run"),
-            (1, "idle"),
-            (2, "running"),
-            (3, "held"),
-            (4, "succeeded"),
-            (5, "failed"))
+  states = ((STATE_NOT_YET_RUN, "not yet run"),
+            (STATE_IDLE, "idle"),
+            (STATE_RUNNING, "running"),
+            (STATE_HELD, "held"),
+            (STATE_SUCCEEDED, "succeeded"),
+            (STATE_FAILED, "failed"),
+            (STATE_TERMINATED, "terminated (unknown status)"))
 
   # state transition map
   # (grep_key, state_id, node_id_col)
   # more verbosely: (text that, if found, triggers the state transition,
   #                  state_id of destination state,
   #                  index to space-delimited column that contains node name)
-  state_map = (("ULOG_SUBMIT", 1, 7),
-               ("ULOG_EXECUTE", 2, 7),
-               ("ULOG_JOB_HELD", 3, 7),
-               ("ULOG_JOB_RELEASED", 1, 7),
-               ("completed successfully", 4, 3),
-               ("failed with status", 5, 3))
+  state_map = (("ULOG_SUBMIT", STATE_IDLE, 7),
+               ("ULOG_EXECUTE", STATE_RUNNING, 7),
+               ("ULOG_JOB_HELD", STATE_HELD, 7),
+               ("ULOG_JOB_RELEASED", STATE_IDLE, 7),
+               ("ULOG_JOB_EVICTED", STATE_IDLE, 7),
+               ("ULOG_JOB_TERMINATED", STATE_TERMINATED, 7),
+               ("ULOG_POST_TERMINATED", STATE_TERMINATED, 7))
 
   def __init__(self, db_filename=":memory:"):
     # create database
-    self.conn = sqlite3.connect(db_filename)
+    self.conn = sqlite3.connect(db_filename,
+        detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
     c = self.conn.cursor()
 
     # create tables
     c.execute("""CREATE TABLE IF NOT EXISTS states
     (state_id INTEGER PRIMARY KEY, name TEXT UNIQUE)""")
-    # c.execute("""CREATE TABLE IF NOT EXISTS state_map
-    # (grep_key TEXT, state_id INTEGER, node_id_col INTEGER)""")
     c.execute("""CREATE TABLE IF NOT EXISTS jobs
     (job_id INTEGER PRIMARY KEY, sub_file TEXT UNIQUE)""")
     c.execute("""CREATE TABLE IF NOT EXISTS nodes
-    (node_id TEXT UNIQUE, job_id INTEGER, state_id INTEGER)""")
+    (node_id TEXT UNIQUE, job_id INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS transitions
+    (ts TIMESTAMP, node_id TEXT, state_id INTEGER)""")
 
-    # populate state and state_map
+    # populate states
     c.executemany("INSERT OR IGNORE INTO states (state_id, name) VALUES (?, ?)", self.states)
-    # c.executemany("INSERT OR IGNORE INTO state_map (grep_key, state_id, node_id_col) VALUES (?, ?, ?)", self.state_map)
     self.conn.commit()
 
   def read_dag(self, dag_fileobj):
     """
-    Populate jobs and initialize nodes to never run state.
+    Populate jobs and create an initial transition to never run state.
     """
     c = self.conn.cursor()
     for line in dag_fileobj:
+      ts = datetime.datetime(1900, 1, 1, 0, 0, 0, 0)
       if line.startswith("JOB"):
         tup = line.split()
         node_id = tup[1]
         sub_file = tup[2]
         c.execute("INSERT OR IGNORE INTO jobs (sub_file) VALUES (?)", (sub_file,))
         job_id = c.execute("SELECT job_id FROM jobs WHERE sub_file = ?", (sub_file,)).next()[0]
-        c.execute("INSERT OR REPLACE INTO nodes (node_id, job_id, state_id) VALUES (?, ?, ?)", (node_id, job_id, 0))
+        c.execute("INSERT OR REPLACE INTO nodes (node_id, job_id) VALUES (?, ?)", (node_id, job_id))
+        c.execute("INSERT INTO transitions (ts, node_id, state_id) VALUES (?, ?, ?)", (ts, node_id, 0))
     self.conn.commit()
 
   def get_job_dict(self):
@@ -99,13 +117,25 @@ class DAGManLog(object):
     Parse .dag.dagman.out file and update the status of each node.
     """
     c = self.conn.cursor()
-    for line in dagman_out_fileobj:
+    dagman_out_iter = iter(dagman_out_fileobj)
+    for line in dagman_out_iter:
       # determine what state, if any, this line denotes, and record it
       for grep_key, state_id, node_id_col in self.state_map:
-        if grep_key in line:
-          node_id = line.split()[node_id_col]
-          c.execute("UPDATE nodes SET state_id = ? WHERE node_id = ?",
-                    (state_id, node_id))
+        if grep_key in line: # we have a match
+          tup = line.split()
+          node_id = tup[node_id_col]
+          ts = datetime.datetime.strptime(tup[0] + " " + tup[1], "%m/%d %H:%M:%S")
+          if state_id == STATE_TERMINATED:
+              line = dagman_out_iter.next() # job status on next line
+              if "completed successfully" in line:
+                state_id = STATE_SUCCEEDED
+              elif "failed" in line:
+                state_id = STATE_FAILED
+              else:
+                sys.stderr.write("Warning: Cannot determine success or "\
+                                 "failure: " + line + "\n")
+
+          c.execute("INSERT INTO transitions (ts, node_id, state_id) VALUES (?, ?, ?)", (ts, node_id, state_id))
           break
     self.conn.commit()
 
@@ -117,16 +147,53 @@ class DAGManLog(object):
     c = self.conn.cursor()
     d = {}
     for state_id, state_name in self.states:
-      d[state_name] = dict(c.execute("SELECT sub_file, count(*) FROM jobs JOIN nodes ON nodes.job_id = jobs.job_id WHERE nodes.state_id = ? GROUP BY sub_file", (state_id,)))
+      d[state_name] = dict(c.execute("SELECT sub_file, count(*) FROM (SELECT * FROM transitions GROUP BY transitions.node_id) LEFT NATURAL JOIN nodes NATURAL JOIN jobs WHERE state_id=? GROUP BY sub_file", (state_id,)))
     return d
-      
+
   def get_state_dict(self):
     """
     Return a dictionary of {node state: number in state}.
     """
     c = self.conn.cursor()
-    return dict(c.execute("SELECT name, count(*) FROM nodes JOIN states WHERE nodes.state_id = states.state_id GROUP BY states.state_id"))
+    return dict(c.execute("SELECT name, count(*) FROM (SELECT * FROM transitions GROUP BY transitions.node_id) NATURAL JOIN states GROUP BY states.state_id"))
 
+  def get_runtime_dict(self):
+    """
+    Return a dictionary of {node_id: total run time} for nodes that completed
+    successfully.  The times included are those in STATE_RUNNING.
+    """
+    c = self.conn.cursor()
+
+    # only allow durations from nodes that have completed
+    durations = dict((key, 0) for (key,) in \
+      c.execute("SELECT node_id FROM transitions WHERE state_id=?",
+                (STATE_SUCCEEDED,)))
+
+    for node_id in durations:
+      # find starts and stops
+      starts = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id=?", (node_id, STATE_RUNNING))
+      stops = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id<>?", (node_id, STATE_RUNNING))
+
+      # discard the initial idle queueing
+      stops.fetchone()
+
+      # do the work; NB: Condor only has second precision at the moment.
+      for (start,), (stop,) in itertools.izip(starts, stops):
+        if stop < start:
+          raise ValueError, "stop before start"
+        dur = stop - start
+        durations[node_id] += 86400 * dur.days + dur.seconds
+
+    # now add together all nodes that belong to a given job
+    # XXX: This can perhaps be put in a separate function.
+    # job_durations = dict((job_name, [0, datetime.timedelta(0)]) \
+    #   for job_name in c.execute("SELECT name FROM jobs"))
+    # for node_id, dur in durations.iteritems():
+    #   sub_file = c.execute("SELECT sub_file FROM (SELECT * FROM nodes WHERE node_id=?) LEFT NATURAL JOIN jobs", node_id)
+    #   job_durations[sub_file][0] += 1
+    #   job_durations[sub_file][1] += dur
+
+    return durations
 
 #
 # Text summary functions
@@ -156,3 +223,4 @@ def print_nested_dict_of_counts(d):
   for key1, sub_dict in d.iteritems():
     print key1 + ":"
     print_dict_of_counts(sub_dict)
+

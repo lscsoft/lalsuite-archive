@@ -43,7 +43,8 @@ if len(args) != 1:
 
 dagman_out_name = args[0]
 
-log = dagmanutils.DAGManLog()
+log_db_fname = dagman_out_name + ".sqlite3"
+log = dagmanutils.DAGManLog(log_db_fname)
 log.read_dag(open(dagman_out_name[:-11]))
 log.read_dagman_out(open(dagman_out_name))
 
@@ -53,3 +54,4 @@ dagmanutils.print_dict_of_counts(log.get_job_dict())
 dagmanutils.print_nested_dict_of_counts(log.get_state_subfile_dict())
 print "totals:"
 dagmanutils.print_dict_of_counts(log.get_state_dict())
+
