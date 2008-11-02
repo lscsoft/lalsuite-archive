@@ -203,8 +203,8 @@ NormTime = {}
 modFAN = {}
 massbin = {}
 coincifos = {}
-no_bkg = False
-no_frgnd = False
+no_bkg = []
+warn_msg = ""
 for thisfile in corsefiles:
   if opts.summary_file_path: # use alternate path for summfile
     altfile = opts.summary_file_path + os.path.basename(thisfile)
@@ -228,16 +228,14 @@ for thisfile in corsefiles:
     # get coincidence type (used for labeling in plots); will have regardless
     # of whether or not there are foreground triggers
     elif line.startswith( 'coincident ifos:' ):
-      # if number no background triggers prepare warning message and
-      # remove file from list
+      # if no background triggers mark the corsefile for later removal and
+      # break from reading the summary file 
       if line.split()[2] == 'no_background': 
-        no_bkg = True
-        if not critical_msg: critical_msg = 'No foreground or background in files:\n'
-        critical_msg = critical_msg + \
-                corsefiles.pop(corsefiles.index(thisfile)) + '\n'
+        no_bkg.append(corsefiles.index(thisfile))
         NbkgCoinc = 0.
         break
-      coincifos[thisfile] = line.split()[2]
+      else:
+        coincifos[thisfile] = line.split()[2]
     # get Number of background triggers
     elif line.startswith( 'number of reconstructed slide coincidences:' ):
       NbkgCoinc = float( line.split()[5] )
@@ -262,21 +260,49 @@ for thisfile in corsefiles:
         massbin[ mass ].append(thisfile)
   file.close()
   # calculate min/max BkgFANs
-  if NbkgCoinc != 0:
+  if NbkgCoinc != 0.:
     maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
     minBkgFAN[thisfile] = FrgrndTime/BkgTime
+  # apply correction factor
+    if opts.time_correct_file:
+      corrfile = open(opts.time_correct_file,'r')
+      for line in corrfile:
+        if line.startswith( 'amount of time analysed' ):
+          t_factor = float( line.split()[6] )
+      corrfile.close()
+      modFAN[thisfile] = NormTime[thisfile]/t_factor
+    else:
+      modFAN[thisfile] = 1.
+# End: loop over corsefiles
 
-  if opts.time_correct_file:
-    corrfile = open(opts.time_correct_file,'r')
-    for line in corrfile:
-      if line.startswith( 'amount of time analysed' ):
-        t_factor = float( line.split()[6] )
-    corrfile.close()
-    modFAN[thisfile] = NormTime[thisfile]/t_factor
-  else:
-    modFAN[thisfile] = 1.
-
-
+# remove files that had no bkg from corsefiles list and add their names to
+# warn_msg
+if no_bkg:
+  warn_msg = 'No foreground or background in files:\n'
+  for idx in no_bkg:
+    warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx)) + '\n'
+  # check if still have a corsefiles list; if all the files that were globbed
+  # don't have foreground and background, just make a generic plot with
+  # warn_msg on it; this avoids future errors
+  if not corsefiles:
+    warn_msg = warn_msg + 'These were all the globbed files.'
+    figure(figure_number)
+    figure_number += 1
+    text( 0.5, 0.5, warn_msg, ha = 'center', va = 'center' )
+    xlabel( r"No data", size='x-large' )
+    ylabel( r"No data", size='x-large' )
+    if opts.enable_output is True:
+      name = "no_data_ifar"
+      txt = "No data to plot"
+      fname = InspiralUtils.set_figure_name(opts, name)
+      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+      fnameList.append(fname)
+      tagList.append(txt)
+      html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+      InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    if opts.show_plot:
+      show()
+    sys.exit(0)
   
 # set statistic arg for the coincTable to far
 coincStat = CoincInspiralUtils.coincStatistic("far")
@@ -292,6 +318,37 @@ for thisfile in corsefiles:
   insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [thisfile] )
   coincT[ thisfile ] = CoincInspiralUtils.coincInspiralTable( insptrigs, coincStat )
   coincT[ thisfile ].sort() # sort by descending FAN
+
+# set plot colors and symbols
+trigsymbols = itertools.cycle(( 'D', 'H', 's' ))
+lnsymbols = itertools.cycle(( '--', ':', '-.' ))
+PlotVals = {}
+no_frgnd = ""
+for thisfile in corsefiles:
+  PlotVals[thisfile] = {}
+  # set colors based on coincident ifos
+  if coincifos[thisfile] == 'H1L1':
+    PlotVals[thisfile]['color'] = 'g'
+  elif coincifos[thisfile] == 'H2L1':
+    PlotVals[thisfile]['color'] = 'r'
+  elif coincifos[thisfile] == 'H1H2L1':
+    PlotVals[thisfile]['color'] = 'c'
+  else: # other coincs just set to black for now
+    PlotVals[thisfile]['color'] = 'k'
+  # set foreground symbol based on mass-bin
+  for mass, marker, hash in zip( massbin, trigsymbols, lnsymbols):
+    if thisfile in massbin[mass]:
+      PlotVals[thisfile]['massbin'] = mass
+      PlotVals[thisfile]['trigsymbol'] = marker
+      PlotVals[thisfile]['lnsymbol'] = hash
+  # check for files that don't have foreground triggers; if none, add trigger
+  # type to warn_msg
+  if not coincT[thisfile].sngl_table:
+    if not no_frgnd: no_frgnd = "No foreground triggers in:\n "
+    no_frgnd = no_frgnd + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n "
+# End for thisfiles in corsefiles
+# concatatenate no_frgnd to warn_msg
+warn_msg = warn_msg + no_frgnd
 
 # ============================================================================
 # ============================================================================
@@ -367,34 +424,11 @@ if opts.plot_combined:
   if opts.ifar_dist:
     IFARc = IFANc * NormTime[corsefiles[0]]
 
-
 # ============================================================================
 # ============================================================================
 # Make plots
 
 if opts.plot_uncombined or opts.snr_ifar:
-  # set plot colors and symbols
-  trigsymbols = itertools.cycle(( 'D', 'H', 's' ))
-  lnsymbols = itertools.cycle(( '--', ':', '-.' ))
-  PlotVals = {}
-  for thisfile in corsefiles:
-    PlotVals[thisfile] = {}
-    # set colors based on coincident ifos
-    if coincifos[thisfile] == 'H1L1':
-      PlotVals[thisfile]['color'] = 'g'
-    elif coincifos[thisfile] == 'H2L1':
-      PlotVals[thisfile]['color'] = 'r'
-    elif coincifos[thisfile] == 'H1H2L1':
-      PlotVals[thisfile]['color'] = 'c'
-    else: # other coincs just set to black for now
-      PlotVals[thisfile]['color'] = 'k'
-    # set foreground symbol based on mass-bin
-    for mass, marker, hash in zip( massbin, trigsymbols, lnsymbols):
-      if thisfile in massbin[mass]:
-        PlotVals[thisfile]['massbin'] = mass
-        PlotVals[thisfile]['trigsymbol'] = marker
-        PlotVals[thisfile]['lnsymbol'] = hash
-  # generate plots
   if opts.ifan_dist:
     figure(figure_number)
     figure_number += 1
@@ -402,7 +436,6 @@ if opts.plot_uncombined or opts.snr_ifar:
     xmax = -numpy.inf
     ymin = 0.8
     ymax = 0
-    warn_msg = "No foreground triggers in:\n "
     for thisfile in corsefiles:
       if coincT[thisfile].sngl_table: # if have foreground trigs
         loglog( IFAN[thisfile], cumnum[thisfile], 
@@ -422,9 +455,6 @@ if opts.plot_uncombined or opts.snr_ifar:
           xmax = IFAN[thisfile][len(IFAN[thisfile])-1] 
         if ymax < cumnum[thisfile][0]: # reset ymax
           ymax = cumnum[thisfile][0]
-      else:
-        no_frgnd = True
-        warn_msg = warn_msg + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n "
       # end if have foreground trigs
       # plot min bkg lines
       if opts.show_min_bkg:
@@ -444,6 +474,12 @@ if opts.plot_uncombined or opts.snr_ifar:
         if xmax < xmaxbkg:
           xmax = xmaxbkg
     # end loop over coinc tables
+    # check if xmin, xmax, ymax are still original values; if so, set to
+    # arbitrary values (can happen if no foreground trigs and no show min/max
+    # bkg)
+    if xmin == numpy.inf: xmin = 0.001
+    if xmax == -numpy.inf: xmax = 100.
+    if ymax == 0.: ymax = 1000.
     # set xmin and ymax to be slightly smaller/larger
     xmin = xmin * 0.8
     xmax = xmax * 1.4
@@ -465,13 +501,9 @@ if opts.plot_uncombined or opts.snr_ifar:
       xs, ys = poly_between( xbkg, bkgminus, bkgplus )
       fill( xs, ys, facecolor='y', alpha=0.1, label='_nolegend_' )
     # print warn_msg to plot in lower left corner of plot
-    if no_frgnd:
+    if warn_msg:
       text( xmin, ymin, warn_msg, va = 'bottom', ha = 'left',
         bbox=dict(facecolor='white', alpha=0.5), label='_nolegend_')
-    # print critical_msg to plot in top center
-    if no_bkg:
-      text( (xmax-xmin)/2., ymax, critical_msg, va = 'top', ha = 'center',
-        color = 'red' )
     # generate legend key; this just shows what colors correspond to what ifos
     # and what symbols correspond to what mass-bins. This is done by making
     # dummy plots out of the range of the plots strictly for the sake of the
@@ -520,7 +552,6 @@ if opts.plot_uncombined or opts.snr_ifar:
     xmax = -numpy.inf
     ymin = 0.8
     ymax = 0
-    warn_msg = "No foreground triggers in:\n"
     for thisfile in corsefiles:
       if coincT[thisfile].sngl_table: # if have foreground trigs
         loglog( IFAR[thisfile], cumnum[thisfile], 
@@ -541,9 +572,6 @@ if opts.plot_uncombined or opts.snr_ifar:
           xmax = IFAR[thisfile][len(IFAR[thisfile])-1] 
         if ymax < cumnum[thisfile][0]: # reset ymax
           ymax = cumnum[thisfile][0]
-      else:
-        no_frgnd = True
-        warn_msg = warn_msg + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n"
       # end if have foreground trigs
       # plot min bkg lines
       if opts.show_min_bkg:
@@ -583,17 +611,17 @@ if opts.plot_uncombined or opts.snr_ifar:
         xs, ys = poly_between( xbkg, bkgminus, bkgplus )
         fill( xs, ys, facecolor='y', alpha=0.1, label='_nolegend_' )
     # end loop over coinc tables
+    # check values
+    if xmin == numpy.inf: xmin = 0.001
+    if xmax == -numpy.inf: xmax = 100.
+    if ymax == 0.: ymax = 1000.
     # set xmin and ymax to be slightly smaller/larger
     xmin = xmin * 0.8
     ymax = ymax * 1.2
     # print warn_msg to plot in lower left corner of plot
-    if no_frgnd:
-      text( float(xmin), float(ymin), warn_msg, va = 'bottom', ha = 'left', 
+    if warn_msg:
+      text( xmin, ymin, warn_msg, va = 'bottom', ha = 'left', 
         bbox=dict(facecolor='white', alpha=0.5), label='_nolegend_')
-    # print critical_msg to plot in top center
-    if no_bkg:
-      text( (xmax-xmin)/2., ymax, critical_msg, va = 'top', ha = 'center',
-        color = 'red' )
     # generate legend key; same method and reasoning as above
     xdum = 0.01*xmin
     ydum = 0.01*ymin
@@ -619,7 +647,7 @@ if opts.plot_uncombined or opts.snr_ifar:
     legend()
     xlim(xmin,xmax)
     ylim(ymin,ymax)
-    xlabel( r"Inverse False Alarm Number", size='x-large' )
+    xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
     ylabel( r"Cumulative \#", size='x-large' )
     if opts.enable_output is True:
       name = "cumhist_ifar"
@@ -631,106 +659,136 @@ if opts.plot_uncombined or opts.snr_ifar:
 # End opts.plot_uncombined
 
 if opts.plot_combined:
-  if opts.ifan_dist:
+  if not FANc:
+    # this can happen if there were no foreground triggers in any of the files;
+    # in this case, can't make a combined IFAN or IFAR plot, so just print 
+    # warn_msg to an empty plot
     figure(figure_number)
     figure_number += 1
-    xmin = numpy.inf
-    xmax = -numpy.inf
-    ymin = 0.8
-    ymax = 0
-    # plotting method is similar as uncombined plots, but since all IFANs are
-    # already in the list IFANc, can just use this to make plot; colors for all
-    # triggers are blue, and symbols are triangles, in keeping with s5 1yr
-    # convention
-    loglog( IFANc, cumnumc, 'b'+'^', markerfacecolor='b',
-          markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
-    hold(True)
-    # if any FANs were zero, need to stick an arrow on their marker
-    if zero_fanc:
-      for fanc in zero_fanc:
-        text( 1./fanc, cumnumc[IFAN.index(1./fanc)], color = 'k',
-                label='_nolegend' )
-    # set xmin, xmax and ymax to be slightly smaller/larger then minIFANc/maxnum
-    xmin = IFANc[0] * 0.8
-    xmax = IFANc[len(IFANc)-1] * 1.2
-    ymax = cumnumc[0] * 1.2
-    # plot background
-    xbkg = numpy.logspace( -4, 2, num=100, endpoint=True, base=10.0 )
-    ybkg = 1./xbkg
-    loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
-    # plot error
-    bkgplus = ybkg + sqrt(ybkg)
-    bkgminus = ybkg - sqrt(ybkg)
-    bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
-    xs, ys = poly_between( xbkg, bkgminus, bkgplus )
-    fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
-    if opts.show_two_sigma_error:
-      bkgplus = ybkg + 2*sqrt(ybkg)
-      bkgminus = ybkg - 2*sqrt(ybkg)
-      bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
-      xs, ys = poly_between( xbkg, bkgminus, bkgplus )
-      fill( xs, ys, facecolor='y', alpha=0.1, label='$2N^{1/2}$ errors' )
-    xlim(xmin,xmax)
-    ylim(ymin,ymax)
-    xlabel( r"Inverse False Alarm Number", size='x-large' )
-    ylabel( r"Cumulative \#", size='x-large' )
-    legend()
+    warn_msg = warn_msg + \
+      'Cannot make a combined plot because these were all the globbed files.'
+    text( 0.5, 0.5, warn_msg, ha = 'center', va = 'center' )
+    xlabel( r"No data", size='x-large' )
+    ylabel( r"No data", size='x-large' )
     if opts.enable_output is True:
-      name = "cumhist_ifan_combined"
-      txt = "Combined Cumulative Histogram of IFAN distribution"
+      name = "no_data_combined"
+      txt = "No data to plot"
       fname = InspiralUtils.set_figure_name(opts, name)
       fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
       fnameList.append(fname)
       tagList.append(txt)
-
-  if opts.ifan_dist: # same method as for IFAR
-    figure(figure_number)
-    figure_number += 1
-    xmin = numpy.inf
-    xmax = -numpy.inf
-    ymin = 0.8
-    ymax = 0
-    loglog( IFARc, cumnumc, 'b'+'^', markerfacecolor='b',
-          markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
-    hold(True)
-    # if any FARs were zero, need to stick an arrow on their marker
-    if zero_fanc:
-      for fanc in zero_fanc:
-        text( NormTime[corsefiles[0]]/fanc, 
-                cumnumc[IFAN.index(NormTime[corsefiles[0]]/fanc)], 
-                color = 'k', label='_nolegend' )
-    xmin = IFARc[0] * 0.8
-    xmax = IFARc[len(IFARc)-1] * 1.2
-    ymax = cumnumc[0] * 1.2
-    # plot background
-    xbkg = numpy.logspace( -8, 2, num=100, endpoint=True, base=10.0 )
-    ybkg = NormTime[corsefiles[0]]/xbkg # normalized background
-    loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
-    # plot error
-    bkgplus = ybkg + sqrt(ybkg)
-    bkgminus = ybkg - sqrt(ybkg)
-    bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
-    xs, ys = poly_between( xbkg, bkgminus, bkgplus )
-    fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
-    if opts.show_two_sigma_error:
-      bkgplus = ybkg + 2*sqrt(ybkg)
-      bkgminus = ybkg - 2*sqrt(ybkg)
+      html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList)
+      InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+  # otherwise, make the combined plots
+  else: # use else as opposed to elif because elif would plot ifan OR ifar
+    if opts.ifan_dist:
+      figure(figure_number)
+      figure_number += 1
+      xmin = numpy.inf
+      xmax = -numpy.inf
+      ymin = 0.8
+      ymax = 0
+      # plotting method is similar as uncombined plots, but since all IFANs are
+      # already in the list IFANc, can just use this to make plot; colors for all
+      # triggers are blue, and symbols are triangles, in keeping with s5 1yr
+      # convention
+      loglog( IFANc, cumnumc, 'b'+'^', markerfacecolor='b',
+            markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
+      hold(True)
+      # if any FANs were zero, need to stick an arrow on their marker
+      if zero_fanc:
+        for fanc in zero_fanc:
+          text( 1./fanc, cumnumc[IFAN.index(1./fanc)], color = 'k',
+                  label='_nolegend' )
+      # set xmin, xmax and ymax to be slightly smaller/larger then minIFANc/maxnum
+      xmin = IFANc[0] * 0.8
+      xmax = IFANc[len(IFANc)-1] * 1.2
+      ymax = cumnumc[0] * 1.2
+      # plot background
+      xbkg = numpy.logspace( -4, 2, num=100, endpoint=True, base=10.0 )
+      ybkg = 1./xbkg
+      loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
+      # plot error
+      bkgplus = ybkg + sqrt(ybkg)
+      bkgminus = ybkg - sqrt(ybkg)
       bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
       xs, ys = poly_between( xbkg, bkgminus, bkgplus )
-      fill( xs, ys, facecolor='y', alpha=0.1, label='$2N^{1/2}$ errors' )
-    xlim(xmin,xmax)
-    ylim(ymin,ymax)
-    xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
-    ylabel( r"Cumulative \#", size='x-large' )
-    legend()
-    if opts.enable_output is True:
-      name = "cumhist_ifar_combined"
-      txt = "Combined Cumulative Histogram of IFAR distribution"
-      fname = InspiralUtils.set_figure_name(opts, name)
-      fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-      fnameList.append(fname)
-      tagList.append(txt)
-
+      fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
+      if opts.show_two_sigma_error:
+        bkgplus = ybkg + 2*sqrt(ybkg)
+        bkgminus = ybkg - 2*sqrt(ybkg)
+        bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+        xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+        fill( xs, ys, facecolor='y', alpha=0.1, label='$2N^{1/2}$ errors' )
+      # print warn_msg to plot in lower left corner of plot
+      if warn_msg:
+        text( xmin, ymin, warn_msg, va = 'bottom', ha = 'left', 
+          bbox=dict(facecolor='white', alpha=0.5), label='_nolegend_')
+      xlim(xmin,xmax)
+      ylim(ymin,ymax)
+      xlabel( r"Inverse False Alarm Number", size='x-large' )
+      ylabel( r"Cumulative \#", size='x-large' )
+      legend()
+      if opts.enable_output is True:
+        name = "cumhist_ifan_combined"
+        txt = "Combined Cumulative Histogram of IFAN distribution"
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+        fnameList.append(fname)
+        tagList.append(txt)
+  
+    if opts.ifar_dist: # same method as for IFAN
+      figure(figure_number)
+      figure_number += 1
+      xmin = numpy.inf
+      xmax = -numpy.inf
+      ymin = 0.8
+      ymax = 0
+      loglog( IFARc, cumnumc, 'b'+'^', markerfacecolor='b',
+            markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
+      hold(True)
+      # if any FARs were zero, need to stick an arrow on their marker
+      if zero_fanc:
+        for fanc in zero_fanc:
+          text( NormTime[corsefiles[0]]/fanc, 
+                  cumnumc[IFAN.index(NormTime[corsefiles[0]]/fanc)], 
+                  color = 'k', label='_nolegend' )
+      xmin = IFARc[0] * 0.8
+      xmax = IFARc[len(IFARc)-1] * 1.2
+      ymax = cumnumc[0] * 1.2
+      # plot background
+      xbkg = numpy.logspace( -8, 2, num=100, endpoint=True, base=10.0 )
+      ybkg = NormTime[corsefiles[0]]/xbkg # normalized background
+      loglog( xbkg, ybkg, 'k--', linewidth=2, label='Background' )
+      # plot error
+      bkgplus = ybkg + sqrt(ybkg)
+      bkgminus = ybkg - sqrt(ybkg)
+      bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+      xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+      fill( xs, ys, facecolor='y', alpha=0.2, label='$N^{1/2}$ errors' )
+      if opts.show_two_sigma_error:
+        bkgplus = ybkg + 2*sqrt(ybkg)
+        bkgminus = ybkg - 2*sqrt(ybkg)
+        bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+        xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+        fill( xs, ys, facecolor='y', alpha=0.1, label='$2N^{1/2}$ errors' )
+      # print warn_msg to plot in lower left corner of plot
+      if warn_msg:
+        text( xmin, ymin, warn_msg, va = 'bottom', ha = 'left', 
+          bbox=dict(facecolor='white', alpha=0.5), label='_nolegend_')
+      xlim(xmin,xmax)
+      ylim(ymin,ymax)
+      xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
+      ylabel( r"Cumulative \#", size='x-large' )
+      legend()
+      if opts.enable_output is True:
+        name = "cumhist_ifar_combined"
+        txt = "Combined Cumulative Histogram of IFAR distribution"
+        fname = InspiralUtils.set_figure_name(opts, name)
+        fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+        fnameList.append(fname)
+        tagList.append(txt)
+  
 # ============================================================================
 # final step: html, cache file generation
 if opts.enable_output is True:
