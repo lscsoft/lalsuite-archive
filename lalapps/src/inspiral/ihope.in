@@ -117,7 +117,11 @@ parser.add_option("-P", "--skip-playground",action="store_false",\
 
 parser.add_option("-I", "--skip-injections",action="store_false",\
     default=True, dest="run_injections", \
-    help="skip the inspiral analysis with injections")
+    help="skip the inspiral analysis with software injections")
+
+parser.add_option("-H", "--skip-hardware-injections",action="store_false",\
+    default=True, dest="run_hardware_injections", \
+        help="skip the inspiral analysis with hardware injections")
 
 parser.add_option("-A", "--skip-search",action="store_false",\
     default=True, dest="run_search",
@@ -317,6 +321,15 @@ if opts.run_search:
     if opts.run_datafind:
       hipeAnalysisNode.add_parent(hipeDfNode)
 
+  if opts.run_hardware_injections:
+    hipeHWinjNode = inspiralutils.hipe_setup("hardware_injections", cp, ifos, \
+        opts.log_path, hardwareInj = True)
+    for cacheFile in hipeHWinjNode.get_output_files():
+      cachelist.append("hardware_injections/" + cacheFile)
+    dag.add_node(hipeHWinjNode)
+    if opts.run_datafind:
+      hipeHWinjNode.add_parent(hipeDfNode)
+
   if opts.run_injections:
     hipeInjNode = {} 
     print "Running inspiral hipe for injection runs"
@@ -335,6 +348,7 @@ if opts.run_data_quality:
   hipePlayVetoNode = {}
   hipeAnalysisVetoNode = {}
   hipeInjVetoNode = {}
+  hipeHWinjVetoNode = {}
 
   for category in [2,3,4]:
     hipeInjVetoNode[category] = {}
@@ -348,10 +362,11 @@ if opts.run_data_quality:
       for cacheFile in hipePlayVetoNode[category].get_output_files():
         cachelist.append("playground/" + cacheFile)
       dag.add_node(hipePlayVetoNode[category])
-      if category==2 and opts.run_search: 
+#      if category==2 and opts.run_search: 
+      if opts.run_search:
         hipePlayVetoNode[category].add_parent(hipePlayNode)
-      elif category>2: 
-        hipePlayVetoNode[category].add_parent(hipePlayVetoNode[category-1])
+#      elif category>2: 
+#        hipePlayVetoNode[category].add_parent(hipePlayVetoNode[category-1])
 
 
     if opts.run_full_data:
@@ -367,6 +382,17 @@ if opts.run_data_quality:
         hipeAnalysisVetoNode[category].add_parent( \
             hipeAnalysisVetoNode[category-1])
 
+    if opts.run_hardware_injections:
+      print "Running inspiral hipe for hardware injections with vetoes"
+      hipeHWinjVetoNode[category] = inspiralutils.hipe_setup( \
+          "hardware_injections",cp, ifos, opts.log_path, \
+          vetoCat = category, vetoFiles = dqVetoes,hardwareInj=True)
+      for cacheFile in hipeHWinjVetoNode[category].get_output_files():
+        cachelist.append("hardware_injections" + "/" + cacheFile)
+      dag.add_node(hipeHWinjVetoNode[category])
+      if opts.run_search:
+        hipeHWinjVetoNode[category].add_parent(hipeHWinjNode)
+			      
     if opts.run_injections:
       print "Running inspiral hipe for injections with vetoes"
       for (injDir, injSeed) in cp.items("injections"):
@@ -419,7 +445,45 @@ if opts.run_plots:
         cp, opts.log_path, "PLAYGROUND", "FULL_DATA", "../" + cachefilename, \
         opts.do_dag_categories, parentNodes, parentVetoNodes, 3)
 
-  # Setting up plots for injection run.
+  # Setting up plots for hardware injection run.
+  
+  if opts.run_hardware_injections:
+    print "Making plots depending on the hardware injection"
+    if opts.run_full_data:
+      slideSuffix = "FULL_DATA"
+    elif opts.run_playground:
+      slideSuffix = "PLAYGROUND"
+    else:
+      slideSuffix = "NONE_AVAILABLE"
+    if opts.run_playground:
+      zeroLagSuffix = "PLAYGROUND"
+    else:
+      zeroLagSuffix = "NONE_AVAILABLE"
+    # Set up parent Nodes
+    if opts.run_search:
+      parentNodes=[hipeHWinjNode]
+      if opts.run_full_data:
+        parentNodes.append(hipeAnalysisNode)
+      if opts.run_playground:
+        parentNodes.append(hipePlayNode)
+    else: parentNodes = None
+
+    if opts.run_data_quality:
+      parentVetoNodes = [hipeHWinjVetoNode[3]]
+      if opts.run_full_data:
+        parentVetoNodes.append(hipeAnalysisVetoNode[3])
+      if opts.run_playground:
+        parentVetoNodes.append(hipePlayVetoNode[3])
+    else: parentVetoNodes = None
+    dag = inspiralutils.injZeroSlidePlots(dag,\
+          "hardware_injections" + "_summary_plots", cp, opts.log_path,\
+          "HARDWARE_INJECTIONS", zeroLagSuffix, slideSuffix, \
+          "../" + cachefilename, opts.do_dag_categories, parentNodes,
+          parentVetoNodes, 3)
+    print "Making plots of hardware injection runs"
+
+
+  # Setting up plots for software injection run.
   if opts.run_injections:
     print "Making plots depending on the injection runs"
     if opts.run_full_data:
@@ -436,11 +500,19 @@ if opts.run_plots:
   
       # set up parents correctly
       if opts.run_search: 
-        parentNodes = [hipePlayNode, hipeInjNode[injDir]]
+        parentNodes=[hipeInjNode[3][injDir]]
+        if opts.run_full_data:
+          parentNodes.append(hipeAnalysisNode[3])
+        if opts.run_playground:
+          parentNodes.append(hipePlayNode[3])
       else: parentNodes = None
 
       if opts.run_data_quality:
-        parentVetoNodes = [hipePlayVetoNode[3], hipeInjVetoNode[3][injDir]]
+        parentVetoNodes = [hipeInjVetoNode[3][injDir]]
+        if opts.run_full_data:
+          parentVetoNodes.append(hipeAnalysisVetoNode[3])
+        if opts.run_playground:
+          parentVetoNodes.append(hipePlayVetoNode[3])
       else: parentVetoNodes = None
 
       dag = inspiralutils.injZeroSlidePlots(dag, injDir + "_summary_plots", \
@@ -453,12 +525,18 @@ if opts.run_plots:
     # set up parents correctly
     if opts.run_search: 
       parentNodes = hipeInjNode.values()
-      parentNodes.append(hipePlayNode)
+      if opts.run_full_data:
+        parentNodes.append(hipeAnalysisNode)
+      if opts.run_playground:
+        parentNodes.append(hipePlayNode)
     else: parentNodes = None
 
     if opts.run_data_quality:
-        parentVetoNodes = hipeInjVetoNode[3].values()
+      parentVetoNodes = hipeInjVetoNode[3].values()
+      if opts.run_playground:
         parentVetoNodes.append(hipePlayVetoNode[3])
+      if opts.run_full_data:
+        parentVetoNodes.append(hipeAnalysisVetoNode[3])
     else: parentVetoNodes = None
 
     dag = inspiralutils.injZeroSlidePlots(dag, "allinj_summary_plots", cp, \

@@ -1865,7 +1865,11 @@ for ifo in ifo_list:
 # if doing injections then set up the injection analysis
 try: seed = cp.get("input","injection-seed")
 except: seed = None
-if seed:
+
+if cp.has_option("input","hardware-injection"):
+  inj_file = cp.get("input","hardware-inj-file")
+  inspinj = None
+elif seed:
   inspinj = inspiral.InspInjNode(inspinj_job)
   inspinj.set_start(gps_start_time)
   inspinj.set_end(gps_end_time)
@@ -1875,6 +1879,7 @@ if seed:
 else: 
   inj_file = None
   inspinj = None
+
 
 # add the injection details to inspiral/sire/coire jobs  
 if inj_file:

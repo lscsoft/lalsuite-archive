@@ -322,7 +322,7 @@ def slide_sanity(config, playOnly = False):
 ##############################################################################
 # Function to set up lalapps_inspiral_hipe
 def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
-    playOnly = False, vetoCat = None, vetoFiles = None):
+    playOnly = False, vetoCat = None, vetoFiles = None, hardwareInj = False):
   """
   run lalapps_inspiral_hipe and add job to dag
   hipeDir   = directory in which to run inspiral hipe
@@ -412,6 +412,11 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
     hipecp.set("input","injection-seed",injSeed)
     hipecp.set("input", "num-slides", "")
 
+  elif hardwareInj:
+    hipecp.set("input","hardware-injection","")
+    hipecp.set("inspiral","hardware-injection","")
+    hipecp.set("input", "num-slides", "")
+
   else:
     # add the time slide to the ini file
     numSlides = slide_sanity(config, playOnly)
@@ -428,6 +433,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
 
   print "Running hipe in directory " + hipeDir
   if dfOnly: print "Running datafind only"
+  elif hardwareInj: print "Running hardware injection analysis"
   elif injSeed: print "Injection seed: " + injSeed
   else: print "No injections, " + str(hipecp.get("input","num-slides")) + \
       " time slides"
