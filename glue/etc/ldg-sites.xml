@@ -8,9 +8,9 @@
 		<head-fs>
 			<scratch>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-wa.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-wa.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</scratch>
 			<storage>
@@ -33,9 +33,9 @@
 		<head-fs>
 			<scratch>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</scratch>
 			<storage>
@@ -58,16 +58,16 @@
 		<head-fs>
 			<scratch>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</scratch>
 			<storage>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</storage>
 		</head-fs>
@@ -82,9 +82,9 @@
 		<head-fs>
 			<scratch>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-la.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo-la.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</scratch>
 			<storage>
@@ -107,9 +107,9 @@
 		<head-fs>
 			<scratch>
 				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus_scratch">
+					<file-server protocol="gsiftp" url="gsiftp://ldas-grid.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
 					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus_scratch" free-size="null" total-size="null"/>
+					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
 				</shared>
 			</scratch>
 			<storage>
