@@ -106,11 +106,11 @@ def parse_command_line():
         help = "Directory to find corse summary-file. If none specified, " + \
         "plotifar will look in the same location as the relevant corse file." )
   parser.add_option( "", "--time-correct-file", metavar = "T_COR_FIL", action = "store", type= "string", default = None, 
-        help="coire summary file that contains the amount of all_data analyzed time. " + \
-        "Dividing the analysed time for this data type by this corrects the far if it was " + \
+        help="coire or corse  summary file that contains the amount of all_data analyzed time. " + \
+        "Dividing the analysed time for the globbed files' data-type by this corrects the far if it was " + \
         "analyzed from an all_data septime file. ")
   parser.add_option( "", "--min-ifar", action = "store", type = "float", \
-        default = None, metavar = "MIN_IFAR", \
+        default = None, metavar = "--min-ifar", \
         help = "the minimum IFAR to plot" )
   parser.add_option( "", "--max-ifar", action = "store", type = "float", \
         default = None, metavar = "MAX_IFAR", \
@@ -139,10 +139,6 @@ def parse_command_line():
         help = "make an uncombined plot of however many categories there are" )
   parser.add_option( "", "--plot-combined", action = "store_true", default = False, \
         help = "Combine IFAN/IFARs from different experiments into one cum. hist." )
-  parser.add_option( "", "--data-type", action = "store", default = None,
-        help = "data-type of foreground triggers; options are --all-data, --playground-only, " + \
-        "or --exclude-playground. This adjusts the background if corse files were " + \
-        "calculated with all data." ) 
    
   (options,args) = parser.parse_args()
 
@@ -270,7 +266,7 @@ for thisfile in corsefiles:
         if line.startswith( 'amount of time analysed' ):
           t_factor = float( line.split()[6] )
       corrfile.close()
-      modFAN[thisfile] = NormTime[thisfile]/t_factor
+      modFAN[thisfile] = NormTime[thisfile]*31556925.9936/t_factor
     else:
       modFAN[thisfile] = 1.
 # End: loop over corsefiles
