@@ -166,7 +166,7 @@ if len(opts.add_num_background) and not opts.combine_types:
   print >>sys.stderr, "--add-num-background only used with --combine-types"
   sys.exit(1)
 
-if opts.num_categories > 1 and not opts.combine_types:
+if opts.num_categories and not opts.combine_types:
   print >>sys.stderr, "--num-categories only used with --combine-types"
   sys.exit(1)
 
@@ -215,20 +215,19 @@ if opts.num_categories and opts.combine_types:
 if opts.far_time_correction:
   modifierFAR *= float(opts.far_time_correction)
 
-if opts.time_analyzed_file:
+if len(opts.add_num_background) and opts.combine_types:
   fp = open(opts.time_analyzed_file,'r')
   slideTime = 0.
   slideTimes = {}
   for line in fp.readlines():
     thisSlide,thisTime = (line.replace('\n','')).split(' ')
-    if not int(thisSlide):                 
-      zeroTime = float(thisTime)           
+    if not int(thisSlide):
+      zeroTime = float(thisTime)
     if int(thisSlide):
       slideTime += float(thisTime)
       slideTimes[int(thisSlide)] = float(thisTime)
   fp.close()
 
-if len(opts.add_num_background) and opts.combine_types:
   numKinks=len(opts.add_num_background)
   kinks = []
   for num in opts.add_num_background:
