@@ -40,10 +40,11 @@ if [ 1 ]; then
       job_name="${combo}-plotifar_${mass}_${data_type}"
       glob_files="corse_all_data_files/${data_type}/${combo}*CORSE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
       outpath="ifar_result_files/${data_type}/${mass}"
+      time_correct_file="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
       user_tag="${mass}-${data_type}"
       echo "JOB $job_name ifar_result_${data_type}.plotifar.sub"
-      echo "RETRY $job_name 1"
-      echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrousertag=\"$user_tag\"" 
+      echo "RETRY $job_name 0"
+      echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\"  macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\"" 
       echo "CATEGORY $job_name plotifar"
       echo
     done
@@ -53,10 +54,11 @@ if [ 1 ]; then
     job_name="${combo}-plotifar_ALL_MASSES_${data_type}"
     glob_files="corse_all_data_files/${data_type}/${combo}*CORSE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_*_${cat}-${month_gps_time}-${month_duration}.xml.gz"
     outpath="ifar_result_files/${data_type}/"
+    time_correct_file="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
     user_tag="ALL_MASSES-${data_type}"
     echo "JOB $job_name ifar_result_${data_type}.plotifar.sub"
-    echo "RETRY $job_name 1"
-    echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrousertag=\"$user_tag\""
+    echo "RETRY $job_name 0"
+    echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\""
     echo "CATEGORY $job_name plotifar"
     echo
   done
@@ -68,7 +70,7 @@ fi > ifar_result_${data_type}.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${plotifar_path}"
-  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --user-tag \$(macrousertag)"
+  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --user-tag \$(macrousertag)"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/plotifar-\$(cluster)-\$(process).err"
