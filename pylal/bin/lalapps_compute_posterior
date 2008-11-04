@@ -398,7 +398,7 @@ for bin in range(massBins):
         ngt +=  thisngt
       ngts.append(ngt)
       marginpost += rateprior * exp( - rate * ngt ) \
-        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
+        * ( 1. + l * ngt * rate ) * ngt / ( 1. + l )
     marginpost /= float(opts.ntrials)
 
   # end if statement for integration by convolution or Monte Carlo
