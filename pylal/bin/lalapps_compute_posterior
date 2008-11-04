@@ -284,9 +284,9 @@ for bin in range(massBins):
     ngt += data["ng"] * data["tobs"]
     ngprimet += data["ngprime"] * data["tobs"]
   ngt0 = ngt
-  lambda = ( ngprimet / ngt ) * ( data["pb"] / data["pbprime"] )
+  l = ( ngprimet / ngt ) * ( data["pb"] / data["pbprime"] )
   nomarginpost = rateprior * exp( - rate * ngt ) \
-        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
+        * ( 1. + l * ngt * rate ) * ngt / ( 1. + l )
 
   # set exprate to zero to calculate marginalization calculation
   marginpost = 0. * rate
@@ -350,7 +350,7 @@ for bin in range(massBins):
       # but since these ngt points are equally spaced on a log scale
       # we need to mutliply by another factor of ngt
       marginpost += ngt * rateprior * p_ngt * exp( - rate * ngt ) \
-        * ( 1. + lambda * ngt * rate ) * ngt / ( 1. + lambda )
+        * ( 1. + l * ngt * rate ) * ngt / ( 1. + l )
 
   else:  
     # perform the marginalization by generating ntrials worth of samples
