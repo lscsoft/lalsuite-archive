@@ -757,11 +757,13 @@ def main(opts,cp):
     ############################################################################
     for f in ("vstyle.css","LIGO_channel_list.txt","VIRGO_channel_list.txt","qscan_config.txt"):
         if not os.path.isfile("inputfiles/%s"%f):
-            if not os.path.exists("inputfiles"): os.mkdir("inputfiles")
-            import urllib
-            input_loc="http://ldas-jobs.ligo.caltech.edu/~isogait/KW_veto_inputfiles/%s"%f
-            if opts.verbose: print "retreiving data from %s ..."%input_loc
-            input_dest, input_info = urllib.urlretrieve(input_loc,filename="inputfiles/%s"%f)
+            print >> sys.stderr, "Error: %s not found"%f
+            sys.exit(1)
+            #if not os.path.exists("inputfiles"): os.mkdir("inputfiles")
+            #import urllib
+            #input_loc="http://ldas-jobs.ligo.caltech.edu/~isogait/KW_veto_inputfiles/%s"%f
+            #if opts.verbose: print "retreiving data from %s ..."%input_loc
+            #input_dest, input_info = urllib.urlretrieve(input_loc,filename="inputfiles/%s"%f)
     
     ############################################################################
     # check config and make sure they are sane
