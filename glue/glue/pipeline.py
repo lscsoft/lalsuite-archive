@@ -1576,7 +1576,7 @@ class AnalysisNode(CondorDAGNode):
     else:
       # check we have an LFN list
       from glue import LDRdataFindClient
-      if isinstance( file, LDRdataFindClient.lfnlist ):
+      if isinstance( filename, LDRdataFindClient.lfnlist ):
         self.add_var_opt('glob-frame-data',' ')
         # only add the LFNs that actually overlap with this job
         # FIXME this doesnt handle edge cases quite right
