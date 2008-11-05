@@ -44,6 +44,7 @@ import matplotlib
 matplotlib.use("Agg")
 import pylab
 pylab.rc("text", usetex=True)
+pylab.rc("lines", linewidth=2)
 
 from pylal import InspiralUtils
 from pylal import plotutils
@@ -234,7 +235,7 @@ def parse_args():
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
     parser.add_option("--verbose", action="store_true", default=False,
-        help="print extra information to the console")
+        help="extra information to the console")
 
     options, arguments = parser.parse_args()
 
@@ -250,11 +251,16 @@ def parse_args():
 opts, args = parse_args()
 
 ##############################################################################
+# HTML initialization
+InspiralUtils.initialise(opts, __prog__, __version__)
+html_footer = ""
+
+##############################################################################
 # read in bin definitions and loudest stats
 # All vetoes have been taken into account
 
-if opts.verbose:
-    print "Reading in bin definitions and loudest statistics..."
+html_footer += InspiralUtils.message(opts,
+    "Reading in bin definitions and loudest statistics...")
 statistic, mc_bins, m2_bins, D_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
 statistic, mc_bins, m2_bins, D_bins, offsource_loudest_by_trial_mc \
@@ -264,18 +270,20 @@ statistic, mc_bins, m2_bins, D_bins, num_sims_by_inj_m2_D, \
 
 num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
 num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
+inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
 
 # print summary
-print "on-source loudest combined " + statistic + " by mchirp category:"
+html_footer += InspiralUtils.message(opts,
+    "on-source loudest combined " + statistic + " by mchirp category:")
 for low, hi, stat in zip(mc_bins.lower(), mc_bins.upper(),
                          onsource_loudest_by_mc):
-    print "  [%f, %f): %f" % (low, hi, stat)
-print "Number of injections read:", len(inj_loudest_by_inj_mc_m2_D)
+    html_footer += InspiralUtils.message(opts, "  [%f, %f): %f" % (low, hi, stat))
+html_footer += InspiralUtils.message(opts,
+    "Number of injections read: %d" % len(inj_loudest_by_inj_mc_m2_D))
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins
 # NB: Does not check what IFOs participated in the GRB search
-
 calib_fac = 1 + max((opts.h1_calibration_uncertainty,
                      opts.h2_calibration_uncertainty,
                      opts.l1_calibration_uncertainty))
@@ -284,12 +292,9 @@ D_bins.max /= calib_fac
 D_bins.delta /= calib_fac
 
 ##############################################################################
-# generic initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
-
 # initialize background estimation function
-
-compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 10)
+compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
+    2)
 
 # Example of how to switch to constant extrapolator
 #compute_log_pc0_by_mc = ConstantBackgroundEstimator(offsource_loudest_by_trial_mc,
@@ -300,17 +305,17 @@ compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 
 
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
 
-print "ln(p(c(mchirp) | 0)):"
+html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | 0)):")
 for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
-    print "  [%f, %f): %f" % (low, hi, pc0)
+    html_footer += InspiralUtils.message(opts, "  [%f, %f): %f" % (low, hi, pc0))
 
-inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
 log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
     num_sims_by_m2, onsource_loudest_by_mc)
 
-print "ln(p(c(mchirp) | h(m2))):"
+html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | h(m2))):")
 for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_pch_by_mc_m2):
-    print "  [%f, %f): %s" % (low, hi, str(pch_by_m2))
+    html_footer += InspiralUtils.message(opts,
+        "  [%f, %f): %s" % (low, hi, str(pch_by_m2)))
 
 log_L_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
@@ -318,14 +323,40 @@ log_L_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 # log_L_mc_m2 = numpy.ones(log_pch_by_mc_m2.shape) / log_pc0_by_mc[:, None]
 # log_L_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
 
-print "ln(L(c(mchirp)) | h(m2)):"
+html_footer += InspiralUtils.message(opts, "ln(L(c(mchirp)) | h(m2)):")
 for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_L_mc_m2):
-    print "  [%f, %f): %s" % (low, hi, str(pch_by_m2))
+    html_footer += InspiralUtils.message(opts,
+        "  [%f, %f): %s" % (low, hi, str(pch_by_m2)))
 
 # for each m2 bin, find the max L=p(c|h)/p(c|0)
 mc_ind_by_m2 = log_L_mc_m2.argmax(axis=0)
 mc_m2_map = (mc_ind_by_m2, range(len(m2_bins)))
 max_log_L_by_m2 = log_L_mc_m2[mc_m2_map]
+
+################################################################################
+# compute P(Lambda > Lambda_0(m2) | 0)
+
+num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
+
+# tabulate off-source likelihoods
+offsource_likelihood_by_trial_m2 = numpy.zeros(\
+    (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
+for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
+    off_log_pc0_by_mc = compute_log_pc0_by_mc(offsource_loudest_by_mc)
+    off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
+        num_sims_by_m2, offsource_loudest_by_mc)
+    off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
+    offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.max(axis=0)
+
+# in each m2 bin, find what fraction of trials are louder than the on-source
+pL0_by_m2 = \
+    (offsource_likelihood_by_trial_m2 > max_log_L_by_m2[None, :])\
+    .sum(axis=0, dtype=float) / num_offsource_trials
+
+# for diagnostics, find P(L > L_* | 0) for various L_*
+offsource_likelihood_by_trial_m2.sort(axis=0)
+offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
+    / num_offsource_trials
 
 ################################################################################
 # compute P(Lambda > Lambda_0(m2) | h(m2, D))
@@ -537,7 +568,7 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## for L(c|h) vs m2
+## L(c|h) vs m2
 # TODO: before and after MC and calibration systematics
 text = "ln L(c(mc)|h(m2))"
 
@@ -558,6 +589,49 @@ if opts.enable_output:
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
+
+## P(L > L_0 | 0) vs m2
+text = "P(L(m_2) > L_0(m_2) | 0) vs m_2"
+
+plot = plotutils.SimplePlot(\
+    r"$m_2\ (M_\odot)$",
+    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$",
+    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$")
+plot.add_content(m2_bins.centres(), pL0_by_m2)
+plot.finalize(loc=4)
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pL0_by_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## P(L > L_* | 0) vs L_*
+text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
+
+plot = plotutils.SimplePlot(\
+    r"$\ln \Lambda_*$",
+    r"$P(\Lambda(m_2) > \Lambda_* | 0)$",
+    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*$")
+m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+for m2_range, Lstar_by_trial in \
+    zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
+    plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
+                     label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
+plot.finalize(loc=4)
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pL0_by_L")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
 text = "p(L(m_2) > L_0(m_2)|h(m2, D)) before MC errors"
@@ -591,7 +665,7 @@ text = "p(L(m_2) > L_0(m_2)|h(m2, D)) after 90% MC errors"
 num_sigmas = stats.norm.ppf(0.9)
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D)) "
-    r"incl. 90\% MC uncertainty$")
+    r"\textrm{ incl. 90\% MC uncertainty}$")
 plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
 plot.finalize()
 
@@ -645,12 +719,12 @@ if not opts.show_plot:
 # Generate HTML and cache file
 if opts.enable_output:
     html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-        fnameList, tagList)
+        fnameList, tagList, comment=html_footer)
     InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
     if opts.html_for_cbcweb:
         html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, cbcweb=True)
+            sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=True)
 
 if opts.show_plot:
     pylab.show()
