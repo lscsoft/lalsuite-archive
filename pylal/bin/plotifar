@@ -214,16 +214,9 @@ for thisfile in corsefiles:
   # get needed info from summary file
   file = open(summfile[0], 'r')
   for line in file:
-    # following 3 lines check what the original data type was when corse was
-    # ran; this is needed to compare against data-type option in plotifar, in
-    # case coire has been run on the corse files to filter out a certain
-    # data-type
-    if line.startswith( 'using all input data' ): all_data = True
-    elif line.startswith(' using data from playground times only' ): playground_only = True
-    elif line.startswith( 'excluding all triggers in playground times' ): exclude_playground = True
     # get coincidence type (used for labeling in plots); will have regardless
     # of whether or not there are foreground triggers
-    elif line.startswith( 'coincident ifos:' ):
+    if line.startswith( 'coincident ifos:' ):
       # if no background triggers mark the corsefile for later removal and
       # break from reading the summary file 
       if line.split()[2] == 'no_background': 
@@ -275,6 +268,8 @@ for thisfile in corsefiles:
 # warn_msg
 if no_bkg:
   warn_msg = 'No foreground or background in files:\n'
+  # sort bkg from largest to smallest so pop removes the correct corsefiles
+  no_bkg.sort(reverse=True)
   for idx in no_bkg:
     warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx)) + '\n'
   # check if still have a corsefiles list; if all the files that were globbed
