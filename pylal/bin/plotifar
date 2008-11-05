@@ -355,8 +355,8 @@ if opts.plot_uncombined:
       IFAN[thisfile] = [] # initialize a list for this file
       for coinc in coincT[thisfile]:
         if coinc.stat == 0: # set IFAN to maximum IFAN, store to zero_fan dict
-          zero_fan[thisfile] = 1./minBkgFAN[thisfile]
-          IFAN[thisfile].append( zero_fan[thisfile] )
+          zero_fan[thisfile] = minBkgFAN[thisfile]
+          IFAN[thisfile].append( 1./zero_fan[thisfile] )
         else:
           IFAN[thisfile].append( 1./(coinc.stat*modFAN[thisfile]) )
       IFAN[thisfile] = array(IFAN[thisfile]) # turn into a matplotlib array
@@ -406,7 +406,7 @@ if opts.plot_combined:
   # store as IFANc array
   IFANc = 1./FANc
   # adjust values in zero_fanc, if it exists
-  if zero_fanc: zero_fanc = len(maxFANs) * zero_fanc
+  if zero_fanc.any(): zero_fanc = len(maxFANs) * zero_fanc
   # generate cumnumc array
   cumnumc = []
   for ii in range( len(IFANc)):
@@ -436,10 +436,10 @@ if opts.plot_uncombined or opts.snr_ifar:
                 label='_nolegend_' ) 
         hold(True)
         # if any FANs were zero, stick an arrow on their marker
-        if zero_fan:
-          text( 1./zero_fan[thisfile], 
-                cumnum[thisfile][IFAN.index(1./zero_fan[thisfile])],
-                color = 'k', label='_nolegend_' )
+        if zero_fan.has_key(thisfile):
+          xval = 1./zero_fan[thisfile]
+          yval = cumnum[thisfile][IFAN[thisfile].tolist().index(1./zero_fan[thisfile])]
+          text( xval, yval, '->', ha = 'left', va = 'center', color = 'k', label='_nolegend_' )
         if xmin > IFAN[thisfile][0]: # reset xmin
           xmin = IFAN[thisfile][0]
         if xmax < IFAN[thisfile][len(IFAN[thisfile])-1]: # reset xmax
@@ -553,10 +553,10 @@ if opts.plot_uncombined or opts.snr_ifar:
                 label='_nolegend_' ) 
         hold(True)
         # if any FARs were zero, stick an arrow on their marker
-        if zero_fan:
-          text( NormTime[thisfile]/zero_fan[thisfile], 
-                cumnum[thisfile][IFAR.index(NormTime[thisfile]/zero_fan[thisfile])],
-                color = 'k', label='_nolegend_' )
+        if zero_fan.has_key(thisfile):
+          xval = NormTime[thisfile]/zero_fan[thisfile]
+          yval = cumnum[thisfile][IFAR[thisfile].tolist().index(NormTime[thisfile]/zero_fan[thisfile])]
+          text( xval, yval, '->', ha = 'left', va = 'center', color = 'k', label='_nolegend_' )
         if xmin > IFAR[thisfile][0]: # reset xmin
           xmin = IFAR[thisfile][0]
         if xmax < IFAR[thisfile][len(IFAR[thisfile])-1]: # reset xmax
@@ -608,6 +608,7 @@ if opts.plot_uncombined or opts.snr_ifar:
     if ymax == 0.: ymax = 1000.
     # set xmin and ymax to be slightly smaller/larger
     xmin = xmin * 0.8
+    xmax = xmax *1.2
     ymax = ymax * 1.2
     # print warn_msg to plot in lower left corner of plot
     if warn_msg:
@@ -687,10 +688,11 @@ if opts.plot_combined:
             markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
       hold(True)
       # if any FANs were zero, need to stick an arrow on their marker
-      if zero_fanc:
+      if zero_fanc.any():
         for fanc in zero_fanc:
-          text( 1./fanc, cumnumc[IFAN.index(1./fanc)], color = 'k',
-                  label='_nolegend' )
+          xval = 1./fanc
+          yval = cumnumc[IFANc.tolist().index(1./fanc)]
+          text( xval, yval, '->', ha = 'left', va = 'center', color = 'k', label='_nolegend' )
       # set xmin, xmax and ymax to be slightly smaller/larger then minIFANc/maxnum
       xmin = IFANc[0] * 0.8
       xmax = IFANc[len(IFANc)-1] * 1.2
@@ -739,11 +741,11 @@ if opts.plot_combined:
             markeredgecolor='b', alpha=0.65, label='Combined Triggers' )
       hold(True)
       # if any FARs were zero, need to stick an arrow on their marker
-      if zero_fanc:
+      if zero_fanc.any():
         for fanc in zero_fanc:
-          text( NormTime[corsefiles[0]]/fanc, 
-                  cumnumc[IFAN.index(NormTime[corsefiles[0]]/fanc)], 
-                  color = 'k', label='_nolegend' )
+          xval = NormTime[corsefiles[0]]/fanc
+          yval = cumnumc[IFARc.tolist().index(NormTime[corsefiles[0]]/fanc)]
+          text( xval, yval, '->', ha = 'left', va = 'center', color = 'k', label='_nolegend' )
       xmin = IFARc[0] * 0.8
       xmax = IFARc[len(IFARc)-1] * 1.2
       ymax = cumnumc[0] * 1.2
