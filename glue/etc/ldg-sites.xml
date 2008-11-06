@@ -48,9 +48,9 @@
 		</head-fs>
 		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
 		</replica-catalog>
-		<profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.5/vdt/globus</profile>
-		<profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.5/vdt/globus/lib</profile>
-		<profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.5/vdt/pegasus</profile>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.7/vdt/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.7/vdt/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.7/vdt/pegasus</profile>
 	</site>
 	<site  handle="local" arch="x86_64" os="LINUX">
 		<grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
