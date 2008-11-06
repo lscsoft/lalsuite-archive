@@ -2,12 +2,19 @@ library("lattice")
 
 p<-function(...)paste(sep="", ...)
 
-#Prefix<-""
-Prefix<-"narrow_"
+Prefix<-""
+#Prefix<-"narrow_"
 
 cat("Reading data\n")
 
 A<-read.csv(p(Prefix, "outliers5.csv"))
+F<-A[,'H.ifo_freq']<1
+F[is.na(F)]<-FALSE
+A[F, 'H.ifo_freq']<-NA
+F<-A[,'L.ifo_freq']<1
+F[is.na(F)]<-FALSE
+A[F, 'L.ifo_freq']<-NA
+
 OF1<-read.csv("orig_followup1.csv", header=TRUE)
 OF1[,"Followup1"]<-p("#", 1:dim(OF1)[1])
 
