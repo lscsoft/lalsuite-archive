@@ -198,14 +198,9 @@ def parse_command_line():
 
   return options, sys.argv[1:]
 
-def populate_mtotal(sngl_table):
-  """
-  Iterate over a sngl_inspiral table and populate its mtotal column.
-  This is necessary with working with documents created with old XML table
-  definitions (i.e. the S5 low mass branch).
-  """
-  for trig in sngl_table:
-      trig.mtotal = trig.mass1 + trig.mass2
+
+
+
 
 # ============================================================================
 # -- get command line arguments
@@ -332,8 +327,6 @@ if filelists:
   for filegroup in filelists:
     # read raw triggers
     inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, verbose=opts.verbose, mangle_event_id=True) 
-    populate_mtotal(inspTriggers)
-
     # perform the veto
     if opts.veto_file is not None:
       seglist = segmentsUtils.fromsegwizard(open(opts.veto_file))
@@ -357,7 +350,6 @@ if slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
       shift_vector, verbose=opts.verbose)
-    populate_mtotal(slideTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
@@ -385,7 +377,6 @@ if offsourcefilelists:
        # read raw triggers and time-shift them appropriately
     offsourceTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup,
       verbose=opts.verbose)
-    populate_mtotal(offsourceTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
     slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
@@ -486,7 +477,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       label=ifo+' (inj): ' + str(len(xValsSNR))+' coincidences'
       InspiralUtils.message(opts, '         '+label)
       if len(coincs) > 0:
-        scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False)
+        scatter(xValsSNR, ethincaVals, s=40, c=totMass, faceted=False,
+          alpha=0.8)
     legend([label])
     ax = axes()
     if opts.log_x: ax.set_xscale('log')
@@ -530,7 +522,9 @@ if numSlides>0:
         totMass = slides.getsngls(ifo).get_column('mass1')+ slides.getsngls(ifo).get_column('mass2')
         label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
         InspiralUtils.message(opts, '          '+label)
-        try: scatter(xSlideVals, ethincaSlideVals, s=40, c=totMass, faceted=False)
+        try:
+          scatter(xSlideVals, ethincaSlideVals, s=40, c=totMass,
+            faceted=False, alpha=0.8)
         except: pass
       legend([label])
       ax = axes()
@@ -579,10 +573,10 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
           try:
             if opts.log_x:
               semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
-                markeredgewidth=1, markersize=6, label=label)
+                markeredgewidth=1, markersize=6, label=label, alpha=0.5)
             else:
               plot(xSlideVals, ethincaSlideVals, symbolSlide,
-                markeredgewidth=1, markersize=6,label=label)
+                markeredgewidth=1, markersize=6,label=label, alpha=0.5)
           except:pass
 
       hold(True)
@@ -593,11 +587,13 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         InspiralUtils.message(opts, "...."+label)
         if opts.log_x:
           try:
-            semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+            semilogx(xVals, ethincaVals, symbol, markeredgewidth=1,
+              markersize=6, label=label, alpha=0.5)
           except:pass
         else:
           try:
-            plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+            plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
+              label=label, alpha=0.5)
           except:pass
         
       grid(True)
@@ -639,12 +635,14 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
         xSlideVals = [x.stat for x in slides]
         label=ifo+' (slide): ' + str(len(xSlideVals))+' coincidences'
         if opts.log_x:
-          try: semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
-              markeredgewidth=1, markersize=6, label=label)
+          try:
+            semilogx(xSlideVals, ethincaSlideVals, symbolSlide,
+              markeredgewidth=1, markersize=6, label=label, alpha=0.5)
           except:pass
         else:
-          try: plot(xSlideVals, ethincaSlideVals, symbolSlide,
-              markeredgewidth=1, markersize=6, label=label)
+          try:
+            plot(xSlideVals, ethincaSlideVals, symbolSlide,
+              markeredgewidth=1, markersize=6, label=label, alpha=0.5)
           except:pass
     hold(True)
     for coincs, ethincaVals, symbol in \
@@ -652,11 +650,15 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       xVals = [x.stat for x in coincs]
       label=ifo+' (inj): ' + str(len(xVals))+' coincidences'
       if opts.log_x:
-        try: semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+        try:
+          semilogx(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
+            label=label, alpha=0.5)
         except:pass
        
       else:
-        try: plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6, label=label)
+        try:
+          plot(xVals, ethincaVals, symbol, markeredgewidth=1, markersize=6,
+            label=label, alpha=0.5)
         except:pass
        
 
