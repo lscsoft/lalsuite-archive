@@ -44,7 +44,7 @@ import matplotlib
 matplotlib.use("Agg")
 import pylab
 pylab.rc("text", usetex=True)
-pylab.rc("lines", linewidth=2)
+pylab.rc("lines", linewidth=2.5)
 
 from pylal import InspiralUtils
 from pylal import plotutils
@@ -293,16 +293,18 @@ D_bins.delta /= calib_fac
 
 ##############################################################################
 # initialize background estimation function
+# NB: choose to start extrapolating 10% from the end of the tail for robustness.
+num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
-    2)
+    int(0.1 * num_offsource_trials))
 
 # Example of how to switch to constant extrapolator
-#compute_log_pc0_by_mc = ConstantBackgroundEstimator(offsource_loudest_by_trial_mc,
-#    0.5 / offsource_loudest_by_trial_mc.shape[0])
+# compute_log_pc0_by_mc = ConstantBackgroundEstimator(\
+#     offsource_loudest_by_trial_mc,
+#     0.5 / offsource_loudest_by_trial_mc.shape[0])
 
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences by m2
-
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
 
 html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | 0)):")
@@ -328,16 +330,18 @@ for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_L_mc_m2):
     html_footer += InspiralUtils.message(opts,
         "  [%f, %f): %s" % (low, hi, str(pch_by_m2)))
 
-# for each m2 bin, find the max L=p(c|h)/p(c|0)
-mc_ind_by_m2 = log_L_mc_m2.argmax(axis=0)
-mc_m2_map = (mc_ind_by_m2, range(len(m2_bins)))
-max_log_L_by_m2 = log_L_mc_m2[mc_m2_map]
+# for upper limit, use likelihoods from all mass regions
+UL_log_L_by_m2 = log_L_mc_m2.max(axis=0)
+
+# for detection, use only likelihoods from actual candidates
+actual_candidate_mask = (onsource_loudest_by_mc > 0)
+if numpy.any(actual_candidate_mask):
+    detect_log_L_by_m2 = log_L_mc_m2[actual_candidate_mask, :].max(axis=0)
+else:
+    detect_log_L_by_m2 = numpy.zeros(len(m2_bins), dtype=numpy.float32)
 
 ################################################################################
-# compute P(Lambda > Lambda_0(m2) | 0)
-
-num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
-
+# compute P(Lambda > Lambda_0(m2) | 0), the detection false-alarm probability
 # tabulate off-source likelihoods
 offsource_likelihood_by_trial_m2 = numpy.zeros(\
     (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
@@ -346,11 +350,16 @@ for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
         num_sims_by_m2, offsource_loudest_by_mc)
     off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
-    offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.max(axis=0)
+
+    # for detection, use only likelihoods from actual candidates
+    offsource_candidate_mask = (offsource_loudest_by_mc > 0)
+    if numpy.any(offsource_candidate_mask):
+        offsource_likelihood_by_trial_m2[i, :] = \
+            off_log_L_mc_m2[offsource_candidate_mask, :].max(axis=0)
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
-    (offsource_likelihood_by_trial_m2 > max_log_L_by_m2[None, :])\
+    (offsource_likelihood_by_trial_m2 > detect_log_L_by_m2[None, :])\
     .sum(axis=0, dtype=float) / num_offsource_trials
 
 # for diagnostics, find P(L > L_* | 0) for various L_*
@@ -359,7 +368,7 @@ offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
     / num_offsource_trials
 
 ################################################################################
-# compute P(Lambda > Lambda_0(m2) | h(m2, D))
+# compute P(Lambda > Lambda_0(m2) | h(m2, D)) for the upper limit
 # FIXME: Some of this section is convoluted because of the 4-D representation
 # of inj_loudest_by_inj_mc_m2_D.
 # FIXME: This can be done in O(N_{inj}) time because L is monotonic with SNR
@@ -404,7 +413,7 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
     inj_trial_log_L = inj_trial_log_L_by_mc_m2[:, m2_ind].max()
 
     # record if anything is louder than the loudest on-source coinc for this m2
-    if inj_trial_log_L > max_log_L_by_m2[m2_ind]:
+    if inj_trial_log_L > UL_log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_D_mask] += 1
 
     # record diagnostics
@@ -576,8 +585,13 @@ plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$",
     r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
-for mc_range, log_L_by_m2 in zip(mc_ranges, log_L_mc_m2):
-    plot.add_content(m2_bins.centres(), log_L_by_m2,
+for mc_range, log_L_by_m2, is_candidate in \
+    zip(mc_ranges, log_L_mc_m2, actual_candidate_mask):
+    if is_candidate:
+        linestyle = "-"
+    else:
+        linestyle = "--"
+    plot.add_content(m2_bins.centres(), log_L_by_m2, linestyle=linestyle,
                      label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 plot.finalize(loc=4)
 plot.ax.set_ylim(ymin=-0.5)
@@ -591,14 +605,19 @@ if not opts.show_plot:
     plot.close()
 
 ## P(L > L_0 | 0) vs m2
-text = "P(L(m_2) > L_0(m_2) | 0) vs m_2"
+text = "P(L(m_2) > L_0(m_2) | 0) vs m_2 of actual candidates"
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$")
-plot.add_content(m2_bins.centres(), pL0_by_m2)
-plot.finalize(loc=4)
+    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0) \textrm{ using only }"\
+    + mc_latex + r"\textrm{ bins with on-source candidates}$")
+if numpy.any(actual_candidate_mask):
+    plot.add_content(m2_bins.centres(), pL0_by_m2)
+    plot.finalize(loc=4)
+else:
+    plot.finalize(loc=4)
+    plot.ax.set_xlim((m2_bins.min, m2_bins.max))
 plot.ax.set_ylim((0, 1))
 
 if opts.enable_output:
@@ -610,19 +629,21 @@ if not opts.show_plot:
     plot.close()
 
 ## P(L > L_* | 0) vs L_*
-text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
+text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_* using only m_c bins with candidates"
 
 plot = plotutils.SimplePlot(\
     r"$\ln \Lambda_*$",
     r"$P(\Lambda(m_2) > \Lambda_* | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*$")
+    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*"\
+    r"\textrm{ using only }" + mc_latex + r"\textrm{ bins with candidates}$")
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
 for m2_range, Lstar_by_trial in \
     zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
     plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
                      label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
 plot.finalize(loc=4)
-plot.ax.set_ylim((0, 1))
+plot.ax.set_yscale("log")
+plot.ax.set_xlim(xmin=0)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "pL0_by_L")
