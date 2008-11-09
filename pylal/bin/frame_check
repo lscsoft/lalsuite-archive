@@ -98,7 +98,8 @@ for entry in myCache:
   cmd = opts.frame_check_executable + ' -i  '  + entry.path()
   frCheckOutput = os.popen(cmd)
   for line in  frCheckOutput.readlines():
-    talk.text(line)
+    #do not write the text in the main followup page for now
+    #talk.text(line)
     web.text(line)
 
     
