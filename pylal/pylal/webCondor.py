@@ -14,6 +14,7 @@ __version__ = '$Revision$'[11:-2]
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
 import sys, os, copy, math
+from subprocess import *
 import socket, time
 import re, string
 from optparse import *
@@ -216,9 +217,15 @@ class webTheDAG:
     dirStr = 'rsync -vrz '+dirStr+' DAGWeb index.html '
     print dirStr
     if publish_path:
-      os.system(dirStr+'hydra.phys.uwm.edu:'+publish_path)
+      copying_results = call(dirStr+publish_path, shell=True)
+      if copying_results != 0:
+        print >> sys.stderr, "the followup results could not be copied to "+publish_path
+        sys.exit(1)
     else:
-      os.system(dirStr+'hydra.phys.uwm.edu:'+self.page)
+      copying_results = call(dirStr+'hydra.phys.uwm.edu:'+self.page, shell=True)
+      if copying_results != 0:
+        print >> sys.stderr, "the followup results could not be copied to hydra.phys.uwm.edu:"+self.page
+        sys.exit(1)
 
   def printNodeCounts(self):
     for jobs in self.jobsDict:
