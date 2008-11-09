@@ -172,6 +172,12 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.add_var_opt('cluster-window',str(hLengthAnalyzed))
         self.add_var_opt('disable-rsq-veto',' ')
 
+      # add the arguments that have been specified in the section 
+      # [inspiral-extra] of the ini file (intended for 12-18 month analysis)
+      if cp.has_section("inspiral-extra"):
+        for (name,value) in cp.items("inspiral-extra"):
+          self.add_var_opt(name,value)
+
       if not ifo == self.inputIfo:
         second_user_tag = "_" + ifo + "tmplt"
       else:
@@ -580,7 +586,6 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     """
     job = A CondorDAGJob that can run an instance of qscan.
     """
-    page = string.strip(cp.get('output','page'))
     self.friendlyName = name
     self.id = ifo + '-' + name + '-' + repr(time)
 
@@ -608,7 +613,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     #try to extract web output from the ini file, else ignore it
     try:
-      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
     except: 
       self.setupNodeWeb(job,False,None,None,None,dag.cache) 
 
@@ -665,7 +670,6 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
     """
     job = A CondorDAGJob that can run an instance of analyseQscan followup.
     """
-    page = string.strip(cp.get('output','page'))
     self.friendlyName = 'analyse ' + name
     self.id = ifo + '-' + name + '-' + repr(time)
 
@@ -702,8 +706,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt('qscan-cache-foreground',foregroundCache)
       self.add_var_opt('qscan-cache-background',backgroundCache)
 
-      self.setupNodeWeb(job,True,None,page,None,dag.cache)
-
+      self.setupNodeWeb(job,True,None,dag.page,None,dag.cache)
       # get the table of the qscan job associated to this trigger
       for node in dag.get_nodes():
         if isinstance(node,qscanNode):
@@ -771,7 +774,6 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     for ifo in ifoList:
       ifoString = ifoString + ifo
 
-    page = string.strip(cp.get('output','page'))
     self.friendlyName = name
     self.id = ifoString + '-' + name + '-' + str(times[ifoList[0]])
 
@@ -819,7 +821,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
 
     #try to extract web output from the ini file, else ignore it
     try:
-      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,page,string.strip(cp.get(name,ifoString+'-web'))+repr(times[ifoList[0]]),dag.cache)
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,string.strip(cp.get(name,ifoString+'-web'))+repr(times[ifoList[0]]),dag.cache)
     except:
       self.setupNodeWeb(job,False,None,None,None,dag.cache)
 

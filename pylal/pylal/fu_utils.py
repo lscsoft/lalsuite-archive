@@ -30,7 +30,6 @@ import matplotlib
 matplotlib.use('Agg')
 import operator
 from UserDict import UserDict
-import operator
 
 from pylab import *
 from glue import segments
@@ -767,7 +766,7 @@ class followUpList:
 #############################################################################
 # Function to generate a trigbank xml file
 #############################################################################
-def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None):
+def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,use_col_from_installation=None):
 
   if outputPath:
     try:
@@ -796,11 +795,19 @@ def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None):
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
   valid_columns = trig.__slots__
   columns = []
+  notcolumns = []
   for col in valid_columns:
     try: 
       getattr(trig,col)
       columns.append(col)
-    except: pass
+    except:
+      notcolumns.append(col)
+  # IF "use_col_from_installation" IS TRUE, ADD NEW COLUMNS TO THE SNGL_INSPIRAL TABLE
+  if use_col_from_installation:
+    for col in notcolumns:
+      print "\n adding column " + col
+      columns.append(col)
+      setattr(trig,col,0)
 
   process_params_table = lsctables.New(lsctables.ProcessParamsTable)
   xmldoc.childNodes[-1].appendChild(process_params_table) 
@@ -860,7 +867,7 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True):
+def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
 
   followups = []
   if coincs:
@@ -889,10 +896,10 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
                   except: fuList.gpsTime[ifo] = None
                   if fuList.gpsTime[ifo] and trigbank_test:
-                      generateXMLfile(ckey,ifo,'trigTemplateBank')
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig")
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True)
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -934,10 +941,10 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
                   except: fuList.gpsTime[ifo] = None
                   if fuList.gpsTime[ifo] and trigbank_test:
-                      generateXMLfile(ckey,ifo,'trigTemplateBank')
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig")
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True)
+                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
