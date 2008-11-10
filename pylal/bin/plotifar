@@ -391,7 +391,7 @@ if opts.plot_combined:
   maxFANs.sort(reverse=True)
   FANc = array(FANc) # convert to array
   maxFANs = array(maxFANs)
-  if zero_fanc: zero_fanc = array(zero_fanc)
+  zero_fanc = array(zero_fanc)
   # following works by starting from highest fan values and moving down (like
   # moving left to right on an IFAN plot)
   for ii in range(0,len(FANc)):
