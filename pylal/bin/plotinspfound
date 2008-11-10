@@ -331,7 +331,7 @@ def get_all_triggers( opts, ifo, injPattern ):
   theseTrigs.coirefirstTimes = \
                          list( theseTrigs.coirefirst.get_column( "end_time" ) )
       
-  pattern = 'COIRE*FOUND_SECOND*' + injPattern + '*CAT_2_VETO'
+  pattern = 'COIRE*FOUND_SECOND*' + injPattern
   theseTrigs.coiresecond = get_coire_triggers( opts, ifo, pattern, times )      
   theseTrigs.coiresecondTimes = \
                         list( theseTrigs.coiresecond.get_column( "end_time" ) )
