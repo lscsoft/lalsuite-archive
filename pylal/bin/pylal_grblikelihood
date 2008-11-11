@@ -109,7 +109,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         sorted_loudest.sort(axis=0)
 
         self.default_evaluator = \
-            ConstantBackgroundEstimator(loudest_in_bg_trials, -1)
+            ConstantBackgroundEstimator(loudest_in_bg_trials, 1e-10)
 
         self.fiducial_x = sorted_loudest[-N, ...]
         self.fiducial_y = self.default_evaluator(self.fiducial_x)
@@ -126,29 +126,69 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         log_pc0[extrap_ind] = extrap[extrap_ind]
         return log_pc0
 
-def compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2, num_sims_by_m2,
-    onsource_loudest_by_mc):
+class ForegroundEstimator(object):
     """
-    Compute log(p(c \in neighborhood(c_0) | h(m2, D))) for each possible
-    on-source loudest event, c_0.  What m_2 this corresponds to will be chosen
-    later.
+    Abstract class to define an interface for foreground estimation.
+    After initializing with loudest (binned) injection data, __call__
+    becomes active and will return the ln(p(c(mc)|h(m2)) (for each bin).
     """
-    # for each mc, m2, count how many trials have c \in neighborhood(c_0)
-    num_louder_by_mc_m2 = \
-        (inj_loudest_by_inj_mc_m2 > onsource_loudest_by_mc[None, :, None])\
-        .sum(axis=0)
+    def __init__(self, inj_loudest_by_inj_mc_m2, num_sims_by_m2):
+        raise NotImplemented
 
-    # minimum resolvable is ~0.5 / num_sims; pathological if num_sims == 0, but
-    # we will be careful to apply it only if num_sims != 0.
-    pch_eps_by_mc_m2 = 0.5 / \
-        (num_sims_by_m2[None, :].repeat(len(mc_bins), axis=0) + 1e-10)
+    def __call__(self, trial_loudest_by_mc):
+        raise NotImplemented
 
-    # compute p(c|h) vs (mc, m2) for finding the loudest event in each m2 bin
-    pch_by_mc_m2 = num_louder_by_mc_m2 / (num_sims_by_m2[None, :] + 1e-10)
-    zero_ind = (num_louder_by_mc_m2 == 0) & (num_sims_by_m2[None, :] != 0)
-    pch_by_mc_m2[zero_ind] = pch_eps_by_mc_m2[zero_ind]
+class ConstantForegroundEstimator(ForegroundEstimator):
+    """
+    ConstantForegroundEstimator evaluates the probability of getting events
+    louder than any of the given events within each m2 bin.
+    """
+    def __init__(self, inj_loudest_by_inj_mc_m2, num_sims_by_m2,
+        weight_by_inj=None, eps=None):
+        """
+        Initialize ConstantForegroundEstimator to return a ln(p(c|h)) such that
+        pch[pch < eps] = eps.  If eps is a vector, then we require
+        eps.shape == loudest_in_bg_trials.shape[1:].  If eps
+        is None, then it will be set to half of 1 / num_sims_by_m2.
+        """
+        self.inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2
+        self.num_sims_by_m2 = num_sims_by_m2
+        if weight_by_inj is not None:
+            self.weight_by_inj = weight_by_inj
+        else:
+            self.weight_by_inj = numpy.ones(inj_loudest_by_inj_mc_m2.shape[0])
+        if eps is not None:
+            if numpy.isscalar(eps):
+                self.eps = eps * numpy.ones(inj_loudest_by_inj_mc_m2.shape[1:],
+                                            dtype=float)
+            elif eps.shape == inj_loudest_by_inj_mc_m2.shape[1:]:
+                self.eps = eps
+            else:
+                raise ValueError, "eps must be None, a scalar, or else "\
+                    "eps.shape must be equal to "\
+                    "inj_loudest_inj_mc_m2.shape[1:]."
+        else:
+            self.eps = 0.5 / (num_sims_by_m2[None, :]\
+                .repeat(inj_loudest_by_inj_mc_m2.shape[1], axis=0) + 1e-10)
 
-    return numpy.log(pch_by_mc_m2)
+    def __call__(self, trial_loudest_by_mc):
+        """
+        Return ln(p(c|h)).  Where p(c|0) < eps, we return eps.
+        """
+        louder_by_inj_mc_m2 = \
+            (self.inj_loudest_by_inj_mc_m2 > trial_loudest_by_mc[None, :, None])
+        num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
+            * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
+        num_louder_by_mc_m2 /= self.weight_by_inj.sum()
+        num_louder_by_mc_m2 *= len(self.weight_by_inj)
+
+        pch_by_mc_m2 = num_louder_by_mc_m2 \
+            / (self.num_sims_by_m2[None, :] + 1e-10)
+        zero_ind = (num_louder_by_mc_m2 < self.eps) \
+            & (self.num_sims_by_m2[None, :] != 0)
+        pch_by_mc_m2[zero_ind] = self.eps[zero_ind]
+
+        return numpy.log(pch_by_mc_m2)
 
 def get_level_crossings(xy_array, level, y_bins):
     """
@@ -234,6 +274,9 @@ def parse_args():
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--reweight-D", action="store_true", default=False,
+        help="enable a reweighting of injections from a uniform distribution "\
+        "in D to D^3.")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -292,7 +335,7 @@ D_bins.max /= calib_fac
 D_bins.delta /= calib_fac
 
 ##############################################################################
-# initialize background estimation function
+# Initialize background and foreground estimation functions
 # NB: choose to start extrapolating 10% from the end of the tail for robustness.
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
@@ -303,6 +346,28 @@ compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
 #     offsource_loudest_by_trial_mc,
 #     0.5 / offsource_loudest_by_trial_mc.shape[0])
 
+# Compute D^3 weighting.
+# FIXME: This is a very crude D^3 reweighting based on the outer edge of an
+# injection's distance bin rather than the specific distance of the injection.
+if opts.reweight_D:
+    m2_D_mask_by_inj = (inj_loudest_by_inj_mc_m2_D != 0).sum(axis=1, dtype=bool)
+    D_ind_by_inj = []
+    for m2_D_mask in m2_D_mask_by_inj:
+        if m2_D_mask.any():
+            D_ind_by_inj.append(m2_D_mask.sum(axis=0, dtype=bool)\
+                .nonzero()[0][0])
+        else:
+            # If the injection is missed, then we should never use the D index.
+            # Use a NaN so that we know if we've accidentally used it.
+            D_ind_by_inj.append(numpy.NaN)
+    D3_values_by_inj = numpy.array(D_bins.upper())[D_ind_by_inj]
+    compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
+        inj_loudest_by_inj_mc_m2, num_sims_by_m2,
+        weight_by_inj=D3_values_by_inj)
+else:
+    compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
+        inj_loudest_by_inj_mc_m2, num_sims_by_m2)
+
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences by m2
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
@@ -311,8 +376,7 @@ html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | 0)):")
 for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
     html_footer += InspiralUtils.message(opts, "  [%f, %f): %f" % (low, hi, pc0))
 
-log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
-    num_sims_by_m2, onsource_loudest_by_mc)
+log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
 
 html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | h(m2))):")
 for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_pch_by_mc_m2):
@@ -347,8 +411,7 @@ offsource_likelihood_by_trial_m2 = numpy.zeros(\
     (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
 for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pc0_by_mc = compute_log_pc0_by_mc(offsource_loudest_by_mc)
-    off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
-        num_sims_by_m2, offsource_loudest_by_mc)
+    off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
     off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
 
     # for detection, use only likelihoods from actual candidates
@@ -399,10 +462,10 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
 
     # this inner loop makes the algorithm O(n^2)
     inj_trial_log_pch_by_mc_m2 = \
-        compute_log_pch_by_mc_m2(inj_loudest_by_inj_mc_m2,
-        num_sims_by_m2, inj_trial_loudest_by_mc)
+        compute_log_pch_by_mc_m2(inj_trial_loudest_by_mc)
 
-    inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 - inj_trial_log_pc0_by_mc[:, None]
+    inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 \
+        - inj_trial_log_pc0_by_mc[:, None]
 
     # Examples of how to swap in IFAR or pure effective SNR
     # inj_trial_log_L_mc_m2 = numpy.ones(inj_trial_log_pch_by_mc_m2.shape) / \
