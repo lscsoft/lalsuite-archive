@@ -241,7 +241,17 @@ class coincInspiralTable:
       if slide_num > 5000: slide_num = 5000 - slide_num
       return slide_num
     slide_num = property(fget=_get_slide_num)
-  
+
+    def __iter__(self):
+      """
+      Return an iterator over the triggers in this coinc.
+      NB: Only iterates over H1, H2, and L1 since that's all we are
+      analyzing on the cbc_s5_1yr_20070129 branch.
+      """
+      for ifo in ("H1", "H2", "L1"):
+        if hasattr(self, ifo):
+          yield getattr(self, ifo)
+
   def __init__(self, inspTriggers = None, stat = None):
     """
     @param inspTriggers: a metaDataTable containing inspiral triggers 
