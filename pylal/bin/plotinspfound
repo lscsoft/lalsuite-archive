@@ -95,6 +95,8 @@ to analyze." )
                      default=False,help="use H2 triggers" )
   parser.add_option("-L", "--l1-triggers",action="store_true",\
                      default=False,help="use L1 triggers" )
+  parser.add_option("", "--v1-triggers",action="store_true",\
+                     default=False,help="use V1 triggers" )
   parser.add_option("","--gps-start-time",action="store",\
                     type="int",  metavar="GPSSTARTTIME",\
                     help="gps start time")
@@ -103,16 +105,24 @@ to analyze." )
                     help="gps end time")
   parser.add_option("-u","--user-tag",action="store", type="string", \
                      default=None,help="specify user tag for file names")
-  parser.add_option("","--do-followup",action="store_true",\
+  parser.add_option("--do-followup",action="store_true",\
     default=False,help="activates the followup of missed injections" )
+
+  parser.add_option("--followup-exttrig",action="store_true",\
+                    default=False,help="followup exttrig")
+  parser.add_option("--followup-flow", type="float", \
+                    default=40.0, metavar=" F_LOW", help="followup f_low")
+  parser.add_option("--figure-resolution",type="int",\
+                    default=50, metavar="FIGURERESOLUTION", \
+                    help="set the resoultion of the thumbnail (50 dpi by default)" )
+  parser.add_option("--followup-time-window",type="float",\
+                    default=10.0, metavar="TIME WINDOW IN SECONDS", \
+                    help="followup time window in seconds")
+
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
-  options.followup_exttrig = False
-  options.followup_flow = 40.0
-  options.enable_output = True
-  options.figure_resolution = 50
-  options.followup_tag = "plotinspfound"
+  options.followup_tag = "TOBEFIXED"
 
   options = InspiralUtils.initialise(options, __name__, __version__)
   return options, sys.argv[1:]
@@ -167,6 +177,7 @@ if opts.all_triggers:
   opts.h1_triggers = True
   opts.h2_triggers = True
   opts.l1_triggers = True
+  opts.v1_triggers = True
 
 ifos=[]
 if opts.h1_triggers:
@@ -175,9 +186,11 @@ if opts.h2_triggers:
   ifos.append( "H2" )
 if opts.l1_triggers:
   ifos.append( "L1" )
+if opts.v1_triggers:
+  ifos.append( "V1" )
 if len( ifos ) == 0:
   print "ERROR! must specify one of --h1-triggers, --h2-triggers,", \
-        "--l1-triggers or --all-triggers"
+        "--l1-triggers, --v1-triggers or --all-triggers"
   sys.exit()
 
 if opts.threshold < 0:
@@ -216,7 +229,7 @@ def get_sire_triggers( opts, ifo, pattern, times ):
   """
   Returns sngl triggers and injections from sire files
   """ 
- 
+
   trigcache = cache.sieve( ifos = ifo, description = pattern, segment = times )
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
 
@@ -245,7 +258,7 @@ def get_coire_triggers( opts, ifo, pattern, times ):
 
   trigcache = cache.sieve( ifos = ifo, description = pattern, segment = times )
   trigFiles = trigcache.checkfilesexist()[0].pfnlist()
- 
+
   if len( trigFiles ) == 0:
     if opts.quiet:
       print "ERROR! Cannot find specified coire files. Check cache file", \
@@ -392,7 +405,7 @@ def check_snr_coiresecond( opts, Triggers, time ):
       foundInj = True
       
       change = Triggers.coiresecond[i].snr - Triggers.coirefirst[j].snr
-         
+ 
       if abs( change ) >= opts.threshold:
         flagInj = True
 
@@ -504,20 +517,24 @@ def write_inj_table( opts, injection ):
   line = '  <th> geocent_end_time </th>\n'
   fout.write( line )
 
-  if opts.h1_triggers or opts.h2_triggers:
-    line = '  <th> h_end_time </th>\n'
-    fout.write( line )
-  if opts.l1_triggers:
-    line = '  <th> l_end_time </th>\n'
-    fout.write( line )
+  tmpifos = ifos[:]
+  sites = []
+  # Inside this function, you only need parameters for Hanford, not parameters
+  # that are specific to H1 or H2. Hence, remove H2 if both appear.
+  if ("H1" in tmpifos) and ("H2" in tmpifos):
+    tmpifos.remove("H2")
+
+  for site in tmpifos:
+    sites.append(site[0].lower())
+
+  for site in sites:
+      line = '  <th> ' + site + '_end_time </th>\n'
+      fout.write( line )
 
   for column in check:
     if column == "eff_distance":
-      if opts.h1_triggers or opts.h2_triggers:
-        line = '  <th> h_eff_dist </th> \n'
-        fout.write( line )
-      if opts.l1_triggers:
-        line = '  <th> l_eff_dist </th> \n'
+      for site in sites:
+        line = '  <th>' + site[0].lower() + '_eff_dist </th> \n'
         fout.write( line )
 
     elif column != "chisq" and column != "effective_snr":
@@ -540,34 +557,23 @@ def write_inj_table( opts, injection ):
   line = '<tr>'            
   fout.write( line )
   line = '  <td align=right bgcolor="#ffffff"> ' 
-  line = line + str( injection.geocent_end_time ) 
-  line = line + '.' + '%d' % ( injection.geocent_end_time_ns/100000 )
+  line += "%.4f" % (injection.geocent_end_time + injection.geocent_end_time_ns * 1e-9)
   line = line + '</td> \n'
   fout.write( line )
 
-  if opts.h1_triggers or opts.h2_triggers:
-    line = '  <td align=right bgcolor="#ffffff"> ' 
-    line = line + str( injection.h_end_time ) 
-    line = line + '.' + '%d' % ( injection.h_end_time_ns/100000 ) 
-    line = line + '</td> \n'
-    fout.write( line )
-  if opts.l1_triggers:
-    line = '  <td align=right bgcolor="#ffffff"> ' 
-    line = line + str( injection.l_end_time ) 
-    line = line + '.' + '%d' % ( injection.l_end_time_ns/100000 ) 
+  for site in sites:
+    line = '  <td align=right bgcolor="#ffffff"> '
+    line += "%.4f" % (getattr(injection, site + "_end_time") + getattr(injection, site + "_end_time_ns") * 1e-9)
     line = line + '</td> \n'
     fout.write( line )
 
   for column in check:
     if column == "eff_distance":
-      if opts.h1_triggers or opts.h2_triggers:
-        line = '  <td align=right bgcolor="#ffffff">' 
-        line = line + '%.4f' % ( injection.eff_dist_h ) + '</td> \n'
+      for site in sites:
+        line = '  <td align=right bgcolor="#ffffff">'
+        line = line + '%.4f' % ( getattr(injection, "eff_dist_" + site ) ) + '</td> \n'
         fout.write( line )
-      if opts.l1_triggers:
-        line = '  <td align=right bgcolor="#ffffff">' 
-        line = line + '%.4f' % ( injection.eff_dist_l ) + '</td> \n'
-        fout.write( line )      
+
     elif column != "chisq" and column !="effective_snr":
       value = getattr( injection,  column )
       line = '  <td align=right bgcolor="#ffffff" >' 
@@ -742,10 +748,8 @@ def write_trigger_row( opts, ifo, injPattern, time, trigBefore, trigAfter, \
 
     else:
       if column == "eff_distance":
-        if ifo == "L1":
-          injColumn = "eff_dist_l"
-        else:
-          injColumn = "eff_dist_h"
+        injColumn = "eff_dist_" + ifo[0].lower()
+
       else:
         injColumn = column
       injValue = getattr( injection, injColumn )
@@ -812,9 +816,10 @@ if opts.enable_output:
   write_html_head( opts, injPatterns, htmlfile )
 
   if opts.do_followup:
-    followup = followup_missed.FollowupMissed( cache, missed_cache, opts )
+    followup = followup_missed.FollowupMissed( cache, opts )
 
 for injPattern in injPatterns:
+
   if opts.vocal:
     print "Checking", injPattern, "triggers."
 
@@ -822,35 +827,14 @@ for injPattern in injPatterns:
   injections = lsctables.New( lsctables.SimInspiralTable )
   injTimes = []
 
-  if opts.h1_triggers:
-    h1Trigs = get_all_triggers( opts, "H1", injPattern )
+  trigList = [get_all_triggers( opts, ifo, injPattern ) for ifo in ifos]
 
-    for inj in h1Trigs.injections:
-      if inj.geocent_end_time not in injTimes:
-        injections.append( inj )
-        injTimes.append( inj.geocent_end_time )
-
-
-  if opts.h2_triggers:
-    h2Trigs = get_all_triggers( opts, "H2", injPattern )
-
-    for inj in h2Trigs.injections:
-      if inj.geocent_end_time not in injTimes:
-        injections.append( inj )
-        injTimes.append( inj.geocent_end_time )
-
-
-  if opts.l1_triggers:
-    l1Trigs = get_all_triggers( opts, "L1", injPattern )    
-
-    for inj in l1Trigs.injections:
-      if inj.geocent_end_time not in injTimes:
-        injections.append( inj )
-        injTimes.append( inj.geocent_end_time )
+  for (ifo,trigs) in zip(ifos,trigList):
     
-
-
-
+    for inj in trigs.injections:
+      if inj.geocent_end_time not in injTimes:
+        injections.append( inj )
+        injTimes.append( inj.geocent_end_time )
 
   # ==========================================================================
   # -- sirefirst to coirefirst
@@ -874,92 +858,41 @@ for injPattern in injPatterns:
 
   for x in xrange( len( injections ) ):
     inj = injections[x]
-      
-    h_time = inj.h_end_time
-    l_time = inj.l_end_time
-
-
-    if opts.h1_triggers:
-      flagInj, foundInj = check_snr_coirefirst( opts, h1Trigs, h_time )
+     
+    for (ifo, trigs) in zip(ifos, trigList):
+      time = getattr(inj, ifo[0].lower() + "_end_time")
+      flagInj, foundInj = check_snr_coirefirst( opts, trigs, time )
       if flagInj:
         if x not in injIndex:
           injIndex.append( x )
-      if foundInj:
-        if x not in injFound:
-          injFound.append( x )
-      
-    if opts.h2_triggers:
-      flagInj, foundInj = check_snr_coirefirst( opts, h2Trigs, h_time )
-      if flagInj:
-        if x not in injIndex:
-          injIndex.append( x )
-      if foundInj:
-        if x not in injFound:
-          injFound.append( x )
-
-    if opts.l1_triggers:
-      flagInj, foundInj = check_snr_coirefirst( opts, l1Trigs, l_time ) 
-      if flagInj:
-        if x not in injIndex:
-          injIndex.append( x )
-      if foundInj:
-        if x not in injFound:
-          injFound.append( x )
+      if foundInj and x not in injFound:
+        injFound.append( x )
 
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
 
   for index in injIndex:
-    h_time = injections[index].h_end_time
-    l_time = injections[index].l_end_time
-
+    
     if opts.enable_output:
       write_html_line()
       write_inj_table( opts, injections[index] )
       write_trig_table_head( opts, check )
+
+    for (ifo, trigs) in zip(ifos, trigList):
+      time = getattr(injections[index], ifo[0].lower() + "_end_time")
+      if time in trigs.coirefirstTimes:
+        if time in trigs.sirefirstTimes:
+          i = trigs.coirefirstTimes.index( time )
+          j = trigs.sirefirstTimes.index( time )
+ 
+          trigBefore = trigs.sirefirst[j]
+          trigAfter = trigs.coirefirst[i]
       
-    if opts.h1_triggers:
-      if h_time in h1Trigs.coirefirstTimes:
-        if h_time in h1Trigs.sirefirstTimes:
-          i = h1Trigs.coirefirstTimes.index( h_time )
-          j = h1Trigs.sirefirstTimes.index( h_time )
-
-          trigBefore = h1Trigs.sirefirst[j]
-          trigAfter = h1Trigs.coirefirst[i]
-   
-          if opts.enable_output:          
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
-                                    trigAfter, injections[index], check )
-
-
-    if opts.h2_triggers:
-      if h_time in h2Trigs.coirefirstTimes:
-        if h_time in h2Trigs.sirefirstTimes:
-          i = h2Trigs.coirefirstTimes.index( h_time )
-          j = h2Trigs.sirefirstTimes.index( h_time )
-
-          trigBefore = h2Trigs.sirefirst[j]
-          trigAfter = h2Trigs.coirefirst[i]
-
           if opts.enable_output:
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                    trigAfter, injections[index], check )
+            write_trigger_row( opts, ifo, injPattern, time, trigBefore, \
+                                   trigAfter, injections[index], check ) 
 
-
-    if opts.l1_triggers:
-      if l_time in l1Trigs.coirefirstTimes:
-        if l_time in l1Trigs.sirefirstTimes:
-          i = l1Trigs.coirefirstTimes.index( l_time )
-          j = l1Trigs.sirefirstTimes.index( l_time )
-
-          trigBefore = l1Trigs.sirefirst[j]
-          trigAfter = l1Trigs.coirefirst[i]
-
-          if opts.enable_output:
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                    trigAfter, injections[index], check )
-      
 
     if opts.enable_output:
       line = '</table> \n'
@@ -999,29 +932,9 @@ for injPattern in injPatterns:
   for x in xrange( len( injections ) ):
     inj = injections[x]
 
-    h_time = inj.h_end_time
-    l_time = inj.l_end_time
-
-    if opts.h1_triggers:
-      flagInj, foundInj = check_snr_coiresecond( opts, h1Trigs, h_time )
-      if flagInj:
-        if x not in injIndex:
-          injIndex.append( x )
-      if foundInj:
-        if x not in injFound:
-          injFound.append( x )
-
-    if opts.h2_triggers:
-      flagInj, foundInj = check_snr_coiresecond( opts, h2Trigs, h_time )
-      if flagInj:
-        if x not in injIndex:
-          injIndex.append( x )
-      if foundInj:
-        if x not in injFound:
-          injFound.append( x )
-
-    if opts.l1_triggers:
-      flagInj, foundInj = check_snr_coiresecond( opts, l1Trigs, l_time )
+    for (ifo, trigs) in zip(ifos, trigList):
+      time = getattr(inj, ifo[0].lower() + "_end_time")
+      flagInj, foundInj = check_snr_coiresecond( opts, trigs, time )
       if flagInj:
         if x not in injIndex:
           injIndex.append( x )
@@ -1032,58 +945,27 @@ for injPattern in injPatterns:
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
 
-
   for index in injIndex:
-    h_time = injections[index].h_end_time
-    l_time = injections[index].l_end_time
 
     if opts.enable_output:
       write_html_line()  
       write_inj_table( opts, injections[index] )
       write_trig_table_head( opts, check )
       
+    if (ifo, trigs) in zip(ifos, trigList):
+      time = getattr(injections[index], ifo[0].lower() + "_end_time")
+      if time in trigs.coiresecondTimes:
+         if time in trigs.coirefirstTimes:
+           i = trigs.coiresecondTimes.index( time )
+           j = trigs.coirefirstTimes.index( time )
 
-    if opts.h1_triggers:
-      if h_time in h1Trigs.coiresecondTimes:
-        if h_time in h1Trigs.coirefirstTimes:
-          i = h1Trigs.coiresecondTimes.index( h_time )
-          j = h1Trigs.coirefirstTimes.index( h_time )
+           trigBefore = trigs.coirefirst[j]
+           trigAfter = trigs.coiresecond[i]
 
-          trigBefore = h1Trigs.coirefirst[j]
-          trigAfter = h1Trigs.coiresecond[i]
-
-          if opts.enable_output:
-            write_trigger_row( opts, "H1", injPattern, h_time, trigBefore, \
+           if opts.enable_output:
+             write_trigger_row( opts, ifo, injPattern, time, trigBefore, \
                                     trigAfter, injections[index], check )
 
-
-    if opts.h2_triggers:
-      if h_time in h2Trigs.coiresecondTimes:
-        if h_time in h2Trigs.coirefirstTimes:
-          i = h2Trigs.coiresecondTimes.index( h_time )
-          j = h2Trigs.coirefirstTimes.index( h_time )
-
-          trigBefore = h2Trigs.coirefirst[j]
-          trigAfter = h2Trigs.coiresecond[i]
-
-          if opts.enable_output:
-            write_trigger_row( opts, "H2", injPattern, h_time, trigBefore, \
-                                    trigAfter, injections[index], check )
-
-
-    if opts.l1_triggers:
-      if l_time in l1Trigs.coiresecondTimes:
-        if l_time in l1Trigs.coirefirstTimes:
-          i = l1Trigs.coiresecondTimes.index( l_time )
-          j = l1Trigs.coirefirstTimes.index( l_time )
-
-          trigBefore = l1Trigs.coirefirst[j]
-          trigAfter = l1Trigs.coiresecond[i]
-
-          if opts.enable_output:
-            write_trigger_row( opts, "L1", injPattern, l_time, trigBefore, \
-                                  trigAfter, injections[index], check )
-      
     if opts.enable_output:
       line = '</table> \n'
       fout.write( line )
