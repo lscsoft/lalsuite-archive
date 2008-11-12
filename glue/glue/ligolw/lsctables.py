@@ -1203,7 +1203,7 @@ class SimInspiral(object):
 		if not site:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self,site + 'end_time'), getattr(self,site + 'end_time_ns'))
+			return LIGOTimeGPS(getattr(self,site.lower() + '_end_time'), getattr(self,site.lower() + '_end_time_ns'))
 
 
 SimInspiralTable.RowType = SimInspiral
