@@ -46,6 +46,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
+from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
 
@@ -373,20 +374,6 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 
 
 #
-# Globally unique inspiral search types
-#
-# FIXME:  these definitions should be moved to some central location, e.g.
-# LAL or a pyLAL module, so that other code can be kept synchronized.  It
-# is here ONLY as an example of the information that needs to be provided.
-#
-
-
-InspiralCoincTypes = {
-	"sngl--sngl": lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
-}
-
-
-#
 # For sngl_inspiral <--> sngl_inspiral coincidences
 #
 
@@ -412,8 +399,11 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	# coincidences, or create one if needed
 	#
 
-	coinc_type = InspiralCoincTypes["sngl--sngl"]
-	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_type.search, coinc_type.search_coinc_type, create_new = True, description = coinc_type.description)
+	coinc_type = ligolw_thinca.InspiralCoincTypes
+	coinc_def_ids = dict([
+		(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
+		for key, coinc_def in ligolw_thinca.InspiralCoincTypes.items()
+	])
 
 	#
 	# find the coinc_event table or create one if needed
@@ -460,12 +450,20 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 			continue
 
 		#
+		# instruments participating in event
+		#
+
+		coinc_instruments = [event.ifo for event in events]
+		coinc_instruments.sort()
+		coinc_instruments = tuple(coinc_instruments)
+
+		#
 		# build a coinc_event
 		#
 
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
-		coinc.coinc_def_id = coinc_def_id
+		coinc.coinc_def_id = coinc_def_ids[coinc_instruments]
 		coinc.coinc_event_id = coinc_event.get_next_id()
 		# "slide number" is at index 1 in the tuple returned by
 		# get_id_parts()
