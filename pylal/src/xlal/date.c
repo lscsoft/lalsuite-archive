@@ -396,6 +396,14 @@ static PyObject *pylal_LIGOTimeGPS_richcompare(PyObject *self, PyObject *other, 
 }
 
 
+static long pylal_LIGOTimeGPS_hash(PyObject *self)
+{
+	LIGOTimeGPS *gps = &((pylal_LIGOTimeGPS *) self)->gps;
+	long hash = (long) gps->gpsSeconds ^ (long) gps->gpsNanoSeconds;
+	return hash == -1 ? -2 : hash;
+}
+
+
 static PyObject *pylal_LIGOTimeGPS___str__(PyObject *self)
 {
 	LIGOTimeGPS gps;
@@ -481,6 +489,7 @@ static PyTypeObject pylal_LIGOTimeGPS_Type = {
 	.tp_new = PyType_GenericNew,
 	.tp_repr = pylal_LIGOTimeGPS___repr__,
 	.tp_richcompare = pylal_LIGOTimeGPS_richcompare,
+	.tp_hash = pylal_LIGOTimeGPS_hash,
 	.tp_str = pylal_LIGOTimeGPS___str__,
 };
 
