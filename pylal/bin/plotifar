@@ -229,7 +229,7 @@ for thisfile in corsefiles:
     # get Number of background triggers
     elif line.startswith( 'number of reconstructed slide coincidences:' ):
       NbkgCoinc = float( line.split()[5] )
-    elif line.startswith( 'number of zero-lag triggers' ):
+    elif line.startswith( 'number of reconstructed zero-lag coincidences:' ):
       if float( line.split(':')[1] ) == 0.: # no foreground
         if thisfile in no_bkg:
           # no foreground or background: remove from the no_bkg dictionary, 
