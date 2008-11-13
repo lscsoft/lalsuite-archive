@@ -34,6 +34,7 @@ import sys
 
 
 from glue.lal import CacheEntry
+from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import ligolw_thinca
 from pylal import llwapp
@@ -158,15 +159,15 @@ for n, filename in enumerate(filenames):
 	)
 
 	#
-	# Hack the IDs.  LAL writes all triggers with event_id = 0, which
-	# is used by other LAL programs to check if coincidence has been
-	# performed yet so that behaviour can't be changed.  We need the
-	# IDs to be unique.
+	# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
+	# value is used by other LAL programs to check if coincidence has
+	# been performed yet, so that behaviour cannot be changed but we
+	# need the IDs to be unique before starting the coincidence engine.
 	#
 
-	tbl = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
-	for row in tbl
+	tbl = ligolw_thinca.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	for row in tbl:
 		row.event_id = tbl.get_next_id()
 
 	#
@@ -179,7 +180,7 @@ for n, filename in enumerate(filenames):
 		process_id = process.process_id,
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
-		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
+		coinc_definer_rows = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
 		verbose = options.verbose

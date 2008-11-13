@@ -117,7 +117,34 @@ def append_process(xmldoc, comment = None, force = None, program = None, e_thinc
 #
 
 
-InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
+#
+# Build the allowed sngl_inspiral <--> sngl_inspiral coinc types.
+#
+
+
+_allinstruments = ["G1", "H1", "H2", "L1", "V1"]
+_allinstruments.sort()
+InspiralCoincDef = dict([
+	(
+		tuple(instruments),
+		lsctables.CoincDef(
+			search = u"inspiral",
+			search_coinc_type = n,
+			description = u"%s sngl_inspiral<-->sngl_inspiral coincidences" % ",".join(instruments)
+		)
+	)
+	for n, instruments in enumerate([
+		instruments
+		for m in range(2, len(_allinstruments) + 1)
+		for instruments in iterutils.choices(_allinstruments, m)
+	])
+])
+del _allinstruments
+
+
+#
+# Custom snglcoinc.CoincTables subclass.
+#
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
@@ -232,7 +259,7 @@ def ligolw_thinca(
 	process_id,
 	EventListType,
 	CoincTables,
-	coinc_definer_row,
+	coinc_definer_rows,
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
@@ -245,7 +272,7 @@ def ligolw_thinca(
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, coinc_definer_row)
+	coinc_tables = CoincTables(xmldoc, coinc_definer_rows)
 
 	#
 	# build the event list accessors, populated with events from those
@@ -306,7 +333,12 @@ def ligolw_thinca(
 			print >>sys.stderr, "\tsearching ..."
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, time_slide_id, ntuple)
+				# the in-order tuple of instruments
+				# providing triggers for the coinc is used
+				# as the key to look up the coinc type
+				coinc_instruments = [event.ifo for event in ntuple]
+				coinc_instruments.sort()
+				coinc_tables.append_coinc(process_id, time_slide_id, tuple(coinc_instruments), ntuple)
 
 	#
 	# remove time offsets from events

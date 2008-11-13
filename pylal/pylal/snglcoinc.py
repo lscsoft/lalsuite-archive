@@ -32,6 +32,7 @@ Light Weight XML documents.
 """
 
 
+import copy
 import sys
 # Python 2.3 compatibility
 try:
@@ -120,12 +121,16 @@ class CoincTables(object):
 	A convenience interface to the XML document's coincidence tables,
 	allowing for easy addition of coincidence events.
 	"""
-	def __init__(self, xmldoc, coinc_definer_row_type):
-		# get the coinc_def_id for the coincidence type we will be
-		# constructing.  the coinc_definer_row type class should
-		# have the search, search_coinc_type, and description
-		# attributes set as default attributes.
-		self.coinc_def_id = llwapp.get_coinc_def_id(xmldoc, coinc_definer_row_type.search, coinc_definer_row_type.search_coinc_type, create_new = True, description = coinc_definer_row_type.description)
+	def __init__(self, xmldoc, coinc_definer_rows):
+		# get the coinc_def_ids for the coincidence types we will
+		# be constructing.  the CoincDefiner class instances in the
+		# coinc_definer_rows dictionary  should have the search,
+		# search_coinc_type, and description attributes set as
+		# default attributes.
+		self.coinc_def_ids = dict([
+			(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
+			for key, coinc_def in coinc_definer_rows.items()
+		])
 
 		# find the coinc table or create one if not found
 		try:
@@ -164,7 +169,7 @@ class CoincTables(object):
 		return self.time_slide_table.get_offset_dict(id)
 
 
-	def append_coinc(self, process_id, time_slide_id, events):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events):
 		"""
 		Takes a process ID, a time slide ID, and a list of events,
 		and adds the events as a new coincidence to the coinc_event
@@ -172,7 +177,7 @@ class CoincTables(object):
 		"""
 		coinc = lsctables.Coinc()
 		coinc.process_id = process_id
-		coinc.coinc_def_id = self.coinc_def_id
+		coinc.coinc_def_id = self.coinc_def_ids[coinc_def_id_key]
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = time_slide_id
 		coinc.nevents = len(events)

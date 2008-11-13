@@ -388,12 +388,13 @@ def ligolw_burca(
 	verbose = False
 ):
 	#
-	# prepare the coincidence table interface
+	# prepare the coincidence table interface.  only one type of
+	# coincidence, use None as key in fake coinc type look-up table.
 	#
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, coinc_definer_row)
+	coinc_tables = CoincTables(xmldoc, {None: coinc_definer_row})
 
 	#
 	# build the event list accessors, populated with events from those
@@ -447,7 +448,8 @@ def ligolw_burca(
 			print >>sys.stderr, "\tsearching ..."
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
-				coinc_tables.append_coinc(process_id, time_slide_id, ntuple)
+				# pass None for coinc type key
+				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple)
 
 	#
 	# remove time offsets from events
