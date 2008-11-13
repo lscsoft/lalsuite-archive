@@ -664,9 +664,6 @@ class TimeSlideTable(DBTable):
 	def iterkeys(self):
 		raise NotImplementedError
 
-	def is_null(self, id):
-		return not self.cursor.execute("SELECT EXISTS (SELECT * FROM time_slide WHERE time_slide_id == ? AND offset != 0.0)", (id,)).fetchone()[0]
-
 
 class CoincDefTable(DBTable):
 	tableName = lsctables.CoincDefTable.tableName
