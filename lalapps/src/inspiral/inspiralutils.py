@@ -8,7 +8,7 @@ __version__ = '$Revision$'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
-import os, sys, copy
+import os, sys, copy, shutil
 import ConfigParser
 import optparse
 import tempfile
@@ -203,9 +203,96 @@ def datafind_segments(ifo, config):
   return dfSegs
 
 ##############################################################################
+# Function to copy the segments files
+# If the hardwareInj flag is used we add the hardware injection not made
+# flag to Cat1 and remove the Injection flag from cat 2.
+def copyCategoryFiles(config,vetoes,directory,\
+                      infile,analysisDirectory,hardwareInj=False):
+  """
+  Copy the category files to the directory specified
+  Modify the cat files accordingly if hardware injections specified
+  """
+  outfile = analysisDirectory + "/" + directory + "/" \
+            + os.path.basename(infile)
+  rel_outfile = "../" + directory + "/" + os.path.basename(infile)
+  if "veto-file" in vetoes:
+    if infile == "":
+      print >>sys.stderr, "warning: " + vetoes + " left blank; proceeding "\
+        "without DQ vetoes"
+      outfile += vetoes + "_BLANK.txt"
+      rel_outfile += vetoes + "_BLANK.txt"
+      if hardwareInj:
+        injNotMadeCat='cat-'+config.get('hardware-inj','inj-not-made-veto-cat')
+        injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
+        if injNotMadeCat in vetoes:
+          open(outfile, "w").write(vetoes[0:2].upper()+ ':' + injNotMadeFlag +\
+                             '\t\t0\t0\n')
+        else:
+          open(outfile, "w").write("")  # touch
+      else:
+        open(outfile, "w").write("")  # touch
+    else:
+      if hardwareInj:
+        injVetoFlag = config.get('hardware-inj','inj-veto-flag')
+        injVetoFlagList = injVetoFlag.split(',')
+        injVetoCat = config.get('hardware-inj','inj-veto-cat')
+        injNotMadeCat= config.get('hardware-inj','inj-not-made-veto-cat')
+        injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
+        dqFile = open(infile,'r')
+        dqFileConts = dqFile.read()
+        dqFile.close()
+        if 'cat-' + injNotMadeCat in vetoes:
+          dqFileConts = vetoes[0:2].upper()+':' + injNotMadeFlag + \
+                        '\t\t0\t0\n' + dqFileConts
+        if 'cat-' + injVetoCat in vetoes:
+          dqFileContsList = dqFileConts.split('\n')
+          dqFileConts = ''
+          for line in dqFileContsList:
+            remLine = False
+            for flag in injVetoFlagList:
+              if flag in line:
+                remLine = True
+            if not remLine:
+              dqFileConts += line + '\n'
+        dqHWFile = open(outfile, 'w')
+        dqHWFile.write(dqFileConts)
+        dqHWFile.close()
+      else:
+        shutil.copy(infile, outfile)
+    config.set("segments", vetoes, rel_outfile)
+
+##############################################################################
+# Function to download the dqSegFiles
+def downloadDqSegFiles(config,ifo,generate_segments):
+  """
+  Download the dqSegFiles from a html location
+  @param config      : the configParser object with analysis details
+  @param ifo         : name of the ifo
+  @param generate_segments : If False do not download, just return filename            
+  """
+  start = config.getint("input","gps-start-time")
+  end = config.getint("input","gps-end-time")
+  dqSegFile = ifo + "-DQ_SEGMENTS-" + str(start) + "-" + \
+      str(end - start) + ".txt"
+  if generate_segments:
+    dq_url = config.get("segments","dq-server-url")
+    dq_segdb_file = config.get("segments", ifo.lower() + '-dq-file')
+    if dq_segdb_file == "":
+      print >>sys.stderr, "warning: no file provided to %s-dq-file; " \
+        "running without data quality" % ifo.lower()
+    else:
+      print "Downloading DQ segment file " + dq_segdb_file + " from " \
+            + dq_url + " to " + dqSegFile + " ...",
+      sys.stdout.flush()
+      dqSegFile, info = urllib.urlretrieve(dq_url + '/' + dq_segdb_file,
+            dqSegFile)
+      print "done"
+  return dqSegFile
+
+##############################################################################
 # Function to determine the segments to analyze 
 #(science segments, data quality, missing segments)
-def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
+def findSegmentsToAnalyze(config,ifo,dqSegFile,generate_segments=True,\
     use_available_data=False,data_quality_vetoes=False):
   """
   generate segments for the given ifo
@@ -225,8 +312,6 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
       str(end - start) + ".txt"
   missedFile = ifo + "-MISSED_SEGS-" + str(start) + "-" + \
       str(end - start) + ".txt"
-  dqSegFile = ifo + "-DQ_SEGMENTS-" + str(start) + "-" + \
-      str(end - start) + ".txt"
 
   if generate_segments:
     print "Generating science segments for " + ifo + " ...",
@@ -238,20 +323,11 @@ def findSegmentsToAnalyze(config,ifo,generate_segments=True,\
 
   # download the dq segments to generate the veto files
   if generate_segments:
-    dq_url = config.get("segments","dq-server-url")
     dq_segdb_file = config.get("segments", ifo.lower() + '-dq-file')
-
     if dq_segdb_file == "":
       print >>sys.stderr, "warning: no file provided to %s-dq-file; " \
         "running without data quality" % ifo.lower()
     else:
-      print "Downloading DQ segment file " + dq_segdb_file + " from " \
-          + dq_url + " to " + dqSegFile + " ...",
-      sys.stdout.flush()
-      dqSegFile, info = urllib.urlretrieve(dq_url + '/' + dq_segdb_file,
-          dqSegFile)
-      print "done"
-
       print "Generating cat 1 veto segments for " + ifo + " ...",
       sys.stdout.flush()
       vetoFiles = veto_segments(ifo, config, sciSegFile, dqSegFile, [1], \
@@ -412,7 +488,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
     hipecp.set("input","injection-seed",injSeed)
     hipecp.set("input", "num-slides", "")
 
-  elif hardwareInj:
+  elif hardwareInj and not dfOnly:
     hipecp.set("input","hardware-injection","")
     hipecp.set("inspiral","hardware-injection","")
     hipecp.set("input", "num-slides", "")
@@ -461,9 +537,11 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
         "summary-coinc-triggers", "sire-second-coinc", 
         "summary-single-ifo-triggers","write-script"]:
       hipeCommand = test_and_add_hipe_arg(hipeCommand,hipe_arg)
-
   else:
-    omit = ["datafind", "disable-dag-categories", "disable-dag-priorities"]
+    if hardwareInj:
+      omit = ["disable-dag-categories", "disable-dag-priorities"]
+    else:
+      omit = ["datafind", "disable-dag-categories", "disable-dag-priorities"]
     for (opt, arg) in config.items("hipe-arguments"):
       if opt not in omit:
         hipeCommand += "--" + opt + " " + arg 
@@ -475,7 +553,7 @@ def hipe_setup(hipeDir, config, ifos, logPath, injSeed=None, dfOnly = False, \
   make_external_call(hipeCommand)
 
   # link datafind
-  if not dfOnly and not vetoCat:
+  if not dfOnly and not vetoCat and not hardwareInj:
     try:
       os.rmdir("cache")
       os.symlink("../datafind/cache", "cache")
