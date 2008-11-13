@@ -1,5 +1,5 @@
 """
-This modules contains objects that make it simple for the user to 
+This modules contains objects that make it simple for the user to
 create python scripts that build Condor DAGs to run code on the LSC
 Data Grid.
 
@@ -291,7 +291,7 @@ class CondorJob:
     """
     for opt in cp.options(section):
       arg = string.strip(cp.get(section,opt))
-      self.__options[opt] = arg 
+      self.__options[opt] = arg
 
 
   def set_notification(self, value):
@@ -307,7 +307,7 @@ class CondorJob:
     @param path: path to log file.
     """
     self.__log_file = path
-    
+
   def set_stderr_file(self, path):
     """
     Set the file to which Condor directs the stderr of the job.
@@ -327,7 +327,7 @@ class CondorJob:
     @param path: path to stdout file.
     """
     self.__out_file = path
-  
+
   def get_stdout_file(self):
     """
     Get the file to which Condor directs the stdout of the job.
@@ -359,7 +359,7 @@ class CondorJob:
       raise CondorSubmitError, "Error file not specified."
     if not self.__out_file:
       raise CondorSubmitError, "Output file not specified."
-  
+
     if not self.__sub_file_path:
       raise CondorSubmitError, 'No path for submit file.'
     try:
@@ -441,7 +441,7 @@ class CondorDAGJob(CondorJob):
 
   def add_var_opt(self, opt):
     """
-    Add a variable (or macro) option to the condor job. The option is added 
+    Add a variable (or macro) option to the condor job. The option is added
     to the submit file and a different argument to the option can be set for
     each node in the DAG.
     @param opt: name of option to add.
@@ -472,7 +472,7 @@ class CondorDAGManJob:
     dir = the diretory in which the dag file is located
     """
     self.__dag = dag
-    self.__options = {} 
+    self.__options = {}
     self.__notification = None
     self.__dag_directory= dir
 
@@ -505,7 +505,7 @@ class CondorDAGManJob:
     Get the directory where the dag will be run
     """
     return self.__dag_directory
-    
+
   def set_notification(self, value):
     """
     Set the email address to send notification to.
@@ -535,9 +535,9 @@ class CondorDAGManJob:
     if self.__options.keys():
       for c in self.__options.keys():
         if self.__options[c]:
-          command +=  ' -' + c + ' ' + self.__options[c] 
+          command +=  ' -' + c + ' ' + self.__options[c]
         else:
-          command += ' -' + c 
+          command += ' -' + c
       command += ' '
 
     command += self.__dag
@@ -599,7 +599,7 @@ class CondorDAGNode:
     Return the CondorJob that this node is associated with.
     """
     return self.__job
-  
+
   def set_pre_script(self,script):
     """
     Sets the name of the pre script that is executed before the DAG node is
@@ -776,7 +776,7 @@ class CondorDAGNode:
   def add_file_arg(self, filename):
     """
     Add a variable (or macro) file name argument to the condor job. The
-    argument is added to the submit file and a different value of the 
+    argument is added to the submit file and a different value of the
     argument can be set for each node in the DAG. The file name is also
     added to the list of input files for the DAX.
     @param filename: name of option to add.
@@ -878,7 +878,7 @@ class CondorDAGNode:
     """
     for f in self.__input_files:
        print >>fh, "## Job %s requires input file %s" % (self.__name, f)
- 
+
   def write_output_files(self, fh):
     """
     Write as a comment into the DAG file the list of output files
@@ -920,7 +920,7 @@ class CondorDAGNode:
     macros = self.get_opts()
 
     cmd = ""
-    
+
     for k in options:
       val = options[k]
       m = pat.match(val)
@@ -960,7 +960,7 @@ class CondorDAGNode:
         cmd += "%s " % (a)
 
     return cmd
-    
+
   def finalize(self):
     """
     The finalize method of a node is called before the node is
@@ -1000,7 +1000,7 @@ class CondorDAG:
     Return a list containing all the nodes in the DAG
     """
     return self.__nodes
-  
+
   def get_jobs(self):
     """
     Return a list containing all the jobs in the DAG
@@ -1044,7 +1044,7 @@ class CondorDAG:
 
   def add_node(self,node):
     """
-    Add a CondorDAGNode to this DAG. The CondorJob that the node uses is 
+    Add a CondorDAGNode to this DAG. The CondorJob that the node uses is
     also added to the list of Condor jobs in the DAG so that a list of the
     submit files needed by the DAG can be maintained. Each unique CondorJob
     will be added once to prevent duplicate submit files being written.
@@ -1131,7 +1131,7 @@ class CondorDAG:
     preamble = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <adag xmlns="http://www.griphyn.org/chimera/DAX"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.griphyn.org/chimera/DAX
         http://www.griphyn.org/chimera/dax-1.8.xsd"
 """
@@ -1141,14 +1141,14 @@ class CondorDAG:
     # find unique input and output files from nodes
     input_file_dict = {}
     output_file_dict = {}
- 
+
     # creating dictionary for input- and output-files
     for node in self.__nodes:
       if isinstance(node, LSCDataFindNode):
-        # make a list of the output files here so that I can have a 
+        # make a list of the output files here so that I can have a
         # more sensible rls_cache method that doesn't just ignore .gwf
         self.__data_find_files.extend(node.get_output())
-        
+
       else:
         input_files = node.get_input_files()
         output_files = node.get_output_files()
@@ -1217,13 +1217,13 @@ class CondorDAG:
         node_name_id_dict[node_name] = id_tag
 
         cmd_line = node.get_cmd_line()
-        
+
         # loop through all filenames looking for them in the command
         # line so that they can be replaced appropriately by xml tags
         node_file_dict = {}
         for f in node.get_input_files():
           node_file_dict[f] = 1
-        for f in node.get_output_files():      
+        for f in node.get_output_files():
           node_file_dict[f] = 1
         for f in node_file_dict.keys():
           xml = '<filename file="%s" />' % f
@@ -1242,7 +1242,7 @@ class CondorDAG:
           xml = xml + template % (node.get_vds_group())
 
         print >>dagfile, xml
-        
+
         for f in node.get_input_files():
           if f in inout_filelist:
             print >>dagfile, """\
@@ -1288,7 +1288,7 @@ class CondorDAG:
       outfile = open(outfilename, "w")
     except:
       raise CondorDAGError, "Cannot open file " + self.__dag_file_path
-    
+
     for filename in set(self.__rls_filelist):
       if filename in self.__data_find_files: continue
       # try to figure out if the path is absolute
@@ -1308,7 +1308,7 @@ class CondorDAG:
   def write_script(self):
     """
     Write the workflow to a script (.sh instead of .dag).
-    
+
     Assuming that parents were added to the DAG before their children,
     dependencies should be handled correctly.
     """
@@ -1326,7 +1326,7 @@ class CondorDAG:
         outfile.write("%s %s\n\n" % (node.job().get_executable(),
             node.get_cmd_line()))
     outfile.close()
-    
+
     os.chmod(outfilename, os.stat(outfilename)[0] | stat.S_IEXEC)
 
 
@@ -1363,14 +1363,14 @@ class AnalysisJob:
 
   def set_channel(self,channel):
     """
-    Set the name of the channel that this job is filtering.  This will 
+    Set the name of the channel that this job is filtering.  This will
     overwrite the value obtained at initialization.
     """
     self.__channel = channel
 
   def channel(self):
     """
-    Returns the name of the channel that this job is filtering. Note that 
+    Returns the name of the channel that this job is filtering. Note that
     channel is defined to be IFO independent, so this may be LSC-AS_Q or
     IOO-MC_F. The IFO is set on a per node basis, not a per job basis.
     """
@@ -1415,7 +1415,7 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS start time of the node.
     """
     return self.__start
-    
+
   def set_end(self,time):
     """
     Set the GPS end time of the analysis node by setting a --gps-end-time
@@ -1444,7 +1444,7 @@ class AnalysisNode(CondorDAGNode):
     Get the GPS start time of the data needed by this node.
     """
     return self.__data_start
-    
+
   def set_data_end(self,time):
     """
     Set the GPS end time of the data needed by this analysis node.
@@ -1460,7 +1460,7 @@ class AnalysisNode(CondorDAGNode):
 
   def set_trig_start(self,time):
     """
-    Set the trig start time of the analysis node by setting a 
+    Set the trig start time of the analysis node by setting a
     --trig-start-time option to the node when it is executed.
     @param time: trig start time of job.
     """
@@ -1556,7 +1556,7 @@ class AnalysisNode(CondorDAGNode):
     """
     self.__user_tag = usertag
     self.add_var_opt('user-tag', usertag)
- 
+
   def get_user_tag(self):
     """
     Returns the usertag string
@@ -1590,7 +1590,7 @@ class AnalysisNode(CondorDAGNode):
         self.add_var_opt('frame-type',b)
       else:
         raise CondorDAGNodeError, "Unknown LFN cache format"
-    
+
   def calibration_cache_path(self):
     """
     Determine the path to the correct calibration cache file to use.
@@ -1599,7 +1599,7 @@ class AnalysisNode(CondorDAGNode):
         cal_path = self.job().get_config('calibration','path')
 
         # check if this is S2: split calibration epochs
-        if ( self.__LHO2k.match(self.__ifo) and 
+        if ( self.__LHO2k.match(self.__ifo) and
           (self.__start >= 729273613) and (self.__start <= 734367613) ):
           if self.__start < int(
             self.job().get_config('calibration','H2-cal-epoch-boundary')):
@@ -1614,12 +1614,12 @@ class AnalysisNode(CondorDAGNode):
         self.__calibration_cache = cal
     else:
        msg = "IFO and start-time must be set first"
-       raise CondorDAGNodeError, msg 
+       raise CondorDAGNodeError, msg
 
   def calibration(self):
     """
     Set the path to the calibration cache file for the given IFO.
-    During S2 the Hanford 2km IFO had two calibration epochs, so 
+    During S2 the Hanford 2km IFO had two calibration epochs, so
     if the start time is during S2, we use the correct cache file.
     """
     # figure out the name of the calibration cache files
@@ -1708,7 +1708,7 @@ class AnalysisChunk:
       raise SegmentError, self + 'has negative length'
     else:
       return x
-    
+
   def start(self):
     """
     Returns the GPS start time of the chunk.
@@ -1720,7 +1720,7 @@ class AnalysisChunk:
     Returns the GPS end time of the chunk.
     """
     return self.__end
-    
+
   def dur(self):
     """
     Returns the length (duration) of the chunk in seconds.
@@ -1760,7 +1760,7 @@ class AnalysisChunk:
 class ScienceSegment:
   """
   A ScienceSegment is a period of time where the experimenters determine
-  that the inteferometer is in a state where the data is suitable for 
+  that the inteferometer is in a state where the data is suitable for
   scientific analysis. A science segment can have a list of AnalysisChunks
   asscociated with it that break the segment up into (possibly overlapping)
   smaller time intervals for analysis.
@@ -1786,7 +1786,7 @@ class ScienceSegment:
     """
     if i < 0: raise IndexError, "list index out of range"
     return self.__chunks[i]
-    
+
   def __len__(self):
     """
     Returns the number of AnalysisChunks contained in this ScienceSegment.
@@ -1809,13 +1809,13 @@ class ScienceSegment:
     overlap seconds. If the play option is set, only chunks that contain S2
     playground data are generated. If the user has a more complicated way
     of generating chunks, this method should be overriden in a sub-class.
-    Any data at the end of the ScienceSegment that is too short to contain a 
+    Any data at the end of the ScienceSegment that is too short to contain a
     chunk is ignored. The length of this unused data is stored and can be
     retrieved with the unused() method.
     @param length: length of chunk in seconds.
     @param overlap: overlap between chunks in seconds.
     @param play: 1 : only generate chunks that overlap with S2 playground data.
-                 2 : as play = 1 plus compute trig start and end times to 
+                 2 : as play = 1 plus compute trig start and end times to
                      coincide with the start/end of the playground
     @param sl: slide by sl seconds before determining playground data.
     @param excl_play: exclude the first excl_play second from the start and end
@@ -1828,7 +1828,7 @@ class ScienceSegment:
     increment = length - overlap
     while time_left >= length:
       end = start + length
-      if (not play) or (play and (((end-sl-excl_play-729273613) % 6370) < 
+      if (not play) or (play and (((end-sl-excl_play-729273613) % 6370) <
         (600+length-2*excl_play))):
         if (play == 2):
         # calculate the start of the playground preceeding the chunk end
@@ -1879,7 +1879,7 @@ class ScienceSegment:
     Returns the ID of this ScienceSegment.
     """
     return self.__id
-    
+
   def start(self):
     """
     Returns the GPS start time of this ScienceSegment.
@@ -1927,7 +1927,7 @@ class ScienceSegment:
     """
     return self.__df_node
 
-    
+
 class ScienceData:
   """
   An object that can contain all the science data used in an analysis. Can
@@ -2009,8 +2009,8 @@ class ScienceData:
       id = int(columns[0])
       start = int(math.ceil(float(columns[3])))
       end = int(math.floor(float(columns[4])))
-      dur = end - start 
-    
+      dur = end - start
+
       x = ScienceSegment(tuple([id, start, end, dur]))
       self.__sci_segs.append(x)
 
@@ -2020,7 +2020,7 @@ class ScienceData:
     Divide each ScienceSegment contained in this object into AnalysisChunks.
     @param length: length of chunk in seconds.
     @param overlap: overlap between segments.
-    @param play: if true, only generate chunks that overlap with S2 playground 
+    @param play: if true, only generate chunks that overlap with S2 playground
     data.
     @param sl: slide by sl seconds before determining playground data.
     @param excl_play: exclude the first excl_play second from the start and end
@@ -2036,7 +2036,7 @@ class ScienceData:
     @param length: length of chunk in seconds.
     @param trig_overlap: length of time start generating triggers before the
     start of the unused data.
-    @param play: 
+    @param play:
                 - 1 : only generate chunks that overlap with S2 playground data.
                 - 2 : as 1 plus compute trig start and end times to coincide
                         with the start/end of the playground
@@ -2054,7 +2054,7 @@ class ScienceData:
       if seg.unused() > min_length:
         end = seg.end() - pad_data
         start = end - length
-        if (not play) or (play and (((end-sl-excl_play-729273613)%6370) < 
+        if (not play) or (play and (((end-sl-excl_play-729273613)%6370) <
           (600+length-2*excl_play))):
           trig_start = end - seg.unused() - trig_overlap
           if (play == 2):
@@ -2095,7 +2095,7 @@ class ScienceData:
         start = seg.end() - seg.unused() - overlap
         end = seg.end()
         length = start - end
-        if (not play) or (play and (((end-sl-excl_play-729273613)%6370) < 
+        if (not play) or (play and (((end-sl-excl_play-729273613)%6370) <
         (600+length-2*excl_play))):
           seg.add_chunk(start, end, start)
         seg.set_unused(0)
@@ -2198,7 +2198,7 @@ class ScienceData:
     self.__sci_segs = outlist
     return len(self)
 
-  
+
 
   def union(self, other):
     """
@@ -2221,7 +2221,7 @@ class ScienceData:
     start1 = -1
     start2 = -1
     id = -1
-    
+
     while 1:
       # if necessary, get a segment from list 1
       if start1 == -1:
@@ -2287,7 +2287,7 @@ class ScienceData:
 
   def coalesce(self):
     """
-    Coalesces any adjacent ScienceSegments. Returns the number of 
+    Coalesces any adjacent ScienceSegments. Returns the number of
     ScienceSegments in the coalesced list.
     """
 
@@ -2357,7 +2357,7 @@ class ScienceData:
     self.__sci_segs = outlist
     return len(self)
 
-  
+
   def play(self):
     """
     Keep only times in ScienceSegments which are in the playground
@@ -2376,9 +2376,9 @@ class ScienceData:
       start = seg.start()
       stop = seg.end()
       id = seg.id()
-     
+
       # select first playground segment which ends after start of seg
-      play_start = begin_s2+play_space*( 1 + 
+      play_start = begin_s2+play_space*( 1 +
         int((start - begin_s2 - play_len)/play_space) )
 
       while play_start < stop:
@@ -2386,8 +2386,8 @@ class ScienceData:
           ostart = play_start
         else:
           ostart = start
-        
-        
+
+
         play_stop = play_start + play_len
 
         if play_stop < stop:
@@ -2399,7 +2399,7 @@ class ScienceData:
         outlist.append(x)
 
         # step forward
-        play_start = play_start + play_space 
+        play_start = play_start + play_space
 
     # save the playground segs and return the length
     self.__sci_segs = outlist
@@ -2408,7 +2408,7 @@ class ScienceData:
 
   def intersect_3(self, second, third):
     """
-    Intersection routine for three inputs.  Built out of the intersect, 
+    Intersection routine for three inputs.  Built out of the intersect,
     coalesce and play routines
     """
     self.intersection(second)
@@ -2451,7 +2451,7 @@ class ScienceData:
     return len(self)
 
 
-  
+
 class LSCDataFindJob(CondorDAGJob, AnalysisJob):
   """
   An LSCdataFind job used to locate data. The static options are
@@ -2504,18 +2504,18 @@ class LSCDataFindJob(CondorDAGJob, AnalysisJob):
     """
     return self.__cache_dir
 
-  def is_dax(self):      
-    """          
-    returns the dax flag         
-    """          
-    return self.__dax    
+  def is_dax(self):
+    """
+    returns the dax flag
+    """
+    return self.__dax
 
   def get_config_file(self):
     """
     return the configuration file object
     """
     return self.__config_file
-  
+
 
 class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   """
@@ -2532,15 +2532,15 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
     self.__observatory = None
     self.__output = None
     self.__job = job
-    self.__dax = job.is_dax()    
+    self.__dax = job.is_dax()
     self.__lfn_list = None
-     
+
     # try and get a type from the ini file and default to type None
     try:
       self.set_type(self.job().get_config_file().get('datafind','type'))
     except:
       self.__type = None
- 
+
   def __set_output(self):
     """
     Private method to set the file to write the cache to. Automaticaly set
@@ -2582,8 +2582,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
 
   def set_observatory(self,obs):
     """
-    Set the IFO to retrieve data for. Since the data from both Hanford 
-    interferometers is stored in the same frame file, this takes the first 
+    Set the IFO to retrieve data for. Since the data from both Hanford
+    interferometers is stored in the same frame file, this takes the first
     letter of the IFO (e.g. L or H) and passes it to the --observatory option
     of LSCdataFind.
     @param obs: IFO to obtain data for.
@@ -2618,8 +2618,8 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
   def get_output(self):
     """
     Return the output file, i.e. the file containing the frame cache data.
-    or the files itself as tuple (for DAX)       
-    """  
+    or the files itself as tuple (for DAX)
+    """
     if self.__dax:
       if not self.__lfn_list:
         # call the datafind client to get the LFNs
@@ -2656,7 +2656,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
         print >>sys.stderr, ".",
         time.sleep( 1 )
         result = eval("myClient.%s(%s)" % (clientMethod, clientMethodArgDict))
-        
+
         if not isinstance(result,LDRdataFindClient.lfnlist):
           msg = "datafind server did not return LFN list : " + str(result)
           raise SegmentError, msg
@@ -2666,7 +2666,7 @@ class LSCDataFindNode(CondorDAGNode, AnalysisNode):
           raise SegmentError, msg
         self.__lfn_list = result
       return self.__lfn_list
-    else:        
+    else:
       return self.__output
 
 class LigolwAddJob(CondorDAGJob, AnalysisJob):
