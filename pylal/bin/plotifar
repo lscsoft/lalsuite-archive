@@ -13,6 +13,7 @@ import re
 import exceptions
 import glob
 from types import * #!!!what does this do?
+from operator import itemgetter
 
 from glue import lal
 from glue import segments #!!!do I need this?
@@ -199,7 +200,9 @@ NormTime = {}
 modFAN = {}
 massbin = {}
 coincifos = {}
-no_bkg = []
+no_bkg = {}
+no_frgnd = {}
+no_bkg_frgnd = {}
 warn_msg = ""
 for thisfile in corsefiles:
   if opts.summary_file_path: # use alternate path for summfile
@@ -217,17 +220,26 @@ for thisfile in corsefiles:
     # get coincidence type (used for labeling in plots); will have regardless
     # of whether or not there are foreground triggers
     if line.startswith( 'coincident ifos:' ):
-      # if no background triggers mark the corsefile for later removal and
-      # break from reading the summary file 
+      # if no background triggers, set no_bkg to True; this will be used later
+      # to figure out if there is both no background and no foreground
       if line.split()[2] == 'no_background': 
-        no_bkg.append(corsefiles.index(thisfile))
-        NbkgCoinc = 0.
-        break
+        no_bkg[thisfile] = True
       else:
         coincifos[thisfile] = line.split()[2]
     # get Number of background triggers
     elif line.startswith( 'number of reconstructed slide coincidences:' ):
       NbkgCoinc = float( line.split()[5] )
+    elif line.startswith( 'number of zero-lag triggers' ):
+      if float( line.split(':')[1] ) == 0.: # no foreground
+        if thisfile in no_bkg:
+          # no foreground or background: remove from the no_bkg dictionary, 
+          # mark the corsefile for later removal and break from 
+          # reading the summary file 
+          no_bkg_frgnd[thisfile] = corsefiles.index(thisfile)
+          del no_bkg[thisfile]
+          break
+        else: # just have no foreground; add to no foreground dict
+          no_frgnd[thisfile] = True
     # get foreground time analyzed; used maxbkgFAN as well as for normalizing
     elif line.startswith( 'amount of time analysed for triggers' ):
       FrgrndTime = float( line.split()[6] ) + float( line.split()[8] ) #sec + ns
@@ -249,9 +261,10 @@ for thisfile in corsefiles:
         massbin[ mass ].append(thisfile)
   file.close()
   # calculate min/max BkgFANs
-  if NbkgCoinc != 0.:
-    maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
-    minBkgFAN[thisfile] = FrgrndTime/BkgTime
+  minBkgFAN[thisfile] = FrgrndTime/BkgTime
+  if thisfile not in no_bkg_frgnd: # i.e., has background or foreground
+    if thisfile not in no_bkg:
+      maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
   # apply correction factor
     if opts.time_correct_file:
       corrfile = open(opts.time_correct_file,'r')
@@ -266,12 +279,12 @@ for thisfile in corsefiles:
 
 # remove files that had no bkg from corsefiles list and add their names to
 # warn_msg
-if no_bkg:
+if no_bkg_frgnd:
   warn_msg = 'No foreground or background in files:\n'
-  # sort bkg from largest to smallest so pop removes the correct corsefiles
-  no_bkg.sort(reverse=True)
-  for idx in no_bkg:
-    warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx)) + '\n'
+  # the following relies on itervalues cycling from the last key added to the
+  # dict to the first
+  for idx in sorted(no_bkg_frgnd.items(), key=itemgetter(1), reverse=True):
+    warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx[1])) + '\n'
   # check if still have a corsefiles list; if all the files that were globbed
   # don't have foreground and background, just make a generic plot with
   # warn_msg on it; this avoids future errors
@@ -309,12 +322,16 @@ for thisfile in corsefiles:
   insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [thisfile] )
   coincT[ thisfile ] = CoincInspiralUtils.coincInspiralTable( insptrigs, coincStat )
   coincT[ thisfile ].sort() # sort by descending FAN
-
+  # if this file has no_bkg, but does have foreground, get the ifo coincident
+  # type from the first foreground trigger
+  if thisfile in no_bkg:
+    coincifos[thisfile] = coincT[ thisfile ][0].get_ifos()[0] 
+    
 # set plot colors and symbols
 trigsymbols = itertools.cycle(( 'D', 'H', 's' ))
-lnsymbols = itertools.cycle(( '--', ':', '-.' ))
 PlotVals = {}
-no_frgnd = ""
+no_bkg_msg = ""
+no_frgnd_msg = ""
 for thisfile in corsefiles:
   PlotVals[thisfile] = {}
   # set colors based on coincident ifos
@@ -327,19 +344,23 @@ for thisfile in corsefiles:
   else: # other coincs just set to black for now
     PlotVals[thisfile]['color'] = 'k'
   # set foreground symbol based on mass-bin
+  lnsymbols = itertools.cycle(( '--', ':', '-.' ))
   for mass, marker, hash in zip( massbin, trigsymbols, lnsymbols):
     if thisfile in massbin[mass]:
       PlotVals[thisfile]['massbin'] = mass
       PlotVals[thisfile]['trigsymbol'] = marker
       PlotVals[thisfile]['lnsymbol'] = hash
-  # check for files that don't have foreground triggers; if none, add trigger
+  # check for files that don't have background/foreground triggers; add trigger
   # type to warn_msg
-  if not coincT[thisfile].sngl_table:
-    if not no_frgnd: no_frgnd = "No foreground triggers in:\n "
-    no_frgnd = no_frgnd + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n "
+  if thisfile in no_bkg:
+    if not no_bkg_msg: no_bkg_msg = "No background triggers in:\n"
+    no_bkg_msg = no_bkg_msg + " " + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n" 
+  if thisfile in no_frgnd:
+    if not no_frgnd_msg: no_frgnd_msg = "No foreground triggers in:\n"
+    no_frgnd_msg = no_frgnd_msg + " " + coincifos[thisfile] + " " + PlotVals[thisfile]['massbin'] + "\n"
 # End for thisfiles in corsefiles
-# concatatenate no_frgnd to warn_msg
-warn_msg = warn_msg + no_frgnd
+# concatatenate no_bkg_msg and no_frgnd_msg to warn_msg
+warn_msg = warn_msg + no_bkg_msg + no_frgnd_msg
 
 # ============================================================================
 # ============================================================================
@@ -379,7 +400,7 @@ if opts.plot_combined:
   zero_fanc = []
   if opts.ifar_dist: IFARc = []
   for thisfile in corsefiles:
-    maxFANs.append( maxBkgFAN[thisfile] )
+    if thisfile in maxBkgFAN:maxFANs.append( maxBkgFAN[thisfile] )
     if coincT[thisfile].sngl_table: # if have foreground trigs
       for coinc in coincT[thisfile]:
         if coinc.stat == 0.: # mark and set to minbkgFAN[thisfile]
@@ -448,7 +469,7 @@ if opts.plot_uncombined or opts.snr_ifar:
           ymax = cumnum[thisfile][0]
       # end if have foreground trigs
       # plot min bkg lines
-      if opts.show_min_bkg:
+      if opts.show_min_bkg and thisfile in maxBkgFAN:
         xminbkg = 1./maxBkgFAN[thisfile]
         loglog( [xminbkg,xminbkg], [0.1,10000],
                 color=PlotVals[thisfile]['color'], 
@@ -565,7 +586,7 @@ if opts.plot_uncombined or opts.snr_ifar:
           ymax = cumnum[thisfile][0]
       # end if have foreground trigs
       # plot min bkg lines
-      if opts.show_min_bkg:
+      if opts.show_min_bkg and thisfile in maxBkgFAN:
         xminbkg = NormTime[thisfile] / maxBkgFAN[thisfile]
         loglog( [xminbkg,xminbkg], [0.1,10000],
                 color=PlotVals[thisfile]['color'], 
