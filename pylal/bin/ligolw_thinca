@@ -180,7 +180,7 @@ for n, filename in enumerate(filenames):
 		process_id = process.process_id,
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
-		coinc_definer_rows = ligolw_thinca.InspiralCoincDef,
+		coinc_definer_rows = ligolw_thinca.InspiralCoincTypes,
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
 		verbose = options.verbose

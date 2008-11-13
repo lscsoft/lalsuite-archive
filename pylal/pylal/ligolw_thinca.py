@@ -119,12 +119,22 @@ def append_process(xmldoc, comment = None, force = None, program = None, e_thinc
 
 #
 # Build the allowed sngl_inspiral <--> sngl_inspiral coinc types.
+# InspiralCoincTypes is a dictionary mapping tuples of in-order instrument
+# names to matching instances of the CoincDef class from the lsctables
+# module.
+#
+# Example:
+#
+# InspiralCoincTypes[("H1", "V1")]
+#
+# retrieves an instance of the CoincDef class whose search and search type
+# attributes are those for H1--V1 coincs.
 #
 
 
 _allinstruments = ["G1", "H1", "H2", "L1", "V1"]
 _allinstruments.sort()
-InspiralCoincDef = dict([
+InspiralCoincTypes = dict([
 	(
 		tuple(instruments),
 		lsctables.CoincDef(
