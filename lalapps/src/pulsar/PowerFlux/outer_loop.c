@@ -302,7 +302,7 @@ fprintf(LOG, "kind set first_bin skyband frequency spindown ra dec iota psi snr 
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s %s %d %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
+	fprintf(LOG, "band_info: %s %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
 		kind, \
 		skyband, \
 		fine_grid->band_name[skyband], \
