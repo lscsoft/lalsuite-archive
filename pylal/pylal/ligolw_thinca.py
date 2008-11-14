@@ -32,7 +32,6 @@ import sys
 
 
 from glue import iterutils
-from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
 from pylal import snglcoinc
