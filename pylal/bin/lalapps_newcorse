@@ -1,0 +1,340 @@
+#!/usr/bin/python
+#
+# $Id$
+#
+# Copyright (C) 2008  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+from optparse import OptionParser
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+
+from glue import iterutils
+from glue import segments
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from pylal import ligolw_thinca
+from pylal import llwapp
+from pylal import rate
+from pylal.date import LIGOTimeGPS
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(
+		version = "%prog CVS $Id$",
+		usage = "%prog [options] [file ...]",
+		description = "%prog does blah blah blah."
+	)
+	parser.add_option("-i", "--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Example H1,H2,L1.  Required.")
+	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
+	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	#
+	# parse the instruments
+	#
+
+	if options.instruments is None:
+		raise ValueError, "required option -i or --instruments missing"
+	options.instruments = options.instruments.split(",")
+	options.instruments.sort()
+
+	#
+	# parse mass bins
+	#
+
+	if options.mass_bins is None:
+		raise ValueError, "missing required option -b or --mass-bins"
+	options.mass_bins = map(float, options.mass_bins.strip().split(","))
+	if len(options.mass_bins) < 2:
+		raise ValueError, "must supply at least two mass bin boundaries"
+	options.mass_bins.sort()
+
+	#
+	# other
+	#
+
+	if options.live_time_program is None:
+		raise ValueError, "missing required option -p or --live-time-program"
+
+	#
+	# done
+	#
+
+	return options, (filenames or [None])
+
+
+#
+# =============================================================================
+#
+#                                 Book-Keeping
+#
+# =============================================================================
+#
+
+
+class Summary(object):
+	def __init__(self, mass_bins):
+		self.n_events = rate.BinnedArray(mass_bins)
+
+	def add_event(self, mean_mchirp):
+		self.n_events[mean_mchirp,] += 1
+
+
+def create_summaries(instruments, mass_bins):
+	"""
+	Returns a dictionary of Summary objects indexed by inspiral coinc
+	type (see pylal.ligolw_thinca.InspiralCoincTypes) and a boolean
+	indicating if the LHO amplitude consistency cut was applied.
+
+	Example:
+
+	instruments = ("H1", "H2", "L1")
+	mass_bins = rate.IrregularBins([0.0, 5.0, float("inf")])
+	summaries = create_summaries(instruments, mass_bins)
+	summaries[(5, True)].add_event(6.5)
+
+	The last line retrieves the Summary object for H1,L1 coincs in
+	H1,H2,L1 time and adds a coinc with a mean chirp mass of 6.5 to the
+	count of events in the appropriate mass bin for that coinc type.
+	"""
+	#
+	# make sure instrument list is sorted
+	#
+
+	instruments = list(instruments)
+	instruments.sort()
+
+	#
+	# iterate over instrument combinations
+	#
+
+	summaries = {}
+	for combo in [combo for m in range(2, len(instruments) + 1) for combo in iterutils.choices(instruments, m)]:
+		#
+		# H1,H2 doubles are not included in the search
+		#
+
+		if combo == ("H1", "H2"):
+			continue
+
+		#
+		# look up the inspiral coincidence type for this instrument
+		# combo
+		#
+
+		coinc_type = ligolw_thinca.InspiralCoincTypes[combo].search_coinc_type
+
+		#
+		# if LHO provided a trigger for the coinc --> two coinc
+		# types: with and without amplitude cut.  if LHO did not
+		# participate in this coinc --> one coinc type
+		#
+
+		if ("H1" in combo) or ("H2" in combo):
+			summaries[(coinc_type, True)] = Summary(mass_bins)
+			summaries[(coinc_type, False)] = Summary(mass_bins)
+		else:
+			summaries[(coinc_type, False)] = Summary(mass_bins)
+
+	return summaries
+
+
+#
+# =============================================================================
+#
+#                                   Queries
+#
+# =============================================================================
+#
+
+
+def create_coinc_inspiral_view(connection):
+	"""
+	Constructs a temporary view named coinc_inspiral with three columns:
+
+	coinc_event_id: the coinc_event_id of this coinc
+
+	mean_mchirp: the average of the mchirps of the inspiral triggers in
+	this coinc
+
+	lho_ampl_cut_applied: true if both H1 and H2 were on for this coinc
+
+	A "temporary view" is a query whose result is made to appear to be
+	another table in the database.  It can be used in other queries,
+	used in joins, etc., as though it was a table.  It is removed from
+	the database when the connection is closed.
+	"""
+	connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	coinc_inspiral
+AS
+	SELECT
+		coinc_event.coinc_event_id AS coinc_event_id,
+		AVG(sngl_inspiral.mchirp) AS mean_mchirp,
+		EXISTS (
+			SELECT
+				*
+			FROM
+				time_slide AS offset_a
+				JOIN time_slide AS offset_b ON (
+					offset_a.time_slide_id == offset_b.time_slide_id
+					AND offset_a.instrument == 'H1'
+					AND offset_b.instrument == 'H2'
+				)
+			WHERE
+				offset_a.time_slide_id == coinc_event.time_slide_id
+		) AS lho_ampl_cut_applied
+	FROM
+		sngl_inspiral
+		JOIN coinc_event_map ON (
+			coinc_event_map.table_name == 'sngl_inspiral'
+			AND coinc_event_map.event_id == sngl_inspiral.event_id
+		)
+		JOIN coinc_event ON (
+			coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
+		)
+	GROUP BY
+		coinc_event.coinc_event_id
+	""")
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# initialize book-keeping
+#
+
+
+seglists = segments.segmentlistdict()
+summaries = create_summaries(options.instruments, rate.NDBins((rate.IrregularBins(options.mass_bins),)))
+
+
+#
+# iterate over database files
+#
+
+
+for n, filename in enumerate(filenames):
+	#
+	# open the database
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	dbtables.DBTable_set_connection(connection)
+	xmldoc = dbtables.DBTable_get_xml()
+
+	#
+	# prepare database
+	#
+
+	create_coinc_inspiral_view(connection)
+
+	#
+	# retrieve the segment lists
+	#
+
+	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).coalesce()
+
+	#
+	# count coincs by type and mass bin
+	#
+
+	for inspiral_coinc_type, mean_mchirp, lho_ampl_cut_applied, time_slide_id in connection.cursor().execute("""
+SELECT
+	coinc_definer.search_coinc_type,
+	coinc_inspiral.mean_mchirp,
+	coinc_inspiral.lho_ampl_cut_applied,
+	coinc_event.time_slide_id
+FROM
+	coinc_event
+	JOIN coinc_definer ON (
+		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+		AND coinc_definer.search == 'inspiral'
+	)
+	JOIN coinc_inspiral ON (
+		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN time_slide ON (
+		time_slide.time_slide_id == coinc_event.time_slide_id
+	)
+	"""):
+		#
+		# increment the event count in the appropriate mass bin
+		#
+
+		summaries[(inspiral_coinc_type, lho_ampl_cut_applied)].add_event(mean_mchirp)
+
+	#
+	# close the database
+	#
+
+	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+
+
+#
+# summarize
+#
