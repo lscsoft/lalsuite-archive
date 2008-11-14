@@ -870,6 +870,9 @@ for injPattern in injPatterns:
 
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+  if opts.vocal:
+    print len( injIndex ), "/", len( injFound ), \
+       "found injections with loss in SNR between sire first and coire first!"
 
 
   for index in injIndex:
@@ -944,6 +947,10 @@ for injPattern in injPatterns:
 
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
+  if opts.vocal:
+    print len( injIndex ), "/", len( injFound ), \
+      "found injections with loss in SNR between coire first and coire second!"
+
 
   for index in injIndex:
 
