@@ -82,7 +82,7 @@ png_write_info(png_ptr, info_ptr);
 /* write image data here 
    we need to mangle it a bit to conform to format PNG expects.. */
 
-row=alloca(3*p->width*sizeof(*row));
+row=aligned_alloca(3*p->width*sizeof(*row));
 for(i=0;i<p->height;i++){
 	tmp=row;
 	r=p->red+p->stride*i;

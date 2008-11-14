@@ -105,3 +105,12 @@ option "max-sft-report" - "Maximum count of SFTs to report with veto information
 
 option "num-threads"  - "Use that many threads for computation" int default="-1" no
 
+#
+# Options for v2 code
+#
+option "niota" - "Number of iota values to use in alignment grid" int default="3" no
+option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
+option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
+option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
+
+option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no

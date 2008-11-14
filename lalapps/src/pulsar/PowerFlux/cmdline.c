@@ -114,6 +114,11 @@ const char *gengetopt_args_info_help[] = {
   "      --extended-test=INT       Perform extended self test  (default=`0')",
   "      --max-sft-report=INT      Maximum count of SFTs to report with veto \n                                  information  (default=`100')",
   "      --num-threads=INT         Use that many threads for computation  \n                                  (default=`-1')",
+  "      --niota=INT               Number of iota values to use in alignment grid  \n                                  (default=`3')",
+  "      --npsi=INT                Number of psi values to use in alignment grid  \n                                  (default=`6')",
+  "      --nfshift=INT             Number of sub-bin frequency shifts to sample  \n                                  (default=`2')",
+  "      --nchunks=INT             Partition the timebase into this many chunks \n                                  for sub period analysis  (default=`5')",
+  "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
     0
 };
 
@@ -250,6 +255,11 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->extended_test_given = 0 ;
   args_info->max_sft_report_given = 0 ;
   args_info->num_threads_given = 0 ;
+  args_info->niota_given = 0 ;
+  args_info->npsi_given = 0 ;
+  args_info->nfshift_given = 0 ;
+  args_info->nchunks_given = 0 ;
+  args_info->compute_skymaps_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -407,6 +417,16 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->max_sft_report_orig = NULL;
   args_info->num_threads_arg = -1;
   args_info->num_threads_orig = NULL;
+  args_info->niota_arg = 3;
+  args_info->niota_orig = NULL;
+  args_info->npsi_arg = 6;
+  args_info->npsi_orig = NULL;
+  args_info->nfshift_arg = 2;
+  args_info->nfshift_orig = NULL;
+  args_info->nchunks_arg = 5;
+  args_info->nchunks_orig = NULL;
+  args_info->compute_skymaps_arg = 0;
+  args_info->compute_skymaps_orig = NULL;
   
 }
 
@@ -502,6 +522,11 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->extended_test_help = gengetopt_args_info_help[83] ;
   args_info->max_sft_report_help = gengetopt_args_info_help[84] ;
   args_info->num_threads_help = gengetopt_args_info_help[85] ;
+  args_info->niota_help = gengetopt_args_info_help[86] ;
+  args_info->npsi_help = gengetopt_args_info_help[87] ;
+  args_info->nfshift_help = gengetopt_args_info_help[88] ;
+  args_info->nchunks_help = gengetopt_args_info_help[89] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[90] ;
   
 }
 
@@ -727,6 +752,11 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->extended_test_orig));
   free_string_field (&(args_info->max_sft_report_orig));
   free_string_field (&(args_info->num_threads_orig));
+  free_string_field (&(args_info->niota_orig));
+  free_string_field (&(args_info->npsi_orig));
+  free_string_field (&(args_info->nfshift_orig));
+  free_string_field (&(args_info->nchunks_orig));
+  free_string_field (&(args_info->compute_skymaps_orig));
   
   
 
@@ -933,6 +963,16 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "max-sft-report", args_info->max_sft_report_orig, 0);
   if (args_info->num_threads_given)
     write_into_file(outfile, "num-threads", args_info->num_threads_orig, 0);
+  if (args_info->niota_given)
+    write_into_file(outfile, "niota", args_info->niota_orig, 0);
+  if (args_info->npsi_given)
+    write_into_file(outfile, "npsi", args_info->npsi_orig, 0);
+  if (args_info->nfshift_given)
+    write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
+  if (args_info->nchunks_given)
+    write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
+  if (args_info->compute_skymaps_given)
+    write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1578,6 +1618,11 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "extended-test",	1, NULL, 0 },
         { "max-sft-report",	1, NULL, 0 },
         { "num-threads",	1, NULL, 0 },
+        { "niota",	1, NULL, 0 },
+        { "npsi",	1, NULL, 0 },
+        { "nfshift",	1, NULL, 0 },
+        { "nchunks",	1, NULL, 0 },
+        { "compute-skymaps",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -2748,6 +2793,76 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.num_threads_given), optarg, 0, "-1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "num-threads", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Number of iota values to use in alignment grid.  */
+          else if (strcmp (long_options[option_index].name, "niota") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->niota_arg), 
+                 &(args_info->niota_orig), &(args_info->niota_given),
+                &(local_args_info.niota_given), optarg, 0, "3", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "niota", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Number of psi values to use in alignment grid.  */
+          else if (strcmp (long_options[option_index].name, "npsi") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->npsi_arg), 
+                 &(args_info->npsi_orig), &(args_info->npsi_given),
+                &(local_args_info.npsi_given), optarg, 0, "6", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "npsi", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Number of sub-bin frequency shifts to sample.  */
+          else if (strcmp (long_options[option_index].name, "nfshift") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->nfshift_arg), 
+                 &(args_info->nfshift_orig), &(args_info->nfshift_given),
+                &(local_args_info.nfshift_given), optarg, 0, "2", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "nfshift", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Partition the timebase into this many chunks for sub period analysis.  */
+          else if (strcmp (long_options[option_index].name, "nchunks") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->nchunks_arg), 
+                 &(args_info->nchunks_orig), &(args_info->nchunks_given),
+                &(local_args_info.nchunks_given), optarg, 0, "5", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "nchunks", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* allocate memory and compute skymaps with final results.  */
+          else if (strcmp (long_options[option_index].name, "compute-skymaps") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->compute_skymaps_arg), 
+                 &(args_info->compute_skymaps_orig), &(args_info->compute_skymaps_given),
+                &(local_args_info.compute_skymaps_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "compute-skymaps", '-',
                 additional_error))
               goto failure;
           

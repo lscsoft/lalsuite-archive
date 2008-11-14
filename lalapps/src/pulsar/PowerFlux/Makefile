@@ -11,15 +11,20 @@ OPTFLAGS=-O6 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -msse2 -march=i686 -funroll-loops
 OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
-#OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
+OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
+OPTFLAGS=-O -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
 
-PYTHON_OBJS=cmdline.o rastermagic.o hookup.o fine_grid.o lines.o grid.o \
-	png.o polarization.o intervals.o statistics.o dataset.o candidates.o
+COMMON_OBJS=cmdline.o rastermagic.o hookup.o lines.o grid.o \
+	png.o polarization.o intervals.o statistics.o dataset.o 
 
-OBJS=$(PYTHON_OBJS) powerflux.o
+PYTHON_OBJS=$(COMMON_OBJS) candidates.o fine_grid.o
+
+OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
+
+OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o powerflux2.o
 
 FILES=sky_marks.txt all_sky_marks_*.txt
 
@@ -355,6 +360,11 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	 condor_compile $(CC) $(OBJS) jobs.o util-condor.o -o powerflux-condor -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux-condor
 
+powerflux-mt2: $(OBJS2) jobs-mt.o util.o
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
+	ls -l powerflux-mt2
+
+
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
 
@@ -366,6 +376,9 @@ test_rm: test_rm.c rastermagic.o
 
 cmdline.c: powerflux.ggo
 	gengetopt  --string-parser --conf-parser < powerflux.ggo
+
+cmdline2.c: powerflux2.ggo
+	gengetopt  --string-parser --conf-parser --file-name=cmdline2 < powerflux2.ggo
 
 clean:
 	rm -f core *.bck *.o

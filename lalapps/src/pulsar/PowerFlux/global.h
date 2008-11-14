@@ -38,6 +38,8 @@ typedef short COUNT_TYPE;
 
 void *do_alloc(long a, long b);
 
+#define aligned_alloca(a) ((void *)(((unsigned long)(alloca(a+63))+63) & ~63))
+
 #define TESTSTATUS( status ) \
   { if ( (status)->statusCode ) { \
   	fprintf(stderr,"** LAL status encountered in file \"%s\" function \"%s\" line %d\n", __FILE__, __FUNCTION__, __LINE__);\

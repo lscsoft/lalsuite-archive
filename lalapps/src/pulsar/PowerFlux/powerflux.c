@@ -112,7 +112,7 @@ static float compute_median(float *firstbin, int step, int count)
 {
 float *tmp;
 int i;
-tmp=alloca(count*sizeof(float));
+tmp=aligned_alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
 if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])/2.0;
@@ -131,7 +131,7 @@ void nonparametric(float *firstbin, int step, int count, float *median, float *k
 float *tmp;
 double a,b,lambda;
 int i;
-tmp=alloca(count*sizeof(float));
+tmp=aligned_alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
 if(count & 1)*median=(tmp[count>>1]+tmp[(count>>1)+1])/2.0;

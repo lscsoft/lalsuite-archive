@@ -1577,7 +1577,7 @@ cand->ifo_freq_sd=0.0;
 
 /* loop over datasets */
 n_units=get_max_threads();
-units=alloca(n_units*sizeof(*units));
+units=aligned_alloca(n_units*sizeof(*units));
 
 for(i=0;i<n_units;i++) {
 	for(j=0;j<(2*WINDOW+1);j++)units[i].demod_signal_sum_d[j]=0.0;
@@ -2829,7 +2829,7 @@ return(k);
 	float step=step0, step_max; \
 	float *values; \
 	\
-	values=alloca((2*N+1) *sizeof(*values)); \
+	values=aligned_alloca((2*N+1) *sizeof(*values)); \
 	\
 	memcpy(&c, cand, sizeof(*cand));  \
 	\

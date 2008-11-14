@@ -281,6 +281,21 @@ struct gengetopt_args_info
   int num_threads_arg;	/**< @brief Use that many threads for computation (default='-1').  */
   char * num_threads_orig;	/**< @brief Use that many threads for computation original value given at command line.  */
   const char *num_threads_help; /**< @brief Use that many threads for computation help description.  */
+  int niota_arg;	/**< @brief Number of iota values to use in alignment grid (default='3').  */
+  char * niota_orig;	/**< @brief Number of iota values to use in alignment grid original value given at command line.  */
+  const char *niota_help; /**< @brief Number of iota values to use in alignment grid help description.  */
+  int npsi_arg;	/**< @brief Number of psi values to use in alignment grid (default='6').  */
+  char * npsi_orig;	/**< @brief Number of psi values to use in alignment grid original value given at command line.  */
+  const char *npsi_help; /**< @brief Number of psi values to use in alignment grid help description.  */
+  int nfshift_arg;	/**< @brief Number of sub-bin frequency shifts to sample (default='2').  */
+  char * nfshift_orig;	/**< @brief Number of sub-bin frequency shifts to sample original value given at command line.  */
+  const char *nfshift_help; /**< @brief Number of sub-bin frequency shifts to sample help description.  */
+  int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
+  char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
+  const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
+  int compute_skymaps_arg;	/**< @brief allocate memory and compute skymaps with final results (default='0').  */
+  char * compute_skymaps_orig;	/**< @brief allocate memory and compute skymaps with final results original value given at command line.  */
+  const char *compute_skymaps_help; /**< @brief allocate memory and compute skymaps with final results help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -367,6 +382,11 @@ struct gengetopt_args_info
   unsigned int extended_test_given ;	/**< @brief Whether extended-test was given.  */
   unsigned int max_sft_report_given ;	/**< @brief Whether max-sft-report was given.  */
   unsigned int num_threads_given ;	/**< @brief Whether num-threads was given.  */
+  unsigned int niota_given ;	/**< @brief Whether niota was given.  */
+  unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
+  unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
+  unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
+  unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

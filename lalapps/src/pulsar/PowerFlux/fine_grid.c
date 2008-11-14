@@ -727,7 +727,7 @@ circ_ul=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
 circ_ul_freq=&(accum_circ_ul[stored_fine_bins*useful_bins*(thread_id+1)]);
 
 /* allocate on stack, for speed */
-tmp=alloca(useful_bins*sizeof(*tmp));
+tmp=aligned_alloca(useful_bins*sizeof(*tmp));
 
 /* sort to compute robust estimates */
 nstats.flag=STAT_FLAG_INPLACE_SORT_DATA

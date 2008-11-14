@@ -33,6 +33,7 @@
 #define NORMAL_SAMPLE_COUNT  200
 #define NORMAL_RANGE   (RIGHT_NORMAL_BOUND-LEFT_NORMAL_BOUND)
 #define NORMAL_STEP    (NORMAL_RANGE/NORMAL_SAMPLE_COUNT)
+#define INV_NORMAL_STEP  (1.0/NORMAL_STEP)
 
 STAT_TYPE normal_distribution_table[NORMAL_SAMPLE_COUNT];
 
@@ -47,28 +48,28 @@ STAT_TYPE sampled_normal_distribution(STAT_TYPE x)
 int i;
 if(x<LEFT_NORMAL_BOUND)return 0.0;
 if(x>RIGHT_NORMAL_BOUND)return 1.0;
-i=floor((x-LEFT_NORMAL_BOUND)/NORMAL_STEP-0.5);
+i=floor((x-LEFT_NORMAL_BOUND)*INV_NORMAL_STEP-0.5);
 if(i>=NORMAL_SAMPLE_COUNT)i=NORMAL_SAMPLE_COUNT-1;
 return normal_distribution_table[i];
 }
 
-STAT_TYPE interpolated_normal_distribution(STAT_TYPE x)
+static inline STAT_TYPE interpolated_normal_distribution(STAT_TYPE x)
 {
 int i;
 STAT_TYPE dx;
 if(x<LEFT_NORMAL_BOUND)return 0.0;
 if(x>RIGHT_NORMAL_BOUND)return 1.0;
 if(x<(LEFT_NORMAL_BOUND+NORMAL_STEP*0.5)){
-	return normal_distribution_table[0]*(x-LEFT_NORMAL_BOUND)/(NORMAL_STEP*0.5);
+	return normal_distribution_table[0]*(x-LEFT_NORMAL_BOUND)*(INV_NORMAL_STEP*2.0);
 	}
 if(x>(RIGHT_NORMAL_BOUND-NORMAL_STEP*0.5)){
 	return normal_distribution_table[NORMAL_SAMPLE_COUNT-1]*
-		(RIGHT_NORMAL_BOUND-x)/(NORMAL_STEP*0.5)+
-		(x+NORMAL_STEP*0.5-RIGHT_NORMAL_BOUND)/(NORMAL_STEP*0.5);
+		(RIGHT_NORMAL_BOUND-x)*INV_NORMAL_STEP*2.0+
+		(x+NORMAL_STEP*0.5-RIGHT_NORMAL_BOUND)*(INV_NORMAL_STEP*2.0);
 	}
-i=floor((x-LEFT_NORMAL_BOUND-NORMAL_STEP*0.5)/NORMAL_STEP);
+i=floor((x-LEFT_NORMAL_BOUND-NORMAL_STEP*0.5)*INV_NORMAL_STEP);
 if(i>=NORMAL_SAMPLE_COUNT-1)i=NORMAL_SAMPLE_COUNT-2;
-dx=(x-LEFT_NORMAL_BOUND)/NORMAL_STEP-(i+0.5);
+dx=(x-LEFT_NORMAL_BOUND)*INV_NORMAL_STEP-(i+0.5);
 return normal_distribution_table[i]*(1.0-dx)+normal_distribution_table[i+1]*dx;
 }
 
@@ -100,7 +101,7 @@ void compute_normal_sorted_stats(float *data, int count, NORMAL_STATS *stats)
 {
 int i, ks_count_plus, ks_count_minus, dir;
 STAT_TYPE a, b, ks_level;
-float mean, sigma, step;
+float mean, sigma, step, inv_sigma, inv_count;
 
 if(count==0)return;
 
@@ -178,14 +179,17 @@ if(stats->flag & STAT_FLAG_COMPUTE_KS_TEST){
 	ks_count_minus=0;
 	ks_level=stats->ks_level;
 	mean=stats->mean;
-	sigma=stats->sigma;
+	inv_sigma=1.0/stats->sigma;
+	inv_count=1.0/count;
+	step=0.0;
 	for(i=0;i<count;i++){
-		b=(((i+1)*1.0)/count)-normal_distribution((data[i]-mean)/sigma);
+		b=(step+inv_count)-normal_distribution((data[i]-mean)*inv_sigma);
 		if(a<b)a=b;
 		if(b>ks_level)ks_count_plus++;
-		b=normal_distribution((data[i]-mean)/sigma)-((i*1.0)/count);
+		b=normal_distribution((data[i]-mean)*inv_sigma)-(step);
 		if(a<b)a=b;
 		if(b>ks_level)ks_count_minus++;
+		step+=inv_count;
 		}
 	stats->ks_count=ks_count_plus+ks_count_minus;
 	stats->ks_test=a;
@@ -214,7 +218,7 @@ if(stats->flag & STAT_FLAG_SORT_DATA){
 	if(count>=1000){
 		tmp=do_alloc(count, sizeof(*tmp));
 		} else {
-		tmp=alloca(count*sizeof(*tmp));
+		tmp=aligned_alloca(count*sizeof(*tmp));
 		}
 	memcpy(tmp, data, count*sizeof(*tmp));
 

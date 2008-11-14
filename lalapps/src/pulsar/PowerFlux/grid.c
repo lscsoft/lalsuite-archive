@@ -423,7 +423,7 @@ long *count;
 long masked_count;
 int i;
 
-count=alloca(grid->nbands*sizeof(*count));
+count=aligned_alloca(grid->nbands*sizeof(*count));
 
 for(i=0;i<grid->nbands;i++)count[i]=0;
 masked_count=0;
@@ -473,7 +473,7 @@ int *band_id;
 char s[30];
 SKY_GRID_TYPE angle, proj, x,y,z;
 
-band_id=alloca(n_bands*sizeof(int));
+band_id=aligned_alloca(n_bands*sizeof(int));
 for(i=0;i<n_bands;i++) {
 	sprintf(s, "Angle_%d", i);
 	band_id[i]=add_band(grid, s, -1);
@@ -507,7 +507,7 @@ int *band_id;
 char s[30];
 SKY_GRID_TYPE x,y,z;
 
-band_id=alloca(n_bands*sizeof(int));
+band_id=aligned_alloca(n_bands*sizeof(int));
 for(i=0;i<n_bands;i++) {
 	sprintf(s, "S_%d", i);
 	band_id[i]=add_band(grid, s, -1);

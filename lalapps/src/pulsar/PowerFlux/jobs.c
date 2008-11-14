@@ -50,13 +50,15 @@ return count;
 void *thread_cruncher(int i)
 {
 
-while(1){
+while(1) {
 	wait_for_more_jobs();
 	thread_mutex_lock(&thread_num_mutex);
 	while(i>=num_threads)thread_cond_wait(&thread_not_needed, &thread_num_mutex);
 	thread_mutex_unlock(&thread_num_mutex);
 	while(do_single_job(i));
 	}
+
+return NULL; /* make compiler happy */
 }
 
 void init_threads(int mt)
