@@ -440,7 +440,7 @@ class DBTable(table.Table):
 		self.last_maxrowid = self.maxrowid() or 0
 
 		# construct the SQL to be used to insert new rows
-		self.append_statement = "INSERT INTO " + self.dbtablename + " VALUES (" + ",".join("?" * len(self.dbcolumnnames)) + ")"
+		self.append_statement = "INSERT INTO %s (%s) VALUES (%s)" % (self.dbtablename, ",".join(self.dbcolumnnames), ",".join("?" * len(self.dbcolumnnames)))
 
 	def _end_of_rows(self):
 		# FIXME:  is this needed?
