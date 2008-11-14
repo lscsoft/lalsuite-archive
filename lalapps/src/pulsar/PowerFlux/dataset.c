@@ -1632,6 +1632,68 @@ if(!strncasecmp(line, "gaussian_fill", 13)) {
 
 	gaussian_fill(&(datasets[d_free-1]), gps_start, step, count, amp*datasets[d_free-1].coherence_time*16384.0);
 	} else
+if(!strncasecmp(line, "inject_wandering_line1", 22)) {
+	INT64 gps_start, gps_stop;
+	double strain, frequency, ref_time, spindown, spread, omega;
+	double f, phi;
+	gsl_rng *rng=NULL;
+	int bin;
+	int i;
+	DATASET *d=&(datasets[d_free-1]);
+
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_start);
+
+	locate_arg(line, length, 2, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_stop);
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &ref_time);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &strain);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &frequency);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &spindown);
+
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &spread);
+
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &omega);
+
+	fprintf(stderr, "Injecting fake wandering line artifact for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
+		ref_time,
+		strain,
+		frequency,
+		spindown,
+		spread,
+		omega);
+
+	rng=gsl_rng_alloc(gsl_rng_default);
+	gsl_rng_set(rng, fill_seed);
+
+	for(i=0;i<d->free;i++) {
+		if(gps_start>0 && d->gps[i]<gps_start)continue;
+		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
+
+		f=frequency+spindown*(d->gps[i]-ref_time)+spread*sin(omega*(d->gps[i]-ref_time));
+		phi=gsl_ran_flat(rng, 0, 2*M_PI);
+		bin=round(f-d->first_bin);
+
+		if(bin<0)continue;
+		if(bin>=d->nbins)continue;
+
+		d->re[i*d->nbins+bin]+=0.5*strain*cos(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
+		d->im[i*d->nbins+bin]+=0.5*strain*sin(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
+		}
+
+	fill_seed=gsl_rng_get(rng);
+	gsl_rng_free(rng);
+	} else
 if(!strncasecmp(line, "inject_cw_signal", 16)) {
 	INT64 gps_start, gps_stop;
 	gsl_integration_workspace *giw;
@@ -1803,7 +1865,7 @@ static float compute_median(float *firstbin, int step, int count)
 {
 float *tmp;
 int i;
-tmp=alloca(count*sizeof(float));
+tmp=aligned_alloca(count*sizeof(float));
 for(i=0;i<count;i++)tmp[i]=firstbin[i*step];
 sort_floats(tmp, count);
 if(!(count & 1))return (tmp[count>>1]+tmp[(count>>1)-1])*0.5;
