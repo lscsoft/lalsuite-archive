@@ -110,7 +110,6 @@ to analyze." )
 
   options.followup_exttrig = False
   options.followup_flow = 40.0
-  options.enable_output = True
   options.figure_resolution = 50
   options.followup_tag = "plotinspfound"
 
@@ -908,7 +907,9 @@ for injPattern in injPatterns:
 
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
-
+  if opts.vocal:
+    print len( injIndex ), "/", len( injFound ), \
+       "found injections with loss in SNR between sire first and coire first!"
 
   for index in injIndex:
     h_time = injections[index].h_end_time
@@ -1031,7 +1032,9 @@ for injPattern in injPatterns:
 
   if opts.enable_output:
     write_inj_numbers( opts, len( injFound ), len( injIndex ) )
-
+  if opts.vocal:
+    print len( injIndex ), "/", len( injFound ), \
+      "found injections with loss in SNR between coire first and coire second!"
 
   for index in injIndex:
     h_time = injections[index].h_end_time
