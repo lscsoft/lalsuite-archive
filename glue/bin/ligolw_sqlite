@@ -45,7 +45,6 @@ import sys
 
 from glue.lal import CacheEntry
 from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
@@ -201,8 +200,8 @@ dbtables.DBTable_set_connection(connection)
 #
 
 
-for table in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
-	table.sync_next_id()
+for tbl in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
+	tbl.sync_next_id()
 
 
 #
