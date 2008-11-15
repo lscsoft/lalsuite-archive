@@ -28,6 +28,7 @@
 #
 
 
+import bisect
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -119,10 +120,14 @@ def parse_command_line():
 
 class Summary(object):
 	def __init__(self, mass_bins):
-		self.n_events = rate.BinnedArray(mass_bins)
+		self.mass_bins = mass_bins
+		self.snrs = tuple(list() for n in range(len(mass_bins)))
 
-	def add_event(self, mean_mchirp):
-		self.n_events[mean_mchirp,] += 1
+	def add_coinc(self, mean_mchirp, snr):
+		self.snrs[self.mass_bins[mean_mchirp]].append(snr)
+
+	def count(self, mean_mchrip, snr):
+		return len([x for x in self.snrs[self.mass_bins[mean_mchirp]] if x >= snr])
 
 
 def create_summaries(instruments, mass_bins):
@@ -136,11 +141,12 @@ def create_summaries(instruments, mass_bins):
 	instruments = ("H1", "H2", "L1")
 	mass_bins = rate.IrregularBins([0.0, 5.0, float("inf")])
 	summaries = create_summaries(instruments, mass_bins)
-	summaries[(5, True)].add_event(6.5)
+	summaries[(5, True)].add_coinc(6.5, 12.5)
 
 	The last line retrieves the Summary object for H1,L1 coincs in
-	H1,H2,L1 time and adds a coinc with a mean chirp mass of 6.5 to the
-	count of events in the appropriate mass bin for that coinc type.
+	H1,H2,L1 time (because the amplitude cut was applied so H2 must
+	have been on) and adds a coinc with a combined SNR of 12.5 to the
+	mass bin matching a mean chirp mass of 6.5.
 	"""
 	#
 	# make sure instrument list is sorted
@@ -156,13 +162,6 @@ def create_summaries(instruments, mass_bins):
 	summaries = {}
 	for combo in [combo for m in range(2, len(instruments) + 1) for combo in iterutils.choices(instruments, m)]:
 		#
-		# H1,H2 doubles are not included in the search
-		#
-
-		if combo == ("H1", "H2"):
-			continue
-
-		#
 		# look up the inspiral coincidence type for this instrument
 		# combo
 		#
@@ -170,12 +169,18 @@ def create_summaries(instruments, mass_bins):
 		coinc_type = ligolw_thinca.InspiralCoincTypes[combo].search_coinc_type
 
 		#
-		# if LHO provided a trigger for the coinc --> two coinc
-		# types: with and without amplitude cut.  if LHO did not
-		# participate in this coinc --> one coinc type
+		# if both LHO antennas provided a trigger for the coinc -->
+		# one coinc type, with amplitude consistency cut;  if one
+		# LHO antenna provided a trigger for the coinc --> two
+		# coinc types, with and without amplitude consistency cut;
+		# if neither LHO antenna contributed a trigger for the
+		# coinc --> one coinc type, without amplitude consistency
+		# cut.
 		#
 
-		if ("H1" in combo) or ("H2" in combo):
+		if ("H1" in combo) and ("H2" in combo):
+			summaries[(coinc_type, True)] = Summary(mass_bins)
+		elif ("H1" in combo) or ("H2" in combo):
 			summaries[(coinc_type, True)] = Summary(mass_bins)
 			summaries[(coinc_type, False)] = Summary(mass_bins)
 		else:
@@ -202,6 +207,9 @@ def create_coinc_inspiral_view(connection):
 	mean_mchirp: the average of the mchirps of the inspiral triggers in
 	this coinc
 
+	snr: the combined effective SNR for the coinc (currently the
+	minimum of the SNRs of the triggers in the coinc)
+
 	lho_ampl_cut_applied: true if both H1 and H2 were on for this coinc
 
 	A "temporary view" is a query whose result is made to appear to be
@@ -216,6 +224,7 @@ AS
 	SELECT
 		coinc_event.coinc_event_id AS coinc_event_id,
 		AVG(sngl_inspiral.mchirp) AS mean_mchirp,
+		MIN(sngl_inspiral.snr) AS snr,
 		EXISTS (
 			SELECT
 				*
@@ -266,11 +275,11 @@ options, filenames = parse_command_line()
 
 
 seglists = segments.segmentlistdict()
-summaries = create_summaries(options.instruments, rate.NDBins((rate.IrregularBins(options.mass_bins),)))
+background = create_summaries(options.instruments, rate.IrregularBins(options.mass_bins))
 
 
 #
-# iterate over database files
+# iterate over database files accumulating background statistics
 #
 
 
@@ -280,7 +289,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	if options.verbose:
-		print >>sys.stderr, "%d/%d: " % (n + 1, len(filenames))
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
@@ -299,15 +308,15 @@ for n, filename in enumerate(filenames):
 	seglists |= llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).coalesce()
 
 	#
-	# count coincs by type and mass bin
+	# count background coincs by type and mass bin
 	#
 
-	for inspiral_coinc_type, mean_mchirp, lho_ampl_cut_applied, time_slide_id in connection.cursor().execute("""
+	for inspiral_coinc_type, mean_mchirp, snr, lho_ampl_cut_applied in connection.cursor().execute("""
 SELECT
 	coinc_definer.search_coinc_type,
 	coinc_inspiral.mean_mchirp,
-	coinc_inspiral.lho_ampl_cut_applied,
-	coinc_event.time_slide_id
+	coinc_inspiral.snr,
+	coinc_inspiral.lho_ampl_cut_applied
 FROM
 	coinc_event
 	JOIN coinc_definer ON (
@@ -317,15 +326,24 @@ FROM
 	JOIN coinc_inspiral ON (
 		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
 	)
-	JOIN time_slide ON (
-		time_slide.time_slide_id == coinc_event.time_slide_id
+WHERE
+	-- require coinc to be non-zero-lag
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
 	)
 	"""):
 		#
-		# increment the event count in the appropriate mass bin
+		# add the coinc's SNR to the list of SNRs for the
+		# appropriate coinc type
 		#
 
-		summaries[(inspiral_coinc_type, lho_ampl_cut_applied)].add_event(mean_mchirp)
+		background[(inspiral_coinc_type, lho_ampl_cut_applied)].add_coinc(mean_mchirp, snr)
 
 	#
 	# close the database
@@ -336,5 +354,73 @@ FROM
 
 
 #
-# summarize
+# compute live time corresponding to each coinc type
 #
+
+
+# FIXME:  do this.
+
+
+#
+# iterate over database files assigning false-alarm rates to coincs
+#
+
+
+for n, filename in enumerate(filenames):
+	#
+	# open the database
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	dbtables.DBTable_set_connection(connection)
+
+	#
+	# prepare database
+	#
+
+	create_coinc_inspiral_view(connection)
+
+
+	#
+	# count background coincs by type and mass bin
+	#
+
+	for coinc_event_id, inspiral_coinc_type, mean_mchirp, snr, lho_ampl_cut_applied in connection.cursor().execute("""
+SELECT
+	coinc_event.coinc_event_id,
+	coinc_definer.search_coinc_type,
+	coinc_inspiral.mean_mchirp,
+	coinc_inspiral.snr,
+	coinc_inspiral.lho_ampl_cut_applied
+FROM
+	coinc_event
+	JOIN coinc_definer ON (
+		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+		AND coinc_definer.search == 'inspiral'
+	)
+	JOIN coinc_inspiral ON (
+		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	-- require coinc to be zero-lag
+	NOT EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+	"""):
+		print "found zero-lag %g SNR type %d coinc (%s LHO ampl. cut) with M_chirp = %g, %d like it in background" % (snr, inspiral_coinc_type, lho_ampl_cut_applied and "with" or "without", mean_mchirp, background[(inspiral_coinc_type, lho_ampl_cut_applied)].count(mean_mchirp, snr))
+
+	#
+	# close the database
+	#
+
+	connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
