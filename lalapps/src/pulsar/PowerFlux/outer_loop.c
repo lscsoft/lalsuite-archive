@@ -345,7 +345,8 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 	fprintf(LOG, "max_circ_ul_band: %d %lg %lf %lg %s\n", skyband, 
 		ei->band_info[skyband].highest_circ_ul.ul,
 		ei->band_info[skyband].highest_circ_ul.frequency,
-		ei->band_info[skyband].highest_circ_ul.spindown);
+		ei->band_info[skyband].highest_circ_ul.spindown,
+		ei->name);
 
 	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf %s\n", skyband,
 		fine_grid->band_name[skyband],
@@ -410,10 +411,13 @@ ps_tmp=do_alloc(nchunks, sizeof(*ps));
 
 ei=do_alloc(args_info.nchunks_arg*(args_info.nchunks_arg-1)*(veto_free+1), sizeof(*ei));
 
+fprintf(LOG, "nchunks: %d\n", args_info.nchunks_arg);
+fprintf(LOG, "veto_free: %d\n", veto_free);
+
 nei=0;
 
 for(i=0;i<args_info.nchunks_arg;i++)
-	for(k=1;k<args_info.nchunks_arg-i;k++)
+	for(k=1;k<=args_info.nchunks_arg-i;k++)
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
 				if(veto_free<=1)continue; /* if there is only one detector no reason to compute "all" twice */
@@ -427,6 +431,8 @@ for(i=0;i<args_info.nchunks_arg;i++)
 			ei[nei]->veto_num=m;
 			nei++;
 			}
+
+fprintf(LOG, "nei: %d\n", nei);
 
 time(&start_time);
 
