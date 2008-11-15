@@ -364,6 +364,10 @@ powerflux-mt2: $(OBJS2) jobs-mt.o util.o
 	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
 	ls -l powerflux-mt2
 
+powerflux-condor2: $(OBJS2) jobs.o util-condor.o
+	condor_compile $(CC) $(OBJS2) jobs.o util-condor.o -o powerflux-condor2 -static $(LDFLAGS) -lgsl -lgslcblas -lm
+	ls -l powerflux-condor2
+
 
 jobs-mt.o: jobs.c jobs.h
 	$(CC) $(CFLAGS) -DLINUX_THREADS -c jobs.c -o jobs-mt.o
@@ -388,9 +392,10 @@ upload: powerflux-condor powerflux-mt
 	globus-scp -C powerflux-mt hydra.phys.uwm.edu:PowerFlux/powerflux-mt.$(VERSION)
 	globus-scp -C $(FILES) hydra.phys.uwm.edu:PowerFlux/
 	
-upload.a: powerflux-condor powerflux-mt
+upload.a: powerflux-condor powerflux-mt powerflux-condor2
 	globus-scp -C powerflux-condor h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor.$(VERSION)
 	globus-scp -C powerflux-mt h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-mt.$(VERSION)
+	globus-scp -C powerflux-condor2 h2.atlas.aei.uni-hannover.de:PowerFlux/powerflux-condor2.$(VERSION)
 	globus-scp -C $(FILES) h2.atlas.aei.uni-hannover.de:PowerFlux/
 	
 upload.g: powerflux-condor powerflux-mt

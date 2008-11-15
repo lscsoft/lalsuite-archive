@@ -181,7 +181,7 @@ if(write_data_log_header) {
 	}
 
 /* now that we know extreme points go and characterize them */
-#define WRITE_POINT(psum, pstat, kind)	\
+#define WRITE_POINT(psum, pstat, kind)	{\
 	fprintf(DATA_LOG, "%s %d %s %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
 		kind, \
 		data_log_index, \
@@ -210,11 +210,13 @@ if(write_data_log_header) {
 		pstat.weight_loss_fraction, \
 		pstats_accum.highest_ks.ks_value, \
 		pstats_accum.max_weight_loss_fraction \
-		); data_log_index++;
+		); data_log_index++; }
 
-WRITE_POINT(ps[0][highest_ul_idx], pstats_accum.highest_ul, "ul");
-WRITE_POINT(ps[0][highest_circ_ul_idx], pstats_accum.highest_circ_ul, "circ");
-WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
+if(args_info.output_cache_arg) {
+	WRITE_POINT(ps[0][highest_ul_idx], pstats_accum.highest_ul, "ul");
+	WRITE_POINT(ps[0][highest_circ_ul_idx], pstats_accum.highest_circ_ul, "circ");
+	}
+if(pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg)WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
 
 #define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
@@ -458,8 +460,6 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 			}
 		log_extremes(ei[i], pi, ps_tmp, ps_tmp_len, count);
 		}
-
-	fflush(DATA_LOG);
 
 	for(i=0;i<nchunks;i++) {
 		free_templates(ps[i], count);
