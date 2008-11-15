@@ -335,18 +335,19 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 	WRITE_SKYBAND_POINT(ei->band_info[skyband].highest_circ_ul, "circ");
 	WRITE_SKYBAND_POINT(ei->band_info[skyband].highest_snr, "snr");
 
-	/* old-style output for compatibility */
-	fprintf(LOG, "max_high_ul_band: %d %lg %lf %lg\n", skyband, 
+	/* old-style output for compatibility, but we have to attach ei->name to distinguish different sets */
+	fprintf(LOG, "max_high_ul_band: %d %lg %lf %lg %s\n", skyband, 
 		ei->band_info[skyband].highest_ul.ul,
 		ei->band_info[skyband].highest_ul.frequency,
-		ei->band_info[skyband].highest_ul.spindown);
+		ei->band_info[skyband].highest_ul.spindown,
+		ei->name);
 
-	fprintf(LOG, "max_circ_ul_band: %d %lg %lf %lg\n", skyband, 
+	fprintf(LOG, "max_circ_ul_band: %d %lg %lf %lg %s\n", skyband, 
 		ei->band_info[skyband].highest_circ_ul.ul,
 		ei->band_info[skyband].highest_circ_ul.frequency,
 		ei->band_info[skyband].highest_circ_ul.spindown);
 
-	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf\n", skyband,
+	fprintf(LOG, "max_dx_band: %d %s %lf %lf %lg %lf %lf %lf %lf %s\n", skyband,
 		fine_grid->band_name[skyband],
 		ei->band_info[skyband].highest_snr.snr,
 		ei->band_info[skyband].highest_snr.frequency,
@@ -354,7 +355,8 @@ for(skyband=0;skyband<fine_grid->nbands;skyband++) {
 		ei->band_info[skyband].highest_snr.ra,
 		ei->band_info[skyband].highest_snr.dec,
 		ei->band_info[skyband].highest_snr.iota,
-		ei->band_info[skyband].highest_snr.psi
+		ei->band_info[skyband].highest_snr.psi,
+		ei->name
 		);
 
 	}
