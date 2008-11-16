@@ -96,7 +96,7 @@ def initialize_process(xmldoc, comment = u""):
 #
 
 
-def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
+def event_id_int_to_ilwd(xmldoc, table_name, id_column_name, id_class):
 	#
 	# find the table
 	#
@@ -112,7 +112,7 @@ def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
 	#
 
 	for row in tbl:
-		row.event_id = id_class(row.event_id)
+		setattr(row, id_column_name, id_class(getattr(row, id_column_name)))
 
 	#
 	# update the table's list of valid column types, and the Type
@@ -123,13 +123,9 @@ def event_id_int_to_ilwd(xmldoc, table_name, id_class, verbose = False):
 	# "int_8s" in the loop over files before loading the next file.
 	#
 
-	tbl.validcolumns["event_id"] = "ilwd:char"
-	tbl.getColumnByName("event_id").setAttribute("Type", "ilwd:char")
+	tbl.validcolumns[id_column_name] = "ilwd:char"
+	tbl.getColumnByName(id_column_name).setAttribute("Type", "ilwd:char")
 	tbl._update_column_info()
-
-	#
-	# done
-	#
 
 
 #
@@ -149,6 +145,7 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 
 	lsctables.SnglInspiralTable.validcolumns["event_id"] = "int_8s"
+	lsctables.MultiInspiralTable.validcolumns["event_id"] = "int_8s"
 
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
 
@@ -156,8 +153,8 @@ for n, filename in enumerate(filenames):
 
 	if options.verbose:
 		print >>sys.stderr, "translating event_ids ..."
-	event_id_int_to_ilwd(xmldoc, lsctables.SnglInspiralTable.tableName, lsctables.SnglInspiralID, verbose = options.verbose)
-	event_id_int_to_ilwd(xmldoc, lsctables.MultiInspiralTable.tableName, lsctables.MultiInspiralID, verbose = options.verbose)
+	event_id_int_to_ilwd(xmldoc, lsctables.SnglInspiralTable.tableName, "event_id", lsctables.SnglInspiralID)
+	event_id_int_to_ilwd(xmldoc, lsctables.MultiInspiralTable.tableName, "event_id", lsctables.MultiInspiralID)
 
 	llwapp.set_process_end_time(process)
 
