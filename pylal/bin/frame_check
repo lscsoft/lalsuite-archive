@@ -3,6 +3,7 @@ __author__ = "Sarah Caudill"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
+import subprocess
 import os
 import sys
 from pylal.webUtils import *
@@ -80,9 +81,21 @@ if not opts.page_rel_path:
 # THIS IS AN EXAMPLE FIX THIS!! (to be more general)
 if opts.dataFind_executable and opts.gps_time:
   command = opts.dataFind_executable + ' --observatory=H --type=RDS_R_L1 --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-  cacheFile = os.popen(command)
+  commandExec = subprocess.Popen(command,shell=True, stdout=subprocess.PIPE)
+  commandRetCode = commandExec.wait()
+  cacheFile = commandExec.stdout
+  if commandRetCode != 0:
+    print >> sys.stderr, "command " + command + " failed"
+    sys.exit(1)
+
   command = opts.dataFind_executable + ' --observatory=L --type=RDS_R_L1 --gps-start-time ' + opts.gps_time + ' --gps-end-time ' + opts.gps_time + ' --lal-cache --url-type=file'
-  cacheFile2 = os.popen(command)
+  commandExec = subprocess.Popen(command,shell=True, stdout=subprocess.PIPE)
+  commandRetCode = commandExec.wait()
+  cacheFile2 = commandExec.stdout
+  if commandRetCode != 0:
+    print >> sys.stderr, "command " + command + " failed"
+    sys.exit(1)
+
 else:
   cacheFile = open(opts.frame_cache,'r')
   cacheFile2 = None
@@ -96,11 +109,17 @@ web = WebPage('my title',opts.output_web_file)
 
 for entry in myCache:
   cmd = opts.frame_check_executable + ' -i  '  + entry.path()
-  frCheckOutput = os.popen(cmd)
-  for line in  frCheckOutput.readlines():
-    #do not write the text in the main followup page for now
-    #talk.text(line)
-    web.text(line)
+  frCheckExec = subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE)
+  frCheckRetCode = frCheckExec.wait()
+  frCheckOutput = frCheckExec.stdout
+  if frCheckRetCode != 0:
+    print >> sys.stderr, "command " + cmd + " failed"
+    sys.exit(1)
+  else:
+    for line in  frCheckOutput.readlines():
+      #do not write the text in the main followup page for now
+      #talk.text(line)
+      web.text(line)
 
     
 web.cleanWrite('IUL')
