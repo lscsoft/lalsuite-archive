@@ -887,10 +887,51 @@ class SnglInspiral(object):
 		)
 		
 	def __hash__(self):
+		# FIXME:  the things in this tuple must be the same things
+		# used above for comparison (if two objects have different
+		# hashes they must compare as not equal or stuff breaks),
+		# so make sure to keep this updated if the choice of how to
+		# compare to triggers changes above.
 		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2))
 
 
 SnglInspiralTable.RowType = SnglInspiral
+
+
+#
+# =============================================================================
+#
+#                             coinc_inspiral:table
+#
+# =============================================================================
+#
+
+
+class CoincInspiralTable(table.Table):
+	tableName = "coinc_inspiral:table"
+	validcolumns = {
+		"coinc_event_id": "ilwd:char",
+		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
+		"mchirp": "real_8",
+		"snr": "real_8",
+		"false_alarm_rate": "real_8"
+	}
+	constraints = "PRIMARY KEY (coinc_event_id)"
+	interncolumns = ("coicn_event_id",)
+
+
+class CoincInspiral(object):
+	__slots__ = CoincInspiralTable.validcolumns.keys()
+
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+
+CoincInspiralTable.RowType = CoincInspiral
 
 
 #
@@ -2076,6 +2117,7 @@ TableByName = {
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
+	table.StripTableName(CoincInspiralTable.tableName): CoincInspiralTable,
 	table.StripTableName(SnglRingDownTable.tableName): SnglRingDownTable,
 	table.StripTableName(MultiInspiralTable.tableName): MultiInspiralTable,
 	table.StripTableName(SimInspiralTable.tableName): SimInspiralTable,
