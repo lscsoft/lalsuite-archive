@@ -623,7 +623,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     # will fail. By setting the post_script to true the qscan job will
     # still be reported as successful, so that an analyseQscan job can be run
     # immediately after. 
-    self.set_post_script("/bin/true")
+    # self.set_post_script("/bin/true")
 
     # only add a parent if it exists
     try:
