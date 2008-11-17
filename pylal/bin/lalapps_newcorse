@@ -257,8 +257,7 @@ SELECT
 FROM
 	coinc_event
 	JOIN coinc_definer ON (
-		coinc_definer.search == 'inspiral'
-		AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
 	)
 	JOIN coinc_inspiral ON (
 		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
@@ -291,7 +290,7 @@ WHERE
 
 
 #
-# compute live time corresponding to each coinc type
+# compute live time for each coinc type
 #
 
 
@@ -356,8 +355,7 @@ SET
 		FROM
 			coinc_event
 			JOIN coinc_definer ON (
-				coinc_definer.search == 'inspiral'
-				AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+				coinc_definer.coinc_def_id == coinc_event.coinc_def_id
 			)
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
