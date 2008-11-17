@@ -396,8 +396,8 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		return
 
 	#
-	# find the coinc_definer_id for sngl_inspiral <--> sngl_inspiral
-	# coincidences, or create one if needed
+	# find the coinc_definer_ids for sngl_inspiral <--> sngl_inspiral
+	# coincidences, or create them if needed
 	#
 
 	coinc_type = ligolw_thinca.InspiralCoincTypes
@@ -451,7 +451,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	#
 
 	for event_id, events in itertools.groupby(sngl_inspiral_table, lambda row: row.event_id):
-		events = tuple(events)
+		events = list(events)
 		if len(events) < 2:
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
@@ -460,12 +460,17 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 			continue
 
 		#
-		# instruments participating in event
+		# alphabetize events by instrument
 		#
 
-		coinc_instruments = [event.ifo for event in events]
-		coinc_instruments.sort()
-		coinc_instruments = tuple(coinc_instruments)
+		events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+		events = tuple(events)
+
+		#
+		# instruments (in order) participating in event
+		#
+
+		coinc_instruments = tuple(event.ifo for event in events)
 
 		#
 		# build a coinc_event
@@ -476,7 +481,8 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc.coinc_def_id = coinc_def_ids[coinc_instruments]
 		coinc.coinc_event_id = coinc_event.get_next_id()
 		# "slide number" is at index 1 in the tuple returned by
-		# get_id_parts()
+		# get_id_parts().  all events in the coinc have the same ID
+		# at this stage so it doesn't matter which we use
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
 		coinc.nevents = len(events)
 		coinc.likelihood = None
@@ -498,7 +504,8 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		#
 		# populate coinc_inspiral table with coinc summary:
 		#
-		# - end_time is average of end_times
+		# - end_time is the end time of the first trigger in
+		#   alphabetical order by instrument (!?)
 		# - mchirp is average of mchirps
 		# - snr is root-mean-square of SNRs
 		# - false-alarm rate is blank
@@ -506,7 +513,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 
 		coinc_inspiral = lsctables.CoincInspiral()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
-		coinc_inspiral.set_end(events[0].get_end() + sum(float(event.get_end() - events[0].get_end()) for event in events) / len(events))
+		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events) / len(events))
 		coinc_inspiral.false_alarm_rate = None
@@ -598,6 +605,7 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 	sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+	coinc_inspiral_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 	time_slide_table.sync_next_id()
 
@@ -621,21 +629,35 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 
 	[(ignored, rings)] = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").items()
 	rings.sort()
+	coalesced_rings = segments.segmentlist(rings).coalesce()
 
 	#
-	# create the coinc_event_id --> sngl_inspiral index.
+	# performance assist:  remove veto segments that don't fall in any
+	# of the rings
+	#
+
+	for seglist in veto_segments.values():
+		seglist &= coalesced_rings
+
+	#
+	# create the coinc_event_id --> sngl_inspiral index, and
+	# coinc_event_id --> coinc_inspiral index
 	#
 
 	if verbose:
 		print >>sys.stderr, "\tindexing coinc tables ..."
-	index = {}
-	for row in sngl_inspiral_table:
-		index[row.event_id] = row
-	for row in coinc_map_table:
-		if row.table_name == "sngl_inspiral":
-			if row.coinc_event_id not in index:
-				index[row.coinc_event_id] = []
-			index[row.coinc_event_id].append(index[row.event_id])
+	index = dict((row.event_id, row) for row in sngl_inspiral_table)
+
+	coinc_map_table.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
+	index.update(dict(
+		(coinc_event_id, [index[row.event_id] for row in rows])
+		for coinc_event_id, rows in itertools.groupby(
+			(row for row in coinc_map_table if row.table_name == "sngl_inspiral"),
+			lambda row: row.coinc_event_id
+		)
+	))
+
+	coinc_inspirals = dict((row.coinc_event_id, row) for row in coinc_inspiral_table)
 
 	#
 	# iterate over coincs
@@ -651,47 +673,90 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 		if verbose and not (n % N):
 			print >>sys.stderr, "\t\t%.1f%%\r" % (100.0 * n / len(coinc_table)),
 
-		# find the triggers and the time slide vector
-		triggers = index[coinc_event.coinc_event_id]
+		if coinc_event.coinc_event_id not in index:
+			#
+			# not a coinc we care about
+			#
+
+			continue
+
+		#
+		# retrieve the time slide vector
+		#
+
 		offset_vector = time_slides[coinc_event.time_slide_id]
 
-		# check the instruments
+		#
+		# compare the instruments participating in the coinc to the
+		# instruments named in the time slide vector
+		#
+
 		expected_instruments = set(offset_vector.keys())
-		found_instruments = set([trigger.ifo for trigger in triggers])
+		found_instruments = set(event.ifo for event in index[coinc_event.coinc_event_id])
+
 		if found_instruments == expected_instruments:
-			# this coinc is OK, move on to the next
+			#
+			# all instruments contributed to this coinc:
+			# nothing more to check
+			#
+
 			continue
+
 		if found_instruments - expected_instruments:
 			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
 
-		# the coinc's time is the time of the first trigger in
-		# alphabetical order by instrument
-		triggers.sort(lambda a, b: cmp(a.ifo, b.ifo))
-		coinc_time = triggers[0].get_end()
+		#
+		# if we get here, the time shift vector names instruments
+		# that did not particicpate in the coinc.  check to see
+		# which instruments were on at the time
+		#
 
+		#
+		# the time of the coinc
+		#
+
+		coinc_time = coinc_inspirals[coinc_event.coinc_event_id].get_end()
+
+		#
 		# which ring is it in?
+		#
+
 		ring = rings[rings.find(coinc_time)]
 
-		# slide the coinc's time on that ring using the offset for
-		# the instrument from which the coinc_time was taken to
-		# choose the the offset from the offset vector
-		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector[triggers[0].ifo], ring)
+		#
+		# slide the coinc's time on that ring.  the amount of the
+		# slide is the offset recorded in the time_slide table for
+		# the instrument from which the coinc's time was taken (the
+		# coinc_time is taken from the first trigger in
+		# alphabetical order by instrument)
+		#
 
+		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector[min(found_instruments)], ring)
+
+		#
 		# slide the veto segments on that ring, cache the results
-		# to avoid recalculation.
+		# to avoid recalculation
+		#
+
 		try:
 			vetoes = cached_vetoes[(ring, coinc_event.time_slide_id)]
 		except KeyError:
 			vetoes = cached_vetoes[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
 
+		#
 		# construct a new time slide vector with just the
 		# instruments that were on
-		offset_vector = dict([(instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetoes[instrument]])
+		#
+
+		offset_vector = dict((instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetoes[instrument])
 		if found_instruments - set(offset_vector.keys()):
 			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time)))
 
-		# point coinc at it, and add it to the time_slide table
-		# if needed
+		#
+		# point the coinc_event at it, and add the vector to the
+		# time_slide table if needed
+		#
+
 		try:
 			coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector)
 		except KeyError:
