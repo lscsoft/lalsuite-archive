@@ -645,7 +645,7 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 #
 
 
-def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
+def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	if verbose:
 		print >>sys.stderr, "applying vetoes ..."
 
@@ -668,7 +668,6 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 	if verbose:
 		print >>sys.stderr, "\tindexing time_slide table and retrieving segment lists ..."
 	time_slides = time_slide_table.as_dict()
-	veto_segments = llwapp.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 
 	#
 	# retrieve the ring boundaries
@@ -681,6 +680,7 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 	# of the rings
 	#
 
+	veto_segments = veto_segments.copy()
 	coalesced_rings = segments.segmentlist(rings).coalesce()
 	for seglist in veto_segments.values():
 		seglist &= coalesced_rings
@@ -822,7 +822,7 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 
 options = parse_command_line()
 
-xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file, options.veto_segments) if filename], verbose = options.verbose)
+xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file) if filename], verbose = options.verbose)
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
 process = initialize_process(xmldoc)
@@ -837,7 +837,7 @@ populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
 depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 if options.veto_segments:
-	apply_vetoes(xmldoc, options.veto_segments_name, process, verbose = options.verbose)
+	apply_vetoes(xmldoc, llwapp.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce(), process, verbose = options.verbose)
 elif options.verbose:
 	print >>sys.stderr, "no vetoes applied"
 
