@@ -375,6 +375,21 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 
 
 #
+# retrieve the ring boundaries.  everywhere this function is called, the
+# program has already confirmed that the search_summary table has 1 unique
+# thinca entry so the unpacking done in the assignment here assumes that to
+# be the case (and will cause the program to exit with an error if that
+# assumption doesn't hold).
+#
+
+
+def retrieve_ring_boundaries(xmldoc):
+	[(ignored, rings)] = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").items()
+	rings.sort()
+	return rings
+
+
+#
 # For sngl_inspiral <--> sngl_inspiral coincidences
 #
 
@@ -382,6 +397,12 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	if verbose:
 		print >>sys.stderr, "constructing coincs ...",
+
+	#
+	# retrieve the ring boundaries
+	#
+
+	rings = retrieve_ring_boundaries(xmldoc)
 
 	#
 	# find the sngl_inspiral table
@@ -411,25 +432,25 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	#
 
 	try:
-		coinc_event = table.get_table(xmldoc, lsctables.CoincTable.tableName)
+		coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 	except ValueError:
-		coinc_event = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincTable))
+		coinc_event_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincTable))
 
 	#
 	# synchronize the coinc_event table's ID generator with any
 	# pre-existing rows
 	#
 
-	coinc_event.sync_next_id()
+	coinc_event_table.sync_next_id()
 
 	#
 	# find the coinc_event_map table or create one if needed
 	#
 
 	try:
-		coinc_event_map = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
+		coinc_event_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 	except ValueError:
-		coinc_event_map = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincMapTable))
+		coinc_event_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincMapTable))
 
 	#
 	# find the coinc_inspiral table or create one if needed
@@ -441,10 +462,12 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc_inspiral_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincInspiralTable))
 
 	#
-	# find the time_slide table
+	# find the time_slide table, and convert it to a dictionary of
+	# offset vectors
 	#
 
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+	time_slides = time_slide_table.as_dict()
 
 	#
 	# iterate over reconstructed coincs
@@ -467,45 +490,51 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		events = tuple(events)
 
 		#
-		# instruments (in order) participating in event
-		#
-
-		coinc_instruments = tuple(event.ifo for event in events)
-
-		#
 		# build a coinc_event
 		#
 
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
-		coinc.coinc_def_id = coinc_def_ids[coinc_instruments]
-		coinc.coinc_event_id = coinc_event.get_next_id()
-		# "slide number" is at index 1 in the tuple returned by
-		# get_id_parts().  all events in the coinc have the same ID
-		# at this stage so it doesn't matter which we use
-		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
+		coinc.coinc_event_id = coinc_event_table.get_next_id()
 		coinc.nevents = len(events)
 		coinc.likelihood = None
-		coinc_event.append(coinc)
+		coinc_event_table.append(coinc)
+
+		#
+		# construct the time_slide_id from the "slide number" at
+		# index 1 in the tuple returned by get_id_parts().  all
+		# events in the coinc have the same ID at this stage so it
+		# doesn't matter which event's ID we use
+		#
+
+		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
+
+		#
+		# from the alphabetized list of instruments participating
+		# in the coinc, retrieve the coinc_def_id for this coinc
+		#
+
+		coinc.coinc_def_id = coinc_def_ids[tuple(event.ifo for event in events)]
 
 		#
 		# link events to coinc with coinc_event_map rows
 		#
 
 		for event in events:
-			# assign a new, unique, event_id
+			# assign the inspiral a new, unique, event_id
 			event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id
 			coincmap.table_name = coincmap.event_id.table_name
-			coinc_event_map.append(coincmap)
+			coinc_event_map_table.append(coincmap)
 
 		#
 		# populate coinc_inspiral table with coinc summary:
 		#
 		# - end_time is the end time of the first trigger in
-		#   alphabetical order by instrument (!?)
+		#   alphabetical order by instrument (!?) time-shifted
+		#   according to the coinc's offset vector
 		# - mchirp is average of mchirps
 		# - snr is root-mean-square of SNRs
 		# - false-alarm rate is blank
@@ -513,10 +542,32 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 
 		coinc_inspiral = lsctables.CoincInspiral()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
-		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events) / len(events))
 		coinc_inspiral.false_alarm_rate = None
+
+		#
+		# the time of the coinc
+		#
+
+		coinc_time = events[0].get_end()
+
+		#
+		# which ring is it in?
+		#
+
+		ring = rings[rings.find(coinc_time)]
+
+		#
+		# slide the coinc's time on that ring.  the amount of the
+		# slide is the offset recorded in the time_slide table for
+		# the instrument from which the coinc's time was taken (the
+		# coinc_time is taken from the first trigger in
+		# alphabetical order by instrument)
+		#
+
+		coinc_inspiral.set_end(SnglInspiralUtils.slideTimeOnRing(coinc_time, time_slides[coinc.time_slide_id][events[0].ifo], ring))
+
 		coinc_inspiral_table.append(coinc_inspiral)
 
 	#
@@ -524,7 +575,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "constructed %d coincs" % len(coinc_event)
+		print >>sys.stderr, "constructed %d coincs" % len(coinc_event_table)
 
 
 #
@@ -620,22 +671,17 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 	veto_segments = llwapp.segmenttable_get_by_name(xmldoc, veto_segments_name).coalesce()
 
 	#
-	# retrieve the ring boundaries.  the program has already confirmed
-	# that the search_summary table has 1 unique thinca entry so the
-	# unpacking done in the assignment here assumes that to be the case
-	# (and will cause the program to exit with an error if that
-	# assumption doesn't hold).
+	# retrieve the ring boundaries
 	#
 
-	[(ignored, rings)] = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").items()
-	rings.sort()
-	coalesced_rings = segments.segmentlist(rings).coalesce()
+	rings = retrieve_ring_boundaries(xmldoc)
 
 	#
 	# performance assist:  remove veto segments that don't fall in any
 	# of the rings
 	#
 
+	coalesced_rings = segments.segmentlist(rings).coalesce()
 	for seglist in veto_segments.values():
 		seglist &= coalesced_rings
 
@@ -712,26 +758,20 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 		#
 
 		#
-		# the time of the coinc
+		# the slid time of the coinc
 		#
 
 		coinc_time = coinc_inspirals[coinc_event.coinc_event_id].get_end()
 
 		#
-		# which ring is it in?
+		# which ring is it in?  note:  although the time recorded
+		# for the coinc is its time after offsets are applied to
+		# triggers, that time is always in the same ring as the
+		# original time of the trigger from which the coinc's time
+		# has been taken
 		#
 
 		ring = rings[rings.find(coinc_time)]
-
-		#
-		# slide the coinc's time on that ring.  the amount of the
-		# slide is the offset recorded in the time_slide table for
-		# the instrument from which the coinc's time was taken (the
-		# coinc_time is taken from the first trigger in
-		# alphabetical order by instrument)
-		#
-
-		coinc_time = SnglInspiralUtils.slideTimeOnRing(coinc_time, offset_vector[min(found_instruments)], ring)
 
 		#
 		# slide the veto segments on that ring, cache the results
@@ -745,7 +785,7 @@ def apply_vetoes(xmldoc, veto_segments_name, process, verbose = False):
 
 		#
 		# construct a new time slide vector with just the
-		# instruments that were on
+		# instruments that were on at the time of the coinc
 		#
 
 		offset_vector = dict((instrument, offset) for (instrument, offset) in offset_vector.items() if coinc_time not in vetoes[instrument])
