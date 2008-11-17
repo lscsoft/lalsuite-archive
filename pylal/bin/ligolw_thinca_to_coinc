@@ -536,14 +536,14 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
 		# - mchirp is average of mchirps
-		# - snr is root-mean-square of SNRs
+		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
 
 		coinc_inspiral = lsctables.CoincInspiral()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events) / len(events))
+		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 
 		#
