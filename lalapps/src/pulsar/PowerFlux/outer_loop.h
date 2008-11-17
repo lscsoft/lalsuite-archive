@@ -22,7 +22,7 @@ typedef struct {
 
 	/* convenience info for keeping track of which ei is which */
 	int first_chunk;
-	int nchunks;
+	int last_chunk;
 	int veto_num;
 	} EXTREME_INFO;
 

@@ -60,7 +60,7 @@ for(k=0;k<d_free;k++) {
 		veto_info[m].veto_mask=(1<<(4+m));
 		}
 	for(i=0;i<datasets[k].free;i++) {
-		datasets[k].sft_veto[i]=(datasets[k].sft_veto[i] & ~ ((1<<4)-1)) | veto_info[m].veto_mask;
+		datasets[k].sft_veto[i]=(datasets[k].sft_veto[i] & ~ (((1<<4)-1)<<4)) | veto_info[m].veto_mask;
 		}
 	}
 }
@@ -300,7 +300,7 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "kind set first_bin skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
+fprintf(LOG, "tag: kind skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
@@ -417,17 +417,17 @@ fprintf(LOG, "veto_free: %d\n", veto_free);
 nei=0;
 
 for(i=0;i<args_info.nchunks_arg;i++)
-	for(k=1;k<=args_info.nchunks_arg-i;k++)
+	for(k=0;k< args_info.nchunks_arg-i;k++)
 		for(m=-1;m<veto_free;m++) {
 			if(m<0) {
 				if(veto_free<=1)continue; /* if there is only one detector no reason to compute "all" twice */
-				snprintf(s, 19999, "%d_%d_all", i, i+k-1);
+				snprintf(s, 19999, "%d_%d_all", i, i+k);
 				} else {
-				snprintf(s, 19999, "%d_%d_%s", i, i+k-1, veto_info[m].name);
+				snprintf(s, 19999, "%d_%d_%s", i, i+k, veto_info[m].name);
 				}
 			ei[nei]=allocate_extreme_info(s);
 			ei[nei]->first_chunk=i;
-			ei[nei]->nchunks=k;
+			ei[nei]->last_chunk=i+k;
 			ei[nei]->veto_num=m;
 			nei++;
 			}
@@ -455,7 +455,7 @@ for(pi=0;pi<patch_grid->npoints;pi++) {
 	/* find largest strain and largest SNR candidates for this patch */
 	for(i=0;i<nei;i++) {
 		ps_tmp_len=0;
-		for(k=0;k<ei[i]->nchunks;k++) {
+		for(k=ei[i]->first_chunk;k<=ei[i]->last_chunk;k++) {
 			if(ei[i]->veto_num<0) {
 				for(m=0;m<veto_free;m++) {
 					ps_tmp[ps_tmp_len]=ps[k*veto_free+m];
