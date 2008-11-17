@@ -5,6 +5,8 @@ int i;
 
 r=do_alloc(1, sizeof(*r));
 
+r->type=sizeof(REAL);
+
 r->weight_pppp=do_alloc(useful_bins, sizeof(*(r->weight_pppp)));
 r->weight_pppc=do_alloc(useful_bins, sizeof(*(r->weight_pppc)));
 r->weight_ppcc=do_alloc(useful_bins, sizeof(*(r->weight_ppcc)));
@@ -41,6 +43,13 @@ return r;
 void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
 {
 int i;
+if(pps->type!=sizeof(REAL)) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s power sum real type mismatch type=%d sizeof(REAL)=%ld\n",
+		__FUNCTION__,
+		pps->type, sizeof(REAL));
+	exit(-1);
+	}
+
 for(i=0;i<useful_bins;i++) {
 	pps->weight_pppp[i]=0;
 	pps->weight_pppc[i]=0;
@@ -66,6 +75,19 @@ pps->collapsed_weight_arrays=0;
 void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial)
 {
 int i;
+if(accum->type!=sizeof(REAL)) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s power sum real type mismatch type=%d sizeof(REAL)=%ld\n",
+		__FUNCTION__,
+		accum->type, sizeof(REAL));
+	exit(-1);
+	}
+if(partial->type!=sizeof(REAL)) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s power sum real type mismatch type=%d sizeof(REAL)=%ld\n",
+		__FUNCTION__,
+		partial->type, sizeof(REAL));
+	exit(-1);
+	}
+
 for(i=0;i<useful_bins;i++) {
 	accum->power_pp[i]+=partial->power_pp[i];
 	accum->power_pc[i]+=partial->power_pc[i];
@@ -92,6 +114,13 @@ accum->c_weight_cccc+=partial->c_weight_cccc;
 
 void SUFFIX(free_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
 {
+if(pps->type!=sizeof(REAL)) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s power sum real type mismatch type=%d sizeof(REAL)=%ld\n",
+		__FUNCTION__,
+		pps->type, sizeof(REAL));
+	exit(-1);
+	}
+
 free(pps->weight_pppp);
 free(pps->weight_pppc);
 free(pps->weight_ppcc);

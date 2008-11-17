@@ -1,5 +1,7 @@
 
 typedef struct {
+	int type;
+
 	REAL c_weight_pppp;
 	REAL c_weight_pppc;
 	REAL c_weight_ppcc;
