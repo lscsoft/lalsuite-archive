@@ -94,6 +94,7 @@ def parse_command_line():
 	if len(options.mass_bins) < 2:
 		raise ValueError, "must supply at least two mass bin boundaries"
 	options.mass_bins.sort()
+	options.mass_bins = rate.IrregularBins(options.mass_bins)
 
 	#
 	# other
@@ -118,138 +119,63 @@ def parse_command_line():
 #
 
 
-class Summary(object):
-	def __init__(self, mass_bins):
+class Summaries(object):
+	def __init__(self, instruments, mass_bins):
 		self.mass_bins = mass_bins
-		self.snrs = tuple(list() for n in range(len(mass_bins)))
-
-	def add_coinc(self, mean_mchirp, snr):
-		self.snrs[self.mass_bins[mean_mchirp]].append(snr)
-
-	def count(self, mean_mchrip, snr):
-		return len([x for x in self.snrs[self.mass_bins[mean_mchirp]] if x >= snr])
-
-
-def create_summaries(instruments, mass_bins):
-	"""
-	Returns a dictionary of Summary objects indexed by inspiral coinc
-	type (see pylal.ligolw_thinca.InspiralCoincTypes) and a boolean
-	indicating if the LHO amplitude consistency cut was applied.
-
-	Example:
-
-	instruments = ("H1", "H2", "L1")
-	mass_bins = rate.IrregularBins([0.0, 5.0, float("inf")])
-	summaries = create_summaries(instruments, mass_bins)
-	summaries[(5, True)].add_coinc(6.5, 12.5)
-
-	The last line retrieves the Summary object for H1,L1 coincs in
-	H1,H2,L1 time (because the amplitude cut was applied so H2 must
-	have been on) and adds a coinc with a combined SNR of 12.5 to the
-	mass bin matching a mean chirp mass of 6.5.
-	"""
-	#
-	# make sure instrument list is sorted
-	#
-
-	instruments = list(instruments)
-	instruments.sort()
-
-	#
-	# iterate over instrument combinations
-	#
-
-	summaries = {}
-	for combo in [combo for m in range(2, len(instruments) + 1) for combo in iterutils.choices(instruments, m)]:
-		#
-		# look up the inspiral coincidence type for this instrument
-		# combo
-		#
-
-		coinc_type = ligolw_thinca.InspiralCoincTypes[combo].search_coinc_type
 
 		#
-		# if both LHO antennas provided a trigger for the coinc -->
-		# one coinc type, with amplitude consistency cut;  if one
-		# LHO antenna provided a trigger for the coinc --> two
-		# coinc types, with and without amplitude consistency cut;
-		# if neither LHO antenna contributed a trigger for the
-		# coinc --> one coinc type, without amplitude consistency
-		# cut.
+		# make sure instrument list is sorted
 		#
 
-		if ("H1" in combo) and ("H2" in combo):
-			summaries[(coinc_type, True)] = Summary(mass_bins)
-		elif ("H1" in combo) or ("H2" in combo):
-			summaries[(coinc_type, True)] = Summary(mass_bins)
-			summaries[(coinc_type, False)] = Summary(mass_bins)
-		else:
-			summaries[(coinc_type, False)] = Summary(mass_bins)
+		instruments = list(instruments)
+		instruments.sort()
 
-	return summaries
+		#
+		# iterate over instrument combinations creating bins for
+		# the different categories of coinc
+		#
 
+		self.snrs = {}
+		for combo in [combo for m in range(2, len(instruments) + 1) for combo in iterutils.choices(instruments, m)]:
+			#
+			# look up the inspiral coincidence type for this
+			# instrument combo
+			#
 
-#
-# =============================================================================
-#
-#                                   Queries
-#
-# =============================================================================
-#
+			coinc_type = ligolw_thinca.InspiralCoincTypes[combo].search_coinc_type
 
+			#
+			# if both LHO antennas provided a trigger for the
+			# coinc --> one coinc type, with amplitude
+			# consistency cut;  if one LHO antenna provided a
+			# trigger for the coinc --> two coinc types, with
+			# and without amplitude consistency cut; if neither
+			# LHO antenna contributed a trigger for the coinc
+			# --> one coinc type, without amplitude consistency
+			# cut.
+			#
 
-def create_coinc_inspiral_view(connection):
-	"""
-	Constructs a temporary view named coinc_inspiral with three columns:
+			if ("H1" in combo) and ("H2" in combo):
+				self.snrs[(coinc_type, True)] = tuple(list() for n in range(len(mass_bins)))
+			elif ("H1" in combo) or ("H2" in combo):
+				self.snrs[(coinc_type, True)] = tuple(list() for n in range(len(mass_bins)))
+				self.snrs[(coinc_type, False)] = tuple(list() for n in range(len(mass_bins)))
+			else:
+				self.snrs[(coinc_type, False)] = tuple(list() for n in range(len(mass_bins)))
 
-	coinc_event_id: the coinc_event_id of this coinc
+	def add_coinc(self, coinc_type, w_lho_amp_cut, mchirp, snr):
+		self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]].append(snr)
 
-	mean_mchirp: the average of the mchirps of the inspiral triggers in
-	this coinc
-
-	snr: the combined effective SNR for the coinc (currently the
-	minimum of the SNRs of the triggers in the coinc)
-
-	lho_ampl_cut_applied: true if both H1 and H2 were on for this coinc
-
-	A "temporary view" is a query whose result is made to appear to be
-	another table in the database.  It can be used in other queries,
-	used in joins, etc., as though it was a table.  It is removed from
-	the database when the connection is closed.
-	"""
-	connection.cursor().execute("""
-CREATE TEMPORARY VIEW
-	coinc_inspiral
-AS
-	SELECT
-		coinc_event.coinc_event_id AS coinc_event_id,
-		AVG(sngl_inspiral.mchirp) AS mean_mchirp,
-		MIN(sngl_inspiral.snr) AS snr,
-		EXISTS (
-			SELECT
-				*
-			FROM
-				time_slide AS offset_a
-				JOIN time_slide AS offset_b ON (
-					offset_a.time_slide_id == offset_b.time_slide_id
-					AND offset_a.instrument == 'H1'
-					AND offset_b.instrument == 'H2'
-				)
-			WHERE
-				offset_a.time_slide_id == coinc_event.time_slide_id
-		) AS lho_ampl_cut_applied
-	FROM
-		sngl_inspiral
-		JOIN coinc_event_map ON (
-			coinc_event_map.table_name == 'sngl_inspiral'
-			AND coinc_event_map.event_id == sngl_inspiral.event_id
-		)
-		JOIN coinc_event ON (
-			coinc_event.coinc_event_id == coinc_event_map.coinc_event_id
-		)
-	GROUP BY
-		coinc_event.coinc_event_id
-	""")
+	def count(self, coinc_type, w_lho_amp_cut, mchirp, snr):
+		"""
+		Return the number of coincs of type coinc_type that were
+		constructed with the LHO amplitude cut if w_lho_amp_cut is
+		True or without the LHO amplitude cut if w_lho_amp_cut is
+		False, that are in the mass bin corresponding to mchirp,
+		and have a combined SNR greater than or equal to snr.
+		"""
+		snrs = self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]]
+		return len([x for x in snrs if x >= snr])
 
 
 #
@@ -275,12 +201,16 @@ options, filenames = parse_command_line()
 
 
 seglists = segments.segmentlistdict()
-background = create_summaries(options.instruments, rate.IrregularBins(options.mass_bins))
+background = Summaries(options.instruments, options.mass_bins)
 
 
 #
 # iterate over database files accumulating background statistics
 #
+
+
+if options.verbose:
+	print >>sys.stderr, "collecting background statistics ..."
 
 
 for n, filename in enumerate(filenames):
@@ -296,12 +226,6 @@ for n, filename in enumerate(filenames):
 	xmldoc = dbtables.DBTable_get_xml()
 
 	#
-	# prepare database
-	#
-
-	create_coinc_inspiral_view(connection)
-
-	#
 	# retrieve the segment lists
 	#
 
@@ -311,23 +235,36 @@ for n, filename in enumerate(filenames):
 	# count background coincs by type and mass bin
 	#
 
-	for inspiral_coinc_type, mean_mchirp, snr, lho_ampl_cut_applied in connection.cursor().execute("""
+	for inspiral_coinc_type, lho_ampl_cut_applied, mchirp, snr in connection.cursor().execute("""
 SELECT
 	coinc_definer.search_coinc_type,
-	coinc_inspiral.mean_mchirp,
-	coinc_inspiral.snr,
-	coinc_inspiral.lho_ampl_cut_applied
+	-- true if both H1 and H2 were on at time of coinc
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide AS offset_a
+			JOIN time_slide AS offset_b ON (
+				offset_a.time_slide_id == offset_b.time_slide_id
+				AND offset_a.instrument == 'H1'
+				AND offset_b.instrument == 'H2'
+			)
+		WHERE
+			offset_a.time_slide_id == coinc_event.time_slide_id
+	),
+	coinc_inspiral.mchirp,
+	coinc_inspiral.snr
 FROM
 	coinc_event
 	JOIN coinc_definer ON (
-		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
-		AND coinc_definer.search == 'inspiral'
+		coinc_definer.search == 'inspiral'
+		AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id
 	)
 	JOIN coinc_inspiral ON (
 		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
 	)
 WHERE
-	-- require coinc to be non-zero-lag
+	-- require coinc to be background (= at least one of its time slide offsets is non-zero)
 	EXISTS (
 		SELECT
 			*
@@ -343,7 +280,7 @@ WHERE
 		# appropriate coinc type
 		#
 
-		background[(inspiral_coinc_type, lho_ampl_cut_applied)].add_coinc(mean_mchirp, snr)
+		background.add_coinc(inspiral_coinc_type, lho_ampl_cut_applied, mchirp, snr)
 
 	#
 	# close the database
@@ -366,6 +303,10 @@ WHERE
 #
 
 
+if options.verbose:
+	print >>sys.stderr, "calculating and recording false alarm rates ..."
+
+
 for n, filename in enumerate(filenames):
 	#
 	# open the database
@@ -378,49 +319,55 @@ for n, filename in enumerate(filenames):
 	dbtables.DBTable_set_connection(connection)
 
 	#
-	# prepare database
+	# prepare the database
 	#
 
-	create_coinc_inspiral_view(connection)
-
+	connection.create_function("background_count", 4, background.count)
 
 	#
 	# count background coincs by type and mass bin
 	#
 
-	for coinc_event_id, inspiral_coinc_type, mean_mchirp, snr, lho_ampl_cut_applied in connection.cursor().execute("""
-SELECT
-	coinc_event.coinc_event_id,
-	coinc_definer.search_coinc_type,
-	coinc_inspiral.mean_mchirp,
-	coinc_inspiral.snr,
-	coinc_inspiral.lho_ampl_cut_applied
-FROM
-	coinc_event
-	JOIN coinc_definer ON (
-		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
-		AND coinc_definer.search == 'inspiral'
-	)
-	JOIN coinc_inspiral ON (
-		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
-	)
-WHERE
-	-- require coinc to be zero-lag
-	NOT EXISTS (
+	connection.cursor().execute("""
+UPDATE
+	coinc_inspiral
+SET
+	false_alarm_rate = (
 		SELECT
-			*
+			background_count(
+				coinc_definer.search_coinc_type,
+				-- true if both H1 and H2 were on at time of coinc
+				EXISTS (
+					SELECT
+						*
+					FROM
+						time_slide AS offset_a
+						JOIN time_slide AS offset_b ON (
+							offset_a.time_slide_id == offset_b.time_slide_id
+							AND offset_a.instrument == 'H1'
+							AND offset_b.instrument == 'H2'
+						)
+					WHERE
+						offset_a.time_slide_id == coinc_event.time_slide_id
+				),
+				coinc_inspiral.mchirp,
+				coinc_inspiral.snr
+			)
 		FROM
-			time_slide
+			coinc_event
+			JOIN coinc_definer ON (
+				coinc_definer.search == 'inspiral'
+				AND coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+			)
 		WHERE
-			time_slide.time_slide_id == coinc_event.time_slide_id
-			AND time_slide.offset != 0
-	)
-	"""):
-		print "found zero-lag %g SNR type %d coinc (%s LHO ampl. cut) with M_chirp = %g, %d like it in background" % (snr, inspiral_coinc_type, lho_ampl_cut_applied and "with" or "without", mean_mchirp, background[(inspiral_coinc_type, lho_ampl_cut_applied)].count(mean_mchirp, snr))
+			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+)
+	""")
+	connection.commit()
 
 	#
 	# close the database
 	#
 
 	connection.close()
-	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
