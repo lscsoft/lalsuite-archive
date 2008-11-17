@@ -175,6 +175,7 @@ CHAR **tdFollowUpFiles  = NULL;         /* name of file containing td f */
 INT4   numTDFiles       = 0;            /* Number of files to follow up */
 int    injectOverhead   = 0;            /* inject h+ into detector      */
 REAL4  mmFast           = -1.0;         /* match for the --fast option  */
+INT4   hardwareInjection= 0;            /* hardware injection flag      */
 
 /* matched filter parameters */
 CHAR *bankFileName      = NULL;         /* name of input template bank  */
@@ -1220,9 +1221,11 @@ int main( int argc, char *argv[] )
       {
         LALSnprintf( chan.name, LALNameLength * sizeof(CHAR), "ZENITH" );
       }
-
-      LAL_CALL( LALFindChirpInjectSignals( &status, &chan, injections, 
-            injRespPtr ), &status );
+      if ( !hardwareInjection)
+      {
+        LAL_CALL( LALFindChirpInjectSignals( &status, &chan, injections, 
+              injRespPtr ), &status );
+      }
       LALSnprintf( chan.name,  LALNameLength * sizeof(CHAR), "%s", tmpChName );
 
       if ( vrbflg ) fprintf( stdout, "injected %d signals from %s into %s\n", 
@@ -2857,6 +2860,8 @@ LALSnprintf( this_proc_param->value, LIGOMETA_VALUE_MAX, format, ppvalue );
 "  --enable-filter-inj-only     filter only segments with injections\n"\
 "  --disable-filter-inj-only    filter all segments when doing injections\n"\
 "                               All segments are filtered.\n"\
+"  --hardware-injection         Injections are in the frame files don't\n"\
+"                               make them again!\n"\
 "\n"\
 "  --td-follow-up FILE          Follow up coincident BCV events in FILE\n"\
 "  --bank-file FILE             read template bank parameters from FILE\n"\
@@ -2970,6 +2975,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"disable-filter-inj-only", no_argument,       &flagFilterInjOnly,0 },
     {"reverse-chirp-bank",      no_argument,       &reverseChirpBank, 1 },
     {"do-rsq-veto",             no_argument,       &doRsqVeto,        1 },
+    {"hardware-injection",      no_argument,       &hardwareInjection,1 },
     /* these options don't set a flag */
     {"gps-start-time",          required_argument, 0,                'a'},
     {"gps-start-time-ns",       required_argument, 0,                'A'},
