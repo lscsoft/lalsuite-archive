@@ -590,6 +590,9 @@ if opts.generate_results_plots:
     if opts.run_data_quality:
       parentVetoNodes = [hipeAnalysisVetoNode[3]]
     else: parentVetoNodes = None
+  else:
+    parentNodes = None
+    parentVetoNodes = None
 
   # make the full data slide/zerolag plots
   print "Making full data zero lag plots."
