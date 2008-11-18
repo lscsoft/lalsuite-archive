@@ -137,6 +137,7 @@ InspiralCoincTypes = dict([
 	(
 		tuple(instruments),
 		lsctables.CoincDef(
+			coinc_def_id = None,
 			search = u"inspiral",
 			search_coinc_type = n,
 			description = u"%s sngl_inspiral<-->sngl_inspiral coincidences" % ",".join(instruments)
