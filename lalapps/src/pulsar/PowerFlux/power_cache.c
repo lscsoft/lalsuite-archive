@@ -247,7 +247,10 @@ for(k=0;k<count;k++) {
 		if(i<0)continue;
 		if(i>=useful_bins)continue;
 
-		power=(re[m]*re[m]+im[m]*im[m]-TM*d->expFMedians_plain[m])*weight;
+		re=&(d->re[si_local->segment*nbins+m]);
+		im=&(d->im[si_local->segment*nbins+m]);
+
+		power=((*re)*(*re)+(*im)*(*im)-TM*d->expFMedians_plain[m])*weight;
 
 		pp[i]-=power*f_plus*f_plus;
 		pc[i]-=power*f_plus*f_cross;

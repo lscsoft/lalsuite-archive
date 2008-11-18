@@ -359,6 +359,11 @@ if(pps->weight_arrays_non_zero) {
 			pps->weight_pccc[i]+=pps->c_weight_pccc;
 			pps->weight_cccc[i]+=pps->c_weight_cccc;
 			}
+		pps->c_weight_pppp=0;
+		pps->c_weight_pppc=0;
+		pps->c_weight_ppcc=0;
+		pps->c_weight_pccc=0;
+		pps->c_weight_cccc=0;
 		pps->collapsed_weight_arrays=1;
 		}
 
