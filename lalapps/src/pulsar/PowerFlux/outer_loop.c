@@ -58,9 +58,11 @@ for(k=0;k<d_free;k++) {
 		veto_free=m+1;
 		veto_info[m].name=strdup(datasets[k].detector);
 		veto_info[m].veto_mask=(1<<(4+m));
+		fprintf(stderr, "veto_info: %d \"%s\" %02x\n", m, veto_info[m].name, veto_info[m].veto_mask);
+		fprintf(LOG, "veto_info: %d \"%s\" %02x\n", m, veto_info[m].name, veto_info[m].veto_mask);
 		}
 	for(i=0;i<datasets[k].free;i++) {
-		datasets[k].sft_veto[i]=(datasets[k].sft_veto[i] & ~ (((1<<4)-1)<<4)) | veto_info[m].veto_mask;
+		datasets[k].sft_veto[i]=(datasets[k].sft_veto[i] & ~ (((1<<4)-1)<<4) ) | veto_info[m].veto_mask;
 		}
 	}
 }
@@ -177,7 +179,8 @@ free_partial_power_sum_F(pps);
 
 if(write_data_log_header) {
 	write_data_log_header=0;
-	fprintf(DATA_LOG, "kind index set pi pps_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
+	/* we write this into the main log file so that data.log files can simply be concatenated together */
+	fprintf(LOG, "data_log: kind index set pi pps_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
 	}
 
 /* now that we know extreme points go and characterize them */
