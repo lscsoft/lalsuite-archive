@@ -426,6 +426,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
 		for key, coinc_def in ligolw_thinca.InspiralCoincTypes.items()
 	])
+	required_coinc_def_ids = set()
 
 	#
 	# find the coinc_event table or create one if needed
@@ -515,6 +516,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		#
 
 		coinc.coinc_def_id = coinc_def_ids[tuple(event.ifo for event in events)]
+		required_coinc_def_ids.add(coinc.coinc_def_id)
 
 		#
 		# link events to coinc with coinc_event_map rows
@@ -562,13 +564,21 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		# slide the coinc's time on that ring.  the amount of the
 		# slide is the offset recorded in the time_slide table for
 		# the instrument from which the coinc's time was taken (the
-		# coinc_time is taken from the first trigger in
-		# alphabetical order by instrument)
+		# the first trigger in alphabetical order by instrument)
 		#
 
 		coinc_inspiral.set_end(SnglInspiralUtils.slideTimeOnRing(coinc_time, time_slides[coinc.time_slide_id][events[0].ifo], ring))
 
 		coinc_inspiral_table.append(coinc_inspiral)
+
+	#
+	# remove unused rows from the coinc_definer table
+	#
+
+	coinc_definer_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+	for i in range(len(coinc_definer_table) - 1, -1, -1):
+		if coinc_definer_table[i].coinc_def_id not in required_coinc_def_ids:
+			del coinc_definer_table[i]
 
 	#
 	# done
@@ -607,8 +617,8 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 
 	#
 	# delete duplicates, recording replacement event_ids.  this relies
-	# on the SnglInspiral class' __cmp__() method to define when two
-	# triggers are the same
+	# on the SnglInspiral class' __eq__() and __hash__() methods to
+	# define when two triggers are the same
 	#
 
 	trigger_to_id_index = {}
@@ -696,7 +706,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 	coinc_map_table.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
 	index.update(dict(
-		(coinc_event_id, [index[row.event_id] for row in rows])
+		(coinc_event_id, tuple(index[row.event_id] for row in rows))
 		for coinc_event_id, rows in itertools.groupby(
 			(row for row in coinc_map_table if row.table_name == "sngl_inspiral"),
 			lambda row: row.coinc_event_id
@@ -805,7 +815,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 				time_slide_table.append(row)
 			time_slides[coinc_event.time_slide_id] = offset_vector
 			if verbose:
-				print >>sys.stderr, "\tadded '%s': %s" % (coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector]))
+				print >>sys.stderr, "\tadded '%s': %s" % (coinc_event.time_slide_id, ", ".join("%s=%g" % item for item in offset_vector))
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
