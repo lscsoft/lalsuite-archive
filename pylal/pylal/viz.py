@@ -1031,6 +1031,9 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     cum_dist_slide = numpy.array(cum_dist_slide)
     slide_mean = cum_dist_slide.mean(axis=0)
     slide_std = cum_dist_slide.std(axis=0)
+    if scalebkg:
+      slide_mean *= 600./6370.
+      slide_std *= sqrt(600./6370.)
 
   if "bitten_l" in stat:
      xvals=bins
@@ -1050,22 +1053,12 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-    if scalebkg:  
-      semilogy(xvals,asarray(slide_mean)*power(600.0/6370.0,0.5),\
-               'r+', markersize=12)
-    else:
       semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
     if "bitten_l" in stat:
-      if scalebkg:
-        p=fill((tmpx-ds),tmpy*600.0/6370.0, facecolor='y')
-      else:
-        p=fill((tmpx-ds),tmpy, facecolor='y')
+      p=fill((tmpx-ds),tmpy, facecolor='y')
     else:
-      if scalebkg:
-        p=fill((tmpx-ds)*(tmpx-ds),tmpy*600.0/6370.0, facecolor='y')
-      else:
-        p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
+      p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
     setp(p, alpha=0.3)
     
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
