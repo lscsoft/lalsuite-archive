@@ -188,7 +188,7 @@ while(step<count) {
 
 }
 
-/* an implementation of merge sort - this modifies input array */
+/* an implementation of quick sort - this modifies input array */
 void quick_sort_floats(float *data, int count)
 {
 int i, j;
