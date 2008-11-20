@@ -1195,12 +1195,12 @@ class SimInspiralTable(table.Table):
 		"eff_dist_g": "real_4",
 		"eff_dist_t": "real_4",
 		"eff_dist_v": "real_4",
-	        "numrel_mode_min": "int_4s",
-                "numrel_mode_max": "int_4s",
-                "numrel_data": "lstring",
-                "amp_order": "int_4s",
-                "taper": "lstring",
-                "bandpass": "int_4s",
+		"numrel_mode_min": "int_4s",
+		"numrel_mode_max": "int_4s",
+		"numrel_data": "lstring",
+		"amp_order": "int_4s",
+		"taper": "lstring",
+		"bandpass": "int_4s",
 		"simulation_id": "ilwd:char"
 	}
 	constraints = "PRIMARY KEY (simulation_id)"
