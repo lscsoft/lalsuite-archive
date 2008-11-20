@@ -112,5 +112,6 @@ option "niota" - "Number of iota values to use in alignment grid" int default="3
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
 option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
+option "weight_cutoff_fraction" - "Discard sfts with small weights that contribute this fraction of total weight" double default="0.1" no
 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no

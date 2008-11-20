@@ -293,6 +293,9 @@ struct gengetopt_args_info
   int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
   char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
   const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
+  double weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight (default='0.1').  */
+  char * weight_cutoff_fraction_orig;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight original value given at command line.  */
+  const char *weight_cutoff_fraction_help; /**< @brief Discard sfts with small weights that contribute this fraction of total weight help description.  */
   int compute_skymaps_arg;	/**< @brief allocate memory and compute skymaps with final results (default='0').  */
   char * compute_skymaps_orig;	/**< @brief allocate memory and compute skymaps with final results original value given at command line.  */
   const char *compute_skymaps_help; /**< @brief allocate memory and compute skymaps with final results help description.  */
@@ -386,6 +389,7 @@ struct gengetopt_args_info
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
+  unsigned int weight_cutoff_fraction_given ;	/**< @brief Whether weight_cutoff_fraction was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */

@@ -118,6 +118,7 @@ const char *gengetopt_args_info_help[] = {
   "      --npsi=INT                Number of psi values to use in alignment grid  \n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample  \n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks \n                                  for sub period analysis  (default=`5')",
+  "      --weight_cutoff_fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight  \n                                  (default=`0.1')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
     0
 };
@@ -259,6 +260,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->npsi_given = 0 ;
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
+  args_info->weight_cutoff_fraction_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
@@ -425,6 +427,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
   args_info->nchunks_orig = NULL;
+  args_info->weight_cutoff_fraction_arg = 0.1;
+  args_info->weight_cutoff_fraction_orig = NULL;
   args_info->compute_skymaps_arg = 0;
   args_info->compute_skymaps_orig = NULL;
   
@@ -526,7 +530,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->npsi_help = gengetopt_args_info_help[87] ;
   args_info->nfshift_help = gengetopt_args_info_help[88] ;
   args_info->nchunks_help = gengetopt_args_info_help[89] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[90] ;
+  args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[90] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[91] ;
   
 }
 
@@ -756,6 +761,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->npsi_orig));
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
+  free_string_field (&(args_info->weight_cutoff_fraction_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   
   
@@ -971,6 +977,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "nfshift", args_info->nfshift_orig, 0);
   if (args_info->nchunks_given)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
+  if (args_info->weight_cutoff_fraction_given)
+    write_into_file(outfile, "weight_cutoff_fraction", args_info->weight_cutoff_fraction_orig, 0);
   if (args_info->compute_skymaps_given)
     write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
   
@@ -1622,6 +1630,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
+        { "weight_cutoff_fraction",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
@@ -2849,6 +2858,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.nchunks_given), optarg, 0, "5", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "nchunks", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Discard sfts with small weights that contribute this fraction of total weight.  */
+          else if (strcmp (long_options[option_index].name, "weight_cutoff_fraction") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->weight_cutoff_fraction_arg), 
+                 &(args_info->weight_cutoff_fraction_orig), &(args_info->weight_cutoff_fraction_given),
+                &(local_args_info.weight_cutoff_fraction_given), optarg, 0, "0.1", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "weight_cutoff_fraction", '-',
                 additional_error))
               goto failure;
           

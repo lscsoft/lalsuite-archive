@@ -23,7 +23,7 @@ extern SKY_GRID *fine_grid, *patch_grid;
 
 extern FILE * DATA_LOG, * LOG, *FILE_LOG;
 
-extern int first_bin, side_cut;
+extern int first_bin, side_cut, nsegments;
 
 extern DATASET *datasets;
 extern int d_free;
@@ -41,7 +41,7 @@ typedef struct {
 VETO_INFO veto_info[4];
 int veto_free=0;
 
-void assign_veto(void)
+void assign_detector_veto(void)
 {
 int i,k, m;
 memset(veto_info, 0, 10*sizeof(*veto_info));
@@ -65,6 +65,60 @@ for(k=0;k<d_free;k++) {
 		datasets[k].sft_veto[i]=(datasets[k].sft_veto[i] & ~ (((1<<4)-1)<<4) ) | veto_info[m].veto_mask;
 		}
 	}
+}
+
+typedef struct {
+	double weight;
+	int dataset;
+	int segment;
+	} WEIGHT_INFO;
+
+int weight_cmp(WEIGHT_INFO *w1, WEIGHT_INFO *w2)
+{
+if(w1->weight<w2->weight)return -1;
+if(w1->weight>w2->weight)return 1;
+return 0;
+}
+
+/* instead of having per-skypatch veto we simply discard a SFTs which contribute less than a certain fraction of weight in each dataset */
+void assign_cutoff_veto(void)
+{
+int i,k,m;
+WEIGHT_INFO *w;
+double total_weight, accum_weight, a;
+DATASET *d;
+
+w=do_alloc(nsegments, sizeof(*w));
+m=0;
+total_weight=0.0;
+for(k=0;k<d_free;k++) {
+	d=&(datasets[k]);
+	for(i=0;i<d->free;i++) {
+		if(d->sft_veto[i])continue;
+
+		w[m].dataset=k;
+		w[m].segment=i;
+		a=d->expTMedians[i]*d->weight;
+		total_weight+=a;
+		w[m].weight=a;
+		m++;
+		}
+	}
+//fprintf(stderr, "%d %d\n", m, nsegments);
+qsort(w, m, sizeof(*w), weight_cmp);
+//fprintf(stderr, "%g %g %g ... %g %g %g\n", w[0].weight, w[1].weight, w[2].weight, w[m-3].weight, w[m-2].weight, w[m-1].weight);accum_weight=0;
+
+accum_weight=0;
+for(i=0;i<m;i++) {
+	accum_weight+=w[i].weight;
+	if(accum_weight>args_info.weight_cutoff_fraction_arg*total_weight)break;
+	datasets[w[i].dataset].sft_veto[w[i].segment]=3;
+	}
+accum_weight-=w[i].weight;
+fprintf(stderr, "Vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n",
+	i, nsegments, (i*1.0)/nsegments, accum_weight, total_weight, accum_weight/total_weight);
+fprintf(LOG, "Vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n",
+	i, nsegments, (i*1.0)/nsegments,  accum_weight, total_weight, accum_weight/total_weight);
 }
 
 void log_extremes(EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
@@ -406,7 +460,8 @@ time_t start_time, end_time;
 RGBPic *p;
 PLOT *plot;
 
-assign_veto();
+assign_cutoff_veto();
+assign_detector_veto();
 
 nchunks=args_info.nchunks_arg*veto_free;
 ps=do_alloc(nchunks, sizeof(*ps));
