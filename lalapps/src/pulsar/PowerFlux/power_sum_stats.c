@@ -77,6 +77,7 @@ for(j=0;j<niota;j++)
 		}
 
 for(k=0;k<alignment_grid_free;k++) {
+	fprintf(LOG, "alignment entry %d: %f %f\n", k, alignment_grid[k].iota, alignment_grid[k].psi);
 	compute_alignment_coeffs(&(alignment_grid[k]));
 	}
 fprintf(stderr, "Alignment grid size: %d\n", alignment_grid_free);
@@ -189,7 +190,7 @@ while(step<count) {
 }
 
 /* an implementation of quick sort - this modifies input array */
-void quick_sort_floats(float *data, int count)
+void quick_sort_floats1(float *data, int count)
 {
 int i, j;
 float a,b;
@@ -234,11 +235,11 @@ if(j==count) {
 	b=data[0];
 	data[0]=data[count-1];
 	data[count-1]=b;
-	quick_sort_floats(data, count-1);
+	quick_sort_floats1(data, count-1);
 	return;
 	}
 if(j==0) {
-	quick_sort_floats(data+1, count-1);
+	quick_sort_floats1(data+1, count-1);
 	return;
 	}
 /*if(!j || j==count) {
@@ -247,8 +248,122 @@ if(j==0) {
 	fprintf(stderr, "\n");
 	exit(-1);
 	}*/
-quick_sort_floats(data, j);
-quick_sort_floats(&(data[j]), count-j);
+quick_sort_floats1(data, j);
+quick_sort_floats1(&(data[j]), count-j);
+}
+
+/* an optimized implementation of quick sort */
+static inline void manual_sort_floats(float *data, int count)
+{
+float a,b,c;
+if(count<=1)return;
+a=data[0];
+if(count==2) {
+	b=data[1];
+	if(a>b) {
+		data[0]=b;
+		data[1]=a;
+		}
+	return;
+	}
+if(count==3) {
+	b=data[1];
+	if(a>b) {
+		b=a;
+		a=data[1];
+		}
+	c=data[2];
+	if(c<b) {
+		if(c<a) {
+			c=b;
+			b=a;
+			a=data[2];
+			} else {
+			c=b;
+			b=data[2];
+			}
+		}
+	data[0]=a;
+	data[1]=b;
+	data[2]=c;
+	return;
+	}
+if(count==4) {
+	}
+return;
+}
+
+static inline int partition_floats(float *data, int count)
+{
+int i,j;
+float a,b,c;
+i=1;
+a=data[0];
+j=count-1;
+//a=0.5*(a+data[j]);
+while(i<j) {
+	b=data[i];
+	if(b<=a) {
+		i++;
+		continue;
+		}
+	c=data[j];
+	if(c>=a) {
+		j--;
+		continue;
+		}
+	data[i]=c;
+	data[j]=b;
+	i++;
+	j--;
+	}
+if(i==j) {
+	if(data[j]>a)j--;
+	}
+if(data[j]<a)j++;
+return j;
+}
+
+/* an implementation of quick sort - this modifies input array */
+void quick_sort_floats(float *data, int count)
+{
+int i, j;
+float a,b;
+int stack_len=0;
+
+while(1) {
+	if(count<4) {
+		manual_sort_floats(data, count);
+		return;
+		} else {
+		j=partition_floats(data, count);
+		}
+	if(j<0) return;
+	if(j==count) {
+		b=data[0];
+		data[0]=data[count-1];
+		data[count-1]=b;
+		count--;
+		continue;
+		}
+	if(j==0) {
+		data++;
+		count--;
+		continue;
+		}
+/*if(!j || j==count) {
+	fprintf(stderr, "*** INTERNAL ERROR: recursion on quick sort count=%d j=%d a=%f\n", count, j, a);
+	for(i=0;i<count;i++)fprintf(stderr, "%g ", data[i]);
+	fprintf(stderr, "\n");
+	exit(-1);
+	}*/
+	if(j<4)manual_sort_floats(data, j);
+		else quick_sort_floats(data, j);
+	stack_len++;
+	data+=j;
+	count-=j;
+	continue;
+	}
 }
 
 void bucket_sort_floats(float *data, int count)
