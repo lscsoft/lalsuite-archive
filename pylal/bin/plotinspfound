@@ -427,7 +427,7 @@ def write_html_head( opts, injPatterns, title ):
   line = '<meta http-equiv="Content-Type" content="text/html;'
   line = line + ' charset=UTF-8" /> \n'
   fout.write( line )
-  line = '<link media="all" href="style.css" type="text/css"'
+  line = '<link media="all" href="plotinspfoundstyle.css" type="text/css"'
   line = line + 'rel="stylesheet" /> \n'
   fout.write( line )
   line = '<title>' + title + '</title> \n'
