@@ -980,6 +980,12 @@ class SnglRingDownTable(table.Table):
 class SnglRingDown(object):
 	__slots__ = SnglRingDownTable.validcolumns.keys()
 
+	def get_start(self):
+		return LIGOTimeGPS(self.start_time, self.start_time_ns)
+
+	def set_start(self, gps):
+		self.start_time, self.start_time_ns = gps.seconds, gps.nanoseconds
+
 
 SnglRingDownTable.RowType = SnglRingDown
 
@@ -1353,6 +1359,13 @@ class SimRingDownTable(table.Table):
 
 class SimRingDown(object):
 	__slots__ = SimRingDownTable.validcolumns.keys()
+
+	def get_start(self, site = None):
+		if not site:
+			return LIGOTimeGPS(self.geocent_start_time, self.geocent_start_time_ns)
+		else:
+			site = site[0].lower()
+			return LIGOTimeGPS(getattr(self, site + '_start_time'), getattr(self, site + '_start_time_ns'))
 
 
 SimRingDownTable.RowType = SimRingDown
