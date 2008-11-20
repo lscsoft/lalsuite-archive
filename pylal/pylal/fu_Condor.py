@@ -51,7 +51,10 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
     pipeline.CondorDAG.__init__(self,logfile)
     self.set_dag_file(self.basename)
     self.jobsDict = {}
- 
+    # The list remote_nodes will contain the list of nodes run remotely 
+    # (such as V1 qscans)
+    self.remote_nodes = []
+
 ########################################################
 #### Methods common to several followup classes ########
 ########################################################
@@ -633,16 +636,60 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     # if the selected "ifo" needs to be done remotely (this the case for 
     # Virgo qscans) do not add the node to the dag
-    if eval('opts.' + qscanCommand) and \
-      not(cp.has_option(name,"remote-ifo") and \
+    if eval('opts.' + qscanCommand):
+      if not(cp.has_option(name,"remote-ifo") and \
       cp.get(name,"remote-ifo")==ifo):
         dag.addNode(self,self.friendlyName)
         self.validNode = True
+      else:
+        dag.remote_nodes.append(self)
     else: self.validNode = False
  #   except: 
  #     self.validNode = False
  #     print >> sys.stderr, "could not set up the qscan job for " + self.id
 
+
+##############################################################################
+# distributeQscanJob class: the job
+
+class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A job to distribute the results of the qscans that have been run remotely (for LV search)
+  """
+  def __init__(self,cp):
+    self.__name__ = 'distributeQscanJob'
+    self.__executable = string.strip(cp.get('condor','distribute_q'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__name__)
+
+##############################################################################
+# distributeQscanNode class: the node
+
+class distributeQscanNode(pipeline.CondorDAGNode, webTheNode):
+  """
+  A node to distribute the results of the qscans that have been run remotely (for LV search)
+  """
+  def __init__(self,job,foregroundCache,backgroundCache,ifo,inputFile,opts,dag):
+
+    self.friendlyName = "distributeQscanResults"
+
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_var_opt('qscan-input-file',inputFile)
+    self.add_var_opt('qscan-cache-background',backgroundCache)
+    self.add_var_opt('qscan-cache-foreground',foregroundCache)
+    self.add_var_opt('remote-ifo',ifo)
+
+    typeList=""
+    for type in ["qscan","seismic-qscan"]:
+      typeList = typeList + "foreground-" + type + ",background-" + type + ","
+    self.add_var_opt('qscan-type-list',typeList.strip(','))
+
+    if opts.distrib_remote_q:
+      dag.addNode(self,self.friendlyName)
+      self.validNode = True
+    else: self.validNode = False
 
 ##############################################################################
 # analyse qscan class: the job
@@ -708,15 +755,32 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
 
       self.setupNodeWeb(job,True,None,dag.page,None,dag.cache)
       # get the table of the qscan job associated to this trigger
+      if not(cp.has_option(name,"remote-ifo") and cp.get(name,"remote-ifo")==ifo):
+        for node in dag.get_nodes():
+          if isinstance(node,qscanNode):
+            if node.id == self.id:
+              # link the analyseQscan output page to the qscan table
+              node.webTable.row[0].cell[0].linebreak()
+              node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
+              break
+      # if remote-ifo is analysed, find the associated qscan jobs in dag.remote_nodes
+      else:
+        for node in dag.remote_nodes:
+          if isinstance(node,qscanNode):
+            if node.id == self.id:
+              node.webTable.row[0].cell[0].linebreak()
+              node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
+              break
+      
+      # add the parents to this node
       for node in dag.get_nodes():
-        if isinstance(node,qscanNode):
-          if node.id == self.id:
-            # link the analyseQscan output page to the qscan table
-            node.webTable.row[0].cell[0].linebreak()
-            node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
-            break      
-
-      for node in dag.get_nodes():
+        # if node distributeQscanNode is valid and remote if is analysed,
+        # add distributeQscanNode as parent
+        if isinstance(node,distributeQscanNode):
+          if cp.has_option(name,"remote-ifo") and cp.get(name,"remote-ifo")==ifo:
+            if node.validNode:
+              self.add_parent(node)
+        # add all qscan nodes of the same type as parents
         if isinstance(node,qscanNode): 
           if node.validNode:
             if node.friendlyName == name or \
