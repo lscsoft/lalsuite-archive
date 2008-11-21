@@ -295,33 +295,34 @@ return;
 
 static inline int partition_floats(float *data, int count)
 {
-int i,j;
 float a,b,c;
-i=1;
-a=data[0];
-j=count-1;
+float *first=data;
+float *last=&(data[count-1]);
+
+a=*first;
+first++;
 //a=0.5*(a+data[j]);
-while(i<j) {
-	b=data[i];
+while(first<last) {
+	b=*first;
 	if(b<=a) {
-		i++;
+		first++;
 		continue;
 		}
-	c=data[j];
+	c=*last;
 	if(c>=a) {
-		j--;
+		last--;
 		continue;
 		}
-	data[i]=c;
-	data[j]=b;
-	i++;
-	j--;
+	*first=c;
+	*last=b;
+	first++;
+	last--;
 	}
-if(i==j) {
-	if(data[j]>a)j--;
+if(first==last) {
+	if(*last>a)last--;
 	}
-if(data[j]<a)j++;
-return j;
+if(*last<a)last++;
+return (last-data);
 }
 
 /* an implementation of quick sort - this modifies input array */
