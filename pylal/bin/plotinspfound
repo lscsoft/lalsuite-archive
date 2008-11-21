@@ -472,10 +472,10 @@ def write_html_head( opts, injPatterns, title ):
 
   for j in xrange( len( injPatterns ) ):
     line = '<li><a href="#sireFirst_coireFirst' + injPatterns[j] + '">' 
-    line = line + 'sireFirst_coireFirst' + injPatterns[j] + '</a>\n' 
+    line = line + 'Sire first to Coire first' + injPatterns[j] + '</a>\n' 
     fout.write( line )
     line = '<li><a href="#coireFirst_coireSecond' + injPatterns[j] + '">' 
-    line = line + 'coireFirst_coireSecond' + injPatterns[j] + '</a>\n' 
+    line = line + 'Coire first to Coire second' + injPatterns[j] + '</a>\n' 
     fout.write( line )
 
   line = '</li> \n'
@@ -863,7 +863,7 @@ for injPattern in injPatterns:
     fout.write(line)
     line = 'id="sireFirst_coireFirst' + injPattern + '"></a> \n'
     fout.write(line)
-    line = '<h1> sire_first to coire_first, ' + injPattern + '</h1> \n'
+    line = '<h1> Sire first to Coire first, ' + injPattern + '</h1> \n'
     fout.write(line)
 
 
