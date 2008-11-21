@@ -348,6 +348,22 @@ def get_all_triggers( opts, ifo, injPattern ):
                         list( theseTrigs.coiresecond.get_column( "end_time" ) )
 
   return theseTrigs
+##############################################################################
+def search_trigger_times( trigger_times, time):
+  """
+  triggers may be gps  time +/- 1 second from injection end time.
+  """
+
+  if time in trigger_times:
+    i = trigger_times.index( time )
+  elif time - 1 in trigger_times:
+    i = trigger_times.index( time - 1 )
+  elif time + 1 in trigger_times:
+    i = trigger_times.index( time + 1 )
+  else:
+    i = -1
+
+  return i
 
 
 
@@ -356,24 +372,27 @@ def check_snr_coirefirst( opts, Triggers, time ):
 
   foundInj = False
   flagInj  = False
+  change   = 0
 
-  if time in Triggers.coirefirstTimes:
-    if time in Triggers.sirefirstTimes:
-      i = Triggers.coirefirstTimes.index( time )
-      j = Triggers.sirefirstTimes.index( time )
-   
-      if opts.all_coire_first:      
-        change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
-        foundInj = True
-      else:
-        if time in Triggers.coiresecondTimes:
-          change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
-          foundInj = True
-        else:
-          change = 0
-         
-      if abs( change ) >= opts.threshold:
-        flagInj = True
+  if opts.all_coire_first:
+    i = search_trigger_times( Triggers.coirefirstTimes, time )
+  else:
+    i = search_trigger_times( Triggers.coiresecondTimes, time )
+
+  # If we have a coire first trigger then we must find the sire first
+  # and check snr.
+  if i != -1:
+    j = search_trigger_times( Triggers.sirefirstTimes, time )
+
+    if j != -1:
+      foundInj = True
+      if not opts.all_coire_first:
+        i = search_trigger_times( Triggers.coirefirstTimes, time )
+      change = Triggers.coirefirst[i].snr - Triggers.sirefirst[j].snr
+
+
+  if abs( change ) >= opts.threshold:
+    flagInj = True
 
   return flagInj, foundInj
 
@@ -384,18 +403,21 @@ def check_snr_coiresecond( opts, Triggers, time ):
 
   foundInj = False
   flagInj  = False
+  change = 0;
 
-  if time in Triggers.coiresecondTimes:
-    if time in Triggers.coirefirstTimes:
-      i = Triggers.coiresecondTimes.index( time )
-      j = Triggers.coirefirstTimes.index( time )
-   
+  i = search_trigger_times( Triggers.coiresecondTimes, time )
+
+  # If we have a coire second trigger then we must find coire first and
+  # check the snr.
+  if i != -1:
+    j = search_trigger_times( Triggers.coirefirstTimes, time )
+
+    if j != -1:
       foundInj = True
-      
       change = Triggers.coiresecond[i].snr - Triggers.coirefirst[j].snr
-         
-      if abs( change ) >= opts.threshold:
-        flagInj = True
+
+  if abs( change ) >= opts.threshold:
+    flagInj = True
 
   return flagInj, foundInj
 
@@ -878,19 +900,18 @@ for injPattern in injPatterns:
       
     for (ifo, trigs) in zip(ifos, trigList):
       time = getattr(injections[index], ifo[0].lower() + "_end_time")
-      if time in trigs.coirefirstTimes:
-        if time in trigs.sirefirstTimes:
-          i = trigs.coirefirstTimes.index( time )
-          j = trigs.sirefirstTimes.index( time )
-
+      i = search_trigger_times( trigs.coirefirstTimes, time )
+      if i != -1:
+        j = search_trigger_times( trigs.sirefirstTimes, time )
+        if j != -1:
           trigBefore = trigs.sirefirst[j]
-          trigAfter = trigs.coirefirst[i]
-
+          trigAfter  = trigs.coirefirst[i]
           if opts.enable_output:
             write_trigger_row( opts, ifo, injPattern, time, trigBefore, \
-                                   trigAfter, injections[index], check )
+                               trigAfter, injections[index], check )
+ 
       
-
+ 
     if opts.enable_output:
       line = '</table> \n'
       fout.write( line )
@@ -956,17 +977,15 @@ for injPattern in injPatterns:
       
     for (ifo, trigs) in zip(ifos, trigList):
       time = getattr(injections[index], ifo[0].lower() + "_end_time")
-      if time in trigs.coiresecondTimes:
-         if time in trigs.coirefirstTimes:
-           i = trigs.coiresecondTimes.index( time )
-           j = trigs.coirefirstTimes.index( time )
-
-           trigBefore = trigs.coirefirst[j]
-           trigAfter = trigs.coiresecond[i]
-
-           if opts.enable_output:
-             write_trigger_row( opts, ifo, injPattern, time, trigBefore, \
-                                    trigAfter, injections[index], check )
+      i = search_trigger_times( trigs.coiresecondTimes, time)
+      if i != -1:
+        j = search_trigger_times( trigs.coirefirstTimes, time )
+        if j != -1:
+          trigBefore = trigs.coirefirst[j]
+          trigAfter  = trigs.coiresecond[i]
+          if opts.enable_output:
+            write_trigger_row( opts, ifo, injPattern, time, trigBefore, \
+                               trigAfter, injections[index], check )
 
       
     if opts.enable_output:
@@ -976,7 +995,9 @@ for injPattern in injPatterns:
       if opts.do_followup:
         followup.setTag( "TEST")
         followuphtml = followup.followup( injections[index], "H1", injPattern )
-        fout.write( '<a href=\"' + followuphtml + '\">details here</a>' )
+        line = '<a href=\"' + followuphtml + '\" target=\"_blank\">'
+        line += 'details here</a>' 
+        fout.write( line )
 
   if opts.check_eff_snr:
     check.pop()
