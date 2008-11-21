@@ -355,7 +355,7 @@ def get_all_triggers( opts, ifo, injPattern ):
                          list( theseTrigs.coirefirst.get_column( "end_time" ) )
       
   pattern = 'COIRE*FOUND_SECOND*' + injPattern 
-	if opts.veto_suffix:
+  if opts.veto_suffix:
     pattern += '*' + opts.veto_suffix
   theseTrigs.coiresecond = get_coire_triggers( opts, ifo, pattern, times )      
   theseTrigs.coiresecondTimes = \
@@ -961,7 +961,7 @@ for injPattern in injPatterns:
       write_inj_table( opts, injections[index] )
       write_trig_table_head( opts, check )
       
-    if (ifo, trigs) in zip(ifos, trigList):
+    for (ifo, trigs) in zip(ifos, trigList):
       time = getattr(injections[index], ifo[0].lower() + "_end_time")
       if time in trigs.coiresecondTimes:
          if time in trigs.coirefirstTimes:
