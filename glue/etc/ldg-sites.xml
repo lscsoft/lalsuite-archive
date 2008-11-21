@@ -48,33 +48,9 @@
 		</head-fs>
 		<replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
 		</replica-catalog>
-		<profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.7/vdt/globus</profile>
-		<profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.7/vdt/globus/lib</profile>
-		<profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.7/vdt/pegasus</profile>
-	</site>
-	<site  handle="local" arch="x86_64" os="LINUX">
-		<grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
-		<grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
-		<head-fs>
-			<scratch>
-				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
-					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
-				</shared>
-			</scratch>
-			<storage>
-				<shared>
-					<file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
-					</file-server>
-					<internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
-				</shared>
-			</storage>
-		</head-fs>
-		<profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
-		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-		<profile namespace="env" key="PEGASUS_HOME" >/archive/home/bdaudert/downloads/pegasus-2.2.0cvs</profile>
-		<profile namespace="pegasus" key="grid" >local</profile>
+		<profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.7/globus</profile>
+		<profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.7/globus/lib</profile>
+		<profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.7/pegasus</profile>
 	</site>
 	<site  handle="llo" arch="x86" os="LINUX">
 		<grid  type="gt2" contact="ldas-grid.ligo-la.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
@@ -126,5 +102,94 @@
 		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
 		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
 	</site>
+         <site  handle="OSG_LIGO_MIT" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="osg-ligo.mit.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="osg-ligo.mit.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-ligo.mit.edu" mount-point="/opt/storage/data/ligo-ihope">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-ligo.mit.edu" mount-point="/opt/storage/data/ligo-ihope">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-ligo.mit.edu" mount-point="/opt/storage/data/ligo-ihope">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-ligo.mit.edu" mount-point="/opt/storage/data/ligo-ihope">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/opt/storage/wn_tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/wn_tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/opt/storage/wn_tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/storage/wn_tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/opt/storage/data/ligo-ihope" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="OSG_LIGO_MIT"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/opt/osg-0.8.0a/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/osg-0.8.0a/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/opt/grid/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/opt/storage/app</profile>
+                <profile namespace="env" key="data_loc" >/opt/storage/data</profile>
+                <profile namespace="env" key="osg_grid" >/opt/grid</profile>
+                <profile namespace="env" key="tmp_loc" >/opt/storage/data</profile>
+                <profile namespace="env" key="wntmp_loc" >/opt/storage/wn_tmp</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
+        <site  handle="local" arch="x86_64" os="LINUX">
+                <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+                <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+                <head-fs>
+                        <scratch>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://ldas-pcdev1.ligo.caltech.edu" mount-point="/archive/home/bdaudert/pegasus-scratch">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/archive/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/archive/home/bdaudert/downloads/pegasus-2.2.0cvs</profile>
+                <profile namespace="pegasus" key="grid" >local</profile>
+        </site>
+
 </sitecatalog>
 
