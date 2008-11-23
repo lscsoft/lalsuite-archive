@@ -10,6 +10,8 @@ from urllib import quote_plus as quote, urlencode
 from glue.lal import Cache
 from glue.lars import Server
 
+DEFAULT_SERVER = "http://archie.phys.uwm.edu:8080"
+
 commands = {}
 
 log = logging.getLogger("lars.cli")
@@ -39,7 +41,7 @@ class OptionParser(optparse.OptionParser):
             action="store",
             type="string",
             help="Server URL",
-            default="http://localhost:8080",
+            default=DEFAULT_SERVER,
             )
 
 class Command:
