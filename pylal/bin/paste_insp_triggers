@@ -114,13 +114,13 @@ def append_process(doc, options):
         """
         type_map = {str: u"lstring", bool: u"lstring",
                     unicode: u"lstring",
-                    int: u"int_8s", float: u"real_8s"}
+                    int: u"int_8s", float: u"real_8"}
         if val is True:
-            return (name, u"lstring", "")
+            return ("--" + name, u"lstring", "")
         elif val is False:
             return None
         else:
-            return (name, type_map[type(val)], val)
+            return ("--" + name, type_map[type(val)], val)
 
     params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
               if (val is not False) and (val is not None)]
