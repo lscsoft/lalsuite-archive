@@ -181,22 +181,25 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 
 	# segment_def_id --> instrument names mapping constructed from
 	# segment_definer entries bearing the correct name
-	def_ids = dict([(row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name])
+	index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
 
 	# segment_id --> instrument names mapping constructed from
 	# segment_def_map entries bearing segment_def_ids from above
-	seg_ids = dict([(row.segment_id, def_ids[row.segment_def_id]) for row in map_table if row.segment_def_id in def_ids])
+	index = dict((row.segment_id, index[row.segment_def_id]) for row in map_table if row.segment_def_id in index)
 
 	# retrieve segments bearing segment_ids from above, and insert
 	# into a dictionary indexed by instrument
 	result = segments.segmentlistdict()
 	for row in seg_table:
-		if row.get_active() == activity and row.segment_id in seg_ids:
-			seg = row.get()
-			for instrument in seg_ids[row.segment_id]:
-				if instrument not in result:
-					result[instrument] = segments.segmentlist()
-				result[instrument].append(seg)
+		if row.get_active() == activity:
+			try:
+				for instrument in index[row.segment_id]:
+					try:
+						result[instrument].append(row.get())
+					except KeyError:
+						result[instrument] = segments.segmentlist([row.get()])
+			except KeyError:
+				pass
 
 	# done
 	return result
