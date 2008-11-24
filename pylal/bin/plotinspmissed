@@ -174,7 +174,7 @@ def createImageMap(opts, missedInj, ifo, tag):
   for inj in missedInjUse:
     
     # do the followup and create the followup page
-    followuphtml = followup.followup( inj, ifo, opts.followup_tag )
+    followuphtml = followup.followup(inj, ifo)
     
     # get the coordinates of this missed injection
     totalMass = inj.mass1+inj.mass2
@@ -339,7 +339,8 @@ def parse_command_line():
       help="vetofile containing veto times for V1")
   parser.add_option("","--followup-tag",action="store",\
       type="string",default=None,  metavar="FOLLOWUPTAG",\
-      help="a tag to select the proper xml files in a cache file. Should be the injecion tag ideally.")
+      help="a tag to select the proper xml files in a cache file"\
+                    "for the followup.")
   parser.add_option("","--followup-time-window",action="store",\
       type="float",default=20.0,  metavar="FOLLOWUPTIMEWINDOW",\
       help="time-window to be plotted in the followup [in seconds]")
@@ -350,9 +351,10 @@ def parse_command_line():
       "argument should be the cvs directory where the html file will be placed "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
     
-  
+      
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
+
 
   # test the input options
   if not options.ifo_times:
@@ -550,7 +552,7 @@ for misentry, misfile in zip(miscache,misFiles):
 
 # initialize the followup class
 if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, miscache, opts)
+  followup = followup_missed.FollowupMissed( cache, opts)
  
 
 
