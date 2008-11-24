@@ -33,21 +33,23 @@ import glob
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
 
+from glue import iterutils
 from glue import lal
 from glue.ligolw import ligolw
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw import lsctables
 from glue.ligolw import table
+from glue.ligolw import utils
 from glue import segmentsUtils
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
+from pylal import llwapp
 from pylal import rate
 from pylal.date import LIGOTimeGPS
 from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
+__date__ = "$Date$" or None
 
 
 def get_mean_mchirp_GRB070923(coinc):
@@ -95,7 +97,7 @@ class DictBins(dict, rate.Bins):
     def centres(self): raise NotImplemented
 
 def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
-    verbose=False):
+    dtype=float, verbose=False):
     """
     Return an array of dimension equal to nd_bins containing the loudest
     stats in rows.  The length of the key_funcs must be equal to the
@@ -113,7 +115,7 @@ def get_loudest_stats_by_bins(rows, stat_func, nd_bins, key_funcs,
         raise ValueError, "number of bins does not match number of keys"
 
     num_discarded = 0
-    loudest_stats = numpy.zeros(shape=nd_bins.shape, dtype=float)
+    loudest_stats = numpy.zeros(shape=nd_bins.shape, dtype=dtype)
     for coinc in rows:
         bin_val = tuple([key_func(coinc) for key_func in key_funcs])
         try:
@@ -154,6 +156,34 @@ def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
     # get loudest stat in each bin
     return get_loudest_stats_by_bins(onsource_coincs, stat_func, nd_bins, keys,
         verbose=True)
+
+def keep_only_loudest_events_by_mc(xmldoc, coincstat, mc_bins):
+    """
+    Duplicate get_loudest_stats_by_mc, except return the xmldoc with all
+    coincs eliminated but the loudest in each mc_bin.
+    If xmldoc has no SnglInspiralTable, create an empty one.
+    """
+    # read unclustered on-source coincs
+    try:
+      onsource_trigs = table.get_table(xmldoc,
+          lsctables.SnglInspiralTable.tableName)
+    except ValueError:
+      onsource_trigs = lsctables.New(lsctables.SnglInspiralTable)
+    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+        coinc_stat)
+
+    # define bins and keys
+    nd_bins = rate.NDBins((mc_bins,))
+    stat_func = lambda coinc: (coinc.stat, coinc.event_id)
+    keys = (grbsummary.get_mean_mchirp,)
+
+    # get loudest (stat, event_id) in each bin, then filter for matching triggers
+    loudest_pairs = get_loudest_stats_by_bins(onsource_coincs, stat_func,
+        nd_bins, keys, dtype=object, verbose=True)
+    loudest_ids = set(pair[1] for pair in loudest_pairs if pair != 0)
+    iterutils.inplace_filter(lambda t: t.event_id in loudest_ids, onsource_trigs)
+
+    return xmldoc
 
 def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     trial_bins, mc_bins):
@@ -216,6 +246,33 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
 
     return sims, loudest_by_sim_mc
 
+def append_process(doc, options):
+    """
+    Append a process table and a process_params table to doc.
+    """
+    process = llwapp.append_process(doc, "pylal_relic", __version__,
+                                    "lscsoft", __date__)
+
+    def map_val(name, val):
+        """
+        Put (name, val) pairs in a format suitable for
+        llwapp.append_process_params().
+        """
+        type_map = {str: u"lstring", bool: u"lstring",
+                    unicode: u"lstring",
+                    int: u"int_8s", float: u"real_8"}
+        if val is True:
+            return ("--" + name, u"lstring", "")
+        elif val is False:
+            return None
+        else:
+            return ("--" + name, type_map[type(val)], val)
+
+    params = [map_val(name, val) for name, val in options.__dict__.iteritems() \
+              if (val is not False) and (val is not None)]
+    llwapp.append_process_params(doc, process, params)
+    return process
+
 def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
@@ -235,11 +292,14 @@ def parse_args():
     parser.add_option("--user-tag", default="",
         help="identifying string for these data")
     parser.add_option("--write-onsource", action="store_true", default=False,
-        help="specify to write the onsource loudest coincidences")
+        help="specify to write the onsource loudest coincidences; "\
+        "requires --off-source-pattern and --onsource-pattern")
     parser.add_option("--write-offsource", action="store_true", default=False,
-        help="specify to write the offsource loudest coincidences")
+        help="specify to write the offsource loudest coincidences; "\
+        "requires --off-source-pattern")
     parser.add_option("--write-injections", action="store_true", default=False,
-        help="specify to write the loudest injection coincidences")
+        help="specify to write the loudest injection coincidences; "\
+        "requires --off-source-pattern and --injection-pattern")
 
     # segments
     parser.add_option("--veto-segfiles", default="",
@@ -278,25 +338,24 @@ def parse_args():
 
     # check that mandatory switches are present
     for opt in ("cache_file","offsource_pattern",
-        "veto_segfiles", "m2_min", "m2_max", "m2_nbins", "D_min", "D_max",
-        "D_nbins", "mc_boundaries", "statistic"):
+        "veto_segfiles", "mc_boundaries", "statistic"):
         if getattr(options, opt) is None:
-            raise ValueError, "--%s is required" % opt.replace("_", "-")
+            raise ValueError, "--%s is always required" % opt.replace("_", "-")
     if not (options.write_onsource or options.write_offsource \
             or options.write_injections):
         raise ValueError, "must specify at least one of {--write-onsource, "\
             "--write-offsource, --write-injections}"
-    if options.write_injections and not (options.injection_pattern \
-        and options.inj_coinc_pattern):
+    if options.write_injections and (options.injection_pattern is None \
+        or options.inj_coinc_pattern is None \
+        or options.m2_min is None \
+        or options.m2_max is None \
+        or options.m2_nbins is None \
+        or options.D_min is None \
+        or options.D_max is None \
+        or options.D_nbins is None):
         raise ValueError, "if --write-injections is specified, you must also "\
-            "provide --injection-pattern and --inj-coinc-pattern."
-
-    # split comma-separated lists
-    for opt in ("veto_segfiles", "mc_boundaries"):
-        if hasattr(options, opt):
-            setattr(options, opt, getattr(options, opt).split(","))
-
-    options.mc_boundaries = map(float, options.mc_boundaries)
+            "provide --injection-pattern, --inj-coinc-pattern, --m2-min, "\
+            "--m2-max, --m2-nbins, --D-min, --D-max, and --D-nbins."
 
     return options, arguments
 
@@ -312,11 +371,12 @@ coinc_stat = CoincInspiralUtils.coincStatistic(opts.statistic)
 # read in non-injection documents
 cache = lal.Cache.fromfile(open(opts.cache_file), coltype=LIGOTimeGPS)
 
-# XXX: Speed hack
+# XXX: Speed hack; if opts.write_onsource, need all columns to be able to write
 lsctables.SimInspiralTable.loadcolumns = ["simulation_id", "mass1", "mass2",
     "distance", "geocent_end_time", "geocent_end_time_ns", "process_id"]
-lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
-    "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
+if not opts.write_onsource:
+    lsctables.SnglInspiralTable.loadcolumns = ["event_id", "mchirp", "ifo",
+        "snr", "chisq", "chisq_dof", "end_time", "end_time_ns", "process_id"]
 
 # always read offsource triggers (needed in any case)
 offsource_doc = grbsummary.load_cache(ligolw.Document(), cache,
@@ -327,16 +387,18 @@ off_segs = grbsummary.get_segs_from_doc(offsource_doc)
 # choose segments/trials/vetoes (match grbtimeslide_stats)
 
 on_segs = segmentsUtils.fromsegwizard(open(opts.onsource_seg),
-                                                    coltype=int)
+                                      coltype=LIGOTimeGPS)
 trial_bins, trial_veto_mask, _ = \
     grbsummary.get_exttrig_trials(on_segs, off_segs,
-                                  opts.veto_segfiles)
+                                  opts.veto_segfiles.split(","))
 
 ################################################################################
 # choose other binnings: mchirp, m2, D
-mc_bins = rate.IrregularBins(opts.mc_boundaries)
-m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
-D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
+mc_bins = rate.IrregularBins(map(float, opts.mc_boundaries.split(",")))
+
+if opts.write_injections:
+    m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins)
+    D_bins = rate.LinearBins(opts.D_min, opts.D_max, opts.D_nbins)
 
 ################################################################################
 # get loudest on-source coincs
@@ -346,11 +408,23 @@ if opts.write_onsource:
   fileList = glob.glob(opts.onsource_glob)
   if len(fileList)!=1:
     raise ValueError, "Number of on-source fils must be 1, it is %d " % len(fileList)
-  onsource_doc = ligolw_add.ligolw_add(ligolw.Document(), fileList, verbose=opts.verbose)
+  onsource_doc = utils.load_filename(fileList[0], verbose=opts.verbose,
+      gz=(fileList[0]))
 
-  # and extract the loudest for each MC bin
+  # add this program to the process table
+  process = append_process(onsource_doc, opts)
+
+  # extract the loudest for each MC bin
   onsource_loudest_by_mc = get_loudest_stats_by_mc(onsource_doc, coinc_stat,
       mc_bins)
+
+  # also alter the XML to contain only the loudest event in each MC bin
+  keep_only_loudest_events_by_mc(onsource_doc, coinc_stat, mc_bins)
+
+  # since we didn't do the argmax in exactly the same way as the max,
+  # let's be paranoid that we got the same loudest events.
+  assert (onsource_loudest_by_mc == get_loudest_stats_by_mc(onsource_doc,
+      coinc_stat, mc_bins)).all()
 
 ################################################################################
 # get loudest off-source coincs
@@ -427,13 +501,18 @@ else:
 
 if opts.write_onsource:
     fname = fname_prefix + "_onsource" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
-        onsource_loudest_by_mc), open(fname, "wb"), -1)
+    # write pickle
+    pickle.dump((opts.statistic, mc_bins, onsource_loudest_by_mc),
+                open(fname, "wb"), -1)
+    # write XML
+    llwapp.set_process_end_time(process)
+    utils.write_filename(onsource_doc, fname_prefix + "_onsource" \
+        + fname_suffix.replace(".pickle", ".xml"))
     sys.stdout.write("Loudest on-source coincs written.\n")
 if opts.write_offsource:
     fname = fname_prefix + "_offsource" + fname_suffix
-    pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
-        offsource_loudest_by_trial_mc), open(fname, "wb"), -1)
+    pickle.dump((opts.statistic, mc_bins, offsource_loudest_by_trial_mc),
+                open(fname, "wb"), -1)
     sys.stdout.write("Loudest off-source coincs written.\n")
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
