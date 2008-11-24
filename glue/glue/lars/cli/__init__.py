@@ -72,7 +72,7 @@ class Ping(Command):
             if not args: args = ["ping"]
             rv = server.ping(echo=" ".join(args))
             if 'echo' in rv:
-                print rv['echo']
+                print "Server '%s' replies: '%s'" % (server._url, rv['echo'])
             else:
                 print "Error:", rv
         except Exception, e:
