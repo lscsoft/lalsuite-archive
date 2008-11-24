@@ -168,7 +168,7 @@ class Add(Command):
         duration = gpsEnd - gpsStart
 
         # Create the database entry.
-        d = dict(owner=owner,
+        d = dict(user=owner,
                  description=description,
                  url=url,
                  ifos=ifos,
