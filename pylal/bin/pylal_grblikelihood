@@ -34,7 +34,9 @@ __prog__ = "pylal_grblikelihood"
 __title__ = "GRB interpretation"
 
 import optparse
+import os.path as op
 import cPickle as pickle
+import shutil
 import sys
 
 import numpy
@@ -46,6 +48,12 @@ import pylab
 pylab.rc("text", usetex=True)
 pylab.rc("lines", linewidth=2.5)
 
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from glue.ligolw import utils
+from pylal import CoincInspiralUtils
+from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import viz
@@ -234,6 +242,29 @@ def get_level_crossings(xy_array, level, y_bins):
                                        max_y=y_bins.max) \
                         for col in xy_array])
 
+class always_equal(object):
+    def __eq__(self, other):
+        return True
+
+def make_html_table(two_dim_seq, header_row=None):
+    """
+    Given a sequence of sequences (2-D array works), make an HTML table out
+    of it.  If header_row is provided, make it the table header.
+    """
+    last_len = always_equal()
+    html = ["<table  border=\"1\" cellspacing=\"0\">"]
+    if header_row is not None:
+        html.append("  <tr><th>" + "</th><th>".join(map(str, header_row)) \
+            + "</th></tr>")
+        last_len = len(header_row)
+    for row in two_dim_seq:
+        if len(row) != last_len:
+            raise ValueError, "header and row lengths must all be consistent."
+        html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
+            + "</td></tr>")
+    html.append("</table><br>")
+    return "\n".join(html)
+
 def parse_args():
     parser = optparse.OptionParser(version="%prog CVS $Id$ ")
 
@@ -285,7 +316,7 @@ def parse_args():
     # check that mandatory switches are present
     for opt in ("relic_onsource", "relic_offsource", "relic_injections"):
         if getattr(options, opt) is None:
-            raise ValueError, "%s is required" % opt.replace("_", "-")
+            raise ValueError, "--%s is required" % opt.replace("_", "-")
 
     return options, arguments
 
@@ -299,28 +330,31 @@ InspiralUtils.initialise(opts, __prog__, __version__)
 html_footer = ""
 
 ##############################################################################
-# read in bin definitions and loudest stats
+# read everything into memory
 # All vetoes have been taken into account
 
-html_footer += InspiralUtils.message(opts,
-    "Reading in bin definitions and loudest statistics...")
-statistic, mc_bins, m2_bins, D_bins, onsource_loudest_by_mc \
+if opts.verbose:
+    print "Reading in bin definitions and loudest statistics..."
+statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, m2_bins, D_bins, offsource_loudest_by_trial_mc \
+statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
 statistic, mc_bins, m2_bins, D_bins, num_sims_by_inj_m2_D, \
     inj_loudest_by_inj_mc_m2_D = pickle.load(open(opts.relic_injections))
+if statistic != "effective_snr":
+    raise NotImplemented
+
+relic_onsource_xml = opts.relic_onsource.replace(".pickle", ".xml")
+new_onsource_xml = op.join(opts.output_path, op.basename(relic_onsource_xml))
+if not op.isfile(relic_onsource_xml):
+    raise ValueError, "missing " + relic_onsource_xml
+shutil.copy(relic_onsource_xml, new_onsource_xml)
+onsource_doc = utils.load_filename(new_onsource_xml)
 
 num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
 num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
 inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
 
-# print summary
-html_footer += InspiralUtils.message(opts,
-    "on-source loudest combined " + statistic + " by mchirp category:")
-for low, hi, stat in zip(mc_bins.lower(), mc_bins.upper(),
-                         onsource_loudest_by_mc):
-    html_footer += InspiralUtils.message(opts, "  [%f, %f): %f" % (low, hi, stat))
 html_footer += InspiralUtils.message(opts,
     "Number of injections read: %d" % len(inj_loudest_by_inj_mc_m2_D))
 
@@ -350,6 +384,8 @@ compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
 # FIXME: This is a very crude D^3 reweighting based on the outer edge of an
 # injection's distance bin rather than the specific distance of the injection.
 if opts.reweight_D:
+    if opts.verbose:
+        print "Computing D^3 reweighting..."
     m2_D_mask_by_inj = (inj_loudest_by_inj_mc_m2_D != 0).sum(axis=1, dtype=bool)
     D_ind_by_inj = []
     for m2_D_mask in m2_D_mask_by_inj:
@@ -370,43 +406,36 @@ else:
 
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences by m2
+if opts.verbose:
+    print "Computing on-source likelihoods..."
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
-
-html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | 0)):")
-for low, hi, pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
-    html_footer += InspiralUtils.message(opts, "  [%f, %f): %f" % (low, hi, pc0))
-
 log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
-
-html_footer += InspiralUtils.message(opts, "ln(p(c(mchirp) | h(m2))):")
-for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_pch_by_mc_m2):
-    html_footer += InspiralUtils.message(opts,
-        "  [%f, %f): %s" % (low, hi, str(pch_by_m2)))
-
 log_L_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
 # Examples of how to swap in IFAR or pure effective SNR
 # log_L_mc_m2 = numpy.ones(log_pch_by_mc_m2.shape) / log_pc0_by_mc[:, None]
 # log_L_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
 
-html_footer += InspiralUtils.message(opts, "ln(L(c(mchirp)) | h(m2)):")
-for low, hi, pch_by_m2 in zip(mc_bins.lower(), mc_bins.upper(), log_L_mc_m2):
-    html_footer += InspiralUtils.message(opts,
-        "  [%f, %f): %s" % (low, hi, str(pch_by_m2)))
-
-# for upper limit, use likelihoods from all mass regions
-UL_log_L_by_m2 = log_L_mc_m2.max(axis=0)
-
-# for detection, use only likelihoods from actual candidates
+# if there are any candidates, use only likelihoods from candidates
 actual_candidate_mask = (onsource_loudest_by_mc > 0)
 if numpy.any(actual_candidate_mask):
-    detect_log_L_by_m2 = log_L_mc_m2[actual_candidate_mask, :].max(axis=0)
+    log_L_by_m2 = log_L_mc_m2[actual_candidate_mask, :].max(axis=0)
+# else use the min, which is the lowest possible value of log_L globally.
 else:
-    detect_log_L_by_m2 = numpy.zeros(len(m2_bins), dtype=numpy.float32)
+    log_L_by_m2 = log_L_mc_m2.min(axis=0)
+
+# write the on-source likelihoods to disk
+onsource_outname = op.join(opts.output_path, __prog__ + "_onsource")
+if opts.user_tag is not None:
+    onsource_outname += "_" + opts.user_tag
+onsource_outname += ".pickle"
+pickle.dump(log_L_by_m2, open(onsource_outname, "wb"), -1)
 
 ################################################################################
 # compute P(Lambda > Lambda_0(m2) | 0), the detection false-alarm probability
 # tabulate off-source likelihoods
+if opts.verbose:
+    print "Computing P(Lambda > Lambda_0(m2) | 0)..."
 offsource_likelihood_by_trial_m2 = numpy.zeros(\
     (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
 for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
@@ -414,21 +443,27 @@ for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
     off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
 
-    # for detection, use only likelihoods from actual candidates
+    # if there are any candidates, use only likelihoods from candidates
     offsource_candidate_mask = (offsource_loudest_by_mc > 0)
     if numpy.any(offsource_candidate_mask):
         offsource_likelihood_by_trial_m2[i, :] = \
             off_log_L_mc_m2[offsource_candidate_mask, :].max(axis=0)
+    else:
+        offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.min(axis=0)
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
-    (offsource_likelihood_by_trial_m2 > detect_log_L_by_m2[None, :])\
+    (offsource_likelihood_by_trial_m2 > log_L_by_m2[None, :])\
     .sum(axis=0, dtype=float) / num_offsource_trials
 
 # for diagnostics, find P(L > L_* | 0) for various L_*
 offsource_likelihood_by_trial_m2.sort(axis=0)
 offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
     / num_offsource_trials
+
+# write the off-source likelihoods to disk
+offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
+pickle.dump(offsource_likelihood_by_trial_m2, open(offsource_outname, "wb"), -1)
 
 ################################################################################
 # compute P(Lambda > Lambda_0(m2) | h(m2, D)) for the upper limit
@@ -437,7 +472,8 @@ offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
 # FIXME: This can be done in O(N_{inj}) time because L is monotonic with SNR
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
-
+if opts.verbose:
+    print "Computing P(Lambda > Lambda_0(m2) | h(m2, D))..."
 log_L_by_inj_mc = []
 log_pc0_by_inj_mc = []
 log_pch_by_inj_mc = []
@@ -473,10 +509,17 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
     # inj_trial_log_L_mc_m2 = inj_trial_loudest_by_mc[:, None]\
     #     .repeat(len(m2_bins), axis=1)
 
-    inj_trial_log_L = inj_trial_log_L_by_mc_m2[:, m2_ind].max()
+    # if there are any candidates, use only likelihoods from candidates
+    inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
+    if numpy.any(inj_trial_candidate_mask):
+        inj_trial_log_L = \
+            inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, m2_ind]\
+            .max(axis=0)
+    else:
+        inj_trial_log_L = inj_trial_log_L_by_mc_m2[:, m2_ind].min(axis=0)
 
     # record if anything is louder than the loudest on-source coinc for this m2
-    if inj_trial_log_L > UL_log_L_by_m2[m2_ind]:
+    if inj_trial_log_L > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_D_mask] += 1
 
     # record diagnostics
@@ -495,8 +538,72 @@ pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
 ################################################################################
 # Take MC errors into account
-
 MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
+
+##############################################################################
+# print summary of loudest events
+if opts.verbose:
+    print "Computation complete.  Writing summary page and plots..."
+
+html_footer += "Loudest on-source coincidences [<a href=\"" \
+    + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
+
+# parse coincs
+coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+onsource_trigs = table.get_table(onsource_doc,
+    lsctables.SnglInspiralTable.tableName)
+onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+    coinc_stat)
+if len(onsource_coincs) > len(mc_bins):
+    raise ValueError, "more on-source coincs than mchirp bins"
+
+# print per-mchirp info
+ifos = set()
+for coinc in onsource_coincs:
+    ifos.update(coinc.get_ifos()[1])
+ifos = list(ifos)
+ifos.sort()
+columns = ["mc_bin", "event_id"] + [ifo + " " + statistic for ifo in ifos] + \
+    ["combined " + statistic, "mchirp",
+     "<em>P</em>(<em>&rho;</em> &gt; <em>&rho;</em><sub>0</sub> | 0)"]
+rows = []
+for low, hi, log_pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
+    row = ["  [%.2f, %.2f)" % (low, hi)]
+    mc_coincs = onsource_coincs.getChirpMass(low, hi)
+    if len(mc_coincs) == 0:
+        row += ["&mdash;"] * (len(columns) - 1)
+    elif len(mc_coincs) == 1:
+        c = mc_coincs[0]
+        # XXX: hardcoded effective SNR, didn't reuse get_mean_mchirp
+        row += [c.event_id] \
+            + ["%.4g" % trig.get_effective_snr() for trig in c] \
+            + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
+               "%.4g" % numpy.exp(log_pc0)]
+    rows.append(row)
+html_footer += make_html_table(rows, columns)
+
+# print per-m2 info
+if numpy.any(actual_candidate_mask):
+    mc_ind_by_m2 = log_L_mc_m2[actual_candidate_mask, :].argmax(axis=0)
+else:
+    mc_ind_by_m2 = log_L_mc_m2.argmin(axis=0)
+mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+columns = ["m2_bin", "event_id", "<em>&Lambda;</em>", "<em>P</em>(<em>&Lambda;</em>(<em>m</em><sub>2</sub>) &gt; <em>&Lambda;</em><sub>0</sub>(<em>m</em><sub>2</sub>) | 0)"]
+rows = []
+for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2, log_L_by_m2,
+    pL0_by_m2):
+    row = ["  [%.2f, %.2f)" % m2_range]
+    m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+    if len(m2_coincs) == 0:
+        row.append("&mdash;")
+    elif len(m2_coincs) == 1:
+        row.append(m2_coincs[0].event_id)
+    else:
+        raise ValueError, "there should be exactly one or zero coincs"
+    row.extend(["%.4g" % numpy.exp(log_L), "%.4g" % pL0])
+    rows.append(row)
+html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots
@@ -675,12 +782,8 @@ plot = plotutils.SimplePlot(\
     r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$",
     r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0) \textrm{ using only }"\
     + mc_latex + r"\textrm{ bins with on-source candidates}$")
-if numpy.any(actual_candidate_mask):
-    plot.add_content(m2_bins.centres(), pL0_by_m2)
-    plot.finalize(loc=4)
-else:
-    plot.finalize(loc=4)
-    plot.ax.set_xlim((m2_bins.min, m2_bins.max))
+plot.add_content(m2_bins.centres(), pL0_by_m2)
+plot.finalize(loc=4)
 plot.ax.set_ylim((0, 1))
 
 if opts.enable_output:
