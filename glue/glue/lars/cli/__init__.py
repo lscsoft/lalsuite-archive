@@ -141,13 +141,12 @@ class Add(Command):
         else:
             owner = os.environ["USER"]
 
-        # IFOs -- XXX confusing, so it is required and not inferred.
-        # Actually, that is bad, too, since it won't be predictable or uniform.
-        # (although, I suppose it *is* predictbly undpredictable, like everywhere else)
-
         ifos     = options.ifos
         gpsStart = options.start
         gpsEnd   = options.end
+
+        if ((not ifos or not gpsStart or not gpsEnd) and not options.lalcache):
+            self.parser.error("You must enter IFOS, GPS start/end times OR a LALCache file")
 
         if options.lalcache:
             cache = Cache.fromfile(open(options.lalcache,"r"))
