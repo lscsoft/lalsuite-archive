@@ -48,7 +48,7 @@ from pylal.date import LIGOTimeGPS
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
-__date__ = "$Date$" or None
+__date__ = "$Date$"[7:-2] or None
 
 
 #
@@ -413,7 +413,7 @@ if opts.write_onsource:
   if len(fileList)!=1:
     raise ValueError, "Number of on-source fils must be 1, it is %d " % len(fileList)
   onsource_doc = utils.load_filename(fileList[0], verbose=opts.verbose,
-      gz=(fileList[0]))
+      gz=fileList[0].endswith(".gz"))
 
   # add this program to the process table
   process = append_process(onsource_doc, opts)
