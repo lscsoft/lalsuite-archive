@@ -147,6 +147,8 @@ class Add(Command):
 
         if ((not ifos or not gpsStart or not gpsEnd) and not options.lalcache):
             self.parser.error("You must enter IFOS, GPS start/end times OR a LALCache file")
+        if gpsStart > gpsEnd:
+            self.parser.error("GPS start time must be less then GPS end")
 
         if options.lalcache:
             cache = Cache.fromfile(open(options.lalcache,"r"))
