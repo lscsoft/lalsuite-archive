@@ -49,7 +49,12 @@ class Server(object):
         return self._fromJSON(response.read())
 
     def search(self, **kw):
-        pass
+        params = self._mkParams(**kw)
+        self._conn.request("POST", "/clisearch", params, self.headers)
+        response = self._conn.getresponse()
+        if response.status != 200:
+            raise Exception(response.reason)
+        return self._fromJSON(response.read())
 
     def _fromJSON(self, s):
         return eval(s,{'null':None},{})

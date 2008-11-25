@@ -4,8 +4,9 @@ import logging
 import os
 import sys
 
-from urlparse import urljoin
+from urlparse import urljoin, urlsplit, urlunsplit
 from urllib import quote_plus as quote, urlencode
+import socket
 
 from glue.lal import Cache
 from glue.lars import Server
@@ -32,6 +33,43 @@ def mkIfos(mess, warn=False):
                 print "Warning: ignoring bad IFO '%s'" % code
     rv.sort()
     return ",".join(rv)
+
+def printAnalysis(a):
+    if 'gpsend' not in a:
+        a = dict(a)
+        a.update(gpsend = int(a['gpsStart']) + int(a['duration']))
+    print """
+UID: %(uid)s
+     %(description)s
+     %(url)s
+     %(gpsStart)s %(gpsend)s
+     %(ifos)s
+     cachefile: %(cachefile)s""" % a
+
+def printErrors(rv):
+    if 'Error' in rv:
+        print "There was a problem:"
+        for key in rv['Error']:
+            if key == 'url':
+                print "    %s: %s" % ("directory", rv[key])
+            else:
+                print "    %s: %s" % (key, rv[key])
+    if 'Exception' in rv:
+        print "Problem:", rv['Exception']
+    if 'Warning' in rv:
+        print "Warning:", rv['Warning']
+
+def makeNiceUrl(url):
+    (scheme, netloc, path, query, frag) = urlsplit(url)
+    if not scheme:
+        # XXX warn?
+        scheme = "file"
+    if not netloc or netloc == 'localhost':
+        # XXX warn?
+        netloc = socket.gethostname()
+    path = os.path.abspath(path)
+
+    return urlunsplit((scheme, netloc, path, query, frag))
 
 class OptionParser(optparse.OptionParser):
     def __init__(self, *args, **kwargs):
@@ -84,37 +122,17 @@ class Add(Command):
 
     def init_parser(self):
         parser = self.parser
-        parser.usage = "lars [global options] add [command options] description analysisLocation"
+        parser.usage = "lars add [options] description analysisDir [cachefile]"
 
         # XXX set usage ? / version ?
 
         parser.add_option(
-            "-I", "--ifos",
+            "-o", "--owner",
             action="store",
             type="string",
             default=None,
-            help="ifos of new entry.  Determined from search caches if not present" )
-
-        parser.add_option(
-            "", "--start",
-            action="store",
-            type="int",
-            help="gps start time of entry.  Determined from search caches if not present",
-            default=None)
-
-        parser.add_option(
-            "", "--end",
-            action="store",
-            type="int",
-            help="gps end time of new entry.  Determined from search caches if not present",
-            default=None)
-
-        parser.add_option(
-            "-C", "--lalcache",
-            action="store",
-            type="string",
-            default=None,
-            help="LAL Cache file." )
+            help="Owner of analysis.",
+        )
 
         parser.add_option(
             "-d", "--dry-run",
@@ -123,7 +141,7 @@ class Add(Command):
             help="List properties. Do not store in database." )
 
     def run_command(self, options={}, args=[]):
-        if len(args) != 2:
+        if len(args) not in [2,3]:
             self.parser.error("Description and analysis directory are required.")
 
         # owner = StringCol(notNone=True, length=40)
@@ -131,6 +149,7 @@ class Add(Command):
         # updated = DateTimeCol(default=DateTimeCol.now)
         # name = StringCol(notNone=True, length=60)
         # description = StringCol(notNone=True)
+        # cachefile = optional String
         # url = StringCol(notNone=True, length=120)
         # gpsStart = IntCol(notNone=True)
         # duration = IntCol(notNone=True)
@@ -141,38 +160,34 @@ class Add(Command):
         else:
             owner = os.environ["USER"]
 
-        ifos     = options.ifos
-        gpsStart = options.start
-        gpsEnd   = options.end
+        if len(args) == 3:
+            # cache file was specified
+            cachefilename = args[2]
+            cachefile = open(cachefilename, "r")
+        else:
+            # cache file was not specified
+            # look for ihope.cache in the analysis' directory
+            cachefilename = os.path.join(args[1], 'ihope.cache')
+            cachefile = open(cachefilename, "r")
+        
+        cache = Cache.fromfile(cachefile)
+        segdir = cache.to_segmentlistdict()
+        extent = segdir.extent_all()
+        gpsStart = int(extent[0])
+        gpsEnd = int(extent[1])
+        ifos = mkIfos(segdir.keys())
 
-        if ((not ifos or not gpsStart or not gpsEnd) and not options.lalcache):
-            self.parser.error("You must enter IFOS, GPS start/end times OR a LALCache file")
-        if gpsStart > gpsEnd:
-            self.parser.error("GPS start time must be less then GPS end")
-
-        if options.lalcache:
-            cache = Cache.fromfile(open(options.lalcache,"r"))
-            segdir = cache.to_segmentlistdict()
-            extent = segdir.extent_all()
-            gpsStart = gpsStart or int(extent[0])
-            gpsEnd = gpsEnd or int(extent[1])
-            if not ifos:
-                ifos = mkIfos(segdir.keys())
-
-        assert(gpsEnd > gpsStart)
         duration = gpsEnd - gpsStart
 
         description = args[0]
-
-        url = args[1]  # XXX verify/validate?
-
-        duration = gpsEnd - gpsStart
+        url = makeNiceUrl(args[1])  # XXX verify/validate?
 
         # Create the database entry.
         d = dict(user=owner,
                  description=description,
                  url=url,
                  ifos=ifos,
+                 cachefile=makeNiceUrl(cachefilename),
                  gpsStart=gpsStart,
                  duration=duration)
 
@@ -182,13 +197,11 @@ class Add(Command):
 
         server = Server(options.server)
         rv = server.create(**d)
-        if 'Error' in rv:
-            print "There was a problem:"
-            errors = rv['Error']
-            for key in errors:
-                print "    %s: %s" % (key, errors[key])
-        else:
+        printErrors(rv)
+        if 'uid' in rv:
             print "Created:", rv['uid']
+        else:
+            print "No record created."
 
 class Search(Command):
     name ="search"
@@ -204,6 +217,14 @@ class Search(Command):
             type="string",
             default=None,
             help="Description to match",
+        )
+
+        parser.add_option(
+            "-C", "--cachefile",
+            action="store",
+            type="string",
+            default=None,
+            help="Location of cachefile.",
         )
 
         parser.add_option(
@@ -238,12 +259,20 @@ class Search(Command):
             help="GPS time.",
         )
 
+        parser.add_option(
+            "-b", "--browser",
+            action="store_true",
+            default=False,
+            help="Show result in web browser." )
+
     def run_command(self, options={}, args=[]):
         import webbrowser
         print "Opening browser"
         params = {}
         if options.description:
             params['description'] = options.description
+        if options.description:
+            params['cachefile'] = options.cachefile
         if options.owner:
             params['owner'] = options.owner
         if options.url:
@@ -251,7 +280,6 @@ class Search(Command):
         if options.ifos:
             for ifo in mkIfos(options.ifos.split(','),warn=True).split(','):
                 params['ifo_'+ifo] = 'CHECKED'
-            #params['ifos'] = options.ifos
         if options.gpstime:
             params['gpstime'] = options.gpstime
         if params:
@@ -259,7 +287,14 @@ class Search(Command):
             url += "?" + urlencode(params)
         else:
             url = urljoin(options.server, "/search")
-        webbrowser.open_new(url)
+        if options.browser:
+            webbrowser.open_new(url)
+        else:
+            server = Server(options.server)
+            rv = server.search(**params)
+            for result in rv['results']:
+                printAnalysis(result)
+            printErrors(rv)
 
 
 commands["add"] = Add()
