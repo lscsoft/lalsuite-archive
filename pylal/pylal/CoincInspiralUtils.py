@@ -6,6 +6,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal.inject import light_travel_time
 from pylal.tools import XLALCalculateEThincaParameter
+from pylal.xlal import date
 import glue.iterutils
 import numpy
 import cmath
@@ -244,6 +245,17 @@ class coincInspiralTable:
           return getattr(self, ifo).end_time+getattr(self, ifo).end_time_ns*1.0e-9
       raise ValueError, "This coincident trigger does not contain any "\
             "single trigger.  This should never happen."
+
+    def get_gps_times( self ):
+      """
+      Return a dictionary of the GPS times associated with each
+      trigger in the coincidence. The time is stored in LIGOTimeGPS format. 
+      """
+      gpstimes={}
+      for ifo in ifos:
+        if hasattr(self,ifo):
+          gpstimes[ifo]= date.LIGOTimeGPS(getattr(self, ifo).end_time, getattr(self, ifo).end_time_ns)
+      return gpstimes
 
     def __iter__(self):
       """
