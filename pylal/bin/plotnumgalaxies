@@ -91,13 +91,20 @@ def square(xdata,xedges,ydata,yedges,lum_weight=None):
   @param lum_weight: rescaling factor for the histogram
   """
   ng_x_y = zeros((len(xedges),len(yedges)),'d')
-  xstep = xedges[1] - xedges[0]
-  ystep = yedges[1] - yedges[0]
   
-  for i in range(len(xdata)):  
-    k = int((xdata[i]-xedges[0])/xstep)
-    l = int((ydata[i]-yedges[0])/ystep)
-    
+  for i in range(len(xdata)):
+    if xdata[i] >= max(xedges):
+      k = len(xedges)
+    else:
+      k = [idx for idx in range(len(xedges)) \
+          if xdata[i] < xedges[idx]][0]
+
+    if ydata[i] >= max(yedges):
+      l = len(yedges)
+    else:
+      l = [idx for idx in range(len(yedges)) \
+          if ydata[i] < yedges[idx]][0]
+
     if not lum_weight:
       lum_array = 1
     else:
@@ -121,10 +128,13 @@ def histng(xdata,xedges,lum_weight=None):
   @param lum_weight: rescaling factor for the histogram
   """
   ng_x = zeros(len(xedges),'d')
-  xstep = xedges[1] - xedges[0]
   
   for i in range(len(xdata)):
-    l = int((xdata[i] - xedges[0])/xstep)
+    if xdata[i] >= max(xedges):
+      l = len(xedges)
+    else:
+      l = [idx for idx in range(len(xedges)) \
+          if xdata[i] < xedges[idx]][0]
 
     if not lum_weight:
       lum_array = 1
@@ -535,15 +545,28 @@ class astroData:
     """
     return the values in the specified column, 
     if error is specified, then correct values if they are distances
+    XXX need to extend to take lowest 2 distances per injection XXX
     """
-    if (error == "Distance") and ("dist" in column):
+    if "combined_chirp_dist" in column:
+      gal_name = self.astro_inj.getColumnByName('source')
+      sites = column.split('_')[-1]
+      invDistsq = zeros(len(self.astro_inj))
+      for site in sites:
+        dist = self.astro_inj.get_chirp_dist(site)
+        if error == "Distance":
+          # apply the appropriate correction
+          for i in range(len(gal_name)):
+            dist[i] *= (1 + self.source_list[gal_name[i]]['actual_delta_d'])
+        invDistsq += (distNorm[site]/dist)**2.
+      return invDistsq**-.5
+    elif (error == "Distance") and ("dist" in column):
       gal_name = self.astro_inj.getColumnByName('source')
       col_data = self.astro_inj.get_column(column)
       for i in range(len(gal_name)):
         col_data[i] *= (1 + self.source_list[gal_name[i]]['actual_delta_d'])
       return col_data
-
-    else: return self.astro_inj.get_column(column)
+    else:
+      return self.astro_inj.get_column(column)
 
   def hist_ng(self,column,edges,error=None):
     """
@@ -722,11 +745,31 @@ class injData:
     """
     return self.coincs.return_sim_inspirals(self.statistic,threshold)
 
-  def get_values(self,column,threshold):
+  def get_values(self,column,threshold,error="None"):
     """
     get the values contained in column for inj above threshold
+    XXX need to extend to take lowest 2 distances per injection XXX
     """
-    return self.get_injections(threshold).get_column(column)
+    if "combined_chirp_dist" in column:
+      injs = self.get_injections(threshold)
+      sites = column.split('_')[-1]
+      invDistsq = zeros(len(self.astro_inj))
+      for site in sites:
+        if  error != "None" and \
+            (error == "Waveform" or error[0].lower() == site):
+          # apply the appropriate correction
+          dist = distError(injs.get_chirp_dist(site), errorVal[error], 0)
+        else:
+          dist = injs.get_chirp_dist(site)
+        invDistsq += (distNorm[site]/dist)**2.
+      return invDistsq**-.5
+    else:
+      if  error != "None" and \
+          (error == "Waveform" or error[0].lower() == column[-1]):
+        return distError(self.get_injections(threshold).get_column(column),
+            errorVal[error], 0)
+      else:
+        return self.get_injections(threshold).get_column(column)
   
   def mass_cut(self,mlow,mhigh):
     """
@@ -769,15 +812,8 @@ class injData:
     """
     get errors for column, above given threshold
     """
-    all_val = self.get_values(column,-2)
-    found_val = self.get_values(column,threshold)
-    if "dist" in column and \
-        (error == "Waveform" or error[0].lower() == column[-1]):
-      # apply the correction
-      all_val = distError(all_val, errorVal[error], 0)
-      found_val = distError(found_val, errorVal[error], 0)
-    all_inj = histng(all_val, edges)
-    found_inj = histng(found_val, edges)
+    all_inj = histng(self.get_values(column,-2,error), edges)
+    found_inj = histng(self.get_values(column,threshold,error), edges)
     return (found_inj/(all_inj + 1e-5) - self.eff(column,edges,threshold) )
 
   def plot_efficiency(self, figNum, column, edges, threshold = 0, error = None):
@@ -827,7 +863,7 @@ class injData:
   def hist_2d_inj(self,col1,edges1,col2,edges2,threshold):
     """
     return a hist of the given columns, with specified edges
-    """  
+    """ 
     return square(self.get_values(col1,threshold), edges1, \
                   self.get_values(col2,threshold), edges2)
   
@@ -854,12 +890,8 @@ class injData:
     all = {}
     found = {}
     for col in [col1, col2]:
-      all[col] = self.get_values(col,-2)
-      found[col] = self.get_values(col,threshold)
-      if "dist" in col and (error == "Waveform" or error[0].lower() == col[-1]):
-        # apply the correction
-        all[col] = distError(all[col], errorVal[error], 0)
-        found[col] = distError(found[col], errorVal[error], 0)
+      all[col] = self.get_values(col,-2,error)
+      found[col] = self.get_values(col,threshold,error)
     all_inj = square(all[col1], edges1, all[col2], edges2)
     found_inj = square(found[col1], edges1, found[col2], edges2)
     return (found_inj/(all_inj + 1e-5) - \
@@ -878,7 +910,7 @@ class injData:
     xlabel(col1, size='x-large' )
     ylabel(col2, size='x-large' )
     colorbar(IC)
-    if threshold:
+    if threshold > 0:
       title('Number of injections found above threshold %.2f' % threshold, 
           size='x-large' )
       ending = '_inj_found_above_%.2f.png' % threshold
@@ -938,8 +970,10 @@ class injAstroData:
     self.y_value = yValue
     self.nbins = nBins
     self.fig_name = figName
+    self.log_x = False
     self.x_min = xMin
     self.x_max = xMax
+    self.log_y = False
     self.y_min = yMin
     self.y_max = yMax
     self.astro = None
@@ -963,6 +997,12 @@ class injAstroData:
   ############################################################################
   # General stuff to fix axes etc
   ############################################################################
+  def set_log_x(self, value):
+    """
+    set the value for log_x 
+    """
+    self.log_x = value
+
   def set_x_min(self, value):
     """
     set the minimum value for x 
@@ -974,6 +1014,12 @@ class injAstroData:
     set the maximum value for x 
     """
     self.x_max = value
+
+  def set_log_y(self, value):
+    """
+    set the value for log_y 
+    """
+    self.log_y = value
 
   def set_y_min(self, value):
     """
@@ -1015,13 +1061,29 @@ class injAstroData:
     """
     return the edges in the x-direction
     """
-    return arange(self.x_min, self.x_max, (self.x_max - self.x_min)/self.nbins)
+    if self.log_x:
+      x_edges = \
+          arange(self.nbins)*log(self.x_max/self.x_min)/(self.nbins - 1.) \
+          + log(self.x_min)
+      x_edges = exp(x_edges)
+    else:
+      x_edges = \
+          arange(self.x_min, self.x_max, (self.x_max - self.x_min)/self.nbins)
+    return x_edges
     
   def y_edges(self):
     """
     return the edges in the y-direction
     """
-    return arange(self.y_min, self.y_max, (self.y_max - self.y_min)/self.nbins)
+    if self.log_y:
+      y_edges = \
+          arange(self.nbins)*log(self.y_max/self.y_min)/(self.nbins - 1.) \
+          + log(self.y_min)
+      y_edges = exp(y_edges)
+    else:
+      y_edges = \
+          arange(self.y_min, self.y_max, (self.y_max - self.y_min)/self.nbins)
+    return y_edges
 
   ############################################################################
   # Make plots using astro data
@@ -1265,7 +1327,7 @@ plotnumgalaxies [options]
   
   The luminosity distribution can be plotted against the specified
   --x-value, where this can be any column in the siminspiral table, or the 
-  chirp_dist_X (where X is one of g,h,l,t,v).  
+  chirp_dist_X or combined_chirp_dist_XY[Z...] (where X,Y,Z is one of g,h,l,t,v)
   
   The following plots can be made:
 
@@ -1484,6 +1546,14 @@ parser.add_option("-X","--x-value",action="store",type="string",\
     default ="eff_dist_h",\
     help="Assigns x axis parameter for plot contour, (default eff_dist_h)")
 
+parser.add_option("","--h2-combined-dist",action="store_true",\
+    default=False,\
+    help="Sets combined distance normalizer=0.5 for Hanford (default False)")
+
+parser.add_option("","--log-x",action="store_true",\
+    default=False,\
+    help="Assigns x axis parameter to be log distributed")
+
 parser.add_option("-x","--x-max",action="store",type="float",default = 100.0,\
     help="maximum value plotted on x axis (default 100)")
 
@@ -1492,7 +1562,11 @@ parser.add_option("-q","--x-min",action="store",type="float",default = 1e-4,\
 
 parser.add_option("-Y","--y-value",action="store",type="string",\
     default ='mchirp',\
-    help="Assigns the parameter to x axis to plot contour, (default mchirp)")
+    help="Assigns the parameter to y axis to plot contour, (default mchirp)")
+
+parser.add_option("","--log-y",action="store_true",\
+    default=False,\
+    help="Assigns y axis parameter to be log distributed")
 
 parser.add_option("-y","--y-max",action="store",type="float",default = 2.62,\
     help="maximum value plotted on y axis (default 2.62")
@@ -1510,7 +1584,6 @@ parser.add_option("-Q","--axes-square",action="store_true",default=False,\
 parser.add_option("-n","--nbins",action="store",type="int",default=20,\
     metavar=" NBINS", 
     help="number of bins for the histogram plots (default = 20)" )
-
 
 # plots to be made
 
@@ -1667,6 +1740,14 @@ if opts.waveform_systematic:
 if opts.mc_errors:
   errorVal['Monte_Carlo'] = None
 
+# store the chirp distance normalizers
+distNorm = {}
+distNorm['l'] = 1.
+if opts.h2_combined_dist:
+  distNorm['h'] = 2.
+else:
+  distNorm['h'] = 1.
+
 figNum = 0
 ##############################################################################
 # Output file and dictionary
@@ -1766,6 +1847,9 @@ if opts.axes_from_found: injAstro.axes_from_found(statThresh)
 
 if opts.axes_square: injAstro.axes_square()
 
+if opts.log_x: injAstro.set_log_x(True)
+
+if opts.log_y: injAstro.set_log_y(True)
 
 ##############################################################################
 # Make plots from astrophysical distributions
@@ -1822,7 +1906,7 @@ if opts.plot_effcontour:
   
 if opts.plot_injections:
   figNum += 1
-  injAstro.plot_inj(figNum, 0)
+  injAstro.plot_inj(figNum, -2)
   figNum += 1
   injAstro.plot_inj(figNum, statThresh)
 
