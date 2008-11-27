@@ -415,9 +415,10 @@ rsq = array([])
 nevents = 0
 
 if trigFiles:
-  inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
+  allTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
       verbose=opts.verbose)
-  if inspTriggers:
+  if allTriggers:
+    inspTriggers = allTriggers.ifocut(opts.ifo_times)
     nevents = len(inspTriggers)
   comments += InspiralUtils.message(opts, \
       'Read '+str(nevents)+ ' triggers from from inspiral files')
@@ -455,9 +456,10 @@ inj_chisq = array([])
 inj_rsq = array([])
 
 if injFiles:
-  injTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
+  allTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, \
       verbose=opts.verbose)
-  if injTriggers:
+  if allTriggers:
+    injTriggers = allTriggers.ifocut(opts.ifo_times)
     ninj_events = len(injTriggers)
   if ninj_events:
     inj_snr = injTriggers.get_column('snr')
