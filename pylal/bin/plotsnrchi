@@ -660,12 +660,12 @@ if opts.cont_chisq:
   fig_num +=1
   figure(fig_num)
   legendText=[]
-  if nevents:
-    viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','kx')
-    legendText.append('Triggers')
   if slide_events:
     viz.plot_a_v_b(slideTriggers,'snr','reduced_cont_chisq','loglog','kx')
     legendText.append('Background')
+  if nevents:
+    viz.plot_a_v_b(inspTriggers,'snr','reduced_cont_chisq','loglog','b2')
+    legendText.append('Triggers')
   if ninj_events:
     viz.plot_a_v_b(injTriggers,'snr','reduced_cont_chisq','loglog','r+')
     legendText.append('Injections')
