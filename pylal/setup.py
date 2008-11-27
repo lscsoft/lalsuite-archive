@@ -21,7 +21,7 @@ class PkgConfig(object):
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 
 
-full_lal_pkg_config = PkgConfig("lal lalframe lalmetaio lalsupport")
+full_lal_pkg_config = PkgConfig("lal lalframe")
 lal_pkg_config = PkgConfig("lal")
 
 
