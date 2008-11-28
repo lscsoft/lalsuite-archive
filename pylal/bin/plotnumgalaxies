@@ -753,7 +753,7 @@ class injData:
     if "combined_chirp_dist" in column:
       injs = self.get_injections(threshold)
       sites = column.split('_')[-1]
-      invDistsq = zeros(len(self.astro_inj))
+      invDistsq = zeros(len(injs))
       for site in sites:
         if  error != "None" and \
             (error == "Waveform" or error[0].lower() == site):
