@@ -27,7 +27,8 @@ parser.add_option("-e","--executable",action="store",type="string",\
     metavar=" FILE",help="path to the R executable")
 
 parser.add_option("-b","--burnin",action="store",type="string",\
-    metavar=" VALUE",help="number of mcmc iterations to disregard")
+    metavar=" VALUE",help="number of mcmc iterations to disregard.\
+    If this argument is not specified, an autoburnin will be set up.")
 
 parser.add_option("-t","--reference-time",action="store",type="string",\
     metavar=" GPS",help="GPS time to be used as reference")
@@ -75,11 +76,6 @@ if not opts.plot_routine:
 if not opts.executable:
   print >> sys.stderr, "No R executable specified."
   print >> sys.stderr, "Use --executable FILE to specify location."
-  sys.exit(1)
-
-if not opts.burnin:
-  print >> sys.stderr, "No burnin specified."
-  print >> sys.stderr, "Use --burnin VALUE to specify it."
   sys.exit(1)
 
 if not opts.reference_time:
@@ -139,7 +135,7 @@ file.write("\n# convert the logdistance into distance\n")
 for k in range(nb_chain):
   file.write("input" + str(k+1) + "[,\"distance\"] <- exp(input" + str(k+1) + "[,\"logdistance\"])\n")
 
-file.write("\n# Reorganize the input matrix with columns in the following order: chirpmass,massratio,time,pase,distance,loglikelihood\n")
+file.write("\n# Reorganize the input matrix with columns in the following order: chirpmass,massratio,time,phase,distance,logposterior,loglikelihood\n")
 for k in range(nb_chain):
   file.write("newinput" + str(k+1) + " <- cbind(input" + str(k+1) + "[,\"chirpmass\"],input" + str(k+1) + "[,\"massratio\"],input" + str(k+1) + "[,\"time\"],input" + str(k+1) + "[,\"phase\"],input" + str(k+1) + "[,\"distance\"],input" + str(k+1) + "[,\"logposterior\"],input" + str(k+1) + "[,\"loglikelihood\"])\n")
 
@@ -154,12 +150,21 @@ file.write("\n# enter injected or inspiral parameters\n")
 file.write("injpar <- c(\"chirpmass\"=" + opts.reference_mchirp + ",\"massratio\"=" + opts.reference_eta + ",\"tc\"=" + opts.reference_time + ",\"phi\"=" + opts.reference_phi + ",\"dl\"=" + opts.reference_distance + ",\"logpost\"= NA, \"loglikeli\"= NA" + ")\n")
 file.write("injpar[\"tc\"] <- injpar[\"tc\"] %% 100\n\n")
 
-file.write("# execute the \"mcmcsummary\" code:\n")
-burninlist = ""
-for k in range(nb_chain):
-  burninlist += opts.burnin + ","
+if not opts.burnin:
+  file.write("# prepare a matrix of posterior density values. Use in order to determine the burnin for each chain\n")
+  posteriorlist = ""
+  for k in range(nb_chain):
+    posteriorlist += "input" + str(k+1) + "[,\"logposterior\"],"
+  file.write("posteriorvalues <- cbind(" + posteriorlist.strip(',') + ")\n\n")
+  file.write("# execute the \"mcmcsummary\" code:\n")
+  file.write("mcmcsummary(data=post,targetdirectory=\"" + opts.output_path + "/" + opts.identity + "\",iteration=input1[,1],autoburnin=T,posterior=posteriorvalues,varnames=colnames(post),truevalue=injpar,graphicsformats = c(\"png\"), overwrite = T)")
 
-file.write("mcmcsummary(data=post,targetdirectory=\"" + opts.output_path + "/" + opts.identity + "\",iteration=input1[,1],burnin=c(" + burninlist.strip(',') + "),varnames=colnames(post),truevalue=injpar,graphicsformats = c(\"png\"), overwrite = T)")
+else:
+  burninlist = ""
+  for k in range(nb_chain):
+    burninlist += opts.burnin + ","  
+  file.write("# execute the \"mcmcsummary\" code:\n")
+  file.write("mcmcsummary(data=post,targetdirectory=\"" + opts.output_path + "/" + opts.identity + "\",iteration=input1[,1],burnin=c(" + burninlist.strip(',') + "),varnames=colnames(post),truevalue=injpar,graphicsformats = c(\"png\"), overwrite = T)")
 
 file.close()
 
