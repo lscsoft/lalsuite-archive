@@ -561,20 +561,6 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    #self.setupJobWeb(self.__name__,tag_base)
-    self.setupJobWeb(tag_base)
-
-class qscanLiteJob(pipeline.CondorDAGJob, webTheJob):
-  """
-  A qscanLite job
-  """
-  def __init__(self, opts, cp, tag_base='QSCANLITE'):
-    """
-    """
-    self.__executable = string.strip(cp.get('condor','qscanlite'))
-    self.__universe = "vanilla"
-    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    #self.setupJobWeb(self.__name__,tag_base)
     self.setupJobWeb(tag_base)
 
 
@@ -593,12 +579,16 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     self.id = ifo + '-' + name + '-' + repr(time)
 
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(repr(time))
+    if name.split('-')[0]=='background':
+      self.add_var_arg('scanlite')
+    else:
+      self.add_var_arg('scan')
     qscanConfig = string.strip(cp.get(name, ifo + 'config-file'))
-    self.add_file_arg(qscanConfig)
-    self.add_file_arg(qcache)
+    self.add_var_arg("-c "+qscanConfig)
+    self.add_var_arg("-f "+qcache)
     output = string.strip(cp.get(name, ifo + 'output'))
-    self.add_var_arg(output)
+    self.add_var_arg("-o "+output)
+    self.add_var_arg(repr(time))
 
     #get the absolute output path whatever the path might be in the ini file
     currentPath = os.path.abspath('.')
@@ -807,7 +797,7 @@ class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
     """
     """
     self.name = 'h1h2QeventJob'
-    self.__executable = string.strip(cp.get('condor','qevent'))
+    self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)    
     self.setupJobWeb(self.name)
@@ -842,11 +832,6 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     self.id = ifoString + '-' + name + '-' + str(times[ifoList[0]])
 
     pipeline.CondorDAGNode.__init__(self,job)
-    self.add_var_arg(repr(times[ifoList[0]]))
-    eventDuration = string.strip(cp.get(name, 'duration'))
-    self.add_var_arg(eventDuration)
-    qeventConfig = string.strip(cp.get(name, ifoString + '-config-file'))
-    self.add_file_arg(qeventConfig)
 
     cache_type_temp = dNode[ifoList[0]].outputFileName.split('-')[1]
     cache_type = cache_type_temp[3:len(cache_type_temp)]
@@ -861,10 +846,17 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventcache = job.name + '/' + ifoString + '_' + cache_type + '-' + \
     str(max(cache_start)) + '-' + str(min(cache_end)) + '.qcache'
 
-    self.add_file_arg(qeventcache)
-
     output = string.strip(cp.get(name, ifoString + '-output'))
-    self.add_var_arg(output)
+
+    self.add_var_arg('event')
+    qeventConfig = string.strip(cp.get(name, ifoString + '-config-file'))
+    self.add_var_arg('-p '+qeventConfig)
+    self.add_file_arg('-f '+qeventcache)
+    self.add_var_arg('-o '+output)
+    self.add_var_arg(repr(times[ifoList[0]]))
+    eventDuration = string.strip(cp.get(name, 'duration'))
+    self.add_var_arg(eventDuration)
+
     self.set_pre_script(job.name + "/cachecat.sh %s %s %s" \
     %(dNode[ifoList[0]].outputFileName, dNode[ifoList[1]].outputFileName, \
     qeventcache))
@@ -1009,8 +1001,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
   Runs an instance of an mcmc followup job
   """
   def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
-    if 1:
-    #try:
+    try:
       time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
       iterations = string.strip(cp.get('mcmc','iterations'))
       tbefore = string.strip(cp.get('mcmc','tbefore'))
@@ -1079,8 +1070,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
         self.validate()
       else: self.invalidate()
 
-    else:
-    #except:
+    except:
       self.invalidate()
       print "couldn't add followupmcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
@@ -1095,7 +1085,6 @@ class plotmcmcJob(pipeline.CondorDAGJob, webTheJob):
     """
     self.__name__ = 'plotmcmcJob'
     self.__executable = string.strip(cp.get('condor','plotmcmc'))
-    #self.__universe = "local"
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.setupJobWeb(self.__name__,tag_base)
@@ -1112,7 +1101,11 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.friendlyName = 'plot MCMC'
       pipeline.CondorDAGNode.__init__(self,plotmcmcjob)
 
-      burnin = string.strip(cp.get('plotmcmc','burnin'))
+      if cp.has_option('plotmcmc','burnin'):
+        burnin = string.strip(cp.get('plotmcmc','burnin'))
+        if burnin.strip():
+          self.add_var_opt("burnin",burnin)
+
       plot_routine = string.strip(cp.get('plotmcmc','plot_routine'))
       executable = string.strip(cp.get('plotmcmc','executable'))
       sim = None
@@ -1137,7 +1130,6 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.add_var_opt("plot-routine",plot_routine)
       self.add_var_opt("executable",executable)
-      self.add_var_opt("burnin",burnin)
       self.add_var_opt("reference-time",gps)
       self.add_var_opt("reference-mchirp",mchirp)
       self.add_var_opt("reference-eta",eta)
