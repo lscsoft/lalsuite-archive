@@ -550,7 +550,7 @@ class astroData:
     if "combined_chirp_dist" in column:
       gal_name = self.astro_inj.getColumnByName('source')
       sites = column.split('_')[-1]
-      invDistsq = zeros(len(self.astro_inj))
+      invDistsq = zeros(len(self.astro_inj),'d')
       for site in sites:
         dist = self.astro_inj.get_chirp_dist(site)
         if error == "Distance":
@@ -753,7 +753,7 @@ class injData:
     if "combined_chirp_dist" in column:
       injs = self.get_injections(threshold)
       sites = column.split('_')[-1]
-      invDistsq = zeros(len(injs))
+      invDistsq = zeros(len(injs),'d')
       for site in sites:
         if  error != "None" and \
             (error == "Waveform" or error[0].lower() == site):
