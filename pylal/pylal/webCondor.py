@@ -149,7 +149,8 @@ class webTheDAG:
   def __init__(self):
     pass
 
-  def setupDAGWeb(self,title,filename,root=""):
+  def setupDAGWeb(self,title,filename,root="",outputpath=""):
+    self.publish_path = outputpath
     self.page = root
     self.webPage = WebPage(title,filename,root)
     self.webDirs = {}

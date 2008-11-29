@@ -586,28 +586,38 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     qscanConfig = string.strip(cp.get(name, ifo + 'config-file'))
     self.add_var_arg("-c "+qscanConfig)
     self.add_var_arg("-f "+qcache)
-    output = string.strip(cp.get(name, ifo + 'output'))
+
+    if cp.has_option(name, ifo + 'output') and string.strip(cp.get(name, ifo + 'output')):
+      output = string.strip(cp.get(name, ifo + 'output'))
+    else:
+      output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifo
+    if not os.access(output,os.F_OK):
+      os.makedirs(output)
+    else:
+      if not os.access(output,os.W_OK):
+        print >> sys.stderr, 'path '+output+' is not writable'
+        sys.exit(1)
+
     self.add_var_arg("-o "+output)
     self.add_var_arg(repr(time))
 
     #get the absolute output path whatever the path might be in the ini file
-    currentPath = os.path.abspath('.')
-    try:
-      os.chdir(output)
-      absoutput = os.path.abspath('.')
-      os.chdir(currentPath)
-    except:
-      print >> sys.stderr, 'invalid path for qscan output in the ini file'
-      sys.exit(1)
+    absoutput = os.path.abspath(output)
+
     self.outputName = absoutput + '/' + repr(time) # redirect output name
 
     #prepare the string for the output cache
     self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
 
-    #try to extract web output from the ini file, else ignore it
-    try:
-      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,string.strip(cp.get(name,ifo+'web'))+repr(time),dag.cache)
-    except: 
+    #extract web output from the ini file if the job is QSCAN
+    if job.name == 'QSCAN':
+      if cp.has_option(name,ifo+'web') and string.strip(cp.get(name,ifo+'web')):
+        pageOverride = string.strip(cp.get(name,ifo+'web'))+'/'+repr(time)
+      else:
+        pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifo + '/' + repr(time)
+      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
+
+    else:
       self.setupNodeWeb(job,False,None,None,None,dag.cache) 
 
     # This command will force Condor to see the qscan jobs successful even
@@ -846,7 +856,17 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventcache = job.name + '/' + ifoString + '_' + cache_type + '-' + \
     str(max(cache_start)) + '-' + str(min(cache_end)) + '.qcache'
 
-    output = string.strip(cp.get(name, ifoString + '-output'))
+
+    if cp.has_option(name, ifoString + '-output') and string.strip(cp.get(name, ifoString + '-output')):
+      output = string.strip(cp.get(name, ifoString + '-output'))
+    else:
+      output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifoString
+    if not os.access(output,os.F_OK):
+      os.makedirs(output)
+    else:
+      if not os.access(output,os.W_OK):
+        print >> sys.stderr, 'path '+output+' is not writable'
+        sys.exit(1)
 
     self.add_var_arg('event')
     qeventConfig = string.strip(cp.get(name, ifoString + '-config-file'))
@@ -862,24 +882,17 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventcache))
 
     #get the absolute output path whatever the path might be in the ini file
-    currentPath = os.path.abspath('.')
-    try:
-      os.chdir(output)
-      absoutput = os.path.abspath('.')
-      os.chdir(currentPath)
-    except:
-      print >> sys.stderr, 'invalid path for qevent output in the ini file'
-      sys.exit(1)
+    absoutput = os.path.abspath(output)
     self.outputName = absoutput + '/' + repr(times[ifoList[0]]) # redirect output name
 
     #prepare the string for the output cache
     self.outputCache = ifoString + ' ' + name + ' ' + repr(times[ifoList[0]]) + ' ' + self.outputName + '\n'
 
-    #try to extract web output from the ini file, else ignore it
-    try:
-      self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,string.strip(cp.get(name,ifoString+'-web'))+repr(times[ifoList[0]]),dag.cache)
-    except:
-      self.setupNodeWeb(job,False,None,None,None,dag.cache)
+    if cp.has_option(name,ifoString+'-web') and string.strip(cp.get(name,ifoString+'-web')):
+      pageOverride = string.strip(cp.get(name,ifoString+'-web'))+'/'+repr(times[ifoList[0]])
+    else:
+      pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
+    self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
 
     for ifo in ifoList:
       if dNode[ifo].validNode: self.add_parent(dNode[ifo])
@@ -1063,8 +1076,11 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("importanceresample",10000)
 
       self.id = followupmcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
-      self.setupNodeWeb(followupmcmcJob)
-      self.add_var_opt("logfilename",followupmcmcJob.name+'/'+self.id+'.txt')
+      outputName = followupmcmcJob.name+'/'+self.id+'.txt'
+      self.outputCache = ifo + ' ' + followupmcmcJob.name + ' ' + self.id.strip('-')[-1] + ' ' + outputName
+
+      self.setupNodeWeb(followupmcmcJob,False,None,None,None,dag.cache)
+      self.add_var_opt("logfilename",outputName)
       if opts.mcmc:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -1144,11 +1160,24 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.id = plotmcmcjob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.add_var_opt("identity",self.id)
 
-      outputpath = string.strip(cp.get('plotmcmc','output'))
-      webpath = string.strip(cp.get('plotmcmc','web'))
+      if cp.has_option('plotmcmc', 'output') and string.strip(cp.get('plotmcmc', 'output')):
+        outputpath = string.strip(cp.get('plotmcmc', 'output'))
+      else:
+        outputpath = dag.publish_path + '/' + plotmcmcjob.name
+      if not os.access(outputpath,os.F_OK):
+        os.makedirs(outputpath)
+      else:
+        if not os.access(outputpath,os.W_OK):
+          print >> sys.stderr, 'path '+outputpath+' is not writable'
+          sys.exit(1)
+
+      if cp.has_option('plotmcmc','web') and string.strip(cp.get('plotmcmc','web')):
+        webpath = string.strip(cp.get('plotmcmc','web'))
+      else:
+        webpath = dag.page + '/' + plotmcmcjob.name
 
       output_page = webpath + '/' + self.id
-      self.outputCache = self.id.replace('-',' ') + " " + outputpath + "/" + self.id + "\n"
+      self.outputCache = self.id.replace('-',' ') + " " + os.path.abspath(outputpath) + "/" + self.id + "\n"
       self.setupNodeWeb(plotmcmcjob,False,dag.webPage.lastSection.lastSub,None,output_page,dag.cache)
 
       self.add_var_opt("output-path",outputpath)
