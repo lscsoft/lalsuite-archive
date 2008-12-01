@@ -1077,7 +1077,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.id = followupmcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
       outputName = followupmcmcJob.name+'/'+self.id+'.txt'
-      self.outputCache = ifo + ' ' + followupmcmcJob.name + ' ' + self.id.strip('-')[-1] + ' ' + outputName
+      self.outputCache = ifo + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '\n'
 
       self.setupNodeWeb(followupmcmcJob,False,None,None,None,dag.cache)
       self.add_var_opt("logfilename",outputName)
