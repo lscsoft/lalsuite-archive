@@ -30,7 +30,7 @@ extern FILE *LOG;
 
 #include "fc.c"
 
-void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac)
+void compute_alignment_coeffs1(ALIGNMENT_COEFFS *ac)
 {
 double a, a_plus_sq, a_cross_sq, cpsi, spsi;
 a=cos(ac->iota);
@@ -46,6 +46,35 @@ spsi=sin(2*ac->psi);
 ac->pp=(cpsi*cpsi*a_plus_sq+spsi*spsi*a_cross_sq);
 ac->pc=2*cpsi*spsi*(a_plus_sq-a_cross_sq);
 ac->cc=(spsi*spsi*a_plus_sq+cpsi*cpsi*a_cross_sq);
+
+ac->pppp=ac->pp*ac->pp;
+ac->pppc=2*ac->pp*ac->pc;
+ac->ppcc=2*ac->pp*ac->cc+ac->pc*ac->pc;
+ac->pccc=2*ac->pc*ac->cc;
+ac->cccc=ac->cc*ac->cc;
+}
+
+/* this is identical to the one above, but follows the formula in polarization.pdf */
+
+void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac)
+{
+double a, a_plus_sq, a_cross_sq, cpsi, spsi, asum, adiff;
+a=cos(ac->iota);
+a=a*a;
+
+a_plus_sq=(1+a)*0.5;
+a_plus_sq=a_plus_sq*a_plus_sq;
+a_cross_sq=a;
+
+cpsi=cos(4*ac->psi);
+spsi=sin(4*ac->psi);
+
+asum=a_plus_sq+a_cross_sq;
+adiff=a_plus_sq-a_cross_sq;
+
+ac->pp=(asum+adiff*cpsi);
+ac->pc=2*adiff*spsi;
+ac->cc=(asum-adiff*cpsi);
 
 ac->pppp=ac->pp*ac->pp;
 ac->pppc=2*ac->pp*ac->pc;
@@ -328,8 +357,8 @@ return (last-data);
 /* an implementation of quick sort - this modifies input array */
 void quick_sort_floats(float *data, int count)
 {
-int i, j;
-float a,b;
+int j;
+float b;
 int stack_len=0;
 
 while(1) {
@@ -492,8 +521,8 @@ if(pps->weight_arrays_non_zero) {
 	
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
-	
-		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_pp[i]*ag->cc)/weight;
+
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
 			
 		}
 	} else {
@@ -508,10 +537,32 @@ if(pps->weight_arrays_non_zero) {
 	inv_weight=1.0/weight;
 
 	for(i=0;i<useful_bins;i++) {
-		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_pp[i]*ag->cc)*inv_weight;
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
 		}
 	}
 
+/* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
+if(min_weight<=0) {
+	pst->bin=0;
+	pst->iota=ag->iota;
+	pst->psi=ag->psi;
+	
+	/* convert to upper limit units */
+	pst->S=-1;
+	pst->M=-1;
+	
+	pst->ul=-1;
+	pst->ll=-1;
+	pst->centroid=-1;
+	pst->snr=-1;
+	
+	pst->max_weight=-1;
+	pst->weight_loss_fraction=1;
+	pst->ks_value=-1;
+	pst->ks_count=-1;
+	return;
+	}
+	
 /* find highest bin */
 max_dx=tmp[0];
 max_dx_bin=0;
@@ -543,7 +594,6 @@ M=nstats.mean;
 S=nstats.sigma;
 
 inv_S=1.0/S;
-
 
 /* convert to SNR from the highest power */
 max_dx=(max_dx-M)*inv_S;
@@ -633,6 +683,7 @@ void init_power_sum_stats(void)
 {
 init_fc_ul();
 init_fc_ll();
+verify_limits();
 
 /* Account for power loss due to Hann windowing */
 upper_limit_comp=1.0/0.85; 
