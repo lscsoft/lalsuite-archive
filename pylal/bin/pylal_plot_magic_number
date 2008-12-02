@@ -189,3 +189,28 @@ if not opts.show_plot:
   close()
 else:
   show()
+
+#find max efficiency
+max_thresh = magic_numbers[results.index(max(results))]
+figure(2)
+
+inj_eff25 = injTriggers.get_effective_snr(max_thresh)
+slide_eff25 = slideTriggers.get_effective_snr(max_thresh)
+insp_eff25 = inspTriggers.get_effective_snr(max_thresh)
+inj_eff250 = injTriggers.get_effective_snr(250)
+slide_eff250 = slideTriggers.get_effective_snr(250)
+insp_eff250 = inspTriggers.get_effective_snr(250)
+plot(inj_eff25,inj_eff250,'rx')
+plot(slide_eff25,slide_eff250,'kx')
+plot(insp_eff25,insp_eff250,'bx')
+legend(['slide','playground','injections'])
+xlabel('Effective SNR with ' + str(max_thresh), size='x-large')
+ylabel('Effective SNR with 250', size='x-large')
+fname = "eff_snr_scatter.png"
+savefig(fname)
+if not opts.show_plot:
+  close()
+else:
+  show()
+
+
