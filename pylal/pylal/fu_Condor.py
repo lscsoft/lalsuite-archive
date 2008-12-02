@@ -117,7 +117,9 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.set_injections( injFile )
 
       skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
-
+      if type == "coh": 
+	skipParams.extend(['snr-threshold']);
+        self.add_var_opt("snr-threshold","1")
       if not hipeCache:
         skipParams.append('frame-cache')
         self.add_var_opt('frame-cache',datafindCache)        
@@ -396,7 +398,7 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
       self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
       if inspNode.validNode: self.add_parent(inspNode)
       
-    else: print >> sys.stderr, "WARNING: Already added that ifo!"
+    else: print >> sys.stderr, "WARNING: Already added " + ifo
 
 
   def add_node_to_dag(self,dag,opts,trig):
