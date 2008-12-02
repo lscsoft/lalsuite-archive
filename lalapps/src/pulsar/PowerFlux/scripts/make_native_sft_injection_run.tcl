@@ -98,6 +98,9 @@ output=$ERR_DIR/out.\$(PID)
 error=$ERR_DIR/err.\$(PID)
 arguments=--config=$CONF_DIR/\$(PID)
 log=$LOG_FILE
+notification=Error
+notify_user=volodya@mindspring.com
+want_remote_io=False
 queue
 }
 
