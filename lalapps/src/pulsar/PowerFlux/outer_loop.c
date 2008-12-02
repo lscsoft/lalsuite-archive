@@ -94,7 +94,7 @@ total_weight=0.0;
 for(k=0;k<d_free;k++) {
 	d=&(datasets[k]);
 	for(i=0;i<d->free;i++) {
-		if(d->sft_veto[i])continue;
+		if(d->sft_veto[i] && d->sft_veto[i]!=3)continue;
 
 		w[m].dataset=k;
 		w[m].segment=i;
@@ -104,6 +104,13 @@ for(k=0;k<d_free;k++) {
 		m++;
 		}
 	}
+
+if(m<1) {
+	fprintf(stderr, "No clean SFTs found, skipping veto\n");
+	fprintf(LOG, "No clean SFTs found, skipping veto\n");
+	return;
+	}
+
 //fprintf(stderr, "%d %d\n", m, nsegments);
 qsort(w, m, sizeof(*w), weight_cmp);
 //fprintf(stderr, "%g %g %g ... %g %g %g\n", w[0].weight, w[1].weight, w[2].weight, w[m-3].weight, w[m-2].weight, w[m-1].weight);accum_weight=0;
@@ -119,7 +126,74 @@ fprintf(stderr, "Vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g t
 	i, nsegments, (i*1.0)/nsegments, accum_weight, total_weight, accum_weight/total_weight);
 fprintf(LOG, "Vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n",
 	i, nsegments, (i*1.0)/nsegments,  accum_weight, total_weight, accum_weight/total_weight);
+
+for(k=0;k<d_free;k++) {
+	d=&(datasets[k]);
+	m=0;
+	for(i=0;i<d->free;i++) {
+		if(d->sft_veto[i])continue;
+		m++;
+		}
+	fprintf(stderr, "Dataset %s has %d clean sfts (%f ratio)\n", d->name, m, (1.0*m)/d->free);
+	}
+free(w);
 }
+
+void assign_per_dataset_cutoff_veto(void)
+{
+int i,k,m;
+WEIGHT_INFO *w;
+double total_weight, accum_weight, a;
+DATASET *d;
+
+w=do_alloc(nsegments, sizeof(*w));
+for(k=0;k<d_free;k++) {
+	d=&(datasets[k]);
+	m=0;
+	total_weight=0.0;
+	for(i=0;i<d->free;i++) {
+		if(d->sft_veto[i] && d->sft_veto[i]!=3)continue;
+
+		w[m].dataset=k;
+		w[m].segment=i;
+		a=d->expTMedians[i]*d->weight;
+		total_weight+=a;
+		w[m].weight=a;
+		m++;
+		}
+
+	if(m<1)continue;
+
+	//fprintf(stderr, "%d %d\n", m, nsegments);
+	qsort(w, m, sizeof(*w), weight_cmp);
+	//fprintf(stderr, "%g %g %g ... %g %g %g\n", w[0].weight, w[1].weight, w[2].weight, w[m-3].weight, w[m-2].weight, w[m-1].weight);accum_weight=0;
+	
+	accum_weight=0;
+	for(i=0;i<m;i++) {
+		accum_weight+=w[i].weight;
+		if(accum_weight>args_info.per_dataset_weight_cutoff_fraction_arg*total_weight)break;
+		datasets[w[i].dataset].sft_veto[w[i].segment]=3;
+		}
+	accum_weight-=w[i].weight;
+	fprintf(stderr, "Dataset %s: vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n", d->name,
+		i, nsegments, (i*1.0)/nsegments, accum_weight, total_weight, accum_weight/total_weight);
+	fprintf(LOG, "Dataset %s: vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n", d->name,
+		i, nsegments, (i*1.0)/nsegments,  accum_weight, total_weight, accum_weight/total_weight);
+	}
+
+for(k=0;k<d_free;k++) {
+	d=&(datasets[k]);
+	m=0;
+	for(i=0;i<d->free;i++) {
+		if(d->sft_veto[i])continue;
+		m++;
+		}
+	fprintf(stderr, "Dataset %s has %d clean sfts (%f ratio)\n", d->name, m, (1.0*m)/d->free);
+	fprintf(LOG, "Dataset %s has %d clean sfts (%f ratio)\n", d->name, m, (1.0*m)/d->free);
+	}
+free(w);
+}
+
 
 void log_extremes(EXTREME_INFO *ei, int pi, POWER_SUM **ps, int nchunks, int count)
 {
@@ -460,6 +534,7 @@ time_t start_time, end_time;
 RGBPic *p;
 PLOT *plot;
 
+assign_per_dataset_cutoff_veto();
 assign_cutoff_veto();
 assign_detector_veto();
 
@@ -496,7 +571,7 @@ time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-	fprintf(stderr, "%d\n", pi);
+	if(pi % 100 == 0)fprintf(stderr, "%d\n", pi);
 	generate_patch_templates(pi, &(ps[0]), &count);
 
 	if(count<1)continue;
