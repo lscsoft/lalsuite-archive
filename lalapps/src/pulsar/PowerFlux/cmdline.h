@@ -293,9 +293,18 @@ struct gengetopt_args_info
   int nchunks_arg;	/**< @brief Partition the timebase into this many chunks for sub period analysis (default='5').  */
   char * nchunks_orig;	/**< @brief Partition the timebase into this many chunks for sub period analysis original value given at command line.  */
   const char *nchunks_help; /**< @brief Partition the timebase into this many chunks for sub period analysis help description.  */
-  double weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight (default='0.1').  */
+  double weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight (default='0.04').  */
   char * weight_cutoff_fraction_orig;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight original value given at command line.  */
   const char *weight_cutoff_fraction_help; /**< @brief Discard sfts with small weights that contribute this fraction of total weight help description.  */
+  double per_dataset_weight_cutoff_fraction_arg;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight in each dataset (default='0.04').  */
+  char * per_dataset_weight_cutoff_fraction_orig;	/**< @brief Discard sfts with small weights that contribute this fraction of total weight in each dataset original value given at command line.  */
+  const char *per_dataset_weight_cutoff_fraction_help; /**< @brief Discard sfts with small weights that contribute this fraction of total weight in each dataset help description.  */
+  double power_max_median_factor_arg;	/**< @brief This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights (default='0.1').  */
+  char * power_max_median_factor_orig;	/**< @brief This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights original value given at command line.  */
+  const char *power_max_median_factor_help; /**< @brief This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights help description.  */
+  int tmedian_noise_level_arg;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) (default='1').  */
+  char * tmedian_noise_level_orig;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) original value given at command line.  */
+  const char *tmedian_noise_level_help; /**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) help description.  */
   int compute_skymaps_arg;	/**< @brief allocate memory and compute skymaps with final results (default='0').  */
   char * compute_skymaps_orig;	/**< @brief allocate memory and compute skymaps with final results original value given at command line.  */
   const char *compute_skymaps_help; /**< @brief allocate memory and compute skymaps with final results help description.  */
@@ -389,7 +398,10 @@ struct gengetopt_args_info
   unsigned int npsi_given ;	/**< @brief Whether npsi was given.  */
   unsigned int nfshift_given ;	/**< @brief Whether nfshift was given.  */
   unsigned int nchunks_given ;	/**< @brief Whether nchunks was given.  */
-  unsigned int weight_cutoff_fraction_given ;	/**< @brief Whether weight_cutoff_fraction was given.  */
+  unsigned int weight_cutoff_fraction_given ;	/**< @brief Whether weight-cutoff-fraction was given.  */
+  unsigned int per_dataset_weight_cutoff_fraction_given ;	/**< @brief Whether per-dataset-weight-cutoff-fraction was given.  */
+  unsigned int power_max_median_factor_given ;	/**< @brief Whether power-max-median-factor was given.  */
+  unsigned int tmedian_noise_level_given ;	/**< @brief Whether tmedian-noise-level was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */

@@ -26,7 +26,7 @@ OBJS=$(COMMON_OBJS) fine_grid.o candidates.o powerflux.o
 
 OBJS2=$(COMMON_OBJS) power_cache.o power_sums.o outer_loop.o power_sum_stats.o powerflux2.o
 
-FILES=sky_marks.txt all_sky_marks_*.txt
+FILES=no_marks.txt sky_marks.txt all_sky_marks_*.txt
 
 # 50 hz
 #BAND=90000

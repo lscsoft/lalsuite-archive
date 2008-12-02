@@ -112,6 +112,9 @@ option "niota" - "Number of iota values to use in alignment grid" int default="3
 option "npsi" - "Number of psi values to use in alignment grid" int default="6" no
 option "nfshift" - "Number of sub-bin frequency shifts to sample" int default="2" no
 option "nchunks" - "Partition the timebase into this many chunks for sub period analysis" int default="5" no
-option "weight_cutoff_fraction" - "Discard sfts with small weights that contribute this fraction of total weight" double default="0.1" no
+option "weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight" double default="0.04" no
+option "per-dataset-weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight in each dataset" double default="0.04" no
+option "power-max-median-factor" - "This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights" double default="0.1" no
+option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no

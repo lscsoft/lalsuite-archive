@@ -163,10 +163,16 @@ SEGMENT_INFO *si_local;
 DATASET *d;
 POLARIZATION *pl;
 float *im, *re, *pp, *pc, *cc, *fm;
-float power;
+float *power;
+float a;
 float TM;
 float weight;
 float f_plus, f_cross;
+
+float pmax;
+float sum, sum_sq;
+float useful_bins_inv=1.0/useful_bins;
+float pmax_factor=args_info.power_max_median_factor_arg;
 
 double weight_pppp=0;
 double weight_pppc=0;
@@ -174,9 +180,10 @@ double weight_ppcc=0;
 double weight_pccc=0;
 double weight_cccc=0;
 
-pp=aligned_alloca(useful_bins*sizeof(pp));
-pc=aligned_alloca(useful_bins*sizeof(pc));
-cc=aligned_alloca(useful_bins*sizeof(cc));
+pp=aligned_alloca(useful_bins*sizeof(*pp));
+pc=aligned_alloca(useful_bins*sizeof(*pc));
+cc=aligned_alloca(useful_bins*sizeof(*cc));
+power=aligned_alloca(useful_bins*sizeof(*power));
 
 for(i=0;i<useful_bins;i++) {
 	pp[i]=0.0;
@@ -210,13 +217,6 @@ for(k=0;k<count;k++) {
 	f_plus=F_plus_coeff(k, si_local->e, pl->AM_coeffs);
 	f_cross=F_plus_coeff(k, si_local->e, pl->conjugate->AM_coeffs);
 
-	weight=d->expTMedians[si_local->segment]*d->weight;
-
-	weight_pppp+=weight*f_plus*f_plus*f_plus*f_plus;
-	weight_pppc+=weight*f_plus*f_plus*f_plus*f_cross;
-	weight_ppcc+=weight*f_plus*f_plus*f_cross*f_cross;
-	weight_pccc+=weight*f_plus*f_cross*f_cross*f_cross;
-	weight_cccc+=weight*f_cross*f_cross*f_cross*f_cross;
 
 	re=&(d->re[si_local->segment*nbins+side_cut+bin_shift]);
 	im=&(d->im[si_local->segment*nbins+side_cut+bin_shift]);
@@ -228,17 +228,49 @@ for(k=0;k<count;k++) {
 		TM=0;
 		}
 
+	pmax=0.0;
+	sum=0.0;
+	sum_sq=0.0;
 	for(i=0;i<useful_bins;i++) {
-		power=((*re)*(*re)+(*im)*(*im)-TM*(*fm))*weight;
+		a=((*re)*(*re)+(*im)*(*im)-TM*(*fm));
+		if(a>pmax)pmax=a;
+		power[i]=a;
+		sum+=a;
+		sum_sq+=a*a;
 
-		pp[i]+=power*f_plus*f_plus;
-		pc[i]+=power*f_plus*f_cross;
-		cc[i]+=power*f_cross*f_cross;
-		/**/
-
-		fm++;
 		im++;
 		re++;		
+		fm++;
+		}
+
+	if(args_info.tmedian_noise_level_arg) {
+		weight=d->expTMedians[si_local->segment]*d->weight;
+		} else {
+		sum*=useful_bins_inv;
+		sum_sq*=useful_bins_inv;
+		sum_sq-=sum*sum;
+	// 	weight=sum_sq;
+	// 
+	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
+	// 	a=pmax*pmax;
+	// 	//if(a>weight)weight=a;
+	// 
+		weight=1.0/weight;
+		}
+
+	weight_pppp+=weight*f_plus*f_plus*f_plus*f_plus;
+	weight_pppc+=weight*f_plus*f_plus*f_plus*f_cross;
+	weight_ppcc+=weight*f_plus*f_plus*f_cross*f_cross;
+	weight_pccc+=weight*f_plus*f_cross*f_cross*f_cross;
+	weight_cccc+=weight*f_cross*f_cross*f_cross*f_cross;
+
+	for(i=0;i<useful_bins;i++) {
+		a=power[i]*weight;
+
+		pp[i]+=a*f_plus*f_plus;
+		pc[i]+=a*f_plus*f_cross;
+		cc[i]+=a*f_cross*f_cross;
+		/**/
 		}
 
 	for(n=0;(d->lines_report->lines_list[n]>=0)&&(n<d->lines_report->nlines);n++) {
@@ -247,14 +279,11 @@ for(k=0;k<count;k++) {
 		if(i<0)continue;
 		if(i>=useful_bins)continue;
 
-		re=&(d->re[si_local->segment*nbins+m]);
-		im=&(d->im[si_local->segment*nbins+m]);
+		a=power[i]*weight;
 
-		power=((*re)*(*re)+(*im)*(*im)-TM*d->expFMedians_plain[m])*weight;
-
-		pp[i]-=power*f_plus*f_plus;
-		pc[i]-=power*f_plus*f_cross;
-		cc[i]-=power*f_cross*f_cross;
+		pp[i]-=a*f_plus*f_plus;
+		pc[i]-=a*f_plus*f_cross;
+		cc[i]-=a*f_cross*f_cross;
 
 		pps->weight_pppp[i]-=weight*f_plus*f_plus*f_plus*f_plus;
 		pps->weight_pppc[i]-=weight*f_plus*f_plus*f_plus*f_cross;

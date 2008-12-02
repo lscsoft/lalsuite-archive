@@ -118,7 +118,10 @@ const char *gengetopt_args_info_help[] = {
   "      --npsi=INT                Number of psi values to use in alignment grid  \n                                  (default=`6')",
   "      --nfshift=INT             Number of sub-bin frequency shifts to sample  \n                                  (default=`2')",
   "      --nchunks=INT             Partition the timebase into this many chunks \n                                  for sub period analysis  (default=`5')",
-  "      --weight_cutoff_fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight  \n                                  (default=`0.1')",
+  "      --weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight  \n                                  (default=`0.04')",
+  "      --per-dataset-weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight in each dataset \n                                   (default=`0.04')",
+  "      --power-max-median-factor=DOUBLE\n                                This determines scaling factor between median \n                                  and maximum of exponentially distributed \n                                  variable. Used for computing power sum \n                                  weights  (default=`0.1')",
+  "      --tmedian-noise-level=INT Use TMedians to estimate noise level (as \n                                  opposed to in-place standard deviation)  \n                                  (default=`1')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
     0
 };
@@ -261,6 +264,9 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->nfshift_given = 0 ;
   args_info->nchunks_given = 0 ;
   args_info->weight_cutoff_fraction_given = 0 ;
+  args_info->per_dataset_weight_cutoff_fraction_given = 0 ;
+  args_info->power_max_median_factor_given = 0 ;
+  args_info->tmedian_noise_level_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
@@ -427,8 +433,14 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->nfshift_orig = NULL;
   args_info->nchunks_arg = 5;
   args_info->nchunks_orig = NULL;
-  args_info->weight_cutoff_fraction_arg = 0.1;
+  args_info->weight_cutoff_fraction_arg = 0.04;
   args_info->weight_cutoff_fraction_orig = NULL;
+  args_info->per_dataset_weight_cutoff_fraction_arg = 0.04;
+  args_info->per_dataset_weight_cutoff_fraction_orig = NULL;
+  args_info->power_max_median_factor_arg = 0.1;
+  args_info->power_max_median_factor_orig = NULL;
+  args_info->tmedian_noise_level_arg = 1;
+  args_info->tmedian_noise_level_orig = NULL;
   args_info->compute_skymaps_arg = 0;
   args_info->compute_skymaps_orig = NULL;
   
@@ -531,7 +543,10 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->nfshift_help = gengetopt_args_info_help[88] ;
   args_info->nchunks_help = gengetopt_args_info_help[89] ;
   args_info->weight_cutoff_fraction_help = gengetopt_args_info_help[90] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[91] ;
+  args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[91] ;
+  args_info->power_max_median_factor_help = gengetopt_args_info_help[92] ;
+  args_info->tmedian_noise_level_help = gengetopt_args_info_help[93] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[94] ;
   
 }
 
@@ -762,6 +777,9 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->nfshift_orig));
   free_string_field (&(args_info->nchunks_orig));
   free_string_field (&(args_info->weight_cutoff_fraction_orig));
+  free_string_field (&(args_info->per_dataset_weight_cutoff_fraction_orig));
+  free_string_field (&(args_info->power_max_median_factor_orig));
+  free_string_field (&(args_info->tmedian_noise_level_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   
   
@@ -978,7 +996,13 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
   if (args_info->nchunks_given)
     write_into_file(outfile, "nchunks", args_info->nchunks_orig, 0);
   if (args_info->weight_cutoff_fraction_given)
-    write_into_file(outfile, "weight_cutoff_fraction", args_info->weight_cutoff_fraction_orig, 0);
+    write_into_file(outfile, "weight-cutoff-fraction", args_info->weight_cutoff_fraction_orig, 0);
+  if (args_info->per_dataset_weight_cutoff_fraction_given)
+    write_into_file(outfile, "per-dataset-weight-cutoff-fraction", args_info->per_dataset_weight_cutoff_fraction_orig, 0);
+  if (args_info->power_max_median_factor_given)
+    write_into_file(outfile, "power-max-median-factor", args_info->power_max_median_factor_orig, 0);
+  if (args_info->tmedian_noise_level_given)
+    write_into_file(outfile, "tmedian-noise-level", args_info->tmedian_noise_level_orig, 0);
   if (args_info->compute_skymaps_given)
     write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
   
@@ -1630,7 +1654,10 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "npsi",	1, NULL, 0 },
         { "nfshift",	1, NULL, 0 },
         { "nchunks",	1, NULL, 0 },
-        { "weight_cutoff_fraction",	1, NULL, 0 },
+        { "weight-cutoff-fraction",	1, NULL, 0 },
+        { "per-dataset-weight-cutoff-fraction",	1, NULL, 0 },
+        { "power-max-median-factor",	1, NULL, 0 },
+        { "tmedian-noise-level",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
@@ -2863,15 +2890,57 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
           
           }
           /* Discard sfts with small weights that contribute this fraction of total weight.  */
-          else if (strcmp (long_options[option_index].name, "weight_cutoff_fraction") == 0)
+          else if (strcmp (long_options[option_index].name, "weight-cutoff-fraction") == 0)
           {
           
           
             if (update_arg( (void *)&(args_info->weight_cutoff_fraction_arg), 
                  &(args_info->weight_cutoff_fraction_orig), &(args_info->weight_cutoff_fraction_given),
-                &(local_args_info.weight_cutoff_fraction_given), optarg, 0, "0.1", ARG_DOUBLE,
+                &(local_args_info.weight_cutoff_fraction_given), optarg, 0, "0.04", ARG_DOUBLE,
                 check_ambiguity, override, 0, 0,
-                "weight_cutoff_fraction", '-',
+                "weight-cutoff-fraction", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Discard sfts with small weights that contribute this fraction of total weight in each dataset.  */
+          else if (strcmp (long_options[option_index].name, "per-dataset-weight-cutoff-fraction") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->per_dataset_weight_cutoff_fraction_arg), 
+                 &(args_info->per_dataset_weight_cutoff_fraction_orig), &(args_info->per_dataset_weight_cutoff_fraction_given),
+                &(local_args_info.per_dataset_weight_cutoff_fraction_given), optarg, 0, "0.04", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "per-dataset-weight-cutoff-fraction", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights.  */
+          else if (strcmp (long_options[option_index].name, "power-max-median-factor") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->power_max_median_factor_arg), 
+                 &(args_info->power_max_median_factor_orig), &(args_info->power_max_median_factor_given),
+                &(local_args_info.power_max_median_factor_given), optarg, 0, "0.1", ARG_DOUBLE,
+                check_ambiguity, override, 0, 0,
+                "power-max-median-factor", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Use TMedians to estimate noise level (as opposed to in-place standard deviation).  */
+          else if (strcmp (long_options[option_index].name, "tmedian-noise-level") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->tmedian_noise_level_arg), 
+                 &(args_info->tmedian_noise_level_orig), &(args_info->tmedian_noise_level_given),
+                &(local_args_info.tmedian_noise_level_given), optarg, 0, "1", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "tmedian-noise-level", '-',
                 additional_error))
               goto failure;
           
