@@ -149,15 +149,18 @@ class webTheDAG:
   def __init__(self):
     pass
 
-  def setupDAGWeb(self,title,filename,root="",outputpath=""):
-    self.publish_path = outputpath
-    self.page = root
-    self.webPage = WebPage(title,filename,root)
+  def setupDAGWeb(self,title,filename,cp,opts):
+    self.publish_path = string.strip(cp.get('output','page'))
+    self.page = string.strip(cp.get('output','url'))
+    self.webPage = WebPage(title,filename,self.page)
     self.webDirs = {}
     self.cache = cacheStructure()
     try:
        os.mkdir('DAGWeb')
     except: pass
+    if not opts.disable_dag_categories:
+        for cp_opt in cp.options('condor-max-jobs'):
+          self.add_maxjobs_category(cp_opt,cp.getint('condor-max-jobs',cp_opt))
 
 
   def writeDAGWeb(self,type):
@@ -211,22 +214,16 @@ class webTheDAG:
     self.add_node(node)
 
 
-  def publishToHydra(self,publish_path=None):
+  def publishToHydra(self):
     dirStr = ''
     for dir in self.webDirs:
       dirStr += dir + ' '
     dirStr = 'rsync -vrz '+dirStr+' DAGWeb index.html '
     print dirStr
-    if publish_path:
-      copying_results = call(dirStr+publish_path, shell=True)
-      if copying_results != 0:
-        print >> sys.stderr, "the followup results could not be copied to "+publish_path
-        sys.exit(1)
-    else:
-      copying_results = call(dirStr+'hydra.phys.uwm.edu:'+self.page, shell=True)
-      if copying_results != 0:
-        print >> sys.stderr, "the followup results could not be copied to hydra.phys.uwm.edu:"+self.page
-        sys.exit(1)
+    copying_results = call(dirStr+self.publish_path, shell=True)
+    if copying_results != 0:
+      print >> sys.stderr, "the followup results could not be copied to "+self.publish_path
+      sys.exit(1)
 
   def printNodeCounts(self):
     for jobs in self.jobsDict:

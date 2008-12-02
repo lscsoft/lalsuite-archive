@@ -210,6 +210,9 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
       self.add_var_opt("output-path",inspJob.outputPath)
 
+      if not opts.disable_dag_categories:
+        self.set_category(inspJob.name)
+
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
           self.add_parent(d_node)
@@ -301,6 +304,10 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
         self.add_var_opt("user-tag",ifo+'_'+str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name)
+
       #try: 
       if inspiralNode.validNode: self.add_parent(inspiralNode)
       #except: pass
@@ -357,7 +364,7 @@ class lalapps_skyMapNode(pipeline.CondorDAGNode,webTheNode):
 
 lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --l1-frame-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.gwf --v1-frame-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.gwf --event-id 866088314000001908 --ra-res 512 --dec-res 256 --h1-xml-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --l1-xml-file L1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088022-2048.xml.gz --v1-xml-file V1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000001908-866088205-2048.xml.gz --output-file chad.txt
   """
-  def __init__(self,job,trig):
+  def __init__(self,job,trig,opts):
     self.ifo_list = ["H1","L1","V1"]
     #self.already_added_ifo_list = []
     self.ra_res = 512
@@ -379,7 +386,8 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
     self.add_var_opt("v1-frame-file","none");
     self.add_var_opt("v1-xml-file","none");
 
-
+    if not opts.disable_dag_categories:
+      self.set_category(job.name)
 
   def append_insp_node(self,inspNode,ifo):
     if ifo in self.ifo_list:
@@ -441,6 +449,9 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("injection-right-ascension",str(inj_ra))
       self.add_var_opt("injection-declination",str(inj_dec))
 
+    if not opts.disable_dag_categories:
+      self.set_category(job.name)
+
     try:
       if skyMapNode.validNode: self.add_parent(skyMapNode)
     except: pass
@@ -488,7 +499,7 @@ class followupDataFindJob(pipeline.LSCDataFindJob,webTheJob):
 
 class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
  
-  def __init__(self, job, source, type, cp, time, ifo, opts, dag, prev_dNode, datafindCommand, procParams=None):
+  def __init__(self, job, source, type, cp, time, ifo, opts, dag, datafindCommand, procParams=None):
     try:
       self.outputFileName = ""
       pipeline.LSCDataFindNode.__init__(self,job)
@@ -500,10 +511,9 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
       if source == 'inspiral':
         self.outputFileName = self.setup_inspiral(cp,ifo,type,procParams)
         nodeName = "inspiral data find"
-      try:
-        if prev_dNode and eval('opts.' + datafindCommand):
-          self.add_parent(prev_dNode)
-      except: pass
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name)
 
       # if the selected "ifo" needs to be done remotely (this the case for 
       # Virgo qscan datafind) do not add the node to the dag
@@ -627,6 +637,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     # still be reported as successful, so that an analyseQscan job can be run
     # immediately after. 
     # self.set_post_script("/bin/true")
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name)
 
     # only add a parent if it exists
     try:
@@ -771,6 +784,9 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
               node.webTable.row[0].cell[0].linebreak()
               node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
               break
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name)
       
       # add the parents to this node
       for node in dag.get_nodes():
@@ -894,6 +910,9 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
       pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
     self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
 
+    if not opts.disable_dag_categories:
+      self.set_category(job.name)
+
     for ifo in ifoList:
       if dNode[ifo].validNode: self.add_parent(dNode[ifo])
       else: pass
@@ -948,6 +967,9 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
       self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
 
+      if not opts.disable_dag_categories:
+        self.set_category(FrCheckJob.name)
+
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
           self.add_parent(d_node)
@@ -986,6 +1008,10 @@ class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("gps-time", trig.gpsTime[ifo])
     self.id = IFOstatus_checkJob.name + '-' + str(ifo) + '-' + str(trig.statValue) + '_' + str(trig.eventID)
     self.setupNodeWeb(IFOstatus_checkJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+
+    if not opts.disable_dag_categories:
+      self.set_category(IFOstatus_checkJob.name)
+
     if opts.ifo_status_check:
       dag.addNode(self,self.friendlyName)
       self.validate()
@@ -1081,6 +1107,10 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.setupNodeWeb(followupmcmcJob,False,None,None,None,dag.cache)
       self.add_var_opt("logfilename",outputName)
+
+      if not opts.disable_dag_categories:
+        self.set_category(followupmcmcJob.name)
+
       if opts.mcmc:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -1181,6 +1211,9 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.setupNodeWeb(plotmcmcjob,False,dag.webPage.lastSection.lastSub,None,output_page,dag.cache)
 
       self.add_var_opt("output-path",outputpath)
+
+      if not opts.disable_dag_categories:
+        self.set_category(plotmcmcjob.name)
 
       # only add a parent if it exists
       for node in dag.get_nodes():
