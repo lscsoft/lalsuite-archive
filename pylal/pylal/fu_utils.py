@@ -726,6 +726,7 @@ class followUpList:
     self.missed = Missed
     self.eventID = None
     self.stat = None
+    self.far = None
     self.page = None
     self.summarydir = None
     self.summarypage = None
@@ -931,6 +932,7 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
               ckeyList.append(key[1])
           for ckey in ckeyList:
               fuList = followUpList()
+              fuList.far = getattr(ckey,ckey.get_ifos()[1][0]).alpha
               fuList.add_coincs(ckey)
               if page:
                   fuList.add_page(page)
