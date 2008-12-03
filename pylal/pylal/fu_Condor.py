@@ -117,9 +117,6 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.set_injections( injFile )
 
       skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
-      if type == "coh": 
-	skipParams.extend(['snr-threshold']);
-        self.add_var_opt("snr-threshold","1")
       if not hipeCache:
         skipParams.append('frame-cache')
         self.add_var_opt('frame-cache',datafindCache)        
@@ -134,7 +131,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         value = row.value
         if param == 'bank-file':
           bankFile = value
-        if type == "notrig":
+        if type == "notrig" or type == "coh":
         # if forceTrigger is true, we loose the thresholds to
         # make sure to get a trigger
           if param == 'snr-threshold': value = "0.1"
@@ -173,7 +170,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         if param == 'write-compress':
           extension = '.xml.gz'
 
-      if type == "notrig":
+      if type == "notrig" or type == "coh":
         self.add_var_opt('cluster-window',str(hLengthAnalyzed))
         self.add_var_opt('disable-rsq-veto',' ')
 
