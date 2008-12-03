@@ -108,6 +108,8 @@ to analyze." )
   parser.add_option("--do-followup",action="store_true",\
     default=False,help="activates the followup of missed injections" )
 
+  parser.add_option("--followup-tag",action="store",\
+                    default=None,help="followup tag")
   parser.add_option("--followup-exttrig",action="store_true",\
                     default=False,help="followup exttrig")
   parser.add_option("--followup-flow", type="float", \
@@ -121,8 +123,6 @@ to analyze." )
 
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
-
-  options.followup_tag = "TOBEFIXED"
 
   options = InspiralUtils.initialise(options, __name__, __version__)
   return options, sys.argv[1:]
