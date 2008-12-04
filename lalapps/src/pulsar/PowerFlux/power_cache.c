@@ -214,8 +214,8 @@ for(k=0;k<count;k++) {
 	d=&(datasets[si_local->dataset]);
 	pl=&(d->polarizations[0]);
 
-	f_plus=F_plus_coeff(k, si_local->e, pl->AM_coeffs);
-	f_cross=F_plus_coeff(k, si_local->e, pl->conjugate->AM_coeffs);
+	f_plus=F_plus_coeff(si_local->segment, si_local->e, pl->AM_coeffs);
+	f_cross=F_plus_coeff(si_local->segment, si_local->e, pl->conjugate->AM_coeffs);
 
 
 	re=&(d->re[si_local->segment*nbins+side_cut+bin_shift]);
