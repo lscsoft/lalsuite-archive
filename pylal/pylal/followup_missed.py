@@ -53,14 +53,14 @@ import numpy
 ##########################################################
 class FollowupMissed:
   """
-  This defines a class for followup missed injections. This class
-  essentially creates time-series of triggers around a missed injection
-  for the various steps of the pipeline. 
+  This defines a class for followup missed injections or follow up any
+  injections in general. This class essentially creates time-series of triggers
+  around the time of a missed injection for the various steps of the pipeline. 
 
   Usage:
 
   # first need to initialize the class
-  followup = followup_missed.FollowupMissed( cache, miscache, opts)
+  followup = followup_missed.FollowupMissed( cache, opts)
 
   # later, one can do a followup of a missed injection 'inj', which returns the filename
   # of the html file containing the tables and pictures created
@@ -151,18 +151,33 @@ class FollowupMissed:
     
 
     # get the process params table from one of the COIRE files
-    coire_file = self.cache.sieve(description = "FOUND_FIRST").pfnlist()[0]
+    coire_file = self.cache.sieve(description = "FOUND").checkfilesexist()[0].pfnlist()[0]
     try:
       doc = SearchSummaryUtils.ReadTablesFromFiles([coire_file],[ lsctables.ProcessParamsTable])
       process_params = table.get_table(doc, lsctables.ProcessParamsTable.\
                                        tableName)
+    except IOError: 	    
+      sys.stderr.write("ERROR (IOError) while reading process_params table from file %s. "\
+                       "Does this file exist and does it contain a search_summary table?\n" %(coire_file))
+      raise 	 
+    except AttributeError: 	 
+      sys.stderr.write("ERROR (AttributeError:) while reading process_params table from file %s. "\
+                       "Is the version of SearchSummaryUtils.py at least 1.5? Seems you have %s.\n" \
+                       %(coire_file, SearchSummaryUtils.__version__))
+      raise
     except:
       raise "Error while reading process_params table from file: ", coire_file
 
-    # and retrieve the time window from this file 
+    # and retrieve the time window from this file
+    found_flag = False
     for tab in process_params:
       if tab.param=='--injection-window':
+        found_flag = True
         self.injection_window = float(tab.value)/1000.0
+    if not found_flag: 	 
+      sys.stderr.write("WARNING: No entry '--injection-window' found in file %s"\
+                       "Value used is %.1f ms. If incorrect, please change file at %s\n" %\
+                       (coire_file, 1000.0*self.injection_window, __file__))
     if self.verbose:
       print "Injection-window set to %.0f ms" % (1000*self.injection_window)
 
