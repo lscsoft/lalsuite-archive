@@ -16,6 +16,14 @@ from pylal import InspiralUtils
 usage = """
 """
 
+def const_eff_snr_lines(rhoVec, val, magic):
+  outVec = []
+  for rho in rhoVec:
+    # FIXME hardcoded dof = 20-2 = 18
+    out = rho**4/val**4 / (1.0+rho**2/magic) * 18.0
+    outVec.append(out)
+  return outVec
+
 def parse_command_line():
   """
   Parser function dedicated
@@ -213,4 +221,20 @@ if not opts.show_plot:
 else:
   show()
 
+## MAKE PLOT ##
+figure(4)
+snrVec = range(5,1000)
+loglog(inj_snr,inj_chisq, 'rx')
+loglog(slide_snr,slide_chisq,'kx')
+loglog(snrVec,const_eff_snr_lines(snrVec, 14.0, 250.0))
+loglog(snrVec,const_eff_snr_lines(snrVec, 9.0, max_thresh))
+ylabel('chisq', size='x-large')
+xlabel('snr', size='x-large')
+legend(['Injections', 'Time slides', 'eff snr = 14 using 250', 'eff snr = 9 using ' + str(max_thresh)])
+fname = "chisq_vs_snr"
+savefig(fname)
+if not opts.show_plot:
+  close()
+else:
+  show()
 
