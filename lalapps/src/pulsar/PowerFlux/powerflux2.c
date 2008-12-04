@@ -317,6 +317,9 @@ fprintf(stderr,	"Initializing sky grids\n");
 	 */
 	 
 resolution=(4500.0)/(args_info.first_bin_arg+args_info.nbins_arg/2);
+/* AM response is computed on a patch grid - this can be too coarse at low frequencies */
+if(resolution*args_info.fine_factor_arg> 0.025) resolution=0.025/args_info.fine_factor_arg;
+
 fprintf(LOG,"resolution (auto) : %f\n", resolution);
 
 
