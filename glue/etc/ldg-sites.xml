@@ -166,6 +166,70 @@
                 <profile namespace="env" key="wntmp_loc" >/opt/storage/wn_tmp</profile>
                 <profile namespace="pegasus" key="grid" >OSG</profile>
         </site>
+         <site  handle="LIGO_UWM_NEMO" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="osg-nemo-ce.phys.uwm.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="osg-nemo-ce.phys.uwm.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-nemo-ce.phys.uwm.edu" mount-point="/opt/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-nemo-ce.phys.uwm.edu" mount-point="/opt/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-nemo-ce.phys.uwm.edu" mount-point="/opt/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-nemo-ce.phys.uwm.edu" mount-point="/opt/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/localscratch">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/localscratch" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/localscratch">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/localscratch" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/opt/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="LIGO_UWM_NEMO"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/opt/osg/ce/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/osg/ce/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/opt/osg/app/wn-client/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/opt/osg/app</profile>
+                <profile namespace="env" key="data_loc" >/opt/osg/data</profile>
+                <profile namespace="env" key="osg_grid" >/opt/osg/app/wn-client</profile>
+                <profile namespace="env" key="tmp_loc" >/opt/osg/data</profile>
+                <profile namespace="env" key="wntmp_loc" >/localscratch</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
         <site  handle="local" arch="x86_64" os="LINUX">
                 <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
                 <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
