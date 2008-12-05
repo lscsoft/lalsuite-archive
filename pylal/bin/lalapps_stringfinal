@@ -373,74 +373,79 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
 
 	def add_contents(self, contents):
-		# find all found injections:  assemble a list of sngl_burst
-		# event_id's for events participating in coincidences, then
-		# get a list of the sim_burst simulation_id's for
-		# injections that matched one of those, then extract the
-		# rows for those injections.
+		# retrieve the list of injections matching burst triggers
+		# that particicpate in burst<-->burst coincidences.
 		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT * FROM
+SELECT
+	*
+FROM
 	sim_burst
 WHERE
-	simulation_id IN (
-		SELECT DISTINCT a.event_id FROM
+	EXISTS (
+		-- find a link from this injection to a burst trigger
+		-- that participates in a burst<-->burst coincidence
+		SELECT
+			*
+		FROM
 			coinc_event_map AS a
 			JOIN coinc_event_map AS b ON (
 				a.coinc_event_id == b.coinc_event_id
-				AND a.table_name == 'sim_burst'
-				AND b.table_name == 'sngl_burst'
+			)
+			JOIN coinc_event_map AS c ON (
+				b.table_name == "sngl_burst"
+				c.table_name == "sngl_burst"
+				AND c.event_id == b.event_id
+			)
+			JOIN coinc_event ON (
+				coinc_event.coinc_event_id == c.coinc_event_id
 			)
 		WHERE
-			b.event_id IN (
-				SELECT DISTINCT event_id FROM
-					coinc_event_map
-					JOIN coinc_event ON (
-						coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-						AND coinc_event_map.table_name == 'sngl_burst'
-					)
-				WHERE
-					coinc_event.coinc_def_id == ?
-			)
+			a.table_name == "sim_burst"
+			AND a.event_id == sim_burst.simulation_id
+			AND coinc_event.coinc_def_id == ?
 	)
 		""", (contents.bb_definer_id,))))
-		# find all injections recovered in loudest_survivor_inst
-		# with an amplitude greater than loudest_survivor_ampl:
-		# assemble a list of sngl_burst event_id's for events
-		# matching the conditions and participating in
-		# coincidences, then get a list of the sim_burst
-		# simulation_id's for injections that matched one of those,
-		# then extract the rows for those injections.
-		# FIXME: this query can be simplified
+		# retrieve the list of injections matching burst<-->burst
+		# coincidences involving a trigger from
+		# loudest_survivor_inst with an amplitude greater than
+		# loudest_survivor_ampl.
 		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT * FROM
+SELECT
+	*
+FROM
 	sim_burst
 WHERE
-	simulation_id IN (
-		SELECT DISTINCT a.event_id FROM
+	EXISTS (
+		-- find a link from this injection to a burst trigger
+		-- that participates in a burst<-->burst coincidence
+		-- and is above threshold in the correct instrument
+		SELECT
+			*
+		FROM
 			coinc_event_map AS a
 			JOIN coinc_event_map AS b ON (
 				a.coinc_event_id == b.coinc_event_id
-				AND a.table_name == 'sim_burst'
-				AND b.table_name == 'sngl_burst'
+			)
+			JOIN sngl_burst ON (
+				b.table_name == "sngl_burst"
+				AND b.event_id == sngl_burst.event_id
+			)
+			JOIN coinc_event_map AS c ON (
+				c.table_name == "sngl_burst"
+				AND c.event_id == b.event_id
+			)
+			JOIN coinc_event ON (
+				coinc_event.coinc_event_id == c.coinc_event_id
 			)
 		WHERE
-			b.event_id IN (
-				SELECT DISTINCT sngl_burst.event_id FROM
-					sngl_burst
-					JOIN coinc_event_map ON (
-						sngl_burst.event_id == coinc_event_map.event_id
-						AND coinc_event_map.table_name == 'sngl_burst'
-					)
-					JOIN coinc_event ON (
-						coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-					)
-				WHERE
-					sngl_burst.ifo == ?
-					AND abs(sngl_burst.amplitude) > ?
-					AND coinc_event.coinc_def_id == ?
-			)
+			a.table_name == "sim_burst"
+			AND a.event_id == sim_burst.simulation_id
+			AND coinc_event.coinc_def_id == ?
+			AND sngl_burst.ifo == ?
+			AND abs(sngl_burst.amplitude) > ?
 	)
-		""", (self.loudest_survivor_inst, self.loudest_survivor_ampl, contents.bb_definer_id,))))
+		""", (contents.bb_definer_id, self.loudest_survivor_inst, self.loudest_survivor_ampl))))
+		# retrieve the list of all injections
 		self.all.extend(iter(contents.sim_burst_table))
 
 	def finish(self):
