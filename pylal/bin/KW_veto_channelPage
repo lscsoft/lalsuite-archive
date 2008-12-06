@@ -394,6 +394,8 @@ def summary_maker(prefix, result, totalTrigNum, totalTime, half_window_size,\
             deadTimePer=result["deadTimePer"][i]
             vetoedNum=result["vetoedNum"][i]
             vetoEff=result["vetoEff"][i]
+            use_random=result["use_random"][i]
+            eff_DT=result["eff_DT"][i]
             break
             
     ############################################################################
@@ -465,6 +467,8 @@ def summary_maker(prefix, result, totalTrigNum, totalTime, half_window_size,\
         <tr><td><b>Used Percentage:</b></td>       <td>%.4f%%</td> <td>(%d/%d)</td>
         <tr><td><b>Veto Efficiency:</b></td>      <td>%.4f%%</td> <td>(%d/%d)</td>
         <tr><td><b>Dead Time Percentage:</b></td> <td>%.4f%%</td> <td>(%.2f s/%.2f s)</td>
+        <tr><td><b>Used Percentage/Random Used Percentage:</b></td> <td>%.4f</td>
+        <tr><td><b>Veto Efficiency/Dead Time Percentage:</b></td> <td>%.4f</td>
         </tbody>
         </table>
         </center>
@@ -483,8 +487,8 @@ def summary_maker(prefix, result, totalTrigNum, totalTime, half_window_size,\
         %s <br> <!-- injection part -->
         </div>
         """%(half_window_size,thresh,usePercentage,coinKW,totalKW,vetoEff,\
-            vetoedNum,totalTrigNum,deadTimePer,deadTime,totalTime,veto_file,\
-            qscan_part,injection_part)
+            vetoedNum,totalTrigNum,deadTimePer,deadTime,totalTime,use_random,\
+            eff_DT,veto_file,qscan_part,injection_part)
         
         p = prefix # short notation
         
@@ -736,7 +740,8 @@ def load_info(filename):
             sys.exit(1)
         mat_data=scipy.io.loadmat(filename)
         output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
+                "vetoEff": [], "use_random": [], "eff_DT": []}
         output["thresh"] = mat_data["thresh"].tolist()
         output["coinKW"] = mat_data["coinKW"].tolist()
         output["totalKW"] = mat_data["totalKW"].tolist()
@@ -745,6 +750,8 @@ def load_info(filename):
         output["deadTimePer"] = mat_data["deadTimePer"].tolist()
         output["vetoedNum"] = mat_data["vetoedNum"].tolist()[:-1]
         output["vetoEff"] = mat_data["vetoEff"].tolist()
+        output["use_random"] = mat_data["use_random"].tolist()
+        output["eff_DT"] = mat_data["eff_DT"].tolist()
         # the last element in vetoedNum is actually total triggers number
         totalTrigNum = mat_data["vetoedNum"].tolist()[-1]
         # the last element in deadTimes is actually total time
@@ -756,7 +763,8 @@ def load_info(filename):
     # case 2: txt file
     if ext == '.txt':
         output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
+                "vetoEff": [], "use_random": [], "eff_DT": []}
         lines=file_handle.readlines()
         totalTrigNum = float(lines[0].split(":")[1].strip())
         totalTime = float(lines[1].split(":")[1].strip())
@@ -771,6 +779,8 @@ def load_info(filename):
                 output["deadTimePer"].append(float(info[5]))
                 output["vetoedNum"].append(float(info[6]))
                 output["vetoEff"].append(float(info[7]))
+                output["use_random"].append(float(info[8]))
+                output["eff_DT"].append(float(info[9]))
         return output, totalTrigNum, totalTime
     # case 3: pickle file
     if ext == '.pickle':

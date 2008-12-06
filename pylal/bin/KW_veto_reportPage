@@ -13,6 +13,8 @@ Input:
                       CAUTION: for the links to each channel page to work, this 
                       must be the same output directory for KW_veto_channelPage
                       program.
+    minimum total KW number: the minimum number of KW triggers to be a veto 
+                             candidate channel
 
 $Id$
 """
@@ -40,6 +42,9 @@ def parse_commandline():
                            "used percentage as veto candidate channels")
     parser.add_option("-o","--out_dir", default=".",
                       help="output directory")
+    parser.add_option("-m","--min_kw", default=0, type="int",
+                      help="minimum number of total KW triggers to be veto "\
+                           "candidate")
     parser.add_option("-v", "--verbose", action="store_true",\
                       default=False, help="run verbosely")
     
@@ -67,11 +72,12 @@ def parse_commandline():
         print 'result file glob:'; print opts.result_glob;
         print 'critical used percentage:'; print opts.critical_usePer
         print 'output directory:'; print opts.out_dir
+        print 'minimum total KW triggers'; print opts.min_kw
         print
     
     return opts
     
-def report_page(channel_info, critical_usePer, baseDir, injection_option):
+def report_page(channel_info, critical_usePer, min_kw, baseDir, injection_option):
     """
     creates index report page
     """
@@ -101,9 +107,9 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
     else:
         injection_part = ""
     
-    table=["""
+    table = ["""
     <big>Veto Candidate Channels</big><br>
-    Channels with the used percentage > %d%% and the number of coincident KW triggers >= 100 are on this table. <br>
+    Channels with the used percentage > %d%% and the number of coincident KW triggers >= %d are on this table. <br>
     Some channels (gravitational channel, ASI, ASQ etc.) are already excluded since they are not safe. <br>
     (A list of all the analyzed channels follows below the table.)
     <br><br>
@@ -118,9 +124,11 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
     <th>Veto Efficiency (%%)</th>
     <th>Dead Time Percentage (%%)</th>
     <th>Max Used Percentage (%%)</th>
+    <th>Used %% / Random Used %%</th>
+    <th>Veto Efficiency / Dead Time</th>
     %s
     </tr>
-    """%(critical_usePer,injection_part)]
+    """%(critical_usePer,min_kw,injection_part)]
     
     all_list=['<big>Channels Analyzed</big>']
     for chan in sorted(channel_info.keys()):
@@ -133,8 +141,11 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
         maxUsePer = channel_info[chan][5]
         vetoEff = channel_info[chan][6]
         deadTimePer = channel_info[chan][7]
+        use_random = channel_info[chan][8]
+        veto_DT = channel_info[chan][9]
         if injection_option:
-            injection_column = "<td>%d / %.4f</td>"%(channel_info[chan][8],channel_info[chan][9])
+            injection_column = "<td>%d / %.4f</td>"%(channel_info[chan][10],\
+                                                     channel_info[chan][11])
         else:
             injection_column = ""
         # get necessary info from key
@@ -147,10 +158,7 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
         else: sub = ""
         # table
         # exclude DARMERR, DARMCTRL, ASI, ASQ because we know they are not safe
-        #if candidate and coincident >= 100 and chan.find("darmerr")==-1 and\
-        #  chan.find("darmctrl")==-1 and chan.find("asi")==-1 and\
-        #  chan.find("asq")==-1:
-        if candidate and chan.find("darmerr")==-1 and\
+        if candidate and total >= min_kw and chan.find("darmerr")==-1 and\
           chan.find("darmctrl")==-1 and chan.find("asi")==-1 and\
           chan.find("asq")==-1:
             table.append("""
@@ -163,10 +171,13 @@ def report_page(channel_info, critical_usePer, baseDir, injection_option):
                 <td>%.4f</td>
                 <td>%.4f</td>
                 <td>%.4f</td>
+                <td>%.4f</td>
+                <td>%.4f</td>
                 %s
                 </tr>
                 """%(chan,channel.upper(),sub,thresh,usePer,coincident,total,\
-                             vetoEff,deadTimePer,maxUsePer,injection_column))
+                     vetoEff,deadTimePer,maxUsePer,use_random,veto_DT,\
+                     injection_column))
             
         ############################## all channel #############################
         
@@ -225,7 +236,8 @@ def load_info(filename):
             sys.exit(1)
         mat_data=scipy.io.loadmat(filename)
         output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
+                "vetoEff": [], "use_random": [], "eff_DT": []}
         output["thresh"] = mat_data["thresh"].tolist()
         output["coinKW"] = mat_data["coinKW"].tolist()
         output["totalKW"] = mat_data["totalKW"].tolist()
@@ -234,6 +246,8 @@ def load_info(filename):
         output["deadTimePer"] = mat_data["deadTimePer"].tolist()
         output["vetoedNum"] = mat_data["vetoedNum"].tolist()[:-1]
         output["vetoEff"] = mat_data["vetoEff"].tolist()
+        output["use_random"] = mat_data["use_random"].tolist()
+        output["eff_DT"] = mat_data["eff_DT"].tolist()
         # the last element in vetoedNum is actually total triggers number
         totalTrigNum = mat_data["vetoedNum"].tolist()[-1]
         # the last element in deadTimes is actually total time
@@ -246,7 +260,8 @@ def load_info(filename):
     # case 2: txt file
     if ext == '.txt':
         output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-             "deadTimes": [], "deadTimePer": [], "vetoedNum": [], "vetoEff": []}
+                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
+                "vetoEff": [], "use_random": [], "eff_DT": []}
         lines=file_handle.readlines()
         totalTrigNum = float(lines[0].split(":")[1].strip())
         totalTime = float(lines[1].split(":")[1].strip())
@@ -261,6 +276,8 @@ def load_info(filename):
                 output["deadTimePer"].append(float(info[5]))
                 output["vetoedNum"].append(float(info[6]))
                 output["vetoEff"].append(float(info[7]))
+                output["use_random"].append(float(info[8]))
+                output["eff_DT"].append(float(info[9]))
         return output
     
     # case 3: pickle file
@@ -294,7 +311,7 @@ def check_candidate(result,critical_usePer):
     
     # initialize as negative values to avoid confusion
     candidate = False; usePercentage=-1; thresh=-1; coinKW=-1; totalKW=-1
-    vetoEff=-1; deadTimePer=-1;
+    vetoEff=-1; deadTimePer=-1; use_random=-1; eff_DT=-1
     
     # loop over and check used percentage at each KW significance threshold
     for i in xrange(len(result["thresh"])):
@@ -307,11 +324,13 @@ def check_candidate(result,critical_usePer):
             totalKW=result["totalKW"][i]
             vetoEff=result["vetoEff"][i]
             deadTimePer=result["deadTimePer"][i]
+            use_random=result["use_random"][i]
+            eff_DT=result["eff_DT"][i]
             break
     maxUsePercentage = max(result["usePercentage"])
     
     return [candidate,usePercentage,thresh,coinKW,totalKW,maxUsePercentage,\
-           vetoEff,deadTimePer]
+           vetoEff,deadTimePer,use_random,eff_DT]
 
 def main(opts):
     baseDir = os.path.join(opts.out_dir,"%s_webpage"%opts.name_tag)
@@ -365,7 +384,8 @@ def main(opts):
             channel_info[key].append(-1)
             channel_info[key].append(-1)
             
-    report_page(channel_info, opts.critical_usePer, baseDir, injection_option)
+    report_page(channel_info, opts.critical_usePer, opts.min_kw, baseDir,\
+                injection_option)
             
     if opts.verbose: print "report_maker done!"
     
