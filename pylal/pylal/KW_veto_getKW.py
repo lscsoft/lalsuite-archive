@@ -134,7 +134,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
             if trig[0][0]!="#":
                 # check if that KW event is in analyzed segment and also
                 # check if its snr is bigger than specified minimum snr
-                t = float(trig[0]) # time
+                t = float(trig[3]) # time
                 s = float(trig[7]) # snr
                 if t in seg_list and s > min_thresh and s != float('inf'):
                     times.append(t)
@@ -178,13 +178,13 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
                     trig=line.split()
                     # exclude comment part
                     if trig[0][0]!="#":
-                        t=float(trig[0]); s=float(trig[7])
+                        t=float(trig[3]); s=float(trig[7])
                         # check if that KW event is in analyzed segment and also
                         # check if its snr is bigger than specified minimum snr
                         # inf is bad, cause trouble later
                         if t in seg_list and s > min_thresh and s != float('inf'):
-                            times.append(float(trig[0]))
-                            snr.append(float(trig[7]))
+                            times.append(t)
+                            snr.append(s)
             except (IOError):
                 # some channel are not in all the daily folder
                 print >>sys.stderr, "channel %s not found in day %s, ignoring"\
