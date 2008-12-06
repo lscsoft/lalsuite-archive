@@ -134,7 +134,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
             if trig[0][0]!="#":
                 # check if that KW event is in analyzed segment and also
                 # check if its snr is bigger than specified minimum snr
-                t = float(trig[3]) # time
+                t = float(trig[2]) # time
                 s = float(trig[7]) # snr
                 if t in seg_list and s > min_thresh and s != float('inf'):
                     times.append(t)
@@ -178,7 +178,7 @@ def get_trigs(ifo,channel,segfile,min_thresh,verbose):
                     trig=line.split()
                     # exclude comment part
                     if trig[0][0]!="#":
-                        t=float(trig[3]); s=float(trig[7])
+                        t=float(trig[2]); s=float(trig[7])
                         # check if that KW event is in analyzed segment and also
                         # check if its snr is bigger than specified minimum snr
                         # inf is bad, cause trouble later
