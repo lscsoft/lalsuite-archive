@@ -54,6 +54,10 @@ Output: 2(+3) files
    6. dead time percentage
    7. number of vetoed inspiral triggers
    8. veto efficiency
+   9. Use percentage / random. Random is the use percentage for using the
+      same number of triggers (Total KW), but imagining that their times were
+      random
+   10. Veto efficiency / deadtime
    Also contains total inspiral trigger number and total analyzed time.
    
 2. A file with suffix "plot_data.pickle"
@@ -344,6 +348,7 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
     
     usePercentage = []; coinKW = []; totalKW = []; thresh = []
     deadTime = []; deadTimePer = []; vetoedNum = []; vetoEff = []
+    usePer_over_random = []; eff_over_DT = []
     
     # coin_index represents the number of coincident KW triggers above threshold
     # initialize it as the number of all the coincident KW events
@@ -414,6 +419,8 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
             deadTimePer.append(0)
             vetoedNum.append(0)
             vetoEff.append(0)
+            usePer_over_random.append(0)
+            eff_over_DT.append(0)
             break
         
         ## calculate the number of vetoed inspiral triggers and veto efficiency
@@ -430,6 +437,10 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
         # add vetoed insp trigs number and veto efficiency
         vetoedNum.append(vetoedTrigCounter)
         vetoEff.append(100*vetoedTrigCounter/totalTrigNum)
+        randomPercentage=totalTrigNum*deadTimePer[-1]/totalKW[-1]
+        usePer_over_random.append(usePercentage[-1]/randomPercentage)
+        eff_over_DT.append(vetoEff[-1]/deadTimePer[-1])
+        
     ######################## end of threshold loop #############################
     
     # store data about vetoed insp triggers for histgram
@@ -444,7 +455,8 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
     vetoedNum.append(totalTrigNum)
     
     return thresh,coinKW,totalKW,usePercentage,vetoedNum,vetoEff,deadTime,\
-           deadTimePer,plot_data,veto_segs,candidate
+           deadTimePer,usePer_over_random,eff_over_DT,plot_data,veto_segs,\
+           candidate
     
     
 def qscan_prep(min_thresh, KWtrigs, qscan_timefile_name):
@@ -546,7 +558,8 @@ def save_result(outputName,output):
                                                 '%%#totalTime(s): %s'%totalTime]
         # head line of columns
         line.append("%#thresh  coincidentKW   totalKW   use %        "+\
-                   "deadTime(s)    deadTime %     vetoedTrigNum  vetoEfficiency %")
+                   "deadTime(s)    deadTime %     vetoedTrigNum  "+\
+                   "vetoEfficiency %    use %/random    efficiency/deadTime")
         # convert values to string to write in txt file
         thresh=[str(t) for t in output["thresh"]]
         coinKW=[str(c) for c in output["coinKW"]]
@@ -556,10 +569,13 @@ def save_result(outputName,output):
         deadTimePer=[str(round(d,5)) for d in output["deadTimePer"]]
         vetoedNum=[str(n) for n in output["vetoedNum"]]
         vetoEff=[str(round(v,4)) for v in output["vetoEff"]]
+        use_random=[str(round(v,4)) for v in output["use_random"]]
+        eff_DT=[str(round(v,4)) for v in output["eff_DT"]]
+        
         # make columns of veto info
         # align nicely
         for info in zip(thresh,coinKW,totalKW,usePercentage,deadTime,\
-                                                deadTimePer,vetoedNum,vetoEff):
+                        deadTimePer,vetoedNum,vetoEff,use_random,eff_DT):
             line.append(info[0]+" "*(10-len(info[0]))+\
                         info[1]+" "*(15-len(info[1]))+\
                         info[2]+" "*(10-len(info[2]))+\
@@ -567,7 +583,9 @@ def save_result(outputName,output):
                         info[4]+" "*(15-len(info[4]))+\
                         info[5]+" "*(15-len(info[5]))+\
                         info[6]+" "*(15-len(info[6]))+\
-                        info[7])
+                        info[7]+" "*(20-len(info[7]))+\
+                        info[8]+" "*(15-len(info[8]))+\
+                        info[9])
         open(outputName,"w").write("\n".join(line))            
     # case 2: pickle file
     if ext == ".pickle":
@@ -673,7 +691,8 @@ def main(opts):
         
         # vetoStats is the function that calculates all the values
         thresh, coinKW, totalKW, usePercentage, vetoedNum, vetoEff, deadTimes,\
-        deadTimePer, plot_data, veto_segs, candidate =\
+        deadTimePer, usePer_over_random,eff_over_DT, plot_data, veto_segs,\
+        candidate =\
           vetoStats(output["thresh"], trigs,coin_KWtrigs, sorted_KWtrigs,\
                     half_window, opts.segment_file, opts.critical_useper,\
                     opts.qscan, opts.verbose)
@@ -684,7 +703,8 @@ def main(opts):
         output = {"thresh": thresh, "coinKW": coinKW, "totalKW": totalKW,\
                   "usePercentage": usePercentage, "deadTimes": deadTimes,\
                   "deadTimePer": deadTimePer, "vetoedNum": vetoedNum,\
-                  "vetoEff": vetoEff}
+                  "vetoEff": vetoEff,"use_random": usePer_over_random,\
+                  "eff_DT": eff_over_DT}
                   
         memory_out = False
                   
