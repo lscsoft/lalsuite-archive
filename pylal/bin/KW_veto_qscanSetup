@@ -256,24 +256,26 @@ def main(opts):
     dag.write_sub_files()
     dag.write_dag()
     
-    # make condor submission file with appropriate maxjobs
-    if ifo == "V1": maxjobs=5 # only available at European clusters
-    elif opts.qscan_config.lower()=='selected': maxjobs=50 
-    elif opts.qscan_config=='@full': maxjobs=3 # R frame, taped
-    else: maxjobs=30
-    if opts.verbose: 
-        print "submitting %s_%s_qscan.dag to condor with maxjobs %d"\
-                                                          %(tag,channel,maxjobs)
-    log=os.path.join(opts.condor_log_dir,"%s.log"%tag)
-    # make a submission file for the dag
-    # append appropriate log file so that outer dag can recognize
-    dag_loc = os.path.join(opts.dagdir,"%s_qscan.dag"%tag)
-    exitNum=os.system('condor_submit_dag -f -append "log = %s" -maxjobs %d -no_submit %s'\
-                                                         %(log,maxjobs,dag_loc))
-    if exitNum != 0:
-        print >> sys.stderr,\
-                         "Error: failed to write a qscan condor submission file"
-        sys.exit(1)
+    ## doesn't work anymore with the newer version of DAGMan
+    ## need to be fixed
+    ## make condor submission file with appropriate maxjobs
+    #if ifo == "V1": maxjobs=5 # only available at European clusters
+    #elif opts.qscan_config.lower()=='selected': maxjobs=50 
+    #elif opts.qscan_config=='@full': maxjobs=3 # R frame, taped
+    #else: maxjobs=30
+    #if opts.verbose: 
+    #    print "submitting %s_%s_qscan.dag to condor with maxjobs %d"\
+    #                                                      %(tag,channel,maxjobs)
+    #log=os.path.join(opts.condor_log_dir,"%s.log"%tag)
+    ## make a submission file for the dag
+    ## append appropriate log file so that outer dag can recognize
+    #dag_loc = os.path.join(opts.dagdir,"%s_qscan.dag"%tag)
+    #exitNum=os.system('condor_submit_dag -f -append "log = %s" -maxjobs %d -no_submit %s'\
+    #                                                     %(log,maxjobs,dag_loc))
+    #if exitNum != 0:
+    #    print >> sys.stderr,\
+    #                     "Error: failed to write a qscan condor submission file"
+    #    sys.exit(1)
                 
 if __name__=="__main__":
     # parse commandline

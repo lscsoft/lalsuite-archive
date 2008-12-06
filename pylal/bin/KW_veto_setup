@@ -69,8 +69,12 @@ class calcJob(pipeline.CondorDAGJob):
         self.add_opt("name_tag", cp.get("general","tag"))
         self.add_arg("--verbose")
 
-        # other necessary information in the paramfile
+        ## other necessary information in the paramfile
+        # don't need min_kw for this program - exclude it temporarily
+        tmp_min_kw = cp.get("data_conditioning","min_kw")
+        cp.remove_option("data_conditioning","min_kw")
         self.add_ini_opts(cp, "data_conditioning")
+        cp.set("data_conditioning","min_kw",tmp_min_kw)
         self.add_ini_opts(cp, "output")
         
         ## optional calculations
@@ -162,6 +166,7 @@ class reportPageJob(pipeline.CondorDAGJob):
         self.add_opt("critical_usePer", cp.get(\
                                         "data_conditioning","critical_useper"))
         self.add_opt("out_dir", cp.get("webpage","outdir"))
+        self.add_opt("min_kw", cp.get("data_conditioning","min_kw"))
         self.add_arg("--verbose")
         
 class qscanSetupJob(pipeline.CondorDAGJob):
@@ -456,7 +461,6 @@ def get_analyze_segment(cp,ifo_list,tag,verbose):
             print >>sys.stderr, "Error: %s analyzed_seg_files not found"%ifo
             sys.exit(1)
             
-                
         if verbose: print "added seg files:", analyzed_seg_files
         analyzed_segs=segmentlist()
         # take a union of one segment list at a time
@@ -572,9 +576,11 @@ def dag_maker(ifo_list, cp, verbose):
     qscanSetup_job.set_sub_file(os.path.join("dags","%s.qscanSetup.sub"%tag))
     
     # sub file will be overwritten later to become inner dags
-    qscanRun_job = qscanRunJob(cp)
-    qscanRun_job.set_sub_file(os.path.join("dags",\
-                                           "%s_qscan.dag.condor.sub"%tag))
+    # doesn't work anymore with the newer version of DAGMan
+    # need to be fixed
+    # qscanRun_job = qscanRunJob(cp)
+    # qscanRun_job.set_sub_file(os.path.join("dags",\
+    #                                       "%s_qscan.dag.condor.sub"%tag))
     
     ############################################################################
     # set each node
@@ -731,11 +737,13 @@ def dag_maker(ifo_list, cp, verbose):
         dag.add_node(qs)
         # add qscanRun node
         # for candidate channel this becomes inner dag
-        dagNodeName = "qscanRun"
-        retry = cp.getint("condor", "retry")
-        qr = qscanRunNode(qscanRun_job,dagNodeName,retry)
-        qr.add_parent(qs)
-        dag.add_node(qr)
+        # doesn't work anymore with the newer version of dag 
+        # need to be fixed
+        #dagNodeName = "qscanRun"
+        #retry = cp.getint("condor", "retry")
+        #qr = qscanRunNode(qscanRun_job,dagNodeName,retry)
+        #qr.add_parent(qs)
+        #dag.add_node(qr)
     
     # output workflow as DAG or script; assumes that parents always appear
     # before children.
@@ -770,6 +778,10 @@ def main(opts,cp):
     ############################################################################
     
     ########################### [general] section ##############################
+    
+    if cp.get("general","tag").find("-") is not -1:
+        print >> sys.stderr, 'Error: you can not use "-" in your tag'
+        sys.exit(1)
     
     if cp.get("general","tag")=="":
         cp.set("general","tag","no_name")
@@ -832,7 +844,7 @@ def main(opts,cp):
     ######################## [data_conditioning] section #######################
     
     for d in ("critical_useper","trigger_filter","half_window","min_thresh",\
-                                    "max_thresh","resolution"):
+                                    "max_thresh","resolution","min_KW"):
         if cp.get("data_conditioning",d)=="":
             print >> sys.stderr, "Error: %s is a required in param file."%d
             sys.exit(1)
@@ -933,7 +945,7 @@ def main(opts,cp):
                             open(available_chan_file).readlines()]
         # if blank, use all the channels available
         if channel_list == [""]:
-            cp.set(ifo,"channels",",".join(ok_channel))
+            channel_list = ok_channel
         else: # otherwise, check if specified channel names are available
             for c in channel_list:
                 if c not in ok_channel:
@@ -942,7 +954,14 @@ def main(opts,cp):
                please check against LIGO_channel_list.txt or
                VIRGO_channel_list.txt"""%c
                     sys.exit(1)
-            cp.set(ifo,"channels",",".join(channel_list))
+        
+        # exclude channels specified in "exclude_channels"
+        ex_chan=[f.strip() for f in cp.get(ifo,"exclude_channels").split(",")]
+        if ex_chan != [""]:
+            for ec in ex_chan:
+                channel_list.remove(ec)
+
+        cp.set(ifo,"channels",",".join(channel_list))
         
         
     ################# [plot] [options] [webpage] section #######################
@@ -1059,7 +1078,6 @@ def main(opts,cp):
     
     if opts.verbose: print "creating dag files..."
     dag_maker(ifo_list,cp,opts.verbose)
-    
     
     ##################### print informational message ##########################
     
