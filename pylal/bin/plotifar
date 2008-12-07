@@ -133,6 +133,12 @@ def parse_command_line():
         default = None, metavar = "", \
         help = "maximum x value to plot, in terms of IFAN " + \
         "(for IFAR plots this will be normalized automatically)" )
+  parser.add_option( "", "--y-min", action = "store", type = "float", \
+        default = None, metavar = "", \
+        help = "minimum y value to plot, must be greater than 0")
+  parser.add_option("", "--y-max", action = "store", type = "float", \
+        default = None, metavar = "", \
+        help = "maximum y value to plot")
   parser.add_option( "", "--ifar-dist", action = "store_true", default = False, \
         help = "plot a cumulative histogram of IFAR normalized in terms of a year" )
   parser.add_option( "", "--ifan-dist", action = "store_true", default = False, \
@@ -166,6 +172,12 @@ def parse_command_line():
     raise ValueError, "--output-path must be specified"
   if options.plot_slides and not options.time_analyzed_file:
     raise ValueError, "lightning bolt plots require time-analyzed-file"
+  if options.y_min and options.y_min <= 0.:
+    raise ValueError, "y-min must be greater than 0"
+  if options.y_max and (options.y_min >= options.y_max):
+    raise ValueError, "y-min must be less than y-max"
+  if (options.x_min and options.x_max) and (options.x_min >= options.x_max):
+    raise ValueError, "x-min must be less than x-max"
   return options, sys.argv[1:]
 
 # ============= End parse_command_line =======================================
@@ -692,7 +704,7 @@ if opts.plot_uncombined or opts.snr_ifar:
         # if any FANs were zero, stick an arrow on their marker
         if thisfile in zero_fan:
           xval = 1./zero_fan[thisfile]
-          yval = cumnum[thisfile][len(IFAN[thisfile].tolist()) -1]
+          yval = cumnum[thisfile][len( IFAN[thisfile].tolist() ) - 1]
           text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', color = 'k', label='_nolegend_' )
         if xmin > IFAN[thisfile][0]: # reset xmin
           xmin = IFAN[thisfile][0]
@@ -729,6 +741,24 @@ if opts.plot_uncombined or opts.snr_ifar:
     xmin = xmin * 0.8
     xmax = xmax * 1.4
     ymax = ymax * 1.2
+    # if plot limits specified on command line, override values to whatever was specified
+    # and check for consistency
+    if opts.x_min: 
+      xmin = opts.x_min
+      if xmin >= xmax:
+       raise ValueError, "specified x-min greater than (auto) x-max; Nothing to plot!"
+    if opts.x_max: 
+      xmax = opts.x_max
+      if xmax <= xmin:
+        raise ValueError, "specified x-max greater than (auto) x-min; Nothing to plot!"
+    if opts.y_min: 
+      ymin = opts.y_min
+      if ymin >= ymax:
+        raise ValueError, "specified y-min greater than (auto) y-max; Nothing to plot!"
+    if opts.y_max: 
+      ymax = opts.y_max
+      if ymax <= ymin:
+        raise ValueError, "specified y-max greater than (auto) y-min; Nothing to plot!"
     # generate legend key; this just shows what colors correspond to what ifos
     # and what symbols correspond to what mass-bins. This is done by making
     # dummy plots out of the range of the plots strictly for the sake of the
@@ -819,7 +849,7 @@ if opts.plot_uncombined or opts.snr_ifar:
         # if any FARs were zero, stick an arrow on their marker
         if thisfile in zero_fan:
           xval = NormTime[thisfile]/zero_fan[thisfile]
-          yval = cumnum[thisfile][len(IFAR[thisfile].tolist())-1]
+          yval = cumnum[thisfile][len(IFAR[thisfile].tolist()) - 1]
           text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', color = 'k', label='_nolegend_' )
         if xmin > IFAR[thisfile][0]: # reset xmin
           xmin = IFAR[thisfile][0]
@@ -854,6 +884,24 @@ if opts.plot_uncombined or opts.snr_ifar:
     xmin = xmin * 0.8
     xmax = xmax * 1.4
     ymax = ymax * 1.2
+    # if plot limits specified on command line, override values to whatever was specified
+    # and check for consistency
+    if opts.x_min: 
+      xmin = opts.x_min * min(NormTime.values())
+      if xmin >= xmax:
+       raise ValueError, "specified x-min greater than (auto) x-max; Nothing to plot!"
+    if opts.x_max: 
+      xmax = opts.x_max * max(NormTime.values())
+      if xmax <= xmin:
+        raise ValueError, "specified x-max greater than (auto) x-min; Nothing to plot!"
+    if opts.y_min: 
+      ymin = opts.y_min
+      if ymin >= ymax:
+        raise ValueError, "specified y-min greater than (auto) y-max; Nothing to plot!"
+    if opts.y_max: 
+      ymax = opts.y_max
+      if ymax <= ymin:
+        raise ValueError, "specified y-max greater than (auto) y-min; Nothing to plot!"
     # generate legend key; same method and reasoning as above
     xdum = 0.01*xmin
     ydum = 0.01*ymin
@@ -955,19 +1003,35 @@ if opts.plot_combined:
       # plot foreground
       loglog( IFANc, cumnumc, marker='^', linestyle='None', markerfacecolor='b',
             markeredgecolor='k', alpha=0.9, label='Combined Triggers' )
-      # if any FANs were zero, need to stick an arrow on their marker
+      # if any FANs were zero, need to stick an arrow on their marker; y-val
+      # is assumed to be whatever corresponds to the last value in IFANc
       if zero_fanc.any():
         for fanc in zero_fanc:
           xval = 1./fanc
-          yval = cumnumc[len(IFANc.tolist()) - 1]
+          yval = cumnumc[len(IFANc.tolist())-1]
           text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', color = 'k', label='_nolegend_' )
       # set xmin, xmax and ymax to be slightly smaller/larger then minIFANc/maxnum
       xmin = IFANc[0] * 0.8
-      if opts.x_max: 
-        xmax = float(opts.x_max)
-      elif not opts.plot_slides:
-        xmax = IFANc[len(IFANc)-1] * 1.4
+      xmax = max( (IFANc[len(IFANc)-1] * 1.4), xmax )
       ymax = cumnumc[0] * 1.2
+      # if plot limits specified on command line, override values to whatever was specified
+      # and check for consistency
+      if opts.x_min: 
+        xmin = opts.x_min
+        if xmin >= xmax:
+         raise ValueError, "specified x-min greater than (auto) x-max; Nothing to plot!"
+      if opts.x_max: 
+        xmax = opts.x_max
+        if xmax <= xmin:
+          raise ValueError, "specified x-max greater than (auto) x-min; Nothing to plot!"
+      if opts.y_min: 
+        ymin = opts.y_min
+        if ymin >= ymax:
+          raise ValueError, "specified y-min greater than (auto) y-max; Nothing to plot!"
+      if opts.y_max: 
+        ymax = opts.y_max
+        if ymax <= ymin:
+          raise ValueError, "specified y-max greater than (auto) y-min; Nothing to plot!"
       xlim(xmin,xmax)
       ylim(ymin,ymax)
       xlabel( r"Inverse False Alarm Number", size='x-large' )
@@ -1021,14 +1085,29 @@ if opts.plot_combined:
       if zero_fanc.any():
         for fanc in zero_fanc:
           xval = NormTime[corsefiles[0]]/fanc
-          yval = cumnumc[len(IFARc.tolist()) - 1]
+          yval = cumnumc[len(IFARc.tolist())-1]
           text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', color = 'k', label='_nolegend' )
       xmin = IFARc[0] * 0.8
-      if opts.x_max: 
-        xmax = float(opts.x_max)*NormTime[corsefiles[0]]
-      elif not opts.plot_slides:
-        xmax = IFARc[len(IFARc)-1] * 1.4
+      xmax = max( (IFARc[len(IFARc)-1] * 1.4), xmax )
       ymax = cumnumc[0] * 1.2
+      # if plot limits specified on command line, override values to whatever was specified
+      # and check for consistency
+      if opts.x_min: 
+        xmin = opts.x_min * min(NormTime.values())
+        if xmin >= xmax:
+         raise ValueError, "specified x-min greater than (auto) x-max; Nothing to plot!"
+      if opts.x_max: 
+        xmax = opts.x_max * max(NormTime.values())
+        if xmax <= xmin:
+          raise ValueError, "specified x-max greater than (auto) x-min; Nothing to plot!"
+      if opts.y_min: 
+        ymin = opts.y_min
+        if ymin >= ymax:
+          raise ValueError, "specified y-min greater than (auto) y-max; Nothing to plot!"
+      if opts.y_max: 
+        ymax = opts.y_max
+        if ymax <= ymin:
+          raise ValueError, "specified y-max greater than (auto) y-min; Nothing to plot!"
       xlim(xmin,xmax)
       ylim(ymin,ymax)
       xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
