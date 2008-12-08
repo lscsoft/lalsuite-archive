@@ -249,7 +249,7 @@ for(k=0;k<count;k++) {
 		sum*=useful_bins_inv;
 		sum_sq*=useful_bins_inv;
 		sum_sq-=sum*sum;
-	// 	weight=sum_sq;
+		weight=sum_sq;
 	// 
 	// 	pmax*=pmax_factor; /* scale factor to bring it down to power median */
 	// 	a=pmax*pmax;
