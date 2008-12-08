@@ -392,6 +392,11 @@ class CondorJob:
         subfile.write('grid_resource = %s %s %s\n' % (self.__grid_type,
           self.__grid_server, self.__grid_scheduler))
 
+    if self.__universe == 'grid':
+      subfile.write('when_to_transfer_output = ON_EXIT\n')
+      subfile.write('transfer_output_files = $(macrooutput)\n')
+      subfile.write('transfer_input_files = $(macroinput)\n')
+
     if self.__options.keys() or self.__short_options.keys() or self.__arguments:
       subfile.write( 'arguments =' )
       for c in self.__options.keys():
@@ -674,6 +679,8 @@ class CondorDAGNode:
     """
     if filename not in self.__input_files:
       self.__input_files.append(filename)
+      if self.job().get_universe() == 'grid':
+        self.add_input_macro(filename)
 
   def add_output_file(self, filename):
     """
@@ -683,6 +690,8 @@ class CondorDAGNode:
     """
     if filename not in self.__output_files:
       self.__output_files.append(filename)
+      if self.job().get_universe() == 'grid':
+       self.add_output_macro(filename)
 
   def get_input_files(self):
     """
@@ -727,6 +736,36 @@ class CondorDAGNode:
     """
     macro = self.__bad_macro_chars.sub( r'', name )
     self.__opts[macro] = value
+
+  def add_io_macro(self,io,filename):
+    """
+    Add a variable (macro) for storing the input/output files associated
+    with this node.
+    @param io: macroinput or macrooutput
+    @param filename: filename of input/output file
+    """
+    io = self.__bad_macro_chars.sub( r'', io )
+    if io not in self.__opts:
+      self.__opts[io] = filename
+    else:
+      if filename not in self.__opts[io]:
+        self.__opts[io] += ',%s' % filename
+
+  def add_input_macro(self,filename):
+    """
+    Add a variable (macro) for storing the input files associated with
+    this node.
+    @param filename: filename of input file
+    """
+    self.add_io_macro('macroinput', filename)
+
+  def add_output_macro(self,filename):
+    """
+    Add a variable (macro) for storing the output files associated with
+    this node.
+    @param filename: filename of output file
+    """
+    self.add_io_macro('macrooutput', filename)
 
   def get_opts(self):
     """
