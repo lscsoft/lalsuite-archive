@@ -705,13 +705,20 @@ text = "ln p(c|0) vs rho for each mc bin for m2 = " \
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
     r"$\ln p(" + c_in_E + r"\,|\,0)\textrm{ vs stat for }m_2 = %s$" \
     % str(m2_bins.centres()[8]))
-for mc_ind, mc_range in enumerate(mc_ranges):
-    x_data = rho_by_inj_mc[:, mc_ind]
-    y_data = log_pc0_by_inj_mc[:, mc_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+for mc_range, rho_by_inj, log_pc0_by_inj \
+    in zip(mc_ranges, rho_by_inj_mc.T, log_pc0_by_inj_mc.T):
+    plot.add_content(rho_by_inj, log_pc0_by_inj, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-
 plot.finalize(loc=3)
+
+# add SNRs at which we begin extrapolating
+ylims = tuple(plot.ax.get_ylim())
+extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
+for extrap_snr, color in zip(extrap_snr_by_mc,
+    matplotlib.axes._process_plot_var_args.defaultColors):
+    plot.ax.plot((extrap_snr, extrap_snr), ylims,
+        color + "--", label="_nolegend_")
+plot.ax.set_ylim(ylims)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
@@ -731,8 +738,16 @@ for mc_ind, mc_range in enumerate(mc_ranges):
     y_data = log_L_by_inj_mc[:, mc_ind]
     plot.add_content(x_data, y_data, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-
 plot.finalize(loc=4)
+
+# add SNRs at which we begin extrapolating
+ylims = tuple(plot.ax.get_ylim())
+extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
+for extrap_snr, color in zip(extrap_snr_by_mc,
+    matplotlib.axes._process_plot_var_args.defaultColors):
+    plot.ax.plot((extrap_snr, extrap_snr), ylims,
+        color + "--", label="_nolegend_")
+plot.ax.set_ylim(ylims)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
