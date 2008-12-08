@@ -69,8 +69,8 @@ a_cross_sq=a;
 cpsi=cos(4*ac->psi);
 spsi=sin(4*ac->psi);
 
-asum=a_plus_sq+a_cross_sq;
-adiff=a_plus_sq-a_cross_sq;
+asum=0.25*(a_plus_sq+a_cross_sq);
+adiff=0.25*(a_plus_sq-a_cross_sq);
 
 ac->pp=(asum+adiff*cpsi);
 ac->pc=2*adiff*spsi;
@@ -689,8 +689,10 @@ verify_limits();
 upper_limit_comp=1.0/0.85; 
 
 
-	/* Extra factor to convert to amplitude from RMS power */
-strain_comp=sqrt(2.0);
+// // /*	/* Extra factor to convert to amplitude from RMS power */
+// // strain_comp=sqrt(2.0);*/
+	/* New AM response correctly computes expected power from h0 */
+strain_comp=1.0;
 	/* Extra factor to convert to strain from raw SFT units */
 strain_comp/=(1800.0*16384.0);
 	/* Extra factor to account for the fact that only half of SFT
