@@ -1419,6 +1419,61 @@ free(s);
 release_lock();
 }
 
+void d_read_file(DATASET *dst, char *line, int length)
+{
+char *s;
+long retries;
+int i, alternative, ai, aj;
+struct stat stat_buf;
+
+s=do_alloc(length+20001, sizeof(*s));
+
+retries=0;
+alternative=1;
+while(1) {
+
+	locate_arg(line, length, alternative, &ai, &aj);
+
+	if(ai==aj) {
+		if(alternative==1) {
+			fprintf(stderr, "Could not parse file line \"%s\"\n", line);
+			exit(-1);
+			}
+		alternative=1;
+		continue;
+		}
+
+	memcpy(s, &(line[ai]), aj-ai);
+	s[aj-ai]=0;
+
+	fprintf(stderr, "Accessing file %s\n", s);
+
+	errno=0;
+	if(stat(s, &stat_buf)==0)break;
+	int errsv=errno;
+
+	fprintf(stderr, "Error accessing file %s: %s\n", s, strerror(errsv));
+
+	alternative++;
+	retries++;
+	condor_safe_sleep(args_info.retry_delay_arg);
+	}
+if(retries>0) {
+	fprintf(stderr, "Successfully accessed file %s\n", s);
+	}
+
+if(args_info.enable_dataset_locking_arg && (dst->lock_file[0] != NULL)) {
+	for(i=0;i+1<alternative && i<MAX_LOCKS && dst->lock_file[i]!=NULL;i++);
+	acquire_lock(dst->lock_file[i]);
+	} else 
+if(args_info.lock_file_given) {
+	acquire_lock(args_info.lock_file_arg);
+	}
+add_file(dst, s);
+free(s);
+release_lock();
+}
+
 long int fill_seed=0;
 
 static void gaussian_fill(DATASET *d, INT64 gps_start, int step, int count, double amp)
@@ -1562,15 +1617,7 @@ if(!strncasecmp(line, "directory", 9)) {
 	d_read_directory(&(datasets[d_free-1]), line, length);
 	} else 
 if(!strncasecmp(line, "file", 4)) {
-	char *s;
-	locate_arg(line, length, 1, &ai, &aj);
-
-	s=do_alloc(aj-ai+1, 1);
-	memcpy(s, &(line[ai]), aj-ai);
-	s[aj-ai]=0;
-
-	add_file(&(datasets[d_free-1]), s);
-	free(s);
+	d_read_file(&(datasets[d_free-1]), line, length);
 	} else 
 if(!strncasecmp(line, "weight", 6)) {
 	locate_arg(line, length, 1, &ai, &aj);
