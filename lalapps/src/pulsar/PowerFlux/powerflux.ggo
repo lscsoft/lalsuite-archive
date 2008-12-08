@@ -117,4 +117,6 @@ option "per-dataset-weight-cutoff-fraction" - "Discard sfts with small weights t
 option "power-max-median-factor" - "This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights" double default="0.1" no
 option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
 
+option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no
+
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no

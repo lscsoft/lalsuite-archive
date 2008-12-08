@@ -122,6 +122,7 @@ const char *gengetopt_args_info_help[] = {
   "      --per-dataset-weight-cutoff-fraction=DOUBLE\n                                Discard sfts with small weights that contribute \n                                  this fraction of total weight in each dataset \n                                   (default=`0.04')",
   "      --power-max-median-factor=DOUBLE\n                                This determines scaling factor between median \n                                  and maximum of exponentially distributed \n                                  variable. Used for computing power sum \n                                  weights  (default=`0.1')",
   "      --tmedian-noise-level=INT Use TMedians to estimate noise level (as \n                                  opposed to in-place standard deviation)  \n                                  (default=`1')",
+  "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
     0
 };
@@ -267,6 +268,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->per_dataset_weight_cutoff_fraction_given = 0 ;
   args_info->power_max_median_factor_given = 0 ;
   args_info->tmedian_noise_level_given = 0 ;
+  args_info->dump_power_sums_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
@@ -441,6 +443,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->power_max_median_factor_orig = NULL;
   args_info->tmedian_noise_level_arg = 1;
   args_info->tmedian_noise_level_orig = NULL;
+  args_info->dump_power_sums_arg = 0;
+  args_info->dump_power_sums_orig = NULL;
   args_info->compute_skymaps_arg = 0;
   args_info->compute_skymaps_orig = NULL;
   
@@ -546,7 +550,8 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->per_dataset_weight_cutoff_fraction_help = gengetopt_args_info_help[91] ;
   args_info->power_max_median_factor_help = gengetopt_args_info_help[92] ;
   args_info->tmedian_noise_level_help = gengetopt_args_info_help[93] ;
-  args_info->compute_skymaps_help = gengetopt_args_info_help[94] ;
+  args_info->dump_power_sums_help = gengetopt_args_info_help[94] ;
+  args_info->compute_skymaps_help = gengetopt_args_info_help[95] ;
   
 }
 
@@ -780,6 +785,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->per_dataset_weight_cutoff_fraction_orig));
   free_string_field (&(args_info->power_max_median_factor_orig));
   free_string_field (&(args_info->tmedian_noise_level_orig));
+  free_string_field (&(args_info->dump_power_sums_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   
   
@@ -1003,6 +1009,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "power-max-median-factor", args_info->power_max_median_factor_orig, 0);
   if (args_info->tmedian_noise_level_given)
     write_into_file(outfile, "tmedian-noise-level", args_info->tmedian_noise_level_orig, 0);
+  if (args_info->dump_power_sums_given)
+    write_into_file(outfile, "dump-power-sums", args_info->dump_power_sums_orig, 0);
   if (args_info->compute_skymaps_given)
     write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
   
@@ -1658,6 +1666,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "per-dataset-weight-cutoff-fraction",	1, NULL, 0 },
         { "power-max-median-factor",	1, NULL, 0 },
         { "tmedian-noise-level",	1, NULL, 0 },
+        { "dump-power-sums",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
@@ -2941,6 +2950,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.tmedian_noise_level_given), optarg, 0, "1", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "tmedian-noise-level", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels.  */
+          else if (strcmp (long_options[option_index].name, "dump-power-sums") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->dump_power_sums_arg), 
+                 &(args_info->dump_power_sums_orig), &(args_info->dump_power_sums_given),
+                &(local_args_info.dump_power_sums_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "dump-power-sums", '-',
                 additional_error))
               goto failure;
           

@@ -112,6 +112,34 @@ accum->c_weight_pccc+=partial->c_weight_pccc;
 accum->c_weight_cccc+=partial->c_weight_cccc;
 }
 
+void SUFFIX(dump_partial_power_sum)(FILE *out, SUFFIX(PARTIAL_POWER_SUM) *pps)
+{
+int i;
+if(pps->type!=sizeof(REAL)) {
+	fprintf(stderr, "*** INTERNAL ERROR: %s power sum real type mismatch type=%d sizeof(REAL)=%ld\n",
+		__FUNCTION__,
+		pps->type, sizeof(REAL));
+	exit(-1);
+	}
+
+fprintf(out, "%g %g %g %g %g", 
+	pps->c_weight_pppp,
+	pps->c_weight_pppc,
+	pps->c_weight_ppcc,
+	pps->c_weight_pccc,
+	pps->c_weight_cccc );
+
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->weight_pppp[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->weight_pppc[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->weight_ppcc[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->weight_pccc[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->weight_cccc[i]);
+
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->power_pp[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->power_pc[i]);
+for(i=0;i<useful_bins;i++) fprintf(out, " %g", pps->power_cc[i]);
+}
+
 void SUFFIX(free_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps)
 {
 if(pps->type!=sizeof(REAL)) {

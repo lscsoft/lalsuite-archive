@@ -305,6 +305,9 @@ struct gengetopt_args_info
   int tmedian_noise_level_arg;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) (default='1').  */
   char * tmedian_noise_level_orig;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) original value given at command line.  */
   const char *tmedian_noise_level_help; /**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) help description.  */
+  int dump_power_sums_arg;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels (default='0').  */
+  char * dump_power_sums_orig;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels original value given at command line.  */
+  const char *dump_power_sums_help; /**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels help description.  */
   int compute_skymaps_arg;	/**< @brief allocate memory and compute skymaps with final results (default='0').  */
   char * compute_skymaps_orig;	/**< @brief allocate memory and compute skymaps with final results original value given at command line.  */
   const char *compute_skymaps_help; /**< @brief allocate memory and compute skymaps with final results help description.  */
@@ -402,6 +405,7 @@ struct gengetopt_args_info
   unsigned int per_dataset_weight_cutoff_fraction_given ;	/**< @brief Whether per-dataset-weight-cutoff-fraction was given.  */
   unsigned int power_max_median_factor_given ;	/**< @brief Whether power-max-median-factor was given.  */
   unsigned int tmedian_noise_level_given ;	/**< @brief Whether tmedian-noise-level was given.  */
+  unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */

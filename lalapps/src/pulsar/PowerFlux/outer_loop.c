@@ -214,6 +214,14 @@ for(i=0;i<count;i++) {
 		}
 	power_sum_stats(pps, &(pstats));
 
+	if(args_info.dump_power_sums_arg) {
+		fprintf(DATA_LOG, "power_sum %s %d %d %lf %lf %lf %lg ", ei->name, pi, first_bin+side_cut, ps[0][i].ra, ps[0][i].dec, ps[0][i].freq_shift, ps[0][i].spindown);
+		dump_partial_power_sum_F(DATA_LOG, pps);
+		fprintf(DATA_LOG, "\n");
+		}
+
+
+
 	skyband=ps[0][i].skyband;
 
 	#define FILL_EXTRA_PARAMS(target) {\
