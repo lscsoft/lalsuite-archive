@@ -588,7 +588,9 @@ else:
     html_footer += make_html_table(rows, columns)
 
     # print per-m2 info
-    mc_ind_by_m2 = log_L_mc_m2[actual_candidate_mask, :].argmax(axis=0)
+    temp_log_L_by_mc_m2 = log_L_mc_m2.copy()
+    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
+    mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
     columns = ["m2_bin", "event_id", "<em>&Lambda;</em>",
