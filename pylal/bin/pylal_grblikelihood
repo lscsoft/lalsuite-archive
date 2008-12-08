@@ -260,6 +260,7 @@ def make_html_table(two_dim_seq, header_row=None):
     for row in two_dim_seq:
         if len(row) != last_len:
             raise ValueError, "header and row lengths must all be consistent."
+        last_len = len(row)
         html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
             + "</td></tr>")
     html.append("</table><br>")
@@ -432,10 +433,10 @@ onsource_outname += ".pickle"
 pickle.dump(log_L_by_m2, open(onsource_outname, "wb"), -1)
 
 ################################################################################
-# compute P(Lambda > Lambda_0(m2) | 0), the detection false-alarm probability
+# compute P(observation | 0), the false-alarm probability
 # tabulate off-source likelihoods
 if opts.verbose:
-    print "Computing P(Lambda > Lambda_0(m2) | 0)..."
+    print "Computing P(observation | 0)..."
 offsource_likelihood_by_trial_m2 = numpy.zeros(\
     (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
 for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
@@ -473,7 +474,7 @@ pickle.dump(offsource_likelihood_by_trial_m2, open(offsource_outname, "wb"), -1)
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
 if opts.verbose:
-    print "Computing P(Lambda > Lambda_0(m2) | h(m2, D))..."
+    print "Computing P(observation | h(m2, D))..."
 log_L_by_inj_mc = []
 log_pc0_by_inj_mc = []
 log_pch_by_inj_mc = []
@@ -548,72 +549,79 @@ if opts.verbose:
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
 
-# parse coincs
-coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
-onsource_trigs = table.get_table(onsource_doc,
-    lsctables.SnglInspiralTable.tableName)
-onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
-    coinc_stat)
-if len(onsource_coincs) > len(mc_bins):
-    raise ValueError, "more on-source coincs than mchirp bins"
-
-# print per-mchirp info
-ifos = set()
-for coinc in onsource_coincs:
-    ifos.update(coinc.get_ifos()[1])
-ifos = list(ifos)
-ifos.sort()
-columns = ["mc_bin", "event_id"] + [ifo + " " + statistic for ifo in ifos] + \
-    ["combined " + statistic, "mchirp",
-     "<em>P</em>(<em>&rho;</em> &gt; <em>&rho;</em><sub>0</sub> | 0)"]
-rows = []
-for low, hi, log_pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
-    row = ["  [%.2f, %.2f)" % (low, hi)]
-    mc_coincs = onsource_coincs.getChirpMass(low, hi)
-    if len(mc_coincs) == 0:
-        row += ["&mdash;"] * (len(columns) - 1)
-    elif len(mc_coincs) == 1:
-        c = mc_coincs[0]
-        # XXX: hardcoded effective SNR, didn't reuse get_mean_mchirp
-        row += [c.event_id] \
-            + ["%.4g" % trig.get_effective_snr() for trig in c] \
-            + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
-               "%.4g" % numpy.exp(log_pc0)]
-    rows.append(row)
-html_footer += make_html_table(rows, columns)
-
-# print per-m2 info
-if numpy.any(actual_candidate_mask):
-    mc_ind_by_m2 = log_L_mc_m2[actual_candidate_mask, :].argmax(axis=0)
+if not numpy.any(actual_candidate_mask):
+    html_footer += "No on-source coincidences found.\n"
 else:
-    mc_ind_by_m2 = log_L_mc_m2.argmin(axis=0)
-mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
-m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-columns = ["m2_bin", "event_id", "<em>&Lambda;</em>", "<em>P</em>(<em>&Lambda;</em>(<em>m</em><sub>2</sub>) &gt; <em>&Lambda;</em><sub>0</sub>(<em>m</em><sub>2</sub>) | 0)"]
-rows = []
-for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2, log_L_by_m2,
-    pL0_by_m2):
-    row = ["  [%.2f, %.2f)" % m2_range]
-    m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
-    if len(m2_coincs) == 0:
-        row.append("&mdash;")
-    elif len(m2_coincs) == 1:
-        row.append(m2_coincs[0].event_id)
-    else:
-        raise ValueError, "there should be exactly one or zero coincs"
-    row.extend(["%.4g" % numpy.exp(log_L), "%.4g" % pL0])
-    rows.append(row)
-html_footer += make_html_table(rows, columns)
+    # parse coincs
+    coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+    onsource_trigs = table.get_table(onsource_doc,
+        lsctables.SnglInspiralTable.tableName)
+    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+        coinc_stat)
+    if len(onsource_coincs) > len(mc_bins):
+        raise ValueError, "more on-source coincs than mchirp bins"
+
+    # print per-mchirp info
+    ifos = set()
+    for coinc in onsource_coincs:
+        ifos.update(coinc.get_ifos()[1])
+    ifos = list(ifos)
+    ifos.sort()
+    columns = ["mc_bin", "event_id"] + [ifo + " " + statistic for ifo in ifos] \
+        + ["combined " + statistic, "mchirp",
+        "<em>P</em>(<em>&rho;</em> &gt; <em>&rho;</em><sub>0</sub> | 0)"]
+    rows = []
+    for low, hi, log_pc0 in \
+        zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
+        row = ["[%.2f, %.2f)" % (low, hi)]
+        mc_coincs = onsource_coincs.getChirpMass(low, hi)
+        if len(mc_coincs) == 0:
+            row += ["&mdash;"] * (len(columns) - 1)
+        elif len(mc_coincs) == 1:
+            c = mc_coincs[0]
+            # XXX: hardcoded effective SNR
+            row += [c.event_id] \
+                + ["%.4g" % trig.get_effective_snr() for trig in c] \
+                + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
+                   "%.4g" % numpy.exp(log_pc0)]
+        rows.append(row)
+    html_footer += make_html_table(rows, columns)
+
+    # print per-m2 info
+    mc_ind_by_m2 = log_L_mc_m2[actual_candidate_mask, :].argmax(axis=0)
+    mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+    m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+    columns = ["m2_bin", "event_id", "<em>&Lambda;</em>",
+        "<em>P</em>(<em>&Lambda;</em>(<em>m</em><sub>2</sub>) &gt; "\
+        "<em>&Lambda;</em><sub>0</sub>(<em>m</em><sub>2</sub>) | 0)"]
+    rows = []
+    for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
+        log_L_by_m2, pL0_by_m2):
+        row = ["[%.2f, %.2f)" % m2_range]
+        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+        if len(m2_coincs) == 0:
+            row.append("&mdash;")
+        elif len(m2_coincs) == 1:
+            row.append(m2_coincs[0].event_id)
+        else:
+            raise ValueError, "there should be exactly one or zero coincs"
+        row.extend(["%.4g" % numpy.exp(log_L), "%.4g" % pL0])
+        rows.append(row)
+    html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots
 fnameList = []
 tagList = []
 
-c_in_E = r"c \in \mathcal{E}(c_0)"
-c_in_E_m2 = r"c \in \mathcal{E}(c_0(m_2))"
+c_in_E = r"c \in \mathcal{E}(c_0(m_2))"
 mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+
+if actual_candidate_mask.any():
+    observation = r"\Lambda(m_2) > \Lambda_0(m_2)"
+else:
+    observation = r"\textrm{any candidates}"
 
 ## mchirp vs loudest stat horizontal bar graph
 text = "mchirp vs loudest statistic"
@@ -624,8 +632,14 @@ plot.add_content(mc_bins, onsource_loudest_by_mc)
 plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
-for mc, log_pc0 in zip(mc_bins.centres(), log_pc0_by_mc):
-    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"\,|\,0) = %7.5f$" % numpy.exp(log_pc0))
+for mc, have_candidate, log_pc0 in \
+    zip(mc_bins.centres(), actual_candidate_mask, log_pc0_by_mc):
+    if have_candidate:
+        plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"\,|\,0) = %7.5f$" \
+            % numpy.exp(log_pc0))
+    else:
+        plot.ax.text(0.5, mc, r"$p(\textrm{any candidates}\,|\,0) = %7.5f$" \
+            % numpy.exp(log_pc0))
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -775,12 +789,12 @@ if not opts.show_plot:
     plot.close()
 
 ## P(L > L_0 | 0) vs m2
-text = "P(L(m_2) > L_0(m_2) | 0) vs m_2 of actual candidates"
+text = "P(observation| 0) vs m_2 of actual candidates"
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0) \textrm{ using only }"\
+    r"$P(" + observation + r"| 0)$",
+    r"$P(" + observation + r"| 0) \textrm{ using only }"\
     + mc_latex + r"\textrm{ bins with on-source candidates}$")
 plot.add_content(m2_bins.centres(), pL0_by_m2)
 plot.finalize(loc=4)
@@ -821,10 +835,10 @@ if not opts.show_plot:
 
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
-text = "p(L(m_2) > L_0(m_2)|h(m2, D)) before MC errors"
+text = "p(observation|h(m2, D)) before MC errors"
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D))$")
+    r"$P(" + observation + r"\,|\,h(m_2, D))$")
 plot.add_content(pLh_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
 
@@ -847,11 +861,11 @@ if not opts.show_plot:
 
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
-text = "p(L(m_2) > L_0(m_2)|h(m2, D)) after 90% MC errors"
+text = "p(observation|h(m2, D)) after 90% MC errors"
 
 num_sigmas = stats.norm.ppf(0.9)
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D)) "
+    r"$P(" + observation + r"\,|\,h(m_2, D)) "
     r"\textrm{ incl. 90\% MC uncertainty}$")
 plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
 plot.finalize()
