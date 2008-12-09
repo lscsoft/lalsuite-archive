@@ -16,11 +16,10 @@ from pylal import InspiralUtils
 usage = """
 """
 
-def const_eff_snr_lines(rhoVec, val, magic):
+def const_eff_snr_lines(rhoVec, val, magic, dof):
   outVec = []
   for rho in rhoVec:
-    # FIXME hardcoded dof = 20-2 = 18
-    out = rho**4/val**4 / (1.0+rho**2/magic) * 18.0
+    out = rho**4/val**4 / (1.0+rho**2/magic) * dof
     outVec.append(out)
   return outVec
 
@@ -176,21 +175,34 @@ print >>sys.stderr, "Found " + str(nevents) + " triggers"
 
 magic_numbers = range(1,501)
 results = []
+loudest_list = []
 for thresh in magic_numbers:
   inj_eff = injTriggers.get_effective_snr(thresh)
   slide_eff = slideTriggers.get_effective_snr(thresh)
   insp_eff = inspTriggers.get_effective_snr(thresh)
   loudest = max(slide_eff)
+  loudest_list.append(loudest)
   ix = (inj_eff > loudest).nonzero()
   stat = sum(inj_effdist[ix]**3/log10(inj_effdist[ix])) / sum(inj_effdist**3/log10(inj_effdist))
   print >>sys.stderr, "thresh = "+str(thresh)+" max is "+str(loudest)+" number of injections found is " + str(len(inj_eff[ix])) + " distance weighted " + str(stat)
   results.append(stat)
 
+# Compute snr over chi stat for comparison 
+slide_snr_over_chi = slideTriggers.get_snr_over_chi()
+inj_snr_over_chi = injTriggers.get_snr_over_chi()
+snr_over_chi = inspTriggers.get_snr_over_chi()
+loudest = max(slide_snr_over_chi)
+ix = (inj_snr_over_chi > loudest).nonzero()
+snr_over_chi_eff = sum(inj_effdist[ix]**3/log10(inj_effdist[ix])) / sum(inj_effdist**3/log10(inj_effdist))
+
+
 ## MAKE PLOT ##
 figure(1)
 plot(magic_numbers, results)
+plot([min(magic_numbers), max(magic_numbers)], [snr_over_chi_eff, snr_over_chi_eff], 'r')
 xlabel('magic number', size='x-large')
 ylabel('d3 weighted injections above timeslide loudest event', size='x-large')
+legend(['effective snr', 'snr over chi'])
 fname = "magic_number.png"
 savefig(fname)
 if not opts.show_plot:
@@ -199,9 +211,11 @@ else:
   show()
 
 #find max efficiency
-max_thresh = magic_numbers[results.index(max(results))]
-figure(2)
+maxidx = results.index(max(results))
+max_thresh = magic_numbers[maxidx]
+max_loudest = loudest_list[maxidx]
 
+figure(2)
 inj_eff25 = injTriggers.get_effective_snr(max_thresh)
 slide_eff25 = slideTriggers.get_effective_snr(max_thresh)
 insp_eff25 = inspTriggers.get_effective_snr(max_thresh)
@@ -221,16 +235,17 @@ if not opts.show_plot:
 else:
   show()
 
+dof = slide_chisq_dof[0]
 ## MAKE PLOT ##
 figure(4)
 snrVec = range(5,1000)
 loglog(inj_snr,inj_chisq, 'rx')
 loglog(slide_snr,slide_chisq,'kx')
-loglog(snrVec,const_eff_snr_lines(snrVec, 14.0, 250.0))
-loglog(snrVec,const_eff_snr_lines(snrVec, 9.0, max_thresh))
+loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,dof))
+loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,dof))
 ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
-legend(['Injections', 'Time slides', 'eff snr = 14 using 250', 'eff snr = 9 using ' + str(max_thresh)])
+legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh)])
 fname = "chisq_vs_snr"
 savefig(fname)
 if not opts.show_plot:
