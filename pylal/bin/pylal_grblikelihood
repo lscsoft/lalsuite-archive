@@ -756,25 +756,6 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## for L(c|h) vs (m2, mc) image
-# TODO: before and after MC and calibration systematics
-text = "L(c(mc)|h(m2))"
-
-plot = plotutils.ImagePlot(\
-    r"$m_2\ (M_\odot)$",
-    r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
-    r"$\ln \Lambda(c(" + mc_latex + r") \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
-plot.add_content(log_L_by_mc_m2, m2_bins, mc_bins)
-plot.finalize()
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "oldlog_L_by_mc_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
 ## L(c|h) vs m2
 # TODO: before and after MC and calibration systematics
 text = "ln L(c(mc)|h(m2))"
@@ -783,19 +764,49 @@ plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$\ln \Lambda_0(m_2)$",
     r"$\ln \Lambda_0(m_2)\textrm{ from candidates in different template regions}$")
-for mc_range, log_L_by_m2, is_candidate in \
+for mc_range, mc_log_L_by_m2, is_candidate in \
     zip(mc_ranges, log_L_by_mc_m2, actual_candidate_mask):
     if is_candidate:
         linestyle = "-"
     else:
         linestyle = "--"
-    plot.add_content(m2_bins.centres(), log_L_by_m2, linestyle=linestyle,
+    plot.add_content(m2_bins.centres(), mc_log_L_by_m2, linestyle=linestyle,
                      label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 plot.finalize(loc=4)
 plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L(c|h) vs m2
+# TODO: before and after MC and calibration systematics
+text = "ln L_0(m2)"
+
+plot = plotutils.SimplePlot(\
+    r"$m_2\ (M_\odot)$",
+    r"$\ln \Lambda_0(m_2)$",
+    r"$\ln \Lambda_0(m_2)$")
+if actual_candidate_mask.any():
+    plot.add_content(m2_bins.centres(), log_L_by_m2)
+else:
+    # get plot limits to autoscale the way we want
+    plot.add_content(m2_bins.centres(), numpy.ones(len(m2_bins)),
+        visible=False)
+plot.finalize()
+plot.ax.set_ylim(ymin=-0.5)
+
+if not actual_candidate_mask.any():
+    plot.ax.text(m2_bins.centres()[len(m2_bins)//2], 0.0,
+        "No candidates found.", horizontalalignment="center",
+        fontsize="x-large")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "max_log_L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
