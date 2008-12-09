@@ -679,8 +679,9 @@ class CondorDAGNode:
     """
     if filename not in self.__input_files:
       self.__input_files.append(filename)
-      if self.job().get_universe() == 'grid':
-        self.add_input_macro(filename)
+      if not isinstance(self.job(), CondorDAGManJob):
+        if self.job().get_universe() == 'grid':
+          self.add_input_macro(filename)
 
   def add_output_file(self, filename):
     """
@@ -690,8 +691,9 @@ class CondorDAGNode:
     """
     if filename not in self.__output_files:
       self.__output_files.append(filename)
-      if self.job().get_universe() == 'grid':
-       self.add_output_macro(filename)
+      if not isinstance(self.job(), CondorDAGManJob):
+        if self.job().get_universe() == 'grid':
+          self.add_output_macro(filename)
 
   def get_input_files(self):
     """
