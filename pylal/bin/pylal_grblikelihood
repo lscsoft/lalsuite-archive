@@ -373,7 +373,7 @@ D_bins.delta /= calib_fac
 
 ##############################################################################
 # Initialize background and foreground estimation functions
-# NB: choose to start extrapolating 10% from the end of the tail for robustness.
+# NB: start extrapolating 10% from the end of the tail for robustness.
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
     int(0.1 * num_offsource_trials))
@@ -408,7 +408,7 @@ else:
         inj_loudest_by_inj_mc_m2, num_sims_by_m2)
 
 ################################################################################
-# compute the likelihoods of the loudest on-source coincidences by m2
+# compute the likelihoods of the loudest on-source coincidences
 if opts.verbose:
     print "Computing on-source likelihoods..."
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
@@ -427,6 +427,7 @@ if numpy.any(actual_candidate_mask):
     log_L_by_m2 = log_L_by_mc_m2[actual_candidate_mask, :].max(axis=0)
 else:
     log_L_by_m2 = empty_log_L_by_m2
+log_L_max = log_L_by_m2.max()
 
 # write the on-source likelihoods to disk
 onsource_outname = op.join(opts.output_path, __prog__ + "_onsource")
@@ -460,8 +461,11 @@ pL0_by_m2 = \
     (offsource_likelihood_by_trial_m2 > log_L_by_m2[None, :])\
     .sum(axis=0, dtype=float) / num_offsource_trials
 
+# find the fraction of trials whose max L is greater than the on-source max L
+pLmax0 = (offsource_likelihood_by_trial_m2.max(axis=1) > log_L_max)\
+    .sum(dtype=float) / num_offsource_trials
+
 # for diagnostics, find P(L > L_* | 0) for various L_*
-offsource_likelihood_by_trial_m2.sort(axis=0)
 offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
     / num_offsource_trials
 
@@ -534,7 +538,7 @@ rho_by_inj_mc = numpy.array(rho_by_inj_mc)
 
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
-################################################################################
+##############################################################################
 # Take MC errors into account
 MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
@@ -549,6 +553,13 @@ html_footer += "Loudest on-source coincidences [<a href=\"" \
 if not numpy.any(actual_candidate_mask):
     html_footer += "No on-source coincidences found.\n"
 else:
+    # make overall statement
+    html_footer += "ln <em>&Lambda;</em><sub>max</sub>"\
+        "<sup style='margin-left: -3.5ex;'>obs</sup> = %.2g<br>\n" % log_L_max
+    html_footer += "P(<em>&Lambda;</em><sub>max</sub> &gt; "\
+        "<em>&Lambda;</em><sub>max</sub><sup style='margin-left: -3.5ex;'>"\
+        "obs</sup> | 0) = %.2g<br><br>\n" % pLmax0
+
     # parse coincs
     coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
     onsource_trigs = table.get_table(onsource_doc,
@@ -564,7 +575,8 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
-    columns = ["mc_bin", "event_id"] + [ifo + " " + statistic for ifo in ifos] \
+    columns = ["mc_bin", "event_id"] \
+        + [ifo + " " + statistic for ifo in ifos] \
         + ["combined " + statistic, "mchirp",
         "<em>P</em>(<em>&rho;</em> &gt; <em>&rho;</em><sub>0</sub> | 0)"]
     rows = []
@@ -573,7 +585,7 @@ else:
         row = ["[%.2f, %.2f)" % (low, hi)]
         mc_coincs = onsource_coincs.getChirpMass(low, hi)
         if len(mc_coincs) == 0:
-            row += ["&mdash;"] * (len(columns) - 1)
+            row += ["&mdash;"] * (len(columns) - len(row))
         elif len(mc_coincs) == 1:
             c = mc_coincs[0]
             # XXX: hardcoded effective SNR
@@ -590,7 +602,7 @@ else:
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-    columns = ["m2_bin", "event_id", "<em>&Lambda;</em>",
+    columns = ["m2_bin", "event_id", "ln <em>&Lambda;<sub>0</sub></em>",
         "<em>P</em>(<em>&Lambda;</em>(<em>m</em><sub>2</sub>) &gt; "\
         "<em>&Lambda;</em><sub>0</sub>(<em>m</em><sub>2</sub>) | 0)"]
     rows = []
@@ -604,7 +616,7 @@ else:
             row.append(m2_coincs[0].event_id)
         else:
             raise ValueError, "there should be exactly one or zero coincs"
-        row.extend(["%.4g" % numpy.exp(log_L), "%.4g" % pL0])
+        row.extend(["%.4g" % log_L, "%.4g" % pL0])
         rows.append(row)
     html_footer += make_html_table(rows, columns)
 
@@ -835,16 +847,18 @@ if not opts.show_plot:
 ## P(L > L_* | 0) vs L_*
 text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
 
+L_star_by_m2_trial = offsource_likelihood_by_trial_m2.T.copy()
+L_star_by_m2_trial.sort(axis=1)
+L_star_by_m2_trial[L_star_by_m2_trial < 0.] = 0.
+
 plot = plotutils.SimplePlot(\
     r"$\ln \Lambda_*$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*$")
+    r"$P(\Lambda(m_2) > \Lambda_*\,|\,0)$",
+    r"$P(\Lambda(m_2) > \Lambda_*\,|\,0) \textrm{ vs } \ln \Lambda_*$")
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
 for m2_range, Lstar_by_trial in \
-    zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
-    sanitized_Lstar_by_trial = Lstar_by_trial.copy()
-    sanitized_Lstar_by_trial[Lstar_by_trial < 0.] = 0.
-    plot.add_content(sanitized_Lstar_by_trial, offsource_pL0_by_trial,
+    zip(m2_ranges, L_star_by_m2_trial):
+    plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
                      label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
 plot.finalize(loc=4)
 plot.ax.set_yscale("log")
@@ -857,6 +871,39 @@ if opts.enable_output:
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
+
+## P(L_max > L_max^* | 0) vs L_max^*
+text = "P(L_max > L_max^*| 0) vs ln L_max^*"
+
+L_max_star = offsource_likelihood_by_trial_m2.max(axis=1)
+L_max_star.sort()
+P_L_max_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
+    / num_offsource_trials
+L_max_star[L_max_star < 0.] = 0
+
+plot = plotutils.SimplePlot(\
+    r"$\ln \Lambda_\mathrm{max}^*$",
+    r"$P(\Lambda_\mathrm{max} > \Lambda_\mathrm{max}^*\,|\,0)$",
+    r"$P(\Lambda_\mathrm{max} > \Lambda_\mathrm{max}^*\,|\,0)$")
+plot.add_content(L_max_star, P_L_max_star,  marker=".", linestyle="None")
+plot.add_content((log_L_max, log_L_max), (0, 1), color="k", linestyle="--")
+plot.finalize()
+plot.ax.set_xscale("log")
+
+# pLmax0
+xlims = tuple(plot.ax.get_xlim())
+plot.ax.plot(xlims, (pLmax0, pLmax0), "k--", label="_nolegend_")
+plot.ax.set_xlim(xlims)
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "P_L_max_by_L")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
 
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
