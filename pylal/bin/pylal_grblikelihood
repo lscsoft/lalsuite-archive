@@ -356,6 +356,8 @@ num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
 num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
 inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
 
+empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
+
 html_footer += InspiralUtils.message(opts,
     "Number of injections read: %d" % len(inj_loudest_by_inj_mc_m2_D))
 
@@ -419,13 +421,12 @@ log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
 # log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
-# if there are any candidates, use only likelihoods from candidates
+# if there are any candidates, take max over likelihoods from candidates
 actual_candidate_mask = (onsource_loudest_by_mc > 0)
 if numpy.any(actual_candidate_mask):
     log_L_by_m2 = log_L_by_mc_m2[actual_candidate_mask, :].max(axis=0)
-# else use the min, which is the lowest possible value of log_L globally.
 else:
-    log_L_by_m2 = log_L_mc_m2.min(axis=0)
+    log_L_by_m2 = empty_log_L_by_m2
 
 # write the on-source likelihoods to disk
 onsource_outname = op.join(opts.output_path, __prog__ + "_onsource")
@@ -446,13 +447,13 @@ for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
     off_log_L_by_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
 
-    # if there are any candidates, use only likelihoods from candidates
+    # if there are any candidates, take max over likelihoods from candidates
     offsource_candidate_mask = (offsource_loudest_by_mc > 0)
     if numpy.any(offsource_candidate_mask):
         offsource_likelihood_by_trial_m2[i, :] = \
             off_log_L_by_mc_m2[offsource_candidate_mask, :].max(axis=0)
     else:
-        offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.min(axis=0)
+        offsource_likelihood_by_trial_m2[i, :] = empty_log_L_by_m2
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
@@ -506,14 +507,14 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
     inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 \
         - inj_trial_log_pc0_by_mc[:, None]
 
-    # if there are any candidates, use only likelihoods from candidates
+    # if there are any candidates, take max over likelihoods from candidates
     inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
     if numpy.any(inj_trial_candidate_mask):
         inj_trial_log_L = \
             inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, m2_ind]\
             .max(axis=0)
     else:
-        inj_trial_log_L = inj_trial_log_L_by_mc_m2[:, m2_ind].min(axis=0)
+        inj_trial_log_L = empty_log_L_by_m2
 
     # record if anything is louder than the loudest on-source coinc for this m2
     if inj_trial_log_L > log_L_by_m2[m2_ind]:
@@ -830,7 +831,9 @@ plot = plotutils.SimplePlot(\
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
 for m2_range, Lstar_by_trial in \
     zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
-    plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
+    sanitized_Lstar_by_trial = Lstar_by_trial.copy()
+    sanitized_Lstar_by_trial[Lstar_by_trial < 0.] = 0.
+    plot.add_content(sanitized_Lstar_by_trial, offsource_pL0_by_trial,
                      label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
 plot.finalize(loc=4)
 plot.ax.set_yscale("log")
