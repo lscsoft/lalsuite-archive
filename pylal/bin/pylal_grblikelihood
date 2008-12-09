@@ -411,16 +411,18 @@ if opts.verbose:
     print "Computing on-source likelihoods..."
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
 log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
-log_L_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
-# Examples of how to swap in IFAR or pure effective SNR
-# log_L_mc_m2 = numpy.ones(log_pch_by_mc_m2.shape) / log_pc0_by_mc[:, None]
-# log_L_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
+# NB: Here are examples of how to swap pure effective SNR or log IFAR.
+# Just remember to do it for off-source and injection cases as well.
+
+# log_L_by_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
+# log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
+log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
 # if there are any candidates, use only likelihoods from candidates
 actual_candidate_mask = (onsource_loudest_by_mc > 0)
 if numpy.any(actual_candidate_mask):
-    log_L_by_m2 = log_L_mc_m2[actual_candidate_mask, :].max(axis=0)
+    log_L_by_m2 = log_L_by_mc_m2[actual_candidate_mask, :].max(axis=0)
 # else use the min, which is the lowest possible value of log_L globally.
 else:
     log_L_by_m2 = log_L_mc_m2.min(axis=0)
@@ -442,13 +444,13 @@ offsource_likelihood_by_trial_m2 = numpy.zeros(\
 for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pc0_by_mc = compute_log_pc0_by_mc(offsource_loudest_by_mc)
     off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
-    off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
+    off_log_L_by_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
 
     # if there are any candidates, use only likelihoods from candidates
     offsource_candidate_mask = (offsource_loudest_by_mc > 0)
     if numpy.any(offsource_candidate_mask):
         offsource_likelihood_by_trial_m2[i, :] = \
-            off_log_L_mc_m2[offsource_candidate_mask, :].max(axis=0)
+            off_log_L_by_mc_m2[offsource_candidate_mask, :].max(axis=0)
     else:
         offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.min(axis=0)
 
@@ -503,12 +505,6 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
 
     inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 \
         - inj_trial_log_pc0_by_mc[:, None]
-
-    # Examples of how to swap in IFAR or pure effective SNR
-    # inj_trial_log_L_mc_m2 = numpy.ones(inj_trial_log_pch_by_mc_m2.shape) / \
-    #     inj_trial_log_pc0_by_mc[:, None]
-    # inj_trial_log_L_mc_m2 = inj_trial_loudest_by_mc[:, None]\
-    #     .repeat(len(m2_bins), axis=1)
 
     # if there are any candidates, use only likelihoods from candidates
     inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
@@ -588,7 +584,7 @@ else:
     html_footer += make_html_table(rows, columns)
 
     # print per-m2 info
-    temp_log_L_by_mc_m2 = log_L_mc_m2.copy()
+    temp_log_L_by_mc_m2 = log_L_by_mc_m2.copy()
     temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
@@ -767,11 +763,11 @@ plot = plotutils.ImagePlot(\
     r"$m_2\ (M_\odot)$",
     r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
     r"$\ln \Lambda(c(" + mc_latex + r") \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
-plot.add_content(log_L_mc_m2, m2_bins, mc_bins)
+plot.add_content(log_L_by_mc_m2, m2_bins, mc_bins)
 plot.finalize()
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "oldlog_L_mc_m2")
+    fname = InspiralUtils.set_figure_name(opts, "oldlog_L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -784,10 +780,10 @@ text = "ln L(c(mc)|h(m2))"
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
-    r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$",
-    r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
+    r"$\ln \Lambda_0(m_2)$",
+    r"$\ln \Lambda_0(m_2)\textrm{ from candidates in different template regions}$")
 for mc_range, log_L_by_m2, is_candidate in \
-    zip(mc_ranges, log_L_mc_m2, actual_candidate_mask):
+    zip(mc_ranges, log_L_by_mc_m2, actual_candidate_mask):
     if is_candidate:
         linestyle = "-"
     else:
@@ -798,7 +794,7 @@ plot.finalize(loc=4)
 plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_mc_m2")
+    fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -806,13 +802,12 @@ if not opts.show_plot:
     plot.close()
 
 ## P(L > L_0 | 0) vs m2
-text = "P(observation| 0) vs m_2 of actual candidates"
+text = "P(observation| 0) vs m_2"
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$P(" + observation + r"| 0)$",
-    r"$P(" + observation + r"| 0) \textrm{ using only }"\
-    + mc_latex + r"\textrm{ bins with on-source candidates}$")
+    r"$P(" + observation + r"| 0)$")
 plot.add_content(m2_bins.centres(), pL0_by_m2)
 plot.finalize(loc=4)
 plot.ax.set_ylim((0, 1))
@@ -826,13 +821,12 @@ if not opts.show_plot:
     plot.close()
 
 ## P(L > L_* | 0) vs L_*
-text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_* using only m_c bins with candidates"
+text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
 
 plot = plotutils.SimplePlot(\
     r"$\ln \Lambda_*$",
     r"$P(\Lambda(m_2) > \Lambda_* | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*"\
-    r"\textrm{ using only }" + mc_latex + r"\textrm{ bins with candidates}$")
+    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*$")
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
 for m2_range, Lstar_by_trial in \
     zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
