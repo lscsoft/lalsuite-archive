@@ -205,7 +205,7 @@ plot([min(magic_numbers), max(magic_numbers)], [snr_over_chi_eff, snr_over_chi_e
 xlabel('magic number', size='x-large')
 ylabel('d3 weighted injections above timeslide loudest event', size='x-large')
 legend(['effective snr', 'snr over chi'])
-fname = "magic_number.png"
+fname = opts.ifo_times + "magic_number.png"
 savefig(fname, dpi=90)
 if not opts.show_plot:
   close()
@@ -230,7 +230,7 @@ plot(insp_eff25,insp_eff250,'bx')
 legend(['slide','playground','injections'])
 xlabel('Effective SNR with ' + str(max_thresh), size='x-large')
 ylabel('Effective SNR with 250', size='x-large')
-fname = "eff_snr_scatter.png"
+fname = opts.ifo_times + "eff_snr_scatter.png"
 savefig(fname, dpi=90)
 if not opts.show_plot:
   close()
@@ -251,7 +251,7 @@ xlabel('snr', size='x-large')
 xlim([5, 10000])
 ylim([1, 10000000])
 legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest**2) ])
-fname = "chisq_vs_snr"
+fname = opts.ifo_times + "chisq_vs_snr"
 savefig(fname, dpi=90)
 if not opts.show_plot:
   close()
