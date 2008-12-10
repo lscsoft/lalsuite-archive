@@ -385,6 +385,30 @@ class QscanIntermediateTable(table.Table):
   }
 
 ##############################################################################
+# Function to get qscan foreground.
+##############################################################################
+
+def getForegroundTimes(cp,opts,ifo):
+  times = []
+  fileName = ""
+
+  if cp.has_option('triggers',ifo+'times') and string.strip(cp.get('triggers',ifo+'times')):
+    fileName = string.strip(cp.get('triggers',ifo+'times'))
+    if not os.path.exists(fileName):
+      print >> sys.stderr, "File " + fileName + " does not exist"
+      sys.exit(1)
+    timeList = listFromFile(fileName)
+    if not timeList:
+      print >> sys.stderr, "the list of times in file " + fileName + " could not be found"
+      sys.exit(1)
+    times = stringToFloatList(timeList)
+
+  else:
+    print >> sys.stderr, "Field "+ifo+"times in [triggers] section is not specified. The ifo " + ifo + " will be ignored"
+
+  return times,fileName
+
+##############################################################################
 # Function to get qscan background. 
 ##############################################################################
 

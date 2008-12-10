@@ -695,7 +695,7 @@ class distributeQscanNode(pipeline.CondorDAGNode, webTheNode):
 
     typeList=""
     for type in ["qscan","seismic-qscan"]:
-      typeList = typeList + "foreground-" + type + ",background-" + type + ","
+      typeList += type + ","
     self.add_var_opt('qscan-type-list',typeList.strip(','))
 
     if opts.distrib_remote_q:
@@ -798,8 +798,9 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
         # add all qscan nodes of the same type as parents
         if isinstance(node,qscanNode): 
           if node.validNode:
-            if node.friendlyName == name or \
-            node.friendlyName.replace('background','foreground') == name:
+            if (node.friendlyName == name or \
+            node.friendlyName.replace('background','foreground') == name) \
+            and node.id.split('-')[0] == ifo:
               self.add_parent(node)
 
       if eval('opts.' + command):
