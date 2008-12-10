@@ -24,6 +24,7 @@ def const_eff_snr_lines(rhoVec, val, magic, dof):
     outVec.append(out)
   return outVec
 
+
 def parse_command_line():
   """
   Parser function dedicated
@@ -205,7 +206,7 @@ xlabel('magic number', size='x-large')
 ylabel('d3 weighted injections above timeslide loudest event', size='x-large')
 legend(['effective snr', 'snr over chi'])
 fname = "magic_number.png"
-savefig(fname)
+savefig(fname, dpi=75)
 if not opts.show_plot:
   close()
 else:
@@ -230,7 +231,7 @@ legend(['slide','playground','injections'])
 xlabel('Effective SNR with ' + str(max_thresh), size='x-large')
 ylabel('Effective SNR with 250', size='x-large')
 fname = "eff_snr_scatter.png"
-savefig(fname)
+savefig(fname, dpi=75)
 if not opts.show_plot:
   close()
 else:
@@ -243,11 +244,13 @@ loglog(inj_snr,inj_chisq, 'rx')
 loglog(slide_snr,slide_chisq,'kx')
 loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,chisq_dof))
 loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,chisq_dof))
+# snr_over_chi stat
+loglog(snrVec, snrVec**2 * loudest)
 ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
 legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh)])
 fname = "chisq_vs_snr"
-savefig(fname)
+savefig(fname, dpi=75)
 if not opts.show_plot:
   close()
 else:
