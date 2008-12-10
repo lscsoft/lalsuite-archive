@@ -245,10 +245,10 @@ loglog(slide_snr,slide_chisq,'kx')
 loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,chisq_dof))
 loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,chisq_dof))
 # snr_over_chi stat
-loglog(snrVec, snrVec**2 * loudest)
+loglog(snrVec, snrVec**2 / loudest)
 ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
-legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh)])
+legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest) ])
 fname = "chisq_vs_snr"
 savefig(fname, dpi=75)
 if not opts.show_plot:
