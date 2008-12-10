@@ -235,14 +235,13 @@ if not opts.show_plot:
 else:
   show()
 
-dof = slide_chisq_dof[0]
 ## MAKE PLOT ##
 figure(4)
 snrVec = range(5,1000)
 loglog(inj_snr,inj_chisq, 'rx')
 loglog(slide_snr,slide_chisq,'kx')
-loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,dof))
-loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,dof))
+loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,chisq_dof))
+loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,chisq_dof))
 ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
 legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh)])
