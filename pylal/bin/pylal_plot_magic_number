@@ -206,7 +206,7 @@ xlabel('magic number', size='x-large')
 ylabel('d3 weighted injections above timeslide loudest event', size='x-large')
 legend(['effective snr', 'snr over chi'])
 fname = "magic_number.png"
-savefig(fname, dpi=75)
+savefig(fname, dpi=90)
 if not opts.show_plot:
   close()
 else:
@@ -231,7 +231,7 @@ legend(['slide','playground','injections'])
 xlabel('Effective SNR with ' + str(max_thresh), size='x-large')
 ylabel('Effective SNR with 250', size='x-large')
 fname = "eff_snr_scatter.png"
-savefig(fname, dpi=75)
+savefig(fname, dpi=90)
 if not opts.show_plot:
   close()
 else:
