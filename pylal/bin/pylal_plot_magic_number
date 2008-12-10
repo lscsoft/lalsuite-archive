@@ -250,7 +250,7 @@ ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
 xlim([5, 10000])
 ylim([1, 10000000])
-legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest) ])
+legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest**2) ])
 fname = "chisq_vs_snr"
 savefig(fname, dpi=90)
 if not opts.show_plot:
