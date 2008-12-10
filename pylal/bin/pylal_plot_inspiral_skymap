@@ -88,7 +88,7 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   X,Y = pylab.meshgrid(RAvec,DECvec)
   pylab.figure(1)
 #cmap=pylab.cm.get_cmap(name='Blues')
-  pylab.pcolor(X,Y,colorMat.transpose(),shading='flat',norm=matplotlib.colors.Normalize())
+  pylab.pcolor(X,Y,colorMat.transpose(),shading='flat')
 #  print(size(RAvec))
 #  print(size(DECvec))
 #  print(size(colorMat))
