@@ -12,6 +12,7 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from glue import lal
 from pylal import InspiralUtils
+import numpy
 
 usage = """
 """
@@ -19,7 +20,7 @@ usage = """
 def const_eff_snr_lines(rhoVec, val, magic, dof):
   outVec = []
   for rho in rhoVec:
-    out = rho**4/val**4 / (1.0+rho**2/magic) * dof
+    out = rho**4/val**4 / (1.0+rho**2 / magic) * float(dof)
     outVec.append(out)
   return outVec
 
@@ -237,7 +238,7 @@ else:
 
 ## MAKE PLOT ##
 figure(4)
-snrVec = range(5,1000)
+snrVec = numpy.linspace(5,1000, 10000)
 loglog(inj_snr,inj_chisq, 'rx')
 loglog(slide_snr,slide_chisq,'kx')
 loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,chisq_dof))
