@@ -84,14 +84,9 @@ if not opts.qscan_input_file:
   print >> sys.stderr, "Use --qscan-input-file FILE to specify location."
   sys.exit(1)
 
-if not opts.qscan_cache_background:
-  print >> sys.stderr, "No cache file specified for qscan background!!"
-  print >> sys.stderr, "Use --qscan-cache-background FILE to specify location."
-  sys.exit(1)
-
-if not opts.qscan_cache_foreground:
-  print >> sys.stderr, "No cache file specified for qscan foreground!!"
-  print >> sys.stderr, "Use --qscan-cache-foreground FILE to specify location."
+if not opts.qscan_cache_background and not opts.qscan_cache_foreground:
+  print >> sys.stderr, "No cache file specified!!"
+  print >> sys.stderr, "Use at least one of --qscan-cache-background FILE or --qscan-cache-foreground FILE to specify where the qscans results need to be copied."
   sys.exit(1)
 
 if not opts.remote_ifo:
@@ -101,22 +96,41 @@ if not opts.remote_ifo:
 
 if not opts.qscan_type_list:
   print >> sys.stderr, "No qscan type specified!!"
-  print >> sys.stderr, "Use --qscan-type-list to specify the list of types (example \"foreground-qscan,foreground-seismic-qscan,background-qscan,background-seismic-qscan\")."
+  print >> sys.stderr, "Use --qscan-type-list to specify the list of types (example \"qscan,seismic-qscan\")."
   sys.exit(1)
 
 
 #################################
 # CORE OF THE PROGRAM
 
-qscanTypeList = [qscanType.strip() for qscanType in opts.qscan_type_list.split(",")]
+qscanShortTypeList = [qscanType.strip() for qscanType in opts.qscan_type_list.split(",")]
+qscanTypeList = []
+
+# check that at least one of the cache files is valid
+if (opts.qscan_cache_background and not os.path.exists(opts.qscan_cache_background) and (opts.qscan_cache_foreground and not os.path.exists(opts.qscan_cache_foreground) ) ):
+  print >> sys.stderr, "None of the qscan-cache-background or qscan-cache-foreground are valid!!"
+  sys.exit(1)
 
 # get the list of qscans in the cache files
-if os.path.exists(opts.qscan_cache_foreground) and os.path.exists(opts.qscan_cache_background):
-  for qscan_type in qscanTypeList:
-    exec(qscan_type.replace('-','_') + "List = fu_utils.getPathFromCache(opts.qscan_cache_" + qscan_type.split('-')[0] + ",qscan_type,opts.remote_ifo)")
+if opts.qscan_cache_foreground and os.path.exists(opts.qscan_cache_foreground):
+  for qscan_type in qscanShortTypeList:
+    exec("foreground_"+qscan_type.replace('-','_') + "List = fu_utils.getPathFromCache(opts.qscan_cache_foreground,\"foreground-"+qscan_type+"\",opts.remote_ifo)")
+    qscanTypeList.append("foreground-"+qscan_type)
 else:
-  print >> sys.stderr, "File " + opts.qscan_cache_foreground + " or " + opts.qscan_cache_background+ " could not be found!!"
-  sys.exit(1)
+  if not opts.qscan_cache_foreground:
+    print >> sys.stderr, "Foreground qscans won't be processed because option qscan-cache-foreground is not provided."
+  else:
+    print >> sys.stderr, "File " + opts.qscan_cache_foreground + " could not be found!!"
+
+if opts.qscan_cache_background and os.path.exists(opts.qscan_cache_background):
+  for qscan_type in qscanShortTypeList:
+    exec("background_"+qscan_type.replace('-','_') + "List = fu_utils.getPathFromCache(opts.qscan_cache_background,\"background-"+qscan_type+"\",opts.remote_ifo)")
+    qscanTypeList.append("background-"+qscan_type)
+else:
+  if not opts.qscan_cache_background:
+    print >> sys.stderr, "Background qscans won't be processed because option qscan-cache-background is not provided."
+  else:
+    print >> sys.stderr, "File " + opts.qscan_cache_background + " could not be found!!"
 
 
 # Check for the existence of the qscan-input-file and try to uncompress it
@@ -136,20 +150,26 @@ else:
 
 
 for qscan_type in qscanTypeList:
-  for qscan in eval(qscan_type.replace('-','_') + "List"):
-    # define the input path of the qscan directory to be copied
-    qscan_result_path = opts.qscan_input_file.strip(".tar.gz")+ "/RESULTS/results_" + qscan_type + "/" + qscan[1]
-    # check if directory exists before trying to move it
-    if os.path.exists(qscan_result_path):
-      # do not overwrite an existing output directory
-      if os.path.exists(qscan[0]):
-        print >> sys.stderr, "Directory " + qscan[0] + " already exists, cannot be overwritten with new qscan results"
+  # define the input path of the qscan directories to be copied
+  result_path = opts.qscan_input_file.strip(".tar.gz")+ "/RESULTS/results_" + qscan_type + "/"
+  # check whether the qscan input directory is empty or not. If it is empty we don't need to do anything
+  if not os.listdir(result_path):
+    print >> sys.stderr, "Directory "+result_path+" does not contain any result, it will be ignored"
+    continue
+  else:
+    for qscan in eval(qscan_type.replace('-','_') + "List"):
+      qscan_result_path = result_path + qscan[1]
+      # check if directory exists before trying to move it
+      if os.path.exists(qscan_result_path):
+        # do not overwrite an existing output directory
+        if os.path.exists(qscan[0]):
+          print >> sys.stderr, "Directory " + qscan[0] + " already exists, cannot be overwritten with new qscan results"
+        else:
+          shutil.move(qscan_result_path, qscan[0]) 
+          print "\n Copying file " + qscan_result_path + " to " + qscan[0]
       else:
-        shutil.move(qscan_result_path, qscan[0]) 
-        print "\n Copying file " + qscan_result_path + " to " + qscan[0]
-    else:
-      print >> sys.stderr, "Directory " + qscan_result_path + " could not be found!!"
-      sys.exit(1)
+        print >> sys.stderr, "Directory " + qscan_result_path + " could not be found!!"
+        sys.exit(1)
 
 
 # Do some cleaning in the local directory before exiting
