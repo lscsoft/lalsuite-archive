@@ -18,6 +18,7 @@ from glue.ligolw import utils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
@@ -92,9 +93,76 @@ def set_figure_name(opts, text):
 
   return fname
 
+def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None):
+  """
+  picks out loudest coincident triggers from given CoincInspiralUtils Tables
+  and returns info about the coincidences in a html or wiki table 
+
+  @param tableList: a list of CoincInspiralUtils.coincInspiralTables
+  @param commentList: comments about each table (e.g., file name)
+  @param stat: any CoincInspiralUtils.coincStatistic
+  @param statTag: string specifying what stat used
+  @param number: number of triggers to list
+  @param format: desired output format; can be either 'html' or 'wiki'
+  """
+
+  # set format
+  if format == 'html':
+    tx = '<table border = "1">'
+    xt = '</table>'
+    thx = '<tr><td colspan=12>'
+    rx = '<tr><td>'
+    xr = '</td></tr>'
+    xccx = '</td><td>'
+  elif format == 'wiki':
+    tx = ''
+    xt = ''
+    thx = '||<-12>'
+    rx = '||'
+    xr = '||\n'
+    xccx = '||'
+  else:
+    raise ValueError, 'unrecognized format; must be either html or wiki'
+  
+  # set statTag if not specified
+  if statTag is None: statTag = stat.name
+
+  CoincSummTable = '' 
+
+  # populate table
+  for coincTable, coincComment in zip(tableList,commentList):
+    if stat.name == 'far':
+      coincTable.sort(descending=False)
+    else:
+      coincTable.sort()
+    rank = 1
+    # set table header
+    CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
+    CoincSummTable = CoincSummTable + \
+        rx + ' Rank ' + xccx + 'Coinc IFOs' + xccx + statTag + xccx + ' end_time ' + \
+        xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
+        xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
+    for coinc in coincTable:
+      if format == 'html': 
+        CoincSummTable = CoincSummTable + '<tr><td rowspan=' + str(coinc.numifos) + '>' + str(rank) + xccx
+      elif format == 'wiki':
+        CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + str(rank) + xccx
+      # cycle through info
+      for trig in coinc:
+        CoincSummTable = CoincSummTable + trig.ifo + xccx + str(coinc.stat) + xccx + str(trig.end_time) + \
+                xccx + str(trig.end_time_ns) + xccx + str(trig.mass1) + xccx + str(trig.mass2) + xccx + str(trig.mchirp) + \
+                xccx + str(trig.eta) + xccx + str(trig.snr) + xccx + str(trig.chisq) + xccx + str(trig.get_effective_snr()) + xr + \
+                rx
+      CoincSummTable = CoincSummTable + xr
+      rank = rank + 1
+      if rank > number: break
+    CoincSummTable = CoincSummTable + xt
+        
+  return CoincSummTable
+
 def write_html_output(opts, args, fnameList, tagLists, \
 			doThumb=True, cbcweb = False, mapList = [],\
-			comment=None ):
+			comment=None, CoincSummTable=None ):
   """
   @param opts: The options from the calling code
   @param args: The args from the calling code
@@ -170,11 +238,14 @@ def write_html_output(opts, args, fnameList, tagLists, \
       page.add("<hr/>")    
 
   if opts.enable_output is True:
+    if comment is not None:
+      page.add("<div> "+comment+"</div>")
+      page.hr()
+    if CoincSummTable is not None:
+      page.add(CoincSummTable)
+      page.hr()
     text = writeProcessParams( opts.name, opts.version,  args)
     page.add(text)
-    if comment is not None:
-      page.hr()
-      page.add("<div> "+comment+"</div>")
     html_file.write(page(False))
     html_file.close()
 
