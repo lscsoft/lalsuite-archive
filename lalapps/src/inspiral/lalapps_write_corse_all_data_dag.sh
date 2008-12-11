@@ -83,13 +83,14 @@ if [ 1 ]; then
       done
     done
   done
+  #write CORSE_SLIDE jobs
   for data in all_data playground_only exclude_play; do
     for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
     #write corse jobs for double-in_double files
       for combo in H1L1 H2L1; do
         zerofile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
         slidefile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_${combo}-${month_gps_time}-${month_duration}.xml.gz"
-        outfile="corse_all_data_files/${data}_slide/${combo}_${combo}-CORSE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+        outfile="corse_all_data_files/${data}_slide/${combo}_${combo}-CORSE_SLIDE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
         summfile=`echo ${outfile} | sed s/.xml.gz/.txt/g`
         timeanalyzedfile="septime_files/${combo}_V3_${cat}.txt"
         echo "JOB $outfile corse_all_data.corse.sub"
@@ -104,7 +105,7 @@ if [ 1 ]; then
       for combo in H1L1 H2L1 H1H2L1; do
         zerofile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         slidefile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
-        outfile="corse_all_data_files/${data}_slide/H1H2L1_${combo}-CORSE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+        outfile="corse_all_data_files/${data}_slide/H1H2L1_${combo}-CORSE_SLIDE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
         summfile=`echo ${outfile} | sed s/.xml.gz/.txt/g`
         timeanalyzedfile="septime_files/H1H2L1_V3_${cat}.txt"
         echo "JOB $outfile corse_all_data.corse.sub"
