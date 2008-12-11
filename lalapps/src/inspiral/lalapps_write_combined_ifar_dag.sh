@@ -37,7 +37,7 @@ if [ 1 ]; then
   # run plotifar on all the mass bins globbed together 
   for combo in H1L1 H2L1 H1H2L1; do
     job_name="${combo}-ifar-combined_ALL_MASSES_${data_type}_slide"
-    glob_files="corse_all_data_files/${data_type}_slide/${combo}*CORSE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_*_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+    glob_files="corse_all_data_files/${data_type}_slide/${combo}*CORSE_SLIDE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_*_${cat}-${month_gps_time}-${month_duration}.xml.gz"
     outpath="combined_ifar_files/${data_type}_slide/"
     time_correct_file="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
     user_tag="ALL_MASSES-${data_type}_slide"
