@@ -39,12 +39,14 @@ if [ 1 ]; then
     for combo in H1L1 H2L1 H1H2L1; do
       job_name="${combo}-plotifar_${mass}_${data_type}"
       glob_files="corse_all_data_files/${data_type}/${combo}*CORSE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+      glob_slides="corse_all_data_files/${data_type}_slide/${combo}*CORSE_SLIDE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
       outpath="ifar_result_files/${data_type}/${mass}"
       time_correct_file="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
+      time_analyzed_file="septime_files/${combo}_V3_${cat}.txt" 
       user_tag="${mass}-${data_type}"
       echo "JOB $job_name ifar_result.plotifar.sub"
-      echo "RETRY $job_name 0"
-      echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\"  macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\"" 
+      echo "RETRY $job_name 1"
+      echo "VARS $job_name macroglob=\"$glob_files\" macroglobslide=\"$glob_slides\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\"  macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\" macrotimeanfile=\"$time_analyzed_file\"" 
       echo "CATEGORY $job_name plotifar"
       echo
     done
@@ -53,12 +55,14 @@ if [ 1 ]; then
   for combo in H1L1 H2L1 H1H2L1; do
     job_name="${combo}-plotifar_ALL_MASSES_${data_type}"
     glob_files="corse_all_data_files/${data_type}/${combo}*CORSE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_*_${cat}-${month_gps_time}-${month_duration}.xml.gz"
+    glob_slides="corse_all_data_files/${data_type}_slide/${combo}*CORSE_SLIDE_`echo ${data_type} | tr '[a-z]' '[A-Z]'`_*_${cat}-${month_gps_time}-${month_duration}.xml.gz"
     outpath="ifar_result_files/${data_type}/"
     time_correct_file="second_coire_files/summ_files_all_data/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
+    time_analyzed_file="septime_files/${combo}_V3_${cat}.txt"
     user_tag="ALL_MASSES-${data_type}"
     echo "JOB $job_name ifar_result.plotifar.sub"
-    echo "RETRY $job_name 0"
-    echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\""
+    echo "RETRY $job_name 1"
+    echo "VARS $job_name macroglob=\"$glob_files\" macroglobslide=\"$glob_slides\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\" macrotimeanfile=\"$time_analyzed_file\""
     echo "CATEGORY $job_name plotifar"
     echo
   done
@@ -77,8 +81,8 @@ if [ 1 ]; then
         outpath="ifar_result_files/${injstring}/${mass}"
         time_correct_file="second_coire_files/summ_files_${injstring}/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
         user_tag="${mass}-${injstring}"
-        echo "JOB $job_name ifar_result.plotifar.sub"
-        echo "RETRY $job_name 0"
+        echo "JOB $job_name ifar_result_injection.plotifar.sub"
+        echo "RETRY $job_name 1"
         echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\"  macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\"" 
         echo "CATEGORY $job_name plotifar"
         echo
@@ -91,9 +95,9 @@ if [ 1 ]; then
       outpath="ifar_result_files/${injstring}/"
       time_correct_file="second_coire_files/summ_files_${injstring}/${combo}-SECOND_COIRE_${cat}_${combo}-${month_gps_time}-${month_duration}.txt"
       user_tag="ALL_MASSES-${injstring}"
-      echo "JOB $job_name ifar_result.plotifar.sub"
-      echo "RETRY $job_name 0"
-      echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\""
+      echo "JOB $job_name ifar_result_injection.plotifar.sub"
+      echo "RETRY $job_name 1"
+      echo "VARS $job_name macroglob=\"$glob_files\" macrooutpath=\"$outpath\" macroifotimes=\"$combo\" macrotcorrfile=\"$time_correct_file\" macrousertag=\"$user_tag\" macroplotslideopts=\"\""
       echo "CATEGORY $job_name plotifar"
       echo
     done
@@ -106,7 +110,7 @@ fi > ifar_result_injection.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${plotifar_path}"
-  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --user-tag \$(macrousertag)"
+  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --plot-slides --glob-slide \$(macroglobslide) --time-analyzed-file \$(macrotimeanfile) --user-tag \$(macrousertag)"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/plotifar-\$(cluster)-\$(process).err"
@@ -115,6 +119,19 @@ if [ 1 ]; then
   echo "priority = ${condor_priority}"
   echo "queue 1"
 fi > ifar_result.plotifar.sub
+
+if [ 1 ]; then
+  echo "universe = vanilla"
+  echo "executable = ${plotifar_path}"
+  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --user-tag \$(macrousertag)"
+  echo "getenv = True"
+  echo "log = " `mktemp -p ${log_path}`
+  echo "error = logs/plotifar-\$(cluster)-\$(process).err"
+  echo "output = logs/plotifar-\$(cluster)-\$(process).out"
+  echo "notification = never"
+  echo "priority = ${condor_priority}"
+  echo "queue 1"
+fi > ifar_result_injection.plotifar.sub
 
 #make directory structure
 if [ ! -d ifar_result_files ] ; then
