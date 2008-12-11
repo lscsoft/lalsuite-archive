@@ -6,10 +6,9 @@ __date__ = "$Date$"
 __name__ = "plotifar"
 __Id__ = "$Id$"
 
-import sys
-import os
+import sys,os,re
+import copy
 from optparse import *
-import re
 import exceptions
 import glob
 from types import * 
@@ -27,6 +26,7 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
+from pylal import followup_missed
 from numpy import histogram
 
 import itertools
@@ -162,6 +162,15 @@ def parse_command_line():
         help = "make an uncombined plot of however many categories there are" )
   parser.add_option( "", "--plot-combined", action = "store_true", default = False, \
         help = "Combine IFAN/IFARs from different experiments into one cum. hist." )
+  # The following are needed to run followup_missed.py
+  parser.add_option( "", "--do-followup", action = "store_true", default = False, \
+        help = "Followup loudest events." )
+  parser.add_option( "", "--ihope-cache", action = "store", type = "string",
+        default = None, metavar = " IHOPE_CACHE",
+        help = "Location of the ihope.cache file, neeedd for followups." )
+  parser.add_option( "", "--datatype", action = "store", type = "string",
+        default = None, metavar = " GLOB_SLIDE",
+        help = "Needed for followup, presumably 'PLAYGROUND' or 'FULL_DATA' " )
    
   (options,args) = parser.parse_args()
 
@@ -1132,9 +1141,27 @@ if opts.enable_output is True:
     coincTList.append(coincT[thisfile])
     commentList.append( os.path.basename(thisfile) + 
         '<br>zero-lag analyzed time = ' + str(NormTime[thisfile]*year) + 's' )
+
+  followup = None
+  if opts.do_followup:
+    followupOpts = copy.deepcopy(opts)
+    followupOpts.followup_exttrig = False
+    followupOpts.followup_flow = 40.0
+    followupOpts.figure_resolution = 50
+    followupOpts.followup_tag = 'FOLLOWUP_TAG'
+    followupOpts.prefix = 'Plotifar'
+    if opts.user_tag:
+      followupOpts.suffix = opts.user_tag
+    else:
+      followupOpts.suffix = ''
+    followupCache = lal.Cache.fromfile( open( opts.ihope_cache ) )
+    followup = followup_missed.FollowupMissed(followupCache,None,\
+        followupOpts)
+    followup.setTag(followupOpts.followup_tag)
   coincSumm = InspiralUtils.write_coinc_summ_table(
         tableList = coincTList, commentList = commentList, stat = coincStat, 
-        statTag = 'uncombined FAN', number=5, format='html')
+        statTag = 'uncombined FAN', number=5, format='html',\
+        followup=followup,followupOpts=followupOpts)
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=warn_msg,
         CoincSummTable=coincSumm)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
