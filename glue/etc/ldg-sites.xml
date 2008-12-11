@@ -27,24 +27,6 @@
 		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
 		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
 	</site>
-<site handle="lsu" sysinfo="INTEL32::LINUX"
-gridlaunch="/opt/osg/pegasus/bin/kickstart">
-<profile namespace="env"
-key="GLOBUS_LOCATION">/opt/osg/globus</profile>
-<profile namespace="env"
-key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
-<profile namespace="env" key="PEGASUS_HOME">/opt/osg/pegasus</profile>
-<profile namespace="env" key="app">/usr/local/packages/ligo</profile>
-<profile namespace="env" key="data">/ligo/data</profile>
-<profile namespace="env" key="grid3">/usr/local/packages/osg-1.0.0/wn</profile>
-<profile namespace="env" key="tmp">/var/scratch</profile>
-<profile namespace="env" key="wntmp">/var/scratch</profile>
-<lrc url="rlsn://smarty.isi.edu"/>
-<gridftp url="gsiftp://osg2.loni.org" storage="/ligo/data" major="4" minor="0" patch="4"/>
-<jobmanager universe="vanilla" url="osg2.loni.org/jobmanager-pbs" major="4" minor="0" patch="4" total-nodes="1"/>
-<jobmanager universe="transfer" url="osg2.loni.org/jobmanager-fork" major="4" minor="0" patch="4" total-nodes="1"/>
-<workdirectory>/ligo/data</workdirectory>
-</site>
 	<site  handle="uwm_nemo" arch="x86_64" os="LINUX">
 		<grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
 		<grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
@@ -120,6 +102,62 @@ key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
 		<profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
 		<profile namespace="env" key="PEGASUS_HOME" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/pegasus</profile>
 	</site>
+        <site  handle="uwm_nemo" arch="x86_64" os="LINUX">
+                <grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
+                <grid  type="gt2" contact="hydra.phys.uwm.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
+                <head-fs>
+                        <scratch>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/home/bdaudert/pegasus-scratch">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/home/bdaudert/pegasus-scratch" free-size="null" total-size="null"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://hydra.phys.uwm.edu" mount-point="/tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/tmp" free-size="null" total-size="null"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/opt/ldg-4.7/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/ldg-4.7/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/opt/ldg-4.7/pegasus</profile>
+        </site>
+         <site  handle="lsu" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="osg2.loni.org/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="1"/>
+                <grid  type="gt2" contact="osg2.loni.org/jobmanager-pbs" scheduler="PBS" jobtype="compute" total-nodes="1"/>
+                <head-fs>
+                        <scratch>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg2.loni.org" mount-point="/ligo/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/ligo/data" free-size="null" total-size="null"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg2.loni.org" mount-point="/ligo/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/ligo/data" free-size="null" total-size="null"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <replica-catalog  type="LRC" url="rlsn://smarty.isi.edu">
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/opt/osg/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/osg/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/opt/osg/pegasus</profile>
+                <profile namespace="env" key="app" >/usr/local/packages/ligo</profile>
+                <profile namespace="env" key="data" >/ligo/data</profile>
+                <profile namespace="env" key="grid3" >/usr/local/packages/osg-1.0.0/wn</profile>
+                <profile namespace="env" key="tmp" >/var/scratch</profile>
+                <profile namespace="env" key="wntmp" >/var/scratch</profile>
+        </site>
+
          <site  handle="OSG_LIGO_MIT" arch="x86" os="LINUX">
                 <grid  type="gt2" contact="osg-ligo.mit.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
                 <grid  type="gt2" contact="osg-ligo.mit.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
@@ -248,6 +286,70 @@ key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
                 <profile namespace="env" key="wntmp_loc" >/localscratch</profile>
                 <profile namespace="pegasus" key="grid" >OSG</profile>
         </site>
+        <site  handle="Purdue-RCAC" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="osg.rcac.purdue.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="osg.rcac.purdue.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg.rcac.purdue.edu" mount-point="/scratch/osg">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg.rcac.purdue.edu" mount-point="/scratch/osg">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg.rcac.purdue.edu" mount-point="/scratch/osg">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg.rcac.purdue.edu" mount-point="/scratch/osg">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/scratch/osg" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="Purdue-RCAC"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/opt/osg/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/osg/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/opt/osg/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/apps/osg</profile>
+                <profile namespace="env" key="data_loc" >/scratch/osg</profile>
+                <profile namespace="env" key="osg_grid" >/opt/osg</profile>
+                <profile namespace="env" key="tmp_loc" >/scratch/osg</profile>
+                <profile namespace="env" key="wntmp_loc" >/tmp</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
         <site  handle="local" arch="x86_64" os="LINUX">
                 <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-fork" scheduler="Fork" jobtype="auxillary" total-nodes="50"/>
                 <grid  type="gt2" contact="ldas-pcdev1.ligo.caltech.edu/jobmanager-condor" scheduler="Condor" jobtype="compute" total-nodes="50"/>
@@ -272,6 +374,262 @@ key="LD_LIBRARY_PATH">/opt/osg/globus/lib</profile>
                 <profile namespace="env" key="PEGASUS_HOME" >/archive/home/bdaudert/downloads/pegasus-2.2.0cvs</profile>
                 <profile namespace="pegasus" key="grid" >local</profile>
         </site>
-
+        <site  handle="MIT_CMS" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="ce01.cmsaf.mit.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="ce01.cmsaf.mit.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://ce01.cmsaf.mit.edu" mount-point="/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://ce01.cmsaf.mit.edu" mount-point="/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://ce01.cmsaf.mit.edu" mount-point="/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://ce01.cmsaf.mit.edu" mount-point="/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/osg/tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/osg/tmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osg/tmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="MIT_CMS"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/osg/grid/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/osg/grid/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/osg/grid/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/osg/app</profile>
+                <profile namespace="env" key="data_loc" >/osg/data</profile>
+                <profile namespace="env" key="osg_grid" >/osg/grid</profile>
+                <profile namespace="env" key="tmp_loc" >/osg/data</profile>
+                <profile namespace="env" key="wntmp_loc" >/osg/tmp</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
+            <site  handle="UFlorida-HPC" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="iogw1.hpc.ufl.edu/jobmanager-pbs" scheduler="PBS" jobtype="compute"/>
+                <grid  type="gt2" contact="iogw1.hpc.ufl.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://iogw1.hpc.ufl.edu" mount-point="/scratch/ufhpc/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://iogw1.hpc.ufl.edu" mount-point="/scratch/ufhpc/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://iogw1.hpc.ufl.edu" mount-point="/scratch/ufhpc/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://iogw1.hpc.ufl.edu" mount-point="/scratch/ufhpc/osg/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="FAIL">
+                                        </file-server>
+                                        <internal-mount-point mount-point="FAIL" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="FAIL">
+                                        </file-server>
+                                        <internal-mount-point mount-point="FAIL" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/scratch/ufhpc/osg/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="UFlorida-HPC"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/scratch/ufhpc/osg/osg-ce-1.0/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/scratch/ufhpc/osg/osg-ce-1.0/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/scratch/ufhpc/osg/osg-ce-1.0/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/scratch/ufhpc/osg/app</profile>
+                <profile namespace="env" key="data_loc" >/scratch/ufhpc/osg/data</profile>
+                <profile namespace="env" key="osg_grid" >/scratch/ufhpc/osg/osg-ce-1.0</profile>
+                <profile namespace="env" key="tmp_loc" >/scratch/ufhpc/osg/data</profile>
+                <profile namespace="env" key="wntmp_loc" >FAIL</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
+               <site  handle="UCSDT2" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="osg-gw-2.t2.ucsd.edu/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="osg-gw-2.t2.ucsd.edu/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-gw-2.t2.ucsd.edu" mount-point="/osgfs/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-gw-2.t2.ucsd.edu" mount-point="/osgfs/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-gw-2.t2.ucsd.edu" mount-point="/osgfs/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://osg-gw-2.t2.ucsd.edu" mount-point="/osgfs/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/state/data/osgtmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/state/data/osgtmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/state/data/osgtmp">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/state/data/osgtmp" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/osgfs/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="UCSDT2"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/osglocal/osgce/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/osglocal/osgce/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/code/osgcode/wn-client/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/code/osgcode</profile>
+                <profile namespace="env" key="data_loc" >/osgfs/data</profile>
+                <profile namespace="env" key="osg_grid" >/code/osgcode/wn-client</profile>
+                <profile namespace="env" key="tmp_loc" >/osgfs/data</profile>
+                <profile namespace="env" key="wntmp_loc" >/state/data/osgtmp</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
+         <site  handle="FNAL_GPGRID_1" arch="x86" os="LINUX">
+                <grid  type="gt2" contact="fnpcosg1.fnal.gov/jobmanager-condor" scheduler="Condor" jobtype="compute"/>
+                <grid  type="gt2" contact="fnpcosg1.fnal.gov/jobmanager" scheduler="Fork" jobtype="auxillary"/>
+                <head-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://fnpcosg1.fnal.gov" mount-point="/grid/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://fnpcosg1.fnal.gov" mount-point="/grid/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="gsiftp" url="gsiftp://fnpcosg1.fnal.gov" mount-point="/grid/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="30G"/>
+                                </local>
+                                <shared>
+                                        <file-server protocol="gsiftp" url="gsiftp://fnpcosg1.fnal.gov" mount-point="/grid/data">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </head-fs>
+                <worker-fs>
+                        <scratch>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/local/stage1">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/local/stage1" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </scratch>
+                        <storage>
+                                <local>
+                                        <file-server protocol="file" url="file:///" mount-point="/local/stage1">
+                                        </file-server>
+                                        <internal-mount-point mount-point="/local/stage1" free-size="100G" total-size="50G"/>
+                                </local>
+                                <shared>
+                                        <internal-mount-point mount-point="/grid/data" free-size="100G" total-size="50G"/>
+                                </shared>
+                        </storage>
+                </worker-fs>
+                <replica-catalog  type="RLS" url="rls://replica.isi.edu">
+                        <alias  name="FNAL_GPGRID_1"/>
+                </replica-catalog>
+                <profile namespace="env" key="GLOBUS_LOCATION" >/usr/local/vdt-1.10.1/globus</profile>
+                <profile namespace="env" key="LD_LIBRARY_PATH" >/usr/local/vdt-1.10.1/globus/lib</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/usr/local/grid/pegasus</profile>
+                <profile namespace="env" key="app_loc" >/grid/app</profile>
+                <profile namespace="env" key="data_loc" >/grid/data</profile>
+                <profile namespace="env" key="osg_grid" >/usr/local/grid</profile>
+                <profile namespace="env" key="tmp_loc" >/grid/data</profile>
+                <profile namespace="env" key="wntmp_loc" >/local/stage1</profile>
+                <profile namespace="pegasus" key="grid" >OSG</profile>
+        </site>
+        
 </sitecatalog>
 
