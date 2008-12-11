@@ -11,6 +11,8 @@ cat=`cat write_ifar_scripts.ini | grep 'cat' | awk '{print $3}'`
 
 coire_path=`cat write_ifar_scripts.ini | grep 'coire_path' | awk '{print $3}'`
 plotifar_path=`cat write_ifar_scripts.ini | grep 'plotifar_path' | awk '{print $3}'`
+hipe_cache=`cat write_ifar_scripts.ini | grep 'hipe_cache' | awk '{print $3}'`
+
 
 log_path=`cat write_ifar_scripts.ini | grep 'log_path' | awk '{print $3}'`
 condor_priority=`cat write_ifar_scripts.ini | grep 'condor_priority' | awk '{print $3}'`
@@ -23,6 +25,7 @@ echo "  month_duration = ${month_duration}"
 echo "  cat = ${cat}"
 echo "  coire_path = ${coire_path}"
 echo "  plotifar_path = ${plotifar_path}"
+echo "  hipe_cache = ${hipe_cache}"
 echo "  log_path = ${log_path}"
 echo "  condor_priority = ${condor_priority}"
 echo
@@ -110,7 +113,7 @@ fi > ifar_result_injection.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${plotifar_path}"
-  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --plot-slides --glob-slide \$(macroglobslide) --time-analyzed-file \$(macrotimeanfile) --user-tag \$(macrousertag)"
+  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --plot-slides --glob-slide \$(macroglobslide) --time-analyzed-file \$(macrotimeanfile) --user-tag \$(macrousertag) --do-followup --ihope-cache ${hipe_cache} --data-type 'FULL_DATA'"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/plotifar-\$(cluster)-\$(process).err"
