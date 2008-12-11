@@ -182,7 +182,10 @@ for thresh in magic_numbers:
   inj_eff = injTriggers.get_effective_snr(thresh)
   slide_eff = slideTriggers.get_effective_snr(thresh)
   insp_eff = inspTriggers.get_effective_snr(thresh)
-  loudest = max(slide_eff)
+
+  scratch = slide_eff.copy()
+  scratch.sort()
+  loudest = scratch[-100]
   loudest_list.append(loudest)
   ix = (inj_eff > loudest).nonzero()
   stat = sum(inj_effdist[ix]**3/log10(inj_effdist[ix])) / sum(inj_effdist**3/log10(inj_effdist))
@@ -193,7 +196,9 @@ for thresh in magic_numbers:
 slide_snr_over_chi = slideTriggers.get_snr_over_chi()
 inj_snr_over_chi = injTriggers.get_snr_over_chi()
 snr_over_chi = inspTriggers.get_snr_over_chi()
-loudest = max(slide_snr_over_chi)
+scratch = slide_snr_over_chi.copy()
+scratch.sort()
+loudest = scratch[-100]
 ix = (inj_snr_over_chi > loudest).nonzero()
 snr_over_chi_eff = sum(inj_effdist[ix]**3/log10(inj_effdist[ix])) / sum(inj_effdist**3/log10(inj_effdist))
 
@@ -239,10 +244,12 @@ else:
 
 ## MAKE PLOT ##
 figure(4)
+scratch = slide_eff250.copy()
+scratch.sort()
 snrVec = numpy.linspace(5,1000, 10000)
 loglog(inj_snr,inj_chisq, 'rx')
 loglog(slide_snr,slide_chisq,'kx')
-loglog(snrVec,const_eff_snr_lines(snrVec, max(slide_eff250), 250.0,chisq_dof))
+loglog(snrVec,const_eff_snr_lines(snrVec, scratch[-100], 250.0,chisq_dof))
 loglog(snrVec,const_eff_snr_lines(snrVec, max_loudest, max_thresh,chisq_dof))
 # snr_over_chi stat
 loglog(snrVec, snrVec**2 / loudest / loudest, 'k')
@@ -250,7 +257,7 @@ ylabel('chisq', size='x-large')
 xlabel('snr', size='x-large')
 xlim([5, 10000])
 ylim([1, 10000000])
-legend(['Injections', 'Time slides', 'eff snr = ' + str(max(slide_eff250)) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest**2) ])
+legend(['Injections', 'Time slides', 'eff snr = ' + str(scratch[-100]) + ' using 250', 'eff snr = ' + str(max_loudest) + ' using ' + str(max_thresh), 'snr over chi at ' +str(loudest**2) ])
 fname = opts.ifo_times + "chisq_vs_snr"
 savefig(fname, dpi=90)
 if not opts.show_plot:
