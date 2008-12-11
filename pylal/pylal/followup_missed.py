@@ -67,7 +67,8 @@ class FollowupMissed:
 
 
   # -----------------------------------------------------
-  def __init__(self, cache, coireVetoMissedCache, opts, deltaTime=20):
+  def __init__(self, cache, coireVetoMissedCache, opts, \
+               deltaTime=20,injectionWindow = 50):
     """
     Initialize this class and sets up all the cache files.
     @param cache: the cache of all files
@@ -132,19 +133,22 @@ class FollowupMissed:
     if self.verbose: print "parsing of cache files done..."
 
     # retrieve the time window used from one of the COIRE files
-    coireFile = self.coireVetoMissedCache.pfnlist()[0]
-    doc = utils.load_filename( coireFile, gz=(coireFile).endswith(".gz") )
-    try:
-      processParams = table.get_table(doc, lsctables.ProcessParamsTable.\
-                                      tableName)
-    except:
-      raise "Error while reading process_params table from file", coireFile
+    if self.coireVetoMissedCache:
+      coireFile = self.coireVetoMissedCache.pfnlist()[0]
+      doc = utils.load_filename( coireFile, gz=(coireFile).endswith(".gz") )
+      try:
+        processParams = table.get_table(doc, lsctables.ProcessParamsTable.\
+                                        tableName)
+      except:
+        raise "Error while reading process_params table from file", coireFile
     
-    for tab in processParams:
-      if tab.param=='--injection-window':
-        self.injectionWindow = float(tab.value)/1000.0
-    if self.verbose:
-      print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
+      for tab in processParams:
+        if tab.param=='--injection-window':
+          self.injectionWindow = float(tab.value)/1000.0
+      if self.verbose:
+        print "Injection-window set to %.0f ms" % (1000*self.injectionWindow)
+    else:
+      self.injectionWindow = injectionWindow/1000.0
 
     # read the veto files
     self.readVetoFiles()
@@ -226,8 +230,9 @@ class FollowupMissed:
       
     print "m1: %.2f  m2:%.2f  | end_time: %d.%d | "\
           "distance: %.2f  eff_dist_h: %.2f eff_dist_l: %.2f" % \
-          ( inj.mass1, inj.mass2, inj.geocent_end_time, inj.geocent_end_time_ns,\
-            inj.distance, inj.eff_dist_h, inj.eff_dist_l )
+          ( inj.mass1, inj.mass2, self.end_time, \
+	    self.end_time_ns, inj.distance, inj.eff_dist_h,\
+	    inj.eff_dist_l )
 
   # ----------------------------------------------------
   def savePlot( self, stage ):
@@ -288,10 +293,13 @@ class FollowupMissed:
     time=0
     nano=0
 
-    if not ifo:
+    if not self.injection:
+      time = self.end_time
+      nano = self.end_time_ns
+    elif not ifo:
       time = sim.geocent_end_time
       nano = sim.geocent_end_time_ns
-    if ifo:
+    elif ifo:
       time = sim.get(ifo[0].lower()+'_end_time' )
       nano = sim.get(ifo[0].lower()+'_end_time_ns' )    
 
@@ -398,12 +406,15 @@ class FollowupMissed:
             if len(startTimeSec)>1: 
               print >> sys.stderr, 'Warning in fct. expectedHorizonDistance: '\
                     'More than 1 file found at particular GPS time. Using the first file.' 
-            if startTimeSec[0] > inj.geocent_end_time:
+            if startTimeSec[0] > self.end_time:
               text= """the start time of the template bank must be less than 
 		the end_time of the injection. We found startTime of the bank to be %s and
-		 the geocent end time of the injection to be %s""",startTimeSec[0], inj.geocent_end_time
+		 the geocent end time of the injection to be %s""",startTimeSec[0], self.end_time
               raise ValueError,  text
-            output[ifo] = horizon * factor * threshold / float(getattr(inj, 'eff_dist_'+ifo[0].lower() ))
+	    if self.injection:
+              output[ifo] = horizon * factor * threshold / float(getattr(inj, 'eff_dist_'+ifo[0].lower() ))
+	    else:
+	      output[ifo] = horizon * factor * threshold / float(getattr(inj, 'eff_distance' ))
             break
           #'otherwise, reset horizon distance
           else: horizon = 0           
@@ -422,7 +433,8 @@ class FollowupMissed:
     figtext(0.15,0.15, newText)
  
   # -----------------------------------------------------
-  def investigateTimeseries(self, triggerFiles, inj,  ifoName, stage, number ):
+  def investigateTimeseries(self, triggerFiles, inj,  ifoName, stage, number,\
+                            yval = 'snr'):
     """
     Investigate inspiral triggers and create a time-series
     of the SNRs around the injected time
@@ -515,9 +527,9 @@ class FollowupMissed:
           vetoSegs = self.vetodict[ifoName]
           
         # plot the triggers
-        plot( timeLarge, selectedLarge.get_column('snr'),\
+        plot( timeLarge, selectedLarge.get_column(yval),\
               self.colors[ifo]+'o', label="_nolegend_")
-        plot( timeSmall, selectedSmall.get_column('snr'), \
+        plot( timeSmall, selectedSmall.get_column(yval), \
               self.colors[ifo]+'s', label=ifo)
 
       # draw the injection times and other stuff
@@ -537,7 +549,7 @@ class FollowupMissed:
     ylims=axes().get_ylim()
     axis([-self.deltaTime, +self.deltaTime, ylims[0], ylims[1]])
     xlabel('time [s]')
-    ylabel('SNR')
+    ylabel(yval)
     title(stage+'_'+str(self.number))    
     fname = self.savePlot( stage )
     close(fig)
@@ -555,8 +567,11 @@ class FollowupMissed:
     @param stage: The name of the stage (FIRST, SECOND)
     @param number: The consecutive number for this inspiral followup
     """
-
-    injMass = [inj.mass1, inj.mass2]
+    
+    if self.injection:
+      injMass = [inj.mass1, inj.mass2]
+    elif self.coincInspiral:
+      injMass = [self.Sngls[ifoName].mass1,self.Sngls[ifoName].mass2]
 
     # read the trigbank
     if self.verbose: print "Processing TRIGBANK triggers from files ", triggerFiles
@@ -616,7 +631,7 @@ class FollowupMissed:
 
 
   # -----------------------------------------------------
-  def followup(self, inj, selectIFO, description=None ):
+  def followup(self, inj, selectIFO, description=None,type='SimInspiral' ):
     """
     Do the followup procedure for the missed injection 'inj'
     and create the several time-series for INSPIRAL, THINCA and
@@ -653,9 +668,39 @@ class FollowupMissed:
    
     # get the injections that are missed
     injID = 0
-    if self.exttrig:
+    if self.exttrig and type == 'SimInspiral':
       injID = self.findInjection( inj )
 
+    if type == 'SimInspiral':
+      self.injection = True
+      self.end_time = inj.geocent_end_time
+      self.end_time_ns = inj.geocent_end_time_ns
+    elif type == 'coincInspiral':
+      self.coincInspiral = True
+      self.h1 = False
+      self.h2 = False
+      self.l1 = False
+      self.v1 = False
+      self.Sngls = {}
+      self.ifos = []
+      self.injection = False
+      if 'H1' in inj.get_ifos()[1]:
+        self.ifos.append('H1')
+        self.Sngls['H1'] = inj.H1
+      if 'H2' in inj.get_ifos()[1]:
+        self.ifos.append('H2')
+        self.Sngls['H2'] = inj.H2
+      if 'L1' in inj.get_ifos()[1]:
+        self.ifos.append('L1')
+        self.Sngls['L1'] = inj.L1
+      if 'V1' in inj.get_ifos()[1]:
+        self.ifos.append('V1')
+        self.Sngls['V1'] = inj.V1
+      self.end_time = self.Sngls[selectIFO].end_time
+      self.end_time_ns = self.Sngls[selectIFO].end_time_ns
+    else:
+      print >> sys.stderr, 'Type not recognized, please enter "SimInspiral'
+      print >> sys.stderr, 'or "coincInspiral" in the type field'
     # increase internal number:
     self.number+=1
 
@@ -666,45 +711,64 @@ class FollowupMissed:
 
     # Check if this is a spin Taylor injection and calculate spin values
 
-    if 'SpinTaylor' in inj.waveform:
-      chi1 = sqrt(inj.spin1x*inj.spin1x \
-                  +inj.spin1y*inj.spin1y+inj.spin1z*inj.spin1z)
-      chi2 = sqrt(inj.spin2x*inj.spin2x \
-                  +inj.spin2y*inj.spin2y+inj.spin2z*inj.spin2z)
+    if self.injection:
+      if 'SpinTaylor' in inj.waveform:
+        chi1 = sqrt(inj.spin1x*inj.spin1x \
+                    +inj.spin1y*inj.spin1y+inj.spin1z*inj.spin1z)
+        chi2 = sqrt(inj.spin2x*inj.spin2x \
+                    +inj.spin2y*inj.spin2y+inj.spin2z*inj.spin2z)
     
     # add a table
     page.add('<table border="3" ><tr><td>')
     page.add('<table border="2" >')          
     fillTable( page, ['<b>parameter','<b>value'] )
     fillTable( page, ['Number', self.number] )
-    fillTable( page, ['inj ID', injID] )
-    fillTable( page, ['mass1', '%.2f'% inj.mass1] )
-    fillTable( page, ['mass2', '%.2f'%inj.mass2] )
-    fillTable( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
-    fillTable( page, ['mchirp', '%.2f' % (inj.mchirp)] )
-    if 'SpinTaylor' in inj.waveform:
-      fillTable( page, ['chi1', '%.4f' % chi1] )
-      fillTable( page, ['chi2', '%.4f' % chi2] )
-      fillTable( page, ['spin1x', '%.4f' % inj.spin1x] )
-      fillTable( page, ['spin1y', '%.4f' % inj.spin1y] )
-      fillTable( page, ['spin1z', '%.4f' % inj.spin1z] )
-      fillTable( page, ['spin2x', '%.4f' % inj.spin2x] )
-      fillTable( page, ['spin2y', '%.4f' % inj.spin2y] )
-      fillTable( page, ['spin2z', '%.4f' % inj.spin2z] )
-      fillTable( page, ['theta0', '%.4f' % inj.theta0] )
-      fillTable( page, ['phi0', '%.4f' % inj.phi0] )
-    fillTable( page, ['end_time', inj.geocent_end_time] )
-    fillTable( page, ['end_time_ns', inj.geocent_end_time_ns] )    
-    fillTable( page, ['distance', '%.1f' % inj.distance] )
-    fillTable( page, ['eff_dist_h','%.1f' %  inj.eff_dist_h] )
-    fillTable( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
-    fillTable( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
-    fillTable( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
-    fillTable( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
+    if self.exttrig:
+      fillTable( page, ['inj ID', injID] )
+    if self.injection:
+      fillTable( page, ['mass1', '%.2f'% inj.mass1] )
+      fillTable( page, ['mass2', '%.2f'%inj.mass2] )
+      fillTable( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
+      fillTable( page, ['mchirp', '%.2f' % (inj.mchirp)] )
+      if 'SpinTaylor' in inj.waveform:
+        fillTable( page, ['chi1', '%.4f' % chi1] )
+        fillTable( page, ['chi2', '%.4f' % chi2] )
+        fillTable( page, ['spin1x', '%.4f' % inj.spin1x] )
+        fillTable( page, ['spin1y', '%.4f' % inj.spin1y] )
+        fillTable( page, ['spin1z', '%.4f' % inj.spin1z] )
+        fillTable( page, ['spin2x', '%.4f' % inj.spin2x] )
+        fillTable( page, ['spin2y', '%.4f' % inj.spin2y] )
+        fillTable( page, ['spin2z', '%.4f' % inj.spin2z] )
+        fillTable( page, ['theta0', '%.4f' % inj.theta0] )
+        fillTable( page, ['phi0', '%.4f' % inj.phi0] )
+      fillTable( page, ['end_time', self.end_time] )
+      fillTable( page, ['end_time_ns', self.end_time_ns] )    
+      fillTable( page, ['distance', '%.1f' % inj.distance] )
+      fillTable( page, ['eff_dist_h','%.1f' %  inj.eff_dist_h] )
+      fillTable( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
+      fillTable( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
+      fillTable( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
+      fillTable( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )
+    else:
+      if type == 'coincInspiral':
+        for ifo in self.ifos:
+          fillTable( page, ['mass1 ' + ifo, '%.2f'% self.Sngls[ifo].mass1] )
+          fillTable( page, ['mass2 ' + ifo, '%.2f'% self.Sngls[ifo].mass2] )
+          fillTable( page, ['mchirp ' + ifo, '%.2f'% self.Sngls[ifo].mchirp] )
+        for ifo in self.ifos:
+          fillTable( page, ['end time ' + ifo, \
+                            self.Sngls[ifo].end_time] )
+          fillTable( page, ['end time (ns) ' + ifo, \
+                            self.Sngls[ifo].end_time_ns] )
+        for ifo in self.ifos:
+          fillTable( page, ['Effective distance ' + ifo, \
+                            '%.2f'% self.Sngls[ifo].eff_distance] )
+        
     page.add('</table></td>')
     
     # print infos to screen as well
-    if self.opts.verbose: self.print_inj( inj,  injID)
+    if self.injection:
+      if self.opts.verbose: self.print_inj( inj,  injID)
 
     # retrieve other files for this missed injection
     investDict = {}
@@ -712,7 +776,7 @@ class FollowupMissed:
 
       trigCache = lal.Cache()
       for c in cache:
-        if inj.geocent_end_time in c.segment:
+        if self.end_time in c.segment:
           if self.exttrig and 'TMPLTBANK' not in stage:
             if self.getInjectionID( url = c.url )==injID:
               trigCache.append( c )
@@ -726,16 +790,18 @@ class FollowupMissed:
         
       # check if the pfnlist is empty. `
       if len(fileList)==0:
+        print >>sys.stderr, stage,injId,self.end_time
         print >>sys.stderr, "Error: No files found for stage %s in the "\
               "cache for ID %s and time %d; probably mismatch of a "\
               "pattern in the options. " % \
-              ( stage, injID, inj.geocent_end_time)        
+              ( stage, injID, self.end_time)        
         continue
 
       # now create several plots
       if 'TMPLTBANK' in stage:
         investDict[stage]= self.investigateTrigbank( fileList, inj, selectIFO, stage, self.number )
-        investDict[stage]['horizon'] = self.getExpectedSNR( fileList, inj, self.number )
+	if self.injection:
+          investDict[stage]['horizon'] = self.getExpectedSNR( fileList, inj, self.number )
       elif 'TRIGBANK' in stage:
         investDict[stage] = self.investigateTrigbank( fileList, inj, selectIFO, stage, self.number )
       elif 'THINCA_SECOND' in stage:
@@ -746,8 +812,13 @@ class FollowupMissed:
           if len(selectList)==0: continue
           modstage=stage+'_CAT_'+str(cat)
           investDict[modstage] = self.investigateTimeseries( selectList, inj, selectIFO, modstage, self.number )
+          investDict[modstage+'_mchirp'] = self.investigateTimeseries(\
+              selectList, inj, selectIFO, modstage + '_mchirp', \
+              self.number,yval='mchirp' )
       else:
         investDict[stage]=self.investigateTimeseries( fileList, inj, selectIFO, stage, self.number)
+        investDict[stage+ '_mchirp']=self.investigateTimeseries( fileList,\
+	    inj, selectIFO, stage + '_mchirp', self.number,yval='mchirp')
           
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
@@ -762,10 +833,11 @@ class FollowupMissed:
           pass 
       
         elif "TMPLTBANK" in stage:
-          for ifo in result['horizon'].keys():
-            text = "Expected SNR for %s is " % ifo
-            this_snr = "%.2f" % result['horizon'][ifo]
-            fillTable( page, [ text,  this_snr]) 
+	  if self.injection:
+            for ifo in result['horizon'].keys():
+              text = "Expected SNR for %s is " % ifo
+              this_snr = "%.2f" % result['horizon'][ifo]
+              fillTable( page, [ text,  this_snr]) 
 
         elif result['foundset']:
           foundIFOs=''
@@ -817,6 +889,12 @@ class FollowupMissed:
       if investDict.has_key(stage):
         result = investDict[stage]
       
+        if stage!="TMPLTBANK":
+          fname = result['filename']
+          page.a(extra.img(src=[fname], width=400, \
+                           alt=fname, border="2"), title=fname, href=[ fname ])
+      if investDict.has_key(stage + '_mchirp'):
+        result = investDict[stage + '_mchirp']
         if stage!="TMPLTBANK":
           fname = result['filename']
           page.a(extra.img(src=[fname], width=400, \
