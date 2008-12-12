@@ -113,7 +113,7 @@ fi > ifar_result_injection.dag
 if [ 1 ]; then
   echo "universe = vanilla"
   echo "executable = ${plotifar_path}"
-  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --plot-slides --glob-slide \$(macroglobslide) --time-analyzed-file \$(macrotimeanfile) --user-tag \$(macrousertag) --do-followup --ihope-cache ${hipe_cache} --datatype 'FULL_DATA'"
+  echo "arguments = --glob \$(macroglob) --output-path \$(macrooutpath) --enable-output --ifo-times \$(macroifotimes) --gps-start-time ${month_gps_time} --gps-end-time ${gps_end_time} --ifan-dist --ifar-dist --plot-uncombined --plot-combined --show-min-bkg --show-max-bkg --show-two-sigma-error --time-correct-file \$(macrotcorrfile) --plot-slides --glob-slide \$(macroglobslide) --time-analyzed-file \$(macrotimeanfile) --user-tag \$(macrousertag) --do-followup --ihope-cache ${hipe_cache} --datatype FULL_DATA"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/plotifar-\$(cluster)-\$(process).err"
