@@ -100,7 +100,7 @@ if opts.segs_file:
   segs = segmentsUtils.fromsegwizard( open( opts.segs_file ) )
 
 
-title = "TEST" + opts.user_tag
+title = "hanford_check_" + opts.user_tag
 
 
 
@@ -497,8 +497,7 @@ html_rhomax.append( line )
 
 # Check over selected segs!
 if opts.segs_file:
-  rhomax = [[],[]]
-  timesabove = [[],[]]
+  rhomax = [[],[],[],[]]
 
   for k in xrange( len( segs ) ):
     for i in xrange( len( h2SegStart ) ):
@@ -510,27 +509,30 @@ if opts.segs_file:
           theseTimes = [ h2SegStart[i], segs[k][1] ]
       elif h2SegEnd[i] > segs[k][0] and h2SegEnd[i] <= segs[k][1]:
         theseTimes = [ segs[k][0], h2SegEnd[i] ]
-      if theseTimes != 0:
+      
+      if theseTimes != 0:	
         for j in xrange( len( h1SegStart ) ):
           time = 0
           if h1SegStart[j] >= theseTimes[0] and h1SegStart[j] < theseTimes[1]:
             if h1SegEnd[j] < theseTimes[1]:
               time = h1SegEnd[j] - h1SegStart[j]
-              timesabove[0].append( h1SegStart[j] )
-              timesabove[1].append( h1SegEnd[j] )
+              start =  h1SegStart[j]
+              end =  h1SegEnd[j]
             else:
               time = theseTimes[1] - h1SegStart[j]
-              timesabove[0].append( h1SegStart[j] )
-              timesabove[1].append( theseTimes[1] )
+              start = h1SegStart[j] 
+              end = theseTimes[1] 
           elif h1SegEnd[j] > theseTimes[0] and h1SegEnd[j] <= theseTimes[1]:
             time = h1SegEnd[j] - theseTimes[0]
-            timesabove[0].append( theseTimes[0] )
-            timesabove[1].append( h1SegEnd[j] )
+            start = theseTimes[0]
+            end = h1SegEnd[j]
           if time != 0:
             max = opts.h2_threshold * h2SegRange[i] / h1SegRange[j] 
             max*= ( 2 + opts.distance_cut ) / ( 2 - opts.distance_cut )
             rhomax[0].append( max )
             rhomax[1].append( time )
+            rhomax[2].append( start )
+            rhomax[3].append( end )
 
   totaltime = sum( rhomax[1] )
 
@@ -577,25 +579,18 @@ if opts.segs_file:
 
   line = '<div style="position:relative; left:325px; top:-225px">\n'
   html_rhomax.append( line )
-  line = '<h4> Corresponding Times </h4>\n'
+  line = '<h4> Corresponding Times (Where &rho; > ' + str( opts.h2_threshold ) 
+  line+= ' )  </h4>\n'
   html_rhomax.append( line )
   line = '<ul>\n'
   html_rhomax.append( line )
 
-  i = 0
-  while i < len( timesabove[0] ):
-    line = '<li><code>' + str( timesabove[0][i] ) + ' - ' 
-    if i != len( timesabove[0] ) - 1 : 
-      for j in xrange( i+1, len( timesabove[0] ) ):
-        if timesabove[1][i] == timesabove[0][j]:
-          i += 1
-      line += str( timesabove[1][i] ) + '</code></li> \n'
+  for i in xrange( len( rhomax[0] ) ):
+    if rhomax[0][i] > opts.h2_threshold:
+      line = '<li><code>' + str( rhomax[2][i] ) + ' - ' 
+      line += str( rhomax[3][i] ) + ' = ' 
+      line += str( rhomax[1][i] ) +' </code></li> \n'
       html_rhomax.append( line )
-      i += 1
-    else:
-      line += str( timesabove[1][i] ) + '</code></li> \n'
-      html_rhomax.append( line )
-      i += 1
 
   line = '</ul>\n'
   html_rhomax.append( line )
