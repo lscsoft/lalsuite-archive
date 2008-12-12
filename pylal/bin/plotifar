@@ -1143,13 +1143,13 @@ if opts.enable_output is True:
         '<br>zero-lag analyzed time = ' + str(NormTime[thisfile]*year) + 's' )
 
   followup = None
+  followupOpts = copy.deepcopy(opts)
   if opts.do_followup:
-    followupOpts = copy.deepcopy(opts)
     followupOpts.followup_exttrig = False
     followupOpts.followup_flow = 40.0
     followupOpts.figure_resolution = 50
     followupOpts.followup_tag = 'FOLLOWUP_TAG'
-    followupOpts.prefix = 'Plotifar'
+    followupOpts.prefix = opts.ifo_times + '_plotifar'
     if opts.user_tag:
       followupOpts.suffix = opts.user_tag
     else:
