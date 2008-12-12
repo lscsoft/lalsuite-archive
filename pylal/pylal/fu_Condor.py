@@ -210,7 +210,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       self.add_var_opt("output-path",inspJob.outputPath)
 
       if not opts.disable_dag_categories:
-        self.set_category(inspJob.name)
+        self.set_category(inspJob.name.lower())
 
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
@@ -305,7 +305,7 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
 
       if not opts.disable_dag_categories:
-        self.set_category(job.name)
+        self.set_category(job.name.lower())
 
       #try: 
       if inspiralNode.validNode: self.add_parent(inspiralNode)
@@ -386,7 +386,7 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
     self.add_var_opt("v1-xml-file","none");
 
     if not opts.disable_dag_categories:
-      self.set_category(job.name)
+      self.set_category(job.name.lower())
 
   def append_insp_node(self,inspNode,ifo):
     if ifo in self.ifo_list:
@@ -449,7 +449,7 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("injection-declination",str(inj_dec))
 
     if not opts.disable_dag_categories:
-      self.set_category(job.name)
+      self.set_category(job.name.lower())
 
     try:
       if skyMapNode.validNode: self.add_parent(skyMapNode)
@@ -512,7 +512,7 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
         nodeName = "inspiral data find"
 
       if not opts.disable_dag_categories:
-        self.set_category(job.name)
+        self.set_category(job.name.lower())
 
       # if the selected "ifo" needs to be done remotely (this the case for 
       # Virgo qscan datafind) do not add the node to the dag
@@ -638,7 +638,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     # self.set_post_script("/bin/true")
 
     if not opts.disable_dag_categories:
-      self.set_category(job.name)
+      self.set_category(job.name.lower())
 
     # only add a parent if it exists
     try:
@@ -785,7 +785,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
               break
 
       if not opts.disable_dag_categories:
-        self.set_category(job.name)
+        self.set_category(job.name.lower())
       
       # add the parents to this node
       for node in dag.get_nodes():
@@ -911,7 +911,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
 
     if not opts.disable_dag_categories:
-      self.set_category(job.name)
+      self.set_category(job.name.lower())
 
     for ifo in ifoList:
       if dNode[ifo].validNode: self.add_parent(dNode[ifo])
@@ -968,7 +968,7 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
       self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
 
       if not opts.disable_dag_categories:
-        self.set_category(FrCheckJob.name)
+        self.set_category(FrCheckJob.name.lower())
 
       try:
         if d_node.validNode and eval('opts.' + datafindCommand):
@@ -1010,7 +1010,7 @@ class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
     self.setupNodeWeb(IFOstatus_checkJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
 
     if not opts.disable_dag_categories:
-      self.set_category(IFOstatus_checkJob.name)
+      self.set_category(IFOstatus_checkJob.name.lower())
 
     if opts.ifo_status_check:
       dag.addNode(self,self.friendlyName)
@@ -1109,7 +1109,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("logfilename",outputName)
 
       if not opts.disable_dag_categories:
-        self.set_category(followupmcmcJob.name)
+        self.set_category(followupmcmcJob.name.lower())
 
       if opts.mcmc:
         dag.addNode(self,self.friendlyName)
@@ -1213,7 +1213,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("output-path",outputpath)
 
       if not opts.disable_dag_categories:
-        self.set_category(plotmcmcjob.name)
+        self.set_category(plotmcmcjob.name.lower())
 
       # only add a parent if it exists
       for node in dag.get_nodes():
