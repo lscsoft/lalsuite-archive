@@ -45,8 +45,6 @@ from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
 import pylab
-pylab.rc("text", usetex=True)
-pylab.rc("lines", linewidth=2.5)
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -57,6 +55,21 @@ from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import viz
+
+# override pylab defaults optimized for presentation
+pylab.rcParams.update({
+    "text.usetex": True,
+    "text.verticalalignment": "center",
+    "lines.linewidth": 2.5,
+    "font.size": 16,
+    "axes.titlesize": 20,
+    "axes.labelsize": 16,
+    "xtick.labelsize": 16,
+    "ytick.labelsize": 16,
+    "legend.fontsize": 16,
+})
+
+trace_m2_bin = 0
 
 ################################################################################
 # utility functions
@@ -129,7 +142,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         """
         log_pc0 = self.default_evaluator(loudest_in_trial)
         extrap = self.fiducial_y + \
-            self.fiducial_x*self.fiducial_x - loudest_in_trial*loudest_in_trial
+            self.fiducial_x**2 - loudest_in_trial**2
         extrap_ind = loudest_in_trial > self.fiducial_x
         log_pc0[extrap_ind] = extrap[extrap_ind]
         return log_pc0
@@ -165,6 +178,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
             self.weight_by_inj = weight_by_inj
         else:
             self.weight_by_inj = numpy.ones(inj_loudest_by_inj_mc_m2.shape[0])
+        self.total_weight = self.weight_by_inj.sum()
         if eps is not None:
             if numpy.isscalar(eps):
                 self.eps = eps * numpy.ones(inj_loudest_by_inj_mc_m2.shape[1:],
@@ -183,12 +197,18 @@ class ConstantForegroundEstimator(ForegroundEstimator):
         """
         Return ln(p(c|h)).  Where p(c|0) < eps, we return eps.
         """
+        len_inj, len_mc, len_m2 = self.inj_loudest_by_inj_mc_m2.shape
         louder_by_inj_mc_m2 = \
-            (self.inj_loudest_by_inj_mc_m2 > trial_loudest_by_mc[None, :, None])
-        num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
-            * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
-        num_louder_by_mc_m2 /= self.weight_by_inj.sum()
-        num_louder_by_mc_m2 *= len(self.weight_by_inj)
+            (self.inj_loudest_by_inj_mc_m2 > \
+             trial_loudest_by_mc[None, :, None])
+
+        # Use the BLAS call dot() to speed up this multiplication and sum.
+        #num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
+        #    * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
+        num_louder_by_mc_m2 = numpy.dot(self.weight_by_inj,
+            louder_by_inj_mc_m2.reshape((len_inj, len_mc * len_m2)))\
+            .reshape((len_mc, len_m2))
+        num_louder_by_mc_m2 *= len_inj / self.total_weight
 
         pch_by_mc_m2 = num_louder_by_mc_m2 \
             / (self.num_sims_by_m2[None, :] + 1e-10)
@@ -260,6 +280,7 @@ def make_html_table(two_dim_seq, header_row=None):
     for row in two_dim_seq:
         if len(row) != last_len:
             raise ValueError, "header and row lengths must all be consistent."
+        last_len = len(row)
         html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
             + "</td></tr>")
     html.append("</table><br>")
@@ -355,6 +376,8 @@ num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
 num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
 inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
 
+empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
+
 html_footer += InspiralUtils.message(opts,
     "Number of injections read: %d" % len(inj_loudest_by_inj_mc_m2_D))
 
@@ -370,7 +393,7 @@ D_bins.delta /= calib_fac
 
 ##############################################################################
 # Initialize background and foreground estimation functions
-# NB: choose to start extrapolating 10% from the end of the tail for robustness.
+# NB: start extrapolating 10% from the end of the tail for robustness.
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
     int(0.1 * num_offsource_trials))
@@ -405,24 +428,26 @@ else:
         inj_loudest_by_inj_mc_m2, num_sims_by_m2)
 
 ################################################################################
-# compute the likelihoods of the loudest on-source coincidences by m2
+# compute the likelihoods of the loudest on-source coincidences
 if opts.verbose:
     print "Computing on-source likelihoods..."
 log_pc0_by_mc = compute_log_pc0_by_mc(onsource_loudest_by_mc)
 log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
-log_L_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
-# Examples of how to swap in IFAR or pure effective SNR
-# log_L_mc_m2 = numpy.ones(log_pch_by_mc_m2.shape) / log_pc0_by_mc[:, None]
-# log_L_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
+# NB: Here are examples of how to swap pure effective SNR or log IFAR.
+# Just remember to do it for off-source and injection cases as well.
 
-# if there are any candidates, use only likelihoods from candidates
+# log_L_by_mc_m2 = onsource_loudest_by_mc[:, None].repeat(len(m2_bins), axis=1)
+# log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
+log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
+
+# if there are any candidates, take max over likelihoods from candidates
 actual_candidate_mask = (onsource_loudest_by_mc > 0)
 if numpy.any(actual_candidate_mask):
-    log_L_by_m2 = log_L_mc_m2[actual_candidate_mask, :].max(axis=0)
-# else use the min, which is the lowest possible value of log_L globally.
+    log_L_by_m2 = log_L_by_mc_m2[actual_candidate_mask, :].max(axis=0)
 else:
-    log_L_by_m2 = log_L_mc_m2.min(axis=0)
+    log_L_by_m2 = empty_log_L_by_m2
+log_L_max = log_L_by_m2.max()
 
 # write the on-source likelihoods to disk
 onsource_outname = op.join(opts.output_path, __prog__ + "_onsource")
@@ -432,34 +457,46 @@ onsource_outname += ".pickle"
 pickle.dump(log_L_by_m2, open(onsource_outname, "wb"), -1)
 
 ################################################################################
-# compute P(Lambda > Lambda_0(m2) | 0), the detection false-alarm probability
+# compute P(observation | 0), the false-alarm probability
 # tabulate off-source likelihoods
 if opts.verbose:
-    print "Computing P(Lambda > Lambda_0(m2) | 0)..."
+    print "Computing P(observation | 0)..."
 offsource_likelihood_by_trial_m2 = numpy.zeros(\
     (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
 for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
     off_log_pc0_by_mc = compute_log_pc0_by_mc(offsource_loudest_by_mc)
     off_log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
-    off_log_L_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
+    off_log_L_by_mc_m2 = off_log_pch_by_mc_m2 - off_log_pc0_by_mc[:, None]
 
-    # if there are any candidates, use only likelihoods from candidates
+    # if there are any candidates, take max over likelihoods from candidates
     offsource_candidate_mask = (offsource_loudest_by_mc > 0)
     if numpy.any(offsource_candidate_mask):
         offsource_likelihood_by_trial_m2[i, :] = \
-            off_log_L_mc_m2[offsource_candidate_mask, :].max(axis=0)
+            off_log_L_by_mc_m2[offsource_candidate_mask, :].max(axis=0)
     else:
-        offsource_likelihood_by_trial_m2[i, :] = off_log_L_mc_m2.min(axis=0)
+        offsource_likelihood_by_trial_m2[i, :] = empty_log_L_by_m2
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
     (offsource_likelihood_by_trial_m2 > log_L_by_m2[None, :])\
     .sum(axis=0, dtype=float) / num_offsource_trials
 
+# find the fraction of trials whose max L is greater than the on-source max L
+pLmax0 = (offsource_likelihood_by_trial_m2.max(axis=1) > log_L_max)\
+    .sum(dtype=float) / num_offsource_trials
+
 # for diagnostics, find P(L > L_* | 0) for various L_*
-offsource_likelihood_by_trial_m2.sort(axis=0)
+L_star_by_m2_trial = offsource_likelihood_by_trial_m2.T.copy()
+L_star_by_m2_trial.sort(axis=1)
+L_star_by_m2_trial[L_star_by_m2_trial < 0.] = 0.
 offsource_pL0_by_trial = numpy.arange(num_offsource_trials)[::-1] \
     / num_offsource_trials
+
+L_max_star = offsource_likelihood_by_trial_m2.max(axis=1)
+L_max_star.sort()
+P_L_max_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
+    / num_offsource_trials
+L_max_star[L_max_star < 0.] = 0
 
 # write the off-source likelihoods to disk
 offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
@@ -473,7 +510,7 @@ pickle.dump(offsource_likelihood_by_trial_m2, open(offsource_outname, "wb"), -1)
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
 if opts.verbose:
-    print "Computing P(Lambda > Lambda_0(m2) | h(m2, D))..."
+    print "Computing P(observation | h(m2, D))..."
 log_L_by_inj_mc = []
 log_pc0_by_inj_mc = []
 log_pch_by_inj_mc = []
@@ -503,27 +540,21 @@ for inj_trial_loudest_by_mc_m2_D in inj_loudest_by_inj_mc_m2_D:
     inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 \
         - inj_trial_log_pc0_by_mc[:, None]
 
-    # Examples of how to swap in IFAR or pure effective SNR
-    # inj_trial_log_L_mc_m2 = numpy.ones(inj_trial_log_pch_by_mc_m2.shape) / \
-    #     inj_trial_log_pc0_by_mc[:, None]
-    # inj_trial_log_L_mc_m2 = inj_trial_loudest_by_mc[:, None]\
-    #     .repeat(len(m2_bins), axis=1)
-
-    # if there are any candidates, use only likelihoods from candidates
+    # if there are any candidates, take max over likelihoods from candidates
     inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
     if numpy.any(inj_trial_candidate_mask):
         inj_trial_log_L = \
             inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, m2_ind]\
             .max(axis=0)
     else:
-        inj_trial_log_L = inj_trial_log_L_by_mc_m2[:, m2_ind].min(axis=0)
+        inj_trial_log_L = empty_log_L_by_m2
 
     # record if anything is louder than the loudest on-source coinc for this m2
     if inj_trial_log_L > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_D_mask] += 1
 
     # record diagnostics
-    if m2_ind == 8:
+    if m2_ind == trace_m2_bin:
         log_L_by_inj_mc.append(inj_trial_log_L_by_mc_m2[:, m2_ind].squeeze())
         log_pc0_by_inj_mc.append(inj_trial_log_pc0_by_mc)
         log_pch_by_inj_mc.append(inj_trial_log_pch_by_mc_m2[:, m2_ind]\
@@ -536,7 +567,7 @@ rho_by_inj_mc = numpy.array(rho_by_inj_mc)
 
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
-################################################################################
+##############################################################################
 # Take MC errors into account
 MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
@@ -548,84 +579,208 @@ if opts.verbose:
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
 
-# parse coincs
-coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
-onsource_trigs = table.get_table(onsource_doc,
-    lsctables.SnglInspiralTable.tableName)
-onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
-    coinc_stat)
-if len(onsource_coincs) > len(mc_bins):
-    raise ValueError, "more on-source coincs than mchirp bins"
-
-# print per-mchirp info
-ifos = set()
-for coinc in onsource_coincs:
-    ifos.update(coinc.get_ifos()[1])
-ifos = list(ifos)
-ifos.sort()
-columns = ["mc_bin", "event_id"] + [ifo + " " + statistic for ifo in ifos] + \
-    ["combined " + statistic, "mchirp",
-     "<em>P</em>(<em>&rho;</em> &gt; <em>&rho;</em><sub>0</sub> | 0)"]
-rows = []
-for low, hi, log_pc0 in zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
-    row = ["  [%.2f, %.2f)" % (low, hi)]
-    mc_coincs = onsource_coincs.getChirpMass(low, hi)
-    if len(mc_coincs) == 0:
-        row += ["&mdash;"] * (len(columns) - 1)
-    elif len(mc_coincs) == 1:
-        c = mc_coincs[0]
-        # XXX: hardcoded effective SNR, didn't reuse get_mean_mchirp
-        row += [c.event_id] \
-            + ["%.4g" % trig.get_effective_snr() for trig in c] \
-            + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
-               "%.4g" % numpy.exp(log_pc0)]
-    rows.append(row)
-html_footer += make_html_table(rows, columns)
-
-# print per-m2 info
-if numpy.any(actual_candidate_mask):
-    mc_ind_by_m2 = log_L_mc_m2[actual_candidate_mask, :].argmax(axis=0)
+if not numpy.any(actual_candidate_mask):
+    html_footer += "No on-source coincidences found.\n"
 else:
-    mc_ind_by_m2 = log_L_mc_m2.argmin(axis=0)
-mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
-m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-columns = ["m2_bin", "event_id", "<em>&Lambda;</em>", "<em>P</em>(<em>&Lambda;</em>(<em>m</em><sub>2</sub>) &gt; <em>&Lambda;</em><sub>0</sub>(<em>m</em><sub>2</sub>) | 0)"]
-rows = []
-for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2, log_L_by_m2,
-    pL0_by_m2):
-    row = ["  [%.2f, %.2f)" % m2_range]
-    m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
-    if len(m2_coincs) == 0:
-        row.append("&mdash;")
-    elif len(m2_coincs) == 1:
-        row.append(m2_coincs[0].event_id)
-    else:
-        raise ValueError, "there should be exactly one or zero coincs"
-    row.extend(["%.4g" % numpy.exp(log_L), "%.4g" % pL0])
-    rows.append(row)
-html_footer += make_html_table(rows, columns)
+    # make overall statement
+    html_footer += "<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
+        "-1ex;'><em>L</em>,max,obs</sub> = %.2g<br>\n" % log_L_max
+    html_footer += "P(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
+        "-1ex;'><em>L</em>,max</sub> &gt; <em>&rho;</em><sup>2</sup><sub "\
+        "style='margin-left: -1ex;'><em>L</em>,max,obs</sub> | 0) "\
+        "= %.2g<br><br>\n" % pLmax0
+
+    # parse coincs
+    coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+    onsource_trigs = table.get_table(onsource_doc,
+        lsctables.SnglInspiralTable.tableName)
+    onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+        coinc_stat)
+    if len(onsource_coincs) > len(mc_bins):
+        raise ValueError, "more on-source coincs than mchirp bins"
+
+    # print per-mchirp info
+    ifos = set()
+    for coinc in onsource_coincs:
+        ifos.update(coinc.get_ifos()[1])
+    ifos = list(ifos)
+    ifos.sort()
+    columns = ["mc_bin", "event_id"] \
+        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifos] \
+        + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+        "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
+        "<sub>eff,obs</sub> | 0)"]
+    rows = []
+    for low, hi, log_pc0 in \
+        zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
+        row = ["[%.2f, %.2f)" % (low, hi)]
+        mc_coincs = onsource_coincs.getChirpMass(low, hi)
+        if len(mc_coincs) == 0:
+            row += ["&mdash;"] * (len(columns) - len(row))
+        elif len(mc_coincs) == 1:
+            c = mc_coincs[0]
+            # XXX: hardcoded effective SNR
+            row += [c.event_id] \
+                + ["%.4g" % trig.get_effective_snr() for trig in c] \
+                + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
+                   "%.4g" % numpy.exp(log_pc0)]
+        rows.append(row)
+    html_footer += make_html_table(rows, columns)
+
+    # print per-m2 info
+    temp_log_L_by_mc_m2 = log_L_by_mc_m2.copy()
+    temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
+    mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
+    mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+    m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+    columns = ["m2_bin", "event_id", "<em>&rho;</em><sup>2</sup><sub "\
+        "style='margin-left: -1ex;'><em>L</em></sub>",
+        "<em>P</em>(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
+        "-1ex;'><em>L</em></sub>(<em>m</em><sub>2</sub>) &gt; "\
+        "<em>&rho;</em><sup>2</sup><sub style='margin-left: -1ex;'>"\
+        "<em>L</em>,obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
+    rows = []
+    for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
+        log_L_by_m2, pL0_by_m2):
+        row = ["[%.2f, %.2f)" % m2_range]
+        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+        if len(m2_coincs) == 0:
+            row.append("&mdash;")
+        elif len(m2_coincs) == 1:
+            row.append(m2_coincs[0].event_id)
+        else:
+            raise ValueError, "there should be exactly one or zero coincs"
+        row.extend(["%.4g" % log_L, "%.4g" % pL0])
+        rows.append(row)
+    html_footer += make_html_table(rows, columns)
 
 ################################################################################
 # plots
 fnameList = []
 tagList = []
 
-c_in_E = r"c \in \mathcal{E}(c_0)"
-c_in_E_m2 = r"c \in \mathcal{E}(c_0(m_2))"
+c_in_E = r"\textrm{any candidate in } \mathcal{E}(c_0)"
 mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
+
+if actual_candidate_mask.any():
+    observation = r"\rho_L^2(m_2) > \rho_{L,\mathrm{obs}}^2(m_2)"
+else:
+    observation = r"\textrm{any candidates}"
+
+## Significance
+text = "Significance"
+
+thresh_05 = L_max_star[0.95 * len(L_max_star)]
+thresh_01 = L_max_star[0.99 * len(L_max_star)]
+
+plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\rho_\mathrm{L}^2 (m_2)$",
+    "Significance")
+if actual_candidate_mask.any():
+    plot.add_content(m2_bins.centres(), log_L_by_m2)
+else:
+    # get plot limits to autoscale the way we want
+    plot.add_content(m2_bins.centres(), numpy.ones(len(m2_bins)),
+        visible=False)
+plot.finalize()
+plot.ax.set_ylim(ymin=-0.5)
+
+if not actual_candidate_mask.any():
+    plot.ax.text(m2_bins.centres()[len(m2_bins)//2], 0.0,
+        "No candidates found.", horizontalalignment="center",
+        fontsize="x-large")
+
+# add thresholds
+xlims = tuple(plot.ax.get_xlim())
+plot.ax.plot(xlims, (thresh_05, thresh_05), linestyle="--")
+plot.ax.text(xlims[1], thresh_05, r"5\% false alarm",
+    horizontalalignment="right", verticalalignment="bottom")
+plot.ax.plot(xlims, (thresh_01, thresh_01), linestyle="--")
+plot.ax.text(xlims[1], thresh_01, r"1\% false alarm",
+    horizontalalignment="right", verticalalignment="bottom")
+plot.ax.set_xlim(xlims)
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "max_log_L_by_mc_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## P(L_max > L_max^* | 0) vs L_max^*
+text = "P(L_max > L_max^*| 0) vs ln L_max^*"
+
+plot = plotutils.SimplePlot(\
+    r"${\rho_{L\mathrm{,max}}^*}^2$",
+    r"$P(\rho_{L\mathrm{,max}}^2 > {\rho_{L\mathrm{,max}}^*}^2 \,|\,0)$",
+    r"$\textrm{Background distribution of } \rho_{L\mathrm{,max}}^2$")
+plot.add_content(L_max_star, P_L_max_star,  marker=".", linestyle="None")
+plot.finalize()
+plot.ax.set_xscale("log")
+
+# pLmax0
+if actual_candidate_mask.any():
+    xlims = tuple(plot.ax.get_xlim())
+    plot.ax.plot((log_L_max, log_L_max), (0, 1), "k--")
+    plot.ax.set_xlim(xlims)
+    plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "P_L_max_by_L")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## upper limit contours (m2, D) image
+text = "(m2, D) contours including MC error"
+
+plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    r"$D\textrm{ at which we see something louder in X\% of trials}$")
+
+exclusion_x = m2_bins.lower()
+zero = numpy.zeros(len(m2_bins), dtype=float)
+
+for exclusion_level in (0.25, 0.5, 0.75, 0.9):
+    num_sigmas = stats.norm.ppf(exclusion_level)
+    exclusion_y = get_level_crossings(pLh_by_m2_D - num_sigmas * MC_sigma,
+        exclusion_level, D_bins)
+    tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
+    plot.add_content(tmpx, tmpy,
+        label=str(int(exclusion_level * 100)) + r"\%")
+
+plot.finalize()
+plot.ax.set_ylim((0, D_bins.max))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "exclusion_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
 
 ## mchirp vs loudest stat horizontal bar graph
 text = "mchirp vs loudest statistic"
 
 plot = plotutils.NumberVsBinBarPlot(statistic.replace("_", r"\_"),
-    "$" + mc_latex + "$", "Loudest statistics by mchirp")
+    "$" + mc_latex + "$", "Loudest statistics by template bank mchirp")
 plot.add_content(mc_bins, onsource_loudest_by_mc)
 plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
-for mc, log_pc0 in zip(mc_bins.centres(), log_pc0_by_mc):
-    plot.ax.text(0.5, mc, r"$p(" + c_in_E + r"\,|\,0) = %7.5f$" % numpy.exp(log_pc0))
+for mc, snr, have_candidate, log_pc0 in \
+    zip(mc_bins.centres(), onsource_loudest_by_mc, actual_candidate_mask,
+        log_pc0_by_mc):
+    if have_candidate:
+        plot.ax.text(snr + 0.2, mc, r"$P(" + c_in_E + r"\,|\,0) = %.3f$" \
+            % numpy.exp(log_pc0), verticalalignment="center")
+    else:
+        plot.ax.text(10, mc, r"$P(\textrm{any candidate}\,|\,0) = %.3f$" \
+            % numpy.exp(log_pc0), horizontalalignment="center",
+            verticalalignment="center")
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -645,16 +800,38 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## injection count vs (m2, D) image
-text = "Injection count"
+## L(c|h) vs m2
+# TODO: before and after MC and calibration systematics
+text = "ln L(c(mc)|h(m2))"
 
-plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$",
-    r"Injections made")
-plot.add_content(num_sims_by_m2_D.T, m2_bins, D_bins)
-plot.finalize()
+# get likelihoods at extrapolation points
+extrap_log_pch_by_mc_m2 = \
+    compute_log_pch_by_mc_m2(compute_log_pc0_by_mc.fiducial_x)
+extrap_log_L_by_mc_m2 = extrap_log_pch_by_mc_m2 \
+    - compute_log_pc0_by_mc.fiducial_y[:, None]
+
+plot = plotutils.SimplePlot(\
+    r"$m_2\ (M_\odot)$",
+    r"$\rho_L^2(m_2)$",
+    r"Significance of candidates in different mchirp regions")
+for mc_range, mc_log_L_by_m2, extrap_log_L_by_m2, is_candidate, color in \
+    zip(mc_ranges, log_L_by_mc_m2, extrap_log_L_by_mc_m2,
+    actual_candidate_mask,
+    matplotlib.axes._process_plot_var_args.defaultColors):
+    if is_candidate:
+        linestyle = "-"
+    else:
+        linestyle = "--"
+    plot.add_content(m2_bins.centres(), mc_log_L_by_m2, linestyle=linestyle,
+                     color=color,
+                     label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+    plot.add_content(m2_bins.centres(), extrap_log_L_by_m2, color=color, 
+                     linestyle=":")
+plot.finalize(loc=4)
+plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "injection_count_by_m2_D")
+    fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -662,12 +839,12 @@ if not opts.show_plot:
     plot.close()
 
 ## p(c|h) vs rho for each mc bin
-text = "ln p(c|h) vs rho for each mc bin for m2 = " \
-    + str(m2_bins.centres()[8])
+text = "ln P(c|h) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln p(" + c_in_E + r"\,|\,h)\textrm{ vs stat for }m_2 = %s$" \
-    % str(m2_bins.centres()[8]))
+    r"$\ln P(" + c_in_E + r"\,|\,h)\textrm{ vs stat for some } "\
+    r"m_2\ (%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
     y_data = log_pch_by_inj_mc[:, mc_ind]
@@ -685,22 +862,37 @@ if not opts.show_plot:
     plot.close()
 
 ## p(c|0) vs rho for each mc bin
-text = "ln p(c|0) vs rho for each mc bin for m2 = " \
-    + str(m2_bins.centres()[8])
+text = "ln P(c|0) vs rho for each mc bin for m2 = " \
+    + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln p(" + c_in_E + r"\,|\,0)\textrm{ vs stat for }m_2 = %s$" \
-    % str(m2_bins.centres()[8]))
-for mc_ind, mc_range in enumerate(mc_ranges):
-    x_data = rho_by_inj_mc[:, mc_ind]
-    y_data = log_pc0_by_inj_mc[:, mc_ind]
-    plot.add_content(x_data, y_data, marker=".", linestyle="None",
+    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat for some }m_2\ "\
+    r"(%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
+for mc_range, rho_by_inj, log_pc0_by_inj \
+    in zip(mc_ranges, rho_by_inj_mc.T, log_pc0_by_inj_mc.T):
+    plot.add_content(rho_by_inj, log_pc0_by_inj, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-
 plot.finalize(loc=3)
+
+# add SNRs at which we begin extrapolating
+ylims = tuple(plot.ax.get_ylim())
+extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
+for extrap_snr, color in zip(extrap_snr_by_mc,
+    matplotlib.axes._process_plot_var_args.defaultColors):
+    plot.ax.plot((extrap_snr, extrap_snr), ylims,
+        color + "--", label="_nolegend_")
+plot.ax.set_ylim(ylims)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+# save a zoomed version, too
+plot.ax.set_xlim((4, 8))
+plot.ax.set_ylim((-3, 0.2))
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -708,151 +900,50 @@ if not opts.show_plot:
     plot.close()
 
 ## L vs rho for each mc bin
-text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[8])
+text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln \Lambda\textrm{ vs stat for }m_2 = %s$" % str(m2_bins.centres()[8]))
+    r"$\rho_L^2\textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
+    % str(m2_bins.centres()[trace_m2_bin]))
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
     y_data = log_L_by_inj_mc[:, mc_ind]
     plot.add_content(x_data, y_data, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+plot.finalize(loc=2)
 
-plot.finalize(loc=4)
+# add SNRs at which we begin extrapolating
+ylims = tuple(plot.ax.get_ylim())
+extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
+for extrap_snr, color in zip(extrap_snr_by_mc,
+    matplotlib.axes._process_plot_var_args.defaultColors):
+    plot.ax.plot((extrap_snr, extrap_snr), ylims,
+        color + "--", label="_nolegend_")
+plot.ax.set_ylim(ylims)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## for L(c|h) vs (m2, mc) image
-# TODO: before and after MC and calibration systematics
-text = "L(c(mc)|h(m2))"
-
-plot = plotutils.ImagePlot(\
-    r"$m_2\ (M_\odot)$",
-    r"$" + mc_latex + r"(M_\odot;\textrm{ not to scale)}$",
-    r"$\ln \Lambda(c(" + mc_latex + r") \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
-plot.add_content(log_L_mc_m2, m2_bins, mc_bins)
-plot.finalize()
-
+# save a zoomed version, too
+plot.ax.set_xlim((4, 8))
+plot.ax.set_ylim((-0.2, 3))
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "oldlog_L_mc_m2")
+    fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho_zoom")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
-
-## L(c|h) vs m2
-# TODO: before and after MC and calibration systematics
-text = "ln L(c(mc)|h(m2))"
-
-plot = plotutils.SimplePlot(\
-    r"$m_2\ (M_\odot)$",
-    r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$",
-    r"$\ln \Lambda(c \in \mathcal{E}(c_0(m2))\,|\,h(m_2))$")
-for mc_range, log_L_by_m2, is_candidate in \
-    zip(mc_ranges, log_L_mc_m2, actual_candidate_mask):
-    if is_candidate:
-        linestyle = "-"
-    else:
-        linestyle = "--"
-    plot.add_content(m2_bins.centres(), log_L_by_m2, linestyle=linestyle,
-                     label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=4)
-plot.ax.set_ylim(ymin=-0.5)
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "log_L_mc_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## P(L > L_0 | 0) vs m2
-text = "P(L(m_2) > L_0(m_2) | 0) vs m_2 of actual candidates"
-
-plot = plotutils.SimplePlot(\
-    r"$m_2\ (M_\odot)$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2) | 0) \textrm{ using only }"\
-    + mc_latex + r"\textrm{ bins with on-source candidates}$")
-plot.add_content(m2_bins.centres(), pL0_by_m2)
-plot.finalize(loc=4)
-plot.ax.set_ylim((0, 1))
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pL0_by_m2")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-## P(L > L_* | 0) vs L_*
-text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_* using only m_c bins with candidates"
-
-plot = plotutils.SimplePlot(\
-    r"$\ln \Lambda_*$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0)$",
-    r"$P(\Lambda(m_2) > \Lambda_* | 0) \textrm{ vs } \ln \Lambda_*"\
-    r"\textrm{ using only }" + mc_latex + r"\textrm{ bins with candidates}$")
-m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-for m2_range, Lstar_by_trial in \
-    zip(m2_ranges, offsource_likelihood_by_trial_m2.T):
-    plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
-                     label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
-plot.finalize(loc=4)
-plot.ax.set_yscale("log")
-plot.ax.set_xlim(xmin=0)
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pL0_by_L")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
 
 ## p(c|h) from max L mchirp bins vs (m2, D) image
-text = "p(L(m_2) > L_0(m_2)|h(m2, D)) before MC errors"
-
-plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D))$")
-plot.add_content(pLh_by_m2_D.T, m2_bins, D_bins)
-plot.finalize()
-
-# XXX: Hack around an apparent matplotlib API backwards-incompatibility
-# When all clusters have 0.90 or higher, remove the try-except.
-try:
-  image = [c for c in plot.ax.get_children() \
-           if isinstance(c, matplotlib.image.AxesImage)][0]
-  image.set_clim((0, 1))
-except AttributeError:
-  pass
-
-if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "pLh_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
-if not opts.show_plot:
-    plot.close()
-
-
-## p(c|h) from max L mchirp bins vs (m2, D) image
-text = "p(L(m_2) > L_0(m_2)|h(m2, D)) after 90% MC errors"
+text = "p(observation|h(m2, D)) after 90% MC errors"
 
 num_sigmas = stats.norm.ppf(0.9)
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    r"$P(\Lambda(m_2) > \Lambda_0(m_2)\,|\,h(m_2, D)) "
-    r"\textrm{ incl. 90\% MC uncertainty}$")
+    r"$P(" + observation + r"\,|\,h(m_2, D)) "
+    r"\textrm{ w/ 90\% MC error}$")
 plot.add_content(pLh_by_m2_D.T - num_sigmas * MC_sigma.T, m2_bins, D_bins)
 plot.finalize()
 
@@ -873,28 +964,97 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## upper limit contours (m2, D) image
-text = "(m2, D) exclusion plot including MC error"
+## p(c|h) from max L mchirp bins vs (m2, D) image
+text = "p(observation|h(m2, D)) before MC errors"
 
-plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
-    "Exclusion regions")
-
-exclusion_x = m2_bins.lower()
-zero = numpy.zeros(len(m2_bins), dtype=float)
-
-for exclusion_level in (0.25, 0.5, 0.75, 0.9):
-    num_sigmas = stats.norm.ppf(exclusion_level)
-    exclusion_y = get_level_crossings(pLh_by_m2_D - num_sigmas * MC_sigma,
-        exclusion_level, D_bins)
-    tmpx, tmpy = viz.makesteps(exclusion_x, zero, exclusion_y)
-    plot.add_content(tmpx, tmpy,
-        label=str(int(exclusion_level * 100)) + r"\% exclusion")
-
+plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+    r"$P(" + observation + r"\,|\,h(m_2, D))$")
+plot.add_content(pLh_by_m2_D.T, m2_bins, D_bins)
 plot.finalize()
-plot.ax.set_ylim((0, D_bins.max))
+
+# XXX: Hack around an apparent matplotlib API backwards-incompatibility
+# When all clusters have 0.90 or higher, remove the try-except.
+try:
+  image = [c for c in plot.ax.get_children() \
+           if isinstance(c, matplotlib.image.AxesImage)][0]
+  image.set_clim((0, 1))
+except AttributeError:
+  pass
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "exclusion_by_m2_D")
+    fname = InspiralUtils.set_figure_name(opts, "pLh_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## P(L > L_0 | 0) vs m2
+text = "lim_{D->inf} P(observation| h(m2, D)) vs m_2"
+
+orig_size = pylab.rcParams["axes.titlesize"]
+pylab.rcParams["axes.titlesize"] = orig_size * 0.9
+plot = plotutils.SimplePlot(\
+    r"$m_2\ (M_\odot)$",
+    r"$P(" + observation + r"\,|\,0)$",
+    r"\[P(" + observation + r"\,|\,0) \left(= \lim_{D\rightarrow\infty} P(" \
+    + observation + r"\,|\,h(m_2, D))\right)\]")
+plot.add_content(m2_bins.centres(), pL0_by_m2)
+plot.finalize(loc=4)
+plot.ax.set_ylim((0, 1))
+pylab.rcParams["axes.titlesize"] = orig_size
+
+# the title is stupidly huge; shrink plot to fit it
+plot.ax.set_position((0.12, 0.1, 0.8, 0.78))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pL0_by_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## P(L > L_* | 0) vs L_*
+text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
+
+plot = plotutils.SimplePlot(\
+    r"${\rho_L^*}^2$",
+    r"$P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0)$",
+    r"\[P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0) "\
+    r"\left(= \lim_{D\rightarrow\infty} P(\rho_L^2(m_2) > \rho_{L,*}^2 "\
+    r"\,|\,h(m_2, D))\right)\]")
+
+m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
+for m2_range, Lstar_by_trial in \
+    zip(m2_ranges, L_star_by_m2_trial):
+    plot.add_content(Lstar_by_trial, offsource_pL0_by_trial,
+                     label=r"$m_2 \in [%4.1f, %4.1f) M_\odot$" % m2_range)
+plot.finalize(loc=4)
+plot.ax.set_yscale("log")
+plot.ax.set_xlim(xmin=0)
+
+# the title is stupidly huge; shrink plot to fit it
+plot.ax.set_position((0.12, 0.1, 0.8, 0.78))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "pL0_by_L")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## injection count vs (m2, D) image
+text = "Injection count"
+
+plot = plotutils.ImagePlot("$m_2\ (M_\odot)$", "$D\ \mathrm{(Mpc)}$",
+    r"Injections made")
+plot.add_content(num_sims_by_m2_D.T, m2_bins, D_bins)
+plot.finalize()
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "injection_count_by_m2_D")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
