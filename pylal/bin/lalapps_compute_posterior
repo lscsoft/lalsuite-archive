@@ -181,6 +181,9 @@ parser.add_option("-f","--galaxies-file",action="append",type="string",\
     help="File containing the output from plotnumgalaxies" ) 
 parser.add_option("-t","--observation-time",action="append",type="float",\
     default=None, metavar=" TOBS", help="observation time in units of years" ) 
+parser.add_option("-T","--time-analyzed-file",action="append",type="string",\
+    default=None, metavar=" TFILE", \
+    help="Location of corse time analyzed file to read obs time from." )
 parser.add_option("-m","--max-rate",action="store",type="float",\
     default=200.0, metavar=" MAXRATE", \
     help="max rate on integral for posterior" ) 
@@ -214,6 +217,29 @@ if not opts.prior:
   print >>sys.stderr, "Must supply a prior for calculation\n" 
   sys.exit(1)
 
+if opts.time_analyzed_file and opts.observation_time:
+  print >>sys.stderr, "You cannot supply time --time-analyzed-file and " +\
+      "--observation-time\n"
+  sys.exit(1)
+
+if (opts.time_analyzed_file):
+  if (len(opts.galaxies_file)-len(opts.time_analyzed_file)):
+    print >>sys.stderr, "Must give same number of galaxy files and " +\
+        "observation times\n"
+    print >> sys.stderr, "Number of galaxy-files (-f):" + \
+        str(len(opts.galaxies_file)) + \
+        "  number of observation time files (-t):" + \
+        str(len(opts.observation_time))
+    sys.exit(1)
+  opts.observation_time =[]
+  sec2year = 3.16889554E-8
+  for timeFile in opts.time_analyzed_file:
+    openFile = open(timeFile,'r')
+    for line in openFile:
+      lineConts = (line.replace('\n','')).split(' ')
+      if lineConts[0] == '0':
+        opts.observation_time.append(float(lineConts[1])*sec2year)
+  
 if (len(opts.galaxies_file)-len(opts.observation_time)):
   print >>sys.stderr, "Must give same number of galaxy files and " +\
                       "observation times\n"
@@ -462,6 +488,16 @@ for bin in range(massBins):
   if opts.figure_name:
     savefig( outputName + "-ngt-dist.png" )
 
+  # Determine a recommended xmax for the plots
+  print "Beginning loop",len(nomarginpost),xrange(len(nomarginpost))
+  flag = False
+  maxPost = max(nomarginpost)
+  for iterNum in xrange(len(nomarginpost)):
+    if nomarginpost[iterNum] < maxPost/1000.:
+      recXmax = rate[iterNum]
+      break
+  print "Ending loop", recXmax
+
   # plot the posterior pdf
   figure()
   plot(rate,nomarginpost,rate,marginpost,linewidth=2)
@@ -472,9 +508,23 @@ for bin in range(massBins):
   grid()
   tmpv = asarray(axis())
   if opts.xmax: tmpv[1]=opts.xmax
+  else: 
+    tmpv[1] = recXmax
   axis(tmpv)
   if opts.figure_name:
     savefig( outputName + "-posterior-pdf.png" )
+
+  figure()
+  semilogx(rate,nomarginpost,rate,marginpost,linewidth=2)
+  legend(('posterior','marginalized posterior'))
+  xlabel('Log rate / yr / $L_{10}$', size='x-large')
+  ylabel('Probability', size='x-large')
+  title('Posterior on the rate')
+  grid()
+  if opts.xmax:
+    xlim(0,opts.xmax)
+  if opts.figure_name:
+    savefig( outputName + "-posterior-pdf-log.png" )
 
   # plot the cumulative probability
   if opts.verbose:
@@ -489,10 +539,23 @@ for bin in range(massBins):
   title('Cumulative posterior on the rate')
   grid()
   if opts.xmax:  axis([0,opts.xmax,0.001,1])
-  else: ylim([0.001,1])
+  else: axis([0,recXmax,0.001,1])
 
   if opts.figure_name:
     savefig( outputName + "-posterior-cdf.png")
+
+  figure()
+  loglog(rate,1.0-cumnomarginpost, rate,1.0-cummarginpost,linewidth=2)
+  legend(('posterior','marginalized posterior'))
+  xlabel('Log rate / yr / $L_{10}$', size='x-large')
+  ylabel('Cumulative Probability', size='x-large')
+  title('Cumulative posterior on the rate')
+  grid()
+  if opts.xmax:  axis([0,opts.xmax,0.001,1])
+  else: ylim([0.001,1])
+
+  if opts.figure_name:
+    savefig( outputName + "-posterior-cdf-log.png")
  
   # print out the upper limit based on the confidence level confLevel
   ularray[bin,0]=data["mlo"]
