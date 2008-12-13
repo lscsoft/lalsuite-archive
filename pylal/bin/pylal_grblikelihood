@@ -816,8 +816,7 @@ plot = plotutils.SimplePlot(\
     r"Significance of candidates in different mchirp regions")
 for mc_range, mc_log_L_by_m2, extrap_log_L_by_m2, is_candidate, color in \
     zip(mc_ranges, log_L_by_mc_m2, extrap_log_L_by_mc_m2,
-    actual_candidate_mask,
-    matplotlib.axes._process_plot_var_args.defaultColors):
+    actual_candidate_mask, plotutils.default_colors()):
     if is_candidate:
         linestyle = "-"
     else:
@@ -877,8 +876,7 @@ plot.finalize(loc=3)
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
 extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
-for extrap_snr, color in zip(extrap_snr_by_mc,
-    matplotlib.axes._process_plot_var_args.defaultColors):
+for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
@@ -915,8 +913,7 @@ plot.finalize(loc=2)
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
 extrap_snr_by_mc = compute_log_pc0_by_mc.fiducial_x
-for extrap_snr, color in zip(extrap_snr_by_mc,
-    matplotlib.axes._process_plot_var_args.defaultColors):
+for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
