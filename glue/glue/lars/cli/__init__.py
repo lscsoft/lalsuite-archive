@@ -51,9 +51,9 @@ def printErrors(rv):
         print "There was a problem:"
         for key in rv['Error']:
             if key == 'url':
-                print "    %s: %s" % ("directory", rv[key])
+                print "    %s: %s" % ("directory", rv['Error'][key])
             else:
-                print "    %s: %s" % (key, rv[key])
+                print "    %s: %s" % (key, rv['Error'][key])
     if 'Exception' in rv:
         print "Problem:", rv['Exception']
     if 'Warning' in rv:
@@ -267,7 +267,7 @@ class Search(Command):
 
     def run_command(self, options={}, args=[]):
         import webbrowser
-        print "Opening browser"
+#       print "Opening browser"
         params = {}
         if options.description:
             params['description'] = options.description
@@ -288,6 +288,7 @@ class Search(Command):
         else:
             url = urljoin(options.server, "/search")
         if options.browser:
+            print "Opening Browser"
             webbrowser.open_new(url)
         else:
             server = Server(options.server)
