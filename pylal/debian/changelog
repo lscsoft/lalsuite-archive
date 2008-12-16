@@ -1,3 +1,26 @@
+python-pylal (0.1-3lscsoft2.4) unstable; urgency=low
+
+  * python2.5 support requires numpy 1.1.x (Lenny and up)
+  * for now, build 2.4 only!
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Mon, 24 Nov 2008 14:15:00 +0100
+
+python-pylal (0.1-3lscsoft1) unstable; urgency=low
+
+  * build site-packages with both python2.5 and python2.4
+  * enable compilation of site-packages
+  * edit shebangs of bin/ scripts to invoke python2.4
+  * depend on python2.4, recommend python2.5
+  * build arch-dependent
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Fri, 21 Nov 2008 15:00:00 +0100
+
+python-pylal (0.1-2) unstable; urgency=low
+
+  * Rename to conform to python-* naming standards; builds into /opt/lscsoft
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Mon, 10 Nov 2008 14:40:00 +0100
+
 pylal (0.1-1) unstable; urgency=low
 
   * Initial release from CVS checkout

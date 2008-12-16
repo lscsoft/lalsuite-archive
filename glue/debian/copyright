@@ -1,6 +1,20 @@
 This package was debianized by Kipp Cannon <kipp@gravity.phys.uwm.edu> on
 2005-10-27.
+This package was re-debianized by Steffen Grunewald <steffen.grunewald@aei.mpg.de> on
+Wed, 10 Oct 2007 21:38:00 +0200, and later merged with Kipp's work repeatedly.
+
+Released versions can be downloaded from 
+http://www.lsc-group.phys.uwm.edu/daswg/download/software/
+CVS versions are synchronized with the corresponding CVS.
 
 Upstream Author(s): The LIGO Scientific Collaboration
 
 Copyright: GPL
+
+
+License:
+
+
+The Debian packaging is (C) 2007, Steffen Grunewald <steffen.grunewald@aei.mpg.de> and
+is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
+

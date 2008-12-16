@@ -1,3 +1,35 @@
+python-glue (1.18-6lscsoft3) unstable; urgency=low
+
+  * CFLAGS fix
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 20 Nov 2008 14:30:00 +0100
+
+python-glue (1.18-6lscsoft2) unstable; urgency=low
+
+  * enable compilation of site-packages
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 20 Nov 2008 14:00:00 +0100
+
+python-glue (1.18-6lscsoft1) unstable; urgency=low
+
+  * build site-packages with both python2.5 and python2.4
+  * edit shebangs of bin/ scripts to invoke python2.4
+  * depend on python2.4, recommend python2.5
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Thu, 20 Nov 2008 12:30:00 +0100
+
+python-glue (1.18-4lscsoft2) unstable; urgency=low
+
+  * python2.4 (build) requirement revoked
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 12 Nov 2008 10:25:00 +0100
+
+python-glue (1.18-4lscsoft1) unstable; urgency=low
+
+  * package renamed to python-glue, build using python2.4
+
+ -- Steffen Grunewald <steffen.grunewald@aei.mpg.de>  Wed, 12 Nov 2008 10:00:00 +0100
+
 python-glue (1.18-3lscsoft2) unstable; urgency=low
 
   * prefix=/opt/lscsoft/glue, some fixes
