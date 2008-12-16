@@ -10,6 +10,7 @@
 #include "power_sums.h"
 #include "dataset.h"
 #include "grid.h"
+#include "skymarks.h"
 #include "cmdline.h"
 
 extern struct gengetopt_args_info args_info;
@@ -18,6 +19,7 @@ extern SKY_GRID *fine_grid, *patch_grid;
 extern SKY_SUPERGRID *super_grid;
 
 extern int first_bin, nbins;
+extern SKYMARK *compiled_skymarks;
 
 INT64 spindown_start;
 
@@ -25,6 +27,7 @@ void generate_patch_templates(int pi, POWER_SUM **ps, int *count)
 {
 POWER_SUM *p;
 int i, j, k, kk;
+int skyband;
 int fshift_count=args_info.nfshift_arg; /* number of frequency offsets */
 
 *count=0;
@@ -34,8 +37,10 @@ p=do_alloc(super_grid->max_npatch*args_info.spindown_count_arg*fshift_count, siz
 
 for(i=0;i<args_info.spindown_count_arg;i++) {
 	for(kk=super_grid->first_map[pi];kk>=0;kk=super_grid->list_map[kk]) {
-		/* TODO - this effectively requires skybands to not depend on spindown it would be nice if that was not so */			
-		if(fine_grid->band[kk]<0)continue;
+		/* TODO - this effectively requires skybands to not depend on spindown it would be nice if that was not so */
+		if(args_info.fine_grid_skymarks_arg)skyband=fine_grid->band[kk];
+			else skyband=mark_sky_point(compiled_skymarks, kk, fine_grid->longitude[kk], fine_grid->latitude[kk], args_info.spindown_start_arg+i*args_info.spindown_step_arg);
+		if(skyband<0)continue;
 
 		for(j=0;j<fshift_count;j++) {
 			p->freq_shift=args_info.frequency_offset_arg+j/(1800.0*fshift_count);
@@ -53,7 +58,7 @@ for(i=0;i<args_info.spindown_count_arg;i++) {
 				}
 
 			/* TODO - this effectively requires skybands do not depend on spindown it would be nice if that was not so */			
-			p->skyband=fine_grid->band[kk];
+			p->skyband=skyband;
 
 			p->pps=allocate_partial_power_sum();
 			zero_partial_power_sum(p->pps);

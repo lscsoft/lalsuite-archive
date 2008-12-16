@@ -311,6 +311,9 @@ struct gengetopt_args_info
   int compute_skymaps_arg;	/**< @brief allocate memory and compute skymaps with final results (default='0').  */
   char * compute_skymaps_orig;	/**< @brief allocate memory and compute skymaps with final results original value given at command line.  */
   const char *compute_skymaps_help; /**< @brief allocate memory and compute skymaps with final results help description.  */
+  int fine_grid_skymarks_arg;	/**< @brief use sky marks from the fine grid, this uses constant spindown (default='0').  */
+  char * fine_grid_skymarks_orig;	/**< @brief use sky marks from the fine grid, this uses constant spindown original value given at command line.  */
+  const char *fine_grid_skymarks_help; /**< @brief use sky marks from the fine grid, this uses constant spindown help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -407,6 +410,7 @@ struct gengetopt_args_info
   unsigned int tmedian_noise_level_given ;	/**< @brief Whether tmedian-noise-level was given.  */
   unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
+  unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

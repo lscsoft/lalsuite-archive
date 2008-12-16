@@ -44,6 +44,7 @@
 #include "outer_loop.h"
 #include "util.h"
 #include "jobs.h"
+#include "skymarks.h"
 
 extern int ntotal_polarizations, nlinear_polarizations;
 extern POLARIZATION *polarizations;
@@ -72,6 +73,7 @@ int first_bin;
 char *sky_marks=NULL;
 int sky_marks_free=0;
 int sky_marks_size=0;
+SKYMARK *compiled_skymarks=NULL;
 
 int subinstance;
 char *subinstance_name;
@@ -743,6 +745,8 @@ if(args_info.no_demodulation_arg){
 
 output_datasets_info();
 
+/* TODO: this is here so we can fallback on old skymark code (for comparison). It would be nice to remove this altogether */
+spindown=args_info.spindown_start_arg+0.5*(args_info.spindown_count_arg-1)*args_info.spindown_step_arg;
 
 /* this is so we know how many skybands we have */
 if(sky_marks!=NULL) {
@@ -759,11 +763,12 @@ fprintf(stderr, "outer_loop_start: %d\n", (int)(stage_time-start_time));
 
 if(sky_marks!=NULL) {
 	process_marks(fine_grid, sky_marks, sky_marks_free);
+	compiled_skymarks=compile_marks(fine_grid, sky_marks, sky_marks_free);
+
 	process_marks(patch_grid, "disk \"sky\" \"\" 0 0 100", 21);
 	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
 	//process_marks(patch_grid, sky_marks, sky_marks_free);
 	} else {
-
 	/* assign bands */
 	if(!strcasecmp("S", args_info.skyband_method_arg)) {
 		S_assign_bands(patch_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
@@ -771,7 +776,7 @@ if(sky_marks!=NULL) {
 		} else 
 	if(!strcasecmp("angle", args_info.skyband_method_arg)) {
 		angle_assign_bands(patch_grid, args_info.nskybands_arg);
-		angle_assign_bands(fine_grid, args_info.nskybands_arg);		
+		angle_assign_bands(fine_grid, args_info.nskybands_arg);
 		} else {
 		fprintf(stderr, "*** ERROR: unknown band assigment method \"%s\"\n",
 			args_info.skyband_method_arg);

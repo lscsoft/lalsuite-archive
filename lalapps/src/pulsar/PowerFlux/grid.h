@@ -119,6 +119,7 @@ SKY_SUPERGRID *make_sin_theta_supergrid(SKY_GRID *grid, int factor);
 SKY_SUPERGRID * reduced_supergrid(SKY_SUPERGRID *sg0);
 void free_supergrid(SKY_SUPERGRID *sg);
 
+int add_band(SKY_GRID *sky_grid, char *name, int length);
 void print_grid_statistics(FILE *file, char *prefix, SKY_GRID *grid);
 void angle_assign_bands(SKY_GRID *grid, int n_bands);
 void S_assign_bands(SKY_GRID *grid, int n_bands, double large_S, double s, double f);

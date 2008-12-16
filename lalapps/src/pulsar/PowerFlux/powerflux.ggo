@@ -120,3 +120,4 @@ option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed
 option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no
 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no
+option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses constant spindown" int default="0" no

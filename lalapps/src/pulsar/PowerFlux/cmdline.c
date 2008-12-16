@@ -124,6 +124,7 @@ const char *gengetopt_args_info_help[] = {
   "      --tmedian-noise-level=INT Use TMedians to estimate noise level (as \n                                  opposed to in-place standard deviation)  \n                                  (default=`1')",
   "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
+  "      --fine-grid-skymarks=INT  use sky marks from the fine grid, this uses \n                                  constant spindown  (default=`0')",
     0
 };
 
@@ -270,6 +271,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->tmedian_noise_level_given = 0 ;
   args_info->dump_power_sums_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
+  args_info->fine_grid_skymarks_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -447,6 +449,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->dump_power_sums_orig = NULL;
   args_info->compute_skymaps_arg = 0;
   args_info->compute_skymaps_orig = NULL;
+  args_info->fine_grid_skymarks_arg = 0;
+  args_info->fine_grid_skymarks_orig = NULL;
   
 }
 
@@ -552,6 +556,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->tmedian_noise_level_help = gengetopt_args_info_help[93] ;
   args_info->dump_power_sums_help = gengetopt_args_info_help[94] ;
   args_info->compute_skymaps_help = gengetopt_args_info_help[95] ;
+  args_info->fine_grid_skymarks_help = gengetopt_args_info_help[96] ;
   
 }
 
@@ -787,6 +792,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->tmedian_noise_level_orig));
   free_string_field (&(args_info->dump_power_sums_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
+  free_string_field (&(args_info->fine_grid_skymarks_orig));
   
   
 
@@ -1013,6 +1019,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "dump-power-sums", args_info->dump_power_sums_orig, 0);
   if (args_info->compute_skymaps_given)
     write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
+  if (args_info->fine_grid_skymarks_given)
+    write_into_file(outfile, "fine-grid-skymarks", args_info->fine_grid_skymarks_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1668,6 +1676,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "tmedian-noise-level",	1, NULL, 0 },
         { "dump-power-sums",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
+        { "fine-grid-skymarks",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -2978,6 +2987,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.compute_skymaps_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "compute-skymaps", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* use sky marks from the fine grid, this uses constant spindown.  */
+          else if (strcmp (long_options[option_index].name, "fine-grid-skymarks") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->fine_grid_skymarks_arg), 
+                 &(args_info->fine_grid_skymarks_orig), &(args_info->fine_grid_skymarks_given),
+                &(local_args_info.fine_grid_skymarks_given), optarg, 0, "0", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "fine-grid-skymarks", '-',
                 additional_error))
               goto failure;
           
