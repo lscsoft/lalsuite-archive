@@ -61,8 +61,8 @@ class followUpDAG(pipeline.CondorDAG, webTheDAG):
 
 def checkHipeCachePath(cp):
   try:
-    if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
-      hipeCachePath = string.strip(cp.get('hipe-cache','hipe-cache-path'))
+    if len(string.strip(cp.get('followup-hipe-cache','hipe-cache-path'))) > 0:
+      hipeCachePath = string.strip(cp.get('followup-hipe-cache','hipe-cache-path'))
     else:
       hipeCachePath = None
     return(hipeCachePath)
@@ -176,8 +176,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       # add the arguments that have been specified in the section 
       # [inspiral-extra] of the ini file (intended for 12-18 month analysis)
-      if cp.has_section("inspiral-extra"):
-        for (name,value) in cp.items("inspiral-extra"):
+      if cp.has_section("followup-inspiral-extra"):
+        for (name,value) in cp.items("followup-inspiral-extra"):
           self.add_var_opt(name,value)
 
       if not ifo == self.inputIfo:
@@ -190,12 +190,12 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       # THIS IS A HACK FOR NOW, THERE IS PROBABLY A BETTER WAY TO DO THIS
       if (type == 'head'): 
-        subBankSize = string.strip(cp.get('inspiral-head','bank-veto-subbank-size'))
+        subBankSize = string.strip(cp.get('followup-inspiral-head','bank-veto-subbank-size'))
         if opts.inspiral_head:
           bankFileName = fu_utils.generateBankVetoBank(trig, ifo, str(trig.gpsTime[ifo]), sngl_table[ifo],int(subBankSize),'BankVetoBank')
         else: bankFileName = 'none'      
-        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('inspiral-head','bank-veto-subbank-size')))
-        self.add_var_opt("order", string.strip(cp.get('inspiral-head','order')))
+        self.add_var_opt("bank-veto-subbank-size", string.strip(cp.get('followup-inspiral-head','bank-veto-subbank-size')))
+        self.add_var_opt("order", string.strip(cp.get('followup-inspiral-head','order')))
         self.set_bank(bankFileName)
 
 
@@ -245,8 +245,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
   def checkInjections(self,cp):
     try:
-      if len(string.strip(cp.get('triggers','injection-file'))) > 0:
-        injectionFile = string.strip(cp.get('triggers','injection-file'))
+      if len(string.strip(cp.get('followup-triggers','injection-file'))) > 0:
+        injectionFile = string.strip(cp.get('followup-triggers','injection-file'))
       else:
         injectionFile = None
       return(injectionFile)
@@ -517,8 +517,8 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
       # if the selected "ifo" needs to be done remotely (this the case for 
       # Virgo qscan datafind) do not add the node to the dag
       if eval('opts.' + datafindCommand) and \
-        not( cp.has_option(type,"remote-ifo") and \
-        cp.get(type,"remote-ifo")==ifo ):
+        not( cp.has_option("followup-"+type,"remote-ifo") and \
+        cp.get("followup-"+type,"remote-ifo")==ifo ):
           dag.addNode(self,nodeName)
           self.validNode = True
       else: self.validNode = False
@@ -536,7 +536,7 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     self.set_observatory(ifo[0])
     self.set_start(int(startTime) - int(paddataTime))
     self.set_end(int(endTime) + int(paddataTime))
-    self.set_type(cp.get(type,ifo + '_type'))
+    self.set_type(cp.get("followup-"+type,ifo + '_type'))
     lalCache = self.get_output()
     return(lalCache)
 
@@ -544,14 +544,14 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     # 1s is substracted to the expected startTime to make sure the window
     # will be large enough. This is to be sure to handle the rouding to the
     # next sample done by qscan.
-    self.q_time = cp.getint(type,'search-time-range')/2
+    self.q_time = cp.getint("followup-"+type,'search-time-range')/2
     self.set_observatory(ifo[0])
     self.set_start(int( time - self.q_time - 1))
     self.set_end(int( time + self.q_time + 1))
-    if cp.has_option(type, ifo + '_type'): 
-      self.set_type( cp.get(type, ifo + '_type' ))
+    if cp.has_option("followup-"+type, ifo + '_type'): 
+      self.set_type( cp.get("followup-"+type, ifo + '_type' ))
     else:
-      self.set_type( cp.get(type, 'type' ))
+      self.set_type( cp.get("followup-"+type, 'type' ))
     lalCache = self.get_output()
     qCache = lalCache.rstrip("cache") + "qcache"
     self.set_post_script(job.name + "/cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )
@@ -592,12 +592,12 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_arg('scanlite')
     else:
       self.add_var_arg('scan')
-    qscanConfig = string.strip(cp.get(name, ifo + 'config-file'))
+    qscanConfig = string.strip(cp.get("followup-"+name, ifo + 'config-file'))
     self.add_var_arg("-c "+qscanConfig)
     self.add_var_arg("-f "+qcache)
 
-    if cp.has_option(name, ifo + 'output') and string.strip(cp.get(name, ifo + 'output')):
-      output = string.strip(cp.get(name, ifo + 'output'))
+    if cp.has_option("followup-"+name, ifo + 'output') and string.strip(cp.get("followup-"+name, ifo + 'output')):
+      output = string.strip(cp.get("followup-"+name, ifo + 'output'))
     else:
       output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifo
     if not os.access(output,os.F_OK):
@@ -620,8 +620,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     #extract web output from the ini file if the job is QSCAN
     if job.name == 'QSCAN':
-      if cp.has_option(name,ifo+'web') and string.strip(cp.get(name,ifo+'web')):
-        pageOverride = string.strip(cp.get(name,ifo+'web'))+'/'+repr(time)
+      if cp.has_option("followup-"+name,ifo+'web') and string.strip(cp.get("followup-"+name,ifo+'web')):
+        pageOverride = string.strip(cp.get("followup-"+name,ifo+'web'))+'/'+repr(time)
       else:
         pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifo + '/' + repr(time)
       self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
@@ -649,8 +649,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     # if the selected "ifo" needs to be done remotely (this the case for 
     # Virgo qscans) do not add the node to the dag
     if eval('opts.' + qscanCommand):
-      if not(cp.has_option(name,"remote-ifo") and \
-      cp.get(name,"remote-ifo")==ifo):
+      if not(cp.has_option("followup-"+name,"remote-ifo") and \
+      cp.get("followup-"+name,"remote-ifo")==ifo):
         dag.addNode(self,self.friendlyName)
         self.validNode = True
       else:
@@ -739,26 +739,26 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
 
     try:
       pipeline.CondorDAGNode.__init__(self,job)
-      if cp.has_option('analyse-qscan','generate-qscan-xml'):
+      if cp.has_option('followup-analyse-qscan','generate-qscan-xml'):
         self.add_var_opt('generate-qscan-xml','')
-      self.add_var_opt('z-threshold',cp.getfloat('analyse-qscan','z-threshold'))
-      if cp.has_option('analyse-qscan','plot-z-distribution'):
+      self.add_var_opt('z-threshold',cp.getfloat('followup-analyse-qscan','z-threshold'))
+      if cp.has_option('followup-analyse-qscan','plot-z-distribution'):
         self.add_var_opt('plot-z-distribution','')
-        self.add_var_opt('z-min',cp.getfloat('analyse-qscan','z-min'))
-        self.add_var_opt('z-max',cp.getfloat('analyse-qscan','z-max'))
-        self.add_var_opt('z-bins',cp.getfloat('analyse-qscan','z-bins'))
-      if cp.has_option('analyse-qscan','plot-dt-distribution'):
+        self.add_var_opt('z-min',cp.getfloat('followup-analyse-qscan','z-min'))
+        self.add_var_opt('z-max',cp.getfloat('followup-analyse-qscan','z-max'))
+        self.add_var_opt('z-bins',cp.getfloat('followup-analyse-qscan','z-bins'))
+      if cp.has_option('followup-analyse-qscan','plot-dt-distribution'):
         self.add_var_opt('plot-dt-distribution','')
-        self.add_var_opt('dt-min',cp.getfloat('analyse-qscan',shortName + 'dt-min'))
-        self.add_var_opt('dt-max',cp.getfloat('analyse-qscan',shortName + 'dt-max'))
-        self.add_var_opt('dt-bins',cp.getfloat('analyse-qscan','dt-bins'))
-      if cp.has_option('analyse-qscan','plot-z-scattered'):
+        self.add_var_opt('dt-min',cp.getfloat('followup-analyse-qscan',shortName + 'dt-min'))
+        self.add_var_opt('dt-max',cp.getfloat('followup-analyse-qscan',shortName + 'dt-max'))
+        self.add_var_opt('dt-bins',cp.getfloat('followup-analyse-qscan','dt-bins'))
+      if cp.has_option('followup-analyse-qscan','plot-z-scattered'):
         self.add_var_opt('plot-z-scattered','')
-      if cp.has_option('analyse-qscan','plot-z-scattered') or cp.has_option('analyse-qscan','plot-dt-distribution'):
+      if cp.has_option('followup-analyse-qscan','plot-z-scattered') or cp.has_option('followup-analyse-qscan','plot-dt-distribution'):
         if not ifo=='V1':
-          refChannel = cp.get('analyse-qscan',shortName + 'ref-channel').split(',')[0].strip()
+          refChannel = cp.get('followup-analyse-qscan',shortName + 'ref-channel').split(',')[0].strip()
         else:
-          refChannel = cp.get('analyse-qscan',shortName + 'ref-channel').split(',')[1].strip()
+          refChannel = cp.get('followup-analyse-qscan',shortName + 'ref-channel').split(',')[1].strip()
         self.add_var_opt('ref-channel',refChannel)
       self.add_var_opt('qscan-id',name + '_' + ifo + '_' + repr(time)) 
 
@@ -767,7 +767,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
 
       self.setupNodeWeb(job,True,None,dag.page,None,dag.cache)
       # get the table of the qscan job associated to this trigger
-      if not(cp.has_option(name,"remote-ifo") and cp.get(name,"remote-ifo")==ifo):
+      if not(cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo):
         for node in dag.get_nodes():
           if isinstance(node,qscanNode):
             if node.id == self.id:
@@ -792,7 +792,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
         # if node distributeQscanNode is valid and remote if is analysed,
         # add distributeQscanNode as parent
         if isinstance(node,distributeQscanNode):
-          if cp.has_option(name,"remote-ifo") and cp.get(name,"remote-ifo")==ifo:
+          if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
             if node.validNode:
               self.add_parent(node)
         # add all qscan nodes of the same type as parents
@@ -873,8 +873,8 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     str(max(cache_start)) + '-' + str(min(cache_end)) + '.qcache'
 
 
-    if cp.has_option(name, ifoString + '-output') and string.strip(cp.get(name, ifoString + '-output')):
-      output = string.strip(cp.get(name, ifoString + '-output'))
+    if cp.has_option("followup-"+name, ifoString + '-output') and string.strip(cp.get("followup-"+name, ifoString + '-output')):
+      output = string.strip(cp.get("followup-"+name, ifoString + '-output'))
     else:
       output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifoString
     if not os.access(output,os.F_OK):
@@ -885,12 +885,12 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
         sys.exit(1)
 
     self.add_var_arg('event')
-    qeventConfig = string.strip(cp.get(name, ifoString + '-config-file'))
+    qeventConfig = string.strip(cp.get("followup-"+name, ifoString + '-config-file'))
     self.add_var_arg('-p '+qeventConfig)
     self.add_file_arg('-f '+qeventcache)
     self.add_var_arg('-o '+output)
     self.add_var_arg(repr(times[ifoList[0]]))
-    eventDuration = string.strip(cp.get(name, 'duration'))
+    eventDuration = string.strip(cp.get("followup-"+name, 'duration'))
     self.add_var_arg(eventDuration)
 
     self.set_pre_script(job.name + "/cachecat.sh %s %s %s" \
@@ -904,8 +904,8 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     #prepare the string for the output cache
     self.outputCache = ifoString + ' ' + name + ' ' + repr(times[ifoList[0]]) + ' ' + self.outputName + '\n'
 
-    if cp.has_option(name,ifoString+'-web') and string.strip(cp.get(name,ifoString+'-web')):
-      pageOverride = string.strip(cp.get(name,ifoString+'-web'))+'/'+repr(times[ifoList[0]])
+    if cp.has_option("followup-"+name,ifoString+'-web') and string.strip(cp.get("followup-"+name,ifoString+'-web')):
+      pageOverride = string.strip(cp.get("followup-"+name,ifoString+'-web'))+'/'+repr(times[ifoList[0]])
     else:
       pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
     self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
@@ -962,7 +962,7 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
     
       pipeline.CondorDAGNode.__init__(self,FrCheckJob)
       self.add_var_opt("frame-cache", cacheFile)
-      self.add_var_opt("frame-check-executable", string.strip(cp.get('frameCheck','executable')))
+      self.add_var_opt("frame-check-executable", string.strip(cp.get('followup-frameCheck','executable')))
 
       self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
@@ -1041,14 +1041,14 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
     try:
-      time_margin = string.strip(cp.get('mcmc','prior-coal-time-marg'))
-      iterations = string.strip(cp.get('mcmc','iterations'))
-      tbefore = string.strip(cp.get('mcmc','tbefore'))
-      tafter = string.strip(cp.get('mcmc','tafter'))
-      massmin = string.strip(cp.get('mcmc','massmin'))
-      massmax = string.strip(cp.get('mcmc','massmax'))
-      dist90 = string.strip(cp.get('mcmc','dist90'))
-      dist10 = string.strip(cp.get('mcmc','dist10'))
+      time_margin = string.strip(cp.get('followup-mcmc','prior-coal-time-marg'))
+      iterations = string.strip(cp.get('followup-mcmc','iterations'))
+      tbefore = string.strip(cp.get('followup-mcmc','tbefore'))
+      tafter = string.strip(cp.get('followup-mcmc','tafter'))
+      massmin = string.strip(cp.get('followup-mcmc','massmin'))
+      massmax = string.strip(cp.get('followup-mcmc','massmax'))
+      dist90 = string.strip(cp.get('followup-mcmc','dist90'))
+      dist10 = string.strip(cp.get('followup-mcmc','dist10'))
 
       self.friendlyName = 'MCMC followup'
       pipeline.CondorDAGNode.__init__(self,followupmcmcJob)
@@ -1060,7 +1060,7 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
         if param == 'gps-end-time': chunk_end = value
         if param == 'gps-start-time': chunk_start = value
 
-      self.add_var_opt("template",string.strip(cp.get('mcmc','template')))
+      self.add_var_opt("template",string.strip(cp.get('followup-mcmc','template')))
       self.add_var_opt("iterations",iterations)
       self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
       self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[ifo])
@@ -1147,13 +1147,13 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.friendlyName = 'plot MCMC'
       pipeline.CondorDAGNode.__init__(self,plotmcmcjob)
 
-      if cp.has_option('plotmcmc','burnin'):
-        burnin = string.strip(cp.get('plotmcmc','burnin'))
+      if cp.has_option('followup-plotmcmc','burnin'):
+        burnin = string.strip(cp.get('followup-plotmcmc','burnin'))
         if burnin.strip():
           self.add_var_opt("burnin",burnin)
 
-      plot_routine = string.strip(cp.get('plotmcmc','plot_routine'))
-      executable = string.strip(cp.get('plotmcmc','executable'))
+      plot_routine = string.strip(cp.get('followup-plotmcmc','plot_routine'))
+      executable = string.strip(cp.get('followup-plotmcmc','executable'))
       sim = None
       try:
         sim = isinstance(trig.coincs.sim,lsctables.SimInspiral)
@@ -1190,8 +1190,8 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.id = plotmcmcjob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.add_var_opt("identity",self.id)
 
-      if cp.has_option('plotmcmc', 'output') and string.strip(cp.get('plotmcmc', 'output')):
-        outputpath = string.strip(cp.get('plotmcmc', 'output'))
+      if cp.has_option('followup-plotmcmc', 'output') and string.strip(cp.get('followup-plotmcmc', 'output')):
+        outputpath = string.strip(cp.get('followup-plotmcmc', 'output'))
       else:
         outputpath = dag.publish_path + '/' + plotmcmcjob.name
       if not os.access(outputpath,os.F_OK):
@@ -1201,8 +1201,8 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
           print >> sys.stderr, 'path '+outputpath+' is not writable'
           sys.exit(1)
 
-      if cp.has_option('plotmcmc','web') and string.strip(cp.get('plotmcmc','web')):
-        webpath = string.strip(cp.get('plotmcmc','web'))
+      if cp.has_option('followup-plotmcmc','web') and string.strip(cp.get('followup-plotmcmc','web')):
+        webpath = string.strip(cp.get('followup-plotmcmc','web'))
       else:
         webpath = dag.page + '/' + plotmcmcjob.name
 

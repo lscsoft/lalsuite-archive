@@ -75,9 +75,9 @@ class getCache(UserDict):
       os.chdir("cache")
       os.chdir(currentPath)
     except:
-      if len(string.strip(cp.get('hipe-cache','hipe-cache-path'))) > 0:
+      if len(string.strip(cp.get('followup-hipe-cache','hipe-cache-path'))) > 0:
         try:
-          os.symlink(string.strip(cp.get('hipe-cache','hipe-cache-path')), 'cache')
+          os.symlink(string.strip(cp.get('followup-hipe-cache','hipe-cache-path')), 'cache')
         except: print >> sys.stderr, "WARNING: cache directory exists, cannot link"
       else: pass
 
@@ -95,8 +95,8 @@ class getCache(UserDict):
     x = re.compile(".xml")
     g = re.compile(".gz")
     try:
-      dir = os.listdir(string.strip(cp.get('hipe-cache',iniName)))
-      cache_path = os.path.abspath(string.strip(cp.get('hipe-cache',iniName)))
+      dir = os.listdir(string.strip(cp.get('followup-hipe-cache',iniName)))
+      cache_path = os.path.abspath(string.strip(cp.get('followup-hipe-cache',iniName)))
     except:
       dir = self.dir
       cache_path = os.path.abspath(self.options.cache_path)
@@ -109,7 +109,7 @@ class getCache(UserDict):
         start = m.split(fnamebis)[-2]
         dur = x.split(m.split(fnamebis)[-1])
         try:
-          # scirun = string.strip(cp.get('hipe-cache','science-run'))
+          # scirun = string.strip(cp.get('followup-hipe-cache','science-run'))
           # tmpentry = ifo+" "+scirun+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
           tmpentry = ifo+" "+tag+" "+start+" "+dur[0]+" "+"file://localhost" +cache_path+"/"+fname
           entry = lal.CacheEntry(tmpentry)
@@ -252,8 +252,8 @@ class getCache(UserDict):
       return process
 
   def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_SECOND_"):
-    if cp.has_option('hipe-cache','hipe-intermediate-cache'):
-      intermediateCache = string.strip(cp.get('hipe-cache','hipe-intermediate-cache'))
+    if cp.has_option('followup-hipe-cache','hipe-intermediate-cache'):
+      intermediateCache = string.strip(cp.get('followup-hipe-cache','hipe-intermediate-cache'))
     else:
       intermediateCache = ''
     if opts.generate_fu_cache or len(intermediateCache) == 0:
@@ -298,17 +298,17 @@ class getCache(UserDict):
   def readTriggerFiles(self,cp,opts):
 
     # Since we are continuing get useful stuff from the ini file.
-    if cp.has_option('triggers','hipe-output-cache'):
-      triggerCacheString = string.strip(cp.get('triggers','hipe-output-cache'))
+    if cp.has_option('followup-triggers','hipe-output-cache'):
+      triggerCacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
     else:
       triggerCacheString = ''
-    if cp.has_option('triggers','triggers-tag'):
-      triggerTag = string.strip(cp.get('triggers','triggers-tag'))
+    if cp.has_option('followup-triggers','triggers-tag'):
+      triggerTag = string.strip(cp.get('followup-triggers','triggers-tag'))
     else:
       triggerTag = ''
 
     if len(triggerCacheString) == 0 or len(triggerTag) == 0:
-      xml_glob = string.strip(cp.get('triggers','xml-glob'))
+      xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
     else:
       triggerCache = self.filesMatchingGPSinCache(triggerCacheString,None,triggerTag)
       triggerList = self.getListFromCache(triggerCache)
@@ -321,10 +321,10 @@ class getCache(UserDict):
     if opts.convert_eventid:
       xml_glob = self.doFileCopyAndEventIdConvert(cp,xml_glob)
       
-    numtrigs = string.strip(cp.get('triggers','num-trigs'))
-    statistic =  string.strip(cp.get('triggers','statistic'))
-    bla =  string.strip(cp.get('triggers','bitten-l-a'))
-    blb =  string.strip(cp.get('triggers','bitten-l-b'))
+    numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
+    statistic =  string.strip(cp.get('followup-triggers','statistic'))
+    bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
+    blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
     found, coincs, search = readFiles(xml_glob,getstatistic(statistic,bla,blb))
     return numtrigs, found, coincs, search
 
@@ -392,8 +392,8 @@ def getForegroundTimes(cp,opts,ifo):
   times = []
   fileName = ""
 
-  if cp.has_option('triggers',ifo+'times') and string.strip(cp.get('triggers',ifo+'times')):
-    fileName = string.strip(cp.get('triggers',ifo+'times'))
+  if cp.has_option('followup-triggers',ifo+'times') and string.strip(cp.get('followup-triggers',ifo+'times')):
+    fileName = string.strip(cp.get('followup-triggers',ifo+'times'))
     if not os.path.exists(fileName):
       print >> sys.stderr, "File " + fileName + " does not exist"
       sys.exit(1)
@@ -416,16 +416,16 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     times = []
     fileName = ''
   
-    if cp.has_option('background-qscan-times',ifo+'range'):
-      rangeString = string.strip(cp.get('background-qscan-times',ifo+'range'))
+    if cp.has_option('followup-background-qscan-times',ifo+'range'):
+      rangeString = string.strip(cp.get('followup-background-qscan-times',ifo+'range'))
     else:
       rangeString = ''
-    if cp.has_option('background-qscan-times',ifo+'segment-list'):
-      segmentListFile = string.strip(cp.get('background-qscan-times',ifo+'segment-list'))
+    if cp.has_option('followup-background-qscan-times',ifo+'segment-list'):
+      segmentListFile = string.strip(cp.get('followup-background-qscan-times',ifo+'segment-list'))
     else:
       segmentListFile = ''
-    if cp.has_option('background-qscan-times',ifo+'time-list'):
-      timeListFile = string.strip(cp.get('background-qscan-times',ifo+'time-list'))
+    if cp.has_option('followup-background-qscan-times',ifo+'time-list'):
+      timeListFile = string.strip(cp.get('followup-background-qscan-times',ifo+'time-list'))
     else:
       timeListFile = ''
 
@@ -450,14 +450,14 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
       # Use the segment list if provided, and generate a list of random times
       if not len(segmentListFile) == 0:
         segmentList = pipeline.ScienceData()
-        segmentMin = cp.getint('background-qscan-times','segment-min-len')
+        segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
         segmentList.read(segmentListFile,segmentMin)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(1).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
-        seed = cp.getint('background-qscan-times','random-seed')
-        statistics = cp.getint('background-qscan-times','background-statistics')
+        seed = cp.getint('followup-background-qscan-times','random-seed')
+        statistics = cp.getint('followup-background-qscan-times','background-statistics')
 
         random.seed(seed)
         counter = 0

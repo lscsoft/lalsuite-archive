@@ -150,8 +150,8 @@ class webTheDAG:
     pass
 
   def setupDAGWeb(self,title,filename,cp,opts):
-    self.publish_path = string.strip(cp.get('output','page'))
-    self.page = string.strip(cp.get('output','url'))
+    self.publish_path = string.strip(cp.get('followup-output','page'))
+    self.page = string.strip(cp.get('followup-output','url'))
     self.webPage = WebPage(title,filename,self.page)
     self.webDirs = {}
     self.cache = cacheStructure()
@@ -159,8 +159,8 @@ class webTheDAG:
        os.mkdir('DAGWeb')
     except: pass
     if not opts.disable_dag_categories:
-        for cp_opt in cp.options('condor-max-jobs'):
-          self.add_maxjobs_category(cp_opt,cp.getint('condor-max-jobs',cp_opt))
+        for cp_opt in cp.options('followup-condor-max-jobs'):
+          self.add_maxjobs_category(cp_opt,cp.getint('followup-condor-max-jobs',cp_opt))
 
 
   def writeDAGWeb(self,type):
