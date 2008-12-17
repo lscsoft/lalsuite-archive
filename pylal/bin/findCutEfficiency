@@ -2,7 +2,7 @@
 __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>, Rahul Biswas <rahul@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="plotethincascaled"
+__name__="findCutEfficiency"
 __Id__ = "$Id$"
 
 
@@ -17,10 +17,10 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
+from glue.ligolw import ligolw
 #loading modules used in calculations
-from pylal.tools import XLALCalculateEThincaParameter
-#from pylab import*
 import glue.iterutils
+from pylal import inspiral_likelihood
 import numpy
 numpy.seterr("raise")
 import cmath
@@ -30,109 +30,6 @@ from pylal import rate
 ############################################################################################
 # Definitions of functions
 ############################################################################################
-
-def weighted_histogram(array,weight=None, norm=False, nbins=10, set_max=None, set_min=None):
-  """
-  Weighted histogram function; It returns 
-  y is a numpy array containing number of events in the corresponding bin;
-  if norm=True then y is normalized to unity.
-  x is a numpy array containing bins (namely left side, limit of each bin).
-  @param array: numpy array containing the quatities for which the histogram will be generated.
-  @param bins: integer that sets the number of bins in the histogram.
-  @param weight: if given must be array of weights for each element of array to be binned.
-  """
-  
-  if weight==None:
-    weight = numpy.ones(len(array))
-  if not set_max:	
-    max_element = numpy.max(array)
-  else:
-    max_element = set_max
-  if not set_min:
-    min_element = numpy.min(array)
-  else:
-    min_element = set_min
-  bins_object = rate.LinearBins(min_element, max_element, nbins)
-  y = numpy.zeros(nbins)
-  for i in range(len(array)):
-    if (array[i] >= min_element) and (array[i] <= max_element):
-      bin_index = bins_object[array[i]]
-      y[bin_index] += weight[i]
-  if norm:
-    normalization = numpy.sum(y)
-    y = y/normalization
-  x = bins_object.centres()
-  return y, x
-
-#This function is not used anywhere
-def plot_ethinca_histogram(ifolist, coinc_slides, coinc_inj, slide_bins, inj_bins, weighted=False):
-  """ Plots the histogram of e-thinca values for coincidents found in time slides and injections for each pair of IFO's from the ifos list. 
-  @param  ifolis:  a list of ifos, for example ['H1', 'H2'].
-  @param  coinc_slides, coinc_inj:  are instances of CoincInspiralUtils.CoincInspiralTable() class that contain
-  time slide and injection triggers respectively.
-  @param slide_bins: number of bins in histogram of time slides
-  @param inj_bins: number of bins in histogram of injections
-  @param weighted: parameter that sets the weight for injections, If it is set to True then injections are re-weighted from being distributed
-  logarithmically in distance to be distrbuted as distance cubed.  
-  """
-   
-
-
-  for i in range(len(ifolist)):
-	for j in range(len(ifolist)):
-	  if i < j:
-		hist_check_slides = 1
-		hist_check_inj = 1
-		ethinca_slides = coinc_slides.coincinclude([ifolist[i], ifolist[j]]).getEThincaValues([ifolist[i], ifolist[j]])
-		inj_coincs= coinc_inj.coincinclude([ifolist[i], ifolist[j]])
-		ethinca_inj = inj_coincs.getEThincaValues([ifolist[i], ifolist[j]])
-		inj_weight =  inj_coincs.return_sim_inspirals().get_column("distance")**(3.0)
-		if len(ethinca_slides) > 1:
-		  (y_slide, x_slide) = normalized_hist(ethinca_slides, slide_bins)
-		else:
-		  hist_check_slides = 0
-
-		if len(ethinca_inj) > 1:
-		  if weighted:
-			(y_inj, x_inj) = weighted_hist(ethinca_inj, inj_weight, inj_bins)
-		  else:  
-			(y_inj, x_inj) = normalized_hist(ethinca_inj, inj_bins)
-		else:
-		  hist_check_inj = 0
-
-		if (hist_check_slides == 1) and (hist_check_inj == 1): 
-		  slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
-		  hold(True)
-		  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
-		  legend([inj_val[0],slide_val[0]],["Injections","Background"],loc=0)
-		  coinc_label=''
-		  for ifo in ifolist:
-			coinc_label+=ifo
-		  xlabel(coinc_label + ':' + ' e-thinca ' + str(ifolist[i]) + '-' + str(ifolist[j]))
-		  savefig(coinc_label + '-' + "ethinca" + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-		  if not opts.show:
-		    close()
-		
-		elif hist_check_slides == 1:
-		  slide_val = bar(x_slide,y_slide,width=(x_slide[1]-x_slide[0]), color='k', edgecolor="k")
-		  legend([slide_val[0]],["Background"],loc=0)
-		  coinc_label=''
-		  for ifo in ifolist:
-			coinc_label+=ifo
-		  xlabel(coinc_label + ':' + ' e-thinca ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
-		  savefig(coinc_label + '-' + "ethinca" + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-		  if not opts.show:
-		    close()
-		elif hist_check_inj == 1:
-		  inj_val = bar(x_inj,y_inj,width=(x_inj[1]-x_inj[0]), color='r', edgecolor="r")
-		  legend([inj_val[0]],["Injections"],loc=0)
-		  coinc_label=''
-		  for ifo in ifolist:
-			coinc_label+=ifo
-		  xlabel(coinc_label + ':' + ' e-thinca ' +  str(ifolist[i]) + '-' + str(ifolist[j]))
-		  savefig(coinc_label + '-' + "ethinca" + "_" + str(ifolist[i]) + "_" +  str(ifolist[j]) )
-		  if not opts.show:
-			close()
 
 ################################################################################
 # Main program
@@ -175,10 +72,9 @@ def parse_command_line():
       default="", metavar="INJSPATTERN", help="the missed injections files pattern the cache file, specified by --input-cache-file option, will be seived with.")
 
 
-###################################################################################
+################################################################################
 # Options for plots and histograms
-###################################################################################
-# Options to select ifo types.
+#################################################################################### Options to select ifo types.
 
   parser.add_option("", "--h1-triggers",action="store_true", default=False,\
       help="input files contain triggers from H1")
@@ -197,7 +93,7 @@ def parse_command_line():
 
   parser.add_option("","--statistic",action="store",default='snr',\
       type="string",\
-      help="choice of statistic used in making plots, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
+      help="choice of statistic used in building coinc table, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
 	
   parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
       metavar="SEC",help="time slid for H1 per slide number" )
@@ -214,21 +110,18 @@ def parse_command_line():
   parser.add_option("","--v1-slide-time",action="store",type="int",default=5,\
       metavar="SEC",help="time slid for V1 per slide number" )
 	
-  parser.add_option("", "--calculate-ethinca",action="store_true", default=False,\
-      help="calculate ethinca values for injections and time slides")
-	
+  parser.add_option("", "--use-likelihood",action="store_true", default=False,\
+      help="enables likelihood to be used as detection statistic")
+	  
   parser.add_option("", "--enable-clustering",action="store_true", default=False,\
       help="enable clustering procedure in case input data is unclustered")
-	
-  parser.add_option("","--ethinca-histogram",action="store_true",\
-      default=False, help ="plot histogram of e-thinca values for injections and time slides")
-	
-  parser.add_option("","--slide-bins",action="store",type="int",\
-      default=10, metavar="BINS", help="Number of bins in the histogram of background")
 
-  parser.add_option("","--injection-bins",action="store",type="int",\
-      default=10, metavar="BINS", help="Number of bins in the histogram of injections")
-	
+  parser.add_option("", "--skip-timeslides",action="store_true", default=False,\
+      help="skip calculation of threshold statistic using time slides. The threshold statistic should be given explicitly.")
+		
+  parser.add_option("","--threshold-statistic", action="store",type="float",\
+      default = None, help="threshold statistic. This option should be used together with --skip-timeslides" )
+		
   parser.add_option("","--num-slides", action="store",type="int",\
       default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file of the search" )
 	
@@ -271,24 +164,45 @@ def parse_command_line():
 #####################################################################
 opts, args = parse_command_line()
 
+
+# Sanity checks
+######################################################################
+
+if opts.skip_timeslides and not opts.threshold_statistic:
+  print >> sys.stderr, "--threshold-statistic must be set if --skip-timeslides option is used"
+  sys.exit(1)
+  
+if not opts.skip_timeslides and not opts.num_slides:
+  print >> sys.stderr, "number of time slides should be provided if running with time slides triggers,"
+  print >> sys.stderr, "use --num-slides option"
+  sys.exit(1)
+   
+  
+
+if not (opts.input_cache_file or (opts.slides_glob and opts.found_injection_glob and opts.missed_injection_glob)):
+  print >>sys.stderr, "Some of the options specifying the input files containing single inspiral tables are missing." 
+  print >> sys.stderr, " Either (--input-cache-file option) or (--slides-glob, --found-injection-glob and --missed-injection-glob options) must be given."
+  sys.exit(1)
+  
 # Initializing the html output
 InspiralUtils.message(opts, "Initialisation...")
 opts = InspiralUtils.initialise(opts, __name__, __version__)
 fnameList = []
 tagList = []
-fig_num = 1
+fig_num = 0
 comments = ""
 
 # constructing the list of the IFO's
 ifo_list = [ifo for ifo in ("G1", "H1", "H2", "L1", "V1") \
             if getattr(opts, "%s_triggers" % ifo.lower())]
+
+#constructing shift vector for time slides.
+if not opts.skip_timeslides:
+  slides_shift_vector = {}
+  for ifo in ifo_list:
+    slides_shift_vector[ifo] = getattr(opts, "%s_slide_time" % ifo.lower())
+
 			
-# constructing list of all IFO pairs			
-ifo_pairs=list(glue.iterutils.choices(ifo_list,2))
-
-#constructing the list of all possible IFO combinations (doubles, triples etc) 
-ifo_combos = CoincInspiralUtils.get_ifo_combos(ifo_list)
-
 
 #loading matplotlib module that can be used on a cluster
 if not opts.show:
@@ -299,11 +213,6 @@ from pylab import*
 #Calculating statistic for coincidences
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
 
-
-if not (opts.input_cache_file or (opts.slides_glob and opts.found_injection_glob and opts.missed_injection_glob)):
-  print >>sys.stderr, "Some of the options specifying the input files containing single inspiral tables are missing." 
-  print >> sys.stderr, " Either (--input-cache-file option) or (--slides-glob, --found-injection-glob and --missed-injection-glob options) must be given."
-  sys.exit(1)
   
 # contsructing lists of data files containing time slides and injections triggers respectively
 ########################################################################################################	
@@ -313,40 +222,105 @@ if opts.input_cache_file:
   found_injfiles = []
   missed_injfiles = []
   SnglInspiralCache = lal.Cache.fromfile(open(opts.input_cache_file))
-  slidesfiles = SnglInspiralCache.sieve(description = opts.slides_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+  if not opts.skip_timeslides:
+    slidesfiles = SnglInspiralCache.sieve(description = opts.slides_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
   found_injfiles = SnglInspiralCache.sieve(description = opts.found_injection_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
   missed_injfiles = SnglInspiralCache.sieve(description = opts.missed_injection_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
 else:
   slidesfiles = []
   found_injfiles = []
   missed_injfiles = []
-  slidesfiles = glob.glob(opts.slides_glob)
+  if not opts.skip_timeslides:
+    slidesfiles = glob.glob(opts.slides_glob)
   found_injfiles = glob.glob(opts.found_injection_glob)
   missed_injfiles = glob.glob(opts.missed_injection_glob)
+  
+# check if file lists are not empty
+if not opts.skip_timeslides:
+  if not len(slidesfiles) > 0:
+    print >>sys.stderr, "List of time slides files is empty: your sieve pattern may be wrong or files do not exist in the location given by the cache file"
+    sys.exit(1)
+if  not len(found_injfiles) > 0:
+  print >>sys.stderr, "List of found injections files is empty: your sieve pattern may be wrong or files do not exist in the location given by the cache file"
+  sys.exit(1) 
+if  not len(missed_injfiles) > 0:
+  print >>sys.stderr, "List of missed injections files is empty: your sieve pattern may be wrong or files do not exist in the location given by the cache file"
+  sys.exit(1) 
 
-# read in single inspiral tables from the data files
-####################################################
 
-#constructing shift vector for time slides.
-slides_shift_vector = {}
-for ifo in ifo_list:
-  slides_shift_vector[ifo] = getattr(opts, "%s_slide_time" % ifo.lower())
+################################################################################################################
+# DETECTOR'S CHARACTERISTICS: Here we assess performance of the detector by calculating various statistical
+# measures such as Detection probability for a given False Alarm Probability, efficiency etc. 
+# The relevant plots are generated at the end.
+################################################################################################################
 
-InspiralUtils.message(opts," reading in time slides ...")
+if not opts.skip_timeslides:
+  # Calculate Likelihood threshold based on fixed False Alarm Probability.
+  # The acceptable value of false alarm probability ios taken to be 0.1
+  InspiralUtils.message(opts, "calculating threshold statistics ...")
 
-# read in time slides triggers 
-slidesTriggers = None
-slidesTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(slidesfiles, shiftVector=slides_shift_vector, mangleEventId = False)
+  # define array that stores maximum statistic for each of the time slide
+  max_stat_array = numpy.zeros(2*opts.num_slides, dtype = float)
 
-InspiralUtils.message(opts,"reconstructing coins for time slides ...")
+  InspiralUtils.message(opts," reading in time slides ...")
+  for file in slidesfiles:
+    # read in time slides triggers 
+    slidesTriggers = None
+    InspiralUtils.message(opts," reading in " + file)
+    slidesTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles([file], shiftVector=slides_shift_vector, mangleEventId = False, non_lsc_tables_ok=True)
+    InspiralUtils.message(opts,"reconstructing coins ...")
+    # construct the time slides coincs
+    slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
 
-# construct the time slides coincs
-slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
+    # read InspiralLikelihoodTable if necessary and add likelihood values to coincs  
+    if opts.use_likelihood:
+      slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles([file])
+      # add likelihood values to coincs
+      inspiral_likelihood.add_likelihood(slidesCoincTriggers, slidesLikelihoodTriggers)       
+
+
+    for slide in range(1, opts.num_slides + 1):
+      #  triggers in each time slide are sorted in descending order in statistic which is passed to an array
+
+      # for slide forward
+      # get coincs from the current slide
+      forward_slide_coincs = slidesCoincTriggers.getslide(slide)
+
+      # store this slide's maximum statistic
+      if len(forward_slide_coincs) > 0:
+        if opts.use_likelihood:
+          max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getlikelihood()))
+        else:
+           max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
+	  
+        # for slide backward
+        # get coincs from the current slide
+        backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
+
+      # store this slide's  maximum statistic
+      if len( backward_slide_coincs) > 0:    
+        if opts.use_likelihood:
+          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getlikelihood()))
+        else:
+          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getstat()))
+
+      # end of the loop over slides
+	
+  # calculate the threshold statistic
+  # WARNING: it is hardcoded to be the 11th highest max stat in slide
+  # if number of time slides is 100 it corresponds to 10% false alarm probability. 
+  stat_threshold = numpy.sort(max_stat_array)[-11]
+  InspiralUtils.message(opts, "threshold statistic is " + str(stat_threshold))
+else:
+  InspiralUtils.message(opts, "Skiping time slides...")
+  InspiralUtils.message(opts, "using threshold statistic " + str(opts.threshold_statistic))
+  stat_threshold = opts.threshold_statistic
+
 
 InspiralUtils.message(opts,"Reading found injections ...")
-# read in injections sngl
+# read in injection's sngl inspiral table
 injectionTriggers = None
-injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(found_injfiles, mangle_event_id=False)
+injectionTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(found_injfiles, mangle_event_id=False, non_lsc_tables_ok=True)
 
 InspiralUtils.message(opts," reconstructing coincs for found injections")
 
@@ -360,243 +334,32 @@ if not opts.enable_clustering:
   found_simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(found_injfiles)
   #add sim inspirals
   injectionCoincTriggers.add_sim_inspirals(found_simTriggers)
+
+# read InspiralLikelihoodTable if necessary  
+if opts.use_likelihood:
+  found_injLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(found_injfiles)
+  # add likelihood values to coincs
+  inspiral_likelihood.add_likelihood(injectionCoincTriggers, found_injLikelihoodTriggers)       
+    
   
 # read in sim inspirals with missed injections
 if not opts.enable_clustering:
   InspiralUtils.message(opts,"reading in missed injections ...")
   missed_simTriggers = None
   missed_simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(missed_injfiles)
-  
-  
-  
-############################################################################################################################
-# E-THINCA section. Here ethinca values are calculated, manipulated and relevant plots are generated.
-############################################################################################################################
-if opts.calculate_ethinca:
-  #create array that will hold e-thinca values for injection coicidences.
-  # Columns of this array correspond to coincs, whereas its rows enumirate IFO pairs.
-  # In case a coinc does not have some IFO pairs, zeros will be assigned to corresponding elements of the array. 
-
-  inj_ethinca_array = numpy.zeros((len(ifo_pairs), len(injectionCoincTriggers)))
-
-  #fill up e-thinca array for injections
-  if opts.verbose:
-    print "Calculating e-thinca values for injections"
-  # dummy index for columns of e-thinca array
-  j = 0
-  for coinc in injectionCoincTriggers:
-	coinc_ifos, coinc_ifolist = coinc.get_ifos()
-	coinc_ifo_pairs = list(glue.iterutils.choices(coinc_ifolist,2))
-	#dummy index for rows of e-thinca array. 
-	i = 0
-	for pair in ifo_pairs:
-	  if pair in coinc_ifo_pairs:
-		inj_ethinca_array[i, j] = XLALCalculateEThincaParameter(getattr(coinc, pair[0]), getattr(coinc, pair[1]))
-	  i += 1
-	j += 1
-  #create array that will hold e-thinca values for time slides coicidences.
-
-  slides_ethinca_array = numpy.zeros((len(ifo_pairs), len(slidesCoincTriggers)))
-
-  #fill up e-thinca array for time slides
-  if opts.verbose:
-    print "Calculating e-thinca values for time slides"
-  # dummy index for columns of e-thinca array.
-  j = 0
-  for coinc in slidesCoincTriggers:
-	coinc_ifos, coinc_ifolist = coinc.get_ifos()
-	coinc_ifo_pairs = list(glue.iterutils.choices(coinc_ifolist,2))
-	#dummy index for rows of e-thinca array. 
-	i = 0
-	for pair in ifo_pairs:
-	  if pair in coinc_ifo_pairs:
-		slides_ethinca_array[i, j] = XLALCalculateEThincaParameter(getattr(coinc, pair[0]), getattr(coinc, pair[1]))
-	  i += 1
-	j += 1
 
 
-# plot ethinca histograms for injections, re-weighted to astrophysical distribution, and time slides.
-#####################################################################################################
-if opts.ethinca_histogram:
-  if not opts.calculate_ethinca:
-	print >> sys.stderr, "Can not make histgrams of e-thinca values without calculating them"
-	print >> sys.stderr, "Use --calculate-ethinca option to do it."
-	sys.exit(1)
-  InspiralUtils.message(opts, "generating e-thinca histograms")	 
-  #forming array of weights for injections
-  InspiralUtils.message(opts,"Generating histograms for injections, re-weighted to astrophysical distribution, and time slides...")
-  inj_weight = injectionCoincTriggers.return_sim_inspirals().get_column("distance")**(3.0)
-  InspiralUtils.message(opts,"Generating unweighted histograms for injections, and time slides...")
 
 
-  i = 0
-  for pair in ifo_pairs:
-        fig_num +=1
-        figure
-	hist_check_slides = 1
-	hist_check_inj = 1
-	InspiralUtils.message(opts, "Plotting histogram for " + pair[0]+pair[1] + " coincs")
-        comments += "Ethinca vs Injections and time slides for " + pair[0] + pair[1]
-        text = "Ethinca vs Injections and time slides for " + pair[0] + pair[1]
-	#forming array to histogram for injections for the current pair of IFO's
-	inj_ethinca_for_this_pair = numpy.compress(inj_ethinca_array[i] > 0.0, inj_ethinca_array[i])
-	if len(inj_ethinca_for_this_pair) > 0:
-	  # forming array of weights
-          comments += "Total number of "+ pair[0] + pair[1] + " coincidences found for Injections: " + str(len(inj_ethinca_for_this_pair)) + "\n"
-          InspiralUtils.message(opts, "Total number of " + pair[0] + pair[1] + " coincidences found for Injections: " + str(len(inj_ethinca_for_this_pair)))
-	  inj_weight_for_this_pair = numpy.compress(inj_ethinca_array[i]*inj_weight > 0.0, inj_weight)
-	  #histograms of injections
-	  # first unweighted
-	  (y_inj_unweighted, x_inj_unweighted) = weighted_histogram(inj_ethinca_for_this_pair, weight=None, norm=True, nbins=opts.injection_bins)
-	  # then weighted
-	  (y_inj_weighted, x_inj_weighted) = weighted_histogram(inj_ethinca_for_this_pair, weight=inj_weight_for_this_pair, norm=True, nbins=opts.injection_bins)
-	else:
-	  hist_check_inj = 0
-	
-	# forming array to histogram for time slides
-	slides_ethinca_for_this_pair = numpy.compress(slides_ethinca_array[i] > 0.0, slides_ethinca_array[i])
-	if len(slides_ethinca_for_this_pair) > 0:
-          comments += "Total number of " + pair[0] + pair[1] + " coincidences found for time slides: " + str(len(inj_ethinca_for_this_pair)) + "\n"
-          InspiralUtils.message(opts, "Total number of Time slides " + pair[0] + pair[1] + " coincidences found: " + str(len(slides_ethinca_for_this_pair)))
-	  #histrogram of time slides
-	  (y_slides, x_slides) = weighted_histogram(slides_ethinca_for_this_pair, weight=None, norm=True, nbins=opts.slide_bins)  
-	else:
-	  hist_check_slides = 0
-	 
-	#making bar plots of the resulting histograms
-	#It is conditioned to prevent one from making histograms in case one of injections or time slides
-	# data are empty.
-	if (hist_check_slides == 1) and (hist_check_inj == 1):
-	  # unweighted histogram 
-	  fig_num +=1
-	  figure
-	  slides_plot = bar(x_slides,y_slides,width=(x_slides[1]-x_slides[0]), color='k', edgecolor="k")
-	  hold(True)
-	  inj_plot = bar(x_inj_unweighted,y_inj_unweighted,width=(x_inj_unweighted[1]-x_inj_unweighted[0]), color='r', edgecolor="r")
-	  legend([inj_plot[0],slides_plot[0]],["Injections","Background"],loc=0)
-	  xlabel(pair[0] + pair[1] +' e-thinca ')
-	  title("Normalized histogram of " + pair[0] + pair[1]+ " e-thinca values for time slides and unweighted distribution of injections.", fontsize="small")
-          if opts.enable_output:
-             name = opts.user_tag + pair[0] + pair[1] + "_ethinca_histogram_unweighted"
-             fname = InspiralUtils.set_figure_name(opts, name)
-             fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-             fnameList.append(fname)
-             tagList.append(text)
-	  if not opts.show:
-		close()
-	  # weighted histogram 
-	  fig_num +=1
-	  figure
-	  slides_plot = bar(x_slides,y_slides,width=(x_slides[1]-x_slides[0]), color='k', edgecolor="k")
-	  hold(True)
-	  inj_plot = bar(x_inj_weighted,y_inj_weighted,width=(x_inj_weighted[1]-x_inj_weighted[0]), color='r', edgecolor="r")
-	  legend([inj_plot[0],slides_plot[0]],["Injections","Background"],loc=0)
-	  xlabel(pair[0] + pair[1] +' e-thinca ')
-	  title("Normalized histogram of " + pair[0] + pair[1]+ " e-thinca values for time slides and re-weighted distribution of injections.", fontsize="small")
-          if opts.enable_output:
-             name = opts.user_tag + pair[0] + pair[1] + "_ethinca_histogram_weighted"
-             fname = InspiralUtils.set_figure_name(opts, name)
-             fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-             fnameList.append(fname)
-             tagList.append(text)
-	  if not opts.show:
-		close()	
-			
-	elif hist_check_slides == 1:
-	  fig_num +=1
-	  figure
-	  slides_plot = bar(x_slides,y_slides,width=(x_slides[1]-x_slides[0]), color='k', edgecolor="k")
-	  legend([slide_plot[0]],["Background"],loc=0)
-	  xlabel(pair[0] + pair[1] +' e-thinca ')
-	  title("Normalized histogram of " + pair[0] + pair[1]+ " e-thinca values for time slides and injections.", fontsize="small")
-	  if opts.enable_output:
-             name = opts.user_tag + pair[0] + pair[1] + "_ethinca_histogram_weighted"
-             fname = InspiralUtils.set_figure_name(opts, name)
-             fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-             fnameList.append(fname)
-             tagList.append(text)
-	  if not opts.show:
-	    close()
-	elif hist_check_inj == 1:
-	  fig_num +=1
-	  figure
-	  #unweighted histogram 
-	  inj_plot = bar(x_inj_unweighted,y_inj_unweighted,width=(x_inj_unweighted[1]-x_inj_unweighted[0]), color='r', edgecolor="r")
-	  legend([inj_plot[0]],["Injections"],loc=0)
-	  xlabel(pair[0] + pair[1] +' e-thinca ')
-	  title("Normalized histogram of " + pair[0] + pair[1]+ " e-thinca values for time slides and unweighted distribution of injections.", fontsize="small")
-	  if opts.enable_output:
-             name = opts.user_tag + pair[0] + pair[1] +"_ethinca_histogram_unweighted"
-             fname = InspiralUtils.set_figure_name(opts, name)
-             fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-             fnameList.append(fname)
-             tagList.append(text)
-	  if not opts.show:
-		close()
-	  #weighted histogram 
-	  inj_plot = bar(x_inj_weighted,y_inj_weighted,width=(x_inj_weighted[1]-x_inj_weighted[0]), color='r', edgecolor="r")
-	  legend([inj_plot[0]],["Injections"],loc=0)
-	  xlabel(pair[0] + pair[1] +' e-thinca ')
-	  title("Normalized histogram of " + pair[0] + pair[1]+ " e-thinca values for time slides and re-weighted distribution of injections.", fontsize="small")
-	  if opts.enable_output:
-             name = opts.user_tag + pair[0] + pair[1] +"_ethinca_histogram_weighted"
-             fname = InspiralUtils.set_figure_name(opts, name)
-             fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
-             fnameList.append(fname)
-             tagList.append(text)
-	  if not opts.show:
-		close()
-		
-	#increment counter of pairs	
-	i +=1	
-	#end of the loop over IFO pairs
-  InspiralUtils.message(opts, "Generation of e-thinca histograms is completed")	
-###############################################################################################################
-# End of E-THINCA section.
-################################################################################################################
 
-
-################################################################################################################
-# DETECTOR'S CHARACTERISTICS: Here we assess performance of the detector by calculating various statistical
-# measures such as Detection probability for a given False Alarm Probability, efficiency etc. 
-# The relevant plots are generated at the end
-################################################################################################################
-
-
-# Calculate Likelihood threshold based on fixed False Alarm Probability.
-# The acceptable value of false alarm probability ios taken to be 0.1
-
-# define array that stores maximum statistic for each of the time slide
-max_stat_array = numpy.zeros(2*opts.num_slides)
-
-InspiralUtils.message(opts, "calculating threshold statistics ...")
-# dummy index used in populating the array 
-i = 0
-for slide in range(1, opts.num_slides + 1):
-  #  triggers in each time slide are sorted in descending order in statistic which is passed to the array
-  # for slide forward
-  # get coincs from the current slide
-  forward_slide_coincs = slidesCoincTriggers.getslide(slide)
-  # store this slide's maximum statistic
-  max_stat_array[i] = numpy.max(forward_slide_coincs.getstat())
-  
-  # for slide backward
-  # get coincs from the current slide
-  backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
-  # store this slide's  maximum statistic
-  max_stat_array[i + opts.num_slides] = numpy.max(backward_slide_coincs.getstat())
-  #increment dummy index
-  i += 1
-  # end of the loop over slides
-  
-# calculate the threshold statistic
-stat_threshold = numpy.sort(max_stat_array)[-11]
-InspiralUtils.message(opts, "threshold statistic is " + str(stat_threshold))
 # construct the list of found and missed injections
 
 InspiralUtils.message(opts, "partitioning found injections ...")
 # first partition found injections using the threshold statistic
-lesser_coincs, equal_coincs, greater_coincs = injectionCoincTriggers.partition_by_stat(stat_threshold)   		
+if opts.use_likelihood:
+  lesser_coincs, equal_coincs, greater_coincs = injectionCoincTriggers.partition_by_stat(stat_threshold, use_likelihood=True) 
+else:
+  lesser_coincs, equal_coincs, greater_coincs = injectionCoincTriggers.partition_by_stat(stat_threshold)   		
 
 # construct list of all missed injections
 if len(lesser_coincs) > 0:
@@ -615,10 +378,10 @@ right_limit = max(max(found_simTriggers.get_column("distance")), max(missed_simT
 left_limit =  min(min(found_simTriggers.get_column("distance")), min(missed_simTriggers.get_column("distance")))
 
 # histogram found injections, unweighted
-number_found, found_bins = weighted_histogram(found_simTriggers.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
+number_found, found_bins = inspiral_likelihood.weighted_histogram(found_simTriggers.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
 
 # histogram missed injections
-number_missed, missed_bins = weighted_histogram(missed_simTriggers.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
+number_missed, missed_bins = inspiral_likelihood.weighted_histogram(missed_simTriggers.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
 
 # calculate efficiency
 efficiency = number_found/(number_found + number_missed)
@@ -628,10 +391,11 @@ plot(missed_bins, efficiency)
 xlabel("Distance, Mpc")
 title("Efficiency curve")
 if opts.enable_output:
-  name = opts.user_tag + "_efficiency"
+  name = "_efficiency"
   fname = InspiralUtils.set_figure_name(opts, name)
   fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
+  tagList.append("Efficiency curve")
 if not opts.show:
   close()
 
@@ -644,8 +408,8 @@ efficiency_file.close()
 
 InspiralUtils.message(opts, "calculating detection pdf ...")
 # calculate detection probability density function
-total_volume = (4.0*cmath.pi/3.0) * (right_limit**3)
-detection_pdf = 4.0*cmath.pi*(efficiency * missed_bins**2)/total_volume
+total_volume = (4.0*numpy.pi/3.0) * (right_limit**3)
+detection_pdf = 4.0*numpy.pi*(efficiency * missed_bins**2)/total_volume
 
 # calculate detection probability
 Qd = numpy.sum(detection_pdf)*(missed_bins[1] - missed_bins[0])
@@ -663,11 +427,11 @@ xlabel("Distance, Mpc")
 title("Detection probability density function")
 
 if opts.enable_output:
-  name = opts.user_tag + "_detection_probabilty"
+  name = "_detection_probabilty"
   fname = InspiralUtils.set_figure_name(opts, name)
   fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
-
+  tagList.append("Detection probability density function")
 if not opts.show:
   close()
 
@@ -692,17 +456,46 @@ xlabel("Distance, Mpc")
 title("Cumulative detection probability function")
 
 if opts.enable_output:
-  name = opts.user_tag + "_cumulative_detection_probabilty"
+  name = "_cumulative_detection_probabilty"
   fname = InspiralUtils.set_figure_name(opts, name)
   fname_thumb = InspiralUtils.savefig_pylal(filename=fname, doThumb=True, dpi_thumb=opts.figure_resolution)
   fnameList.append(fname)
-
+  tagList.append("Cumulative detection probability function")
 if not opts.show:
   close()
 
+# write sim inspiral table of found injections into a file
+found_injection_file = open(opts.user_tag + "_FOUND.xml", "w")
+# create xml doc for found injections
+found_doc = ligolw.Document()
+#create LIGO_LW element for found injections
+found_ligo_lw = ligolw.LIGO_LW()
+#append it to xml doc
+found_doc.appendChild(found_ligo_lw)
+#append sim table with found injections to the xml doc
+found_doc.childNodes[0].appendChild(found_simTriggers)
+#writing the missed injections xml doc into a file
+found_doc.write(found_injection_file)
+found_injection_file.close()
+
+#write missed injections into a file
+missed_injection_file = open(opts.user_tag + "_MISSED.xml", "w")
+# create xml doc for missed injections
+missed_doc = ligolw.Document()
+#create LIGO_LW element for missed injections
+missed_ligo_lw = ligolw.LIGO_LW()
+#append it to xml doc
+missed_doc.appendChild(missed_ligo_lw)
+#append sim table with missed injections to the xml doc
+missed_doc.childNodes[0].appendChild(missed_simTriggers)
+#writing the missed injections xml doc into a file
+missed_doc.write(missed_injection_file)
+missed_injection_file.close()
+ 
+
 ##############################################################################################################
 
-if opts.enable_output is True:
+if opts.enable_output:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=comments)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
