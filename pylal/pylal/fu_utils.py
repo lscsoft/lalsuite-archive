@@ -453,7 +453,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
         segmentList.read(segmentListFile,segmentMin)
         segmentListLength = segmentList.__len__()
-        segmentListStart = segmentList.__getitem__(1).start()
+        segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
 
         seed = cp.getint('followup-background-qscan-times','random-seed')
