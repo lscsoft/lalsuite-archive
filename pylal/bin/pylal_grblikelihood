@@ -142,7 +142,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         """
         log_pc0 = self.default_evaluator(loudest_in_trial)
         extrap = self.fiducial_y + \
-            self.fiducial_x**2 - loudest_in_trial**2
+            self.fiducial_x**1.5 - loudest_in_trial**1.5
         extrap_ind = loudest_in_trial > self.fiducial_x
         log_pc0[extrap_ind] = extrap[extrap_ind]
         return log_pc0
