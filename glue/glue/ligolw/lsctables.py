@@ -918,7 +918,7 @@ class CoincInspiralTable(table.Table):
 		"false_alarm_rate": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
-	interncolumns = ("coicn_event_id",)
+	interncolumns = ("coinc_event_id",)
 
 
 class CoincInspiral(object):
