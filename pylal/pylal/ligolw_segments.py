@@ -287,3 +287,49 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	entry's metadata.
 	"""
 	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
+
+
+def segmenttable_get_by_name(xmldoc, name, activity = True):
+	"""
+	Retrieve the segments whose name and activity flag match those
+	given.  The result is a segmentlistdict indexed by instrument.  The
+	default is to retrieve "active" segments, but the optional activity
+	argument can be set to False to retrieve inactive segments instead.
+
+	Note that when retrieving "undefined" segments, the response is the
+	list of segments explicitly indicated as undefined in the segment
+	table.  The union of the "active", "inactive", and "undefined"
+	segments need not be [-infinity, +infinity).
+
+	The output of this function is not coalesced, each segmentlist
+	contains the segments as found in the segment table.
+	"""
+	# find required tables
+	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
+
+	# segment_def_id --> instrument names mapping constructed from
+	# segment_definer entries bearing the correct name
+	index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
+
+	# segment_id --> instrument names mapping constructed from
+	# segment_def_map entries bearing segment_def_ids from above
+	index = dict((row.segment_id, index[row.segment_def_id]) for row in map_table if row.segment_def_id in index)
+
+	# retrieve segments bearing segment_ids from above, and insert
+	# into a dictionary indexed by instrument
+	result = segments.segmentlistdict()
+	for row in seg_table:
+		if row.get_active() == activity:
+			try:
+				for instrument in index[row.segment_id]:
+					try:
+						result[instrument].append(row.get())
+					except KeyError:
+						result[instrument] = segments.segmentlist([row.get()])
+			except KeyError:
+				pass
+
+	# done
+	return result
