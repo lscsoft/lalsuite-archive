@@ -619,7 +619,7 @@ def gen_likelihood_control(coinc_params_distributions, seglists):
 	node.appendChild(lsctables.New(lsctables.ProcessParamsTable))
 	node.appendChild(lsctables.New(lsctables.SearchSummaryTable))
 	process = append_process(xmldoc, comment = u"")
-	llwapp.append_search_summary(xmldoc, process, ifos = "+".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
+	llwapp.append_search_summary(xmldoc, process, ifos = ",".join(seglists.keys()), inseg = seglists.extent_all(), outseg = seglists.extent_all())
 
 	node.appendChild(coinc_params_distributions_to_xml(process, coinc_params_distributions, u"ligolw_burca_tailor"))
 
