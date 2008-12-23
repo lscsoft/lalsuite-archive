@@ -582,6 +582,10 @@ class SearchSummaryTable(DBTable):
 		list.  If process_ids is a list of process IDs, then only
 		rows with matching IDs are included otherwise all rows are
 		included.
+
+		Note:  the result is not coalesced, each segmentlist
+		contains the segments listed for that instrument as they
+		appeared in the table.
 		"""
 		# start a segment list dictionary
 		seglists = segments.segmentlistdict()
@@ -589,8 +593,11 @@ class SearchSummaryTable(DBTable):
 		# add segments from appropriate rows to segment list
 		# dictionary
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists |= segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()])
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
 
 		# done
 		return seglists
