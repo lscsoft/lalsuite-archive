@@ -324,8 +324,11 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_in()])) for ifo in row.get_ifos()]))
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_in()])) for ifo in ifos))
 		return seglists
 
 	def get_out_segmentlistdict(self, process_ids = None):
@@ -341,8 +344,11 @@ class SearchSummaryTable(table.Table):
 		"""
 		seglists = segments.segmentlistdict()
 		for row in self:
+			ifos = row.get_ifos()
+			if ifos is None:
+				ifos = (None,)
 			if process_ids is None or row.process_id in process_ids:
-				seglists.extend(segments.segmentlistdict([(ifo, segments.segmentlist([row.get_out()])) for ifo in row.get_ifos()]))
+				seglists.extend(dict((ifo, segments.segmentlist([row.get_out()])) for ifo in ifos))
 		return seglists
 
 
