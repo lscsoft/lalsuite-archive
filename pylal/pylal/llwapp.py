@@ -244,7 +244,7 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.end_time = None
 	process.jobid = jobid
 	process.domain = domain
-	process.ifos = ifos
+	process.set_ifos(ifos)
 	process.process_id = proctable.get_next_id()
 	proctable.append(process)
 	return process
@@ -336,7 +336,10 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.lalwrapper_cvs_tag = lalwrapper_cvs_tag
 	summary.lal_cvs_tag = lal_cvs_tag
 	summary.comment = comment or process.comment
-	summary.ifos = ifos or process.ifos
+	if ifos is not None:
+		summary.set_ifos(ifos)
+	else:
+		summary.set_ifos(process.get_ifos())
 	summary.set_in(inseg)
 	summary.set_out(outseg)
 	summary.nevents = nevents
