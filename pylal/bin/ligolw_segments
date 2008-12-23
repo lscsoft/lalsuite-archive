@@ -159,7 +159,7 @@ for url in urls:
 	#
 
 
-	segments_tables = ligolw_segments.LigolwSegments(xmldoc, process)
+	segments_tables = ligolw_segments.LigolwSegments(xmldoc)
 
 
 	#
@@ -171,7 +171,7 @@ for url in urls:
 		if options.verbose:
 			print >>sys.stderr, "reading \"%s\" for instrument \"%s\" (name %s) ..." % (filename, instrument, repr(options.name))
 
-		segments_tables.insert_from_segwizard(file(filename), set([instrument]), options.name, options.comment)
+		ligolw_segments.insert_from_segwizard(segments_tables, file(filename), set([instrument]), options.name, options.comment)
 
 
 	#
@@ -188,7 +188,7 @@ for url in urls:
 	segments_tables.optimize()
 	if options.verbose:
 		print >>sys.stderr, "reconstructing xml ..."
-	segments_tables.finalize()
+	segments_tables.finalize(process)
 
 
 	#
