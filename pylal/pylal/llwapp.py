@@ -164,8 +164,7 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	Retrieve the segments whose name and activity flag match those
 	given.  The result is a segmentlistdict indexed by instrument.  The
 	default is to retrieve "active" segments, but the optional activity
-	argument can be set to False or None to retrieve inactive or
-	undefined segments, respectively, instead.
+	argument can be set to False to retrieve inactive segments instead.
 
 	Note that when retrieving "undefined" segments, the response is the
 	list of segments explicitly indicated as undefined in the segment
@@ -175,6 +174,7 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	The output of this function is not coalesced, each segmentlist
 	contains the segments as found in the segment table.
 	"""
+	# find required tables
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
