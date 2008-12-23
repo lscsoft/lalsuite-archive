@@ -955,7 +955,8 @@ class SnglInspiral(object):
 			cmp(self.end_time, other.end_time) or
 			cmp(self.end_time_ns, other.end_time_ns) or
 			cmp(self.mass1, other.mass1) or
-			cmp(self.mass2, other.mass2)
+			cmp(self.mass2, other.mass2) or
+			cmp(self.search, other.search)
 		)
 		
 	def __hash__(self):
@@ -964,7 +965,7 @@ class SnglInspiral(object):
 		# hashes they must compare as not equal or stuff breaks),
 		# so make sure to keep this updated if the choice of how to
 		# compare to triggers changes above.
-		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2))
+		return hash((self.ifo, self.end_time, self.end_time_ns, self.mass1, self.mass2, self.search))
 
 
 SnglInspiralTable.RowType = SnglInspiral
