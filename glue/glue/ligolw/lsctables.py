@@ -163,6 +163,27 @@ def instrument_set_from_ifos(ifos):
 	return set()
 
 
+def ifos_from_instrument_set(instruments):
+	"""
+	Convenience function to convert an interable of instrument names
+	into a value suitable for storage in the "ifos" column found in
+	many tables.  This function is mostly for internal use by the
+	.set_ifos() methods of the corresponding row classes.  The input
+	can be None or an interable of zero or more instrument names, none
+	of which may contain "," or "+" characters.  The output is a single
+	string containing the instrument names concatenated using "," as a
+	delimiter.  Note that whitespace in instrument names should not be
+	expected to be preserved.
+	"""
+	if instruments is None:
+		return None
+	instruments = [instrument.strip() for instrument in instruments]
+	instruments.sort()
+	if any(map(lambda instrument: "," in instrument or "+" in instrument, instruments)):
+		raise ValueError, instruments
+	return ",".join(instruments)
+
+
 #
 # =============================================================================
 #
@@ -213,6 +234,14 @@ class Process(object):
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 
 ProcessTable.RowType = Process
@@ -389,6 +418,14 @@ class SearchSummary(object):
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_in(self):
 		"""
@@ -644,6 +681,14 @@ class MultiBurst(object):
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
@@ -1800,6 +1845,14 @@ class SegmentDef(object):
 		Return a set of the instruments for this row.
 		"""
 		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
 
 
 SegmentDefTable.RowType = SegmentDef
