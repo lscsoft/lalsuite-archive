@@ -33,7 +33,12 @@ Library of utility code for LIGO Light Weight XML applications.
 
 import codecs
 import gzip
-import md5
+try:
+	# >= 2.5.0
+	from hashlib import md5
+except ImportError:
+	# < 2.5.0
+	from md5 import new as md5
 import os
 import urllib2
 import urlparse
@@ -228,7 +233,7 @@ class MD5File(object):
 	def __init__(self, fileobj, md5obj = None):
 		self.fileobj = fileobj
 		if md5obj is None:
-			self.md5obj = md5.new()
+			self.md5obj = md5()
 		else:
 			self.md5obj = md5obj
 
