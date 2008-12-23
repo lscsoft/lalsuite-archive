@@ -1179,6 +1179,20 @@ class MultiInspiralTable(table.Table):
 class MultiInspiral(object):
 	__slots__ = MultiInspiralTable.validcolumns.keys()
 
+	def get_ifos(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.ifos)
+
+	def set_ifos(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.ifos = ifos_from_instrument_set(instruments)
+
 	def get_id_parts(self):
 		"""
 		Return the three pieces of the int_8s-style event_id.
