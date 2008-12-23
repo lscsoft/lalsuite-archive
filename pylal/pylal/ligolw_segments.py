@@ -53,13 +53,13 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def segment_def(instruments, name, comment, id, process):
+def segment_def(instruments, name, comment, segment_definer_table, process):
 	"""
 	Create and initialize a segment_definer row object.
 	"""
-	row = lsctables.SegmentDef()
+	row = segment_definer_table.RowType()
 	row.process_id = process.process_id
-	row.segment_def_id = id
+	row.segment_def_id = segment_definer_table.get_next_id()
 	instruments = list(instruments)
 	instruments.sort()
 	row.ifos = ",".join(instruments)
@@ -68,15 +68,15 @@ def segment_def(instruments, name, comment, id, process):
 	return row
 
 
-def seg_def_map(seg, seg_def, tbl, process):
+def seg_def_map(segment_row, segment_def_row, seg_def_map_table, process):
 	"""
 	Create and initialize a segment_def_map row object.
 	"""
-	row = lsctables.SegmentDefMap()
+	row = seg_def_map_table.RowType()
 	row.process_id = process.process_id
-	row.segment_id = seg.segment_id
-	row.segment_def_id = seg_def.segment_def_id
-	row.seg_def_map_id = tbl.get_next_id()
+	row.segment_id = segment_row.segment_id
+	row.segment_def_id = segment_def_row.segment_def_id
+	row.seg_def_map_id = seg_def_map_table.get_next_id()
 	return row
 
 
@@ -133,19 +133,16 @@ class LigolwSegments(object):
 			self.segment_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 		except ValueError:
 			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ("process_id", "segment_def_id", "ifos", "name", "comment")))
-		self.segment_def_table.sync_next_id()
 
 		try:
 			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 		except ValueError:
 			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, ("process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active")))
-		self.segment_table.sync_next_id()
 
 		try:
 			self.segment_def_map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 		except ValueError:
 			self.segment_def_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefMapTable, ("process_id", "segment_id", "segment_def_id", "seg_def_map_id")))
-		self.segment_def_map_table.sync_next_id()
 
 		#
 		# Transform segment tables into a collection of
@@ -153,33 +150,44 @@ class LigolwSegments(object):
 		# manipulation
 		#
 
-		# segment_def_id --> LigolwSegmentList object mapping
-		self.segment_lists = {}
-		for row in self.segment_def_table:
-			if row.segment_def_id in self.segment_lists:
-				raise ValueError, "duplicate ID '%s' in segment_definer table" % str(row.segment_def_id)
-			self.segment_lists[row.segment_def_id] = LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)
+		# construct empty LigolwSegmentList objects, one for each
+		# entry in the segment_definer table, indexed by
+		# segment_definer id
+		self.segment_lists = dict((row.segment_def_id, LigolwSegmentList(instruments = row.get_ifos(), name = row.name, comment = row.comment)) for row in self.segment_def_table)
+		if len(self.segment_lists) != len(self.segment_def_table):
+			raise ValueError, "duplicate segment_definer IDs detected in segment_definer table"
 		del self.segment_def_table[:]
 
-		# segment_id --> LigolwSegmentList object mapping
-		segment_def_map = {}
-		for row in self.segment_def_map_table:
-			if row.segment_id in segment_def_map:
-				raise ValueError, "duplicate segment ID '%s' in segment_def_map table" % str(row.segment_id)
-			segment_def_map[row.segment_id] = self.segment_lists[row.segment_def_id]
-		del self.segment_def_map_table[:]
+		# index the segment table
+		index = dict((row.segment_id, row) for row in self.segment_table)
+		if len(index) != len(self.segment_table):
+			raise ValueError, "duplicated segment IDs detected in segment table"
+		del self.segment_table[:]
 
-		# populate LigolwSegmentList objects from segment table
-		for row in self.segment_table:
-			active = row.get_active()
+		# populate LigolwSegmentList objects from segment_def_map
+		# table and segment_table index
+		for row in self.segment_def_map_table:
+			segment_row = index[row.segment_id]
+			active = segment_row.get_active()
 			if active is True:
-				segment_def_map[row.segment_id].active.append(row.get())
+				self.segment_lists[row.segment_def_id].active.append(segment_row.get())
 			elif active is False:
-				segment_def_map[row.segment_id].inactive.append(row.get())
+				self.segment_lists[row.segment_def_id].inactive.append(segment_row.get())
 			else:
 				raise ValueError, "invalid activity flag '%s' for segment '%s'" % (repr(row.activity), str(row.segment_id))
-		del self.segment_table[:]
-		del segment_def_map
+		del self.segment_def_map_table[:]
+		del index
+
+		# replace segment_lists dictionary with a list
+		self.segment_lists = self.segment_lists.values()
+
+		#
+		# Synchronize ID generators
+		#
+
+		self.segment_def_table.sync_next_id()
+		self.segment_table.sync_next_id()
+		self.segment_def_map_table.sync_next_id()
 
 		#
 		# Done
@@ -190,7 +198,7 @@ class LigolwSegments(object):
 		"""
 		Coalesce the segment lists.
 		"""
-		for ligolw_segment_list in self.segment_lists.values():
+		for ligolw_segment_list in self.segment_lists:
 			ligolw_segment_list.coalesce()
 
 
@@ -202,7 +210,7 @@ class LigolwSegments(object):
 		comparison function (the default is to sort all lists by
 		segment start time with ties broken by end time).
 		"""
-		for ligolw_segment_list in self.segment_lists.values():
+		for ligolw_segment_list in self.segment_lists:
 			ligolw_segment_list.sort(*args)
 
 
@@ -215,13 +223,13 @@ class LigolwSegments(object):
 		having the union of the instruments.
 		"""
 		self.sort()
-		mergelist = []
-		for (def_id_a, seglist_a), (def_id_b, seglist_b) in iterutils.choices(self.segment_lists.items(), 2):
-			if seglist_a.active == seglist_b.active and seglist_a.inactive == seglist_b.inactive and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment:
-				mergelist.append((def_id_a, def_id_b))
-		for target, source in mergelist:
-			if source in self.segment_lists:
-				self.segment_lists[target].instruments |= self.segment_lists.pop(source).instruments
+		segment_lists = dict(enumerate(self.segment_lists))
+		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.active == seglist_b.active and seglist_a.inactive == seglist_b.inactive and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment]:
+			try:
+				segment_lists[target].instruments |= segment_lists.pop(source).instruments
+			except KeyError:
+				pass
+		self.segment_lists = segment_lists.values()
 
 
 	def finalize(self, process):
@@ -248,8 +256,8 @@ class LigolwSegments(object):
 				yield segment_row, segment_def_row
 
 		row_iterators = []
-		for segment_def_id, ligolw_segment_list in self.segment_lists.items():
-			segment_def_row = segment_def(ligolw_segment_list.instruments, ligolw_segment_list.name, ligolw_segment_list.comment, segment_def_id, process)
+		for ligolw_segment_list in self.segment_lists:
+			segment_def_row = segment_def(ligolw_segment_list.instruments, ligolw_segment_list.name, ligolw_segment_list.comment, self.segment_def_table, process)
 			self.segment_def_table.append(segment_def_row)
 			row_iterators.append(time_order_rows(ligolw_segment_list, self.segment_table, process, segment_def_row))
 
@@ -257,7 +265,7 @@ class LigolwSegments(object):
 			self.segment_table.append(segment_row)
 			self.segment_def_map_table.append(seg_def_map(segment_row, segment_def_row, self.segment_def_map_table, process))
 
-		self.segment_lists.clear()
+		del self.segment_lists[:]
 
 
 #
@@ -274,8 +282,8 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	Parse the contents of the file object fileobj as a segwizard-format
 	segment list, and insert the result as a new list of "active"
 	segments into the LigolwSegments object ligolw_segments.  A new
-	entry is created in the segment_definer table for the segment list,
-	and instruments, name and comment are used to populate the entry's
-	metadata.
+	entry will be created in the segment_definer table for the segment
+	list, and instruments, name and comment are used to populate the
+	entry's metadata.
 	"""
-	ligolw_segments.segment_lists[ligolw_segments.segment_def_table.get_next_id()] = LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment)
+	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
