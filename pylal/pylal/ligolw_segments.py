@@ -60,9 +60,7 @@ def segment_def(instruments, name, comment, segment_definer_table, process):
 	row = segment_definer_table.RowType()
 	row.process_id = process.process_id
 	row.segment_def_id = segment_definer_table.get_next_id()
-	instruments = list(instruments)
-	instruments.sort()
-	row.ifos = ",".join(instruments)
+	row.set_ifos(instruments)
 	row.name = name
 	row.comment = comment
 	return row
