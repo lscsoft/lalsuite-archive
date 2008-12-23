@@ -130,6 +130,39 @@ def HasNonLSCTables(elem):
 	return False
 
 
+def instrument_set_from_ifos(ifos):
+	"""
+	Convenience function for parsing the values stored in the "ifos"
+	columns found in many tables.  This function is mostly for internal
+	use by the .get_ifos() methods of the corresponding row classes.
+	The mapping from input to output is as follows (rules are applied
+	in order):
+
+	input is None --> output is None
+
+	input contains "," --> output is set of strings split on "," with
+	whitespace stripped
+
+	input contains "+" --> output is set of strings split on "," with
+	whitespace stripped
+
+	input, after stripping whitespace, is a non-empty string --> output
+	is a set containing input as single value with whitespace stripped
+
+	otherwise --> output is an empty set.
+	"""
+	if ifos is None:
+		return None
+	ifos = ifos.strip()
+	if "," in ifos:
+		return set(map(str.strip, ifos.split(",")))
+	if "+" in ifos:
+		return set(map(str.strip, ifos.split("+")))
+	if ifos:
+		return set([ifos])
+	return set()
+
+
 #
 # =============================================================================
 #
@@ -177,13 +210,9 @@ class Process(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
 
 
 ProcessTable.RowType = Process
@@ -357,13 +386,9 @@ class SearchSummary(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
 
 	def get_in(self):
 		"""
@@ -616,13 +641,9 @@ class MultiBurst(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
 
 	def get_peak(self):
 		return LIGOTimeGPS(self.peak_time, self.peak_time_ns)
@@ -1776,13 +1797,9 @@ class SegmentDef(object):
 
 	def get_ifos(self):
 		"""
-		Return a list of the instruments for this row.
+		Return a set of the instruments for this row.
 		"""
-		if "," in self.ifos:
-			return self.ifos.strip().split(",")
-		if "+" in self.ifos:
-			return self.ifos.strip().split("+")
-		return [self.ifos.strip()]
+		return instrument_set_from_ifos(self.ifos)
 
 
 SegmentDefTable.RowType = SegmentDef
