@@ -155,9 +155,9 @@ def instrument_set_from_ifos(ifos):
 		return None
 	ifos = ifos.strip()
 	if "," in ifos:
-		return set(map(str.strip, ifos.split(",")))
+		return set(map(unicode.strip, ifos.split(",")))
 	if "+" in ifos:
-		return set(map(str.strip, ifos.split("+")))
+		return set(map(unicode.strip, ifos.split("+")))
 	if ifos:
 		return set([ifos])
 	return set()
