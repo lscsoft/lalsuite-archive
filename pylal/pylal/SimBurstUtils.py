@@ -288,10 +288,7 @@ def plot_Efficiency_hrss_vs_freq(efficiency):
 	zvals = efficiency.efficiency.ratio()
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % efficiency.error, colors = "k")
-	instruments = list(efficiency.instruments)
-	instruments.sort()
-	instruments = "+".join(instruments)
-	plot.axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % (instruments, len(efficiency.found_x), len(efficiency.injected_x)))
+	plot.axes.set_title(r"%s Injection Detection Efficiency (%d of %d Found)" % ("+".join(sorted(efficiency.instruments)), len(efficiency.found_x), len(efficiency.injected_x)))
 	return plot.fig
 
 

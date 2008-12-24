@@ -99,9 +99,7 @@ def parse_slidespec(slidespec):
 				break
 			offsets.add(x)
 			i += 1
-	offsets = list(offsets)
-	offsets.sort()
-	return instrument.strip(), offsets
+	return instrument.strip(), sorted(offsets)
 
 
 def parse_slides(slides):
@@ -120,14 +118,12 @@ def parse_slides(slides):
 	# numbers
 	for slidespec in slides:
 		instrument, offsets = parse_slidespec(slidespec)
-		if instrument not in d:
-			d[instrument] = set()
-		d[instrument] |= set(offsets)
-	# convert offsets back to lists, and sort
-	for instrument, offsets in d.items():
-		d[instrument] = list(offsets)
-		d[instrument].sort()
-	return d
+		try:
+			d[instrument] |= set(offsets)
+		except KeyError:
+			d[instrument] = set(offsets)
+	# convert offsets back to sorted lists
+	return dict((instrument, sorted(offsets)) for instrument, offsets in d.items())
 
 
 def parse_inspiral_num_slides_slidespec(slidespec):

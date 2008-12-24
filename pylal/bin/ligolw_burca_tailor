@@ -234,10 +234,8 @@ else:
 
 
 def T010150_basename(description, seglists):
-	instruments = seglists.keys()
-	instruments.sort()
 	seg = seglists.extent_all()
-	return "%s-%s-%s-%s" % ("+".join(instruments), description, str(seg[0]), str(abs(seg)))
+	return "%s-%s-%s-%s" % ("+".join(sorted(seglists.keys())), description, str(seg[0]), str(abs(seg)))
 
 
 if options.T010150:

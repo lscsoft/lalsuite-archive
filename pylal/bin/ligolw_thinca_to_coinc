@@ -476,20 +476,17 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	#
 
 	for event_id, events in itertools.groupby(sngl_inspiral_table, lambda row: row.event_id):
-		events = list(events)
+		#
+		# alphabetize events by instrument
+		#
+
+		events = tuple(sorted(events, lambda a, b: cmp(a.ifo, b.ifo)))
 		if len(events) < 2:
 			# not a coincidence, just a single.  assign a new,
 			# unique, event_id and continue.
 			for event in events:
 				event.event_id = sngl_inspiral_table.get_next_id()
 			continue
-
-		#
-		# alphabetize events by instrument
-		#
-
-		events.sort(lambda a, b: cmp(a.ifo, b.ifo))
-		events = tuple(events)
 
 		#
 		# build a coinc_event

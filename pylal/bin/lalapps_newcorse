@@ -89,10 +89,9 @@ def parse_command_line():
 
 	if options.mass_bins is None:
 		raise ValueError, "missing required option -b or --mass-bins"
-	options.mass_bins = map(float, options.mass_bins.strip().split(","))
+	options.mass_bins = sorted(map(float, options.mass_bins.split(",")))
 	if len(options.mass_bins) < 2:
 		raise ValueError, "must supply at least two mass bin boundaries"
-	options.mass_bins.sort()
 	options.mass_bins = rate.IrregularBins(options.mass_bins)
 
 	#
@@ -128,8 +127,7 @@ class Summaries(object):
 		# out with the instruments sorted
 		#
 
-		instruments = list(instruments)
-		instruments.sort()
+		instruments = sorted(instruments)
 
 		#
 		# iterate over instrument combinations creating bins for

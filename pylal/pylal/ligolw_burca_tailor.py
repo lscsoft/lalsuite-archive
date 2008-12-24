@@ -77,8 +77,7 @@ lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
 def coinc_params(events, offsetdict):
 	params = {}
-	events = list(events)
-	events.sort(lambda a, b: cmp(a.ifo, b.ifo))
+	events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
 
 	if events:
 		# the "time" is the ms_snr squared weighted average of the
@@ -454,14 +453,10 @@ class Covariance(Stats):
 		pass
 
 	def _add_background(self, param_func, events, offsetdict, *args):
-		items = param_func(events, offsetdict, *args).items()
-		items.sort()
-		self.bak_observations.append(tuple([value for name, value in items]))
+		self.bak_observations.append(tuple(value for name, value in sorted(param_func(events, offsetdict, *args).items())))
 
 	def _add_injections(self, param_func, sim, events, offsetdict, *args):
-		items = param_func(events, offsetdict, *args).items()
-		items.sort()
-		self.inj_observations.append(tuple([value for name, value in items]))
+		self.inj_observations.append(tuple(value for name, value in sorted(param_func(events, offsetdict, *args).items())))
 
 	def finish(self):
 		self.bak_cov = covariance_normalize(stats.cov(self.bak_observations))

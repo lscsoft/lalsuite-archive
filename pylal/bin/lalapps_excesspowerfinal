@@ -251,8 +251,7 @@ def dump_confidence_likelihood_scatter_data(globs, live_time_program = "lalapps_
 
 	if verbose:
 		print >>sys.stderr, "building file list ..."
-	filenames = [filename for g in globs for filename in glob.glob(g)]
-	filenames.sort()
+	filenames = sorted(filename for g in globs for filename in glob.glob(g))
 
 	#
 	# Initialize storage.
@@ -1308,8 +1307,7 @@ print >>sys.stderr
 
 if options.verbose:
 	print >>sys.stderr, "building file list ..."
-filenames = [filename for g in options.background_glob for filename in glob.glob(g)]
-filenames.sort()
+filenames = sorted(filename for g in options.background_glob for filename in glob.glob(g))
 if not filenames:
 	raise ValueError, "no background/zero lag files found"
 
@@ -1339,8 +1337,7 @@ print >>sys.stderr
 
 if options.verbose:
 	print >>sys.stderr, "building file list ..."
-filenames = [filename for g in options.injections_glob for filename in glob.glob(g)]
-filenames.sort()
+filenames = sorted(filename for g in options.injections_glob for filename in glob.glob(g))
 if not filenames:
 	raise ValueError, "no injection files found"
 

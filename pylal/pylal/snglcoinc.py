@@ -153,12 +153,10 @@ class CoincTables(object):
 
 	def time_slide_ids(self):
 		"""
-		Return a list of the time slide IDs.  The list is sorted in
+		Return a list of the unique time slide IDs sorted in
 		increasing order by ID number.
 		"""
-		ids = list(set([row.time_slide_id for row in self.time_slide_table]))
-		ids.sort()
-		return ids
+		return sorted(set(row.time_slide_id for row in self.time_slide_table))
 
 
 	def get_time_slide(self, id):

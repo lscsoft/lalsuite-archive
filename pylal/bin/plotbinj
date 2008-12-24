@@ -915,11 +915,7 @@ def plot_multi_Efficiency_hrss_vs_freq(efficiencies):
 	ninjected_guess = int(round(ninjected_guess))
 	nfound_guess = int(round(nfound_guess))
 
-	instruments = [list(e.instruments) for e in efficiencies]
-	[e.sort() for e in instruments]
-	instruments = ["+".join(e) for e in instruments]
-	instruments.sort()
-	instruments = r" \& ".join(instruments)
+	instruments = r" \& ".join(sorted("+".join(sorted(e.instruments)) for e in efficiencies))
 
 	cset = plot.axes.contour(xcoords, ycoords, numpy.transpose(zvals), (.1, .2, .3, .4, .5, .6, .7, .8, .9))
 	cset.clabel(inline = True, fontsize = 5, fmt = r"$%%g \pm %g$" % error, colors = "k")

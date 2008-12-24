@@ -146,12 +146,7 @@ for n, filename in enumerate(filenames):
 		raise ValueError, "%s: no matching rows found in search summary table" % filename
 
 	# extract observatory
-	if options.observatory:
-		observatory = options.observatory
-	else:
-		observatory = seglists.keys()
-		observatory.sort()
-		observatory = "+".join(observatory)
+	observatory = options.observatory or "+".join(sorted(seglists.keys()))
 
 	# extract description
 	if options.description:
