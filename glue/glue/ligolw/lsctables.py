@@ -177,8 +177,7 @@ def ifos_from_instrument_set(instruments):
 	"""
 	if instruments is None:
 		return None
-	instruments = [instrument.strip() for instrument in instruments]
-	instruments.sort()
+	instruments = sorted(instrument.strip() for instrument in instruments)
 	if any(map(lambda instrument: "," in instrument or "+" in instrument, instruments)):
 		raise ValueError, instruments
 	return ",".join(instruments)
