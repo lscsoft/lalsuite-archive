@@ -180,10 +180,9 @@ class InspiralEventList(snglcoinc.EventList):
 		Sort events by end time so that a bisection search can
 		retrieve them.  Note that the bisection search relies on
 		the __cmp__() method of the SnglInspiral row class having
-		previously been set to compare the event's peak time to a
+		previously been set to compare the event's end time to a
 		LIGOTimeGPS.
 		"""
-		# sort by end time
 		self.sort(lambda a, b: cmp(a.end_time, b.end_time) or cmp(a.end_time_ns, b.end_time_ns))
 
 	def _add_offset(self, delta):
@@ -194,21 +193,31 @@ class InspiralEventList(snglcoinc.EventList):
 			event.set_end(event.get_end() + delta)
 
 	def get_coincs(self, event_a, e_thinca_parameter, comparefunc):
+		#
 		# event_a's end time
+		#
+
 		end = event_a.get_end()
 
-		# if event_a's end time differs by more than this much from
-		# the end time of an event in this list then it is
-		# *impossible* for them to be coincident
+		#
+		# if event_a's end time differs by more than this many
+		# seconds from the end time of an event in this list then
+		# it is *impossible* for them to be coincident
+		#
 		# FIXME:  use getTimeError() function in LAL to compute
-		# this (current that's a static function, so it'll have to
-		# be renamed and exported as part of the LAL API).
+		# this (currently that's a static function, so it'll have
+		# to be renamed and exported as part of the LAL API).
+		#
+
 		dt = 0.5
 
+		#
 		# extract the subset of events from this list that pass
 		# coincidence with event_a (use bisection searches for the
 		# minimum and maximum allowed end times to quickly identify
 		# a subset of the full list)
+		#
+
 		return [event_b for event_b in self[bisect.bisect_left(self, end - dt) : bisect.bisect_right(self, end + dt)] if not comparefunc(event_a, event_b, e_thinca_parameter)]
 
 
@@ -346,9 +355,8 @@ def ligolw_thinca(
 				# the in-order tuple of instruments
 				# providing triggers for the coinc is used
 				# as the key to look up the coinc type
-				coinc_instruments = [event.ifo for event in ntuple]
-				coinc_instruments.sort()
-				coinc_tables.append_coinc(process_id, time_slide_id, tuple(coinc_instruments), ntuple)
+				coinc_instruments = tuple(sorted(event.ifo for event in ntuple))
+				coinc_tables.append_coinc(process_id, time_slide_id, coinc_instruments, ntuple)
 
 	#
 	# remove time offsets from events
