@@ -334,7 +334,7 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
-	length_before = len(time_slide_table)
+	length_before = len(set(time_slide_table.getColumnByName("time_slide_id")))
 
 	#
 	# translate time_slide table into a dictionary, and identify
@@ -363,7 +363,8 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "removed %d redundant time slide vectors" % (length_before - len(time_slide_table))
+		length_after = len(set(time_slide_table.getColumnByName("time_slide_id")))
+		print >>sys.stderr, "removed %d redundant time slide vectors, %d remaining" % (length_before - length_after, length_after)
 
 
 #
@@ -641,7 +642,7 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 	#
 
 	if verbose:
-		print >>sys.stderr, "removed %d redundant sngl_inspiral events" % (length_before - len(sngl_inspiral_table))
+		print >>sys.stderr, "removed %d redundant sngl_inspiral events, %d remaining" % (length_before - len(sngl_inspiral_table), len(sngl_inspiral_table))
 
 
 #
