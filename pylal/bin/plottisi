@@ -73,8 +73,7 @@ def parse_command_line():
 		raise ValueError, "must set instruments for x and y axes"
 
 	if options.require_instruments is not None:
-		options.require_instruments = map(str.strip, options.require_instruments.split(","))
-		options.require_instruments.sort()
+		options.require_instruments = set(map(str.strip, options.require_instruments.split(",")))
 
 	return options, (filenames or [None])
 
@@ -129,9 +128,7 @@ class Plot(object):
 		x = []
 		y = []
 		for offsets in tisitable.dict.itervalues():
-			keys = offsets.keys()
-			keys.sort()
-			if require_instruments is None or require_instruments == keys:
+			if require_instruments is None or require_instruments == set(offsets.keys()):
 				x.append(offsets[x_instrument])
 				y.append(offsets[y_instrument])
 		min_offset = min(x + y)
@@ -142,7 +139,7 @@ class Plot(object):
 		self.axes.set_ylim([min_offset, max_offset])
 
 		if require_instruments is not None:
-			self.axes.set_title("%d %s Time Slides" % (len(x), "+".join(require_instruments)))
+			self.axes.set_title("%d %s Time Slides" % (len(x), "+".join(sorted(require_instruments))))
 		else:
 			self.axes.set_title("%d Time Slides" % len(x))
 
