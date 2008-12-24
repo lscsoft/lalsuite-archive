@@ -228,8 +228,8 @@ class LigolwSegments(object):
 		#
 		# generator function to return active and inactive segment
 		# table rows from a LigolwSegmentList object in time order,
-		# with a handle to the matching row in the segment_definer
-		# table
+		# each paired with a handle to the matching row in the
+		# segment_definer table
 		#
 
 		def time_order_rows(ligolw_segment_list, segment_table, process, segment_def_row):
