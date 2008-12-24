@@ -53,31 +53,6 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def segment_def(instruments, name, comment, segment_definer_table, process):
-	"""
-	Create and initialize a segment_definer row object.
-	"""
-	row = segment_definer_table.RowType()
-	row.process_id = process.process_id
-	row.segment_def_id = segment_definer_table.get_next_id()
-	row.set_ifos(instruments)
-	row.name = name
-	row.comment = comment
-	return row
-
-
-def seg_def_map(segment_row, segment_def_row, seg_def_map_table, process):
-	"""
-	Create and initialize a segment_def_map row object.
-	"""
-	row = seg_def_map_table.RowType()
-	row.process_id = process.process_id
-	row.segment_id = segment_row.segment_id
-	row.segment_def_id = segment_def_row.segment_def_id
-	row.seg_def_map_id = seg_def_map_table.get_next_id()
-	return row
-
-
 class LigolwSegmentList(object):
 	"""
 	A description of a class of segments.
@@ -124,7 +99,7 @@ class LigolwSegments(object):
 	"""
 	def __init__(self, xmldoc):
 		#
-		# Find tables, and synchronize ID generators
+		# Find tables
 		#
 
 		try:
@@ -176,7 +151,8 @@ class LigolwSegments(object):
 		del self.segment_def_map_table[:]
 		del index
 
-		# replace segment_lists dictionary with a list
+		# replace segment_lists dictionary with a list because the
+		# segment_definer IDs no longer have any meaning
 		self.segment_lists = self.segment_lists.values()
 
 		#
@@ -243,8 +219,20 @@ class LigolwSegments(object):
 		then it might be discontinued without notice.  You've been
 		warned.
 		"""
+		#
+		# put all segment lists in time order
+		#
+
+		self.sort()
+
+		#
+		# generator function to return active and inactive segment
+		# table rows from a LigolwSegmentList object in time order,
+		# with a handle to the matching row in the segment_definer
+		# table
+		#
+
 		def time_order_rows(ligolw_segment_list, segment_table, process, segment_def_row):
-			ligolw_segment_list.sort()
 			for seg, activity in iterutils.inorder(((seg, True) for seg in ligolw_segment_list.active), ((seg, False) for seg in ligolw_segment_list.inactive)):
 				segment_row = segment_table.RowType()
 				segment_row.set(seg)
@@ -253,15 +241,40 @@ class LigolwSegments(object):
 				segment_row.segment_id = segment_table.get_next_id()
 				yield segment_row, segment_def_row
 
-		row_iterators = []
-		for ligolw_segment_list in self.segment_lists:
-			segment_def_row = segment_def(ligolw_segment_list.instruments, ligolw_segment_list.name, ligolw_segment_list.comment, self.segment_def_table, process)
-			self.segment_def_table.append(segment_def_row)
-			row_iterators.append(time_order_rows(ligolw_segment_list, self.segment_table, process, segment_def_row))
+		#
+		# populate the segment_definer table from the list of
+		# LigolwSegmentList objects and construct a matching list
+		# of segment row generators
+		#
 
-		for segment_row, segment_def_row in iterutils.inorder(*row_iterators):
+		row_generators = []
+		for ligolw_segment_list in self.segment_lists:
+			segment_def_row = self.segment_def_table.RowType()
+			segment_def_row.process_id = process.process_id
+			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
+			segment_def_row.set_ifos(ligolw_segment_list.instruments)
+			segment_def_row.name = ligolw_segment_list.name
+			segment_def_row.comment = ligolw_segment_list.comment
+			self.segment_def_table.append(segment_def_row)
+			row_generators.append(time_order_rows(ligolw_segment_list, self.segment_table, process, segment_def_row))
+
+		#
+		# populate segment and segment_def_map tables by pulling
+		# segment rows from the generators in time order
+		#
+
+		for segment_row, segment_def_row in iterutils.inorder(*row_generators):
+			seg_def_map_row = self.segment_def_map_table.RowType()
+			seg_def_map_row.process_id = process.process_id
+			seg_def_map_row.segment_id = segment_row.segment_id
+			seg_def_map_row.segment_def_id = segment_def_row.segment_def_id
+			seg_def_map_row.seg_def_map_id = self.segment_def_map_table.get_next_id()
 			self.segment_table.append(segment_row)
-			self.segment_def_map_table.append(seg_def_map(segment_row, segment_def_row, self.segment_def_map_table, process))
+			self.segment_def_map_table.append(seg_def_map_row)
+
+		#
+		# empty ourselves to prevent this process from being repeated
+		#
 
 		del self.segment_lists[:]
 
@@ -302,21 +315,33 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	The output of this function is not coalesced, each segmentlist
 	contains the segments as found in the segment table.
 	"""
+	#
 	# find required tables
+	#
+
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 
+	#
 	# segment_def_id --> instrument names mapping constructed from
 	# segment_definer entries bearing the correct name
+	#
+
 	index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
 
+	#
 	# segment_id --> instrument names mapping constructed from
 	# segment_def_map entries bearing segment_def_ids from above
+	#
+
 	index = dict((row.segment_id, index[row.segment_def_id]) for row in map_table if row.segment_def_id in index)
 
+	#
 	# retrieve segments bearing segment_ids from above, and insert
 	# into a dictionary indexed by instrument
+	#
+
 	result = segments.segmentlistdict()
 	for row in seg_table:
 		if row.get_active() == activity:
@@ -329,5 +354,8 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 			except KeyError:
 				pass
 
+	#
 	# done
+	#
+
 	return result
