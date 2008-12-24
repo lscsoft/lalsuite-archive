@@ -36,6 +36,7 @@ from glue import segments
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from pylal import ligolw_segments
 from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.date import LIGOTimeGPS
@@ -144,7 +145,7 @@ lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 def load_veto_segments(filename, verbose = False):
-	return llwapp.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, gz = filename.endswith(".gz")), "sngl_burst_veto").coalesce()
+	return ligolw_segments.segmenttable_get_by_name(utils.load_filename(filename, verbose = verbose, gz = filename.endswith(".gz")), "sngl_burst_veto").coalesce()
 
 
 class DocContents(object):

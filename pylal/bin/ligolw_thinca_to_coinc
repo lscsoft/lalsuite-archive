@@ -47,6 +47,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from pylal import llwapp
+from pylal import ligolw_segments
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
@@ -847,7 +848,7 @@ populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
 depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 if options.veto_segments:
-	apply_vetoes(xmldoc, llwapp.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce(), process, verbose = options.verbose)
+	apply_vetoes(xmldoc, ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce(), process, verbose = options.verbose)
 elif options.verbose:
 	print >>sys.stderr, "no vetoes applied"
 
