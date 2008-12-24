@@ -324,35 +324,40 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 
 	#
-	# segment_def_id --> instrument names mapping constructed from
-	# segment_definer entries bearing the correct name
+	# segment_def_id --> instrument names mapping but only for
+	# segment_definer entries bearing the requested name
 	#
 
-	index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
+	instrument_index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
 
 	#
-	# segment_id --> instrument names mapping constructed from
-	# segment_def_map entries bearing segment_def_ids from above
+	# segment_id --> segment row mapping
 	#
 
-	index = dict((row.segment_id, index[row.segment_def_id]) for row in map_table if row.segment_def_id in index)
+	segment_index = dict((row.segment_id, row) for row in seg_table)
+	if len(segment_index) != len(seg_table):
+		raise ValueError, "segment table contains non-unique IDs"
 
 	#
-	# retrieve segments bearing segment_ids from above, and insert
-	# into a dictionary indexed by instrument
+	# populate result segmentlistdict object from segment_def_map table
+	# and index
 	#
 
 	result = segments.segmentlistdict()
-	for row in seg_table:
+	for row in map_table:
+		try:
+			instruments = instrument_index[row.segment_def_id]
+		except KeyError:
+			# not a segment list we want
+			continue
+		row = segment_index[row.segment_id]
 		if row.get_active() == activity:
-			try:
-				for instrument in index[row.segment_id]:
-					try:
-						result[instrument].append(row.get())
-					except KeyError:
-						result[instrument] = segments.segmentlist([row.get()])
-			except KeyError:
-				pass
+			seg = row.get()
+			for instrument in instruments:
+				try:
+					result[instrument].append(seg)
+				except KeyError:
+					result[instrument] = segments.segmentlist([seg])
 
 	#
 	# done
