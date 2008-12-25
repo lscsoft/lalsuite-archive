@@ -131,15 +131,16 @@ def set_process_params(xmldoc, process, options):
 #
 # =============================================================================
 #
-#                            Add Missing ID Columns
+#                               Document Fix-Up
 #
 # =============================================================================
 #
 
 
 #
-# this is needed because the cbc 2yr tags are on versions of LAL that don't
-# have these columns in the tables.  current versions of lal do.
+# add missing ID columns.  this is needed because the cbc 2yr tags are on
+# versions of LAL that don't have these columns in the tables.  current
+# versions of lal do.
 #
 
 
@@ -213,12 +214,12 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	except ValueError:
 		time_slide_table = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(time_slide_table)
-	time_slide_table.sync_next_id()
 
 	#
 	# move existing time_slide IDs out of the way
 	#
 
+	time_slide_table.sync_next_id()
 	if time_slide_table.next_id < type(time_slide_table.next_id)(10000):
 		time_slide_table.set_next_id(type(time_slide_table.next_id)(10000))
 	mapping = {}
