@@ -377,17 +377,38 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 
 
 #
-# retrieve the ring boundaries.  everywhere this function is called, the
-# program has already confirmed that the search_summary table has 1 unique
-# thinca entry so the unpacking done in the assignment here assumes that to
-# be the case (and will cause the program to exit with an error if that
-# assumption doesn't hold).
+# retrieve the ring boundaries
 #
 
 
 def retrieve_ring_boundaries(xmldoc):
-	[(ignored, rings)] = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").items()
+	#
+	# grab the segment list for any instrument selected at random (they
+	# are all the same)
+	#
+
+	rings = llwapp.segmentlistdict_fromsearchsummary(xmldoc, program = "thinca").popitem()[1]
+
+	#
+	# because the input often contains two thinca jobs the rings might
+	# be duplicated;  use set() to uniqueify them then sort them.
+	#
+
+	rings = segments.segmentlist(set(rings))
 	rings.sort()
+
+	#
+	# check that the (sorted) rings are non-intersecting
+	#
+
+	for i in range(len(rings) - 1):
+		if rings[i].interesects(rings[i + 1]):
+			raise ValueError, "non-disjoint rings detected in search_summary table"
+
+	#
+	# done
+	#
+
 	return rings
 
 
