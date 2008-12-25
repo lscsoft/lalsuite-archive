@@ -228,32 +228,24 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 		tbl.applyKeyMapping(mapping)
 
 	#
-	# identify lalapps_thinca's time slides
+	# get process_ids for all thinca jobs, and for thinca jobs that
+	# were run with a --num-slides command line option
 	#
 
-	num_slides = None
-	offset_vector = {}
-        slide_option_pattern = re.compile("--(?P<ifo>[a-zA-Z][0-9])-slide")
+	thinca_process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+	slides_process_ids = thinca_process_ids & set(row.process_id for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if row.param == u"--num-slides")
 
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
-	if not process_ids:
-		raise ValueError, "document does not contain any thinca jobs"
-
-	for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
-		if row.process_id in process_ids:
-			if row.param == "--num-slides":
-				num_slides = row.get_pyvalue()
-			else:
-				match = re.search(slide_option_pattern, row.param)
-				if match is not None:
-					offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
+	if len(thinca_process_ids - slides_process_ids) > 1:
+		raise ValueError, "document contains more than 1 zero-lag thinca job"
+	if len(slides_process_ids) > 1:
+		raise ValueError, "document contains more than 1 non-zero-lag thinca job"
 
 	#
 	# identify the instrument names in play from the search_summary
 	# table
 	#
 
-	instruments = set([row.ifos for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in process_ids])
+	instruments = set(row.ifos for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
 	if len(instruments) < 1:
 		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
 	if len(instruments) > 1:
@@ -268,31 +260,54 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	instruments = set(instruments)
 
 	#
-	# if the offset vector is empty, assume we've only loaded a
-	# zero-lag thinca file, and so synthesize an all-zero vector from
-	# the instruments we've retrieved from the search_summary table,
-	# and set num_slides to 0.  otherwise, verify there was a
-	# --num-slides option in the process_params table.
+	# identify lalapps_thinca's time slides
 	#
 
-	if not offset_vector:
-		offset_vector = dict([(instrument, 0.0) for instrument in instruments])
+	if not slides_process_ids:
+		#
+		# just zero-lag jobs.  synthesize an all-zero vector from
+		# the instruments we've retrieved from the search_summary
+		# table, and set num_slides to 0
+		#
+
+		offset_vector = dict((instrument, 0.0) for instrument in instruments)
 		num_slides = 0
-	elif num_slides is None:
-		raise ValueError, "cannot find --num-slides thinca command line option in process_params table"
 
-	#
-	# remove instruments from the offset vector that are were not named
-	# in the search summary table entries, and confirm that the offset
-	# vector contains entries for all the instruments are were named in
-	# the search summary table entries.
-	#
+	else:
+		#
+		# construct the offset vector from the --??-slide command
+		# line options, and extact num_slides from the --num-slides
+		# command line option
+		#
 
-	for instrument in set(offset_vector.keys()) - instruments:
-		del offset_vector[instrument]
-	if set(offset_vector.keys()) != instruments:
-		missing_instruments = set(offset_vector.keys()) - instruments
-		raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
+		num_slides = None
+		offset_vector = {}
+		slide_option_pattern = re.compile("--(?P<ifo>[a-zA-Z][0-9])-slide")
+
+		for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName):
+			if row.process_id in slides_process_ids:
+				if row.param == u"--num-slides":
+					num_slides = row.get_pyvalue()
+					if num_slides < 0:
+						raise ValueError, "invalid --num-slides '%s' for process '%s'" % (row.value, row.process_id)
+				else:
+					match = re.search(slide_option_pattern, row.param)
+					if match is not None:
+						offset_vector[match.groupdict()["ifo"].upper()] = row.get_pyvalue()
+
+		#
+		# confirm that the offset vector contains offsets for all
+		# the instruments named in the search_summary table
+		# entries, and remove any instruments from the offset
+		# vector that were not named in the search_summary table
+		# entries.
+		#
+
+		for instrument in set(offset_vector.keys()) - instruments:
+			del offset_vector[instrument]
+		if set(offset_vector.keys()) != instruments:
+			missing_instruments = set(offset_vector.keys()) - instruments
+			raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
 
 	#
 	# build the time slides
