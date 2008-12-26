@@ -323,9 +323,9 @@ compute_signal(&re, &im, &f, 793161250.0, &p);
 fprintf(stderr, "compute_signal_test1: %g %g %f\n", re, im, f);
 fprintf(LOG, "compute_signal_test1: %g %g %f\n", re, im, f);
 
-if(abs(re-9.59669e-06)>1e-11 ||
-   abs(im-1.83957e-05)>1e-11 ||
-   abs(f-500.101774)>1e-5) status|=1;
+if(fabs(re-9.59669e-06)>1e-10 ||
+   fabs(im-1.83957e-05)>1e-10 ||
+   fabs(f-500.101774)>1e-5) status|=1;
 
 p.cos_e=1.0;
 p.sin_e=0.0;
@@ -342,9 +342,9 @@ compute_signal(&re2, &im2, &f2, 793161250.0, &p);
 fprintf(stderr, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
 fprintf(LOG, "compute_signal_test3: %g %g %f\n", re2, im2, f2);
 
-if(abs(f2-f)>1e-5 ||
-   abs(re-im2)>1e-11 ||
-   abs(im+re2)>1e-11) status|=2;
+if(fabs(f2-f)>1e-5 ||
+   fabs(re-im2)>1e-11 ||
+   fabs(im+re2)>1e-11) status|=2;
 
 if(status) {
 	fprintf(stderr, "compute_signal_test: failed %d\n", status);
