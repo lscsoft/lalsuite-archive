@@ -24,12 +24,16 @@ _author__="Ben Johnson: module contains the classes for the LSCfileAdd utility"
 
 import exceptions
 import os
-import md5
 import time
 import sys
 import re
 from types import *
-
+try:
+  # use hashlib if available, python25 and above
+  from hashlib import md5
+except ImportError:
+  # md5 is deprecated in python26
+  from md5 import new as md5
 
 
 # pulled from LSCfileAdd
@@ -741,7 +745,7 @@ class Publisher(object):
                 Compute md5sum of a file. Must be given a filesystem
                 path.
                 """
-                m = md5.new()
+                m = md5()
                 f = open(filename,"r")
                 aMeg = 1048576  # 1024 *1024
                 line = f.read(aMeg)

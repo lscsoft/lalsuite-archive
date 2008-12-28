@@ -29,10 +29,15 @@ import string, re
 import exceptions
 import time
 import random
-import md5
 import math
 import urlparse
 import stat
+try:
+  # use hashlib if available, python25 and above
+  from hashlib import md5
+except ImportError:
+  # md5 is deprecated in python26
+  from md5 import new as md5
 
 def s2play(t):
   """
@@ -593,7 +598,7 @@ class CondorDAGNode:
     t = str( long( time.time() * 1000 ) )
     r = str( long( random.random() * 100000000000000000L ) )
     a = str( self.__class__ )
-    self.__name = md5.md5(t + r + a).hexdigest()
+    self.__name = md5(t + r + a).hexdigest()
     self.__md5name = self.__name
 
   def __repr__(self):
