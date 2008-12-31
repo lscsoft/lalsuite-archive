@@ -31,11 +31,6 @@ This module provides an implementation of the Table element that uses a
 database engine for storage.  On top of that it then re-implements a number
 of the tables from the lsctables module to provide versions of their
 methods that work against the SQL database.
-
-*** CAUTION *** the API exported by this module is NOT STABLE.  The code
-works well, and it hugely simplifies my life and it can yours too, but if
-you use it you will have to be willing to track changes as I make them.
-I'm still figuring out how this should work.
 """
 
 
@@ -51,6 +46,7 @@ try:
 	set
 except NameError:
 	from sets import Set as set
+
 
 import ligolw
 import table
@@ -83,10 +79,9 @@ def DBTable_set_connection(connection):
 
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
 	"""
-	Experimental utility code for moving database files to a
-	(presumably local) working location for improved performance and
-	reduced fileserver load.  The API is not stable, don't use unless
-	you're prepared to track changes.
+	Utility code for moving database files to a (presumably local)
+	working location for improved performance and reduced fileserver
+	load.
 	"""
 	def mktmp(path, verbose = False):
 		fd, filename = tempfile.mkstemp(suffix = ".sqlite", dir = path)
@@ -173,6 +168,18 @@ class IOTrappedSignal(Exception):
 
 
 def put_connection_filename(filename, working_filename, verbose = False):
+	"""
+	This function reverses the effect of a previous call to
+	get_connection_filename(), restoring the working copy to its
+	original location if the two are different.  This function should
+	always be called after calling get_connection_filename() when the
+	file is no longer in use.
+
+	This function traps the signals used by Condor to evict jobs, which
+	reduces the risk of corrupting a document by the job terminating
+	part-way through the restoration of the file to its original
+	location.
+	"""
 	if working_filename != filename:
 		# initialize SIGTERM and SIGTSTP trap
 		global __llwapp_write_filename_got_sig
@@ -200,6 +207,18 @@ def put_connection_filename(filename, working_filename, verbose = False):
 
 
 def discard_connection_filename(filename, working_filename, verbose = False):
+	"""
+	Like put_connection_filename(), but the working copy is simply
+	deleted instead of being copied back to its original location.
+	This is a useful performance boost if it is known that no
+	modifications were made to the file, for example if queries were
+	performed but no updates.
+
+	Note that the file is not deleted if the working copy and original
+	file are the same, so it is always safe to call this function after
+	a call to get_connection_filename() even if a separate working copy
+	is not created.
+	"""
 	if working_filename != filename:
 		if verbose:
 			print >>sys.stderr, "removing '%s' ..." % working_filename
@@ -222,6 +241,9 @@ def idmap_create(connection):
 	is a primary key (is indexed and must contain unique entries).  The
 	table is created as a temporary table, so it will be automatically
 	dropped when the database connection is closed.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
 	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
 
@@ -230,6 +252,9 @@ def idmap_reset(connection):
 	"""
 	Erase the contents of the _idmap_ table, but leave the table in
 	place.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
 	connection.cursor().execute("DELETE FROM _idmap_")
 
@@ -241,12 +266,18 @@ def idmap_get_new(connection, old, tbl):
 	to the old ID, or by using the current value of the Table
 	instance's next_id class attribute.  In the latter case, the new ID
 	is recorded in the _idmap_ table, and the class attribute
-	incremented by 1.  For internal use only.
+	incremented by 1.
+
+	This function is for internal use, it forms part of the code used
+	to re-map row IDs when merging multiple documents.
 	"""
 	cursor = connection.cursor()
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
+		# a new ID has already been created for this old ID
 		return new[0]
+	# this ID was not found in _idmap_ table, assign a new ID and
+	# record it
 	new = unicode(tbl.get_next_id())
 	cursor.execute("INSERT INTO _idmap_ VALUES (?, ?)", (old, new))
 	return new
@@ -285,7 +316,7 @@ def get_table_names(connection):
 def get_column_info(connection, table_name):
 	"""
 	Return an in order list of (name, type) tuples describing the
-	columns for the given table.
+	columns in the given table.
 	"""
 	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
@@ -307,7 +338,6 @@ def get_xml(connection):
 		except KeyError:
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
-		colnamefmt = u"%s:%%s" % table_name
 		for column_name, column_type in get_column_info(connection, table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
@@ -315,8 +345,7 @@ def get_xml(connection):
 			else:
 				# guess the column type
 				column_type = ligolwtypes.FromSQLiteType[column_type]
-			table_elem.appendChild(table.Column(AttributesImpl({u"Name": colnamefmt % column_name, u"Type": column_type})))
-
+			table_elem.appendChild(table.Column(AttributesImpl({u"Name": u"%s:%s" % (table_name, column_name), u"Type": column_type})))
 		table_elem._end_of_columns()
 		table_elem.appendChild(table.TableStream(AttributesImpl({u"Name": u"%s:table" % table_name})))
 		ligo_lw.appendChild(table_elem)
@@ -395,7 +424,7 @@ class DBTable(table.Table):
 	connection = None
 
 	def __new__(cls, *args):
-		# does this class have table-specific metadata?
+		# does this class already have table-specific metadata?
 		if not hasattr(cls, "tableName"):
 			# no, try to retrieve it from lsctables
 			attrs, = args
@@ -425,9 +454,6 @@ class DBTable(table.Table):
 		return table.Table.__new__(cls, *args)
 
 	def __init__(self, *args):
-		"""
-		Initialize
-		"""
 		table.Table.__init__(self, *args)
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 		# convert class attribute to an instance attribute
@@ -520,6 +546,7 @@ class DBTable(table.Table):
 
 	def unlink(self):
 		table.Table.unlink(self)
+		self.connection = None
 		self.cursor = None
 
 	def applyKeyMapping(self):
