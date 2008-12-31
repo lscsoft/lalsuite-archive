@@ -288,11 +288,11 @@ _sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
 #
 
 
-def DBTable_table_names():
+def DBTable_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
-	return [name for (name,) in DBTable.connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
+	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
 def DBTable_column_info(table_name):
@@ -312,7 +312,7 @@ def DBTable_get_xml():
 	ligolw.LIGO_LW element containing the tables as children.
 	"""
 	ligo_lw = ligolw.LIGO_LW()
-	for table_name in DBTable_table_names():
+	for table_name in DBTable_table_names(DBTable_get_connection()):
 		# build the table document tree.  copied from
 		# lsctables.New()
 		try:
@@ -719,11 +719,12 @@ class CoincDefTable(DBTable):
 def build_indexes(verbose = False):
 	"""
 	Using the how_to_index annotations in the table class definitions,
-	construct a set of indexes for the database at the current
+	construct a set of indexes for the database at the given
 	connection.
 	"""
-	cursor = DBTable_get_connection().cursor()
-	for table_name in DBTable_table_names():
+	connection = DBTable_get_connection()
+	cursor = connection.cursor()
+	for table_name in DBTable_table_names(connection):
 		# FIXME:  figure out how to do this extensibly
 		if table_name in TableByName:
 			how_to_index = TableByName[table_name].how_to_index
