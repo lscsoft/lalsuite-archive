@@ -716,13 +716,12 @@ class CoincDefTable(DBTable):
 #
 
 
-def build_indexes(verbose = False):
+def build_indexes(connection, verbose = False):
 	"""
 	Using the how_to_index annotations in the table class definitions,
 	construct a set of indexes for the database at the given
 	connection.
 	"""
-	connection = DBTable_get_connection()
 	cursor = connection.cursor()
 	for table_name in DBTable_table_names(connection):
 		# FIXME:  figure out how to do this extensibly

@@ -216,7 +216,7 @@ if (options.extract is None) or (urls != [None]):
 	# construct indexes
 	#
 
-	dbtables.build_indexes(verbose = options.verbose)
+	dbtables.build_indexes(connection, verbose = options.verbose)
 
 
 #
