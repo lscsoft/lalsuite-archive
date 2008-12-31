@@ -92,7 +92,7 @@ def load_segments(filename, name, verbose = False):
 		print >>sys.stderr, "loading \"%s\" segments ... " % name,
 	connection = sqlite3.connect(filename)
 	dbtables.DBTable_set_connection(connection)
-	segs = ligolw_segments.segmenttable_get_by_name(dbtables.DBTable_get_xml(connection), name).coalesce()
+	segs = ligolw_segments.segmenttable_get_by_name(dbtables.get_xml(connection), name).coalesce()
 	connection.close()
 	if verbose:
 		print >>sys.stderr, "done."

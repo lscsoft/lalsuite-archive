@@ -74,7 +74,7 @@ class CoincDatabase(object):
 
 		from glue.ligolw import dbtables
 		self.connection = connection
-		self.xmldoc = dbtables.DBTable_get_xml(connection)
+		self.xmldoc = dbtables.get_xml(connection)
 
 		cursor = connection.cursor()
 
