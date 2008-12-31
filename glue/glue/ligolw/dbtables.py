@@ -275,14 +275,14 @@ _sql_coldef_pattern = re.compile(r"\s*(?P<name>\w+)\s+(?P<type>\w+)[^,]*")
 #
 
 
-def DBTable_table_names(connection):
+def get_table_names(connection):
 	"""
 	Return a list of the table names in the database.
 	"""
 	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
-def DBTable_column_info(connection, table_name):
+def get_column_info(connection, table_name):
 	"""
 	Return an in order list of (name, type) tuples describing the
 	columns for the given table.
@@ -299,7 +299,7 @@ def DBTable_get_xml(connection):
 	containing the tables as children.
 	"""
 	ligo_lw = ligolw.LIGO_LW()
-	for table_name in DBTable_table_names(connection):
+	for table_name in get_table_names(connection):
 		# build the table document tree.  copied from
 		# lsctables.New()
 		try:
@@ -308,7 +308,7 @@ def DBTable_get_xml(connection):
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
 		colnamefmt = u"%s:%%s" % table_name
-		for column_name, column_type in DBTable_column_info(connection, table_elem.dbtablename):
+		for column_name, column_type in get_column_info(connection, table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
 				column_type = table_elem.validcolumns[column_name]
@@ -710,7 +710,7 @@ def build_indexes(connection, verbose = False):
 	connection.
 	"""
 	cursor = connection.cursor()
-	for table_name in DBTable_table_names(connection):
+	for table_name in get_table_names(connection):
 		# FIXME:  figure out how to do this extensibly
 		if table_name in TableByName:
 			how_to_index = TableByName[table_name].how_to_index
