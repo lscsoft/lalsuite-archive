@@ -512,21 +512,17 @@ class DBTable(table.Table):
 		Loops over each row in the table, replacing references to
 		old row keys with the new values from the _idmap_ table.
 		"""
-		assignments = []
-		for colname in [colname for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name)]:
-			assignments.append("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname))
-		if not assignments:
-			# table has no columns to update
-			return
-		# SQLite documentation says ROWID is monotonically
-		# increasing starting at 1 for the first row unless it ever
-		# wraps around, then it is randomly assigned.  ROWID is a
-		# 64 bit integer, so the only way it will wrap is if
-		# somebody sets it to a very high number manually.  This
-		# library does not do that, so I don't bother checking.
-		statement = "UPDATE " + self.dbtablename + " SET " + ", ".join(assignments) + " WHERE ROWID > %d" % self.last_maxrowid
-		self.cursor.execute(statement)
-		self.last_maxrowid = self.maxrowid() or 0
+		assignments = ", ".join("%s = (SELECT new FROM _idmap_ WHERE old == %s)" % (colname, colname) for coltype, colname in zip(self.dbcolumntypes, self.dbcolumnnames) if coltype in ligolwtypes.IDTypes and (self.next_id is None or colname != self.next_id.column_name))
+		if assignments:
+			# SQLite documentation says ROWID is monotonically
+			# increasing starting at 1 for the first row unless
+			# it ever wraps around, then it is randomly
+			# assigned.  ROWID is a 64 bit integer, so the only
+			# way it will wrap is if somebody sets it to a very
+			# high number manually.  This library does not do
+			# that, so I don't bother checking.
+			self.cursor.execute("UPDATE %s SET %s WHERE ROWID > %d" % (self.dbtablename, assignments, self.last_maxrowid))
+			self.last_maxrowid = self.maxrowid() or 0
 
 
 #
@@ -551,7 +547,7 @@ class ProcessTable(DBTable):
 		Return a set of the process IDs from rows whose program
 		string equals the given program.
 		"""
-		return set([id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,))])
+		return set(id for (id,) in self.cursor.execute("SELECT process_id FROM process WHERE program == ?", (program,)))
 
 
 class ProcessParamsTable(DBTable):
