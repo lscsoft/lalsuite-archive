@@ -528,7 +528,7 @@ for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(options.live_time_program, search = "StringCusp", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, search = "StringCusp", verbose = options.verbose)
 	for n, plot in enumerate(plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot %d ..." % n

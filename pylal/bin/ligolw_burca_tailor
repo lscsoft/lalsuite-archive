@@ -180,7 +180,7 @@ for n, filename in enumerate(filenames):
 	# Summarize the database.
 	#
 
-	database = SnglBurstUtils.CoincDatabase("lalapps_power", verbose = options.verbose)
+	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose)
 	segs |= database.seglists
 
 	#
