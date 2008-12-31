@@ -215,7 +215,7 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 #
 
 
-def DBTable_idmap_create(connection):
+def idmap_create(connection):
 	"""
 	Create the _idmap_ table.  This table has columns "old" and "new"
 	containing text strings mapping old IDs to new IDs.  The old column
@@ -226,7 +226,7 @@ def DBTable_idmap_create(connection):
 	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
 
 
-def DBTable_idmap_reset(connection):
+def idmap_reset(connection):
 	"""
 	Erase the contents of the _idmap_ table, but leave the table in
 	place.
@@ -234,7 +234,7 @@ def DBTable_idmap_reset(connection):
 	connection.cursor().execute("DELETE FROM _idmap_")
 
 
-def DBTable_idmap_get_new(connection, old, tbl):
+def idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
 	grabbing it from the _idmap_ table if one has already been assigned
@@ -470,7 +470,7 @@ class DBTable(table.Table):
 		if self.next_id is not None:
 			# assign (and record) a new ID before inserting the
 			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
+			setattr(row, self.next_id.column_name, idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
