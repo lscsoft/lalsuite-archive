@@ -52,7 +52,7 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-ligolw_thinca.table.RowBuilder = ligolw_thinca.table.InterningRowBuilder
+lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
 
 
 #
@@ -129,7 +129,7 @@ for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	xmldoc = utils.load_filename(filename, options.verbose, gz = (filename or "stdin").endswith(".gz"))
-	ligolw_thinca.table.InterningRowBuilder.strings.clear()
+	lsctables.table.InterningRowBuilder.strings.clear()
 
 	#
 	# Have we already processed it?
@@ -161,12 +161,12 @@ for n, filename in enumerate(filenames):
 	#
 	# Hack the IDs.  LAL writes all triggers with event_id = 0.  This
 	# value is used by other LAL programs to check if coincidence has
-	# been performed yet, so that behaviour cannot be changed but we
+	# been performed yet so that behaviour cannot be changed but we
 	# need the IDs to be unique before starting the coincidence engine.
 	#
 
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
-	tbl = ligolw_thinca.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	tbl.set_next_id(lsctables.SnglInspiralID(0))
 	for row in tbl:
 		row.event_id = tbl.get_next_id()
 
