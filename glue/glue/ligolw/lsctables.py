@@ -165,15 +165,15 @@ def instrument_set_from_ifos(ifos):
 
 def ifos_from_instrument_set(instruments):
 	"""
-	Convenience function to convert an interable of instrument names
+	Convenience function to convert an iterable of instrument names
 	into a value suitable for storage in the "ifos" column found in
 	many tables.  This function is mostly for internal use by the
 	.set_ifos() methods of the corresponding row classes.  The input
 	can be None or an interable of zero or more instrument names, none
 	of which may contain "," or "+" characters.  The output is a single
 	string containing the instrument names concatenated using "," as a
-	delimiter.  Note that whitespace in instrument names should not be
-	expected to be preserved.
+	delimiter.  Whitespace is allowed in instrument names but may not
+	be preserved.
 	"""
 	if instruments is None:
 		return None
