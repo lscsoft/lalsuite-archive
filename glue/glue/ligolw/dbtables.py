@@ -222,7 +222,7 @@ def discard_connection_filename(filename, working_filename, verbose = False):
 #
 
 
-def DBTable_idmap_create():
+def DBTable_idmap_create(connection):
 	"""
 	Create the _idmap_ table.  This table has columns "old" and "new"
 	containing text strings mapping old IDs to new IDs.  The old column
@@ -230,17 +230,18 @@ def DBTable_idmap_create():
 	table is created as a temporary table, so it will be automatically
 	dropped when the database connection is closed.
 	"""
-	DBTable.connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
+	connection.cursor().execute("CREATE TEMPORARY TABLE _idmap_ (old TEXT PRIMARY KEY, new TEXT)")
 
 
-def DBTable_idmap_reset():
+def DBTable_idmap_reset(connection):
 	"""
-	Erase the contents of the _idmap_ table.
+	Erase the contents of the _idmap_ table, but leave the table in
+	place.
 	"""
-	DBTable.connection.cursor().execute("DELETE FROM _idmap_")
+	connection.cursor().execute("DELETE FROM _idmap_")
 
 
-def DBTable_idmap_get_new(old, tbl):
+def DBTable_idmap_get_new(connection, old, tbl):
 	"""
 	From the old ID string, obtain a replacement ID string by either
 	grabbing it from the _idmap_ table if one has already been assigned
@@ -249,7 +250,7 @@ def DBTable_idmap_get_new(old, tbl):
 	is recorded in the _idmap_ table, and the class attribute
 	incremented by 1.  For internal use only.
 	"""
-	cursor = DBTable.connection.cursor()
+	cursor = connection.cursor()
 	new = cursor.execute("SELECT new FROM _idmap_ WHERE old == ?", (old,)).fetchone()
 	if new is not None:
 		return new[0]
@@ -476,7 +477,7 @@ class DBTable(table.Table):
 		if self.next_id is not None:
 			# assign (and record) a new ID before inserting the
 			# row to avoid collisions with existing rows
-			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(getattr(row, self.next_id.column_name), self))
+			setattr(row, self.next_id.column_name, DBTable_idmap_get_new(self.connection, getattr(row, self.next_id.column_name), self))
 		# FIXME: in Python 2.5 use attrgetter() for attribute
 		# tuplization.
 		self.cursor.execute(self.append_statement, map(lambda n: getattr(row, n), self.dbcolumnnames))
