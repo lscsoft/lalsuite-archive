@@ -4,14 +4,12 @@
 typedef struct {
 	/* fields below are filled in when computing power */
 
-	/* sky coordinates for amplitude response */
-	double ra;
-	double dec;
-	/* for convenience and to reduce number of times we call sin/cos */
-	float e[26];
+	/* amplitude response factors to use in power sum - note these are kept constant throughout the patch */
+	float f_plus;
+	float f_cross;
 
-	/* frequency shift to apply */
-	double freq_shift;
+	/* bin shift to apply, this is in units of 1/coherence_time - as opposed to power sums */
+	double bin_shift;
 
 	/* fields below are filled in when locating segments */
 
@@ -45,8 +43,10 @@ void accumulate_partial_power_sum_F2(PARTIAL_POWER_SUM *accum, PARTIAL_POWER_SUM
 
 SEGMENT_INFO *find_segments(double gps_start, double gps_end, int veto_mask, int *count);
 
-void get_uncached_single_bin_power_sum(SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM *pps);
-void accumulate_single_bin_power_sum_cached1(SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM *pps);
+void reset_simple_cache(int segment_count, int template_count);
+
+void get_uncached_single_bin_power_sum(SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
+void accumulate_single_bin_power_sum_cached1(SEGMENT_INFO *si, int count, PARTIAL_POWER_SUM_F *pps);
 
 void print_cache_stats(void);
 

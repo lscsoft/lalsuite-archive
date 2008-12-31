@@ -467,7 +467,7 @@ for(i=1;i<count;i++) {
 return 1;
 }
 
-void point_power_sum_stats(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
+void point_power_sum_stats_sorted(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i;
 float M, S, a, inv_S, inv_weight;
@@ -627,6 +627,180 @@ pst->ks_value=nstats.ks_test;
 pst->ks_count=nstats.ks_count;
 }
 
+void point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
+{
+int i, count;
+float M, S, a, b, inv_S, inv_weight, inv_count, inv_count1;
+float *tmp=NULL;
+NORMAL_STATS nstats;
+float max_dx;
+int max_dx_bin;
+float weight, min_weight, max_weight;
+float sum, sum_sq, sum3, sum4;
+
+/* allocate on stack, for speed */
+tmp=aligned_alloca(useful_bins*sizeof(*tmp));
+
+memset(&nstats, 0, sizeof(nstats));
+
+/* sort to compute robust estimates */
+nstats.flag= STAT_FLAG_ESTIMATE_MEAN
+	| STAT_FLAG_ESTIMATE_SIGMA;
+
+if(args_info.ks_test_arg){
+	nstats.flag|=STAT_FLAG_ESTIMATE_KS_LEVEL
+		| STAT_FLAG_COMPUTE_KS_TEST;
+	}
+
+
+if(pps->weight_arrays_non_zero) {
+	max_weight=0;
+	min_weight=1e50;
+
+	if(!pps->collapsed_weight_arrays) {
+		for(i=0;i<useful_bins;i++) {
+			pps->weight_pppp[i]+=pps->c_weight_pppp;
+			pps->weight_pppc[i]+=pps->c_weight_pppc;
+			pps->weight_ppcc[i]+=pps->c_weight_ppcc;
+			pps->weight_pccc[i]+=pps->c_weight_pccc;
+			pps->weight_cccc[i]+=pps->c_weight_cccc;
+			}
+		pps->c_weight_pppp=0;
+		pps->c_weight_pppc=0;
+		pps->c_weight_ppcc=0;
+		pps->c_weight_pccc=0;
+		pps->c_weight_cccc=0;
+		pps->collapsed_weight_arrays=1;
+		}
+
+	for(i=0;i<useful_bins;i++) {
+		weight=(pps->weight_pppp[i]*ag->pppp+
+			pps->weight_pppc[i]*ag->pppc+
+			pps->weight_ppcc[i]*ag->ppcc+
+			pps->weight_pccc[i]*ag->pccc+
+			pps->weight_cccc[i]*ag->cccc);
+	
+		if(weight>max_weight)max_weight=weight;
+		if(weight<min_weight)min_weight=weight;
+
+		tmp[i]=(pps->power_pp[i]*ag->pp+pps->power_pc[i]*ag->pc+pps->power_cc[i]*ag->cc)/weight;
+			
+		}
+	} else {
+	weight=(pps->c_weight_pppp*ag->pppp+
+		pps->c_weight_pppc*ag->pppc+
+		pps->c_weight_ppcc*ag->ppcc+
+		pps->c_weight_pccc*ag->pccc+
+		pps->c_weight_cccc*ag->cccc);
+	max_weight=weight;
+	min_weight=weight;
+
+	inv_weight=1.0/weight;
+
+	for(i=0;i<useful_bins;i++) {
+		tmp[i]=((float)pps->power_pp[i]*ag->pp+(float)pps->power_pc[i]*ag->pc+(float)pps->power_cc[i]*ag->cc)*inv_weight;
+		}
+	}
+
+/* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
+if(min_weight<=0) {
+	pst->bin=0;
+	pst->iota=ag->iota;
+	pst->psi=ag->psi;
+	
+	/* convert to upper limit units */
+	pst->S=-1;
+	pst->M=-1;
+	
+	pst->ul=-1;
+	pst->ll=-1;
+	pst->centroid=-1;
+	pst->snr=-1;
+	
+	pst->max_weight=-1;
+	pst->weight_loss_fraction=1;
+	pst->ks_value=-1;
+	pst->ks_count=-1;
+	return;
+	}
+	
+/* find highest bin */
+max_dx=tmp[0];
+max_dx_bin=0;
+
+sum=tmp[0];
+sum_sq=sum*sum;
+sum3=sum_sq*sum;
+sum4=sum_sq*sum_sq;
+for(i=1;i<useful_bins;i++) {
+	a=tmp[i];
+	sum+=a;
+	b=a*a;
+	sum_sq+=b;
+	sum3+=a*b;
+	sum4+=b*b;
+	if(a>max_dx) {
+		max_dx=a;
+		max_dx_bin=i;
+		}
+	}
+
+count=useful_bins;
+
+i=max_dx_bin-5;
+if(i<0)i=0;
+for(;i<useful_bins && i<=max_dx_bin+5;i++) {
+	a=tmp[i];
+	sum-=a;
+	b=a*a;
+	sum_sq-=b;
+	sum3-=a*b;
+	sum4-=b*b;
+	count--;
+	}
+
+inv_count=1.0/count;
+inv_count1=1.0/(count-1);
+
+M=sum*inv_count;
+S=sqrt((sum_sq*inv_count1-count*inv_count1*M*M));
+
+inv_S=1.0/S;
+
+/* convert to SNR from the highest power */
+max_dx=(max_dx-M)*inv_S;
+
+if(max_dx<=0) {
+	/* In theory we could have max_dx=0 because the distribution is flat, but we really should not have this */
+	fprintf(stderr, "***ERROR - max_dx<=0  max_dx=%g max_dx_bin=%d M=%g S=%g inv_S=%g\n",
+			max_dx,
+			max_dx_bin,
+			M,
+			S,
+			inv_S);
+	}
+
+pst->bin=max_dx_bin;
+pst->iota=ag->iota;
+pst->psi=ag->psi;
+
+/* convert to upper limit units */
+pst->S=sqrt(S)*strain_comp;
+pst->M=sqrt(M)*strain_comp;
+
+pst->ul=sqrt(upper_limit95(max_dx)*S)*strain_comp*upper_limit_comp;
+pst->ll=sqrt(lower_limit95(max_dx)*S)*strain_comp;
+pst->centroid=sqrt(max_dx*S)*strain_comp*upper_limit_comp;
+pst->snr=max_dx;
+
+pst->max_weight=max_weight;
+pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
+pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+pst->ks_count=0;
+}
+
+void (*point_power_sum_stats)(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)=point_power_sum_stats_linear;
+
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats)
 {
 int k;
@@ -681,6 +855,17 @@ for(k=0;k<alignment_grid_free;k++) {
 
 void init_power_sum_stats(void)
 {
+
+if(!strcmp(args_info.statistics_function_arg , "linear")) {
+	point_power_sum_stats=point_power_sum_stats_linear;
+	} else
+if(!strcmp(args_info.statistics_function_arg , "sorted")) {
+	point_power_sum_stats=point_power_sum_stats_sorted;
+	} else {
+	fprintf(stderr, "*** ERROR: Unknown statistics function requested\n");
+	exit(-1);
+	}
+
 init_fc_ul();
 init_fc_ll();
 verify_limits();

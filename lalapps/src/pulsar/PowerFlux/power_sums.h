@@ -4,12 +4,12 @@
 #include "power_cache.h"
 
 typedef struct {
-	double freq_shift; /* additional shift e.g. for half-bin sampling */
-	double spindown;
-	double ra;
-	double dec;
-	double patch_ra;
-	double patch_dec;
+	float freq_shift; /* additional shift e.g. for half-bin sampling */
+	float spindown;
+	float ra;
+	float dec;
+	float patch_ra;
+	float patch_dec;
 
 	double min_gps;
 	double max_gps;
@@ -19,7 +19,7 @@ typedef struct {
 
 	int skyband;
 
-	PARTIAL_POWER_SUM *pps;
+	PARTIAL_POWER_SUM_F *pps;
 	} POWER_SUM;
 
 void generate_patch_templates(int pi, POWER_SUM **ps, int *count);

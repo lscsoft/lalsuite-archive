@@ -320,7 +320,7 @@ fprintf(stderr,	"Initializing sky grids\n");
 	 
 resolution=(4500.0)/(args_info.first_bin_arg+args_info.nbins_arg/2);
 /* AM response is computed on a patch grid - this can be too coarse at low frequencies */
-if(resolution*args_info.fine_factor_arg> 0.025) resolution=0.025/args_info.fine_factor_arg;
+//if(resolution*args_info.fine_factor_arg> 0.025) resolution=0.025/args_info.fine_factor_arg;
 
 fprintf(LOG,"resolution (auto) : %f\n", resolution);
 
@@ -748,19 +748,6 @@ output_datasets_info();
 /* TODO: this is here so we can fallback on old skymark code (for comparison). It would be nice to remove this altogether */
 spindown=args_info.spindown_start_arg+0.5*(args_info.spindown_count_arg-1)*args_info.spindown_step_arg;
 
-/* this is so we know how many skybands we have */
-if(sky_marks!=NULL) {
-	process_marks(fine_grid, sky_marks, sky_marks_free);
-	process_marks(patch_grid, "disk \"sky\" \"\" 0 0 100", 21);
-	propagate_far_points_from_super_grid(patch_grid, proto_super_grid);
-	} else {
-	S_assign_bands(fine_grid, args_info.nskybands_arg, large_S, spindown, (first_bin+nbins*0.5)/1800.0);
-	}
-
-time(&stage_time);
-fprintf(LOG, "outer_loop_start: %d\n", (int)(stage_time-start_time));
-fprintf(stderr, "outer_loop_start: %d\n", (int)(stage_time-start_time));
-
 if(sky_marks!=NULL) {
 	process_marks(fine_grid, sky_marks, sky_marks_free);
 	compiled_skymarks=compile_marks(fine_grid, sky_marks, sky_marks_free);
@@ -819,6 +806,10 @@ dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
 /* MAIN LOOP stage */
+time(&stage_time);
+fprintf(LOG, "outer_loop_start: %d\n", (int)(stage_time-start_time));
+fprintf(stderr, "outer_loop_start: %d\n", (int)(stage_time-start_time));
+
 outer_loop();
 
 fflush(LOG);

@@ -116,6 +116,9 @@ option "weight-cutoff-fraction" - "Discard sfts with small weights that contribu
 option "per-dataset-weight-cutoff-fraction" - "Discard sfts with small weights that contribute this fraction of total weight in each dataset" double default="0.04" no
 option "power-max-median-factor" - "This determines scaling factor between median and maximum of exponentially distributed variable. Used for computing power sum weights" double default="0.1" no
 option "tmedian-noise-level" - "Use TMedians to estimate noise level (as opposed to in-place standard deviation)" int default="1" no
+option "summing-step" - "integration step size, in seconds" int default="864000" no
+option "max-first-shift" - "larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function" int default="10" no
+option "statistics-function" - "specify statistics postprocessing to apply. Possible values: linear, sorted" string default="linear" no
 
 option "dump-power-sums" - "Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels" int default="0" no
 

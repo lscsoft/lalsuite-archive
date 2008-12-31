@@ -1,6 +1,7 @@
 
 typedef struct {
 	int type;
+	int nbins;
 
 	REAL c_weight_pppp;
 	REAL c_weight_pppc;
@@ -19,11 +20,13 @@ typedef struct {
 	REAL *power_pc;
 	REAL *power_cc;
 
+	int offset; /* this is the index of the bin with index 0 in the output (i.e. firstbin) */
+
 	int weight_arrays_non_zero;
 	int collapsed_weight_arrays;
 	} SUFFIX(PARTIAL_POWER_SUM);
 
-SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(void);
+SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins);
 void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps);
 void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial);
 void SUFFIX(free_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps);

@@ -60,7 +60,7 @@ typedef struct {
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac);
 void generate_alignment_grid(void);
 
-void point_power_sum_stats(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst);
+//void point_power_sum_stats(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst);
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats);
 
 void init_power_sum_stats(void);

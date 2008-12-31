@@ -23,7 +23,7 @@ extern SKY_GRID *fine_grid, *patch_grid;
 
 extern FILE * DATA_LOG, * LOG, *FILE_LOG;
 
-extern int first_bin, side_cut, nsegments;
+extern int first_bin, side_cut, nsegments, useful_bins;
 
 extern DATASET *datasets;
 extern int d_free;
@@ -80,7 +80,9 @@ if(w1->weight>w2->weight)return 1;
 return 0;
 }
 
-/* instead of having per-skypatch veto we simply discard a SFTs which contribute less than a certain fraction of weight in each dataset */
+/* instead of having per-skypatch 
+
+ we simply discard a SFTs which contribute less than a certain fraction of weight in each dataset */
 void assign_cutoff_veto(void)
 {
 int i,k,m;
@@ -176,9 +178,9 @@ for(k=0;k<d_free;k++) {
 		}
 	accum_weight-=w[i].weight;
 	fprintf(stderr, "Dataset %s: vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n", d->name,
-		i, nsegments, (i*1.0)/nsegments, accum_weight, total_weight, accum_weight/total_weight);
+		i, d->free, (i*1.0)/d->free, accum_weight, total_weight, accum_weight/total_weight);
 	fprintf(LOG, "Dataset %s: vetoed %d sfts (out of %d, %f ratio) with %g weight out of %g total weight (%f fraction)\n", d->name,
-		i, nsegments, (i*1.0)/nsegments,  accum_weight, total_weight, accum_weight/total_weight);
+		i, d->free, (i*1.0)/d->free,  accum_weight, total_weight, accum_weight/total_weight);
 	}
 
 for(k=0;k<d_free;k++) {
@@ -205,12 +207,12 @@ int highest_circ_ul_idx=0;
 int highest_snr_idx=0;
 int skyband;
 
-pps=allocate_partial_power_sum_F();
+pps=allocate_partial_power_sum_F(useful_bins);
 
 for(i=0;i<count;i++) {
 	zero_partial_power_sum_F(pps);
 	for(k=0;k<nchunks;k++) {
-		accumulate_partial_power_sum_F1(pps, (ps[k][i].pps));
+		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
 		}
 	power_sum_stats(pps, &(pstats));
 
@@ -579,7 +581,13 @@ time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-	if(pi % 100 == 0)fprintf(stderr, "%d\n", pi);
+	if(pi % 100 == 0) {
+		time(&end_time);
+		if(end_time<start_time)end_time=start_time;
+		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));
+		print_cache_stats();
+		//fprintf(stderr, "%d\n", pi);
+		}
 	generate_patch_templates(pi, &(ps[0]), &count);
 
 	if(count<1)continue;

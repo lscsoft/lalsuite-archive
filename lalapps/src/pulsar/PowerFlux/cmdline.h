@@ -305,6 +305,15 @@ struct gengetopt_args_info
   int tmedian_noise_level_arg;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) (default='1').  */
   char * tmedian_noise_level_orig;	/**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) original value given at command line.  */
   const char *tmedian_noise_level_help; /**< @brief Use TMedians to estimate noise level (as opposed to in-place standard deviation) help description.  */
+  int summing_step_arg;	/**< @brief integration step size, in seconds (default='864000').  */
+  char * summing_step_orig;	/**< @brief integration step size, in seconds original value given at command line.  */
+  const char *summing_step_help; /**< @brief integration step size, in seconds help description.  */
+  int max_first_shift_arg;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function (default='10').  */
+  char * max_first_shift_orig;	/**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function original value given at command line.  */
+  const char *max_first_shift_help; /**< @brief larger values accomodate bigger spindown ranges but require more bins to be computed in uncached function help description.  */
+  char * statistics_function_arg;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted (default='linear').  */
+  char * statistics_function_orig;	/**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted original value given at command line.  */
+  const char *statistics_function_help; /**< @brief specify statistics postprocessing to apply. Possible values: linear, sorted help description.  */
   int dump_power_sums_arg;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels (default='0').  */
   char * dump_power_sums_orig;	/**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels original value given at command line.  */
   const char *dump_power_sums_help; /**< @brief Write out all power sum data into data.log file. It is recommend to restrict the sky to very few pixels help description.  */
@@ -408,6 +417,9 @@ struct gengetopt_args_info
   unsigned int per_dataset_weight_cutoff_fraction_given ;	/**< @brief Whether per-dataset-weight-cutoff-fraction was given.  */
   unsigned int power_max_median_factor_given ;	/**< @brief Whether power-max-median-factor was given.  */
   unsigned int tmedian_noise_level_given ;	/**< @brief Whether tmedian-noise-level was given.  */
+  unsigned int summing_step_given ;	/**< @brief Whether summing-step was given.  */
+  unsigned int max_first_shift_given ;	/**< @brief Whether max-first-shift was given.  */
+  unsigned int statistics_function_given ;	/**< @brief Whether statistics-function was given.  */
   unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */

@@ -72,6 +72,6 @@ typedef struct {
 
 
 SKYMARK * compile_marks(SKY_GRID *sky_grid, char *s, int length);
-int mark_sky_point(SKYMARK *sm, int point, float ra, float dec, float spindown1);
+int mark_sky_point(SKYMARK *sm, int point, float ra, float dec, float *e, float spindown1);
 
 #endif

@@ -15,6 +15,12 @@ extern struct gengetopt_args_info args_info;
 extern FILE *LOG;
 extern double spindown;
 
+extern DATASET *datasets;
+extern int d_free;
+extern int nbins, first_bin, side_cut, useful_bins;
+
+INT64 spindown_start;
+
 int find_closest(SKY_GRID *sky_grid, SKY_GRID_TYPE ra, SKY_GRID_TYPE dec)
 {
 SKY_GRID_TYPE ds, ds_min;
@@ -223,7 +229,65 @@ sm[sm_free].type=SKYMARK_END;
 return sm;
 }
 
-int mark_sky_point(SKYMARK *sm, int point, float ra, float dec, float spindown1)
+float fast_stationary_effective_weight_ratio(float *e, float spindown, float bin_tolerance)
+{
+int i, k;
+float w, fdiff;
+float total_weight=0.0;
+float f1=0.0;
+DATASET *d;
+float offset;
+float center_frequency=first_bin+nbins*0.5;
+float doppler_mult=args_info.doppler_multiplier_arg;
+
+/* fit first */
+f1=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+		total_weight+=w;
+
+		fdiff=center_frequency*(
+				e[0]*d->detector_velocity[3*k+0]+
+				e[1]*d->detector_velocity[3*k+1]+
+				e[2]*d->detector_velocity[3*k+2]
+				)*doppler_mult
+			+d->coherence_time*spindown*(d->gps[k]-spindown_start);
+		f1+=fdiff*w;
+		}
+	}
+offset=f1/total_weight;
+
+bin_tolerance*=0.5; /* make it a width */
+
+/* fprintf(stderr, "%g %g %g %g %g\n", f1, f2, total_weight, offset, fdot); */
+/* now compare */
+f1=0;
+for(i=0;i<d_free;i++) {
+	d=&(datasets[i]);
+	for(k=0;k<d->free;k++) {
+		w=d->expTMedians[k]*d->weight;
+
+		fdiff=center_frequency*(
+				e[0]*d->detector_velocity[3*k+0]+
+				e[1]*d->detector_velocity[3*k+1]+
+				e[2]*d->detector_velocity[3*k+2]
+				)*doppler_mult
+			+d->coherence_time*spindown*(d->gps[k]-spindown_start)
+			-offset;
+
+		if(fabsf(fdiff)<bin_tolerance)f1+=w;
+		}
+	}
+/* fprintf(stderr, "%g %g\n", f1, total_weight); */
+
+/* TODO: 0.5 is here to fixup a code issue in earlier revision - we were accumulating total_weight twice, 
+   this does not affect results since weight_ratio was determined from runs on actual data, but this does make the return value more confusing */
+return 0.5*f1/total_weight;
+}
+
+int mark_sky_point(SKYMARK *sm, int point, float ra, float dec, float *e, float spindown1)
 {
 int skyband=-1;
 float ds;
@@ -286,8 +350,7 @@ while(sm->type!=SKYMARK_END) {
 				}
 			break;
 		case SKYMARK_LINE_RESPONSE:
-			spindown=spindown1;
-			if(stationary_effective_weight_ratio(ra, dec, sm->p.line_response.bin_tolerance)>sm->p.line_response.weight_ratio_level) {
+			if(fast_stationary_effective_weight_ratio(e, spindown1, sm->p.line_response.bin_tolerance)>sm->p.line_response.weight_ratio_level) {
 				skyband=sm->band_to;
 				}
 			break;
