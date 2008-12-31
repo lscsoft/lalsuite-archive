@@ -114,7 +114,7 @@ def parse_command_line():
 #
 
 
-def insert(urls, preserve_ids = True, verbose = False):
+def insert(connection, urls, preserve_ids = True, verbose = False):
 	"""
 	Iterate over a sequence of URLs and parse and insert each one into
 	the database the dbtables.DBTable class is currently connected to.
@@ -145,7 +145,7 @@ def insert(urls, preserve_ids = True, verbose = False):
 
 		# delete cursors
 		doc.unlink()
-	dbtables.DBTable_commit()
+	connection.commit()
 
 
 #
@@ -210,7 +210,7 @@ for tbl in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName)
 
 
 if (options.extract is None) or (urls != [None]):
-	insert(urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
+	insert(connection, urls, preserve_ids = options.preserve_ids, verbose = options.verbose)
 
 	#
 	# construct indexes

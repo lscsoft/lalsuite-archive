@@ -88,13 +88,6 @@ def DBTable_get_connection():
 	return DBTable.connection
 
 
-def DBTable_commit():
-	"""
-	Run commit on the DBTable class' connection.
-	"""
-	DBTable.connection.commit()
-
-
 def get_connection_filename(filename, tmp_path = None, replace_file = False, verbose = False):
 	"""
 	Experimental utility code for moving database files to a
