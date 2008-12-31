@@ -289,24 +289,24 @@ def DBTable_table_names(connection):
 	return [name for (name,) in connection.cursor().execute("SELECT name FROM sqlite_master WHERE type == 'table'")]
 
 
-def DBTable_column_info(table_name):
+def DBTable_column_info(connection, table_name):
 	"""
 	Return an in order list of (name, type) tuples describing the
 	columns for the given table.
 	"""
-	statement, = DBTable.connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
+	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
-def DBTable_get_xml():
+def DBTable_get_xml(connection):
 	"""
 	Construct an XML document tree wrapping around the contents of the
-	currently connected database.  On success the return value is a
-	ligolw.LIGO_LW element containing the tables as children.
+	database.  On success the return value is a ligolw.LIGO_LW element
+	containing the tables as children.
 	"""
 	ligo_lw = ligolw.LIGO_LW()
-	for table_name in DBTable_table_names(DBTable_get_connection()):
+	for table_name in DBTable_table_names(connection):
 		# build the table document tree.  copied from
 		# lsctables.New()
 		try:
@@ -315,7 +315,7 @@ def DBTable_get_xml():
 			cls = DBTable
 		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
 		colnamefmt = u"%s:%%s" % table_name
-		for column_name, column_type in DBTable_column_info(table_elem.dbtablename):
+		for column_name, column_type in DBTable_column_info(connection, table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
 				column_type = table_elem.validcolumns[column_name]

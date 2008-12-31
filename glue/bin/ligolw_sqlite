@@ -153,9 +153,9 @@ def insert(connection, urls, preserve_ids = True, verbose = False):
 #
 
 
-def extract(filename, verbose = False):
+def extract(connection, filename, verbose = False):
 	xmldoc = ligolw.Document()
-	xmldoc.appendChild(dbtables.DBTable_get_xml())
+	xmldoc.appendChild(dbtables.DBTable_get_xml(connection))
 	utils.write_filename(xmldoc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = verbose)
 
 	# delete cursors
@@ -200,7 +200,7 @@ dbtables.DBTable_set_connection(connection)
 #
 
 
-for tbl in dbtables.DBTable_get_xml().getElementsByTagName(ligolw.Table.tagName):
+for tbl in dbtables.DBTable_get_xml(connection).getElementsByTagName(ligolw.Table.tagName):
 	tbl.sync_next_id()
 
 
@@ -228,7 +228,7 @@ if options.extract is not None:
 	if options.extract == "-":
 		# stdout
 		options.extract = None
-	extract(options.extract, verbose = options.verbose)
+	extract(connection, options.extract, verbose = options.verbose)
 
 
 #
