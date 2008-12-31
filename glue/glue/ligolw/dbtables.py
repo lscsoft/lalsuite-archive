@@ -337,12 +337,12 @@ class DBTable(table.Table):
 	A special version of the Table class using an SQL database for
 	storage.  Many of the features of the Table class are not available
 	here, but instead the user can use SQL to query the table's
-	contents.  Before use, the connection attribute must be set to a
-	Python DB-API 2.0 "connection" object.  The constraints attribute
-	can be set to a text string that will be added to the table's
-	CREATE statement where constraints go, for example you might wish
-	to set this to "PRIMARY KEY (event_id)" for a table with an
-	event_id column.
+	contents.
+
+	The constraints attribute can be set to a text string that will be
+	added to the table's CREATE statement where constraints go, for
+	example you might wish to set this to "PRIMARY KEY (event_id)" for
+	a table with an event_id column.
 
 	Note:  because the table is stored in an SQL database, the use of
 	this class imposes the restriction that table names be unique
@@ -357,10 +357,39 @@ class DBTable(table.Table):
 	and so on.  This can result in poor query performance.  It is also
 	possible to write a database' contents to a LIGO Light Weight XML
 	file even when the database contains unrecognized tables, but
-	without developer intervention the column types will be guessed.
+	without developer intervention the column types will be guessed
+	using a generic mapping of SQL types to LIGO Light Weight types.
+
+	Each instance of this class must be connected to a database, but
+	because the __init__() method must have the same signature as the
+	__init__() methods of other Element subclasses (so that this class
+	can be used as a drop-in replacement during document parsing), it
+	is not possible to pass a connection object into the __init__()
+	method as a separate argument.  Instead, the connection object is
+	passed into the __init__() method via a class attribute.  The
+	procedure is:  set the class attribute, create instances of the
+	class connected to that database, set the class attribute to a new
+	value, create instances of the class connected to a different
+	database, and so on.  A utility function is available for setting
+	the class attribute, and should be used.
+
+	Example:
+
+	import dbtables
+
+	# set class attribute
+	dbtables.DBTable_set_connection(connection)
+
+	# create a process table instance connected to that database
+	table_elem = dbtables.DBTable(AttributesImpl({u"Name": u"process:table"}))
 	"""
 	#
-	# Global Python DB-API 2.0 connection object shared by all code.
+	# When instances of this class are created, they initialize their
+	# connection attributes from the value of this class attribute at
+	# the time of their creation.  The value must be passed into the
+	# __init__() method this way because it cannot be passed in as a
+	# separate argument;  this class' __init__() method must have the
+	# same signature as normal Element subclasses.
 	#
 
 	connection = None
@@ -400,9 +429,9 @@ class DBTable(table.Table):
 		Initialize
 		"""
 		table.Table.__init__(self, *args)
-		if self.connection is None:
-			raise ligolw.ElementError, "connection attribute not set"
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
+		# convert class attribute to an instance attribute
+		self.connection = self.connection
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
