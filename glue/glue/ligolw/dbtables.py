@@ -377,11 +377,11 @@ class DBTable(table.Table):
 				# unknown table, give up
 				pass
 			else:
-				# found metadata, construct custom class.
-				# NOTE:  this works because when using
-				# SQL-backed tables there can only be ONE
-				# of any table in a document, which solves
-				# the problem of trying to share the
+				# found metadata, construct custom
+				# subclass.  NOTE:  this works because when
+				# using SQL-backed tables there can only be
+				# ONE of any table in a document, which
+				# solves the problem of trying to share the
 				# next_id attribute across multiple
 				# instances of a table.
 				class CustomDBTable(cls):
@@ -392,7 +392,7 @@ class DBTable(table.Table):
 					next_id = lsccls.next_id
 					RowType = lsccls.RowType
 					how_to_index = lsccls.how_to_index
-				return CustomDBTable.__new__(CustomDBTable, *args)
+				cls = CustomDBTable
 		return table.Table.__new__(cls, *args)
 
 	def __init__(self, *args):
