@@ -292,7 +292,7 @@ def get_column_info(connection, table_name):
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
-def DBTable_get_xml(connection):
+def get_xml(connection):
 	"""
 	Construct an XML document tree wrapping around the contents of the
 	database.  On success the return value is a ligolw.LIGO_LW element
