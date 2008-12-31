@@ -65,7 +65,7 @@ from pylal import llwapp
 
 
 class CoincDatabase(object):
-	def __init__(self, live_time_program, search = "excesspower", verbose = False):
+	def __init__(self, connection, live_time_program, search = "excesspower", verbose = False):
 		"""
 		Compute and record some summary information about the
 		database.  Call this after all the data has been inserted,
@@ -73,10 +73,10 @@ class CoincDatabase(object):
 		"""
 
 		from glue.ligolw import dbtables
-		self.connection = dbtables.DBTable_get_connection()
-		self.xmldoc = dbtables.DBTable_get_xml(self.connection)
+		self.connection = connection
+		self.xmldoc = dbtables.DBTable_get_xml(connection)
 
-		cursor = self.connection.cursor()
+		cursor = connection.cursor()
 
 		# find the tables
 		try:
@@ -139,7 +139,7 @@ class CoincDatabase(object):
 			if self.time_slide_table is not None:
 				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
 			if self.coinc_def_table is not None:
-				for description, n in self.connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+				for description, n in connection.cursor().execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
 
 
