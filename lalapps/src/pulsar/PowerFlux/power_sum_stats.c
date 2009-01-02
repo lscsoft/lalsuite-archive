@@ -858,9 +858,13 @@ void init_power_sum_stats(void)
 
 if(!strcmp(args_info.statistics_function_arg , "linear")) {
 	point_power_sum_stats=point_power_sum_stats_linear;
+	fprintf(stderr, "point_power_sum_stats: linear\n");
+	fprintf(LOG, "point_power_sum_stats: linear\n");
 	} else
 if(!strcmp(args_info.statistics_function_arg , "sorted")) {
 	point_power_sum_stats=point_power_sum_stats_sorted;
+	fprintf(stderr, "point_power_sum_stats: sorted\n");
+	fprintf(LOG, "point_power_sum_stats: sorted\n");
 	} else {
 	fprintf(stderr, "*** ERROR: Unknown statistics function requested\n");
 	exit(-1);
