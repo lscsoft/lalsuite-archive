@@ -141,19 +141,45 @@ def create_paste_call(cp, opts):
 
 ############################################
 def create_likelihood_call(cp, opts):
-  
-  input_user_tag = cp.get('pipeline','input-user-tag')
+  input_user_tag = cp.get('pipeline', 'input-user-tag')
 
   # create the code-call
-  call='./executables/pylal_grblikelihood'
-  call+=' --relic-offsource '+namePickleOffsource
-  call+=' --relic-injections '+namePickleInjections
-  call+=' --gps-start-time '+cp.get('common','gps-start-time')
-  call+=' --gps-end-time '+cp.get('common','gps-end-time')
-  call+=' --ifo-tag '+opts.ifo_tag
-  call+=' --user-tag '+input_user_tag+'_'+opts.user_tag
-  call+=' --enable-output'
-  call+=' --h1-calibration 0.1'
+  call = './executables/pylal_grblikelihood'
+  call += ' --relic-offsource ' + namePickleOffsource
+  call += ' --relic-injections ' + namePickleInjections
+  call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
+
+  if opts.stage=='OPENBOX':
+    dir = cp.get('common', 'output-path') + 'OPENBOX'
+    if not os.path.isdir(dir):
+      os.mkdir(dir)
+    call += ' --relic-onsource ' + namePickleOPENBOX
+  else:
+    call += ' --relic-onsource ' + namePickleOnsource
+    call += ' --verbose'
+
+  return call
+
+def create_plotgrbl_call(cp, opts):
+  
+  input_user_tag = cp.get('pipeline', 'input-user-tag')
+
+  # create the code-call
+  call = './executables/plotgrbl'
+  call += ' --relic-offsource ' + namePickleOffsource
+  call += ' --relic-injections ' + namePickleInjections
+  call += ' --grblikelihood-offsource ' + namePickleOffsource\
+    .replace("relic", "grblikelihood")\
+    .replace(".pickle", '_' + opts.user_tag + ".pickle")
+  call += ' --grblikelihood-injections ' + namePickleInjections\
+    .replace("relic", "grblikelihood")\
+    .replace(".pickle", '_' + opts.user_tag + ".pickle")
+
+  call += ' --gps-start-time ' + cp.get('common', 'gps-start-time')
+  call += ' --gps-end-time ' + cp.get('common', 'gps-end-time')
+  call += ' --ifo-tag ' + opts.ifo_tag
+  call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
+  call += ' --enable-output'
 
   if opts.stage=='OPENBOX':
     dir = cp.get('common','output-path')+'OPENBOX'
@@ -161,9 +187,53 @@ def create_likelihood_call(cp, opts):
       os.mkdir(dir)
     
     call+=' --relic-onsource '+namePickleOPENBOX
+    call += ' --grblikelihood-onsource ' \
+        + namePickleOPENBOX.replace("relic", "grblikelihood")
     call+=' --output-path '+ dir
   else:
     call+=' --relic-onsource '+namePickleOnsource
+    call += ' --grblikelihood-onsource ' \
+        + namePickleOnsource.replace("relic", "grblikelihood")
+    call+=' --output-path '+ cp.get('common','output-path')
+    call+=' --verbose'
+
+  return call
+
+def create_grbUL_call(cp, opts):
+  
+  input_user_tag = cp.get('pipeline', 'input-user-tag')
+
+  # create the code-call
+  call = './executables/pylal_grbUL'
+  call += ' --relic-offsource ' + namePickleOffsource
+  call += ' --relic-injections ' + namePickleInjections
+  call += ' --grblikelihood-offsource ' + namePickleOffsource\
+    .replace("relic", "grblikelihood")\
+    .replace(".pickle", '_' + opts.user_tag + ".pickle")
+  call += ' --grblikelihood-injections ' + namePickleInjections\
+    .replace("relic", "grblikelihood")\
+    .replace(".pickle", '_' + opts.user_tag + ".pickle")
+
+  call += ' --gps-start-time ' + cp.get('common', 'gps-start-time')
+  call += ' --gps-end-time ' + cp.get('common', 'gps-end-time')
+  call += ' --ifo-tag ' + opts.ifo_tag
+  call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
+  call += ' --enable-output'
+  call += ' --h1-calibration 0.1'
+
+  if opts.stage=='OPENBOX':
+    dir = cp.get('common','output-path')+'OPENBOX'
+    if not os.path.isdir(dir):
+      os.mkdir(dir)
+    
+    call+=' --relic-onsource '+namePickleOPENBOX
+    call += ' --grblikelihood-onsource ' \
+        + namePickleOPENBOX.replace("relic", "grblikelihood")
+    call+=' --output-path '+ dir
+  else:
+    call+=' --relic-onsource '+namePickleOnsource
+    call += ' --grblikelihood-onsource ' \
+        + namePickleOnsource.replace("relic", "grblikelihood")
     call+=' --output-path '+ cp.get('common','output-path')
     call+=' --verbose'
 
@@ -333,6 +403,10 @@ if opts.stage=='fake':
   print >>f, cmd2
   cmd3 = create_likelihood_call( cp, opts)
   print >>f, cmd3
+  cmd4 = create_plotgrbl_call( cp, opts)
+  print >>f, cmd4
+  cmd5 = create_grbUL_call( cp, opts)
+  print >>f, cmd5
 
 if opts.stage=='OPENBOX':
 
@@ -341,7 +415,10 @@ if opts.stage=='OPENBOX':
   print >>f, cmd1
   cmd3 = create_likelihood_call( cp, opts)
   print >>f, cmd3
-  
+  cmd4 = create_plotgrbl_call( cp, opts)
+  print >>f, cmd4
+  cmd5 = create_grbUL_call( cp, opts)
+  print >>f, cmd5
 
 f.close()
 print "Created script '%s'" % script_filename
