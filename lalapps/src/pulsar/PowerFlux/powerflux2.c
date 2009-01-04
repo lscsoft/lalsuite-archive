@@ -485,9 +485,19 @@ if(args_info.dataset_given)fprintf(LOG,"dataset: %s\n",args_info.dataset_arg);
 fprintf(LOG,"first spindown: %g\n", args_info.spindown_start_arg);
 fprintf(LOG,"spindown step : %g\n", args_info.spindown_step_arg);
 fprintf(LOG,"spindown count: %d\n", args_info.spindown_count_arg);
+fprintf(LOG,"niota: %d\n", args_info.niota_arg);
+fprintf(LOG,"npsi: %d\n", args_info.npsi_arg);
+fprintf(LOG,"nfshift: %d\n", args_info.nfshift_arg);
+fprintf(LOG,"summing step: %d\n", args_info.summing_step_arg);
+fprintf(LOG,"max_first_shift: %d\n", args_info.max_first_shift_arg);
 fprintf(LOG,"Doppler multiplier: %g\n", args_info.doppler_multiplier_arg);
 fprintf(LOG,"orientation: %g\n", args_info.orientation_arg);
-fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes" : "no" );
+fprintf(LOG,"make cutoff: %s\n",do_CutOff ? "yes (unused)" : "no" );
+fprintf(LOG, "weight cutoff fraction: %g\n", args_info.weight_cutoff_fraction_arg);
+fprintf(LOG, "per dataset weight cutoff fraction: %g\n", args_info.per_dataset_weight_cutoff_fraction_arg);
+fprintf(LOG, "noise level: %s\n", args_info.tmedian_noise_level_arg ? "TMedian" : "in_place_sd");
+fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_independent" : "spindown_dependent");
+
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
 fflush(LOG);
 

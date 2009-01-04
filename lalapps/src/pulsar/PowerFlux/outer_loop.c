@@ -442,12 +442,13 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
 		kind, \
+		args_info.label_arg, \
 		skyband, \
 		fine_grid->band_name[skyband], \
 		ei->name, \
