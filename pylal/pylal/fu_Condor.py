@@ -1017,6 +1017,84 @@ class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
       self.validate()
     else: self.invalidate()
 
+##############################################################################
+
+class followupoddsJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A model selection job
+  """
+  def __init__(self,options,cp,tag_base='FOLLOWUPODDS'):
+    """
+    """
+    self.__name__='followupoddsjob'
+    self.__executable=string.strip(cp.get('condor','followupodds'))
+    self.__universe="standard"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(self.__name__,tag_base)
+
+class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of the model selection followup job
+  """
+  def __init__(self,followupoddsJob,procParamsTable,trig,randomseed,cp,opts,dag):
+    #try
+    if 1:
+      IFOs = trig.ifolist_in_coinc
+      time_prior = string.strip(cp.get('odds','time_prior'))
+      Nlive = string.strip(cp.get('odds','live_points'))
+      srate = string.strip(cp.get('odds','sample_rate'))
+      Approximant = string.strip(cp.get('odds','approximant'))
+      self.friendlyName = 'Odds followup job'
+      pipeline.CondorDAGNode.__init__(self,followupoddsJob)
+      cacheFiles=[]
+      for ifo in IFOs:
+        for row in procParamsTable[ifo]:
+          param=row.param.strip("-")
+          value=row.value
+          if param == 'frame-cache': cacheFile=value
+          if param == 'gps-start-time': GPSstart=value
+          if param == 'gps-end-time': GPSend=value
+
+        self.add_var_arg("--IFO "+str(ifo))
+        self.add_var_arg("--cache " +str(cacheFile))
+
+      outputname = followupoddsJob.name + '/'+followupoddsJob.name+'-' \
+                   +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'.dat'
+      self.add_var_opt("Nlive",Nlive)
+      self.add_var_opt("GPSstart",GPSstart)
+      self.add_var_opt("length",str(float(GPSend)-float(GPSstart)))
+      self.add_var_opt("approximant",Approximant)
+      self.add_var_opt("out",outputname)
+      self.add_var_opt("Nsegs",str((int(GPSend)-int(GPSstart))/8))
+      self.add_var_opt("dt",time_prior)
+      self.add_var_opt("end_time",trig.gpsTime[ifo])
+      self.add_var_opt("Mmin",2.8)
+      self.add_var_opt("Mmax",30)
+      self.add_var_opt("srate",srate)
+#      self.add_var_opt("verbose",'')
+      self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.outputCache = trig.ifos + ' ' + followupoddsJob.name + ' ' +\
+                         self.id.split('-')[-1]+' '+outputname+'\n'
+
+      print "Using IFOs " + str(IFOs)
+
+      self.setupNodeWeb(followupoddsJob,False,None,None,None,dag.cache)
+
+      print "Arguments: " + str(self.get_cmd_line())
+
+      if opts.odds:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+
+#    except:
+    else:
+      self.invalidate()
+      print "Couldn't add followupOdds job for " + str(trig.gpsTime[ifo])
+  
+
+            
+      
 
 ##############################################################################
 
