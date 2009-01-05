@@ -790,7 +790,7 @@ class FollowupMissed:
         
       # check if the pfnlist is empty. `
       if len(fileList)==0:
-        print >>sys.stderr, stage,injId,self.end_time
+        print >>sys.stderr, stage,injID,self.end_time
         print >>sys.stderr, "Error: No files found for stage %s in the "\
               "cache for ID %s and time %d; probably mismatch of a "\
               "pattern in the options. " % \
