@@ -440,7 +440,8 @@ def create_computeposterior_subfile(executable,logPath,priority,userTag):
   submitFile.write(subFile)
   submitFile.close()
 
-def create_plotulvsmass_job(dagman,computepostglob,massRegion,figureName):
+def create_plotulvsmass_job(dagman,computepostglob,massRegion,figureName,\
+                            initialDir):
   jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
   dagman += 'JOB ' + jobName + ' upper_limit.plotulvsmass.sub\n'
   dagman += 'RETRY ' + jobName + ' 1 \n'
@@ -448,7 +449,7 @@ def create_plotulvsmass_job(dagman,computepostglob,massRegion,figureName):
             ' macrocomputeglob="../' + computepostGlob + '"'+ \
             ' macromassregion="' + massRegion + '"' +\
             ' macrofigurename="' + figureName + '"' +\
-            ' macroinitdir="' + 'plotulvsmass_files' + '" \n'
+            ' macroinitdir="' + initialDir + '" \n'
   dagman += 'CATEGORY ' + jobName + ' corse \n'
   return dagman,jobName
 
@@ -476,28 +477,27 @@ def create_plotulvsmass_subfile(executable,logPath,priority):
   submitFile.write(subFile)
   submitFile.close()
 
-def create_combineposterior_job(dagman,posteriorFiles,oldPosteriorDir,
-                                initialDir,figureName,spinFlag):
+def create_combineposterior_job(dagman,posteriorFiles,
+                                initialDir,figureName,relDir,minMass,\
+                                maxMass):
   jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
-  if spinFlag:
-    dagman += 'JOB ' + jobName + ' upper_limit.combineposterior_spin.sub\n'
-  else:
-    dagman += 'JOB ' + jobName + ' upper_limit.combineposterior_nonspin.sub\n'
+  dagman += 'JOB ' + jobName + ' upper_limit.combineposterior.sub\n'
   dagman += 'RETRY ' + jobName + ' 1 \n'
   dagman += 'VARS ' + jobName + ' macrofigurename="' + figureName + '"' +\
-            ' macroinitdir="' + initialDir + '"' + \
-            ' macrooldpostdir="' + oldPosteriorDir + '"'
+            ' macroinitdir="' + initialDir + '"'
   macroaddposts = '"'
   for file,name in posteriorFiles:
-    macroaddposts += ' --add-posterior ../' + file + ',' + name 
+    macroaddposts += ' --add-posterior ' + relDir + file + ',' + name 
   macroaddposts += '"'
   dagman += ' macroaddposts =' + macroaddposts
+  dagman += ' macrominmass ="' + minMass + '"'
+  dagman += ' macromaxmass ="' + maxMass + '"'
+  dagman += ' macroreldir ="' + relDir + '"'
   dagman += ' \n'
   dagman += 'CATEGORY ' + jobName + ' corse \n'
   return dagman,jobName
 
-def create_combineposterior_subfile(executable,logPath,priority,\
-                                    numIfos,spinFlag):
+def create_combineposterior_subfile(executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = vanilla \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -505,20 +505,19 @@ def create_combineposterior_subfile(executable,logPath,priority,\
   subFile += '--max-rate 5.0 '
   subFile += '--dr 0.00001 '
   subFile += '--verbose '
+  subFile += '--min-mass $(macrominmass) '
+  subFile += '--max-mass $(macromaxmass) '
   subFile += '$(macroaddposts) '
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
-  subFile += 'error = ../logs/combineposterior-$(cluster)-$(process).err \n'
+  subFile += 'error =$(macroreldir)/logs/combineposterior-$(cluster)-$(process).err \n'
   subFile += 'output = combineposterior-$(macrofigurename).out \n'
   subFile += 'getenv = true \n'
   subFile += 'notification = never \n'
   subFile += 'initialdir = $(macroinitdir) \n'
   subFile += 'priority = ' + priority + ' \n'
   subFile += 'queue 1 \n'
-  if spinFlag:
-    submitFile = open('upper_limit.combineposterior_spin.sub','w')
-  else:
-    submitFile = open('upper_limit.combineposterior_nonspin.sub','w')
+  submitFile = open('upper_limit.combineposterior.sub','w')
   submitFile.write(subFile)
   submitFile.close()
 
@@ -589,6 +588,10 @@ if cp.has_option('run-options','run-combineposteriors'):
   runCombineposteriors = True
 else:
   runCombineposteriors = False
+if cp.has_option('run-options','run-combined-plotulvsmass'):
+  runCombinedPlotulvsmass = True
+else:
+  runCombinedPlotulvsmass = False
 if cp.has_option('run-options','run-spin'):
   runSpin = True
 else:
@@ -955,7 +958,8 @@ if runPlotulvsmass:
             + combo + '/' + userTag + '-upper-limit'
         massRegion = 'totalmass'
         dagman,plotulvsmassJobs[combo + type] = create_plotulvsmass_job(dagman,\
-                   computepostGlob,massRegion,'mtotal_' + type + '_' + combo)    
+                   computepostGlob,massRegion,'mtotal_' + type + '_' + combo,\
+                   'plotulvsmass_files')    
         for item in cp.options('total-mass-ranges'):
           if runComputeposterior:
             dagmanParentChild = add_parent_child(\
@@ -966,7 +970,8 @@ if runPlotulvsmass:
             + '/' + userTag + '-upper-limit'
         massRegion = 'componentmass'
         dagman,plotulvsmassJobs[combo + type] = create_plotulvsmass_job(dagman,\
-                   computepostGlob,massRegion,'mcomp_' + type + '_' + combo)
+                   computepostGlob,massRegion,'mcomp_' + type + '_' + combo,\
+                   'plotulvsmass_files')
         for item in cp.options('component-mass-ranges'):
           if runComputeposterior:
             dagmanParentChild = add_parent_child(\
@@ -996,25 +1001,110 @@ if runCombineposteriors:
       else:
         spinFlag = False
       posteriorFiles = []
+      parentJobs = []
       initialDir = 'combineposterior_files/'
-      figureName = userTag + item.upper() + '_' + type + '_' + combo
+      sourceChars = define_mass_characteristics(cp,item)
+      figureName = userTag + '_' + item.upper() + '_' + type
       for combo in ifoCombos:
         posteriorFiles.append((numgalaxiesOutputDirs[item+combo+type] + '/' + \
-            userTag + '-posterior-pdf.txt','S5 month 2 ' + combo))
-      oldPosteriorDir = 'past_results/' + type + '/' + item
+            userTag + '-posterior-pdf.txt', userTag + '_' + combo))
+        if runComputeposterior:
+          parentJobs.append(computeposteriorJobs[item+combo+type])
       for option,value in cp.items('past-posteriors-' + item + '-' + type):
         posteriorFiles.append((value,option.upper()))     
-      dagman,combineposteriorJobs[item + combo + type] = \
-          create_combineposterior_job(dagman,posteriorFiles,oldPosteriorDir\
-          ,initialDir,figureName,spinFlag)
+      dagman,combineposteriorJobs[item + type] = \
+          create_combineposterior_job(dagman,posteriorFiles,\
+          initialDir,figureName,'../',sourceChars['min_mtotal'],\
+          sourceChars['max_mtotal'])
       if runComputeposterior:
         dagmanParentChild = add_parent_child(\
-            [computeposteriorJobs[item+combo+type]],\
-            combineposteriorJobs[item+combo+type],dagmanParentChild)    
-  create_combineposterior_subfile(executable,logPath,priority,\
-      len(ifoCombos),True)
-  create_combineposterior_subfile(executable,logPath,priority,\
-      len(ifoCombos),False)
+            parentJobs,\
+            combineposteriorJobs[item+type],dagmanParentChild)    
+  create_combineposterior_subfile(executable,logPath,priority,)
+
+executable = cp.get('executables','pylal_combine_posteriors')
+executable2 = cp.get('executables','plotulvsmass')
+
+if (runSpin or runNonSpin):
+  combinedPlotulvsmassTypes = []
+  combinedPlotulvsmassObjects = []
+  if not os.path.isdir('combined_plotulvsmass'):
+    os.mkdir('combined_plotulvsmass')
+  if runSpin:
+    combinedPlotulvsmassTypes.append('spin')
+  if runNonSpin:
+    combinedPlotulvsmassTypes.append('nonspin')
+  if cp.has_option('run-options','run-total-mass'):
+    for item in cp.options('total-mass-ranges'):
+      if runSpin:
+        if not os.path.isdir('combined_plotulvsmass/' + item + '/spin'):
+          os.makedirs('combined_plotulvsmass/' + item + '/spin')
+        combinedPlotulvsmassObjects.append(item)
+      if runNonSpin:
+        if not os.path.isdir('combined_plotulvsmass/' + item + '/nonspin'):
+          os.makedirs('combined_plotulvsmass/' + item + '/nonspin')
+        combinedPlotulvsmassObjects.append(item)
+  if cp.has_option('run-options','run-component-mass'):
+    for item in cp.options('component-mass-ranges'):
+      if runSpin:
+        if not os.path.isdir('combined_plotulvsmass/' + item + '/spin'):
+          os.makedirs('combined_plotulvsmass/' + item + '/spin')
+        combinedPlotulvsmassObjects.append(item)
+      if runNonSpin:
+        if not os.path.isdir('combined_plotulvsmass/' + item + '/nonspin'):
+          os.makedirs('combined_plotulvsmass/' + item + '/nonspin')
+        combinedPlotulvsmassObjects.append(item)
+else:
+  runCombinedPlotulvsmass = False
+
+if runCombinedPlotulvsmass:
+  for type in combinedPlotulvsmassTypes:
+    childJobs = []
+    for item in combinedPlotulvsmassObjects:
+      posteriorFiles = []
+      parentJobs = []
+      massLow = (item.split('_'))[1]
+      massHigh = (item.split('_'))[2]
+      initialDir = 'combined_plotulvsmass/' + item + '/' + type
+      figureName = userTag + '_' + item + '_' + type
+      for combo in ifoCombos:
+        posteriorFiles.append((numgalaxiesOutputDirs[item+combo+type] + '/' + \
+            userTag + '-posterior-pdf.txt', userTag + '_' + combo))
+        if runComputeposterior:
+          parentJobs.append(computeposteriorJobs[item+combo+type])
+      for option,value in cp.items('past-posteriors-' + item + '-' + type):
+        posteriorFiles.append((value,option.upper()))
+      dagman,combineposteriorJobs[item + type] = \
+          create_combineposterior_job(dagman,posteriorFiles,\
+          initialDir,figureName,'../../../',massLow,massHigh)
+      childJobs.append(combineposteriorJobs[item+type])
+      if runComputeposterior:
+        dagmanParentChild = add_parent_child(\
+            parentJobs,\
+            combineposteriorJobs[item+type],dagmanParentChild)
+
+    if cp.has_option('run-options','run-total-mass'):
+      computepostGlob = 'combined_plotulvsmass/mtotal_*/' + type + '/'\
+          + userTag + '_*_' + type + '-combined-upper-limit'
+      massRegion = 'totalmass'
+      dagman,plotulvsmassJobs[type] = create_plotulvsmass_job(dagman,\
+                 computepostGlob,massRegion,'mtotal_' + type + '-combined',\
+                 'combined_plotulvsmass')
+      dagmanParentChild = add_parent_child(childJobs,\
+          plotulvsmassJobs[type],dagmanParentChild)
+    if cp.has_option('run-options','run-component-mass'):
+      computepostGlob = 'combined_plotulvsmass/mcomp_*/' + type + '/'\
+          +  userTag + '_*_' + type + '-combined-upper-limit'
+      massRegion = 'componentmass'
+      dagman,plotulvsmassJobs[type] = create_plotulvsmass_job(dagman,\
+                 computepostGlob,massRegion,'mcomp_' + type + '-combined',\
+                 'combined_plotulvsmass')  
+      dagmanParentChild = add_parent_child(childJobs,\
+          plotulvsmassJobs[type],dagmanParentChild)
+
+  create_combineposterior_subfile(executable,logPath,priority)
+  create_plotulvsmass_subfile(executable2,logPath,priority)
+
 
 dagmanFile = open('upper_limit.dag','w')
 dagFile = dagman + '\n' + dagmanParentChild + '\n' + dagmanMaxJobs
