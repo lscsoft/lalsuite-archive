@@ -158,7 +158,47 @@ del _allinstruments
 
 
 class InspiralCoincTables(snglcoinc.CoincTables):
-	pass
+	def __init__(self, xmldoc, coinc_definer_rows):
+		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_rows)
+
+		#
+		# find the coinc_inspiral table or create one if not found
+		#
+
+		try:
+			self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+		except ValueError:
+			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
+
+	def append_coinc(self, process_id, time_slide_id, coinc_instruments, events):
+		#
+		# populate the coinc_event and coinc_event_map tables
+		#
+
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_instruments, events)
+
+		#
+		# populate the coinc_inspiral table:
+		#
+		# - end_time is the end time of the first trigger in
+		#   alphabetical order by instrument (!?) time-shifted
+		#   according to the coinc's offset vector
+		# - mchirp is average of mchirps
+		# - snr is root-sum-square of SNRs
+		# - false-alarm rate is blank
+		#
+
+		events = sorted(events, lambda a, b: cmp(a.ifo, b.ifo))
+
+		coinc_inspiral = self.coinc_inspiral_table.RowType()
+		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
+		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
+		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
+		coinc_inspiral.false_alarm_rate = None
+		coinc_inspiral.set_end(events[0].get_end())
+		self.coinc_inspiral_table.append(coinc_inspiral)
+
+		return coinc
 
 
 #
