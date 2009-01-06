@@ -96,6 +96,9 @@ struct gengetopt_args_info
   char * dataset_arg;	/**< @brief dataset file.  */
   char * dataset_orig;	/**< @brief dataset file original value given at command line.  */
   const char *dataset_help; /**< @brief dataset file help description.  */
+  int initial_dataset_seed_arg;	/**< @brief initial seed to use for generating gaussian data (default='12345').  */
+  char * initial_dataset_seed_orig;	/**< @brief initial seed to use for generating gaussian data original value given at command line.  */
+  const char *initial_dataset_seed_help; /**< @brief initial seed to use for generating gaussian data help description.  */
   char * input_format_arg;	/**< @brief format of input files (GEO, SFT, Power) (default='GEO').  */
   char * input_format_orig;	/**< @brief format of input files (GEO, SFT, Power) original value given at command line.  */
   const char *input_format_help; /**< @brief format of input files (GEO, SFT, Power) help description.  */
@@ -346,6 +349,7 @@ struct gengetopt_args_info
   unsigned int retry_delay_given ;	/**< @brief Whether retry-delay was given.  */
   unsigned int lock_retry_delay_given ;	/**< @brief Whether lock-retry-delay was given.  */
   unsigned int dataset_given ;	/**< @brief Whether dataset was given.  */
+  unsigned int initial_dataset_seed_given ;	/**< @brief Whether initial-dataset-seed was given.  */
   unsigned int input_format_given ;	/**< @brief Whether input-format was given.  */
   unsigned int dump_data_given ;	/**< @brief Whether dump-data was given.  */
   unsigned int dump_sftv2_given ;	/**< @brief Whether dump-sftv2 was given.  */
