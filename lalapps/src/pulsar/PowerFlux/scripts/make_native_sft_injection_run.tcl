@@ -54,6 +54,7 @@ while { 1 }  {
 	set aCross [expr $h0 * cos($iota)]
 	set f0 $freq
 	set band_start [expr $first_bin/1800.0]
+	set seed [expr round(rand()*1e10)]
 
 	#
 	# And old, but proven method of sampling arbitrary distribution
