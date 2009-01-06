@@ -13,6 +13,7 @@ from glue import segments
 import socket, os
 import sys
 import copy
+import math
 
 from glue.ligolw import utils
 from glue.ligolw import table
@@ -372,7 +373,7 @@ def initialise(opts, name, version):
   # compose suffix
   try:
     if opts.gps_start_time and opts.gps_end_time :
-      suffix = "-"+str(opts.gps_start_time)+"-"+str(opts.gps_end_time-opts.gps_start_time)
+      suffix = "-"+str(int(opts.gps_start_time))+"-"+str(int(math.ceil(opts.gps_end_time))-int(opts.gps_start_time))
     else:
       suffix = "-unspecified-gpstime"
   except:
