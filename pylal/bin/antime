@@ -27,7 +27,7 @@ from glue import iterutils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
-from pylal import llwapp
+from pylal import ligolw_segments
 from pylal import date
 
 ##############################################################################
@@ -132,7 +132,7 @@ for ifo in ifo_list:
 ########################
 # read in the segment and veto files
 xmldoc = utils.load_filename(opts.veto_file, gz=opts.veto_file.endswith("gz"))
-vetoes = llwapp.segmenttable_get_by_name(xmldoc, name="vetoes")
+vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, name="vetoes")
 vetoes.coalesce()
 
 segs = segments.segmentlistdict()
