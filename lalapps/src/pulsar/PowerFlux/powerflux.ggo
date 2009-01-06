@@ -24,6 +24,7 @@ option "enable-dataset-locking"	- "set to 1 to enable dataset level locking"	int
 option "retry-delay" - "number of seconds to wait before retrying I/O" int default="2" no
 option "lock-retry-delay" - "number of seconds to wait before trying to acquire lock again" int default="10" no
 option "dataset"	s "dataset file" string no
+option "initial-dataset-seed" i "initial seed to use for generating gaussian data" int default="12345" no
 option "input-format"   - "format of input files (GEO, SFT, Power)" string default="GEO" no 
 option "dump-data"	- "file to output loaded SFT data into, for testing" string no
 option "dump-sftv2"	- "directory to output loaded data, together with dataset description" string no
