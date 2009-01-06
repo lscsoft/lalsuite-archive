@@ -110,6 +110,72 @@ def parse_thresholds(thresholdstrings):
 #
 # =============================================================================
 #
+#                             Time Slide Utilities
+#
+# =============================================================================
+#
+
+
+def time_slide_consideration_order(time_slide_table):
+	"""
+	Given a time_slide table, return a list of the unique
+	time_slide_id's in the table sorted by number of participating
+	instruments, then by inter-instrument deltas (then by ID string if
+	there are duplicate time slide vectors in the table).
+
+	If coincs are constructed for time slides in this order, each
+	offset vector will always be considered after any offset vectors it
+	contains.  For example the vector {"H1": 0, "H2": 10, "L1": 20}
+	will be considered after {"H1": 0, "H2": 10} because the latter is
+	contained in the former.
+
+	If the coincidence test is such that an H1,H2,L1 triple as above
+	would also be found as the H1,H2 double above, then if the offset
+	vectors are processed in the order returned by this function a
+	performance improvement can be achieved in the coincidence
+	algorithm by constructing triples by scanning
+	previously-constructed doubles for those which match the third
+	instrument instead of constructing the triples from scratch from
+	the raw trigger list (which involves paying the price of
+	constructing the doubles all over again).
+	"""
+	#
+	# sorted list of the unique instruments appearing in the offset
+	# vectors
+	#
+
+	instruments = sorted(set(time_slide_table.getColumnByName("instrument")))
+
+	#
+	# group into pairs:  first pair, second pair, ...
+	#
+
+	instruments = tuple(zip(instruments[1:], instruments[:-1]))
+
+	#
+	# the offset vectors indexed by time_slide_id
+	#
+
+	offsets = time_slide_table.as_dict()
+
+	#
+	# order IDs by number of participating instruments then by
+	# inter-instrument deltas, then by ID string
+	#
+
+	def deltas(offset_vector):
+		for a, b in instruments:
+			try:
+				yield offset_vector[a] - offset_vector[b]
+			except KeyError:
+				yield None
+
+	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a])), tuple(deltas(offsets[b]))) or cmp(a, b))
+
+
+#
+# =============================================================================
+#
 #                              Document Interface
 #
 # =============================================================================
@@ -153,10 +219,11 @@ class CoincTables(object):
 
 	def time_slide_ids(self):
 		"""
-		Return a list of the unique time slide IDs sorted in
-		increasing order by ID number.
+		Return a list of the document's unique time slide IDs
+		sorted in the order defined by the
+		time_slide_consideration_order() function.
 		"""
-		return sorted(set(row.time_slide_id for row in self.time_slide_table))
+		return time_slide_consideration_order(self.time_slide_table)
 
 
 	def get_time_slide(self, id):
