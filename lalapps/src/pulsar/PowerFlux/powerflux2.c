@@ -245,7 +245,7 @@ FILE_LOG=fopen(s,"w");
 
 snprintf(s,20000,"%s/data.log", output_dir);
 DATA_LOG=fopen(s,"w");
-setbuffer(DATA_LOG, NULL, 1024*1024*32);
+setbuffer(DATA_LOG, do_alloc(1024*1024*32, 1), 1024*1024*32);
 
 if(args_info.label_given){
 	fprintf(LOG, "label: \"%s\"\n", args_info.label_arg);
@@ -522,6 +522,7 @@ if(args_info.fake_freq_given) {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
 
+init_datasets();
 test_datasets();
 
 /* INPUT stage */

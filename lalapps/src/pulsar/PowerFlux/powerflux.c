@@ -498,6 +498,7 @@ if(args_info.fake_freq_given) {
    	fprintf(LOG,"fake signal injection: none\n");
 	}
 
+init_datasets();
 test_datasets();
 
 /* INPUT stage */

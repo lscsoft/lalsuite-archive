@@ -143,6 +143,7 @@ void sftv2_dump_datasets(char *directory);
 void output_datasets_info(void);
 void verify_dataset_whole_sky_AM_response(void);
 void test_datasets(void);
+void init_datasets(void);
 
 #define PHASE_ACCUMULATION_TIMEOUT 50000
 

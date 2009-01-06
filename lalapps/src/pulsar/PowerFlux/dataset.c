@@ -2619,3 +2619,8 @@ if(args_info.extended_test_arg) {
 	fake_dataset_test();
 	}
 }
+
+void init_datasets(void)
+{
+fill_seed=args_info.initial_dataset_seed_arg;
+}
