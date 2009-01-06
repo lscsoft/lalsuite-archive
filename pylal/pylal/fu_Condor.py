@@ -1040,10 +1040,10 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
     #try
     if 1:
       IFOs = trig.ifolist_in_coinc
-      time_prior = string.strip(cp.get('odds','time_prior'))
-      Nlive = string.strip(cp.get('odds','live_points'))
-      srate = string.strip(cp.get('odds','sample_rate'))
-      Approximant = string.strip(cp.get('odds','approximant'))
+      time_prior = string.strip(cp.get('followup-odds','time_prior'))
+      Nlive = string.strip(cp.get('followup-odds','live_points'))
+      srate = string.strip(cp.get('followup-odds','sample_rate'))
+      Approximant = string.strip(cp.get('followup-odds','approximant'))
       self.friendlyName = 'Odds followup job'
       pipeline.CondorDAGNode.__init__(self,followupoddsJob)
       cacheFiles=[]
