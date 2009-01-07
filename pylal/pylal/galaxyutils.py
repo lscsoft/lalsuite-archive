@@ -55,6 +55,16 @@ def is_inside_polygon(point, vertices):
     angle_sum = diff_angles.sum()
     return abs(angle_sum) >= numpy.pi
 
+def is_within_distances(gal_dist, dmin, dmax):
+    """
+    Return True if dmax > gal_dist > dmin
+    """
+    if (dmin > dmax):
+        raise ValueError, "minimum distance is greater than maximum distance " + str(dmin) + " > "+ str(dmax)
+    if (0 > dmin) or (0 > dmax):
+        raise ValueError, "negative distance " + str(dmin) + " " + str(dmax)
+    return (dmax > gal_dist) and (dmin < gal_dist)
+
 def plot_points(points, polygon):
     """
     Return the handle to a figure containing a scatter plot of a set of
@@ -171,8 +181,10 @@ class GalaxyCatalog(list):
         "name": (0, str),
         "ra": (1, hm2rad),
         "dec": (2, dm2rad),
-        "distance": (3, float),
-        "luminosity": (4, float),
+        # distance measured in kpc
+        "distance_kpc": (3, float),
+        # luminosity measured in milky way equivalent galaxies
+        "luminosity_mwe": (4, float),
         "metal_correction": (5, float),
         "magnitude_error": (6, float),
         "distance_error": (7, float),
@@ -211,6 +223,9 @@ class GalaxyCatalog(list):
 
     def within_polygon(self, vertices):
         return self.__class__([gal for gal in self if is_inside_polygon(gal.coords, vertices)])
+
+    def within_distances(self, dmin, dmax):
+        return self.__class__([gal for gal in self if is_within_distances(gal.distance_kpc, dmin, dmax)])
 
     def __repr__(self):
         return "\n".join(itertools.imap(str, self))
