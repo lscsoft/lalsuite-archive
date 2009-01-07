@@ -844,7 +844,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		#
 
 		try:
-			coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector)
+			coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector).pop()
 		except KeyError:
 			coinc_event.time_slide_id = time_slide_table.get_next_id()
 			for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, coinc_event.time_slide_id, process):
