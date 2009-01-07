@@ -305,9 +305,31 @@ def time_slides_find(time_slides, offset_vector):
 	mappings, for example as returned by the .as_dict() method of the
 	TimeSlideTable class in glue.ligolw.lsctables, return the set of
 	IDs of instrument-->offset mappings equivalent to offset_vector as
-	defined by time_slide_cmp().
+	defined by time_slide_cmp().  See also
+	time_slides_find_components().
 	"""
 	return set(id for id, offsetdict in time_slides.items() if not time_slide_cmp(offsetdict, offset_vector))
+
+
+def time_slides_find_components(time_slides, offset_vector):
+	"""
+	Given a dictionary mapping time slide IDs to instrument-->offset
+	mappings, for example as returned by the .as_dict() method of the
+	TimeSlideTable class in glue.ligolw.lsctables, return the set of
+	IDs of instrument-->offset mappings that are contained in the given
+	offset_vector as defined by time_slide_cmp().
+
+	For example, {"H1": 10, "H2": 10} is contained in {"H1": 0, "H2":
+	0, "L1": 10} because the instruments in the former appear in the
+	latter with the same relative offsets.  Only proper subsets are
+	reported.  See also time_slides_find().
+	"""
+	ids = set()
+	all_instruments = offset_vector.keys()
+	for n in range(2, len(all_instruments)):
+		for instruments in iterutils.choices(all_instruments, n):
+			ids |= time_slides_find(time_slides, dict((instrument, offset_vector[instrument]) for instrument in instruments))
+	return ids
 
 
 def time_slides_vacuum(time_slides, verbose = False):
