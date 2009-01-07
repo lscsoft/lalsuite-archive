@@ -226,7 +226,7 @@ for(i=0;i<count;i++) {
 
 	skyband=ps[0][i].skyband;
 
-	if(pstats.weight_loss_fraction>=1) {
+	if(pstats.max_weight_loss_fraction>=1) {
 		ei->band_masked_count[skyband]++;
 		continue;
 		}
@@ -414,8 +414,8 @@ if(args_info.compute_skymaps_arg) {
 ei->band_info=do_alloc(fine_grid->nbands, sizeof(*ei->band_info));
 memset(ei->band_info, 0, fine_grid->nbands*sizeof(*ei->band_info));
 
-e->band_valid_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_valid_count));
-e->band_masked_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_masked_count));
+ei->band_valid_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_valid_count));
+ei->band_masked_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_masked_count));
 memset(ei->band_valid_count, 0, fine_grid->nbands*sizeof(*ei->band_valid_count));
 memset(ei->band_masked_count, 0, fine_grid->nbands*sizeof(*ei->band_masked_count));
 
