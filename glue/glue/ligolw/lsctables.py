@@ -833,11 +833,11 @@ class SnglInspiralTable(table.Table):
 	def get_reduced_cont_chisq(self):
 		return self.get_column('cont_chisq') / self.get_column('cont_chisq_dof')
 
-	def get_effective_snr(self):    
+	def get_effective_snr(self, fac=250.0):    
 		snr = self.get_column('snr')
 		chisq = self.get_column('chisq')
 		chisq_dof = self.get_column('chisq_dof')
-		return snr/ (1 + snr**2/250)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
+		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
     
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
@@ -921,8 +921,8 @@ class SnglInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
-	def get_effective_snr(self):
-		return self.snr/ (1 + self.snr**2/250)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
+	def get_effective_snr(self,fac=250.0):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25) 
 
 	def get_far(self):
 		return self.alpha
