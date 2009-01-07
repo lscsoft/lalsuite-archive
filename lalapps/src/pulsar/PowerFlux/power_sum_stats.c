@@ -562,7 +562,7 @@ if(pps->weight_arrays_non_zero) {
 	}
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
-if(min_weight<=0) {
+if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}
@@ -707,7 +707,7 @@ if(pps->weight_arrays_non_zero) {
 	}
 
 /* 0 weight can happen due to extreme line veto at low frequencies and small spindowns */
-if(min_weight<=0.0) {
+if(min_weight<= args_info.small_weight_ratio_arg*max_weight) {
 	set_missing_point_stats(pst);
 	return;
 	}

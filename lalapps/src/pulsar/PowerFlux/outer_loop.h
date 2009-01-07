@@ -19,6 +19,8 @@ typedef struct {
 	float *ks_skymap;
 
 	POWER_SUM_STATS *band_info;
+	int *band_valid_count;
+	int *band_masked_count;
 
 	/* convenience info for keeping track of which ei is which */
 	int first_chunk;

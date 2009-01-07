@@ -226,6 +226,12 @@ for(i=0;i<count;i++) {
 
 	skyband=ps[0][i].skyband;
 
+	if(pstats.weight_loss_fraction>=1) {
+		ei->band_masked_count[skyband]++;
+		continue;
+		}
+	ei->band_valid_count[skyband]++;
+
 	#define FILL_EXTRA_PARAMS(target) {\
 		target.ra=ps[0][i].ra; \
 		target.dec=ps[0][i].dec; \
@@ -408,6 +414,11 @@ if(args_info.compute_skymaps_arg) {
 ei->band_info=do_alloc(fine_grid->nbands, sizeof(*ei->band_info));
 memset(ei->band_info, 0, fine_grid->nbands*sizeof(*ei->band_info));
 
+e->band_valid_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_valid_count));
+e->band_masked_count=do_alloc(fine_grid->nbands, sizeof(*ei->band_masked_count));
+memset(ei->band_valid_count, 0, fine_grid->nbands*sizeof(*ei->band_valid_count));
+memset(ei->band_masked_count, 0, fine_grid->nbands*sizeof(*ei->band_masked_count));
+
 for(i=0;i<fine_grid->nbands;i++) {
 	ei->band_info[i].max_weight=-1;
 	}
@@ -420,6 +431,8 @@ void free_extreme_info(EXTREME_INFO *ei)
 
 free(ei->name);
 free(ei->band_info);
+free(ei->band_valid_count);
+free(ei->band_masked_count);
 
 #define FREE(x)  {if(ei->x!=NULL)free(ei->x); ei->x=NULL; }
 
@@ -442,11 +455,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction valid_count masked_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -470,7 +483,9 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		pstat.max_weight, \
 		pstat.weight_loss_fraction, \
 		ei->band_info[skyband].highest_ks.ks_value, \
-		ei->band_info[skyband].max_weight_loss_fraction \
+		ei->band_info[skyband].max_weight_loss_fraction, \
+		ei->band_valid_count[skyband], \
+		ei->band_masked_count[skyband] \
 		); 
 
 for(skyband=0;skyband<fine_grid->nbands;skyband++) {
