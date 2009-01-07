@@ -79,6 +79,12 @@ parser.add_option("-Y","--ymax",action="store",type="float",\
     help="maximum value on y-axis for rate vs mass plot (default = 100)" ) 
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display plots" )
+# The following options are used to give the correct mass range to put in the
+# output file that plotulvsmass will use.
+parser.add_option("","--min-mass",action="store",type="float",\
+    default=0.0, metavar="MASS_MIN", help="minimum mass for plotulvsmass." )
+parser.add_option("","--max-mass",action="store",type="float",\
+    default=0.0, metavar="MASS_MAX", help="maximum mass for plotulvsmass." )
 
 (opts,args) = parser.parse_args()
 
@@ -107,6 +113,7 @@ posts = {}
 keys = []
 for idx in range(len(opts.add_posterior)):
   file,tag = opts.add_posterior[idx].split(',')
+  tag = tag.replace('_',' ')
 
   if opts.verbose:
     print "reading in %s posterior file: %s" % (tag,file)
@@ -240,7 +247,20 @@ else:
   axis([0,recXmax,0.01,1])
 if opts.figure_name:
   savefig( outputName + "-posterior-cdf.png")
- 
+
+outfile = open( outputName + '-combined-posterior.txt','w')
+print >> outfile, "# Posterior computed using lalapps_compute_posterior"
+for rp_tup in zip(rate, post):
+  print >> outfile, "%e\t%e" % rp_tup
+outfile.close()
+
+ulfile = open(opts.figure_name + "-combined-upper-limit","w")
+ulfile.write("#M_low\tM_high\tUnmarginalized Rate\tMarginalized Rate\n")
+ulfile.write("%e\t%e\t%e\t%e\n" % (opts.min_mass,\
+    opts.max_mass,rate90pc,rate90pc))
+ulfile.close()
+
+
 # show the plots is asked
 if opts.show_plot:
   show()
