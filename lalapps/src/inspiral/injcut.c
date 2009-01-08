@@ -453,10 +453,7 @@ int main( int argc, char *argv[] )
     }
   }
 
-  if ( numSimEvents )
-  {
-    injections.simInspiralTable = simEventHead;
-  }
+  injections.simInspiralTable = simEventHead;
 
   /* open the xml file */
   if ( vrbflg ) fprintf( stdout, "writing output xml files... " );
@@ -497,14 +494,11 @@ int main( int argc, char *argv[] )
   }
 
   /* write the sim_inspiral table */
-  if ( injections.simInspiralTable )
-  {
-    LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, sim_inspiral_table ), 
+  LAL_CALL( LALBeginLIGOLwXMLTable( &status, &xmlfp, sim_inspiral_table ), 
         &status );
-    LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, injections, 
+  LAL_CALL( LALWriteLIGOLwXMLTable( &status, &xmlfp, injections, 
           sim_inspiral_table ), &status );
-    LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
-  }
+  LAL_CALL( LALEndLIGOLwXMLTable ( &status, &xmlfp ), &status );
   while ( injections.simInspiralTable )
   {
     this_inj = injections.simInspiralTable;
