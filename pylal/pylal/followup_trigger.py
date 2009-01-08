@@ -24,14 +24,16 @@ import os
 import sys
 import copy
 from math import sqrt, pi
+import subprocess
+import tempfile
 
 import matplotlib
 matplotlib.use('Agg')
 import pylab 
-try:
-  set
-except NameError:
-  from sets import Set as set
+## try:
+##   set
+## except NameError:
+##   from sets import Set as set
 
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
@@ -184,6 +186,7 @@ class FollowupTrigger:
     @return: the recalculated injection
     """
 
+    
     file1 = 'test1.xml'
     file2 = 'test2.xml'
     
@@ -193,6 +196,7 @@ class FollowupTrigger:
     # call command for lalapps_sned
     command = self.sned+' --f-lower 40.0  --inj-file '+file1+\
               '  --output '+file2
+    
     os.system(command)
 
     # read in the 'converted' injection
@@ -475,13 +479,8 @@ class FollowupTrigger:
     @param time_trigger: The time to be investigated
     @param ifo: The name of the IFO to be investigated
     """
-
-    flag = False
-    for seg in self.vetodict[ifoName]:
-      if (time_trigger > seg[0] and time_trigger < seg[1]):
-        flag = True
-
-    return flag
+    
+    return iterutils.any(time_trigger in seg for seg in self.vetodict[ifoName])
 
   # -----------------------------------------------------
   def put_text(self, text):
@@ -543,17 +542,17 @@ class FollowupTrigger:
 
         # select a range of triggers
         selected_large = sngls_ifo.vetoed(seg_large)
-        time_large = [ self.get_time_trigger(sel) - self.followup_time \
+        time_large = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_large ]
 
         selected_small = sngls_ifo.vetoed(seg_small)
-        time_small = [ self.get_time_trigger(sel) - self.followup_time \
+        time_small = [ float(sel.get_end()) - self.followup_time \
                       for sel in selected_small ]
 
         # use the set of selected coincident triggers in the THINCA stages
         if coincs:
           selected_small = selected_coincs.cluster(2 * self.injection_window).getsngls(ifo)
-          time_small = [ self.get_time_trigger(sel)-self.followup_time \
+          time_small = [ float(sel.get_end())-self.followup_time \
                         for sel in selected_small ]
           
         # skip if no triggers in the large time window
@@ -572,7 +571,7 @@ class FollowupTrigger:
           loudest_details[ifo]["mchirp"] = loudest.mchirp
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
           loudest_details[ifo]["chisq"] = loudest.chisq
-          loudest_details[ifo]["timeTrigger"] = self.get_time_trigger(loudest)
+          loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\
@@ -864,7 +863,7 @@ class FollowupTrigger:
     sngl = getattr(coinc, ifo)
     
     # set the time
-    self.followup_time = sngl.end_time + sngl.end_time_ns*1.0e-9
+    self.followup_time = float(sngl.get_end())
  
     # prepare the page
     self.injection_id = injection_id
@@ -891,7 +890,7 @@ class FollowupTrigger:
     self.flag_followup = more_infos
 
     # set the time
-    self.followup_time = sngl.end_time + sngl.end_time_ns*1.0e-9
+    self.followup_time = float(sngl.get_end())
 
     # do the followup
     return self.followup(page)
