@@ -301,7 +301,8 @@ def parse_command_line():
       default=50, metavar="resolution of the thumbnails (50 by default)", \
       help="read a file of a particular description  from cache file" )
   parser.add_option("","--do-followup",action="store_true",\
-      default=False,help="activates the followup of missed injections" )
+      default=False,help="activates the followup of missed injections."\
+      " Required to ignore injections missed due to vetoes.")
   parser.add_option("","--followup-dist-l",action="store",\
       type="float",default=None,  metavar="FOLLOWUPDISTL",\
       help="distance for a binary with 20 Solarmasses in L")
@@ -350,7 +351,9 @@ def parse_command_line():
       "or in CVS. This only works IF --enable-output is also specified. The "\
       "argument should be the cvs directory where the html file will be placed "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
-    
+  parser.add_option("","--count-vetoes-as-missed",action="store_true",\
+      default=False,help="counts vetoes as missed injections. They are included in "\
+      "followups if --do-followup is enabled.")  
       
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
@@ -492,6 +495,7 @@ if opts.add_horizon:
 
 foundInj  = dict()
 foundTrig = dict()
+possibleMissedInj = lsctables.New(lsctables.SimInspiralTable)
 missedInj = lsctables.New(lsctables.SimInspiralTable)
 allFoundTrig = lsctables.New(lsctables.SnglInspiralTable)
 allFoundInj = lsctables.New(lsctables.SimInspiralTable) 
@@ -548,13 +552,29 @@ for misentry, misfile in zip(miscache,misFiles):
 # fill the dictionary    
   sims =   SimInspiralUtils.ReadSimInspiralFromFiles([misfile])
   if sims:
-    missedInj.extend( sims )
+    possibleMissedInj.extend( sims )
 
 # initialize the followup class
 if opts.do_followup:
   followup = followup_missed.FollowupMissed( cache, opts)
- 
 
+if opts.do_followup and not opts.count_vetoes_as_missed:
+  # break missed injections into vetoes and unvetoed
+  if opts.verbose:
+    print "Using veto files to determine which injections were missed due to vetoes."
+  vetoedInj = lsctables.New(lsctables.SimInspiralTable)
+  for inj in possibleMissedInj:
+    unvetoedIFOs = 0
+    for ifo in ifoList:
+      vetoTime = float(getattr(inj,ifo[0].lower()+'_end_time'))
+      if not followup.isThereVeto(vetoTime,ifo): unvetoedIFOs += 1
+    if unvetoedIFOs > 1:
+      missedInj.append(inj)
+    else:
+      vetoedInj.append(inj)
+else:
+  missedInj = possibleMissedInj
+ 
 
 ##############################################################################
 # read in the range if desired
@@ -632,6 +652,12 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
       px, py, legx, legy = getData( foundInj[type], xname, yname, ifo )
       plot( px, py, col+foundSymbol[type], markerfacecolor='None',\
         markeredgecolor=col, label = type, markersize=10, markeredgewidth=1)
+
+    # plot the vetoed ones
+    if opts.do_followup and not opts.count_vetoes_as_missed:
+      px, py, legx, legy = getData( vetoedInj, xname, yname, ifo )
+      plot( px, py, 'ko', markerfacecolor='None',label='vetoed',\
+        markeredgecolor='k',markersize=10, markeredgewidth=1)
       
     # plot the missed ones
     px, py, legx, legy = getData( missedInj, xname, yname, ifo )
