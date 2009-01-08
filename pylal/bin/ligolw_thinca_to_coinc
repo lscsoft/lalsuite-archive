@@ -189,6 +189,34 @@ def add_missing_id_columns(xmldoc, verbose = False):
 
 
 #
+# Fix ifos columns by turning strings like "H1H2L1" into strings like
+# "H1,H2,L1".
+#
+
+
+def fix_ifos_columns(xmldoc, verbose = False):
+	if verbose:
+		print >>sys.stderr, "fixing ifos columns ...",
+
+	#
+	# fix process and search_summary tables
+	#
+
+	for table_name in (lsctables.ProcessTable.tableName, lsctables.SearchSummaryTable.tableName):
+		if options.verbose:
+			print >>sys.stderr, table_name,
+		for row in table.get_table(xmldoc, table_name):
+			row.set_ifos(row.get_ifos())
+
+	#
+	# done
+	#
+
+	if verbose:
+		print >>sys.stderr
+
+
+#
 # =============================================================================
 #
 #                          Populate time_slide Table
@@ -245,19 +273,12 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	# table
 	#
 
-	instruments = set(row.ifos for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
+	instruments = set(frozenset(row.get_ifos()) for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
 	if len(instruments) < 1:
 		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
 	if len(instruments) > 1:
 		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(instruments)
 	instruments = instruments.pop()
-	# instruments is now a single string in the form "H1H2L1".  the
-	# following converts this into a set of 2-character strings in the
-	# form set(["H1", "H2", "L1"]).
-	instruments = [instruments]
-	while len(instruments[-1]) > 2:
-		instruments = instruments[:-1] + [instruments[-1][:2], instruments[-1][2:]]
-	instruments = set(instruments)
 
 	#
 	# identify lalapps_thinca's time slides
@@ -875,6 +896,8 @@ process = initialize_process(xmldoc)
 set_process_params(xmldoc, process, options)
 
 add_missing_id_columns(xmldoc, verbose = options.verbose)
+# FIXME:  uncomment this after Kipp talks people into it.
+#fix_ifos_columns(xmldoc, verbose = options.verbose)
 
 populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
 
