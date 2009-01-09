@@ -59,7 +59,7 @@ parser.add_option("-p","--add-posterior",action="append",type="string",\
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="display verbose output" )
 parser.add_option("-m","--max-rate",action="store",type="float",\
-    default=200.0, metavar=" MAXRATE", \
+    default=None, metavar=" MAXRATE", \
     help="max rate on integral for posterior" ) 
 parser.add_option("-d","--dr",action="store",type="float",\
     default=0.01, metavar=" DR", \
@@ -103,9 +103,36 @@ if not opts.show_plot:
   rc('text', usetex=True)
   rc('savefig', dpi=300)
 
+inputRates = {}
+inputPosts = {}
+
+# Read input files and determine the max_rate to use
+minmaxPosteriorRate = 1000000.
+for idx in range(len(opts.add_posterior)):
+  file,tag = opts.add_posterior[idx].split(',')
+  tag = tag.replace('_',' ')
+
+  if opts.verbose:
+    print "reading in %s posterior file: %s" % (tag,file)
+
+  inputRates[tag],inputPosts[tag] = read_file( file )
+  thisRate = inputRates[tag]
+  dr = thisRate[1] - thisRate[0]
+  maxPosteriorRate = dr * len(thisRate)
+  if maxPosteriorRate < minmaxPosteriorRate:
+    minmaxPosteriorRate = maxPosteriorRate
+
+if opts.max_rate > minmaxPosteriorRate:
+  print >> sys.stdout, "The input max_rate is bigger than that calculateable"
+  print >> sys.stdout, "from input files. It will be altered."
+  print >> sys.stdout, "opts.max_rate is set to %f" % minmaxPosteriorRate
+  opts.max_rate = minmaxPosteriorRate
+
+if not opts.max_rate:
+  opts.max_rate = minmaxPosteriorRate
+
 # compute the rate
 rate = arange(0., opts.max_rate, opts.dr)
-post = ones(len(rate))
 post = ones(len(rate),dtype='float')
 
 # read in the posteriors
@@ -116,9 +143,10 @@ for idx in range(len(opts.add_posterior)):
   tag = tag.replace('_',' ')
 
   if opts.verbose:
-    print "reading in %s posterior file: %s" % (tag,file)
+    print "Calculating posterior for: %s" % (tag)
 
-  thisRate,thisPost = read_file( file )
+  thisRate = inputRates[tag]
+  thisPost = inputPosts[tag]
 
   # interpolate posteriors onto rate
   dr = thisRate[1] - thisRate[0]
@@ -250,6 +278,7 @@ if opts.figure_name:
 
 outfile = open( outputName + '-combined-posterior.txt','w')
 print >> outfile, "# Posterior computed using lalapps_compute_posterior"
+maxpost = max(post)
 for rp_tup in zip(rate, post):
   print >> outfile, "%e\t%e" % rp_tup
 outfile.close()
