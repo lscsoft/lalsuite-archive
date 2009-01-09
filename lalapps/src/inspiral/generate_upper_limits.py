@@ -351,7 +351,6 @@ def create_numgalaxies_subfile(executable,logPath,priority,type,userTag):
   subFile += '--num-slides 50 '
   subFile += '--statistic far '
   subFile += '--figure-name ' + userTag + ' '
-  subFile += '--plot-efficiency '
   subFile += '--magnitude-error positive '
   subFile += '--nbins 20 '
   subFile += '--verbose '
