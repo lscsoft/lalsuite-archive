@@ -150,10 +150,9 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
         CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + str(rank) + xccx
       followupLink = 'None'
       if followup:
-        followup.followup(coinc,coinc.get_ifos()[1][0],\
-            description = followupOpts.datatype,type = 'coincInspiral')
+        followup.from_coinc( coinc, coinc.get_ifos()[1][0] )
         coinc.get_ifos()[1][0]
-        followupFile = followupOpts.prefix + '_' + coinc.get_ifos()[1][0]\
+        followupFile = followupOpts.prefix  \
             + '_followup_' + str(followup.number) + followupOpts.suffix\
             + '.html'
 	followupLink = '<a href="./' + followupFile +'"> here </a>'
