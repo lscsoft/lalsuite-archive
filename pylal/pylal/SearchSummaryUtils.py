@@ -16,56 +16,22 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import gzip
-
 from glue import segments
 
-from glue.ligolw import ligolw
-from glue.ligolw import table
 from glue.ligolw import utils
-from glue.ligolw import lsctables
 from pylal import llwapp
-
-def _table_filter_generator(tables):
-  """
-  Return a function suitable for a PartialLIGOLWContentHandler that filters
-  for any table in the given list of tables.
-  """
-  def filter_func(name, attrs):
-    for table in tables:
-      if lsctables.IsTableProperties(table, name, attrs):
-        return True
-    return False
-  return filter_func
-
-def ReadTablesFromFiles(fileList, table_list, verbose=False):
-  """
-  Return a parsed document containing only the tables enumerated in
-  table_list that appear in the files in fileList.
-  """
-  _is_table = _table_filter_generator(table_list)
-  doc = ligolw.Document()
-  searchsummary_handler = ligolw.PartialLIGOLWContentHandler(doc, _is_table)
-
-  for thisFile in fileList:
-    if thisFile.endswith(".gz"):
-      fileobj = gzip.open(thisFile)
-    else:
-      fileobj = open(thisFile)
-    ligolw.make_parser(searchsummary_handler).parse(fileobj)
-  return doc
 
 def GetSegListFromSearchSummaries(fileList, verbose=False):
   """
   Read segment lists from search summary tables
   @param fileList: list of input files.
   """
-  required_tables = [lsctables.SearchSummaryTable, lsctables.ProcessTable]
-
   segList = segments.segmentlistdict()
+
   for thisFile in fileList:
-    doc = ReadTablesFromFiles([thisFile], required_tables, verbose)
-    try:
+    doc = utils.load_filename(thisFile, gz = thisFile.endswith(".gz"),
+        verbose = verbose)
+    try: 
       segs = llwapp.segmentlistdict_fromsearchsummary(doc)
     except:
       raise ValueError, "Cannot extract segments from the SearchSummaryTable of %s" % thisFile
@@ -77,4 +43,3 @@ def GetSegListFromSearchSummaries(fileList, verbose=False):
     value.sort()
 
   return segList
-
