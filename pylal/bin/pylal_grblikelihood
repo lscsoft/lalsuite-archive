@@ -180,7 +180,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
             self.eps = 0.5 / \
                 (num_sims_by_m2[None, :].repeat(self.shape[1], axis=0) + 1e-10)
 
-        # repack to speed inner loop to allow us to call dot()
+        # repack to speed inner loop by allowing us to call dot()
         self.inj_loudest_by_inj_mc_m2 = \
             numpy.zeros(self.shape + (self.num_m2,), dtype=self.dtype)
         self.inj_loudest_by_inj_mc_m2[numpy.arange(self.num_inj, dtype=int),
@@ -354,8 +354,6 @@ pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
 
 ################################################################################
 # compute P(Lambda > Lambda_0(m2) | h(m2, D)) for the upper limit
-# FIXME: Some of this section is convoluted because of the 4-D representation
-# of inj_loudest_by_inj_mc_m2_D.
 # FIXME: This can be done in O(N_{inj}) time because L is monotonic with SNR
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
