@@ -70,7 +70,7 @@ bin_SCRIPTS = lalapps_inspiral_pipe lalapps_inspiral_hipe \
               lalapps_check_hipe_times lalapps_ihope \
               lalapps_followup_pipe lalapps_plot_hipe \
               lalapps_ihope_status lalapps_write_ihope_page \
-	      lalapps_link_old_ihope lalapps_generate_upper_limits
+	      lalapps_link_old_ihope
 
 pkgpython_DATA = inspiral.py inspiralutils.py
 endif
@@ -113,10 +113,6 @@ lalapps_inspiral_online_pipe: $(srcdir)/inspiral_online_pipe.in python_config.se
 lalapps_inspiral_online_pipe_inject: $(srcdir)/inspiral_online_pipe_inject.in python_config.sed
 	sed -f python_config.sed $(srcdir)/inspiral_online_pipe_inject.in > lalapps_inspiral_online_pipe_inject
 	chmod +x lalapps_inspiral_online_pipe_inject
-lalapps_generate_upper_limits: $(srcdir)/generate_upper_limits.in python_config.sed
-	sed -f python_config.sed $(srcdir)/generate_upper_limits.in > lalapps_generate_upper_limits
-	chmod +x lalapps_generate_upper_limits
-
 
 pkgdata_DATA = BNSMasses.dat inspsrcs.dat inspsrcs.errors inspsrcs-050Mpc.errors inspsrcs-075Mpc.errors inspsrcs-100Mpc.errors inspiral_pipe.ini inspiral_hipe.ini online.ini online_inject_bbh.ini ihope.ini followup_pipe.ini plot_hipe.ini write_ihope_page.ini write_ihope_style.css
 EXTRA_DIST = $(INSPIRALSRC) $(TMPLTBANKSRC) \
@@ -136,8 +132,7 @@ CLEANFILES = lalapps_inspiral_pipe lalapps_inspiral_hipe \
              lalapps_inspiral_online_pipe \
              lalapps_inspiral_online_pipe_inject python_config.sed \
              lalapps_check_hipe_times lalapps_ihope lalapps_ihope_status \
-	     lalapps_followup_pipe lalapps_plot_hipe \
-             lalapps_generate_upper_limits
+	     lalapps_followup_pipe lapps_plot_hipe
 
 MOSTLYCLEANFILES = *INSPIRAL*.xml *INSPIRAL*.gwf \
                    *TMPLTBANK*.gwf *TMPLTBANK*.xml
