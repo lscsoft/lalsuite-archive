@@ -42,16 +42,17 @@ numpy.seterr(all="raise")  # throw an exception on any funny business
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
+import pylab
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
-import pylab
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import plotutils
+from pylal import rate
 from pylal import viz
 
 # override pylab defaults, optimizing for web presentation
@@ -149,8 +150,8 @@ statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
 statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, num_sims_by_inj_m2_D, \
-    inj_loudest_by_inj_mc_m2_D = pickle.load(open(opts.relic_injections))
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+    = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
@@ -160,15 +161,18 @@ offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
     offsource_likelihood_by_trial_m2 = \
     pickle.load(open(opts.grblikelihood_offsource))
 inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc, \
-    rho_by_inj_mc, m2_by_inj, D_by_inj, trace_m2_bin = \
+    rho_by_inj_mc, trace_m2_bin = \
     pickle.load(open(opts.grblikelihood_injections))
 
-num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
-num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
+m2_D_bins = rate.NDBins((m2_bins, D_bins))
+num_sims_by_m2_D = rate.BinnedArray(m2_D_bins)
+for m2_D in m2_D_by_inj:
+    num_sims_by_m2_D[m2_D] += 1
+num_sims_by_m2_D = num_sims_by_m2_D.array
 
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
 num_inj = inj_likelihood_by_trial_m2.shape[0]
-if inj_loudest_by_inj_mc_m2_D.shape[0] != num_inj:
+if inj_loudest_by_inj_mc.shape[0] != num_inj:
     raise ValueError, "relic injections do not match grblikelihood injections"
 
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
@@ -205,8 +209,8 @@ L_max_star[L_max_star < 0.] = 0
 # Compute P(L > L_obs | h)
 
 inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
-for inj_likelihood_by_m2, m2_ind, D_ind in \
-    zip(inj_likelihood_by_trial_m2, m2_by_inj, D_by_inj):
+for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
+    m2_ind, D_ind = m2_D_bins[m2_D]
     if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
@@ -315,8 +319,8 @@ else:
 ## Significance
 text = "Significance"
 
-thresh_05 = L_max_star[-0.05 * len(L_max_star)]
-thresh_01 = L_max_star[-0.09 * len(L_max_star)]
+thresh_05 = L_max_star[int(0.95 * len(L_max_star))]
+thresh_01 = L_max_star[int(0.99 * len(L_max_star))]
 
 plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\rho_\mathrm{L}^2 (m_2)$",
     "Significance")
@@ -425,10 +429,14 @@ text = "ln L(c(mc)|h(m2))"
 # XXX: 0.1 is a magic number; we start extrapolating at p(c|0) = 0.1
 extrap_ind = offsource_loudest_by_trial_mc.argsort(axis=0)\
     [-int(0.1 * num_offsource_trials), ...]
-extrap_snr_by_mc = offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
+extrap_snr_by_mc = \
+    offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
+extrap_log_pc0_by_mc = \
+    offsource_pc0_by_trial_mc[extrap_ind, xrange(len(mc_bins))]
 extrap_log_pch_by_mc_m2 = \
-    offsource_pch_by_trial_mc_m2[extrap_ind, range(len(mc_bins)), :]
-extrap_log_L_by_mc_m2 = extrap_log_pch_by_mc_m2 - 0.1
+    offsource_pch_by_trial_mc_m2[extrap_ind, xrange(len(mc_bins)), :]
+extrap_log_L_by_mc_m2 = extrap_log_pch_by_mc_m2 \
+    - extrap_log_pc0_by_mc[:, None]
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
