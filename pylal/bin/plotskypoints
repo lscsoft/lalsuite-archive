@@ -42,6 +42,8 @@ from glue.ligolw import ligolw, table as tab, lsctables, utils
 from pylal import SnglInspiralUtils, SimInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
+lsctables.LIGOTimeGPS = date.LIGOTimeGPS
+
 def annotate_plot(x,y,t):
   xlabel(x)
   ylabel(y)
@@ -231,7 +233,13 @@ for coinc in coincTriggers:
     print "The V1 snr is %f" % getattr(coinc,"V1").snr
 
   # get gps times of events
-  gps = coinc.get_gps_times()
+
+  # following line suggested by nick as an alternative to
+  # modifying library code
+
+  gps = dict((trig.ifo,trig.get_end()) for trig in coinc)
+
+  # gps = coinc.get_gps_times()
  
   # extract ifos that gave this
   (coinc_type, ifo_list) = coinc.get_ifos()
