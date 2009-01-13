@@ -44,6 +44,7 @@ matplotlib.use("Agg")
 import pylab
 from pylal import InspiralUtils
 from pylal import plotutils
+from pylal import rate
 from pylal import viz
 
 # override pylab defaults, optimizing for web presentation
@@ -173,8 +174,8 @@ statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
 statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, num_sims_by_inj_m2_D, \
-    inj_loudest_by_inj_mc_m2_D = pickle.load(open(opts.relic_injections))
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+    = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
@@ -184,11 +185,28 @@ offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
     offsource_likelihood_by_trial_m2 = \
     pickle.load(open(opts.grblikelihood_offsource))
 inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc, \
-    rho_by_inj_mc, m2_by_inj, D_by_inj, trace_m2_bin = \
+    rho_by_inj_mc, trace_m2_bin = \
     pickle.load(open(opts.grblikelihood_injections))
 
-num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
-num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
+m2_D_bins = rate.NDBins((m2_bins, D_bins))
+num_sims_by_m2_D = rate.BinnedArray(m2_D_bins)
+for m2_D in m2_D_by_inj:
+    num_sims_by_m2_D[m2_D] += 1
+num_sims_by_m2_D = num_sims_by_m2_D.array
+
+##############################################################################
+# Compute P(L > L_obs | h)
+
+inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
+for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
+    m2_ind, D_ind = m2_D_bins[m2_D]
+    if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
+        inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
+pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
+
+##############################################################################
+# Take MC errors into account
+MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins
@@ -199,20 +217,6 @@ calib_fac = 1 + max((opts.h1_calibration_uncertainty,
 D_bins.min /= calib_fac
 D_bins.max /= calib_fac
 D_bins.delta /= calib_fac
-
-##############################################################################
-# Compute P(L > L_obs | h)
-
-inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
-for inj_likelihood_by_m2, m2_ind, D_ind in \
-    zip(inj_likelihood_by_trial_m2, m2_by_inj, D_by_inj):
-    if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
-        inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
-pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
-
-##############################################################################
-# Take MC errors into account
-MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
 ################################################################################
 # plots
