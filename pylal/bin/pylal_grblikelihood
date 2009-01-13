@@ -33,6 +33,7 @@ __Id__ = "$Id$"
 __prog__ = "pylal_grblikelihood"
 __title__ = "GRB interpretation"
 
+import itertools
 import optparse
 import os.path as op
 import cPickle as pickle
@@ -45,6 +46,7 @@ numpy.seterr(all="raise")  # throw an exception on any funny business
 from pylal import CoincInspiralUtils
 from pylal import grbsummary
 from pylal import InspiralUtils
+from pylal import rate
 
 # which m2 bin to trace for diagnostics
 trace_m2_bin = 0
@@ -120,7 +122,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         """
         log_pc0 = self.default_evaluator(loudest_in_trial)
         extrap = self.fiducial_y + \
-            self.fiducial_x**2 - loudest_in_trial**2
+            self.fiducial_x**1.4 - loudest_in_trial**1.4
         extrap_ind = loudest_in_trial > self.fiducial_x
         log_pc0[extrap_ind] = extrap[extrap_ind]
         return log_pc0
@@ -142,7 +144,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
     ConstantForegroundEstimator evaluates the probability of getting events
     louder than any of the given events within each m2 bin.
     """
-    def __init__(self, inj_loudest_by_inj_mc_m2, num_sims_by_m2,
+    def __init__(self, inj_loudest_by_inj_mc, num_sims_by_m2, m2_bin_by_inj,
         weight_by_inj=None, eps=None):
         """
         Initialize ConstantForegroundEstimator to return a ln(p(c|h)) such that
@@ -150,49 +152,62 @@ class ConstantForegroundEstimator(ForegroundEstimator):
         eps.shape == loudest_in_bg_trials.shape[1:].  If eps
         is None, then it will be set to half of 1 / num_sims_by_m2.
         """
-        self.inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2
         self.num_sims_by_m2 = num_sims_by_m2
+        self.m2_bin_by_inj = m2_bin_by_inj
+        self.dtype = inj_loudest_by_inj_mc.dtype
+        self.shape = inj_loudest_by_inj_mc.shape
+        self.num_inj = self.shape[0]
+        self.num_m2 = num_sims_by_m2.shape[0]
+        self.num_mc = self.shape[1]
+
         if weight_by_inj is not None:
-            self.weight_by_inj = weight_by_inj
+            # normalize to N (the number of injections)
+            self.weight_by_inj = numpy.array(weight_by_inj, copy=True)
+            self.weight_by_inj *= self.num_inj / self.weight_by_inj.sum()
         else:
-            self.weight_by_inj = numpy.ones(inj_loudest_by_inj_mc_m2.shape[0])
-        self.total_weight = self.weight_by_inj.sum()
+            self.weight_by_inj = numpy.ones(self.num_inj, dtype=int)
+
         if eps is not None:
             if numpy.isscalar(eps):
-                self.eps = eps * numpy.ones(inj_loudest_by_inj_mc_m2.shape[1:],
-                                            dtype=float)
-            elif eps.shape == inj_loudest_by_inj_mc_m2.shape[1:]:
+                self.eps = eps * numpy.ones(self.shape[1:], dtype=self.dtype)
+            elif eps.shape == self.shape[1:]:
                 self.eps = eps
             else:
                 raise ValueError, "eps must be None, a scalar, or else "\
                     "eps.shape must be equal to "\
                     "inj_loudest_inj_mc_m2.shape[1:]."
         else:
-            self.eps = 0.5 / (num_sims_by_m2[None, :]\
-                .repeat(inj_loudest_by_inj_mc_m2.shape[1], axis=0) + 1e-10)
+            self.eps = 0.5 / \
+                (num_sims_by_m2[None, :].repeat(self.shape[1], axis=0) + 1e-10)
+
+        # repack to speed inner loop to allow us to call dot()
+        self.inj_loudest_by_inj_mc_m2 = \
+            numpy.zeros(self.shape + (self.num_m2,), dtype=self.dtype)
+        self.inj_loudest_by_inj_mc_m2[numpy.arange(self.num_inj, dtype=int),
+                                      :, m2_bin_by_inj] = \
+            inj_loudest_by_inj_mc
 
     def __call__(self, trial_loudest_by_mc):
         """
         Return ln(p(c|h)).  Where p(c|0) < eps, we return eps.
         """
-        len_inj, len_mc, len_m2 = self.inj_loudest_by_inj_mc_m2.shape
         louder_by_inj_mc_m2 = \
-            (self.inj_loudest_by_inj_mc_m2 > \
-             trial_loudest_by_mc[None, :, None])
+            self.inj_loudest_by_inj_mc_m2 > trial_loudest_by_mc[None, :, None]
 
+        # Do a weighted count
         # Use the BLAS call dot() to speed up this multiplication and sum.
+        # self.weight_by_inj is already normalized in __init__
         #num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
         #    * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
-        num_louder_by_mc_m2 = numpy.dot(self.weight_by_inj,
-            louder_by_inj_mc_m2.reshape((len_inj, len_mc * len_m2)))\
-            .reshape((len_mc, len_m2))
-        num_louder_by_mc_m2 *= len_inj / self.total_weight
-
+        num_louder_by_mc_m2 = \
+            numpy.dot(self.weight_by_inj,
+                      louder_by_inj_mc_m2\
+                      .reshape((self.num_inj, self.num_mc * self.num_m2))\
+                      .astype(self.weight_by_inj.dtype))\
+            .reshape((self.num_mc, self.num_m2))
         pch_by_mc_m2 = num_louder_by_mc_m2 \
             / (self.num_sims_by_m2[None, :] + 1e-10)
-        zero_ind = (num_louder_by_mc_m2 < self.eps) \
-            & (self.num_sims_by_m2[None, :] != 0)
-        pch_by_mc_m2[zero_ind] = self.eps[zero_ind]
+        numpy.putmask(pch_by_mc_m2, num_louder_by_mc_m2 < self.eps, self.eps)
 
         return numpy.log(pch_by_mc_m2)
 
@@ -238,15 +253,19 @@ statistic, mc_bins, onsource_loudest_by_mc \
     = pickle.load(open(opts.relic_onsource))
 statistic, mc_bins, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, num_sims_by_inj_m2_D, \
-    inj_loudest_by_inj_mc_m2_D = pickle.load(open(opts.relic_injections))
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+    = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
-num_sims_by_m2_D = num_sims_by_inj_m2_D.sum(axis=0)
-num_sims_by_m2 = num_sims_by_m2_D.sum(axis=1)
-inj_loudest_by_inj_mc_m2 = inj_loudest_by_inj_mc_m2_D.max(axis=3)
+# compute useful quantities
+num_inj = len(inj_loudest_by_inj_mc)
+num_sims_by_m2 = numpy.zeros(len(m2_bins), dtype=int)
+for m2_D in m2_D_by_inj:
+    num_sims_by_m2[m2_bins[m2_D[0]]] += 1
+m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
 
+# set all empty trials to have likelihoods of -infinity
 empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
 
 ##############################################################################
@@ -262,28 +281,15 @@ compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
 #     0.5 / offsource_loudest_by_trial_mc.shape[0])
 
 # Compute D^3 weighting.
-# FIXME: This is a very crude D^3 reweighting based on the outer edge of an
-# injection's distance bin rather than the specific distance of the injection.
 if opts.reweight_D:
     if opts.verbose:
         print "Computing D^3 reweighting..."
-    m2_D_mask_by_inj = (inj_loudest_by_inj_mc_m2_D != 0).sum(axis=1, dtype=bool)
-    D_ind_by_inj = []
-    for m2_D_mask in m2_D_mask_by_inj:
-        if m2_D_mask.any():
-            D_ind_by_inj.append(m2_D_mask.sum(axis=0, dtype=bool)\
-                .nonzero()[0][0])
-        else:
-            # If the injection is missed, then we should never use the D index.
-            # Use a NaN so that we know if we've accidentally used it.
-            D_ind_by_inj.append(numpy.NaN)
-    D3_values_by_inj = numpy.array(D_bins.upper())[D_ind_by_inj]
-    compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
-        inj_loudest_by_inj_mc_m2, num_sims_by_m2,
-        weight_by_inj=D3_values_by_inj)
+    weight_by_inj = [m2_D[1]**3 for m2_D in m2_D_by_inj]
 else:
-    compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
-        inj_loudest_by_inj_mc_m2, num_sims_by_m2)
+    weight_by_inj = None
+compute_log_pch_by_mc_m2 = ConstantForegroundEstimator(\
+    inj_loudest_by_inj_mc, num_sims_by_m2, m2_bin_by_inj,
+    weight_by_inj=weight_by_inj)
 
 ################################################################################
 # compute the likelihoods of the loudest on-source coincidences
@@ -356,29 +362,15 @@ pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
 if opts.verbose:
     print "Computing injection likelihoods..."
 
-num_inj = len(inj_loudest_by_inj_mc_m2_D)
 m2_by_inj = numpy.zeros(num_inj, dtype=float)
 D_by_inj = numpy.zeros(num_inj, dtype=float)
 inj_likelihood_by_trial_m2 = empty_log_L_by_m2[None, :].repeat(num_inj, axis=0)
 log_pc0_by_inj_mc = []
 log_pch_by_inj_mc = []
 rho_by_inj_mc = []
-for i, inj_trial_loudest_by_mc_m2_D in enumerate(inj_loudest_by_inj_mc_m2_D):
-
-    # find (m2, D) bin
-    m2_D_mask = (inj_trial_loudest_by_mc_m2_D != 0).sum(axis=0, dtype=bool)
-    if m2_D_mask.sum() == 0:  # injection missed
-        continue
-
-    # sanity check: one m2, D pair contains something other than zero
-    assert m2_D_mask.sum() == 1, "only one (m2, D) bin should be nonzero"
-    m2_by_inj[i] = m2_D_mask.sum(axis=1, dtype=bool).nonzero()[0]
-    D_by_inj[i] = m2_D_mask.sum(axis=0, dtype=bool).nonzero()[0]
-
+for i, (inj_trial_loudest_by_mc, m2_D) in enumerate(zip(inj_loudest_by_inj_mc,
+    m2_D_by_inj)):
     # compute likelihood of this (inj + noise) instance arising from m2'
-    inj_trial_loudest_by_mc_m2 = inj_trial_loudest_by_mc_m2_D.max(axis=2)
-    inj_trial_loudest_by_mc = inj_trial_loudest_by_mc_m2.max(axis=1)
-
     inj_trial_log_pc0_by_mc = compute_log_pc0_by_mc(inj_trial_loudest_by_mc)
 
     # this inner loop makes the algorithm O(n^2)
@@ -390,12 +382,14 @@ for i, inj_trial_loudest_by_mc_m2_D in enumerate(inj_loudest_by_inj_mc_m2_D):
 
     # if there are any candidates, take max over likelihoods from candidates
     inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
-    assert numpy.any(inj_trial_candidate_mask)  # assert injection found
-    inj_likelihood_by_trial_m2[i, :] = \
-        inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, :].max(axis=0)
+    if inj_trial_candidate_mask.any():
+        inj_likelihood_by_trial_m2[i, :] = \
+            inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, :].max(axis=0)
+    else:
+        pass  # already set to empty
 
     # record diagnostics
-    if m2_by_inj[i] == trace_m2_bin:
+    if m2_bins[m2_D[0]] == trace_m2_bin:
         log_pc0_by_inj_mc.append(inj_trial_log_pc0_by_mc)
         log_pch_by_inj_mc.append(inj_trial_log_pch_by_mc_m2[:, trace_m2_bin]\
             .squeeze())
@@ -407,6 +401,6 @@ rho_by_inj_mc = numpy.array(rho_by_inj_mc)
 # write the injection likelihoods to disk
 inj_outname = onsource_outname.replace("_onsource", "_injections", 1)
 pickle.dump((inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc,
-             rho_by_inj_mc, m2_by_inj, D_by_inj, trace_m2_bin),
+             rho_by_inj_mc, trace_m2_bin),
             open(inj_outname, "wb"), -1)
 

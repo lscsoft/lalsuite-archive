@@ -182,17 +182,12 @@ def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     return get_loudest_stats_by_bins(offsource_coincs, stat_func, nd_bins,
         keys, verbose=True)
 
-def get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
-    trial_bins, mc_bins, m2_bins, D_bins):
+def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
+    mc_bins):
     """
-    Return a list of injections and a 4-D array of the loudest coincs binned
-    by injection trial, mean mchirp, injected m2, and injected D.  The order
+    Return a list of injections and a 2-D array of the loudest coincs binned
+    by injection trial and mean mchirp.  The order
     of the injections and the order of the 0-axis of the array are the same.
-
-    TODO: It is convenient, but inefficient to return a 4-D array since a
-    single trial corresponds to a unique (m2, D) bin.  However, this form
-    does lead to very easy manipulations (sum, max, etc).  Perhaps
-    investigate sparse arrays?
     """
     # get injection info
     sims = table.get_table(inj_doc, lsctables.SimInspiralTable.tableName)
@@ -200,26 +195,6 @@ def get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
 
     # sanity check: no two injections went into the same trial
     assert len(sim_trials) == len(set(sim_trials))
-
-    # tabulate each sim and its properties
-    num_discarded = 0
-    m2_indices = []
-    D_indices = []
-    num_sims_by_trial_m2_D = numpy.zeros((len(sims), len(m2_bins),
-                                          len(D_bins)), dtype=int)
-    for i, sim in enumerate(sims):
-        try:
-            m2_ind = m2_bins[sim.mass1]
-            D_ind = D_bins[sim.distance]
-        except IndexError:
-            num_discarded += 1
-            continue
-        m2_indices.append(m2_ind)
-        D_indices.append(D_ind)
-        num_sims_by_trial_m2_D[i, m2_ind, D_ind] += 1
-    if num_discarded > 0:
-        sys.stderr.write("warning: %d of %d injections fell outside of "\
-            "m2 or D bins.\n" % (num_discarded, len(sims)))
 
     # get coincs
     try:
@@ -242,13 +217,7 @@ def get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
     loudest_by_sim_mc = get_loudest_stats_by_bins(inj_coincs, stat_func,
         nd_bins, keys)
 
-    # FIXME: repackage into 4-D array
-    loudest_by_sim_mc_m2_D = numpy.zeros((len(sims), len(mc_bins), \
-        len(m2_bins), len(D_bins)), dtype=float)
-    loudest_by_sim_mc_m2_D[range(len(sims)), :, m2_indices, D_indices] = \
-        loudest_by_sim_mc
-
-    return sims, num_sims_by_trial_m2_D, loudest_by_sim_mc_m2_D
+    return sims, loudest_by_sim_mc
 
 def append_process(doc, options):
     """
@@ -462,8 +431,7 @@ if opts.write_injections:
     if opts.verbose:
         print "Tallying injections:"
     sims = []
-    sim_count_by_inj_m2_D = []
-    inj_loudest_by_inj_mc_m2_D = []
+    inj_loudest_by_inj_mc = []
     for pattern in inj_patterns:
         
         # read injection and its corresponding coincs
@@ -472,26 +440,25 @@ if opts.write_injections:
         coinc_doc = grbsummary.load_cache(ligolw.Document(), inj_coinc_cache,
                                           pattern, exact_match=True)
 
-        tmp_sims, tmp_sim_count, tmp_coinc_count = \
-            get_loudest_stats_by_inj_mc_m2_D(inj_doc, coinc_doc, coinc_stat,
-                trial_bins, mc_bins, m2_bins, D_bins)
+        tmp_sims, tmp_coinc_count = \
+            get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat,
+                trial_bins, mc_bins)
 
         sims.extend(tmp_sims)
-        sim_count_by_inj_m2_D.extend(tmp_sim_count)
-        inj_loudest_by_inj_mc_m2_D.extend(tmp_coinc_count)
+        inj_loudest_by_inj_mc.extend(tmp_coinc_count)
 
         if opts.verbose:
             sys.stdout.write(".")
             sys.stdout.flush()
-    sims = numpy.array(sims)
-    sim_count_by_inj_m2_D = numpy.array(sim_count_by_inj_m2_D)
-    inj_loudest_by_inj_mc_m2_D = numpy.array(inj_loudest_by_inj_mc_m2_D)
+    inj_loudest_by_inj_mc = numpy.array(inj_loudest_by_inj_mc)
 
     # throw out vetoed injection trials
     inj_mask = trial_veto_mask[[trial_bins[sim.get_end()] for sim in sims]]
-    sims = sims[~inj_mask]
-    sim_count_by_inj_m2_D = sim_count_by_inj_m2_D[~inj_mask]
-    inj_loudest_by_inj_mc_m2_D = inj_loudest_by_inj_mc_m2_D[~inj_mask, ...]
+    sims = [sim for sim, keep in zip(sims, inj_mask) if not keep]
+    inj_loudest_by_inj_mc = inj_loudest_by_inj_mc[~inj_mask, ...]
+
+    # extract m2 and D values of sims
+    m2_D_by_inj = [(sim.mass1, sim.distance) for sim in sims]
 
     if opts.verbose:
         print "Done. Found loudest coincs for %d injections." % len(sims)
@@ -523,7 +490,7 @@ if opts.write_offsource:
 if opts.write_injections:
     fname = fname_prefix + "_injections" + fname_suffix
     pickle.dump((opts.statistic, mc_bins, m2_bins, D_bins,
-                 sim_count_by_inj_m2_D, inj_loudest_by_inj_mc_m2_D),
+                 m2_D_by_inj, inj_loudest_by_inj_mc),
                 open(fname, "wb"), -1)
     sys.stdout.write("Loudest injection coincs written.\n")
 
