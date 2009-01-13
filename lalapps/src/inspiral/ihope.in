@@ -429,21 +429,19 @@ if opts.run_data_quality:
         hipeHWinjVetoNode[category].add_parent( \
             hipeHWinjVetoNode[category-1])
 
-			      
-    if opts.run_injections:
-      print "Running inspiral hipe for injections with vetoes"
-      for (injDir, injSeed) in cp.items("injections"):
-        hipeInjVetoNode[category][injDir] = inspiralutils.hipe_setup(injDir, \
-            cp, ifos, opts.log_path, \
-            injSeed= injSeed, vetoCat = category, vetoFiles = dqVetoes)
-        for cacheFile in hipeInjVetoNode[category][injDir].get_output_files():
-          cachelist.append(injDir + "/" + cacheFile)
-        dag.add_node(hipeInjVetoNode[category][injDir])
-        if category==2 and opts.run_search: 
-          hipeInjVetoNode[category][injDir].add_parent(hipeInjNode[injDir])
-        elif category>2: 
-          hipeInjVetoNode[category][injDir].add_parent(\
-              hipeInjVetoNode[category-1][injDir])
+    # We never look at CAT2/4 software injections
+    if category == 3:
+      if opts.run_injections:
+        print "Running inspiral hipe for injections with vetoes"
+        for (injDir, injSeed) in cp.items("injections"):
+          hipeInjVetoNode[category][injDir] = inspiralutils.hipe_setup(injDir, \
+              cp, ifos, opts.log_path, \
+              injSeed= injSeed, vetoCat = category, vetoFiles = dqVetoes)
+          for cacheFile in hipeInjVetoNode[category][injDir].get_output_files():
+            cachelist.append(injDir + "/" + cacheFile)
+          dag.add_node(hipeInjVetoNode[category][injDir])
+          if opts.run_search: 
+            hipeInjVetoNode[category][injDir].add_parent(hipeInjNode[injDir])
 
 ##############################################################################
 # Set up the directories for plotting and run lalapps_plot
@@ -545,7 +543,7 @@ if opts.run_plots:
       else: parentNodes = None
 
       if opts.run_data_quality:
-        parentVetoNodes = [hipeInjVetoNode[4][injDir]]
+        parentVetoNodes = [hipeInjVetoNode[3][injDir]]
         if opts.run_full_data:
           parentVetoNodes.append(hipeAnalysisVetoNode[3])
         if opts.run_playground:
@@ -569,7 +567,7 @@ if opts.run_plots:
     else: parentNodes = None
 
     if opts.run_data_quality:
-      parentVetoNodes = hipeInjVetoNode[4].values()
+      parentVetoNodes = hipeInjVetoNode[3].values()
       if opts.run_playground:
         parentVetoNodes.append(hipePlayVetoNode[3])
       if opts.run_full_data:
