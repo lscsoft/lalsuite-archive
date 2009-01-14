@@ -62,7 +62,7 @@ parser.add_option("-m","--max-rate",action="store",type="float",\
     default=None, metavar=" MAXRATE", \
     help="max rate on integral for posterior" ) 
 parser.add_option("-d","--dr",action="store",type="float",\
-    default=0.01, metavar=" DR", \
+    default=None, metavar=" DR", \
     help="dr to use in rate integral" ) 
 
 # plotting details
@@ -121,6 +121,7 @@ for idx in range(len(opts.add_posterior)):
   maxPosteriorRate = dr * len(thisRate)
   if maxPosteriorRate < minmaxPosteriorRate:
     minmaxPosteriorRate = maxPosteriorRate
+    minmaxPosteriorRatedr = dr
 
 if opts.max_rate > minmaxPosteriorRate:
   print >> sys.stdout, "The input max_rate is bigger than that calculateable"
@@ -130,6 +131,9 @@ if opts.max_rate > minmaxPosteriorRate:
 
 if not opts.max_rate:
   opts.max_rate = minmaxPosteriorRate
+
+if not opts.dr:
+  opts.dr = minmaxPosteriorRatedr
 
 # compute the rate
 rate = arange(0., opts.max_rate, opts.dr)
@@ -279,8 +283,12 @@ if opts.figure_name:
 outfile = open( outputName + '-combined-posterior.txt','w')
 print >> outfile, "# Posterior computed using lalapps_compute_posterior"
 maxpost = max(post)
+lastpost = 0
 for rp_tup in zip(rate, post):
   print >> outfile, "%e\t%e" % rp_tup
+  if rp_tup[1]/maxpost < eps/2 and rp_tup[1] < lastpost:
+    break
+  lastpost = rp_tup[1]
 outfile.close()
 
 ulfile = open(opts.figure_name + "-combined-upper-limit","w")

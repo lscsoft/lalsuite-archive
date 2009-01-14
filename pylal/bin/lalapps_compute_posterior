@@ -461,6 +461,7 @@ for bin in range(massBins):
       print >>sys.stdout, "ratio of p(max_rate) to max(p(rate)) = %f" % ratio
       print >>sys.stdout, "The max rate will be doubled and we will try again."
       opts.max_rate=2*opts.max_rate
+      opts.dr = 2*opts.dr
       print >>sys.stdout, "The max rate is now %f" % opts.max_rate
     else:
       marginpost,ngts,pdfNgt = calculate_margin_post(opts,nepochs,rate,data,
@@ -479,6 +480,7 @@ for bin in range(massBins):
         print >>sys.stdout, "ratio of p(max_rate) to max(p(rate)) = %f" % ratio
         print >>sys.stdout, "The maxrate will be doubled and we will try again."
         opts.max_rate=2*opts.max_rate
+        opts.dr = 2*opts.dr
         print >>sys.stdout, "The max rate is now %f" % opts.max_rate
       else:
         check = True
