@@ -43,6 +43,7 @@ runs = []
 spins = []
 sourceTypes = []
 userTag = cp.get('main','user-tag')
+combinedResults = False
 if cp.has_option('run-options','run-spin'):
   spins.append('spin')
 if cp.has_option('run-options','run-non-spin'):
@@ -64,15 +65,20 @@ for spin in spins:
 
 for dir,type,item in runs:
   outdir = 'results/' + dir
-  resultDir = 'plotnumgalaxies_files/' + dir
+  if combinedResults:
+    resultDir = 'combine_posteriors/' + dir
+  else:
+    resultDir = 'plotnumgalaxies_files/' + dir
   resultFile = resultDir + '/' + userTag + '_' + item + '_' + type
-  resultFile += '_combos-combined-posterior.txt'
+  if not combinedResults:
+    resultFile += '_combos'
+  resultFile += '-combined-posterior.txt'
   outFile = outdir + '/' + userTag + '_posterior-pdf.txt'
   make_dir(outdir)
   shutil.copy(resultFile,outFile)
 
 make_dir('key_plots')
-combinedPlotulvsmassDir = 'combined_plotulvsmass/'
+combinedPlotulvsmassDir = 'combine_posteriors/'
 combinedPlotulvsmassFiles = ['mcomp_nonspin-combined-rate-v-mass.png']
 combinedPlotulvsmassFiles.append('mcomp_spin-combined-rate-v-mass.png')
 combinedPlotulvsmassFiles.append('mtotal_nonspin-combined-rate-v-mass.png')
@@ -80,9 +86,10 @@ combinedPlotulvsmassFiles.append('mtotal_spin-combined-rate-v-mass.png')
 for file in combinedPlotulvsmassFiles:
   shutil.copy(combinedPlotulvsmassDir + '/' + file, 'key_plots/' + file)
 
-combinePosteriorDir = 'combineposterior_files/'
+combinePosteriorDir = 'combine_posteriors/'
 for item in ('bbh','bns','nsbh'):
   for type in ('spin','nonspin'):
+    dir = combinePosteriorDir + '/' + type + '/' + item + '/'
     file = userTag + '_' + item + '_' + type + '-posterior-comparison.png'
-    shutil.copy(combinePosteriorDir + '/' + file, 'key_plots/' + file)
+    shutil.copy(dir +  file, 'key_plots/' + file)
 
