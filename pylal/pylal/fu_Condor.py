@@ -110,6 +110,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         # The difference between these two times should be kept to 2s
         # Otherwise change the clustering window also
         hLengthAnalyzed = 1
+	if type == "coh": hLengthAnalyzed = 2
         self.set_trig_start( int(trig.gpsTime[ifo]) - int(hLengthAnalyzed) )
         self.set_trig_end( int(trig.gpsTime[ifo]) + int(hLengthAnalyzed) )
 
