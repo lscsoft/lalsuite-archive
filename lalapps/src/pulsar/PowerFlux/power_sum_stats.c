@@ -641,7 +641,7 @@ float max_dx, snr;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum3, sum4;
-#define HALF_WINDOW 10
+int half_window=args_info.half_window_arg;
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
@@ -734,13 +734,13 @@ for(i=1;i<useful_bins;i++) {
 count=0;
 sum=0.0;
 
-for(i=0;i<max_dx_bin-HALF_WINDOW;i++) {
+for(i=0;i<max_dx_bin-half_window;i++) {
 	a=tmp[i];
 	sum+=a;
 	count++;
 	}
 
-for(i=max_dx_bin+HALF_WINDOW+1;i<useful_bins;i++) {
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=tmp[i];
 	sum+=a;
 	count++;
@@ -753,14 +753,14 @@ normalizer=1.0/max_dx;
 
 sum_sq=0.0;
 sum4=0.0;
-for(i=0;i<max_dx_bin-HALF_WINDOW;i++) {
+for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
 	sum_sq+=b;
 	sum4+=b*b;
 	}
 
-for(i=max_dx_bin+HALF_WINDOW+1;i<useful_bins;i++) {
+for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
 	sum_sq+=b;

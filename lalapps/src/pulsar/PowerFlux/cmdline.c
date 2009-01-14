@@ -129,6 +129,7 @@ const char *gengetopt_args_info_help[] = {
   "      --dump-power-sums=INT     Write out all power sum data into data.log \n                                  file. It is recommend to restrict the sky to \n                                  very few pixels  (default=`0')",
   "      --compute-skymaps=INT     allocate memory and compute skymaps with final \n                                  results  (default=`0')",
   "      --fine-grid-skymarks=INT  use sky marks from the fine grid, this uses \n                                  constant spindown  (default=`0')",
+  "      --half-window=INT         number of bins to exclude to the left and to \n                                  the right of highest point when computing \n                                  linear statistics  (default=`20')",
     0
 };
 
@@ -280,6 +281,7 @@ void clear_given (struct gengetopt_args_info *args_info)
   args_info->dump_power_sums_given = 0 ;
   args_info->compute_skymaps_given = 0 ;
   args_info->fine_grid_skymarks_given = 0 ;
+  args_info->half_window_given = 0 ;
   args_info->injection_group_counter = 0 ;
 }
 
@@ -467,6 +469,8 @@ void clear_args (struct gengetopt_args_info *args_info)
   args_info->compute_skymaps_orig = NULL;
   args_info->fine_grid_skymarks_arg = 0;
   args_info->fine_grid_skymarks_orig = NULL;
+  args_info->half_window_arg = 20;
+  args_info->half_window_orig = NULL;
   
 }
 
@@ -577,6 +581,7 @@ void init_args_info(struct gengetopt_args_info *args_info)
   args_info->dump_power_sums_help = gengetopt_args_info_help[98] ;
   args_info->compute_skymaps_help = gengetopt_args_info_help[99] ;
   args_info->fine_grid_skymarks_help = gengetopt_args_info_help[100] ;
+  args_info->half_window_help = gengetopt_args_info_help[101] ;
   
 }
 
@@ -818,6 +823,7 @@ cmdline_parser_release (struct gengetopt_args_info *args_info)
   free_string_field (&(args_info->dump_power_sums_orig));
   free_string_field (&(args_info->compute_skymaps_orig));
   free_string_field (&(args_info->fine_grid_skymarks_orig));
+  free_string_field (&(args_info->half_window_orig));
   
   
 
@@ -1054,6 +1060,8 @@ cmdline_parser_dump(FILE *outfile, struct gengetopt_args_info *args_info)
     write_into_file(outfile, "compute-skymaps", args_info->compute_skymaps_orig, 0);
   if (args_info->fine_grid_skymarks_given)
     write_into_file(outfile, "fine-grid-skymarks", args_info->fine_grid_skymarks_orig, 0);
+  if (args_info->half_window_given)
+    write_into_file(outfile, "half-window", args_info->half_window_orig, 0);
   
 
   i = EXIT_SUCCESS;
@@ -1714,6 +1722,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
         { "dump-power-sums",	1, NULL, 0 },
         { "compute-skymaps",	1, NULL, 0 },
         { "fine-grid-skymarks",	1, NULL, 0 },
+        { "half-window",	1, NULL, 0 },
         { NULL,	0, NULL, 0 }
       };
 
@@ -3092,6 +3101,20 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
                 &(local_args_info.fine_grid_skymarks_given), optarg, 0, "0", ARG_INT,
                 check_ambiguity, override, 0, 0,
                 "fine-grid-skymarks", '-',
+                additional_error))
+              goto failure;
+          
+          }
+          /* number of bins to exclude to the left and to the right of highest point when computing linear statistics.  */
+          else if (strcmp (long_options[option_index].name, "half-window") == 0)
+          {
+          
+          
+            if (update_arg( (void *)&(args_info->half_window_arg), 
+                 &(args_info->half_window_orig), &(args_info->half_window_given),
+                &(local_args_info.half_window_given), optarg, 0, "20", ARG_INT,
+                check_ambiguity, override, 0, 0,
+                "half-window", '-',
                 additional_error))
               goto failure;
           

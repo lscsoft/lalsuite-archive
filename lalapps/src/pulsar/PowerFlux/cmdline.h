@@ -326,6 +326,9 @@ struct gengetopt_args_info
   int fine_grid_skymarks_arg;	/**< @brief use sky marks from the fine grid, this uses constant spindown (default='0').  */
   char * fine_grid_skymarks_orig;	/**< @brief use sky marks from the fine grid, this uses constant spindown original value given at command line.  */
   const char *fine_grid_skymarks_help; /**< @brief use sky marks from the fine grid, this uses constant spindown help description.  */
+  int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics (default='20').  */
+  char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics original value given at command line.  */
+  const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -427,6 +430,7 @@ struct gengetopt_args_info
   unsigned int dump_power_sums_given ;	/**< @brief Whether dump-power-sums was given.  */
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */
+  unsigned int half_window_given ;	/**< @brief Whether half-window was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;
