@@ -30,6 +30,7 @@ from glue import segmentsUtils
 from pylal import antenna
 from pylal import date
 from pylal import grbsummary
+from pylal import CoincInspiralUtils
 
 import matplotlib
 matplotlib.use('Agg')
@@ -167,6 +168,9 @@ def parse_command_line():
       help="if set to 'true' it will select only GRB's which"\
                     "matches the ifo_times exactly. "\
                     "Otherwise if set to 'false'")
+  parser.add_option("-E","--exclude-ifos",action="store",\
+      type="string",  \
+      help="sets an IFO to be excluded")
   parser.add_option("-l","--onsource-left",action="store",\
       type="int",  default=0, metavar=" ONSOURCE_LEFT",\
       help="onsource time left of the trigger")
@@ -321,7 +325,17 @@ def addColumnEntry( row, text, bold = False, link = None):
 # get the command arguments
 opts, name =  parse_command_line()
 
+# create a set of excluded ifos
+ifos_excluded = []
+if opts.exclude_ifos:
+  ifos_excluded = [opts.exclude_ifos[2*i:2*i+2] \
+                   for i in range(len(opts.exclude_ifos)/2)]
 
+# and adjust the ifoList
+ifoList = [ifo for ifo in ['H1','H2','L1','G1','V1'] \
+           if ifo not in ifos_excluded]
+
+ 
 # read the table
 doc = utils.load_filename( opts.input )
 table = table.get_table(doc, lsctables.ExtTriggersTable.tableName)
@@ -397,10 +411,9 @@ if opts.output_xml:
 month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
        'Sep','Oct','Nov','Dec']
 
+
 ############################################################
 # handle the segment lists
-ifoList=['H1','H2','L1','G1','V1']
-ifoList2=['H2','V1','G1']
 segdict = segments.segmentlistdict()
 for ifo in ifoList:
 
