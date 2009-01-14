@@ -634,13 +634,14 @@ pst->ks_count=nstats.ks_count;
 void point_power_sum_stats_linear(PARTIAL_POWER_SUM_F *pps, ALIGNMENT_COEFFS *ag, POINT_STATS *pst)
 {
 int i, count;
-float M, S, a, b, inv_S, inv_weight, inv_count, inv_count1;
+float M, S, a, b, inv_S, inv_weight, inv_count, normalizer;
 float *tmp=NULL;
 NORMAL_STATS nstats;
-float max_dx;
+float max_dx, snr;
 int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum3, sum4;
+#define HALF_WINDOW 10
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
@@ -725,47 +726,48 @@ for(i=1;i<useful_bins;i++) {
 	}
 
 
+/* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx and because float does not keep many digits */
+
+/* there is also a possible issue with normalization, fortunately we have a ready constant now to normalize with: max_dx */
+
+
 count=0;
 sum=0.0;
-sum_sq=0.0;
-sum3=0.0;
-sum4=0.0;
 
-/* doing everything in one pass and then subtracting does not work due to precision errors if we chance upon a very high max_dx */
-
-for(i=0;i<max_dx_bin-5;i++) {
+for(i=0;i<max_dx_bin-HALF_WINDOW;i++) {
 	a=tmp[i];
 	sum+=a;
-	b=a*a;
-	sum_sq+=b;
-	sum3+=a*b;
-	sum4+=b*b;
 	count++;
 	}
 
-for(i=max_dx_bin+6;i<useful_bins;i++) {
+for(i=max_dx_bin+HALF_WINDOW+1;i<useful_bins;i++) {
 	a=tmp[i];
 	sum+=a;
-	b=a*a;
-	sum_sq+=b;
-	sum3+=a*b;
-	sum4+=b*b;
 	count++;
 	}
 
 inv_count=1.0/count;
-inv_count1=1.0/(count-1);
-
 M=sum*inv_count;
-S=inv_count1*(sum_sq-count*M*M);
 
-if(S<=0.0) {
-	set_missing_point_stats(pst);
-	return;
+normalizer=1.0/max_dx;
+
+sum_sq=0.0;
+sum4=0.0;
+for(i=0;i<max_dx_bin-HALF_WINDOW;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	sum_sq+=b;
+	sum4+=b*b;
 	}
 
-S=sqrt(S); /* convert to standard deviation */
+for(i=max_dx_bin+HALF_WINDOW+1;i<useful_bins;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	sum_sq+=b;
+	sum4+=b*b;
+	}
 
+S=sqrt(sum_sq/(count-1))*max_dx;
 inv_S=1.0/S;
 
 /* convert to SNR from the highest power */
@@ -798,7 +800,12 @@ pst->snr=max_dx;
 
 pst->max_weight=max_weight;
 pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
-pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+
+/* Apply normalization */
+S*=normalizer;
+//pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
+pst->ks_value=(sum4*inv_count)/(S*S*S*S);
+//fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
 pst->ks_count=0;
 }
 
