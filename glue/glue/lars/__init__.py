@@ -14,10 +14,15 @@ class Server(object):
         if scheme and scheme != 'http':
             raise Exception("Scheme '%s' is not supported."%str(scheme)) 
 
-        if url.port:
-            self._url = url.hostname +":"+ str(url.port)
-        else:
-            self._url = url.hostname
+#       if url.port:
+#           self._url = url.hostname + ":" + str(url.port)
+#       else:
+#           self._url = url.hostname
+
+        # The code above is better, but  only works for Python >=2.5
+        # Assume no username/password in netloc.
+        assert ('@' not in netloc)
+        self._url = netloc
 
         self.headers = {
             "Content-type": "application/x-www-form-urlencoded",
