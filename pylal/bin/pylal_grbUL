@@ -20,6 +20,9 @@
 This code computes the probabilities that go into the distance upper limits
 for the CBC external trigger search.
 
+The confidence limits are based on the frequentist Feldman-Cousins construction:
+http://prola.aps.org/abstract/PRD/v57/i7/p3873_1
+
 There is a lot of advanced indexing technique here.  Reference:
 http://scipy.org/Cookbook/Indexing
 """
@@ -34,10 +37,12 @@ __prog__ = "pylal_grbUL"
 __title__ = "GRB interpretation"
 
 import cPickle as pickle
+import itertools
 import optparse
 import sys
 
 import numpy
+numpy.seterr(all="raise")  # throw an exception on any funny business
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
@@ -59,6 +64,46 @@ pylab.rcParams.update({
     "ytick.labelsize": 16,
     "legend.fontsize": 16,
 })
+
+def take_axis_argsort(X, ix, axis):
+    """
+    Return a new array that takes the output of an argsort, ix, indexing
+    into X such that if ix = X.argsort(axis=axis), then
+    take_axis_argsort(X, ix, axis) returns an array identical to the result
+    of X.sort(axis=axis).
+
+    Taken directly from:
+    <http://www.mail-archive.com/numpy-discussion@scipy.org/msg10150.html>
+    """
+    XX = numpy.rollaxis(X,axis)
+    ixix = numpy.rollaxis(ix,axis)
+    s = XX.shape
+    return numpy.rollaxis(XX[(ixix,)+tuple(numpy.indices(s)[1:])],0,axis+1)
+
+def boundary_of_nonzero_along(arr, axis):
+    """
+    Given an N dimensional array, return two N-1 dimensional arrays containing
+    the min and max indices along axis containing non-zero values.  For rows
+    containing no non-zero elements, return an index of arr.shape[axis].
+
+    >>> a = numpy.array([[0, 0, 1], [0, 1, 0], [0, 1, 1]])
+    >>> boundary_of_nonzero_along(a, axis=0)
+    (array([3, 1, 0]), array([3, 2, 2]))
+    >>> boundary_of_nonzero_along(a, axis=1)
+    (array([2, 1, 1]), array([2, 1, 2]))
+    """
+    s = arr.shape
+    temp_arr = numpy.rollaxis(arr, axis, arr.ndim).reshape((-1, s[axis]))
+    min_arr = -numpy.ones(shape=temp_arr.shape[0], dtype=int)
+    max_arr = -numpy.ones(shape=temp_arr.shape[0], dtype=int)
+    for i, sub_arr in enumerate(temp_arr):
+        ind = sub_arr.nonzero()[0]
+        if len(ind) == 0:
+            continue
+        min_arr[i] = ind.min()
+        max_arr[i] = ind.max()
+    return (min_arr.reshape(s[:axis] + s[axis+1:]),
+            max_arr.reshape(s[:axis] + s[axis+1:]))
 
 def get_level_crossings(xy_array, level, y_bins):
     """
@@ -151,6 +196,13 @@ def parse_args():
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
 
+    # odds and ends
+    parser.add_option("--likelihood-threshold", type="float", metavar="THRESH",
+        help="for all trials, set log likelihoods less than THRESH to THRESH "\
+        "(default: lowest positive likelihood in all trials).")
+    parser.add_option("--smoothing-radius", type="float", metavar="SIGMA",
+        help="enable smoothing in the L, D plane with a Gaussian kernel"\
+             "of standard deviation SIGMA in pixels (default: no smoothing)")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -188,14 +240,35 @@ inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc, \
     rho_by_inj_mc, trace_m2_bin = \
     pickle.load(open(opts.grblikelihood_injections))
 
+D_bins = rate.LinearBins(D_bins.min, D_bins.max, 3 * D_bins.n)
+
+# Set everything less than THRESH to THRESH, including missed injections
+if opts.likelihood_threshold is not None:
+    eps = opts.likelihood_threshold
+else:
+    eps = min(offsource_likelihood_by_trial_m2\
+                  [offsource_likelihood_by_trial_m2 > 0].min(),
+              inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 > 0].min())
+offsource_likelihood_by_trial_m2[offsource_likelihood_by_trial_m2 < eps] = eps
+inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 < eps] = eps
+log_L_by_m2[log_L_by_m2 < eps] = eps
+
+m2_by_inj, D_by_inj = zip(*m2_D_by_inj)
+
+# set all empty trials to have likelihoods of -infinity
+empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
+
+##############################################################################
+# Compute P(L > L_obs | h) (old UL statement; irrelevant for Feldman-Cousins)
+
+if opts.verbose:
+    print "Computing old upper limit statement..."
+
 m2_D_bins = rate.NDBins((m2_bins, D_bins))
 num_sims_by_m2_D = rate.BinnedArray(m2_D_bins)
 for m2_D in m2_D_by_inj:
     num_sims_by_m2_D[m2_D] += 1
 num_sims_by_m2_D = num_sims_by_m2_D.array
-
-##############################################################################
-# Compute P(L > L_obs | h)
 
 inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
 for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
@@ -204,13 +277,57 @@ for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
         inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
-##############################################################################
 # Take MC errors into account
 MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 
 ##############################################################################
+# Compute tallies for P(L | D) and P(L | D_best) for each m2
+
+if opts.verbose:
+    print "Computing P(L | D_best)..."
+
+num_L = 100
+L_min = eps
+L_max = max(offsource_likelihood_by_trial_m2.max(),
+            inj_likelihood_by_trial_m2.max())
+if not (log_L_by_m2 == empty_log_L_by_m2).all():
+    L_min = min(L_min, log_L_by_m2.min())
+    L_max = max(L_max, log_L_by_m2.max())
+L_bins = rate.LogarithmicBins(L_min, L_max, num_L)
+
+# reset the num_sims because we are making cuts on L
+num_sims_by_m2_D = numpy.zeros_like(num_sims_by_m2_D)
+nd_bins = rate.NDBins((L_bins, m2_bins, D_bins))
+count_by_L_m2_D = numpy.zeros(nd_bins.shape, dtype=float)
+for inj_L_by_m2, m2_D in \
+    itertools.izip(inj_likelihood_by_trial_m2, m2_D_by_inj):
+    m2_ind = m2_bins[m2_D[0]]
+    D_ind = D_bins[m2_D[1]]
+    inj_L = inj_L_by_m2[m2_ind]
+    if (inj_L_by_m2 == empty_log_L_by_m2).all():
+        continue  # missed injection
+    try:
+        L_ind = L_bins[inj_L]  # use only the L of the m2 of the inj
+    except IndexError:
+        continue  # out of our interesting L range
+    count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
+    num_sims_by_m2_D[m2_ind, D_ind] += 1
+
+# smooth with Gaussian
+if opts.smoothing_radius is not None:
+    window_2d = rate.gaussian_window2d(opts.smoothing_radius,
+                                       opts.smoothing_radius)
+    for count_by_L_D in count_by_L_m2_D.transpose((1, 0, 2)):
+        rate.filter_array(count_by_L_D, window_2d)
+    window = rate.gaussian_window(opts.smoothing_radius)
+    for num_sims_by_D in num_sims_by_m2_D:
+        rate.filter_array(num_sims_by_D, window)
+
+##############################################################################
 # Take calibration systematics into account by rescaling D bins
 # NB: Does not check what IFOs participated in the GRB search
+# NB: Needs to be after injections are binned, but before actual distances
+#     are extracted from the search.
 calib_fac = 1 + max((opts.h1_calibration_uncertainty,
                      opts.h2_calibration_uncertainty,
                      opts.l1_calibration_uncertainty))
@@ -218,12 +335,182 @@ D_bins.min /= calib_fac
 D_bins.max /= calib_fac
 D_bins.delta /= calib_fac
 
+##############################################################################
+# Construct confidence belts with FC ranking principle and get D limits
+
+if opts.verbose:
+    print "Computing confidence belts..."
+
+pLD_by_L_m2_D = count_by_L_m2_D / (num_sims_by_m2_D[None, :, :] + 1e-10)
+
+D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
+D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
+pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
+
+# Find L bin of our observation
+if actual_candidate_mask.any():
+    obs_L_bins_by_m2 = [L_bins[log_L] for log_L in log_L_by_m2]
+else:
+    obs_L_bins_by_m2 = [0] * len(m2_bins)  # lowest possible L
+
+# rank L bins for each m2, D
+# the inverse of an argsort is the argsort of the argsort
+R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
+rank_by_L_m2_D = R_by_L_m2_D.argsort(axis=0)
+orig_order_by_L_m2_D = rank_by_L_m2_D.argsort(axis=0)
+
+# order p(L|D) by our ranking
+pLD_sorted_by_L_m2_D = take_axis_argsort(pLD_by_L_m2_D, rank_by_L_m2_D, axis=0)
+pLD_cumsum_by_L_m2_D = pLD_sorted_by_L_m2_D.cumsum(axis=0)
+
+# vectorize some useful lookup functions
+L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
+L_upper = numpy.frompyfunc(L_bins.upper().__getitem__, 1, 1)
+D_lower = numpy.frompyfunc(D_bins.lower().__getitem__, 1, 1)
+D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
+
+# construct belts
+# NB: assume regions are contiguous; conservatively take outer edges of bins
+CLs = (0.5, 0.75, 0.9)
+L1L2_by_CL_m2_D = numpy.zeros((len(CLs), len(m2_bins), len(D_bins), 2),
+    dtype=float)
+D1D2_by_CL_m2 = numpy.zeros((len(CLs), len(m2_bins), 2), dtype=float)
+for CL_ind, CL in enumerate(CLs):
+    # Find region containing the highest-ranked L bins that sum to >= CL,
+    # then translate back to normal L ordering.
+    excluded_by_L_m2_D = \
+        take_axis_argsort(pLD_cumsum_by_L_m2_D >= 1 - CL,
+                          orig_order_by_L_m2_D, axis=0)
+
+    # get boundary of region in L for diagnostics
+    low_by_m2_D, high_by_m2_D = \
+        boundary_of_nonzero_along(excluded_by_L_m2_D, axis=0)
+    L1L2_by_CL_m2_D[CL_ind, :, :, 0] = L_lower(low_by_m2_D)
+    L1L2_by_CL_m2_D[CL_ind, :, :, 1] = L_upper(high_by_m2_D)
+
+    # get boundary of region in D for our observed L
+    excluded_obs_by_m2_D = \
+        excluded_by_L_m2_D[obs_L_bins_by_m2, xrange(len(m2_bins)), :]
+    low_by_m2, high_by_m2 = \
+        boundary_of_nonzero_along(excluded_obs_by_m2_D, axis=1)
+    D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
+    D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
+
 ################################################################################
 # plots
 fnameList = []
 tagList = []
 
-## upper limit contours (m2, D) image
+if opts.verbose:
+    print "Writing plots..."
+
+## Feldman-Cousins confidence bands (m2, D) image
+text = "Feldman-Cousins confidence bands"
+
+plot = plotutils.FillPlot(r"$m_\mathrm{companion}\ (M_\odot)$",
+    r"$D\ \mathrm{(Mpc)}$", r"Feldman-Cousins exclusion regions")
+
+exclusion_x = m2_bins.lower()
+zero = numpy.zeros(len(m2_bins))
+upper = zero + D_bins.max
+
+for CL, D1D2_by_m2 in zip(CLs, D1D2_by_CL_m2):
+    # want stuff *outside* of our 90% best regions
+    tmpx, tmpy = viz.makesteps(exclusion_x, zero, D1D2_by_m2[:, 0])
+    plot.add_content(tmpx, tmpy, shade=(1-CL, 1-CL, 1-CL),
+        label=str(int(CL * 100)) + r"\%")
+
+    tmpx, tmpy = viz.makesteps(exclusion_x, D1D2_by_m2[:, 1], upper)
+    plot.add_content(tmpx, tmpy, shade=(1-CL, 1-CL, 1-CL), label="_nolegend_")
+
+plot.finalize()
+plot.ax.set_ylim((0, D_bins.max))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "FC_exclusion_by_m2_D")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
+    ## p(L | D)
+    text = "p(L|D)"
+
+    num_sigmas = stats.norm.ppf(0.9)
+    plot = plotutils.ImagePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
+        r"$p(\rho_L^2 | D) \textrm{ for } m_\mathrm{companion} \in "\
+        r"[%.1f, %.1f) M_\odot$" % m2_range)
+    plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
+    plot.finalize()
+
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "pLD_by_m2_D_%.1f" % m2_range[0])
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+    ## D_best(L)
+    text = "D_best(L)"
+
+    plot = plotutils.SimplePlot(r"$\rho_L^2$",
+        r"$D_\mathrm{best}$",
+        r"$\textrm{Feldman-Cousins }D_\mathrm{best} "\
+        r"\textrm{ for } m_\mathrm{companion} \in "\
+        r"[%.1f, %.1f) M_\odot$" % m2_range)
+    plot.add_content(L_bins.centres(), D_best_by_L_m2[:, m2_ind])
+    plot.finalize()
+    plot.ax.set_xscale("log")
+    plot.ax.set_xlim((L_bins.min, L_bins.max))
+
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "D_best_%.1f" % m2_range[0])
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+    ## Feldman-Cousins confidence belts
+    text = "Feldman-Cousins confidence belts"
+
+    plot = plotutils.SimplePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
+        r"$\textrm{Feldman-Cousins confidence belts for } "\
+        r"m_\mathrm{companion} \in "\
+        r"[%.1f, %.1f) M_\odot$" % m2_range)
+
+    exclusion_x = m2_bins.lower()
+    zero = numpy.zeros(len(m2_bins), dtype=float)
+
+    for CL, L1L2_by_D in reversed(zip(CLs, L1L2_by_CL_m2_D[:, m2_ind, ...])):
+        for D_ind, L1L2 in enumerate(L1L2_by_D):
+            plot.add_content(L1L2, [D_bins.centres()[D_ind]] * 2,
+                label="_nolabel_", alpha=0.8, linewidth=CL*10,
+                color=(CL, CL, CL))
+
+    plot.finalize()
+
+    # add our actual observation
+    plot.ax.plot((log_L_by_m2[m2_ind], log_L_by_m2[m2_ind]),
+                 (D_bins.min, D_bins.max), "k--")
+    plot.ax.set_xscale("log")
+    plot.ax.set_xlim((L_bins.min, L_bins.max))
+    plot.ax.set_ylim((0, D_bins.max))
+
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts,
+            "confidence_belts_%.1f" % m2_range[0])
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(text)
+    if not opts.show_plot:
+        plot.close()
+
+## OLD upper limit contours (m2, D) image
 text = "(m2, D) contours including MC error"
 
 plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
@@ -232,7 +519,7 @@ plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
 exclusion_x = m2_bins.lower()
 zero = numpy.zeros(len(m2_bins), dtype=float)
 
-for exclusion_level in (0.25, 0.5, 0.75, 0.9):
+for exclusion_level in CLs:
     num_sigmas = stats.norm.ppf(exclusion_level)
     exclusion_y = get_level_crossings(pLh_by_m2_D - num_sigmas * MC_sigma,
         exclusion_level, D_bins)
@@ -244,12 +531,13 @@ plot.finalize()
 plot.ax.set_ylim((0, D_bins.max))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "exclusion_by_m2_D")
+    fname = InspiralUtils.set_figure_name(opts, "old_exclusion_by_m2_D")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
+
 
 #############################################################################
 # Generate HTML and cache file
