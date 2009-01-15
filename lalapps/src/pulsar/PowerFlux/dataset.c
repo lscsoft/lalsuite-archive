@@ -1713,7 +1713,7 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 	locate_arg(line, length, 8, &ai, &aj);
 	sscanf(&(line[ai]), "%lg", &omega);
 
-	fprintf(stderr, "Injecting fake wandering line artifact for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
+	fprintf(stderr, "Injecting fake wandering line artifact 1 for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
 		ref_time,
 		strain,
 		frequency,
@@ -1721,13 +1721,15 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 		spread,
 		omega);
 
-	fprintf(LOG, "Injecting fake wandering line artifact for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
+	fprintf(LOG, "Injecting fake wandering line artifact 1 for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
 		ref_time,
 		strain,
 		frequency,
 		spindown,
 		spread,
 		omega);
+
+	/* Inject wandering artifact into a single bin in each SFT */
 
 	rng=gsl_rng_alloc(gsl_rng_default);
 	gsl_rng_set(rng, fill_seed);
@@ -1751,6 +1753,88 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 
 		d->re[i*d->nbins+bin]+=0.5*strain*cos(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
 		d->im[i*d->nbins+bin]+=0.5*strain*sin(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
+		}
+
+	fill_seed=gsl_rng_get(rng);
+	gsl_rng_free(rng);
+	} else
+if(!strncasecmp(line, "inject_wandering_line2", 22)) {
+	INT64 gps_start, gps_stop;
+	double strain, frequency, ref_time, spindown, spread;
+	int count;
+	double f, phi;
+	gsl_rng *rng=NULL;
+	int bin;
+	int i, k;
+	int once=1;
+	DATASET *d=&(datasets[d_free-1]);
+
+	locate_arg(line, length, 1, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_start);
+
+	locate_arg(line, length, 2, &ai, &aj);
+	sscanf(&(line[ai]), "%lld", &gps_stop);
+
+	locate_arg(line, length, 3, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &ref_time);
+
+	locate_arg(line, length, 4, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &strain);
+
+	locate_arg(line, length, 5, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &frequency);
+
+	locate_arg(line, length, 6, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &spindown);
+
+	locate_arg(line, length, 7, &ai, &aj);
+	sscanf(&(line[ai]), "%lg", &spread);
+
+	locate_arg(line, length, 8, &ai, &aj);
+	sscanf(&(line[ai]), "%d", &count);
+
+	fprintf(stderr, "Injecting fake wandering line artifact 2 for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg count=%d\n", gps_start, gps_stop,
+		ref_time,
+		strain,
+		frequency,
+		spindown,
+		spread,
+		count);
+
+	fprintf(LOG, "Injecting fake wandering line artifact 2 for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg count=%d\n", gps_start, gps_stop,
+		ref_time,
+		strain,
+		frequency,
+		spindown,
+		spread,
+		count);
+
+	rng=gsl_rng_alloc(gsl_rng_default);
+	gsl_rng_set(rng, fill_seed);
+
+	/* Inject wandering artifact that affects count bins (with replacement) in each SFT - this simulates artifact that randomly changes frequency multiple times during SFT period. */
+
+	for(i=0;i<d->free;i++) {
+		if(gps_start>0 && d->gps[i]<gps_start)continue;
+		if(gps_stop>0 && d->gps[i]>=gps_stop)continue;
+
+		for(k=0;k<count;k++) {
+			f=frequency+spindown*(d->gps[i]-ref_time)+gsl_ran_gaussian(rng, spread);
+			phi=gsl_ran_flat(rng, 0, 2*M_PI);
+			bin=round(f*d->coherence_time-d->first_bin);
+	
+			if(bin<0 || bin>=d->nbins) {
+				if(once) {
+					fprintf(stderr, "Requested to inject power outside loaded range, skipping affected SFTs\n");
+					fprintf(LOG, "Requested to inject power outside loaded range, skipping affected SFTs\n");
+					once=0;
+					}
+				continue;
+				}
+	
+			d->re[i*d->nbins+bin]+=0.5*strain*cos(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
+			d->im[i*d->nbins+bin]+=0.5*strain*sin(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
+			}
 		}
 
 	fill_seed=gsl_rng_get(rng);
