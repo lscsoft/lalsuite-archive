@@ -20,6 +20,27 @@ def parse_command_line():
   parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
   parser.add_option("-f", "--config-file",action="store",type="string",\
       metavar=" FILE", help="use configuration file FILE")
+  parser.add_option("-s", "--skip-spin",action="store_true",default=False,\
+      help="Do not generate upper limit for spinning sources.")
+  parser.add_option("-N", "--skip-nonspin",action="store_true",default=False,\
+      help="Do not generate upper limits for non-spinning sources.")
+  parser.add_option("-Z", "--combined-results",action="store_true",\
+      default=False,\
+      help="The output in the results directory will include past results.")
+  parser.add_option("-g", "--skip-gaussian",action="store_true",default=False,\
+      help="Do not generate upper limit for gaussian sources.")
+  parser.add_option("-t", "--skip-total-mass",action="store_true",\
+      default=False,\
+      help="Do not generate upper limits as a function of total mass.")
+  parser.add_option("-m", "--skip-component-mass",action="store_true",\
+      default=False,\
+      help="Do not generate upper limits as a function of component mass.")
+  parser.add_option("-u", "--upper-limit-dir",action="store",type="string",\
+      metavar=" FILE", default = ".",\
+      help="use this to obtain results not in the run directory.")
+  parser.add_option("-o", "--output-dir",action="store",type="string",\
+      metavar=" FILE", default = ".",\
+      help="Set output directory. Default: '.'")
 
   (options,args) = parser.parse_args()
   return options, sys.argv[1:]
@@ -44,17 +65,22 @@ spins = []
 sourceTypes = []
 userTag = cp.get('main','user-tag')
 combinedResults = False
-if cp.has_option('run-options','run-spin'):
+upperLimitDir = opts.upper_limit_dir
+outputDir = opts.output_dir
+make_dir(outputDir)
+runSpin = not opts.skip_spin
+runNonSpin = not opts.skip_nonspin
+if runSpin:
   spins.append('spin')
-if cp.has_option('run-options','run-non-spin'):
+if runNonSpin:
   spins.append('nonspin')
-if cp.has_option('run-options','run-gaussian'):
+if not opts.skip_gaussian:
   for item in cp.options('gaussian-types'):
     sourceTypes.append(item)
-if cp.has_option('run-options','run-total-mass'):
+if not opts.skip_total_mass:
   for item in cp.options('total-mass-ranges'):
     sourceTypes.append(item)
-if cp.has_option('run-options','run-component-mass'):
+if not opts.skip_component_mass:
   for item in cp.options('component-mass-ranges'):
     sourceTypes.append(item)
 
@@ -64,11 +90,11 @@ for spin in spins:
     runs.append((dir,spin,sourceType))
 
 for dir,type,item in runs:
-  outdir = 'results/' + dir
+  outdir = outputDir + '/results/' + dir
   if combinedResults:
-    resultDir = 'combine_posteriors/' + dir
+    resultDir = upperLimitDir + '/combine_posteriors/' + dir
   else:
-    resultDir = 'plotnumgalaxies_files/' + dir
+    resultDir = upperLimitDir + '/plotnumgalaxies_files/' + dir
   resultFile = resultDir + '/' + userTag + '_' + item + '_' + type
   if not combinedResults:
     resultFile += '_combos'
@@ -77,19 +103,24 @@ for dir,type,item in runs:
   make_dir(outdir)
   shutil.copy(resultFile,outFile)
 
-make_dir('key_plots')
-combinedPlotulvsmassDir = 'combine_posteriors/'
-combinedPlotulvsmassFiles = ['mcomp_nonspin-combined-rate-v-mass.png']
-combinedPlotulvsmassFiles.append('mcomp_spin-combined-rate-v-mass.png')
-combinedPlotulvsmassFiles.append('mtotal_nonspin-combined-rate-v-mass.png')
-combinedPlotulvsmassFiles.append('mtotal_spin-combined-rate-v-mass.png')
-for file in combinedPlotulvsmassFiles:
-  shutil.copy(combinedPlotulvsmassDir + '/' + file, 'key_plots/' + file)
+make_dir(outputDir + '/key_plots')
+combinedPlotulvsmassDir = upperLimitDir + '/combine_posteriors/'
+combinedPlotulvsmassFiles= []
+if runSpin:
+  combinedPlotulvsmassFiles.append('mcomp_spin-combined-rate-v-mass.png')
+  combinedPlotulvsmassFiles.append('mtotal_spin-combined-rate-v-mass.png')
 
-combinePosteriorDir = 'combine_posteriors/'
-for item in ('bbh','bns','nsbh'):
-  for type in ('spin','nonspin'):
+if runNonSpin:
+  combinedPlotulvsmassFiles.append('mcomp_nonspin-combined-rate-v-mass.png')
+  combinedPlotulvsmassFiles.append('mtotal_nonspin-combined-rate-v-mass.png')
+for file in combinedPlotulvsmassFiles:
+  shutil.copy(combinedPlotulvsmassDir + '/' + file,\
+              outputDir + '/key_plots/' + file)
+
+combinePosteriorDir = upperLimitDir + '/combine_posteriors/'
+for item in cp.options('gaussian-types'):
+  for type in spins:
     dir = combinePosteriorDir + '/' + type + '/' + item + '/'
     file = userTag + '_' + item + '_' + type + '-posterior-comparison.png'
-    shutil.copy(dir +  file, 'key_plots/' + file)
+    shutil.copy(dir +  file, outputDir + '/key_plots/' + file)
 
