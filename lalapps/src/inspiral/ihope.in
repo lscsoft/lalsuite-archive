@@ -256,18 +256,21 @@ if opts.run_hardware_injections:
   inspiralutils.mkdir("hardware_inj_segments")
   
 inspiralutils.mkdir("segments")
-os.chdir("..")
+os.chdir("segments")
+
+# Download the CAT veto files
+
 for vetoes, infile in cp.items("segments"):
-  inspiralutils.copyCategoryFiles(cp,vetoes,"segments",infile,\
-                analysisDirectory)
+  if "veto-file" in vetoes:
+    inspiralutils.downloadCategoryFiles(cp,vetoes,infile)
+
+# Add HW vetoes
 
 if opts.run_hardware_injections:
   for vetoes, infile in hwcp.items("segments"):
-    inspiralutils.copyCategoryFiles(hwcp,vetoes,"hardware_inj_segments",infile,\
-                  analysisDirectory,hardwareInj=True)
+    inspiralutils.copyHWInjCategoryFiles(hwcp,vetoes,"hardware_inj_segments", \
+      infile,analysisDirectory,hardwareInj=True)
 
-os.chdir(analysisDirectory)
-os.chdir("segments")
 
 # Download the dqSegFiles
 

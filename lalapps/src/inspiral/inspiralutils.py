@@ -131,6 +131,7 @@ def veto_segments(ifo, config, segmentList, dqSegFile, categories,
   for category in categories:
     dqFile = config.get("segments", ifo.lower() + "-cat-" + str(category) + \
         "-veto-file")
+    dqFile = os.path.basename(dqFile)
 
     vetoFile = ifo + "-CATEGORY_" + str(category) + "_VETO_SEGS-" + \
         str(start) + "-" + \
@@ -146,7 +147,8 @@ def veto_segments(ifo, config, segmentList, dqSegFile, categories,
     # if there are previous vetoes, generate combined
     if (category-1) in categories: 
 
-      combinedFile = ifo + "-COMBINED_CAT_" + str(category) + "_VETO_SEGS-" + \
+      combinedFile = ifo + "-COMBINED_CAT_" + str(category) + \
+          "_VETO_SEGS-" + \
           str(start) + "-" + \
           str(end - start) + ".txt"
       vetoFiles[category] = combinedFile
@@ -203,63 +205,78 @@ def datafind_segments(ifo, config):
   return dfSegs
 
 ##############################################################################
-# Function to copy the segments files
+# Function to download hwInj not made lists and append to dq seg lists
+def downloadCategoryFiles(config,vetoes,infile):
+  """
+  Download the dqSegFiles from a html location
+  @param config      : the configParser object with analysis details
+  @param infile      : name of the file to download
+  """
+  
+  categoryFile = os.path.basename(infile)
+
+  if infile == "":
+    print >>sys.stderr, "warning: " + vetoes + " left blank; proceeding "\
+      "without DQ vetoes"
+    categoryFile += vetoes + "_BLANK.txt"
+  else:
+    cat_url = config.get("segments","dq-server-url")
+    print "Downloading category veto file " + infile + " from " \
+            + cat_url + " to " + categoryFile + " ...",
+    categoryFile, info = urllib.urlretrieve(cat_url + '/' + infile,\
+      categoryFile)
+    sys.stdout.flush()
+    print "done"
+
+##############################################################################
 # If the hardwareInj flag is used we add the hardware injection not made
 # flag to Cat1 and remove the Injection flag from cat 2.
-def copyCategoryFiles(config,vetoes,directory,\
+def copyHWInjCategoryFiles(config,vetoes,directory,\
                       infile,analysisDirectory,hardwareInj=False):
   """
-  Copy the category files to the directory specified
-  Modify the cat files accordingly if hardware injections specified
+  Copy and Modify the cat files accordingly if hardware injections specified
   """
-  outfile = analysisDirectory + "/" + directory + "/" \
-            + os.path.basename(infile)
-  rel_outfile = "../" + directory + "/" + os.path.basename(infile)
+  catfile = os.path.basename(infile)
+  outfile = "../" + directory + "/" \
+            + catfile
+  rel_outfile = "../" + directory + "/" + catfile
   if "veto-file" in vetoes:
-    if infile == "":
-      print >>sys.stderr, "warning: " + vetoes + " left blank; proceeding "\
-        "without DQ vetoes"
-      outfile += vetoes + "_BLANK.txt"
-      rel_outfile += vetoes + "_BLANK.txt"
-      if hardwareInj:
-        injNotMadeCat='cat-'+config.get('hardware-inj','inj-not-made-veto-cat')
-        injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
-        if injNotMadeCat in vetoes:
-          open(outfile, "w").write(vetoes[0:2].upper()+ ':' + injNotMadeFlag +\
-                             '\t\t0\t0\n')
-        else:
-          open(outfile, "w").write("")  # touch
+    if catfile == "":
+      injNotMadeCat='cat-'+config.get('hardware-inj','inj-not-made-veto-cat')
+      injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
+      if injNotMadeCat in vetoes:
+        open(outfile, "w").write(vetoes[0:2].upper()+ ':' + injNotMadeFlag +\
+                           '\t\t0\t0\n')
       else:
         open(outfile, "w").write("")  # touch
     else:
-      if hardwareInj:
-        injVetoFlag = config.get('hardware-inj','inj-veto-flag')
-        injVetoFlagList = injVetoFlag.split(',')
-        injVetoCat = config.get('hardware-inj','inj-veto-cat')
-        injNotMadeCat= config.get('hardware-inj','inj-not-made-veto-cat')
-        injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
-        dqFile = open(infile,'r')
-        dqFileConts = dqFile.read()
-        dqFile.close()
-        if 'cat-' + injNotMadeCat in vetoes:
-          dqFileConts = vetoes[0:2].upper()+':' + injNotMadeFlag + \
-                        '\t\t0\t0\n' + dqFileConts
-        if 'cat-' + injVetoCat in vetoes:
-          dqFileContsList = dqFileConts.split('\n')
-          dqFileConts = ''
-          for line in dqFileContsList:
-            remLine = False
-            for flag in injVetoFlagList:
-              if flag in line:
-                remLine = True
-            if not remLine:
-              dqFileConts += line + '\n'
+      injVetoFlag = config.get('hardware-inj','inj-veto-flag')
+      injVetoFlagList = injVetoFlag.split(',')
+      injVetoCat = config.get('hardware-inj','inj-veto-cat')
+      injNotMadeCat= config.get('hardware-inj','inj-not-made-veto-cat')
+      injNotMadeFlag= config.get('hardware-inj','inj-not-made-veto-flag')
+      dqFile = open(catfile,'r')
+      dqFileConts = dqFile.read()
+      dqFile.close()
+      if 'cat-' + injNotMadeCat in vetoes:
+        dqFileConts = vetoes[0:2].upper()+':' + injNotMadeFlag + \
+                      '\t\t0\t0\n' + dqFileConts
+      if 'cat-' + injVetoCat in vetoes:
+        dqFileContsList = dqFileConts.split('\n')
+        dqFileConts = ''
+        for line in dqFileContsList:
+          remLine = False
+          for flag in injVetoFlagList:
+            if flag in line:
+              remLine = True
+          if not remLine:
+            dqFileConts += line + '\n'
         dqHWFile = open(outfile, 'w')
         dqHWFile.write(dqFileConts)
         dqHWFile.close()
       else:
-        shutil.copy(infile, outfile)
-    config.set("segments", vetoes, rel_outfile)
+        shutil.copy(catfile, rel_outfile)
+    config.set("segments", vetoes, catfile)
 
 ##############################################################################
 # Function to download the dqSegFiles
