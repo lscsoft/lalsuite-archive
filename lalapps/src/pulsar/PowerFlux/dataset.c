@@ -1720,6 +1720,14 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 		spread,
 		omega);
 
+	fprintf(LOG, "Injecting fake wandering line artifact for period %lld-%lld ref_time=%lf strain=%lg frequency=%lf spindown=%lg spread=%lg omega=%lg\n", gps_start, gps_stop,
+		ref_time,
+		strain,
+		frequency,
+		spindown,
+		spread,
+		omega);
+
 	rng=gsl_rng_alloc(gsl_rng_default);
 	gsl_rng_set(rng, fill_seed);
 
