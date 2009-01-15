@@ -197,7 +197,7 @@ void printUsage(void)
   printf("  --gps-end-time TIME      "
 	 "end injections at GPS time TIME \n");
   printf("  --time-step STEP         "
-	 "space injections by ave of STEP sec (2630 / PI)\n");
+	 "space injections by ave of STEP sec (2630 / sqrt(PI) / e)\n");
   printf("  --time-interval TIME     "
 	 "distribute injections in interval TIME (0)\n");
   printf("  --seed SEED              "
@@ -524,7 +524,7 @@ int main( int argc, char *argv[] )
   LIGOTimeGPS gpsEndTime;
   long gpsDuration;
 
-  REAL8 meanTimeStep = 2630 / LAL_PI; /* seconds between injections     */
+  REAL8 meanTimeStep = 2630. / pow( LAL_PI, 0.5 ) / LAL_E; /* seconds between injections     */
   REAL8 timeInterval = 0;
   REAL4 fLower = -1;
   REAL4 eps=0.01;  /* needed for some awkward spinning injections */
