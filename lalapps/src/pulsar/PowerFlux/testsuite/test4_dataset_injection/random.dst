@@ -1,0 +1,19 @@
+new_dataset "H1_test1"
+detector "LHO"
+gaussian_fill 793154935 3600 4001 1e-24
+apply_hanning_filter
+#
+#fake-ref-time 793154935
+#fake-ra 2.0
+#fake-dec 1.0
+#fake-iota 1.570796
+#fake-psi 0.392699
+#fake-phi 0.0
+#fake-spindown -1e-8
+#fake-strain 2e-23
+#fake-freq 100.1389
+
+# Arguments: gps_start gps_stop ref_time strain frequency spindown ra dec iota psi phi
+#
+inject_cw_signal -1 -1 793154935 2e-23 100.1389 -1e-8 2.0 1.0 1.570796 0.392699 0.0
+

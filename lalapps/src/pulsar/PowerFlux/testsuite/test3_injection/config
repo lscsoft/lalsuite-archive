@@ -1,0 +1,34 @@
+dataset random.dst
+input-format GEO
+earth-ephemeris ../earth05-09.dat
+sun-ephemeris ../sun05-09.dat
+#sky-marks /home/volodya/LIGO/PowerFlux/all_sky_marks.txt
+first-bin 180000
+nbins 501
+do-cutoff 1
+filter-lines 0
+averaging-mode one 
+spindown-start-time 793154935 
+spindown-start -1e-8
+
+write-dat NONE
+write-png NONE
+subtract-background 1
+ks-test 1
+compute-betas 0
+output-initial 1
+max-candidates 0
+
+fake-ref-time 793154935
+fake-ra 2.0
+fake-dec 1.0
+fake-iota 1.570796
+fake-psi 0.392699
+fake-phi 0.0
+fake-spindown -1e-8
+fake-strain 2e-23
+fake-freq 100.1389
+
+initial-dataset-seed 0
+ 
+ 

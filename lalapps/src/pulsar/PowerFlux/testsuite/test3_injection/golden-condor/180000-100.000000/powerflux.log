@@ -1,0 +1,900 @@
+node: node12
+using config file: config
+maximum threads: 1 (no_thread)
+Normal distribution approximation error: 0.000048
+maximum filter7 sampling error: 0.0228921
+resolution (auto) : 0.024965
+resolution : 0.024965
+sky map orientation: equatorial
+Full grid memory: 13.582 MB
+powerflux : 1.4.25-64
+firstbin  : 179100
+band start: 99.5 Hz
+nbins     : 2301
+side_cut  : 900
+useful bins : 501
+useful band start: 100 Hz
+averaging mode: one
+patch_type: sin theta
+patch_grid: 51x26
+patch_grid npoints : 866
+fine_factor: 5
+fine_type : sin theta
+fine_grid npoints  : 20326
+fine_grid : 253x126
+dataset: random.dst
+first spindown: -1e-08
+spindown step : 5e-10
+spindown count: 1
+Doppler multiplier: 1
+orientation: 0
+make cutoff: yes
+subtract background: yes
+nlinear_polarizations: 4
+ntotal_polarizations : 5
+fake signal injection: yes
+fake psi : 0.392699
+fake phi : 0.000000
+fake iota : 1.570796
+fake ra : 2.000000
+fake dec: 1.000000
+fake spindown: -1e-08
+fake strain: 2e-23
+fake frequency: 100.138900
+fake reference time: 793154935.000000
+compute_signal_test1: 9.59668e-06 1.83957e-05 500.101774
+compute_signal_test2: 1.1427e-05 -1.72567e-05 500.101774
+compute_signal_test3: 1.72567e-05 1.1427e-05 500.101774
+compute_median_test1: 4.29153e-09
+compute_median_test2: 1.07288e-09
+Generating 4001 gaussian SFTs starting with gps 793154935 step 3600 amplitude 2.94912e-17 for dataset H1_test1
+dataset H1_test1 nsegments : 4001
+dataset H1_test1 detector : LHO
+Injecting fake signal.
+dataset H1_test1 average detector velocity: 5.62618e-05 -3.58487e-05 -1.55422e-05
+dataset H1_test1 average detector velocity RA (degrees) : 327.495659
+dataset H1_test1 average detector velocity DEC (degrees): -13.114496
+dataset H1_test1 auto band axis norm: 1.36476e-11
+dataset H1_test1 maximum S contribution from Doppler shifts: 1.36666e-09
+dataset H1_test1 actual band axis norm: 1.36476e-11
+dataset H1_test1 auto large S: 2.31453e-10
+dataset H1_test1 large S: 2.31453e-10
+dataset H1_test1 auto band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band_axis: auto
+dataset H1_test1 actual band axis: 0.570417 0.753574 0.326726
+dataset H1_test1 band axis RA (degrees) : 52.876138
+dataset H1_test1 band axis DEC (degrees): 19.070151
+histogram: band min max counts..
+hist_residuals: H1_test1: 0 -7.0163 1.53046 1 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 3 0 0 0 0 1 0 0 1 0 1 0 0 4 0 2 1 0 2 2 2 5 2 3 1 2 2 5 5 4 6 4 11 9 9 8 4 9 11 9 16 20 26 27 25 28 28 35 30 53 46 48 56 64 55 66 82 81 84 113 122 89 130 144 163 177 211 229 251 243 310 339 415 452 410 533 549 606 677 729 840 899 998 1116 1180 1313 1409 1553 1746 1940 2178 2306 2573 2934 3151 3519 3846 4235 4774 5178 5658 6354 7012 7723 8432 9151 10405 11348 12540 13754 15219 16759 18247 20436 21940 24542 27070 29907 32571 35969 39362 43431 47419 51827 57278 62612 68340 75187 81890 89103 96943 105986 115924 125457 136192 147454 159557 171929 184850 198626 212806 227044 241057 255358 269479 283094 296494 306692 322489 324669 329483 332482 331846 328462 320372 309578 295504 277257 255654 230611 204737 178855 151614 123850 98965 76935 57253 41499 28215 18212 11614 6775 3652 1973 970 439 180 85 29 17 8 6 2 1
+Median noise level (TMedian): H1_test1 7.25738
+dataset H1_test1 TMedian : 7.257376
+AM coeffs size: 750.187500 KB
+plus AM coeffs error: 1.04308e-06
+cross AM coeffs error: 1.19209e-06
+pi_1_8 AM coeffs error: 1.49012e-06
+pi_3_8 AM coeffs error: 1.37091e-06
+circular AM coeffs error: 1.04308e-06
+H1_test1 dc_factor_blocked: 0
+H1_test1 dc_factor_touched: 0
+H1_test1 SFTs veto level: 0.010000
+H1_test1 SFTs veto spike level: 1.700000
+H1_test1 SFTs veto count: 0
+H1_test1 background line detected: bin=92 z=9.09891e+06 strength=1.376898 flag=0x00000013
+H1_test1 background line detected: bin=199 z=8.912e+06 strength=1.134632 flag=0x00000012
+H1_test1 background line detected: bin=316 z=8.98203e+06 strength=1.225401 flag=0x00000012
+H1_test1 background line detected: bin=349 z=8.81761e+06 strength=1.012286 flag=0x00000012
+H1_test1 background line detected: bin=608 z=8.81827e+06 strength=1.013147 flag=0x00000012
+H1_test1 background line detected: bin=758 z=9.09263e+06 strength=1.368758 flag=0x00000012
+H1_test1 background line detected: bin=780 z=9.0633e+06 strength=1.330737 flag=0x00000012
+H1_test1 background line detected: bin=844 z=8.84751e+06 strength=1.051036 flag=0x00000012
+H1_test1 background line detected: bin=924 z=8.96807e+06 strength=1.207303 flag=0x00000012
+H1_test1 background line detected: bin=932 z=9.13362e+06 strength=1.421879 flag=0x00000013
+H1_test1 background line detected: bin=966 z=8.81428e+06 strength=1.007973 flag=0x00000012
+H1_test1 background line detected: bin=976 z=8.82015e+06 strength=1.015586 flag=0x00000002
+H1_test1 background line detected: bin=997 z=8.82207e+06 strength=1.018063 flag=0x00000002
+H1_test1 background line detected: bin=1010 z=8.821e+06 strength=1.016689 flag=0x00000012
+H1_test1 background line detected: bin=1020 z=9.00598e+06 strength=1.256441 flag=0x00000002
+H1_test1 background line detected: bin=1027 z=8.82242e+06 strength=1.018520 flag=0x00000012
+H1_test1 background line detected: bin=1066 z=9.23035e+06 strength=1.547253 flag=0x00000013
+H1_test1 background line detected: bin=1121 z=8.8319e+06 strength=1.030813 flag=0x00000002
+H1_test1 background line detected: bin=1135 z=9.02298e+06 strength=1.278471 flag=0x00000002
+H1_test1 background line detected: bin=1136 z=9.13046e+06 strength=1.417791 flag=0x00000003
+H1_test1 background line detected: bin=1323 z=8.99506e+06 strength=1.242292 flag=0x00000012
+H1_test1 background line detected: bin=1360 z=8.91008e+06 strength=1.132137 flag=0x00000012
+H1_test1 background line detected: bin=1368 z=8.86094e+06 strength=1.068447 flag=0x00000012
+H1_test1 background line detected: bin=1431 z=8.82076e+06 strength=1.016374 flag=0x00000012
+H1_test1 background line detected: bin=1654 z=8.85286e+06 strength=1.057980 flag=0x00000002
+H1_test1 background line detected: bin=1776 z=8.9027e+06 strength=1.122579 flag=0x00000012
+H1_test1 background line detected: bin=1939 z=9.04541e+06 strength=1.307545 flag=0x00000012
+H1_test1 background line detected: bin=2018 z=8.81399e+06 strength=1.007594 flag=0x00000012
+H1_test1 background line detected: bin=2241 z=8.81836e+06 strength=1.013257 flag=0x00000002
+H1_test1 background median: 8.03661e+06
+H1_test1 background qmost : 8.80813e+06
+H1_test1 background qlines: 9.09263e+06
+H1_test1 background cutoff: 9.57965e+06
+Background lines removal will not be performed
+input complete: 2633
+nsegments : 4001
+first gps : 793154935
+last gps  : 807554935
+spindown start time: 793154935
+average detector velocity: 5.62033e-05 -3.59184e-05 -1.55735e-05
+average detector velocity RA (degrees) : 327.418177
+average detector velocity DEC (degrees): -13.142199
+auto band axis norm: 1.36467e-11
+maximum S contribution from Doppler shifts: 1.36657e-09
+actual band axis norm: 1.36467e-11
+auto large S: 2.31453e-10
+large S: 2.31453e-10
+auto band axis: 0.571569 0.75284 0.326407
+band_axis: auto
+actual band axis: 0.571569 0.75284 0.326407
+band axis RA (degrees) : 52.793595
+band axis DEC (degrees): 19.050837
+dataset H1_test1 allocated size: 105.357754 MB
+dataset H1_test1 adjusted weight: 1
+Lower limit approximation error: 0.003246
+Upper limit approximation error: 0.008300
+mode: 1 bin
+upper limit compensation factor: 1.176471
+lower limit compensation factor: 1.000000
+instance_start: 2650
+instance_start memory: 156.441 MB
+-------------------------------- SUBINSTANCE 0 ------------------------------
+subinstance: 0
+spindown  : -1e-08
+grid_points: 0 "S_0" 20326
+grid_points: 1 "S_1" 0
+grid_points: 2 "S_2" 0
+grid_points: 3 "S_3" 0
+grid_points: 4 "S_4" 0
+grid_points: 5 "S_5" 0
+grid_points: 6 "S_6" 0
+grid_points: 7 "S_7" 0
+grid_points: 8 "S_8" 0
+grid_points: 9 "S_9" 0
+grid_points: 10 "S_10" 0
+masked_points: 0
+plus AM coeffs error: 1.04308e-06
+cross AM coeffs error: 1.19209e-06
+pi_1_8 AM coeffs error: 1.49012e-06
+pi_3_8 AM coeffs error: 1.37091e-06
+circular AM coeffs error: 1.04308e-06
+Skymap arrays size: 4.264565 MB
+Spectral plot arrays size: 753.457031 KB
+Compute betas: false
+Accumulation set size: 660.498047 KB
+Patch speed: 0.524617
+Power cache 0 hits: 199516456
+Power cache 0 misses: 8115040
+Maximum bin shift: 277
+Minimum bin shift: -18
+histogram: band min max counts..
+hist_plus_ks_test: 0 0.0128822 0.0833875 2 0 0 1 9 6 10 9 24 19 26 24 31 49 61 78 76 92 92 115 125 145 113 156 164 187 185 208 218 218 261 255 239 259 263 285 315 308 302 296 314 336 315 327 312 315 304 294 315 319 332 328 283 319 325 290 275 303 291 296 267 259 275 273 261 240 227 224 214 210 218 191 167 175 177 160 155 161 131 175 146 142 151 138 138 131 101 123 122 107 108 103 97 125 97 92 101 107 89 84 70 79 71 79 66 71 67 70 45 51 73 44 47 42 38 46 45 39 44 33 41 34 38 28 38 32 33 33 24 20 22 33 27 30 22 26 21 31 37 16 20 22 30 30 18 14 27 25 23 21 22 23 29 19 24 15 23 18 24 24 23 15 27 17 13 16 15 8 13 21 9 16 11 8 8 13 8 7 8 6 3 4 1 4 0 1 4 1 3 2 0 1 0 0 0 0 0 0 1 1
+hist_plus_ks_test: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_ks_test: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2
+18295 1.976499 0.934998 plus 88.292915 8.29504e-24 6.89596e-24 100.138885 nan nan
+18296 2.018109 0.934998 plus 74.321533 7.67829e-24 6.35664e-24 100.139442 nan nan
+18297 2.059720 0.934998 plus 69.193840 7.63158e-24 6.30563e-24 100.139442 nan nan
+18443 1.928288 0.959931 plus 90.395050 8.51183e-24 7.07984e-24 100.138885 nan nan
+18444 1.971620 0.959931 plus 95.617592 8.76233e-24 7.29684e-24 100.138885 nan nan
+18445 2.014952 0.959931 plus 87.910118 8.33723e-24 6.93037e-24 100.138885 nan nan
+18446 2.058285 0.959931 plus 66.329788 7.26666e-24 5.99676e-24 100.138885 nan nan
+18447 2.101617 0.959931 plus 60.720833 6.90066e-24 5.67918e-24 100.139442 nan nan
+18586 1.893868 0.984864 plus 79.337044 7.96439e-24 6.6045e-24 100.138885 nan nan
+18587 1.938429 0.984864 plus 97.095428 8.7638e-24 7.30034e-24 100.138885 nan nan
+18588 1.982991 0.984864 plus 98.557053 9.05448e-24 7.54474e-24 100.138885 nan nan
+18589 2.027553 0.984864 plus 88.624947 8.43523e-24 7.01309e-24 100.138885 nan nan
+18590 2.072114 0.984864 plus 65.296272 7.25906e-24 5.98769e-24 100.138885 nan nan
+18591 2.116676 0.984864 plus 51.340382 6.37177e-24 5.21304e-24 100.139442 nan nan
+18725 1.884956 1.009798 plus 83.633446 8.27586e-24 6.87151e-24 100.138336 nan nan
+18726 1.931498 1.009798 plus 90.903809 8.52071e-24 7.08809e-24 100.138885 nan nan
+18727 1.978040 1.009798 plus 99.631760 8.96858e-24 7.47477e-24 100.138885 nan nan
+18728 2.024582 1.009798 plus 91.566460 8.56644e-24 7.12725e-24 100.138885 nan nan
+18729 2.071124 1.009798 plus 68.238373 7.44158e-24 6.1462e-24 100.138885 nan nan
+18730 2.117666 1.009798 plus 44.823189 6.10911e-24 4.97043e-24 100.138885 nan nan
+18858 1.875214 1.034731 plus 90.321739 8.6438e-24 7.18949e-24 100.138336 nan nan
+18859 1.923921 1.034731 plus 85.257095 8.25928e-24 6.86081e-24 100.138336 nan nan
+18860 1.972628 1.034731 plus 93.214134 8.58171e-24 7.14266e-24 100.138885 nan nan
+18861 2.021335 1.034731 plus 87.484528 8.42077e-24 6.99905e-24 100.138885 nan nan
+18862 2.070042 1.034731 plus 67.848099 7.56309e-24 6.24552e-24 100.138885 nan nan
+18863 2.118748 1.034731 plus 46.869820 6.18511e-24 5.04191e-24 100.138885 nan nan
+18987 1.935221 1.059664 plus 92.395493 8.70384e-24 7.24296e-24 100.138336 nan nan
+18988 1.985487 1.059664 plus 78.051376 7.89112e-24 6.54108e-24 100.138885 nan nan
+18989 2.035752 1.059664 plus 71.682938 7.64471e-24 6.3227e-24 100.138885 nan nan
+18990 2.086018 1.059664 plus 57.216499 6.83631e-24 5.6151e-24 100.138885 nan nan
+i_closest: 18727 1.978040 1.009798 plus 99.631760 8.96858e-24 7.47477e-24 100.138885 nan nan
+i_largest: 18588 1.982991 0.984864 plus 98.557053 9.05448e-24 7.54474e-24 100.138885 nan nan
+masked: plus 0
+strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+max_dx: 1.927196 1.084597 plus 99.850021 9.02313e-24 7.52056e-24 100.138336 nan nan -1e-08
+largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+largest: 1.889962 0.087266 plus 62.261478 1.24195e-23 1.02293e-23 100.139999 nan nan -1e-08
+max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2 spindown
+max_band: 0 1.889962 0.087266 plus 62.261478 1.24195e-23 100.139999 nan nan -1e-08
+masked_max_band: 0 1.889962 0.087266 plus 62.261478 1.24195e-23 100.139999 nan nan -1e-08
+max_ratio: 0 plus 0.000000 -1e-08
+max_band: 1 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 1 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 1 plus NAN NAN
+max_band: 2 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 2 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 2 plus NAN NAN
+max_band: 3 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 3 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 3 plus NAN NAN
+max_band: 4 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 4 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 4 plus NAN NAN
+max_band: 5 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 5 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 5 plus NAN NAN
+max_band: 6 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 6 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 6 plus NAN NAN
+max_band: 7 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 7 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 7 plus NAN NAN
+max_band: 8 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 8 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 8 plus NAN NAN
+max_band: 9 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 9 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 9 plus NAN NAN
+max_band: 10 NAN NAN plus NAN NAN NAN NAN NAN NAN
+masked_max_band: 10 NAN NAN plus NAN NAN NAN NAN NAN NAN
+max_ratio: 10 plus NAN NAN
+histogram: band min max counts..
+hist_plus_max_upper_strain: 0 2.00547e-24 1.24195e-23 3 5 10 19 40 37 57 82 112 129 136 197 226 244 263 291 317 316 294 322 319 296 335 305 293 317 286 273 278 322 325 314 364 299 282 271 300 265 260 247 248 245 233 245 220 218 227 235 227 230 242 238 244 220 227 227 233 241 216 183 175 170 164 152 155 151 163 132 154 140 150 147 133 158 115 139 116 108 142 146 136 121 141 123 132 120 119 110 120 110 113 82 64 72 83 78 73 76 72 69 72 77 62 66 59 55 51 44 56 54 51 41 52 39 50 39 35 49 32 37 42 30 31 30 32 20 26 23 21 27 17 30 26 17 16 24 18 13 19 11 13 11 16 14 10 1 7 8 12 9 9 7 6 7 6 3 8 5 7 4 5 7 5 6 4 3 2 3 2 6 1 2 3 2 3 4 2 2 3 2 4 1 3 1 0 2 1 1 1 3 1 2 0 2 1 1 0 0 2 2
+hist_plus_max_upper_strain: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_plus_max_upper_strain: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+histogram: band min max counts..
+hist_cross_ks_test: 0 0.0135284 0.0744162 1 0 4 4 8 12 14 12 11 25 19 25 37 39 40 56 68 81 80 84 90 115 109 136 119 132 153 171 165 165 192 210 193 204 243 203 226 226 240 225 245 287 251 235 265 246 230 264 225 270 223 258 233 277 211 242 230 240 265 234 233 188 223 207 234 213 222 243 205 211 199 215 196 238 229 220 209 200 199 237 183 170 195 199 227 193 186 161 172 174 195 175 168 164 138 160 185 154 147 160 133 147 147 120 106 136 128 114 128 115 108 86 100 88 88 82 72 83 67 85 62 52 68 44 56 52 46 58 38 46 39 41 39 44 30 29 25 28 21 28 24 22 29 18 22 27 19 25 19 16 16 13 15 18 9 12 13 9 12 8 7 11 7 6 6 6 5 2 7 4 6 2 7 1 5 1 1 5 0 0 0 5 0 1 1 0 2 1 1 2 0 0 2 1 0 0 0 0 0 1
+hist_cross_ks_test: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_ks_test: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2
+18295 1.976499 0.934998 cross 72.836014 7.59129e-24 6.28123e-24 100.138885 nan nan
+18296 2.018109 0.934998 cross 72.072662 7.59576e-24 6.28314e-24 100.139442 nan nan
+18297 2.059720 0.934998 cross 83.105721 8.29657e-24 6.88768e-24 100.139442 nan nan
+18443 1.928288 0.959931 cross 64.103165 7.03587e-24 5.80034e-24 100.138885 nan nan
+18444 1.971620 0.959931 cross 80.010651 7.95115e-24 6.5949e-24 100.138885 nan nan
+18445 2.014952 0.959931 cross 86.784576 8.29132e-24 6.89021e-24 100.138885 nan nan
+18446 2.058285 0.959931 cross 78.376770 7.92907e-24 6.57322e-24 100.138885 nan nan
+18447 2.101617 0.959931 cross 85.764038 8.18035e-24 6.79617e-24 100.139442 nan nan
+18586 1.893868 0.984864 cross 48.551258 6.19745e-24 5.0593e-24 100.138885 nan nan
+18587 1.938429 0.984864 cross 72.401215 7.47577e-24 6.18465e-24 100.138885 nan nan
+18588 1.982991 0.984864 cross 91.544258 8.37778e-24 6.97024e-24 100.138885 nan nan
+18589 2.027553 0.984864 cross 99.204117 8.63778e-24 7.19846e-24 100.138885 nan nan
+18590 2.072114 0.984864 cross 86.844116 8.2254e-24 6.83554e-24 100.138885 nan nan
+18591 2.116676 0.984864 cross 78.401260 7.90527e-24 6.55355e-24 100.139442 nan nan
+18725 1.884956 1.009798 cross 49.987873 6.2415e-24 5.10118e-24 100.138336 nan nan
+18726 1.931498 1.009798 cross 64.301910 7.14383e-24 5.88991e-24 100.138885 nan nan
+18727 1.978040 1.009798 cross 89.704903 8.32839e-24 6.92611e-24 100.138885 nan nan
+18728 2.024582 1.009798 cross 99.632523 8.78929e-24 7.32535e-24 100.138885 nan nan
+18729 2.071124 1.009798 cross 93.638390 8.49463e-24 7.07085e-24 100.138885 nan nan
+18730 2.117666 1.009798 cross 76.251602 7.69144e-24 6.37178e-24 100.138885 nan nan
+18858 1.875214 1.034731 cross 54.817638 6.50275e-24 5.33312e-24 100.138336 nan nan
+18859 1.923921 1.034731 cross 60.288586 6.94559e-24 5.71484e-24 100.138336 nan nan
+18860 1.972628 1.034731 cross 76.877792 7.88504e-24 6.53353e-24 100.138885 nan nan
+18861 2.021335 1.034731 cross 88.972420 8.50082e-24 7.06823e-24 100.138885 nan nan
+18862 2.070042 1.034731 cross 87.772797 8.4597e-24 7.03193e-24 100.138885 nan nan
+18863 2.118748 1.034731 cross 77.371605 7.81265e-24 6.4746e-24 100.138885 nan nan
+18987 1.935221 1.059664 cross 65.115799 7.33546e-24 6.0502e-24 100.138336 nan nan
+18988 1.985487 1.059664 cross 69.084343 7.58904e-24 6.2702e-24 100.138885 nan nan
+18989 2.035752 1.059664 cross 79.488815 8.10889e-24 6.72465e-24 100.138885 nan nan
+18990 2.086018 1.059664 cross 78.441277 7.97712e-24 6.61319e-24 100.138885 nan nan
+i_closest: 18727 1.978040 1.009798 cross 89.704903 8.32839e-24 6.92611e-24 100.138885 nan nan
+i_largest: 18728 2.024582 1.009798 cross 99.632523 8.78929e-24 7.32535e-24 100.138885 nan nan
+masked: cross 0
+strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+max_dx: 2.024582 1.009798 cross 99.632523 8.78929e-24 7.32535e-24 100.138885 nan nan -1e-08
+largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+largest: 2.024582 1.009798 cross 99.632523 8.78929e-24 7.32535e-24 100.138885 nan nan -1e-08
+max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2 spindown
+max_band: 0 2.024582 1.009798 cross 99.632523 8.78929e-24 100.138885 nan nan -1e-08
+masked_max_band: 0 2.024582 1.009798 cross 99.632523 8.78929e-24 100.138885 nan nan -1e-08
+max_ratio: 0 cross 0.000000 -1e-08
+max_band: 1 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 1 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 1 cross NAN NAN
+max_band: 2 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 2 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 2 cross NAN NAN
+max_band: 3 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 3 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 3 cross NAN NAN
+max_band: 4 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 4 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 4 cross NAN NAN
+max_band: 5 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 5 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 5 cross NAN NAN
+max_band: 6 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 6 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 6 cross NAN NAN
+max_band: 7 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 7 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 7 cross NAN NAN
+max_band: 8 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 8 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 8 cross NAN NAN
+max_band: 9 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 9 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 9 cross NAN NAN
+max_band: 10 NAN NAN cross NAN NAN NAN NAN NAN NAN
+masked_max_band: 10 NAN NAN cross NAN NAN NAN NAN NAN NAN
+max_ratio: 10 cross NAN NAN
+histogram: band min max counts..
+hist_cross_max_upper_strain: 0 1.82579e-24 8.78929e-24 4 17 51 73 112 161 194 231 214 214 225 206 169 180 161 157 145 148 153 152 169 160 179 183 201 185 212 195 209 180 184 190 181 202 235 215 213 249 244 244 242 235 264 245 256 270 266 263 259 277 256 289 257 258 242 264 222 252 249 246 225 258 216 215 228 203 201 180 176 204 208 229 231 177 240 230 189 230 224 216 205 187 167 187 166 150 124 108 99 86 97 70 57 71 38 63 56 55 54 42 37 46 45 37 35 43 32 34 28 34 30 43 34 26 25 21 29 25 30 14 30 14 23 25 18 30 24 24 26 22 27 23 22 30 22 26 24 25 34 40 37 26 34 39 51 40 45 30 43 36 27 22 17 22 15 18 18 6 12 9 8 14 14 8 7 15 5 8 9 7 4 5 7 1 5 4 2 2 1 2 2 3 1 2 1 3 1 0 2 2 1 3 0 0 0 1 0 0 0 1
+hist_cross_max_upper_strain: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_cross_max_upper_strain: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+histogram: band min max counts..
+hist_pi_1_8_ks_test: 0 0.0122437 0.0740171 1 0 0 1 0 1 4 7 3 8 15 17 16 20 23 40 33 46 58 55 65 70 88 115 109 129 142 138 145 158 179 187 189 203 211 244 245 231 235 233 256 261 306 236 256 265 274 264 258 265 251 277 250 284 244 252 234 260 307 284 227 268 276 231 262 236 254 260 253 239 220 226 224 213 193 210 180 173 197 190 208 205 189 184 183 143 173 164 140 154 134 149 134 133 122 124 135 97 110 117 122 113 152 113 127 128 129 115 167 119 127 110 103 119 144 130 71 84 95 81 85 70 57 56 72 47 51 46 53 49 45 42 39 28 39 32 29 29 35 21 35 33 19 29 22 22 19 20 17 26 21 17 14 18 10 13 11 12 12 11 10 8 13 10 6 12 12 13 10 3 3 9 7 5 5 7 4 11 8 7 3 2 2 2 2 5 0 2 1 2 0 2 1 2 1 0 0 0 0 3
+hist_pi_1_8_ks_test: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_ks_test: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2
+18295 1.976499 0.934998 pi_1_8 135.156708 1.02761e-23 8.60892e-24 100.138885 nan nan
+18296 2.018109 0.934998 pi_1_8 123.274483 9.89156e-24 8.27519e-24 100.139442 nan nan
+18297 2.059720 0.934998 pi_1_8 128.306656 1.02593e-23 8.5882e-24 100.139442 nan nan
+18443 1.928288 0.959931 pi_1_8 128.892868 1.00051e-23 8.37595e-24 100.138885 nan nan
+18444 1.971620 0.959931 pi_1_8 146.799500 1.07908e-23 9.05054e-24 100.138885 nan nan
+18445 2.014952 0.959931 pi_1_8 147.839188 1.0728e-23 8.99869e-24 100.138885 nan nan
+18446 2.058285 0.959931 pi_1_8 117.731163 9.76762e-24 8.16539e-24 100.138885 nan nan
+18447 2.101617 0.959931 pi_1_8 112.923416 9.63868e-24 8.05189e-24 100.139442 nan nan
+18586 1.893868 0.984864 pi_1_8 107.191818 9.00731e-24 7.51747e-24 100.138885 nan nan
+18587 1.938429 0.984864 pi_1_8 139.467117 1.04047e-23 8.72059e-24 100.138885 nan nan
+18588 1.982991 0.984864 pi_1_8 160.417038 1.12112e-23 9.41376e-24 100.138885 nan nan
+18589 2.027553 0.984864 pi_1_8 152.273865 1.09837e-23 9.21673e-24 100.138885 nan nan
+18590 2.072114 0.984864 pi_1_8 121.532608 9.93694e-24 8.31126e-24 100.138885 nan nan
+18591 2.116676 0.984864 pi_1_8 100.286751 9.11083e-24 7.5943e-24 100.139442 nan nan
+18725 1.884956 1.009798 pi_1_8 108.775429 9.26574e-24 7.73522e-24 100.138336 nan nan
+18726 1.931498 1.009798 pi_1_8 129.972000 1.00001e-23 8.37285e-24 100.138885 nan nan
+18727 1.978040 1.009798 pi_1_8 161.203934 1.10942e-23 9.3161e-24 100.138885 nan nan
+18728 2.024582 1.009798 pi_1_8 154.503922 1.11134e-23 9.32731e-24 100.138885 nan nan
+18729 2.071124 1.009798 pi_1_8 131.477539 1.01717e-23 8.51797e-24 100.138885 nan nan
+18730 2.117666 1.009798 pi_1_8 91.900597 8.70511e-24 7.24318e-24 100.138885 nan nan
+18858 1.875214 1.034731 pi_1_8 117.559631 9.65947e-24 8.07478e-24 100.138336 nan nan
+18859 1.923921 1.034731 pi_1_8 120.140358 9.73874e-24 8.14396e-24 100.138336 nan nan
+18860 1.972628 1.034731 pi_1_8 140.949112 1.05046e-23 8.80562e-24 100.138885 nan nan
+18861 2.021335 1.034731 pi_1_8 148.449966 1.08272e-23 9.08242e-24 100.138885 nan nan
+18862 2.070042 1.034731 pi_1_8 127.605141 1.02208e-23 8.55521e-24 100.138885 nan nan
+18863 2.118748 1.034731 pi_1_8 96.836403 8.79009e-24 7.32185e-24 100.138885 nan nan
+18987 1.935221 1.059664 pi_1_8 131.226929 1.02573e-23 8.58943e-24 100.138336 nan nan
+18988 1.985487 1.059664 pi_1_8 121.248268 9.82853e-24 8.22028e-24 100.138885 nan nan
+18989 2.035752 1.059664 pi_1_8 125.418114 9.9965e-24 8.36525e-24 100.138885 nan nan
+18990 2.086018 1.059664 pi_1_8 108.006378 9.33952e-24 7.79581e-24 100.138885 nan nan
+i_closest: 18727 1.978040 1.009798 pi_1_8 161.203934 1.10942e-23 9.3161e-24 100.138885 nan nan
+i_largest: 18588 1.982991 0.984864 pi_1_8 160.417038 1.12112e-23 9.41376e-24 100.138885 nan nan
+masked: pi_1_8 0
+strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+max_dx: 1.978040 1.009798 pi_1_8 161.203934 1.10942e-23 9.3161e-24 100.138885 nan nan -1e-08
+largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+largest: 1.982991 0.984864 pi_1_8 160.417038 1.12112e-23 9.41376e-24 100.138885 nan nan -1e-08
+max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2 spindown
+max_band: 0 1.982991 0.984864 pi_1_8 160.417038 1.12112e-23 100.138885 nan nan -1e-08
+masked_max_band: 0 1.982991 0.984864 pi_1_8 160.417038 1.12112e-23 100.138885 nan nan -1e-08
+max_ratio: 0 pi_1_8 0.000000 -1e-08
+max_band: 1 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 1 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 1 pi_1_8 NAN NAN
+max_band: 2 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 2 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 2 pi_1_8 NAN NAN
+max_band: 3 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 3 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 3 pi_1_8 NAN NAN
+max_band: 4 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 4 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 4 pi_1_8 NAN NAN
+max_band: 5 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 5 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 5 pi_1_8 NAN NAN
+max_band: 6 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 6 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 6 pi_1_8 NAN NAN
+max_band: 7 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 7 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 7 pi_1_8 NAN NAN
+max_band: 8 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 8 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 8 pi_1_8 NAN NAN
+max_band: 9 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 9 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 9 pi_1_8 NAN NAN
+max_band: 10 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 10 NAN NAN pi_1_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 10 pi_1_8 NAN NAN
+histogram: band min max counts..
+hist_pi_1_8_max_upper_strain: 0 1.84527e-24 1.12112e-23 10 36 54 67 108 142 142 166 163 157 132 142 123 116 141 182 230 255 334 319 353 337 365 367 332 353 341 330 364 341 342 299 297 321 269 319 284 291 315 329 319 288 282 283 271 268 289 278 302 280 285 280 270 272 289 242 235 263 248 242 238 208 221 170 147 158 148 120 112 112 93 100 113 93 102 101 86 88 101 78 93 79 79 89 84 84 92 94 75 79 107 87 80 59 70 57 62 46 37 38 45 33 32 18 19 16 28 15 16 20 12 23 15 15 17 16 15 11 14 17 14 12 13 15 13 16 14 20 12 17 18 17 15 18 18 14 10 16 11 17 15 14 14 20 20 12 8 17 10 14 10 18 13 14 10 13 14 21 15 15 12 14 11 12 10 11 8 8 13 8 8 9 9 10 11 8 4 9 7 3 4 1 2 1 1 0 4 0 3 1 0 2 0 0 0 1 0 2 0 1
+hist_pi_1_8_max_upper_strain: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_1_8_max_upper_strain: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+histogram: band min max counts..
+hist_pi_3_8_ks_test: 0 0.0132912 0.0847053 4 2 0 5 8 15 13 12 9 24 32 35 45 60 66 79 97 105 120 117 128 142 196 205 195 177 189 207 214 272 228 265 278 288 283 320 288 315 276 320 325 301 330 261 302 299 328 320 286 283 287 303 282 281 282 259 259 281 261 264 248 267 288 278 200 242 245 240 253 193 212 189 180 154 180 152 145 140 150 147 176 118 129 99 101 100 99 84 80 82 91 101 73 69 42 57 74 75 56 53 65 59 70 52 54 53 58 63 55 47 61 60 48 59 55 41 59 71 78 66 44 56 41 62 51 48 59 49 54 43 50 45 42 49 54 48 43 32 48 44 37 31 40 38 27 28 30 27 28 27 37 27 21 22 14 12 21 33 29 15 18 17 19 13 13 12 18 11 18 14 18 15 16 16 19 13 9 9 14 5 7 16 11 6 3 3 4 0 1 5 0 1 0 1 1 1 3 4 0 2
+hist_pi_3_8_ks_test: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_ks_test: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2
+18295 1.976499 0.934998 pi_3_8 27.368225 4.81966e-24 3.81311e-24 100.138885 nan nan
+18296 2.018109 0.934998 pi_3_8 25.611727 4.74819e-24 3.73806e-24 100.138885 nan nan
+18297 2.059720 0.934998 pi_3_8 27.967722 4.96967e-24 3.93786e-24 100.139442 nan nan
+18443 1.928288 0.959931 pi_3_8 29.321993 4.78748e-24 3.80586e-24 100.138885 nan nan
+18444 1.971620 0.959931 pi_3_8 30.871328 5.05832e-24 4.03474e-24 100.138885 nan nan
+18445 2.014952 0.959931 pi_3_8 30.000973 5.06083e-24 4.02928e-24 100.138885 nan nan
+18446 2.058285 0.959931 pi_3_8 25.139149 4.78723e-24 3.76334e-24 100.139442 nan nan
+18447 2.101617 0.959931 pi_3_8 28.038519 4.98452e-24 3.95034e-24 100.139442 nan nan
+18586 1.893868 0.984864 pi_3_8 28.871725 4.77501e-24 3.79197e-24 100.138885 nan nan
+18587 1.938429 0.984864 pi_3_8 35.319790 5.34885e-24 4.30085e-24 100.138885 nan nan
+18588 1.982991 0.984864 pi_3_8 41.335052 5.58206e-24 4.52486e-24 100.138885 nan nan
+18589 2.027553 0.984864 pi_3_8 37.136375 5.53448e-24 4.46224e-24 100.138885 nan nan
+18590 2.072114 0.984864 pi_3_8 31.516117 5.10834e-24 4.07995e-24 100.138885 nan nan
+18591 2.116676 0.984864 pi_3_8 28.081747 4.98868e-24 3.95406e-24 100.139442 nan nan
+18725 1.884956 1.009798 pi_3_8 29.047337 4.843e-24 3.84755e-24 100.138336 nan nan
+18726 1.931498 1.009798 pi_3_8 34.443584 5.16112e-24 4.14403e-24 100.138885 nan nan
+18727 1.978040 1.009798 pi_3_8 39.752342 5.57389e-24 4.50969e-24 100.138885 nan nan
+18728 2.024582 1.009798 pi_3_8 39.899128 5.66954e-24 4.58791e-24 100.138885 nan nan
+18729 2.071124 1.009798 pi_3_8 33.899677 5.32641e-24 4.27283e-24 100.138885 nan nan
+18730 2.117666 1.009798 pi_3_8 26.752220 4.88404e-24 3.85765e-24 100.138885 nan nan
+18858 1.875214 1.034731 pi_3_8 33.630733 5.10327e-24 4.09192e-24 100.138336 nan nan
+18859 1.923921 1.034731 pi_3_8 31.637196 4.97592e-24 3.97514e-24 100.138336 nan nan
+18860 1.972628 1.034731 pi_3_8 36.446110 5.35907e-24 4.31649e-24 100.138885 nan nan
+18861 2.021335 1.034731 pi_3_8 37.145874 5.48552e-24 4.42282e-24 100.138885 nan nan
+18862 2.070042 1.034731 pi_3_8 33.400318 5.31983e-24 4.26385e-24 100.138885 nan nan
+18863 2.118748 1.034731 pi_3_8 28.460924 4.9576e-24 3.93309e-24 100.138885 nan nan
+18987 1.935221 1.059664 pi_3_8 34.533314 5.20593e-24 4.18063e-24 100.138336 nan nan
+18988 1.985487 1.059664 pi_3_8 32.431232 5.06736e-24 4.05436e-24 100.138885 nan nan
+18989 2.035752 1.059664 pi_3_8 31.972803 5.23205e-24 4.18248e-24 100.138885 nan nan
+18990 2.086018 1.059664 pi_3_8 29.931631 5.11438e-24 4.07129e-24 100.138885 nan nan
+i_closest: 18727 1.978040 1.009798 pi_3_8 39.752342 5.57389e-24 4.50969e-24 100.138885 nan nan
+i_largest: 18728 2.024582 1.009798 pi_3_8 39.899128 5.66954e-24 4.58791e-24 100.138885 nan nan
+masked: pi_3_8 0
+strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+max_dx: 1.219677 1.234197 pi_3_8 60.948753 7.05319e-24 5.80542e-24 100.135559 nan nan -1e-08
+largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+largest: 1.793379 -0.211933 pi_3_8 42.918507 7.81776e-24 6.34825e-24 100.138885 nan nan -1e-08
+max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2 spindown
+max_band: 0 1.793379 -0.211933 pi_3_8 42.918507 7.81776e-24 100.138885 nan nan -1e-08
+masked_max_band: 0 1.793379 -0.211933 pi_3_8 42.918507 7.81776e-24 100.138885 nan nan -1e-08
+max_ratio: 0 pi_3_8 0.000000 -1e-08
+max_band: 1 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 1 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 1 pi_3_8 NAN NAN
+max_band: 2 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 2 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 2 pi_3_8 NAN NAN
+max_band: 3 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 3 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 3 pi_3_8 NAN NAN
+max_band: 4 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 4 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 4 pi_3_8 NAN NAN
+max_band: 5 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 5 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 5 pi_3_8 NAN NAN
+max_band: 6 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 6 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 6 pi_3_8 NAN NAN
+max_band: 7 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 7 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 7 pi_3_8 NAN NAN
+max_band: 8 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 8 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 8 pi_3_8 NAN NAN
+max_band: 9 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 9 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 9 pi_3_8 NAN NAN
+max_band: 10 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+masked_max_band: 10 NAN NAN pi_3_8 NAN NAN NAN NAN NAN NAN
+max_ratio: 10 pi_3_8 NAN NAN
+histogram: band min max counts..
+hist_pi_3_8_max_upper_strain: 0 1.91067e-24 7.81776e-24 2 14 30 53 82 91 116 99 130 101 105 110 96 111 121 149 149 145 119 148 121 147 147 140 148 154 167 142 162 193 182 162 174 185 193 178 163 174 193 188 188 199 194 236 214 189 176 210 181 184 173 159 157 181 166 188 186 220 176 191 153 181 172 194 165 136 174 183 203 173 161 172 168 152 171 147 144 159 183 169 139 153 169 160 153 154 168 158 141 170 149 156 158 148 161 152 183 182 165 186 163 168 149 162 156 147 163 135 129 135 129 105 104 103 103 121 109 119 88 93 108 110 109 101 107 122 95 109 105 72 75 81 62 71 80 53 63 56 51 43 38 33 31 26 16 11 5 11 16 14 9 12 9 15 8 12 15 13 15 12 4 6 9 12 5 6 9 7 7 5 6 4 5 5 7 5 2 2 0 3 5 1 1 2 2 1 0 1 0 2 2 0 2 2 1 0 1 0 1 1
+hist_pi_3_8_max_upper_strain: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_pi_3_8_max_upper_strain: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+histogram: band min max counts..
+hist_circular_ks_test: 0 0.0134533 0.0769954 1 2 2 3 1 1 2 6 5 4 7 6 7 7 10 14 26 21 22 23 35 33 44 50 43 58 62 50 69 73 60 72 81 89 89 86 115 107 117 121 112 101 108 113 140 168 126 149 125 172 161 191 141 156 151 187 182 189 228 181 198 174 184 191 227 182 190 217 214 223 234 208 191 196 203 220 262 253 193 218 227 254 275 256 240 225 246 236 240 316 241 221 244 220 263 318 228 223 225 218 219 246 236 198 207 209 216 212 197 188 160 156 169 164 176 132 131 114 120 140 138 123 104 110 96 91 111 105 103 82 83 84 86 69 70 65 47 61 56 67 52 58 50 56 58 65 43 41 44 48 39 31 25 35 32 43 30 30 28 19 23 17 30 17 22 16 21 15 18 12 14 13 17 10 8 11 11 7 6 5 9 2 5 10 5 9 6 1 3 6 3 3 2 1 0 0 0 0 0 1
+hist_circular_ks_test: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_ks_test: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+Interesting points: index longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2
+18295 1.976499 0.934998 circular 110.389366 7.12837e-24 5.95247e-24 100.138885 nan nan
+18296 2.018109 0.934998 circular 99.664742 6.85835e-24 5.71606e-24 100.139442 nan nan
+18297 2.059720 0.934998 circular 105.837990 7.16329e-24 5.97706e-24 100.139442 nan nan
+18443 1.928288 0.959931 circular 102.804993 6.96569e-24 5.80901e-24 100.138885 nan nan
+18444 1.971620 0.959931 circular 116.610603 7.49381e-24 6.26356e-24 100.138885 nan nan
+18445 2.014952 0.959931 circular 119.757744 7.46541e-24 6.24258e-24 100.138885 nan nan
+18446 2.058285 0.959931 circular 96.200859 6.82924e-24 5.68776e-24 100.138885 nan nan
+18447 2.101617 0.959931 circular 95.386238 6.83027e-24 5.68764e-24 100.139442 nan nan
+18586 1.893868 0.984864 circular 85.120247 6.33885e-24 5.26535e-24 100.138885 nan nan
+18587 1.938429 0.984864 circular 112.617142 7.28185e-24 6.08277e-24 100.138885 nan nan
+18588 1.982991 0.984864 circular 132.048203 7.80722e-24 6.53835e-24 100.138885 nan nan
+18589 2.027553 0.984864 circular 125.921890 7.66896e-24 6.41793e-24 100.138885 nan nan
+18590 2.072114 0.984864 circular 100.524727 6.96941e-24 5.8096e-24 100.138885 nan nan
+18591 2.116676 0.984864 circular 84.359596 6.48449e-24 5.38521e-24 100.139442 nan nan
+18725 1.884956 1.009798 circular 90.209030 6.5283e-24 5.42977e-24 100.138336 nan nan
+18726 1.931498 1.009798 circular 105.602516 7.01819e-24 5.85575e-24 100.138885 nan nan
+18727 1.978040 1.009798 circular 128.951385 7.75208e-24 6.48986e-24 100.138885 nan nan
+18728 2.024582 1.009798 circular 126.828186 7.7878e-24 6.51811e-24 100.138885 nan nan
+18729 2.071124 1.009798 circular 111.917107 7.17126e-24 5.98974e-24 100.138885 nan nan
+18730 2.117666 1.009798 circular 78.332878 6.23882e-24 5.17193e-24 100.138885 nan nan
+18858 1.875214 1.034731 circular 97.518471 6.83282e-24 5.69232e-24 100.138336 nan nan
+18859 1.923921 1.034731 circular 98.722023 6.835e-24 5.69552e-24 100.138336 nan nan
+18860 1.972628 1.034731 circular 113.998947 7.36618e-24 6.15451e-24 100.138885 nan nan
+18861 2.021335 1.034731 circular 123.386765 7.57805e-24 6.33982e-24 100.138885 nan nan
+18862 2.070042 1.034731 circular 106.107239 7.19589e-24 6.00455e-24 100.138885 nan nan
+18863 2.118748 1.034731 circular 82.257721 6.31364e-24 5.24021e-24 100.138885 nan nan
+18987 1.935221 1.059664 circular 108.469025 7.19985e-24 6.01027e-24 100.138336 nan nan
+18988 1.985487 1.059664 circular 100.647026 6.91451e-24 5.76397e-24 100.138885 nan nan
+18989 2.035752 1.059664 circular 104.620361 7.05161e-24 5.88261e-24 100.138885 nan nan
+18990 2.086018 1.059664 circular 89.853455 6.66155e-24 5.54012e-24 100.138885 nan nan
+i_closest: 18727 1.978040 1.009798 circular 128.951385 7.75208e-24 6.48986e-24 100.138885 nan nan
+i_largest: 18588 1.982991 0.984864 circular 132.048203 7.80722e-24 6.53835e-24 100.138885 nan nan
+masked: circular 0
+strongest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+max_dx: 1.982991 0.984864 circular 132.048203 7.80722e-24 6.53835e-24 100.138885 nan nan -1e-08
+largest signal: longitude latitude pol max_dx upper_strain lower_strain freq beta1 beta2 spindown
+largest: 1.864930 -0.087266 circular 78.901634 7.83821e-24 6.49898e-24 100.139442 nan nan -1e-08
+max/masked band format: band_num longitude latitude pol max_dx upper_strain freq beta1 beta2 spindown
+max_band: 0 1.864930 -0.087266 circular 78.901634 7.83821e-24 100.139442 nan nan -1e-08
+masked_max_band: 0 1.864930 -0.087266 circular 78.901634 7.83821e-24 100.139442 nan nan -1e-08
+max_ratio: 0 circular 0.000000 -1e-08
+max_band: 1 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 1 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 1 circular NAN NAN
+max_band: 2 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 2 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 2 circular NAN NAN
+max_band: 3 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 3 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 3 circular NAN NAN
+max_band: 4 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 4 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 4 circular NAN NAN
+max_band: 5 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 5 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 5 circular NAN NAN
+max_band: 6 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 6 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 6 circular NAN NAN
+max_band: 7 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 7 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 7 circular NAN NAN
+max_band: 8 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 8 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 8 circular NAN NAN
+max_band: 9 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 9 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 9 circular NAN NAN
+max_band: 10 NAN NAN circular NAN NAN NAN NAN NAN NAN
+masked_max_band: 10 NAN NAN circular NAN NAN NAN NAN NAN NAN
+max_ratio: 10 circular NAN NAN
+histogram: band min max counts..
+hist_circular_max_upper_strain: 0 1.83768e-24 7.83821e-24 4 19 18 19 24 32 34 32 35 53 47 46 56 58 59 63 90 114 122 159 160 196 168 169 174 172 164 160 176 164 181 195 208 205 217 205 220 225 248 235 215 210 219 242 250 235 272 294 337 360 386 428 421 398 414 388 361 326 321 311 298 264 303 266 278 289 269 261 220 224 174 196 205 200 208 172 192 195 193 186 195 177 174 157 171 148 139 133 161 109 109 97 93 75 84 63 64 76 64 64 48 46 65 47 51 53 46 46 54 49 44 56 48 37 40 35 31 43 39 46 27 34 30 34 24 30 24 29 23 32 31 32 14 23 24 31 19 25 25 22 30 16 26 24 23 20 26 15 21 15 25 16 22 16 14 11 10 16 16 7 18 10 16 9 15 12 14 12 9 11 11 12 2 5 4 4 5 9 3 3 0 8 6 6 5 3 3 5 3 3 1 2 0 0 2 1 2 2 3 1
+hist_circular_max_upper_strain: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_circular_max_upper_strain: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+band SNR: band band_name max_dx pol freq ra dec pt_index spindown
+max_dx_band: 0 "S_0" 161.203934 "pi_1_8" 100.138885 1.978040 1.009798 18727 -1e-08
+max_dx_band: 1 "S_1" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 2 "S_2" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 3 "S_3" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 4 "S_4" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 5 "S_5" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 6 "S_6" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 7 "S_7" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 8 "S_8" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 9 "S_9" NaN NaN NaN NaN NaN -1 -1e-08
+max_dx_band: 10 "S_10" NaN NaN NaN NaN NaN -1 -1e-08
+max_high_ul legend: RA DEC high_ul freq
+max_high_ul: 1.889962 0.087266 1.24195e-23 100.139999 -1e-08
+max_circ_ul legend: RA DEC circ_ul freq
+max_circ_ul: 0.628319 -1.558330 2.52301e-16 99999997781963083612160.000000 -1e-08
+histogram: band min max counts..
+hist_high_ul: 0 2.52088e-24 1.24195e-23 9 25 62 67 76 89 111 142 125 130 144 127 155 183 154 163 157 165 147 180 173 230 229 232 252 247 245 248 254 238 221 243 193 261 223 280 268 291 344 350 355 363 406 351 416 421 391 366 341 317 325 290 240 249 215 194 195 204 166 203 193 190 167 204 191 176 178 164 175 149 141 165 183 178 158 158 156 146 155 146 127 124 150 126 111 92 88 78 74 90 84 73 79 66 76 72 78 53 68 65 62 47 44 51 49 47 44 48 43 51 28 43 46 48 34 37 41 28 39 30 31 28 30 30 27 33 23 26 29 29 20 34 20 20 26 31 21 24 16 21 23 16 7 11 14 23 14 13 14 18 14 13 12 7 18 10 14 5 5 10 5 7 6 5 4 5 2 7 2 1 3 3 2 6 3 4 0 4 2 3 1 2 2 0 1 1 2 1 2 2 0 2 2 0 1 1 0 0 2 2
+hist_high_ul: 1 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 2 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 3 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 4 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 5 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 6 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 7 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 8 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 9 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+hist_high_ul: 10 -1e+06 -2e+06 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+band upper limits: band UL freq
+max_high_ul_band: 0 1.24195e-23 100.139999 -1e-08
+max_circ_ul_band: 0 2.52301e-16 100.000000 -1e-08
+max_high_ul_band: 1 nan 100.000000 -1e-08
+max_circ_ul_band: 1 nan 100.000000 -1e-08
+max_high_ul_band: 2 nan 100.000000 -1e-08
+max_circ_ul_band: 2 nan 100.000000 -1e-08
+max_high_ul_band: 3 nan 100.000000 -1e-08
+max_circ_ul_band: 3 nan 100.000000 -1e-08
+max_high_ul_band: 4 nan 100.000000 -1e-08
+max_circ_ul_band: 4 nan 100.000000 -1e-08
+max_high_ul_band: 5 nan 100.000000 -1e-08
+max_circ_ul_band: 5 nan 100.000000 -1e-08
+max_high_ul_band: 6 nan 100.000000 -1e-08
+max_circ_ul_band: 6 nan 100.000000 -1e-08
+max_high_ul_band: 7 nan 100.000000 -1e-08
+max_circ_ul_band: 7 nan 100.000000 -1e-08
+max_high_ul_band: 8 nan 100.000000 -1e-08
+max_circ_ul_band: 8 nan 100.000000 -1e-08
+max_high_ul_band: 9 nan 100.000000 -1e-08
+max_circ_ul_band: 9 nan 100.000000 -1e-08
+max_high_ul_band: 10 nan 100.000000 -1e-08
+max_circ_ul_band: 10 nan 100.000000 -1e-08
+noise_floor: 16.010958
+candidates: label polarization_index rank opt_rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown weight_ratio skyband coherence_score power_cor snr strain strain_err total_weight f_max ifo_freq ifo_freq_sd total
+candidate_initial: "" 2 0 0 161.204 18727 3191 1.10942e-23 1.18503e+06 1.44096e+07 160.417038 100.138885 0.392699 1.570796 1.978040 1.009798 -1e-08 1.000000 0 0.000000 0.713812 216.197922 1.93507e-23 4.47522e-06 30.349335 100.138885 100.062773 68.613129 177
+candidate_initial: "" 2 1 0 154.556 17983 379 1.06864e-23 1.14622e+06 1.47431e+07 143.800842 100.139442 0.392699 1.570796 2.009839 0.885131 -1e-08 1.000000 0 0.000000 0.634727 170.871643 1.78003e-23 5.20869e-06 28.753269 100.139442 100.062827 68.536629 177
+candidate_initial: "" 2 2 0 126.966 16743 908 9.99166e-24 1.21646e+06 1.64926e+07 121.604973 100.139999 0.392699 1.570796 1.990224 0.710598 -1e-08 1.000000 0 0.000000 0.516189 126.912582 1.57657e-23 6.21123e-06 24.041784 100.139999 100.062923 68.210060 177
+candidate_initial: "" 2 3 0 99.1268 15084 1080 9.91247e-24 1.52697e+06 1.88314e+07 95.718811 100.140556 0.392699 1.570796 1.975934 0.511132 -1e-08 1.000000 0 0.000000 0.435295 102.275345 1.55021e-23 7.5786e-06 17.224268 100.140556 100.063130 68.095695 177
+candidate_initial: "" 4 4 0 79.983 7976 1208 7.71854e-24 1.14215e+06 1.77398e+07 79.759087 100.138885 0.000000 0.000000 1.793379 -0.211933 -1e-08 1.000000 0 0.000000 -0.167099 117.811615 6.79709e-24 2.88473e-06 567.490173 100.138885 100.062591 68.582306 177
+candidate_initial: "" 4 5 0 78.9016 9227 254 7.83821e-24 1.19359e+06 1.92556e+07 78.081490 100.139442 0.000000 0.000000 1.864930 -0.087266 -1e-08 1.000000 0 0.000000 -0.095304 90.038773 6.23875e-24 3.46448e-06 501.410370 100.139442 100.062551 68.634567 177
+candidate_initial: "" 2 6 0 76.1103 11248 185 9.54694e-24 1.83402e+06 2.51064e+07 75.766136 100.139999 0.392699 1.570796 1.889962 0.112200 -1e-08 1.000000 0 0.000000 0.158688 75.481529 1.45738e-23 9.65387e-06 10.775379 100.139999 100.062778 68.036301 177
+candidate_initial: "" 4 7 0 39.4033 9210 143 5.53156e-24 1.1621e+06 1.92788e+07 39.376732 100.135559 0.000000 0.000000 1.439375 -0.087266 -1e-08 1.000000 0 0.000000 0.045412 45.924183 4.49412e-24 4.89298e-06 501.679596 100.135559 100.060935 65.478073 177
+candidate_initial: "" 4 8 0 37.8729 10472 131 5.37328e-24 1.13867e+06 1.9567e+07 37.390789 100.135002 0.000000 0.000000 1.403162 0.037400 -1e-08 1.000000 0 0.000000 0.053454 40.908367 4.46948e-24 5.46279e-06 490.360596 100.135002 100.060390 64.802734 177
+candidate_initial: "" 0 9 0 36.5288 11231 27 9.73967e-24 3.87184e+06 4.32531e+07 35.390244 100.135559 0.000000 1.570796 1.464408 0.112200 -1e-08 1.000000 0 0.000000 0.169491 39.646198 1.55017e-23 1.95501e-05 3.344653 100.135559 100.060485 64.860107 177
+candidate_initial: "" 0 10 0 36.1029 12228 30 8.91509e-24 3.2803e+06 3.51611e+07 34.823353 100.135002 0.000000 1.570796 1.411809 0.211933 -1e-08 1.000000 0 0.000000 0.192326 37.160618 1.47844e-23 1.98925e-05 4.514625 100.135002 100.060125 64.344933 177
+candidate_initial: "" 0 11 0 35.9708 11226 57 9.70983e-24 3.90476e+06 4.34838e+07 34.242451 100.134445 0.000000 1.570796 1.339245 0.112200 -1e-08 1.000000 0 0.000000 0.142789 37.769054 1.59283e-23 2.10864e-05 3.344269 100.134445 100.060126 64.203117 177
+candidate_initial: "" 0 12 0 34.9207 12478 34 8.43423e-24 3.03008e+06 3.35805e+07 33.737621 100.135559 0.000000 1.570796 1.500271 0.236866 -1e-08 1.000000 0 0.000000 0.195279 36.470432 1.39931e-23 1.91842e-05 4.927609 100.135559 100.060156 64.810005 177
+candidate_initial: "" 2 13 0 33.8809 11171 171 6.75313e-24 1.99891e+06 2.53898e+07 32.871826 100.125000 0.392699 1.570796 6.245636 0.087266 -1e-08 1.000000 0 0.000000 0.206850 24.125559 1.02471e-23 2.1237e-05 10.878217 100.125000 100.058717 68.265190 177
+candidate_initial: "" 4 14 0 33.7909 12469 271 5.00184e-24 1.09935e+06 1.7517e+07 32.439613 100.133888 0.000000 0.000000 1.269460 0.236866 -1e-08 1.000000 0 0.000000 0.035949 34.372456 4.04013e-24 5.87699e-06 586.271423 100.133888 100.059843 63.756924 177
+candidate_initial: "" 2 15 0 32.8261 12668 130 6.63915e-24 1.99059e+06 2.5295e+07 32.609306 100.126114 0.392699 1.570796 0.089760 0.261799 -1e-08 1.000000 0 0.000000 0.190548 26.049086 1.01427e-23 1.94684e-05 11.434465 100.126114 100.058880 66.704155 177
+candidate_initial: "" 2 16 0 32.4384 12419 155 6.65623e-24 2.0234e+06 2.51329e+07 31.935030 100.125557 0.392699 1.570796 6.270466 0.211933 -1e-08 1.000000 0 0.000000 0.207057 24.477325 1.00882e-23 2.06072e-05 10.954649 100.125557 100.058847 67.682228 177
+candidate_initial: "" 2 17 0 31.8589 8894 168 6.21321e-24 1.79323e+06 1.94191e+07 31.093670 100.123886 0.392699 1.570796 6.095441 -0.137133 -1e-08 1.000000 0 0.000000 0.186316 22.396294 8.89433e-24 1.98567e-05 14.209032 100.123886 100.058416 70.619179 177
+candidate_initial: "" 0 18 0 31.6425 6464 134 7.11133e-24 2.36425e+06 2.43683e+07 30.711407 100.126114 0.000000 1.570796 0.225346 -0.361532 -1e-08 1.000000 0 0.000000 0.155011 19.871754 9.65961e-24 2.43049e-05 7.693242 100.126114 100.059230 68.255051 177
+candidate_initial: "" 2 19 0 31.5795 7900 133 5.86665e-24 1.61208e+06 1.70009e+07 31.417400 100.123886 0.392699 1.570796 6.142134 -0.236866 -1e-08 1.000000 0 0.000000 0.192031 24.600636 8.94714e-24 1.81848e-05 16.708445 100.123886 100.058377 70.619011 177
+candidate_initial: "" 2 20 0 31.3811 9155 60 6.27331e-24 1.85428e+06 2.17716e+07 31.260456 100.125000 0.392699 1.570796 0.062582 -0.087266 -1e-08 1.000000 0 0.000000 0.184380 24.095015 9.57594e-24 1.98712e-05 13.163656 100.125000 100.058705 68.032379 177
+candidate_initial: "" 2 21 0 31.2332 9648 240 6.33967e-24 1.90216e+06 2.24165e+07 31.025623 100.123886 0.392699 1.570796 6.072090 -0.062333 -1e-08 1.000000 0 0.000000 0.190477 23.297396 9.31412e-24 1.99896e-05 12.684646 100.123886 100.058368 70.540359 177
+candidate_initial: "" 2 22 0 31.1272 13399 70 6.37354e-24 1.9287e+06 2.44515e+07 31.089174 100.126663 0.392699 1.570796 0.144592 0.336599 -1e-08 1.000000 0 0.000000 0.169823 26.610920 9.83045e-24 1.84707e-05 12.633596 100.126663 100.058962 66.170242 177
+candidate_initial: "" 2 23 0 31.0425 12672 11 6.54144e-24 2.03687e+06 2.52822e+07 29.281038 100.126663 0.392699 1.570796 0.192342 0.261799 -1e-08 1.000000 0 0.000000 0.179188 26.302490 1.00184e-23 1.90446e-05 11.436560 100.126663 100.059006 65.917274 177
+candidate_initial: "" 2 24 0 30.4299 9149 17 6.09663e-24 1.80274e+06 2.11451e+07 30.131039 100.124443 0.392699 1.570796 6.195571 -0.112200 -1e-08 1.000000 0 0.000000 0.161877 19.498432 8.43331e-24 2.16256e-05 13.664519 100.124443 100.058687 69.514999 177
+candidate_initial: "" 0 25 0 30.3902 4669 312 6.09427e-24 1.80355e+06 1.91018e+07 30.364534 100.126663 0.000000 1.570796 0.336077 -0.560999 -1e-08 1.000000 0 0.000000 0.166370 27.036322 9.40459e-24 1.73925e-05 14.543617 100.126663 100.059209 69.026421 177
+candidate_initial: "" 0 26 0 30.0825 8159 128 8.22822e-24 3.31931e+06 3.70486e+07 30.061562 100.125557 0.000000 1.570796 0.164019 -0.187000 -1e-08 1.000000 0 0.000000 0.159363 24.554737 1.24292e-23 2.53092e-05 4.121946 100.125557 100.058846 67.690956 177
+candidate_initial: "" 2 27 0 30.0472 13166 126 6.21511e-24 1.89589e+06 2.47728e+07 29.934055 100.127777 0.392699 1.570796 0.351963 0.311666 -1e-08 1.000000 0 0.000000 0.150771 26.227186 9.40698e-24 1.79337e-05 12.177049 100.127777 100.059209 64.818779 177
+candidate_initial: "" 2 28 0 29.9653 14345 104 5.98495e-24 1.76258e+06 2.0851e+07 29.915159 100.127777 0.392699 1.570796 0.260656 0.436332 -1e-08 1.000000 0 0.000000 0.151246 26.071310 9.01315e-24 1.72856e-05 15.049711 100.127777 100.059229 65.331451 177
+candidate_initial: "" 2 29 0 29.952 12431 25 6.44105e-24 2.04231e+06 2.50585e+07 29.717587 100.127220 0.392699 1.570796 0.294925 0.236866 -1e-08 1.000000 0 0.000000 0.154294 24.037140 9.53405e-24 1.98319e-05 11.168467 100.127220 100.059160 65.254723 177
+candidate_initial: "" 2 30 0 29.7876 11165 153 6.40383e-24 2.02923e+06 2.5344e+07 29.260805 100.124443 0.392699 1.570796 6.095441 0.087266 -1e-08 1.000000 0 0.000000 0.167383 20.382420 9.0887e-24 2.22954e-05 10.879264 100.124443 100.058570 69.733185 177
+candidate_initial: "" 3 31 0 29.1847 609 137 5.03395e-24 1.27819e+06 1.6307e+07 28.614676 100.124443 1.178097 1.570796 5.063508 -1.234197 -1e-08 1.000000 0 0.000000 0.204189 24.652662 7.62345e-24 1.54617e-05 29.458397 100.124443 100.055789 80.579681 177
+candidate_initial: "" 3 32 0 29.0674 10783 510 5.90534e-24 1.76566e+06 2.24693e+07 27.663206 100.147224 1.178097 1.570796 2.843576 0.062333 -1e-08 1.000000 0 0.000000 0.170593 21.580515 9.219e-24 2.13595e-05 12.686900 100.147224 100.068903 78.458191 177
+candidate_initial: "" 2 33 0 28.9338 15461 144 5.53871e-24 1.55995e+06 1.80376e+07 28.726637 100.128334 0.392699 1.570796 0.248405 0.560999 -1e-08 1.000000 0 0.000000 0.139403 27.800268 8.54019e-24 1.53599e-05 19.028471 100.128334 100.059368 65.496559 177
+candidate_initial: "" 0 34 0 28.7371 2908 150 5.23287e-24 1.40134e+06 1.52527e+07 28.177132 100.126114 0.000000 1.570796 0.193059 -0.785398 -1e-08 1.000000 0 0.000000 0.165590 25.894766 8.17509e-24 1.57852e-05 23.469572 100.126114 100.058843 71.722267 177
+candidate_initial: "" 0 35 0 28.656 6934 14 7.39855e-24 2.80871e+06 2.78942e+07 28.071787 100.125000 0.000000 1.570796 0.065178 -0.311666 -1e-08 1.000000 0 0.000000 0.154296 22.245966 1.0738e-23 2.41347e-05 6.424332 100.125000 100.058750 69.197586 177
+candidate_initial: "" 2 36 0 28.4331 386 58 5.1028e-24 1.34588e+06 1.70066e+07 27.440783 100.126114 0.392699 1.570796 6.048738 -1.308997 -1e-08 1.000000 0 0.000000 0.191921 25.890640 7.75971e-24 1.49856e-05 28.652422 100.126114 100.057394 77.459259 177
+candidate_initial: "" 2 37 0 27.9325 9922 15 5.99613e-24 1.88948e+06 2.36398e+07 25.248484 100.126663 0.392699 1.570796 0.310434 -0.012467 -1e-08 1.000000 0 0.000000 0.122920 23.151310 9.07172e-24 1.95922e-05 11.906501 100.126663 100.059125 65.837189 177
+candidate_initial: "" 0 38 0 27.9321 721 66 4.89911e-24 1.26137e+06 1.53301e+07 27.254623 100.127220 0.000000 1.570796 0.297625 -1.184331 -1e-08 1.000000 0 0.000000 0.141245 29.459688 7.54113e-24 1.27991e-05 29.612127 100.127220 100.058463 75.008377 177
+candidate_initial: "" 2 39 0 27.7858 245 249 4.99602e-24 1.31821e+06 1.78252e+07 27.166513 100.125557 0.392699 1.570796 4.445650 -1.358863 -1e-08 1.000000 0 0.000000 0.136305 23.951954 7.41213e-24 1.54729e-05 28.041355 100.125557 100.055547 80.893669 177
+candidate_initial: "" 4 40 0 27.7856 5759 52 4.16071e-24 914271 1.38046e+07 27.039404 100.124443 0.000000 0.000000 6.241666 -0.461266 -1e-08 1.000000 0 0.000000 0.085947 21.157379 3.05459e-24 7.21874e-06 828.234009 100.124443 100.058502 71.013641 177
+candidate_initial: "" 1 41 0 27.5758 708 53 5.04302e-24 1.35268e+06 1.57989e+07 26.998919 100.125000 0.785398 1.570796 5.696294 -1.209264 -1e-08 1.000000 0 0.000000 0.187584 24.163801 7.37662e-24 1.52638e-05 30.367620 100.125000 100.057004 78.288200 177
+candidate_initial: "" 2 42 0 27.5192 1246 64 5.01405e-24 1.33975e+06 1.40386e+07 27.121338 100.125000 0.392699 1.570796 5.992786 -1.084597 -1e-08 1.000000 0 0.000000 0.198240 27.344810 7.61917e-24 1.39317e-05 31.608046 100.125000 100.057581 76.500275 177
+candidate_initial: "" 0 43 0 27.5136 121 35 5.0286e-24 1.34779e+06 1.82724e+07 26.555370 100.127220 0.000000 1.570796 0.229873 -1.408730 -1e-08 1.000000 0 0.000000 0.123600 24.727903 7.42305e-24 1.50095e-05 27.390078 100.127220 100.057608 77.295006 177
+candidate_initial: "" 1 44 0 27.3096 190 69 5.02686e-24 1.35625e+06 1.80089e+07 26.578259 100.126114 0.785398 1.570796 3.943702 -1.383797 -1e-08 1.000000 0 0.000000 0.148641 25.745275 7.87822e-24 1.53003e-05 27.780283 100.126114 100.055410 80.776192 177
+candidate_initial: "" 0 45 0 27.2091 20 111 4.95703e-24 1.32338e+06 1.88762e+07 26.601707 100.127777 0.000000 1.570796 1.663196 -1.508463 -1e-08 1.000000 0 0.000000 0.092725 24.115946 7.48793e-24 1.55248e-05 26.698793 100.127777 100.057096 78.221069 177
+candidate_initial: "" 0 46 0 27.0973 1932 30 4.9324e-24 1.3153e+06 1.40602e+07 26.074287 100.126663 0.000000 1.570796 0.228858 -0.934998 -1e-08 1.000000 0 0.000000 0.130194 24.853777 7.54301e-24 1.51748e-05 27.858410 100.126663 100.058891 72.866623 177
+candidate_initial: "" 2 47 0 27.0923 909 18 5.01246e-24 1.35858e+06 1.45969e+07 26.955137 100.125557 0.392699 1.570796 6.065451 -1.159397 -1e-08 1.000000 0 0.000000 0.185408 27.123812 7.5835e-24 1.39794e-05 30.764263 100.125557 100.057686 76.571442 177
+candidate_initial: "" 2 48 0 26.8306 16099 28 5.07939e-24 1.40778e+06 1.74385e+07 26.562544 100.129448 0.392699 1.570796 0.417847 0.635799 -1e-08 1.000000 0 0.000000 0.101704 28.106462 8.14001e-24 1.44807e-05 21.652229 100.129448 100.059465 64.784286 177
+candidate_initial: "" 1 49 0 26.6357 59 29 4.94259e-24 1.34205e+06 1.85754e+07 26.266617 100.127777 0.785398 1.570796 0.758315 -1.458597 -1e-08 1.000000 0 0.000000 0.108478 24.670879 7.45021e-24 1.50992e-05 27.004457 100.127777 100.057549 77.486282 177
+candidate_initial: "" 3 50 0 26.609 549 61 4.62936e-24 1.17845e+06 1.61886e+07 26.391844 100.128334 1.178097 1.570796 0.628319 -1.234197 -1e-08 1.000000 0 0.000000 0.108208 26.274778 7.29049e-24 1.38736e-05 29.524912 100.128334 100.058725 74.943436 177
+candidate_initial: "" 1 51 0 26.5228 1493 27 4.84377e-24 1.29404e+06 1.33217e+07 26.043612 100.123886 0.785398 1.570796 5.674349 -1.034731 -1e-08 1.000000 0 0.000000 0.201544 26.874693 7.4538e-24 1.38677e-05 33.046677 100.123886 100.056868 78.030060 177
+candidate_initial: "" 1 52 0 26.4643 2062 60 4.75351e-24 1.24883e+06 1.2729e+07 26.105211 100.123337 0.785398 1.570796 5.638223 -0.934998 -1e-08 1.000000 0 0.000000 0.198452 26.415680 7.35059e-24 1.39133e-05 33.941143 100.123337 100.056792 78.033218 177
+candidate_initial: "" 2 53 0 26.3539 1774 22 4.83927e-24 1.29934e+06 1.35069e+07 25.265779 100.124443 0.392699 1.570796 5.948973 -0.984864 -1e-08 1.000000 0 0.000000 0.202517 26.474072 7.52629e-24 1.42145e-05 32.212368 100.124443 100.057550 76.245613 177
+candidate_initial: "" 2 54 0 26.2999 2391 38 4.68754e-24 1.22147e+06 1.18949e+07 25.752279 100.125000 0.392699 1.570796 6.185620 -0.885131 -1e-08 1.000000 0 0.000000 0.173981 25.942144 7.46568e-24 1.43891e-05 32.035912 100.125000 100.058242 74.189125 177
+candidate_initial: "" 2 55 0 26.0713 983 340 4.89903e-24 1.34505e+06 1.44981e+07 24.874834 100.124443 0.392699 1.570796 4.139856 -1.134464 -1e-08 1.000000 0 0.000000 0.162736 23.298815 7.29522e-24 1.56558e-05 31.230442 100.124443 100.053868 83.132614 177
+candidate_initial: "" 0 56 0 26.0704 2683 136 5.1641e-24 1.49459e+06 1.50034e+07 25.850574 100.122223 0.000000 1.570796 4.628737 -0.835265 -1e-08 1.000000 0 0.000000 0.199636 22.967617 7.70333e-24 1.677e-05 25.256121 100.122223 100.053555 84.166740 177
+candidate_initial: "" 0 57 0 26.0025 888 45 4.96102e-24 1.3827e+06 1.52394e+07 25.467686 100.123886 0.000000 1.570796 4.759046 -1.159397 -1e-08 1.000000 0 0.000000 0.189694 24.364098 7.5485e-24 1.5491e-05 29.769516 100.123886 100.054961 81.927658 177
+candidate_initial: "" 3 58 0 25.9272 2054 73 4.82719e-24 1.31264e+06 1.47855e+07 25.005276 100.122780 1.178097 1.570796 5.305338 -0.934998 -1e-08 1.000000 0 0.000000 0.185536 23.100136 7.13643e-24 1.54467e-05 29.593554 100.122780 100.055896 80.228600 177
+candidate_initial: "" 3 59 0 25.8548 1484 38 4.87047e-24 1.33976e+06 1.46486e+07 25.299967 100.123337 1.178097 1.570796 5.235988 -1.034731 -1e-08 1.000000 0 0.000000 0.197347 21.256109 6.96495e-24 1.63834e-05 30.462795 100.123337 100.055900 80.496582 177
+candidate_initial: "" 0 60 0 25.7462 1469 40 5.05467e-24 1.44868e+06 1.4019e+07 25.331430 100.123337 0.000000 1.570796 4.505385 -1.034731 -1e-08 1.000000 0 0.000000 0.183401 22.333372 7.39776e-24 1.65621e-05 29.484324 100.123337 100.053948 83.427025 177
+candidate_initial: "" 0 61 0 25.7147 1381 15 4.70072e-24 1.25432e+06 1.37733e+07 25.590467 100.126663 0.000000 1.570796 0.219181 -1.034731 -1e-08 1.000000 0 0.000000 0.151806 28.060366 7.6471e-24 1.36262e-05 29.410461 100.126663 100.058600 73.826797 177
+candidate_initial: "" 3 62 0 25.6003 4207 196 5.11973e-24 1.49408e+06 1.76545e+07 24.737190 100.121666 1.178097 1.570796 5.277256 -0.635799 -1e-08 1.000000 0 0.000000 0.169395 21.636181 7.46096e-24 1.72419e-05 21.494490 100.121666 100.055702 80.428162 177
+candidate_initial: "" 0 63 0 25.597 1745 52 5.05169e-24 1.4548e+06 1.40167e+07 25.298307 100.122780 0.000000 1.570796 4.656687 -0.984864 -1e-08 1.000000 0 0.000000 0.196967 24.420435 7.66603e-24 1.56959e-05 28.857288 100.122780 100.053988 83.305267 177
+candidate_initial: "" 1 64 0 25.5921 332 187 4.55524e-24 1.18313e+06 1.69532e+07 25.426584 100.128891 0.785398 1.570796 0.984678 -1.308997 -1e-08 1.000000 0 0.000000 0.060982 23.742867 6.9023e-24 1.45355e-05 28.857262 100.128891 100.058489 75.675003 177
+candidate_initial: "" 1 65 0 25.5461 2884 70 4.70249e-24 1.26296e+06 1.20758e+07 24.949804 100.122780 0.785398 1.570796 5.618963 -0.810331 -1e-08 1.000000 0 0.000000 0.194964 25.978985 7.21335e-24 1.38831e-05 33.978638 100.122780 100.056747 77.885635 177
+candidate_initial: "" 1 66 0 25.4689 1763 7 4.90754e-24 1.37937e+06 1.30169e+07 25.034286 100.123337 0.785398 1.570796 5.458796 -0.984864 -1e-08 1.000000 0 0.000000 0.210985 23.779011 7.10802e-24 1.4946e-05 33.593781 100.123337 100.056408 79.266998 177
+candidate_initial: "" 0 67 0 25.4143 1792 69 4.68904e-24 1.26179e+06 1.39592e+07 25.308977 100.127777 0.000000 1.570796 0.454989 -0.959931 -1e-08 1.000000 0 0.000000 0.093147 26.445887 7.36464e-24 1.3924e-05 28.369160 100.127777 100.059262 72.262062 177
+candidate_initial: "" 3 68 0 25.0142 3105 184 4.79501e-24 1.33904e+06 1.56602e+07 24.989113 100.129997 1.178097 1.570796 0.806857 -0.760465 -1e-08 1.000000 0 0.000000 0.051278 27.450163 7.41948e-24 1.35145e-05 25.731136 100.129997 100.060154 69.384583 177
+candidate_initial: "" 2 69 0 24.9639 1098 14 4.81496e-24 1.35273e+06 1.42763e+07 24.049479 100.123886 0.392699 1.570796 4.364868 -1.109531 -1e-08 1.000000 0 0.000000 0.167080 24.422134 7.38801e-24 1.51256e-05 31.514740 100.123886 100.053983 83.175919 177
+candidate_initial: "" 2 70 0 24.932 2722 31 4.6816e-24 1.28035e+06 1.18117e+07 24.282953 100.124443 0.392699 1.570796 6.078703 -0.835265 -1e-08 1.000000 0 0.000000 0.181652 24.328253 7.38061e-24 1.51688e-05 31.630939 100.124443 100.058046 74.570786 177
+candidate_initial: "" 3 71 0 24.71 3054 40 4.83414e-24 1.3765e+06 1.57375e+07 24.660082 100.122223 1.178097 1.570796 5.317892 -0.785398 -1e-08 1.000000 0 0.000000 0.166494 21.338316 7.04546e-24 1.65089e-05 26.349804 100.122223 100.055924 80.179794 177
+candidate_initial: "" 0 72 0 24.7013 3788 222 5.41196e-24 1.7258e+06 1.68687e+07 24.660728 100.121666 0.000000 1.570796 4.688223 -0.685665 -1e-08 1.000000 0 0.000000 0.185750 22.995789 8.03882e-24 1.74789e-05 19.705046 100.121666 100.053420 84.454880 177
+candidate_initial: "" 4 73 0 24.5494 343 208 3.51999e-24 734255 1.37258e+07 23.630728 100.129448 0.000000 0.000000 2.016246 -1.308997 -1e-08 1.000000 0 0.000000 -0.152769 23.205780 2.73014e-24 5.88246e-06 1227.181152 100.129448 100.057481 77.235664 177
+candidate_initial: "" 2 74 0 24.4746 4233 41 4.9004e-24 1.42709e+06 1.10816e+07 23.878603 100.123886 0.392699 1.570796 6.082000 -0.635799 -1e-08 1.000000 0 0.000000 0.187925 23.383898 7.66552e-24 1.63906e-05 28.106960 100.123886 100.058096 73.359467 177
+candidate_initial: "" 4 75 0 24.4445 5079 64 3.95614e-24 931170 1.32726e+07 24.333031 100.123337 0.000000 0.000000 5.979160 -0.536065 -1e-08 1.000000 0 0.000000 0.108260 20.994909 2.95705e-24 7.0423e-06 926.380127 100.123337 100.057886 73.773460 177
+candidate_initial: "" 4 76 0 24.4266 6917 139 4.18732e-24 1.04388e+06 1.60045e+07 24.391275 100.122780 0.000000 0.000000 5.901988 -0.336599 -1e-08 1.000000 0 0.000000 0.121357 21.123852 3.20298e-24 7.58143e-06 677.652039 100.122780 100.057654 73.559250 177
+candidate_initial: "" 2 77 0 24.287 15879 30 4.93326e-24 1.45663e+06 1.77968e+07 23.017899 100.127777 0.392699 1.570796 0.015177 0.610865 -1e-08 1.000000 0 0.000000 0.105462 22.016088 7.57091e-24 1.7194e-05 20.769417 100.127777 100.059423 67.079590 177
+candidate_initial: "" 3 78 0 24.1432 6967 118 5.60655e-24 1.89173e+06 2.47326e+07 23.620443 100.131111 1.178097 1.570796 0.925531 -0.311666 -1e-08 1.000000 0 0.000000 0.039731 27.105587 8.88938e-24 1.63977e-05 12.190788 100.131111 100.060144 65.324448 177
+candidate_initial: "" 2 79 0 23.9347 1880 38 4.72451e-24 1.35414e+06 1.24048e+07 23.302916 100.123337 0.392699 1.570796 4.268233 -0.959931 -1e-08 1.000000 0 0.000000 0.158694 21.419130 6.88271e-24 1.60667e-05 32.456749 100.123337 100.053119 84.399971 177
+candidate_initial: "" 3 80 0 23.658 5946 225 5.66912e-24 1.97083e+06 2.11791e+07 22.866617 100.121109 1.178097 1.570796 5.089654 -0.436332 -1e-08 1.000000 0 0.000000 0.171371 21.894266 8.336e-24 1.9037e-05 14.951718 100.121109 100.054885 81.861748 177
+candidate_initial: "" 3 81 0 23.5615 1267 82 4.40846e-24 1.19627e+06 1.44946e+07 23.468733 100.129448 1.178097 1.570796 0.779115 -1.059664 -1e-08 1.000000 0 0.000000 0.068903 21.101738 6.29015e-24 1.49043e-05 30.614922 100.129448 100.059674 72.743340 177
+candidate_initial: "" 1 82 0 23.5147 3620 44 4.7768e-24 1.40711e+06 1.15206e+07 22.754738 100.122223 0.785398 1.570796 5.543019 -0.710598 -1e-08 1.000000 0 0.000000 0.198075 25.671562 7.22798e-24 1.40778e-05 33.038471 100.122223 100.056467 78.285027 177
+candidate_initial: "" 1 83 0 22.7325 1089 120 4.62948e-24 1.36352e+06 1.4649e+07 21.997494 100.125000 0.785398 1.570796 3.864437 -1.109531 -1e-08 1.000000 0 0.000000 0.145285 22.222502 7.0337e-24 1.58256e-05 32.217598 100.125000 100.053568 83.265106 177
+candidate_initial: "" 2 84 0 22.6579 2506 52 4.64697e-24 1.37801e+06 1.19607e+07 22.087196 100.122780 0.392699 1.570796 4.283990 -0.860198 -1e-08 1.000000 0 0.000000 0.147155 22.798786 6.98189e-24 1.5312e-05 32.104832 100.122780 100.052591 85.014244 177
+candidate_initial: "" 2 85 0 22.5923 16873 102 4.57288e-24 1.33798e+06 1.65417e+07 21.535797 100.128334 0.392699 1.570796 6.266737 0.710598 -1e-08 1.000000 0 0.000000 0.076386 21.777418 7.12188e-24 1.63515e-05 24.212585 100.128334 100.059590 67.392464 177
+candidate_initial: "" 2 86 0 22.5601 17597 29 4.49727e-24 1.2958e+06 1.53679e+07 20.744991 100.128891 0.392699 1.570796 6.265234 0.810331 -1e-08 1.000000 0 0.000000 0.061139 25.830164 7.25894e-24 1.40513e-05 27.218142 100.128891 100.059641 67.557617 177
+candidate_initial: "" 1 87 0 22.5201 12690 41 4.90402e-24 1.54332e+06 1.67218e+07 21.945669 100.129448 0.785398 1.570796 0.653964 0.261799 -1e-08 1.000000 0 0.000000 0.075760 23.851534 7.62053e-24 1.59749e-05 22.585859 100.129448 100.059283 63.482143 177
+candidate_initial: "" 0 88 0 22.4786 8088 332 7.56716e-24 3.68088e+06 3.5541e+07 22.220152 100.121666 0.000000 1.570796 4.642435 -0.211933 -1e-08 1.000000 0 0.000000 0.152020 20.515396 1.08503e-23 2.64444e-05 4.514524 100.121666 100.053155 84.952446 177
+candidate_initial: "" 3 89 0 22.2948 587 252 4.58789e-24 1.3633e+06 1.62686e+07 21.210592 100.126663 1.178097 1.570796 3.437272 -1.234197 -1e-08 1.000000 0 0.000000 0.093716 21.965923 7.06423e-24 1.608e-05 29.604982 100.126663 100.054665 81.538704 177
+candidate_initial: "" 4 90 0 22.186 10694 61 4.31199e-24 1.20968e+06 1.96003e+07 21.951033 100.128891 0.000000 0.000000 0.633285 0.062333 -1e-08 1.000000 0 0.000000 -0.028532 22.824799 3.43513e-24 7.52499e-06 495.344238 100.128891 100.059248 63.951031 177
+candidate_initial: "" 1 91 0 22.1338 4637 29 4.66858e-24 1.42111e+06 1.18402e+07 22.022993 100.122223 0.785398 1.570796 5.672734 -0.585932 -1e-08 1.000000 0 0.000000 0.183434 22.573584 7.19869e-24 1.59449e-05 30.745781 100.122223 100.056897 76.774170 177
+candidate_initial: "" 0 92 0 22.0257 5480 85 5.724e-24 2.1459e+06 2.12073e+07 21.818605 100.121109 0.000000 1.570796 4.775784 -0.486199 -1e-08 1.000000 0 0.000000 0.154543 22.186819 8.82937e-24 1.98978e-05 11.763140 100.121109 100.053411 84.316017 177
+candidate_initial: "" 2 93 0 21.5822 2841 106 4.46495e-24 1.3303e+06 1.18658e+07 20.596184 100.123337 0.392699 1.570796 4.075095 -0.810331 -1e-08 1.000000 0 0.000000 0.134923 19.435839 6.44212e-24 1.65728e-05 31.613146 100.123337 100.052127 85.412308 177
+candidate_initial: "" 0 94 0 21.2716 7106 70 6.62072e-24 2.96411e+06 2.82201e+07 21.085247 100.121666 0.000000 1.570796 4.549443 -0.311666 -1e-08 1.000000 0 0.000000 0.143501 19.447395 9.45615e-24 2.43121e-05 6.468251 100.121666 100.052672 85.562538 177
+candidate_initial: "" 3 95 0 21.1954 6653 34 5.51663e-24 2.0647e+06 2.42002e+07 20.050198 100.121109 1.178097 1.570796 5.235988 -0.361532 -1e-08 1.000000 0 0.000000 0.151854 21.899786 8.39122e-24 1.91582e-05 13.081459 100.121109 100.055430 80.407463 177
+candidate_initial: "" 4 96 0 21.1551 9433 42 4.28295e-24 1.24667e+06 1.95773e+07 20.349730 100.129448 0.000000 0.000000 0.732624 -0.062333 -1e-08 1.000000 0 0.000000 -0.053091 23.466858 3.41605e-24 7.27846e-06 495.148468 100.129448 100.059404 64.145256 177
+candidate_initial: "" 1 97 0 20.9586 5963 42 4.59171e-24 1.44518e+06 1.25488e+07 20.644634 100.121666 0.785398 1.570796 5.556092 -0.436332 -1e-08 1.000000 0 0.000000 0.168674 21.970860 7.23476e-24 1.64644e-05 26.929169 100.121666 100.056499 77.457268 177
+candidate_initial: "" 4 98 0 20.6111 1966 87 3.24938e-24 734871 1.12384e+07 20.258301 100.133331 0.000000 0.000000 1.643615 -0.934998 -1e-08 1.000000 0 0.000000 -0.152483 23.213388 2.49125e-24 5.36598e-06 1329.345215 100.133331 100.060228 72.881638 177
+candidate_initial: "" 4 99 0 20.5558 7119 20 4.04818e-24 1.14339e+06 1.64257e+07 19.715878 100.121109 0.000000 0.000000 4.888371 -0.311666 -1e-08 1.000000 0 0.000000 0.068096 20.415159 3.00027e-24 7.34815e-06 653.503723 100.121109 100.053949 83.524895 177
+candidate_initial: "" 4 100 0 20.3293 1537 45 3.22474e-24 732918 1.13334e+07 20.290680 100.132225 0.000000 0.000000 1.466077 -1.009798 -1e-08 1.000000 0 0.000000 -0.133024 22.335415 2.51709e-24 5.63475e-06 1342.499878 100.132225 100.059997 72.951714 177
+candidate_initial: "" 1 101 0 19.9868 7876 138 4.68702e-24 1.57248e+06 2.01084e+07 19.749056 100.121666 0.785398 1.570796 5.526639 -0.236866 -1e-08 1.000000 0 0.000000 0.126652 21.124067 7.39161e-24 1.74957e-05 21.878059 100.121666 100.056532 77.139915 177
+candidate_initial: "" 0 102 0 19.8612 14677 126 5.40406e-24 2.10245e+06 2.14689e+07 19.714991 100.147224 0.000000 1.570796 3.113914 0.461266 -1e-08 1.000000 0 0.000000 0.133830 14.079756 7.85768e-24 2.79042e-05 10.817883 100.147224 100.069600 78.983643 177
+candidate_initial: "" 4 103 0 19.1337 3967 61 3.41255e-24 867297 1.2253e+07 18.365923 100.122780 0.000000 0.000000 4.088807 -0.660732 -1e-08 1.000000 0 0.000000 0.056420 18.810122 2.57587e-24 6.84704e-06 1096.106445 100.122780 100.051410 86.182640 177
+candidate_initial: "" 1 104 0 19.1327 18773 18 3.96727e-24 1.17224e+06 1.30133e+07 18.255602 100.130554 0.785398 1.570796 4.118977 1.009798 -1e-08 1.000000 0 0.000000 0.041910 20.736155 6.36514e-24 1.53479e-05 33.586567 100.130554 100.057229 77.420593 177
+candidate_initial: "" 4 105 0 18.8747 18640 45 3.17393e-24 759574 1.13004e+07 18.355585 100.129997 0.000000 0.000000 4.300194 0.984864 -1e-08 1.000000 0 0.000000 -0.104304 19.137426 2.39498e-24 6.25733e-06 1339.431030 100.129997 100.057360 77.564445 177
+candidate_initial: "" 4 106 0 18.5495 3572 122 3.34625e-24 857678 1.19799e+07 17.741852 100.123337 0.000000 0.000000 3.963999 -0.710598 -1e-08 1.000000 0 0.000000 0.050043 18.442486 2.51024e-24 6.8056e-06 1155.998413 100.123337 100.051394 85.913261 177
+candidate_initial: "" 1 107 0 17.7408 9374 24 4.3608e-24 1.51639e+06 2.1979e+07 16.925182 100.122223 0.785398 1.570796 5.544724 -0.087266 -1e-08 1.000000 0 0.000000 0.087266 15.974884 6.36367e-24 1.99177e-05 19.610331 100.122223 100.056976 76.413811 177
+candidate_initial: "" 2 108 0 17.7222 17179 192 4.14663e-24 1.37239e+06 1.57228e+07 17.483711 100.128334 0.392699 1.570796 4.068620 0.760465 -1e-08 1.000000 0 0.000000 0.044770 21.074837 6.78929e-24 1.61076e-05 25.729809 100.128334 100.055032 80.157104 177
+candidate_initial: "" 4 109 0 17.6774 5017 62 3.46988e-24 963180 1.33178e+07 17.664932 100.122223 0.000000 0.000000 4.183964 -0.536065 -1e-08 1.000000 0 0.000000 0.045572 18.706764 2.66307e-24 7.11793e-06 931.994019 100.122223 100.051229 86.522285 177
+candidate_initial: "" 2 110 0 17.6747 6379 172 4.39846e-24 1.54789e+06 1.3192e+07 17.600416 100.122223 0.392699 1.570796 4.237808 -0.386466 -1e-08 1.000000 0 0.000000 0.102349 18.823811 6.70436e-24 1.78082e-05 21.253378 100.122223 100.051312 86.627296 177
+candidate_initial: "" 4 111 0 17.5545 18501 75 3.05722e-24 752419 1.12716e+07 17.452864 100.129448 0.000000 0.000000 4.441562 0.959931 -1e-08 1.000000 0 0.000000 -0.101189 19.561411 2.39429e-24 6.11994e-06 1335.387817 100.129448 100.057362 77.574951 177
+candidate_initial: "" 4 112 0 17.274 9607 96 3.86738e-24 1.22159e+06 1.9626e+07 17.098963 100.121666 0.000000 0.000000 5.053866 -0.062333 -1e-08 1.000000 0 0.000000 -0.045993 18.037373 2.94322e-24 8.15867e-06 493.976227 100.121666 100.055065 81.453476 177
+candidate_initial: "" 2 113 0 17.2472 17174 71 4.01182e-24 1.31638e+06 1.57386e+07 16.275677 100.128891 0.392699 1.570796 3.896948 0.760465 -1e-08 1.000000 0 0.000000 0.046632 15.079311 5.9458e-24 1.97151e-05 25.734262 100.128891 100.054767 80.050903 177
+candidate_initial: "" 4 114 0 16.6534 17885 26 2.92964e-24 724382 1.12758e+07 15.781902 100.128334 0.000000 0.000000 4.512469 0.860198 -1e-08 1.000000 0 0.000000 -0.098381 18.013889 2.29845e-24 6.37966e-06 1291.736206 100.128334 100.056785 78.428932 177
+candidate_initial: "" 4 115 0 16.5776 11612 49 3.99556e-24 1.3529e+06 1.87742e+07 16.260349 100.122780 0.000000 0.000000 4.718647 0.137133 -1e-08 1.000000 0 0.000000 -0.036004 16.423586 2.81633e-24 8.57404e-06 521.611084 100.122780 100.054214 83.230728 177
+candidate_initial: "" 2 116 0 16.3408 9574 101 4.86293e-24 2.02997e+06 2.25068e+07 15.838612 100.122780 0.392699 1.570796 4.234321 -0.062333 -1e-08 1.000000 0 0.000000 0.053995 16.810680 7.19789e-24 2.14087e-05 12.783559 100.122780 100.051381 86.168472 177
+candidate_initial: "" 2 117 0 16.2827 9830 16 4.8457e-24 2.02203e+06 2.30925e+07 15.552398 100.122780 0.392699 1.570796 4.308825 -0.037400 -1e-08 1.000000 0 0.000000 0.066287 16.907993 7.24783e-24 2.14331e-05 12.351254 100.122780 100.051840 85.941902 177
+candidate_initial: "" 1 118 0 16.2683 10635 184 4.31214e-24 1.60252e+06 2.22945e+07 15.751621 100.122223 0.785398 1.570796 5.451222 0.037400 -1e-08 1.000000 0 0.000000 -0.042723 17.285353 6.48772e-24 1.87665e-05 19.340294 100.122223 100.056610 76.980896 177
+candidate_initial: "" 4 119 0 15.7979 12846 119 3.72688e-24 1.22874e+06 1.70708e+07 15.729609 100.123337 0.000000 0.000000 4.654686 0.261799 -1e-08 1.000000 0 0.000000 -0.051365 16.610001 2.72044e-24 8.18917e-06 607.952576 100.123337 100.054151 82.885803 177
+candidate_initial: "" 4 120 0 15.7348 17009 63 3.01543e-24 807265 1.1682e+07 15.131437 100.127220 0.000000 0.000000 4.552789 0.735532 -1e-08 1.000000 0 0.000000 -0.070466 17.362917 2.33231e-24 6.71636e-06 1183.367188 100.127220 100.056208 79.525063 177
+candidate_initial: "" 4 121 0 15.7277 11115 23 3.9294e-24 1.37134e+06 1.94367e+07 15.371248 100.122223 0.000000 0.000000 4.843810 0.087266 -1e-08 1.000000 0 0.000000 -0.039558 17.116781 2.90305e-24 8.48013e-06 501.500244 100.122223 100.054410 82.597649 177
+candidate_initial: "" 4 122 0 15.5872 10870 53 3.76039e-24 1.26596e+06 1.95969e+07 14.662548 100.122223 0.000000 0.000000 5.004197 0.062333 -1e-08 1.000000 0 0.000000 -0.059462 13.944047 2.59858e-24 9.31788e-06 494.627380 100.122223 100.055205 81.389084 177
+candidate_initial: "" 4 123 0 15.5744 15391 36 3.21064e-24 923538 1.31877e+07 14.895308 100.125557 0.000000 0.000000 4.502467 0.536065 -1e-08 1.000000 0 0.000000 -0.051765 16.493319 2.39586e-24 7.26311e-06 932.247742 100.125557 100.054863 81.547485 177
+candidate_initial: "" 4 124 0 15.3869 11099 21 3.88037e-24 1.3636e+06 1.94721e+07 14.832380 100.122780 0.000000 0.000000 4.443288 0.087266 -1e-08 1.000000 0 0.000000 -0.056277 16.017004 2.87868e-24 8.98632e-06 501.730164 100.122780 100.052681 84.947777 177
+candidate_initial: "" 4 125 0 15.2637 15601 45 3.12278e-24 889446 1.29502e+07 14.891104 100.126114 0.000000 0.000000 4.339781 0.560999 -1e-08 1.000000 0 0.000000 -0.059651 15.514352 2.32621e-24 7.49696e-06 965.592834 100.126114 100.054498 81.849083 177
+candidate_initial: "" 4 126 0 15.2032 14036 33 3.49171e-24 1.11594e+06 1.48013e+07 14.668217 100.124443 0.000000 0.000000 4.451704 0.386466 -1e-08 1.000000 0 0.000000 -0.044461 16.759617 2.58829e-24 7.7218e-06 738.695129 100.124443 100.053828 82.973869 177
+candidate_initial: "" 4 127 0 14.9987 14955 40 3.28483e-24 999531 1.34535e+07 14.933941 100.125000 0.000000 0.000000 4.606730 0.486199 -1e-08 1.000000 0 0.000000 -0.053378 16.865582 2.48863e-24 7.37784e-06 865.506042 100.125000 100.054978 81.503372 177
+candidate_initial: "" 4 128 0 14.9865 12101 18 3.68954e-24 1.26191e+06 1.82026e+07 14.324362 100.123337 0.000000 0.000000 4.478978 0.187000 -1e-08 1.000000 0 0.000000 -0.050888 14.664799 2.69397e-24 9.18517e-06 550.151917 100.123337 100.053288 84.243706 177
+candidate_initial: "" 2 129 0 14.9535 10586 54 4.86723e-24 2.20036e+06 2.47379e+07 14.779983 100.123337 0.392699 1.570796 4.234321 0.037400 -1e-08 1.000000 0 0.000000 0.055678 14.477599 6.95327e-24 2.40139e-05 11.342849 100.123337 100.051803 85.770958 177
+candidate_initial: "" 4 130 0 14.9032 16237 83 3.02253e-24 851067 1.2267e+07 14.218170 100.126114 0.000000 0.000000 4.689175 0.635799 -1e-08 1.000000 0 0.000000 -0.082954 15.490807 2.23443e-24 7.21213e-06 1065.044556 100.126114 100.056022 79.830841 177
+candidate_initial: "" 4 131 0 14.7085 14944 19 3.18527e-24 956225 1.36003e+07 13.927541 100.125557 0.000000 0.000000 4.296797 0.486199 -1e-08 1.000000 0 0.000000 -0.047354 15.761374 2.41846e-24 7.67212e-06 865.114746 100.125557 100.053850 82.616394 177
+candidate_initial: "" 4 132 0 14.4505 14265 13 3.32036e-24 1.05538e+06 1.43823e+07 14.087374 100.125000 0.000000 0.000000 4.365590 0.411399 -1e-08 1.000000 0 0.000000 -0.064494 13.466290 2.3136e-24 8.59034e-06 768.905334 100.125000 100.053835 83.065460 177
+candidate_initial: "" 4 133 0 14.3577 11849 11 3.72051e-24 1.33262e+06 1.85225e+07 13.788041 100.123337 0.000000 0.000000 4.403276 0.162066 -1e-08 1.000000 0 0.000000 -0.063908 14.719565 2.67902e-24 9.10021e-06 534.872070 100.123337 100.052865 84.685669 177
+candidate_initial: "" 2 134 0 14.3394 13319 39 4.54313e-24 1.9893e+06 2.49145e+07 13.994831 100.124443 0.392699 1.570796 4.340873 0.311666 -1e-08 1.000000 0 0.000000 -0.043367 14.523349 6.77508e-24 2.33248e-05 12.196095 100.124443 100.053211 83.903603 177
+candidate_initial: "" 4 135 0 14.212 12117 26 3.6511e-24 1.29493e+06 1.81897e+07 13.978651 100.122780 0.000000 0.000000 4.882716 0.187000 -1e-08 1.000000 0 0.000000 -0.053178 14.683303 2.56784e-24 8.74409e-06 550.117310 100.122780 100.054940 81.775139 177
+candidate_initial: "" 4 136 0 14.1706 12090 79 3.50106e-24 1.19375e+06 1.82537e+07 14.130779 100.123886 0.000000 0.000000 4.201407 0.187000 -1e-08 1.000000 0 0.000000 -0.058082 15.011134 2.69586e-24 8.97953e-06 550.100037 100.123886 100.052087 85.027885 177
+candidate_initial: "" 4 137 0 14.0528 13097 50 3.50235e-24 1.20342e+06 1.67085e+07 13.858889 100.123337 0.000000 0.000000 4.848137 0.286733 -1e-08 1.000000 0 0.000000 -0.055434 15.898016 2.6015e-24 8.18184e-06 631.028992 100.123337 100.055076 81.448456 177
+candidate_initial: "" 2 138 0 13.9901 13790 123 4.53482e-24 2.02543e+06 2.4039e+07 13.834785 100.125000 0.392699 1.570796 4.175535 0.361532 -1e-08 1.000000 0 0.000000 -0.056837 16.154739 7.17838e-24 2.22176e-05 13.165663 100.125000 100.052682 83.817589 177
+candidate_initial: "" 0 139 0 13.9302 17344 17 3.95865e-24 1.54927e+06 1.5289e+07 13.380791 100.130554 0.000000 1.570796 3.527710 0.785398 -1e-08 1.000000 0 0.000000 0.082254 9.919467 5.42591e-24 2.73498e-05 23.469788 100.130554 100.054964 78.809669 177
+candidate_initial: "" 0 140 0 13.9157 16976 8 4.03459e-24 1.61075e+06 1.58295e+07 12.675918 100.130554 0.000000 1.570796 3.443992 0.735532 -1e-08 1.000000 0 0.000000 0.112882 9.503784 5.6379e-24 2.96614e-05 21.597084 100.130554 100.054558 78.915123 177
+candidate_initial: "" 0 141 0 13.8018 12302 54 5.92988e-24 3.50469e+06 3.56151e+07 13.027610 100.149445 0.000000 1.570796 3.294221 0.211933 -1e-08 1.000000 0 0.000000 0.110959 11.218184 8.7345e-24 3.89301e-05 4.482864 100.149445 100.072378 81.859138 177
+candidate_initial: "" 0 142 0 13.3106 16401 36 4.07126e-24 1.70516e+06 1.70693e+07 12.762509 100.129448 0.000000 1.570796 3.552052 0.660732 -1e-08 1.000000 0 0.000000 0.090121 10.859432 5.95426e-24 2.74152e-05 18.603018 100.129448 100.053808 80.071373 177
+candidate_initial: "" 4 143 0 13.2978 17744 75 2.64299e-24 719217 1.13735e+07 12.929420 100.127777 0.000000 0.000000 5.446667 0.835265 -1e-08 1.000000 0 0.000000 -0.137144 13.015776 1.88266e-24 7.23221e-06 1277.088989 100.127777 100.058852 73.456749 177
+candidate_initial: "" 4 144 0 12.9765 17729 21 2.66707e-24 748140 1.13811e+07 12.193469 100.127777 0.000000 0.000000 4.888988 0.835265 -1e-08 1.000000 0 0.000000 -0.130844 14.546516 2.04933e-24 7.04404e-06 1275.553711 100.127777 100.057658 77.061928 177
+candidate_initial: "" 4 145 0 12.3698 16831 25 2.66583e-24 779089 1.18481e+07 11.674928 100.126663 0.000000 0.000000 4.885094 0.710598 -1e-08 1.000000 0 0.000000 -0.117518 13.048857 1.98209e-24 7.59487e-06 1156.613281 100.126663 100.057068 78.108772 177
+candidate_initial: "" 4 146 0 12.123 12127 33 3.31363e-24 1.22483e+06 1.81794e+07 12.046945 100.122780 0.000000 0.000000 5.135053 0.187000 -1e-08 1.000000 0 0.000000 -0.075514 13.615868 2.4343e-24 8.9392e-06 550.223755 100.122780 100.055980 79.582642 177
+candidate_initial: "" 0 147 0 11.9149 15140 37 4.43235e-24 2.22434e+06 2.0409e+07 11.575747 100.128334 0.000000 1.570796 3.568053 0.511132 -1e-08 1.000000 0 0.000000 0.085423 8.824505 5.98538e-24 3.39134e-05 12.618137 100.128334 100.052670 81.436646 177
+candidate_initial: "" 4 148 0 11.7292 16446 24 2.60757e-24 780291 1.21232e+07 10.877069 100.126114 0.000000 0.000000 4.972873 0.660732 -1e-08 1.000000 0 0.000000 -0.126966 12.524704 1.96657e-24 7.85075e-06 1097.260132 100.126114 100.057034 77.935242 177
+candidate_initial: "" 4 149 0 11.6411 10322 80 3.38297e-24 1.32186e+06 1.98507e+07 11.090821 100.123886 0.000000 0.000000 3.961138 0.012467 -1e-08 1.000000 0 0.000000 -0.054563 12.911652 2.57147e-24 9.95795e-06 488.476288 100.123886 100.050736 85.943481 177
+candidate_initial: "" 4 150 0 11.599 8809 27 3.3591e-24 1.30731e+06 1.88817e+07 11.163480 100.123337 0.000000 0.000000 3.967669 -0.137133 -1e-08 1.000000 0 0.000000 -0.068496 12.935104 2.55813e-24 9.88831e-06 521.872742 100.123337 100.050426 86.454117 177
+candidate_initial: "" 2 151 0 11.5579 14709 23 3.91825e-24 1.78417e+06 2.04198e+07 10.793379 100.126114 0.392699 1.570796 3.999649 0.461266 -1e-08 1.000000 0 0.000000 -0.049599 15.225586 6.55934e-24 2.15405e-05 15.768089 100.126114 100.052633 83.020996 177
+candidate_initial: "" 4 152 0 11.5472 17392 60 2.50571e-24 730227 1.14878e+07 10.788664 100.127220 0.000000 0.000000 5.212587 0.785398 -1e-08 1.000000 0 0.000000 -0.132755 12.822194 1.90137e-24 7.41436e-06 1234.983154 100.127220 100.058199 75.406067 177
+candidate_initial: "" 3 153 0 11.3251 7793 59 4.50871e-24 2.40382e+06 2.52854e+07 11.029188 100.126114 1.178097 1.570796 3.398049 -0.236866 -1e-08 1.000000 0 0.000000 0.083422 7.811761 5.97124e-24 3.82195e-05 11.167017 100.126114 100.050238 84.320686 177
+candidate_initial: "" 0 154 0 11.1736 13529 109 4.84745e-24 2.81064e+06 2.68952e+07 11.138375 100.127220 0.000000 1.570796 3.562224 0.336599 -1e-08 1.000000 0 0.000000 0.076439 9.852610 7.14934e-24 3.62814e-05 7.036862 100.127220 100.051499 82.733025 177
+candidate_initial: "" 4 155 0 11.1394 11817 54 3.37501e-24 1.36603e+06 1.86086e+07 10.621995 100.126114 0.000000 0.000000 3.595799 0.162066 -1e-08 1.000000 0 0.000000 0.032925 9.142890 2.25871e-24 1.23523e-05 534.438171 100.126114 100.050559 84.042389 177
+candidate_initial: "" 3 156 0 11.0957 8036 17 4.37781e-24 2.3061e+06 2.53257e+07 10.813887 100.126663 1.178097 1.570796 3.319659 -0.211933 -1e-08 1.000000 0 0.000000 0.081938 8.042109 6.22883e-24 3.87263e-05 10.957802 100.126663 100.050369 83.704704 177
+candidate_initial: "" 3 157 0 11.0894 8045 80 4.45901e-24 2.3936e+06 2.53266e+07 10.767717 100.125000 1.178097 1.570796 3.548601 -0.211933 -1e-08 1.000000 0 0.000000 0.080773 9.705032 6.33974e-24 3.26621e-05 10.967257 100.125000 100.049852 85.222366 177
+candidate_initial: "" 4 158 0 11.0327 9301 54 3.41771e-24 1.41233e+06 1.95823e+07 10.769110 100.124443 0.000000 0.000000 3.717343 -0.087266 -1e-08 1.000000 0 0.000000 0.041617 10.253711 2.39155e-24 1.16619e-05 502.092285 100.124443 100.049867 85.657295 177
+candidate_initial: "" 3 159 0 10.9548 5435 90 4.10349e-24 2.04824e+06 2.0151e+07 10.911140 100.125000 1.178097 1.570796 3.507877 -0.486199 -1e-08 1.000000 0 0.000000 0.069504 10.800299 5.91529e-24 2.73848e-05 16.545610 100.125000 100.050263 85.111641 177
+candidate_initial: "" 3 160 0 10.7142 7058 18 4.21392e-24 2.20096e+06 2.50953e+07 10.528132 100.126663 1.178097 1.570796 3.298021 -0.311666 -1e-08 1.000000 0 0.000000 0.057327 6.866149 5.58286e-24 4.06549e-05 12.171941 100.126663 100.050497 83.703789 177
+candidate_initial: "" 4 161 0 10.7086 11563 39 3.29952e-24 1.35e+06 1.89239e+07 10.515656 100.126663 0.000000 0.000000 3.492049 0.137133 -1e-08 1.000000 0 0.000000 0.037798 8.017746 2.17831e-24 1.35843e-05 521.140686 100.126663 100.050556 83.603065 177
+candidate_initial: "" 4 162 0 10.6969 16450 28 2.5152e-24 785201 1.21084e+07 9.932456 100.126114 0.000000 0.000000 5.099168 0.660732 -1e-08 1.000000 0 0.000000 -0.130967 10.673806 1.84257e-24 8.63125e-06 1097.609375 100.126114 100.057427 77.040245 177
+candidate_initial: "" 4 163 0 10.6842 15410 52 2.65577e-24 876300 1.31908e+07 9.867099 100.125000 0.000000 0.000000 5.052608 0.536065 -1e-08 1.000000 0 0.000000 -0.113629 11.656765 2.00923e-24 8.61831e-06 933.266052 100.125000 100.056713 78.237381 177
+candidate_initial: "" 4 164 0 10.6419 13118 36 2.85181e-24 1.01384e+06 1.67021e+07 10.255606 100.123337 0.000000 0.000000 5.391128 0.286733 -1e-08 1.000000 0 0.000000 -0.109346 13.130348 2.25741e-24 8.59614e-06 631.765625 100.123337 100.056922 76.544891 177
+candidate_initial: "" 3 165 0 10.6079 8298 12 4.3549e-24 2.37058e+06 2.55365e+07 10.316042 100.124443 1.178097 1.570796 3.671500 -0.187000 -1e-08 1.000000 0 0.000000 0.050733 10.170600 6.24024e-24 3.06778e-05 10.832456 100.124443 100.049945 85.792130 177
+candidate_initial: "" 3 166 0 10.5322 6110 27 4.10442e-24 2.1185e+06 2.15296e+07 10.138113 100.126663 1.178097 1.570796 3.277592 -0.411399 -1e-08 1.000000 0 0.000000 0.054644 6.975183 5.25817e-24 3.7692e-05 14.365834 100.126663 100.050687 83.629242 177
+candidate_initial: "" 4 167 0 10.4606 10818 28 3.40918e-24 1.47001e+06 1.97456e+07 10.070070 100.125000 0.000000 0.000000 3.712791 0.062333 -1e-08 1.000000 0 0.000000 0.042812 10.092535 2.39135e-24 1.18471e-05 495.109009 100.125000 100.050215 85.067619 177
+candidate_initial: "" 3 168 0 10.3674 9543 28 4.34133e-24 2.40181e+06 2.523e+07 10.346615 100.126114 1.178097 1.570796 3.464444 -0.062333 -1e-08 1.000000 0 0.000000 0.079719 7.917770 5.87033e-24 3.70706e-05 11.065619 100.126114 100.050288 84.321312 177
+candidate_initial: "" 3 169 0 10.0799 7563 25 4.1279e-24 2.22329e+06 2.54402e+07 10.075456 100.123886 1.178097 1.570796 3.782734 -0.261799 -1e-08 1.000000 0 0.000000 0.034503 8.418589 5.3925e-24 3.20273e-05 11.450866 100.123886 100.050160 86.336815 177
+candidate_initial: "" 3 170 0 9.99765 4766 26 3.56825e-24 1.67274e+06 1.81776e+07 9.496953 100.127220 1.178097 1.570796 3.170817 -0.560999 -1e-08 1.000000 0 0.000000 0.052664 8.654001 5.24746e-24 3.03181e-05 19.025566 100.127220 100.051376 82.811401 177
+candidate_initial: "" 3 171 0 9.44482 5424 4 3.72511e-24 1.91141e+06 1.94875e+07 8.202509 100.127220 1.178097 1.570796 3.197944 -0.486199 -1e-08 1.000000 0 0.000000 0.055208 6.823139 4.9974e-24 3.6621e-05 16.541338 100.127220 100.051187 83.036484 177
+candidate_initial: "" 4 172 0 9.19705 5165 24 2.58313e-24 939520 1.33463e+07 8.420471 100.142220 0.000000 0.000000 2.146518 -0.511132 -1e-08 1.000000 0 0.000000 -0.103743 7.914936 1.67382e-24 1.05738e-05 900.241760 100.142775 100.065614 73.359375 177
+candidate_initial: "" 3 173 0 9.18322 5626 20 3.56057e-24 1.78727e+06 2.05248e+07 7.628636 100.145554 1.178097 1.570796 2.560329 -0.461266 -1e-08 1.000000 0 0.000000 -0.047663 8.107760 4.78276e-24 2.94949e-05 15.833200 100.145554 100.068187 77.196144 177
+candidate_initial: "" 0 174 0 8.11703 5172 31 3.57659e-24 1.9942e+06 2.01736e+07 7.817567 100.143890 0.000000 1.570796 2.345533 -0.511132 -1e-08 1.000000 0 0.000000 -0.058262 8.213904 4.91586e-24 2.9924e-05 12.715397 100.143890 100.066947 75.194717 177
+candidate_initial: "" 4 175 0 7.56483 4742 40 2.36192e-24 920101 1.29264e+07 7.288363 100.144997 0.000000 0.000000 2.469438 -0.560999 -1e-08 1.000000 0 0.000000 -0.098719 6.691481 1.53429e-24 1.14645e-05 968.334290 100.144997 100.068080 76.627495 177
+candidate_initial: "" 4 176 0 6.30546 3922 7 2.09877e-24 837190 1.21233e+07 5.613397 100.146111 0.000000 0.000000 2.667986 -0.660732 -1e-08 1.000000 0 0.000000 -0.078948 3.803122 1.12321e-24 1.4767e-05 1099.194702 100.146666 100.069672 78.710304 177
+optimized_candidates_count: 0
+high_candidates_count: 119
+candidates_count: 177
+Second pass processing time: 89
+candidates: label polarization_index rank opt_rank score point_index domain_size ul S M max_dx frequency psi iota ra dec spindown weight_ratio skyband coherence_score power_cor snr strain strain_err total_weight f_max ifo_freq ifo_freq_sd total
+candidates cache length: 0
+candidates cache leaves: 0
+candidates index non zero count: 0
+candidates index max length: 0
+candidates index average length: 0.000000
+index queries total: 0.000000
+index hits: 0.000000
+index hit ratio: nan
+index average snr change: nan
+improvement queries total: 0.000000
+improvements: 0.000000
+improvement ratio: nan
+improvement average snr change: nan
+seconds elapsed: 4452
