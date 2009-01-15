@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/* We need this define to get NAN values */
+#define __USE_ISOC99
 #include <math.h>
 
 #include <gsl/gsl_sf.h>
@@ -50,6 +52,7 @@ if(x<LEFT_NORMAL_BOUND)return 0.0;
 if(x>RIGHT_NORMAL_BOUND)return 1.0;
 i=floor((x-LEFT_NORMAL_BOUND)*INV_NORMAL_STEP-0.5);
 if(i>=NORMAL_SAMPLE_COUNT)i=NORMAL_SAMPLE_COUNT-1;
+if(i<0)return NAN;
 return normal_distribution_table[i];
 }
 
@@ -69,6 +72,7 @@ if(x>(RIGHT_NORMAL_BOUND-NORMAL_STEP*0.5)){
 	}
 i=floor((x-LEFT_NORMAL_BOUND-NORMAL_STEP*0.5)*INV_NORMAL_STEP);
 if(i>=NORMAL_SAMPLE_COUNT-1)i=NORMAL_SAMPLE_COUNT-2;
+if(i<0)return NAN; /* this can happen if x NAN as well */
 dx=(x-LEFT_NORMAL_BOUND)*INV_NORMAL_STEP-(i+0.5);
 return normal_distribution_table[i]*(1.0-dx)+normal_distribution_table[i+1]*dx;
 }
