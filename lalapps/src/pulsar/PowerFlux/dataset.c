@@ -1686,6 +1686,7 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 	gsl_rng *rng=NULL;
 	int bin;
 	int i;
+	int once=1;
 	DATASET *d=&(datasets[d_free-1]);
 
 	locate_arg(line, length, 1, &ai, &aj);
@@ -1737,10 +1738,16 @@ if(!strncasecmp(line, "inject_wandering_line1", 22)) {
 
 		f=frequency+spindown*(d->gps[i]-ref_time)+spread*sin(omega*(d->gps[i]-ref_time));
 		phi=gsl_ran_flat(rng, 0, 2*M_PI);
-		bin=round(f-d->first_bin);
+		bin=round(f*d->coherence_time-d->first_bin);
 
-		if(bin<0)continue;
-		if(bin>=d->nbins)continue;
+		if(bin<0 || bin>=d->nbins) {
+			if(once) {
+				fprintf(stderr, "Requested to inject power outside loaded range, skipping affected SFTs\n");
+				fprintf(LOG, "Requested to inject power outside loaded range, skipping affected SFTs\n");
+				once=0;
+				}
+			continue;
+			}
 
 		d->re[i*d->nbins+bin]+=0.5*strain*cos(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
 		d->im[i*d->nbins+bin]+=0.5*strain*sin(phi)*d->coherence_time*16384.0/args_info.strain_norm_factor_arg;
