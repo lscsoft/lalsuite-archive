@@ -10060,6 +10060,7 @@ return 0.455;
 #define FC_UL_RIGHT	3.30
 #define FC_UL_RIGHT_VALUE (x+1.96)
 #define FC_UL_STEP ((FC_UL_RIGHT-FC_UL_LEFT)/(FC_SAMPLE_COUNT-1))
+#define FC_UL_INV_STEP (1.0/FC_UL_STEP)
 float fc_ul_table[FC_SAMPLE_COUNT];
 
 static float inline interpolated_upper_limit(float x)
@@ -10069,9 +10070,10 @@ float dx;
 if(x<FC_UL_LEFT)return FC_UL_LEFT_VALUE;
 if(x>FC_UL_RIGHT)return FC_UL_RIGHT_VALUE;
 
-i=floor((x-FC_UL_LEFT)/FC_UL_STEP);
+i=floor((x-FC_UL_LEFT)*FC_UL_INV_STEP);
 if(i>FC_SAMPLE_COUNT-1)i=FC_SAMPLE_COUNT-1;
-dx=(x-FC_UL_LEFT)/FC_UL_STEP-i;
+if(i<0)return NAN; /* this can happen if x is NAN as well */
+dx=(x-FC_UL_LEFT)*FC_UL_INV_STEP-i;
 return fc_ul_table[i]*(1.0-dx)+fc_ul_table[i+1]*dx;
 }
 
@@ -10094,6 +10096,7 @@ float fc_ll_left, fc_ll_right;
 #define FC_LL_RIGHT	4.89
 #define FC_LL_RIGHT_VALUE (x-1.96)
 #define FC_LL_STEP ((FC_LL_RIGHT-FC_LL_LEFT)/(FC_SAMPLE_COUNT-1))
+#define FC_LL_INV_STEP (1.0/FC_LL_STEP)
 float fc_ll_table[FC_SAMPLE_COUNT];
 
 
@@ -10104,9 +10107,11 @@ float dx;
 if(x<FC_LL_LEFT)return FC_LL_LEFT_VALUE;
 if(x>FC_LL_RIGHT)return FC_LL_RIGHT_VALUE;
 
-i=floor((x-FC_LL_LEFT)/FC_LL_STEP);
+i=floor((x-FC_LL_LEFT)*FC_LL_INV_STEP);
 if(i>FC_SAMPLE_COUNT-1)i=FC_SAMPLE_COUNT-1;
-dx=(x-FC_LL_LEFT)/FC_LL_STEP-i;
+if(i<0)return NAN; /* this can happen if x is NAN as well */
+
+dx=(x-FC_LL_LEFT)*FC_LL_INV_STEP-i;
 return fc_ll_table[i]*(1.0-dx)+fc_ll_table[i+1]*dx;
 }
 
