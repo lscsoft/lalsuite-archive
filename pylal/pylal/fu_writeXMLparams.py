@@ -15,7 +15,7 @@ def getSlots(xml):
   return values
 
 def writeXMLparams(trig):
-  container = HTMLcontainer(trig,(__name__).replace("fu_",""))
+  container = HTMLcontainer(trig,(__prog__).replace("fu_",""))
   tableFile = open(container.locallink,'w')
   writeIULHeader(tableFile)
   #tableFile = open(container.link,'w')

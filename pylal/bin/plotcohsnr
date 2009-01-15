@@ -20,7 +20,7 @@ or with a glob option
 
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotcohsnr"
+__prog__ = "plotcohsnr"
 __Id__ = "$Id$"
 __title__ = "Coherent Inspiral Plots"
 
@@ -182,7 +182,7 @@ opts, args = parse_command_line()
 InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)

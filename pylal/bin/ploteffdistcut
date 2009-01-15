@@ -15,7 +15,7 @@ from __future__ import division
 __author__ = "CBC "
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="ploteffdistcut"
+__prog__="ploteffdistcut"
 __Id__ = "$Id$"
 
 
@@ -195,7 +195,7 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 # -- Initialise
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file

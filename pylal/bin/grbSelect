@@ -4,7 +4,7 @@ __Id__ = "$Id$"
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__ = "grbSelect"
+__prog__ = "grbSelect"
 __title__ = "grb selection tool"
 
 

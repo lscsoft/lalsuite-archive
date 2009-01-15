@@ -4,7 +4,7 @@
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotifar"
+__prog__ = "plotifar"
 __Id__ = "$Id$"
 
 import sys
@@ -202,7 +202,7 @@ from numpy import histogram
 rc('text', usetex=True)
 
 # set InspiralUtils options for file and plot naming
-opts = InspiralUtils.initialise( opts, __name__, __version__ )
+opts = InspiralUtils.initialise( opts, __prog__, __version__ )
 # set the proper color code and symbols
 figure_number = 0 # used for the figure label (showplot)
 fnameList = [] # used for the html cache file

@@ -5,7 +5,7 @@
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="plotthinca"
+__prog__="plotthinca"
 __Id__ = "$Id$"
 
 import sys
@@ -292,7 +292,7 @@ if 'bitten_l' in opts.statistic:
      sys.exit(1)
 #####################################################################
 # -- some initialisation
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 figure_number = 0  # used for the figure label (showplot)

@@ -9,7 +9,7 @@ from __future__ import division
 __author__ = "Alexander Dietz <Alexander.Dietz@astro.cf.ac.uk>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="tuneethinca"
+__prog__="tuneethinca"
 __Id__ = "$Id$"
 
 import sys, os, re, glob, exceptions
@@ -331,7 +331,7 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 
 # -- set the proper color code
 colors = InspiralUtils.colors

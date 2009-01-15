@@ -11,7 +11,7 @@
 __Id__ = "$Id$"
 __author__ = "David McKechan"
 __title__ = "Track the SNR of found triggers"
-__name__ = "plotinspfound"
+__prog__ = "plotinspfound"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -124,7 +124,7 @@ to analyze." )
   command_line = sys.argv[1:]
   (options,args) = parser.parse_args()
 
-  options = InspiralUtils.initialise(options, __name__, __version__)
+  options = InspiralUtils.initialise(options, __prog__, __version__)
   return options, sys.argv[1:]
 
 

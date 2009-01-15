@@ -20,7 +20,7 @@ __Id__ = "$Id$"
 __author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__ = "plotinspmissed"
+__prog__ = "plotinspmissed"
 __title__ = "Found and Missed plots for triggers"
 
 import sys, os, re, glob, exceptions
@@ -372,7 +372,7 @@ opts, args = parse_command_line()
 comments = ""
 
 # Initialise: add prefix and suffix to the opts strucutre. To be used for filenames
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 
 # -- set the proper color code
 colors = InspiralUtils.colors
@@ -402,10 +402,10 @@ if opts.cache_file:
   misFiles = miscache.checkfilesexist()[0].pfnlist()
 
   if opts.verbose:
-    print "\n"+__name__+"... reading the following found files" 
+    print "\n"+__prog__+"... reading the following found files" 
     for file in injFiles:
       print file
-    print "\n"+__name__+"... reading the following missed files \n"
+    print "\n"+__prog__+"... reading the following missed files \n"
     for file in misFiles:
       print file
   if len(injFiles) == 0:

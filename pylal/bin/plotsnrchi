@@ -10,7 +10,7 @@ One can either read SIRE or COIRE files, however, COIRE is recommanded
 """
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotsnrchi"
+__prog__ = "plotsnrchi"
 __Id__ = "$Id$"
 __title__ = "Inspiral Plots"
 
@@ -322,7 +322,7 @@ from pylal import viz
 
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 
 # -- set the proper color code
 colors = InspiralUtils.colors

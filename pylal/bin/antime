@@ -5,7 +5,7 @@
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="antime"
+__prog__="antime"
 __Id__ = "$Id$"
 
 import copy

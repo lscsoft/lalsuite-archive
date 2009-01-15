@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 __version__ = "$Revision$"
-__name__ = "plotnumtriggers"
+__prog__ = "plotnumtriggers"
 __Id__ = "$Id$"
 
 import sys
@@ -27,7 +27,7 @@ def writeProcessParams(page, command_line):
   """
   function to write out the process params that the code was called with
   """
-  text = "Figures produced with "+ __name__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __name__
+  text = "Figures produced with "+ __prog__+", "+__version__[1:len(__version__)-1]+", invoked with arguments:\n\n"+ __prog__
 
   for arg in command_line:
     text += " " +  arg
@@ -133,7 +133,7 @@ command_line = sys.argv[1:]
 # check at least one inspiral file was specified
 if opts.glob_inspiral is None and opts.cache_file is None and opts.inspiral_second is None:
   print >>sys.stderr, "Must specify a GLOB of files to read or a LAL cache"
-  print >>sys.stderr, "Enter '"+__name__+" --help' for usage"
+  print >>sys.stderr, "Enter '"+__prog__+" --help' for usage"
   sys.exit(1)
 
 if not opts.show_plot:
@@ -221,9 +221,9 @@ grid("on")
 
 
 if opts.figure_name:
-  fname=__name__+"_"+opts.figure_name+".png" 
+  fname=__prog__+"_"+opts.figure_name+".png" 
   savefig(fname)
-  savefig(__name__+"_"+opts.figure_name + ".eps")
+  savefig(__prog__+"_"+opts.figure_name + ".eps")
 if not opts.show_plot:
   close()
 
@@ -234,7 +234,7 @@ if opts.html_output is True:
   except:
     raise ImportError("Require markup.py to generate the html page")
 
-  html_file = file(__name__+"_"+opts.figure_name+".html", "w")
+  html_file = file(__prog__+"_"+opts.figure_name+".html", "w")
   page = markup.page()
   title = "Number of inspiral triggers"
   page.init(title=title)

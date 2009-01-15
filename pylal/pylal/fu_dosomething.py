@@ -7,7 +7,7 @@ def dosomething(trig):
   # all functions should first initialize their HTML container
   # in the following way this sets up the appropriate output 
   # files and directories
-  container = HTMLcontainer(trig,__name__)
+  container = HTMLcontainer(trig,__prog__)
   container.txt = "your favorite module output"
   linkFile = open(container.locallink,'w')
   writeIULHeader(linkFile)

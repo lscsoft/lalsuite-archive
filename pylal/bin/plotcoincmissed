@@ -21,7 +21,7 @@ __Id__ = "$Id$"
 __author__ = "Stephen Fairhurst <stephen.fairhurst@astro.cf.ac.uk>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__ = "plotcoincmissed"
+__prog__ = "plotcoincmissed"
 __title__ = "Plot coinc missed"
 
 import os, sys, exceptions, copy
@@ -179,7 +179,7 @@ comments = ""
 
 # Initialise: add prefix and suffix to the opts strucutre. 
 # To be used for filenames
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 
 # to avoid  display problem when show plot is not used
 if not opts.show_plot:

@@ -26,7 +26,7 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 __Id__ = "$Id$"
-__name__ = "pylal_grbtimeslide_stats"
+__prog__ = "pylal_grbtimeslide_stats"
 __title__ = "GRB timeslide and trial statistics"
 
 
@@ -212,7 +212,7 @@ else:
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __name__, __version__)
+InspiralUtils.initialise(opts, __prog__, __version__)
 
 ##############################################################################
 # read in document

@@ -22,7 +22,7 @@ or with a two glob options
 
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotnumtemplates"
+__prog__ = "plotnumtemplates"
 __Id__ = "$Id$"
 __title__ = "Template Bank Size Plots"
 
@@ -229,7 +229,7 @@ OR the cachefile options (--cache-file), not both at the same time.
 # -- get command line arguments
 opts, args = parse_command_line()
 # -- Initialise
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 figure_number = 0  # used for the figure label (showplot)
 fnameList = []   # use for the cache file
 tagList= []   # use for the cache file

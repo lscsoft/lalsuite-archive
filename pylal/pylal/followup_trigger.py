@@ -1043,7 +1043,7 @@ class FollowupTrigger:
 
     ## add the version of this code
     page.add("<hr>")
-    page.add("Figure(s) and data produced with " + __name__ + ", version " \
+    page.add("Figure(s) and data produced with " + __prog__ + ", version " \
               + __version__)
         
     # and write the html file

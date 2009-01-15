@@ -5,7 +5,7 @@
 __author__ = "Drew Keppel <drew.keppel@ligo.org>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="septimes"
+__prog__="septimes"
 __Id__ = "$Id$"
 
 import copy
@@ -345,7 +345,7 @@ xmldoc = utils.load_filename(opts.thinca, gz=opts.thinca.endswith("gz"))
 
 #############################
 # set process end time
-process = llwapp.append_process(xmldoc, program = __name__, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = opts.comment, domain = "pylal")
+process = llwapp.append_process(xmldoc, program = __prog__, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = opts.comment, domain = "pylal")
 
 llwapp.set_process_end_time(process)
 

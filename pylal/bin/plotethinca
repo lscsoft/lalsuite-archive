@@ -9,7 +9,7 @@ from __future__ import division
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__name__="plotethinca"
+__prog__="plotethinca"
 __Id__ = "$Id$"
 
 import sys
@@ -211,7 +211,7 @@ def populate_mtotal(sngl_table):
 # -- get command line arguments
 opts, args = parse_command_line()
 InspiralUtils.message(opts, "Initialisation...")
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 # -- set the proper color code
 colors = InspiralUtils.colors
 fnameList = []   # use for the cache file

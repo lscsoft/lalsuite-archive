@@ -268,12 +268,12 @@ class plotSNRCHISQJob(pipeline.CondorDAGJob,webTheJob):
   def __init__(self, options, cp, tag_base='PLOT_FOLLOWUP'):
     """
     """
-    self.__name__ = 'plotSNRCHISQJob'
+    self.__prog__ = 'plotSNRCHISQJob'
     self.__executable = string.strip(cp.get('condor','plotsnrchisq'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 ##############################################################################
 # node class for plot snr chisq
@@ -329,12 +329,12 @@ class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
   def __init__(self, options, cp, tag_base='SKY_MAP'):
     """
     """
-    self.__name__ = 'lalapps_skyMapJob'
+    self.__prog__ = 'lalapps_skyMapJob'
     self.__executable = string.strip(cp.get('condor','lalapps_skymap'))
     self.__universe = "standard"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 ##############################################################################
 # job class for producing the skymap
@@ -346,12 +346,12 @@ class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
   def __init__(self, options, cp, tag_base='SKY_PLOT'):
     """
     """
-    self.__name__ = 'pylal_skyPlotJob'
+    self.__prog__ = 'pylal_skyPlotJob'
     self.__executable = string.strip(cp.get('condor','pylal_skyPlotJob'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 
 ##############################################################################
@@ -670,12 +670,12 @@ class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):
   A job to distribute the results of the qscans that have been run remotely (for LV search)
   """
   def __init__(self,cp):
-    self.__name__ = 'distributeQscanJob'
+    self.__prog__ = 'distributeQscanJob'
     self.__executable = string.strip(cp.get('condor','distribute_q'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__)
+    self.setupJobWeb(self.__prog__)
 
 ##############################################################################
 # distributeQscanNode class: the node
@@ -712,12 +712,12 @@ class analyseQscanJob(pipeline.CondorDAGJob, webTheJob):
   A followup analyseQscan job to interprete the qscans
   """
   def __init__(self,options,cp,tag_base='ANALYSE_QSCAN'):
-    self.__name__ = 'analyseQscanJob'
+    self.__prog__ = 'analyseQscanJob'
     self.__executable = string.strip(cp.get('condor','analyseQscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 ##############################################################################
 # analyse qscan class: the node
@@ -934,12 +934,12 @@ class FrCheckJob(pipeline.CondorDAGJob, webTheJob):
   def __init__(self, options, cp, tag_base='FRCHECK'):
     """
     """
-    self.__name__ = 'FrCheckJob'
+    self.__prog__ = 'FrCheckJob'
     self.__executable = string.strip(cp.get('condor','frame_check'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 
 class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
@@ -990,12 +990,12 @@ class IFOstatus_checkJob(pipeline.CondorDAGJob, webTheJob):
   A followup job for downloading summary plots
   """
   def __init__(self, options, cp, tag_base='IFOSTATUS'):
-    self.__name__ = 'IFOstatus_checkJob'
+    self.__prog__ = 'IFOstatus_checkJob'
     self.__executable = string.strip(cp.get('condor','IFOstatus_check'))
     self.__universe = "local"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
     
 class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
   """
@@ -1027,11 +1027,11 @@ class followupoddsJob(pipeline.CondorDAGJob, webTheJob):
   def __init__(self,options,cp,tag_base='FOLLOWUPODDS'):
     """
     """
-    self.__name__='followupoddsjob'
+    self.__prog__='followupoddsjob'
     self.__executable=string.strip(cp.get('condor','followupodds'))
     self.__universe="standard"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
   """
@@ -1106,11 +1106,11 @@ class followupmcmcJob(pipeline.CondorDAGJob, webTheJob):
   def __init__(self, options, cp, tag_base='FOLLOWUPMCMC'):
     """
     """
-    self.__name__ = 'followupmcmcJob'
+    self.__prog__ = 'followupmcmcJob'
     self.__executable = string.strip(cp.get('condor','followupmcmc'))
     self.__universe = "standard"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 ###############################################################################
 
@@ -1208,11 +1208,11 @@ class plotmcmcJob(pipeline.CondorDAGJob, webTheJob):
   def __init__(self, options, cp, tag_base='PLOTMCMC'):
     """
     """
-    self.__name__ = 'plotmcmcJob'
+    self.__prog__ = 'plotmcmcJob'
     self.__executable = string.strip(cp.get('condor','plotmcmc'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(self.__name__,tag_base)
+    self.setupJobWeb(self.__prog__,tag_base)
 
 ###############################################################################
 

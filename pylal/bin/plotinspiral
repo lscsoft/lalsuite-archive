@@ -20,7 +20,7 @@ or with a glob option
 
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__name__ = "plotinspiral"
+__prog__ = "plotinspiral"
 __Id__ = "$Id$"
 __title__ = "Inspiral Plots"
 
@@ -211,7 +211,7 @@ opts, args = parse_command_line()
 InspiralUtils.message(opts, "reading data...")
 # ============================================================================
 # Initialise
-opts = InspiralUtils.initialise(opts, __name__, __version__)
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 comments = ""
 # -- set the proper color code
 ifocolors = InspiralUtils.colors
@@ -572,7 +572,7 @@ if opts.template_bank is True :
   InspiralUtils.message(opts, "plotting..."+text)
   figure_number += 1
   figure(figure_number)
-  outputname = __name__+"_"+opts.user_tag
+  outputname = __prog__+"_"+opts.user_tag
   viz.plot_a_v_b(tmpltbank,'mass1','mass2','linear',plot_sym = 'rx')
   viz.plot_a_v_b(inspTriggers,'mass1','mass2','linear',plot_sym = 'ro',\
       output_name = outputname)
