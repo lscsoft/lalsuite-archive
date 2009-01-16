@@ -67,7 +67,7 @@ if [ 1 ]; then
         echo
       done
     #write corse jobs for double-in_triple and triple-in_triple files
-      for combo in H1L1 H2L1 H1H2L1; do
+      for combo in H1L1 H1H2L1; do
         zerofile="second_coire_files/full_data/${mass}/${combo}-SECOND_COIRE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         slidefile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         outfile="corse_all_data_files/${data}/H1H2L1_${combo}-CORSE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
@@ -102,7 +102,7 @@ if [ 1 ]; then
         echo
       done
     #write corse jobs for double-in_triple and triple-in_triple files
-      for combo in H1L1 H2L1 H1H2L1; do
+      for combo in H1L1 H1H2L1; do
         zerofile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         slidefile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         outfile="corse_all_data_files/${data}_slide/H1H2L1_${combo}-CORSE_SLIDE_`echo ${data} | tr '[a-z]' '[A-Z]'`_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
@@ -136,7 +136,7 @@ if [ 1 ]; then
         echo
       done
     #write corse jobs for double-in_triple and triple-in_triple files
-      for combo in H1L1 H2L1 H1H2L1; do
+      for combo in H1L1 H1H2L1; do
         zerofile="second_coire_files/${injstring}/${mass}/${combo}-SECOND_COIRE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         slidefile="second_coire_files/full_data_slide/${mass}/${combo}-SECOND_COIRE_SLIDE_${cat}_H1H2L1-${month_gps_time}-${month_duration}.xml.gz"
         outfile="corse_all_data_files/${injstring}/H1H2L1_${combo}-CORSE_${injstring}_${mass}_${cat}-${month_gps_time}-${month_duration}.xml.gz"
