@@ -88,7 +88,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
 
-    try:
+    if 1:#try:
       self.output_file_name = ""
       #inspiral.InspiralNode.__init__(self, inspJob) 
       # the use of this class would require some reorganisation in fu_Condor.py
@@ -110,9 +110,9 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         # The difference between these two times should be kept to 2s
         # Otherwise change the clustering window also
         hLengthAnalyzed = 1
-	if type == "coh": hLengthAnalyzed = 2
-        self.set_trig_start( int(trig.gpsTime[ifo]) - int(hLengthAnalyzed) )
-        self.set_trig_end( int(trig.gpsTime[ifo]) + int(hLengthAnalyzed) )
+	if type == "coh": hLengthAnalyzed = 1.0
+        self.set_trig_start( int(trig.gpsTime[ifo] - hLengthAnalyzed + 0.5) )
+        self.set_trig_end( int(trig.gpsTime[ifo] + hLengthAnalyzed + 0.5) )
 
       if injFile: 
         self.set_injections( injFile )
@@ -126,7 +126,6 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       # write_compress is found in procParams the extension will be overwritten
       # later as .xml.gz
       extension = ".xml"
-
       for row in procParams:
         param = row.param.strip("-")
         value = row.value
@@ -172,7 +171,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           extension = '.xml.gz'
 
       if type == "notrig" or type == "coh":
-        self.add_var_opt('cluster-window',str(hLengthAnalyzed))
+        self.add_var_opt('cluster-window',str(int(hLengthAnalyzed)))
         self.add_var_opt('disable-rsq-veto',' ')
 
       # add the arguments that have been specified in the section 
@@ -237,7 +236,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           self.validate()
         else: self.invalidate()
 
-    except:
+    else: #except:
       try:
         print "couldn't add inspiral job for " + self.inputIfo + "@ "+ str(trig.gpsTime[ifo])
         # if self.inputIfo does not exist (happens when inspiral cache and xml files not available), then use ifo in the string.
@@ -396,7 +395,7 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
       self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
       if inspNode.validNode: self.add_parent(inspNode)
       
-    else: print >> sys.stderr, "WARNING: Already added " + ifo
+    else: pass #print >> sys.stderr, "WARNING: Already added " + ifo
 
 
   def add_node_to_dag(self,dag,opts,trig):

@@ -66,6 +66,20 @@ class getCache(UserDict):
                           'H2V1','L1V1','H1H2L1','H1H2V1','H1L1V1', \
                           'H2L1V1','H1H2L1V1']
 
+
+
+    # Since we are continuing get useful stuff from the ini file.
+    if cp.has_option('followup-triggers','hipe-output-cache'):
+      cacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
+    else:
+      cacheString = ''
+    if cp.has_option('followup-triggers','triggers-tag'):
+      self.triggerTag = string.strip(cp.get('followup-triggers','triggers-tag'))
+    else:
+      self.triggerTag = ''
+
+    if cacheString: self.cache = Cache.fromfile(open(cacheString))
+   
     if options.generate_fu_cache:
       print >> sys.stderr, "\nOption --generate-fu-cache is specified, it overwrites the hipe cache files  which already exist"
       self.getCacheAll(cp)
@@ -140,16 +154,10 @@ class getCache(UserDict):
       listInstance = listInstance + cache[ifo].pfnlist()
     return listInstance
 
-  def filesMatchingGPSinCache(self, cacheString, time=None, cacheType=None, ifo_tag=None, ifo_in_coinc=None):
+  def filesMatchingGPSinCache(self, time=None, cacheType=None, ifo_tag=None, ifo_in_coinc=None, ):
     cacheSubSet = self.ifoDict()
-    try: 
-      cacheList = Cache.fromfile(open(cacheString))
-      
-      cacheListTest = 0
-    except: 
-      print >> sys.stderr, "could not open the file " + cacheString
-      cacheListTest = 1
-    if not cacheListTest:
+
+    if self.cache:
       for ifo in self.ifoTypes:
         try:
           if time:
@@ -166,12 +174,13 @@ class getCache(UserDict):
           else:
             seg1 = None
             seg2 = None          
-          listInstance = cacheList.sieve(ifo,cacheType,None,True)
+	  listInstance = self.cache.sieve(ifo,cacheType,None,True)
           listInstance = listInstance.sieve(None,None,seg1)
           listInstance = listInstance.sieve(None,None,seg2)
           cacheSubSet[ifo] = listInstance
         except:
-          continue
+          continue #print "couldn't get sub cache for " + ifo 
+    else: print "no valid cache file"
     return(cacheSubSet)
 
 
@@ -195,7 +204,6 @@ class getCache(UserDict):
         # from int_8s to ilwd:char
         if opts.convert_eventid:
           path = self.doFileCopyAndEventIdConvert(cp,path)
-
         doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         if getInsp:
@@ -274,19 +282,19 @@ class getCache(UserDict):
       # This type will be used to sieve (in filesMatchingGPSinCache())
       wildType = type + wildIfoTag
 
-      try:
+      if 1:
         inspiral_process_params = self.getProcessParamsFromCache( \
-                       opts,cp, self.filesMatchingGPSinCache(cacheFile,\
+                       opts,cp, self.filesMatchingGPSinCache(\
                        trig.gpsTime, wildType, trig.ifoTag, trig.ifolist_in_coinc), \
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
-      except:
+      else:
         print "couldn't get inspiral process params for " + str(trig.eventID)
         inspiral_process_params = []
       return inspiral_process_params
     else:
       try:
         inspiral_process_params, sngl = self.getProcessParamsFromCache( \
-                       opts,cp, self.filesMatchingGPSinCache(cacheFile,\
+                       opts,cp, self.filesMatchingGPSinCache(\
                        trig.gpsTime, type), \
                        trig.ifoTag, trig.gpsTime,True)
       except:
@@ -296,24 +304,14 @@ class getCache(UserDict):
       return inspiral_process_params, sngl
 
   def readTriggerFiles(self,cp,opts):
-
-    # Since we are continuing get useful stuff from the ini file.
-    if cp.has_option('followup-triggers','hipe-output-cache'):
-      triggerCacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
-    else:
-      triggerCacheString = ''
-    if cp.has_option('followup-triggers','triggers-tag'):
-      triggerTag = string.strip(cp.get('followup-triggers','triggers-tag'))
-    else:
-      triggerTag = ''
-
-    if len(triggerCacheString) == 0 or len(triggerTag) == 0:
+   
+    if not self.cache or self.triggerTag == "":
       xml_glob = string.strip(cp.get('followup-triggers','xml-glob'))
+      triggerList = glob.glob(xml_glob) 
     else:
-      triggerCache = self.filesMatchingGPSinCache(triggerCacheString,None,triggerTag)
+      triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
       triggerList = self.getListFromCache(triggerCache)
       xml_glob = triggerList[0]
-    print xml_glob
 
     # if the option "--convert-evenid" is called, a copy of the xml file 
     # is made under LOCAL_XML_COPY, and the event_id is converted
@@ -325,7 +323,7 @@ class getCache(UserDict):
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
     bla =  string.strip(cp.get('followup-triggers','bitten-l-a'))
     blb =  string.strip(cp.get('followup-triggers','bitten-l-b'))
-    found, coincs, search = readFiles(xml_glob,getstatistic(statistic,bla,blb))
+    found, coincs, search = readFiles(triggerList,getstatistic(statistic,bla,blb))
     return numtrigs, found, coincs, search
 
 
@@ -547,11 +545,11 @@ def readFiles(fileGlob,statistic=None):
     return None, CoincInspiralUtils.coincInspiralTable(), None
 
   # if there aren't any files globbed exit
-  fList = glob.glob(fileGlob)
-  if not fList:
-    print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
-    sys.exit(1)
-
+  #fList = glob.glob(fileGlob)
+  #if not fList:
+  #  print >>sys.stderr, "The glob for " + fileGlob + " returned no files"
+  #  sys.exit(1)
+  fList = fileGlob
   sims = None
   coincs = None
   search = None
@@ -587,6 +585,9 @@ def readFiles(fileGlob,statistic=None):
       else: 
         coincs = coincInspiralTable
         search = searchSumTable    
+  print "processed " + str(len(fList)) + " files..." 
+  #for ck in coincs:
+  #  print getattr(ck, 'event_id'), getattr(ck, 'numifos')
   return sims,coincs,search
 
 
@@ -754,6 +755,13 @@ class followUpList:
     self.page = None
     self.summarydir = None
     self.summarypage = None
+    self.types = ['H1H2', 'H1H2L1', 'H1H2L1V1', 'H1H2V1', 'H1L1', 'H1L1V1', 'H1V1', 'H2L1', 'H2L1V1', 'H2V1', 'L1V1']
+
+  def get_coinc_type(self):
+    ifostring = ""
+    for t in ['H1','H2','L1','V1']:
+      if self.gpsTime[t]: ifostring+=t
+    return ifostring
 
   def add_coincs(self,Coincs):
     setattr(self,"coincs",Coincs)
@@ -802,8 +810,9 @@ def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,u
   xmldoc.appendChild(ligolw.LIGO_LW())
  
   # if we want our trigbank files to use the loudest template
+  maxSNR = 0
   if use_max_template:
-    maxSNR = 0;
+    maxSNR = 0
     maxIFO = ""
     for t in ckey:
       snr = t.snr
@@ -816,7 +825,9 @@ def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,u
   
   properChannelTrig = getattr(ckey,ifo)
   trig.channel = properChannelTrig.channel
-  trig.ifo = properChannelTrig.ifo
+  trig.ifo = ifo
+  #print ifo, getattr(ckey,ifo).ifo
+  #print trig.channel, trig.ifo, maxSNR, getattr(ckey, 'event_id')
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
   valid_columns = trig.__slots__
   columns = []
@@ -838,14 +849,13 @@ def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,u
   xmldoc.childNodes[-1].appendChild(process_params_table) 
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
-  print sngl_inspiral_table
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   sngl_inspiral_table.append(trig)
 
   fileName = ifo + '-TRIGBANK_FOLLOWUP_' + type + str(int(ckey.event_id)) + ".xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
-  utils.write_filename(xmldoc, fileName, verbose = True, gz = True)   
+  utils.write_filename(xmldoc, fileName, verbose = False, gz = True)   
 
 def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
   
@@ -895,14 +905,16 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
 def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
 
   followups = []
+  xmfilenum = 0
   if coincs:
       if not ifar:
           sim = None
           try:
               sim = isinstance(coincs[0].sim,lsctables.SimInspiral)
           except: pass
-          if sim: 
-              coincs.sort(False) # This does an ascending sort instead for found inj
+          if sim:
+	      print "following up injections..."
+              coincs.sort() # This does an ascending sort instead for found inj
           else:
               coincs.sort()
           numTrigs = 0
@@ -912,19 +924,23 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                   break
               fuList = followUpList()
               fuList.add_coincs(ckey)
+
               if page:
                   fuList.add_page(page)
               ifo_list = ['H1','H2','L1','G1','V1','T1']
               for ifo in ifo_list:
                   try:
                       getattr(ckey,ifo)
+		      #print getattr(ckey, 'numifos'), getattr(ckey, 'event_id')
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
                   except: fuList.gpsTime[ifo] = None
+        
                   if fuList.gpsTime[ifo] and trigbank_test:
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+		      xmfilenum += 3
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -938,7 +954,7 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                           out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
                           if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
                               fuList.ifoTag = chunk.ifos
-                              break 
+                              break
               followups.append(fuList)
       else:
           ifarList=list()
@@ -971,6 +987,7 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+		      xmfilenum += 3
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -987,6 +1004,15 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                               break 
               followups.append(fuList)
   # the missed stuff doesnt work yet!!!
+  print "produced " + str(xmfilenum) + " trig bank files..."
+
+  # compute the trigger types found
+  typesdict = {"H1H2" : 0, "H1L1" : 0, "H1V1" : 0, "H2L1" : 0, "H2V1" : 0, "L1V1" : 0, "H1H2L1" : 0, "H1H2V1" : 0, "H2L1V1" : 0, "H1L1V1" : 0, "H1H2L1V1" : 0}
+  for f in followups:
+    typesdict[f.get_coinc_type()] += 1
+  for f in typesdict:
+    print "found " + str(typesdict[f]) + " " + str(f) +  " triggers"
+
   if missed:
     followups
   return followups
