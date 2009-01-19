@@ -282,12 +282,12 @@ class getCache(UserDict):
       # This type will be used to sieve (in filesMatchingGPSinCache())
       wildType = type + wildIfoTag
 
-      if 1:
+      try:
         inspiral_process_params = self.getProcessParamsFromCache( \
                        opts,cp, self.filesMatchingGPSinCache(\
                        trig.gpsTime, wildType, trig.ifoTag, trig.ifolist_in_coinc), \
                        trig.ifoTag, trig.gpsTime, False, trig.ifolist_in_coinc)
-      else:
+      except:
         print "couldn't get inspiral process params for " + str(trig.eventID)
         inspiral_process_params = []
       return inspiral_process_params
@@ -914,7 +914,7 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
           except: pass
           if sim:
 	      print "following up injections..."
-              coincs.sort() # This does an ascending sort instead for found inj
+              coincs.sort() # This does an descending sort even for found inj !!! CHANGE THIS? It USED TO BE ASCENDING
           else:
               coincs.sort()
           numTrigs = 0
