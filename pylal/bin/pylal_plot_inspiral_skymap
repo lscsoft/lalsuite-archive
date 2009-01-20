@@ -8,6 +8,8 @@ import pylab
 import sys
 from optparse import *
 from pylal import webUtils
+import operator
+
 
 def sinc(x):
   if x !=0:
@@ -72,17 +74,21 @@ def skymapbin(RAint,DECint,colorMat,ra_dec_tuple):
 
 def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat,divisorMat):
   outfile = open(file,"r")
+  outlist = []
   for line in outfile.readlines():
     ra = float(line.split()[0])
     dec = float(line.split()[1])
     prob = float(line.split()[2])
     ra_dec_tuple = tuple((ra,dec,prob)) 
+    outlist.append(ra_dec_tuple)
     skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
+  return outlist
 
 def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   colorMat = zeros((RAint,DECint),dtype='float64')
   divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
   map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat,divisorMat)
+  map.sort(key=operator.itemgetter(2),reverse=True)
   RAvec = linspace(0,2*pi,RAint)
   DECvec = linspace(-pi/2,pi/2,DECint)
   X,Y = pylab.meshgrid(RAvec,DECvec)
@@ -97,8 +103,12 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   pylab.ylabel('DEC')
   pylab.title('Inspiral sky location probability')
   pylab.colorbar()
+  ofile = open(dir + '/' + figname + '.txt','w')
   if injRA and injDEC:
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
+    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError'
+    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0
+  ofile.close()
   pylab.xlim((0,2*pi))
   pylab.ylim((-pi/2,pi/2))
   pylab.savefig(dir + '/'+ figname)
