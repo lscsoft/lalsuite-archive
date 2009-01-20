@@ -72,7 +72,7 @@ def skymapbin(RAint,DECint,colorMat,ra_dec_tuple):
   interpRADEC(RAint,DECint,colorMat,ra_dec_tuple)
 
 
-def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat,divisorMat):
+def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat, divisorMat = None):
   outfile = open(file,"r")
   outlist = []
   for line in outfile.readlines():
@@ -84,11 +84,26 @@ def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat,divisorMat):
     skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
   return outlist
 
+
+def areaRank(rdtup, injRA, injDEC, RAint, DECint):
+  colorMat = zeros((RAint,DECint),dtype='float64')
+  #ra_dec_tuple = (injRA, injDEC, 1.0)
+  #skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
+  rdtup.sort(key=operator.itemgetter(2),reverse=True)
+  A = 0
+  for t in rdtup:
+    A += 2*pi/RAint * pi/DECint * cos(t[1])
+    if (injRA-t[0])**2 < (2*pi/RAint)**2 and (injDEC-t[1])**2 < (2*pi/DECint)**2:
+      break
+  return A / (4*pi)
+
+
 def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   colorMat = zeros((RAint,DECint),dtype='float64')
-  divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
-  map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat,divisorMat)
+  #divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
+  map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat)
   map.sort(key=operator.itemgetter(2),reverse=True)
+  #print areaRank(map, injRA, injDEC, RAint, DECint)
   RAvec = linspace(0,2*pi,RAint)
   DECvec = linspace(-pi/2,pi/2,DECint)
   X,Y = pylab.meshgrid(RAvec,DECvec)
@@ -106,8 +121,8 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   ofile = open(dir + '/' + figname + '.txt','w')
   if injRA and injDEC:
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
-    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError'
-    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0
+    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError', 'areaRank'
+    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0, areaRank(map, injRA, injDEC, RAint, DECint)
   ofile.close()
   pylab.xlim((0,2*pi))
   pylab.ylim((-pi/2,pi/2))
