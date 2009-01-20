@@ -66,8 +66,8 @@ RCSID( "$Id$" );
 #define CVS_ID_STRING "$Id$"
 #define CVS_NAME_STRING "$Name$"
 #define CVS_REVISION "$Revision$"
-#define CVS_SOURCE "$Source$"
 #define CVS_DATE "$Date$"
+#define CVS_SOURCE "$Source$"
 #define PROGRAM_NAME "inspiral"
 
 /* define the parameters for a 1.4,1.4 sloar mass standard candle with snr 8 */
@@ -656,6 +656,9 @@ int main( int argc, char *argv[] )
 
   /* set the mode of the frame stream to fail on gaps or time errors */
   frStream->mode = LAL_FR_VERBOSE_MODE;
+  
+  /* enable frame-file checksum checking */
+  XLALFrSetMode( frStream, frStream->mode | LAL_FR_CHECKSUM_MODE );
 
   /* seek to required epoch and set chan name */
   LAL_CALL( LALFrSeek( &status, &(chan.epoch), frStream ), &status );
