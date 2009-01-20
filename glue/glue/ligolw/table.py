@@ -545,7 +545,7 @@ class Table(ligolw.Table, list):
 			if self.validcolumns is not None:
 				try:
 					if self.validcolumns[colname] != llwtype:
-						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"))
+						raise ligolw.ElementError, "invalid type '%s' for Column '%s' in Table '%s', expected type '%s'" % (llwtype, child.getAttribute("Name"), self.getAttribute("Name"), self.validcolumns[colname])
 				except KeyError:
 					raise ligolw.ElementError, "invalid Column '%s' for Table '%s'" % (child.getAttribute("Name"), self.getAttribute("Name"))
 			if colname in self.columnnames:
