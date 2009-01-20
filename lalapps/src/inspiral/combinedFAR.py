@@ -7,6 +7,7 @@ import re
 import exceptions
 import glob
 from types import * #!!!what does this do?
+from operator import itemgetter
 
 from glue import lal
 from glue import segments #!!!do I need this?
@@ -174,7 +175,9 @@ NormTime = {}
 modFAN = {}
 massbin = {}
 coincifos = {}
-no_bkg = []
+no_bkg = {}
+no_frgnd = {}
+no_bkg_frgnd = {}
 coincT = {}
 warn_msg = ""
 for thisfile in corsefiles:
@@ -190,27 +193,29 @@ for thisfile in corsefiles:
   # get needed info from summary file
   file = open(summfile[0], 'r')
   for line in file:
-    # following 3 lines check what the original data type was when corse was
-    # ran; this is needed to compare against data-type option in plotifar, in
-    # case coire has been run on the corse files to filter out a certain
-    # data-type
-    if line.startswith( 'using all input data' ): all_data = True
-    elif line.startswith(' using data from playground times only' ): playground_only = True
-    elif line.startswith( 'excluding all triggers in playground times' ): exclude_playground = True
     # get coincidence type (used for labeling in plots); will have regardless
     # of whether or not there are foreground triggers
-    elif line.startswith( 'coincident ifos:' ):
+    if line.startswith( 'coincident ifos:' ):
       # if no background triggers mark the corsefile for later removal and
       # break from reading the summary file 
       if line.split()[2] == 'no_background':
-        no_bkg.append(corsefiles.index(thisfile))
-        NbkgCoinc = 0.
-        break
+        no_bkg[thisfile] = True
       else:
         coincifos[thisfile] = line.split()[2]
     # get Number of background triggers
     elif line.startswith( 'number of reconstructed slide coincidences:' ):
       NbkgCoinc = float( line.split()[5] )
+    elif line.startswith( 'number of reconstructed zero-lag coincidences' ):
+      if float( line.split(':')[1] ) == 0.: # no foreground
+        if thisfile in no_bkg:
+          # no foreground or background: remove from the no_bkg dictionary,
+          # mark the corsefile for later removal and break from
+          # reading the summary file
+          no_bkg_frgnd[thisfile] = corsefiles.index(thisfile)
+          del no_bkg[thisfile]
+          break
+        else: # just have no foreground; add to no foreground dict
+          no_frgnd[thisfile] = True
     # get foreground time analyzed; used maxbkgFAN as well as for normalizing
     elif line.startswith( 'amount of time analysed for triggers' ):
       FrgrndTime = float( line.split()[6] ) + float( line.split()[8] ) #sec + ns
@@ -225,16 +230,17 @@ for thisfile in corsefiles:
     elif line.startswith( 'mass-bin:' ):
       mass = line.split(":")[1].rstrip('\n').lstrip()
       mass = mass.replace( '_','-' )
-      if massbin.has_key( mass) :
+      if mass in massbin:
         massbin[ mass ].append(thisfile)
       else:
         massbin[ mass ] = []
         massbin[ mass ].append(thisfile)
   file.close()
   # calculate min/max BkgFANs
-  if NbkgCoinc != 0.:
-    maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
-    minBkgFAN[thisfile] = FrgrndTime/BkgTime
+  minBkgFAN[thisfile] = FrgrndTime/BkgTime
+  if thisfile not in no_bkg_frgnd: # i.e., has background or foreground
+    if thisfile not in no_bkg:
+      maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
   # apply correction factor
     if opts.time_correct_file:
       corrfile = open(opts.time_correct_file,'r')
@@ -249,10 +255,10 @@ for thisfile in corsefiles:
 
 # remove files that had no bkg from corsefiles list and add their names to
 # warn_msg
-if no_bkg:
+if no_bkg_frgnd:
   warn_msg = 'No foreground or background in files:\n'
-  for idx in no_bkg:
-    warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx)) + '\n'
+  for idx in sorted(no_bkg_frgnd.items(), key=itemgetter(1), reverse=True):
+    warn_msg = warn_msg + ' ' + os.path.basename(corsefiles.pop(idx[1])) + '\n'
   # check if still have a corsefiles list; if all the files that were globbed
   # don't have foreground and background, just make a generic plot with
   # warn_msg on it; this avoids future errors
@@ -265,6 +271,10 @@ for thisfile in corsefiles:
   insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [thisfile] )
   coincT[ thisfile ] = CoincInspiralUtils.coincInspiralTable( insptrigs, coincStat )
   coincT[ thisfile ].sort() # sort by descending FAN
+  # if this file has no_bkg, but does have foreground, get the ifo coincident
+  # type from the first foreground trigger
+  if thisfile in no_bkg:
+    coincifos[thisfile] = coincT[ thisfile ][0].get_ifos()[0]
 for thisfile in corsefiles:
   if NormTime[corsefiles[0]] != NormTime[thisfile]:
     print >> sys.stderr, "Can't combine experiments with " + \
@@ -274,7 +284,7 @@ maxFANs = [] # for storing max FAN of bkg (the dict is hard to sort by value)
 FANc = [] # for storing the combined FANs of foreground triggers
 zero_fanc = []
 for thisfile in corsefiles:
-  maxFANs.append( maxBkgFAN[thisfile] )
+  if thisfile in maxBkgFAN:maxFANs.append( maxBkgFAN[thisfile] )
   if coincT[thisfile].sngl_table: # if have foreground trigs
     for coinc in coincT[thisfile]:
       if coinc.stat == 0.: # mark and set to minbkgFAN[thisfile]
