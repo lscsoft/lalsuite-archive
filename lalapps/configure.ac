@@ -273,6 +273,7 @@ fi
 AC_OUTPUT( \
   Makefile \
   lalapps.spec \
+  debian/Makefile \
   doc/Makefile \
   man/Makefile \
   misc/Makefile \
