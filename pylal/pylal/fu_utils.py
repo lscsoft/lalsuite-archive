@@ -67,19 +67,6 @@ class getCache(UserDict):
                           'H2L1V1','H1H2L1V1']
 
 
-
-    # Since we are continuing get useful stuff from the ini file.
-    if cp.has_option('followup-triggers','hipe-output-cache'):
-      cacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
-    else:
-      cacheString = ''
-    if cp.has_option('followup-triggers','triggers-tag'):
-      self.triggerTag = string.strip(cp.get('followup-triggers','triggers-tag'))
-    else:
-      self.triggerTag = ''
-
-    if cacheString: self.cache = Cache.fromfile(open(cacheString))
-   
     if options.generate_fu_cache:
       print >> sys.stderr, "\nOption --generate-fu-cache is specified, it overwrites the hipe cache files  which already exist"
       self.getCacheAll(cp)
@@ -94,6 +81,20 @@ class getCache(UserDict):
           os.symlink(string.strip(cp.get('followup-hipe-cache','hipe-cache-path')), 'cache')
         except: print >> sys.stderr, "WARNING: cache directory exists, cannot link"
       else: pass
+
+
+    # Since we are continuing get useful stuff from the ini file.
+    if options.generate_fu_cache or not cp.has_option('followup-triggers','hipe-output-cache'):
+      cacheString = 'fu_hipe.cache'
+    else:
+      cacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
+    if cp.has_option('followup-triggers','triggers-tag'):
+      self.triggerTag = string.strip(cp.get('followup-triggers','triggers-tag'))
+    else:
+      self.triggerTag = ''
+
+    self.cache = Cache.fromfile(open(cacheString))
+
 
 
   def ifoDict(self):
@@ -203,7 +204,7 @@ class getCache(UserDict):
         # is made under LOCAL_XML_COPY, and the event_id is converted 
         # from int_8s to ilwd:char
         if opts.convert_eventid:
-          path = self.doFileCopyAndEventIdConvert(cp,path)
+          path = self.doFileCopyAndEventIdConvert(cp,[path])[0]
         doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
         if getInsp:
@@ -260,14 +261,6 @@ class getCache(UserDict):
       return process
 
   def processFollowupCache(self, cp, opts, trig, type="INSPIRAL_SECOND_"):
-    if cp.has_option('followup-hipe-cache','hipe-intermediate-cache'):
-      intermediateCache = string.strip(cp.get('followup-hipe-cache','hipe-intermediate-cache'))
-    else:
-      intermediateCache = ''
-    if opts.generate_fu_cache or len(intermediateCache) == 0:
-      cacheFile = 'fu_hipe.cache'
-    else:
-      cacheFile = intermediateCache
 
     if type == "INSPIRAL_SECOND_":
       # get the list of interferometers from the ifoTag
@@ -311,13 +304,12 @@ class getCache(UserDict):
     else:
       triggerCache = self.filesMatchingGPSinCache(None,self.triggerTag)
       triggerList = self.getListFromCache(triggerCache)
-      xml_glob = triggerList[0]
 
-    # if the option "--convert-evenid" is called, a copy of the xml file 
+    # if the option "--convert-eventid" is called, a copy of the xml file 
     # is made under LOCAL_XML_COPY, and the event_id is converted
     # from int_8s to ilwd:char
     if opts.convert_eventid:
-      xml_glob = self.doFileCopyAndEventIdConvert(cp,xml_glob)
+      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
       
     numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
     statistic =  string.strip(cp.get('followup-triggers','statistic'))
@@ -327,16 +319,19 @@ class getCache(UserDict):
     return numtrigs, found, coincs, search
 
 
-  def doFileCopyAndEventIdConvert(self,cp,inputxmlfile):
-    if not os.path.isfile("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]):
-      shutil.copy(inputxmlfile,'LOCAL_XML_COPY')
-      convert_process = call(cp.get('condor','pylal_conv_eventid') + " LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1], shell=True)
-      if convert_process != 0:
-        print >> sys.stderr, "ligolw_conv_inspid could not be run on file " + inputxmlfile.split('/')[-1]
-        sys.exit(1)
-    else:
-      print "The file " + inputxmlfile.split('/')[-1] + " already exist in LOCAL_XML_COPY. It will not be overwritten"
-    return "LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]
+  def doFileCopyAndEventIdConvert(self,cp,inputxmlfilelist):
+    newfilelist = []
+    for inputxmlfile in inputxmlfilelist:
+      if not os.path.isfile("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]):
+        shutil.copy(inputxmlfile,'LOCAL_XML_COPY')
+        convert_process = call(cp.get('condor','pylal_conv_eventid') + " LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1], shell=True)
+        if convert_process != 0:
+          print >> sys.stderr, "ligolw_conv_inspid could not be run on file " + inputxmlfile.split('/')[-1]
+          sys.exit(1)
+      else:
+        print "The file " + inputxmlfile.split('/')[-1] + " already exist in LOCAL_XML_COPY. It will not be overwritten"
+      newfilelist.append("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1])
+    return newfilelist
 
 ##############################################################################
 # functions to parse qscan cache files (used in analyseQscan)
