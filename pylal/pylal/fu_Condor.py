@@ -1077,11 +1077,11 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.outputCache = trig.ifos + ' ' + followupoddsJob.name + ' ' +\
                          self.id.split('-')[-1]+' '+outputname+'\n'
 
-      print "Using IFOs " + str(IFOs)
+      #print "Using IFOs " + str(IFOs)
 
       self.setupNodeWeb(followupoddsJob,False,None,None,None,dag.cache)
 
-      print "Arguments: " + str(self.get_cmd_line())
+      #print "Arguments: " + str(self.get_cmd_line())
 
       if opts.odds:
         dag.addNode(self,self.friendlyName)
