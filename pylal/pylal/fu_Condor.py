@@ -439,6 +439,7 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("event-id",str(trig.eventID))
     self.add_var_opt("ra-res",str(skyMapNode.ra_res))
     self.add_var_opt("dec-res",str(skyMapNode.dec_res))
+    self.add_var_opt("stat-value", str(trig.statValue))
     # if this is a software injection pass along the information to the
     # plotting code so that it can make a mark where the injection should have
     # been :)
