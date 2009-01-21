@@ -404,14 +404,12 @@ class FollowupMissed:
     @param ifoName: The name of the IFO to be investigated
     """
     
-    flag = False
-    vetoSegs = self.vetodict[ifoName]
-    for seg in vetoSegs :
-      if ( timeTrigger > seg[0] and timeTrigger < seg[1] ):
-        flag = True
+    if  self.vetodict[ifoName] is None:
+      flag = False
+    else:
+      flag = timeTrigger in self.vetodict[ifoName]
 
     return flag
-
 
   # -----------------------------------------------------
   def getExpectedSNR(self, triggerFiles, inj, number ):
