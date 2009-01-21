@@ -98,7 +98,7 @@ def areaRank(rdtup, injRA, injDEC, RAint, DECint):
   return A / (4*pi)
 
 
-def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
+def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
   colorMat = zeros((RAint,DECint),dtype='float64')
   #divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
   map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat)
@@ -121,8 +121,8 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC):
   ofile = open(dir + '/' + figname + '.txt','w')
   if injRA and injDEC:
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
-    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError', 'areaRank'
-    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0, areaRank(map, injRA, injDEC, RAint, DECint)
+    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError', 'areaRank', 'stat'
+    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0, areaRank(map, injRA, injDEC, RAint, DECint), stat
   ofile.close()
   pylab.xlim((0,2*pi))
   pylab.ylim((-pi/2,pi/2))
@@ -175,6 +175,9 @@ parser.add_option("-R","--injection-right-ascension",action="store",type="float"
 parser.add_option("-D","--injection-declination",action="store",type="float",\
     metavar=" DEC_INJ",help="injection has declination DEC_INJ")
 
+parser.add_option("-S","--stat-value",action="store",type="float",default=0.0,\
+    metavar=" STAT",help="injection has found stat value STAT")
+
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
@@ -188,7 +191,7 @@ talkBack = webUtils.talkBack(opts.output_web_file)
 
 figname = 'inspiral_sky_map_'+ opts.event_id
 
-plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,opts.page_rel_path,figname,opts.injection_right_ascension,opts.injection_declination)
+plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,opts.page_rel_path,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
 
 webPage.appendSection("Sky Map of Inspiral Event")
 webPage.lastSection.image(figname+'.png',opts.page+'/'+opts.page_rel_path+'/'+figname+'.png')
