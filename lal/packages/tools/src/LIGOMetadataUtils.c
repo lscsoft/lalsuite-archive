@@ -702,6 +702,7 @@ LALDistanceScanSummValueTable (
 
   /* convert the input GPS time into INT8 */
   LALGPStoINT8( status->statusPtr, &ta, &(gps) );
+  CHECKSTATUSPTR( status );
 
   /* scan the summ value table */
   for( thisSummValue = summValueList; thisSummValue; 
@@ -714,7 +715,9 @@ LALDistanceScanSummValueTable (
 	with the requested GPS time */
 
       LALGPStoINT8( status->statusPtr, &tb, &(thisSummValue->start_time) );
+      CHECKSTATUSPTR( status );
       LALGPStoINT8( status->statusPtr, &tc, &(thisSummValue->end_time) );
+      CHECKSTATUSPTR( status );
       if ( ta >= tb && ta<=tc )
       {
         *distance = thisSummValue->value; 

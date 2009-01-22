@@ -498,7 +498,9 @@ LALCompareSnglInspiral (
   }
 
   LALGPStoINT8( status->statusPtr, &ta, &(aPtr->end_time) );
+  CHECKSTATUSPTR( status );
   LALGPStoINT8( status->statusPtr, &tb, &(bPtr->end_time) );
+  CHECKSTATUSPTR( status );
 
   /* compare on trigger time coincidence */
   if ( labs( ta - tb ) < params->dt && params->match)
@@ -1453,16 +1455,18 @@ void
   if ( startTime )
   {
     LALGPStoINT8( status->statusPtr, &startTimeNS, startTime );
+    CHECKSTATUSPTR( status );
   }
 
   if ( endTime )
   {
     LALGPStoINT8( status->statusPtr, &endTimeNS, endTime );
+    CHECKSTATUSPTR( status );
   }
 
   /* calculate the slide time in nanoseconds */
   LALGPStoINT8( status->statusPtr, &slideNS, slideTime);
-
+  CHECKSTATUSPTR( status );
   /* initialize segment-list */
   XLALSegListInit( &tmplist );
 
@@ -1478,7 +1482,9 @@ void
          
     /* and seg time in nanoseconds */
     LALGPStoINT8( status->statusPtr, &segStartNS, &(seglist->segs[i].start) );
+    CHECKSTATUSPTR( status );
     LALGPStoINT8( status->statusPtr, &segEndNS,   &(seglist->segs[i].end) );
+    CHECKSTATUSPTR( status );
 
     /* do the slide */
     segStartNS += slideNS;
@@ -1508,7 +1514,9 @@ void
 	  newStartNS = segStartNS + lengthTimeNS;
 	  newEndNS   = endTimeNS;
 	  LALINT8toGPS( status->statusPtr, &(tmpSeg.start), &newStartNS );
+    CHECKSTATUSPTR( status );
 	  LALINT8toGPS( status->statusPtr, &(tmpSeg.end),   &newEndNS );
+    CHECKSTATUSPTR( status );
 	  XLALSegListAppend( &tmplist, &tmpSeg );
 
 	  segStartNS = startTimeNS;	  
@@ -1524,7 +1532,9 @@ void
 	  newStartNS = startTimeNS;
 	  newEndNS   = segEndNS - lengthTimeNS;
 	  LALINT8toGPS( status->statusPtr, &(tmpSeg.start), &newStartNS );
+    CHECKSTATUSPTR( status );
 	  LALINT8toGPS( status->statusPtr, &(tmpSeg.end),   &newEndNS );
+    CHECKSTATUSPTR( status );
 	  XLALSegListAppend( &tmplist, &tmpSeg );
 
 	  segEndNS = endTimeNS;
@@ -1534,7 +1544,9 @@ void
     
     /* restore segment */
     LALINT8toGPS( status->statusPtr, &(tmpSeg.start), &segStartNS );
+    CHECKSTATUSPTR( status );
     LALINT8toGPS( status->statusPtr, &(tmpSeg.end),   &segEndNS );
+    CHECKSTATUSPTR( status );
     XLALSegListAppend( &tmplist, &tmpSeg );
   }   
 
@@ -1590,11 +1602,13 @@ LALTimeSlideSingleInspiral(
   if ( startTime )
   {
     LALGPStoINT8( status->statusPtr, &startTimeNS, startTime );
+    CHECKSTATUSPTR( status );
   }
 
   if ( endTime )
   {
     LALGPStoINT8( status->statusPtr, &endTimeNS, endTime );
+    CHECKSTATUSPTR( status );
   }
 
   for( thisEvent = triggerList; thisEvent; thisEvent = thisEvent->next )
@@ -1602,8 +1616,10 @@ LALTimeSlideSingleInspiral(
     /* calculate the slide time in nanoseconds */
     LALGPStoINT8( status->statusPtr, &slideNS, 
         &(slideTimes[XLALIFONumber(thisEvent->ifo)]) );
+    CHECKSTATUSPTR( status );
     /* and trig time in nanoseconds */
     LALGPStoINT8( status->statusPtr, &trigTimeNS, &(thisEvent->end_time));
+    CHECKSTATUSPTR( status );
     trigTimeNS += slideNS;
     
     while ( startTimeNS && trigTimeNS < startTimeNS )
@@ -1619,6 +1635,7 @@ LALTimeSlideSingleInspiral(
    
     /* convert back to LIGOTimeGPS */
     LALINT8toGPS( status->statusPtr, &(thisEvent->end_time), &trigTimeNS );
+    CHECKSTATUSPTR( status );
   }         
 
   DETATCHSTATUSPTR (status);
@@ -1883,12 +1900,14 @@ LALIncaCoincidenceTest(
       currentTrigger[0] = currentTrigger[0]->next  )
   {
     LALGPStoINT8( status->statusPtr, &ta, &(currentTrigger[0]->end_time) );
+    CHECKSTATUSPTR( status );
 
     /* spin ifo b until the current trigger is within the coinicdence */
     /* window of the current ifo a trigger                            */
     while ( currentTrigger[1] )
     {
       LALGPStoINT8( status->statusPtr, &tb, &(currentTrigger[1]->end_time) );
+      CHECKSTATUSPTR( status );
 
       if ( tb > ta - errorParams->dt )
       {
@@ -1904,6 +1923,7 @@ LALIncaCoincidenceTest(
     while ( currentTrigger[1] )
     {
       LALGPStoINT8( status->statusPtr, &tb, &(currentTrigger[1]->end_time) );
+      CHECKSTATUSPTR( status );
 
       if (tb > ta + errorParams->dt )
       {
@@ -1915,6 +1935,7 @@ LALIncaCoincidenceTest(
         /* call the LAL function which compares events parameters */
         LALCompareSnglInspiral( status->statusPtr, currentTrigger[0],
             currentTrigger[1], errorParams );
+        CHECKSTATUSPTR( status );
       }
 
       if ( errorParams->match )
@@ -2003,6 +2024,7 @@ LALTamaCoincidenceTest(
       currentTrigger[0] = currentTrigger[0]->next  )
   {
     LALGPStoINT8( status->statusPtr, &ta, &(currentTrigger[0]->end_time) );
+    CHECKSTATUSPTR( status );
 
     LALInfo( status, printf("  using IFO A trigger at %d + %10.10f\n",
           currentTrigger[0]->end_time.gpsSeconds, 
@@ -2013,6 +2035,7 @@ LALTamaCoincidenceTest(
     while ( currentTrigger[1] )
     {
       LALGPStoINT8( status->statusPtr, &tb, &(currentTrigger[1]->end_time) );
+      CHECKSTATUSPTR( status );
 
       if ( tb > ta - errorParams->dt )
       {
@@ -2029,6 +2052,7 @@ LALTamaCoincidenceTest(
     while ( currentTrigger[1] )
     {
       LALGPStoINT8( status->statusPtr, &tb, &(currentTrigger[1]->end_time) );
+      CHECKSTATUSPTR( status );
 
       if (tb > ta + errorParams->dt )
       {
@@ -2066,6 +2090,7 @@ LALTamaCoincidenceTest(
     {
       LALClusterSnglInspiralTable ( status->statusPtr, &timeCoincHead, 
           2 * errorParams->dt, clusterchoice);
+      CHECKSTATUSPTR( status );
 
       currentTrigger[1] = timeCoincHead;
 
@@ -2073,6 +2098,7 @@ LALTamaCoincidenceTest(
       /* call the LAL function which compares events parameters */
       LALCompareSnglInspiral( status->statusPtr, currentTrigger[0],
           currentTrigger[1], errorParams );
+      CHECKSTATUSPTR( status );
 
       if ( errorParams->match )
       {

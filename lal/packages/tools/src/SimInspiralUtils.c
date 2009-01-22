@@ -717,6 +717,7 @@ LALPopulateSimInspiralSiteInfo(
   eff_dist = &(output->eff_dist_h);
   LALInspiralSiteTimeAndDist(status->statusPtr, output, &detector, end_time, 
       eff_dist, &skyPos);
+  CHECKSTATUSPTR( status );
 
   /* LIGO Livingston observatory*/
   detector = lalCachedDetectors[LALDetectorIndexLLODIFF];
@@ -724,6 +725,7 @@ LALPopulateSimInspiralSiteInfo(
   eff_dist = &(output->eff_dist_l);
   LALInspiralSiteTimeAndDist(status->statusPtr, output, &detector, end_time, 
       eff_dist, &skyPos);
+  CHECKSTATUSPTR( status );
 
   /* GEO observatory*/
   detector = lalCachedDetectors[LALDetectorIndexGEO600DIFF];
@@ -731,6 +733,7 @@ LALPopulateSimInspiralSiteInfo(
   eff_dist = &(output->eff_dist_g);
   LALInspiralSiteTimeAndDist(status->statusPtr, output, &detector, end_time, 
       eff_dist, &skyPos);
+  CHECKSTATUSPTR( status );
 
   /* TAMA observatory*/
   detector = lalCachedDetectors[LALDetectorIndexTAMA300DIFF];
@@ -738,6 +741,7 @@ LALPopulateSimInspiralSiteInfo(
   eff_dist = &(output->eff_dist_t);
   LALInspiralSiteTimeAndDist(status->statusPtr, output, &detector, end_time, 
       eff_dist, &skyPos);
+  CHECKSTATUSPTR( status );
 
   /* Virgo observatory*/
   detector = lalCachedDetectors[LALDetectorIndexVIRGODIFF];
@@ -745,6 +749,7 @@ LALPopulateSimInspiralSiteInfo(
   eff_dist = &(output->eff_dist_v);
   LALInspiralSiteTimeAndDist(status->statusPtr, output, &detector, end_time, 
       eff_dist, &skyPos);
+  CHECKSTATUSPTR( status );
 
   /* 
    *
