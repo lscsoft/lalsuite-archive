@@ -93,7 +93,7 @@ num_thincas=`grep THINCA_SECOND.*INJ_${cat} ${hipe_cache} | awk '{print $5}' | s
 thinca_idx=1
 
 if [ 1 ]; then
-  for injstring in BNSINJ NSBHINJ SPININJ BBHINJ; do
+  for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
     for file in `grep THINCA_SECOND.*${injstring}_${cat} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
       echo -ne "processing ${thinca_idx} / ${num_thincas}\r" >&2
       thinca_idx=$(( ${thinca_idx} + 1 ))
@@ -123,7 +123,7 @@ if [ 1 ]; then
   echo "MAXJOBS septime 20"
 fi > septime_injection.dag
 
-for injstring in BNSINJ NSBHINJ SPININJ BBHINJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ 1 ]; then
     echo "universe = vanilla"
     echo "executable = ${septime_path}"
@@ -191,7 +191,7 @@ echo -e "\n...done."
 if [ ! -d septime_files ] ; then
   mkdir septime_files
 fi
-for string in full_data full_data_slide BNSINJ NSBHINJ BBHINJ SPININJ; do
+for string in full_data full_data_slide BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ ! -d septime_files/${string}_${cat} ] ; then
     mkdir septime_files/${string}_${cat}
   fi

@@ -75,7 +75,7 @@ if [ 1 ]; then
 fi > ifar_result_${data_type}.dag
 
 if [ 1 ]; then
-  for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
+  for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
     #run plotifar on the individual mass bins
     for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
       for combo in H1L1 H2L1 H1H2L1; do
@@ -143,7 +143,7 @@ fi
 if [ ! -d ifar_result_files/summ_files ] ; then
   mkdir ifar_result_files/summ_files
 fi
-for string in ${data_type} BNSINJ BBHINJ NSBHINJ SPININJ; do
+for string in ${data_type} BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ ! -d ifar_result_files/${string} ] ; then
     mkdir ifar_result_files/${string}
   fi

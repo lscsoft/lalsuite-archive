@@ -118,7 +118,7 @@ if [ 1 ]; then
       done
     done
   done
-  for injstring in BNSINJ BBHINJ NSBHINJ SPININJ; do
+  for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
     for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
     #write corse jobs for double-in_double files
       for combo in H1L1 H2L1; do
@@ -189,7 +189,7 @@ echo " done."
 if [ ! -d corse_all_data_files ] ; then
   mkdir corse_all_data_files
 fi
-for data in all_data playground_only exclude_play BBHINJ BNSINJ NSBHINJ SPININJ all_data_slide playground_only_slide exclude_play_slide; do
+for data in all_data playground_only exclude_play BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ all_data_slide playground_only_slide exclude_play_slide; do
   if [ ! -d corse_all_data_files/${data} ] ; then
     mkdir corse_all_data_files/${data}
   fi

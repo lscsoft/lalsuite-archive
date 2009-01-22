@@ -131,7 +131,7 @@ echo " done."
 
 #get first_coire injection files
 /bin/echo -n "Generating first_coire injection file list..."
-for injstring in BNSINJ BBHINJ SPININJ NSBHINJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   pushd first_coire_files/${injstring}/ > /dev/null
   for combo in H1H2L1 H1H2 H1L1 H2L1; do
     for file in ${combo}-COIRE_${cat}_H*xml.gz; do
@@ -144,7 +144,7 @@ done
 
 /bin/echo -n "Generating zero-lag second_coire.dag and .sub files..."
 if [ 1 ]; then
-  for injstring in BNSINJ BBHINJ SPININJ NSBHINJ; do
+  for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
     #write coire jobs for double-in_double files
     for combo in H1H2 H1L1 H2L1; do
       infile="${combo}_first_coire_${injstring}_${cat}.cache"
@@ -211,7 +211,7 @@ if [ 1 ]; then
   echo "MAXJOBS coire 20"
 fi > second_coire_injection.dag
 
-for injstring in BNSINJ BBHINJ SPININJ NSBHINJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ 1 ]; then
     echo "universe = standard"
     echo "executable = ${coire_path}"
@@ -225,7 +225,7 @@ for injstring in BNSINJ BBHINJ SPININJ NSBHINJ; do
   fi > second_coire_${injstring}.coire.sub
 done
 
-for injstring in BNSINJ BBHINJ SPININJ NSBHINJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ 1 ]; then
     echo "universe = standard"
     echo "executable = ${coire_path}"
@@ -362,7 +362,7 @@ for mass in mchirp_2_8 mchirp_8_17 mchirp_17_35; do
     mkdir second_coire_files/full_data_slide/${mass}
   fi
 done
-for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ ! -d second_coire_files/${injstring} ] ; then
     mkdir second_coire_files/${injstring}
   fi

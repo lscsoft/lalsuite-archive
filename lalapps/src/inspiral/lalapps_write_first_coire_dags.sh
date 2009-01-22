@@ -63,7 +63,7 @@ echo -e "\n...done."
 #get septime injection files
 /bin/echo -n "Generating septime file list..."
 num_septimes=0
-for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   pushd septime_files/${injstring}_${cat} > /dev/null
   for file in *SEPTIME_H*xml.gz; do
     echo ${file}
@@ -76,7 +76,7 @@ echo " done."
 #generate injection coire dag
 echo "Generating injection first_coire.dag and .sub files..."
 septime_idx=1
-for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ 1 ]; then
     for infile in `cat septime_files/septime_${injstring}_${cat}.cache`; do
       echo -ne "processing ${septime_idx} / ${num_septimes}\r" >&2
@@ -92,7 +92,7 @@ for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
   echo "MAXJOBS coire 200"
 done > first_coire_injection.dag
 
-for injstring in BBHINJ BNSINJ NSBHINJ SPININJ; do
+for injstring in BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ 1 ]; then
     echo "universe = standard"
     echo "executable = ${coire_path}"
@@ -153,7 +153,7 @@ if [ ! -d first_coire_files ]; then
   mkdir first_coire_files
 fi
 
-for string in full_data full_data_slide BNSINJ NSBHINJ BBHINJ SPININJ; do
+for string in full_data full_data_slide BNSLININJ BNSLOGINJ BNSSPINLININJ BNSSPINLOGINJ NSBHLININJ NSBHLOGINJ NSBHSPINLININJ NSBHSPINLOGINJ BBHLININJ BBHLOGINJ BBHSPINLININJ BBHSPINLOGINJ; do
   if [ ! -d first_coire_files/${string} ]; then
     mkdir first_coire_files/${string}
   fi
