@@ -897,7 +897,7 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
+def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
 
   followups = []
   xmfilenum = 0
@@ -914,12 +914,8 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
               coincs.sort()
           numTrigs = 0
           for ckey in coincs:
-              numTrigs += 1
-              if numTrigs > int(numtrigs):
-                  break
               fuList = followUpList()
               fuList.add_coincs(ckey)
-
               if page:
                   fuList.add_page(page)
               ifo_list = ['H1','H2','L1','G1','V1','T1']
@@ -936,6 +932,17 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                       # Also make a trigbank xml with the max template
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
 		      xmfilenum += 3
+	      # if the trigger type is wrong don't count it
+              if trigtype: 
+	        stop = 0
+	        for t in trigtype.split(','):
+		  if t.strip() == fuList.get_coinc_type(): stop = 1
+		if not stop: continue  
+		  
+              numTrigs += 1
+              if numTrigs > int(numtrigs):
+                break
+	      
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -952,6 +959,8 @@ def getfollowuptrigs(numtrigs,page=None,coincs=None,missed=None,search=None,trig
                               break
               followups.append(fuList)
       else:
+
+          # FIX ME!  THIS SHOULD HAVE THE TRIGGER TYPE BREAK ADDED TOO!!!
           ifarList=list()
           for ckey in coincs:
               myIFAR = getattr(ckey,ckey.get_ifos()[1][0]).alpha
