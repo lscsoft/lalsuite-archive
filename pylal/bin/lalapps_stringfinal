@@ -393,7 +393,7 @@ WHERE
 			)
 			JOIN coinc_event_map AS c ON (
 				b.table_name == "sngl_burst"
-				c.table_name == "sngl_burst"
+				AND c.table_name == "sngl_burst"
 				AND c.event_id == b.event_id
 			)
 			JOIN coinc_event ON (
