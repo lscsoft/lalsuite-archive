@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__prog__ = "plotsnrchisq_pipe"
+__Id__ = "$Id$"
+__title__ = "SNR/CHISQ time series plots"
+
 import matplotlib
 matplotlib.use('Agg')
 import copy
@@ -28,7 +34,8 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
-from pylal import webUtils
+from pylal import InspiralUtils
+#from pylal import webUtils
 from glue import pipeline
 from glue import lal
 
@@ -37,7 +44,7 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFileName,page,user_tag=None):
+def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=None):
  
     rsqThreshold = 0;
 
@@ -70,9 +77,6 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
       if row.param == "--dynamic-range-exponent":
         dynRange = eval(row.value)
 
-    webPage = webUtils.WebPage("Plot SNR / CHISQ / PSD for " + ifoName[0] + " @ " + str(trigStart),tableFileName, page+'/'+pageRelPath)
-    talkBack = webUtils.talkBack(tableFileName)
-
     if user_tag:
       ifo_string = user_tag
     else:
@@ -98,9 +102,7 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
  
     # now, read the data !!
     # The window width should be an input argument maybe ?
-    duration = 2.0
-    # chanNums = range(16)
-      
+    duration = opts.plot_width
     
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
@@ -154,20 +156,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     	chisqThreshVect = lengthChisq * [chisqThreshold]
     if((rsqThreshold > 0) and (rsqThreshold < 100.)):
 	rsqThreshVect = lengthChisq * [rsqThreshold]
+
+    fnameList = []
+    tagList = []
   
-    # plot the PSD
-    figure(4)
-    loglog(ASD_freq,ASD_vector)
-    xlabel('freq (Hz)', size='x-large')
-    ylabel(r'PSD',size='x-large')
-    xlim(flow, ASD_freq[-1])
-    title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_PSD.png'
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("Power Spectral Density")
-    webPage.lastSection.image('/' + figName, page+'/'+pageRelPath + '/' + figName)   
-
-
     # Now plot the snr time serie !!
     
     figure(1)
@@ -180,10 +172,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_snr.png'
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("SNR time series")
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
+    figName = InspiralUtils.set_figure_name(opts,'snr')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of snr")
 
     figure(11)
     plot(snr_time[int(snr_start):int(snr_stop)],snr_vector[int(snr_start):int(snr_stop)])
@@ -195,11 +187,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'snr',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_") + '_snr_zoom.png'
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("SNR time series (zoom)")
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
-    talkBack.addSummaryPlot(pageRelPath+'/'+figName,'SNR time series (zoom)')
+    figName = InspiralUtils.set_figure_name(opts,'snr_zoom')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of snr (zoom)")
 
     ### END CHADS CHANGES ###
 
@@ -216,10 +207,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_rsq.png'
-    savefig(outputPath +"/" + figName) 
-    webPage.appendSection("r squared time series")
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
+    figName = InspiralUtils.set_figure_name(opts,'rsq')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of rsq")
 
     
     figure(22)
@@ -233,10 +224,10 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq/p',size='x-large')
     grid()
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_rsq_zoom.png'   
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("r squared time series (zoom)")
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
+    figName = InspiralUtils.set_figure_name(opts,'rsq_zoom')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of rsq (zoom)")
 
     # Now plot the normalized chisq time serie !!
     figure(3)
@@ -250,11 +241,11 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime)
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_chisq.png'
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("SNR weighted r squared time series")    
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
-    
+    figName = InspiralUtils.set_figure_name(opts,'chisq')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of chisq")
+ 
     figure(33)
     plot(chisq_time[int(chisq_start):int(chisq_stop)],chisqNorm_vector[int(chisq_start):int(chisq_stop)])
     if chisqThreshold < 100.:
@@ -266,13 +257,27 @@ def plotsnrchisq(gpsTime,frameFile,outputPath,pageRelPath,inspProcParams,tableFi
     ylabel(r'chisq / (p + Delta * snrsq)',size='x-large')
     grid(1)
     title(ifoName[0] + ' trigger: ' + gpsTime + ' Zoom')
-    figName = ifo_string + '_' + str(gpsTime).replace(".","_")  + '_chisq_zoom.png'
-    savefig(outputPath +"/" + figName)
-    webPage.appendSection("SNR weighted r squared time series (zoom)")        
-    webPage.lastSection.image('/' + figName,page+'/'+pageRelPath + '/' + figName)
+    figName = InspiralUtils.set_figure_name(opts,'chisq_zoom')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of chisq (zoom)")
 
-    webPage.cleanWrite('IUL')
-    talkBack.write()
+    # plot the PSD
+    figure(4)
+    loglog(ASD_freq,ASD_vector)
+    xlabel('freq (Hz)', size='x-large')
+    ylabel(r'PSD',size='x-large')
+    xlim(flow, ASD_freq[-1])
+    title(ifoName[0] + ' trigger: ' + gpsTime)
+    figName = InspiralUtils.set_figure_name(opts,'PSD')
+    InspiralUtils.savefig_pylal(figName)
+    fnameList.append(figName)
+    tagList.append("Plot of PSD")
+
+    if opts.enable_output is True:
+      html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+        tagList)
+      InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 ##############################################################################
 #
@@ -293,34 +298,38 @@ parser.add_option("-f","--frame-file",action="store",type="string",\
 parser.add_option("-t","--gps",action="store",type="string",\
     metavar=" GPS",help="use gps time GPS")
 
-parser.add_option("-o","--output-path",action="store",type="string",\
-    metavar=" PATH",help="use output path PATH for snr and chisq plots")
+parser.add_option("","--plot-width",action="store",type="float",\
+    default=2.0, metavar= "FLOAT",help="specify time width of the plots")
 
-parser.add_option("-O","--page-rel-path",action="store",type="string",\
-    metavar=" PATH",help="use output path relative to page")
+parser.add_option("-o","--output-path",action="store",type="string",\
+    default="", metavar=" PATH",\
+    help="path where the figures would be stored")
+
+parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
 
 parser.add_option("-x","--inspiral-xml-file", action="store",type="string", \
     metavar=" XML",help="use inspiral-file")
 
-parser.add_option("-c","--output-web-file", action="store",type="string", \
-    metavar=" XML",help="file to append html tables to")
-
 parser.add_option("-T","--user-tag", action="store",type="string", \
-    default=None, metavar=" TAG",help="user tag for the png files")
+    default=None, metavar=" USERTAG",help="user tag for the output file name")
 
-#parser.add_option("-C","--output-html-file2", action="store",type="string", \
-#    metavar=" XML",help="file to append html tables to (for PSD)")
+parser.add_option("","--ifo-times",action="store",\
+    type="string", default=None, metavar=" IFOTIMES",\
+    help="provide ifo times for naming figure")
 
-#parser.add_option("-i","--image-file", action="store",type="string", \
-#    metavar=" IMG",help="summary plot file name")
+parser.add_option("","--ifo-tag",action="store",\
+    type="string",  metavar=" IFOTAG",\
+    help="ifo tag gives the information about ifo times and stage")
 
-#parser.add_option("-I","--image-file2", action="store",type="string", \
-#    metavar=" IMG",help="summary plot file name for PSD")
+parser.add_option("","--gps-start-time", action="store",type="float", \
+    metavar=" GPSSTARTTIME",help="gps start time (for naming figure and \
+    output files)")
 
-parser.add_option("-p","--page",action="store",type="string",\
-    default="investigations/s5/people/followups/",metavar=" PAGE",\
-    help="web page path (default 'investigations/s5/people/followups/'")
-
+parser.add_option("","--gps-end-time", action="store",type="float", \
+    metavar=" GPSENDTIME",help="gps end time (for naming figure and \
+    output files)")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -349,15 +358,12 @@ if not opts.output_path:
   print >> sys.stderr, "Use --output-path PATH to specify location."
   sys.exit(1)
 
-if not opts.page_rel_path:
-  print >> sys.stderr, "No relative path specified"
-  print >> sys.stderr, "Use --page-rel-path PATH to specify location."
-  sys.exit(1)
-
 if not opts.inspiral_xml_file:
   print >> sys.stderr, "No inspiral xml file specified."
   print >> sys.stderr, "Use --inspiral-xml-file XML to specify a file"
   sys.exit(1)
+
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
 
 extension = opts.inspiral_xml_file.split('.')[-1]
 if extension == 'gz': gz = True
@@ -365,6 +371,5 @@ else: gz = False
 doc = utils.load_filename(opts.inspiral_xml_file,None,gz)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
 
-plotsnrchisq(str(opts.gps),opts.frame_file,opts.output_path,opts.page_rel_path,proc,opts.output_web_file,opts.page,opts.user_tag)
-
+plotsnrchisq(opts,args,str(opts.gps),opts.frame_file,opts.output_path,proc,opts.user_tag)
 

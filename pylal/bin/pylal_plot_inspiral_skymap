@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+__prog__ = "plot_inspiral_skymap"
+__version__ = "$Revision$"
+
 from math import *
 from numpy import *
 import matplotlib
@@ -8,6 +11,7 @@ import pylab
 import sys
 from optparse import *
 from pylal import webUtils
+from pylal import InspiralUtils
 import operator
 
 
@@ -98,7 +102,8 @@ def areaRank(rdtup, injRA, injDEC, RAint, DECint):
   return A / (4*pi)
 
 
-def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
+#def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
+def plotSkyMap(file,RAint,DECint,figname,injRA,injDEC,stat):
   colorMat = zeros((RAint,DECint),dtype='float64')
   #divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
   map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat)
@@ -116,9 +121,10 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
 #  pylab.scatter(RAvec,DECvec,colorMat)
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
-  pylab.title('Inspiral sky location probability')
+  #pylab.title('Inspiral sky location probability')
   pylab.colorbar()
-  ofile = open(dir + '/' + figname + '.txt','w')
+  #ofile = open(dir + '/' + figname + '.txt','w')
+  ofile = open(figname.replace(".png",".txt"),'w')
   if injRA and injDEC:
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
     print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError', 'areaRank', 'stat'
@@ -126,9 +132,10 @@ def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
   ofile.close()
   pylab.xlim((0,2*pi))
   pylab.ylim((-pi/2,pi/2))
-  pylab.savefig(dir + '/'+ figname)
-  thumb = 'thumb-'+figname
-  pylab.savefig(dir + '/'+ thumb,dpi=20)
+  #pylab.savefig(dir + '/'+ figname)
+  #thumb = 'thumb-'+figname
+  #pylab.savefig(dir + '/'+ thumb,dpi=20)
+  InspiralUtils.savefig_pylal(figname)
   pylab.close()
 
 
@@ -147,8 +154,8 @@ parser.add_option("-v","--version",action="store_true",default=False,\
 parser.add_option("-f","--map-data-file",action="store",type="string",\
     metavar=" FILE",help="use map file FILE")
 
-parser.add_option("-e","--event-id",action="store",type="string",\
-    metavar=" ID",help="The id of the event (should be unique)")
+#parser.add_option("-e","--event-id",action="store",type="string",\
+#    metavar=" ID",help="The id of the event (should be unique)")
 
 parser.add_option("-r","--ra-res",action="store",type="int",\
     metavar=" RA_RES",help="use gps time GPS")
@@ -157,17 +164,41 @@ parser.add_option("-d","--dec-res",action="store",type="int",\
     metavar=" DEC_RES",help="use DEC_RES pixels to display declination")
 
 parser.add_option("-o","--output-path",action="store",type="string",\
-    metavar=" PATH",help="use output path PATH for snr and chisq plots")
+    default="", metavar=" PATH",\
+    help="path where the figures would be stored")
 
-parser.add_option("-O","--page-rel-path",action="store",type="string",\
-    metavar=" PATH",help="use output path relative to page")
+parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
 
-parser.add_option("-c","--output-web-file", action="store",type="string", \
-    metavar=" XML",help="file to append html tables to")
+parser.add_option("-T","--user-tag", action="store",type="string", \
+    default=None, metavar=" USERTAG",help="user tag for the output file name")
 
-parser.add_option("-p","--page",action="store",type="string",\
-    default="investigations/s5/people/followups/",metavar=" PAGE",\
-    help="web page path (default 'investigations/s5/people/followups/'")
+parser.add_option("","--ifo-times",action="store",\
+    type="string", default=None, metavar=" IFOTIMES",\
+    help="provide ifo times for naming figure")
+
+parser.add_option("","--ifo-tag",action="store",\
+    type="string",  metavar=" IFOTAG",\
+    help="ifo tag gives the information about ifo times and stage")
+
+parser.add_option("","--gps-start-time", action="store",type="float", \
+    metavar=" GPSSTARTTIME",help="gps start time (for naming figure and \
+    output files)")
+
+parser.add_option("","--gps-end-time", action="store",type="float", \
+    metavar=" GPSENDTIME",help="gps end time (for naming figure and \
+    output files)")
+
+#parser.add_option("-O","--page-rel-path",action="store",type="string",\
+#    metavar=" PATH",help="use output path relative to page")
+
+#parser.add_option("-c","--output-web-file", action="store",type="string", \
+#    metavar=" XML",help="file to append html tables to")
+
+#parser.add_option("-p","--page",action="store",type="string",\
+#    default="investigations/s5/people/followups/",metavar=" PAGE",\
+#    help="web page path (default 'investigations/s5/people/followups/'")
 
 parser.add_option("-R","--injection-right-ascension",action="store",type="float",\
     metavar=" RA_INJ",help="injection has right asencion RA_INJ")
@@ -181,20 +212,33 @@ parser.add_option("-S","--stat-value",action="store",type="float",default=0.0,\
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
-if not opts.page or not opts.output_web_file or not opts.page_rel_path or not opts.dec_res or not opts.ra_res or not opts.event_id or not opts.map_data_file:
+if not opts.output_path or not opts.dec_res or not opts.ra_res or not opts.map_data_file:
   print >> sys.stderr, "invalid command line try --help for usage"
   sys.exit(0)
 
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
+fnameList = []
+tagList = []
 
-webPage = webUtils.WebPage("Inspiral Source Localization for " + opts.event_id,opts.output_web_file,opts.page+"/"+opts.page_rel_path+"/")
-talkBack = webUtils.talkBack(opts.output_web_file)
+#webPage = webUtils.WebPage("Inspiral Source Localization for " + opts.event_id,opts.output_web_file,opts.page+"/"+opts.page_rel_path+"/")
+#talkBack = webUtils.talkBack(opts.output_web_file)
 
-figname = 'inspiral_sky_map_'+ opts.event_id
+#figname = 'inspiral_sky_map_'+ opts.event_id
+figname = InspiralUtils.set_figure_name(opts,"skylocation")
 
-plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,opts.page_rel_path,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
+#plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,opts.page_rel_path,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
+plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
 
-webPage.appendSection("Sky Map of Inspiral Event")
-webPage.lastSection.image(figname+'.png',opts.page+'/'+opts.page_rel_path+'/'+figname+'.png')
-talkBack.addSummaryPlot(opts.page_rel_path+'/'+figname,'Inspiral Sky Map')
-webPage.cleanWrite('IUL')
-talkBack.write()
+fnameList.append(figname)
+tagList.append("Inspiral sky location probability")
+
+if opts.enable_output:
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
+    tagList)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+#webPage.appendSection("Sky Map of Inspiral Event")
+#webPage.lastSection.image(figname+'.png',opts.page+'/'+opts.page_rel_path+'/'+figname+'.png')
+#talkBack.addSummaryPlot(opts.page_rel_path+'/'+figname,'Inspiral Sky Map')
+#webPage.cleanWrite('IUL')
+#talkBack.write()

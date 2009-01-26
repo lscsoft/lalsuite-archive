@@ -2,11 +2,13 @@
 __author__ = "Sarah Caudill"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__prog__ = "frame_check"
 
 import subprocess
 import os
 import sys
-from pylal.webUtils import *
+from pylal import webUtils
+from pylal import InspiralUtils
 from optparse import *
 from glue import lal
 
@@ -29,22 +31,34 @@ parser.add_option("-F","--frame-check-executable",action="store",type="string",\
 parser.add_option("-D","--dataFind-executable",action="store",type="string",\
     metavar=" EXEC",help="use EXEC to check the call LSCdataFind query")
 
+parser.add_option("","--gps-start-time", action="store",type="float", \
+    metavar=" GPSSTARTTIME",help="gps start time (for naming figure and \
+    output files)")
+
+parser.add_option("","--gps-end-time", action="store",type="float", \
+    metavar=" GPSENDTIME",help="gps end time (for naming figure and \
+    output files)")
+
 parser.add_option("-g","--gps-time",action="store",type="string",\
     metavar=" GPS",help="use gps GPS to check the frame files")
 
-## standard webTheNode arguments
 parser.add_option("-o","--output-path",action="store",type="string",\
     metavar=" PATH",help="use output path PATH for snr and chisq plots")
 
-parser.add_option("-O","--page-rel-path",action="store",type="string",\
-    metavar=" PATH",help="use output path relative to page")
+parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
 
-parser.add_option("-c","--output-web-file", action="store",type="string", \
-    metavar=" FILE",help="file to append html tables to")
+parser.add_option("-T","--user-tag", action="store",type="string", \
+    default=None, metavar=" USERTAG",help="user tag for the output file name")
 
-parser.add_option("-p","--page",action="store",type="string",\
-    default="investigations/s5/people/followups/",metavar=" PAGE",\
-    help="web page path (default 'investigations/s5/people/followups/'")
+parser.add_option("","--ifo-times",action="store",\
+    type="string", default=None, metavar=" IFOTIMES",\
+    help="provide ifo times for naming figure")
+
+parser.add_option("","--ifo-tag",action="store",\
+    type="string",  metavar=" IFOTAG",\
+    help="ifo tag gives the information about ifo times and stage")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -70,11 +84,6 @@ if not opts.frame_cache and not opts.gps_time and not opts.dataFind_executable:
 if not opts.output_path:
   print >> sys.stderr, "No output path specified."
   print >> sys.stderr, "Use --output-path PATH to specify location."
-  sys.exit(1)
-
-if not opts.page_rel_path:
-  print >> sys.stderr, "No relative path specified"
-  print >> sys.stderr, "Use --page-rel-path PATH to specify location."
   sys.exit(1)
 
 
@@ -104,8 +113,21 @@ lalCache = lal.Cache()
 myCache = lalCache.fromfile(cacheFile)
 if cacheFile2: myCache += lalCache.fromfile(cacheFile2)
 
-talk = talkBack(opts.output_web_file)
-web = WebPage('my title',opts.output_web_file)
+mySegmentList = myCache.to_segmentlistdict()
+if opts.ifo_times and not (opts.dataFind_executable and opts.gps_time):
+  mySegment = mySegmentList[opts.ifo_times[0]][0]
+  startTime = float(mySegment[0])
+  endTime = float(mySegment[1])
+  if not opts.gps_start_time:
+    opts.gps_start_time = startTime 
+  if not opts.gps_end_time:
+    opts.gps_end_time = endTime
+
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
+fnameList = []
+if opts.enable_output is True:
+  html_filename = opts.output_path + opts.prefix + opts.suffix + ".html"
+  web = webUtils.WebPage("Frame check for "+opts.ifo_times, html_filename)
 
 for entry in myCache:
   cmd = opts.frame_check_executable + ' -i  '  + entry.path()
@@ -116,13 +138,13 @@ for entry in myCache:
     print >> sys.stderr, "command " + cmd + " failed"
     sys.exit(1)
   else:
-    for line in  frCheckOutput.readlines():
-      #do not write the text in the main followup page for now
-      #talk.text(line)
-      web.text(line)
+    if opts.enable_output is True:
+      for line in  frCheckOutput.readlines():
+        web.text(line)
 
-    
-web.cleanWrite('IUL')
-talk.write()
+if opts.enable_output is True:    
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+  web.cleanWrite('IUL')
 
+sys.exit(0)
 

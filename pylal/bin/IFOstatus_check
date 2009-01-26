@@ -2,15 +2,18 @@
 __author__ = "Chad Hanna"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__prog__ = "IFOstatus_check"
 
 import os
 import sys
 import commands
+import shutil
 
 import matplotlib
 matplotlib.use('Agg')
 
-from pylal.webUtils import *
+from pylal import InspiralUtils
+from pylal import webUtils
 from pylal import Fr
 from optparse import *
 from glue import lal
@@ -35,22 +38,24 @@ parser.add_option("-v","--version",action="store_true",default=False,\
 parser.add_option("-g","--gps-time",action="store",type="string",\
     metavar=" GPS",help="use gps GPS to check trends")
 
-parser.add_option("-i","--ifo",action="store",type="string",\
-    metavar=" IFO",help="use gps IFO to check trends")
+parser.add_option("-i","--ifo-times",action="store",type="string",\
+    default=None, metavar=" IFO",help="use gps IFO to check trends")
 
-## standard webTheNode arguments
+parser.add_option("","--ifo-tag",action="store",\
+    type="string",  metavar=" IFOTAG",\
+    help="ifo tag gives the information about ifo times and stage")
+
+parser.add_option("-T","--user-tag", action="store",type="string", \
+    default=None, metavar=" USERTAG",help="user tag for the output file name")
+
 parser.add_option("-o","--output-path",action="store",type="string",\
-    metavar=" PATH",help="use output path PATH for snr and chisq plots")
+    default="", metavar=" PATH",\
+    help="path where the figures would be stored")
 
-parser.add_option("-O","--page-rel-path",action="store",type="string",\
-    metavar=" PATH",help="use output path relative to page")
+parser.add_option("-O","--enable-output",action="store_true",\
+    default="false",  metavar="OUTPUT",\
+    help="enable the generation of the html and cache documents")
 
-parser.add_option("-c","--output-web-file", action="store",type="string", \
-    metavar=" FILE",help="file to append html tables to")
-
-parser.add_option("-p","--page",action="store",type="string",\
-    default="investigations/s5/people/followups/",metavar=" PAGE",\
-    help="web page path (default 'investigations/s5/people/followups/'")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -68,14 +73,7 @@ if not opts.output_path:
   print >> sys.stderr, "Use --output-path PATH to specify location."
   sys.exit(1)
 
-if not opts.page_rel_path:
-  print >> sys.stderr, "No relative path specified"
-  print >> sys.stderr, "Use --page-rel-path PATH to specify location."
-  sys.exit(1)
-
-currentDir = os.path.abspath('.')
-
-talk = talkBack(opts.output_web_file)
+currentDir = os.path.abspath(".")
 
 gps = xlal.date.LIGOTimeGPS(opts.gps_time.split('.')[0])
 gpsplus = xlal.date.LIGOTimeGPS(str(int(opts.gps_time.split('.')[0])+86400))
@@ -98,8 +96,13 @@ else: minute = str(utc[4])
 if utc[5] < 10: second = '0'+str(utc[5])
 else: second = str(utc[5])
 
-webPage = WebPage("Ifo status for " + opts.ifo + " @ " + opts.gps_time.split('.')[0] + " (" + str(utc[0]) + "/" + month + "/" + day + " " + hour + ":" + minute + ":" + second + " utc",opts.output_web_file, opts.page+'/'+opts.page_rel_path)
 
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
+fnameList = []
+
+if opts.enable_output is True:
+  html_filename = opts.output_path + opts.prefix + opts.suffix + ".html"
+  webPage = webUtils.WebPage("Ifo status for " + opts.ifo_times + " @ " + opts.gps_time.split('.')[0] + " (" + str(utc[0]) + "/" + month + "/" + day + " " + hour + ":" + minute + ":" + second + " utc", html_filename)
 
 utc = xlal.date.XLALGPSToUTC(gpsminus)
 if utc[1] < 10: month = '0'+str(utc[1])
@@ -108,30 +111,35 @@ else: month = str(utc[1])
 if utc[2] < 10: day = '0'+str(utc[2])
 else: day = str(utc[2])
 
-if opts.ifo[0] == 'H':
+if opts.ifo_times[0] == 'H':
   plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
-if opts.ifo[0] == 'L':
+if opts.ifo_times[0] == 'L':
   plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
-plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'#talk.link(plotLink,plotLink)
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo_times.lower()+'.pdf'
 
 pngLink = plotLink.replace('.pdf','.png')
 
 # the plots posted on london can be reached without password
-if opts.ifo[0] == 'L':
+if opts.ifo_times[0] == 'L':
   os.chdir(opts.output_path)
   plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+  os.remove(plotLink)
   os.chdir(currentDir)
+  figName = InspiralUtils.set_figure_name(opts,str(utc[0]) + '_' + month+day)
+  saveplot = shutil.move(opts.output_path + "/" + pngLink,figName)
+  fnameList.append(figName)
   print plot
 # the access to the plots posted on blue requires a password. So we just put a link to these pages.
 #else:
 #  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
 
-webPage.appendSection("day: " + month+day)
-if opts.ifo[0] == 'L':
-  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
-else:
-  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
+if opts.enable_output is True:
+  webPage.appendSection("day: " + month+day)
+  if opts.ifo_times[0] == 'L':
+    webPage.lastSection.image("Images/"+os.path.basename(figName))
+  else:
+    webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
 utc = xlal.date.XLALGPSToUTC(gps)
 
@@ -141,31 +149,35 @@ else: month = str(utc[1])
 if utc[2] < 10: day = '0'+str(utc[2])
 else: day = str(utc[2])
 
-if opts.ifo[0] == 'H':
+if opts.ifo_times[0] == 'H':
   plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
-if opts.ifo[0] == 'L':
+if opts.ifo_times[0] == 'L':
   plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
-plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf' 
-#talk.link(plotLink,plotLink)
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo_times.lower()+'.pdf' 
 
 pngLink = plotLink.replace('.pdf','.png')
 
 # the plots posted on london can be reached without password
-if opts.ifo[0] == 'L':
+if opts.ifo_times[0] == 'L':
   os.chdir(opts.output_path)
   plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+  os.remove(plotLink)
   os.chdir(currentDir)
+  figName = InspiralUtils.set_figure_name(opts,str(utc[0]) + '_' + month+day)
+  saveplot = shutil.move(opts.output_path + "/" + pngLink,figName)
+  fnameList.append(figName)
   print plot
 # the access to the plots posted on blue requires a password. So we just put a link to these pages.
 #else:
 #  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink) 
 
-webPage.appendSection("day: " + month+day)
-if opts.ifo[0] == 'L':
-  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
-else:
-  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
+if opts.enable_output is True:
+  webPage.appendSection("day: " + month+day)
+  if opts.ifo_times[0] == 'L':
+    webPage.lastSection.image("Images/"+os.path.basename(figName))
+  else:
+    webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
 utc = xlal.date.XLALGPSToUTC(gpsplus)
 if utc[1] < 10: month = '0'+str(utc[1])
@@ -174,35 +186,39 @@ else: month = str(utc[1])
 if utc[2] < 10: day = '0'+str(utc[2])
 else: day = str(utc[2])
 
-if opts.ifo[0] == 'H':
+if opts.ifo_times[0] == 'H':
   plotURL = 'http://blue.ligo-wa.caltech.edu/scirun/S5/DailyStatistics/'
-if opts.ifo[0] == 'L':   
+if opts.ifo_times[0] == 'L':   
   plotURL = 'http://london.ligo-la.caltech.edu/scirun/S5/DailyStatistics/'
-plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo.lower()+'.pdf'
-#talk.link(plotLink,plotLink)
+plotLink = 'Summary' + '_' + str(utc[0]) + '_' + month+day+'_' + opts.ifo_times.lower()+'.pdf'
 
 pngLink = plotLink.replace('.pdf','.png')
 
 # the plots posted on london can be reached without password
-if opts.ifo[0] == 'L':
+if opts.ifo_times[0] == 'L':
   os.chdir(opts.output_path)
   plot = commands.getoutput('wget '+plotURL+plotLink)
   convert = commands.getoutput('convert '+plotLink+' '+pngLink)
+  os.remove(plotLink)
   os.chdir(currentDir)
+  figName = InspiralUtils.set_figure_name(opts,str(utc[0]) + '_' + month+day)
+  saveplot = shutil.move(opts.output_path + "/" + pngLink,figName)
+  fnameList.append(figName)
   print plot
 # the access to the plots posted on blue requires a password. So we just put a link to these pages.
 #else:
 #  convert = commands.getoutput('convert -rotate 90 '+plotLink+' '+pngLink)
 
+if opts.enable_output is True:
+  webPage.appendSection("day: " + month+day)
+  if opts.ifo_times[0] == 'L':
+    webPage.lastSection.image("Images/"+os.path.basename(figName))
+  else:
+    webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
 
-webPage.appendSection("day: " + month+day)
-if opts.ifo[0] == 'L':
-  webPage.lastSection.image('/' + pngLink,opts.page+'/'+opts.page_rel_path + '/' + pngLink)
-else:
-  webPage.lastSection.link(plotURL+plotLink,plotURL+plotLink)
-
-webPage.cleanWrite('IUL')
-talk.write()
+if opts.enable_output is True:
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+  webPage.cleanWrite('IUL')
 
 sys.exit(0)
 
