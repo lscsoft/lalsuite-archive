@@ -285,7 +285,8 @@ class Section(Content):
     self.lastSub = None
     self.heading = heading
     self.secNumber = secNumber 
-    self.toclink = root + '/'+filename.split('/')[-1]+'#section' + str(self.secNumber)
+    #self.toclink = root + '/'+filename.split('/')[-1]+'#section' + str(self.secNumber)
+    self.toclink = root + filename.split('/')[-1]+'#section' + str(self.secNumber)
     self.root = root
     self.filename  = filename
 
@@ -304,7 +305,8 @@ class Section(Content):
   def writeSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h2 id="section'+str(self.secNumber)+'">'+str(self.secNumber+1)+'.  ' + self.heading+'\n')
-      file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h2>\n')
+      #file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h2>\n')
+      file.write('<a href="'+self.root+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h2>\n')
       
 # This class shouldn't really be used without a section as its parent, which
 # itself has a webpage as its parent
@@ -320,7 +322,8 @@ class SubSection(Content):
     self.subNumber = subNumber
     self.root = root
     self.filename = filename
-    self.toclink = root + '/'+filename.split('/')[-1]+'#subsection' + str(self.secNumber) + '.' + str(self.subNumber)
+    #self.toclink = root + '/'+filename.split('/')[-1]+'#subsection' + str(self.secNumber) + '.' + str(self.subNumber)
+    self.toclink = root + filename.split('/')[-1]+'#subsection' + str(self.secNumber) + '.' + str(self.subNumber)
 
   def write(self,file,type):
     self.writeSubSectionHeader(file,type)
@@ -330,8 +333,8 @@ class SubSection(Content):
   def writeSubSectionHeader(self,file,type):
     if type == 'IUL':
       file.write('<h3 id="subsection'+str(self.secNumber)+'.'+str(self.subNumber)+'">'+str(self.secNumber+1)+'.'+str(self.subNumber+1)+'.  '+self.heading+'\n')
-      file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
-
+      #file.write('<a href="'+self.root+'/'+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
+      file.write('<a href="'+self.root+file.name.split('/')[-1]+'#fuwebtoc">[Back to TOC]</a></h3>\n')
 
 
 

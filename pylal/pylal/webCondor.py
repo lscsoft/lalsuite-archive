@@ -80,54 +80,55 @@ class webTheNode:
     # setup the node id
     self.add_macro("macroid", self.id)
     # determine the output web file name for the job
-    self.webFileName = job.outputPath + self.id + '.html'
+    #self.webFileName = job.outputPath + self.id + '.html'
     self.jobName = job.name
-    if page:
-      self.webLink = page+'/'+job.relPath+self.id+'.html'
-    if webOverride:
-      self.webLink = webOverride
+    #if page:
+    #  self.webLink = page+'/'+job.relPath+self.id+'.html'
+    #if webOverride:
+    #  self.webLink = webOverride
     # standardize the I/O for executables that themselves write web pages.
     # this is great for developers since they can in some sense treat
     # the DAG as a black box for their executable.   They just have to 
     # comply with these few command line arguments to tie everything together
     if passItAlong:
-      self.add_var_opt("output-web-file",self.webFileName)
+      #self.add_var_opt("output-web-file",self.webFileName)
       self.add_var_opt("output-path",job.outputPath)
-      self.add_var_opt("page-rel-path",job.relPath)
-      self.add_var_opt("page", page)
-    if content: self.writeContent(content)
+      self.add_var_opt("enable-output","")
+      #self.add_var_opt("page-rel-path",job.relPath)
+      #self.add_var_opt("page", page)
+    #if content: self.writeContent(content)
     if cache:
       cache.appendCache(job.name,job.outputPath)
       try:
         if self.outputCache:
           cache.appendSubCache(job.name,self.outputCache)
       except: pass
-      if passItAlong:
-        output_cache = self.id.replace('-',' ') + ' ' + self.webFileName + '\n' + self.id.replace('-',' ') + ' ' + self.webFileName.replace('html','ini') + '\n'
+      #if passItAlong:
+        #output_cache = self.id.replace('-',' ') + ' ' + self.webFileName + '\n' + self.id.replace('-',' ') + ' ' + self.webFileName.replace('html','ini') + '\n'
 
-        cache.appendSubCache(job.name,output_cache)
+        #cache.appendSubCache(job.name,output_cache)
 
   def writeContent(self,content):
     # The talkBack class is a way for the users job to provide information
     # back to the DAG web.  It is done through the reading and writing of
     # a config file (.ini) that has the same naming convention as the
     # web file
-    self.talkBack = talkBack(self.webFileName)
-    self.talkBack.read()
+    #self.talkBack = talkBack(self.webFileName)
+    #self.talkBack.read()
     content.appendTable(1,2,0,700)
     self.webTable = content.lastTable;
     content.lastTable.row[0].cell[0].link(self.webLink,self.friendlyName)
-    self.talkBack.readAppend(content.lastTable.row[0].cell[1])
+    #self.talkBack.readAppend(content.lastTable.row[0].cell[1])
     # Each time the dag is generated it checks for the existance of the
     # appropriate config file to include the contents in the web page
-    if 0 and self.talkBack.summaryText:
-      content.lastTable.row[0].cell[0].linebreak()
-      content.lastTable.row[0].cell[0].text(self.talkBack.summaryText)
-    if 0 and self.talkBack.summaryPlot:
-      content.lastTable.row[0].cell[1].image(self.talkBack.summaryPlot)
-    if 0 and self.talkBack.summaryPlotCaption:
-      content.lastTable.row[0].cell[1].linebreak()
-      content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
+    #if 0 and self.talkBack.summaryText:
+    #  content.lastTable.row[0].cell[0].linebreak()
+    #  content.lastTable.row[0].cell[0].text(self.talkBack.summaryText)
+    #if 0 and self.talkBack.summaryPlot:
+    #  content.lastTable.row[0].cell[1].image(self.talkBack.summaryPlot)
+    #if 0 and self.talkBack.summaryPlotCaption:
+    #  content.lastTable.row[0].cell[1].linebreak()
+    #  content.lastTable.row[0].cell[1].text(self.talkBack.summaryPlotCaption)
  
   def set_id(self, id):
     self.id = id
@@ -164,7 +165,7 @@ class webTheDAG:
 
 
   def writeDAGWeb(self,type):
-    self.webPage.cleanWrite(type)
+    #self.webPage.cleanWrite(type)
     self.cache.writeCache()
 
   def appendSection(self,name):
@@ -172,8 +173,8 @@ class webTheDAG:
     inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
     file = open('DAGWeb/'+inifile,'a')
     file.close()
-    talkback = talkBack('DAGWeb/'+inifile)
-    talkback.readAppend(self.webPage.lastSection)
+#    talkback = talkBack('DAGWeb/'+inifile)
+#    talkback.readAppend(self.webPage.lastSection)
 #    talkback.read()
 #    self.webPage.lastSection.appendTable(1,2,0,700)
 
@@ -191,8 +192,8 @@ class webTheDAG:
     inifile = name.replace(" ","_").replace("@","-").replace("=",'-') + '.ini'
     file = open('DAGWeb/'+inifile,'a')
     file.close()
-    talkback = talkBack('DAGWeb/'+inifile)
-    talkback.readAppend(self.webPage.lastSection.lastSub)
+#    talkback = talkBack('DAGWeb/'+inifile)
+#    talkback.readAppend(self.webPage.lastSection.lastSub)
 #    talkback.read()
 #    self.webPage.lastSection.lastSub.appendTable(1,2,0,700)
 

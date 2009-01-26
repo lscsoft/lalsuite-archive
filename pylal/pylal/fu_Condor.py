@@ -294,22 +294,30 @@ class plotSNRCHISQNode(pipeline.CondorDAGNode,webTheNode):
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
       self.add_var_opt("frame-file",fileName.replace(".xml",".gwf").strip(".gz"))
-      self.add_var_opt("gps",time)
       self.add_var_opt("inspiral-xml-file",fileName)
+
+      duration = 2.0 # width of the time series to be displayed
+      self.add_var_opt("plot-width",duration)
+
+      self.add_var_opt("gps",time)
+      self.add_var_opt("gps-start-time",time-duration*.5)
+      self.add_var_opt("gps-end-time",time+duration*.5)
+
+      self.add_var_opt("ifo-times",ifo)
+      self.add_var_opt("ifo-tag","FOLLOWUP_" + ifo)
+
       if ifoString:
-        self.add_var_opt("user-tag",ifo+"_"+ifoString+'tmplt_'+str(trig.eventID))
+        self.add_var_opt("user-tag",ifoString+'tmplt_'+str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + ifoString + 'tmplt' + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       else:
-        self.add_var_opt("user-tag",ifo+'_'+str(trig.eventID))
+        self.add_var_opt("user-tag",str(trig.eventID))
         self.id = job.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
+      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,None)
 
       if not opts.disable_dag_categories:
         self.set_category(job.name.lower())
 
-      #try: 
       if inspiralNode.validNode: self.add_parent(inspiralNode)
-      #except: pass
       if opts.plots:
         dag.addNode(self,self.friendlyName)
         self.validate()
@@ -429,14 +437,16 @@ class pylal_skyPlotNode(pipeline.CondorDAGNode,webTheNode):
     # method where to put these things.  We'll put it in the last section 
     # not the last subsection since this is an "event" plot not a single ifo
     # trigger plot
-    self.setupNodeWeb(job,True, dag.webPage.lastSection,page,None,dag.cache)
+    self.setupNodeWeb(job,True, dag.webPage.lastSection,page,None,None)
     # this is the output of the skyMapNode.  It contains the data to make a
     # sky map plot.  (RA,DEC,Probability)
     # an example sky map plotting command line is:
     #
 
     self.add_var_opt("map-data-file",skyMapNode.output_file_name)
-    self.add_var_opt("event-id",str(trig.eventID))
+    self.add_var_opt("user-tag",str(trig.eventID))
+    self.add_var_opt("ifo-tag",trig.ifos)
+    self.add_var_opt("ifo-times",trig.ifos)
     self.add_var_opt("ra-res",str(skyMapNode.ra_res))
     self.add_var_opt("dec-res",str(skyMapNode.dec_res))
     self.add_var_opt("stat-value", str(trig.statValue))
@@ -600,7 +610,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     if cp.has_option("followup-"+name, ifo + 'output') and string.strip(cp.get("followup-"+name, ifo + 'output')):
       output = string.strip(cp.get("followup-"+name, ifo + 'output'))
     else:
-      output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifo
+      #output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifo
+      output = job.name + '/' + name + '/' + ifo
     if not os.access(output,os.F_OK):
       os.makedirs(output)
     else:
@@ -624,7 +635,8 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option("followup-"+name,ifo+'web') and string.strip(cp.get("followup-"+name,ifo+'web')):
         pageOverride = string.strip(cp.get("followup-"+name,ifo+'web'))+'/'+repr(time)
       else:
-        pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifo + '/' + repr(time)
+        #pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifo + '/' + repr(time)
+        pageOverride = job.name + '/' + name + '/' + ifo + '/' + repr(time)
       self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
 
     else:
@@ -761,12 +773,16 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
         else:
           refChannel = cp.get('followup-analyse-qscan',shortName + 'ref-channel').split(',')[1].strip()
         self.add_var_opt('ref-channel',refChannel)
-      self.add_var_opt('qscan-id',name + '_' + ifo + '_' + repr(time)) 
+      self.add_var_opt('ifo-times',ifo)
+      self.add_var_opt('type',name)
+      self.add_var_opt('gps-string',repr(time))
+      self.add_var_opt('ifo-tag',ifo)
+      self.add_var_opt('user-tag',repr(time).replace('.','_'))
 
       self.add_var_opt('qscan-cache-foreground',foregroundCache)
       self.add_var_opt('qscan-cache-background',backgroundCache)
 
-      self.setupNodeWeb(job,True,None,dag.page,None,dag.cache)
+      self.setupNodeWeb(job,True,None,dag.page,None,None)
       # get the table of the qscan job associated to this trigger
       if not(cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo):
         for node in dag.get_nodes():
@@ -877,7 +893,8 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     if cp.has_option("followup-"+name, ifoString + '-output') and string.strip(cp.get("followup-"+name, ifoString + '-output')):
       output = string.strip(cp.get("followup-"+name, ifoString + '-output'))
     else:
-      output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifoString
+      #output = dag.publish_path + '/' + job.name + '/' + name + '/' + ifoString
+      output = job.name + '/' + name + '/' + ifoString
     if not os.access(output,os.F_OK):
       os.makedirs(output)
     else:
@@ -908,7 +925,8 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     if cp.has_option("followup-"+name,ifoString+'-web') and string.strip(cp.get("followup-"+name,ifoString+'-web')):
       pageOverride = string.strip(cp.get("followup-"+name,ifoString+'-web'))+'/'+repr(times[ifoList[0]])
     else:
-      pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
+      #pageOverride = dag.page + '/' + job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
+      pageOverride = job.name + '/' + name + '/' + ifoString + '/' + repr(times[ifoList[0]])
     self.setupNodeWeb(job,False,dag.webPage.lastSection.lastSub,dag.page,pageOverride,dag.cache)
 
     if not opts.disable_dag_categories:
@@ -960,13 +978,15 @@ class FrCheckNode(pipeline.CondorDAGNode,webTheNode):
           if param == 'frame-cache': cacheFile = value
 
       self.friendlyName = 'Frame Check'
-    
+ 
       pipeline.CondorDAGNode.__init__(self,FrCheckJob)
       self.add_var_opt("frame-cache", cacheFile)
       self.add_var_opt("frame-check-executable", string.strip(cp.get('followup-frameCheck','executable')))
-
+      self.add_var_opt("ifo-times",ifo)
+      self.add_var_opt("ifo-tag","FOLLOWUP_"+ifo)
+      self.add_var_opt("user-tag",trig.eventID)
       self.id = FrCheckJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-      self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+      self.setupNodeWeb(FrCheckJob,True, dag.webPage.lastSection.lastSub,dag.page,None,None)
 
       if not opts.disable_dag_categories:
         self.set_category(FrCheckJob.name.lower())
@@ -1005,10 +1025,12 @@ class IFOstatus_checkNode(pipeline.CondorDAGNode,webTheNode):
 
     self.friendlyName = 'IFO status summary plots'
     pipeline.CondorDAGNode.__init__(self,IFOstatus_checkJob)
-    self.add_var_opt("ifo", ifo)
+    self.add_var_opt("ifo-times", ifo)
     self.add_var_opt("gps-time", trig.gpsTime[ifo])
+    self.add_var_opt("ifo-tag", "FOLLOWUP_"+ifo)
+    self.add_var_opt("user-tag", str(trig.eventID))
     self.id = IFOstatus_checkJob.name + '-' + str(ifo) + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-    self.setupNodeWeb(IFOstatus_checkJob,True, dag.webPage.lastSection.lastSub,dag.page,None,dag.cache)
+    self.setupNodeWeb(IFOstatus_checkJob,True, dag.webPage.lastSection.lastSub,dag.page,None,None)
 
     if not opts.disable_dag_categories:
       self.set_category(IFOstatus_checkJob.name.lower())
@@ -1272,7 +1294,8 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option('followup-plotmcmc', 'output') and string.strip(cp.get('followup-plotmcmc', 'output')):
         outputpath = string.strip(cp.get('followup-plotmcmc', 'output'))
       else:
-        outputpath = dag.publish_path + '/' + plotmcmcjob.name
+        #outputpath = dag.publish_path + '/' + plotmcmcjob.name
+        outputpath = plotmcmcjob.name
       if not os.access(outputpath,os.F_OK):
         os.makedirs(outputpath)
       else:
@@ -1283,7 +1306,8 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       if cp.has_option('followup-plotmcmc','web') and string.strip(cp.get('followup-plotmcmc','web')):
         webpath = string.strip(cp.get('followup-plotmcmc','web'))
       else:
-        webpath = dag.page + '/' + plotmcmcjob.name
+        #webpath = dag.page + '/' + plotmcmcjob.name
+        webpath = plotmcmcjob.name
 
       output_page = webpath + '/' + self.id
       self.outputCache = self.id.replace('-',' ') + " " + os.path.abspath(outputpath) + "/" + self.id + "\n"
