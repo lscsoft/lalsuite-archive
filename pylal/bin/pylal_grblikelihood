@@ -104,8 +104,6 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         Initialize SimpleExpExtrapolator with the extrapolation parameters.
         Use the Nth point from the end as a fiducial point.
         """
-        self.N = N
-
         sorted_loudest = loudest_in_bg_trials.copy()
         sorted_loudest.sort(axis=0)
 
@@ -123,8 +121,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         log_pc0 = self.default_evaluator(loudest_in_trial)
         extrap = self.fiducial_y + \
             self.fiducial_x**1.4 - loudest_in_trial**1.4
-        extrap_ind = loudest_in_trial > self.fiducial_x
-        log_pc0[extrap_ind] = extrap[extrap_ind]
+        numpy.putmask(log_pc0, loudest_in_trial > self.fiducial_x, extrap)
         return log_pc0
 
 class ForegroundEstimator(object):
@@ -150,7 +147,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
         Initialize ConstantForegroundEstimator to return a ln(p(c|h)) such that
         pch[pch < eps] = eps.  If eps is a vector, then we require
         eps.shape == loudest_in_bg_trials.shape[1:].  If eps
-        is None, then it will be set to half of 1 / num_sims_by_m2.
+        is None, then clip at 1/2 of the smallest otherwise-possible value.
         """
         self.num_sims_by_m2 = num_sims_by_m2
         self.m2_bin_by_inj = m2_bin_by_inj
@@ -169,23 +166,22 @@ class ConstantForegroundEstimator(ForegroundEstimator):
 
         if eps is not None:
             if numpy.isscalar(eps):
-                self.eps = eps * numpy.ones(self.shape[1:], dtype=self.dtype)
+                self.eps = self.dtype.type(eps)
             elif eps.shape == self.shape[1:]:
                 self.eps = eps
             else:
                 raise ValueError, "eps must be None, a scalar, or else "\
                     "eps.shape must be equal to "\
-                    "inj_loudest_inj_mc_m2.shape[1:]."
+                    "inj_loudest_by_inj_mc.shape[1:]."
         else:
-            self.eps = 0.5 / \
+            self.eps = 0.5 * (self.weight_by_inj.min() or 1.0) / \
                 (num_sims_by_m2[None, :].repeat(self.shape[1], axis=0) + 1e-10)
 
         # repack to speed inner loop by allowing us to call dot()
         self.inj_loudest_by_inj_mc_m2 = \
             numpy.zeros(self.shape + (self.num_m2,), dtype=self.dtype)
         self.inj_loudest_by_inj_mc_m2[numpy.arange(self.num_inj, dtype=int),
-                                      :, m2_bin_by_inj] = \
-            inj_loudest_by_inj_mc
+                                      :, m2_bin_by_inj] = inj_loudest_by_inj_mc
 
     def __call__(self, trial_loudest_by_mc):
         """
@@ -195,10 +191,10 @@ class ConstantForegroundEstimator(ForegroundEstimator):
             self.inj_loudest_by_inj_mc_m2 > trial_loudest_by_mc[None, :, None]
 
         # Do a weighted count
-        # Use the BLAS call dot() to speed up this multiplication and sum.
-        # self.weight_by_inj is already normalized in __init__
-        #num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
-        #    * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
+        # NB: self.weight_by_inj is already normalized in __init__
+        # NB: Use the BLAS call dot() to speed up this multiplication and sum:
+        #     num_louder_by_mc_m2 = (louder_by_inj_mc_m2 \
+        #        * self.weight_by_inj[:, None, None]).sum(axis=0, dtype=float)
         num_louder_by_mc_m2 = \
             numpy.dot(self.weight_by_inj,
                       louder_by_inj_mc_m2\
@@ -207,7 +203,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
             .reshape((self.num_mc, self.num_m2))
         pch_by_mc_m2 = num_louder_by_mc_m2 \
             / (self.num_sims_by_m2[None, :] + 1e-10)
-        numpy.putmask(pch_by_mc_m2, num_louder_by_mc_m2 < self.eps, self.eps)
+        numpy.putmask(pch_by_mc_m2, pch_by_mc_m2 < self.eps, self.eps)
 
         return numpy.log(pch_by_mc_m2)
 
