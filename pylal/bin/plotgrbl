@@ -431,19 +431,13 @@ extrap_ind = offsource_loudest_by_trial_mc.argsort(axis=0)\
     [-int(0.1 * num_offsource_trials), ...]
 extrap_snr_by_mc = \
     offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
-extrap_log_pc0_by_mc = \
-    offsource_pc0_by_trial_mc[extrap_ind, xrange(len(mc_bins))]
-extrap_log_pch_by_mc_m2 = \
-    offsource_pch_by_trial_mc_m2[extrap_ind, xrange(len(mc_bins)), :]
-extrap_log_L_by_mc_m2 = extrap_log_pch_by_mc_m2 \
-    - extrap_log_pc0_by_mc[:, None]
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
     r"$\rho_L^2(m_2)$",
     r"Significance of candidates in different mchirp regions")
-for mc_range, mc_log_L_by_m2, extrap_log_L_by_m2, is_candidate, color in \
-    zip(mc_ranges, log_L_by_mc_m2, extrap_log_L_by_mc_m2,
+for mc_range, mc_log_L_by_m2, is_candidate, color in \
+    zip(mc_ranges, log_L_by_mc_m2,
     actual_candidate_mask, plotutils.default_colors()):
     if is_candidate:
         linestyle = "-"
@@ -452,8 +446,6 @@ for mc_range, mc_log_L_by_m2, extrap_log_L_by_m2, is_candidate, color in \
     plot.add_content(m2_bins.centres(), mc_log_L_by_m2, linestyle=linestyle,
                      color=color,
                      label=r"$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-    plot.add_content(m2_bins.centres(), extrap_log_L_by_m2, color=color,
-                     linestyle=":")
 plot.finalize(loc=4)
 plot.ax.set_ylim(ymin=-0.5)
 
@@ -478,7 +470,7 @@ for mc_ind, mc_range in enumerate(mc_ranges):
     plot.add_content(x_data, y_data, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 
-plot.finalize(loc=4)
+plot.finalize(loc=1)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pch_vs_rho")
@@ -514,7 +506,7 @@ if opts.enable_output:
     fnameList.append(fname)
     tagList.append(text)
 # save a zoomed version, too
-plot.ax.set_xlim((4, 8))
+plot.ax.set_xlim((4, 10))
 plot.ax.set_ylim((-3, 0.2))
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
@@ -550,7 +542,7 @@ if opts.enable_output:
     fnameList.append(fname)
     tagList.append(text)
 # save a zoomed version, too
-plot.ax.set_xlim((4, 8))
+plot.ax.set_xlim((4, 10))
 plot.ax.set_ylim((-0.2, 3))
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_vs_rho_zoom")
