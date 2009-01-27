@@ -39,7 +39,7 @@ struct gengetopt_args_info
   int config_min; /**< @brief configuration file (in gengetopt format) to pass parameters's minimum occurreces */
   int config_max; /**< @brief configuration file (in gengetopt format) to pass parameters's maximum occurreces */
   const char *config_help; /**< @brief configuration file (in gengetopt format) to pass parameters help description.  */
-  char * label_arg;	/**< @brief arbitrary string to be printed in the beginning of PowerFlux log file.  */
+  char * label_arg;	/**< @brief arbitrary string to be printed in the beginning of PowerFlux log file (default='').  */
   char * label_orig;	/**< @brief arbitrary string to be printed in the beginning of PowerFlux log file original value given at command line.  */
   const char *label_help; /**< @brief arbitrary string to be printed in the beginning of PowerFlux log file help description.  */
   char * sky_grid_arg;	/**< @brief sky grid type (arcsin, plain_rectangular, sin_theta) (default='sin_theta').  */

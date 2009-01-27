@@ -31,7 +31,7 @@ const char *gengetopt_args_info_help[] = {
   "  -h, --help                    Print help and exit",
   "  -V, --version                 Print version and exit",
   "  -c, --config=STRING           configuration file (in gengetopt format) to \n                                  pass parameters",
-  "      --label=STRING            arbitrary string to be printed in the beginning \n                                  of PowerFlux log file",
+  "      --label=STRING            arbitrary string to be printed in the beginning \n                                  of PowerFlux log file  (default=`')",
   "      --sky-grid=STRING         sky grid type (arcsin, plain_rectangular, \n                                  sin_theta)  (default=`sin_theta')",
   "      --skymap-orientation=STRING\n                                orientation of produced skymaps: equatorial, \n                                  ecliptic, band_axis  (default=`equatorial')",
   "      --skyband-method=STRING   method of assigning band numbers: angle, S  \n                                  (default=`S')",
@@ -290,7 +290,7 @@ void clear_args (struct gengetopt_args_info *args_info)
 {
   args_info->config_arg = NULL;
   args_info->config_orig = NULL;
-  args_info->label_arg = NULL;
+  args_info->label_arg = gengetopt_strdup ("");
   args_info->label_orig = NULL;
   args_info->sky_grid_arg = gengetopt_strdup ("sin_theta");
   args_info->sky_grid_orig = NULL;
@@ -1832,7 +1832,7 @@ cmdline_parser_internal (int argc, char * const *argv, struct gengetopt_args_inf
           
             if (update_arg( (void *)&(args_info->label_arg), 
                  &(args_info->label_orig), &(args_info->label_given),
-                &(local_args_info.label_given), optarg, 0, 0, ARG_STRING,
+                &(local_args_info.label_given), optarg, 0, "", ARG_STRING,
                 check_ambiguity, override, 0, 0,
                 "label", '-',
                 additional_error))

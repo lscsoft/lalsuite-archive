@@ -2,7 +2,7 @@ purpose "Powerflux analysis program"
 
 option "config"		c "configuration file (in gengetopt format) to pass parameters" string multiple no
 
-option "label"		- "arbitrary string to be printed in the beginning of PowerFlux log file" string no
+option "label"		- "arbitrary string to be printed in the beginning of PowerFlux log file" string default="" no
 
 option "sky-grid"	- "sky grid type (arcsin, plain_rectangular, sin_theta)" string default="sin_theta" no
 option "skymap-orientation" - "orientation of produced skymaps: equatorial, ecliptic, band_axis" string default="equatorial" no
