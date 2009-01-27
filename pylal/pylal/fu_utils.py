@@ -43,6 +43,7 @@ from glue import iterutils
 from glue import pipeline
 from glue.lal import *
 from glue import lal
+from glue import markup
 from lalapps import inspiralutils
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
@@ -960,20 +961,16 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
               followups.append(fuList)
       else:
 
-          # FIX ME!  THIS SHOULD HAVE THE TRIGGER TYPE BREAK ADDED TOO!!!
           ifarList=list()
           for ckey in coincs:
               myIFAR = getattr(ckey,ckey.get_ifos()[1][0]).alpha
               myKey = ckey
               ifarList.append([myIFAR,myKey])
           ifarList.sort()
-          try:
-              topIFAR = ifarList[0:int(numtrigs)]
-          except:
-              topIFAR = ifarList
           ckeyList=list()
-          for key in topIFAR:
+          for key in ifarList:
               ckeyList.append(key[1])
+          numTrigs = 0
           for ckey in ckeyList:
               fuList = followUpList()
               fuList.far = getattr(ckey,ckey.get_ifos()[1][0]).alpha
@@ -992,6 +989,18 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                       # Also make a trigbank xml with the max template
                       generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
 		      xmfilenum += 3
+
+              # if the trigger type is wrong don't count it
+              if trigtype:
+                stop = 0
+                for t in trigtype.split(','):
+                  if t.strip() == fuList.get_coinc_type(): stop = 1
+                if not stop: continue
+
+              numTrigs += 1
+              if numTrigs > int(numtrigs):
+                break
+
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -1020,6 +1029,49 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
   if missed:
     followups
   return followups
+
+
+#############################################################################
+# Method to write a table of inspiral parameters
+#############################################################################
+def writeParamTable(trigger,opts):
+  page = markup.page(mode="strict_html")
+  page._escape = False
+  doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
+  doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
+
+  title = "Inspiral Parameters for trigger " + str(trigger.eventID)
+  page.init(title=title, doctype=doctype) 
+
+  paramList = [['End Time','end_time'],['SNR','snr'],['CHISQ','chisq'],['Chirp Mass','mchirp'],['Eta','eta'],['Mass 1','mass1'],['Mass 2','mass2'],['Eff Dist (Mpc)', 'eff_distance']]
+
+  page.table()
+  page.tr();
+  page.td('Ifo');
+  for param in paramList:
+    page.td(param[0]);
+  page.td('Combined Stat');
+  if not opts.disable_ifarsorting:
+    page.td('FAR');
+  page.tr.close()
+  for ifo in trigger.ifolist_in_coinc:
+    page.tr();
+    page.td(ifo);
+    page.td(repr(trigger.gpsTime[ifo]));
+    for param in paramList:
+      page.td(str(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
+    page.td(str(trigger.statValue));
+    if not opts.disable_ifarsorting:
+      page.td(str(trigger.far))
+    page.tr.close()
+  page.table.close()
+
+  if not os.access('PARAM_TABLES',os.F_OK):
+    os.mkdir('PARAM_TABLES')
+  else: pass
+  html_file = file("PARAM_TABLES/table_" + str(trigger.eventID) + ".txt","w")
+  html_file.write(page(False))
+  html_file.close()
 
 #############################################################################
 # Class to hold summary HTML information for all of the functions
