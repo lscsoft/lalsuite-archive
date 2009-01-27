@@ -244,6 +244,18 @@ for(i=0;i<count;i++) {
 		FILL_EXTRA_PARAMS(target); \
 		}
 
+	#define UPDATE_MAX(target, field) {\
+		if(pstats.field>target.field) { \
+			target.field=pstats.field;\
+			} \
+		}
+
+	#define UPDATE_MIN(target, field) {\
+		if(pstats.field<target.field) { \
+			target.field=pstats.field;\
+			} \
+		}
+
 	if(ei->band_info[skyband].max_weight<0) {
 		memcpy(&(ei->band_info[skyband]), &pstats, sizeof(pstats));
 		FILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ul);
@@ -268,21 +280,21 @@ for(i=0;i<count;i++) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ks, pstats.highest_ks);
 			}
 	
-		if(pstats.max_weight>ei->band_info[skyband].max_weight) {
-			ei->band_info[skyband].max_weight=pstats.max_weight;
-			}
-	
-		if(pstats.min_weight<ei->band_info[skyband].min_weight) {
-			ei->band_info[skyband].min_weight=pstats.min_weight;
-			}
-	
-		if(pstats.max_weight_loss_fraction>ei->band_info[skyband].max_weight_loss_fraction) {
-			ei->band_info[skyband].max_weight_loss_fraction=pstats.max_weight_loss_fraction;
-			}
+		UPDATE_MAX(ei->band_info[skyband], max_weight);
+		UPDATE_MIN(ei->band_info[skyband], min_weight);
+		UPDATE_MAX(ei->band_info[skyband], max_weight_loss_fraction);
+
+		UPDATE_MAX(ei->band_info[skyband], max_m1_neg);
+		UPDATE_MIN(ei->band_info[skyband], min_m1_neg);
+		UPDATE_MAX(ei->band_info[skyband], max_m3_neg);
+		UPDATE_MIN(ei->band_info[skyband], min_m3_neg);
+		UPDATE_MAX(ei->band_info[skyband], max_m4);
+		UPDATE_MIN(ei->band_info[skyband], min_m4);
 
 		}
 
 
+	/* No need to fill extra parameters as results are printed in this function */
 	if(i==0) {
 		memcpy(&pstats_accum, &pstats, sizeof(pstats));
 		continue;
@@ -318,18 +330,20 @@ for(i=0;i<count;i++) {
 	if(pstats.max_weight_loss_fraction>pstats_accum.max_weight_loss_fraction) {
 		pstats_accum.max_weight_loss_fraction=pstats.max_weight_loss_fraction;
 		}
+
+
 	}
 free_partial_power_sum_F(pps);
 
 if(write_data_log_header) {
 	write_data_log_header=0;
 	/* we write this into the main log file so that data.log files can simply be concatenated together */
-	fprintf(LOG, "data_log: kind label index set pi pps_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction\n");
+	fprintf(LOG, "data_log: kind label index set pi pps_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
 	}
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_POINT(psum, pstat, kind)	{\
-	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf\n", \
+	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
 		kind, \
 		args_info.label_arg, \
 		data_log_index, \
@@ -353,10 +367,19 @@ if(write_data_log_header) {
 		pstat.S, \
 		pstat.ks_value, \
 		pstat.ks_count, \
+		pstat.m1_neg, \
+		pstat.m3_neg, \
+		pstat.m4, \
 		pstat.bin, \
 		pstat.max_weight, \
 		pstat.weight_loss_fraction, \
 		pstats_accum.highest_ks.ks_value, \
+		pstats.max_m1_neg, \
+		pstats.min_m1_neg, \
+		pstats.max_m3_neg, \
+		pstats.min_m3_neg, \
+		pstats.max_m4, \
+		pstats.min_m4, \
 		pstats_accum.max_weight_loss_fraction \
 		); data_log_index++; }
 
@@ -455,11 +478,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count frequency_bin max_weight weight_loss_fraction max_ks_value max_weight_loss_fraction valid_count masked_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %d %lg %lf %lf %lf %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -479,10 +502,19 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		pstat.S, \
 		pstat.ks_value, \
 		pstat.ks_count, \
+		pstat.m1_neg, \
+		pstat.m3_neg, \
+		pstat.m4, \
 		pstat.bin, \
 		pstat.max_weight, \
 		pstat.weight_loss_fraction, \
 		ei->band_info[skyband].highest_ks.ks_value, \
+		ei->band_info[skyband].max_m1_neg, \
+		ei->band_info[skyband].min_m1_neg, \
+		ei->band_info[skyband].max_m3_neg, \
+		ei->band_info[skyband].min_m3_neg, \
+		ei->band_info[skyband].max_m4, \
+		ei->band_info[skyband].min_m4, \
 		ei->band_info[skyband].max_weight_loss_fraction, \
 		ei->band_valid_count[skyband], \
 		ei->band_masked_count[skyband] \

@@ -640,7 +640,7 @@ NORMAL_STATS nstats;
 float max_dx, snr;
 int max_dx_bin;
 float weight, min_weight, max_weight;
-float sum, sum_sq, sum3, sum4;
+float sum, sum_sq, sum1, sum3, sum4;
 int half_window=args_info.half_window_arg;
 
 /* allocate on stack, for speed */
@@ -752,10 +752,17 @@ M=sum*inv_count;
 normalizer=1.0/max_dx;
 
 sum_sq=0.0;
+sum1=0.0;
+sum3=0.0;
 sum4=0.0;
 for(i=0;i<max_dx_bin-half_window;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
 	sum_sq+=b;
 	sum4+=b*b;
 	}
@@ -763,6 +770,11 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
 	sum_sq+=b;
 	sum4+=b*b;
 	}
@@ -804,8 +816,11 @@ pst->weight_loss_fraction=(max_weight-min_weight)/max_weight;
 /* Apply normalization */
 S*=normalizer;
 //pst->ks_value=(sum4*inv_count-4*sum3*inv_count*M+6*sum_sq*inv_count*M*M-3*M*M*M*M)/(S*S*S*S);
-pst->ks_value=(sum4*inv_count)/(S*S*S*S);
+pst->m1_neg=(sum1*inv_count)/S;
+pst->m3_neg=(sum3*inv_count)/(S*S*S);
+pst->m4=(sum4*inv_count)/(S*S*S*S);
 //fprintf(stderr, "%g = %g %g %g %g (%d %g %g)\n", pst->ks_value, M, sum_sq*inv_count, sum3*inv_count, sum4*inv_count, count, inv_count, S);
+pst->ks_value=0;
 pst->ks_count=0;
 }
 
@@ -825,6 +840,12 @@ stats->highest_S.S=-1;
 stats->max_weight_loss_fraction=-1;
 stats->max_weight=-1;
 stats->min_weight=1e50;
+stats->max_m1_neg=-1;
+stats->min_m1_neg=1e50;
+stats->max_m3_neg=-1;
+stats->min_m3_neg=1e50;
+stats->max_m4=-1;
+stats->min_m4=1e50;
 
 memset(&pst, 0, sizeof(pst));
 
@@ -860,6 +881,13 @@ for(k=0;k<alignment_grid_free;k++) {
 	if(pst.max_weight>stats->max_weight)stats->max_weight=pst.max_weight;
 	if(pst.max_weight<stats->min_weight)stats->min_weight=pst.max_weight;
 	if(pst.weight_loss_fraction>stats->max_weight_loss_fraction)stats->max_weight_loss_fraction=pst.weight_loss_fraction;
+
+	if(pst.m1_neg>stats->max_m1_neg)stats->max_m1_neg=pst.m1_neg;
+	if(pst.m1_neg<stats->min_m1_neg)stats->min_m1_neg=pst.m1_neg;
+	if(pst.m3_neg>stats->max_m3_neg)stats->max_m3_neg=pst.m3_neg;
+	if(pst.m3_neg<stats->min_m3_neg)stats->min_m3_neg=pst.m3_neg;
+	if(pst.m4>stats->max_m4)stats->max_m4=pst.m4;
+	if(pst.m4<stats->min_m4)stats->min_m4=pst.m4;
 	}
 }
 
@@ -885,7 +913,7 @@ init_fc_ll();
 verify_limits();
 
 /* Account for power loss due to Hann windowing */
-upper_limit_comp=1.0/0.85; 
+upper_limit_comp=1.0/0.85;
 
 
 // // /*	/* Extra factor to convert to amplitude from RMS power */

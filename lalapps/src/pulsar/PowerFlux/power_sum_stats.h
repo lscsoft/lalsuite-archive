@@ -30,6 +30,9 @@ typedef struct {
 	double M;
 	double S;
 	double ks_value;
+	double m1_neg;
+	double m3_neg;
+	double m4;
 	double max_weight;
 	double weight_loss_fraction;
 
@@ -55,6 +58,12 @@ typedef struct {
 	double max_weight_loss_fraction;
 	double max_weight;
 	double min_weight;
+	double max_m1_neg;
+	double min_m1_neg;
+	double max_m3_neg;
+	double min_m3_neg;
+	double max_m4;
+	double min_m4;
 	} POWER_SUM_STATS;
 
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac);
