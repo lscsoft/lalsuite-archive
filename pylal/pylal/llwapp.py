@@ -159,13 +159,6 @@ def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description 
 	return coincdeftable.get_coinc_def_id(search, coinc_type, create_new = create_new, description = description)
 
 
-def segmenttable_get_by_name(*args):
-	import warnings
-	from pylal.ligolw_segments import segmenttable_get_by_name as __segmenttable_get_by_name
-	warnings.warn("pylal.llwapp.segmenttable_get_by_name() is deprecated, use pylal.ligolw_segments.segmenttable_get_by_name() instead", DeprecationWarning, stacklevel = 2)
-	return __segmenttable_get_by_name(*args)
-
-
 #
 # =============================================================================
 #
