@@ -271,7 +271,7 @@ gps_and_acc.accuracy=leapsec_info.accuracy;
 gps_and_acc.gps.gpsSeconds=gps; 
 gps_and_acc.gps.gpsNanoSeconds=0;
  
-ephemeris.leap = (INT2)XLALLeapSeconds((INT4)gps); 
+ephemeris.leap = (INT2)XLALGPSLeapSeconds((INT4)gps); 
 
 LALDetectorVel(&status, det_velocity, &(gps_and_acc.gps), detector, &ephemeris);
 TESTSTATUS(&status);
