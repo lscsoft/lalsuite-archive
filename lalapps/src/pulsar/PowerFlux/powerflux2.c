@@ -501,7 +501,9 @@ fprintf(LOG, "skymarks: %s\n", args_info.fine_grid_skymarks_arg ? "spindown_inde
 fprintf(LOG, "subtract background: %s\n", args_info.subtract_background_arg ? "yes" : "no");
 fflush(LOG);
 
-init_polarizations0();
+/* we do not use precomputed polarization arrays in powerflux2 
+ init_polarizations0(); */
+ntotal_polarizations=0;
 
 /* do we need to inject fake signal ? */
 if(args_info.fake_freq_given) {
