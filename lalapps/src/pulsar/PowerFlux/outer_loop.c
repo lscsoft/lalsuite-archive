@@ -697,4 +697,7 @@ fprintf(stderr, "Writing skymaps\n");
 
 for(i=0;i<nei;i++)
 	output_extreme_info(p, ei[i]);
+
+for(i=0;i<nei;i++)
+	free_extreme_info(ei[i]);
 }
