@@ -1,10 +1,10 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.28-64
+VERSION=1.4.29-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
 LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
-LDFLAGS=$(LALLDFLAGS) -L. -lpng -lz
+LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
 OPTFLAGS=-O6 -march=i686 -funroll-loops
@@ -13,6 +13,7 @@ OPTFLAGS=-O6 -march=opteron -funroll-loops -fno-stack-protector
 OPTFLAGS=-O -march=opteron -fno-stack-protector
 OPTFLAGS=-O6 -msse2 -funroll-loops -fno-stack-protector
 OPTFLAGS=-O6 -mtune=opteron -mfpmath=sse -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
+OPTFLAGS=-O6 -mtune=nocona -funroll-loops -fno-stack-protector -U_FORTIFY_SOURCE
 CFLAGS=-Wall -g $(OPTFLAGS) -DPACKAGE=$(PACKAGE) -DVERSION=\"$(VERSION)\" \
 	$(LALINCLUDE) -fPIC
 CC=gcc $(CFLAGS)
@@ -349,11 +350,11 @@ powerflux: $(OBJS) jobs.o util.o
 	ls -l powerflux
 
 powerflux-mt: $(OBJS) jobs-mt.o util.o
-	$(CC) $(OBJS) jobs-mt.o util.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
+	$(CC) $(OBJS) jobs-mt.o util.o -o powerflux-mt -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-mt
 
 powerflux.dyn: $(OBJS) jobs.o util.o
-	$(CC) $(OBJS) jobs.o util.o -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas
+	$(CC) $(OBJS) jobs.o util.o -o powerflux.dyn $(LDFLAGS) -lgsl -lgslcblas -lz
 	ls -l powerflux.dyn
 
 powerflux-condor: $(OBJS) jobs.o util-condor.o
@@ -361,12 +362,16 @@ powerflux-condor: $(OBJS) jobs.o util-condor.o
 	ls -l powerflux-condor
 
 powerflux-mt2: $(OBJS2) jobs-mt.o util.o
-	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-mt2 -static $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
 	ls -l powerflux-mt2
 
 powerflux-condor2: $(OBJS2) jobs.o util-condor.o
 	condor_compile $(CC) $(OBJS2) jobs.o util-condor.o -o powerflux-condor2 -static $(LDFLAGS) -lgsl -lgslcblas -lm
 	ls -l powerflux-condor2
+
+powerflux-valgrind2: $(OBJS2) jobs-mt.o util.o
+	$(CC) $(OBJS2) jobs-mt.o util.o -o powerflux-valgrind2 $(LDFLAGS) -lgsl -lgslcblas -lm -lpthread -lz
+	ls -l powerflux-valgrind2
 
 
 jobs-mt.o: jobs.c jobs.h
