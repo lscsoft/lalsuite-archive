@@ -360,10 +360,13 @@ pps->collapsed_weight_arrays=0;
 }
 
 struct {
+	/* statistics */
 	long hits;
 	long misses;
 	long overwrites;
 	long large_shifts;
+
+	/* cache contents */
 	int segment_count;
 	int size;
 	int free;
