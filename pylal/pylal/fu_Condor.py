@@ -784,22 +784,22 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
 
       self.setupNodeWeb(job,True,None,dag.page,None,None)
       # get the table of the qscan job associated to this trigger
-      if not(cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo):
-        for node in dag.get_nodes():
-          if isinstance(node,qscanNode):
-            if node.id == self.id:
+      #if not(cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo):
+        #for node in dag.get_nodes():
+          #if isinstance(node,qscanNode):
+            #if node.id == self.id:
               # link the analyseQscan output page to the qscan table
-              node.webTable.row[0].cell[0].linebreak()
-              node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
-              break
+              #node.webTable.row[0].cell[0].linebreak()
+              #node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
+              #break
       # if remote-ifo is analysed, find the associated qscan jobs in dag.remote_nodes
-      else:
-        for node in dag.remote_nodes:
-          if isinstance(node,qscanNode):
-            if node.id == self.id:
-              node.webTable.row[0].cell[0].linebreak()
-              node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
-              break
+      #else:
+        #for node in dag.remote_nodes:
+          #if isinstance(node,qscanNode):
+            #if node.id == self.id:
+              #node.webTable.row[0].cell[0].linebreak()
+              #node.webTable.row[0].cell[0].link(self.webLink,"qscan background vs qscan foreground")
+              #break
 
       if not opts.disable_dag_categories:
         self.set_category(job.name.lower())
