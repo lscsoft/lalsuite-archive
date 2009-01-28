@@ -138,6 +138,9 @@ def parse_command_line():
       help="choice of statistic used in making plots, valid arguments are: "
       "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
 
+  parser.add_option("","--eff-snr-denom-fac",action="store",default=250.0,\
+      type="float", help="Effective snr denom fac: default = 250")
+
   parser.add_option("-X", "--log-x", action="store_true",
       help="for ethinca vs ... make x axis log")
   parser.add_option("-Y", "--log-y", action="store_true",
@@ -325,7 +328,7 @@ if opts.cache_file is None:
   if opts.slide_glob:
     slidefilelists = [glob.glob(g) for g in opts.slide_glob]
   
-statistic = CoincInspiralUtils.coincStatistic(opts.statistic)
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic, None, None, opts.eff_snr_denom_fac)
 
 coincTriggersList = []
 if filelists:
