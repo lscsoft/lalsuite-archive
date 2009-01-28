@@ -149,24 +149,25 @@ class coincStatistic:
   It also contains parameter for such cases as the BBH bitten-L statistics.
   """
 
-  __slots__ = ["name","a","b","rsq","bl"]
+  __slots__ = ["name","a","b","rsq","bl", "eff_snr_denom_fac"]
 
-  def __init__(self, name, a=0, b=0):
+  def __init__(self, name, a=0, b=0, denom_fac=250.0):
     self.name=name
     self.a=a
     self.b=b
     self.rsq=0
     self.bl=0
+    self.eff_snr_denom_fac = denom_fac
 
   def __str__(self):
     return self.name
 
   def get_bittenl(self, bl, snr ):
     blx=self.a*snr-self.b
-    if bl==0:    
+    if bl==0:
       return blx
     else:
-      return min(bl, blx)  
+      return min(bl, blx)
 
 
 #######################################
@@ -204,7 +205,7 @@ class coincInspiralTable:
       
       self.numifos +=1
       if statistic.name == 'effective_snr':
-        self.stat = (self.stat**2 + trig.get_effective_snr()**2)**(1./2)      
+        self.stat = (self.stat**2 + trig.get_effective_snr(statistic.eff_snr_denom_fac)**2)**(1./2)      
       elif 'bitten_l' in statistic.name:
         snr=trig.snr
         self.rsq= (self.rsq**2 + snr**2)**(1./2)

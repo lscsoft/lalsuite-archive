@@ -184,6 +184,8 @@ def parse_command_line():
       help="choice of statistic used in making plots, valid arguments are: "
             "snr (DEFAULT), snr_over_chi, effective_snr, " 
             "bitten_l, bitten_lsq") 
+  parser.add_option("","--eff-snr-denom-fac",action="store",default=250.0,\
+      type="float", help="Effective snr denom fac: default = 250")
   parser.add_option("-F","--bittenl_a",action="store",type="float",\
       default=None,\
       metavar=" BITTENL_A", help="parameter a for bitten-l statistic" ) 	 
@@ -306,7 +308,7 @@ if opts.ext_trig:
 ####################################################################
 
 statistic = CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a,\
-     opts.bittenl_b )
+     opts.bittenl_b, opts.eff_snr_denom_fac)
     
 plotsymbols = ['r+','bx','ko','g1']
 hanfordsym = ['b+','bx','r1']
