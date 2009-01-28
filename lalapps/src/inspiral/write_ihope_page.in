@@ -1100,7 +1100,7 @@ def write_injection(page, opts,hardwareInj=False):
   # configs : is not none, the part of the ini file corresponding to this config name will be written in the web page
   titles = [\
     "Efficiency, Found and Missed plots (first stage)",\
-    "Closeby missed injections (Second coincidence stage and CAT2)",\
+    "Closeby missed injections (Second coincidence stage and CAT3)",\
     "Efficiencies (Second stage)",\
     "Accuracies (First stage)",\
     "Accuracies (Second stage)",\
