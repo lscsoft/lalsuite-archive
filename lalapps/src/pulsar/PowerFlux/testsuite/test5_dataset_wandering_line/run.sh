@@ -4,7 +4,7 @@ PF=../../powerflux-${PFSUFFIX:=mt}
 PFVERSION=`$PF --version 2> /dev/null | cut -f 2 -d \  `
 OUTPUT=output-$PFSUFFIX-$PFVERSION
 REFERENCE=golden-$PFSUFFIX
-PRECIOUS='(max_.*(ul|dx).*:)|initial'
+PRECIOUS='(max_.*(ul|dx).*:)|initial|band_info'
 
 echo $OUTPUT
 
