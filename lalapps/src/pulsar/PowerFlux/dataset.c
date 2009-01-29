@@ -1984,6 +1984,7 @@ while(1) {
 if(d_free>0)
 	if(!validate_dataset(&(datasets[d_free-1])))d_free--;
 fclose(fin);
+free(s);
 }
 
 long total_segments(void)
