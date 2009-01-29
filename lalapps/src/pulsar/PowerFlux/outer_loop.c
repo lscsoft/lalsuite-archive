@@ -236,7 +236,7 @@ for(i=0;i<count;i++) {
 		target.ra=ps[0][i].ra; \
 		target.dec=ps[0][i].dec; \
 		target.spindown=ps[0][i].spindown; \
-		target.frequency=ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/1800.0; \
+		target.frequency=(double)ps[0][i].freq_shift+((target).bin+first_bin+side_cut)/(double)1800.0; \
 		}
 
 	#define FILL_POINT_STATS(target, source)	{\
@@ -354,7 +354,7 @@ if(write_data_log_header) {
 		psum.min_gps, \
 		psum.max_gps, \
 		psum.skyband, \
-		(pstat.bin+first_bin+side_cut)/1800.0+psum.freq_shift, \
+		(pstat.bin+first_bin+side_cut)/(double)1800.0+psum.freq_shift, \
 		psum.spindown, \
 		psum.ra, \
 		psum.dec, \
