@@ -240,6 +240,13 @@ if(args_info.dump_points_arg){
 snprintf(s,20000,"%s/powerflux.log", output_dir);
 LOG=fopen(s,"w");
 
+while(LOG==NULL) {
+	i=errno;
+	fprintf(stderr, "Could not open log file \"%s\": %s\n", s, strerror(errno));
+	condor_safe_sleep(60);
+	LOG=fopen(s, "w");
+	}
+
 snprintf(s,20000,"%s/file.log", output_dir);
 FILE_LOG=fopen(s,"w");
 
