@@ -40,11 +40,17 @@ __version__ = "$Revision$"[11:-2]
 
 
 from xml import sax
-# Python 2.3 compatibility
 try:
 	set
 except NameError:
+	# Python < 2.4
 	from sets import Set as set
+try:
+	any
+	all
+except NameError:
+	# Python < 2.5
+	from glue.iterutils import any, all
 
 
 from glue import segments
