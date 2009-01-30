@@ -180,7 +180,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         for (name,value) in cp.items("followup-inspiral-extra"):
           self.add_var_opt(name,value)
 
-      if not ifo == self.inputIfo:
+      if not ifo == self.inputIfo and not type == "coh":
         second_user_tag = "_" + ifo + "tmplt"
       else:
         second_user_tag = ""
@@ -1336,4 +1336,95 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       self.invalidate()
       print "couldn't add plot mcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
 
+
+#### A CLASS TO DO FOLLOWUP COHERENT INSPIRAL JOBS ############################
+###############################################################################
+class followUpChiaJob(inspiral.ChiaJob,webTheJob):
+  """
+  Generates coherent inspiral data
+  """
+  def __init__(self, options, cp, tag_base='CHIA'):
+    """
+    """
+    self.__prog__ = 'followUpChiaJob'
+    self.__executable = string.strip(cp.get('condor','chia'))
+    self.__universe = "standard"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self._InspiralAnalysisNode__pad_data = 0
+    self.setupJobWeb(self.__prog__,tag_base)
+
+##############################################################################
+
+class followUpChiaNode(inspiral.ChiaNode,webTheNode):
+  """
+  A C code for computing the coherent inspiral statistic.
+  An example command line is:
+lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.900000e+01 --low-frequency-cutoff 4.000000e+01 --bank-file H1H2-COHBANK_COHERENT_H1H2_PLAYGROUND-823269333-600.xml --sample-rate 4096 --cohsnr-threshold 5.500000e+00 --ifo-tag H1H2 --frame-type LSC-STRAIN --H1-framefile H1-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823269286-2048.gwf --H2-framefile H2-INSPIRAL_COHERENT_H1H2_PLAYGROUND-823268952-2048.gwf --gps-end-time 823269933 --gps-start-time 823269333 --write-cohsnr --write-cohnullstat --write-cohphasediff --write-events --verbose --debug-level 1
+  """
+
+  #def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
+
+  def __init__(self,job,trig,opts,dag):
+
+    if 1:#try:
+      # the use of this class would require some reorganisation in fu_Condor.py
+      # and webCondor.py in order to set up the jobs following the same scheme
+      # as the way it is done for the Inspiral pipeline...
+      pipeline.CondorDAGNode.__init__(self,job)
+      self.friendlyName = 'Produce coherent inspiral plots of event'
+      self.id = job.name + '-CHIA-' + str(trig.statValue) + '_' + str(trig.eventID)
+      #self.setupNodeWeb(job)
+      self.output_file_name = ""
+      self.segment_length = 1048576
+      self.dynamic_range_exponent = 6.900000e+01
+      self.low_frequency_cutoff = 4.000000e+01
+      self.sample_rate = 4096
+      # required by followUpChiaPlotNode
+      bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
+      self.add_var_opt("write-cohsnr","")
+      self.add_var_opt("write-cohnullstat","")
+      self.add_var_opt("write-cohh1h2snr","")
+      #self.add_var_opt("verbose","")
+      self.set_bank(bankFile)
+      self._InspiralAnalysisNode__pad_data = 0
+
+      #CHECK: needed here? self.setupNodeWeb(inspJob,False,None,None,None,dag.cache)
+      self.setupNodeWeb(job,False,None,None,None,dag.cache)
+      self.add_var_opt("output-path",job.outputPath)
+
+      # Here we define the trig-start-time and the trig-end-time;
+      # The difference between these two times should be kept to 2s
+      # Otherwise change the clustering window also
+      hLengthAnalyzed = 1
+      self.add_var_opt("gps-start-time",int(trig.gpsTime['H1']) - int(hLengthAnalyzed) )
+      self.add_var_opt("gps-end-time",int(trig.gpsTime['H1']) + int(hLengthAnalyzed) )
+      skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
+
+      if opts.plot_chia:
+        dag.addNode(self,'chia')
+        self.validate()
+      else: self.invalidate()
+
+    else: #except:
+      print >> sys.stderr, "Didn't find a coherent inspiral job, I'll assume I don't need it"
+      # initialize the extension of the output file. If the option
+      # write_compress is found in procParams the extension will be overwritten
+
+  def append_insp_node(self,inspNode,ifo):
+    fileName = str(inspNode.output_file_name)
+    #self.add_var_opt("H1-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
+    #self.add_var_opt("H1-xml-file",str(fileName))
+    self.add_var_opt(ifo+"-framefile",str(fileName.replace(".xml",".gwf").strip(".gz")))
+    #self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
+    if inspNode.validNode: self.add_parent(inspNode)
+
+
+  def add_node_to_dag(self,dag,opts,trig):
+    if opts.plot_chia:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else:
+      self.invalidate()
+      print "couldn't add coherent-inspiral job for " + str(trig.eventID)
 

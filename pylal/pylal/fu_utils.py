@@ -959,6 +959,9 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                               fuList.ifoTag = chunk.ifos
                               break
               followups.append(fuList)
+              # generate a cohbank xml file for this coinc trigger
+              maxIFO = generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,'trigTemplateBank',"coh",add_columns)
+              print "produced cohbank files..."
       else:
 
           ifarList=list()
@@ -1016,6 +1019,9 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                               fuList.ifoTag = chunk.ifos
                               break 
               followups.append(fuList)
+              # generate a cohbank xml file for this coinc trigger
+              generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,'trigTemplateBank',"coh",add_columns)
+              print "produced cohbank files 2..."
   # the missed stuff doesnt work yet!!!
   print "produced " + str(xmfilenum) + " trig bank files..."
 
@@ -1037,11 +1043,12 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
 def writeParamTable(trigger,opts):
   page = markup.page(mode="strict_html")
   page._escape = False
-  doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
-  doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
+  #doctype="""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">"""
+  #doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">"""
 
   title = "Inspiral Parameters for trigger " + str(trigger.eventID)
-  page.init(title=title, doctype=doctype) 
+  #page.init(title=title, doctype=doctype) 
+  page.init(title=title)
 
   paramList = [['End Time','end_time'],['SNR','snr'],['CHISQ','chisq'],['Chirp Mass','mchirp'],['Eta','eta'],['Mass 1','mass1'],['Mass 2','mass2'],['Eff Dist (Mpc)', 'eff_distance']]
 
@@ -1394,3 +1401,65 @@ class nVeto:
 #
 #End nVeto() Class Definition
 ############################################################
+
+#############################################################################
+# Function to generate a coherentbank xml file
+#############################################################################
+def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=None,type='plot',use_col_from_installation=None):
+
+  if outputPath:
+    try:
+      os.mkdir(outputPath)
+    except: pass
+
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+
+  # Cohbank files use the loudest single-ifo template for all ifos in a coinc
+  maxSNR = 0;
+  maxIFO = ""
+  for t in ckey:
+    snr = t.snr
+    if snr > maxSNR:
+      maxSNR = snr
+      maxIFO = t.ifo
+    trig = getattr(ckey,maxIFO)
+
+  #This is a hack since data channel can differ among ifos
+  properChannelTrig = getattr(ckey,maxIFO)
+  trig.channel = properChannelTrig.channel
+  # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
+  valid_columns = trig.__slots__
+  columns = []
+  notcolumns = []
+  for col in valid_columns:
+    try:
+      getattr(trig,col)
+      columns.append(col)
+    except:
+      notcolumns.append(col)
+  # IF "use_col_from_installation" IS TRUE, ADD NEW COLUMNS TO THE SNGL_INSPIRAL TABLE
+  if use_col_from_installation:
+    for col in notcolumns:
+      print "\n adding column " + col
+      columns.append(col)
+      setattr(trig,col,0)
+
+  process_params_table = lsctables.New(lsctables.ProcessParamsTable)
+  xmldoc.childNodes[-1].appendChild(process_params_table)
+
+  sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
+  print sngl_inspiral_table
+  xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
+  # Each coherent bank file should have trig rows for all ifos in a coinc
+  for ifo in ifolist_in_coinc:
+    trig.ifo = ifo
+    sngl_inspiral_table.append(trig)
+
+  fileName = ifoTag + '-COHBANK_FOLLOWUP_' + type + str(int(ckey.event_id)) + ".xml.gz"
+  if outputPath:
+    fileName = outputPath + '/' + fileName
+  utils.write_filename(xmldoc, fileName, verbose = True, gz = True)
+
+  return maxIFO
+
