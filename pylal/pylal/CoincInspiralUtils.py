@@ -368,7 +368,23 @@ class coincInspiralTable:
         
     return selected_coincs
 
-    
+  def removecoinctype(self, ifolist):
+    """
+    Return the coincs which are NOT from the coinc type made from combining all
+    the ifos in the ifolist.
+    @param ifolist: a list of ifos 
+    """
+    ifolist.sort()
+    selected_coincs = coincInspiralTable(stat=self.stat)
+    selected_coincs.sngl_table = self.sngl_table
+    for coinc in coincs:
+      thiscoinctype = coinc.get_ifos()[1]
+      thiscoinctype.sort()
+      if not (ifolist == thiscoinctype):
+        selected_coincs.append(coinc)
+
+    return selected_coincs
+
   def getsngls(self, ifo):
     """
     Return the sngls for a specific ifo.
