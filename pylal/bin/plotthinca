@@ -166,6 +166,8 @@ def parse_command_line():
       help="input files contain triggers from L1" )
   parser.add_option("-U","--v1-triggers",action="store_true",default=False,\
       help="input files contain triggers from V1" )
+  parser.add_option("","--remove-h1h2",action="store_true",default=False,\
+      help="remove H1H2 triggers (e.g. when H1 and H2 are slid together)" )
   parser.add_option("-a","--snr-time",action="store_true",default=False,\
       help="plot the snr vs time of coinc triggers" )
   parser.add_option("-b","--snr-snr",action="store_true",default=False,\
@@ -422,6 +424,11 @@ if coincfiles:
   
   # construct the coincs
   coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+
+  # remove H1H2 triggers
+  if opts.remove_h1h2:
+    coincTriggers = coincTriggers.removecoinctype(['H1', 'H2'])
+
   # cluster them
   if opts.cluster_window:
     coincTriggers = coincTriggers.cluster(opts.cluster_window)
@@ -502,6 +509,11 @@ if offsourcefiles:
     this_seg["coinc_trigs"] = CoincInspiralUtils.\
         coincInspiralTable(this_seg["sngl_trigs"],statistic)
 
+    # remove H1H2 triggers
+    if opts.remove_h1h2:
+      this_seg["coinc_trigs"] = this_seg["coinc_trigs"].\
+          removecoinctype(['H1', 'H2'])
+
     # cluster triggers if required
     if opts.cluster_window:
       this_seg["coinc_trigs"] = \
@@ -550,6 +562,11 @@ if slidefiles:
     # make coincs
     this_slide["coinc_trigs"] = \
       CoincInspiralUtils.coincInspiralTable(this_slide["sngl_trigs"],statistic)
+
+    # remove H1H2 triggers
+    if opts.remove_h1h2:
+      this_slide["coinc_trigs"] = \
+          this_slide["coinc_trigs"].removecoinctype(['H1', 'H2'])
 
     # cluster triggers
     if opts.cluster_window:
