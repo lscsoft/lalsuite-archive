@@ -26,7 +26,7 @@ from pylal import InspiralUtils
 def found_missed(opts,foundFiles,missedFiles):
   """
   """
-  statistic = CoincInspiralUtils.coincStatistic( opts.statistic )
+  statistic = CoincInspiralUtils.coincStatistic( opts.statistic, None, None, opts.eff_snr_denom_fac )
   coincTriggers = CoincInspiralUtils.coincInspiralTable()
   for file in foundFiles:
     file = [file]
@@ -154,6 +154,8 @@ def parse_command_line():
       type="string",\
       help="choice of statistic used in making plots, valid arguments are: "
           "snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr,")
+  parser.add_option("","--eff-snr-denom-fac",action="store",default=250.0,\
+      type="float", help="Effective snr denom fac: default = 250")
   parser.add_option("-I","--cache-file",action="store",type="string",\
       default=None, metavar=" CACHE_FILE",\
       help="input file to read Cache file" )
