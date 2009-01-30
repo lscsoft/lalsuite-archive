@@ -623,9 +623,10 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_arg(repr(time))
 
     #get the absolute output path whatever the path might be in the ini file
-    absoutput = os.path.abspath(output)
+    #absoutput = os.path.abspath(output)
 
-    self.outputName = absoutput + '/' + repr(time) # redirect output name
+    #self.outputName = absoutput + '/' + repr(time) # redirect output name
+    self.outputName = output + '/' + repr(time)
 
     #prepare the string for the output cache
     self.outputCache = ifo + ' ' + name + ' ' + repr(time) + ' ' + self.outputName + '\n'
