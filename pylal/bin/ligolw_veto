@@ -40,8 +40,8 @@ import sys
 from glue import segments
 from glue.ligolw import dbtables
 from glue.ligolw import utils
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import SnglBurstUtils
-from pylal import ligolw_segments
 from pylal.date import LIGOTimeGPS
 
 
