@@ -214,7 +214,12 @@ def parse_args():
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
-    return parser.parse_args()
+    options, arguments = parser.parse_args()
+
+    if len(options.ifo_tag) != 4:
+        raise ValueError, "Only two-IFO combinations are supported."
+
+    return options, arguments
 
 ################################################################################
 # parse arguments
@@ -333,12 +338,21 @@ if opts.smoothing_radius is not None:
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins
-# NB: Does not check what IFOs participated in the GRB search
 # NB: Needs to be after injections are binned, but before actual distances
 #     are extracted from the search.
-calib_fac = 1 + max((opts.h1_calibration_uncertainty,
-                     opts.h2_calibration_uncertainty,
-                     opts.l1_calibration_uncertainty))
+supported_ifos = set(("H1", "H2", "L1"))
+if opts.ifo_tag is not None:
+    ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
+    if not supported_ifos.issuperset(ifos):
+        raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
+else:
+    sys.stderr.write("warning: --ifo-tag not provided, so using all provided "\
+        "calibration factors.\n")
+    ifos = supported_ifos
+if opts.verbose:
+    print "Applying calibration uncertainties from %s..." % repr(ifos)
+calib_fac = 1 + max(getattr(opts,
+    "%s_calibration_uncertainty" % ifo.lower()) for ifo in ifos)
 D_bins.min /= calib_fac
 D_bins.max /= calib_fac
 D_bins.delta /= calib_fac
