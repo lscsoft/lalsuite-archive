@@ -88,7 +88,7 @@ def boundary_of_nonzero_along(arr, axis):
 
     >>> a = numpy.array([[0, 0, 1], [0, 1, 0], [0, 1, 1]])
     >>> boundary_of_nonzero_along(a, axis=0)
-    (array([3, 1, 0]), array([3, 2, 2]))
+    (array([-1, 1, 0]), array([-1, 2, 2]))
     >>> boundary_of_nonzero_along(a, axis=1)
     (array([2, 1, 1]), array([2, 1, 2]))
     """
@@ -219,6 +219,10 @@ def parse_args():
     if len(options.ifo_tag) != 4:
         raise ValueError, "Only two-IFO combinations are supported."
 
+    if (options.likelihood_threshold is not None) \
+        and (options.likelihood_threshold <= 0):
+        raise ValueError, "--likelihood-threshold THRESH must be positive."
+
     return options, arguments
 
 ################################################################################
@@ -260,7 +264,7 @@ if opts.likelihood_threshold is not None:
     eps = opts.likelihood_threshold
 else:
     eps = min(offsource_likelihood_by_trial_m2\
-                  [offsource_likelihood_by_trial_m2 > 0].min(),
+                [offsource_likelihood_by_trial_m2 > 0].min(),
               inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 > 0].min())
 offsource_likelihood_by_trial_m2[offsource_likelihood_by_trial_m2 < eps] = eps
 inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 < eps] = eps
@@ -316,13 +320,11 @@ for inj_L_by_m2, m2_D in \
     itertools.izip(inj_likelihood_by_trial_m2, m2_D_by_inj):
     m2_ind = m2_bins[m2_D[0]]
     D_ind = D_bins[m2_D[1]]
-    inj_L = inj_L_by_m2[m2_ind]
-    if (inj_L_by_m2 == empty_log_L_by_m2).all():
-        continue  # missed injection
-    try:
-        L_ind = L_bins[inj_L]  # use only the L of the m2 of the inj
-    except IndexError:
-        continue  # out of our interesting L range
+    inj_L = inj_L_by_m2[m2_ind]  # use only the L of the m2 of the inj
+
+    # all L values should fall within a bin at this point
+    L_ind = L_bins[inj_L]
+
     count_by_L_m2_D[L_ind, m2_ind, D_ind] += 1
     num_sims_by_m2_D[m2_ind, D_ind] += 1
 
@@ -439,7 +441,7 @@ D_min = D_bins.min + numpy.zeros(len(m2_bins))
 D_max = D_bins.max + numpy.zeros(len(m2_bins))
 
 for CL, D1D2_by_m2 in zip(CLs, D1D2_by_CL_m2):
-    # want stuff *outside* of our 90% best regions
+    # want stuff *outside* of our chosen regions
     tmpx, tmpy = viz.makesteps(exclusion_x, D_min, D1D2_by_m2[:, 0])
     plot.add_content(tmpx, tmpy, shade=(1-CL, 1-CL, 1-CL),
         label=str(int(CL * 100)) + r"\%")
