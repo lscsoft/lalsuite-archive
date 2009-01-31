@@ -69,7 +69,7 @@ def create_relic_call(cp, opts, onsource_file=None):
   call+= ' --statistic '+cp.get('plotthinca','statistic')
   call+= ' --veto-segfiles ../bufferSeg.txt --onsource-seg ../onSourceSeg.txt'
   call+= ' --m2-min 1 --m2-max 40 --m2-nbins 13'
-  call+= ' --D-min 0.5 --D-max 50 --D-nbins 11'
+  call+= ' --D-min 0.5 --D-max 50 --D-nbins 40'
   call+= ' --mc-boundaries '+cp.get('grbtimeslidestats','mc-boundaries')
   call+= ' --verbose'
 
@@ -114,7 +114,7 @@ def create_paste_call(cp, opts):
 
   input_user_tag = cp.get('pipeline','input-user-tag')
   output_filename = ifo_times+'-THINCA_SECOND_'+input_user_tag+'_'+opts.user_tag+\
-     '_ONSOURCE_FAKE-'+str(segment[0])+'-'+str( segment[1]-segment[0])+'.xml'
+     '_ONSOURCE_FAKE-'+str(segment[0])+'-'+str(abs(segment))+'.xml'
 
   # create the function call
   call='./executables/paste_insp_triggers'
