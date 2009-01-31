@@ -257,8 +257,6 @@ inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc, \
     rho_by_inj_mc, trace_m2_bin = \
     pickle.load(open(opts.grblikelihood_injections))
 
-D_bins = rate.LinearBins(D_bins.min, D_bins.max, 3 * D_bins.n)
-
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:
     eps = opts.likelihood_threshold
