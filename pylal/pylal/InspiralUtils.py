@@ -80,7 +80,7 @@ def message(opts, text):
   """
   if opts.verbose is True:
     print text
-  return text+'</br>\n'
+  return text+'<br>\n'
 
 def set_figure_name(opts, text):
   """
@@ -286,7 +286,7 @@ def writeProcessParams(name, version, command):
   """
   text = "Figure(s) produced with " + name + ", " \
       + version + ", invoked with the following command line arguments:" \
-      + '</br>\n<p style="width:80%; color:blue">'+ name
+      + '<br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
     text += " " +  arg
   text+='</p>'
