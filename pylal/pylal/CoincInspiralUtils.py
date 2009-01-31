@@ -376,6 +376,7 @@ class coincInspiralTable:
     """
     ifolist.sort()
     selected_coincs = coincInspiralTable(stat=self.stat)
+    selected_coincs.sngl_table = self.sngl_table
     for coinc in self:
       thiscoinctype = coinc.get_ifos()[1]
       thiscoinctype.sort()
