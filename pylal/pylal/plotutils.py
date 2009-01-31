@@ -425,20 +425,49 @@ class ImagePlot(BasicPlot):
         self.x_bins = x_bins
         self.y_bins = y_bins
 
-    def finalize(self, colormap=None, colorbar=True):
+    def finalize(self, colorbar=True, **kwargs):
         if self.image is None:
             raise ValueError, "nothing to finalize"
 
         extent = [self.x_bins.lower()[0], self.x_bins.upper()[-1],
                   self.y_bins.lower()[0], self.y_bins.upper()[-1]]
 
-        im = self.ax.imshow(self.image, origin="lower", extent=extent,
-                            cmap=colormap, interpolation="nearest")
+        kwargs.setdefault("origin", "lower")
+        kwargs.setdefault("interpolation", "nearest")
+
+        im = self.ax.imshow(self.image, extent=extent, **kwargs)
 
         pylab.axis('tight')
 
         if colorbar:
             self.fig.colorbar(im)
+
+        # XXX: hack our ticks into log space; imshow doesn't support log scales
+        def log_transform(lin_range):
+            """
+            Return the logarithmic ticks and labels corresponding to the
+            input lin_range.
+            """
+            log_range = numpy.log10(lin_range)
+            slope = (lin_range[1] - lin_range[0]) \
+                  / (log_range[1] - log_range[0])
+            inter = lin_range[0] - slope * log_range[0]
+            tick_range = [tick for tick in range(int(log_range[0] - 1.0),
+                                                 int(log_range[1] + 1.0))\
+                          if tick >= log_range[0] and tick<=log_range[1]]
+            ticks = [inter + slope * tick for tick in tick_range]
+            labels = ["${10^{%d}}$" % tick for tick in tick_range]
+            return ticks, labels
+        from pylal import rate
+        if isinstance(self.x_bins, rate.LogarithmicBins):
+            xticks, xlabels = log_transform(self.ax.get_xlim())
+            self.ax.set_xticks(xticks)
+            self.ax.set_xticklabels(xlabels)
+        if isinstance(self.y_bins, rate.LogarithmicBins):
+            yticks, ylabels = log_transform(self.ax.get_ylim())
+            self.ax.set_yticks(yticks)
+            self.ax.set_yticklabels(ylabels)
+
 
 class FillPlot(BasicPlot):
     """
