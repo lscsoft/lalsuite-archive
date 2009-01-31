@@ -425,15 +425,17 @@ class ImagePlot(BasicPlot):
         self.x_bins = x_bins
         self.y_bins = y_bins
 
-    def finalize(self, colormap=None, colorbar=True):
+    def finalize(self, colorbar=True, **kwargs):
         if self.image is None:
             raise ValueError, "nothing to finalize"
 
         extent = [self.x_bins.lower()[0], self.x_bins.upper()[-1],
                   self.y_bins.lower()[0], self.y_bins.upper()[-1]]
 
-        im = self.ax.imshow(self.image, origin="lower", extent=extent,
-                            cmap=colormap, interpolation="nearest")
+        kwargs.setdefault("origin", "lower")
+        kwargs.setdefault("interpolation", "nearest")
+
+        im = self.ax.imshow(self.image, extent=extent, **kwargs)
 
         pylab.axis('tight')
 
