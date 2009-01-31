@@ -84,7 +84,7 @@ def boundary_of_nonzero_along(arr, axis):
     """
     Given an N dimensional array, return two N-1 dimensional arrays containing
     the min and max indices along axis containing non-zero values.  For rows
-    containing no non-zero elements, return an index of arr.shape[axis].
+    containing no non-zero elements, return -1.
 
     >>> a = numpy.array([[0, 0, 1], [0, 1, 0], [0, 1, 1]])
     >>> boundary_of_nonzero_along(a, axis=0)
@@ -92,16 +92,24 @@ def boundary_of_nonzero_along(arr, axis):
     >>> boundary_of_nonzero_along(a, axis=1)
     (array([2, 1, 1]), array([2, 1, 2]))
     """
+    # for an KxLxMxN array, if axis=1, transpose axis 0 to the end, then
+    # reshape to (K*M*N)xL
     s = arr.shape
     temp_arr = numpy.rollaxis(arr, axis, arr.ndim).reshape((-1, s[axis]))
+
+    # set default of -1
     min_arr = -numpy.ones(shape=temp_arr.shape[0], dtype=int)
     max_arr = -numpy.ones(shape=temp_arr.shape[0], dtype=int)
+
+    # iterate over the K*M*N sub-arrays of length L
     for i, sub_arr in enumerate(temp_arr):
         ind = sub_arr.nonzero()[0]
         if len(ind) == 0:
-            continue
+            continue  # leave default value
         min_arr[i] = ind.min()
         max_arr[i] = ind.max()
+
+    # we have min/maxed over L, so want to return KxMxN
     return (min_arr.reshape(s[:axis] + s[axis+1:]),
             max_arr.reshape(s[:axis] + s[axis+1:]))
 
@@ -349,9 +357,9 @@ pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
 
 # Find L bin of our observation
 if actual_candidate_mask.any():
-    obs_L_bins_by_m2 = [L_bins[log_L] for log_L in log_L_by_m2]
+    obs_L_bins_by_m2 = numpy.array([L_bins[log_L] for log_L in log_L_by_m2])
 else:
-    obs_L_bins_by_m2 = [0] * len(m2_bins)  # lowest possible L
+    obs_L_bins_by_m2 = numpy.zeros(len(m2_bins))  # lowest possible L
 
 # rank L bins for each m2, D
 # the inverse of an argsort is the argsort of the argsort
@@ -372,27 +380,29 @@ D_upper = numpy.frompyfunc(D_bins.upper().__getitem__, 1, 1)
 # construct belts
 # NB: assume regions are contiguous; conservatively take outer edges of bins
 CLs = (0.5, 0.75, 0.9)
+included_by_CL_L_m2_D = numpy.zeros((len(CLs), len(L_bins), len(m2_bins),
+                                     len(D_bins)), dtype=bool)
 L1L2_by_CL_m2_D = numpy.zeros((len(CLs), len(m2_bins), len(D_bins), 2),
     dtype=float)
 D1D2_by_CL_m2 = numpy.zeros((len(CLs), len(m2_bins), 2), dtype=float)
 for CL_ind, CL in enumerate(CLs):
     # Find region containing the highest-ranked L bins that sum to >= CL,
     # then translate back to normal L ordering.
-    excluded_by_L_m2_D = \
+    included_by_CL_L_m2_D[CL_ind, ...] = \
         take_axis_argsort(pLD_cumsum_by_L_m2_D >= 1 - CL,
                           orig_order_by_L_m2_D, axis=0)
 
-    # get boundary of region in L for diagnostics
+    # get confidence bands in L
     low_by_m2_D, high_by_m2_D = \
-        boundary_of_nonzero_along(excluded_by_L_m2_D, axis=0)
+        boundary_of_nonzero_along(included_by_CL_L_m2_D[CL_ind, ...], axis=0)
     L1L2_by_CL_m2_D[CL_ind, :, :, 0] = L_lower(low_by_m2_D)
     L1L2_by_CL_m2_D[CL_ind, :, :, 1] = L_upper(high_by_m2_D)
 
-    # get boundary of region in D for our observed L
-    excluded_obs_by_m2_D = \
-        excluded_by_L_m2_D[obs_L_bins_by_m2, xrange(len(m2_bins)), :]
+    # use confidence bands to discover our extent in D for our observed L
+    inband_by_m2_D = (low_by_m2_D <= obs_L_bins_by_m2[:, None]) \
+                   & (obs_L_bins_by_m2[:, None] <= high_by_m2_D)
     low_by_m2, high_by_m2 = \
-        boundary_of_nonzero_along(excluded_obs_by_m2_D, axis=1)
+        boundary_of_nonzero_along(inband_by_m2_D, axis=1)
     D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
     D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
 
@@ -404,27 +414,26 @@ tagList = []
 if opts.verbose:
     print "Writing plots..."
 
-## Feldman-Cousins confidence bands (m2, D) image
-text = "Feldman-Cousins confidence bands"
+## Feldman-Cousins exclusions (m2, D)
+text = "Feldman-Cousins exclusion regions"
 
 plot = plotutils.FillPlot(r"$m_\mathrm{companion}\ (M_\odot)$",
     r"$D\ \mathrm{(Mpc)}$", r"Feldman-Cousins exclusion regions")
 
 exclusion_x = m2_bins.lower()
-zero = numpy.zeros(len(m2_bins))
-upper = zero + D_bins.max
+D_min = D_bins.min + numpy.zeros(len(m2_bins))
+D_max = D_bins.max + numpy.zeros(len(m2_bins))
 
 for CL, D1D2_by_m2 in zip(CLs, D1D2_by_CL_m2):
     # want stuff *outside* of our 90% best regions
-    tmpx, tmpy = viz.makesteps(exclusion_x, zero, D1D2_by_m2[:, 0])
+    tmpx, tmpy = viz.makesteps(exclusion_x, D_min, D1D2_by_m2[:, 0])
     plot.add_content(tmpx, tmpy, shade=(1-CL, 1-CL, 1-CL),
         label=str(int(CL * 100)) + r"\%")
-
-    tmpx, tmpy = viz.makesteps(exclusion_x, D1D2_by_m2[:, 1], upper)
+    tmpx, tmpy = viz.makesteps(exclusion_x, D1D2_by_m2[:, 1], D_max)
     plot.add_content(tmpx, tmpy, shade=(1-CL, 1-CL, 1-CL), label="_nolegend_")
 
 plot.finalize()
-plot.ax.set_ylim((0, D_bins.max))
+plot.ax.set_ylim((D_bins.min, D_bins.max))
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "FC_exclusion_by_m2_D")
@@ -445,6 +454,9 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
     plot.finalize()
 
+    # add our actual observation
+    plot.ax.plot((log_L_by_m2[m2_ind], log_L_by_m2[m2_ind]),
+                 (D_bins.min, D_bins.max), "k--")
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
             "pLD_by_m2_D_%.1f" % m2_range[0])
@@ -459,7 +471,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
 
     plot = plotutils.SimplePlot(r"$\rho_L^2$",
         r"$D_\mathrm{best}$",
-        r"$\textrm{Feldman-Cousins }D_\mathrm{best} "\
+        r"$\textrm{FC }D_\mathrm{best} "\
         r"\textrm{ for } m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
     plot.add_content(L_bins.centres(), D_best_by_L_m2[:, m2_ind])
@@ -479,7 +491,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     text = "Feldman-Cousins confidence belts"
 
     plot = plotutils.SimplePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
-        r"$\textrm{Feldman-Cousins confidence belts for } "\
+        r"$\textrm{FC confidence belts for } "\
         r"m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
 
@@ -510,10 +522,35 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     if not opts.show_plot:
         plot.close()
 
+    ## Feldman-Cousins confidence bands (m2, D) image
+    for CL, included_by_L_D in zip(CLs, included_by_CL_L_m2_D[:, :, m2_ind, :]):
+        text = "Feldman-Cousins confidence regions"
+
+        plot = plotutils.ImagePlot(r"$m_\mathrm{companion}\ (M_\odot)$",
+            r"$D\ \mathrm{(Mpc)}$", r"$\textrm{FC "\
+            r"%d\%% inclusion regions for } m_\mathrm{companion} "\
+            r"\in [%.1f, %.1f) M_\odot$" \
+            % (int(CL * 100), m2_range[0], m2_range[1]))
+
+        plot.add_content(included_by_L_D.T, L_bins, D_bins)
+        plot.finalize(cmap=pylab.cm.gray_r, interpolation="nearest",
+                      colorbar=False)
+
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts,
+                "FC_%d_%.1f_inclusion_by_L_D" % (int(100 * CL), m2_range[0]))
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(text)
+        if not opts.show_plot:
+            pylab.close()
+
+
 ## OLD upper limit contours (m2, D) image
 text = "(m2, D) contours including MC error"
 
-plot = plotutils.FillPlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
+plot = plotutils.FillPlot(r"$m_\mathrm{companion}\ (M_\odot)$",
+    r"$D\ \mathrm{(Mpc)}$",
     r"$D\textrm{ at which we see something louder in X\% of trials}$")
 
 exclusion_x = m2_bins.lower()
