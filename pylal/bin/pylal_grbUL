@@ -468,9 +468,6 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
     plot.finalize()
 
-    # add our actual observation
-    plot.ax.plot((log_L_by_m2[m2_ind], log_L_by_m2[m2_ind]),
-                 (D_bins.min, D_bins.max), "k--")
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
             "pLD_by_m2_D_%.1f" % m2_range[0])
