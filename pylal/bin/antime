@@ -23,11 +23,11 @@ from glue.ligolw import ligolw
 from glue.ligolw import table as tab
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import segments as ligolw_segments
 from glue import iterutils
 from pylal import SnglInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import InspiralUtils
-from pylal import ligolw_segments
 from pylal import date
 
 ##############################################################################

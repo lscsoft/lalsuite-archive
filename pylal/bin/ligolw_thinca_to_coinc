@@ -46,8 +46,8 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import llwapp
-from pylal import ligolw_segments
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils

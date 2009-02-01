@@ -41,7 +41,7 @@ import sys
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-from pylal import ligolw_segments
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import llwapp
 
 
