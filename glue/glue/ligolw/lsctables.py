@@ -741,9 +741,9 @@ class SnglInspiralID_old(object):
 
 	def new(self, row):
 		self.n += 1
-		y = self.n % 100000
-		x = self.n // 100000
-		return SnglInspiralID(x * 1000000000 + row.get_id_parts()[1] * 100000 + y)
+		a = self.n // 100000
+		b = self.n % 100000
+		return SnglInspiralID(a * 1000000000 + row.get_id_parts()[1] * 100000 + b)
 
 
 class SnglInspiralTable(table.Table):
@@ -950,16 +950,16 @@ class SnglInspiral(object):
 		event_id.
 		"""
 		int_event_id = int(self.event_id)
-		x = int_event_id // 1000000000
+		a = int_event_id // 1000000000
 		slidenum = (int_event_id % 1000000000) // 100000
-		y = int_event_id % 100000
-		return x, slidenum, y
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
 
 	def get_slide_number(self):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slide_number, y = self.get_id_parts()
+		a, slide_number, b = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
@@ -1215,16 +1215,16 @@ class MultiInspiral(object):
 		Return the three pieces of the int_8s-style event_id.
 		"""
 		int_event_id = int(self.event_id)
-		x = int_event_id // 1000000000
+		a = int_event_id // 1000000000
 		slidenum = (int_event_id % 1000000000) // 100000
-		y = int_event_id % 100000
-		return x, slidenum, y
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
 
 	def get_slide_number(self):
 		"""
 		Return the slide-number for this trigger
 		"""
-		x, slide_number, y = self.get_id_parts()
+		a, slide_number, b = self.get_id_parts()
 		if slide_number > 5000:
 			slide_number = 5000 - slide_number
 		return slide_number
