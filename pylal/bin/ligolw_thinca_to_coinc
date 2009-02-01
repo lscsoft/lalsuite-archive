@@ -140,7 +140,7 @@ def set_process_params(xmldoc, process, options):
 #
 # add missing ID columns.  this is needed because the cbc 2yr tags are on
 # versions of LAL that don't have these columns in the tables.  current
-# versions of lal do.
+# versions of LAL do.
 #
 
 
@@ -149,36 +149,20 @@ def add_missing_id_columns(xmldoc, verbose = False):
 		print >>sys.stderr, "adding any missing ID columns ...",
 
 	#
-	# summ_value table
+	# fix summ_value and search_summ_vars tables
 	#
 
-	tbl = table.get_table(xmldoc, lsctables.SummValueTable.tableName)
-	try:
-		tbl.appendColumn("summ_value_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
+	for name in (lsctables.SummValueTable.tableName, lsctables.SearchSummVarsTable.tableName):
+		tbl = table.get_table(xmldoc, name)
+		try:
+			tbl.appendColumn(tbl.next_id.column_name)
+		except ValueError:
+			# table already has ID column
+			continue
 		if verbose:
-			print >>sys.stderr, lsctables.SummValueTable.tableName,
+			print >>sys.stderr, name,
 		for row in tbl:
-			row.summ_value_id = tbl.get_next_id()
-
-	#
-	# search_summvars table
-	#
-
-	tbl = table.get_table(xmldoc, lsctables.SearchSummVarsTable.tableName)
-	try:
-		tbl.appendColumn("search_summvar_id")
-	except ValueError:
-		# already has one
-		pass
-	else:
-		if verbose:
-			print >>sys.stderr, lsctables.SearchSummVarsTable.tableName,
-		for row in tbl:
-			row.search_summvar_id = tbl.get_next_id()
+			setattr(row, tbl.next_id.column_name, tbl.get_next_id())
 
 	#
 	# done
@@ -247,11 +231,17 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	# move existing time_slide IDs out of the way
 	#
 
+	# find the lowest unused ID not less than 10000 and set next_id to
+	# that value
 	time_slide_table.sync_next_id()
 	if time_slide_table.next_id < type(time_slide_table.next_id)(10000):
 		time_slide_table.set_next_id(type(time_slide_table.next_id)(10000))
+	# use the updateKeyMapping method to re-label all existing
+	# time_slide IDs and record the old-->new mapping
 	mapping = {}
 	time_slide_table.updateKeyMapping(mapping)
+	# apply the mapping to all other tables in the document to update
+	# any references to existing time_slide IDs
 	for tbl in xmldoc.getElementsByTagName(time_slide_table.tagName):
 		tbl.applyKeyMapping(mapping)
 
@@ -334,17 +324,17 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	# build the time slides
 	#
 
-	def ids(num_slides):
+	def ids(id_class, num_slides):
 		# implements the inspiral group's rule for mapping integer
 		# offset multiplier to "slide number"
 		for n in range(-num_slides, +num_slides + 1):
 			if n < 0:
-				yield type(time_slide_table.next_id)(5000 - n)
+				yield id_class(5000 - n)
 			else:
-				yield type(time_slide_table.next_id)(n)
+				yield id_class(n)
 
 	n = 0
-	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(num_slides)):
+	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(type(time_slide_table.next_id), num_slides)):
 		n += 1
 		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
 			time_slide_table.append(row)
@@ -440,7 +430,7 @@ def retrieve_ring_boundaries(xmldoc):
 
 	for i in range(len(rings) - 1):
 		if rings[i].interesects(rings[i + 1]):
-			raise ValueError, "non-disjoint rings detected in search_summary table"
+			raise ValueError, "non-disjoint thinca rings detected in search_summary table"
 
 	#
 	# done
@@ -576,15 +566,15 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		required_coinc_def_ids.add(coinc.coinc_def_id)
 
 		#
-		# link events to coinc with coinc_event_map rows
+		# link events to coinc with coinc_event_map rows.  the
+		# inspiral triggers are assigned new, unique, event IDs
+		# here.
 		#
 
 		for event in events:
-			# assign the inspiral a new, unique, event_id
-			event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap = lsctables.CoincMap()
 			coincmap.coinc_event_id = coinc.coinc_event_id
-			coincmap.event_id = event.event_id
+			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap.table_name = coincmap.event_id.table_name
 			coinc_event_map_table.append(coincmap)
 
@@ -606,7 +596,8 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc_inspiral.false_alarm_rate = None
 
 		#
-		# the time of the coinc
+		# the time of the coinc = the end time of the first trigger
+		# in the coinc in alphabetical order by instrument
 		#
 
 		coinc_time = events[0].get_end()
@@ -618,13 +609,18 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		ring = rings[rings.find(coinc_time)]
 
 		#
-		# slide the coinc's time on that ring.  the amount of the
-		# slide is the offset recorded in the time_slide table for
-		# the instrument from which the coinc's time was taken (the
-		# the first trigger in alphabetical order by instrument)
+		# the amount by which to slide it = the offset recorded in
+		# the time_slide table for the instrument from which the
+		# coinc's time has been taken
 		#
 
-		coinc_inspiral.set_end(SnglInspiralUtils.slideTimeOnRing(coinc_time, time_slides[coinc.time_slide_id][events[0].ifo], ring))
+		offset = time_slides[coinc.time_slide_id][events[0].ifo]
+
+		#
+		# slide the coinc's time on the ring.
+		#
+
+		coinc_inspiral.set_end(SnglInspiralUtils.slideTimeOnRing(coinc_time, offset, ring))
 
 		coinc_inspiral_table.append(coinc_inspiral)
 
@@ -728,8 +724,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	time_slide_table.sync_next_id()
 
 	#
-	# turn the time slide table into a dictionary, and retrieve the
-	# veto segment lists.
+	# turn the time slide table into a dictionary
 	#
 
 	if verbose:
