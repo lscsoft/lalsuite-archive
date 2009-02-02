@@ -1465,7 +1465,7 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=N
   fileName = ifoTag + '-COHBANK_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)) + "-2048.xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
-  utils.write_filename(xmldoc, fileName, verbose = True, gz = True)
+  utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   return maxIFO
 
