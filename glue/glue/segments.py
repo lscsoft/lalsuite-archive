@@ -929,8 +929,7 @@ class segmentlistdict(dict):
 		Return a dictionary of the results of func applied to each
 		of the segmentlist objects in self.
 		"""
-		# FIXME: use generator expressions in >= 2.4
-		return dict([(key, func(value)) for key, value in self.iteritems()])
+		return dict((key, func(value)) for key, value in self.iteritems())
 
 	def __abs__(self):
 		"""
@@ -952,8 +951,7 @@ class segmentlistdict(dict):
 		lists in the dictionary.
 		"""
 		segs = self.extent().values()
-		# FIXME: use generator expressions in >= 2.4
-		return segment(min([seg[0] for seg in segs]), max([seg[1] for seg in segs]))
+		return segment(min(seg[0] for seg in segs), max(seg[1] for seg in segs))
 
 	def find(self, item):
 		"""
@@ -1022,6 +1020,8 @@ class segmentlistdict(dict):
 		Returns True if any segmentlist in self intersects the
 		segment, otherwise returns False.
 		"""
+		# FIXME:  replace with any() when minimum version bumped to
+		# 2.5
 		for value in self.itervalues():
 			if value.intersects_segment(seg):
 				return True
@@ -1033,6 +1033,8 @@ class segmentlistdict(dict):
 		intersects the corresponding segmentlist in other;  returns
 		False otherwise.
 		"""
+		# FIXME:  replace with any() when minimum version bumped to
+		# 2.5
 		for key, value in other.iteritems():
 			if key in self and self[key].intersects(value):
 				return True
@@ -1044,6 +1046,8 @@ class segmentlistdict(dict):
 		corresponding segmentlist in self;  returns False
 		if this is not the case, or if other is empty.
 		"""
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in other.iteritems():
 			if key not in self or not self[key].intersects(value):
 				return False
@@ -1055,6 +1059,8 @@ class segmentlistdict(dict):
 		corresponding segmentlist in other;  returns False
 		if this is not the case or if self is empty.
 		"""
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in self.iteritems():
 			if key not in other or not other[key].intersects(value):
 				return False
@@ -1069,6 +1075,8 @@ class segmentlistdict(dict):
 		"""
 		if set(self.keys()) != set(other.keys()):
 			return False
+		# FIXME:  replace with all() when minimum version bumped to
+		# 2.5
 		for key, value in self.iteritems():
 			if not other[key].intersects(value):
 				return False
@@ -1131,13 +1139,16 @@ class segmentlistdict(dict):
 		"""
 		Return True if any segment in any list in self intersects
 		any segment in any list in other.  If the optional keys
-		argument is not None, then only segment lists for the given
-		keys are considered.  Keys not represented in both segment
-		lists are ignored.  If keys is None (the default) then all
-		segment lists are considered.
+		argument is not None, then it should be an iterable of keys
+		and only segment lists for those keys will be considered in
+		the test (instead of raising KeyError, keys not present in
+		both segment list dictionaries will be ignored).  If keys
+		is None (the default) then all segment lists are
+		considered.
 
 		This method is equivalent to the intersects() method, but
-		without requiring the keys to match.
+		without requiring the keys of the intersecting segment
+		lists to match.
 		"""
 		keys1 = set(self.keys())
 		keys2 = set(other.keys())
@@ -1145,10 +1156,11 @@ class segmentlistdict(dict):
 			keys = set(keys)
 			keys1 &= keys
 			keys2 &= keys
-		for key1 in keys1:
-			l = self[key1]
-			for key2 in keys2:
-				if l.intersects(other[key2]):
+		other = tuple(other[key] for key in keys2)
+		# FIXME:  replace with any() when min version bumped to 2.5
+		for a in (self[key] for key in keys1):
+			for b in other:
+				if a.intersects(b):
 					return True
 		return False
 
