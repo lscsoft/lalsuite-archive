@@ -72,7 +72,7 @@ foreach tag [array names DATA -regexp "_all_"] {
 		set ra [lindex $line $RA_INDEX]
 		set dec [lindex $line $DEC_INDEX]
 
-		set LOCAL_DET_ROOTS {}
+		set LOCAL_DET_FOUND {}
 
 		set found_roots 0
 		foreach root $DET_ROOTS {
@@ -97,9 +97,11 @@ foreach tag [array names DATA -regexp "_all_"] {
 			}
 		if { $found_roots == [llength $DET_ROOTS] } {
 			puts $line
-			foreach s $LOCAL_DET_ROOTS { lappend DET_ROOTS s }
+			foreach s $LOCAL_DET_FOUND { lappend DET_FOUND $s }
 			}
 		}
 	}
 
-puts [join [lsort -unique $DET_FOUND] "\n"]
+if { [llength $DET_FOUND] > 0 } {
+	puts [join [lsort -unique $DET_FOUND] "\n"]
+	}
