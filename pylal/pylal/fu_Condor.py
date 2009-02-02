@@ -1377,12 +1377,18 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.id = job.name + '-CHIA-' + str(trig.statValue) + '_' + str(trig.eventID)
       #self.setupNodeWeb(job)
       self.output_file_name = ""
-      self.segment_length = 1048576
-      self.dynamic_range_exponent = 6.900000e+01
-      self.low_frequency_cutoff = 4.000000e+01
-      self.sample_rate = 4096
+      self.add_var_opt("segment-length","1048576")
+      self.add_var_opt("dynamic-range-exponent","6.900000e+01")
+      self.add_var_opt("low-frequency-cutoff","4.000000e+01")
+      self.add_var_opt("sample-rate","4096")
+      self.add_var_opt("cohsnr-threshold","5.5")
+      self.add_var_opt("ifo-tag","H1H2")
       # required by followUpChiaPlotNode
-      bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '.xml.gz'
+      bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime['H1'])) + '-2048.xml.gz'
+
+      self.add_var_opt("write-events","")
+      self.add_var_opt("write-compress","")
+      self.add_var_opt("debug-level","33")
       self.add_var_opt("write-cohsnr","")
       self.add_var_opt("write-cohnullstat","")
       self.add_var_opt("write-cohh1h2snr","")
@@ -1416,7 +1422,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
     fileName = str(inspNode.output_file_name)
     #self.add_var_opt("H1-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt("H1-xml-file",str(fileName))
-    self.add_var_opt(ifo+"-framefile",str(fileName.replace(".xml",".gwf").strip(".gz")))
+    self.add_var_opt(ifo+"-framefile",str(fileName.replace("coh","plot").replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
     if inspNode.validNode: self.add_parent(inspNode)
 
