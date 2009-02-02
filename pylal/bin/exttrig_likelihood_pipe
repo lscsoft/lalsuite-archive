@@ -23,6 +23,7 @@ import ConfigParser
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import segmentsUtils
+from glue import segments
 from glue import lal
 from pylal import SimInspiralUtils
 
@@ -37,6 +38,33 @@ def check_exist_file( file ):
    except IOError:
      check_exist = False
    return check_exist
+
+############################################
+def create_list_veto_files(opts, categories):
+  """
+  Creates a list of veto files to be used to discard
+  triggers from vetoed times.
+  @param opts: the options structure
+  @param: categories: A list of categories which should be included
+  """
+   
+  # see what path is needed
+  veto_path = '/home/dietz/Data/VetoedSegs/'
+  if not os.path.isdir(veto_path):
+     veto_dir = '/archive'+veto_path
+
+  # split the used IFO's
+  ifos = [opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag)/2)]
+  
+  # loop over the used IFO's and used categories
+  veto_files = ''
+  for cat in categories:
+     for ifo in ifos:
+        veto_files += ','+veto_path+'%s_cat%d_vetoed_segments.txt' % \
+                      (ifo, cat)
+
+  return veto_files
+
 
 ############################################
 def create_relic_call(cp, opts, onsource_file=None):
@@ -63,11 +91,15 @@ def create_relic_call(cp, opts, onsource_file=None):
     call+= ' --onsource-glob ' +onsource_file 
     call+= ' --write-onsource'
     call+= ' --user-tag '+input_user_tag+'_'+opts.user_tag
+    
+  # create veto file containing offsource overlaping vetoes
+  veto_files = create_list_veto_files(opts, [2])
 
   # set common options
-  call+= ' --offsource-pattern THINCA_SECOND*'+cp.get('pipeline','offsource-suffix')
+  call+= ' --offsource-pattern THINCA_SECOND*OFFSOURCE_CATEGORY_1'
   call+= ' --statistic '+cp.get('plotthinca','statistic')
-  call+= ' --veto-segfiles ../bufferSeg.txt --onsource-seg ../onSourceSeg.txt'
+  call+= ' --veto-segfiles ../bufferSeg.txt%s --onsource-seg ../onSourceSeg.txt' % \
+         (veto_files)
   call+= ' --m2-min 1 --m2-max 40 --m2-nbins 13'
   call+= ' --D-min 0.5 --D-max 50 --D-nbins 40'
   call+= ' --mc-boundaries '+cp.get('grbtimeslidestats','mc-boundaries')
