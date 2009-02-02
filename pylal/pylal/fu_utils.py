@@ -1445,8 +1445,14 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=N
       columns.append(col)
       setattr(trig,col,0)
 
+  process_table = lsctables.New(lsctables.ProcessTable)
+  xmldoc.childNodes[-1].appendChild(process_table)
+
   process_params_table = lsctables.New(lsctables.ProcessParamsTable)
   xmldoc.childNodes[-1].appendChild(process_params_table)
+
+  search_summary_table = lsctables.New(lsctables.SearchSummaryTable)
+  xmldoc.childNodes[-1].appendChild(search_summary_table)
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
   print sngl_inspiral_table
@@ -1456,7 +1462,7 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=N
     trig.ifo = ifo
     sngl_inspiral_table.append(trig)
 
-  fileName = ifoTag + '-COHBANK_FOLLOWUP_' + type + str(int(ckey.event_id)) + ".xml.gz"
+  fileName = ifoTag + '-COHBANK_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)) + "-2048.xml.gz"
   if outputPath:
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = True, gz = True)
