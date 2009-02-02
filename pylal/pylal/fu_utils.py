@@ -961,7 +961,6 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
               followups.append(fuList)
               # generate a cohbank xml file for this coinc trigger
               maxIFO = generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,'trigTemplateBank',"coh",add_columns)
-              print "produced cohbank files..."
       else:
 
           ifarList=list()
@@ -1455,7 +1454,6 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=N
   xmldoc.childNodes[-1].appendChild(search_summary_table)
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
-  print sngl_inspiral_table
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   # Each coherent bank file should have trig rows for all ifos in a coinc
   for ifo in ifolist_in_coinc:
