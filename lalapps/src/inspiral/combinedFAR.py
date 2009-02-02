@@ -120,6 +120,9 @@ def parse_command_line():
   parser.add_option( "", "--gps-end-time", action = "store", type = "int", \
         default = None, metavar = "GSPENDTIME", \
         help = "gps end time used in the figure and output file names" )
+#  parser.add_option( "", "--num-slides", action = "store", type = "int", \
+#        default = None, metavar = "NUMSLIDES", \
+#        help = "The number of time slides that were performed." )
   parser.add_option( "", "--ifo-times", action = "store", default = None, metavar = "IFOS", \
         help = "puts the ifo times for which the plots were made into output file name." )
   parser.add_option( "", "--ifo-tag", action = "store", type = "string", \
@@ -133,10 +136,14 @@ def parse_command_line():
         type = "string", default = None,
         help = "Directory to find corse summary-file. If none specified, " + \
         "plotifar will look in the same location as the relevant corse file." )
-  parser.add_option( "", "--time-correct-file", metavar = "T_COR_FIL", action = "store", type= "string", default = None,
-        help="coire or corse  summary file that contains the amount of all_data analyzed time. " + \
-        "Dividing the analysed time for the globbed files' data-type by this corrects the far if it was " + \
+  parser.add_option( "", "--time-correct-file", metavar = "T_COR_FIL",\
+        action = "store", type= "string", default = None,
+        help="coire or corse  summary file that contains the amount of " + \
+        "all_data analyzed time. " + \
+        "Dividing the analysed time for the globbed files' data-type by " + \
+        "this corrects the far if it was " + \
         "analyzed from an all_data septime file. ")
+
 
   (options,args) = parser.parse_args()
   #check if required options specified and for self-consistency
@@ -145,6 +152,8 @@ def parse_command_line():
   if not options.output_path:
     raise ValueError, "--output-file must be specified"
   return options, sys.argv[1:]
+  if not options.num_slides:
+    raise ValueError, "--num-slides must be specified"
 
 
 opts, args = parse_command_line()
@@ -171,7 +180,6 @@ if not corsefiles:
 
 maxBkgFAN = {}
 minBkgFAN = {}
-NormTime = {}
 modFAN = {}
 massbin = {}
 coincifos = {}
@@ -218,8 +226,7 @@ for thisfile in corsefiles:
           no_frgnd[thisfile] = True
     # get foreground time analyzed; used maxbkgFAN as well as for normalizing
     elif line.startswith( 'amount of time analysed for triggers' ):
-      FrgrndTime = float( line.split()[6] ) + float( line.split()[8] ) #sec + ns
-      NormTime[thisfile] = FrgrndTime / 31556925.9936 #divide by num of secs in a year
+      pass
     # get background time analyzed
     elif line.startswith( 'amount of background time analyzed' ):
       BkgTime = float( line.split()[5] )
@@ -236,21 +243,22 @@ for thisfile in corsefiles:
         massbin[ mass ] = []
         massbin[ mass ].append(thisfile)
   file.close()
+  if opts.time_correct_file:
+    corrfile = open(opts.time_correct_file,'r')
+    for line in corrfile:
+      if line.startswith( 'amount of time analysed' ):
+        FrgrndTime = float( line.split()[6] )
+    corrfile.close()
+  else:
+    raise ValueError, "Must specify --time-correct-file"
+
   # calculate min/max BkgFANs
   minBkgFAN[thisfile] = FrgrndTime/BkgTime
   if thisfile not in no_bkg_frgnd: # i.e., has background or foreground
     if thisfile not in no_bkg:
       maxBkgFAN[thisfile] = NbkgCoinc * FrgrndTime/BkgTime
   # apply correction factor
-    if opts.time_correct_file:
-      corrfile = open(opts.time_correct_file,'r')
-      for line in corrfile:
-        if line.startswith( 'amount of time analysed' ):
-          t_factor = float( line.split()[6] )
-      corrfile.close()
-      modFAN[thisfile] = NormTime[thisfile]*31556925.9936/t_factor
-    else:
-      modFAN[thisfile] = 1.
+    modFAN[thisfile] = 1.
 # End: loop over corsefiles
 
 # remove files that had no bkg from corsefiles list and add their names to
@@ -275,11 +283,11 @@ for thisfile in corsefiles:
   # type from the first foreground trigger
   if thisfile in no_bkg:
     coincifos[thisfile] = coincT[ thisfile ][0].get_ifos()[0]
-for thisfile in corsefiles:
-  if NormTime[corsefiles[0]] != NormTime[thisfile]:
-    print >> sys.stderr, "Can't combine experiments with " + \
-      "different analysis times."
-    sys.exit( 1 )
+#for thisfile in corsefiles:
+#  if NormTime[corsefiles[0]] != NormTime[thisfile]:
+#    print >> sys.stderr, "Can't combine experiments with " + \
+#      "different analysis times."
+#    sys.exit( 1 )
 maxFANs = [] # for storing max FAN of bkg (the dict is hard to sort by value)
 FANc = [] # for storing the combined FANs of foreground triggers
 zero_fanc = []
@@ -319,18 +327,16 @@ for thisfile in corsefiles:
   insptrigs = SnglInspiralUtils.ReadSnglInspiralFromFiles( [thisfile] )
   if insptrigs:
     for trig in insptrigs:
-      if trig.alpha == 0.:
-        trig.alpha = minBkgFAN[thisfile]
-      else:
+      if trig.alpha != 0.:
         trig.alpha = trig.alpha * modFAN[thisfile]
-      for jj in range(1, len(maxFANs)):
-        if trig.alpha > maxFANs[jj]:
-          trig.alpha = trig.alpha * (jj)
-          for kk in range(jj, len(maxFANs)):
-            trig.alpha = trig.alpha + maxFANs[kk]
-          break # go to next fan in FANc
-        elif jj == len(maxFANs)-1: # all categories active
-          trig.alpha = trig.alpha * len(maxFANs)
+        for jj in range(1, len(maxFANs)):
+          if trig.alpha > maxFANs[jj]:
+            trig.alpha = trig.alpha * (jj)
+            for kk in range(jj, len(maxFANs)):
+              trig.alpha = trig.alpha + maxFANs[kk]
+            break # go to next fan in FANc
+          elif jj == len(maxFANs)-1: # all categories active
+            trig.alpha = trig.alpha * len(maxFANs)
       if trig.alpha < (loudestTrigFAR-0.000001):
         loudestTrigTemp = [trig]
         loudestTrigFAR = trig.alpha
@@ -338,6 +344,9 @@ for thisfile in corsefiles:
         loudestTrigTemp.append(trig)
       combinedTrigs.append(trig)
 
+print >> sys.stdout, opts.ifo_times
+print >> sys.stdout, corsefiles[0]
+if loudestTrigFAR == 0: loudestTrigFAR = 0.0000000001
 print >> sys.stdout, 'Loudest IFAR = ' + str(1./loudestTrigFAR) 
 
 for trig in loudestTrigTemp:
