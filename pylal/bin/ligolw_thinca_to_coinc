@@ -919,6 +919,9 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 options = parse_command_line()
 
+if options.veto_segments:
+	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
+
 xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file) if filename], verbose = options.verbose)
 lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
@@ -936,7 +939,7 @@ populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
 depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
 if options.veto_segments:
-	apply_vetoes(xmldoc, ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce(), process, verbose = options.verbose)
+	apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
 elif options.verbose:
 	print >>sys.stderr, "no vetoes applied"
 
