@@ -369,6 +369,8 @@ if (opts.time_analyzed_file):
   for timeFile in opts.time_analyzed_file:
     openFile = open(timeFile,'r')
     for line in openFile:
+      if line.startswith('amount of time analysed'):
+        opts.observation_time.append(float(line.split()[6])*sec2year)
       lineConts = (line.replace('\n','')).split(' ')
       if lineConts[0] == '0':
         opts.observation_time.append(float(lineConts[1])*sec2year)
@@ -380,6 +382,9 @@ if (len(opts.galaxies_file)-len(opts.observation_time)):
       str(len(opts.galaxies_file)) + \
       "  number of observation times (-t):" + str(len(opts.observation_time))
   sys.exit(1)
+
+for time in opts.observation_time:
+  print >> sys.stdout, "Read observation time of " + str(time)
 
 #####################################################################
 # Do the pylab import in such a way that doesn't require an X display
@@ -526,8 +531,9 @@ for bin in range(massBins):
   # Determine a recommended xmax for the plots
   flag = False
   maxPost = max(nomarginpost)
-  for iterNum in xrange(len(nomarginpost)):
-    if nomarginpost[iterNum] < maxPost/1000.:
+  for iterNum in xrange(1,len(nomarginpost)):
+    if nomarginpost[iterNum] < maxPost/1000. \
+        and nomarginpost[iterNum] < nomarginpost[iterNum-1]:
       recXmax = rate[iterNum]
       break
 
