@@ -216,6 +216,8 @@ class coincInspiralTable:
           self.stat = self.rsq
       elif 'far' == statistic.name:
         self.stat = trig.get_far()
+      elif 'ifar' == statistic.name:
+        self.stat = trig.get_ifar()
       else:
         self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
       
