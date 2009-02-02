@@ -66,6 +66,9 @@ parser.add_option("-d","--dr",action="store",type="float",\
     help="dr to use in rate integral" ) 
 
 # plotting details
+parser.add_option("-M","--plot-title",action="store",type="string",\
+    default=None,metavar=" MRANGE",\
+    help="This will be used as a title for the plots.")
 parser.add_option("-F","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate png figures with name FNAME_PlotType.png")
@@ -107,7 +110,7 @@ inputRates = {}
 inputPosts = {}
 
 # Read input files and determine the max_rate to use
-minmaxPosteriorRate = 1000000.
+minmaxPosteriorRate = 1E20
 for idx in range(len(opts.add_posterior)):
   file,tag = opts.add_posterior[idx].split(',')
   tag = tag.replace('_',' ')
@@ -223,6 +226,8 @@ if opts.xmax:
 else:
   tmpv[1]=recXmax
 axis(tmpv)
+if opts.plot_title:
+  title(opts.plot_title)
 if opts.figure_name:
   savefig( outputName + "-posterior-comparison.png" )
 
@@ -238,6 +243,8 @@ if opts.xmax:
 else:
   tmpv[1]=recXmax
 axis(tmpv)
+if opts.plot_title:
+  title(opts.plot_title)
 if opts.figure_name:
   savefig( outputName + "-combined-posterior.png" )
 
