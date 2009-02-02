@@ -40,6 +40,7 @@ import sys
 import re
 
 
+from glue import iterutils
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -321,12 +322,12 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 			raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
 
 	#
-	# build the time slides
+	# build the time slide vectors for the cases when all instruments
+	# are on.  these must be given time_slide IDs that match the slide
+	# number component of the old-style event_id
 	#
 
 	def ids(id_class, num_slides):
-		# implements the inspiral group's rule for mapping integer
-		# offset multiplier to "slide number"
 		for n in range(-num_slides, +num_slides + 1):
 			if n < 0:
 				yield id_class(5000 - n)
@@ -334,7 +335,7 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 				yield id_class(n)
 
 	n = 0
-	for offset_vector, id in zip(ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector), ids(type(time_slide_table.next_id), num_slides)):
+	for id, offset_vector in zip(ids(type(time_slide_table.next_id), num_slides), ligolw_tisi.Inspiral_Num_Slides_Iter(num_slides, offset_vector)):
 		n += 1
 		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
 			time_slide_table.append(row)
@@ -366,6 +367,23 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 	#
 	# translate time_slide table into a dictionary, and identify
 	# redundant IDs
+	#
+	# NOTE:  the time slide vector comparison code treats {"H1": 0,
+	# "L1": 5} and {"H1": 10, "L1": 15} as identical vectors because
+	# the relative offsets are identical.  in the inspiral pipeline,
+	# these are potentially different time slides because one of the
+	# two can result in the pair of triggers straddling a ring boundary
+	# while the other does not, so a trigger pair can be coincident for
+	# one of these vectors but not the other.  this should never be an
+	# issue because the pipeline also has the limitation of only being
+	# able to apply vectors that are all multiples of a fixed basis
+	# vector --- if two instruments have the same relative offsets in
+	# two vectors then they must also have the same absolute offsets in
+	# those vectors, so comparing by relative offsets yields the same
+	# set of redundant vectors that a comparison by absolute offsets
+	# would yield.  the use of the time_slides_vacuum() function here
+	# is correct, but one should keep the reason why in mind if one is
+	# tempted to copy-and-paste this code elsewhere.
 	#
 
 	mapping = ligolw_tisi.time_slides_vacuum(time_slide_table.as_dict())
@@ -721,14 +739,13 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 	coinc_inspiral_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	time_slide_table.sync_next_id()
 
 	#
 	# turn the time slide table into a dictionary
 	#
 
 	if verbose:
-		print >>sys.stderr, "\tindexing time_slide table and retrieving segment lists ..."
+		print >>sys.stderr, "\tindexing time_slide table and computing segment lists ..."
 	time_slides = time_slide_table.as_dict()
 
 	#
@@ -739,13 +756,39 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 	#
 	# performance assist:  remove veto segments that don't fall in any
-	# of the rings
+	# of the rings, then remove veto segment lists that are empty
 	#
 
-	veto_segments = veto_segments.copy()
 	coalesced_rings = segments.segmentlist(rings).coalesce()
-	for seglist in veto_segments.values():
-		seglist &= coalesced_rings
+	veto_segments = segments.segmentlistdict((instrument, seglist & coalesced_rings) for (instrument, seglist) in veto_segments.items() if seglist.intersects(coalesced_rings))
+	if not veto_segments:
+		if verbose:
+			print >>sys.stderr, "\tno vetos were on during the times spanned by this document"
+		return
+
+	#
+	# build additional time_slide vectors for reduced instrument sets
+	# (when one or more instruments is vetoed).  these can have any ID
+	# that isn't already used.  performance assist:  don't construct
+	# time_slide vectors that lack instruments that are not veteod.
+	#
+
+	if verbose:
+		print >>sys.stderr, "\tconstructing additional time slide vectors ...",
+	time_slide_table.sync_next_id()
+	veto_time_slides = {}
+	for offset_vector in time_slides.values():
+		instruments = set(offset_vector.keys())
+		vetoable_instruments = instruments & set(veto_segments.keys())
+		for n in range(1, len(vetoable_instruments) + 1):
+			for vetoed_instruments in iterutils.choices(vetoable_instruments, n):
+				veto_time_slides[time_slide_table.get_next_id()] = dict((instrument, offset_vector[instrument]) for instrument in (instruments - vetoed_instruments))
+	for id, offset_vector in veto_time_slides.items():
+		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
+			time_slide_table.append(row)
+	time_slides.update(veto_time_slides)
+	if verbose:
+		print >>sys.stderr, "\tadded %d time slide vectors for use by vetoed coincs" % len(veto_time_slides)
 
 	#
 	# create the coinc_event_id --> sngl_inspiral index, and
@@ -855,19 +898,11 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time)))
 
 		#
-		# point the coinc_event at it, and add the vector to the
-		# time_slide table if needed
+		# find the vector in the time_slide table and point the
+		# coinc_event at it
 		#
 
-		try:
-			coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector).pop()
-		except KeyError:
-			coinc_event.time_slide_id = time_slide_table.get_next_id()
-			for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, coinc_event.time_slide_id, process):
-				time_slide_table.append(row)
-			time_slides[coinc_event.time_slide_id] = offset_vector
-			if verbose:
-				print >>sys.stderr, "\tadded '%s': %s" % (coinc_event.time_slide_id, ", ".join("%s=%g" % item for item in offset_vector))
+		coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector).pop()
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
