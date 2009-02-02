@@ -326,12 +326,17 @@ class slideZeroData:
   """
   class to hold the time slide data, has methods to make the relevant plots
   """
-  def __init__(self, slideGlob, numSlides, statistic):
+  def __init__(self, numSlides, statistic):
     self.num_slides = numSlides
     self.statistic = statistic
+    self.slide_loudest = None
+    self.zero_loudest = None
+    self.snr_array = None
 
+  def add_slide_data (self, slideGlob):
     # read in triggers, get slide loudest
-    nosims,slideCoinc = readFiles(slideGlob,statistic)
+    nosims,slideCoinc = readFiles(slideGlob,self.statistic)
+    numSlides = self.num_slides
     slideNum = range(1 , numSlides + 1)
     slideNum.extend(range(-numSlides, 0))
     slideLoudest = []
@@ -346,13 +351,17 @@ class slideZeroData:
       slideLoudest.append(stat)
 
     self.slide_loudest = asarray(slideLoudest)
-    self.zero_loudest = None
-    if self.num_slides:
+    if self.num_slides and self.zero_loudest:
+      minSnr = 0.95 * min(min(self.slide_loudest),self.zero_loudest)
+      maxSnr = 1.05 * max(max(self.slide_loudest),self.zero_loudest)
+      self.snr_array = \
+          arange(minSnr, maxSnr, (maxSnr - minSnr)/(2 * self.num_slides))
+    else:
       minSnr = 0.95 * min(self.slide_loudest)
       maxSnr = 1.05 * max(self.slide_loudest)
       self.snr_array = \
           arange(minSnr, maxSnr, (maxSnr - minSnr)/(2 * self.num_slides))
-    else: self.snr_array = []
+
   
   def add_zero_lag(self, zeroGlob):
     """
@@ -398,6 +407,9 @@ class slideZeroData:
       if self.statistic.name == 'far':
         P_b = exp(-self.zero_loudest * opts.far_time_correction * \
             opts.num_categories)
+      elif self.statistic.name == 'ifar':
+        P_b = exp(- opts.far_time_correction * \
+            opts.num_categories / self.zero_loudest)
       else:
         P_b = self.get_cumulative([self.zero_loudest])[0]
       print 'cumulative probability P_b at loudest event is %.4f' % P_b
@@ -435,6 +447,9 @@ class slideZeroData:
     if self.statistic.name == 'far':
       slidePDF = exp(-self.snr_array * opts.far_time_correction * \
           opts.num_categories)
+    if self.statistic.name == 'ifar':
+      slidePDF = 1/(self.snr_array**2)*exp(- opts.far_time_correction * \
+          opts.num_categories/ self.snr_array)
     else:
       slidePDF = self.get_smooth_pdf()
     plot(self.snr_array, slidePDF, 'k',linewidth=2,label="smoothed pdf")
@@ -447,6 +462,9 @@ class slideZeroData:
       if self.statistic.name == 'far':
         p_b = exp(-self.zero_loudest * opts.far_time_correction * \
             opts.num_categories)
+      if self.statistic.name == 'ifar':
+        p_b = 1/(self.zero_loudest**2)*exp(- opts.far_time_correction * \
+            opts.num_categories/ self.zero_loudest)
       else:
         if max(self.snr_array) < self.zero_loudest:
           p_b = 0.5 * (slidePDF[-1] + slidePDF[-2])
@@ -469,6 +487,10 @@ class slideZeroData:
     if self.statistic.name == 'far':
       smoothCum = exp(-self.snr_array * opts.far_time_correction * \
           opts.num_categories)
+    if self.statistic.name == 'ifar':
+      smoothCum = exp(- opts.far_time_correction * \
+          opts.num_categories/ self.snr_array)
+
     else:
       slidePDF = self.get_smooth_pdf()
       smoothCum = cumsum(slidePDF)*(self.snr_array[1] - self.snr_array[0])
@@ -828,27 +850,28 @@ class injData:
       title_text = 'Efficiency vs ' + column + ' with ' + error + ' errors'
       if error == "Monte_Carlo":
         mc = self.mc(column,edges,threshold)
-        fit,errors = errorbar(edges,eff,mc,fmt=None,ecolor='r',linewidth=2)
+        errorTuple = errorbar(edges,eff,mc,fmt=None,ecolor='r',linewidth=2)
       elif "dist" in column and \
           (error == "Waveform" or error[0].lower() == column[-1]):
         if error == "Waveform":
-          fit,errors = errorbar(edges,eff, \
+          errorTuple = errorbar(edges,eff, \
               xerr=([edges*errorVal["Waveform"],zeros(len(edges))]),\
               fmt=None,ecolor='g',linewidth=2)
         else:
-          fit,errors = errorbar(edges,eff,xerr=(edges*errorVal[error]),\
+          errorTuple = errorbar(edges,eff,xerr=(edges*errorVal[error]),\
               fmt=None,ecolor='k',linewidth=2)
       else:
-        fit,errors = errorbar(edges,eff,xerr=(zeros(len(edges))),\
+        errorTuple = errorbar(edges,eff,xerr=(zeros(len(edges))),\
               fmt=None,ecolor='k',linewidth=2)
-              
+      fit = errorTuple[0]
+      errors = errorTuple[1]
+
       for line in errors:
         matplotlib.lines.Line2D.set_linewidth(line,1)
         matplotlib.lines.Line2D.set_markeredgewidth(line,1)
     else:
       ending = "efficiency.png"
-      if threshold:
-        title_text = 'Efficiency vs ' + column
+      title_text = 'Efficiency vs ' + column
     grid(True)
     ylim(0, 1.1) 
     xlabel( column, size='x-large')
@@ -1210,7 +1233,7 @@ class injAstroData:
 # Make the plot of N_G and N_G'
 ##############################################################################
 def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
-    figName = None, numPts=None):
+    figName = None, numPts=None,ifarTimeCorrect=None):
   """
   plot the luminosity vs statistic, using stat values taken from 
   slides/zero lag.
@@ -1223,31 +1246,122 @@ def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
   @param figName:   the figure name
   @param numPts:    number of points used in making the plot, 
                     default to the number of time slides performed
+  @param ifarTimeCorrect:   The ratio of time between the average time of the
+                            time slides and the zero lag. Needed to make an
+                            intelligent snrArray when using ifar.
   """
   ngArray = []
+  newSnrArray = []
 
   # set up the SNR array
-  snrArray = slideZero.snr_array
-  snrStep = snrArray[1] - snrArray[0]
-
-  if numPts:
+  if slideZero.statistic.name == 'ifar':
+    # To get a good range of values for ifar we explicitly add the first
+    # five loudest values of ifar to snrArray. We then add more sparesly
+    # spaced values determined by the values below snrSpacing,initSnr
+    # and numPts.
+    snrSpacing = 5
+    initSnr = 3
+    if not numPts: numPts = 50
+    numSlides = slideZero.num_slides
+    snrArray = []
+    for i in xrange(1,6):
+      snrArray.append(max(slideZero.slide_loudest)/float(i))
+    for i in xrange(1,numPts+1):
+      snrArray.append(max(slideZero.slide_loudest)/(snrSpacing*float(i) \
+          + initSnr))
+    snrArray.sort()
+  elif numPts:
     # restrict the size of snrArray 
+    snrArray = slideZero.snr_array
+    snrStep = snrArray[1] - snrArray[0]
     snrArray = arange(snrArray[0],snrArray[-1]+snrStep, 
         (snrArray[-1] - snrArray[0])/numPts)
-    snrStep = snrArray[1] - snrArray[0]
+  else:  
+    snrArray = slideZero.snr_array
 
   for statValue in snrArray:
+    if slideZero.statistic.name == 'ifar':
+      # This is here because of discreteness in ifar.In a lot of cases we will 
+      # find that the loudest event is equal to a point in the snrArray and
+      # the ifar of some injections. Here we multiply by 1.000001 so that equal
+      # quantities are not treated as greater than.
+      statValue*= 1.000001
     if integrate == 'x':
-      ngArray.append(injAstro.get_search_x_ng(statValue))
+      ngVal = injAstro.get_search_x_ng(statValue)
     elif integrate == 'y':
-      ngArray.append(injAstro.get_search_y_ng(statValue))
+      ngVal = injAstro.get_search_y_ng(statValue)
     elif integrate == 'xy':
-      ngArray.append(injAstro.get_search_2d_ng(statValue))
+      ngVal = injAstro.get_search_2d_ng(statValue)
+    if slideZero.statistic.name == 'ifar' and len(ngArray) != 0:
+      # We only add values to ngArray if it is not equal to the previous value
+      if ngVal != ngArray[-1]:
+        ngArray.append(ngVal)
+        newSnrArray.append(statValue)
+    else:
+      ngArray.append(ngVal)
+      newSnrArray.append(statValue)
+  if slideZero.statistic.name == 'ifar' and len(newSnrArray) == 1:
+    ngArray.append(ngArray[0])
+    newSnrArray.append(newSnrArray[0] + 1)
+    print >> sys.stderr, "WARNING: Insufficient injections have been made, such"
+    print >> sys.stderr, "that C_L is not varying at all for diffferent values"
+    print >> sys.stderr, "of your statistic. C_L' will be artificially set to"
+    print >> sys.stderr, "zero. More injection runs are needed to calculate"
+    print >> sys.stderr, "this quantity with any accuracy."
+         
   ngArray = asarray(ngArray)
+  snrArray = asarray(newSnrArray)
+
+  # calculate the derivative at the loudest event
+  upperDiff = None
+  if not slideZero.zero_loudest:
+    return 0
+  if statistic == 'ifar':
+    # If the loudest statistic is equal to a value in the snrArray then we
+    # differentiate across that point.
+    idx = 0
+    for snr in snrArray:
+      if sqrt((1/snr - 1/slideZero.zero_loudest)**2) < 0.001:
+        upperDiff = idx + 1
+        lowerDiff = idx - 1
+        break
+      else:
+        idx += 1
+    if upperDiff >= len(snrArray):
+      upperDiff = len(snrArray) - 1
+  if not upperDiff:
+    if max(snrArray) <= (slideZero.zero_loudest):
+      upperDiff = len(snrArray) - 1
+      lowerDiff = len(snrArray) - 2
+      print >> sys.stderr, "WARNING: your loudest event is louder than all"
+      print >> sys.stderr, "background events. C_L' may not be calculated"
+      print >> sys.stderr, "with sufficient accuracy. More time slides are"
+      print >> sys.stderr, "needed to ensure better accuracy."
+      print >> sys.stderr, "You may also see this message if insufficient"
+      print >> sys.stderr, "injections have been performed in regions where"
+      print >> sys.stderr, "IFAR is going from max to min."
+    elif min(snrArray) >= (slideZero.zero_loudest):
+      upperDiff = 1
+      lowerDiff = 0
+      print >> sys.stderr, "WARNING: your loudest event is quiter than all"
+      print >> sys.stderr, "background events. C_L' may not be calculated"
+      print >> sys.stderr, "with sufficient accuracy. More time slides are"
+      print >> sys.stderr, "needed to ensure better accuracy."
+    else:
+      upperDiff = len(snrArray) - \
+          len(snrArray[(snrArray > slideZero.zero_loudest)])
+      lowerDiff = len(snrArray[(snrArray < slideZero.zero_loudest)]) - 1
+  ngPrime = ( ngArray[lowerDiff] - ngArray[upperDiff]) / \
+      (snrArray[upperDiff] - snrArray[lowerDiff])
+  if statistic == 'far':
+    ngPrime *= -1.0
+  diffLineX = (snrArray[lowerDiff],snrArray[upperDiff])
+  diffLineY = (ngArray[lowerDiff],ngArray[upperDiff])
 
   # make the figure
   figure(figNum)
   plot(snrArray, ngArray, 'b', linewidth=2, label="luminosity")
+  plot(diffLineX,diffLineY, 'k', linewidth=4, label="Differential used.")
   grid()
   xlabel(slideZero.statistic.name, size='x-large')
   if statistic == 'far':
@@ -1265,22 +1379,8 @@ def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
       figName += "_ng_vs_stat_using_" + opts.x_value + "_" + opts.y_value + \
           "_integral.png"
     savefig( figName )
-     
-  # calculate the derivative at the loudest event
-  if not slideZero.zero_loudest:
-    return 0
-  else:
-    if max(snrArray) < (slideZero.zero_loudest):
-      ngArray = [ngArray[-2],ngArray[-1]]
-    elif min(snrArray) > (slideZero.zero_loudest):
-      ngArray = [ngArray[0],ngArray[1]]
-    else:
-      ngArray = ngArray[ (snrArray > (slideZero.zero_loudest - snrStep)) & \
-          (snrArray < (slideZero.zero_loudest + snrStep)) ]
-    ngPrime = ( ngArray[0] - ngArray[1]) / snrStep
-    if statistic == 'far':
-      ngPrime *= -1.0
-    return ngPrime
+
+  return ngPrime
 
 ##############################################################################
 # Add systematic errors to distances
@@ -1770,22 +1870,20 @@ statThresh = 1e-6
 statistic=CoincInspiralUtils.coincStatistic( opts.statistic, opts.bittenl_a, \
     opts.bittenl_b )
 
-# Read the time-slides. If no glob specified, an empty 'slideLoudest' is 
-# initialized
-if opts.verbose:
-  print "Reading time slides"
-slideLoudest = slideZeroData(opts.slide_glob, opts.num_slides, statistic)
+# Initialize the slideZeroData class
+slideLoudest = slideZeroData(opts.num_slides, statistic)
 
-# Get the loudest only of a glob is specified
-if opts.slide_glob:
-  statThresh = max(slideLoudest.slide_loudest)
- 
 # Read the zero-lag if it is given
-if opts.zero_glob: 
+if opts.zero_glob:
   if opts.verbose:
     print "Reading zero lag"
   slideLoudest.add_zero_lag(opts.zero_glob)
-  statThresh = slideLoudest.zero_loudest
+
+# Read the time slide triggers if given and initialize the snrArray
+if opts.verbose and opts.slide_glob:
+  print "Reading time slides"
+slideLoudest.add_slide_data(opts.slide_glob)
+statThresh = slideLoudest.zero_loudest
 
 # Calculate pb and pbprime only if the zero-lag AND the time-slides are given
 if opts.zero_glob and opts.slide_glob:  
