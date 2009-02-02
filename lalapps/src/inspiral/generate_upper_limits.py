@@ -99,6 +99,14 @@ def add_parent_child(parentJobs,childJob,dagmanParentChild):
     dagmanParentChild += 'PARENT ' + parent + ' CHILD ' + childJob + '\n'
   return dagmanParentChild
 
+def add_ini_options(cp,subFile,prog):
+  for opt,value in cp.items(prog):
+    cmnd = '--' + opt + ' ' + value
+    if cmnd[-1] != ' ':
+      cmnd += ' '
+    subFile += cmnd
+  return subFile
+
 def create_injcut_job(dagman,injInputFile,output,massChars):
   jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
   dagman += 'JOB ' + jobName + ' upper_limit.injcut_' + massChars['type']\
@@ -117,7 +125,7 @@ def create_injcut_job(dagman,injInputFile,output,massChars):
   dagman += 'CATEGORY ' + jobName + ' injcut \n'
   return dagman,jobName
 
-def create_injcut_subfile(executable,logPath,priority,type):
+def create_injcut_subfile(cp,executable,logPath,priority,type):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = standard \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -127,12 +135,12 @@ def create_injcut_subfile(executable,logPath,priority,type):
     subFile += '--mass2-range-low $(macrominmass2) '
     subFile += '--mass-range-high $(macromaxmass1) '
     subFile += '--mass2-range-high $(macromaxmass2) '
-    subFile += '--mass-cut mcomp '
   elif type == 'mtotal':
     subFile += '--mass-range-low $(macrominmasstot) '
     subFile += '--mass-range-high $(macromaxmasstot) '
-    subFile += '--mass-cut mtotal '
   subFile += '--output $(macrooutfile) '
+  subFile = add_ini_options(cp,subFile,'injcut')
+  subFile = add_ini_options(cp,subFile,'injcut-' + type)
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error = logs/injcut-$(cluster)-$(process).err \n'
@@ -165,7 +173,7 @@ def create_inspinj_job(dagman,massChars,mass,sourceFile,type):
   dagman += 'CATEGORY ' + jobName + ' inspinj \n'
   return dagman,jobName
 
-def create_inspinj_subfile(executable,logPath,priority,type):
+def create_inspinj_subfile(cp,executable,logPath,priority,type):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = standard \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -176,22 +184,6 @@ def create_inspinj_subfile(executable,logPath,priority,type):
     subFile += '--user-tag COMPONENT$(macromassstr) '
   elif type == 'mtotal':
     subFile += '--user-tag MTOTAL$(macromassstr) '
-  subFile += '--gps-start-time 793130413 '
-  subFile += '--gps-end-time 795679213 '
-  subFile += '--time-step 8.000000e+00 '
-  subFile += '--write-compress '
-  if type =='gaussian':
-    subFile += '--m-distr gaussian '
-  elif type == 'mtotal':
-    subFile += '--m-distr totalMass '
-  elif type == 'component':
-    subFile += '--m-distr componentMass '
-  subFile += '--i-distr uniform '
-  subFile += '--f-lower 2.000000e+01 '
-  subFile += '--disable-spin '
-  subFile += '--enable-milkyway 1.700000e+00 '
-  subFile += '--waveform GeneratePPNtwoPN '
-  subFile += '--d-distr source --l-distr source '
   subFile += '--min-mass1 $(macrominmass1) '
   subFile += '--min-mass2 $(macrominmass2) '
   subFile += '--max-mass1 $(macromaxmass1) '
@@ -204,6 +196,8 @@ def create_inspinj_subfile(executable,logPath,priority,type):
   subFile += '--max-mtotal $(macromaxmtotal) '
   subFile += '--min-mtotal $(macrominmtotal) '
   subFile += '--max-distance $(macromaxdist) '
+  subFile = add_ini_options(cp,subFile,'inspinj')
+  subFile = add_ini_options(cp,subFile,'inspinj-' + type)
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error = ../logs/inspinj-$(cluster)-$(process).err \n'
@@ -229,7 +223,7 @@ def create_coirefm_job(dagman,injFile,inputFiles,foundOutput,missedOutput,\
   dagman += 'CATEGORY ' + jobName + ' coirefm \n'
   return dagman,jobName
 
-def create_coirefm_subfile(executable,logPath,priority):
+def create_coirefm_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = standard \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -237,8 +231,7 @@ def create_coirefm_subfile(executable,logPath,priority):
   subFile += '--output $(macrooutput) '
   subFile += '--missed $(macromissed) '
   subFile += '--summary $(macrosummary) '
-  subFile += '--data-type all_data '
-  subFile += '--injection-window 50 '
+  subFile = add_ini_options(cp,subFile,'coire')
   subFile += '--injection-file $(macroinjfile) '
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
@@ -248,42 +241,6 @@ def create_coirefm_subfile(executable,logPath,priority):
   subFile += 'priority = ' + priority + ' \n'
   subFile += 'queue 1 \n'
   submitFile = open('upper_limit.coirefm.sub','w')
-  submitFile.write(subFile)
-  submitFile.close()
-
-def create_corse_job(dagman, inputZeroFile, inputSlideFile, outputFile,\
-                       outputTextFile,timeAnalyzedFile):
-  jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
-  dagman += 'JOB ' + jobName + ' upper_limit.corse.sub\n'
-  dagman += 'RETRY ' + jobName + ' 1 \n'
-  dagman += 'VARS ' + jobName + ' macrozerofile="' + inputZeroFile + '"'+ \
-            ' macroslidefile="' + inputSlideFile + '"' +\
-            ' macrooutputfile="' + outputFile + '"' +\
-            ' macrooutputtextfile="' + outputTextFile + '"' +\
-            ' macrotimeanalyzedfile="' + timeAnalyzedFile + '" \n'
-  dagman += 'CATEGORY ' + jobName + ' corse \n'
-  return dagman,jobName
-
-def create_corse_subfile(executable,logPath,priority):
-  logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = standard \n'
-  subFile += 'executable = ' + executable + ' \n'
-  subFile += 'arguments = --glob-zero $(macrozerofile) '
-  subFile += '--glob-slide $(macroslidefile) '
-  subFile += '--output $(macrooutputfile) '
-  subFile += '--time-analyzed-file $(macrotimeanalyzedfile) '
-  subFile += '--loudest $(macrooutputtextfile) '
-  subFile += '--data-type all_data '
-  subFile += '--coinc-stat effective_snrsq '
-  subFile += '--num-slides 50 '
-  subFile += '\n'
-  subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
-  subFile += 'error = logs/corse-$(cluster)-$(process).err \n'
-  subFile += 'output = logs/corse-$(cluster)-$(process).out \n'
-  subFile += 'notification = never \n'
-  subFile += 'priority = ' + priority + ' \n'
-  subFile += 'queue 1 \n'
-  submitFile = open('upper_limit.corse.sub','w')
   submitFile.write(subFile)
   submitFile.close()
 
@@ -313,21 +270,17 @@ def create_numgalaxies_job(dagman, inputZeroFiles,inputSlideFiles,\
             ' macrooutputdir="' + outputDir + '"' +\
             ' macropopfile="' + populationFile + '" '
   if type == 'component':
-    dagman += 'macropoptype ="componentmass" '
     dagman += 'macrominmass =" ' + str(minMass1) + '" '
     dagman += 'macromaxmass =" ' + str(maxMass1) + '" '
     dagman += 'macrodm =" ' + str(maxMass1 - minMass1) + '" '
   if type == 'mtotal':
-    dagman += 'macropoptype ="totalmass" '
     dagman += 'macrominmass ="' + str(minMtotal) + '" '
     dagman += 'macromaxmass ="' + str(maxMtotal) + '" '
     dagman += 'macrodm ="' + str(maxMtotal - minMtotal) + '" '
   if h2CombinedDist:
     dagman += 'macroh2distoption ="--h2-combined-dist" '
-    dagman += 'macrodistmax ="60" '
   else:
     dagman += 'macroh2distoption =" " '
-    dagman += 'macrodistmax ="30" '
   dagman += 'macrohcal = "' + Cals['H'] + '" '
   dagman += 'macrolcal = "' + Cals['L'] + '" '
   dagman += 'macrohdccal = "' + Cals['H_DC'] + '" '
@@ -336,7 +289,7 @@ def create_numgalaxies_job(dagman, inputZeroFiles,inputSlideFiles,\
   dagman += 'CATEGORY ' + jobName + ' numgalaxies \n'
   return dagman,jobName
 
-def create_numgalaxies_subfile(executable,logPath,priority,type,userTag):
+def create_numgalaxies_subfile(cp,executable,logPath,priority,type,userTag):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = vanilla \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -346,39 +299,19 @@ def create_numgalaxies_subfile(executable,logPath,priority,type,userTag):
   subFile += '--missed-glob $(macromissedinj) '
   subFile += '--source-file $(macrosourcefile) '
   subFile += '--population-glob $(macropopfile) '
-  subFile += '--plot-cum-loudest '
-  subFile += '--plot-pdf-loudest '
-  subFile += '--num-slides 50 '
-  subFile += '--statistic far '
   subFile += '--figure-name ' + userTag + ' '
-  subFile += '--magnitude-error positive '
-  subFile += '--nbins 20 '
-  subFile += '--verbose '
-  subFile += '--x-max $(macrodistmax) '
-  subFile += '--x-min 1 '
-  subFile += '--log-x '
-  subFile += '--x-value combined_chirp_dist_hl '
   subFile += '$(macroh2distoption) '
-  subFile += '--mc-errors '
-  subFile += '--distance-error positive '
-  subFile += '--waveform-systematic 0.1 '
-  subFile += '--ng-vs-stat-points 10 '
-  subFile += '--plot-ng '
-  subFile += '--cum-search-ng '
-  subFile += '--plot-ng-vs-stat '
-  subFile += '--num-categories 1 '
   if not type == 'gaussian':
-    subFile += '--population-type $(macropoptype) '
     subFile += '--cut-inj-by-mass 1 '
     subFile += '--m-low $(macrominmass) '
     subFile += '--m-high $(macromaxmass) '
     subFile += '--m-dm $(macrodm) '
-  else:
-    subFile += '--population-type gaussian '
   subFile += '--h-calibration $(macrohcal) '
-  subFile += '--h-calibration $(macrolcal) '
+  subFile += '--l-calibration $(macrolcal) '
   subFile += '--h-dc-calibration $(macrohdccal) '
   subFile += '--l-dc-calibration $(macroldccal) '
+  subFile = add_ini_options(cp,subFile,'plotnumgalaxies')
+  subFile = add_ini_options(cp,subFile,'plotnumgalaxies-' + type)
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error = ../../../../logs/numgalaxies-$(cluster)-$(process).err \n'
@@ -392,7 +325,7 @@ def create_numgalaxies_subfile(executable,logPath,priority,type,userTag):
   submitFile.write(subFile)
   submitFile.close()
 
-def create_computeposterior_job( dagman, sourceChars,outputDir,\
+def create_computeposterior_job(dagman, sourceChars,outputDir,\
        galaxiesFile,timeAnalyzedFile):
   jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
   dagman += 'JOB ' + jobName + ' upper_limit.computeposterior.sub\n'
@@ -409,23 +342,15 @@ def create_computeposterior_job( dagman, sourceChars,outputDir,\
   dagman += 'CATEGORY ' + jobName + ' numgalaxies \n'
   return dagman,jobName
 
-def create_computeposterior_subfile(executable,logPath,priority,userTag):
+def create_computeposterior_subfile(cp,executable,logPath,priority,userTag):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = vanilla \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --galaxies-file $(macronumgalinput) '
   subFile += '--time-analyzed-file $(macrotimeanalyzed) '
   subFile += '--mass-region $(macromasstype) '
-  subFile += '--magnitude-error '
-  subFile += '--waveform-error '
-  subFile += '--montecarlo-error '
-  subFile += '--distance-error '
-  subFile += '--calibration-error '
   subFile += '--figure-name ' + userTag + ' '
-  subFile += '--max-rate 0.01 '
-  subFile += '--prior uniform '
-  subFile += '--ntrials 1000 '
-  subFile += '--dr 0.0000005 '
+  subFile = add_ini_options(cp,subFile,'compute_posterior')
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error = ../../../../logs/computeposterior-$(cluster)-$(process).err \n'
@@ -452,7 +377,7 @@ def create_plotulvsmass_job(dagman,computepostglob,massRegion,figureName,\
   dagman += 'CATEGORY ' + jobName + ' corse \n'
   return dagman,jobName
 
-def create_plotulvsmass_subfile(executable,logPath,priority):
+def create_plotulvsmass_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = vanilla \n'
   subFile += 'executable = ' + executable + ' \n'
@@ -460,9 +385,7 @@ def create_plotulvsmass_subfile(executable,logPath,priority):
   subFile += '--computepost-glob $(macrocomputeglob) '
   subFile += '--mass-region $(macromassregion) '
   subFile += '--figure-name $(macrofigurename) '
-  subFile += '--ymin 0.0001 '
-  subFile += '--ymax 1 '
-  subFile += '--verbose '
+  subFile = add_ini_options(cp,subFile,'plotulvsmass')
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error = ../logs/plotulvsmass-$(cluster)-$(process).err \n'
@@ -478,7 +401,7 @@ def create_plotulvsmass_subfile(executable,logPath,priority):
 
 def create_combineposterior_job(dagman,posteriorFiles,
                                 initialDir,figureName,relDir,minMass,\
-                                maxMass):
+                                maxMass,massType):
   jobName = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(20)])
   dagman += 'JOB ' + jobName + ' upper_limit.combineposterior.sub\n'
   dagman += 'RETRY ' + jobName + ' 1 \n'
@@ -492,19 +415,21 @@ def create_combineposterior_job(dagman,posteriorFiles,
   dagman += ' macrominmass ="' + minMass + '"'
   dagman += ' macromaxmass ="' + maxMass + '"'
   dagman += ' macroreldir ="' + relDir + '"'
+  dagman += ' macromasstype ="' + massType + '"'
   dagman += ' \n'
   dagman += 'CATEGORY ' + jobName + ' corse \n'
   return dagman,jobName
 
-def create_combineposterior_subfile(executable,logPath,priority):
+def create_combineposterior_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
   subFile = 'universe = vanilla \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --figure-name $(macrofigurename) '
-  subFile += '--verbose '
   subFile += '--min-mass $(macrominmass) '
   subFile += '--max-mass $(macromaxmass) '
+  subFile += '--plot-title $(macromasstype) '
   subFile += '$(macroaddposts) '
+  subFile = add_ini_options(cp,subFile,'combine_posterior')
   subFile += '\n'
   subFile += 'log = ' + logPath + '/' + logFile + '.tmp \n'
   subFile += 'error =$(macroreldir)/logs/combineposterior-$(cluster)-$(process).err \n'
@@ -525,7 +450,40 @@ def parse_command_line():
   parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
   parser.add_option("-f", "--config-file",action="store",type="string",\
       metavar=" FILE", help="use configuration file FILE")
- 
+  parser.add_option("-I", "--skip-injcut",action="store_true",default=False,\
+      help="Do not run injcut jobs (assume they are already run).")
+  parser.add_option("-i", "--skip-inspinj",action="store_true",default=False,\
+      help="Do not run inspinj jobs (assume they are already run).")
+  parser.add_option("-C", "--skip-coire",action="store_true",default=False,\
+      help="Do not run coire jobs (assume they are already run).")
+  parser.add_option("-n", "--skip-numgalaxies",action="store_true",\
+      default=False,\
+      help="Do not run plotnumgalaxies jobs (assume they are already run).")
+  parser.add_option("-c", "--skip-compute-posterior",action="store_true",\
+      default=False,\
+      help="Do not run lalapps_compute_posterior jobs (assume already run).")
+  parser.add_option("-u", "--skip-ulvsmass",action="store_true",default=False,\
+      help="Do not run plotulvsmass jobs on individual ifo combos.") 
+  parser.add_option("-p", "--skip-combine-posterior",action="store_true",\
+      default=False,\
+      help="Do not run pylal_combine_posteriors or generate combined plotulvsmass plots.")
+  parser.add_option("-s", "--skip-spin",action="store_true",default=False,\
+      help="Do not generate upper limit for spinning sources.")
+  parser.add_option("-N", "--skip-nonspin",action="store_true",default=False,\
+      help="Do not generate upper limits for non-spinning sources.")
+  parser.add_option("-Z", "--combine-only-past-results",action="store_true",\
+      default=False,\
+      help="Use this flag to generate results from past results only.")
+  parser.add_option("-g", "--skip-gaussian",action="store_true",default=False,\
+      help="Do not generate upper limit for gaussian sources.")
+  parser.add_option("-t", "--skip-total-mass",action="store_true",\
+      default=False,\
+      help="Do not generate upper limits as a function of total mass.")
+  parser.add_option("-m", "--skip-component-mass",action="store_true",\
+      default=False,\
+      help="Do not generate upper limits as a function of component mass.")
+
+
   # options related to input and output
 #  parser.add_option("","--output-file",action="store",type="string",\
 #      default=None,metavar=" FILE",\
@@ -553,52 +511,25 @@ cp.read(opts.config_file)
 
 # Read ini file and determine how to run the code
 
-if cp.has_option('run-options','run-injcut'):
-  runInjcut = True
-else:
-  runInjcut = False
-if cp.has_option('run-options','run-inspinj'):
-  runInspinj = True
-else:
-  runInspinj = False
-if cp.has_option('run-options','run-coireFM'):
-  runCoireFM = True
-else:
-  runCoireFM = False
-if cp.has_option('run-options','run-corse'):
-  runCorse = True
-else:
-  runCorse = False
-if cp.has_option('run-options','run-numgalaxies'):
-  runNumgalaxies = True
-else:
-  runNumgalaxies = False
-if cp.has_option('run-options','run-computeposterior'):
-  runComputeposterior = True
-else:
-  runComputeposterior = False
-if cp.has_option('run-options','run-plotulvsmass'):
-  runPlotulvsmass = True
-else:
-  runPlotulvsmass = False
-if cp.has_option('run-options','run-combineposteriors'):
-  runCombinePosterior = True
-else:
-  runCombinePosterior = False
-if cp.has_option('run-options','run-spin'):
-  runSpin = True
-else:
-  runSpin = False
-if cp.has_option('run-options','run-non-spin'):
-  runNonSpin = True
-else:
-  runNonSpin = False
-if cp.has_option('run-options','combine-only-past-results'):
-  combineOnlyPast = True
-else:
-  combineOnlyPast = False
+runInjcut = not opts.skip_injcut
+runInspinj = not opts.skip_inspinj
+runCoireFM = not opts.skip_coire
+runNumgalaxies = not opts.skip_numgalaxies
+runComputeposterior = not opts.skip_compute_posterior
+runPlotulvsmass = not opts.skip_ulvsmass
+runCombinePosterior = not opts.skip_combine_posterior
+runSpin = not opts.skip_spin
+runNonSpin = not opts.skip_nonspin
+runGaussian = not opts.skip_gaussian
+runMtotal = not opts.skip_total_mass
+runComponent = not opts.skip_component_mass
+combineOnlyPast = opts.combine_only_past_results
 massCategories = []
 sourceTypes = []
+gaussianSources = []
+componentSources = []
+mtotalSources = []
+mrangeSources = []
 numCategories = {}
 H_cal = {}
 H_calDC = {}
@@ -607,15 +538,20 @@ L_calDC = {}
 ifoCombos = determine_ifo_combos(cp)
 for item in cp.options('ifar-mass-categories'):
   massCategories.append(item)
-if cp.has_option('run-options','run-gaussian'):
+if runGaussian:
   for item in cp.options('gaussian-types'):
     sourceTypes.append(item)
-if cp.has_option('run-options','run-total-mass'):
+    gaussianSources.append(item)
+if runComponent:
   for item in cp.options('total-mass-ranges'):
     sourceTypes.append(item)
-if cp.has_option('run-options','run-component-mass'):
+    mtotalSources.append(item)
+    mrangeSources.append(item)
+if runMtotal:
   for item in cp.options('component-mass-ranges'):
     sourceTypes.append(item)
+    componentSources.append(item)
+    mrangeSources.append(item)
 for item,value in cp.items('H-cal'):
   H_cal[item.upper()] = value
 for item,value in cp.items('H-cal-dc'):
@@ -650,9 +586,9 @@ if runSpin:
   spinTypes.append('spin')
 
 # Add old posterior files to ini file from sets
+nameNumber = 1000
 for dummyTag,info in cp.items('past-posterior-result-sets'):
   pastTag,setDir = info.split(',')
-  nameNumber = 1000
   for type in spinTypes:
     for item in sourceTypes:
       tempTag = 'post' + str(nameNumber)
@@ -695,9 +631,9 @@ if runInjcut:
                + '-' + gpsStartTime + '-' + gpsEndTime + '.xml'
       dagman,injcutJobs[source + inj] = create_injcut_job(dagman, \
                injInputFile,output,sourceChars)
-  create_injcut_subfile(executable,logPath,priority,'gaussian')
-  create_injcut_subfile(executable,logPath,priority,'component')
-  create_injcut_subfile(executable,logPath,priority,'mtotal')
+  create_injcut_subfile(cp,executable,logPath,priority,'gaussian')
+  create_injcut_subfile(cp,executable,logPath,priority,'component')
+  create_injcut_subfile(cp,executable,logPath,priority,'mtotal')
  
 # Run lalapps_inspinj jobs
 if runInspinj:
@@ -719,9 +655,9 @@ if runInspinj:
       sourceFile = cp.get('inspinj-source-files','mtotal')
       dagman,inspinjJobs[source] = create_inspinj_job(dagman, sourceChars,\
           source,sourceFile,'mtotal')
-  create_inspinj_subfile(executable,logPath,priority,'gaussian')
-  create_inspinj_subfile(executable,logPath,priority,'component')   
-  create_inspinj_subfile(executable,logPath,priority,'mtotal')
+  create_inspinj_subfile(cp,executable,logPath,priority,'gaussian')
+  create_inspinj_subfile(cp,executable,logPath,priority,'component')   
+  create_inspinj_subfile(cp,executable,logPath,priority,'mtotal')
   
 # Run lalapps_coire to determine missed/found
 coireFMJobs = {}
@@ -741,8 +677,6 @@ else:
 
 if runCoireFM:
   for source in sourceTypes:
-    if not os.path.isdir('coire_found_missed_files/' + source):
-      os.mkdir('coire_found_missed_files/' + source)
     for combo in ifoCombos:
       for inj in coireFMOutputDirs.keys():
         outputDir = coireFMOutputDirs[inj] + source
@@ -751,13 +685,13 @@ if runCoireFM:
         injFile = injcutOutputDirs[inj] + '/HL-INJECTIONS_' + source.upper()\
                + '_' + inj.upper() + '-' + gpsStartTime + '-' + \
                gpsEndTime + '.xml'
-#        inputFiles = ifarDir + '/corse_all_data_files/' + inj.upper() + \
-#                 '/' + combo + '_*-CORSE_' + inj.upper() + \
-#                 '_*_CAT_3-' + gpsStartTime + '-' + gpsDuration + '.xml*'
         inputFiles = ifarDir + '/combined_ifar_files/' + inj.upper() + \
                   '/' + combo + '-CORSE_*-' + inj.upper() + \
                   '_COMBINED_IFAR_CAT_3-' + gpsStartTime + '-' + \
                   gpsEndTime + '.xml.gz'
+#        inputFiles = ifarDir + '/corse_all_data_files/' + inj.upper() + \
+#                 '/' + combo + '_*-CORSE_' + inj.upper() + \
+#                 '_*_CAT_3-' + gpsStartTime + '-' + gpsDuration + '.xml*'
         foundOutput = outputDir + '/' + combo +\
                '-CORSE_' + inj.upper() + 'FOUND_CAT_3-' + gpsStartTime +\
                '-' + gpsDuration + '.xml.gz'
@@ -773,109 +707,49 @@ if runCoireFM:
           parentJob = [injcutJobs[source+inj]]
           dagmanParentChild = add_parent_child(parentJob,\
                coireFMJobs[source+combo+inj],dagmanParentChild)
-  create_coirefm_subfile(executable,logPath,priority)
+  create_coirefm_subfile(cp,executable,logPath,priority)
       
-# Run lalapps_corse to determine the loudest triggers
-corseJobs = {}
-executable = cp.get('executables','lalapps_corse')
-if runCorse:
-  if not os.path.isdir('corse_loudest_files'):
-    os.mkdir('corse_loudest_files')
-  for mass in massCategories:
-    if not os.path.isdir('corse_loudest_files/' + mass):
-      os.mkdir('corse_loudest_files/' + mass)
-    for combo in ifoCombos:
-      if len(combo) < 5:
-        inputZeroFile = ifarDir + '/second_coire_files/full_data/' + mass\
-        + '/' + combo + '-SECOND_COIRE_CAT_3_' + combo + '-' +\
-        gpsStartTime + '-' + gpsDuration + '.xml.gz'  
-        inputSlideFile = ifarDir + '/second_coire_files/full_data_slide/' + \
-            mass + '/' + combo + '-SECOND_COIRE_SLIDE_CAT_3_' + combo + '-' + \
-            gpsStartTime + '-' + gpsDuration + '.xml.gz'
-        outputFile = 'corse_loudest_files/' + mass + '/' + combo + \
-            '-SECOND_CORSE_LOUDEST_CAT_3_' + combo + '-' + \
-            gpsStartTime + '-' + gpsDuration + '.xml.gz'
-        outputTextFile = 'corse_loudest_files/' + mass + '/' + combo + \
-            '-SECOND_CORSE_LOUDEST_CAT_3_' + combo + '-' + \
-            gpsStartTime + '-' + gpsDuration + '.txt'
-        timeAnalyzedFile = ifarDir + '/septime_files/' + combo + \
-            '_V3_CAT_3.txt'
-        dagman,corseJobs[mass+combo] = create_corse_job(dagman, \
-               inputZeroFile, inputSlideFile, outputFile,outputTextFile,\
-               timeAnalyzedFile)
-      elif len(combo) > 5:
-        ifoCombos2 = determine_reduced_combos(combo)
-        for combo2 in ifoCombos2:
-          inputZeroFile = ifarDir + '/second_coire_files/full_data/' + mass + '/'\
-            +combo2 + '-SECOND_COIRE_CAT_3_' + combo + '-' + gpsStartTime + '-' +\
-            gpsDuration + '.xml.gz'  
-          inputSlideFile = ifarDir + '/second_coire_files/full_data_slide/' + \
-              mass + '/' + combo2 + '-SECOND_COIRE_SLIDE_CAT_3_' + combo + '-' + \
-              gpsStartTime + '-' + gpsDuration + '.xml.gz'
-          outputFile = 'corse_loudest_files/' + mass + '/' + combo2 + \
-              '-SECOND_CORSE_LOUDEST_CAT_3_' + combo + '-' + \
-              gpsStartTime + '-' + gpsDuration + '.xml.gz'
-          outputTextFile = 'corse_loudest_files/' + mass + '/' + combo2 + \
-              '-SECOND_CORSE_LOUDEST_CAT_3_' + combo + '-' + \
-              gpsStartTime + '-' + gpsDuration + '.txt'
-          timeAnalyzedFile = ifarDir + '/septime_files/' + combo + \
-            '_V3_CAT_3.txt'
-          dagman,corseJobs[mass+combo+combo2] = create_corse_job(dagman, \
-                 inputZeroFile, inputSlideFile, outputFile,outputTextFile,\
-                 timeAnalyzedFile)
-  create_corse_subfile(executable,logPath,priority)      
-
 # Run plotnumgalaxies
 numgalaxiesJobs = {}
 executable = cp.get('executables','plotnumgalaxies')
 if runSpin or runNonSpin:
   numgalaxiesOutputDirs = {}
-  numgalaxiesTypes = []
   if not os.path.isdir('plotnumgalaxies_files'):
     os.mkdir('plotnumgalaxies_files')
-  if runSpin:
-    numgalaxiesTypes.append('spin')
-    for inj in spinInjRuns:
-      for source in sourceTypes:
-        for combo in ifoCombos:
-          if not os.path.isdir('plotnumgalaxies_files/spin/' + source + '/'\
-                 + combo):
-            os.makedirs('plotnumgalaxies_files/spin/' + source + '/' + combo)
-          numgalaxiesOutputDirs[source+combo+'spin']=\
-              'plotnumgalaxies_files/spin/' + source + '/' + combo + '/'
-  if runNonSpin:
-    numgalaxiesTypes.append('nonspin')
-    for inj in nonSpinInjRuns:
-      for source in sourceTypes:
-        for combo in ifoCombos:
-          if not os.path.isdir('plotnumgalaxies_files/nonspin/' + source + '/'\
-                 + combo):
-            os.makedirs('plotnumgalaxies_files/nonspin/' + source + '/' + combo)
-          numgalaxiesOutputDirs[source+combo+'nonspin']=\
-              'plotnumgalaxies_files/nonspin/' + source + '/' + combo + '/'
+  for type in spinTypes:
+    for source in sourceTypes:
+      for combo in ifoCombos:
+        if not os.path.isdir('plotnumgalaxies_files/' + type + '/' + \
+               source + '/' + combo):
+          os.makedirs('plotnumgalaxies_files/' + type + '/' + source +\
+                 '/' + combo)
+        numgalaxiesOutputDirs[source+combo+type]=\
+            'plotnumgalaxies_files/'+type+'/' + source + '/' + combo + '/'
 else:
   runNumgalaxies = False
 
 if runNumgalaxies:
-  for type in numgalaxiesTypes:
+  for type in spinTypes:
     for source in sourceTypes:
       sourceChars = define_mass_characteristics(cp,source)
       for combo in ifoCombos:
          outputDir = numgalaxiesOutputDirs[source+combo+type]
- #        inputZeroFiles = '../../../../corse_loudest_files/mchirp*/*-SECOND_CORSE_LOUDEST_CAT' \
- #            + '_3_'+ combo + '-' + gpsStartTime + '-' + gpsDuration + '.xml.gz'
-#         inputSlideFiles = ifarDir + '/corse_all_data_files/all_data_slide/' + \
-#             combo + '*.xml.gz'
-         inputZeroFiles = ifarDir + '/combined_ifar_files/all_data/' + \
-             combo + '-CORSE_ALL_MASSES-all_data_COMBINED_IFAR_CAT_3-' +\
+         inputZeroFiles = ifarDir + '/combined_ifar_files/exclude_play/' + \
+             combo + '-CORSE_ALL_MASSES-exclude_play_COMBINED_IFAR_CAT_3-' +\
              gpsStartTime + '-' + gpsEndTime + '.xml.gz'
-         inputSlideFiles = ifarDir + '/combined_ifar_files/all_data_slide/' + \
-             combo + '-CORSE_ALL_MASSES-all_data_slide_COMBINED_IFAR_CAT_3-' +\
+#         inputZeroFiles = ifarDir+'/corse_all_data_files/all_data/' + combo \
+#             + '*-CORSE_ALL_DATA_*_CAT_3-*.xml.gz'
+         inputSlideFiles = ifarDir+'/combined_ifar_files/all_data_slide/' + \
+             combo+'-CORSE_ALL_MASSES-all_data_slide_COMBINED_IFAR_CAT_3-' +\
              gpsStartTime + '-' + gpsEndTime + '.xml.gz'
-         foundInjections = '../../../../' + coireFMOutputDirs[eval(type)] + source + '/' + combo + \
-             '-CORSE_*FOUND_CAT_3-'+ gpsStartTime + '-' + gpsDuration + '.xml.gz'
-         missedInjections = '../../../../' + coireFMOutputDirs[eval(type)] + source + '/' + combo + \
-             '-CORSE_*MISSED_CAT_3-'+ gpsStartTime + '-' + gpsDuration + '.xml.gz'
+#         inputSlideFiles = ifarDir+'/corse_all_data_files/all_data_slide/' + \
+#             combo + '*-CORSE_SLIDE_ALL_DATA_*_CAT_3-*.xml.gz'
+         foundInjections = '../../../../' + coireFMOutputDirs[eval(type)] + \
+             source + '/' + combo + '-CORSE_*FOUND_CAT_3-' \
+             + gpsStartTime + '-' + gpsDuration + '.xml.gz'
+         missedInjections = '../../../../' + coireFMOutputDirs[eval(type)] + \
+             source + '/' + combo + '-CORSE_*MISSED_CAT_3-'+ gpsStartTime + \
+             '-' + gpsDuration + '.xml.gz'
          if sourceChars['type']=='gaussian':
            sourceFile = cp.get('inspinj-source-files',source)
            populationFile = '../../../../inspinj_files/HL-INJECTIONS_1' + \
@@ -899,10 +773,11 @@ if runNumgalaxies:
          Cals['L'] = L_cal[combo]
          Cals['H_DC'] = H_calDC[combo]
          Cals['L_DC'] = L_calDC[combo]
-         dagman,numgalaxiesJobs[source + combo + type] = create_numgalaxies_job(dagman, \
-                   inputZeroFiles,inputSlideFiles,foundInjections,\
-                   missedInjections,sourceFile,populationFile,\
-                   outputDir,h2CombinedDist,source,Cals)
+         dagman,numgalaxiesJobs[source + combo + type] = \
+             create_numgalaxies_job(dagman, \
+             inputZeroFiles,inputSlideFiles,foundInjections,\
+             missedInjections,sourceFile,populationFile,\
+             outputDir,h2CombinedDist,source,Cals)
          parentJobs = []
          if runInjcut:
            for key in injcutJobs.keys():
@@ -914,38 +789,31 @@ if runNumgalaxies:
            for key in coireFMJobs.keys():
              if key[0:len(source+combo)] == source+combo:
                parentJobs.append(coireFMJobs[key])
-         if runCorse:
-           for key in corseJobs.keys(): 
-             if key[len(mass):len(mass+combo)] == combo:
-               parentJobs.append(corseJobs[key])
          if parentJobs:
            dagmanParentChild = add_parent_child(parentJobs,\
-                             numgalaxiesJobs[source+combo+type],dagmanParentChild)
-  create_numgalaxies_subfile(executable,logPath,priority,'mtotal',userTag)
-  create_numgalaxies_subfile(executable,logPath,priority,'gaussian',userTag)
-  create_numgalaxies_subfile(executable,logPath,priority,'component',userTag)                 
+               numgalaxiesJobs[source+combo+type],dagmanParentChild)
+  create_numgalaxies_subfile(cp,executable,logPath,priority,'mtotal',userTag)
+  create_numgalaxies_subfile(cp,executable,logPath,priority,'gaussian',userTag)
+  create_numgalaxies_subfile(cp,executable,logPath,priority,'component',userTag)                 
 
 computeposteriorJobs = {}
 executable = cp.get('executables','lalapps_compute_posterior')
-if runSpin or runNonSpin:
-  computeposteriorTypes = []
-  if runSpin:
-    computeposteriorTypes.append('spin')
-  if runNonSpin:
-    computeposteriorTypes.append('nonspin')
-else:
+
+if not (runSpin or runNonSpin):
   runComputeposterior = False
 
 if runComputeposterior:
-  for type in computeposteriorTypes:
+  for type in spinTypes:
     for source in sourceTypes:
       sourceChars = define_mass_characteristics(cp,source)
       for combo in ifoCombos:
         outputDir = numgalaxiesOutputDirs[source+combo+type]
         galaxiesFile = '../../../../' + \
             numgalaxiesOutputDirs[source+combo+type] + '/png-output.ini'
-        timeAnalyzedFile = ifarDir + '/septime_files/' + combo + \
-            '_V3_CAT_3.txt'
+        timeAnalyzedFile = ifarDir + '/corse_all_data_files/exclude_play/' + \
+            combo + '_' + combo + '-CORSE_EXCLUDE_PLAY_' + \
+            cp.options('ifar-mass-categories')[0] + '_CAT_3-' + gpsStartTime + \
+             '-' + gpsDuration + '.txt'
         dagman,computeposteriorJobs[source+combo+type]=\
             create_computeposterior_job(\
             dagman, sourceChars,outputDir,galaxiesFile,timeAnalyzedFile)
@@ -953,50 +821,45 @@ if runComputeposterior:
           dagmanParentChild = add_parent_child(\
               [numgalaxiesJobs[source+combo+type]],\
               computeposteriorJobs[source+combo+type],dagmanParentChild)
-  create_computeposterior_subfile(executable,logPath,priority,userTag)
+  create_computeposterior_subfile(cp,executable,logPath,priority,userTag)
 
 plotulvsmassJobs = {}
 executable = cp.get('executables','plotulvsmass')
 
 if runSpin or runNonSpin:
-  plotulvsmassTypes = []
   if not os.path.isdir('plotulvsmass_files'):
     os.mkdir('plotulvsmass_files')
-  if runSpin:
-    plotulvsmassTypes.append('spin')
-  if runNonSpin:
-    plotulvsmassTypes.append('nonspin')
 else:
   runPlotulvsmass = False
 
 if runPlotulvsmass:
-  for type in plotulvsmassTypes:
+  for type in spinTypes:
     for combo in ifoCombos:
-      if cp.has_option('run-options','run-total-mass'):
+      if runMtotal:
         computepostGlob = 'plotnumgalaxies_files/' + type + '/mtotal_*/'\
             + combo + '/' + userTag + '-upper-limit'
         massRegion = 'totalmass'
-        dagman,plotulvsmassJobs[combo + type] = create_plotulvsmass_job(dagman,\
-                   computepostGlob,massRegion,'mtotal_' + type + '_' + combo,\
-                   'plotulvsmass_files')    
-        for item in cp.options('total-mass-ranges'):
+        dagman,plotulvsmassJobs[combo + type] = \
+            create_plotulvsmass_job(dagman,computepostGlob,massRegion,\
+            'mtotal_' + type + '_' + combo,'plotulvsmass_files')    
+        for item in mtotalSources:
           if runComputeposterior:
             dagmanParentChild = add_parent_child(\
                 [computeposteriorJobs[item+combo+type]],\
                 plotulvsmassJobs[combo+type],dagmanParentChild)
-      if cp.has_option('run-options','run-component-mass'):
-        computepostGlob = 'plotnumgalaxies_files/' + type + '/mcomp_*/' + combo\
-            + '/' + userTag + '-upper-limit'
+      if runComponent:
+        computepostGlob = 'plotnumgalaxies_files/' + type + '/mcomp_*/'\
+            + combo + '/' + userTag + '-upper-limit'
         massRegion = 'componentmass'
-        dagman,plotulvsmassJobs[combo + type] = create_plotulvsmass_job(dagman,\
-                   computepostGlob,massRegion,'mcomp_' + type + '_' + combo,\
-                   'plotulvsmass_files')
-        for item in cp.options('component-mass-ranges'):
+        dagman,plotulvsmassJobs[combo + type] = \
+            create_plotulvsmass_job(dagman,computepostGlob,massRegion,\
+            'mcomp_' + type + '_' + combo,'plotulvsmass_files')
+        for item in componentSources:
           if runComputeposterior:
             dagmanParentChild = add_parent_child(\
                 [computeposteriorJobs[item+combo+type]],\
                 plotulvsmassJobs[combo+type],dagmanParentChild)
-  create_plotulvsmass_subfile(executable,logPath,priority)
+  create_plotulvsmass_subfile(cp,executable,logPath,priority)
 
 combineposteriorJobs = {}
 
@@ -1004,49 +867,19 @@ executable = cp.get('executables','pylal_combine_posteriors')
 executable2 = cp.get('executables','plotulvsmass')
 
 if (runSpin or runNonSpin):
-  combinePosteriorTypes = []
-  combinePosteriorObjects = []
   if not os.path.isdir('combine_posteriors'):
     os.mkdir('combine_posteriors')
-  if runSpin:
-    combinePosteriorTypes.append('spin')
-  if runNonSpin:
-    combinePosteriorTypes.append('nonspin')
-  if cp.has_option('run-options','run-total-mass'):
-    for item in cp.options('total-mass-ranges'):
-      combinePosteriorObjects.append(item)
-      if runSpin:
-        if not os.path.isdir('combine_posteriors/spin/' + item):
-          os.makedirs('combine_posteriors/spin/' + item)
-      if runNonSpin:
-        if not os.path.isdir('combine_posteriors/nonspin/' + item):
-          os.makedirs('combine_posteriors/nonspin/' + item)
-  if cp.has_option('run-options','run-component-mass'):
-    for item in cp.options('component-mass-ranges'):
-      if runSpin:
-        combinePosteriorObjects.append(item)
-        if not os.path.isdir('combine_posteriors/spin/' + item):
-          os.makedirs('combine_posteriors/spin/' + item)
-      if runNonSpin:
-        if not os.path.isdir('combine_posteriors/nonspin/' + item):
-          os.makedirs('combine_posteriors/nonspin/' + item)
-  if cp.has_option('run-options','run-gaussian'):
-    for item in cp.options('gaussian-types'):
-      if runSpin:
-        combinePosteriorObjects.append(item)
-        if not os.path.isdir('combine_posteriors/spin/' + item):
-          os.makedirs('combine_posteriors/spin/' + item)
-      if runNonSpin:
-        if not os.path.isdir('combine_posteriors/nonspin/' + item):
-          os.makedirs('combine_posteriors/nonspin/' + item)
-
+  for type in spinTypes:
+    for source in sourceTypes:
+      if not os.path.isdir('combine_posteriors/' + type + '/' + source):
+        os.makedirs('combine_posteriors/' + type + '/' + source)
 else:
   runCombinePosterior = False
 
 if runCombinePosterior:
-  for type in combinePosteriorTypes:
+  for type in spinTypes:
     childJobs = []
-    for item in combinePosteriorObjects:
+    for item in sourceTypes:
       posteriorFiles = []
       parentJobs = []
       if len(item.split('_')) == 3:
@@ -1056,7 +889,6 @@ if runCombinePosterior:
         sourceChars = define_mass_characteristics(cp,item)
         massLow = sourceChars['min_mtotal']
         massHigh = sourceChars['max_mtotal']
-         
       if not combineOnlyPast:
         initialDir = 'plotnumgalaxies_files/' + type + '/' + item
         figureName = userTag + '_' + item + '_' + type
@@ -1066,28 +898,28 @@ if runCombinePosterior:
               userTag + '-posterior-pdf.txt', userTag + '_' + combo))
           if runComputeposterior:
             parentJobs.append(computeposteriorJobs[item+combo+type])
+        posteriorFiles.sort()
         dagman,combineposteriorJobs[item + type + 'nopast'] = \
             create_combineposterior_job(dagman,posteriorFiles,\
-            initialDir,figureName,'../../../',massLow,massHigh)
+            initialDir,figureName,'../../../',massLow,massHigh,item.upper())
         if runComputeposterior:
-          dagmanParentChild = add_parent_child(\
-              parentJobs,\
+          dagmanParentChild = add_parent_child(parentJobs,\
               combineposteriorJobs[item+type+'nopast'],dagmanParentChild)
       initialDir = 'combine_posteriors/' + type + '/' + item
       figureName = userTag + '_' + item + '_' + type
       for dummyTag,info in cp.items('past-posteriors-' + item + '-' + type):
         option,value = info.split(',')
         posteriorFiles.append((value,option))
+      posteriorFiles.sort()
       dagman,combineposteriorJobs[item + type] = \
           create_combineposterior_job(dagman,posteriorFiles,\
-          initialDir,figureName,'../../../',massLow,massHigh)
+          initialDir,figureName,'../../../',massLow,massHigh,item.upper())
       childJobs.append(combineposteriorJobs[item+type])
       if runComputeposterior:
-        dagmanParentChild = add_parent_child(\
-            parentJobs,\
+        dagmanParentChild = add_parent_child(parentJobs,\
             combineposteriorJobs[item+type],dagmanParentChild)
 
-    if cp.has_option('run-options','run-total-mass'):
+    if runMtotal:
       computepostGlob = 'combine_posteriors/' + type + '/mtotal_*/'\
           + userTag + '_*_' + type + '-combined-upper-limit'
       massRegion = 'totalmass'
@@ -1096,7 +928,7 @@ if runCombinePosterior:
                  'combine_posteriors')
       dagmanParentChild = add_parent_child(childJobs,\
           plotulvsmassJobs[type],dagmanParentChild)
-    if cp.has_option('run-options','run-component-mass'):
+    if runComponent:
       computepostGlob = 'combine_posteriors/' + type + '/mcomp_*/'\
           +  userTag + '_*_' + type + '-combined-upper-limit'
       massRegion = 'componentmass'
@@ -1106,8 +938,8 @@ if runCombinePosterior:
       dagmanParentChild = add_parent_child(childJobs,\
           plotulvsmassJobs[type],dagmanParentChild)
 
-  create_combineposterior_subfile(executable,logPath,priority)
-  create_plotulvsmass_subfile(executable2,logPath,priority)
+  create_combineposterior_subfile(cp,executable,logPath,priority)
+  create_plotulvsmass_subfile(cp,executable2,logPath,priority)
 
 
 dagmanFile = open('upper_limit.dag','w')
