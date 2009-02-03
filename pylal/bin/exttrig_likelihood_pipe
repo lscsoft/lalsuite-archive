@@ -48,11 +48,6 @@ def create_list_veto_files(opts, categories):
   @param: categories: A list of categories which should be included
   """
    
-  # see what path is needed
-  veto_path = '/home/dietz/Data/VetoedSegs/'
-  if not os.path.isdir(veto_path):
-     veto_dir = '/archive'+veto_path
-
   # split the used IFO's
   ifos = [opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag)/2)]
   
@@ -60,7 +55,7 @@ def create_list_veto_files(opts, categories):
   veto_files = ''
   for cat in categories:
      for ifo in ifos:
-        veto_files += ','+veto_path+'%s_cat%d_vetoed_segments.txt' % \
+        veto_files += ',../../%s_cat%d_vetoed_segments.txt' % \
                       (ifo, cat)
 
   return veto_files
