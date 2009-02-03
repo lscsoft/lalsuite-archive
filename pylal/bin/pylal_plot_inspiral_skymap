@@ -13,7 +13,7 @@ from optparse import *
 from pylal import webUtils
 from pylal import InspiralUtils
 import operator
-
+import gzip
 
 def sinc(x):
   if x !=0:
@@ -77,7 +77,7 @@ def skymapbin(RAint,DECint,colorMat,ra_dec_tuple):
 
 
 def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat, divisorMat = None):
-  outfile = open(file,"r")
+  outfile = gzip.open(file,"r")
   outlist = []
   for line in outfile.readlines():
     ra = float(line.split()[0])
@@ -86,6 +86,7 @@ def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat, divisorMat = None):
     ra_dec_tuple = tuple((ra,dec,prob)) 
     outlist.append(ra_dec_tuple)
     skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
+  outfile.close()
   return outlist
 
 
