@@ -87,7 +87,7 @@ class followUpInspJob(inspiral.InspiralJob,webTheJob):
 class followUpInspNode(inspiral.InspiralNode,webTheNode):
   
   def __init__(self, inspJob, procParams, ifo, trig, cp,opts,dag, datafindCache, d_node, datafindCommand, type='plot', sngl_table = None):
-
+    self.sample_rate = string.strip(cp.get('coh-inspiral','sample-rate'))
     if 1:#try:
       self.output_file_name = ""
       #inspiral.InspiralNode.__init__(self, inspJob) 
@@ -129,6 +129,10 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       for row in procParams:
         param = row.param.strip("-")
         value = row.value
+	# override the options for coherent jobs (useful for skymaps so that
+	# we can bump up the sample rate)
+	if type == "coh" and cp.has_option("coh-inspiral",param):
+	  value = cp.get("coh-inspiral",param)
         if param == 'bank-file':
           bankFile = value
         if type == "notrig" or type == "coh":
@@ -342,6 +346,9 @@ class lalapps_skyMapJob(pipeline.CondorDAGJob,webTheJob):
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.setupJobWeb(self.__prog__,tag_base)
+    self.ra_res = string.strip(cp.get('skymap','ra-res'))
+    self.dec_res = string.strip(cp.get('skymap','dec-res'))
+    self.sample_rate = string.strip(cp.get('coh-inspiral','sample-rate'))
 
 ##############################################################################
 # job class for producing the skymap
@@ -359,6 +366,9 @@ class pylal_skyPlotJob(pipeline.CondorDAGJob,webTheJob):
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.setupJobWeb(self.__prog__,tag_base)
+    self.ra_res = string.strip(cp.get('skymap','ra-res'))
+    self.dec_res = string.strip(cp.get('skymap','dec-res'))
+    self.sample_rate = string.strip(cp.get('coh-inspiral','sample-rate'))
 
 
 ##############################################################################
@@ -374,14 +384,17 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
   def __init__(self,job,trig,opts):
     self.ifo_list = ["H1","L1","V1"]
     #self.already_added_ifo_list = []
-    self.ra_res = 512
-    self.dec_res = 256
+
+    self.ra_res = job.ra_res
+    self.dec_res = job.dec_res
+    self.sample_rate = job.sample_rate
     pipeline.CondorDAGNode.__init__(self,job)
     self.friendlyName = 'Produce sky map of event'    
     self.id = job.name + '-skymap-' + str(trig.statValue) + '_' + str(trig.eventID)
     self.setupNodeWeb(job)
     # required by pylal_skyPlotNode
-    self.output_file_name = job.outputPath + self.id+".txt"
+    # this program now gzips its files (otherwise they are really huge)
+    self.output_file_name = job.outputPath + self.id+".txt.gz"
     self.add_var_opt("output-file",self.output_file_name)
     self.add_var_opt("ra-res",self.ra_res)
     self.add_var_opt("dec-res",self.dec_res)
@@ -392,6 +405,7 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
     self.add_var_opt("l1-xml-file","none");
     self.add_var_opt("v1-frame-file","none");
     self.add_var_opt("v1-xml-file","none");
+    self.add_var_opt("sample-rate",self.sample_rate);
 
     if not opts.disable_dag_categories:
       self.set_category(job.name.lower())
