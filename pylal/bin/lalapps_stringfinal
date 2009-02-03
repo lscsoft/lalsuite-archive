@@ -89,7 +89,7 @@ def parse_command_line():
 		if options.loudest_survivor is None:
 			raise ValueError, "must set --loudest-survivor with --injections"
 		options.loudest_survivor = options.loudest_survivor.split("=")
-		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1])) / 1e-20}
+		options.loudest_survivor = {options.loudest_survivor[0]: abs(float(options.loudest_survivor[1]))}
 
 	if options.cal_uncertainty is None:
 		raise ValueError, "must set --cal-uncertainty"
@@ -359,7 +359,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 	def __init__(self, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency")
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
-		self.loudest_survivor_inst, self.loudest_survivor_ampl = loudest_survivor.items()[0]
+		[(self.loudest_survivor_inst, self.loudest_survivor_ampl)] = loudest_survivor.items()
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
 		self.width = filter_width
