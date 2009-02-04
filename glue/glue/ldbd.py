@@ -38,11 +38,8 @@ import string
 import re
 import csv
 import exceptions
-try:
-  import mx.ODBC.DB2 as mxdb
-  from mx.ODBC.DB2 import SQL
-except:
-  pass
+import DB2
+
 
 try:
   import thread
@@ -148,7 +145,7 @@ class LIGOMetadataDatabase:
     """
     self.database = database
     self.uniqueids = {}
-    conn = mxdb.Connect(database)
+    conn = DB2.connect(dsn=database, uid='', pwd='')
     curs = conn.cursor()
     curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM' "
       "AND TYPE<>'A'")
@@ -376,7 +373,7 @@ class LIGOMetadata:
     """
     self.ldb = ldb
     if self.ldb:
-      self.dbcon = mxdb.Connect(self.ldb.database)
+      self.dbcon = DB2.connect(dsn=self.ldb.database, uid='', pwd='')
       self.dbcon.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
       self.curs = self.dbcon.cursor()
     else:
@@ -490,15 +487,15 @@ class LIGOMetadata:
           self.curs.execute(self.table[tab]['query'],
             self.table[tab]['stream'])
           rowcount = self.curs.rowcount
-        except mxdb.Error, e:
-          self.dbcon.rollback()
+        except DB2.Error, e:
+          self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
-        except mxdb.Warning, e:
-          self.dbcon.rollback()
+        except DB2.Warning, e:
+          self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
       except KeyError:
         pass
-    self.dbcon.commit()
+    self.curs.execute('commit')
     return rowcount
 
 
@@ -538,7 +535,7 @@ class LIGOMetadata:
       }
     try:
       self.curs.execute(sql)
-    except mxdb.Error, e:
+    except DB2.Error, e:
       raise LIGOLwDBError, e[2]
     desc = self.curs.description
     for col,typ,disp,intsz,prec,sca,nul in desc:
@@ -550,7 +547,7 @@ class LIGOMetadata:
 
     try:
       self.table[tab]['stream'] = self.curs.fetchall()
-    except mxdb.Error, e:
+    except DB2.Error, e:
       raise LIGOLwDBError, e[2]
 
     return len(self.table[tab]['stream'])
