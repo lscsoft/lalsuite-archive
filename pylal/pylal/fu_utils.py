@@ -960,7 +960,8 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                               break
               followups.append(fuList)
               # generate a cohbank xml file for this coinc trigger
-              maxIFO = generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,'trigTemplateBank',"coh",add_columns)
+              if search:
+                maxIFO = generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
       else:
 
           ifarList=list()
@@ -1019,8 +1020,9 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                               break 
               followups.append(fuList)
               # generate a cohbank xml file for this coinc trigger
-              generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,'trigTemplateBank',"coh",add_columns)
-              print "produced cohbank files 2..."
+              if search:
+                generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
+                print "produced cohbank files 2..."
   # the missed stuff doesnt work yet!!!
   print "produced " + str(xmfilenum) + " trig bank files..."
 
@@ -1404,7 +1406,7 @@ class nVeto:
 #############################################################################
 # Function to generate a coherentbank xml file
 #############################################################################
-def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=None,type='plot',use_col_from_installation=None):
+def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outputPath=None,type='plot',use_col_from_installation=None):
 
   if outputPath:
     try:
@@ -1452,6 +1454,14 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,outputPath=N
 
   search_summary_table = lsctables.New(lsctables.SearchSummaryTable)
   xmldoc.childNodes[-1].appendChild(search_summary_table)
+  for chunk in search:
+    out_start_time = float(chunk.out_start_time)
+    out_start_time_ns = float(chunk.out_start_time_ns)/1000000000
+    out_end_time = float(chunk.out_end_time)
+    out_end_time_ns = float(chunk.out_end_time_ns)/1000000000
+    if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
+      search_summary_table.append(chunk)
+      break
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
