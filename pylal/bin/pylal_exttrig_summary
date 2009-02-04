@@ -36,13 +36,20 @@ kml_template='<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky"><Doc
 
 
 # --------------------------------
-def mkdirsafe( directory ):
+def mkdirsafe( directory, nag = False ):
   """
-  Creates a directory, does not nag about when it already exists
+  Create a directory if it does not already exist.
+  Optionally, nag if it already exists.
   """
   try:
      os.makedirs(directory)
   except OSError, (errno, strerror):
+    if errno == 17 and nag:
+      raise OSError, "Directory '%s' already exists, all files "\
+            "contained will be included in summary file, "\
+            "although not related to THIS summary!" \
+            " Suggestion: rename directory '%s'." % \
+            (directory, directory)
     if errno!=17:
       raise
 
@@ -198,12 +205,11 @@ if opts.type=='OPENBOX':
   plots_dir+='OPENBOX'
 
 # create directory structure
-root_dir = opts.root_dir
+root_dir = opts.root_dir+'-'+opts.type
 image_dir = root_dir+'/'+plots_dir+'/Images'
-mkdirsafe(root_dir)
+mkdirsafe(root_dir, True)
 mkdirsafe(root_dir+'/'+plots_dir)
 mkdirsafe(image_dir)
-
 
 ## create the kml file
 kml = create_kml(this_grb, user_tag)
