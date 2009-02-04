@@ -1424,11 +1424,11 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
     if snr > maxSNR:
       maxSNR = snr
       maxIFO = t.ifo
-    trig = getattr(ckey,maxIFO)
+  trig = getattr(ckey,maxIFO)
 
   #This is a hack since data channel can differ among ifos
-  properChannelTrig = getattr(ckey,maxIFO)
-  trig.channel = properChannelTrig.channel
+  #properChannelTrig = getattr(ckey,maxIFO)
+  #trig.channel = properChannelTrig.channel
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
   valid_columns = trig.__slots__
   columns = []
@@ -1466,8 +1466,13 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
   # Each coherent bank file should have trig rows for all ifos in a coinc
-  for ifo in ifolist_in_coinc:
-    trig.ifo = ifo
+  #for ifo in ifolist_in_coinc:
+  # Each coherent bank file should have trig rows for all ifos in science mode
+
+  for j in range(0,len(ifoTag)-1,2):
+    itf = ifoTag[j:j+2]
+    trig.ifo = itf
+    #setattr(trig,"ifo",itf)
     sngl_inspiral_table.append(trig)
 
   fileName = ifoTag + '-COHBANK_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)) + "-2048.xml.gz"
