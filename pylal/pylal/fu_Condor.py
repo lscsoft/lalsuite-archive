@@ -1396,9 +1396,10 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("low-frequency-cutoff","4.000000e+01")
       self.add_var_opt("sample-rate","4096")
       self.add_var_opt("cohsnr-threshold","5.5")
-      self.add_var_opt("ifo-tag","H1H2")
+      #self.add_var_opt("ifo-tag","H1H2")
+      self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
-      bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime['H1'])) + '-2048.xml.gz'
+      bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
 
       self.add_var_opt("write-events","")
       self.add_var_opt("write-compress","")
@@ -1418,8 +1419,8 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       # The difference between these two times should be kept to 2s
       # Otherwise change the clustering window also
       hLengthAnalyzed = 1
-      self.add_var_opt("gps-start-time",int(trig.gpsTime['H1']) - int(hLengthAnalyzed) )
-      self.add_var_opt("gps-end-time",int(trig.gpsTime['H1']) + int(hLengthAnalyzed) )
+      self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) - int(hLengthAnalyzed) )
+      self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]) + int(hLengthAnalyzed) )
       skipParams = ['minimal-match', 'bank-file', 'user-tag', 'injection-file', 'trig-start-time', 'trig-end-time']
 
       if opts.plot_chia:
