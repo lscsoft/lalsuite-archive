@@ -34,7 +34,11 @@ import socket
 import SocketServer
 import cPickle
 from glue import ldbd
-import rlsClient
+try:
+  import rlsClient
+except:
+  pass
+
 
 def dtd_uri_callback(uri):
   if uri == 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt':
@@ -314,7 +318,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       ligomd.parse(arg[0])
 
       # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
+#      ligomd.set_dn(remote_dn)
 
       # insert the metadata into the database
       result = str(ligomd.insert())
