@@ -374,7 +374,6 @@ class LIGOMetadata:
     self.ldb = ldb
     if self.ldb:
       self.dbcon = DB2.connect(dsn=self.ldb.database, uid='', pwd='')
-      self.dbcon.setconnectoption(SQL.AUTOCOMMIT, SQL.AUTOCOMMIT_OFF)
       self.curs = self.dbcon.cursor()
     else:
       self.dbcon = None
