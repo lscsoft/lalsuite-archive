@@ -1,0 +1,363 @@
+#!/usr/bin/env python
+#
+# $Id$
+#
+# Copyright (C) 2009  Larne Pekowsky
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Takes one or more segment XML files and a query file, runs the query against
+the segments, and produces veto files as XML and text
+"""
+
+
+from optparse import OptionParser
+
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+
+import sys
+import os
+import glob
+
+import glue.segments
+
+from glue.ligolw.utils import ligolw_add
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+
+
+PROGRAM_NAME = sys.argv[0].replace('./','')
+PROGRAM_PID  = os.getpid()
+USER_NAME    = os.getlogin()
+
+
+
+__author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+    """
+    Parse the command line, return an options object
+    """
+
+    parser = OptionParser(
+        version = "%prog CVS $Header$",
+        usage   = "%prog -v|--veto-file filename [options]",
+        description = "Reads one or more segment files and a veto file and generates files of veto segments"        
+	)
+    
+    parser.add_option("-i", "--input-dir",    metavar = "input_dir",    default = '.',     help = "Directory containing segment XML files (default=cwd).")
+    parser.add_option("-g", "--glob-pattern", metavar = "glob_pattern", default = '*.xml', help = "Glob pattern for segment XML files (define=*,xml).")
+    parser.add_option("-v", "--veto-file",    metavar = "veto_file",    help = "veto XML file (required).")
+    parser.add_option("-o", "--output-dir",   metavar = "output_dir",   default = '.',          help = "Directory to write output (default=cwd).")
+    parser.add_option("-x", "--keep-xml",     metavar = "keep_xml",     action  = "store_true", help = "Keep temporary XML file.")
+    parser.add_option("-d", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
+                      
+    options, others = parser.parse_args()
+    
+    if not options.veto_file:
+        raise ValueError, "missing required argument --veto-file"
+    
+    return options
+
+
+
+
+#
+# =============================================================================
+#
+#                                 Library Code
+#
+# =============================================================================
+#
+
+def get_next_id(connection, table_name, column_name):
+    prefix    = table_name + ":" + column_name + ":"
+
+    cursor = connection.cursor()
+
+    #
+    # We'd like to do
+    #   cursor.execute("""select max(%s) from %s""" % (column_name, table_name))
+    # but unfortunately the ids are strings, and as strings foo:foo_id:8 > foo:foo_id:10
+    #
+
+    max_id = -1
+    
+    cursor.execute("""select %s from %s""" % (column_name, table_name))
+    for row in cursor:
+        id_s = str(row[0])
+        id_i = int(id_s[len(prefix):])
+
+        if id_i > max_id:
+            max_id = id_i
+    
+    id = prefix + str(max_id + 1)
+
+    cursor.close()
+    return id
+
+
+def register_myself(connection):
+    #
+    # Add myself as a process and segment_definer
+    #
+    process_id = get_next_id(connection,'process','process_id')
+    segment_id = get_next_id(connection,'segment_definer','segment_def_id')    
+    cursor     = connection.cursor()
+
+    cursor.execute("""insert into process(process_id, program, version, cvs_repository, cvs_entry_time, is_online, node, username, unix_procid, start_time, end_time)
+                      values(?, ?, 0, '$RCSfile$', 0, 0, 0, ?, ?, 0, 0)""",
+                   (process_id, PROGRAM_NAME, USER_NAME, PROGRAM_PID))
+    
+    cursor.execute("""insert into segment_definer(process_id, segment_def_id, ifos, name, version, comment)
+                      values(?, ?, 'H1H2L1', ?, 1, '') """, (process_id, segment_id, PROGRAM_NAME))
+    connection.commit()
+    cursor.close()
+    
+    return segment_id, process_id
+
+
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+if __name__ == '__main__':
+    options      = parse_command_line()    
+
+    # TODO: These should have better names that include the
+    # start and end times
+    temp_xml     = options.output_dir + '/combined_temp.xml'
+    temp_db      = options.output_dir + '/temp.db'
+
+    glob_pattern = options.input_dir
+    
+    if not glob_pattern.endswith('/'):
+        glob_pattern += '/'
+
+    glob_pattern += options.glob_pattern
+
+    xml_files = glob.glob(glob_pattern)
+    xml_files.append(options.veto_file)
+
+    #
+    # Using the ligolw_sqlite methods to sequentially read in the data
+    # doesn't work, because it doesn't keep track of the primary keys
+    # (TODO: This should be fixed) so in the meantime use the
+    # lilgolw_add methods to merge to a temporary file (TODO: the file
+    # isn't really needed, we should be able to just pass the xmldoc
+    # to ligolw_sqlite.insert)
+    #    
+    lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), xml_files, non_lsc_tables_ok = True)
+    utils.write_filename(xmldoc, temp_xml)
+
+    #
+    # importing these causes some global attributes to be set, which
+    # configures the system to use dbtables, which breaks ligolw_add.
+    # So we have to import after the above work is done...
+    #
+    from glue.ligolw.utils import ligolw_sqlite
+    from glue.ligolw import dbtables
+
+    target     = dbtables.get_connection_filename(temp_db, None, True, False)
+    connection = ligolw_sqlite.setup(target)
+
+    ligolw_sqlite.insert(connection, [temp_xml])
+
+    
+    # Get start and end times for file names
+    cursor        = connection.cursor()
+    cursor.execute("select min(start_time), max(end_time) from segment")
+    min_start_time, max_end_time = cursor.fetchone()
+
+
+    #
+    # Get the set of veto categories and ifos for which we have segments 
+    #
+    cursor.execute("select distinct(category) from veto_definer")
+    categories = map(lambda row: row[0], cursor)
+    cursor.execute("select distinct(ifos) from segment_definer")
+    ifos = map(lambda row: row[0], cursor)
+    cursor.close()
+    
+    segment_def_id, process_id = register_myself(connection)
+
+    #
+    # Back up the segment table
+    #
+    cursor            = connection.cursor()
+    cursor.execute("select sql from SQLITE_MASTER where name='segment'")
+    seg_table_sql     = str(cursor.fetchone()[0])
+    seg_bak_table_sql = seg_table_sql.replace('TABLE segment','TABLE segment_bak')
+    cursor.execute(seg_bak_table_sql)
+    cursor.execute('insert into segment_bak select * from segment')
+    connection.commit()
+    cursor.close()
+
+    for ifo in ifos:
+        # Update the IFOs for the segment definer
+        cursor = connection.cursor()
+        cursor.execute("""UPDATE segment_definer SET ifos=? WHERE name = ?""", (ifo, PROGRAM_NAME))
+        connection.commit()
+        cursor.close()
+
+        
+        for category_num in categories:
+            #
+            # Get the set of vetos
+            #
+            cursor = connection.cursor()
+            cursor.execute("""SELECT * FROM veto_definer WHERE ifo = ? AND category <= ?""", (ifo, category_num))
+
+            #
+            # Clear out the segments table
+            #
+            cursor = connection.cursor()
+            cursor.execute("DELETE FROM segment")
+            connection.commit()
+            cursor.close()
+
+            cursor = connection.cursor()
+
+            cursor.execute("""
+             SELECT segment_bak.start_time, segment_bak.end_time, veto_definer.start_time, veto_definer.end_time, veto_definer.start_pad, veto_definer.end_pad
+             FROM segment_bak, segment_definer, veto_definer 
+             WHERE segment_bak.segment_def_id = segment_definer.segment_def_id
+               AND segment_definer.ifos = veto_definer.ifo
+               AND veto_definer.ifo  = ?
+               AND veto_definer.name = segment_definer.name
+               AND veto_definer.version = segment_definer.version
+               AND veto_definer.category <= ? """,(ifo, category_num))
+            
+            disjoint_segments = []
+        
+            for row in cursor:
+                seg_start_time, seg_end_time, veto_start_time, veto_end_time, start_pad, end_pad = row
+
+                if seg_end_time == 0:
+                    seg_end_time = glue.segments.infinity()
+
+                if veto_end_time == 0:
+                    veto_end_time = glue.segments.infinity()
+                    
+                seg_interval  = glue.segments.segment(seg_start_time, seg_end_time)
+                veto_interval = glue.segments.segment(veto_start_time, veto_end_time)
+
+                # Is there any overlap?
+                try:
+                    # If there's no overlap this line will fail
+                    combo_segment = seg_interval & veto_interval
+
+                    # Add the padding
+                    combo_segment = glue.segments.segment(combo_segment[0] - start_pad, combo_segment[1] + end_pad)
+
+                    # This shouldn't be necessary, but just in case check whether this overlaps with an existing time
+                    found       = False
+                    for i in range(len(disjoint_segments)):
+                        try:
+                            disjoint_segments[i] = disjoint_segments[i] | combo_segment
+                            found = True
+                        except:
+                            pass
+                        
+                    if not found:
+                        disjoint_segments.append(combo_segment)
+                except:
+                    pass
+                
+
+            segment_id = 0
+        
+            for seg in disjoint_segments:
+                cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
+                               ('segment:segment_id:%d' % segment_id, seg[0], seg[1], segment_def_id, process_id))
+                segment_id += 1
+            
+            connection.commit()
+            
+
+            #
+            # Update the summary table
+            #
+            cursor.execute("DELETE FROM segment_summary")
+            cursor.execute("""INSERT INTO segment_summary(start_time, end_time, segment_def_id, process_id) VALUES(?,?,?,?)""",
+                           (min_start_time, max_end_time, segment_def_id, process_id))
+            connection.commit()
+            
+            #
+            # Dump to XML
+            #
+            output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+            ligolw_sqlite.extract(connection, output_name, table_names = ['process','segment_definer','veto_definer','segment','segment_summary'] )
+
+            #
+            # Dump to text
+            #
+            output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.txt" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+            f_out       = open(output_name,'w')
+            cursor      = connection.cursor()
+            cursor.execute("select start_time, end_time from segment")
+            rowcount    = 1
+            for row in cursor:
+                print >>f_out, '%d\t%d\t%d\t%d' % (rowcount, row[0], row[1], (row[1] - row[0]))
+                rowcount += 1
+            f_out.close()
+            cursor.close()
+
+
+    #
+    # Clean up
+    #
+    if not options.keep_xml:
+        os.remove(temp_xml)
+
+    if not options.keep_db:
+        os.remove(temp_db)
+
+        
