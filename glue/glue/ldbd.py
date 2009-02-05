@@ -190,7 +190,7 @@ class UniqueIds:
       return get_thread_storage()['uqids'][istring]
     except KeyError:
       curs = get_thread_storage()['curs']
-      curs.execute('VALUES GENERATE_UNIQUE()')
+      curs.execute('VALUES BLOB(GENERATE_UNIQUE())')
       get_thread_storage()['uqids'][istring] = curs.fetchone()[0]
       return get_thread_storage()['uqids'][istring]
 
@@ -472,7 +472,7 @@ class LIGOMetadata:
       missingcols = [k for k in self.ldb.uniqueids[tab] 
         if k not in self.table[tab]['column']]
       for m in missingcols:
-        generate.append(',GENERATE_UNIQUE()')
+        generate.append(',BLOB(GENERATE_UNIQUE())')
         self.table[tab]['orderedcol'].append(m)
       # and construct the sql query
       self.table[tab]['query'] = ' '.join( 
@@ -483,7 +483,7 @@ class LIGOMetadata:
       tab = tabtup[0].lower()
       try:
         try: 
-          self.curs.execute(self.table[tab]['query'],
+          self.curs.executemany(self.table[tab]['query'],
             self.table[tab]['stream'])
           rowcount = self.curs.rowcount
         except DB2.Error, e:
