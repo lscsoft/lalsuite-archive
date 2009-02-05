@@ -323,14 +323,18 @@ def get_column_info(connection, table_name):
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
 
-def get_xml(connection):
+def get_xml(connection, table_names = None):
 	"""
 	Construct an XML document tree wrapping around the contents of the
 	database.  On success the return value is a ligolw.LIGO_LW element
 	containing the tables as children.
 	"""
 	ligo_lw = ligolw.LIGO_LW()
-	for table_name in get_table_names(connection):
+
+	if table_names is None:
+		table_names = get_table_names(connection)
+		
+	for table_name in table_names:
 		# build the table document tree.  copied from
 		# lsctables.New()
 		try:
