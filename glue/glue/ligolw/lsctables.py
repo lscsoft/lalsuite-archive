@@ -1738,6 +1738,8 @@ class SegmentTable(table.Table):
 		"start_time_ns": "int_4s",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
+		"segment_def_id": "ilwd:char",
+		"segment_def_cdb": "int_4s",
 		"active": "int_4s",
 		"segnum": "int_4s",
 		"insertion_time": "int_4s"
