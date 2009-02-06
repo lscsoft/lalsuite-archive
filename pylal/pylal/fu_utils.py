@@ -1471,9 +1471,9 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   for j in range(0,len(ifoTag)-1,2):
     itf = ifoTag[j:j+2]
-    trig.ifo = itf
-    #setattr(trig,"ifo",itf)
-    sngl_inspiral_table.append(trig)
+    trigger = copy.deepcopy(trig)
+    trigger.ifo = itf
+    sngl_inspiral_table.append(trigger)
 
   fileName = ifoTag + '-COHBANK_FOLLOWUP_' + str(int(ckey.event_id)) + '-' + str(int(triggerTime)) + "-2048.xml.gz"
   if outputPath:
@@ -1481,4 +1481,5 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
   return maxIFO
+
 
