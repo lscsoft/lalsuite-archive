@@ -44,7 +44,7 @@ from glue import segments
 #
 
 
-def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
+def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False, non_lsc_tables_ok=False):
   """
   Read the SnglInspiralTables from a list of files
 
@@ -59,7 +59,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
 
   # ligolw_add will merge all tables, which is overkill, but merge time is
   # much less than I/O time.
-  xmldoc = ligolw_add.ligolw_add(ligolw.Document(), fileList, verbose=verbose)
+  xmldoc = ligolw_add.ligolw_add(ligolw.Document(), fileList, non_lsc_tables_ok=non_lsc_tables_ok,  verbose=verbose)
 
   # extract the SnglInspiral table
   try:
@@ -75,7 +75,7 @@ def ReadSnglInspiralFromFiles(fileList, mangle_event_id=False, verbose=False):
 
 
 def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
-  mangleEventId=False, verbose=False):
+  mangleEventId=False, verbose=False, non_lsc_tables_ok=False):
   """
   Function for reading time-slided single inspiral triggers
   with automatic resliding the times, given a list of input files.
@@ -91,21 +91,24 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
   """
 
   # read raw triggers
+  inspTriggers = None
   inspTriggers = ReadSnglInspiralFromFiles(\
-    fileList, verbose=verbose, mangle_event_id=mangleEventId )
+    fileList, verbose=verbose, mangle_event_id=mangleEventId, non_lsc_tables_ok=non_lsc_tables_ok )
+  if inspTriggers:
+    # get the rings
+    segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
+    rings = segments.segmentlist(iterutils.flatten(segDict.values()))
+    rings.sort()
+    for i,ring in enumerate(rings):
+      rings[i] = segments.segment(rings[i][0], rings[i][1] + 10**(-9))
 
-  # get the rings
-  segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
-  rings = segments.segmentlist(iterutils.flatten(segDict.values()))
-  rings.sort()
+    # perform the veto
+    if vetoFile is not None:
+      segList = segmentsUtils.fromsegwizard(open(vetoFile))
+      inspTriggers = inspTriggers.veto(segList)
 
-  # perform the veto
-  if vetoFile is not None:
-    segList = segmentsUtils.fromsegwizard(open(vetoFile))
-    inspTriggers = inspTriggers.veto(segList)
-
-  # now slide all the triggers within their appropriate ring
-  slideTriggersOnRingWithVector(inspTriggers, shiftVector, rings)
+    # now slide all the triggers within their appropriate ring
+    slideTriggersOnRingWithVector(inspTriggers, shiftVector, rings)
 
   # return the re-slided triggers
   return inspTriggers
@@ -151,14 +154,19 @@ def CompareSnglInspiral(a, b, twindow = date.LIGOTimeGPS(0)):
 # =============================================================================
 #
 
-
 def slideTimeOnRing(time, shift, ring):
   """
   Return time after adding shift, but constrained to lie along the ring
   """
-  assert time in ring
-  # use ring[0] as an epoch, do arithmetic using floats relative to epoch
-  return ring[0] + (float(time - ring[0]) + shift) % float(abs(ring))
+  newTime = time + shift
+  if shift > 0:
+    newTime = ring[0] + (newTime - ring[0]) % float(abs(ring))
+  if shift < 0:
+    newTime = ring[1] - (ring[1] - newTime) % float(abs(ring))
+  if newTime == ring[1]:
+    newTime = ring[0]
+
+  return newTime
 
 
 def slideTriggersOnRings(triggerList, rings, shifts):
@@ -172,8 +180,20 @@ def slideTriggersOnRings(triggerList, rings, shifts):
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
   for trigger in triggerList:
-    end_time = trigger.get_end()
-    trigger.set_end(slideTimeOnRing(end_time, shifts[trigger.ifo], rings[rings.find(end_time)]))
+    oldTime = date.LIGOTimeGPS(trigger.end_time,trigger.end_time_ns)
+    ringIdx = rings.find(oldTime)
+    ring = rings[ringIdx]
+
+    # check that trigger was represented in rings, actually
+    if ringIdx == len(rings):
+      print >> sys.stderr, "DireErrorAboutRounding"
+      sys.exit(1)
+    # algorithm sanity check: trigger in chosen ring
+    assert trigger.end_time in ring
+
+    newTime = slideTimeOnRing(oldTime, shifts[trigger.ifo], ring)
+    trigger.end_time = newTime.seconds
+    trigger.end_time_ns = newTime.nanoseconds
 
 
 def unslideTriggersOnRings(triggerList, rings, shifts):
@@ -187,11 +207,12 @@ def unslideTriggersOnRings(triggerList, rings, shifts):
    @param rings:       sorted segment list of possible rings
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
-  slideTriggersOnRings(triggerList, rings, dict((ifo, -shift) for ifo, shift in shifts.items()))
+  negativeShifts = dict([(ifo, -shift) for ifo,shift in shifts.items()])
+  slideTriggersOnRings(triggerList, rings, negativeShifts)
 
 
 def slideTriggersOnRingWithVector(triggerList, shiftVector, rings):
-  """
+   """
    In-place modify trigger_list so that triggers are slid by
    along their enclosing ring segment by the algorithm given in XXX.
    Slide numbers are extracted from the event_id of each trigger,
@@ -204,48 +225,108 @@ def slideTriggersOnRingWithVector(triggerList, shiftVector, rings):
    @param shiftVector: a dictionary of the unit time-shift vector,
                        keyed by IFO
    @param rings:       sorted segment list of possible rings
-  """
-  for trigger in triggerList:
-    end_time = trigger.get_end()
-    trigger.set_end(slideTimeOnRing(end_time, trigger.get_slide_number() * shiftVector[trigger.ifo], rings[rings.find(end_time)]))
+   """
+   for trigger in triggerList:
+       # get shift
+       shift = trigger.get_slide_number() * shiftVector[trigger.ifo]
+
+       # get ring
+       ringIndex = rings.find(trigger.end_time)
+       ring = rings[ringIndex]
+
+       # check that trigger was represented in rings, actually
+       if ringIndex == len(rings):
+         print >> sys.stderr, "DireErrorAboutRounding"
+         sys.exit(1)
+       # algorithm sanity check: trigger in chosen ring
+       assert trigger.end_time in ring
+
+       # perform shift
+       oldTime = date.LIGOTimeGPS(trigger.end_time, trigger.end_time_ns)
+       newTime = slideTimeOnRing(oldTime, shift, ring)
+       trigger.end_time = newTime.seconds
+       trigger.end_time_ns = newTime.nanoseconds
 
 
 def slideSegListDictOnRing(ring, seglistdict, shifts):
   """
    Return seglistdict with segments that are slid by appropriate values of
    shifts along the ring segment by the algorithm given in XXX.
+   This function calls the function slideTimeOnRing
 
    @param ring:        segment on which to cyclicly slide segments in
                        seglistdict
    @param seglistdict: segments to be slid on ring
    @param shifts:      a dictionary of the time-shifts keyed by IFO
   """
-  # don't do this in loops
-  ring_duration = float(abs(ring))
+  # calculate start and end of ring as well as duration
+  start,end = ring
+  dur = end - start
 
-  # automate multi-list arithmetic
-  ring = segments.segmentlistdict.fromkeys(seglistdict.keys(), segments.segmentlist([ring]))
+  # create a new seglistdict so we don't modify the old one
+  slidseglistdict = segments.segmentlistdict([])
 
-  # make a copy, and extract the segments that are in the ring.
-  seglistdict = seglistdict & ring
+  # loop over ifos
+  for key in shifts.keys():
+    # shift seglistdict to have segment start at 0
+    slidseglistdict[key] = copy.copy(seglistdict[key])
+    slidseglistdict[key] = slidseglistdict[key].shift(shifts[key] - start)
 
-  # normalize the shift vector.  after this all the shifts are non-negative
-  # and less than the duration of the ring.
-  shifts = dict((instrument, shift % ring_duration) for instrument, shift in shifts.items())
+    # keep track of whether a segment needs to be split at the end
+    splitseg = 0
 
-  # apply the shift vector.
-  seglistdict.offsets.update(shifts)
+    tmpslidseglist = segments.segmentlist([])
+    for seg in slidseglistdict[key]:
+      if shifts[key] >= 0:
+        while seg[0] >= dur:
+          # segment start has slid past end of ring, subtract duration of
+          # ring until start of segment is in ring
+          seg = seg.shift(-dur)
 
-  # split the result into the pieces that are still in the ring, and the
-  # pieces that have fallen off the edge.  both retain the shift vector in
-  # the offsets attribute.
-  extra = seglistdict - ring
-  seglistdict &= ring
+        if seg[1] > dur:
+          # segment end is after end of ring, we need to split this segment
+          # so keep track of how much overflow there is and contract/shift
+          # segment so that it ends at the end of the ring
+          splitseg = seg[1] - dur
+          seg = seg.contract(splitseg/2.)
+          seg = seg.shift(-splitseg/2.)
 
-  # wrap the fallen-off pieces around the ring.
-  for instrument in extra.keys():
-    extra.offsets[instrument] -= ring_duration
+        # append seg to new seglist
+        tmpslidseglist.append(seg)
 
-  # return the union of the results.  seglistdict's shift vector is
-  # retained in the offests attribute.
-  return seglistdict | extra
+      if shifts[key] < 0:
+        while seg[1] <= 0:
+          # segment end has slid past start of ring, add duration of
+          # ring until end of segment is in ring
+          seg = seg.shift(dur)
+
+        if seg[0] < 0:
+          # segment start is before start of ring, we need to split this
+          # segment so keep track of how much underflow there is and
+          # contract/shift segment so that it starts at the start of the ring
+          splitseg = seg[0]
+          seg = seg.contract(-splitseg/2.)
+          seg = seg.shift(-splitseg/2.)
+
+        # append seg to new seglist
+        tmpslidseglist.append(seg)
+
+    # set this ifos seglist to the new seglist
+    slidseglistdict[key] = tmpslidseglist
+
+    # if there was a segment needing to be split, append the amount
+    # that was overflow/underflow as well
+    if splitseg > 0:
+      slidseglistdict[key].append(segments.segment(0,splitseg))
+    if splitseg < 0:
+      slidseglistdict[key].append(segments.segment(dur+splitseg,dur))
+
+  # coalesce the new seglistdict
+  slidseglistdict = slidseglistdict.coalesce()
+
+  # shift new seglistdict to start of ring and return
+  for key in slidseglistdict.keys():
+    slidseglistdict[key] = slidseglistdict[key].shift(start)
+
+  return slidseglistdict
+
