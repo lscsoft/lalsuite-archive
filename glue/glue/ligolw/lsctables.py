@@ -1000,6 +1000,7 @@ class CoincInspiralTable(table.Table):
 	tableName = "coinc_inspiral:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
+                "ifos": "lstring",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"mchirp": "real_8",
@@ -1019,6 +1020,11 @@ class CoincInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
+        def set_ifos(self, ifos):
+                self.ifos = ifos_from_instrument_set( ifos )
+
+        def get_ifos(self):
+                return instrument_set_from_ifos( self.ifos )
 
 CoincInspiralTable.RowType = CoincInspiral
 
