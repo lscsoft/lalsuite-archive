@@ -327,7 +327,9 @@ def get_xml(connection, table_names = None):
 	"""
 	Construct an XML document tree wrapping around the contents of the
 	database.  On success the return value is a ligolw.LIGO_LW element
-	containing the tables as children.
+	containing the tables as children.  Arguments are a connection to
+	to a database, and an optional list of table names to dump.  If
+	table_names is not provided the set is obtained from get_table_names()
 	"""
 	ligo_lw = ligolw.LIGO_LW()
 
