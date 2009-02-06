@@ -99,18 +99,22 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
     BackgroundEstimator that takes the Nth loudest point and extrapolates
     the p(c|0) distribution based on its value.
     """
-    def __init__(self, loudest_in_bg_trials, N):
+    def __init__(self, loudest_in_bg_trials, fac):
         """
         Initialize SimpleExpExtrapolator with the extrapolation parameters.
-        Use the Nth point from the end as a fiducial point.
+        Use the (fac*N)th point from the end as a fiducial point, where
+        N is the number of nonempty trials per mchirp bin.
         """
         sorted_loudest = loudest_in_bg_trials.copy()
         sorted_loudest.sort(axis=0)
 
         self.default_evaluator = \
             ConstantBackgroundEstimator(loudest_in_bg_trials, 1e-10)
+        
+        num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc>0).sum(axis=0)
 
-        self.fiducial_x = sorted_loudest[-N, ...]
+        self.fiducial_x = numpy.asarray([ sorted_loudest[-int(fac*N), i] \
+                                          for i,N in enumerate(num_nonempty_offsource_trials)])
         self.fiducial_y = self.default_evaluator(self.fiducial_x)
 
     def __call__(self, loudest_in_trial):
@@ -268,8 +272,9 @@ empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
 # Initialize background and foreground estimation functions
 # NB: start extrapolating 10% from the end of the tail for robustness.
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
-compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc,
-    int(0.1 * num_offsource_trials))
+compute_log_pc0_by_mc = SimpleExpExtrapEstimator(offsource_loudest_by_trial_mc, 0.3)
+
+
 
 # Example of how to switch to constant extrapolator
 # compute_log_pc0_by_mc = ConstantBackgroundEstimator(\
