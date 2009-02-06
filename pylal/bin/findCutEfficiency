@@ -267,7 +267,7 @@ if not opts.skip_timeslides:
     # read in time slides triggers 
     slidesTriggers = None
     InspiralUtils.message(opts," reading in " + file)
-    slidesTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles([file], shiftVector=slides_shift_vector, mangleEventId = False, non_lsc_tables_ok=True)
+    slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], non_lsc_tables_ok=True)
     InspiralUtils.message(opts,"reconstructing coins ...")
     # construct the time slides coincs
     slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
@@ -293,9 +293,9 @@ if not opts.skip_timeslides:
         else:
            max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
 	  
-        # for slide backward
-        # get coincs from the current slide
-        backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
+      # for slide backward
+      # get coincs from the current slide
+      backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
 
       # store this slide's  maximum statistic
       if len( backward_slide_coincs) > 0:    
