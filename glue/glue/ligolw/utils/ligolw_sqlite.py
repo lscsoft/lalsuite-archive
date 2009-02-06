@@ -68,13 +68,13 @@ __version__ = "$Revision$"[11:-2]
 #
 
 def setup(target):
-    connection = sqlite3.connect(target)
-    dbtables.DBTable_set_connection(connection)
+	connection = sqlite3.connect(target)
+	dbtables.DBTable_set_connection(connection)
 
-    for tbl in dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName):
-	tbl.sync_next_id()
+	for tbl in dbtables.get_xml(connection).getElementsByTagName(ligolw.Table.tagName):
+		tbl.sync_next_id()
 
-    return connection
+	return connection
 
 
 #
@@ -129,16 +129,3 @@ def extract(connection, filename, table_names = None, verbose = False):
 	xmldoc.unlink()
 
 
-#
-# Close database
-#
-def cleanup(connection, database, target, verbose = False):
-    connection.close()
-
-    #
-    # Move database to final location
-    #
-    dbtables.put_connection_filename(database, target, verbose)
-
-    if verbose:
-	print >>sys.stderr, "done."

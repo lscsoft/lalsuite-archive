@@ -43,11 +43,7 @@ except ImportError:
 import sys
 
 
-from glue.lal import CacheEntry
-from glue.ligolw import ligolw
 from glue.ligolw import dbtables
-from glue.ligolw import utils
-from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import ligolw_sqlite
 
 
@@ -149,4 +145,12 @@ if __name__ == '__main__':
 	#
 	# Close database
 	#
-	ligolw_sqlite.cleanup(connection, options.database, target, verbose = options.verbose)
+	connection.close()
+
+	#
+	# Move database to final location
+	#
+	dbtables.put_connection_filename(options.database, target, verbose = options.verbose)
+
+	if options.verbose:
+		print >>sys.stderr, "done."
