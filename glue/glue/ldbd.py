@@ -347,8 +347,9 @@ class LIGOLwParser:
                 lst[j][k] = None
               else:
                 lst[j][k] = self.types[table[tab]['column'][thiscol]](stream[i])
-            except KeyError, ValueError:
-              msg = "translation error for column %s in table %s: %s -> %s" \
+            except (KeyError, ValueError) as errmsg:
+              msg = "stream translation error (%s) " % errmsg
+              msg += "for column %s in table %s: %s -> %s" \
                 % (tab,thiscol,stream[i],str(table[tab])) 
               raise LIGOLwParseError, msg
           table[tab]['stream'] = map(tuple,lst)
