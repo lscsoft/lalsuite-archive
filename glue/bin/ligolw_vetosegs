@@ -145,8 +145,8 @@ def register_myself(connection):
     segment_id = get_next_id(connection,'segment_definer','segment_def_id')    
     cursor     = connection.cursor()
 
-    cursor.execute("""insert into process(process_id, program, version, cvs_repository, cvs_entry_time, is_online, node, username, unix_procid, start_time, end_time)
-                      values(?, ?, 0, '$RCSfile$', 0, 0, 0, ?, ?, 0, 0)""",
+    cursor.execute("""insert into process(process_id, program, version, cvs_repository, cvs_entry_time, node, username, unix_procid, start_time, end_time)
+                      values(?, ?, 0, '$RCSfile$', 0, 0, ?, ?, 0, 0)""",
                    (process_id, PROGRAM_NAME, USER_NAME, PROGRAM_PID))
     
     cursor.execute("""insert into segment_definer(process_id, segment_def_id, ifos, name, version, comment)
