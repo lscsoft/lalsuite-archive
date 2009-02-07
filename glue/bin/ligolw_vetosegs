@@ -275,7 +275,7 @@ if __name__ == '__main__':
                AND veto_definer.version = segment_definer.version
                AND veto_definer.category <= ? """,(ifo, category_num))
             
-            disjoint_segments = []
+            disjoint_segments = glue.segments.segmentlist([])
         
             for row in cursor:
                 seg_start_time, seg_end_time, veto_start_time, veto_end_time, start_pad, end_pad = row
@@ -297,21 +297,13 @@ if __name__ == '__main__':
                     # Add the padding
                     combo_segment = glue.segments.segment(combo_segment[0] - start_pad, combo_segment[1] + end_pad)
 
-                    # This shouldn't be necessary, but just in case check whether this overlaps with an existing time
-                    found       = False
-                    for i in range(len(disjoint_segments)):
-                        try:
-                            disjoint_segments[i] = disjoint_segments[i] | combo_segment
-                            found = True
-                        except:
-                            pass
-                        
-                    if not found:
-                        disjoint_segments.append(combo_segment)
+                    disjoint_segments |= glue.segments.segmentlist([combo_segment])
                 except:
                     pass
                 
 
+            disjoint_segments.coalesce()
+            
             segment_id = 0
         
             for seg in disjoint_segments:
@@ -326,7 +318,7 @@ if __name__ == '__main__':
             # Update the summary table
             #
             cursor.execute("DELETE FROM segment_summary")
-            cursor.execute("""INSERT INTO segment_summary(start_time, end_time, segment_def_id, process_id) VALUES(?,?,?,?)""",
+            cursor.execute("""INSERT INTO segment_summary(segment_sum_id,start_time, end_time, segment_def_id, process_id) VALUES('segment_summary:segment_sum_id:0',?,?,?,?)""",
                            (min_start_time, max_end_time, segment_def_id, process_id))
             connection.commit()
             
