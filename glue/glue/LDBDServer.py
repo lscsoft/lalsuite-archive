@@ -475,13 +475,14 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
         logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
-          proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-          known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
+          proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
+          known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
           logger.debug("removing known process row for key %s" % str(uniq_proc))
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this process, so query the database
-          sql = "SELECT process_id FROM process WHERE "
+          logger.debug("Key %s unknown: querying database" % str(uniq_proc))
+          sql = "SELECT BLOB(process_id) FROM process WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
           sql += "node = '" + row[node_col] + "' AND "
           sql += "program = '" + row[prog_col] + "' AND "
@@ -491,14 +492,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           db_proc_ids = ligomd.curs.fetchall()
           if len(db_proc_ids) == 0:
             # this is a new process with no existing entry
+            logger.debug("Key %s is new" % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = row[pid_col]
           elif len(db_proc_ids) == 1:
             # the process_id exists in the database so use that insted
             logger.debug("process row for key %s exists in database" 
               % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
-            proc_key[row[pid_col]] = dmt_proc_dict[uniq_proc]
-            known_proc[dmt_proc_dict[uniq_proc]] = row[end_col]
+            proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
+            known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
             logger.debug("removing process row for key %s" % str(uniq_proc))
             rmv_idx.append(row_idx)
           else:
@@ -526,7 +528,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # determine the locations of columns we need in the segment_definer table
       seg_def_cols = ligomd.table['segment_definer']['orderedcol']
-      run_col = seg_def_cols.index('run')
       ifos_col = seg_def_cols.index('ifos')
       name_col = seg_def_cols.index('name')
       vers_col = seg_def_cols.index('version')
@@ -535,19 +536,20 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # determine and remove known entries in the segment_definer table
       rmv_idx = []
       for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
-        uniq_def = (row[run_col],row[ifos_col],row[name_col],row[vers_col])
+        uniq_def = (row[ifos_col],row[name_col],row[vers_col])
         logger.debug("Checking for segment_definer row with key %s" 
           % str(uniq_def))
         try:
-          seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
-          logger.debug("removing known segment_definer row for key %s" 
+          seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
+          logger.debug("checking for known segment_definer row for key %s" 
             % str(uniq_def))
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this segment_definer, so query the database
-          sql = "SELECT segment_def_id FROM segment_definer WHERE "
+          logger.debug("querying database for segment_definer row for key %s" 
+            % str(uniq_def))
+          sql = "SELECT BLOB(segment_def_id) FROM segment_definer WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
-          sql += "run = '" + row[run_col] + "' AND "
           sql += "ifos = '" + row[ifos_col] + "' AND "
           sql += "name = '" + row[name_col] + "' AND "
           sql += "version = " + str(row[vers_col])
@@ -560,7 +562,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             logger.debug("segment_definer row for key %s exists in database" 
               % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
-            seg_def_key[row[sdid_col]] = dmt_seg_def_dict[uniq_def]
+            seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
             logger.debug("removing segment_definer row for key %s" 
               % str(uniq_def))
             rmv_idx.append(row_idx)
@@ -582,18 +584,18 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         if tabname == 'process':
           # we do nothing to the process table
           pass
-        elif tabname == 'segment_def_map':
+        elif tabname == 'segment' or tabname == 'segment_summary':
           # we need to update the process_id and the segment_def_id columns
           pid_col = table['orderedcol'].index('process_id')
           sdid_col = table['orderedcol'].index('segment_def_id')
           row_idx = 0
           for row in table['stream']:
             try:
-              repl_pid = proc_key[row[pid_col]]
+              repl_pid = proc_key[str(row[pid_col])]
             except KeyError:
               repl_pid = row[pid_col]
             try:
-              repl_sdid = seg_def_key[row[sdid_col]]
+              repl_sdid = seg_def_key[str(row[sdid_col])]
             except KeyError:
               repl_sdid = row[sdid_col]
             row = list(row)
@@ -607,7 +609,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           row_idx = 0
           for row in table['stream']:
             try:
-              repl_pid = proc_key[row[pid_col]]
+              repl_pid = proc_key[str(row[pid_col])]
               row = list(row)
               row[pid_col] = repl_pid
               table['stream'][row_idx] = tuple(row)
@@ -616,6 +618,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             row_idx += 1
 
       # insert the metadata into the database
+      logger.debug("inserting xml data")
       result = str(ligomd.insert())
 
       # update the end time of known processes in the process table
@@ -623,7 +626,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         # first check to see if we are backfilling missing segments
         sql = "SELECT end_time,domain FROM process "
         sql += " WHERE process_id = " + known_proc[pid][0]
-        logger.debug(sql)
         ligomd.curs.execute(sql)
         last_end_time = ligomd.curs.fetchone()
 
@@ -644,7 +646,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           sql = "UPDATE process SET end_time = " + str(known_proc[pid][1])
           sql += " WHERE process_id = " + known_proc[pid][0]
           sql += " AND end_time < " + str(known_proc[pid][1])
-          logger.debug(sql)
           ligomd.curs.execute(sql)
       ligomd.dbcon.commit()
 
