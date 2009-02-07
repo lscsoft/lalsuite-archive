@@ -152,6 +152,8 @@ setup(
     os.path.join('bin','ligolw_print'),
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_vetosegs'),
+    os.path.join('bin','ligolw_vetotimes'),
+    os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
     os.path.join('sbin','segpagegen'),
     os.path.join('sbin','LSCdqInsert'),
