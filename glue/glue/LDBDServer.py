@@ -429,9 +429,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     known_proc = {}
     seg_def_key = {}
 
-    msg = "Method dmtinsert called. Known processes %s, " % str(dmt_proc_dict)
-    msg += "known segment_definers %s" % str(dmt_seg_def_dict)
-    logger.debug(msg)
+    logger.debug( "Method dmtinsert called." )
+    logger.debug( "Known processes %s, " % str(dmt_proc_dict) )
+    logger.debug( "Known segment_definers %s" % str(dmt_seg_def_dict) )
 
     # assume failure
     code = 1
@@ -445,6 +445,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
+      logger.debug("parsing xml data")
       ligomd.parse(arg[0])
 
       # store the users dn in the process table
@@ -473,15 +474,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           # we have run out of indices for the table entries
           raise ServerHandlerException, "exhausted tables indices"
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
-        logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
           proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
           known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
-          logger.debug("removing known process row for key %s" % str(uniq_proc))
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this process, so query the database
-          logger.debug("Key %s unknown: querying database" % str(uniq_proc))
           sql = "SELECT BLOB(process_id) FROM process WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
           sql += "node = '" + row[node_col] + "' AND "
@@ -492,16 +490,12 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           db_proc_ids = ligomd.curs.fetchall()
           if len(db_proc_ids) == 0:
             # this is a new process with no existing entry
-            logger.debug("Key %s is new" % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = row[pid_col]
           elif len(db_proc_ids) == 1:
             # the process_id exists in the database so use that insted
-            logger.debug("process row for key %s exists in database" 
-              % str(uniq_proc))
             dmt_proc_dict[uniq_proc] = db_proc_ids[0][0]
             proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
             known_proc[str(dmt_proc_dict[uniq_proc])] = row[end_col]
-            logger.debug("removing process row for key %s" % str(uniq_proc))
             rmv_idx.append(row_idx)
           else:
             # multiple entries for this process, needs human assistance
@@ -537,17 +531,11 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       rmv_idx = []
       for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
         uniq_def = (row[ifos_col],row[name_col],row[vers_col])
-        logger.debug("Checking for segment_definer row with key %s" 
-          % str(uniq_def))
         try:
           seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
-          logger.debug("checking for known segment_definer row for key %s" 
-            % str(uniq_def))
           rmv_idx.append(row_idx)
         except KeyError:
           # we know nothing about this segment_definer, so query the database
-          logger.debug("querying database for segment_definer row for key %s" 
-            % str(uniq_def))
           sql = "SELECT BLOB(segment_def_id) FROM segment_definer WHERE "
           sql += "creator_db = " + str(creator_db) + " AND "
           sql += "ifos = '" + row[ifos_col] + "' AND "
@@ -559,12 +547,8 @@ class ServerHandler(SocketServer.BaseRequestHandler):
             # this is a new segment_defintion with no existing entry
             dmt_seg_def_dict[uniq_def] = row[sdid_col]
           else:
-            logger.debug("segment_definer row for key %s exists in database" 
-              % str(uniq_def))
             dmt_seg_def_dict[uniq_def] = db_seg_def_id[0][0]
             seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
-            logger.debug("removing segment_definer row for key %s" 
-              % str(uniq_def))
             rmv_idx.append(row_idx)
 
       # delete the necessary rows. if the table is empty, delete it
@@ -620,6 +604,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # insert the metadata into the database
       logger.debug("inserting xml data")
       result = str(ligomd.insert())
+      logger.debug("insertion complete")
 
       # update the end time of known processes in the process table
       for pid in known_proc.keys():
