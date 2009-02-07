@@ -53,7 +53,7 @@ def dtd_uri_callback(uri):
 def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
-  global dmt_proc_dict, dmt_seg_def_dict, indices
+  global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
   
   # initialize the logger
   logger = log
@@ -88,7 +88,9 @@ def initialize(configuration,log):
   # initialize dictionaries for the dmt processes and segments definers
   dmt_proc_dict = {}
   dmt_seg_def_dict = {}
-  indices = xrange(sys.maxint)
+  indices_max = 1048576
+  indices = xrange(indices_max)
+  creator_db = None
 
 def shutdown():
   global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
@@ -422,7 +424,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     """
     global logger
     global xmlparser, lwtparser, dbobj
-    global dmt_proc_dict, dmt_seg_def_dict, indices
+    global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
     proc_key = {}
     known_proc = {}
     seg_def_key = {}
@@ -445,11 +447,15 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # parse the input string into a metadata object
       ligomd.parse(arg[0])
 
+      # store the users dn in the process table
+      ligomd.set_dn(remote_dn)
+
       # determine the local creator_db number
-      sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
-      sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
-      ligomd.curs.execute(sql)
-      creator_db = ligomd.curs.fetchone()[0]
+      if creator_db is None:
+        sql = "SELECT DEFAULT FROM SYSCAT.COLUMNS WHERE "
+        sql += "TABNAME = 'PROCESS' AND COLNAME = 'CREATOR_DB'"
+        ligomd.curs.execute(sql)
+        creator_db = ligomd.curs.fetchone()[0]
 
       # determine the locations of columns we need in the process table
       process_cols = ligomd.table['process']['orderedcol']
@@ -463,6 +469,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # determine and remove known entries from the process table
       rmv_idx = []
       for (row,row_idx) in zip(ligomd.table['process']['stream'],indices):
+        if row_idx == indices_max:
+          # we have run out of indices for the table entries
+          raise ServerHandlerException, "exhausted tables indices"
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
         logger.debug("Checking for process row with key %s" % str(uniq_proc))
         try:
@@ -514,27 +523,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           pid_str += "%02x" % ord(ch)
         pid_str += "'"
         known_proc[pid] = (pid_str, known_proc[pid])
-
-      # check that we have permission to update known process_id entries
-      for pid in known_proc.keys():
-        sql = "SELECT dn FROM gridcert WHERE process_id = " + known_proc[pid][0]
-        sql += "AND creator_db = " + str(creator_db)
-        ligomd.curs.execute(sql)
-        dn_db = ligomd.curs.fetchone()
-        if not dn_db:
-          msg = "Could not find DN for process %s" % known_proc[pid][0]
-          raise ServerHandlerException, msg
-        else:
-          dn = dn_db[0].strip()
-        if remote_dn != dn:
-          msg = "%s does not have permission to update row entries" % remote_dn
-          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
-          raise ServerHandlerException, msg
-        else:
-          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
-
-      # add a gridcert table to this request containing the users dn
-      ligomd.set_dn(remote_dn)
 
       # determine the locations of columns we need in the segment_definer table
       seg_def_cols = ligomd.table['segment_definer']['orderedcol']
@@ -633,11 +621,21 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       # update the end time of known processes in the process table
       for pid in known_proc.keys():
         # first check to see if we are backfilling missing segments
-        sql = "SELECT end_time FROM process "
+        sql = "SELECT end_time,domain FROM process "
         sql += " WHERE process_id = " + known_proc[pid][0]
         logger.debug(sql)
         ligomd.curs.execute(sql)
         last_end_time = ligomd.curs.fetchone()
+
+        # check the dn in the row we are about to update matches the users dn
+        dn = last_end_time[1].strip()
+        if remote_dn != dn:
+          msg = "%s does not have permission to update row entries" % remote_dn
+          msg += " created by %s (process_id %s)" % (dn, known_proc[pid][0])
+          raise ServerHandlerException, msg
+        else:
+          logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
+
         if int(known_proc[pid][1]) <= int(last_end_time[0]):
           logger.info("Backfilling missing segments for process_id " +
             known_proc[pid][0] + " not updating end_time")
