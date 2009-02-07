@@ -318,7 +318,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       ligomd.parse(arg[0])
 
       # add a gridcert table to this request containing the users dn
-#      ligomd.set_dn(remote_dn)
+      ligomd.set_dn(remote_dn)
 
       # insert the metadata into the database
       result = str(ligomd.insert())
