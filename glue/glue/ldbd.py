@@ -442,7 +442,6 @@ class LIGOMetadata:
 
     dn = dn to be added
     """
-    print >> sys.stderr, self.table['process']
     try:
       domain_col = self.table['process']['orderedcol'].index('domain')
       for row_idx in range(len(self.table['process']['stream'])):
@@ -456,7 +455,6 @@ class LIGOMetadata:
         row_list = list(self.table['process']['stream'][row_idx])
         row_list.append(dn)
         self.table['process']['stream'][row_idx] = tuple(row_list)
-    print >> sys.stderr, self.table['process']
     
   def insert(self):
     """Insert the object into the database"""
