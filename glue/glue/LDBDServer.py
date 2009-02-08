@@ -52,7 +52,7 @@ def dtd_uri_callback(uri):
 
 def initialize(configuration,log):
   # define the global variables used by the server
-  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
+  global logger, max_bytes, xmlparser, dbobj, rls
   global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
   
   # initialize the logger
@@ -63,9 +63,8 @@ def initialize(configuration,log):
   dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
   max_bytes = configuration['max_client_byte_string']
 
-  # create the xml and ligolw parsers
+  # create the xml parser
   xmlparser = pyRXP.Parser()
-  lwtparser = ldbd.LIGOLwParser()
 
   # use a local copy of the DTD, if one is available
   try:
@@ -93,12 +92,11 @@ def initialize(configuration,log):
   creator_db = None
 
 def shutdown():
-  global logger, max_bytes, xmlparser, lwtparser, dbobj, rls
+  global logger, max_bytes, xmlparser, dbobj, rls
   global dmt_proc_dict, dmt_seg_def_dict
   logger.info("Shutting down server module %s" % __name__ )
   if rls:
     del rls
-  del lwtparser
   del xmlparser
   del dbobj
   del dmt_proc_dict
@@ -259,7 +257,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
+    global xmlparser, dbobj
 
     # get the query string and log it
     querystr = arg[0]
@@ -270,6 +268,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
     try:
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # execute the query
@@ -301,7 +300,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
+    global xmlparser, dbobj
 
     logger.debug("Method insert called")
 
@@ -314,6 +313,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display()
 
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
@@ -349,7 +349,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj, rls
+    global xmlparser, dbobj, rls
 
     logger.debug("Method insertmap called")
 
@@ -373,6 +373,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display()
 
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object
@@ -423,7 +424,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     @return: None
     """
     global logger
-    global xmlparser, lwtparser, dbobj
+    global xmlparser, dbobj
     global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
     proc_key = {}
     known_proc = {}
@@ -442,6 +443,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       remote_dn = cred.inquire_cred()[1].display().strip()
 
       # create a ligo metadata object
+      lwtparser = ldbd.LIGOLwParser()
       ligomd = ldbd.LIGOMetadata(xmlparser,lwtparser,dbobj)
 
       # parse the input string into a metadata object

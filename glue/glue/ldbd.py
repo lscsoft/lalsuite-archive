@@ -41,44 +41,6 @@ import exceptions
 import DB2
 
 
-try:
-  import thread
-except:
-  """
-  We're running on a single-threaded OS (or the Python interpreter has
-  not been compiled to support threads) so return a standard dictionary.
-  """
-  _tss = {}
-  def get_thread_storage():
-    return _tss
-  def destroy_thread_storage():
-    del _tss
-else:
-  _tss = {}
-  _tss_lock = thread.allocate_lock()
-  def get_thread_storage():
-    """Return a thread-specific storage dictionary."""
-    thread_id = thread.get_ident()
-    tss = _tss.get(thread_id)
-    if tss is None:
-      try:
-        _tss_lock.acquire()
-        _tss[thread_id] = tss = {}
-      finally:
-        _tss_lock.release()
-    return tss
-  def destroy_thread_storage():
-    """Destroy a thread-specific storage dictionary."""
-    thread_id = thread.get_ident()
-    tss = _tss.get(thread_id)
-    try:
-      _tss_lock.acquire()
-      del tss
-      del _tss[thread_id]
-    finally:
-      _tss_lock.release()
-    return
-
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
 """
@@ -168,31 +130,26 @@ class UniqueIds:
   """
   Contains a dictionary of unique ids which can be queried based
   on name. If a unique id does not exist in the dictionaty, one
-  is fetched from the database. The unique id dictionary is specifc
-  to the thread of execution so that one ligolw parser can be used
-  in muitiple threads.
+  is fetched from the database. 
   """
   def __init__(self,curs):
     """
     curs = database cursor to the currently open database
     """
-    get_thread_storage()['uqids'] = {}
-    get_thread_storage()['curs'] = curs
-
-  def __del__(self):
-    destroy_thread_storage()
+    self.uqids = {}
+    self.curs = curs
 
   def lookup(self,istring):
     """
     istring = the ilwd:char string corresponding to a unique id
     """
     try:
-      return get_thread_storage()['uqids'][istring]
+      return self.uqids[istring]
     except KeyError:
-      curs = get_thread_storage()['curs']
+      curs = self.curs
       curs.execute('VALUES BLOB(GENERATE_UNIQUE())')
-      get_thread_storage()['uqids'][istring] = curs.fetchone()[0]
-      return get_thread_storage()['uqids'][istring]
+      self.uqids[istring] = curs.fetchone()[0]
+      return self.uqids[istring]
 
 
 class LIGOLwParser:
@@ -205,12 +162,6 @@ class LIGOLwParser:
     """
     Initializes a LIGO lightweight XML parser with the necessary 
     regular expressions and function for tuple translation
-
-    Before calling parsteuple() the user must tell the class
-    which unique id dictionary to use for the file by:
-    
-    p = LIGOLwParser()
-    p.unique = UniqueIds(mycursor)
     """
     self.tabrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+):table\Z')
     self.colrx = re.compile(r'(\A[a-z0-9_]+:|\A)([a-z0-9_]+:|\A)([a-z0-9_]+)\Z')
