@@ -438,7 +438,10 @@ class LIGOMetadata:
           rowcount = self.curs.rowcount
         except DB2.Error, e:
           self.curs.execute('rollback')
-          raise LIGOLwDBError, e[2]
+          msg = e[2] 
+          msg += self.xml() + '\n' 
+          msg += self.table[tab]['query'] + '\n' + self.table[tab]['stream'] + '\n'
+          raise LIGOLwDBError, msg
         except DB2.Warning, e:
           self.curs.execute('rollback')
           raise LIGOLwDBError, e[2]
