@@ -536,7 +536,7 @@ class LIGOMetadata:
               ligolw += '"'
             elif re.match(r'\Ailwd:char\Z',coltype):
               ligolw += '"x\'' 
-              for ch in tupi:
+              for ch in str(tupi):
                 ligolw += "%02x" % ord(ch)
               ligolw += '\'"'
             elif re.match(r'\Alstring\Z',coltype):
