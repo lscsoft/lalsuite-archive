@@ -440,7 +440,8 @@ class LIGOMetadata:
           self.curs.execute('rollback')
           msg = e[2] 
           msg += self.xml() + '\n' 
-          msg += self.table[tab]['query'] + '\n' + self.table[tab]['stream'] + '\n'
+          msg += str(self.table[tab]['query']) + '\n' 
+          msg += str(self.table[tab]['stream']) + '\n'
           raise LIGOLwDBError, msg
         except DB2.Warning, e:
           self.curs.execute('rollback')
