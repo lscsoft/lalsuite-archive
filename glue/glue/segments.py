@@ -971,7 +971,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __and__(self, other):
-		return self.copy().__iand__(other)
+		if sum(len(s) for s in self.values()) <= sum(len(s) for s in other.values()):
+			return self.copy().__iand__(other)
+		return other.copy().__iand__(self)
 
 	def __ior__(self, other):
 		for key, value in other.iteritems():
@@ -982,7 +984,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __or__(self, other):
-		return self.copy().__ior__(other)
+		if sum(len(s) for s in self.values()) >= sum(len(s) for s in other.values()):
+			return self.copy().__ior__(other)
+		return other.copy().__ior__(self)
 
 	__iadd__ = __ior__
 	__add__ = __or__
@@ -1005,7 +1009,9 @@ class segmentlistdict(dict):
 		return self
 
 	def __xor__(self, other):
-		return self.copy().__ixor__(other)
+		if sum(len(s) for s in self.values()) <= sum(len(s) for s in other.values()):
+			return self.copy().__ixor__(other)
+		return other.copy().__ixor__(self)
 
 	def __invert__(self):
 		new = self.copy()
