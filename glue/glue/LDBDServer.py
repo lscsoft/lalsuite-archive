@@ -172,8 +172,6 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       logger.error("Error reading input on socket: %s" %  e)
       return
 
-    logger.debug("Input on socket: %s" % input[0:-1])
-
     try:
       # parse out the method and arguments 
       stringList = input.split('\0')
