@@ -792,7 +792,7 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt('type',name)
       self.add_var_opt('gps-string',repr(time))
       self.add_var_opt('ifo-tag',ifo)
-      self.add_var_opt('user-tag',repr(time).replace('.','_'))
+      self.add_var_opt('user-tag',repr(time).replace('.','_') + "_" + shortName.replace('-','_').strip("_"))
 
       self.add_var_opt('qscan-cache-foreground',foregroundCache)
       self.add_var_opt('qscan-cache-background',backgroundCache)
