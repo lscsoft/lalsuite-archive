@@ -573,7 +573,10 @@ def write_summary(page,opts):
       page.add(msg)
 
       for ifo in ifos:
-        command = 'awk \'{print $1}\' ' +  datadir +'/segments/' + ifo + "cat"+str(i)+".txt"
+        command  = 'awk \'{ if ($1 != "#$Id$1;'
+        command += ' else printf("%s %s %s %s %s %s %s %s",'
+        command += ' $1, $2, $3, $4, $5, $6, $7, $8 $9)}\' '
+        command += datadir +'/segments/' + ifo + "cat"+str(i)+"*.txt"
         flags, status = \
           make_external_call(command, opts.debug, opts.debug, True)
         page.pre(flags)
@@ -835,7 +838,7 @@ def write_analysis(page, opts, thisSearch='playground'):
   	"First inspiral stage (using SIRE_FIRST*_ files)",\
   	"First coincidence stage (using COIRE_FIRST*_ and COIRE_SLIDE_FIRST*_ files)",\
 	'Second inspiral stage (using SIRE_SECOND files)',\
-	'Second thinca step (all ifo combination and category 2 COIRE_SECOND*_ files)'\
+	'Second thinca step (all ifo combination and category 3 COIRE_SECOND*_ files)'\
 	]
 
   tags = [\
@@ -875,7 +878,7 @@ def write_analysis(page, opts, thisSearch='playground'):
   "<span style=\"color:red\">This section has no images (on purpose)</span>. \
    To obtain the first thinca stage images, clik on the links in the caption here below",\
   None,\
-  "This section shows the plotthinca results for the category 2 only.  "\
+  "This section shows the plotthinca results for the category 3 only.  "\
   ]
 
   configs = [	\
@@ -1661,7 +1664,7 @@ def copy_segments():
     if opts.no_copy is False:
       command = 'cp '+opts.datadir +'/segments/* ' + location
       dummy,status = make_external_call(command, opts.debug, opts.debug, True)
-      command = 'cp '+opts.datadir +'/segments/*cat?.txt ' + opts.physdir + '/catlists/' 
+      command = 'cp '+opts.datadir +'/segments/*cat*.txt ' + opts.physdir + '/catlists/' 
       dummy,status = make_external_call(command, opts.debug, opts.debug, True)
   except:
     logText(logfile, "Could not copy the segment files", "error")
