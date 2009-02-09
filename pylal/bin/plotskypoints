@@ -44,8 +44,6 @@ from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
 from pylal import galaxyutils
 
-catalog = galaxyutils.GalaxyCatalog.from_file(open("/home/larry/pydev/galaxy_cat.nofake.fixed"), load_columns=["name","distance_kpc","ra","dec"])
-
 lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
 def annotate_plot(x,y,t):
@@ -167,6 +165,8 @@ def parse_command_line():
             "bitten_l, bitten_lsq")
   parser.add_option("-l","--listgalaxies",action="store_true",\
       default=False, help="list galaxies located in a rectangle around sky locations within the specified time-threshold" )
+  parser.add_option("-u","--usecatalog",action="store",type="string",\
+      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
 
   (options,args) = parser.parse_args()
 
@@ -192,6 +192,16 @@ addsym = ['k+','kx','k1']
 
 xlow = 20
 xhigh = 0
+
+# load galaxy catalog
+
+if opts.listgalaxies:
+  if opts.usecatalog is not None:
+    catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=["name","distance_kpc","ra","dec"])
+  else:
+    raise ValueError, "no galaxy catalog specified"
+
+
 
 #####################################################################
 # glob the list of files to read in
