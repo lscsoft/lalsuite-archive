@@ -43,8 +43,8 @@ from pylal import SnglInspiralUtils, SimInspiralUtils
 from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
 
 from pylal import galaxyutils
-from galaxyutils import *
-catalog = GalaxyCatalog.from_file(open("galaxy_cat.nofake.fixed"), load_columns=["name","distance_kpc","ra","dec"])
+
+catalog = galaxyutils.GalaxyCatalog.from_file(open("/home/larry/pydev/galaxy_cat.nofake.fixed"), load_columns=["name","distance_kpc","ra","dec"])
 
 lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
