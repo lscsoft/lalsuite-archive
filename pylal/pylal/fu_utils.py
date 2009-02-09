@@ -15,6 +15,12 @@ __version__ = '$Revision$'[11:-2]
 
 import sys
 import os, shutil
+import urllib
+try:
+  import sqlite3 as sqlite
+except ImportError:
+  import sqlite
+
 from subprocess import *
 import copy
 import re
@@ -1403,6 +1409,7 @@ class nVeto:
 #End nVeto() Class Definition
 ############################################################
 
+
 #############################################################################
 # Function to generate a coherentbank xml file
 #############################################################################
@@ -1482,4 +1489,222 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   return maxIFO
 
+######################################################################
+#New Class Definition for determining DQ segments active for a given
+#GPS time 
+#
+class followupdqdb:
+    """
+    This class provides a method for doing DQ flag queries required
+    by the follow up pipeline when creating the automatic checklists.
+    Invoking this class requires a boolean option if you 
+    need to override the default behavior for this class
+    initialization.
+    To override the default initialization call like:
+    dq=followupDQdb(True)
+    else just do not worry about it and everything should work.
+    """
+    def __init__(self,default=False):
+        """
+        The __init__ method which can be overrridden using 
+        other methods defined in this class.
+        """
+        self.defaultVersion=99
+        self.activeRecords="1"
+        self.db=None
+        self.dbSocket=None
+        self.myHome=None
+        self.myHome=os.getenv("HOME")
+        self.urlPattern="http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
+        self.pathPattern="%s/%s/dq_segments.txt"
+        self.sqlFile="/followupDQ.sqlite"
+        self.sqlPath=self.myHome
+        self.ifoList=["L1","H1","H2"]
+        self.dbFiles=[]
+        for ifo in self.ifoList:
+            thisFile=self.pathPattern%(self.myHome,ifo)
+            thisUrl=self.urlPattern%(ifo)
+            thisIfo=ifo
+            thisFileExists=os.path.isfile(thisFile)
+            self.dbFiles.append([thisIfo,thisFile,thisUrl,thisFileExists])
+        #Default Behavior Code Below
+        if not(default) and os.path.isfile(self.sqlPath+self.sqlFile):
+            self.__connectDB__()
+            try:
+                x=self.__createRawCursor__()
+                for table in self.ifoList:
+                    x.execute("select * from %s limit 100"%(table))
+            except:
+                del x
+                self.db.close()
+                self.db=None
+                os.unlink(self.sqlPath+self.sqlFile)
+                self.createDB()
+                self.__connectDB__()
+        elif not(default) and not(os.path.isfile(self.sqlPath+self.sqlFile)):
+            self.createDB()
+            self.__connectDB__()
+        else:
+            self.__disconnectDB__()
+            self.db=None
+    #End __init__()
 
+    def __connectDB__(self):
+        """
+        Simple method to wrap connections to the DB to start queries.
+        """
+        self.db=sqlite.connect(self.sqlPath+self.sqlFile)
+    #End connectDB()
+
+    def __disconnectDB__(self):
+        """
+        Wrapper method to close the database file.
+        """
+        self.db.commit()
+        self.db.close()
+    #End __disconnectDB__()
+
+    def __createRawCursor__(self):
+        """
+        A method that is only used for testing.  It return a cursor 
+        object to the database currently open.
+        """
+        return self.db.cursor()
+    #End __createRawCursor__()
+
+    def createDB(self):
+        """
+        Method to create the sqlite database and install it to 
+        location sqlPath.
+        """
+        sys.stderr.write("Trying to create SQLite database.\n")
+        self.__connectDB__()
+        self.dbSocket=self.db.cursor()
+        for table,file,url,exists in self.dbFiles:
+            sys.stderr.write("Adding table for %s\n"%(table))
+            if not exists:
+                sys.stderr.write("Missing %s fetching it from %s \n"%(file,url))
+                sys.stderr.write("Downloading... please wait.\n")
+                myPath=os.path.dirname(file)
+                if not os.path.exists(myPath):
+                    sys.stderr.write("File path not found creating\
+path %s\n"%(myPath))
+                    os.makedirs(myPath)
+                urllib.urlretrieve(url,filename=file)
+                sys.stderr.write("Downloaded. Saved to %s \n"%(file))
+                sys.stderr.write("Converting to SQL syntax and inserting.\n")
+            commandString="create table %s (flag text,version\
+ integer,start integer,stop integer, active integer)"%(table)
+            self.dbSocket.execute(commandString)
+            fp=open(file,"r")
+            for row in fp.readlines():
+                token=None
+                if len(row) > 0 and row[0] != "#":
+                    token=row.split()
+                    if token.__len__() < 5:
+                        print "Problems with file %s"%(file)
+                        self.dbSocket.commit()
+                        db.close()
+                        os.unlink(self.sqlPath+self.sqlFile)
+                        os.abort()
+                    else:
+                        commandString2="insert into %s \
+(flag,version,start,stop,active) values ('%s',%i,%i,%i,%i)"\
+%(table,token[0],int(token[1]),int(token[2]),int(token[3]),int(token[4]))
+                        self.dbSocket.execute(commandString2)
+            self.db.commit()
+            fp.close()
+        self.db.close()
+        sys.stderr.write("Created SQLite database.\n")
+    #End method createDB            
+
+
+    def setURL(self,ifo=None,url=None):
+        """
+        This method allows use to specify a ifo L1 etc and the URL
+        to use to go onto the web fetching the appropriate DQ segments
+        file. If the method is called with invalid options it does
+        nothing.
+        """
+        if not(ifo.upper() in self.ifoList) or url == None:
+            return
+        for i in range(0,self.dbFiles.__len__()):
+            if self.dbFiles[i][0] == ifo:
+                self.dbFiles[i][2]=url
+        return
+    #End setURL()
+
+    def setFile(self,ifo=None,file=None):
+        """
+        This method allows you to specify an override location
+        specifying where or where to install the ASCII dq_segments
+        type file for a given IFO.
+        """
+        if not(ifo.upper() in self.ifoList) or file == None:
+            return
+        for i in range(0,self.dbFiles.__len__()):
+            if self.dbFiles[i][0] == ifo:
+                self.dbFiles[i][1]=file
+                if os.path.isfile(self.dbFiles[i][1]):
+                    self.dbFiles[i][3]=True
+        return
+    #End setFile()
+
+    def setDB(self,file=None):
+        """
+        This method set the location to install the sqlite file to
+        or the location of a preinstalled sqlite filed derived from
+        ASCII dq_segments files.
+        """
+        if file==None:
+            return
+        self.sqlFile=os.path.basename("/"+str(file))
+        self.sqlPath=os.path.dirname(file)
+        return
+
+    def setVersion(self,version=None):
+        """
+        This method sets the version number or greater to fetch from
+        the segment lists sqlite database.
+        """
+        if (version == None):
+           return
+        self.defaultVersion=version
+        return
+
+    def queryDB(self,gps=None,window=int(30)):
+        """
+        Takes two arguments the gps time as an integer and the window
+        to search around this time with default to 30 seconds. It
+        returns a dictionary variable assesible via
+        X["ifo"] which will be a list of [flag,version,start,stop,active]
+        
+        """
+        try:
+            dbSocket=self.__createRawCursor__()
+        except:
+            self.__connectDB__()
+            dbSocket=self.__createRawCursor__()
+        results=dict()
+        for table in self.ifoList:
+            results[table]=list()
+            iStart=int(gps)-int(window)
+            iStop=int(gps)+int(window)
+            commandString=\
+                "select * from %s where\
+     (((start<=%i) and (stop >= %i)) or\
+    ((start<=%i) and (stop >= %i)) or\
+    ((start<=%i) and (stop >= %i))) and (active == 1)\
+     and version == %i \
+     order by flag,version desc"%\
+    (table,\
+    iStart,iStart,\
+    gps,gps,\
+    iStop,iStop,self.defaultVersion)
+            dbSocket.execute(commandString)            
+            results[table]=dbSocket.fetchall()
+        return results
+    #End def queryDB()
+
+#End followupDQdb class()
+######################################################################
