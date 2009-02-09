@@ -1,51 +1,442 @@
 #!/usr/bin/python
-"""
-import re
 
-galcat = open('galaxy_cat')
+# $Id$
 
-for line in galcat:
-    gals=line.split()
-    rgals=re.compile(r'FAKE')
-    if re.match(rgals,"FAKE"):
-        print gals
-"""
+__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__prog__="plotthinca"
+__Id__ = "$Id$"
 
-
-"""
-NB: there are errors in the galaxy catalog!!!
-"""
-
-import optparse
-import os
 import sys
+import os
+from optparse import *
+import re
+import exceptions
+import glob
+from types import *
 
 import numpy
-#from pylal.galaxyutils import *
-from galaxyutils import *
+numpy.seterr(all="raise")  # throw an exception on any funny business
 
+from pylab import *
+rc('text', usetex=True)
+
+from glue import lal
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import ligolw
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import utils
+import glue.iterutils
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import InspiralUtils
+from pylal.xlal import date
+from pylal.xlal import tools
+import numpy
+
+from glue.ligolw import ligolw, table as tab, lsctables, utils
+
+from pylal import SnglInspiralUtils, SimInspiralUtils
+from pylal.tools import XLALEThincaParameterForInjection as ethinca_param
+
+from pylal import galaxyutils
+from galaxyutils import *
 catalog = GalaxyCatalog.from_file(open("galaxy_cat.nofake.fixed"), load_columns=["name","distance_kpc","ra","dec"])
 
-vertices = numpy.array([(1,0.2),(1.3,0.4),(2,0.6)])
+lsctables.LIGOTimeGPS = date.LIGOTimeGPS
 
-galaxies_in_polygon = catalog.within_polygon(vertices)
+def annotate_plot(x,y,t):
+  xlabel(x)
+  ylabel(y)
+  title(t)
 
-print galaxies_in_polygon
-print "----"
-effd = 60000
+def compute_deltarms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
+  earth_center = numpy.zeros(3)
+  tgeo={}
+  # compute the geocentric time from each trigger
+  for ifo in ifo_list:
+    tgeo[ifo] = gps[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
 
-galaxies_within_distance = catalog.within_distances(50000, effd)
-print galaxies_within_distance
-print "----"
+  # compute differences in these geocentric times
+  time={}
+  for ifos in ifo_coincs:
+    time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS( tgeo[ifos[0]] - tgeo[ifos[1]] )
+  deltarms = 0.0
+  for ifos in ifo_coincs:
+    deltarms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
+  return sqrt(deltarms)
 
-galaxies_there = catalog.within_polygon(vertices).within_distances(1000,effd)
 
-# print "#", "\t".join(Galaxy.__slots__)
+def skyplot(deltarms, time_threshold, longitude, latitude, symbol, plotpoint=False):
+  if deltarms <= time_threshold:
+    if plotpoint:
+      plot(asarray([longitude]), asarray([latitude]),'r'+symbol) 
+    return 1
+  elif deltarms >= time_threshold and deltarms < 2.0* time_threshold:  #changed > to >=; these points should be yellow, right?
+    if plotpoint:
+      plot(asarray([longitude]), asarray([latitude]),'y'+symbol)
+    return 2
+  else:
+    if plotpoint:
+      plot(asarray([longitude]), asarray([latitude]),'b'+symbol)
+    return 0
 
-print galaxies_there
+def gridsky(resolution):
+  latitude = 0.0
+  longitude = pi
+  ds = pi*sqrt(2.0)*resolution/180.0
+  points = [numpy.asarray([latitude-0.5*pi, longitude])]
+  while latitude <= pi:
+    #print "Got here"
+    latitude += ds
+    longitude = 0.0
+    points.append(numpy.asarray([latitude-0.5*pi, longitude]))
+    while longitude <= 2.0*pi:
+      #print "Got here %f, %f" % (abs(sin(latitude)), longitude)
+      longitude += ds / abs(sin(latitude))
+      points.append(numpy.asarray([latitude-0.5*pi, longitude]))
+  return points
 
-print "**************"
-print catalog.within_distances(1000,effd).within_polygon(numpy.array([(1,0.2),(1.3,0.4),(2,0.6)]))
-print "**************"
+# distance on the sphere
+def sphdist(p1,p2):
 
-print "number of gals", len(catalog.within_distances(1000,effd).within_polygon(numpy.array([(1,0.2),(1.3,0.4),(2,0.6)])))
+#  return sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
+
+  cos_lat_plus = cos(p1[0]+p2[0])
+  cos_lat_minus = cos(p1[0]-p2[0])
+  cos_lon_minus = cos(p1[1]-p2[1])
+  
+  return arccos(0.5*(cos_lat_plus*(cos_lon_minus-1)+cos_lat_minus*(cos_lon_minus+1)))
+
+# compute distance between clusters
+def clus_dist(clus1,clus2,pdists):
+  clusdmin = 999
+
+  for c1 in clus1:
+    for c2 in clus2:
+      clusd = pdists[(c1,c2)]
+      if (clusd < clusdmin):
+        clusdmin = clusd
+        
+  return clusdmin
+  
+
+# What we want to do:
+# read in the coinc
+# extract the GPS time for each trigger
+# loop over random sky points
+#   determine the geo centric time for each and compute rms difference
+
+##############################################################################
+usage = """
+usage: %prog [options] 
+
+Estimate the sky position from a coincident trigger.
+
+"""
+
+
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+  # options related to input and output
+  parser.add_option("-g","--glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB of thinca files to read" )
+  parser.add_option("-I", "--cache-file", \
+      help="read thinca filenames from cache input file")  
+  parser.add_option("-a","--time-threshold",action="store",type="float",\
+      default=0.001, metavar=" TIME_THRESHOLD",help="threshold on rms time difference" )
+  parser.add_option("-b","--n-sky",action="store",type="int",\
+      default=1000, metavar=" N_SKY",help="number of sky points to throw" )
+  parser.add_option("-c","--resolution",action="store",type="float",\
+      default=1.0, metavar=" RESOLUTION",help="number of sky points to throw" )
+  parser.add_option("-d","--plotpoints",action="store_true",\
+      default=False, help="make a color coded plot of the sky" )
+  parser.add_option("-V","--verbose",action="store_true",\
+      default=False, help="be verbose in the output messages" )
+  parser.add_option("-S","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in making plots, valid arguments are: "
+            "snr (DEFAULT), snr_over_chi, effective_snr, " 
+            "bitten_l, bitten_lsq")
+  parser.add_option("-l","--listgalaxies",action="store_true",\
+      default=False, help="list galaxies located in a rectangle around sky locations within the specified time-threshold" )
+
+  (options,args) = parser.parse_args()
+
+
+  return options, sys.argv[1:]
+
+
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+#####################################################################
+figure_number = 0  # used for the figure label (showplot)
+fnameList = []   # use for the cache file
+tagList= []   # use for the cache file
+
+####################################################################
+statistic = CoincInspiralUtils.coincStatistic( opts.statistic, None, None)
+    
+plotsymbols = ['r+','bx','ko','g1']
+hanfordsym = ['b+','bx','r1']
+addsym = ['k+','kx','k1']
+
+xlow = 20
+xhigh = 0
+
+#####################################################################
+# glob the list of files to read in
+
+slidefiles = []
+coincfiles = []
+offsourcefiles = []
+
+if opts.glob is not None:
+  allfiles = []
+  for gl in opts.glob.split(" "):
+    allfiles.extend(glob.glob(gl))
+  if len(allfiles) < 1:
+    print >>sys.stderr, "The glob for " + opts.glob + " returned no files" 
+    sys.exit(1)
+  else:
+    for file in allfiles:
+      if 'SLIDE' in file:
+        slidefiles.append(file)
+      else:
+        coincfiles.append(file)
+
+  # check if the file lists are not empty
+  if not (coincfiles or slidefiles):
+    print >>sys.stdout, "No files match your description."
+    sys.exit(0) 
+         
+#####################################################################
+# read in coinc triggers
+
+inspTriggers = None
+coincTriggers = CoincInspiralUtils.coincInspiralTable()
+
+if coincfiles:
+  inspTriggers = SnglInspiralUtils.\
+                 ReadSnglInspiralFromFiles(coincfiles,
+                                           mangle_event_id = None,
+                                           verbose=None)
+  inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
+  
+  # construct the coincs
+  coincTriggers = CoincInspiralUtils.coincInspiralTable(inspTriggers,statistic)
+  coincTriggers.add_sim_inspirals(inspInj)
+
+detector_locations = {}
+detector_locations["L1"] =tools.cached_detector["LLO_4k"].location   
+detector_locations["H1"] =tools.cached_detector["LHO_4k"].location 
+detector_locations["V1"] =tools.cached_detector["VIRGO"].location
+
+#set the time threshold
+time_threshold = opts.time_threshold
+
+# arrays to build statistics
+asnr = []
+adelta = []
+apoints = []
+afound = []
+
+#distance threshhold for clustering
+if opts.listgalaxies:
+  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
+  dmax = sphdist((0,0), (pt_step,pt_step))
+
+for coinc in coincTriggers:
+
+  # a few counting parameters
+  count = zeros(3)
+  
+  # print out some information about the trigger
+  if opts.verbose:
+    print "The snr is %f" % coinc.stat
+    print "The H1 snr is %f" % getattr(coinc,"H1").snr
+    print "The L1 snr is %f" % getattr(coinc,"L1").snr
+    print "The V1 snr is %f" % getattr(coinc,"V1").snr
+
+  # get gps times of events
+
+  # following line suggested by nick as an alternative to
+  # modifying library code
+
+  gps = dict((trig.ifo,trig.get_end()) for trig in coinc)
+
+  # gps = coinc.get_gps_times()
+ 
+  # extract ifos that gave this
+  (coinc_type, ifo_list) = coinc.get_ifos()
+
+  if ( coinc_type != "H1L1V1" and coinc_type != "H1H2L1V1" ):
+    if opts.verbose:
+      print "Not possible to locate on sky"
+    continue
+  else:
+    if opts.plotpoints:
+      figure()
+
+
+  #remove H2 if it's there
+  ifo_list = [ifo for ifo in ifo_list if ifo != "H2"]
+ 
+  # get the list of pairs
+  ifo_coincs = []
+  ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, 2)))
+
+  # grid the sky
+  skypoints = gridsky(opts.resolution)
+  if opts.verbose:
+    print "The number of sky points to consider is %f" % len(skypoints)
+
+  # parameters from the injection
+  injlong = getattr(coinc,"sim").longitude
+  injlat = getattr(coinc,"sim").latitude
+  injdeltarms = compute_deltarms(gps,injlong,injlat,ifo_list,\
+        ifo_coincs,detector_locations)
+  if opts.verbose:
+    print "The injection had deltarms %f seconds" % injdeltarms
+  #time_threshold=injdeltarms+1.0e-6
+  countindex = skyplot(injdeltarms, time_threshold, injlong, injlat,\
+      'o', opts.plotpoints)
+  afound.append(countindex)
+
+  # lists to gather hotspots (points within time-threshold) and clusters
+  if opts.listgalaxies:
+    hotspots = []
+    clusters = []
+  
+  # search the sky
+  for point in skypoints:
+    count[0] += 1
+
+    # extract sky position
+    latitude = point[0]
+    longitude = point[1]
+
+    deltarms = compute_deltarms(gps,longitude,latitude,ifo_list,\
+        ifo_coincs,detector_locations)
+
+    countindex = skyplot(deltarms, time_threshold, longitude, latitude,\
+      '+', opts.plotpoints)
+
+    if countindex:
+      count[countindex] += 1.0
+      if (int(countindex) == 1) and (opts.listgalaxies):
+        hotspots.append((point[0],point[1]))
+        
+    if ( not (count[0] % 1000) and opts.verbose):
+      print count[0]
+
+  narrowcount=count[1]
+  widecount=count[2]
+  if opts.verbose:
+    print "Narrow field volume: %i" % (narrowcount)
+    print "Wide field volume: %i" % (widecount)
+  else:
+    asnr.append(coinc.stat)
+    adelta.append(injdeltarms)
+    apoints.append(narrowcount)
+    print "%f %f %i %i %f" % (coinc.stat, injdeltarms, narrowcount,\
+        afound[-1], getattr(coinc,"sim").distance)
+
+  # cluster the hotspots
+  if opts.listgalaxies:
+
+    # dictionary of distances between hotspots
+    dist_dict = {}
+    for hs1 in hotspots:
+      for hs2 in hotspots:
+        dist_dict[(hs1,hs2)] = sphdist(hs1,hs2)
+
+    # begin by declaring each point a cluster
+    clusters = [[hs] for hs in hotspots]
+
+    while True:
+      # location of the closest clusters
+      loc1, loc2 = 0, 0
+      # variable used in find minimum distance between clusters
+      dtemp = 99999
+      
+      for i in range(len(clusters)):
+        for j in range(i+1, len(clusters)):
+          dij = clus_dist(clusters[i],clusters[j],dist_dict)
+          if (dij < dmax) and (dij < dtemp):
+            dtemp = dij
+            loc1, loc2 = i, j
+            
+      if (loc1 == 0) and (loc2 == 0):
+        break
+
+      clusters.append(clusters[loc1]+clusters[loc2])
+      # i think this is a bug in python, but if you switch loc2 and loc1 in the next two lines things get screwed up
+      clusters.remove(clusters[loc2])
+      clusters.remove(clusters[loc1])
+
+  if opts.listgalaxies:
+    max_dist = 1000*min(getattr(coinc, "sim").eff_dist_h, getattr(coinc, "sim").eff_dist_l, \
+                     getattr(coinc, "sim").eff_dist_v)
+    print "max_dist", max_dist
+    galaxies = []
+    galaxy_counter = {}
+
+    # draw rectangles around the hotspots and count the number of galaxies in that rectangle
+    # also restric to galaxies between here and the effective distance measured in the detectors (turns out to be a strong cut)
+    for i in range(len(clusters)):
+      
+      lats = [pt[0] for pt in clusters[i]]
+      latmin = min(lats)
+      latmax = max(lats)
+      
+      lons = [pt[1] for pt in clusters[i]]
+      lonmin = min(lons)
+      lonmax = max(lons)
+      
+      if (latmin < 0) and (latmax > 0):
+        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(latmin,lonmin),(latmin,lonmax),(0,lonmin), (0,lonmax)])))
+        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(0,lonmin),(0,lonmax),(latmax,lonmin), (latmax,lonmax)])))
+      else:
+        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(latmin,lonmin),(latmin,lonmax),(latmax,lonmin), (latmax,lonmax)])))
+
+      galaxy_counter[i] = len(galaxies)
+
+  if opts.plotpoints:
+
+    # plot the hotspot with the most galaxies as purple
+    if opts.listgalaxies:
+      min_num_gals = -1
+      for i in galaxy_counter:
+        if galaxy_counter[i] > min_num_gals:
+          this_one = i
+          min_num_gals = galaxy_counter[i]
+      if min_num_gals > 0:
+        for pt in clusters[this_one]:
+          plot(asarray([pt[1]]), asarray([pt[0]]), color = (0.5,0,0.5), marker = 'x')
+    
+    axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+    annotate_plot("Right Ascension (radians)", "Declination (radians)",\
+        "Reconstructed sky position")
+
+figure()
+plot(asarray(asnr), asarray(adelta),'ro') 
+annotate_plot("$\rho$", "$\Delta_{rms}$ (sec)","Timing accuracy")
+figure()
+plot(asarray(asnr), asarray(apoints),'bo') 
+annotate_plot("$\rho$", "No. of Pointings",("Pointings with radius %2d degrees" % opts.resolution))
+
+show()
+
