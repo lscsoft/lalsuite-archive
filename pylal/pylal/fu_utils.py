@@ -1564,6 +1564,16 @@ class followupdqdb:
         self.db.close()
     #End __disconnectDB__()
 
+    def close(self):
+      """
+      This explicity allows the user to close the database when done
+      making all the queries we want.  Closing the DB helps prevent
+      corruption and clears existing locks to the DQ so others can add
+      elements to the DB.
+      """
+      self.__disconnectDB__(self)
+    #End close()
+
     def __createRawCursor__(self):
         """
         A method that is only used for testing.  It return a cursor 
