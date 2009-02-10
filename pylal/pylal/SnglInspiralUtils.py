@@ -227,24 +227,86 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   # make a copy, and extract the segments that are in the ring.
   seglistdict = seglistdict & ring
 
-  # normalize the shift vector.  after this all the shifts are non-negative 	 
-  # and less than the duration of the ring. 	 
-  shifts = dict((instrument, shift % ring_duration) for instrument, shift in shifts.items()) 	 
-  	 
-  # apply the shift vector. 	 
-  seglistdict.offsets.update(shifts) 	 
-  	 
-  # split the result into the pieces that are still in the ring, and the 	 
-  # pieces that have fallen off the edge.  both retain the shift vector in 	 
-  # the offsets attribute. 	 
-  extra = seglistdict - ring 	 
-  seglistdict &= ring 	 
-  	 
-  # wrap the fallen-off pieces around the ring. 	 
-  for instrument in extra.keys(): 	 
-    extra.offsets[instrument] -= ring_duration 	 
-  	 
-  # return the union of the results.  seglistdict's shift vector is 	 
-  # retained in the offests attribute. 	 
-  return seglistdict | extra 	 
+  # normalize the shift vector.  after this all the shifts are non-negative
+  # and less than the duration of the ring.
+  shifts = dict((instrument, shift % ring_duration) for instrument, shift in shifts.items())
 
+  # apply the shift vector.
+  seglistdict.offsets.update(shifts)
+
+  # split the result into the pieces that are still in the ring, and the
+  # pieces that have fallen off the edge.  both retain the shift vector in
+  # the offsets attribute.
+  extra = seglistdict - ring
+  seglistdict &= ring
+
+  # wrap the fallen-off pieces around the ring.
+  for instrument in extra.keys():
+    extra.offsets[instrument] -= ring_duration
+
+  # return the union of the results.  the shifts vector is retained in the
+  # offsets attribute of the result
+  return seglistdict | extra
+
+
+def compute_thinca_livetime(all_instruments, rings, vetoseglistdict, offsetvector):
+  """
+  @all_instruments is an iterable of the instruments that were analyzed.
+
+  @rings is a list of segments defining the analysis ring boundaries.  They
+  can overlap, and do not need to be ordered.
+
+  @vetoseglistdict is a coalesced glue.segments.segmentlistdict object
+  providing the veto segments for whatever instruments have vetoes defined
+  for them.  This can include veto lists for instruments other than those
+  listed all_instruments, and it need not provide lists for all
+  instruments.
+
+  @offsetvector is a dictionary of (instrument, offset) pairs.  This
+  dictionary's keys define the instruments that must be on.  For example,
+  if this is {"H1": 0.0, "L1": 10.0} then this function computes the total
+  time when exactly H1 and L1 were on and all other instruments were off,
+  after the L1 segments have a +10.0 s offset applied.
+  """
+  # instruments that must be on and must be vetoed respectively
+  all_instruments = set(all_instruments)
+  required_on = set(offsetvector.keys())
+  required_off = all_instruments - required_on
+
+  # fast path:  if one of the instruments that must be on is not, then the
+  # live time for this instrument combination is zero
+  if not required_on.issubset(all_instruments):
+    return 0.0
+
+  # fast path:  if one of the instruments that must be vetoed is never,
+  # then the live time for this instrument combination is zero
+  # FIXME:  use any() builtin when Python 2.5 is required
+  for instrument in required_off:
+    if not (instrument in vetoseglistdict and bool(vetoseglistdict[instrument])):
+      return 0.0
+
+  # performance aid:  only need to retain offsets for instruments appearing
+  # in the veto segment lists.  instruments not appearing in the veto
+  # segments are assumed to be always on
+  required_on &= set(vetoseglistdict.keys())
+  required_off &= set(vetoseglistdict.keys())
+  offsetvector = dict((key, value) for key, value in offsetvector.items() if key in (required_on | required_off))
+
+  # performance aid:  don't need veto segment lists for instruments whose
+  # state is unimportant
+  #vetoseglistdict = segments.segmentlistdict((key, value) for key, value in vetoseglistdict.items() if key in (required_on | required_off))
+
+  # tot up the time when exactly the instruments that must be on are on
+  #
+  # slidvetoes.union(required_on) = times when an instrument that must be
+  # on is vetoed
+  #
+  # (~slidvetoes).union(required_off) = times when an instrument that must
+  # be off is not vetoed
+  live_time = 0.0
+  for ring in rings:
+    slidvetoes = slideSegListDictOnRing(ring, vetoseglistdict, offsetvector)
+    live_time += float(abs(segments.segmentlist([ring]) - slidvetoes.union(required_on) - (~slidvetoes).union(required_off)))
+
+  # done
+  return live_time
