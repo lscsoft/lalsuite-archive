@@ -91,7 +91,7 @@ def hrss_in_instrument(sim, instrument):
 	"""
 	# FIXME:  this function is really only correct for sine-Gaussian
 	# injections.  that's OK because I only quote sensitivities in
-	# units of hrss when discussin sine-Gaussians.
+	# units of hrss when discussing sine-Gaussians.
 	#
 	# the problem is the following.  first,
 	#
