@@ -472,6 +472,13 @@ class DBTable(table.Table):
 					next_id = lsccls.next_id
 					RowType = lsccls.RowType
 					how_to_index = lsccls.how_to_index
+
+				# save for re-use (required for ID
+				# remapping across multiple documents in
+				# ligolw_sqlite)
+				TableByName[name] = CustomDBTable
+
+				# replace input argument with new class
 				cls = CustomDBTable
 		return table.Table.__new__(cls, *args)
 
