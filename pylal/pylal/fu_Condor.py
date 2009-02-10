@@ -98,21 +98,27 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       injFile = self.checkInjections(cp)      
       hipeCache = checkHipeCachePath(cp)
 
-      if type == "plot" or type == "notrig" or type == "coh":
+      if type == "plot" or type == "notrig" or type == "coh" or type == "chia":
         bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
-        self.add_var_opt("write-snrsq","")
-        self.add_var_opt("write-chisq","")
-        self.add_var_opt("write-spectrum","")
-        self.add_var_opt("write-cdata","")
+        if type == "chia":
+          bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_coh' + str(trig.eventID) + '.xml.gz'
         #self.add_var_opt("verbose","")
         self.set_bank(bankFile)
         # Here we define the trig-start-time and the trig-end-time;
         # The difference between these two times should be kept to 2s
         # Otherwise change the clustering window also
         hLengthAnalyzed = 1
-	if type == "coh": hLengthAnalyzed = 1.0
+	if type == "coh" or type == "chia": hLengthAnalyzed = 1.0
         self.set_trig_start( int(trig.gpsTime[ifo] - hLengthAnalyzed + 0.5) )
         self.set_trig_end( int(trig.gpsTime[ifo] + hLengthAnalyzed + 0.5) )
+
+      if type == "plot" or type == "notrig" or type == "coh":
+        self.add_var_opt("write-snrsq","")
+        self.add_var_opt("write-chisq","")
+        self.add_var_opt("write-spectrum","")
+        self.add_var_opt("write-cdata","")
+      elif type == "chia":
+        self.add_var_opt("write-cdata","")
 
       if injFile: 
         self.set_injections( injFile )
@@ -133,6 +139,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 	# we can bump up the sample rate)
 	if type == "coh" and cp.has_option("coh-inspiral",param):
 	  value = cp.get("coh-inspiral",param)
+        if type == "chia" and cp.has_option("coh-inspiral",param):
+          value = cp.get("coh-inspiral",param)
         if param == 'bank-file':
           bankFile = value
         if type == "notrig" or type == "coh":
@@ -184,7 +192,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         for (name,value) in cp.items("followup-inspiral-extra"):
           self.add_var_opt(name,value)
 
-      if not ifo == self.inputIfo and not type == "coh":
+      if not ifo == self.inputIfo and not type == "coh" and not type == "chia":
         second_user_tag = "_" + ifo + "tmplt"
       else:
         second_user_tag = ""
@@ -204,7 +212,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
 
       # the output_file_name is required by the child job (plotSNRCHISQNode)
-      self.output_file_name = inspJob.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
+      if type == "plot" or type == "notrig" or type == "coh" or type == "chia":
+        self.output_file_name = inspJob.outputPath + self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)) + extension
 
       self.set_id(self.inputIfo + "-INSPIRAL_" + self.__ifotag + "_" + self.__usertag + "-" + self.__start + "-" + str(int(self.__end)-int(self.__start)))
 
@@ -237,6 +246,12 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       if type == 'coh':
         if opts.coh_inspiral:
           dag.addNode(self,'coh-inspiral')
+          self.validate()
+        else: self.invalidate()
+
+      if type == "chia":
+        if opts.plot_chia:
+          dag.addNode(self,'plot-chia')
           self.validate()
         else: self.invalidate()
 
@@ -1437,7 +1452,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
     fileName = str(inspNode.output_file_name)
     #self.add_var_opt("H1-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt("H1-xml-file",str(fileName))
-    self.add_var_opt(ifo+"-framefile",str(fileName.replace("coh","plot").replace(".xml",".gwf").strip(".gz")))
+    self.add_var_opt(ifo+"-framefile",str(fileName.replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
     if inspNode.validNode: self.add_parent(inspNode)
 
