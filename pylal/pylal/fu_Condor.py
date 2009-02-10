@@ -251,7 +251,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
 
       if type == "chia":
         if opts.plot_chia:
-          dag.addNode(self,'plot-chia')
+          dag.addNode(self,'chia-inspiral')
           self.validate()
         else: self.invalidate()
 
