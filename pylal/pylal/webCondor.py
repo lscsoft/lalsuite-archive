@@ -52,10 +52,12 @@ class webTheJob:
     # This name is important since these directories will be included in
     # the web tree.
     self.name = name
-    try:
+    if not os.path.exists(name):
        os.mkdir(name)
+    if not os.path.exists(name+'/logs'):
        os.mkdir(name+'/logs')
-    except: pass
+    if not os.path.exists(name+'/Images'):
+       os.mkdir(name+'/Images')
     # Set up the usual stuff and name the log files appropriately
     self.tag_base = tag_base
     self.add_condor_cmd('environment',"KMP_LIBRARY=serial;MKL_SERIAL=yes")
