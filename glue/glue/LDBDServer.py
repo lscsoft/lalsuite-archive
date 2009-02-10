@@ -53,7 +53,7 @@ def dtd_uri_callback(uri):
 def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, dbobj, rls
-  global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
+  global dmt_proc_dict, dmt_seg_def_dict, creator_db
   
   # initialize the logger
   logger = log
@@ -87,8 +87,6 @@ def initialize(configuration,log):
   # initialize dictionaries for the dmt processes and segments definers
   dmt_proc_dict = {}
   dmt_seg_def_dict = {}
-  indices_max = 1048576
-  indices = xrange(indices_max)
   creator_db = None
 
 def shutdown():
@@ -423,7 +421,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
     """
     global logger
     global xmlparser, dbobj
-    global dmt_proc_dict, dmt_seg_def_dict, indices, indices_max, creator_db
+    global dmt_proc_dict, dmt_seg_def_dict, creator_db
     proc_key = {}
     known_proc = {}
     seg_def_key = {}
@@ -469,10 +467,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # determine and remove known entries from the process table
       rmv_idx = []
-      for (row,row_idx) in zip(ligomd.table['process']['stream'],indices):
-        if row_idx == indices_max:
-          # we have run out of indices for the table entries
-          raise ServerHandlerException, "exhausted tables indices"
+      for row_idx,row in enumerate(ligomd.table['process']['stream']):
         uniq_proc = (row[node_col],row[prog_col],row[upid_col],row[start_col])
         try:
           proc_key[str(row[pid_col])] = dmt_proc_dict[uniq_proc]
@@ -503,7 +498,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # delete the duplicate processs rows and clear the table if necessary
       newstream = []
-      for row,row_idx in zip(ligomd.table['process']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['process']['stream']):
         try:
           rmv_idx.index(row_idx)
         except ValueError:
@@ -529,7 +524,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # determine and remove known entries in the segment_definer table
       rmv_idx = []
-      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
         uniq_def = (row[ifos_col],row[name_col],row[vers_col])
         try:
           seg_def_key[str(row[sdid_col])] = dmt_seg_def_dict[uniq_def]
@@ -553,7 +548,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # delete the necessary rows. if the table is empty, delete it
       newstream = []
-      for row,row_idx in zip(ligomd.table['segment_definer']['stream'],indices):
+      for row_idx,row in enumerate(ligomd.table['segment_definer']['stream']):
         try:
           rmv_idx.index(row_idx)
         except ValueError:
