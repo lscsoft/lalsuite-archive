@@ -192,8 +192,8 @@ pL0_by_m2 = \
     .sum(axis=0, dtype=float) / num_offsource_trials
 
 # find the fraction of trials whose max L is greater than the on-source max L
-log_L_max = log_L_by_m2.max()
-pLmax0 = (offsource_likelihood_by_trial_m2.max(axis=1) > log_L_max)\
+log_L_sum = log_L_by_m2.sum()
+pLsum0 = (offsource_likelihood_by_trial_m2.sum(axis=1) > log_L_sum)\
     .sum(dtype=float) / num_offsource_trials
 
 # for diagnostics, find P(L > L_* | 0) for various L_*
@@ -203,12 +203,11 @@ L_star_by_m2_trial[L_star_by_m2_trial < 0.] = 0.
 offsource_pL0_by_trial = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
     / num_offsource_trials
 
-L_max_star = offsource_likelihood_by_trial_m2.max(axis=1)
-L_max_star.sort()
-P_L_max_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
+L_sum_star = offsource_likelihood_by_trial_m2.sum(axis=1)
+L_sum_star.sort()
+P_L_sum_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
     / num_offsource_trials
-L_max_star[L_max_star < 0.] = 0
-
+L_sum_star[L_sum_star < 0.] = 0
 
 ##############################################################################
 # Compute P(L > L_obs | h)
@@ -219,7 +218,6 @@ for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
     if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
-
 
 ##############################################################################
 # print summary of loudest events
@@ -234,12 +232,11 @@ if not numpy.any(actual_candidate_mask):
     html_footer += "No on-source coincidences found.\n"
 else:
     # make overall statement
-    html_footer += "<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em>,max,obs</sub> = %.2g<br>\n" % log_L_max
-    html_footer += "P(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em>,max</sub> &gt; <em>&rho;</em><sup>2</sup><sub "\
-        "style='margin-left: -1ex;'><em>L</em>,max,obs</sub> | 0) "\
-        "= %.2g<br><br>\n" % pLmax0
+    html_footer += "&Sigma; (ln <em>L</em><sub>obs</sub>) = %.2g<br>\n" \
+        % log_L_sum
+    html_footer += "P(&Sigma; (ln <em>L</em>) &gt; "\
+        "&Sigma (ln <em>L</em><sub>obs</sub>) | 0) "\
+        "= %.2g<br><br>\n" % pLsum0
 
     # parse coincs
     coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
@@ -285,12 +282,9 @@ else:
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-    columns = ["m2_bin", "event_id", "<em>&rho;</em><sup>2</sup><sub "\
-        "style='margin-left: -1ex;'><em>L</em></sub>",
-        "<em>P</em>(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em></sub>(<em>m</em><sub>2</sub>) &gt; "\
-        "<em>&rho;</em><sup>2</sup><sub style='margin-left: -1ex;'>"\
-        "<em>L</em>,obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
+    columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
+        "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
+        "<em>L</em><sub>obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
     rows = []
     for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
         log_L_by_m2, pL0_by_m2):
@@ -317,23 +311,24 @@ mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
 if actual_candidate_mask.any():
-    observation = r"\rho_L^2(m_2) > \rho_{L,\mathrm{obs}}^2(m_2)"
+    observation = r"L(m_2) > L_\mathrm{obs}(m_2)"
 else:
     observation = r"\textrm{any candidates}"
 
 ## Significance
 text = "Significance"
 
-thresh_05 = L_max_star[int(0.95 * len(L_max_star))]
-thresh_01 = L_max_star[int(0.99 * len(L_max_star))]
+# these thresholds are on the mean L
+thresh_05 = L_sum_star[int(0.95 * len(L_sum_star))] / len(m2_bins)
+thresh_01 = L_sum_star[int(0.99 * len(L_sum_star))] / len(m2_bins)
 
-plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\rho_\mathrm{L}^2 (m_2)$",
+plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\ln L$",
     "Significance")
 if actual_candidate_mask.any():
     plot.add_content(m2_bins.centres(), log_L_by_m2)
 else:
     # get plot limits to autoscale the way we want
-    plot.add_content(m2_bins.centres(), numpy.ones(len(m2_bins)),
+    plot.add_content(m2_bins.centres(), numpy.zeros(len(m2_bins)),
         visible=False)
 plot.finalize()
 plot.ax.set_ylim(ymin=-0.5)
@@ -346,10 +341,10 @@ if not actual_candidate_mask.any():
 # add thresholds
 xlims = tuple(plot.ax.get_xlim())
 plot.ax.plot(xlims, (thresh_05, thresh_05), linestyle="--")
-plot.ax.text(xlims[1], thresh_05, r"5\% false alarm",
+plot.ax.text(xlims[1], thresh_05, r"5\% false alarm on mean",
     horizontalalignment="right", verticalalignment="bottom")
 plot.ax.plot(xlims, (thresh_01, thresh_01), linestyle="--")
-plot.ax.text(xlims[1], thresh_01, r"1\% false alarm",
+plot.ax.text(xlims[1], thresh_01, r"1\% false alarm on mean",
     horizontalalignment="right", verticalalignment="bottom")
 plot.ax.set_xlim(xlims)
 
@@ -361,26 +356,26 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## P(L_max > L_max^* | 0) vs L_max^*
-text = "P(L_max > L_max^*| 0) vs ln L_max^*"
+## P(L_sum > L_sum^* | 0) vs L_sum^*
+text = "P(sum(ln L) > sum(ln L)^*| 0) vs sum(ln L)^*"
 
 plot = plotutils.SimplePlot(\
-    r"${\rho_{L\mathrm{,max}}^*}^2$",
-    r"$P(\rho_{L\mathrm{,max}}^2 > {\rho_{L\mathrm{,max}}^*}^2 \,|\,0)$",
-    r"$\textrm{Background distribution of } \rho_{L\mathrm{,max}}^2$")
-plot.add_content(L_max_star, P_L_max_star,  marker=".", linestyle="None")
+    r"$\Sigma(\ln L)^*$",
+    r"$P(\Sigma(\ln L) > \Sigma(\ln L)^* \,|\,0)$",
+    r"$\textrm{Background distribution of } \Sigma(\ln L)$")
+plot.add_content(L_sum_star, P_L_sum_star,  marker=".", linestyle="None")
 plot.finalize()
 plot.ax.set_xscale("log")
 
-# pLmax0
+# pLsum0
 if actual_candidate_mask.any():
     xlims = tuple(plot.ax.get_xlim())
-    plot.ax.plot((log_L_max, log_L_max), (0, 1), "k--")
+    plot.ax.plot((log_L_sum, log_L_sum), (0, 1), "k--")
     plot.ax.set_xlim(xlims)
     plot.ax.set_ylim((0, 1))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "P_L_max_by_L")
+    fname = InspiralUtils.set_figure_name(opts, "P_L_sum_by_L")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -438,7 +433,7 @@ extrap_snr_by_mc = \
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
-    r"$\rho_L^2(m_2)$",
+    r"$\ln L$",
     r"Significance of candidates in different mchirp regions")
 for mc_range, mc_log_L_by_m2, is_candidate, color in \
     zip(mc_ranges, log_L_by_mc_m2,
@@ -523,8 +518,8 @@ if not opts.show_plot:
 ## L vs rho for each mc bin
 text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[trace_m2_bin])
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\rho_L^2\textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
+plot = plotutils.SimplePlot(r"$\ln \rho$", "",
+    r"$\ln L \textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
     % str(m2_bins.centres()[trace_m2_bin]))
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
@@ -640,10 +635,10 @@ if not opts.show_plot:
 text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
 
 plot = plotutils.SimplePlot(\
-    r"${\rho_L^*}^2$",
-    r"$P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0)$",
-    r"\[P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0) "\
-    r"\left(= \lim_{D\rightarrow\infty} P(\rho_L^2(m_2) > \rho_{L,*}^2 "\
+    r"$\ln L_*$",
+    r"$P(\ln L(m_2) > \ln L_* \,|\,0)$",
+    r"\[P(\ln L(m_2) > \ln L_* \,|\,0) "\
+    r"\left(= \lim_{D\rightarrow\infty} P(\ln L(m_2) > ln L_* "\
     r"\,|\,h(m_2, D))\right)\]")
 
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
