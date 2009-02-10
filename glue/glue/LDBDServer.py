@@ -164,7 +164,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
 
       # check if the last byte is a null byte
       if input[-1] != '\0':
-        logger.info("Bad input on socket: %s" % input)
+        logger.error("Bad input on socket: %s" % input)
         raise ServerHandlerException, "Last byte of input is not null byte"
     except Exception, e:
       logger.error("Error reading input on socket: %s" %  e)
@@ -619,7 +619,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
           logger.debug('"%s" updating process_id %s' % (dn, known_proc[pid][0]))
 
         if int(known_proc[pid][1]) <= int(last_end_time[0]):
-          logger.info("Backfilling missing segments for process_id " +
+          logger.debug("Backfilling missing segments for process_id " +
             known_proc[pid][0] + " not updating end_time")
         else:
           # if we are not backfilling, update the end_time of the process
