@@ -25,7 +25,6 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
-
 itertools = __import__("itertools")  # absolute import of system-wide itertools
 
 import numpy
@@ -127,6 +126,19 @@ def determine_common_bin_limits(data_sets, default_min=0, default_max=0):
         min_stat = default_min
     return min_stat, max_stat
 
+def method_callable_once(f):
+    """
+    Decorator to make a method complain if called more than once.
+    """
+    def _new(self, *args, **kwargs):
+        attr = "_" + f.__name__ + "_already_called"
+        if hasattr(self, attr) and getattr(self, attr):
+            raise ValueError, f.__name__ + " can only be called once"
+        setattr(self, attr, True)
+        return f(self, *args, **kwargs)
+    _new.__doc__ == f.__doc__
+    _new.__name__ = f.__name__
+    return _new
 
 ##############################################################################
 # generic, but usable classes
@@ -147,6 +159,7 @@ class SimplePlot(BasicPlot):
         self.y_data_sets.append(y_data)
         self.kwarg_sets.append(kwargs)
 
+    @method_callable_once
     def finalize(self, loc=0):
         # make plot
         for x_vals, y_vals, plot_kwargs in \
@@ -177,6 +190,7 @@ class BarPlot(BasicPlot):
         self.y_data_sets.append(y_data)
         self.kwarg_sets.append(kwargs)
 
+    @method_callable_once
     def finalize(self, orientation="vertical"):
         # make plot
         for x_vals, y_vals, plot_kwargs in \
@@ -211,6 +225,7 @@ class VerticalBarHistogram(BasicPlot):
         self.data_sets.append(data)
         self.kwarg_sets.append(kwargs)
 
+    @method_callable_once
     def finalize(self, num_bins=20):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(self.data_sets)
@@ -261,6 +276,7 @@ class NumberVsBinBarPlot(BasicPlot):
         self.value_sets.append(values)
         self.kwarg_sets.append(kwargs)
 
+    @method_callable_once
     def finalize(self, orientation="vertical"):
         for bins, values, plot_kwargs in itertools.izip(self.bin_sets,
             self.value_sets, self.kwarg_sets):
@@ -320,6 +336,7 @@ class CumulativeHistogramPlot(BasicPlot):
         self.bg_data_sets.extend(bg_data_sets)
         self.bg_kwargs = kwargs
 
+    @method_callable_once
     def finalize(self, num_bins=20, normalization=1):
         epsilon = 1e-8
 
@@ -425,6 +442,7 @@ class ImagePlot(BasicPlot):
         self.x_bins = x_bins
         self.y_bins = y_bins
 
+    @method_callable_once
     def finalize(self, colorbar=True, **kwargs):
         if self.image is None:
             raise ValueError, "nothing to finalize"
@@ -493,6 +511,7 @@ class FillPlot(BasicPlot):
         self.kwarg_sets.append(kwargs)
         self.shades.append(shade)
 
+    @method_callable_once
     def finalize(self):
         # fill in default shades if necessary
         if iterutils.any(s is None for s in self.shades):
@@ -542,6 +561,7 @@ class SixStripSeriesPlot(BasicPlot):
         self.data_labels.append(label)
         self.formats.append(format)
 
+    @method_callable_once
     def finalize(self, yscale="linear"):
 
         min_x, max_x = determine_common_bin_limits(self.x_coord_sets)
@@ -605,3 +625,75 @@ class SixStripSeriesPlot(BasicPlot):
         for ax in self.fig.axes:
             ax.set_ylim(new_y_lims)
 
+class ROCPlot(BasicPlot):
+    """
+    Plot the receiver operating characteristic (ROC) based on the foreground
+    and background values from given techniques.  For example, to compare
+    SNR vs IFAR, do something like:
+
+    plot = ROCPlot("FAP", "EFF", "ROC IFAR vs SNR")
+    plot.add_content(ifar_bg, ifar_fg, label="IFAR")
+    plot.add_content(snr_bg, snr_fg, label="SNR")
+    plot.finalize()
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.bg_sets = []
+        self.fg_sets = []
+        self.eff_weight_sets = []
+        self.kwarg_sets = []
+
+    def add_content(self, bg, fg, eff_weight=None, **kwargs):
+        """
+        Enter a particular technique's background, foreground, and efficiency
+        weights.  These should be one-dimensional arrays with the values of
+        of your statistics for backgrounds and foregrounds.  Eff_weight
+        are weights on the efficiency, useful if, say, you have a different
+        prior than your injection set reflects.
+        """
+        if eff_weight is not None and len(fg) != len(eff_weight):
+            raise ValueError, "efficiency weights and foreground values "\
+                "must be the same length"
+        self.bg_sets.append(bg)
+        self.fg_sets.append(fg)
+        self.eff_weight_sets.append(eff_weight)
+        self.kwarg_sets.append(kwargs)
+
+    @method_callable_once
+    def finalize(self, loc=0):
+        for bg, fg, weights, kwargs in itertools.izip(self.bg_sets,
+            self.fg_sets, self.eff_weight_sets, self.kwarg_sets):
+            # sort, keeping the weights and fg values together
+            bg = numpy.array(bg)  # always copies
+            bg.sort()
+            fg = numpy.array(fg)  # always copies
+            if weights is not None:
+                weights = numpy.array(weights)[fg.argsort()]
+            fg.sort()
+
+            # calculate false alarm probability and efficiency
+            FAP = 1 - numpy.arange(len(bg), dtype=float) / len(bg)
+            if weights is not None:
+                EFF = weights[::-1].cumsum()[::-1]
+            else:
+                EFF = 1 - numpy.arange(len(fg), dtype=float) / len(fg)
+
+            # now find the efficiency *at* each false alarm probability
+            EFF_by_FAP = EFF[[fg.searchsorted(x) for x in bg]]
+
+            # plot!
+            self.ax.plot(FAP, EFF_by_FAP, **kwargs)
+
+        # make it pretty
+        self.ax.grid(True)
+        self.ax.set_xlim((0, 1))
+        self.ax.set_ylim((0, 1))
+
+        # add legend if there are any non-trivial labels
+        self.add_legend_if_labels_exist(loc=loc)
+
+        # decrement reference counts
+        del self.fg_sets
+        del self.bg_sets
+        del self.eff_weight_sets
+        del self.kwarg_sets
