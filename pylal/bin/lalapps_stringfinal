@@ -52,7 +52,12 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from glue import segments
 from pylal import rate
+from pylal import SimBurstUtils
 from pylal import SnglBurstUtils
+from pylal.date import LIGOTimeGPS
+
+
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -80,6 +85,7 @@ def parse_command_line():
 	parser.add_option("-i", "--injections", action = "store_true", help = "Generate efficiency plots from the output files of an injection run.")
 	parser.add_option("--injections-bin-size", metavar = "bins", type = "float", default = 16.7, help = "Set bin width for injection efficiency curves.")
 	parser.add_option("--loudest-survivor", metavar = "instrument=amplitude", help = "Set amplitude of loudest zero-lag non-injection survivor for efficiency plots.")
+	parser.add_option("--image-formats", metavar = "ext[,ext,...]", default = "png,pdf", help = "Set list of graphics formats to produce by providing a comma-delimited list of the filename extensions.  Default = \"png,pdf\"")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "StringSearch", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = StringSearch).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -93,6 +99,8 @@ def parse_command_line():
 
 	if options.cal_uncertainty is None:
 		raise ValueError, "must set --cal-uncertainty"
+
+	options.image_formats = options.image_formats.split(",")
 
 	return options, (filenames or [None])
 
@@ -251,6 +259,51 @@ WHERE
 #
 
 
+def create_recovered_snr_view(connection, bb_coinc_def_id):
+	# Create a temporary virtual table containing three columns:  the
+	# simulation_id of an injection, the name of an instrument, and the
+	# largest SNR at which that injection was recovered in that
+	# instrument by a burst event that participates in a coincidence of
+	# type bb_coinc_def_id.
+	#
+	# NOTE:  can't use parameters in views, so must construct a query
+	# string directly with the coinc_def_id.
+	connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	recovered_snr
+AS
+	SELECT
+		sim_burst.simulation_id AS simulation_id,
+		sngl_burst.ifo AS ifo,
+		MAX(ABS(sngl_burst.amplitude)) AS snr
+	FROM
+		sim_burst
+		JOIN coinc_event_map AS a ON (
+			a.table_name == "sim_burst"
+			AND a.event_id == sim_burst.simulation_id
+		)
+		JOIN coinc_event_map AS b ON (
+			b.coinc_event_id == a.coinc_event_id
+		)
+		JOIN sngl_burst ON (
+			b.table_name == "sngl_burst"
+			AND b.event_id == sngl_burst.event_id
+		)
+		JOIN coinc_event_map AS c ON (
+			c.table_name == "sngl_burst"
+			AND c.event_id == b.event_id
+		)
+		JOIN coinc_event ON (
+			coinc_event.coinc_event_id == c.coinc_event_id
+		)
+	WHERE
+		coinc_event.coinc_def_id == "%s"
+	GROUP BY
+		sim_burst.simulation_id,
+		sngl_burst.ifo
+	""" % bb_coinc_def_id)
+
+
 def slope(x, y):
 	"""
 	From the x and y array, compute the slope everywhere.
@@ -343,7 +396,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	A50 = solve(x, eff, yval = 0.5)
 	A50_err = solve(x, net_xerr, xval = A50)
 
-	# mark 50% point on on graph
+	# mark 50% point on graph
 	axes.axvline(A50, color = colour)
 
 	# print some analysis
@@ -356,9 +409,10 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 
 class Efficiency(SnglBurstUtils.BurstPlot):
-	def __init__(self, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
+	def __init__(self, instruments, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
 		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency")
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
+		self.instruments = instruments
 		[(self.loudest_survivor_inst, self.loudest_survivor_ampl)] = loudest_survivor.items()
 		self.cal_uncertainty = cal_uncertainty
 		self.amplitude_factor = amplitude_factor
@@ -373,80 +427,33 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.axes.set_yticklabels((r"\(0\)", r"\(0.1\)", r"\(0.2\)", r"\(0.3\)", r"\(0.4\)", r"\(0.5\)", r"\(0.6\)", r"\(0.7\)", r"\(0.8\)", r"\(0.9\)", r"\(1.0\)"))
 
 	def add_contents(self, contents):
-		# retrieve the list of injections matching burst triggers
-		# that particicpate in burst<-->burst coincidences.
-		self.found.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
+		# for each injection, retrieve the highest SNR of the burst
+		# events that were found to match the injection and that
+		# participated in burst<-->burst coincidences or null if no
+		# such matching burst events were found
+		create_recovered_snr_view(contents.connection, contents.bb_definer_id)
+		for values in contents.connection.cursor().execute("""
 SELECT
-	*
+	sim_burst.*,
+	recovered_snr.snr
 FROM
 	sim_burst
-WHERE
-	EXISTS (
-		-- find a link from this injection to a burst trigger
-		-- that participates in a burst<-->burst coincidence
-		SELECT
-			*
-		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				a.coinc_event_id == b.coinc_event_id
-			)
-			JOIN coinc_event_map AS c ON (
-				b.table_name == "sngl_burst"
-				AND c.table_name == "sngl_burst"
-				AND c.event_id == b.event_id
-			)
-			JOIN coinc_event ON (
-				coinc_event.coinc_event_id == c.coinc_event_id
-			)
-		WHERE
-			a.table_name == "sim_burst"
-			AND a.event_id == sim_burst.simulation_id
-			AND coinc_event.coinc_def_id == ?
+	LEFT JOIN recovered_snr ON (
+		recovered_snr.simulation_id == sim_burst.simulation_id
+		AND recovered_snr.ifo == ?
 	)
-		""", (contents.bb_definer_id,))))
-		# retrieve the list of injections matching burst<-->burst
-		# coincidences involving a trigger from
-		# loudest_survivor_inst with an amplitude greater than
-		# loudest_survivor_ampl.
-		self.found_above_loudest.extend(map(contents.sim_burst_table._row_from_cols, contents.connection.cursor().execute("""
-SELECT
-	*
-FROM
-	sim_burst
-WHERE
-	EXISTS (
-		-- find a link from this injection to a burst trigger
-		-- that participates in a burst<-->burst coincidence
-		-- and is above threshold in the correct instrument
-		SELECT
-			*
-		FROM
-			coinc_event_map AS a
-			JOIN coinc_event_map AS b ON (
-				a.coinc_event_id == b.coinc_event_id
-			)
-			JOIN sngl_burst ON (
-				b.table_name == "sngl_burst"
-				AND b.event_id == sngl_burst.event_id
-			)
-			JOIN coinc_event_map AS c ON (
-				c.table_name == "sngl_burst"
-				AND c.event_id == b.event_id
-			)
-			JOIN coinc_event ON (
-				coinc_event.coinc_event_id == c.coinc_event_id
-			)
-		WHERE
-			a.table_name == "sim_burst"
-			AND a.event_id == sim_burst.simulation_id
-			AND coinc_event.coinc_def_id == ?
-			AND sngl_burst.ifo == ?
-			AND abs(sngl_burst.amplitude) > ?
-	)
-		""", (contents.bb_definer_id, self.loudest_survivor_inst, self.loudest_survivor_ampl))))
-		# retrieve the list of all injections
-		self.all.extend(iter(contents.sim_burst_table))
+		""", (self.loudest_survivor_inst,)):
+			sim = contents.sim_burst_table._row_from_cols(values[:-1])
+			snr = values[-1]
+			found = snr is not None
+			if SimBurstUtils.injection_was_made(sim, contents.seglists, self.instruments):
+				self.all.append(sim)
+				if found:
+					self.found.append(sim)
+					if snr * self.amplitude_factor > self.loudest_survivor_ampl:
+						self.found_above_loudest.append(sim)
+			elif found:
+				print >>sys.stderr, "odd, injection %s was found but not injected ..." % sim.simulation_id
 
 	def finish(self):
 		# put made and found injections in the denominators and
@@ -491,7 +498,7 @@ WHERE
 		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%g" % (self.loudest_survivor_ampl * self.amplitude_factor)))), loc = "lower right")
+		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%g" % (self.loudest_survivor_ampl)))), loc = "lower right")
 
 		# adjust vertical limits
 		self.axes.set_ylim([0, 1])
@@ -510,7 +517,7 @@ options, filenames = parse_command_line()
 
 if options.injections:
 	plots = [
-		Efficiency(options.loudest_survivor, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
+		Efficiency(("H1", "H2", "L1"), options.loudest_survivor, options.cal_uncertainty, options.amplitude_factor, options.injections_bin_size)
 	]
 	survivors = None
 else:
@@ -546,7 +553,7 @@ while len(plots):
 	if options.verbose:
 		print >>sys.stderr, "finishing plot %d ..." % n
 	plots[0].finish()
-	for ext in ["png"]:
+	for ext in options.image_formats:
 		if options.injections:
 			filename = format % ("string_injections_", n, ext)
 		else:
