@@ -124,7 +124,7 @@ class SimpleExpExtrapEstimator(BackgroundEstimator):
         """
         log_pc0 = self.default_evaluator(loudest_in_trial)
         extrap = self.fiducial_y + \
-            self.fiducial_x**1.4 - loudest_in_trial**1.4
+            self.fiducial_x**1.5 - loudest_in_trial**1.5
         numpy.putmask(log_pc0, loudest_in_trial > self.fiducial_x, extrap)
         return log_pc0
 
