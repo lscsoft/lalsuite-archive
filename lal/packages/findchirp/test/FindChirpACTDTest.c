@@ -172,10 +172,10 @@ int main( int argc, char **argv )
       overlap = 1;
     }
     else if ( !strcmp( argv[arg], "--help") )
-		{
+    {
       fprintf(stderr, "%s", USAGE );
       return;
-		}
+    }
     /* Set dynRange */
     else if ( !strcmp( argv[arg], "--dynrange" ) )
     {
@@ -184,8 +184,8 @@ int main( int argc, char **argv )
         arg++;
         dynRange = atof( argv[arg++] );
       }
-			else
-	    {
+      else
+      {
         fprintf(stderr, "%s", USAGE );
         return;
       }
@@ -396,7 +396,7 @@ int main( int argc, char **argv )
   /* create some fake data */
   fprintf( stderr, "Making data segment...                  " );
   MakeData( dataSegVec, mass1, mass2, srate, fmin, fmax );
-	fprintf( stderr, "      Done!\n" );  
+  fprintf( stderr, "      Done!\n" );  
 
   for ( j = 0; j < dataSegVec->data->spec->data->length; ++j )
   {
@@ -404,10 +404,10 @@ int main( int argc, char **argv )
     {
       dataSegVec->data->spec->data->data[j] = 1.0/dynRange;
     }
-		else
+    else
     {
      dataSegVec->data->spec->data->data[j] *= 1.0/dynRange;
-	  }		
+    }    
   }
 
   /* Replace Data with Signal */
@@ -678,8 +678,8 @@ int main( int argc, char **argv )
   {
     REAL4 invRootData;
     REAL4 norm = 0.0, normTest;
-		COMPLEX8Vector normTestVector;
-		COMPLEX8Vector normTestVector2;
+    COMPLEX8Vector normTestVector;
+    COMPLEX8Vector normTestVector2;
     
     normTestVector.length = fcSegVec->data->data->data->length;
     normTestVector.data = fcSegVec->data->data->data->data;
@@ -692,7 +692,7 @@ int main( int argc, char **argv )
 
     if ( dominant == 1 )
     {
-		  for ( j = 1; j < fcSegVec->data->data->data->length; ++j )
+      for ( j = 1; j < fcSegVec->data->data->data->length; ++j )
       {
         fcSegVec->data->data->data->data[j].re = 
                filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].re;
@@ -708,37 +708,37 @@ int main( int argc, char **argv )
       {
         REAL4 power;
         power = fcSegVec->data->data->data->data[j].re * 
-			          fcSegVec->data->data->data->data[j].re;
+                fcSegVec->data->data->data->data[j].re;
         power += fcSegVec->data->data->data->data[j].im * 
-			          fcSegVec->data->data->data->data[j].im;
-			  norm += power / dataParams->wtildeVec->data[j].re;
+                fcSegVec->data->data->data->data[j].im;
+        norm += power / dataParams->wtildeVec->data[j].re;
       }
     }
 
-		normTest = 4.0 * norm * fcSegVec->data->data->deltaF;
+    normTest = 4.0 * norm * fcSegVec->data->data->deltaF;
 
     /*
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
-		                                          &normTestVector,
-		                                          dataParams->wtildeVec->data, 
-																							40.,
-																							fcSegVec->data->data->deltaF );
+                                              &normTestVector,
+                                              dataParams->wtildeVec->data, 
+                                              40.,
+                                              fcSegVec->data->data->deltaF );
     */
     invRootData = pow( normTest, -0.5 );
 
     for ( j = 0;  j < fcSegVec->data->data->data->length; ++j )
     {
       fcSegVec->data->data->data->data[j].re *= invRootData;
-			fcSegVec->data->data->data->data[j].im *= invRootData;
+      fcSegVec->data->data->data->data[j].im *= invRootData;
     }
 
 
     fprintf( stderr, "   normTest  = %1.3e\n", normTest );
-		normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
-		                                          &normTestVector,
-		                                          dataParams->wtildeVec->data, 
-																							40.,
-																							fcSegVec->data->data->deltaF );
+    normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
+                                              &normTestVector,
+                                              dataParams->wtildeVec->data, 
+                                              40.,
+                                              fcSegVec->data->data->deltaF );
 
     fprintf( stderr, "   < data, data>  = %1.3e\n", normTest );
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector,

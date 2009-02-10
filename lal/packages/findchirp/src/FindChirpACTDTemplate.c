@@ -283,7 +283,7 @@ LALFindChirpACTDTemplate (
 
       memset( tmpACTDVec->data, 0, shift * sizeof( *( tmpACTDVec->data ) ) );
       memset( tmpACTDVec->data + ( numPoints + j ) / 2, 0,
-		( numPoints - ( numPoints + j ) / 2 ) * sizeof( *( tmpACTDVec->data ) ) );
+    ( numPoints - ( numPoints + j ) / 2 ) * sizeof( *( tmpACTDVec->data ) ) );
 
       /* Select an appropriate part of the vector to band pass. */
       /* band passing the whole thing takes a lot of time */
@@ -325,10 +325,10 @@ LALFindChirpACTDTemplate (
       /* Now we need to do the shift to the end. */
       memcpy( tmpACTDVec->data, tmpACTDVec->data + ( numPoints + j ) / 2,
          ( numPoints - ( numPoints + j ) / 2 )  
-				       * sizeof( *(tmpACTDVec->data) ) );
+               * sizeof( *(tmpACTDVec->data) ) );
       memcpy( tmpACTDVec->data + numPoints - ( numPoints + j ) / 2,
          tmpACTDVec->data, ( numPoints + j ) /2 
-				       * sizeof( *( tmpACTDVec->data ) ) );
+               * sizeof( *( tmpACTDVec->data ) ) );
 
     }
     else
