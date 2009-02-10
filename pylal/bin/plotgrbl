@@ -175,16 +175,47 @@ num_inj = inj_likelihood_by_trial_m2.shape[0]
 if inj_loudest_by_inj_mc.shape[0] != num_inj:
     raise ValueError, "relic injections do not match grblikelihood injections"
 
-# get non-extrapolated P(rho > rho* | 0)
-raw_pc0_by_mc = \
-    (offsource_loudest_by_trial_mc > onsource_loudest_by_mc[None, :])\
-    .sum(axis=0) / num_offsource_trials
-
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 log_L_by_inj_mc = log_pch_by_inj_mc - log_pc0_by_inj_mc
 
 ##############################################################################
+# compute unextrapolated FAP for IFAR comparison
+if opts.verbose:
+    print "Computing IFAR..."
+
+def get_fap(snr_by_mc):
+    """
+    Return the false alarm probability, the probability of obtaining snr_by_mc
+    given background alone.
+    """
+    return (offsource_loudest_by_trial_mc > snr_by_mc[None, :])\
+        .sum(axis=0) / num_offsource_trials
+
+def get_min_fap(snr_by_mc):
+    """
+    Return the minimum false alarm probability, subject to a candidate actually
+    being present.  In the case of no candidate, return 1.
+    """
+    actual_candidates = snr_by_mc > 0
+    if actual_candidates.any():
+        return get_fap(snr_by_mc)[actual_candidates].min()
+    else:
+        return 1.
+
+raw_pc0_by_mc = get_fap(onsource_loudest_by_mc)
+
+# with multiple candidates, take the minimum FAP to get the maximum IFAR
+# for FAP == 0, use 1e-10 instead
+offsource_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 \
+    for trial in \
+    offsource_loudest_by_trial_mc), dtype=float, count=num_offsource_trials)
+inj_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 for trial \
+    in inj_loudest_by_inj_mc), dtype=float, count=num_inj)
+
+##############################################################################
 # Compute P(L > L_obs | 0)
+if opts.verbose:
+    print "Computing inputs for other plots..."
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
@@ -450,6 +481,109 @@ plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L_sum vs rho
+text = "sum ln L vs max rho"
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\Sigma (\ln L)$",
+    r"$\Sigma (\ln L)\textrm{ vs max eff SNR}$")
+
+# injections
+x_data = inj_loudest_by_inj_mc.max(axis=1)
+non_empty_trials = x_data > 0
+x_data = x_data[non_empty_trials]
+y_data = inj_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
+    label="injections", markersize=2)
+
+# background
+x_data = offsource_loudest_by_trial_mc.max(axis=1)
+non_empty_trials = x_data > 0
+x_data = x_data[non_empty_trials]
+y_data = offsource_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
+    label="background", markersize=4)
+
+# on-source observation
+plot.add_content([onsource_loudest_by_mc.max()], [log_L_by_m2.sum()],
+    marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
+    label="on-source observation", markersize=8, markerfacecolor="None")
+
+plot.finalize(loc=4)
+plot.ax.set_xscale("log")
+plot.ax.set_yscale("log")
+plot.ax.axis("tight")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_L_sum_vs_rho_max")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## ROC plot
+text = "ROC curve (uniform priors)"
+
+plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
+    r"$\textrm{ROC curve (uniform priors)}$")
+plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
+    inj_loudest_by_inj_mc.max(axis=1),
+    color="r", linestyle="-", label="eff. SNR")
+plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
+    color="g", linestyle="-", label="IFAR")
+plot.add_content(offsource_likelihood_by_trial_m2.sum(axis=1),
+    inj_likelihood_by_trial_m2.sum(axis=1),
+    color="b", linestyle="-", label=r"$\Sigma(\ln L)$")
+
+plot.finalize(loc=4)
+
+# diagonal line represents blind guessing
+plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
+plot.ax.set_xlim((0, 1))
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "ROC_uniform")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## ROC plot (D^3 reweighted)
+text = "ROC curve (D^3 weighting)"
+
+# get D^3 weighting; to revert to unweighted, set all weights to 1 / num_inj.
+weight_by_inj = numpy.array([m2_D[1]**3 for m2_D in m2_D_by_inj])
+weight_by_inj /= weight_by_inj.sum()
+
+plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
+    r"$\textrm{ROC curve (}D^3\textrm{ weighting)}$")
+plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
+    inj_loudest_by_inj_mc.max(axis=1), weight_by_inj,
+    color="r", linestyle="-", label="eff. SNR")
+plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
+    weight_by_inj,
+    color="g", linestyle="-", label="IFAR")
+plot.add_content(offsource_likelihood_by_trial_m2.sum(axis=1),
+    inj_likelihood_by_trial_m2.sum(axis=1), weight_by_inj,
+    color="b", linestyle="-", label=r"$\Sigma(\ln L)$")
+
+plot.finalize(loc=4)
+
+# diagonal line represents blind guessing
+plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
+plot.ax.set_xlim((0, 1))
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "ROC_D3")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
