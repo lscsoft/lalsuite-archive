@@ -175,6 +175,11 @@ num_inj = inj_likelihood_by_trial_m2.shape[0]
 if inj_loudest_by_inj_mc.shape[0] != num_inj:
     raise ValueError, "relic injections do not match grblikelihood injections"
 
+# get non-extrapolated P(rho > rho* | 0)
+raw_pc0_by_mc = \
+    (offsource_loudest_by_trial_mc > onsource_loudest_by_mc[None, :])\
+    .sum(axis=0) / num_offsource_trials
+
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 log_L_by_inj_mc = log_pch_by_inj_mc - log_pc0_by_inj_mc
 
@@ -258,8 +263,8 @@ else:
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
-    for low, hi, log_pc0 in \
-        zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
+    for low, hi, pc0 in \
+        zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc):
         row = ["[%.2f, %.2f)" % (low, hi)]
         mc_coincs = onsource_coincs.getChirpMass(low, hi)
         if len(mc_coincs) == 0:
@@ -270,7 +275,7 @@ else:
             row += [c.event_id] \
                 + ["%.4g" % trig.get_effective_snr() for trig in c] \
                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
-                   "%.4g" % numpy.exp(log_pc0)]
+                   "%.4g" % pc0]
         rows.append(row)
     html_footer += make_html_table(rows, columns)
 
@@ -392,16 +397,15 @@ plot.add_content(mc_bins, onsource_loudest_by_mc)
 plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
-for mc, snr, have_candidate, log_pc0 in \
+for mc, snr, have_candidate, pc0 in \
     zip(mc_bins.centres(), onsource_loudest_by_mc, actual_candidate_mask,
-        log_pc0_by_mc):
+        raw_pc0_by_mc):
     if have_candidate:
         plot.ax.text(snr + 0.2, mc, r"$P(" + c_in_E + r"\,|\,0) = %.3f$" \
-            % numpy.exp(log_pc0), verticalalignment="center")
+            % pc0, verticalalignment="center")
     else:
         plot.ax.text(10, mc, r"$P(\textrm{any candidate}\,|\,0) = %.3f$" \
-            % numpy.exp(log_pc0), horizontalalignment="center",
-            verticalalignment="center")
+            % pc0, horizontalalignment="center", verticalalignment="center")
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
