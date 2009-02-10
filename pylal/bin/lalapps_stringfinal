@@ -498,7 +498,7 @@ FROM
 		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%g" % (self.loudest_survivor_ampl)))), loc = "lower right")
+		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%g" % self.loudest_survivor_ampl))), loc = "lower right")
 
 		# adjust vertical limits
 		self.axes.set_ylim([0, 1])
