@@ -23,6 +23,7 @@ import ConfigParser
 ##############################################################################
 # import the modules we need to build the pipeline
 from glue import segmentsUtils
+from glue import segments
 from glue import lal
 from pylal import SimInspiralUtils
 
@@ -37,6 +38,28 @@ def check_exist_file( file ):
    except IOError:
      check_exist = False
    return check_exist
+
+############################################
+def create_list_veto_files(opts, categories):
+  """
+  Creates a list of veto files to be used to discard
+  triggers from vetoed times.
+  @param opts: the options structure
+  @param: categories: A list of categories which should be included
+  """
+   
+  # split the used IFO's
+  ifos = [opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag)/2)]
+  
+  # loop over the used IFO's and used categories
+  veto_files = ''
+  for cat in categories:
+     for ifo in ifos:
+        veto_files += ',../../%s_cat%d_vetoed_segments.txt' % \
+                      (ifo, cat)
+
+  return veto_files
+
 
 ############################################
 def create_relic_call(cp, opts, onsource_file=None):
@@ -63,11 +86,15 @@ def create_relic_call(cp, opts, onsource_file=None):
     call+= ' --onsource-glob ' +onsource_file 
     call+= ' --write-onsource'
     call+= ' --user-tag '+input_user_tag+'_'+opts.user_tag
+    
+  # create veto file containing offsource overlaping vetoes
+  veto_files = create_list_veto_files(opts, [2])
 
   # set common options
-  call+= ' --offsource-pattern THINCA_SECOND*'+cp.get('pipeline','offsource-suffix')
+  call+= ' --offsource-pattern THINCA_SECOND*OFFSOURCE_CATEGORY_1'
   call+= ' --statistic '+cp.get('plotthinca','statistic')
-  call+= ' --veto-segfiles ../bufferSeg.txt --onsource-seg ../onSourceSeg.txt'
+  call+= ' --veto-segfiles ../bufferSeg.txt%s --onsource-seg ../onSourceSeg.txt' % \
+         (veto_files)
   call+= ' --m2-min 1 --m2-max 40 --m2-nbins 13'
   call+= ' --D-min 0.5 --D-max 50 --D-nbins 40'
   call+= ' --mc-boundaries '+cp.get('grbtimeslidestats','mc-boundaries')
@@ -240,6 +267,23 @@ def create_grbUL_call(cp, opts):
 
   return call
 
+def create_summary_call(cp, opts):
+  input_user_tag = cp.get('pipeline', 'input-user-tag')
+
+  filename = 'pylal_exttrig_summary-' + input_user_tag + '_' +\
+             opts.user_tag + '.tar'
+  
+  # create the code-call
+  call = './executables/pylal_exttrig_summary'
+  call += ' --plot-config-file ' + opts.config_file
+  call += ' --ifo-times ' + opts.ifo_tag
+  call += ' --type ' + opts.user_tag
+  call += ' --output-file ' + filename
+
+  if opts.publish_path:
+     call += ' --output-path-html ' + opts.publish_path
+  
+  return call
 
 #
 ##############################################################################
@@ -290,6 +334,10 @@ parser.add_option("-I", "--inj-run",action="store",type="string",\
 
 parser.add_option("-D", "--inj-id",action="store",type="int",\
     metavar=" INJID",help="specifies the injection ID to use ")
+
+parser.add_option("-P", "--publish-path",action="store",type="string",\
+    default=None, help="specifies a directory where to publish the summary page")
+
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -408,6 +456,8 @@ if opts.stage=='fake':
   print >>f, cmd4
   cmd5 = create_grbUL_call( cp, opts)
   print >>f, cmd5
+  cmd6 = create_summary_call(cp, opts)
+  print >>f, cmd6
 
 if opts.stage=='OPENBOX':
 
@@ -420,6 +470,8 @@ if opts.stage=='OPENBOX':
   print >>f, cmd4
   cmd5 = create_grbUL_call( cp, opts)
   print >>f, cmd5
-
+  cmd6 = create_summary_call(cp, opts)
+  print >>f, cmd6
+  
 f.close()
 print "Created script '%s'" % script_filename
