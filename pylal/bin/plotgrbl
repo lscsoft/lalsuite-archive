@@ -179,7 +179,43 @@ log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 log_L_by_inj_mc = log_pch_by_inj_mc - log_pc0_by_inj_mc
 
 ##############################################################################
+# compute unextrapolated FAP for IFAR comparison
+if opts.verbose:
+    print "Computing IFAR..."
+
+def get_fap(snr_by_mc):
+    """
+    Return the false alarm probability, the probability of obtaining snr_by_mc
+    given background alone.
+    """
+    return (offsource_loudest_by_trial_mc > snr_by_mc[None, :])\
+        .sum(axis=0) / num_offsource_trials
+
+def get_min_fap(snr_by_mc):
+    """
+    Return the minimum false alarm probability, subject to a candidate actually
+    being present.  In the case of no candidate, return 1.
+    """
+    actual_candidates = snr_by_mc > 0
+    if actual_candidates.any():
+        return get_fap(snr_by_mc)[actual_candidates].min()
+    else:
+        return 1.
+
+raw_pc0_by_mc = get_fap(onsource_loudest_by_mc)
+
+# with multiple candidates, take the minimum FAP to get the maximum IFAR
+# for FAP == 0, use 1e-10 instead
+offsource_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 \
+    for trial in \
+    offsource_loudest_by_trial_mc), dtype=float, count=num_offsource_trials)
+inj_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 for trial \
+    in inj_loudest_by_inj_mc), dtype=float, count=num_inj)
+
+##############################################################################
 # Compute P(L > L_obs | 0)
+if opts.verbose:
+    print "Computing inputs for other plots..."
 
 # in each m2 bin, find what fraction of trials are louder than the on-source
 pL0_by_m2 = \
@@ -187,8 +223,8 @@ pL0_by_m2 = \
     .sum(axis=0, dtype=float) / num_offsource_trials
 
 # find the fraction of trials whose max L is greater than the on-source max L
-log_L_max = log_L_by_m2.max()
-pLmax0 = (offsource_likelihood_by_trial_m2.max(axis=1) > log_L_max)\
+log_L_sum = log_L_by_m2.sum()
+pLsum0 = (offsource_likelihood_by_trial_m2.sum(axis=1) > log_L_sum)\
     .sum(dtype=float) / num_offsource_trials
 
 # for diagnostics, find P(L > L_* | 0) for various L_*
@@ -198,12 +234,11 @@ L_star_by_m2_trial[L_star_by_m2_trial < 0.] = 0.
 offsource_pL0_by_trial = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
     / num_offsource_trials
 
-L_max_star = offsource_likelihood_by_trial_m2.max(axis=1)
-L_max_star.sort()
-P_L_max_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
+L_sum_star = offsource_likelihood_by_trial_m2.sum(axis=1)
+L_sum_star.sort()
+P_L_sum_star = numpy.arange(num_offsource_trials, dtype=float)[::-1] \
     / num_offsource_trials
-L_max_star[L_max_star < 0.] = 0
-
+L_sum_star[L_sum_star < 0.] = 0
 
 ##############################################################################
 # Compute P(L > L_obs | h)
@@ -214,7 +249,6 @@ for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
     if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
-
 
 ##############################################################################
 # print summary of loudest events
@@ -229,12 +263,11 @@ if not numpy.any(actual_candidate_mask):
     html_footer += "No on-source coincidences found.\n"
 else:
     # make overall statement
-    html_footer += "<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em>,max,obs</sub> = %.2g<br>\n" % log_L_max
-    html_footer += "P(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em>,max</sub> &gt; <em>&rho;</em><sup>2</sup><sub "\
-        "style='margin-left: -1ex;'><em>L</em>,max,obs</sub> | 0) "\
-        "= %.2g<br><br>\n" % pLmax0
+    html_footer += "&Sigma; (ln <em>L</em><sub>obs</sub>) = %.2g<br>\n" \
+        % log_L_sum
+    html_footer += "P(&Sigma; (ln <em>L</em>) &gt; "\
+        "&Sigma (ln <em>L</em><sub>obs</sub>) | 0) "\
+        "= %.2g<br><br>\n" % pLsum0
 
     # parse coincs
     coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
@@ -258,8 +291,8 @@ else:
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
-    for low, hi, log_pc0 in \
-        zip(mc_bins.lower(), mc_bins.upper(), log_pc0_by_mc):
+    for low, hi, pc0 in \
+        zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc):
         row = ["[%.2f, %.2f)" % (low, hi)]
         mc_coincs = onsource_coincs.getChirpMass(low, hi)
         if len(mc_coincs) == 0:
@@ -270,7 +303,7 @@ else:
             row += [c.event_id] \
                 + ["%.4g" % trig.get_effective_snr() for trig in c] \
                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
-                   "%.4g" % numpy.exp(log_pc0)]
+                   "%.4g" % pc0]
         rows.append(row)
     html_footer += make_html_table(rows, columns)
 
@@ -280,12 +313,9 @@ else:
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
-    columns = ["m2_bin", "event_id", "<em>&rho;</em><sup>2</sup><sub "\
-        "style='margin-left: -1ex;'><em>L</em></sub>",
-        "<em>P</em>(<em>&rho;</em><sup>2</sup><sub style='margin-left: "\
-        "-1ex;'><em>L</em></sub>(<em>m</em><sub>2</sub>) &gt; "\
-        "<em>&rho;</em><sup>2</sup><sub style='margin-left: -1ex;'>"\
-        "<em>L</em>,obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
+    columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
+        "<em>P</em>(<em>L</em>(<em>m</em><sub>2</sub>) &gt; "\
+        "<em>L</em><sub>obs</sub>(<em>m</em><sub>2</sub>) | 0)"]
     rows = []
     for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
         log_L_by_m2, pL0_by_m2):
@@ -312,23 +342,24 @@ mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
 mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
 
 if actual_candidate_mask.any():
-    observation = r"\rho_L^2(m_2) > \rho_{L,\mathrm{obs}}^2(m_2)"
+    observation = r"L(m_2) > L_\mathrm{obs}(m_2)"
 else:
     observation = r"\textrm{any candidates}"
 
 ## Significance
 text = "Significance"
 
-thresh_05 = L_max_star[int(0.95 * len(L_max_star))]
-thresh_01 = L_max_star[int(0.99 * len(L_max_star))]
+# these thresholds are on the mean L
+thresh_05 = L_sum_star[int(0.95 * len(L_sum_star))] / len(m2_bins)
+thresh_01 = L_sum_star[int(0.99 * len(L_sum_star))] / len(m2_bins)
 
-plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\rho_\mathrm{L}^2 (m_2)$",
+plot = plotutils.SimplePlot(r"$m_2\ (M_\odot)$", r"$\ln L$",
     "Significance")
 if actual_candidate_mask.any():
     plot.add_content(m2_bins.centres(), log_L_by_m2)
 else:
     # get plot limits to autoscale the way we want
-    plot.add_content(m2_bins.centres(), numpy.ones(len(m2_bins)),
+    plot.add_content(m2_bins.centres(), numpy.zeros(len(m2_bins)),
         visible=False)
 plot.finalize()
 plot.ax.set_ylim(ymin=-0.5)
@@ -341,10 +372,10 @@ if not actual_candidate_mask.any():
 # add thresholds
 xlims = tuple(plot.ax.get_xlim())
 plot.ax.plot(xlims, (thresh_05, thresh_05), linestyle="--")
-plot.ax.text(xlims[1], thresh_05, r"5\% false alarm",
+plot.ax.text(xlims[1], thresh_05, r"5\% false alarm on mean",
     horizontalalignment="right", verticalalignment="bottom")
 plot.ax.plot(xlims, (thresh_01, thresh_01), linestyle="--")
-plot.ax.text(xlims[1], thresh_01, r"1\% false alarm",
+plot.ax.text(xlims[1], thresh_01, r"1\% false alarm on mean",
     horizontalalignment="right", verticalalignment="bottom")
 plot.ax.set_xlim(xlims)
 
@@ -356,26 +387,26 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## P(L_max > L_max^* | 0) vs L_max^*
-text = "P(L_max > L_max^*| 0) vs ln L_max^*"
+## P(L_sum > L_sum^* | 0) vs L_sum^*
+text = "P(sum(ln L) > sum(ln L)^*| 0) vs sum(ln L)^*"
 
 plot = plotutils.SimplePlot(\
-    r"${\rho_{L\mathrm{,max}}^*}^2$",
-    r"$P(\rho_{L\mathrm{,max}}^2 > {\rho_{L\mathrm{,max}}^*}^2 \,|\,0)$",
-    r"$\textrm{Background distribution of } \rho_{L\mathrm{,max}}^2$")
-plot.add_content(L_max_star, P_L_max_star,  marker=".", linestyle="None")
+    r"$\Sigma(\ln L)^*$",
+    r"$P(\Sigma(\ln L) > \Sigma(\ln L)^* \,|\,0)$",
+    r"$\textrm{Background distribution of } \Sigma(\ln L)$")
+plot.add_content(L_sum_star, P_L_sum_star,  marker=".", linestyle="None")
 plot.finalize()
 plot.ax.set_xscale("log")
 
-# pLmax0
+# pLsum0
 if actual_candidate_mask.any():
     xlims = tuple(plot.ax.get_xlim())
-    plot.ax.plot((log_L_max, log_L_max), (0, 1), "k--")
+    plot.ax.plot((log_L_sum, log_L_sum), (0, 1), "k--")
     plot.ax.set_xlim(xlims)
     plot.ax.set_ylim((0, 1))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "P_L_max_by_L")
+    fname = InspiralUtils.set_figure_name(opts, "P_L_sum_by_L")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -392,16 +423,15 @@ plot.add_content(mc_bins, onsource_loudest_by_mc)
 plot.finalize(orientation="horizontal")
 
 # add p(c|0) on top as text
-for mc, snr, have_candidate, log_pc0 in \
+for mc, snr, have_candidate, pc0 in \
     zip(mc_bins.centres(), onsource_loudest_by_mc, actual_candidate_mask,
-        log_pc0_by_mc):
+        raw_pc0_by_mc):
     if have_candidate:
         plot.ax.text(snr + 0.2, mc, r"$P(" + c_in_E + r"\,|\,0) = %.3f$" \
-            % numpy.exp(log_pc0), verticalalignment="center")
+            % pc0, verticalalignment="center")
     else:
         plot.ax.text(10, mc, r"$P(\textrm{any candidate}\,|\,0) = %.3f$" \
-            % numpy.exp(log_pc0), horizontalalignment="center",
-            verticalalignment="center")
+            % pc0, horizontalalignment="center", verticalalignment="center")
 
 if plot.ax.get_xlim()[1] < 20:
     plot.ax.set_xlim(xmax=20)
@@ -434,7 +464,7 @@ extrap_snr_by_mc = \
 
 plot = plotutils.SimplePlot(\
     r"$m_2\ (M_\odot)$",
-    r"$\rho_L^2(m_2)$",
+    r"$\ln L$",
     r"Significance of candidates in different mchirp regions")
 for mc_range, mc_log_L_by_m2, is_candidate, color in \
     zip(mc_ranges, log_L_by_mc_m2,
@@ -451,6 +481,109 @@ plot.ax.set_ylim(ymin=-0.5)
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_L_by_mc_m2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L_sum vs rho
+text = "sum ln L vs max rho"
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\Sigma (\ln L)$",
+    r"$\Sigma (\ln L)\textrm{ vs max eff SNR}$")
+
+# injections
+x_data = inj_loudest_by_inj_mc.max(axis=1)
+non_empty_trials = x_data > 0
+x_data = x_data[non_empty_trials]
+y_data = inj_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
+    label="injections", markersize=2)
+
+# background
+x_data = offsource_loudest_by_trial_mc.max(axis=1)
+non_empty_trials = x_data > 0
+x_data = x_data[non_empty_trials]
+y_data = offsource_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
+    label="background", markersize=4)
+
+# on-source observation
+plot.add_content([onsource_loudest_by_mc.max()], [log_L_by_m2.sum()],
+    marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
+    label="on-source observation", markersize=8, markerfacecolor="None")
+
+plot.finalize(loc=4)
+plot.ax.set_xscale("log")
+plot.ax.set_yscale("log")
+plot.ax.axis("tight")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_L_sum_vs_rho_max")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## ROC plot
+text = "ROC curve (uniform priors)"
+
+plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
+    r"$\textrm{ROC curve (uniform priors)}$")
+plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
+    inj_loudest_by_inj_mc.max(axis=1),
+    color="r", linestyle="-", label="eff. SNR")
+plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
+    color="g", linestyle="-", label="IFAR")
+plot.add_content(offsource_likelihood_by_trial_m2.sum(axis=1),
+    inj_likelihood_by_trial_m2.sum(axis=1),
+    color="b", linestyle="-", label=r"$\Sigma(\ln L)$")
+
+plot.finalize(loc=4)
+
+# diagonal line represents blind guessing
+plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
+plot.ax.set_xlim((0, 1))
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "ROC_uniform")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## ROC plot (D^3 reweighted)
+text = "ROC curve (D^3 weighting)"
+
+# get D^3 weighting; to revert to unweighted, set all weights to 1 / num_inj.
+weight_by_inj = numpy.array([m2_D[1]**3 for m2_D in m2_D_by_inj])
+weight_by_inj /= weight_by_inj.sum()
+
+plot = plotutils.ROCPlot("False alarm probability", "Efficiency",
+    r"$\textrm{ROC curve (}D^3\textrm{ weighting)}$")
+plot.add_content(offsource_loudest_by_trial_mc.max(axis=1),
+    inj_loudest_by_inj_mc.max(axis=1), weight_by_inj,
+    color="r", linestyle="-", label="eff. SNR")
+plot.add_content(1 / offsource_fap_by_trial, 1 / inj_fap_by_trial,
+    weight_by_inj,
+    color="g", linestyle="-", label="IFAR")
+plot.add_content(offsource_likelihood_by_trial_m2.sum(axis=1),
+    inj_likelihood_by_trial_m2.sum(axis=1), weight_by_inj,
+    color="b", linestyle="-", label=r"$\Sigma(\ln L)$")
+
+plot.finalize(loc=4)
+
+# diagonal line represents blind guessing
+plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
+plot.ax.set_xlim((0, 1))
+plot.ax.set_ylim((0, 1))
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "ROC_D3")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
@@ -519,8 +652,8 @@ if not opts.show_plot:
 ## L vs rho for each mc bin
 text = "ln L vs rho for each mc bin for m2 = " + str(m2_bins.centres()[trace_m2_bin])
 
-plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\rho_L^2\textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
+plot = plotutils.SimplePlot(r"$\ln \rho$", "",
+    r"$\ln L \textrm{ vs stat for some }m_2\ (%s\,M_\odot)$" \
     % str(m2_bins.centres()[trace_m2_bin]))
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
@@ -636,10 +769,10 @@ if not opts.show_plot:
 text = "P(L(m_2) > L_*(m_2) | 0) vs ln L_*"
 
 plot = plotutils.SimplePlot(\
-    r"${\rho_L^*}^2$",
-    r"$P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0)$",
-    r"\[P(\rho_L^2(m_2) > \rho_{L,*}^2\,|\,0) "\
-    r"\left(= \lim_{D\rightarrow\infty} P(\rho_L^2(m_2) > \rho_{L,*}^2 "\
+    r"$\ln L_*$",
+    r"$P(\ln L(m_2) > \ln L_* \,|\,0)$",
+    r"\[P(\ln L(m_2) > \ln L_* \,|\,0) "\
+    r"\left(= \lim_{D\rightarrow\infty} P(\ln L(m_2) > ln L_* "\
     r"\,|\,h(m_2, D))\right)\]")
 
 m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
