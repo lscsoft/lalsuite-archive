@@ -99,11 +99,6 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       hipeCache = checkHipeCachePath(cp)
 
       if type == "plot" or type == "notrig" or type == "coh" or type == "chia":
-        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
-        if type == "chia":
-          bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_coh' + str(trig.eventID) + '.xml.gz'
-        #self.add_var_opt("verbose","")
-        self.set_bank(bankFile)
         # Here we define the trig-start-time and the trig-end-time;
         # The difference between these two times should be kept to 2s
         # Otherwise change the clustering window also
@@ -143,7 +138,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           value = cp.get("coh-inspiral",param)
         if param == 'bank-file':
           bankFile = value
-        if type == "notrig" or type == "coh":
+        if type == "notrig" or type == "coh" or type == "chia":
         # if forceTrigger is true, we loose the thresholds to
         # make sure to get a trigger
           if param == 'snr-threshold': value = "0.1"
@@ -182,7 +177,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         if param == 'write-compress':
           extension = '.xml.gz'
 
-      if type == "notrig" or type == "coh":
+      if type == "notrig" or type == "coh" or type == "chia":
         self.add_var_opt('cluster-window',str(int(hLengthAnalyzed)))
         self.add_var_opt('disable-rsq-veto',' ')
 
@@ -191,6 +186,14 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
       if cp.has_section("followup-inspiral-extra"):
         for (name,value) in cp.items("followup-inspiral-extra"):
           self.add_var_opt(name,value)
+
+      if type == "plot" or type == "coh":
+        bankFile = 'trigTemplateBank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
+      if type == "chia":
+        bankFile = 'trigTemplateBank/' + self.inputIfo + '-TRIGBANK_FOLLOWUP_coh' + str(trig.eventID) + '.xml.gz'
+      if type == "notrig":
+        bankFile = 'trigTemplateBank/' + ifo + '-TRIGBANK_FOLLOWUP_' + type + str(trig.eventID) + '.xml.gz'
+      self.set_bank(bankFile)
 
       if not ifo == self.inputIfo and not type == "coh" and not type == "chia":
         second_user_tag = "_" + ifo + "tmplt"
