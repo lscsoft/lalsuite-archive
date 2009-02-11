@@ -263,7 +263,8 @@ setup(
                 os.path.join("bin", "KW_veto_channelPage"),
                 os.path.join("bin", "KW_veto_reportPage"),
 		os.path.join("bin", "KW_veto_qscanSetup"),
-                os.path.join("bin", "pylal_plot_inspiral_skymap")
+                os.path.join("bin", "pylal_plot_inspiral_skymap"),
+                os.path.join("bin", "plotskypoints")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
