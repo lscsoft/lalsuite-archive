@@ -1592,10 +1592,10 @@ class followupdqdb:
       corruption and clears existing locks to the DQ so others can add
       elements to the DB.
       """
-      self.__disconnectDB__(self)
+      self.__disconnectDB__()
     #End close()
 
-    def __createRawCursor__(self):
+    def __createRawCursor__():
         """
         A method that is only used for testing.  It return a cursor 
         object to the database currently open.
