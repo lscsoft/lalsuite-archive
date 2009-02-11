@@ -801,7 +801,7 @@ class followUpList:
 #############################################################################
 # Function to generate a trigbank xml file
 #############################################################################
-def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,use_col_from_installation=None):
+def generateXMLfile(cp,ckey,ifo,outputPath=None,type='plot',use_max_template=None,use_col_from_installation=None):
 
   if outputPath:
     try:
@@ -824,9 +824,16 @@ def generateXMLfile(ckey,ifo,outputPath=None,type='plot',use_max_template=None,u
     trig = getattr(ckey,maxIFO)
   else:
     trig = getattr(ckey,ifo)
-  
-  properChannelTrig = getattr(ckey,ifo)
-  trig.channel = properChannelTrig.channel
+
+  if type == "coh":
+    if cp.has_option("followup-coh-trigbank",ifo+"_channel"):
+      trig.channel = cp.get("followup-coh-trigbank",ifo+"_channel")
+    else:
+      print >> sys.stderr, "the section [followup-coh-trigbank] in the .ini file should contain a field \""+ifo+"_channel\""
+      sys.exit(1)
+  else:
+    properChannelTrig = getattr(ckey,ifo)
+    trig.channel = properChannelTrig.channel
   trig.ifo = ifo
   #print ifo, getattr(ckey,ifo).ifo
   #print trig.channel, trig.ifo, maxSNR, getattr(ckey, 'event_id')
@@ -904,7 +911,7 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
 #############################################################################
 # Function to return the follow up list of coinc triggers
 #############################################################################
-def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
+def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None,search=None,trigbank_test=None,ifar=True,add_columns=False):
 
   followups = []
   xmfilenum = 0
@@ -934,10 +941,10 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                   except: fuList.gpsTime[ifo] = None
         
                   if fuList.gpsTime[ifo] and trigbank_test:
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
 		      xmfilenum += 3
 	      # if the trigger type is wrong don't count it
               if trigtype: 
@@ -965,9 +972,16 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                               fuList.ifoTag = chunk.ifos
                               break
               followups.append(fuList)
-              # generate a cohbank xml file for this coinc trigger
               if search:
-                maxIFO = generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
+                # generate a cohbank xml file for this coinc trigger
+                generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
+                # generate a trigbank with max templates for ifo in science but not found in coincidence
+                if trigbank_test:
+                  for j in range (0,len(fuList.ifoTag)-1,2):
+                    itf = fuList.ifoTag[j:j+2]
+                    if not itf in fuList.ifolist_in_coinc:
+                      generateXMLfile(cp,ckey,itf,'trigTemplateBank',"coh",True,add_columns)
+
       else:
 
           ifarList=list()
@@ -993,10 +1007,10 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
                   except: fuList.gpsTime[ifo] = None
                   if fuList.gpsTime[ifo] and trigbank_test:
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
                       # Also make a trigbank xml with the max template
-                      generateXMLfile(ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
 		      xmfilenum += 3
 
               # if the trigger type is wrong don't count it
@@ -1029,6 +1043,13 @@ def getfollowuptrigs(numtrigs,trigtype=None,page=None,coincs=None,missed=None,se
               if search:
                 generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
                 print "produced cohbank files 2..."
+                if trigbank_test:
+                  for j in range (0,len(fuList.ifoTag)-1,2):
+                    itf = fuList.ifoTag[j:j+2]
+                    if not itf in fuList.ifolist_in_coinc:
+                      generateXMLfile(cp,ckey,itf,'trigTemplateBank',"coh",True,add_columns)
+
+
   # the missed stuff doesnt work yet!!!
   print "produced " + str(xmfilenum) + " trig bank files..."
 
