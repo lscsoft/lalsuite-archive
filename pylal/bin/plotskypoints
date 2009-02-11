@@ -167,6 +167,8 @@ def parse_command_line():
       default=False, help="list galaxies located in a rectangle around sky locations within the specified time-threshold" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
+  parser.addoption("-D","--Deff-cut",action="store_true",\
+      default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
 
   (options,args) = parser.parse_args()
 
@@ -193,6 +195,7 @@ addsym = ['k+','kx','k1']
 xlow = 20
 xhigh = 0
 
+####################################################################
 # load galaxy catalog
 
 if opts.listgalaxies:
@@ -200,7 +203,7 @@ if opts.listgalaxies:
     catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=["name","distance_kpc","ra","dec"])
   else:
     raise ValueError, "no galaxy catalog specified"
-
+####################################################################
 
 
 #####################################################################
@@ -360,7 +363,8 @@ for coinc in coincTriggers:
     apoints.append(narrowcount)
     print "%f %f %i %i %f" % (coinc.stat, injdeltarms, narrowcount,\
         afound[-1], getattr(coinc,"sim").distance)
-
+    
+####################################################################
   # cluster the hotspots
   if opts.listgalaxies:
 
@@ -393,11 +397,17 @@ for coinc in coincTriggers:
       # i think this is a bug in python, but if you switch loc2 and loc1 in the next two lines things get screwed up
       clusters.remove(clusters[loc2])
       clusters.remove(clusters[loc1])
-
+####################################################################
+      
   if opts.listgalaxies:
-    max_dist = 1000*min(getattr(coinc, "sim").eff_dist_h, getattr(coinc, "sim").eff_dist_l, \
+    if opts.Deff-cut:
+      max_dist = 1000*min(getattr(coinc, "sim").eff_dist_h, getattr(coinc, "sim").eff_dist_l, \
                      getattr(coinc, "sim").eff_dist_v)
-    print "max_dist", max_dist
+    else:
+      # this is farther than we can see, so it should encompass everything
+      # if done this way, it's only a single if statement
+      max_dist = 1000000
+
     galaxies = []
     galaxy_counter = {}
 
