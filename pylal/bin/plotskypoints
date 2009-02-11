@@ -167,7 +167,7 @@ def parse_command_line():
       default=False, help="list galaxies located in a rectangle around sky locations within the specified time-threshold" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
-  parser.addoption("-D","--Deff-cut",action="store_true",\
+  parser.add_option("-D","--Deff-cut",action="store_true",\
       default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
 
   (options,args) = parser.parse_args()
