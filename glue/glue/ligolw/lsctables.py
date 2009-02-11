@@ -790,10 +790,10 @@ class SnglInspiralTable(table.Table):
 		"snr": "real_4",
 		"chisq": "real_4",
 		"chisq_dof": "int_4s",
-                "bank_chisq": "real_4",
-                "bank_chisq_dof": "int_4s",
-                "cont_chisq": "real_4",
-                "cont_chisq_dof": "int_4s",
+		"bank_chisq": "real_4",
+		"bank_chisq_dof": "int_4s",
+		"cont_chisq": "real_4",
+		"cont_chisq_dof": "int_4s",
 		"sigmasq": "real_8",
 		"rsqveto_duration": "real_4",
 		"Gamma0": "real_4",
@@ -828,9 +828,9 @@ class SnglInspiralTable(table.Table):
 		return mapping
 
 	def get_column(self,column):
-                if column == 'reduced_bank_chisq':
+		if column == 'reduced_bank_chisq':
                         return self.get_reduced_bank_chisq()
-                if column == 'reduced_cont_chisq':
+		if column == 'reduced_cont_chisq':
                         return self.get_reduced_cont_chisq()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
