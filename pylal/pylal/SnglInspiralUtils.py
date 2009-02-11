@@ -298,9 +298,11 @@ def compute_thinca_livetime(all_instruments, rings, vetoseglistdict, offsetvecto
 
   # tot up the time when exactly the instruments that must be on are on
   #
+  # slidvetoes = times when instruments are vetoed,
   # slidvetoes.union(required_on) = times when an instrument that must be
   # on is vetoed
   #
+  # ~slidvetoes = times when instruments are not vetoed,
   # (~slidvetoes).union(required_off) = times when an instrument that must
   # be off is not vetoed
   live_time = 0.0
