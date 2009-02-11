@@ -829,9 +829,9 @@ class SnglInspiralTable(table.Table):
 
 	def get_column(self,column):
 		if column == 'reduced_bank_chisq':
-                        return self.get_reduced_bank_chisq()
+			return self.get_reduced_bank_chisq()
 		if column == 'reduced_cont_chisq':
-                        return self.get_reduced_cont_chisq()
+			return self.get_reduced_cont_chisq()
 		if column == 'effective_snr':
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
