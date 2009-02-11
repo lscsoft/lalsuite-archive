@@ -178,6 +178,9 @@ if inj_loudest_by_inj_mc.shape[0] != num_inj:
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 log_L_by_inj_mc = log_pch_by_inj_mc - log_pc0_by_inj_mc
 
+# set all empty trials to have likelihoods of -infinity
+empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
+
 ##############################################################################
 # compute unextrapolated FAP for IFAR comparison
 if opts.verbose:
@@ -495,24 +498,27 @@ plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\Sigma (\ln L)$",
 
 # injections
 x_data = inj_loudest_by_inj_mc.max(axis=1)
-non_empty_trials = x_data > 0
+y_data = inj_likelihood_by_trial_m2.sum(axis=1)
+non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
-y_data = inj_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+y_data = y_data[non_empty_trials]
 plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
     label="injections", markersize=2)
 
 # background
 x_data = offsource_loudest_by_trial_mc.max(axis=1)
-non_empty_trials = x_data > 0
+y_data = offsource_likelihood_by_trial_m2.sum(axis=1)
+non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
-y_data = offsource_likelihood_by_trial_m2.sum(axis=1)[non_empty_trials]
+y_data = y_data[non_empty_trials]
 plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
     label="background", markersize=4)
 
 # on-source observation
-plot.add_content([onsource_loudest_by_mc.max()], [log_L_by_m2.sum()],
-    marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
-    label="on-source observation", markersize=8, markerfacecolor="None")
+if log_L_by_m2.sum() > 0:
+    plot.add_content([onsource_loudest_by_mc.max()], [log_L_by_m2.sum()],
+        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="None")
 
 plot.finalize(loc=4)
 plot.ax.set_xscale("log")
@@ -600,6 +606,9 @@ plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
     y_data = log_pch_by_inj_mc[:, mc_ind]
+    non_empty_ind = y_data != -numpy.inf
+    x_data = x_data[non_empty_ind]
+    y_data = y_data[non_empty_ind]
     plot.add_content(x_data, y_data, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 
@@ -658,6 +667,9 @@ plot = plotutils.SimplePlot(r"$\ln \rho$", "",
 for mc_ind, mc_range in enumerate(mc_ranges):
     x_data = rho_by_inj_mc[:, mc_ind]
     y_data = log_L_by_inj_mc[:, mc_ind]
+    non_empty_ind = y_data != -numpy.inf
+    x_data = x_data[non_empty_ind]
+    y_data = y_data[non_empty_ind]
     plot.add_content(x_data, y_data, marker=".", linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
 plot.finalize(loc=2)
