@@ -196,9 +196,12 @@ LALFindChirpACTDFilterSegment (
   deltaT = params->deltaT;
 
   deltaF = 1.0 / ( deltaT * (REAL8)(numPoints)  );
-  kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
-  input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
-
+  /*kmax = input->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ? 
+  input->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;*/
+  /* Craig: I suspect the limits of integration are incorrect. I will
+     artificially set it to numPoints/2. */
+  kmax = numPoints / 2;
+  printf("In filter: kmax = %d, numPoints/2 = %d\n", kmax, numPoints/2 );
 
   /*
    *
@@ -296,8 +299,10 @@ LALFindChirpACTDFilterSegment (
   if (params->cVec )
     memset( params->cVec->data->data, 0, numPoints * sizeof( COMPLEX8 ) ); 
 
+
+  printf(" Filter: numPoints = %d\n", numPoints );
   /* normalisation */
-  normFac = 4.0 / numPoints;
+  normFac = 4.0  * deltaT / (REAL4)numPoints;
 	normFacSq = pow( normFac, 2.0 );
 
 	/* normalised snr threhold */

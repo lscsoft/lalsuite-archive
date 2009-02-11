@@ -39,6 +39,8 @@ Provides the necessary function to test the AmpCorPPN filter.
 NRCSID (FINDCHIRPAMPCORTESTC,"$Id$");
 
 
+static void print_usage( void );
+
 #define TEST_STATUS( ps ) \
   ( ( ps )->statusCode && ( exit( 1 ), \
     fprintf( stderr, "LAL Routine failed near line %d\n", __LINE__ ), 1 ) )
@@ -64,24 +66,27 @@ NRCSID (FINDCHIRPAMPCORTESTC,"$Id$");
 #define ORDER    (2)
 #define AMP      (1)
 
-#define USAGE "\nUsage: \n\
- --help                     : Print this message! \n\
- --overlap                  : Normalises input data \n\
- --dynrange DYNRANGE        : set the dynamic range \n\
- --flatpsd                  : Use flat psd \n\
- --dominant                 : Inject only the domintnat harmonic \n\
- --h-plus                   : inject only h+\n\
- --enable-output            : Print output files \n\
- --tmplt-masses MASS1 MASS2 : Specify template masses \n\
- --sgnl-masses MASS1 MASS2  : Specify signal masses \n\
- --iota IOTA                : Specify Inclination \n\
- --phiC PHIC                : Specify coalescence phase \n\
- --phi PHI                  : Specify sky angle phi \n\
- --theta THETA              : Specify sky angle theta \n\
- --psi PSI                  : Specify polarisation psi \n\
- --dist DIST                : Specify signal distance \n\
- --amp-order AMP            : Specify signal amplitude order \n\
- --phase-order ORDER        : Specify signal phase order \n\n\n"                       
+static void print_usage()
+{
+  fprintf( stderr, " --help                     : Print this message! \n");
+  fprintf( stderr, " --overlap                  : Normalises input data \n");
+  fprintf( stderr, " --dynrange DYNRANGE        : set the dynamic range \n");
+  fprintf( stderr, " --flatpsd                  : Use flat psd \n");
+  fprintf( stderr, " --dominant                 : Inject only the domintnat harmonic \n");
+  fprintf( stderr, " --h-plus                   : inject only h+\n");
+  fprintf( stderr, " --enable-output            : Print output files \n");
+  fprintf( stderr, " --tmplt-masses MASS1 MASS2 : Specify template masses \n");
+  fprintf( stderr, " --sgnl-masses MASS1 MASS2  : Specify signal masses \n");
+  fprintf( stderr, " --iota IOTA                : Specify Inclination \n");
+  fprintf( stderr, " --phiC PHIC                : Specify coalescence phase \n");
+  fprintf( stderr, " --phi PHI                  : Specify sky angle phi \n");
+  fprintf( stderr, " --theta THETA              : Specify sky angle theta \n");
+  fprintf( stderr, " --psi PSI                  : Specify polarisation psi \n");
+  fprintf( stderr, " --dist DIST                : Specify signal distance \n");
+  fprintf( stderr, " --amp-order AMP            : Specify signal amplitude order \n");
+  fprintf( stderr, " --phase-order ORDER        : Specify signal phase order \n\n\n");
+  return;
+}                   
 
 LALStatus status;
 int lalDebugLevel = 1;
@@ -114,7 +119,7 @@ int main( int argc, char **argv )
   const UINT4 numSegments  = 1;
   UINT4 numPoints          = 262144;
   const UINT4 numChisqBins = 8;
-  const UINT4 invSpecTrunc = 1024;
+  const UINT4 invSpecTrunc = 0;
   REAL4 srate              = SRATE;   /* Hz */
   REAL4 fmin               = FMIN;    /* Hz */
   REAL4 fmax               = FMAX;    /* Hz */
@@ -173,7 +178,7 @@ int main( int argc, char **argv )
     }
     else if ( !strcmp( argv[arg], "--help") )
     {
-      fprintf(stderr, "%s", USAGE );
+      print_usage();
       return;
     }
     /* Set dynRange */
@@ -186,7 +191,7 @@ int main( int argc, char **argv )
       }
       else
       {
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -226,7 +231,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -242,7 +247,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -263,7 +268,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -278,7 +283,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -293,7 +298,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -308,7 +313,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -323,7 +328,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -338,7 +343,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -353,7 +358,7 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
@@ -368,13 +373,13 @@ int main( int argc, char **argv )
       else
       {
         arg++;
-        fprintf(stderr, "%s", USAGE );
+        print_usage();
         return;
       }
     }
     else
     {
-      fprintf(stderr, "%s", USAGE );
+      print_usage();
       return;
     }
   }
@@ -707,15 +712,17 @@ int main( int argc, char **argv )
       if( j * fcSegVec->data->data->deltaF >= 40. )
       {
         REAL4 power;
+        if ( dataParams->wtildeVec->data[j].re == 0.0 )
+          printf(" We have a zero!!\n");
         power = fcSegVec->data->data->data->data[j].re * 
                 fcSegVec->data->data->data->data[j].re;
         power += fcSegVec->data->data->data->data[j].im * 
                 fcSegVec->data->data->data->data[j].im;
-        norm += power / dataParams->wtildeVec->data[j].re;
+        norm +=  4.0 * dt * power / dataParams->wtildeVec->data[j].re / (REAL4)numPoints;
       }
     }
 
-    normTest = 4.0 * norm * fcSegVec->data->data->deltaF;
+    normTest = norm;
 
     /*
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
@@ -738,14 +745,14 @@ int main( int argc, char **argv )
                                               &normTestVector,
                                               dataParams->wtildeVec->data, 
                                               40.,
-                                              fcSegVec->data->data->deltaF );
+                                              dt, numPoints );
 
     fprintf( stderr, "   < data, data>  = %1.3e\n", normTest );
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector,
                                               &normTestVector2,
                                               dataParams->wtildeVec->data,
                                               40.,
-                                              fcSegVec->data->data->deltaF );
+                                              dt, numPoints );
 
     fprintf( stderr, "   < H2, data >   = %1.3e\n", normTest );
 
@@ -881,7 +888,7 @@ int Init(
   LALFindChirpTemplateInit( &status, tmpltParams, initParams );
   TEST_STATUS( &status );
 
-  (*tmpltParams)->deltaT   = 1 / srate;
+  (*tmpltParams)->deltaT   = 1.0 / srate;
   (*tmpltParams)->fLow     = fmin;
   (*tmpltParams)->dynRange = dynRange;
 
@@ -935,8 +942,10 @@ int MakeData(
   UINT4 i;
   UINT4 k;
   UINT4 n, nspec;
-  FILE *fp;
+  FILE *fp = NULL;
   REAL8 fs, df, psdfs;
+
+  memset( &tmplt, 0, sizeof( InspiralTemplate ) );
 
   tmplt.mass1           = mass1;
   tmplt.mass2           = mass2;

@@ -396,7 +396,8 @@ LALFindChirpACTDNormalize(
 {
   UINT4          k;
   UINT4          numPoints;
-  REAL8          deltaF; 
+  UINT4          numTDPoints;
+  REAL8          deltaT; 
   COMPLEX8Vector ACTDtilde[NACTDVECS];
   COMPLEX8      *wtilde;
  
@@ -440,9 +441,10 @@ LALFindChirpACTDNormalize(
 
   wtilde = params->wtildeVec->data;
 
-  numPoints = fcTmplt->ACTDtilde->vectorLength;
+  numPoints   = fcTmplt->ACTDtilde->vectorLength;
+  numTDPoints = 2 * ( numPoints - 1 );
  
-  deltaF = 1. / ( (REAL8)(numPoints) * tmpltParams->deltaT );
+  deltaT = tmpltParams->deltaT;
 
   for( k=0; k<NACTDVECS; ++k )
   {
@@ -458,7 +460,7 @@ LALFindChirpACTDNormalize(
    * Calculate H2 
    */
   H2H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[1], 
-                                        wtilde, tmpltParams->fLow, deltaF );
+                                        wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   norm = pow( H2H2, -0.5 );
   for( k = 0; k < numPoints; ++k )
   {
@@ -471,14 +473,15 @@ LALFindChirpACTDNormalize(
    * Calculate H1 
    */
   h1H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[0],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   for( k = 0; k < numPoints; ++k )
   {
     ACTDtilde[0].data[k].re -=  h1H2 * ACTDtilde[1].data[k].re;
     ACTDtilde[0].data[k].im -=  h1H2 * ACTDtilde[1].data[k].im;
   }
   H1H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[0], &ACTDtilde[0],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
+
   norm = pow( H1H1, -0.5 );
   for( k = 0; k < numPoints; ++k )
   {
@@ -490,9 +493,9 @@ LALFindChirpACTDNormalize(
    * Calculate H3
    */
   h3H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[0], &ACTDtilde[2],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   h3H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[2],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   for( k = 0; k < numPoints; ++k )
   {
     ACTDtilde[2].data[k].re -=  h3H1 * ACTDtilde[0].data[k].re; 
@@ -501,7 +504,7 @@ LALFindChirpACTDNormalize(
     ACTDtilde[2].data[k].im -=  h3H2 * ACTDtilde[1].data[k].im; 
   }
   H3H3 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[2],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   norm = pow( H3H3, -0.5 );
   for( k = 0; k < numPoints; ++k )
   {
@@ -512,21 +515,21 @@ LALFindChirpACTDNormalize(
  /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
 
   H1H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[0], &ACTDtilde[0],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   H2H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[1],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   H3H3 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[2],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
   fprintf( stderr, "\n\n  H1H1 = %.4f  H2H2 = %.4f  H3H3 = %.4f\n", 
                                           H1H1, H2H2, H3H3 );
   
   h1H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[0],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   h3H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[0],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   h3H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[1],
-                                      wtilde, tmpltParams->fLow, deltaF );
+                                      wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
   fprintf( stderr, "  h1H2 = %.4f  h3H1 = %.4f  h3H2 = %.4f\n", 
                                           h1H2, h3H1, h3H2 );
@@ -543,13 +546,19 @@ REAL4  XLALFindChirpACTDInnerProduct(
                COMPLEX8Vector  *b,
                COMPLEX8        *wtilde,
                REAL4            flower,
-               REAL4            deltaF
+               REAL4            deltaT,
+               UINT4            numPoints
                                     )
 {
   INT4  k;
   REAL4 innerProduct;
+  REAL4 deltaF;
   REAL4 sum = 0.0;
   flower = 0.0;
+
+  deltaF = 1.0 / ((REAL4)numPoints * deltaT);
+
+  printf("Numpoints = %d\n", numPoints);
 
   for( k = 0; k < a->length; ++k )
   {
@@ -558,11 +567,11 @@ REAL4  XLALFindChirpACTDInnerProduct(
       REAL4 power;
       power = a->data[k].re * b->data[k].re;
       power += a->data[k].im * b->data[k].im;
-      sum += power * wtilde[k].re;
+      sum += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)numPoints;
     }
   }
 
-  innerProduct = 4.0 * sum * deltaF;
+  innerProduct = sum;
 
   return innerProduct;
 
