@@ -141,6 +141,10 @@ page.add("Inspiral triggers found by CBC search:")
 page.h2.close()
 
 
+# WARNING: the following piece of code is lifting information from the file 
+# containing the html table of sngl_inspiral parameters stored under a
+# subdirectory called PARAM_TABLES. The formatting may change in the future.
+
 # Check if PARAM_TABLES directory exists 
 # and look for a file name matching opts.trigger_id
 if os.access("PARAM_TABLES",os.F_OK):
@@ -156,6 +160,7 @@ if os.access("PARAM_TABLES",os.F_OK):
       break
     else: pass
 
+# END OF WARNING
 
 #n_veto = nVeto()
 nelsonVeto = []
