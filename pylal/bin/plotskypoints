@@ -163,11 +163,11 @@ def parse_command_line():
       help="choice of statistic used in making plots, valid arguments are: "
             "snr (DEFAULT), snr_over_chi, effective_snr, " 
             "bitten_l, bitten_lsq")
-  parser.add_option("-l","--listgalaxies",action="store_true",\
-      default=False, help="list galaxies located in a rectangle around sky locations within the specified time-threshold" )
+  parser.add_option("-C","--countgalaxies",action="store_true",\
+      default=False, help="count galaxies located in a rectangle around sky locations within the specified time-threshold" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
-      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
-  parser.add_option("-D","--Deff-cut",action="store_true",\
+      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --countgalaxies option is used")
+  parser.add_option("-D","--Deffcut",action="store_true",\
       default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
 
   (options,args) = parser.parse_args()
@@ -198,7 +198,7 @@ xhigh = 0
 ####################################################################
 # load galaxy catalog
 
-if opts.listgalaxies:
+if opts.countgalaxies:
   if opts.usecatalog is not None:
     catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=["name","distance_kpc","ra","dec"])
   else:
@@ -264,7 +264,7 @@ apoints = []
 afound = []
 
 #distance threshhold for clustering
-if opts.listgalaxies:
+if opts.countgalaxies:
   pt_step = pi*sqrt(2.0)*opts.resolution/180.0
   dmax = sphdist((0,0), (pt_step,pt_step))
 
@@ -326,7 +326,7 @@ for coinc in coincTriggers:
   afound.append(countindex)
 
   # lists to gather hotspots (points within time-threshold) and clusters
-  if opts.listgalaxies:
+  if opts.countgalaxies:
     hotspots = []
     clusters = []
   
@@ -346,7 +346,7 @@ for coinc in coincTriggers:
 
     if countindex:
       count[countindex] += 1.0
-      if (int(countindex) == 1) and (opts.listgalaxies):
+      if (int(countindex) == 1) and (opts.countgalaxies):
         hotspots.append((point[0],point[1]))
         
     if ( not (count[0] % 1000) and opts.verbose):
@@ -366,7 +366,7 @@ for coinc in coincTriggers:
     
 ####################################################################
   # cluster the hotspots
-  if opts.listgalaxies:
+  if opts.countgalaxies:
 
     # dictionary of distances between hotspots
     dist_dict = {}
@@ -399,8 +399,8 @@ for coinc in coincTriggers:
       clusters.remove(clusters[loc1])
 ####################################################################
       
-  if opts.listgalaxies:
-    if opts.Deff-cut:
+  if opts.countgalaxies:
+    if opts.Deffcut:
       max_dist = 1000*min(getattr(coinc, "sim").eff_dist_h, getattr(coinc, "sim").eff_dist_l, \
                      getattr(coinc, "sim").eff_dist_v)
     else:
@@ -437,7 +437,7 @@ for coinc in coincTriggers:
   if opts.plotpoints:
 
     # plot the hotspot with the most galaxies as purple
-    if opts.listgalaxies:
+    if opts.countgalaxies:
       min_num_gals = -1
       for i in galaxy_counter:
         if galaxy_counter[i] > min_num_gals:
