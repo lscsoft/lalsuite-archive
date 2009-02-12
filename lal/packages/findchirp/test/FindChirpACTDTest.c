@@ -63,7 +63,7 @@ static void print_usage( void );
 #define FMIN     (40.0)
 #define FMAX     (1000.0) 
 #define SRATE    (2048) 
-#define ORDER    (2)
+#define ORDER    (4)
 #define AMP      (1)
 
 static void print_usage()
@@ -466,7 +466,20 @@ int main( int argc, char **argv )
       params.ppn->data[i] = 1.0;
    
     memset( &waveform, 0, sizeof( CoherentGW ) );
-    
+/*
+    fprintf( stderr, " params.deltaT   = %e\n", params.deltaT );
+    fprintf( stderr, " params.mTot     = %e\n", params.mTot );
+    fprintf( stderr, " params.eta      = %e\n", params.eta );
+    fprintf( stderr, " params.d        = %e\n", params.d );
+    fprintf( stderr, " params.fStartIn = %e\n", params.fStartIn );
+    fprintf( stderr, " params.fStopIn  = %e\n", params.fStopIn );
+    fprintf( stderr, " params.inc      = %e\n", params.inc );     
+    fprintf( stderr, " params.amporder = %d\n", params.ampOrder );
+    for( i = 0; i < order + 1; ++i )
+    {
+      fprintf( stderr, " params.ppn->data[%d] = %e\n", i, params.ppn->data[i]);
+    }
+*/
     /* Generate Signal */
     LALGeneratePPNAmpCorInspiral( &status, &waveform, &params );
 
@@ -506,8 +519,6 @@ int main( int argc, char **argv )
 
 
     /* Replace Data */
-    if( output == 1)
-      fp = fopen( "tddata.dat", "w" );
     for( j = dataSegVec->data->chan->data->length-1; j > -1; --j )
     {
       INT4 diff = dataSegVec->data->chan->data->length - hoft->data->length;
@@ -520,16 +531,17 @@ int main( int argc, char **argv )
       {
         dataSegVec->data->chan->data->data[j] = 0.0;
       }
-   
-      if( output == 1 )
-      {
-        fprintf( fp, "%e %e\n", j * dataSegVec->data->chan->deltaT,
-                 dataSegVec->data->chan->data->data[j] );
-      }
     }
     if( output == 1 )
     {
+      fp = fopen( "tddata.dat", "w" );
+      for( j = 0; j < numPoints - 1; ++j )
+      {
+		    fprintf( fp, "%e %e\n", j * dataSegVec->data->chan->deltaT,
+                              dataSegVec->data->chan->data->data[j] );
+      }
       fclose( fp );
+    }
 /*
       fp = fopen( "FTdata.dat", "w" );
 */    
@@ -549,7 +561,7 @@ int main( int argc, char **argv )
       XLALDestroyCOMPLEX8Vector( Hoff );
       LALDestroyRealFFTPlan( &status, &fwdPlan );
 */
-    }
+    
     /* Clear Memory */
     LALSDestroyVector( &status, &(params.ppn) );
 
@@ -605,9 +617,9 @@ int main( int argc, char **argv )
 
   Init( &tmpltParams, &dataParams, &initParams, srate, fmin, dynRange,                     invSpecTrunc );
 
-/*
-  tmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
-*/
+
+  tmpltParams->taperTmplt = INSPIRAL_TAPER_START;
+
   tmpltParams->bandPassTmplt = 0;
 
   fprintf( stderr, "Testing ACTDTemplate...                 " );
@@ -616,7 +628,7 @@ int main( int argc, char **argv )
                             tmpltParams  );
 
   ts = - (REAL4)(numPoints) * dt;
-
+  ts = 0;
   if( output == 1 )
   {
     fp = fopen("tdtmplt.dat", "w");
@@ -705,7 +717,7 @@ int main( int argc, char **argv )
                filterInput->fcTmplt->ACTDtilde->data[j + (numPoints/2+1) ].im;
       }
     }
-    fprintf( stderr, "Normalising input data for overlap...\n" );
+    fprintf( stderr, "Normalising input data for overlap..." );
 
     for( j = 0; j < fcSegVec->data->data->data->length - 1; ++j )
     {
@@ -718,7 +730,8 @@ int main( int argc, char **argv )
                 fcSegVec->data->data->data->data[j].re;
         power += fcSegVec->data->data->data->data[j].im * 
                 fcSegVec->data->data->data->data[j].im;
-        norm +=  4.0 * dt * power / dataParams->wtildeVec->data[j].re / (REAL4)numPoints;
+        norm +=  4.0 * dt * power / dataParams->wtildeVec->data[j].re 
+                                                            / (REAL4)numPoints;
       }
     }
 
@@ -738,8 +751,10 @@ int main( int argc, char **argv )
       fcSegVec->data->data->data->data[j].re *= invRootData;
       fcSegVec->data->data->data->data[j].im *= invRootData;
     }
+    fprintf( stderr, "         Done!\n");
 
 
+/*
     fprintf( stderr, "   normTest  = %1.3e\n", normTest );
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
                                               &normTestVector,
@@ -756,7 +771,7 @@ int main( int argc, char **argv )
 
     fprintf( stderr, "   < H2, data >   = %1.3e\n", normTest );
 
-    fprintf( stderr, "                                              Done!\n" );  
+    fprintf( stderr, "                                              Done!\n" ); */
   }
 
 
