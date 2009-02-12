@@ -542,8 +542,7 @@ def readFiles(fileGlob,statistic=None):
   """
   #if fileGlob is empty return empty structures
   if not fileGlob:
-    if opts.verbose:
-      print "Warning: No glob specified, returning empty structures..."
+    print "Warning: No glob specified, returning empty structures..."
     return None, CoincInspiralUtils.coincInspiralTable(), None
 
   # if there aren't any files globbed exit
