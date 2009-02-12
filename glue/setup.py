@@ -104,7 +104,6 @@ setup(
   license = 'See file LICENSE',
   packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils' ],
   cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
-  py_modules = [ 'glue.segfindserver.segments_1_7.segments' ],
   ext_modules = [
     Extension(
       "glue.ligolw.tokenizer",
