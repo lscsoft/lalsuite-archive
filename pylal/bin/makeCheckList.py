@@ -108,6 +108,14 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
+############################## Cristina Tue-Feb-10-2009:200902101724 
+parser.add_option("-Q","--data-quality-database",action="store",type="string",\
+    metavar=" PATH2FILE",default=None, dest="defaultSQL",\
+    help="This is the disk location of\
+the data quality sqlite database to use for DQ information queries.\
+Omission of this option will cause a default search for \
+~/followupDQ.sqlite rebuilding it if needed.")
+############################## Cristina Tue-Feb-10-2009:200902101724 
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -141,10 +149,6 @@ page.add("Inspiral triggers found by CBC search:")
 page.h2.close()
 
 
-# WARNING: the following piece of code is lifting information from the file 
-# containing the html table of sngl_inspiral parameters stored under a
-# subdirectory called PARAM_TABLES. The formatting may change in the future.
-
 # Check if PARAM_TABLES directory exists 
 # and look for a file name matching opts.trigger_id
 if os.access("PARAM_TABLES",os.F_OK):
@@ -160,7 +164,6 @@ if os.access("PARAM_TABLES",os.F_OK):
       break
     else: pass
 
-# END OF WARNING
 
 #n_veto = nVeto()
 nelsonVeto = []
@@ -302,13 +305,56 @@ page.td()
 page.tr.close()
 
 # Row #1
+###############################Cristina Tue-Feb-10-2009:200902101541 
 page.tr()
 page.td("#1 DQ flags")
 page.td("Can the data quality flags coincident with this candidate be safely disregarded ?")
 page.td()
-#file.write("  <td>" + DQflagsTable.buildTableHTML("border=1 bgcolor=yellow").replace("\n","") + "<br>" + dateDQflags + "</td>\n")
+#Create database object without initialization
+#Assume there is a parser option setting the variable below?
+preBuiltDB=opts.defaultSQL
+if opts.defaultSQL == None:
+  preBuiltDB=""
+if os.path.isfile(preBuiltDB):
+  checklistDB=followupdqdb(False)
+  checklistDB.setDB(preBuiltDB)
+else:
+  checklistDB=followupdqdb()
+results=dict()
+results=checklistDB.queryDB(int(float(gpstime0)),1800)
+checklistDB.close()
+htmlStart="<table bgcolor=grey border=1px><tr><th>IFO</th><th>Flag</th><th>Start(s)</th><th>Offset(s)</th><th>Stop(s)</th><th>Offset(s)</th></tr>"
+htmlRows=list()
+htmlStop="</table>"
+trigGPS=float(gpstime0)
+for ifo in checklistDB.ifoList:
+  for segment in results[ifo]:
+    token=segment
+    if token.__len__() >= 5:
+      rowText="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%i</td><td>%i</td><td>%i</td><td>%i</td></tr>"
+      if ((token[2]-trigGPS)<0 and (token[3]-trigGPS)<0):
+        mycolor="yellow"
+      elif ((token[2]-trigGPS)>0 and (token[3]-trigGPS)>0):
+        mycolor="green"
+      else:
+        mycolor="red"
+      htmlRows.append(rowText%(mycolor,ifo,\
+                               token[0],\
+                               token[2],\
+                               token[2]-trigGPS,\
+                               token[3],\
+                               token[3]-trigGPS))
+htmlMiddle=""
+for row in htmlRows:
+  htmlMiddle="%s %s"%(htmlMiddle,row)
+dqTable=htmlStart+htmlMiddle+htmlStop
+#
+# Insert the new text string of a table using markup.py functions
+page.td(dqTable)
 page.td()
 page.tr.close()
+###############################Cristina Tue-Feb-10-2009:200902101541 
+
 
 # Row #2
 page.tr()
@@ -446,8 +492,8 @@ page.tr.close()
 
 # Row #10
 page.tr()
-page.tr("#10 Snr versus time")
-page.tr("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
+page.td("#10 Snr versus time")
+page.td("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
 page.td()
 page.td()
 page.td()
