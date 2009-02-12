@@ -1554,8 +1554,10 @@ class followupdqdb:
                 x=self.__createRawCursor__()
                 for table in self.ifoList:
                     x.execute("select * from %s limit 100"%(table))
-            except:
                 del x
+            except:
+                sys.stderr.write("Sqlite database at %s seems\
+ corrupted. It will be rebuilt.\n"%(self.sqlPath+self.sqlFile))
                 self.db.close()
                 self.db=None
                 os.unlink(self.sqlPath+self.sqlFile)
@@ -1594,7 +1596,7 @@ class followupdqdb:
       self.__disconnectDB__()
     #End close()
 
-    def __createRawCursor__():
+    def __createRawCursor__(self):
         """
         A method that is only used for testing.  It return a cursor 
         object to the database currently open.
