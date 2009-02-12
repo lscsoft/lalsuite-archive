@@ -494,7 +494,7 @@ LALFindChirpACTDNormalize(
   H2H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[1], 
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   norm = pow( H2H2, -0.5 );
-  for( k = 0; k < numPoints; ++k )
+  for( k = 1; k < numPoints; ++k )
   {
     ACTDtilde[1].data[k].re *= norm; 
     ACTDtilde[1].data[k].im *= norm; 
@@ -506,7 +506,7 @@ LALFindChirpACTDNormalize(
    */
   h1H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[0],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  for( k = 0; k < numPoints; ++k )
+  for( k = 1; k < numPoints; ++k )
   {
     ACTDtilde[0].data[k].re -=  h1H2 * ACTDtilde[1].data[k].re;
     ACTDtilde[0].data[k].im -=  h1H2 * ACTDtilde[1].data[k].im;
@@ -515,7 +515,7 @@ LALFindChirpACTDNormalize(
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
 
   norm = pow( H1H1, -0.5 );
-  for( k = 0; k < numPoints; ++k )
+  for( k = 1; k < numPoints; ++k )
   {
     ACTDtilde[0].data[k].re *=  norm;                  
     ACTDtilde[0].data[k].im *=  norm;                  
@@ -528,7 +528,7 @@ LALFindChirpACTDNormalize(
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   h3H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[2],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  for( k = 0; k < numPoints; ++k )
+  for( k = 1; k < numPoints; ++k )
   {
     ACTDtilde[2].data[k].re -=  h3H1 * ACTDtilde[0].data[k].re; 
     ACTDtilde[2].data[k].re -=  h3H2 * ACTDtilde[1].data[k].re; 
@@ -538,7 +538,7 @@ LALFindChirpACTDNormalize(
   H3H3 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[2],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
   norm = pow( H3H3, -0.5 );
-  for( k = 0; k < numPoints; ++k )
+  for( k = 1; k < numPoints; ++k )
   {
     ACTDtilde[2].data[k].re *=  norm;                  
     ACTDtilde[2].data[k].im *=  norm;                  
@@ -590,7 +590,7 @@ REAL4  XLALFindChirpACTDInnerProduct(
 
   deltaF = 1.0 / ((REAL4)numPoints * deltaT);
 
-  for( k = 0; k < a->length; ++k )
+  for( k = 1; k < a->length; ++k )
   {
     if(  k * deltaF  >= flower )
     {
