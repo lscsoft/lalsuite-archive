@@ -39,7 +39,7 @@ from glue.ligolw import utils
 from glue import markup
 from pylal import InspiralUtils
 from pylal import CoincInspiralUtils
-from pylal.fu_utils import *
+from pylal import fu_utils
 from pylal.fu_writeXMLparams import *
 from pylal import Fr
 from pylal.scrapeHtmlUtils import scrapePage
@@ -316,10 +316,10 @@ preBuiltDB=opts.defaultSQL
 if opts.defaultSQL == None:
   preBuiltDB=""
 if os.path.isfile(preBuiltDB):
-  checklistDB=followupdqdb(False)
+  checklistDB=fu_utils.followupdqdb(False)
   checklistDB.setDB(preBuiltDB)
 else:
-  checklistDB=followupdqdb()
+  checklistDB=fu_utils.followupdqdb()
 results=dict()
 results=checklistDB.queryDB(int(float(gpstime0)),1800)
 checklistDB.close()
