@@ -50,13 +50,36 @@ def annotate_plot(x,y,t):
   xlabel(x)
   ylabel(y)
   title(t)
-
+  
 def compute_deltarms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
   earth_center = numpy.zeros(3)
   tgeo={}
   # compute the geocentric time from each trigger
   for ifo in ifo_list:
     tgeo[ifo] = gps[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
+    
+  # compute differences in these geocentric times
+  time={}
+  for ifos in ifo_coincs:
+    time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS( tgeo[ifos[0]] - tgeo[ifos[1]] )
+  deltarms = 0.0
+  for ifos in ifo_coincs:
+    deltarms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
+  return sqrt(deltarms)
+      
+def compute_deltarms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
+  earth_center = numpy.zeros(3)
+
+  # compute the time to be subtracted to go to reference frequency for each trigger
+  tref={}
+  for ifo in ifo_list:
+    tFromRefFreq = signal_duration(mass1[ifo],mass2[ifo],ref_freq)
+    tref[ifo] = date.LIGOTimeGPS(int(tFromRefFreq),1.e9*(tFromRefFreq-int(tFromRefFreq)))
+    
+  tgeo={}
+  # compute the geocentric time from each trigger
+  for ifo in ifo_list:
+    tgeo[ifo] = gps[ifo] - tref[ifo] - date.LIGOTimeGPS(0,1.0e9*date.XLALArrivalTimeDiff(detector_locations[ifo],earth_center,longitude,latitude,gps[ifo]))
 
   # compute differences in these geocentric times
   time={}
@@ -121,7 +144,23 @@ def clus_dist(clus1,clus2,pdists):
         
   return clusdmin
   
+def signal_duration(mass1,mass2,nuStart):
+  M = mass1+mass2
+  mu = mass1*mass2/M
+  eta = mu/M
+  chirpM = pow(mu*mu*mu*M*M,1./5.)
+  M = M*4.92549095e-6
+  mu = mu*4.92549095e-6
+  chirpM = chirpM*4.92549095e-6
+  tau0 = 5./256. * pow(chirpM,-5./3.) * pow(pi*nuStart,-8./3.)
+  tau1 = 5./(192.*mu*pi*pi*nuStart*nuStart) * (743./336. + 11./4.*eta)
+  tau1p5 = 1./(8.*mu) * pow(M/(pi*pi*pow(nuStart,5.)),1./3.)
+  tau2 = 5./(128.*mu) * pow(M/(pi*pi*nuStart*nuStart),2./3.)\
+         *(3058673./1016064. + 5429./1008.*eta + 617./144.*eta*eta)        
+  duration = tau0 + tau1 - tau1p5 + tau2
+  return(duration)
 
+  
 # What we want to do:
 # read in the coinc
 # extract the GPS time for each trigger
@@ -166,9 +205,14 @@ def parse_command_line():
   parser.add_option("-C","--countgalaxies",action="store_true",\
       default=False, help="count galaxies located in a rectangle around sky locations within the specified time-threshold" )
   parser.add_option("-u","--usecatalog",action="store",type="string",\
-      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --countgalaxies option is used")
+      default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
   parser.add_option("-D","--Deffcut",action="store_true",\
       default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
+  parser.add_option("-r","--use_reference_time",action="store_true",\
+                    default=False, help="use time at reference frequency instead of end time" )
+  parser.add_option("-f","--reference_frequency",action="store",type="float",\
+                    default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
+    
 
   (options,args) = parser.parse_args()
 
@@ -238,6 +282,10 @@ if opts.glob is not None:
 inspTriggers = None
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
 
+meaninjdeltarms = 0.
+meanpointings_narrow = 0.
+meanpointings_wide = 0.
+ninj = 0
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
@@ -257,6 +305,11 @@ detector_locations["V1"] =tools.cached_detector["VIRGO"].location
 #set the time threshold
 time_threshold = opts.time_threshold
 
+#set the reference frequency
+ref_freq = opts.reference_frequency
+if opts.verbose:
+  print "Reference frequency is %.1f Hz" % ref_freq
+  
 # arrays to build statistics
 asnr = []
 adelta = []
@@ -286,6 +339,8 @@ for coinc in coincTriggers:
   # modifying library code
 
   gps = dict((trig.ifo,trig.get_end()) for trig in coinc)
+  mass1 = dict((trig.ifo,getattr(coinc,trig.ifo).mass1)  for trig in coinc)
+  mass2 = dict((trig.ifo,getattr(coinc,trig.ifo).mass2)  for trig in coinc)
 
   # gps = coinc.get_gps_times()
  
@@ -307,7 +362,7 @@ for coinc in coincTriggers:
   # get the list of pairs
   ifo_coincs = []
   ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, 2)))
-
+  
   # grid the sky
   skypoints = gridsky(opts.resolution)
   if opts.verbose:
@@ -316,8 +371,14 @@ for coinc in coincTriggers:
   # parameters from the injection
   injlong = getattr(coinc,"sim").longitude
   injlat = getattr(coinc,"sim").latitude
-  injdeltarms = compute_deltarms(gps,injlong,injlat,ifo_list,\
-        ifo_coincs,detector_locations)
+  if opts.use_reference_time:
+    injdeltarms = compute_deltarms_ref(gps,mass1,mass2,ref_freq,injlong,injlat,ifo_list,\
+                                       ifo_coincs,detector_locations)
+  else:
+    injdeltarms = compute_deltarms(gps,injlong,injlat,ifo_list,\
+                                   ifo_coincs,detector_locations)
+  meaninjdeltarms = meaninjdeltarms+injdeltarms
+  ninj = ninj + 1
   if opts.verbose:
     print "The injection had deltarms %f seconds" % injdeltarms
   #time_threshold=injdeltarms+1.0e-6
@@ -338,10 +399,14 @@ for coinc in coincTriggers:
     latitude = point[0]
     longitude = point[1]
 
-    deltarms = compute_deltarms(gps,longitude,latitude,ifo_list,\
-        ifo_coincs,detector_locations)
+    if opts.use_reference_time:
+      deltarms = compute_deltarms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
+                                      ifo_coincs,detector_locations)
+    else:
+      deltarms = compute_deltarms(gps,longitude,latitude,ifo_list,\
+                                  ifo_coincs,detector_locations)
 
-    countindex = skyplot(deltarms, time_threshold, longitude, latitude,\
+    countindex =skyplot(deltarms, time_threshold, longitude, latitude,\
       '+', opts.plotpoints)
 
     if countindex:
@@ -354,6 +419,8 @@ for coinc in coincTriggers:
 
   narrowcount=count[1]
   widecount=count[2]
+  meanpointings_narrow = meanpointings_narrow + narrowcount
+  meanpointings_wide = meanpointings_wide + widecount
   if opts.verbose:
     print "Narrow field volume: %i" % (narrowcount)
     print "Wide field volume: %i" % (widecount)
@@ -457,6 +524,13 @@ annotate_plot("$\rho$", "$\Delta_{rms}$ (sec)","Timing accuracy")
 figure()
 plot(asarray(asnr), asarray(apoints),'bo') 
 annotate_plot("$\rho$", "No. of Pointings",("Pointings with radius %2d degrees" % opts.resolution))
+
+meaninjdeltarms = meaninjdeltarms/ninj
+meanpointings_narrow = meanpointings_narrow/ninj
+meanpointings_wide = meanpointings_wide/ninj
+print "Mean timing accuracy %f" % meaninjdeltarms
+print "Mean pointings (narrow) %f" % meanpointings_narrow
+print "Mean pointings (wide) %f" % meanpointings_wide
 
 show()
 
