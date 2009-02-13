@@ -1468,3 +1468,62 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.invalidate()
       print "couldn't add coherent-inspiral job for " + str(trig.eventID)
 
+########## PLOT Coherent search and null statistics TIME SERIES ###############
+###############################################################################
+
+##############################################################################
+# jobs class for plotting coherent inspiral search and null stat timeseries
+
+class plotChiaJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  A followup plotting job for coherent inspiral search and null stat timeseries
+  """
+  def __init__(self, options, cp, tag_base='PLOT_CHIA'):
+    """
+    """
+    self.__prog__ = 'plotChiaJob'
+    self.__executable = string.strip(cp.get('condor','plotchiatimeseries'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__prog__,tag_base)
+
+##############################################################################
+# node class for plotting coherent inspiral search and null stat timeseries
+
+class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a plotChia followup job
+  """
+  def __init__(self,job,chiaXmlFilePath,trig,chiaNode,dag,page,opts):
+    """
+    job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
+    """
+    self.friendlyName = 'Plot CHIA time-series'
+    try:
+      pipeline.CondorDAGNode.__init__(self,job)
+      self.output_file_name = ""
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-CHIA_1-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      self.add_var_opt("chiaXmlFile",chiaXmlFileName)
+      self.add_var_opt("gps",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      self.add_var_opt("user-tag",str(trig.eventID))
+      self.id = job.name + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.add_var_opt("output-path",job.outputPath)
+      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name.lower())
+
+      #try: 
+      if chiaNode.validNode: self.add_parent(chiaNode)
+      #except: pass
+      if opts.plot_chia:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+    except: 
+      self.invalidate()
+      print "couldn't add chia plotting job for event " + str(trig.eventID)
+
+##############################################################################y
+
