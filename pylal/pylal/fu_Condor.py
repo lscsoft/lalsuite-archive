@@ -444,7 +444,7 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
       self.validate()
     else: 
       self.invalidate()
-      print "couldn't add sky map job for " + str(trig.eventID)
+      #print "couldn't add sky map job for " + str(trig.eventID)
 
 
 
@@ -1525,5 +1525,73 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
       self.invalidate()
       print "couldn't add chia plotting job for event " + str(trig.eventID)
 
-##############################################################################y
+###############################################################################
+
+############# Generate the checklists for candidate followups #################
+###############################################################################
+
+##############################################################################
+# job class for making candidate checklists
+
+class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  A job to prepare the checklist of a candidate
+  """
+  def __init__(self, options, cp):
+    """
+    """
+    self.__prog__ = 'CHECKLIST'
+    self.__executable = string.strip(cp.get('condor','makechecklist'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__prog__)
+
+##############################################################################
+# node class for making candidate checklists
+
+class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  A node to prepare the checklist of a candidate
+  """
+  def __init__(self,job,trig,cp,opts,dag):
+    """
+    """
+    self.friendlyName = 'Make checklist'
+    pipeline.CondorDAGNode.__init__(self,job)
+
+    self.id = job.name + "-" + str(trig.eventID)
+
+    self.add_var_opt("trigger-id",str(trig.eventID))
+    gpsList = ""
+    ifolist = ""
+    for ifo in trig.ifolist_in_coinc:
+      ifolist += ifo
+      gpsList += repr(trig.gpsTime[ifo]) + ","
+    self.add_var_opt("trigger-gps",gpsList.strip(","))
+    self.add_var_opt("ifolist-in-coinc",ifolist)
+    self.add_var_opt("user-tag",str(trig.eventID)+"_"+ifolist)
+    self.add_var_opt("ifo-times",trig.ifoTag)
+    self.add_var_opt("ifo-tag",trig.ifoTag)
+    if cp.has_option("followup-dq","input-sql"):
+      self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
+    self.setupNodeWeb(job,True,None,None,None,dag.cache)
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name.lower())
+
+    for node in dag.get_nodes():
+      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode):
+        for gps in gpsList.strip(",").split(","):
+          if gps in node.id and node.validNode:
+            self.add_parent(node)
+      if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode):
+        if str(trig.eventID) in node.id and node.validNode:
+          self.add_parent(node)
+    
+    if opts.make_checklist:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: self.invalidate()
+
 
