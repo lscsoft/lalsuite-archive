@@ -1505,11 +1505,12 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
       self.output_file_name = ""
       chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-CHIA_1-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
-      self.add_var_opt("gps",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      #self.add_var_opt("gps",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
       self.add_var_opt("user-tag",str(trig.eventID))
-      self.id = job.name + '-' + str(trig.statValue) + '_' + str(trig.eventID)
-      self.add_var_opt("output-path",job.outputPath)
-      self.setupNodeWeb(job,True, dag.webPage.lastSection.lastSub,page,None,dag.cache)
+      self.add_var_opt("ifo-tag",trig.ifoTag)
+      self.add_var_opt("ifo-times",trig.ifoTag)
+      self.id = job.name + '-' + str(trig.statValue) + '-' + str(trig.eventID)
+      self.setupNodeWeb(job,True,None,None,None,dag.cache)
 
       if not opts.disable_dag_categories:
         self.set_category(job.name.lower())
