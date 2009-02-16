@@ -161,6 +161,7 @@ if os.access("PARAM_TABLES",os.F_OK):
       paramTable.setContextKeys("<body>","</body>")
       paramTable.readfile(paramFile)
       page.add(paramTable.buildTableHTML("border=1 bgcolor=yellow"))
+      page.hr()
       break
     else: pass
 
@@ -177,6 +178,7 @@ analyse_seismic_qscan = []
 snrchisq = []
 coherent_qscan = []
 framecheck = []
+chia = []
 
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
@@ -247,17 +249,29 @@ for j in range(0,len(opts.ifo_times)-1,2):
      rds_qscan.append("QSCAN/qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
      for ifo_ref in ifolist:
-       snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"-"+ifo_ref+"tmplt-"+opts.trigger_id)
+       snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+ifo_ref+"tmplt_"+opts.trigger_id)
        if snrchisqFile:
          snrchisq.append(snrchisqFile)
+       else:
+         snrchisq.append("")
 
 # link to coherent qscan
 try:
   ifolist.index("H1")
   ifolist.index("H2")
   coherent_qscan.append("h1h2QeventJob/qevent/H1H2/" + gpstime0)
-
 except: pass
+
+# link to inspiral coherent followups
+coherentInspiralFile = getFileMatchingTrigger("plotChiaJob",opts.ifo_times+"_"+opts.trigger_id)
+if coherentInspiralFile:
+  coherentParamFile = coherentInspiralFile.strip("../")
+  coherentParamTable = scrapePage()
+  coherentParamTable.setContextKeys("<table bgcolor=pink border=1px>","</table>")
+  coherentParamTable.readfile(coherentParamFile)
+  chia.append(coherentInspiralFile)
+else:
+  pass
 
 
 # build the checklist table
@@ -265,18 +279,18 @@ page.h2()
 page.add("Follow-up tests")
 page.h2.close()
 
-page.table()
+page.add("<table bgcolor=grey border=1px>")
 page.tr()
-page.td("ID")
-page.td("Questions")
-page.td("Answers")
-page.td("Relevant information (flags, plots and links)")
-page.td("Comments")
+page.td("<b>ID</b>")
+page.td("<b>Questions</b>")
+page.td("<b>Answers</b>")
+page.td("<b>Relevant information (flags, plots and links)</b>")
+page.td("<b>Comments</b>")
 page.tr.close()
 
 
 #file.write("<tr bgcolor=red>\n")
-page.tr()
+page.add("<tr bgcolor=red>")
 page.td()
 page.td("<b>Is this candidate a possible gravitational-wave ?</b>")
 page.td("<b>YES/NO</b>")
@@ -517,10 +531,10 @@ snrchisqLinks = ""
 for j,ifo in enumerate(ifolist):
   snrchisqLinks += " <a href=\"" + snrchisq[j] + "\">" + ifo + "</a>"
 snrchisqLinks += "<br>\n"
-i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
   if not ifolist.count(ifo):
+    i=0
     for ifo_ref in ifolist:
       i=i+1
       snrchisqLinks += " <a href=\"" + snrchisq[i + len(ifolist) - 1] + "\">" + ifo + " with " + ifo_ref + " template" + "</a>"
@@ -542,10 +556,13 @@ page.tr()
 page.td("#14 Coherent studies")
 page.td("Are the triggers found in multiple interferometers coherent with each other ?")
 page.td()
-coherentQscanLinks = ""
+coherentLinks = ""
 if coherent_qscan:
-  coherentQscanLinks += " <a href=\"" + coherent_qscan[0] + "\">H1H2 coherent qevent</a>"
-page.td(coherentQscanLinks)
+  coherentLinks += " <a href=\"" + coherent_qscan[0] + "\">H1H2 coherent qevent</a><hr />"
+if chia:
+  coherentLinks += coherentParamTable.buildTableHTML("border=1 bgcolor=yellow")
+  coherentLinks += " <a href=\"" + chia[0] + "\">Coherent inspiral followup</a><hr />"
+page.td(coherentLinks)
 page.td()
 page.tr.close()
 
