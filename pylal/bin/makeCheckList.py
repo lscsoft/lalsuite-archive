@@ -143,11 +143,13 @@ doctype+="""\n<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en"
 title = "Detection Checklist for candidate " + str(opts.trigger_id)
 page.init(title=title, doctype=doctype)
 #page.init(title=title)
+page.h1()
+page.add("Detection Checklist for Candidate " + str(opts.trigger_id))
+page.h1.close()
 
 page.h2()
 page.add("Inspiral triggers found by CBC search:")
 page.h2.close()
-
 
 # Check if PARAM_TABLES directory exists 
 # and look for a file name matching opts.trigger_id
@@ -158,7 +160,7 @@ if os.access("PARAM_TABLES",os.F_OK):
       # Copy the table of parameters inside the checklist
       paramFile = os.path.normpath("PARAM_TABLES/" + paramFile)
       paramTable = scrapePage()
-      paramTable.setContextKeys("<body>","</body>")
+      paramTable.setContextKeys("<table bgcolor=cyan border=1px>","</table>")
       paramTable.readfile(paramFile)
       page.add(paramTable.buildTableHTML("border=1 bgcolor=yellow"))
       page.hr()
@@ -179,6 +181,8 @@ snrchisq = []
 coherent_qscan = []
 framecheck = []
 chia = []
+skymap = []
+singlemcmc = []
 
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
@@ -223,7 +227,7 @@ for ifo_index,ifo in enumerate(ifolist):
   if analyseHoftQscanFile:
     analyse_hoft_qscan.append(analyseHoftQscanFile)
   else:
-    analyse_rds_qscan.append("")
+    analyse_hoft_qscan.append("")
 
   # links to snrchisq plots
   snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+opts.trigger_id)
@@ -238,6 +242,17 @@ for ifo_index,ifo in enumerate(ifolist):
     framecheck.append(framecheckFile)
   else:
     framecheck.append("")
+
+  # links to single MCMC chains
+  if os.access("plotmcmcJob",os.F_OK):
+    filesInDir = os.listdir("plotmcmcJob")
+    for element in filesInDir:
+      if fnmatch.fnmatch(element, "*" + ifo + "*" + opts.trigger_id):
+        singlemcmc.append("../plotmcmcJob/" + element)
+        break
+      else: pass
+  if len(singlemcmc) < ifo_index+1:
+    singlemcmc.append("")
 
 # loop over ifos not found in coincidence (though in the analysed times)
 gpstime0 = opts.trigger_gps.split(",")[0].strip()
@@ -273,13 +288,18 @@ if coherentInspiralFile:
 else:
   pass
 
+# links to skymaps
+skymapFile = getFileMatchingTrigger("pylal_skyPlotJob",opts.trigger_id)
+if skymapFile:
+  skymap.append(skymapFile)
+
 
 # build the checklist table
 page.h2()
 page.add("Follow-up tests")
 page.h2.close()
 
-page.add("<table bgcolor=grey border=1px>")
+page.add("<table bgcolor=wheat border=1px>")
 page.tr()
 page.td("<b>ID</b>")
 page.td("<b>Questions</b>")
@@ -409,7 +429,7 @@ hoftQscanLinks = "h(t) Qscans:<br>"
 for j,ifo in enumerate(ifolist):
   gpstime = opts.trigger_gps.split(",")[j].strip()
   hoftQscanLinks += " <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>"
-  hoftQscanLinks += " <a href=\"" + analyse_seismic_qscan[j] + "\"> Background information for " + ifo + "</a>"
+  hoftQscanLinks += " <a href=\"" + analyse_hoft_qscan[j] + "\"> Background information for " + ifo + "</a>"
   hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
   hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
 i=0
@@ -531,10 +551,10 @@ snrchisqLinks = ""
 for j,ifo in enumerate(ifolist):
   snrchisqLinks += " <a href=\"" + snrchisq[j] + "\">" + ifo + "</a>"
 snrchisqLinks += "<br>\n"
+i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
   if not ifolist.count(ifo):
-    i=0
     for ifo_ref in ifolist:
       i=i+1
       snrchisqLinks += " <a href=\"" + snrchisq[i + len(ifolist) - 1] + "\">" + ifo + " with " + ifo_ref + " template" + "</a>"
@@ -562,6 +582,8 @@ if coherent_qscan:
 if chia:
   coherentLinks += coherentParamTable.buildTableHTML("border=1 bgcolor=yellow")
   coherentLinks += " <a href=\"" + chia[0] + "\">Coherent inspiral followup</a><hr />"
+if skymap:
+  coherentLinks += " <a href=\"" + skymap[0] + "\">Sky Map</a><hr />"
 page.td(coherentLinks)
 page.td()
 page.tr.close()
@@ -597,11 +619,12 @@ page.td()
 page.tr.close()
 
 page.table.close()
+page.hr()
 
 
 # Write parameter estimation table
 page.h2("Parameter estimation")
-page.table()
+page.add("<table bgcolor=chartreuse border=1px>")
 page.tr()
 page.td("ID")
 page.td("Questions")
@@ -615,7 +638,10 @@ page.tr()
 page.td("#1 Parameters of the candidate")
 page.td("Can we get more accurate information on the parameters of this candidate using MCMC or Bayesian methods ?")
 page.td()
-page.td("MCMC results:")
+singlemcmcLinks = "Single MCMC:"
+for j,ifo in enumerate(ifolist):
+  singlemcmcLinks += " <a href=\"" + singlemcmc[j] + "\">" + ifo + "</a>"
+page.td(singlemcmcLinks)
 page.td()
 page.tr.close()
 
@@ -624,7 +650,10 @@ page.tr()
 page.td("#2 Coherent follow-up")
 page.td("Make a followup with coherent multi-detector code.")
 page.td()
-page.td()
+coherentLinks = ""
+if skymap:
+  coherentLinks += " <a href=\"" + skymap[0] + "\">Sky Map</a><hr />"
+page.td(coherentLinks)
 page.td()
 page.tr.close()
 
