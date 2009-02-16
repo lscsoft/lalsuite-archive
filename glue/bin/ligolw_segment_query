@@ -349,7 +349,7 @@ def xml_build_segment_list(connection, gps_start_time, gps_end_time, ifo, segmen
             result |= cur_segment
 
             # Remove this version
-            segmentlists.delete(version)
+            del segmentlists[version]
 
             # remove all times after the start of this segment from the segments with lower version numbers
             remove_segmentlist = glue.segments.segmentlist([glue.segments.segment(cur_segment[0][0], glue.segments.infinity())])
