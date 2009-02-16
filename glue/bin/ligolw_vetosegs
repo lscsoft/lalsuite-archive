@@ -193,9 +193,9 @@ if __name__ == '__main__':
     # isn't really needed, we should be able to just pass the xmldoc
     # to ligolw_sqlite.insert)
     #    
-    lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
-    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), xml_files, non_lsc_tables_ok = True)
-    utils.write_filename(xmldoc, temp_xml)
+    #lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
+    #xmldoc = ligolw_add.ligolw_add(ligolw.Document(), xml_files, non_lsc_tables_ok = True)
+    #utils.write_filename(xmldoc, temp_xml)
 
     #
     # importing these causes some global attributes to be set, which
@@ -208,7 +208,7 @@ if __name__ == '__main__':
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, [temp_xml])
+    ligolw_sqlite.insert(connection, xml_files)
 
     
     # Get start and end times for file names
