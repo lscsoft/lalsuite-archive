@@ -1077,26 +1077,27 @@ def writeParamTable(trigger,opts):
   #page.init(title=title, doctype=doctype) 
   page.init(title=title)
 
-  paramList = [['End Time','end_time'],['SNR','snr'],['CHISQ','chisq'],['Chirp Mass','mchirp'],['Eta','eta'],['Mass 1','mass1'],['Mass 2','mass2'],['Eff Dist (Mpc)', 'eff_distance']]
+  paramList = [['SNR','snr'],['CHISQ','chisq'],['Chirp Mass','mchirp'],['Eta','eta'],['Mass 1','mass1'],['Mass 2','mass2'],['Eff Dist (Mpc)', 'eff_distance']]
 
-  page.table()
+  page.add('<table bgcolor=cyan border=1px>')
   page.tr();
   page.td('Ifo');
+  page.td('End Time')
   for param in paramList:
-    page.td(param[0]);
-  page.td('Combined Stat');
+    page.td("<b>"+param[0]+"</b>");
+  page.td('<b>Combined Stat</b>');
   if not opts.disable_ifarsorting:
-    page.td('FAR');
+    page.td('<b>FAR</b>');
   page.tr.close()
   for ifo in trigger.ifolist_in_coinc:
     page.tr();
     page.td(ifo);
     page.td(repr(trigger.gpsTime[ifo]));
     for param in paramList:
-      page.td(str(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
-    page.td(str(trigger.statValue));
+      page.td("%0.3f"%(eval("getattr(trigger.coincs,ifo)."+param[1]))); 
+    page.td("%0.2f"%(trigger.statValue));
     if not opts.disable_ifarsorting:
-      page.td(str(trigger.far))
+      page.td("%0.4f"%(trigger.far))
     page.tr.close()
   page.table.close()
 
