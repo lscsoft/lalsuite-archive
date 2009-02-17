@@ -59,13 +59,16 @@ parser.add_option("-p","--add-posterior",action="append",type="string",\
 parser.add_option("-V","--verbose",action="store_true",default=False,\
     help="display verbose output" )
 parser.add_option("-m","--max-rate",action="store",type="float",\
-    default=200.0, metavar=" MAXRATE", \
+    default=None, metavar=" MAXRATE", \
     help="max rate on integral for posterior" ) 
 parser.add_option("-d","--dr",action="store",type="float",\
-    default=0.01, metavar=" DR", \
+    default=None, metavar=" DR", \
     help="dr to use in rate integral" ) 
 
 # plotting details
+parser.add_option("-M","--plot-title",action="store",type="string",\
+    default=None,metavar=" MRANGE",\
+    help="This will be used as a title for the plots.")
 parser.add_option("-F","--figure-name",action="store",type="string",\
     default=None,metavar=" FNAME",\
     help="generate png figures with name FNAME_PlotType.png")
@@ -79,6 +82,12 @@ parser.add_option("-Y","--ymax",action="store",type="float",\
     help="maximum value on y-axis for rate vs mass plot (default = 100)" ) 
 parser.add_option("-s","--show-plot",action="store_true",default=False,\
     help="display plots" )
+# The following options are used to give the correct mass range to put in the
+# output file that plotulvsmass will use.
+parser.add_option("","--min-mass",action="store",type="float",\
+    default=0.0, metavar="MASS_MIN", help="minimum mass for plotulvsmass." )
+parser.add_option("","--max-mass",action="store",type="float",\
+    default=0.0, metavar="MASS_MAX", help="maximum mass for plotulvsmass." )
 
 (opts,args) = parser.parse_args()
 
@@ -97,20 +106,54 @@ if not opts.show_plot:
   rc('text', usetex=True)
   rc('savefig', dpi=300)
 
+inputRates = {}
+inputPosts = {}
+
+# Read input files and determine the max_rate to use
+minmaxPosteriorRate = 1E20
+for idx in range(len(opts.add_posterior)):
+  file,tag = opts.add_posterior[idx].split(',')
+  tag = tag.replace('_',' ')
+
+  if opts.verbose:
+    print "reading in %s posterior file: %s" % (tag,file)
+
+  inputRates[tag],inputPosts[tag] = read_file( file )
+  thisRate = inputRates[tag]
+  dr = thisRate[1] - thisRate[0]
+  maxPosteriorRate = dr * len(thisRate)
+  if maxPosteriorRate < minmaxPosteriorRate:
+    minmaxPosteriorRate = maxPosteriorRate
+    minmaxPosteriorRatedr = dr
+
+if opts.max_rate > minmaxPosteriorRate:
+  print >> sys.stdout, "The input max_rate is bigger than that calculateable"
+  print >> sys.stdout, "from input files. It will be altered."
+  print >> sys.stdout, "opts.max_rate is set to %f" % minmaxPosteriorRate
+  opts.max_rate = minmaxPosteriorRate
+
+if not opts.max_rate:
+  opts.max_rate = minmaxPosteriorRate
+
+if not opts.dr:
+  opts.dr = minmaxPosteriorRatedr
+
 # compute the rate
 rate = arange(0., opts.max_rate, opts.dr)
-post = ones(len(rate))
+post = ones(len(rate),dtype='float')
 
 # read in the posteriors
 posts = {}
 keys = []
 for idx in range(len(opts.add_posterior)):
   file,tag = opts.add_posterior[idx].split(',')
+  tag = tag.replace('_',' ')
 
   if opts.verbose:
-    print "reading in %s posterior file: %s" % (tag,file)
+    print "Calculating posterior for: %s" % (tag)
 
-  thisRate,thisPost = read_file( file )
+  thisRate = inputRates[tag]
+  thisPost = inputPosts[tag]
 
   # interpolate posteriors onto rate
   dr = thisRate[1] - thisRate[0]
@@ -141,7 +184,11 @@ if ratio > eps:
 
 # find the NgT corresponding to the upper limit
 cumpost = cumsum(post)
-rate90pc = [rate[idx] for idx in range(len(rate)) if cumpost[idx] >= 0.9][0]
+
+rate90pc = [rate[idx] for idx in xrange(len(rate)) if cumpost[idx] >= 0.9][0]
+for idx in xrange(len(rate)):
+  if cumpost[idx] <= 0.999:
+    recXmax = idx*opts.dr
 
 if opts.verbose:
   print "the 90% confidence upper limit is " + "%f" % (rate90pc)
@@ -176,9 +223,30 @@ grid()
 tmpv = asarray(axis())
 if opts.xmax:
   tmpv[1]=opts.xmax
+else:
+  tmpv[1]=recXmax
 axis(tmpv)
+if opts.plot_title:
+  title(opts.plot_title)
 if opts.figure_name:
   savefig( outputName + "-posterior-comparison.png" )
+
+figure()
+plot(rate, post/max(post), color='k', linewidth=2, label='combined posterior')
+xlabel('Rate / yr / $L_{10}$', size='x-large')
+ylabel('Non-normalized Probability', size='x-large')
+legend(loc='best')
+grid()
+tmpv = asarray(axis())
+if opts.xmax:
+  tmpv[1]=opts.xmax
+else:
+  tmpv[1]=recXmax
+axis(tmpv)
+if opts.plot_title:
+  title(opts.plot_title)
+if opts.figure_name:
+  savefig( outputName + "-combined-posterior.png" )
 
 figure()
 for idx,key in zip(range(numColors),keys):
@@ -194,6 +262,8 @@ grid()
 tmpv = asarray(axis())
 if opts.xmax:
   tmpv[1]=opts.xmax
+else:
+  tmpv[1]=recXmax
 axis(tmpv)
 if opts.figure_name:
   savefig( outputName + "-posterior-pdf.png" )
@@ -213,10 +283,28 @@ grid()
 if opts.xmax:
   axis([0,opts.xmax,0.01,1])
 else:
-  ylim([0.01,1])
+  axis([0,recXmax,0.01,1])
 if opts.figure_name:
   savefig( outputName + "-posterior-cdf.png")
- 
+
+outfile = open( outputName + '-combined-posterior.txt','w')
+print >> outfile, "# Posterior computed using lalapps_compute_posterior"
+maxpost = max(post)
+lastpost = 0
+for rp_tup in zip(rate, post):
+  print >> outfile, "%e\t%e" % rp_tup
+  if rp_tup[1]/maxpost < eps/2 and rp_tup[1] < lastpost:
+    break
+  lastpost = rp_tup[1]
+outfile.close()
+
+ulfile = open(opts.figure_name + "-combined-upper-limit","w")
+ulfile.write("#M_low\tM_high\tUnmarginalized Rate\tMarginalized Rate\n")
+ulfile.write("%e\t%e\t%e\t%e\n" % (opts.min_mass,\
+    opts.max_mass,rate90pc,rate90pc))
+ulfile.close()
+
+
 # show the plots is asked
 if opts.show_plot:
   show()
