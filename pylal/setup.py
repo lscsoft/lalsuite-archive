@@ -256,7 +256,7 @@ setup(
 		os.path.join("bin", "ligolw_sicluster"),
 		os.path.join("bin", "ligolw_tisi"),
 		os.path.join("bin", "ligolw_thinca_to_coinc"),
-		os.path.join("bin", "ligolw_veto"),
+                os.path.join("bin", "ligolw_veto"),
 		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "inspiral_likelihood_hipe"),
 		os.path.join("bin", "KW_veto_setup"),
@@ -266,7 +266,8 @@ setup(
                 os.path.join("bin", "KW_veto_reportPage"),
 		os.path.join("bin", "KW_veto_qscanSetup"),
                 os.path.join("bin", "pylal_plot_inspiral_skymap"),
-                os.path.join("bin", "plotskypoints")
+                os.path.join("bin", "plotskypoints"),
+                os.path.join("bin", "upper_limit_results")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
