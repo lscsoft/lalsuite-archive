@@ -94,7 +94,7 @@ def set_figure_name(opts, text):
 
   return fname
 
-def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None):
+def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=None, number=None, format=None,followup = None, followupOpts = None):
   """
   picks out loudest coincident triggers from given CoincInspiralUtils Tables
   and returns info about the coincidences in a html or wiki table 
@@ -140,14 +140,27 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
     # set table header
     CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
     CoincSummTable = CoincSummTable + \
-        rx + ' Rank ' + xccx + 'Coinc IFOs' + xccx + statTag + xccx + ' end_time ' + \
+        rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx +\
+	statTag + xccx + ' end_time ' + \
         xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
         xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
     for coinc in coincTable:
       if format == 'html': 
-        CoincSummTable = CoincSummTable + '<tr><td rowspan=' + str(coinc.numifos) + '>' + str(rank) + xccx
+        CoincSummTable = CoincSummTable + '<tr><td rowspan=' + str(coinc.numifos) + '>' + str(rank) + '</td>'
       elif format == 'wiki':
         CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + str(rank) + xccx
+      followupLink = 'None'
+      if followup:
+        followup.from_coinc( coinc, coinc.get_ifos()[1][0] )
+        coinc.get_ifos()[1][0]
+        followupFile = followupOpts.prefix  \
+            + '_followup_' + str(followup.number) + followupOpts.suffix\
+            + '.html'
+	followupLink = '<a href="./' + followupFile +'"> here </a>'
+      if format == 'html':
+        CoincSummTable = CoincSummTable + '<td rowspan=' + str(coinc.numifos) + '>' + followupLink + xccx
+      elif format == 'wiki':
+        CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + followupLink + xccx
       # cycle through info
       for trig in coinc:
         CoincSummTable = CoincSummTable + trig.ifo + xccx + str(coinc.stat) + xccx + str(trig.end_time) + \

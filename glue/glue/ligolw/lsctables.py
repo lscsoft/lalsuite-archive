@@ -944,6 +944,11 @@ class SnglInspiral(object):
 	def get_far(self):
 		return self.alpha
 
+        def get_ifar(self):
+                if self.alpha < 0.000000001:
+                  self.alpha = 0.000000001
+                return 1./self.alpha
+
 	def get_id_parts(self):
 		"""
 		Return the three pieces of the int_8s-style sngl_inspiral
