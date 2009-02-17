@@ -315,6 +315,8 @@ asnr = []
 adelta = []
 apoints = []
 afound = []
+if opts.countgalaxies:
+  agalpoints = []
 
 #distance threshhold for clustering
 if opts.countgalaxies:
@@ -477,6 +479,7 @@ for coinc in coincTriggers:
 
     galaxies = []
     galaxy_counter = {}
+    total_num_gals = 0 
 
     # draw rectangles around the hotspots and count the number of galaxies in that rectangle
     # also restric to galaxies between here and the effective distance measured in the detectors (turns out to be a strong cut)
@@ -491,15 +494,26 @@ for coinc in coincTriggers:
       lonmax = max(lons)
       
       if (latmin < 0) and (latmax > 0):
-        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(latmin,lonmin),(latmin,lonmax),(0,lonmin), (0,lonmax)])))
-        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(0,lonmin),(0,lonmax),(latmax,lonmin), (latmax,lonmax)])))
+        bottom_rect = catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(latmin,lonmin),(latmin,lonmax),(0,lonmin), (0,lonmax)]))
+        top_rect = catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(0,lonmin),(0,lonmax),(latmax,lonmin), (latmax,lonmax)]))
+        if bottom_rect:
+          galaxies.append(bottom_rect)
+        if top_rect:
+          galaxies.append(top_rect)
       else:
-        galaxies.append(catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(latmin,lonmin),(latmin,lonmax),(latmax,lonmin), (latmax,lonmax)])))
+        gals_in_rect = catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(latmin,lonmin),(latmin,lonmax),(latmax,lonmin), (latmax,lonmax)]))
+        if gals_in_rect:
+          galaxies.append(gals_in_rect)
 
       galaxy_counter[i] = len(galaxies)
+       
+    for i in galaxy_counter:
+      total_num_gals += galaxy_counter[i]
+      
+    agalpoints.append(total_num_gals)
 
   if opts.plotpoints:
 
@@ -524,10 +538,15 @@ annotate_plot("$\rho$", "$\Delta_{rms}$ (sec)","Timing accuracy")
 figure()
 plot(asarray(asnr), asarray(apoints),'bo') 
 annotate_plot("$\rho$", "No. of Pointings",("Pointings with radius %2d degrees" % opts.resolution))
+if opts.countgalaxies:
+  figure()
+  plot(asarray(asnr), asarray(agalpoints), 'go')
+  annotate_plot("$\rho$", "No. of Galaxies", ("Number of Galaxies"))
 
 meaninjdeltarms = meaninjdeltarms/ninj
 meanpointings_narrow = meanpointings_narrow/ninj
 meanpointings_wide = meanpointings_wide/ninj
+print "Number of injections", ninj
 print "Mean timing accuracy %f" % meaninjdeltarms
 print "Mean pointings (narrow) %f" % meanpointings_narrow
 print "Mean pointings (wide) %f" % meanpointings_wide
