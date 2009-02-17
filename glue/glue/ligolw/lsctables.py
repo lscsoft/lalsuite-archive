@@ -944,10 +944,10 @@ class SnglInspiral(object):
 	def get_far(self):
 		return self.alpha
 
-        def get_ifar(self):
-                if self.alpha < 0.000000001:
-                  self.alpha = 0.000000001
-                return 1./self.alpha
+	def get_ifar(self):
+		if self.alpha < 0.000000001:
+			self.alpha = 0.000000001
+		return 1./self.alpha
 
 	def get_id_parts(self):
 		"""
@@ -1032,11 +1032,11 @@ class CoincInspiral(object):
 	def set_end(self, gps):
 		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
 
-        def set_ifos(self, ifos):
-                self.ifos = ifos_from_instrument_set( ifos )
+	def set_ifos(self, ifos):
+		self.ifos = ifos_from_instrument_set(ifos)
 
-        def get_ifos(self):
-                return instrument_set_from_ifos( self.ifos )
+	def get_ifos(self):
+		return instrument_set_from_ifos(self.ifos)
 
 CoincInspiralTable.RowType = CoincInspiral
 
@@ -1068,10 +1068,10 @@ class SnglRingDownTable(table.Table):
 		"mass": "real_4",
 		"spin": "real_4",
 		"epsilon": "real_4",
-                "num_clust_trigs": "int_4s",
-                "ds2_H1H2": "real_4",
-                "ds2_H1L1": "real_4",
-                "ds2_H2L1": "real_4",
+		"num_clust_trigs": "int_4s",
+		"ds2_H1H2": "real_4",
+		"ds2_H1L1": "real_4",
+		"ds2_H2L1": "real_4",
 		"amplitude": "real_4",
 		"snr": "real_4",
 		"eff_dist": "real_4",
