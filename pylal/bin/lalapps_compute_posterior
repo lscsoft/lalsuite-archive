@@ -34,9 +34,25 @@ def read_png_file(file,time):
   for line in lines:
     if line[0] != '#':
       png_line = get_png_array([float(val) for val in line.split()], time)
+      check_png_data(png_line)
       png_data.append(png_line)
            
   return png_data
+
+#############################################################################
+def check_png_data(data):
+  """
+  Checks that no show stoppers are present in the read in png 'ini' file
+  @param data: the png_data dictionary to check
+  """
+  if data["ng"] < 1E-7:
+    print >> sys.stdout, "The search is not senstive to any galaxies."
+    print >> sys.stdout, "With no sensitivity I can say nothing about the rate"
+    sys.exit(1)
+  if data["tobs"] < 1E-10:
+    print >> sys.stdout, "The read in search duration was less than one ms"
+    print >> sys.stdout, "With no duration I can say nothing about rates."
+    sys.exit(1)
 
 #############################################################################
 def get_png_array(data,time):
@@ -48,7 +64,7 @@ def get_png_array(data,time):
   param = {}
   param["mlo"]                    = data[0]
   param["mhi"]                    = data[1]
-  param["ng"]                     = max(data[2],1e-7)
+  param["ng"]                     = data[2]
   param["ngprime"]                = data[3]
   param["pb"]                     = data[4]
   param["pbprime"]                = data[5]
