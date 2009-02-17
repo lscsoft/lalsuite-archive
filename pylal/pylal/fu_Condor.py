@@ -1453,9 +1453,9 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
   def append_insp_node(self,inspNode,ifo):
     fileName = str(inspNode.output_file_name)
-    #self.add_var_opt("H1-frame-file",str(fileName.replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt("H1-xml-file",str(fileName))
-    self.add_var_opt(ifo+"-framefile",str(fileName.replace(".xml",".gwf").strip(".gz")))
+    #self.add_var_opt(ifo+"-framefile",str(fileName.replace(".xml",".gwf").strip(".gz")))
+    self.add_var_arg("--"+ifo+"-framefile "+str(fileName.replace(".xml",".gwf").strip(".gz")))
     #self.add_var_opt(ifo.lower()+"-xml-file",str(fileName))
     if inspNode.validNode: self.add_parent(inspNode)
 
@@ -1586,6 +1586,9 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
         for gps in gpsList.strip(",").split(","):
           if gps in node.id and node.validNode:
             self.add_parent(node)
+      if isinstance(node,h1h2QeventNode) and "H1" in trig.ifolist_in_coinc:
+        if str(trig.gpsTime["H1"]) in node.id and node.validNode:
+          self.add_parent(node)
       if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode):
         if str(trig.eventID) in node.id and node.validNode:
           self.add_parent(node)
