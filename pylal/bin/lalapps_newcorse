@@ -28,7 +28,7 @@
 #
 
 
-import bisect
+import itertools
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -42,10 +42,13 @@ from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
+from glue.ligolw import utils
+from glue.ligolw.utils import segments as ligolw_segments
 from pylal import ligolw_thinca
+from pylal import ligolw_tisi
 from pylal import llwapp
 from pylal import rate
-from pylal.date import LIGOTimeGPS
+from pylal import SnglInspiralUtils
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -71,6 +74,8 @@ def parse_command_line():
 	parser.add_option("-i", "--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Example H1,H2,L1.  Required.")
 	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
+	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
+	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -100,6 +105,8 @@ def parse_command_line():
 
 	if options.live_time_program is None:
 		raise ValueError, "missing required option -p or --live-time-program"
+	if options.veto_segments and not options.veto_segments_name:
+		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	#
 	# done
@@ -118,8 +125,9 @@ def parse_command_line():
 
 
 class Summaries(object):
-	def __init__(self, instruments, mass_bins):
+	def __init__(self, instruments, mass_bins, vetosegments):
 		self.mass_bins = mass_bins
+		self.vetosegments = vetosegments
 
 		#
 		# put the instruments in alphabetical order so that the
@@ -127,7 +135,7 @@ class Summaries(object):
 		# out with the instruments sorted
 		#
 
-		instruments = sorted(instruments)
+		self.instruments = sorted(instruments)
 
 		#
 		# iterate over instrument combinations creating bins for
@@ -135,7 +143,7 @@ class Summaries(object):
 		#
 
 		self.snrs = {}
-		for combo in [combo for m in range(2, len(instruments) + 1) for combo in iterutils.choices(instruments, m)]:
+		for combo in [combo for m in range(2, len(self.instruments) + 1) for combo in iterutils.choices(self.instruments, m)]:
 			#
 			# look up the inspiral coincidence type for this
 			# instrument combo
@@ -166,11 +174,29 @@ class Summaries(object):
 		# initialize the live-time book-keeping
 		#
 
-		self.livetime = dict((category, segments.segmentlist()) for category in self.snrs)
+		self.rings = segments.segmentlist()
+		self.offset_vectors = []
+		self.cached_livetime = {}
 
-	def add_livetime(self, seglists):
-		# FIXME:  do this
-		pass
+	def add_rings(self, rings):
+		self.rings.extend(rings)
+		self.rings.sort()
+		# FIXME: use any built-in when Python 2.5 is required
+		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
+			raise ValueError, "found non-disjoint rings %s and %s" % (repr(a), repr(b))
+
+	def add_offset_vectors(self, offset_vectors):
+		self.offset_vectors[:] = ligolw_tisi.time_slide_list_merge(self.offset_vectors, offset_vectors)
+
+	def livetime(self, offsetvector):
+		# FIXME:  the offset vector only records offsets for the
+		# instruments that were on at the time, not for the
+		# instruments that were off.  computing the live time for
+		# this instrument combination requires us to know what time
+		# shifts to apply to the instruments that were off so that
+		# we can re-apply the same time shifts
+		#return SnglInspiralUtils.compute_thinca_livetime(set(self.instruments), self.rings, self.vetosegments, offsetvector)
+		return 0.0
 
 	def add_coinc(self, coinc_type, w_lho_amp_cut, mchirp, snr):
 		self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]].append(snr)
@@ -185,6 +211,15 @@ class Summaries(object):
 		"""
 		snrs = self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]]
 		return len([x for x in snrs if x >= snr])
+
+	def rate(self, coinc_type, w_lho_amp_cut, mchirp, snr):
+		try:
+			livetime = self.cached_livetime[(coinc_type, w_lho_amp_cut)]
+		except KeyError:
+			# FIXME:  calculate and store the background
+			# livetime for this category
+			livetime = self.cached_livetime[(coinc_type, w_lho_amp_cut)] = 1.0
+		return self.count(coinc_type, w_lho_amp_cut, mchirp, snr) / livetime
 
 
 #
@@ -203,14 +238,21 @@ class Summaries(object):
 
 options, filenames = parse_command_line()
 
+if options.veto_segments:
+	dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
+	connection = sqlite3.connect(":memory:")
+	dbtables.DBTable_set_connection(connection)
+	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
+	connection.close()
+	dbtables.DBTable_set_connection(None)
+
 
 #
 # initialize book-keeping
 #
 
 
-seglists = segments.segmentlistdict()
-background = Summaries(options.instruments, options.mass_bins)
+background = Summaries(options.instruments, options.mass_bins, options.veto_segments)
 
 
 #
@@ -235,11 +277,18 @@ for n, filename in enumerate(filenames):
 	xmldoc = dbtables.get_xml(connection)
 
 	#
-	# retrieve the segment lists, and add to live time
+	# retrieve and store the ring boundaries.  all segments from all
+	# segment lists in the search summary table are collected into a
+	# single list and uniqueified with set().
 	#
 
-	seglists = llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).coalesce()
-	background.add_livetime(seglists)
+	background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+
+	#
+	# retrieve and store the set of time slide vectors
+	#
+
+	background.add_offset_vectors(lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values())
 
 	#
 	# count background coincs by type and mass bin
@@ -318,12 +367,17 @@ for n, filename in enumerate(filenames):
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
 	dbtables.DBTable_set_connection(connection)
+	xmldoc = dbtables.get_xml(connection)
 
 	#
 	# prepare the database
 	#
 
 	connection.create_function("background_count", 4, background.count)
+	connection.create_function("background_rate", 4, background.rate)
+
+	for offsetvector in lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values():
+		print "%s --> %g s" % (repr(offsetvector), background.livetime(offsetvector))
 
 	#
 	# count background coincs by type and mass bin
@@ -335,7 +389,7 @@ UPDATE
 SET
 	false_alarm_rate = (
 		SELECT
-			background_count(
+			background_rate(
 				coinc_definer.search_coinc_type,
 				-- true if both H1 and H2 were on at time of coinc
 				EXISTS (
