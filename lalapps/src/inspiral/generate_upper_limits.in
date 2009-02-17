@@ -561,11 +561,22 @@ for item,value in cp.items('L-cal'):
 for item,value in cp.items('L-cal-dc'):
   L_calDC[item.upper()] = value
 
+nonSpinInjRuns = []
+injSeeds = {}
+spinInjRuns = []
 if runNonSpin:
-  nonSpinInjRuns = cp.options('non-spin-injection-runs')
+  temp = cp.options('non-spin-injection-runs')
+  for string in temp:
+    name,seed=string.split(',')
+    nonSpinInjRuns.append(name)
+    injSeeds[name] = seed
   nonspin = nonSpinInjRuns[0]
 if runSpin:
-  spinInjRuns = cp.options('spin-injection-runs')
+  temp = cp.options('spin-injection-runs')
+  for string in temp:
+    name,seed=string.split(',')
+    spinInjRuns.append(name)
+    injSeeds[name] = seed
   spin = spinInjRuns[0]
 ihopeDir = cp.get('main','ihope-directory')
 ifarDir = cp.get('main','ifar-directory')
@@ -625,7 +636,9 @@ if runInjcut:
   for source in sourceTypes:
     sourceChars = define_mass_characteristics(cp,source)
     for inj in injcutOutputDirs.keys():
-      injInputFile = ihopeDir + '/' + cp.get('injection-files',inj)
+      injInputFile = ihopeDir + '/' + inj + '/HL-INJECTIONS_' + \
+          injSeeds[inj] + '_' + inj.upper() + '-' + gpsStartTime + '-' + \
+          gpsDuration + '.xml'
       output = injcutOutputDirs[inj] + 'HL-INJECTIONS_' + source.upper()\
                + '_' + inj.upper()\
                + '-' + gpsStartTime + '-' + gpsEndTime + '.xml'
