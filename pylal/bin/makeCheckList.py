@@ -260,8 +260,8 @@ for j in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[j:j+2]
   if not ifolist.count(ifo):
      # links to qscans
-     hoft_qscan.append("QSCAN/hoft-qscan/" + ifo + "/" + gpstime0)
-     rds_qscan.append("QSCAN/qscan/" + ifo + "/" + gpstime0)
+     hoft_qscan.append("../QSCAN/hoft-qscan/" + ifo + "/" + gpstime0)
+     rds_qscan.append("../QSCAN/qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
      for ifo_ref in ifolist:
        snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+ifo_ref+"tmplt_"+opts.trigger_id)
@@ -274,7 +274,7 @@ for j in range(0,len(opts.ifo_times)-1,2):
 try:
   ifolist.index("H1")
   ifolist.index("H2")
-  coherent_qscan.append("h1h2QeventJob/qevent/H1H2/" + gpstime0)
+  coherent_qscan.append("../h1h2QeventJob/qevent/H1H2/" + gpstime0)
 except: pass
 
 # link to inspiral coherent followups
