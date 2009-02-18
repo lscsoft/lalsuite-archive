@@ -178,7 +178,7 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
           extension = '.xml.gz'
 
       if type == "notrig" or type == "coh" or type == "chia":
-        self.add_var_opt('cluster-window',str(int(hLengthAnalyzed)))
+        self.add_var_opt('cluster-window',str(hLengthAnalyzed/2.))
         self.add_var_opt('disable-rsq-veto',' ')
 
       # add the arguments that have been specified in the section 
