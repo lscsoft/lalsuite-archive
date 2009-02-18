@@ -5,7 +5,7 @@ Time-series plots of coherent CBC statistics and null-statistics.
 """
 __version__ = "$Revision$"
 __date__ = "$Date$"
-__prog__ = "plotcohtimeseries"
+__prog__ = "plotchiatimeseries"
 __Id__ = "$Id$"
 __title__ = "Coherent search and null statistics time series plots"
 
@@ -51,10 +51,14 @@ rc('text', usetex=False)
 
 def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInspiralTable,user_tag=None):
  
-    rsqThreshold = 0;
-    expectNetCohsnr = 0;
-    expectCohH1H2snr = 0;
-    expectCohnullstat = 0;
+    ifoH1 = 0
+    ifoH2 = 0
+    numIfos = 0
+    rsqThreshold = 0
+    expectNetCohsnr = 0
+    expectCohH1H2snr = 0
+    expectCohnullstat = 0
+    
 
     if user_tag:
       eventID = user_tag
@@ -84,6 +88,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       if row.param == "--dynamic-range-exponent":
         dynRange = eval(row.value)
 
+    duration = gpsEnd - gpsStart
+    opts.gps = gpsStart
+    opts.duration = duration
 
     maxSNR = 0.0
     for row_index,row in enumerate(multiInspiralTable):
@@ -107,15 +114,25 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     gpsTime = repr(float(multiInspiralTable[maxIndex].end_time) + float(multiInspiralTable[maxIndex].end_time_ns)*10**(-9))
 
     IfoSNR = {}
+    colorCode = {'H1': 'r', 'H2': 'b', 'L1': 'g', 'V1': 'm'}
 
     for j in range(0,len(ifoTag)-1,2):
       ifo = ifoTag[j:j+2]
       quadRe = eval("float(multiInspiralTable[maxIndex]." + ifo.lower() + "quad_re)")
       quadIm = eval("float(multiInspiralTable[maxIndex]." + ifo.lower() + "quad_im)")
       IfoSNR[ifo] = "%0.2f"%(sqrt(quadRe**2 + quadIm**2))
+      if ifo == 'H1':
+        ifoH1 = 1
+      elif ifo == 'H2':
+        ifoH2 = 1
+      numIfos = numIfos + 1
     del multiInspiralTable
 
-
+    # Between H1 and H2, identify the ifo with the lower SNR 
+    if IfoSNR['H1'] < IfoSNR['H1']:
+      ifoWithLowerSNRInH1H2 = 'H1'
+    else: 
+      ifoWithLowerSNRInH1H2 = 'H2'
 
     segLenSec = int((gpsEnd-gpsStart)*0.5)
     timePoints = segLenSec * sampleRate
@@ -123,7 +140,6 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     if expectNetCohsnr == 1:
       cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
       cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
-      #cohNetSNRTimeSeries = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,1)
       cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
@@ -131,28 +147,34 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
     del cohNetSNR_tuple
 
-
-    if expectCohH1H2snr == 1:
-      cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)
+    #Read in the coherent H1H2 SNR data from frame-file
+    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
+      cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)      
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
-
-    cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
-    del cohH1H2SNR_tuple
-
+      cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
+      del cohH1H2SNR_tuple
+    elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
+      cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf' 
+      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
+      cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
+      del cohH1H2SNR_tuple
+    else: expectCohH1H2snr = 0
 
     fnameList = []
     tagList = []
 
     figure(1)
     legendText = []
-    plot(itfCData_time[1:timePoints],cohNetSNRSq[1:timePoints])
+    plot(itfCData_time[1:timePoints],cohNetSNRSq[1:timePoints],'k')
     hold(1)
     legendTxt = str(ifoTag) + ' cohsnr-sq'
     legendText.append(legendTxt)
-    plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints])
-    legendTxt = 'H1H2 cohsnr-sq'
-    legendText.append(legendTxt)
+    if expectCohH1H2snr == 1 and numIfos > 2:
+      plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c--')
+      legendTxt = 'H1H2 cohsnr-sq'
+      legendText.append(legendTxt)
     for j in range(0,len(ifoTag)-1,2):
       itf = ifoTag[j:j+2]
       itfFrameFileArg = '--' + str(itf) + '-framefile'
@@ -164,7 +186,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
           #print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
           itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
           itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
-          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints])
+          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
           del itfCDataModSq
           legendTxt = str(itf) + ' snr-sq'
           legendText.append(legendTxt)
@@ -192,15 +214,16 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
 
     figure(11)
     legendText = []
-    plot(itfCData_time[1:timePoints],cohNetSNRSq[1:timePoints])
+    plot(itfCData_time[1:timePoints],cohNetSNRSq[1:timePoints],'k')
     del cohNetSNRSq
     hold(1)
     legendTxt = str(ifoTag) + ' cohsnr-sq'
     legendText.append(legendTxt)
-    plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints])
-    del cohH1H2SNRSq 
-    legendTxt = 'H1H2 cohsnr-sq'
-    legendText.append(legendTxt)
+    if expectCohH1H2snr == 1 and numIfos > 2:
+      plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c--')
+      del cohH1H2SNRSq 
+      legendTxt = 'H1H2 cohsnr-sq'
+      legendText.append(legendTxt)
     for j in range(0,len(ifoTag)-1,2):
       itf = ifoTag[j:j+2]
       itfFrameFileArg = '--' + str(itf) + '-framefile'
@@ -213,7 +236,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
           itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
           itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
           del itfCData_tuple
-          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints])
+          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
           del itfCDataModSq
           legendTxt = str(itf) + ' snr-sq'
           legendText.append(legendTxt)
@@ -233,81 +256,150 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     tagList.append("Plot of Coherent Statistic (zoomed)")
     #print >> sys.stdout, "Printed Figure 1!!"
 
-    figure(2)
-    #print >> sys.stdout, "Setting up Figure 2!!"
-    legendText = []
-    h1h2PhaseDiffNumer = itfCDataH1.real*itfCDataH2.real + itfCDataH1.imag*itfCDataH2.imag #+ itfImagH1.imag*itfImagH2.imag
-    h1h2PhaseDiff = h1h2PhaseDiffNumer / (abs(itfCDataH1)*abs(itfCDataH2))
-    del h1h2PhaseDiffNumer
-    del itfCDataH1
-    del itfCDataH2
-    plot(itfCData_time[1:timePoints],h1h2PhaseDiff[1:timePoints],'r')
-    legendText.append('Cos(PhiH1 - PhiH2)')
-    xlabel('time (s)',size='x-large')
-    ylabel(r'H1-H2 complex-snr phase difference',size='x-large')
-    grid()
-    title(ifoTag + ' trigger: ' + gpsTime)
-    legend(legendText,loc='upper right')
-    figName = InspiralUtils.set_figure_name(opts,'phasediffh1h2')
-    InspiralUtils.savefig_pylal(figName)
-    close(2)
-    fnameList.append(figName)
-    tagList.append("Plot of Phase Difference in H1-H2")
+    if ifoH1 == 1 and ifoH2 == 1:
+      figure(2)
+      #print >> sys.stdout, "Setting up Figure 2!!"
+      legendText = []
+      h1h2PhaseDiffNumer = itfCDataH1.real*itfCDataH2.real + itfCDataH1.imag*itfCDataH2.imag #+ itfImagH1.imag*itfImagH2.imag
+      h1h2PhaseDiff = h1h2PhaseDiffNumer / (abs(itfCDataH1)*abs(itfCDataH2))
+      del h1h2PhaseDiffNumer
+      del itfCDataH1
+      del itfCDataH2
+      plot(itfCData_time[1:timePoints],h1h2PhaseDiff[1:timePoints],'r')
+      legendText.append('Cos(PhiH1 - PhiH2)')
+      xlabel('time (s)',size='x-large')
+      ylabel(r'H1-H2 complex-snr phase difference',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime)
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'phasediffh1h2')
+      InspiralUtils.savefig_pylal(figName)
+      close(2)
+      fnameList.append(figName)
+      tagList.append("Plot of Phase Difference in H1-H2")
+    else: 
+      del itfCDataH1
+      del itfCDataH2
 
-    figure(22)
-    #print >> sys.stdout, "Setting up Figure 22!!"
-    legendText = []
-    plot(itfCData_time[1:timePoints],h1h2PhaseDiff[1:timePoints],'r')
-    del h1h2PhaseDiff
-    legendText.append('Cos(PhiH1 - PhiH2)')
-    xlim(0.5-0.02, 0.5+0.02)
-    xlabel('time (s)',size='x-large')
-    ylabel(r'H1-H2 complex-snr phase difference',size='x-large')
-    grid()
-    title(ifoTag + ' trigger: ' + gpsTime + ' (zoomed)')
-    legend(legendText,loc='upper right')
-    figName = InspiralUtils.set_figure_name(opts,'phasediffh1h2Zoomed')
-    InspiralUtils.savefig_pylal(figName)
-    close(22)
-    fnameList.append(figName)
-    tagList.append("Plot of Phase Difference in H1-H2 (zoomed)")
+    if ifoH1 == 1 and ifoH2 == 1:
+      figure(22)
+      #print >> sys.stdout, "Setting up Figure 22!!"
+      legendText = []
+      plot(itfCData_time[1:timePoints],h1h2PhaseDiff[1:timePoints],'r')
+      del h1h2PhaseDiff
+      legendText.append('Cos(PhiH1 - PhiH2)')
+      xlim(0.5-0.02, 0.5+0.02)
+      xlabel('time (s)',size='x-large')
+      ylabel(r'H1-H2 complex-snr phase difference',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime + ' (zoomed)')
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'phasediffh1h2Zoomed')
+      InspiralUtils.savefig_pylal(figName)
+      close(22)
+      fnameList.append(figName)
+      tagList.append("Plot of Phase Difference in H1-H2 (zoomed)")
 
-
-    if expectCohH1H2snr == 1:
+    #Read in the coherent H1H2 SNR data from frame-file
+    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
+      cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
+      del cohH1H2SNR_tuple
+    elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
+      cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
+      cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
+      cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
+      del cohH1H2SNR_tuple
+    else: expectCohH1H2snr = 0
 
-    cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
-    del cohH1H2SNR_tuple
-
-    if expectCohnullstat == 1:
+    # This assumes that null-stat is for H1-H2 and not a 3-ifo 
+    # or 4-ifo one. This is okay for S5 12-18month, but needs to be
+    # updated for LV searches
+    if expectCohnullstat == 1 and ifoH1 == 1 and ifoH2 == 1:
       cohNullStatFrameName = 'Coherent_NullStat_' + str(eventID)
       cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohNullStat_tuple = Fr.frgetvect(cohNullStatFrameFile,cohNullStatFrameName,-1,timePoints,0)
+      cohNullStatSq = cohNullStat_tuple[0]
+      del cohNullStat_tuple
+    else: expectCohnullstat = 0
 
-    cohNullStatSq = cohNullStat_tuple[0]
-    del cohNullStat_tuple
+    if expectCohH1H2snr == 1 and expectCohnullstat == 1:
+      figure(3)  
+      legendText = []
+      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      legendText.append('H1-H2 null-stat-sq')
+      hold(1)
+      plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c')
+      legendText.append('H1-H2 cohsnr-sq')
+      hold(0)
+      xlabel('time (s)',size='x-large')
+      ylabel(r'H1-H2 statistics',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime)
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'cohsnrh1h2null')
+      InspiralUtils.savefig_pylal(figName)
+      close(3)
+      fnameList.append(figName)
+      tagList.append("Plot of Coherent Search and Null Statistic-squared in H1-H2")
 
-    figure(3)  
-    legendText = []
-    plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
-    legendText.append('H1-H2 null-stat-sq')
-    hold(1)
-    plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'m')
-    legendText.append('H1-H2 cohsnr-sq')
-    hold(0)
-    xlabel('time (s)',size='x-large')
-    ylabel(r'H1-H2 statistics',size='x-large')
-    grid()
-    title(ifoTag + ' trigger: ' + gpsTime)
-    legend(legendText,loc='upper right')
-    figName = InspiralUtils.set_figure_name(opts,'cohsnrh1h2null')
-    InspiralUtils.savefig_pylal(figName)
-    close(3)
-    fnameList.append(figName)
-    tagList.append("Plot of Coherent Search and Null Statistic-squared in H1-H2")
-
+      figure(33)
+      legendText = []
+      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      legendText.append('H1-H2 null-stat-sq')
+      hold(1)
+      plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c')
+      del cohH1H2SNRSq
+      legendText.append('H1-H2 cohsnr-sq')
+      hold(0)
+      xlim(0.5-0.02, 0.5+0.02)
+      xlabel('time (s)',size='x-large')
+      ylabel(r'H1-H2 statistics',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime + ' (zoomed)')
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'cohsnrh1h2nullZoomed')
+      InspiralUtils.savefig_pylal(figName)
+      close(3)
+      fnameList.append(figName)
+      tagList.append("Plot of Coherent Search and Null Statistic-squared in H1-H2 (zoomed)")
+ 
+      figure(34)
+      legendText = []
+      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      legendText.append('H1-H2 null-stat-sq')
+      hold(1)
+      itf = ifoWithLowerSNRInH1H2  
+      itfFrameFileArg = '--' + str(itf) + '-framefile'
+      #print >> sys.stdout, "Extracting data from ifo " + str(itf)
+      for row in chiaProcParams:
+        if row.param == str(itfFrameFileArg):
+          itfFrameFile = row.value
+          itfFrameName = str(itf) + ':CBC-CData_' + str(eventID)
+          #print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
+          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
+          itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
+          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
+          del itfCDataModSq
+          legendTxt = str(itf) + ' snr-sq'
+          legendText.append(legendTxt)
+          #print >> sys.stdout, "plotting itf!!"
+      hold(0)
+      xlim(0.5-0.05, 0.5+0.05)
+      xlabel('time (s)',size='x-large')
+      ylabel(r'statistics',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime)
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'cohnullsnrh1Zoomed'
+)
+      InspiralUtils.savefig_pylal(figName)
+      close(3)
+      fnameList.append(figName)
+      tagList.append("Plot of Null Statistic-squared in H1-H2 and SNR in weaker ifo")
 
     if opts.enable_output is True:
       # THIS IS A HACK: The method \"write_html_output\" of InspiralUtils 
@@ -449,6 +541,12 @@ if extension == 'gz': gz = True
 else: gz = False
 doc = utils.load_filename(opts.chiaXmlFile,None,gz)
 proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
-multiInspiralTable = table.get_table(doc, lsctables.MultiInspiralTable.tableName)
-
-plotchiatimeseries(opts,args,opts.output_path,opts.chiaXmlFile,proc,multiInspiralTable,opts.user_tag)
+multiInspiralTable = table.getTablesByName(doc,lsctables.MultiInspiralTable.tableName)
+if len(multiInspiralTable) == 0:
+  print >> sys.stdout, "document does not contain any multi_inspiral table, which means no trigger found"
+  sys.exit(0)
+elif len(multiInspiralTable) > 1:
+  print >> sys.sderr, "document should not contain more than 1 multi_inspiral table"
+  sys.exit(1)
+else:
+  plotchiatimeseries(opts,args,opts.output_path,opts.chiaXmlFile,proc,multiInspiralTable[0],opts.user_tag)
