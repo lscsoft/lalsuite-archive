@@ -88,9 +88,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       if row.param == "--dynamic-range-exponent":
         dynRange = eval(row.value)
 
-    duration = gpsEnd - gpsStart
-    opts.gps = gpsStart
-    opts.duration = duration
+    duration = int(math.ceil(gpsEnd)) - int(gpsStart)
+    opts.suffix = "-" + str(int(gpsStart)) + "-" + str(duration)
 
     maxSNR = 0.0
     for row_index,row in enumerate(multiInspiralTable):
@@ -129,10 +128,11 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     del multiInspiralTable
 
     # Between H1 and H2, identify the ifo with the lower SNR 
-    if IfoSNR['H1'] < IfoSNR['H1']:
-      ifoWithLowerSNRInH1H2 = 'H1'
-    else: 
-      ifoWithLowerSNRInH1H2 = 'H2'
+    if ifoH1 == 1 and ifoH2 ==1:
+      if IfoSNR['H1'] < IfoSNR['H2']:
+        ifoWithLowerSNRInH1H2 = 'H1'
+      else: 
+        ifoWithLowerSNRInH1H2 = 'H2'
 
     segLenSec = int((gpsEnd-gpsStart)*0.5)
     timePoints = segLenSec * sampleRate
@@ -171,7 +171,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     hold(1)
     legendTxt = str(ifoTag) + ' cohsnr-sq'
     legendText.append(legendTxt)
-    if expectCohH1H2snr == 1 and numIfos > 2:
+    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c--')
       legendTxt = 'H1H2 cohsnr-sq'
       legendText.append(legendTxt)
@@ -219,7 +219,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     hold(1)
     legendTxt = str(ifoTag) + ' cohsnr-sq'
     legendText.append(legendTxt)
-    if expectCohH1H2snr == 1 and numIfos > 2:
+    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c--')
       del cohH1H2SNRSq 
       legendTxt = 'H1H2 cohsnr-sq'
@@ -277,9 +277,11 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       close(2)
       fnameList.append(figName)
       tagList.append("Plot of Phase Difference in H1-H2")
-    else: 
-      del itfCDataH1
-      del itfCDataH2
+    else:
+      if ifoH1 == 1:
+        del itfCDataH1
+      if ifoH2 == 1:
+        del itfCDataH2
 
     if ifoH1 == 1 and ifoH2 == 1:
       figure(22)
@@ -474,9 +476,6 @@ parser = OptionParser( usage )
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information and exit")
 
-#parser.add_option("-t","--gps",action="store",type="string",\
-#    metavar=" GPS",help="use gps time GPS")
-
 parser.add_option("-o","--output-path",action="store",type="string",\
     default="", metavar=" PATH",\
     help="path where the figures would be stored")
@@ -499,13 +498,6 @@ parser.add_option("","--ifo-tag",action="store",\
     type="string",  metavar=" IFOTAG",\
     help="ifo tag gives the information about ifo times and stage")
 
-parser.add_option("","--gps-start-time", action="store",type="float", \
-    metavar=" GPSSTARTTIME",help="gps start time (for naming figure and \
-    output files)")
-
-parser.add_option("","--gps-end-time", action="store",type="float", \
-    metavar=" GPSENDTIME",help="gps end time (for naming figure and \
-    output files)")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -519,10 +511,6 @@ if opts.version:
 #################################
 # Sanity check of input arguments
 
-#if not opts.gps:
-#  print >> sys.stderr, "No gps time specified."
-#  print >> sys.stderr, "Use --gps GPS to specify location."
-#  sys.exit(1)
 
 if not opts.output_path:
   print >> sys.stderr, "No output path specified."
