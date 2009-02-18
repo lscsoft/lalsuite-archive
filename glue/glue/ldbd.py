@@ -110,7 +110,7 @@ class LIGOMetadataDatabase:
     conn = DB2.connect(dsn=database, uid='', pwd='')
     curs = conn.cursor()
     curs.execute("SELECT tabname FROM syscat.tables WHERE definer<>'SYSIBM' "
-      "AND TYPE<>'A'")
+      "AND TYPE='T' ORDER BY PARENTS ASC")
     self.tables = curs.fetchall()
     curs.execute("SELECT tabname, colname FROM syscat.columns " +
       "WHERE typename = 'CHARACTER' AND length = 13 AND nulls = 'N'")
