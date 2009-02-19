@@ -64,8 +64,7 @@ def fromDQsegments(fileobj, coltype=int, discard_disabled=True, keep_versions=No
                (keep_versions is not None and tokens[1] not in keep_versions):
                 continue
         except IndexError:
-            print "IndexError on line: ", line
-            break
+            raise ValueError, "not enough values on this line:\n" + line
         target_seglist = d.setdefault(name, segmentlist())
         target_seglist.append(seg)
     return d
