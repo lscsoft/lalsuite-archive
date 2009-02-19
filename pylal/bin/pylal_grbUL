@@ -65,6 +65,9 @@ pylab.rcParams.update({
     "legend.fontsize": 16,
 })
 
+# set all empty trials to have likelihoods of -infinity
+GRBL_EMPTY_TRIAL = -numpy.inf
+
 def take_axis_argsort(X, ix, axis):
     """
     Return a new array that takes the output of an argsort, ix, indexing
@@ -248,30 +251,29 @@ statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
 if statistic != "effective_snr":
     raise NotImplemented
 
-log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, log_L_by_m2 = \
+log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
+    log_L_by_m2, log_sum_L = \
     pickle.load(open(opts.grblikelihood_onsource))
 offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
-    offsource_likelihood_by_trial_m2 = \
+    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_offsource))
-inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc, \
-    rho_by_inj_mc, trace_m2_bin = \
+inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2, \
+    inj_log_L_by_trial_m2, inj_log_sum_L_by_trial = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections
 if opts.likelihood_threshold is not None:
     eps = opts.likelihood_threshold
 else:
-    eps = min(offsource_likelihood_by_trial_m2\
-                [offsource_likelihood_by_trial_m2 > 0].min(),
-              inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 > 0].min())
-offsource_likelihood_by_trial_m2[offsource_likelihood_by_trial_m2 < eps] = eps
-inj_likelihood_by_trial_m2[inj_likelihood_by_trial_m2 < eps] = eps
+    eps = min(offsource_log_L_by_trial_m2\
+                [offsource_log_L_by_trial_m2 > 0].min(),
+              inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 > 0].min())
+offsource_log_L_by_trial_m2[offsource_log_L_by_trial_m2 < eps] = eps
+inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < eps] = eps
 log_L_by_m2[log_L_by_m2 < eps] = eps
 
 m2_by_inj, D_by_inj = zip(*m2_D_by_inj)
 
-# set all empty trials to have likelihoods of -infinity
-empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
 
 ##############################################################################
 # Compute P(L > L_obs | h) (old UL statement; irrelevant for Feldman-Cousins)
@@ -286,9 +288,9 @@ for m2_D in m2_D_by_inj:
 num_sims_by_m2_D = num_sims_by_m2_D.array
 
 inj_louder_count_by_m2_D = numpy.zeros((len(m2_bins), len(D_bins)), dtype=int)
-for inj_likelihood_by_m2, m2_D in zip(inj_likelihood_by_trial_m2, m2_D_by_inj):
+for inj_log_L_by_m2, m2_D in zip(inj_log_L_by_trial_m2, m2_D_by_inj):
     m2_ind, D_ind = m2_D_bins[m2_D]
-    if inj_likelihood_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
+    if inj_log_L_by_m2[m2_ind] > log_L_by_m2[m2_ind]:
         inj_louder_count_by_m2_D[m2_ind, D_ind] += 1
 pLh_by_m2_D = inj_louder_count_by_m2_D / (num_sims_by_m2_D + 1e-10)
 
@@ -303,9 +305,9 @@ if opts.verbose:
 
 num_L = 100
 L_min = eps
-L_max = max(offsource_likelihood_by_trial_m2.max(),
-            inj_likelihood_by_trial_m2.max())
-if not (log_L_by_m2 == empty_log_L_by_m2).all():
+L_max = max(offsource_log_L_by_trial_m2.max(),
+            inj_log_L_by_trial_m2.max())
+if not (log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
     L_min = min(L_min, log_L_by_m2.min())
     L_max = max(L_max, log_L_by_m2.max())
 L_bins = rate.LogarithmicBins(L_min, L_max, num_L)
@@ -315,7 +317,7 @@ num_sims_by_m2_D = numpy.zeros_like(num_sims_by_m2_D)
 nd_bins = rate.NDBins((L_bins, m2_bins, D_bins))
 count_by_L_m2_D = numpy.zeros(nd_bins.shape, dtype=float)
 for inj_L_by_m2, m2_D in \
-    itertools.izip(inj_likelihood_by_trial_m2, m2_D_by_inj):
+    itertools.izip(inj_log_L_by_trial_m2, m2_D_by_inj):
     m2_ind = m2_bins[m2_D[0]]
     D_ind = D_bins[m2_D[1]]
     inj_L = inj_L_by_m2[m2_ind]  # use only the L of the m2 of the inj
