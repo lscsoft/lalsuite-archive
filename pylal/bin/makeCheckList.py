@@ -260,8 +260,8 @@ for j in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[j:j+2]
   if not ifolist.count(ifo):
      # links to qscans
-     hoft_qscan.append("../QSCAN/hoft-qscan/" + ifo + "/" + gpstime0)
-     rds_qscan.append("../QSCAN/qscan/" + ifo + "/" + gpstime0)
+     hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
+     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
      for ifo_ref in ifolist:
        snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+ifo_ref+"tmplt_"+opts.trigger_id)
