@@ -48,8 +48,8 @@ from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import rate
 
-# which m2 bin to trace for diagnostics
-trace_m2_bin = 0
+# set all empty trials to have likelihoods of -infinity
+GRBL_EMPTY_TRIAL = -numpy.inf
 
 ################################################################################
 # utility functions
@@ -153,7 +153,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
         eps.shape == loudest_in_bg_trials.shape[1:].  If eps
         is None, then clip at 1/2 of the smallest otherwise-possible value.
         """
-        self.num_sims_by_m2 = num_sims_by_m2
+        self.num_sims_by_m2 = num_sims_by_m2 + 1e-10  # prevent division by 0
         self.m2_bin_by_inj = m2_bin_by_inj
         self.dtype = inj_loudest_by_inj_mc.dtype
         self.shape = inj_loudest_by_inj_mc.shape
@@ -179,7 +179,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
                     "inj_loudest_by_inj_mc.shape[1:]."
         else:
             self.eps = 0.5 * (self.weight_by_inj.min() or 1.0) / \
-                (num_sims_by_m2[None, :].repeat(self.shape[1], axis=0) + 1e-10)
+                num_sims_by_m2[None, :].repeat(self.shape[1], axis=0)
 
         # repack to speed inner loop by allowing us to call dot()
         self.inj_loudest_by_inj_mc_m2 = \
@@ -189,7 +189,7 @@ class ConstantForegroundEstimator(ForegroundEstimator):
 
     def __call__(self, trial_loudest_by_mc):
         """
-        Return ln(p(c|h)).  Where p(c|0) < eps, we return eps.
+        Return ln(p(c|h)).  Where p(c|h) < eps, we return eps.
         """
         louder_by_inj_mc_m2 = \
             self.inj_loudest_by_inj_mc_m2 > trial_loudest_by_mc[None, :, None]
@@ -205,11 +205,39 @@ class ConstantForegroundEstimator(ForegroundEstimator):
                       .reshape((self.num_inj, self.num_mc * self.num_m2))\
                       .astype(self.weight_by_inj.dtype))\
             .reshape((self.num_mc, self.num_m2))
-        pch_by_mc_m2 = num_louder_by_mc_m2 \
-            / (self.num_sims_by_m2[None, :] + 1e-10)
+        pch_by_mc_m2 = num_louder_by_mc_m2 / self.num_sims_by_m2[None, :]
         numpy.putmask(pch_by_mc_m2, pch_by_mc_m2 < self.eps, self.eps)
 
         return numpy.log(pch_by_mc_m2)
+
+def amap(func, arr):
+    """
+    Array map.  Loop over the first dimension of an array and call func
+    on each of the subarrays, returning the result as an array.
+    """
+    return numpy.array(map(func, arr))
+
+def log_sum(trial_log_L_by_m2):
+    """
+    Return max ln(sum L), the detection statistic for the loudest event.
+
+    NB: After a lot of experimentation, ln(sum L) turns out to optimize the ROC
+    curve.  It is also the Bayesian answer.
+    """
+    if (trial_log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
+        return GRBL_EMPTY_TRIAL
+    return numpy.log(numpy.exp(trial_log_L_by_m2).sum())
+
+def max_L(trial_log_L_by_mc_m2):
+    """
+    Return the loudest L(m2) among the candidates that actually exist.  If no
+    candidate is in the trial, return GRBL_EMPTY_TRIAL.
+    """
+    candidate_mask = trial_log_L_by_mc_m2[:, 0] != GRBL_EMPTY_TRIAL
+    if not candidate_mask.any():
+        return trial_log_L_by_mc_m2[0, :]  # all are empty; return any one
+    else:
+        return trial_log_L_by_mc_m2[candidate_mask, :].max(axis=0)
 
 def parse_args():
     parser = optparse.OptionParser(version="%prog CVS $Id$ ")
@@ -265,9 +293,6 @@ for m2_D in m2_D_by_inj:
     num_sims_by_m2[m2_bins[m2_D[0]]] += 1
 m2_bin_by_inj = [m2_bins[m2_D[0]] for m2_D in m2_D_by_inj]
 
-# set all empty trials to have likelihoods of -infinity
-empty_log_L_by_m2 = -numpy.inf * numpy.ones(len(m2_bins), dtype=float)
-
 ##############################################################################
 # Initialize background and foreground estimation functions
 # NB: start extrapolating 10% from the end of the tail for robustness.
@@ -306,12 +331,15 @@ log_pch_by_mc_m2 = compute_log_pch_by_mc_m2(onsource_loudest_by_mc)
 # log_L_by_mc_m2 = -log_pc0_by_mc[:, None].repeat(len(m2_bins), axis=1)
 log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
 
-# if there are any candidates, take max over likelihoods from candidates
-actual_candidate_mask = (onsource_loudest_by_mc > 0)
-if numpy.any(actual_candidate_mask):
-    log_L_by_m2 = log_L_by_mc_m2[actual_candidate_mask, :].max(axis=0)
-else:
-    log_L_by_m2 = empty_log_L_by_m2
+# mark non-candidates
+actual_candidate_mask = onsource_loudest_by_mc > 0
+log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
+
+# for upper limit, get the max L in each m2 bin; only from actual candidates
+log_L_by_m2 = max_L(log_L_by_mc_m2)
+
+# for detection, find the log(sum L) of the loudest candidate; sum over m2
+log_sum_L = numpy.apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
 
 # write the on-source likelihoods to disk
 onsource_outname = __prog__ + "_onsource"
@@ -319,87 +347,67 @@ if opts.user_tag is not None:
     onsource_outname += "_" + opts.user_tag
 onsource_outname += ".pickle"
 pickle.dump((log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask,
-    log_L_by_m2), open(onsource_outname, "wb"), -1)
+    log_L_by_m2, log_sum_L), open(onsource_outname, "wb"), -1)
 
 ################################################################################
-# compute P(observation | 0), the false-alarm probability
-# tabulate off-source likelihoods
+# Compute off-source likelihoods
 if opts.verbose:
     print "Computing off-source likelihoods..."
-offsource_pc0_by_trial_mc = numpy.zeros(\
-    (num_offsource_trials, len(mc_bins)), dtype=numpy.float32)
-offsource_pch_by_trial_mc_m2 = numpy.zeros(\
-    (num_offsource_trials, len(mc_bins), len(m2_bins)), dtype=numpy.float32)
-offsource_likelihood_by_trial_m2 = numpy.zeros(\
-    (num_offsource_trials, len(m2_bins)), dtype=numpy.float32)
-for i, offsource_loudest_by_mc in enumerate(offsource_loudest_by_trial_mc):
-    offsource_pc0_by_trial_mc[i, :] = \
-        compute_log_pc0_by_mc(offsource_loudest_by_mc)
-    offsource_pch_by_trial_mc_m2[i, :] = \
-        compute_log_pch_by_mc_m2(offsource_loudest_by_mc)
-    off_log_L_by_mc_m2 = offsource_pch_by_trial_mc_m2[i, :] \
-        - offsource_pc0_by_trial_mc[i, :, None]
 
-    # if there are any candidates, take max over likelihoods from candidates
-    offsource_candidate_mask = (offsource_loudest_by_mc > 0)
-    if numpy.any(offsource_candidate_mask):
-        offsource_likelihood_by_trial_m2[i, :] = \
-            off_log_L_by_mc_m2[offsource_candidate_mask, :].max(axis=0)
-    else:
-        offsource_likelihood_by_trial_m2[i, :] = empty_log_L_by_m2
+offsource_pc0_by_trial_mc = amap(\
+    compute_log_pc0_by_mc, offsource_loudest_by_trial_mc)
+offsource_pch_by_trial_mc_m2 = amap(\
+    compute_log_pch_by_mc_m2, offsource_loudest_by_trial_mc)
+offsource_log_L_by_trial_mc_m2 = offsource_pch_by_trial_mc_m2 \
+    - offsource_pc0_by_trial_mc[:, :, None]
+
+# mark non-candidates
+offsource_log_L_by_trial_mc_m2[offsource_loudest_by_trial_mc == 0., :] = \
+    GRBL_EMPTY_TRIAL
+
+# for upper limit, get the max L in each m2 bin; only from actual candidates
+offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_mc_m2)
+
+# for detection, find the log(sum L) of the loudest candidate; sum over m2
+offsource_log_sum_L_by_trial = \
+    numpy.apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
+    .max(axis=1)
 
 # write the off-source likelihoods to disk
 offsource_outname = onsource_outname.replace("_onsource", "_offsource", 1)
 pickle.dump((offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2,
-    offsource_likelihood_by_trial_m2), open(offsource_outname, "wb"), -1)
+    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial),
+    open(offsource_outname, "wb"), -1)
 
 ################################################################################
-# compute P(Lambda > Lambda_0(m2) | h(m2, D)) for the upper limit
+# Compute injection likelihoods
 # FIXME: This can be done in O(N_{inj}) time because L is monotonic with SNR
 # within an mc bin, so a threshold in L can be converted to a threshold in SNR
 # for each mc bin.
 if opts.verbose:
     print "Computing injection likelihoods..."
 
-m2_by_inj = numpy.zeros(num_inj, dtype=float)
-D_by_inj = numpy.zeros(num_inj, dtype=float)
-inj_likelihood_by_trial_m2 = empty_log_L_by_m2[None, :].repeat(num_inj, axis=0)
-log_pc0_by_inj_mc = []
-log_pch_by_inj_mc = []
-rho_by_inj_mc = []
-for i, (inj_trial_loudest_by_mc, m2_D) in enumerate(zip(inj_loudest_by_inj_mc,
-    m2_D_by_inj)):
-    # compute likelihood of this (inj + noise) instance arising from m2'
-    inj_trial_log_pc0_by_mc = compute_log_pc0_by_mc(inj_trial_loudest_by_mc)
+inj_log_pc0_by_trial_mc = \
+    amap(compute_log_pc0_by_mc, inj_loudest_by_inj_mc)
+inj_log_pch_by_trial_mc_m2 = \
+    amap(compute_log_pch_by_mc_m2, inj_loudest_by_inj_mc)
+inj_log_L_by_trial_mc_m2 = \
+    inj_log_pch_by_trial_mc_m2 - inj_log_pc0_by_trial_mc[:, :, None]
 
-    # this inner loop makes the algorithm O(n^2)
-    inj_trial_log_pch_by_mc_m2 = \
-        compute_log_pch_by_mc_m2(inj_trial_loudest_by_mc)
+# mark non-candidates
+inj_log_L_by_trial_mc_m2[inj_loudest_by_inj_mc == 0., :] = GRBL_EMPTY_TRIAL
 
-    inj_trial_log_L_by_mc_m2 = inj_trial_log_pch_by_mc_m2 \
-        - inj_trial_log_pc0_by_mc[:, None]
+# for upper limit, get the max L in each m2 bin; only from actual candidates
+inj_log_L_by_trial_m2 = amap(max_L, inj_log_L_by_trial_mc_m2)
 
-    # if there are any candidates, take max over likelihoods from candidates
-    inj_trial_candidate_mask = (inj_trial_loudest_by_mc > 0)
-    if inj_trial_candidate_mask.any():
-        inj_likelihood_by_trial_m2[i, :] = \
-            inj_trial_log_L_by_mc_m2[inj_trial_candidate_mask, :].max(axis=0)
-    else:
-        pass  # already set to empty
-
-    # record diagnostics
-    if m2_bins[m2_D[0]] == trace_m2_bin:
-        log_pc0_by_inj_mc.append(inj_trial_log_pc0_by_mc)
-        log_pch_by_inj_mc.append(inj_trial_log_pch_by_mc_m2[:, trace_m2_bin]\
-            .squeeze())
-        rho_by_inj_mc.append(inj_trial_loudest_by_mc)
-log_pc0_by_inj_mc = numpy.array(log_pc0_by_inj_mc)
-log_pch_by_inj_mc = numpy.array(log_pch_by_inj_mc)
-rho_by_inj_mc = numpy.array(rho_by_inj_mc)
+# for detection, find the log(sum L) of the loudest candidate; sum over m2
+inj_log_sum_L_by_trial = \
+    numpy.apply_along_axis(log_sum, 2, inj_log_L_by_trial_mc_m2)\
+    .max(axis=1)
 
 # write the injection likelihoods to disk
 inj_outname = onsource_outname.replace("_onsource", "_injections", 1)
-pickle.dump((inj_likelihood_by_trial_m2, log_pc0_by_inj_mc, log_pch_by_inj_mc,
-             rho_by_inj_mc, trace_m2_bin),
+pickle.dump((inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2,
+             inj_log_L_by_trial_m2, inj_log_sum_L_by_trial),
             open(inj_outname, "wb"), -1)
 
