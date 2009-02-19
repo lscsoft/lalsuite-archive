@@ -614,7 +614,25 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.setupJobWeb(tag_base)
+    self.setup_checkForDir()
 
+  def setup_checkForDir(self):
+    # create a shell script to check for the existence of the qscan output directory and rename it if needed
+    checkdir_script = open(self.name + '/checkForDir.sh','w')
+    checkdir_script.write("""#!/bin/bash
+    if [ -d $1/$2 ]
+    then
+      matchingList=$(echo $(find $1 -name $2.bk*))
+      COUNTER=1
+      for file in $matchingList
+      do
+        let COUNTER=COUNTER+1
+      done
+      mv $1/$2 $1/$2.bk.$COUNTER
+    fi
+    """)
+    checkdir_script.close()
+    os.chmod(self.name + '/checkForDir.sh',0755)
 
 ##############################################################################
 # qscan class for qscan Node
@@ -653,6 +671,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     self.add_var_arg("-o "+output)
     self.add_var_arg(repr(time))
+
+    self.set_pre_script(job.name + "/checkForDir.sh %s %s" \
+    %(output, repr(time)))
 
     #get the absolute output path whatever the path might be in the ini file
     #absoutput = os.path.abspath(output)
@@ -877,16 +898,37 @@ class h1h2QeventJob(pipeline.CondorDAGJob, webTheJob):
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)    
     self.setupJobWeb(self.name)
-    self.setup_cachecat()
+    #self.setup_cachecat()
+    self.setup_cacheAndCheckDir()
 
-  def setup_cachecat(self):
+#  def setup_cachecat(self):
+#    # create a shell script to cat all the required cache files
+#    cat_script = open(self.name + '/cachecat.sh','w')
+#    cat_script.write("""#!/bin/bash
+#    cat ${1} ${2} > ${3}
+#    """)
+#    cat_script.close()
+#    os.chmod(self.name + '/cachecat.sh',0755)
+
+  def setup_cacheAndCheckDir(self):
     # create a shell script to cat all the required cache files
-    cat_script = open(self.name + '/cachecat.sh','w')
-    cat_script.write("""#!/bin/bash
+    # create a shell script to check for the existence of the qscan output directory and rename it if needed
+    checkdir_script = open(self.name + '/checkForDir.sh','w')
+    checkdir_script.write("""#!/bin/bash
     cat ${1} ${2} > ${3}
+    if [ -d $4/$5 ]
+    then
+      matchingList=$(echo $(find $4 -name $5.bk*))
+      COUNTER=1
+      for file in $matchingList
+      do
+        let COUNTER=COUNTER+1
+      done
+      mv $4/$5 $4/$5.bk.$COUNTER
+    fi
     """)
-    cat_script.close()
-    os.chmod(self.name + '/cachecat.sh',0755)
+    checkdir_script.close()
+    os.chmod(self.name + '/checkForDir.sh',0755)
 
 #############################################################################
 # class for h1h2 qevent Node
@@ -944,9 +986,12 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     eventDuration = string.strip(cp.get("followup-"+name, 'duration'))
     self.add_var_arg(eventDuration)
 
-    self.set_pre_script(job.name + "/cachecat.sh %s %s %s" \
+    #self.set_pre_script(job.name + "/cachecat.sh %s %s %s" \
+    #%(dNode[ifoList[0]].outputFileName, dNode[ifoList[1]].outputFileName, \
+    #qeventcache))
+    self.set_pre_script(job.name + "/checkForDir.sh %s %s %s %s %s" \
     %(dNode[ifoList[0]].outputFileName, dNode[ifoList[1]].outputFileName, \
-    qeventcache))
+    qeventcache, output, repr(times[ifoList[0]])))
 
     #get the absolute output path whatever the path might be in the ini file
     absoutput = os.path.abspath(output)
