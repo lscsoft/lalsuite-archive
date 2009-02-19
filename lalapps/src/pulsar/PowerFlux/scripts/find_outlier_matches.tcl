@@ -7,6 +7,8 @@ foreach {var value} {
 	DIST_TOLERANCE 0.07
 	SPINDOWN_TOLERANCE 1e-10
 	MIN_ALL_SNR 7
+	FBIN_LEFT_CUTOFF 10
+	FBIN_RIGHT_CUTOFF 491
 	} {
 	global $var
 	set $var $value
@@ -24,6 +26,7 @@ set KIND_INDEX [lsearch -exact $HEADER "kind"]
 set SET_INDEX  [lsearch -exact $HEADER "set"]
 set SNR_INDEX  [lsearch -exact $HEADER "snr"]
 set FREQUENCY_INDEX [lsearch -exact $HEADER "frequency"]
+set FREQUENCY_BIN_INDEX [lsearch -exact $HEADER "frequency_bin"]
 set SPINDOWN_INDEX [lsearch -exact $HEADER "spindown"]
 set RA_INDEX [lsearch -exact $HEADER "ra"]
 set DEC_INDEX [lsearch -exact $HEADER "dec"]
@@ -38,6 +41,8 @@ set COSDIST_TOLERANCE [expr cos($DIST_TOLERANCE)]
 while { ![eof $FILE] } {
 	gets $FILE s
 	if { [lindex $s $KIND_INDEX]!=$KIND } { continue }
+	set fbin [lindex $s $FREQUENCY_BIN_INDEX]
+	if { ($fbin <= $FBIN_LEFT_CUTOFF) || ($fbin >= $FBIN_RIGHT_CUTOFF) } { continue }
 	
 	set SET [lindex $s $SET_INDEX]
 
