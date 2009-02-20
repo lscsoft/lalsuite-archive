@@ -49,32 +49,32 @@ usage: %prog [options]
 
 GRB selection script.
 
-Selects specified GRBs from the basic list and generates a xml-file and/or a html-file.
+Selects specified GRBs from the basic list and generates a xml-file and/or a html-file 
+containing the selected GRB's.
 
-Needs the following files:
+Requires the following files:
 listGRB.xml
-S5[IFO]_selectedsegs.txt #for all five IFOs, in directory specified by --segments
-
-Optional but useful files:
-[ifo]cat1.list          # for all five IFOs. Contain the category1-veto segment lists, in same directory
+S5[IFO]_selectedsegs.txt # for all five IFOs, in directory specified by --segments
+[ifo]cat1.list           # for all five IFOs, in directory specified by --segments
 
 Example call:
-
-grbSelect \
-  --onsource-left 120 \
-  --onsource-right 20 \
+./grbSelect \
+  --onsource-left 5 \
+  --onsource-right 1 \
   --input listGRB.xml \
-  --segments Segments \
-  --algorithm unsymmetric \
-  --type short \
-  --ifo-times H1H2 \
-  --select sub \
-  --num-offsource 50 \
-  --output-html S5_any_yr12.html\
-  --output-xml S5_any_yr12.xml \
-  --stats \
-  --gps-start-time 815011213 \
-  --gps-end-time 847555570
+  --segments ./ \
+  --grb-type  short \
+  --ifo-times any \
+  --exclude-ifos G1\
+  --match-exact false \
+  --num-trials 342 \
+  --output-html S5_any_2009.html\
+  --output-xml  S5_any_2009.xml \
+  --padding-time 72\
+  --plot-segments\
+  --gps-start-time 815011213\
+  --gps-end-time 875232014
+  
 """
 
 htmlHeader='''
