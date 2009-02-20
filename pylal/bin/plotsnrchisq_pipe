@@ -22,6 +22,7 @@ import ConfigParser
 import urlparse
 from types import *
 from pylab import *
+import numpy
 # sys.path.append('/archive/home/channa/opt/pylal/lib64/python2.4/site-packages')
 # sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
@@ -43,6 +44,54 @@ from glue import lal
 sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
+
+def whiteTmp(newtemplate, ASD_vector, ASD_freq):
+   # "Whiten" the template
+   fft_template = numpy.fft.fft(newtemplate)
+   whiteffttemplate = []
+   nb2 = len(fft_template)/2
+   maxASD = max(ASD_vector)
+   tmpFreq = []
+   stix = 0
+   stpix = 0
+   for n in range(len(fft_template)):
+     if n < nb2:
+        denom_fac = ASD_vector[n]
+        f = ASD_freq[n]
+     else:
+        denom_fac = ASD_vector[2*nb2 - n]
+        f = (0.0 - ASD_freq[2*nb2 - n])
+     tmpFreq.append(f)
+     if f >= 0 and f < 30 or f > 1024: denom_fac = maxASD
+     if f < -1024 or f > -30 and f < 0: denom_fac = maxASD 
+     if f > 40 and not stix: stix = n
+     if f > 1024 and not stpix: stpix = n
+     whiteffttemplate.append(fft_template[n] / denom_fac)
+
+   if not stpix: stpix = nb2
+   whiteffttemplate = numpy.array(whiteffttemplate)
+   whitetemplate = numpy.fft.ifft(whiteffttemplate)
+
+   for n in range(len(whitetemplate)):
+     whitetemplate[n] = whitetemplate[n].real
+
+   return fft_template, whiteffttemplate, tmpFreq, stix, stpix, whitetemplate
+
+def getTemplate(template_tuple):
+   template_vector = template_tuple[0]
+   newtemplate = []
+   for n in range(len(template_vector)):
+     newtemplate.append(template_vector[n-len(template_vector)+20000])
+   stix = 0
+   stpix = 0
+   cl = 200
+   newtemplate = numpy.array(newtemplate)
+   # don't consider parts of the template with amplitudes of 1/20th of the peak for the plot
+   maxTV = max(abs(newtemplate))/20.00
+   for n in range(len(newtemplate)):
+      if n > cl and not stix and max(abs(newtemplate[n-cl:n])) > maxTV: stix = n
+      if stix and not stpix and max(abs(newtemplate[n-cl:n])) < maxTV: stpix = n - cl
+   return newtemplate, stix, stpix
 
 def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=None):
  
@@ -106,8 +155,17 @@ def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=
     
     chanNameSnr = chanStringBase + "_SNRSQ_" + chanNumber
     chanNameChisq = chanStringBase + "_CHISQ_" + chanNumber
+    chanNameTemplate = chanStringBase + "_TEMPLATE"
     squareSnr_tuple = Fr.frgetvect(frameFile,chanNameSnr,-1,segLenSec,0)
     squareChisq_tuple = Fr.frgetvect(frameFile,chanNameChisq,-1,segLenSec,0)
+    
+    # Try to extract the template   
+    try:
+     template_tuple = Fr.frgetvect(frameFile,chanNameTemplate,-1,segLenSec,0)
+    except:
+      print "WARNING: couldn't extract TEMPLATE channel, continuing"
+      template_tuple = None
+
     PSD_tuple = Fr.frgetvect(frameFile,chanNamePSD,-1,segLenSec*8,0)
     #print PSD_tuple
     snr_position = eval(gpsTime) - (gpsStart + gpsPosition* (segLenSec - segOverlapSec) )
@@ -131,9 +189,8 @@ def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=
      
     # compute the r^2
     rsq_vector = squareChisq_tuple[0]
-
+    
     chisq_time = array(range(0, segLen)) * squareChisq_tuple[3][0] - chisq_position
-
     # compute the normalized chisq
     if(chisqBins > 0):
         chisqNorm_vector = rsq_vector/(1 + chisqDelta/chisqBins*squareSnr_tuple[0])
@@ -273,6 +330,65 @@ def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=
     InspiralUtils.savefig_pylal(figName)
     fnameList.append(figName)
     tagList.append("Plot of PSD")
+
+
+    # find the relevant portion of the template if available
+    if template_tuple:
+      #extract the relevant template piece
+      newtemplate, tstart, tend = getTemplate(template_tuple)
+
+      figure(5)
+      plot(newtemplate[tstart:tend])
+      xlim(0, len(newtemplate[tstart:tend]))
+      xlabel('time (samples)',size='x-large')
+      ylabel(r'amplitude',size='x-large')
+      grid()
+      title(ifoName[0] + ' Template: ' + gpsTime)
+      figName = InspiralUtils.set_figure_name(opts,'template')
+      InspiralUtils.savefig_pylal(figName)
+      fnameList.append(figName)
+      tagList.append("Plot of template waveform")
+
+
+      # "Whiten" the template
+      fft_template, whiteffttemplate, tmpFreq, fstart, fend, whitetemplate = whiteTmp(newtemplate, ASD_vector, ASD_freq)
+      
+      # plot the "whitened" template
+      figure(6)
+      plot(whitetemplate[tstart:tend])
+      xlim(0, len(whitetemplate[tstart:tend]))
+      xlabel('time (samples)',size='x-large')
+      ylabel(r'amplitude',size='x-large')
+      grid()
+      title(ifoName[0] + ' Template: ' + gpsTime)
+      figName = InspiralUtils.set_figure_name(opts,'white_template')
+      InspiralUtils.savefig_pylal(figName)
+      fnameList.append(figName)
+      tagList.append("Plot of the whitened template waveform")
+
+      figure(7)
+      wfft = whiteffttemplate[fstart:fend]
+      loglog(tmpFreq[fstart:fend], abs(wfft)/max(wfft),'g')
+      hold(1)
+      loglog(tmpFreq, abs(fft_template)/max(abs(fft_template)),'r', linewidth=2)
+      loglog(ASD_freq,ASD_vector/max(ASD_vector))
+      astart = int(40  / 1 / (ASD_freq[1] - ASD_freq[0]) )
+      astop = int(1024 / 1 / (ASD_freq[1] - ASD_freq[0]) )
+      hold(0)
+      xlim([40, 1024])
+      ymin = min(ASD_vector[astart:astop]/max(ASD_vector))
+      ylim([ymin, 100])
+      xlabel('Freq (Hz)',size='x-large')
+      ylabel(r'amplitude (normalized)',size='x-large')
+      grid()
+      legend(['ASD','Template','ASD weighted Template'],'upper right')
+      title(ifoName[0] + ' Template and ASD: ' + gpsTime)
+      figName = InspiralUtils.set_figure_name(opts,'fft_of_template_and_asd')
+      InspiralUtils.savefig_pylal(figName)
+      fnameList.append(figName)
+      tagList.append("Plot of the template and ASD")
+      # END if template_tuple
+    
 
     if opts.enable_output is True:
       html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
