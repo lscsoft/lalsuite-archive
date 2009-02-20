@@ -217,6 +217,39 @@ def amap(func, arr):
     """
     return numpy.array(map(func, arr))
 
+def apply_along_axis(func1d, axis, arr):
+    """
+    Apply function to 1-D slices along the given axis.
+
+    Execute `func1d(a[i])` where `func1d` takes 1-D arrays, `a` is
+    the input array, and `i` is an integer that varies in order to apply the
+    function along the given axis for each 1-D subarray in `a`.
+
+    NB: This is a reimplementation of numpy.apply_along_axis().
+        It is broken in numpy 1.0.
+
+    >>> def my_func(a):
+    ...     "Average first and last element of a 1-D array"
+    ...     return (a[0] + a[-1]) * 0.5
+    >>> b = np.array([[1,2,3], [4,5,6], [7,8,9]])
+    >>> np.apply_along_axis(my_func, 0, b)
+    array([4., 5., 6.])
+    >>> np.apply_along_axis(my_func, 1, b)
+    array([2., 5., 8.])
+    """
+    XX = numpy.rollaxis(arr, axis, arr.ndim)  # move axis to the end
+    s = XX.shape
+    XX = XX.reshape((-1, s[-1]))  # now only 2-D with our axis at the end
+    out = amap(func1d, XX)  # do the computation
+    if out.ndim == 1:  # set to appropriate output shape
+        out = out.reshape(s[:-1])
+    elif out.ndim == 2:
+        out = out.reshape(s[:-1] + (-1,))
+    else:
+        raise ValueError, "can't handle functions that return arrays with "\
+            "greater than one dimension"
+    return numpy.rollaxis(out, out.ndim - 1, axis)  # reorder axis
+
 def log_sum(trial_log_L_by_m2):
     """
     Return max ln(sum L), the detection statistic for the loudest event.
@@ -339,7 +372,7 @@ log_L_by_mc_m2[~actual_candidate_mask, :] = GRBL_EMPTY_TRIAL
 log_L_by_m2 = max_L(log_L_by_mc_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
-log_sum_L = numpy.apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
+log_sum_L = apply_along_axis(log_sum, 1, log_L_by_mc_m2).max()
 
 # write the on-source likelihoods to disk
 onsource_outname = __prog__ + "_onsource"
@@ -370,7 +403,7 @@ offsource_log_L_by_trial_m2 = amap(max_L, offsource_log_L_by_trial_mc_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
 offsource_log_sum_L_by_trial = \
-    numpy.apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
+    apply_along_axis(log_sum, 2, offsource_log_L_by_trial_mc_m2)\
     .max(axis=1)
 
 # write the off-source likelihoods to disk
@@ -402,7 +435,7 @@ inj_log_L_by_trial_m2 = amap(max_L, inj_log_L_by_trial_mc_m2)
 
 # for detection, find the log(sum L) of the loudest candidate; sum over m2
 inj_log_sum_L_by_trial = \
-    numpy.apply_along_axis(log_sum, 2, inj_log_L_by_trial_mc_m2)\
+    apply_along_axis(log_sum, 2, inj_log_L_by_trial_mc_m2)\
     .max(axis=1)
 
 # write the injection likelihoods to disk
