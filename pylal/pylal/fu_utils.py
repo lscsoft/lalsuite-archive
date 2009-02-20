@@ -1624,7 +1624,6 @@ class followupdqdb:
             self.createDB()
             self.__connectDB__()
         else:
-            self.__disconnectDB__()
             self.db=None
     #End __init__()
 
@@ -1704,7 +1703,7 @@ path %s\n"%(myPath))
             self.db.commit()
             fp.close()
         self.db.close()
-        sys.stderr.write("Created SQLite database.\n")
+        sys.stderr.write("Created SQLite database and closed it.\n")
     #End method createDB            
 
 
@@ -1736,6 +1735,8 @@ path %s\n"%(myPath))
                 self.dbFiles[i][1]=file
                 if os.path.isfile(self.dbFiles[i][1]):
                     self.dbFiles[i][3]=True
+                else:
+                    self.dbFiles[i][3]=False
         return
     #End setFile()
 
@@ -1747,8 +1748,9 @@ path %s\n"%(myPath))
         """
         if file==None:
             return
-        self.sqlFile=os.path.basename("/"+str(file))
-        self.sqlPath=os.path.dirname(file)
+        filename=os.path.normpath(file)
+        self.sqlFile=os.path.basename(filename)
+        self.sqlPath=os.path.dirname(filename)
         return
 
     def setVersion(self,version=None):
