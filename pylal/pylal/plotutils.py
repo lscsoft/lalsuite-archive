@@ -679,7 +679,12 @@ class ROCPlot(BasicPlot):
                 EFF = 1 - numpy.arange(len(fg), dtype=float) / len(fg)
 
             # now find the efficiency *at* each false alarm probability
-            EFF_by_FAP = EFF[[fg.searchsorted(x) for x in bg]]
+            # if louder than loudest event, then efficiency is 0
+            EFF_ind = numpy.array([fg.searchsorted(x) for x in bg])
+            fg_too_loud = EFF_ind == len(fg)
+            EFF_ind[fg_too_loud] = 0  # dummy index
+            EFF_by_FAP = EFF[EFF_ind]
+            EFF_by_FAP[fg_too_loud] = 0.
 
             # plot!
             self.ax.plot(FAP, EFF_by_FAP, **kwargs)
