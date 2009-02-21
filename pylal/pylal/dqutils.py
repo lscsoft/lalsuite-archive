@@ -54,7 +54,7 @@ def fromDQsegments(fileobj, coltype=int, discard_disabled=True, keep_versions=No
     d = segmentlistdict()
 
     for line in fileobj:
-        if len(line) == 0 or line[0] == "#":
+        if len(line.strip()) == 0 or line[0] == "#":
             continue
         try:
             tokens = line.split()
