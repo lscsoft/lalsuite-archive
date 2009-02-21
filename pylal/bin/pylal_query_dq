@@ -112,7 +112,7 @@ if opts.verbose >= 2:
         % str(opts.keep_versions)
     print "These DQ flags were checked, but were not active in the "\
         "segment(s) of interest: %s" % ", ".join(nocontrib_flags)
-if opts.verbose >= 1:
+if opts.verbose >= 1 or opts.at_point is not None:
     print "These DQ flags were raised:"
     for key in contrib_flags:
         print "%s: %s" % (key, contrib_flags_segdict[key])
