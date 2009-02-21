@@ -564,9 +564,13 @@ plot.add_content(offsource_log_sum_L_by_trial,
 plot.finalize(loc=4)
 
 # diagonal line represents blind guessing
-plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
-plot.ax.set_xlim((0, 1))
-plot.ax.set_ylim((0, 1))
+min_fap = 1 / len(offsource_loudest_by_trial_mc)
+diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
+plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
+    label="_nolegend_")
+plot.ax.set_xlim((min_fap, 1))
+plot.ax.set_ylim((min_fap, 1))
+plot.ax.set_xscale("log")
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "ROC_uniform")
@@ -598,9 +602,13 @@ plot.add_content(offsource_log_sum_L_by_trial,
 plot.finalize(loc=4)
 
 # diagonal line represents blind guessing
-plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
-plot.ax.set_xlim((0, 1))
-plot.ax.set_ylim((0, 1))
+min_fap = 1 / len(offsource_loudest_by_trial_mc)
+diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
+plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
+    label="_nolegend_")
+plot.ax.set_xlim((min_fap, 1))
+plot.ax.set_ylim((min_fap, 1))
+plot.ax.set_xscale("log")
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "ROC_D3")
@@ -640,9 +648,13 @@ for m2_ind, m2_range in enumerate(m2_ranges):
     plot.finalize(loc=4)
 
     # diagonal line represents blind guessing
-    plot.ax.plot((0, 1), (0, 1), linestyle="--", color="k", label="_nolegend_")
-    plot.ax.set_xlim((0, 1))
-    plot.ax.set_ylim((0, 1))
+    min_fap = 1 / len(offsource_loudest_by_trial_mc)
+    diag_line = numpy.logspace(numpy.log10(min_fap), 0, 100)
+    plot.ax.plot(diag_line, diag_line, linestyle="--", color="k",
+        label="_nolegend_")
+    plot.ax.set_xlim((min_fap, 1))
+    plot.ax.set_ylim((min_fap, 1))
+    plot.ax.set_xscale("log")
 
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
