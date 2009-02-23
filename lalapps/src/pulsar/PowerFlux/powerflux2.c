@@ -54,6 +54,9 @@ time_t start_time, end_time, stage_time;
 
 extern INT64 spindown_start;
 
+extern DATASET *datasets;
+extern int d_free;
+
 int nsegments;
 int useful_bins, nbins,side_cut;
 
@@ -170,7 +173,7 @@ int main(int argc, char *argv[])
 RGBPic *p;
 PLOT *plot;
 char s[20000];
-int i;
+int i, j;
 struct rlimit rl;
 
 /* INIT stage */
@@ -546,6 +549,19 @@ if(args_info.dataset_given) {
 		exit(-1);
 		}
 	}
+
+/* This diagnostics should be moved into dataset.c when tested */
+for(i=0;i<d_free;i++) {
+	fprintf(LOG, "FMedians: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
+	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].TMedians[j]);
+	}
+fprintf(LOG, "\n");
+
+for(i=0;i<d_free;i++) {
+	fprintf(LOG, "new_weighted_mean: \"%s\" \"%s\"", args_info.label_arg, datasets[i].name);
+	for(j=0;j<datasets[i].nbins;j++)fprintf(LOG, " %g", datasets[i].new_weighted_mean[j]);
+	}
+fprintf(LOG, "\n");
 
 if(args_info.sky_marks_file_given) {
 	FILE *f;

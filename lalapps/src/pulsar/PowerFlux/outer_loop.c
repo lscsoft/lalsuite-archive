@@ -208,6 +208,8 @@ int highest_snr_idx=0;
 int skyband;
 
 pps=allocate_partial_power_sum_F(useful_bins);
+memset(&pstats_accum, 0, sizeof(pstats_accum));
+pstats_accum.max_weight=-1;
 
 for(i=0;i<count;i++) {
 	zero_partial_power_sum_F(pps);
@@ -295,7 +297,7 @@ for(i=0;i<count;i++) {
 
 
 	/* No need to fill extra parameters as results are printed in this function */
-	if(i==0) {
+	if(pstats_accum.max_weight<0) {
 		memcpy(&pstats_accum, &pstats, sizeof(pstats));
 		continue;
 		}
@@ -319,18 +321,16 @@ for(i=0;i<count;i++) {
 		memcpy(&pstats_accum.highest_ks, &pstats.highest_ks, sizeof(pstats.highest_ks));
 		}
 
-	if(pstats.max_weight>pstats_accum.max_weight) {
-		pstats_accum.max_weight=pstats.max_weight;
-		}
+	UPDATE_MAX(pstats_accum, max_weight);
+	UPDATE_MIN(pstats_accum, min_weight);
+	UPDATE_MAX(pstats_accum, max_weight_loss_fraction);
 
-	if(pstats.min_weight<pstats_accum.min_weight) {
-		pstats_accum.min_weight=pstats.min_weight;
-		}
-
-	if(pstats.max_weight_loss_fraction>pstats_accum.max_weight_loss_fraction) {
-		pstats_accum.max_weight_loss_fraction=pstats.max_weight_loss_fraction;
-		}
-
+	UPDATE_MAX(pstats_accum, max_m1_neg);
+	UPDATE_MIN(pstats_accum, min_m1_neg);
+	UPDATE_MAX(pstats_accum, max_m3_neg);
+	UPDATE_MIN(pstats_accum, min_m3_neg);
+	UPDATE_MAX(pstats_accum, max_m4);
+	UPDATE_MIN(pstats_accum, min_m4);
 
 	}
 free_partial_power_sum_F(pps);
@@ -374,12 +374,12 @@ if(write_data_log_header) {
 		pstat.max_weight, \
 		pstat.weight_loss_fraction, \
 		pstats_accum.highest_ks.ks_value, \
-		pstats.max_m1_neg, \
-		pstats.min_m1_neg, \
-		pstats.max_m3_neg, \
-		pstats.min_m3_neg, \
-		pstats.max_m4, \
-		pstats.min_m4, \
+		pstats_accum.max_m1_neg, \
+		pstats_accum.min_m1_neg, \
+		pstats_accum.max_m3_neg, \
+		pstats_accum.min_m3_neg, \
+		pstats_accum.max_m4, \
+		pstats_accum.min_m4, \
 		pstats_accum.max_weight_loss_fraction \
 		); data_log_index++; }
 
