@@ -559,8 +559,7 @@ for coinc in coincTriggers:
         if gals_in_rect:
           for galaxy in gals_in_rect:
             galaxies.append(str(galaxy).split())
-      print "galaxies", galaxies
-
+ 
       galaxy_counter[i] = len(galaxies)
        
     for i in galaxy_counter:
