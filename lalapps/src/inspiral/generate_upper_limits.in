@@ -415,7 +415,7 @@ def create_combineposterior_job(dagman,posteriorFiles,
   dagman += ' macrominmass ="' + minMass + '"'
   dagman += ' macromaxmass ="' + maxMass + '"'
   dagman += ' macroreldir ="' + relDir + '"'
-  dagman += ' macromasstype ="' + massType + '"'
+  dagman += ' macromasstype ="' + massType.replace('_',' ') + '"'
   dagman += ' \n'
   dagman += 'CATEGORY ' + jobName + ' corse \n'
   return dagman,jobName
