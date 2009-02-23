@@ -3,7 +3,7 @@
 */
 
 body {
-  margin: 10px 0 ;
+/* margin: 10px 0 ;*/
   padding: 0 ;
   text-align: center ;
   font: 0.8em "Trebuchet MS", helvetica, sans-serif ;
@@ -12,13 +12,14 @@ body {
   background-position: 0 0;
   background-repeat: no-repeat;
 /*  background-attachment: fixed;*/
-  background-color: #b0ec95;
+/*  background-color: #b0ec95; */
+  background-color: #FFFFFF;
 }
 
 
 div.encadre{ 
 
-  width: 80% ;
+  width: 100% ;
   margin: 0 auto ;
   text-align: left ;
   border: 2px solid #ab4 ;
@@ -39,7 +40,7 @@ div.back{
 
 input.toggle{ 
   background-color: #fffae0 ;
-  color: #9b2 ;
+  color: #aa0517 ;
 }
 
 h1 p{
@@ -54,30 +55,30 @@ h1 p{
 
 /* --------------------------------------------------------- the id contenu */
 div.contenu{
-  padding: 0 25px 0 100px ;
+/*  padding: 0 25px 0 100px ; */
 }
 
 div.contenu h2 {
   padding-left: 40px ;
   line-height: 30px ;
   font-size: 1.4em ;
-  color: #9b2 ;
-  border-bottom: 1px solid #9b2 ;
+  color: #aa0517 ;
+  border-bottom: 1px solid #aa0517 ;
 }
 
 div.contenu h3 {
   margin-left: 15px ;
   padding-left: 5px ;
-  border-bottom: 1px solid #9b2 ;
-  border-left: 3px solid #9b2 ;
-  color: #9b2 ;
+  border-bottom: 1px solid #aa0517 ;
+  border-left: 3px solid #aa0517 ;
+  color: #aa0517 ;
 }
 
 div.contenu h4 {
   margin-left: 25px ;
   padding-left: 15px ;
-  border-bottom: 1px solid #9b2 ;
-  border-left: 5px solid #9b2 ;
+  border-bottom: 1px solid #aa0517 ;
+  border-left: 5px solid #aa0517 ;
   color: #9bf ;
 }
 
@@ -92,7 +93,7 @@ div.contenu a {
 }
 
 div.contenu a:hover {
-  color: #9b2 ;
+  color: #aa0517 ;
 }
 
 
@@ -123,9 +124,9 @@ div.figure p {
 div.figure h2 {
   margin-left: 15px ;
   padding-left: 5px ;
-  border-bottom: 1px solid #9b2 ;
-  border-left: 3px solid #9b2 ;
-  color: #9b2 ;
+  border-bottom: 1px solid #aa0517 ;
+  border-left: 3px solid #aa0517 ;
+  color: #aa0517 ;
 }
 div.figure img{
   border :2px black solid;
@@ -153,7 +154,7 @@ pre{
   word-wrap: break-word; /* Internet Explorer 5.5+ */
   /*additional style*/  
   background: #dea ;
-  border: 2px solid #9b2 ;
+  border: 2px solid #aa0517 ;
   padding: 5px 0 0 5px ;
   font-size: 1.2em ;
   overflow: auto ;
