@@ -1053,7 +1053,7 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     for i in range( len(slide_mean) ):
       slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
       slide_mean[i] = max(slide_mean[i], 0.0001)
-      semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
+    semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
     tmpx,tmpy = makesteps(bins,slide_min,slide_mean+slide_std)
     if "bitten_l" in stat:
       p=fill((tmpx-ds),tmpy, facecolor='y')
