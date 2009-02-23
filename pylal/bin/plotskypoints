@@ -5,7 +5,7 @@
 __author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-__prog__="plotthinca"
+__prog__="plotskypoints"
 __Id__ = "$Id$"
 
 import sys
@@ -124,8 +124,6 @@ def gridsky(resolution):
 # distance on the sphere
 def sphdist(p1,p2):
 
-#  return sqrt((p1[0]-p2[0])**2+(p1[1]-p2[1])**2)
-
   cos_lat_plus = cos(p1[0]+p2[0])
   cos_lat_minus = cos(p1[0]-p2[0])
   cos_lon_minus = cos(p1[1]-p2[1])
@@ -143,6 +141,40 @@ def clus_dist(clus1,clus2,pdists):
         clusdmin = clusd
         
   return clusdmin
+
+#find clusters of points on the 2-sphere
+#stops clustering when the separataion of the closest points is greater than max_d
+def find_clusters(points, max_d):
+  # dictionary of distances between hotspots
+  dist_dict = {}
+
+  for pt1 in points:
+    for pt2 in points:
+      dist_dict[(pt1,pt2)] = sphdist(pt1,pt2)
+
+  # begin by declaring each point a cluster
+  clusters = [[pt] for pt in points]
+
+  while True:
+    # location of the closest clusters
+    loc1, loc2 = 0, 0
+    # variable used in find minimum distance between clusters
+    dtemp = 99999
+      
+    for i in range(len(clusters)):
+      for j in range(i+1, len(clusters)):
+        dij = clus_dist(clusters[i],clusters[j],dist_dict)
+        if (dij < max_d) and (dij < dtemp):
+          dtemp = dij
+          loc1, loc2 = i, j
+            
+    if (loc1 == 0) and (loc2 == 0):
+      return clusters
+
+    clusters.append(clusters[loc1]+clusters[loc2])
+    # i think this is a bug in python, but if you switch loc2 and loc1 in the next two lines things get screwed up
+    clusters.remove(clusters[loc2])
+    clusters.remove(clusters[loc1])
   
 def signal_duration(mass1,mass2,nuStart):
   M = mass1+mass2
@@ -160,7 +192,32 @@ def signal_duration(mass1,mass2,nuStart):
   duration = tau0 + tau1 - tau1p5 + tau2
   return(duration)
 
-  
+#stole this stuff from plotgrbl
+#thanks, nick!
+class always_equal(object):
+    def __eq__(self, other):
+        return True
+      
+def make_html_table(two_dim_seq, header_row=None):
+    """
+    Given a sequence of sequences (2-D array works), make an HTML table out
+    of it.  If header_row is provided, make it the table header.
+    """
+    last_len = always_equal()
+    html = ["<table  border=\"1\" cellspacing=\"0\">"]
+    if header_row is not None:
+        html.append("  <tr><th>" + "</th><th>".join(map(str, header_row)) \
+            + "</th></tr>")
+        last_len = len(header_row)
+    for row in two_dim_seq:
+        if len(row) != last_len:
+            raise ValueError, "header and row lengths must all be consistent."
+        last_len = len(row)
+        html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
+            + "</td></tr>")
+    html.append("</table><br>")
+    return "\n".join(html)
+
 # What we want to do:
 # read in the coinc
 # extract the GPS time for each trigger
@@ -212,7 +269,19 @@ def parse_command_line():
                     default=False, help="use time at reference frequency instead of end time" )
   parser.add_option("-f","--reference_frequency",action="store",type="float",\
                     default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
-    
+
+  # InspiralUtils compatibility
+  #parser.add_option("--gps-start-time", type="int", help="GPS start time of data analyzed")
+  #parser.add_option("--gps-end-time", type="int", help="GPS end time of data analyzed")
+  #parser.add_option("--ifo-tag", help="IFO coincidence time analyzed")
+  parser.add_option("--user-tag", help="a tag to label your plots")
+  parser.add_option("--output-path", help="root of the HTML output")
+  parser.add_option("--enable-output", action="store_true", default=False, help="enable plots and HTML output")
+  parser.add_option("--html-for-cbcweb", action="store_true", \
+                    default=False, help="enable HTML output with the appropriate headers for the CBC website")
+  parser.add_option("--show-plot", action="store_true", default=False, \
+                    help="display the plots to screen if an X11 display is available")
+
 
   (options,args) = parser.parse_args()
 
@@ -220,7 +289,8 @@ def parse_command_line():
   return options, sys.argv[1:]
 
 
-# ============================================================================
+
+#####################################################################
 # -- get command line arguments
 opts, args = parse_command_line()
 
@@ -244,7 +314,8 @@ xhigh = 0
 
 if opts.countgalaxies:
   if opts.usecatalog is not None:
-    catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=["name","distance_kpc","ra","dec"])
+    gal_columns =["name","distance_kpc","ra","dec"]
+    catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=gal_columns)
   else:
     raise ValueError, "no galaxy catalog specified"
 ####################################################################
@@ -322,7 +393,7 @@ if opts.countgalaxies:
 if opts.countgalaxies:
   pt_step = pi*sqrt(2.0)*opts.resolution/180.0
   dmax = sphdist((0,0), (pt_step,pt_step))
-
+ 
 for coinc in coincTriggers:
 
   # a few counting parameters
@@ -388,10 +459,13 @@ for coinc in coincTriggers:
       'o', opts.plotpoints)
   afound.append(countindex)
 
-  # lists to gather hotspots (points within time-threshold) and clusters
+  # lists to gather hotspots (points within time-threshold),
+  # warmspots (points within twice the time-threshold) and clusters
   if opts.countgalaxies:
     hotspots = []
-    clusters = []
+    warmspots = []
+    hs_clusters = []
+    ws_clusters = []
   
   # search the sky
   for point in skypoints:
@@ -415,6 +489,8 @@ for coinc in coincTriggers:
       count[countindex] += 1.0
       if (int(countindex) == 1) and (opts.countgalaxies):
         hotspots.append((point[0],point[1]))
+      if (int(countindex) == 2) and (opts.countgalaxies):
+        warmspots.append((point[0],point[1]))
         
     if ( not (count[0] % 1000) and opts.verbose):
       print count[0]
@@ -434,38 +510,11 @@ for coinc in coincTriggers:
         afound[-1], getattr(coinc,"sim").distance)
     
 ####################################################################
-  # cluster the hotspots
+  # cluster the hotspots and warmspots
   if opts.countgalaxies:
+    hs_clusters = find_clusters(hotspots, dmax)
+    ws_clusters = find_clusters(warmspots, dmax)
 
-    # dictionary of distances between hotspots
-    dist_dict = {}
-    for hs1 in hotspots:
-      for hs2 in hotspots:
-        dist_dict[(hs1,hs2)] = sphdist(hs1,hs2)
-
-    # begin by declaring each point a cluster
-    clusters = [[hs] for hs in hotspots]
-
-    while True:
-      # location of the closest clusters
-      loc1, loc2 = 0, 0
-      # variable used in find minimum distance between clusters
-      dtemp = 99999
-      
-      for i in range(len(clusters)):
-        for j in range(i+1, len(clusters)):
-          dij = clus_dist(clusters[i],clusters[j],dist_dict)
-          if (dij < dmax) and (dij < dtemp):
-            dtemp = dij
-            loc1, loc2 = i, j
-            
-      if (loc1 == 0) and (loc2 == 0):
-        break
-
-      clusters.append(clusters[loc1]+clusters[loc2])
-      # i think this is a bug in python, but if you switch loc2 and loc1 in the next two lines things get screwed up
-      clusters.remove(clusters[loc2])
-      clusters.remove(clusters[loc1])
 ####################################################################
       
   if opts.countgalaxies:
@@ -483,13 +532,13 @@ for coinc in coincTriggers:
 
     # draw rectangles around the hotspots and count the number of galaxies in that rectangle
     # also restric to galaxies between here and the effective distance measured in the detectors (turns out to be a strong cut)
-    for i in range(len(clusters)):
+    for i in range(len(hs_clusters)):
       
-      lats = [pt[0] for pt in clusters[i]]
+      lats = [pt[0] for pt in hs_clusters[i]]
       latmin = min(lats)
       latmax = max(lats)
       
-      lons = [pt[1] for pt in clusters[i]]
+      lons = [pt[1] for pt in hs_clusters[i]]
       lonmin = min(lons)
       lonmax = max(lons)
       
@@ -499,14 +548,18 @@ for coinc in coincTriggers:
         top_rect = catalog.within_distances(0,max_dist).within_polygon( \
           numpy.array([(0,lonmin),(0,lonmax),(latmax,lonmin), (latmax,lonmax)]))
         if bottom_rect:
-          galaxies.append(bottom_rect)
+          for galaxy in bottom_rect:
+            galaxies.append(str(galaxy).split())
         if top_rect:
-          galaxies.append(top_rect)
+          for galaxy in top_rect:
+            galaxies.append(str(galaxy).split())
       else:
         gals_in_rect = catalog.within_distances(0,max_dist).within_polygon( \
           numpy.array([(latmin,lonmin),(latmin,lonmax),(latmax,lonmin), (latmax,lonmax)]))
         if gals_in_rect:
-          galaxies.append(gals_in_rect)
+          for galaxy in gals_in_rect:
+            galaxies.append(str(galaxy).split())
+      print "galaxies", galaxies
 
       galaxy_counter[i] = len(galaxies)
        
@@ -515,7 +568,8 @@ for coinc in coincTriggers:
       
     agalpoints.append(total_num_gals)
 
-  if opts.plotpoints:
+  #if opts.plotpoints:
+  if opts.enable_output:
 
     # plot the hotspot with the most galaxies as purple
     if opts.countgalaxies:
@@ -525,12 +579,44 @@ for coinc in coincTriggers:
           this_one = i
           min_num_gals = galaxy_counter[i]
       if min_num_gals > 0:
-        for pt in clusters[this_one]:
+        for pt in hs_clusters[this_one]:
           plot(asarray([pt[1]]), asarray([pt[0]]), color = (0.5,0,0.5), marker = 'x')
-    
+          
     axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
     annotate_plot("Right Ascension (radians)", "Declination (radians)",\
         "Reconstructed sky position")
+    #####################################################################
+    # HTML initialization
+    opts.ifo_tag = coinc_type
+    opts.gps_start_time =  min(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
+    opts.gps_end_time =  max(coinc.get_gps_times()[ifo] for ifo in coinc.get_gps_times())
+    InspiralUtils.initialise(opts, __prog__, __version__)
+    html_footer = ""
+    text = "Reconstructed sky position"
+    fname = InspiralUtils.set_figure_name(opts, "sky_position")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+#    fnameList.append(fname)
+#    tagList.append(text)
+
+    if opts.countgalaxies:
+      #write out a table of galaxies, if there are any
+      html_footer += "Summary of galaxies found:<br><br>\n"
+      if galaxies:
+        html_footer += make_html_table(galaxies, gal_columns)
+      else:
+        html_footer += "No galaxies there!"
+  
+    html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
+                     [fname], [text], comment=html_footer, cbcweb=False)
+    if not opts.show_plot:
+      close()
+
+  if opts.plotpoints and opts.show_plot:
+    axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+    annotate_plot("Right Ascension (radians)", "Declination (radians)",\
+        "Reconstructed sky position") 
+    
+
 
 figure()
 plot(asarray(asnr), asarray(adelta),'ro') 
@@ -551,5 +637,17 @@ print "Mean timing accuracy %f" % meaninjdeltarms
 print "Mean pointings (narrow) %f" % meanpointings_narrow
 print "Mean pointings (wide) %f" % meanpointings_wide
 
-show()
+#############################################################################
+# Generate HTML and cache file
+#if opts.enable_output:
+#    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],\
+#                     fnameList, tagList, comment=html_footer)
+#    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+#    if opts.html_for_cbcweb:
+#        html_filename_publish = InspiralUtils.write_html_output(opts, \
+#                                 sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=False)
+
+if opts.show_plot:
+    show()
 
