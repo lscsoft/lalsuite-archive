@@ -329,6 +329,9 @@ struct gengetopt_args_info
   int half_window_arg;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics (default='20').  */
   char * half_window_orig;	/**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics original value given at command line.  */
   const char *half_window_help; /**< @brief number of bins to exclude to the left and to the right of highest point when computing linear statistics help description.  */
+  int tail_veto_arg;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum (default='10').  */
+  char * tail_veto_orig;	/**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum original value given at command line.  */
+  const char *tail_veto_help; /**< @brief do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum help description.  */
   
   unsigned int help_given ;	/**< @brief Whether help was given.  */
   unsigned int version_given ;	/**< @brief Whether version was given.  */
@@ -431,6 +434,7 @@ struct gengetopt_args_info
   unsigned int compute_skymaps_given ;	/**< @brief Whether compute-skymaps was given.  */
   unsigned int fine_grid_skymarks_given ;	/**< @brief Whether fine-grid-skymarks was given.  */
   unsigned int half_window_given ;	/**< @brief Whether half-window was given.  */
+  unsigned int tail_veto_given ;	/**< @brief Whether tail-veto was given.  */
 
   int injection_group_counter; /**< @brief Counter for group injection */
 } ;

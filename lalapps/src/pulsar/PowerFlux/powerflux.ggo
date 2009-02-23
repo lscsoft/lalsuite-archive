@@ -126,3 +126,5 @@ option "dump-power-sums" - "Write out all power sum data into data.log file. It 
 option "compute-skymaps" - "allocate memory and compute skymaps with final results" int default="0" no
 option "fine-grid-skymarks" - "use sky marks from the fine grid, this uses constant spindown" int default="0" no
 option "half-window" - "number of bins to exclude to the left and to the right of highest point when computing linear statistics" int default="20" no
+option "tail-veto" - "do not report outlier if its frequency is within that many bins from the tail - happens with steep spectrum" int default="10" no
+

@@ -387,7 +387,9 @@ if(args_info.output_cache_arg) {
 	WRITE_POINT(ps[0][highest_ul_idx], pstats_accum.highest_ul, "ul");
 	WRITE_POINT(ps[0][highest_circ_ul_idx], pstats_accum.highest_circ_ul, "circ");
 	}
-if(pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg)WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
+if((pstats_accum.highest_snr.snr>args_info.min_candidate_snr_arg) &
+   (pstats_accum.highest_snr.bin>=args_info.tail_veto_arg) &
+   (pstats_accum.highest_snr.bin<(useful_bins-args_info.tail_veto_arg)))WRITE_POINT(ps[0][highest_snr_idx], pstats_accum.highest_snr, "snr");
 
 #define FILL_SKYMAP(skymap, value)	if(ei->skymap!=NULL)ei->skymap[pi]=value;
 
