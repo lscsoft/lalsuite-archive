@@ -320,6 +320,34 @@ def dc_calibration_correction( simInspiralTable, dcCalErrorVal ):
         row.eff_dist_l *= 1. - dcCalErrorVal[key]
 
 ##############################################################################
+def determine_diffs(snrArray,slideZero):
+  """
+  A function to determine the points in the SNRarray that should be used in
+  calculating the differential of Ng prime
+  """
+  if max(snrArray) <= (slideZero.zero_loudest):
+    upperDiff = len(snrArray) - 1
+    lowerDiff = len(snrArray) - 2
+    print >> sys.stderr, "WARNING: your loudest event is louder than all"
+    print >> sys.stderr, "background events. C_L' may not be calculated"
+    print >> sys.stderr, "with sufficient accuracy. More time slides are"
+    print >> sys.stderr, "needed to ensure better accuracy."
+    print >> sys.stderr, "You may also see this message if insufficient"
+    print >> sys.stderr, "injections have been performed in regions where"
+    print >> sys.stderr, "IFAR is going from max to min."
+  elif min(snrArray) >= (slideZero.zero_loudest):
+    upperDiff = 1
+    lowerDiff = 0
+    print >> sys.stderr, "WARNING: your loudest event is quiter than all"
+    print >> sys.stderr, "background events. C_L' may not be calculated"
+    print >> sys.stderr, "with sufficient accuracy. More time slides are"
+    print >> sys.stderr, "needed to ensure better accuracy."
+  else:
+    upperDiff = len(snrArray) - \
+        len(snrArray[(snrArray > slideZero.zero_loudest)])
+    lowerDiff = len(snrArray[(snrArray < slideZero.zero_loudest)]) - 1
+  return upperDiff,lowerDiff
+##############################################################################
 # Class for storing the time slide information
 ##############################################################################
 class slideZeroData:
@@ -1251,7 +1279,11 @@ def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
                             intelligent snrArray when using ifar.
   """
   ngArray = []
+  ngTempArray = []
+  ngArray2 = []
   newSnrArray = []
+  tempSnrArray = []
+  newSnrArray2 = []
 
   # set up the SNR array
   if slideZero.statistic.name == 'ifar':
@@ -1300,23 +1332,51 @@ def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
     else:
       ngArray.append(ngVal)
       newSnrArray.append(statValue)
+    if slideZero.statistic.name == 'ifar':
+      ngTempArray.append(ngVal)
+      tempSnrArray.append(statValue)
   if slideZero.statistic.name == 'ifar' and len(newSnrArray) == 1:
     ngArray.append(ngArray[0])
     newSnrArray.append(newSnrArray[0] + 1)
     print >> sys.stderr, "WARNING: Insufficient injections have been made, such"
-    print >> sys.stderr, "that C_L is not varying at all for diffferent values"
+    print >> sys.stderr, "that C_L is not varying at all for different values"
     print >> sys.stderr, "of your statistic. C_L' will be artificially set to"
     print >> sys.stderr, "zero. More injection runs are needed to calculate"
     print >> sys.stderr, "this quantity with any accuracy."
          
+  # We also want to make an ngArray, if ifar is used, where we only keep values
+  # if the value of ng is not equal to the NEXT value.
+  if slideZero.statistic.name == 'ifar':
+    ngArray2.append(ngTempArray[-1])
+    newSnrArray2.append(tempSnrArray[-1])
+    for idx in range(len(ngTempArray)-1):
+      if ngTempArray[-idx-2] != ngArray2[-1]:
+        ngArray2.append(ngTempArray[-idx-2])
+        newSnrArray2.append(tempSnrArray[-idx-2])
+    ngArray2.reverse()
+    newSnrArray2.reverse()
+    if len(newSnrArray2) == 1:
+      ngArray2.append(ngArray2[0])
+      newSnrArray2.append(newSnrArray2[0] - 1)
+      print >> sys.stderr, "WARNING: Insufficient injections have been made, such"
+      print >> sys.stderr, "that C_L is not varying at all for different values"
+      print >> sys.stderr, "of your statistic. C_L' will be artificially set to"
+      print >> sys.stderr, "zero. More injection runs are needed to calculate"
+      print >> sys.stderr, "this quantity with any accuracy."
+      
   ngArray = asarray(ngArray)
   snrArray = asarray(newSnrArray)
+  ngArray2 = asarray(ngArray2)
+  newSnrArray2 = asarray(newSnrArray2)
 
   # calculate the derivative at the loudest event
   upperDiff = None
+  lowerDiff = None
+  upperDiff2 = None
+  lowerDiff2 = None
   if not slideZero.zero_loudest:
     return 0
-  if statistic == 'ifar':
+  if slideZero.statistic.name == 'ifar':
     # If the loudest statistic is equal to a value in the snrArray then we
     # differentiate across that point.
     idx = 0
@@ -1329,39 +1389,48 @@ def plot_ng_vs_stat(injAstro, slideZero, statistic, figNum, integrate,
         idx += 1
     if upperDiff >= len(snrArray):
       upperDiff = len(snrArray) - 1
-  if not upperDiff:
-    if max(snrArray) <= (slideZero.zero_loudest):
-      upperDiff = len(snrArray) - 1
-      lowerDiff = len(snrArray) - 2
-      print >> sys.stderr, "WARNING: your loudest event is louder than all"
-      print >> sys.stderr, "background events. C_L' may not be calculated"
-      print >> sys.stderr, "with sufficient accuracy. More time slides are"
-      print >> sys.stderr, "needed to ensure better accuracy."
-      print >> sys.stderr, "You may also see this message if insufficient"
-      print >> sys.stderr, "injections have been performed in regions where"
-      print >> sys.stderr, "IFAR is going from max to min."
-    elif min(snrArray) >= (slideZero.zero_loudest):
-      upperDiff = 1
+    if lowerDiff == -1:
       lowerDiff = 0
-      print >> sys.stderr, "WARNING: your loudest event is quiter than all"
-      print >> sys.stderr, "background events. C_L' may not be calculated"
-      print >> sys.stderr, "with sufficient accuracy. More time slides are"
-      print >> sys.stderr, "needed to ensure better accuracy."
-    else:
-      upperDiff = len(snrArray) - \
-          len(snrArray[(snrArray > slideZero.zero_loudest)])
-      lowerDiff = len(snrArray[(snrArray < slideZero.zero_loudest)]) - 1
-  ngPrime = ( ngArray[lowerDiff] - ngArray[upperDiff]) / \
-      (snrArray[upperDiff] - snrArray[lowerDiff])
+    idx = 0
+    for snr in newSnrArray2:
+      if sqrt((1/snr - 1/slideZero.zero_loudest)**2) < 0.001:
+        upperDiff2 = idx + 1
+        lowerDiff2 = idx - 1
+        break
+      else:
+        idx += 1
+    if upperDiff2 >= len(newSnrArray2):
+      upperDiff2 = len(newSnrArray2) - 1
+    if lowerDiff2 == -1:
+      lowerDiff2 = 0
+    if not upperDiff:
+      upperDiff,lowerDiff = determine_diffs(snrArray,slideZero)
+    if not upperDiff2:
+      upperDiff2,lowerDiff2 = determine_diffs(snrArray,slideZero)
+    ngPrime1 = ( ngArray[lowerDiff] - ngArray[upperDiff]) / \
+        (snrArray[upperDiff] - snrArray[lowerDiff])
+    ngPrime2 = ( ngArray2[lowerDiff2] - ngArray2[upperDiff2]) / \
+        (newSnrArray2[upperDiff2] - newSnrArray2[lowerDiff2])
+    ngPrime = (ngPrime1 + ngPrime2)/2.0
+  else:
+    upperDiff,lowerDiff = determine_diffs(snrArray,slideZero)
+    ngPrime = ( ngArray[lowerDiff] - ngArray[upperDiff]) / \
+        (snrArray[upperDiff] - snrArray[lowerDiff])
   if statistic == 'far':
     ngPrime *= -1.0
   diffLineX = (snrArray[lowerDiff],snrArray[upperDiff])
   diffLineY = (ngArray[lowerDiff],ngArray[upperDiff])
+  if statistic == 'ifar':
+    diffLineX2 = (newSnrArray2[lowerDiff2],newSnrArray2[upperDiff2])
+    diffLineY2 = (ngArray2[lowerDiff2],ngArray2[upperDiff2])
 
   # make the figure
   figure(figNum)
   plot(snrArray, ngArray, 'b', linewidth=2, label="luminosity")
   plot(diffLineX,diffLineY, 'k', linewidth=4, label="Differential used.")
+  if statistic == 'ifar':
+    plot(newSnrArray2, ngArray2, 'b', linewidth=2, label="luminosity")
+    plot(diffLineX2,diffLineY2, 'k', linewidth=4, label="Differential used.")
   grid()
   xlabel(slideZero.statistic.name, size='x-large')
   if statistic == 'far':
