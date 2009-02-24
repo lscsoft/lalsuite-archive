@@ -18,7 +18,10 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import optparse
+import os
+import shutil
 import sys
+import tempfile
 from pylal import dagmanutils
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
@@ -32,19 +35,19 @@ __id__ = "$Id$"
 
 usage = """%prog dagman_out_filename"""
 
+# parse command-line
 parser = optparse.OptionParser(usage=usage, version=__id__)
-
 opts, args = parser.parse_args()
-
 args = sys.argv[1:]
 if len(args) != 1:
   print >>sys.stderr, "error: " + usage
   sys.exit(2)
-
 dagman_out_name = args[0]
 
-log_db_fname = dagman_out_name + ".sqlite3"
-log = dagmanutils.DAGManLog(log_db_fname)
+# create database
+temp_filehandle, temp_db_fname = tempfile.mkstemp()
+os.close(temp_filehandle)
+log = dagmanutils.DAGManLog(temp_db_fname)
 log.read_dag(open(dagman_out_name[:-11]))
 log.read_dagman_out(open(dagman_out_name))
 
@@ -54,4 +57,9 @@ dagmanutils.print_dict_of_counts(log.get_job_dict())
 dagmanutils.print_nested_dict_of_counts(log.get_state_subfile_dict())
 print "totals:"
 dagmanutils.print_dict_of_counts(log.get_state_dict())
+
+# copy the DB so that it is queryable next time
+log_db_fname = dagman_out_name + ".sqlite3"
+log.conn.close()
+shutil.move(temp_db_fname, log_db_fname)
 
