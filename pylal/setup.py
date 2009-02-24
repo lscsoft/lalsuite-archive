@@ -214,7 +214,6 @@ setup(
 		os.path.join("bin", "followupRescueHtml"),
 		os.path.join("bin", "pylal_grblikelihood"),
 		os.path.join("bin", "pylal_grbUL"),
-		os.path.join("bin", "pylal_grbsummary"),
 		os.path.join("bin", "pylal_grbtimeslide_stats"),
 		os.path.join("bin", "pylal_query_dq"),
 		os.path.join("bin", "pylal_relic"),
