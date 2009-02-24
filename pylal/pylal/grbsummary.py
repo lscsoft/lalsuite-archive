@@ -79,8 +79,9 @@ def compute_offsource_segment(analyzable, on_source, padding_time=0,
             remainder = max_trials - nminus
             nplus = min(remainder, nplus)
         else:
-            # both sides stick out, so cut symmetrically
-            nplus = nminus = half_max
+            # both sides stick out, so cut as symmetrically as possible
+            nminus = half_max
+            nplus = max_trials - half_max  # odd trial sticks out on right
 
     if symmetric:
         nplus = nminus = min(nplus, nminus)
