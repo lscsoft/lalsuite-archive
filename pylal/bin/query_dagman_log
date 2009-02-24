@@ -17,9 +17,11 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import hashlib
 import optparse
 import os
 import shutil
+import sqlite3
 import sys
 import tempfile
 from pylal import dagmanutils
@@ -28,6 +30,19 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"[11:-2]
 __id__ = "$Id$"
+
+def is_recyclable(dagman_out_fname, sqlite_fname):
+    """
+    If sqlite_fname exists and it matches the MD5 hash of dagman_out_fname,
+    return True.  Else, return False.
+    """
+    if not os.path.exists(log_db_fname):
+        return False
+    dagman_out_hash = hashlib.md5(open(dagman_out_fname).read()).hexdigest()
+    sqlite_hash = sqlite3.connect(sqlite_fname)\
+                         .execute("SELECT hash FROM hash")\
+                         .fetchone()[0]
+    return sqlite_hash == dagman_out_hash
 
 #
 # Main
@@ -43,13 +58,20 @@ if len(args) != 1:
   print >>sys.stderr, "error: " + usage
   sys.exit(2)
 dagman_out_name = args[0]
+dagman_name = dagman_out_name[:-11]
+log_db_fname = dagman_out_name + ".sqlite3"
 
-# create database
-temp_filehandle, temp_db_fname = tempfile.mkstemp()
-os.close(temp_filehandle)
-log = dagmanutils.DAGManLog(temp_db_fname)
-log.read_dag(open(dagman_out_name[:-11]))
-log.read_dagman_out(open(dagman_out_name))
+# see if we have already parsed this file or not
+recyclable = is_recyclable(dagman_out_name, log_db_fname)
+if recyclable:
+    log = dagmanutils.DAGManLog(log_db_fname)
+else:
+    # create database
+    temp_filehandle, temp_db_fname = tempfile.mkstemp()
+    os.close(temp_filehandle)
+    log = dagmanutils.DAGManLog(temp_db_fname)
+    log.read_dag(open(dagman_name))
+    log.read_dagman_out(open(dagman_out_name))
 
 # print summary to screen
 print "submitted:"
@@ -58,8 +80,8 @@ dagmanutils.print_nested_dict_of_counts(log.get_state_subfile_dict())
 print "totals:"
 dagmanutils.print_dict_of_counts(log.get_state_dict())
 
-# copy the DB so that it is queryable next time
-log_db_fname = dagman_out_name + ".sqlite3"
-log.conn.close()
-shutil.move(temp_db_fname, log_db_fname)
+if not recyclable:
+    # copy the DB so that it is queryable next time
+    log.conn.close()
+    shutil.move(temp_db_fname, log_db_fname)
 

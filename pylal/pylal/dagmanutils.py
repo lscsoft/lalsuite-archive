@@ -22,6 +22,7 @@ except ImportError:
   from pysqlite2 import dbapi2 as sqlite3
 
 import datetime
+import hashlib
 import sys
 
 itertools = __import__("itertools")
@@ -83,6 +84,7 @@ class DAGManLog(object):
     (node_id TEXT UNIQUE, job_id INTEGER)""")
     c.execute("""CREATE TABLE IF NOT EXISTS transitions
     (ts TIMESTAMP, node_id TEXT, state_id INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS hash (hash TEXT)""")
 
     # populate states
     c.executemany("INSERT OR IGNORE INTO states (state_id, name) VALUES (?, ?)", self.states)
@@ -117,16 +119,21 @@ class DAGManLog(object):
     Parse .dag.dagman.out file and update the status of each node.
     """
     c = self.conn.cursor()
+
+    dagman_out_hash = hashlib.md5()
     dagman_out_iter = iter(dagman_out_fileobj)
     for line in dagman_out_iter:
+      dagman_out_hash.update(line)
       # determine what state, if any, this line denotes, and record it
       for grep_key, state_id, node_id_col in self.state_map:
         if grep_key in line: # we have a match
           tup = line.split()
           node_id = tup[node_id_col]
-          ts = datetime.datetime.strptime(tup[0] + " " + tup[1], "%m/%d %H:%M:%S")
+          ts = datetime.datetime.strptime(tup[0] + " " + tup[1],
+             "%m/%d %H:%M:%S")
           if state_id == STATE_TERMINATED:
               line = dagman_out_iter.next() # job status on next line
+              dagman_out_hash.update(line)
               if "completed successfully" in line:
                 state_id = STATE_SUCCEEDED
               elif "failed" in line:
@@ -137,6 +144,9 @@ class DAGManLog(object):
 
           c.execute("INSERT INTO transitions (ts, node_id, state_id) VALUES (?, ?, ?)", (ts, node_id, state_id))
           break
+
+    # write hash of the file we just parsed
+    c.execute("INSERT INTO hash (hash) VALUES (?)", (dagman_out_hash.hexdigest(),))
     self.conn.commit()
 
   def get_state_subfile_dict(self):
