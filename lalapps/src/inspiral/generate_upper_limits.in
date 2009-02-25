@@ -566,14 +566,14 @@ injSeeds = {}
 spinInjRuns = []
 if runNonSpin:
   temp = cp.options('non-spin-injection-runs')
-  for string in temp:
+  for dummy,string in temp:
     name,seed=string.split(',')
     nonSpinInjRuns.append(name)
     injSeeds[name] = seed
   nonspin = nonSpinInjRuns[0]
 if runSpin:
   temp = cp.options('spin-injection-runs')
-  for string in temp:
+  for dummy,string in temp:
     name,seed=string.split(',')
     spinInjRuns.append(name)
     injSeeds[name] = seed
