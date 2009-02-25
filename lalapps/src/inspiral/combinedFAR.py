@@ -347,8 +347,9 @@ for thisfile in corsefiles:
             break # go to next fan in FANc
           elif jj == len(maxFANs)-1: # all categories active
             trig.alpha = trig.alpha * len(maxFANs)
+      combinedTrigs.append(trig)
       if opts.min_rate:
-        if trig.alpha < (maxFAN):
+        if trig.alpha < (maxFAN):	  
           loudestTrig.append(trig)
 	elif len(loudestTrig) == 0:
 	  if trig.alpha < (loudestTrigFAR-0.000001):
@@ -356,7 +357,6 @@ for thisfile in corsefiles:
             loudestTrigFAR = trig.alpha
           elif not trig.alpha > (loudestTrigFAR+0.000001):
             loudestTrigTemp.append(trig)
-      combinedTrigs.append(trig)
 
 if opts.min_rate:
   if len(loudestTrig) == 0:
@@ -382,6 +382,8 @@ parent.replaceChild(combinedTrigs,origtbl)
 utils.write_filename(outputFile,opts.output_file, \
     gz = opts.output_file.endswith('gz'))
 if opts.min_rate:
+  for trig in loudestTrig:
+    trig.alpha = trig.alpha / (FrgrndTime/3.15567360E7)
   newtbl = tab.get_table(outputFile, lsctables.SnglInspiralTable.tableName)
   parent = newtbl.parentNode
   parent.replaceChild(loudestTrig,newtbl)

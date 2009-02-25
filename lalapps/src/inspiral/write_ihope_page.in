@@ -51,80 +51,85 @@ def add_main_page_css():
   A function to add style information to the main ihope page.
   """
   page = '''
-body{ 
-background-color : #dddddd;
+body {
+padding: 0px;
+background-color: #dddddd;
+font-family: Helvetica, Verdana, sans-serif;
+font-size: 0.8em;
 }
 
 #wrapper {
-position : relative;
-left : 35px;
-top : 10px;
-width : 950px;
+position: relative;
+margin: 10px auto 10px auto;
+width: 950px;
 }
 
 #ihope { 
-position : absolute;
-top : 0px;
-left: 0px;
-width : 150px;
+position: absolute;
+width: 150px;
 height: 150px;
+top: 0px;
+left: 0px;
 background-color: #990000;
-color : #ffffff;
-text-align : center;
-font-family : Brushstroke, Arial, sans-serif;
+color: #ffffff;
+text-align: center;
 }
 
 #header {
-position : absolute;
-right: 0px;
-width : 800px;
+position: absolute;
+width: 800px;
 height: 150px;
+right: 0px;
 background-color: #995555;
-color : #ffffff;
-text-align : center;
-font-family: Helvetica, sans-serif;
+color: #ffffff;
+text-align: center;
 }
 
-#menubar{
-position : absolute;
-top : 150px;
+#menubar {
+position: absolute;
 width: 150px;
-height: 800px;
-background-color : #aeadac;
+top: 150px;
+background-color: #aeadac;
 }
+
 #menu {
-position : absolute;
-top : 30px;
+position: absolute;
 width: 150px;
-background-color : #aeadac;
+background-color: #aeadac;
 }
-a.menulink{
-text-decoration : none;
-color : #aa0517;
-}
+
 .menuitem {
-position : relative;
-text-align : right;
-font-family : Helvetica, Arial, sans-serif;
-font-size : 10pt;
-font-weight : bold;
-right : 0px;
-width : 140px;
-top : 5px;
-bottom : 5px;
-padding-top : 5px;
-padding-bottom : 5px;
-padding-right : 5px;
+position: relative;
+text-align: right;
+font-size: 10pt;
+font-weight: bold;
+right: 0px;
+width: 140px;
+top: 5px;
+padding-top: 5px;
+padding-bottom: 5px;
+padding-right: 5px;
 }
-.menulink:hover{
-color : #8eebec;
-}
+
+a.menulink { text-decoration: none; }
+
+a.menulink:link { color: #aa0517; }
+a.menulink:visited { color: #aa0517; }
+a.menulink:active { color: #aa0517; }
+
+a.menulink:hover { color: #8eebec; }
 
 #iframecontent {
-position : absolute;
-top : 160px;
+position: absolute;
 width: 800px;
-left: 160px;
+top: 150px;
+left: 150px;
+padding: 0px;
+background-color: #ffffff;
+}
+
+#placeholder {
+text-align: center;
 }
 '''
   return page
@@ -160,8 +165,8 @@ def write_sub_page(opts,section,html_sections,style,script):
   subHtmlFile.write(subPage(False))
   subHtmlFile.close
   mainpage.div(class_="menuitem")
-  mainpage.add('\t<a class="menulink" href="' + section + \
-      '.html" target="content"> ' + str(h2_num) + ': ' + \
+  mainpage.add('\t<a class="menulink" href="javascript:loadFrame(\'' + \
+      section + '.html\');"> ' + str(h2_num) + ': ' + \
       html_sections[section] + '</a>\n' )
   mainpage.div.close()
   return subPage
@@ -387,7 +392,16 @@ def create_toggle():
     }
    window.onload = externalLinks;
   """)
-
+  fname.write("""function afterLoadFrame() {
+    $('#iframecontent h3').click(function() { $(this).next().toggle('fast'); });
+    $('#iframecontent a[rel="external"]').attr('target','_blank');
+    $('#iframecontent input').hide();
+    }
+  function loadFrame(sourceURL) {
+    $("#iframecontent").load(sourceURL,{},afterLoadFrame);
+    /* Remove the last two arguments to disable toggling from the title. */
+    }
+""")
   fname.close()
 
 # ***************************************************************************
@@ -886,7 +900,7 @@ def write_analysis(page, opts, thisSearch='playground'):
     coincs = get_coincident_segments(thisSearch)  
 
     ## here is the table. The first column is another table with the durations, 
-    page.add("<table><tr><td>\n")
+#    page.add("<table><tr><td>\n")
     page.table()
     page.tr();
     page.td('coincidence'); 
@@ -910,7 +924,7 @@ def write_analysis(page, opts, thisSearch='playground'):
     pass
 
   try:
-    page.add("<td>")
+#    page.add("<td>")
     #create figure for the venn diagram
     data = ""
     for coinc in ("H1","H1H2","H2","H2L1","L1","H1L1","H1H2L1"):
@@ -932,7 +946,7 @@ def write_analysis(page, opts, thisSearch='playground'):
 #   Venn diagram currently unfunctional
 #    page = add_figure(page, fnames =[thisSearch+"/venn_"+thisSearch+".png"],\
 #      caption=comment, size="full", alt=[alt])
-    page.add("</td></tr></table>")
+#    page.add("</td></tr></table>")
     
     page.add("Here below is the detail of the data and ligo-data section \
         of ihope.ini ")
@@ -1906,7 +1920,7 @@ def fom(page, opts, cachefile_tag=None, caption="fix me",\
   webDir = opts.physdir + directory + '/'
 
   # create the div that will contain the figure 
-  page.div(class_="figure")
+#  page.div(class_="figure")
 
   # create a list of cachefiles, each of which containing
   # the cachefile_tag argument in its name
@@ -1962,7 +1976,7 @@ def fom(page, opts, cachefile_tag=None, caption="fix me",\
       # close the cachefile
     this.close()
   
-  page.div.close()
+#  page.div.close()
 
   return page
 # ***************************************************************************
@@ -2093,6 +2107,8 @@ try:
   opts.url	 	= configcp.get("main", "url")
   opts.output	 	= configcp.get("main", "output")
   opts.html_directory 	= configcp.get("main", "html-directory")
+  monthLead             = configcp.get("main", "month-lead")
+  monthSecond           = configcp.get("main", "month-second")
 except:
   print >> sys.stderr, "ERROR::The ini file does not have the proper field in the [main] section" 
   print >> sys.stderr, """       Consider adding one of those fields if missing: ihope-ini-file, \
@@ -2201,6 +2217,8 @@ title = opts.title+ ": from "+str(opts.gps_start_time)\
   +" to "+str(opts.gps_end_time) 
 script = {}
 script['toggle.js'] = 'javascript'
+script['http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js']\
+    = 'javascript'
 create_toggle()
 # Finally, we create the html document 
 msg =   "Creating HTML document"
@@ -2229,17 +2247,16 @@ for each_section in html_order:
 mainpage.div.close()
 mainpage.div.close()
 mainpage.div(id_="ihope")
-mainpage.add('<p> i h o p e </p>')
+mainpage.add('<h2> i h o p e </h2>')
+mainpage.add('<img src="https://www.lsc-group.phys.uwm.edu/ligovirgo/cbc/public/segments/S5/thomasLegacy.jpg">')
 mainpage.div.close()
 mainpage.div(id_='header')
 mainpage.add('<h1>' + title  +' </h1>')
-leads = 'Month Lead: Ian Harry,&nbsp&nbsp Second: Stephen Fairhurst'
-mainpage.add('<p> ' + leads + ' </p>')
+leads = 'Month Lead: ' + monthLead + ',&nbsp&nbsp Second: '+ monthSecond
+mainpage.add('<h3> ' + leads + ' </h3>')
 mainpage.div.close()
-mainpage.div(id_="iframecontent")
-mainpage.add('<iframe name="content" width="800" height="3000" scrolling="yes" frameborder="0" id="content" src="' + defaultPage + '.html">')
-mainpage.add("<p> You can't load iframes, time to upgrade your browser!!!!!</p>")
-mainpage.add("</iframe>")
+mainpage.div(id_='iframecontent')
+mainpage.add('<p id="placeholder">Please select a report section on the left.</p>')
 mainpage.div.close()
 mainpage.div.close()
 
