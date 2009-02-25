@@ -156,6 +156,7 @@ setup(
     os.path.join('sbin','ldbdd'),
     os.path.join('sbin','segpagegen'),
     os.path.join('sbin','LSCdqInsert'),
+    os.path.join('sbin','ligolw_segment_insert'),
     os.path.join('sbin','publishstatefromfile'),
     os.path.join('sbin','bulkpublishstate'), ],
   data_files = [
