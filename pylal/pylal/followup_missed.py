@@ -16,12 +16,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-#__Id__ = "$Id$"
-#__author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
-#__version__ = "$Revision$"[11:-2]
-#__date__ = "$Date$"[7:-2]
-#__name__ = "followup_missed.py"
-#__title__ = "Followup missed injections"
+__Id__ = "$Id$"
+__author__ = "Darren Woods and Stephen Fairhurst <sfairhurs@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__prog__ = "followup_missed.py"
+__title__ = "Followup missed injections"
 
 import os, sys, exceptions, copy
 from math import sqrt, pi
@@ -801,7 +801,10 @@ class FollowupMissed:
           fname = result['filename']
           page.a(extra.img(src=[fname], width=400, \
                            alt=fname, border="2"), title=fname, href=[ fname ])
-        
+          
+    # add version information
+    page.add('<hr>Page created with %s Version %s'%(__prog__, __version__))
+    
     # and write the html file
     htmlfilename = self.opts.prefix + "_"+selectIFO+"_followup_"+str(self.number) +\
                          self.opts.suffix+'.html'
