@@ -355,7 +355,7 @@ if os.path.isfile(preBuiltDB):
 else:
   checklistDB=fu_utils.followupdqdb()
 results=dict()
-results=checklistDB.queryDB(int(float(gpstime0)),1800)
+results=checklistDB.queryDB(int(float(gpstime0)),600)
 checklistDB.close()
 htmlStart="<table bgcolor=grey border=1px><tr><th>IFO</th><th>Flag</th><th>Start(s)</th><th>Offset(s)</th><th>Stop(s)</th><th>Offset(s)</th></tr>"
 htmlRows=list()
