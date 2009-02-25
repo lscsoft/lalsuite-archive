@@ -120,6 +120,7 @@ class inspiral_ilwdchar(long):
 
 	table_name = "sngl_inspiral"
 	column_name = "event_id"
+	index_offset = len("%s:%s:" % (table_name, column_name))
 
 	def __hash__(self):
 		return hash(self.table_name) ^ hash(self.column_name) ^ long.__hash__(self)
