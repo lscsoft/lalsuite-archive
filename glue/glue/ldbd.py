@@ -38,8 +38,10 @@ import string
 import re
 import csv
 import exceptions
-import DB2
-
+try:
+  import DB2
+except:
+  pass
 
 """
 create the csv parser and initialize a dialect for LIGO_LW streams
