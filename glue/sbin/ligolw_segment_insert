@@ -42,7 +42,7 @@ Check that glue is correctly installed and in your PYTHONPATH.
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
 __date__ = "$Date$"
 __version__ ="$Revision$"[11:-2]
-__src__ = "$Source $"[9:-2]
+__src__ = "$Source $"
 ##################################################################
 class ligolw_dqInsertException(exceptions.Exception):
   """
