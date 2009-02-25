@@ -757,9 +757,7 @@ class followUpList:
     self.summarydir = None
     self.summarypage = None
     self.types = ['H1H2', 'H1H2L1', 'H1H2L1V1', 'H1H2V1', 'H1L1', 'H1L1V1', 'H1V1', 'H2L1', 'H2L1V1', 'H2V1', 'L1V1']
-    self.rank = -1
-    #self.magic_number = 250.0
-    self.magic_number = None
+
   def get_coinc_type(self):
     ifostring = ""
     for t in ['H1','H2','L1','V1']:
@@ -798,19 +796,6 @@ class followUpList:
       return 1
   def add_page(self,page):
     self.page = page
-
-  def write_trigger_info(self, fobj):
-    fobj.write("Rank:"+str(self.rank)+",ID:"+str(self.eventID)+",Stat:"+str(self.stat)+",FAR:"+str(self.far)+",Type:"+str(self.get_coinc_type())+",")
-    for ifo in ['H1','H2','L1','V1']:
-      if self.gpsTime[ifo]:
-        if self.magic_number:
-          eff_snr = getattr(self.coincs,ifo).get_effective_snr(self.magic_number)
-        else:
-          eff_snr = getattr(self.coincs,ifo).get_effective_snr()
-        fobj.write(ifo+"time:"+repr(self.gpsTime[ifo])+","+ifo+"mchirp:"+str(getattr(self.coincs,ifo).mchirp)+","+ifo+"eta:"+str(getattr(self.coincs,ifo).eta)+","+ifo+"mass1:"+str(getattr(self.coincs,ifo).mass1)+","+ifo+"mass2:"+str(getattr(self.coincs,ifo).mass2)+","+ifo+"snr:"+str(getattr(self.coincs,ifo).snr)+","+ifo+"chisq:"+str(getattr(self.coincs,ifo).chisq)+","+ifo+"chisq_dof:"+str(getattr(self.coincs,ifo).chisq_dof)+","+ifo+"duration:"+str(getattr(self.coincs,ifo).template_duration)+","+ifo+"eff_snr:"+str(eff_snr)+",")
-    fobj.write("\n")
-
-    
 
 #############################################################################
 # Function to generate a trigbank xml file
@@ -929,22 +914,6 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
 
   followups = []
   xmfilenum = 0
-  trigtime = 0
-  cnt = 0
-  # get segments to followup
-  seglistname = string.strip(cp.get('followup-triggers','segment-list'))
-  if cp.has_option('followup-triggers','eff-snr-denom-fac'):
-    magic_number = float(string.strip(cp.get('followup-triggers','eff-snr-denom-fac')))
-  else:
-    magic_number = None
-  if seglistname: seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
-  else: seglist = []
-  if seglist: print "WARNING: restricting triggers to specified segment list"
-
-  # print out the trigger info
-  #trigInfo = open("trigger_info.txt","w")
-
- 
   if coincs:
       if not ifar:
           sim = None
@@ -957,9 +926,7 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
           else:
               coincs.sort()
           numTrigs = 0
-          # the loop over coincident triggers
           for ckey in coincs:
-              cnt += 1
               fuList = followUpList()
               fuList.add_coincs(ckey)
               if page:
@@ -970,33 +937,25 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
                       getattr(ckey,ifo)
 		      #print getattr(ckey, 'numifos'), getattr(ckey, 'event_id')
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
-                      trigtime = fuList.gpsTime[ifo]
                   except: fuList.gpsTime[ifo] = None
         
-	      # if the trigger type is wrong don't count it: continue
+                  if fuList.gpsTime[ifo] and trigbank_test:
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
+                      # Also make a trigbank xml with the max template
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+		      xmfilenum += 3
+	      # if the trigger type is wrong don't count it
               if trigtype: 
 	        stop = 0
 	        for t in trigtype.split(','):
 		  if t.strip() == fuList.get_coinc_type(): stop = 1
 		if not stop: continue  
-
-	      # if trigger is not in requested time move on 
-              if seglist:
-                if (trigtime in seglist): print "trigger " + str(trigtime) + " in seglist ranked " + str(cnt)
-                else: continue
-
+		  
               numTrigs += 1
               if numTrigs > int(numtrigs):
                 break
-              # write the trig bank files	      
-              for ifo in ifo_list:
-                if fuList.gpsTime[ifo] and trigbank_test:
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
-                      # Also make a trigbank xml with the max template
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
-                  xmfilenum += 3
-
+	      
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
               if fuList.ifolist_in_coinc:
@@ -1011,11 +970,7 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
                           if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
                               fuList.ifoTag = chunk.ifos
                               break
-              fuList.rank = cnt
-              fuList.magic_number = magic_number
               followups.append(fuList)
-              #write info to file
-              #fuList.write_trigger_info(trigInfo,cnt)
               if search:
                 # generate a cohbank xml file for this coinc trigger
                 generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
@@ -1029,9 +984,7 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
       else:
 
           ifarList=list()
-          # the loop over coincident triggers with ifar
           for ckey in coincs:
-              cnt += 1
               myIFAR = getattr(ckey,ckey.get_ifos()[1][0]).alpha
               myKey = ckey
               ifarList.append([myIFAR,myKey])
@@ -1040,10 +993,7 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
           for key in ifarList:
               ckeyList.append(key[1])
           numTrigs = 0
-          cnt = 0
           for ckey in ckeyList:
-              cnt += 1
-
               fuList = followUpList()
               fuList.far = getattr(ckey,ckey.get_ifos()[1][0]).alpha
               fuList.add_coincs(ckey)
@@ -1054,8 +1004,13 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
                   try:
                       getattr(ckey,ifo)
                       fuList.gpsTime[ifo] = (float(getattr(ckey,ifo).end_time_ns)/1000000000)+float(getattr(ckey,ifo).end_time)
-                      trigtime = fuList.gpsTime[ifo]
                   except: fuList.gpsTime[ifo] = None
+                  if fuList.gpsTime[ifo] and trigbank_test:
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
+                      # Also make a trigbank xml with the max template
+                      generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
+		      xmfilenum += 3
 
               # if the trigger type is wrong don't count it
               if trigtype:
@@ -1063,23 +1018,10 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
                 for t in trigtype.split(','):
                   if t.strip() == fuList.get_coinc_type(): stop = 1
                 if not stop: continue
-              # if trigger is not in requested time move on 
-              if seglist:
-                if (trigtime in seglist): print "trigger " + str(trigtime) + " in seglist ranked " + str(cnt)
-                else: continue
 
               numTrigs += 1
               if numTrigs > int(numtrigs):
                 break
-
-              # make the trig bank files
-              for ifo in ifo_list:
-                if fuList.gpsTime[ifo] and trigbank_test:
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"plot",None,add_columns)
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"notrig",None,add_columns)
-                  # Also make a trigbank xml with the max template
-                  generateXMLfile(cp,ckey,ifo,'trigTemplateBank',"coh",True,add_columns)
-                  xmfilenum += 3
 
               # now, find the ifoTag associated with the triggers, 
               # using the search summary tables...
@@ -1095,15 +1037,11 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
                           if ( (triggerTime >= (out_start_time+out_start_time_ns)) and (triggerTime <= (out_end_time+out_end_time_ns)) ):
                               fuList.ifoTag = chunk.ifos
                               break 
-              fuList.rank = cnt
-              fuList.magic_number = magic_number
               followups.append(fuList)
-              
-              #write info to file
-              #fuList.write_trigger_info(trigInfo,cnt)
               # generate a cohbank xml file for this coinc trigger
               if search:
                 generateCohbankXMLfile(ckey,fuList.gpsTime[firstIfo],fuList.ifoTag,fuList.ifolist_in_coinc,search,'trigTemplateBank',"coh",add_columns)
+                print "produced cohbank files 2..."
                 if trigbank_test:
                   for j in range (0,len(fuList.ifoTag)-1,2):
                     itf = fuList.ifoTag[j:j+2]
@@ -1120,7 +1058,7 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
     typesdict[f.get_coinc_type()] += 1
   for f in typesdict:
     print "found " + str(typesdict[f]) + " " + str(f) +  " triggers"
-  #trigInfo.close()
+
   if missed:
     followups
   return followups
@@ -1630,6 +1568,7 @@ class followupdqdb:
             self.createDB()
             self.__connectDB__()
         else:
+            self.__disconnectDB__()
             self.db=None
     #End __init__()
 
@@ -1709,7 +1648,7 @@ path %s\n"%(myPath))
             self.db.commit()
             fp.close()
         self.db.close()
-        sys.stderr.write("Created SQLite database and closed it.\n")
+        sys.stderr.write("Created SQLite database.\n")
     #End method createDB            
 
 
@@ -1741,8 +1680,6 @@ path %s\n"%(myPath))
                 self.dbFiles[i][1]=file
                 if os.path.isfile(self.dbFiles[i][1]):
                     self.dbFiles[i][3]=True
-                else:
-                    self.dbFiles[i][3]=False
         return
     #End setFile()
 
@@ -1754,9 +1691,8 @@ path %s\n"%(myPath))
         """
         if file==None:
             return
-        filename=os.path.normpath(file)
-        self.sqlFile=os.path.basename(filename)
-        self.sqlPath=os.path.dirname(filename)
+        self.sqlFile=os.path.basename("/"+str(file))
+        self.sqlPath=os.path.dirname(file)
         return
 
     def setVersion(self,version=None):
