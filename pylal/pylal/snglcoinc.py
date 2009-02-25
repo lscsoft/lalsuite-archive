@@ -245,6 +245,7 @@ class CoincTables(object):
 		coinc.coinc_def_id = self.coinc_def_ids[coinc_def_id_key]
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = time_slide_id
+		coinc.set_instruments(None)
 		coinc.nevents = len(events)
 		coinc.likelihood = None
 		self.coinctable.append(coinc)

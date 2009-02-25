@@ -551,6 +551,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc.process_id = process.process_id
 		coinc.coinc_event_id = coinc_event_table.get_next_id()
 		coinc.coinc_def_id = None
+		coinc.set_instruments(None)
 		coinc.nevents = len(events)
 		coinc.likelihood = None
 		coinc_event_table.append(coinc)

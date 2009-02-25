@@ -279,6 +279,7 @@ class DocContents(object):
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
 		coinc.time_slide_id = self.tisi_id
+		coinc.set_instruments(None)
 		coinc.nevents = 0
 		coinc.likelihood = None
 		self.coinctable.append(coinc)
@@ -364,6 +365,7 @@ def add_sim_burst_coinc(contents, sim, bursts):
 	sngl_burst rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
+	coinc.set_instruments(event.ifo for event in bursts)
 	coinc.nevents = len(bursts)
 
 	coincmap = lsctables.CoincMap()
