@@ -40,9 +40,9 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
+__date__ = "$Date$"
 __version__ ="$Revision$"[11:-2]
-__src__ = "$Source$"[9:-2]
+__src__ = "$Source $"[9:-2]
 ##################################################################
 class ligolw_dqInsertException(exceptions.Exception):
   """
@@ -274,7 +274,8 @@ process_stream = [(
   os.path.basename(sys.argv[0]), 
   __version__, 
   __src__,
-  __date__,
+  gpstime.GpsSecondsFromPyUTC( time.mktime( time.strptime( 
+      __date__[7:-2], "%Y/%m/%d %H:%M:%S" ) ) ),
   0,
   socket.gethostname(),
   pwd.getpwuid(os.geteuid())[0],
