@@ -1790,13 +1790,13 @@ path %s\n"%(myPath))
             commandString=\
                 "select * from %s where\
      (((start<=%i) and (stop >= %i)) or\
-    ((start<=%i) and (stop >= %i)) or\
+    ((start>=%i) and (stop <= %i)) or\
     ((start<=%i) and (stop >= %i))) and (active == 1)\
      and version == %i \
      order by flag,version desc"%\
     (table,\
     iStart,iStart,\
-    gps,gps,\
+    iStart,iStop,\
     iStop,iStop,self.defaultVersion)
             dbSocket.execute(commandString)            
             results[table]=dbSocket.fetchall()
