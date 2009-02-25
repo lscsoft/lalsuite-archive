@@ -248,7 +248,7 @@ class VerticalBarHistogram(BasicPlot):
             x += 0.1 * i * max_stat / num_bins
 
             # plot
-            self.ax.bar(x, y, color, **plot_kwargs)
+            self.ax.bar(x, y, **plot_kwargs)
 
         # add legend if there are any non-trivial labels
         self.add_legend_if_labels_exist()
