@@ -2101,12 +2101,13 @@ class CoincTable(table.Table):
 		"coinc_def_id": "ilwd:char",
 		"coinc_event_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
+		"instruments": "lstring",
 		"nevents": "int_4u",
 		"likelihood": "real_8"
 	}
 	constraints = "PRIMARY KEY (coinc_event_id)"
 	next_id = CoincID(0)
-	interncolumns = ("process_id", "coinc_def_id", "time_slide_id")
+	interncolumns = ("process_id", "coinc_def_id", "time_slide_id", "instruments")
 	how_to_index = {
 		"ce_cdi_index": ("coinc_def_id",),
 		"ce_tsi_index": ("time_slide_id",)
@@ -2115,6 +2116,20 @@ class CoincTable(table.Table):
 
 class Coinc(object):
 	__slots__ = CoincTable.validcolumns.keys()
+
+	def get_instruments(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.instruments)
+
+	def set_instruments(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.instruments = ifos_from_instrument_set(instruments)
 
 
 CoincTable.RowType = Coinc
