@@ -432,7 +432,7 @@ try:
     # Check if the segment type already exists
     if type != 0: 
       print >> sys.stderr, """
-Error: Segment type %s %s.upper() already exists. Exiting now. """ % (ifos, name)
+Error: Segment type %s '%s' already exists. Exiting now. """ % (ifos, name)
       sys.exit(1)
 
     # get the active segments to be inserted:
