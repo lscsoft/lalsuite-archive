@@ -485,18 +485,6 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		return
 
 	#
-	# find the coinc_definer_ids for sngl_inspiral <--> sngl_inspiral
-	# coincidences, or create them if needed
-	#
-
-	coinc_type = ligolw_thinca.InspiralCoincTypes
-	coinc_def_ids = dict([
-		(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
-		for key, coinc_def in ligolw_thinca.InspiralCoincTypes.items()
-	])
-	required_coinc_def_ids = set()
-
-	#
 	# find the coinc_event table or create one if needed
 	#
 
@@ -562,6 +550,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_event_id = coinc_event_table.get_next_id()
+		coinc.coinc_def_id = None
 		coinc.nevents = len(events)
 		coinc.likelihood = None
 		coinc_event_table.append(coinc)
@@ -574,14 +563,6 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		#
 
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
-
-		#
-		# from the alphabetized list of instruments participating
-		# in the coinc, retrieve the coinc_def_id for this coinc
-		#
-
-		coinc.coinc_def_id = coinc_def_ids[tuple(event.ifo for event in events)]
-		required_coinc_def_ids.add(coinc.coinc_def_id)
 
 		#
 		# link events to coinc with coinc_event_map rows.  the
@@ -642,15 +623,6 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc_inspiral.set_end(SnglInspiralUtils.slideTimeOnRing(coinc_time, offset, ring))
 
 		coinc_inspiral_table.append(coinc_inspiral)
-
-	#
-	# remove unused rows from the coinc_definer table
-	#
-
-	coinc_definer_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-	for i in range(len(coinc_definer_table) - 1, -1, -1):
-		if coinc_definer_table[i].coinc_def_id not in required_coinc_def_ids:
-			del coinc_definer_table[i]
 
 	#
 	# done
@@ -912,6 +884,61 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 # =============================================================================
 #
+#                             Assign coinc_def IDs
+#
+# =============================================================================
+#
+
+
+def assign_coinc_def_ids(xmldoc, verbose = False):
+	if verbose:
+		print >>sys.stderr, "assigning coinc_definer IDs ..."
+
+	#
+	# get the time slide vectors, these will be used to determine what
+	# insruments were on for each coinc
+	#
+
+	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+
+	#
+	# find the coinc_definer_ids for sngl_inspiral <--> sngl_inspiral
+	# coincidences, or create them if needed
+	#
+
+	coinc_def_ids = dict([
+		(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
+		for key, coinc_def in ligolw_thinca.InspiralCoincTypes.items()
+	])
+	required_coinc_def_ids = set()
+
+	#
+	# loop over coincs
+	#
+
+	for coinc in table.get_table(xmldoc, lsctables.CoincTable.tableName):
+		#
+		# from the alphabetized list of instruments that were on at
+		# the time of the coinc, retrieve the coinc_def_id for this
+		# coinc
+		#
+
+		coinc.coinc_def_id = coinc_def_ids[tuple(sorted(time_slides[coinc.time_slide_id].keys()))]
+		required_coinc_def_ids.add(coinc.coinc_def_id)
+
+	#
+	# remove unused rows from the coinc_definer table
+	#
+
+	coinc_definer_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
+	for i in range(len(coinc_definer_table) - 1, -1, -1):
+		if coinc_definer_table[i].coinc_def_id not in required_coinc_def_ids:
+			del coinc_definer_table[i]
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -943,6 +970,8 @@ if options.veto_segments:
 	apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
 elif options.verbose:
 	print >>sys.stderr, "no vetoes applied"
+
+assign_coinc_def_ids(xmldoc, verbose = options.verbose)
 
 depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
