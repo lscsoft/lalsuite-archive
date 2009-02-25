@@ -182,8 +182,8 @@ def make_multi_burst(process_id, coinc_event_id, events):
 
 
 class ExcessPowerCoincTables(snglcoinc.CoincTables):
-	def __init__(self, xmldoc, coinc_definer_row_type):
-		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_row_type)
+	def __init__(self, xmldoc, coinc_definer_rows):
+		snglcoinc.CoincTables.__init__(self, xmldoc, coinc_definer_rows)
 
 		# find the multi_burst table or create one if not found
 		try:
