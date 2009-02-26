@@ -62,23 +62,6 @@ __date__ = "$Date$"[7:-2]
 #
 
 
-def segmentlistdict_fromsearchsummary(xmldoc, program = None):
-	"""
-	Convenience wrapper for a common case usage of the segmentlistdict
-	class:  searches the process table in xmldoc for occurances of a
-	program named program, then scans the search summary table for
-	matching process IDs and constructs a segmentlistdict object from
-	the out segments in those rows.
-
-	Note:  the segmentlists in the segmentlistdict are not necessarily
-	coalesced, they contain the segments as they appear in the
-	search_summary table.
-	"""
-	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
-	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
-
-
 def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	"""
 	Return the time_slide_id corresponding to the time slide described
@@ -339,6 +322,23 @@ def append_search_summary(doc, process, shared_object = "standalone", lalwrapper
 	summary.nnodes = nnodes
 	table.get_table(doc, lsctables.SearchSummaryTable.tableName).append(summary)
 	return summary
+
+
+def segmentlistdict_fromsearchsummary(xmldoc, program = None):
+	"""
+	Convenience wrapper for a common case usage of the segmentlistdict
+	class:  searches the process table in xmldoc for occurances of a
+	program named program, then scans the search summary table for
+	matching process IDs and constructs a segmentlistdict object from
+	the out segments in those rows.
+
+	Note:  the segmentlists in the segmentlistdict are not necessarily
+	coalesced, they contain the segments as they appear in the
+	search_summary table.
+	"""
+	stbl = table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)
+	ptbl = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
+	return stbl.get_out_segmentlistdict(program and ptbl.get_ids_by_program(program))
 
 
 #
