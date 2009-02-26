@@ -110,18 +110,6 @@ def append_process(xmldoc, **kwargs):
 	return process
 
 
-def dbget_thresholds(connection):
-	"""
-	Extract the --thresholds arguments that had been given to the
-	ligolw_burca job recorded in the process table of database to which
-	connection points.
-	"""
-	thresholds = snglcoinc.parse_thresholds(map(str, llwapp.dbget_process_params(connection, process_program_name, "--thresholds")))
-	for pair, (dt, df, dhrss) in thresholds.items():
-		thresholds[pair] = (float(dt), float(df), float(dhrss))
-	return thresholds
-
-
 #
 # =============================================================================
 #
