@@ -216,23 +216,14 @@ class CoincTables(object):
 		# find the time_slide table
 		self.time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
 
-
-	def time_slide_ids(self):
+	def get_ordered_time_slides(self):
 		"""
-		Return a list of the document's unique time slide IDs
-		sorted in the order defined by the
-		time_slide_consideration_order() function.
+		Returns a list of (time_slide_id, offset vector) tuples for
+		the document's time slide vectors in the order defined by
+		the time_slide_consideration_order() function.
 		"""
-		return time_slide_consideration_order(self.time_slide_table)
-
-
-	def get_time_slide(self, id):
-		"""
-		Return the time slide with the given ID as a dictionary of
-		instrument/offset pairs.
-		"""
-		return self.time_slide_table.get_offset_dict(id)
-
+		time_slides = self.time_slide_table.as_dict()
+		return [(id, time_slides[id]) for id in time_slide_consideration_order(self.time_slide_table)]
 
 	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events):
 		"""

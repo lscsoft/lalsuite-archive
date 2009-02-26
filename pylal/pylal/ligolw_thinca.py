@@ -325,21 +325,16 @@ def ligolw_thinca(
 	# iterate over time slides
 	#
 
-	time_slide_ids = coinc_tables.time_slide_ids()
-	for n, time_slide_id in enumerate(time_slide_ids):
-		#
-		# retrieve the current time slide
-		#
-
-		offsetdict = coinc_tables.get_time_slide(time_slide_id)
-		offset_instruments = set(offsetdict.keys())
+	time_slides = coinc_tables.get_ordered_time_slides()
+	for n, (time_slide_id, offsetdict) in enumerate(time_slides):
 		if verbose:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slide_ids), ", ".join(["%s = %+.16g s" % (i, o) for i, o in offsetdict.items()]))
+			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(["%s = %+.16g s" % (i, o) for i, o in sorted(offsetdict.items())]))
 
 		#
 		# can we do it?
 		#
 
+		offset_instruments = set(offsetdict.keys())
 		if len(offset_instruments) < 2:
 			if verbose:
 				print >>sys.stderr, "\tsingle-instrument time slide: skipped"
