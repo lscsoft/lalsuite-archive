@@ -93,7 +93,7 @@ def parse_command_line():
 
   parser.add_option("","--statistic",action="store",default='snr',\
       type="string",\
-      help="choice of statistic used in building coinc table, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq")
+      help="choice of statistic used in building coinc table, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq, ifar, lvS5stat")
 	
   parser.add_option("","--h1-slide-time",action="store",type="int",default=0,\
       metavar="SEC",help="time slid for H1 per slide number" )
@@ -125,6 +125,13 @@ def parse_command_line():
   parser.add_option("","--num-slides", action="store",type="int",\
       default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file of the search" )
 	
+  parser.add_option("", "--get-ROC-curve",action="store_true", default=False,\
+      help="Get full ROC curve")
+  
+  parser.add_option("","--ignore-IFO-times",action="store",type="string",\
+      default='', metavar=" USERTAG",\
+      help="comma separated IFO times that should not be included in efficiency calculation e.g. H1H2,H2L1. This option will work only with s5 LV search files." )
+  
   parser.add_option("","--show",action="store_true",default=False,\
       help="display the figures on the terminal" )
 	
@@ -179,7 +186,7 @@ if not opts.skip_timeslides and not opts.num_slides:
    
   
 
-if not (opts.input_cache_file or (opts.slides_glob and opts.found_injection_glob and opts.missed_injection_glob)):
+if not (opts.input_cache_file or (opts.found_injection_glob and opts.missed_injection_glob)):
   print >>sys.stderr, "Some of the options specifying the input files containing single inspiral tables are missing." 
   print >> sys.stderr, " Either (--input-cache-file option) or (--slides-glob, --found-injection-glob and --missed-injection-glob options) must be given."
   sys.exit(1)
@@ -248,6 +255,40 @@ if  not len(missed_injfiles) > 0:
   sys.exit(1) 
 
 
+
+# get rid of certain IFO times if necessary
+if opts.ignore_IFO_times:
+
+  ifo_times_to_ignore = opts.ignore_IFO_times.split(",")
+  
+  # time slides
+  new_slidesfiles = []
+  for file in slidesfiles:
+	if not (file.split("/")[-1].split("_")[0] in ifo_times_to_ignore):
+	  new_slidesfiles.append(file)
+  
+  slidesfiles = []
+  slidesfiles = new_slidesfiles
+  
+  # found injections
+  new_found_injfiles = []
+  for file in found_injfiles:
+	if not (file.split("/")[-1].split("_")[0] in ifo_times_to_ignore):
+	  new_found_injfiles.append(file)
+  
+  found_injfiles = []
+  found_injfiles = new_found_injfiles
+  
+  # missed injections
+  new_missed_injfiles = []
+  for file in missed_injfiles:
+	if not (file.split("/")[-1].split("-")[0] in ifo_times_to_ignore):
+	  new_missed_injfiles.append(file)
+  
+  missed_injfiles = []
+  missed_injfiles = new_missed_injfiles
+
+
 ################################################################################################################
 # DETECTOR'S CHARACTERISTICS: Here we assess performance of the detector by calculating various statistical
 # measures such as Detection probability for a given False Alarm Probability, efficiency etc. 
@@ -257,7 +298,7 @@ if  not len(missed_injfiles) > 0:
 if not opts.skip_timeslides:
   # Calculate Likelihood threshold based on fixed False Alarm Probability.
   # The acceptable value of false alarm probability ios taken to be 0.1
-  InspiralUtils.message(opts, "calculating threshold statistics ...")
+  InspiralUtils.message(opts, "calculating threshold statistic ...")
 
   # define array that stores maximum statistic for each of the time slide
   max_stat_array = numpy.zeros(2*opts.num_slides, dtype = float)
@@ -292,7 +333,7 @@ if not opts.skip_timeslides:
           max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getlikelihood()))
         else:
            max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
-	  
+ 	
       # for slide backward
       # get coincs from the current slide
       backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
@@ -304,13 +345,24 @@ if not opts.skip_timeslides:
         else:
           max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getstat()))
 
+
       # end of the loop over slides
 	
   # calculate the threshold statistic
   # WARNING: it is hardcoded to be the 11th highest max stat in slide
   # if number of time slides is 100 it corresponds to 10% false alarm probability. 
-  stat_threshold = numpy.sort(max_stat_array)[-11]
+  max_stat_array.sort()
+  stat_threshold = max_stat_array[-11]
   InspiralUtils.message(opts, "threshold statistic is " + str(stat_threshold))
+  
+  mean_effective_snr = max_stat_array.mean()
+  InspiralUtils.message(opts, "mean loudest effective snr: " + str(mean_effective_snr))
+  
+  sigma = max_stat_array.std()
+  InspiralUtils.message(opts, "standard deviation of loudest effective snr: " + str(sigma))
+  
+  definite_detection_threshold = mean_effective_snr + 2.0 * sigma
+  InspiralUtils.message(opts, "two-sigma detection threshold: " + str(definite_detection_threshold))
 else:
   InspiralUtils.message(opts, "Skiping time slides...")
   InspiralUtils.message(opts, "using threshold statistic " + str(opts.threshold_statistic))
@@ -341,16 +393,15 @@ if opts.use_likelihood:
   # add likelihood values to coincs
   inspiral_likelihood.add_likelihood(injectionCoincTriggers, found_injLikelihoodTriggers)       
     
-  
+	  
 # read in sim inspirals with missed injections
 if not opts.enable_clustering:
   InspiralUtils.message(opts,"reading in missed injections ...")
   missed_simTriggers = None
   missed_simTriggers = SimInspiralUtils.ReadSimInspiralFromFiles(missed_injfiles)
-
-
-
-
+  missed_simTriggers_original = lsctables.New(lsctables.SimInspiralTable)
+  missed_simTriggers_original = copy.copy(missed_simTriggers) 
+  
 
 # construct the list of found and missed injections
 
@@ -492,7 +543,71 @@ missed_doc.childNodes[0].appendChild(missed_simTriggers)
 missed_doc.write(missed_injection_file)
 missed_injection_file.close()
  
+ 
+#Calculating full ROC curve 
+if opts.get_ROC_curve:
+  max_stat_array.sort()
+  InspiralUtils.message(opts, "calculating ROC curve ...")
+  Det_probabilities = numpy.ones(2*opts.num_slides)
+  number_found_injections = numpy.zeros(2*opts.num_slides)
+  number_missed_injections = numpy.zeros(2*opts.num_slides)
+  for i in range(len(Det_probabilities)):
+	# first partition found injections using the threshold statistic
+	stat_threshold = max_stat_array[-(i+1)]
+	if opts.use_likelihood:
+	  lesser_coincs, equal_coincs, greater_coincs = injectionCoincTriggers.partition_by_stat(stat_threshold, use_likelihood=True) 
+	else:
+	  lesser_coincs, equal_coincs, greater_coincs = injectionCoincTriggers.partition_by_stat(stat_threshold)   	
+	  	
+	
+	# construct list of all missed injections
+	missed_simTriggers_at_threshold = lsctables.New(lsctables.SimInspiralTable)
+	missed_simTriggers_at_threshold = copy.copy(missed_simTriggers_original) 
+	
+	if len(lesser_coincs) > 0:
+	  missed_simTriggers_at_threshold.extend(lesser_coincs.return_sim_inspirals())
 
+	# construct list of all found injections
+	found_simTriggers_at_threshold = lsctables.New(lsctables.SimInspiralTable)
+	if len(equal_coincs) > 0:  
+	  greater_coincs.extend(equal_coincs)
+	found_simTriggers_at_threshold = greater_coincs.return_sim_inspirals()
+	
+	# save number of dound and missed injections
+	number_found_injections[i] = len(found_simTriggers_at_threshold)
+	number_missed_injections[i] = len(missed_simTriggers_at_threshold)
+	
+	
+	#Efficiency curve
+	# determine the range
+	right_limit = max(max(found_simTriggers_at_threshold.get_column("distance")), max(missed_simTriggers_at_threshold.get_column("distance")))
+	left_limit =  min(min(found_simTriggers_at_threshold.get_column("distance")), min(missed_simTriggers_at_threshold.get_column("distance")))
+
+	# histogram found injections, unweighted
+	number_found, found_bins = inspiral_likelihood.weighted_histogram(found_simTriggers_at_threshold.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
+
+	# histogram missed injections
+	number_missed, missed_bins = inspiral_likelihood.weighted_histogram(missed_simTriggers_at_threshold.get_column("distance"), weight=None, norm=False, nbins=20, set_max=right_limit, set_min=left_limit)
+
+	# calculate efficiency
+	efficiency = number_found/(number_found + number_missed)
+
+	# calculate detection probability density function
+	total_volume = (4.0*numpy.pi/3.0) * (right_limit**3)
+	detection_pdf = 4.0*numpy.pi*(efficiency * missed_bins**2)/total_volume
+
+	# calculate detection probability
+	Det_probabilities[i] = numpy.sum(detection_pdf)*(missed_bins[1] - missed_bins[0])
+	
+  # write cumulative detection probability in file
+  ROC_file = open("ROC_curve.txt", "w")
+  
+  ROC_file.write("FAP, DEP, stat*, Found, Missed \n")
+  for i in range(len(Det_probabilities)):
+	ROC_file.write(str(float(i)/100.0) + " " + str(Det_probabilities[i]) + " " + str(max_stat_array[-(i+1)]) + " " + str(number_found_injections[i])  + " " + str(number_missed_injections[i]) +  "\n")
+  ROC_file.close()
+
+		
 ##############################################################################################################
 
 if opts.enable_output:
