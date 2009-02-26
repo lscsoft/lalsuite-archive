@@ -267,23 +267,6 @@ def get_process_params(xmldoc, program, param):
 	return [row.get_pyvalue() for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
 
 
-def dbget_process_params(connection, program, param):
-	process_ids = set()
-	values = []
-	for process_id, valuetype, value in connection.cursor().execute("""
-SELECT process_id, type, value FROM
-	process_params
-WHERE
-	program == ?
-	AND param == ?
-	""", (program, param)):
-		process_ids.add(process_id)
-		values.append(((value is not None) or None) and ligolwtypes.ToPyType[valuetype or "lstring"](value))
-	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named '%s' with param(s) '%s'" % (program, param)
-	return values
-
-
 def doc_includes_process(doc, program):
 	"""
 	Return True if the process table in doc includes entries for a
