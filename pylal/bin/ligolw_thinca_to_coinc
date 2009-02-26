@@ -485,6 +485,13 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		return
 
 	#
+	# find the coinc_definer_id for sngl_inspiral <--> sngl_inspiral
+	# coincidences, or create it if needed
+	#
+
+	coinc_def_id = llwapp.get_coinc_def_id(xmldoc, ligolw_thinca.InspiralCoincDef.search, ligolw_thinca.InspiralCoincDef.search_coinc_type, create_new = True, description = ligolw_thinca.InspiralCoincDef.description)
+
+	#
 	# find the coinc_event table or create one if needed
 	#
 
@@ -550,8 +557,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc = lsctables.Coinc()
 		coinc.process_id = process.process_id
 		coinc.coinc_event_id = coinc_event_table.get_next_id()
-		coinc.coinc_def_id = None
-		coinc.set_instruments(None)
+		coinc.coinc_def_id = coinc_def_id
 		coinc.nevents = len(events)
 		coinc.likelihood = None
 		coinc_event_table.append(coinc)
@@ -560,10 +566,15 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		# construct the time_slide_id from the "slide number" at
 		# index 1 in the tuple returned by get_id_parts().  all
 		# events in the coinc have the same ID at this stage so it
-		# doesn't matter which event's ID we use
+		# doesn't matter which event's ID we use.  we also use the
+		# instruments named in the time slide vector to populate
+		# the initial list of instruments for this coinc.  the
+		# instrument list might be updated later when vetos are
+		# applied.
 		#
 
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
+		coinc.set_instruments(time_slides[coinc.time_slide_id].keys())
 
 		#
 		# link events to coinc with coinc_event_map rows.  the
@@ -591,7 +602,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 
 		coinc_inspiral = lsctables.CoincInspiral()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
-                coinc_inspiral.set_ifos( str(event.ifo) for event in events )
+		coinc_inspiral.set_ifos(str(event.ifo) for event in events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
@@ -741,30 +752,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		return
 
 	#
-	# build additional time_slide vectors for reduced instrument sets
-	# (when one or more instruments is vetoed).  these can have any ID
-	# that isn't already used.  performance assist:  don't construct
-	# time_slide vectors that lack instruments that are not veteod.
-	#
-
-	if verbose:
-		print >>sys.stderr, "\tconstructing additional time slide vectors ...",
-	time_slide_table.sync_next_id()
-	veto_time_slides = {}
-	for offset_vector in time_slides.values():
-		instruments = set(offset_vector.keys())
-		vetoable_instruments = instruments & set(veto_segments.keys())
-		for n in range(1, len(vetoable_instruments) + 1):
-			for vetoed_instruments in iterutils.choices(vetoable_instruments, n):
-				veto_time_slides[time_slide_table.get_next_id()] = dict((instrument, offset_vector[instrument]) for instrument in (instruments - vetoed_instruments))
-	for id, offset_vector in veto_time_slides.items():
-		for row in ligolw_tisi.RowsFromOffsetDict(offset_vector, id, process):
-			time_slide_table.append(row)
-	time_slides.update(veto_time_slides)
-	if verbose:
-		print >>sys.stderr, "\tadded %d time slide vectors for use by vetoed coincs" % len(veto_time_slides)
-
-	#
 	# create the coinc_event_id --> sngl_inspiral index, and
 	# coinc_event_id --> coinc_inspiral index
 	#
@@ -863,78 +850,16 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 			vetoes = cached_vetoes[(ring, coinc_event.time_slide_id)] = SnglInspiralUtils.slideSegListDictOnRing(ring, veto_segments, offset_vector)
 
 		#
-		# construct a new time slide vector with just the
-		# instruments that were on at the time of the coinc
+		# set the coinc's instruments to just those that were on at
+		# the time of the coinc
 		#
 
-		offset_vector = dict((instrument, offset) for (instrument, offset) in offset_vector.items() if instrument not in vetoes or coinc_time not in vetoes[instrument])
-		if found_instruments - set(offset_vector.keys()):
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector.keys()), str(coinc_time)))
-
-		#
-		# find the vector in the time_slide table and point the
-		# coinc_event at it
-		#
-
-		coinc_event.time_slide_id = ligolw_tisi.time_slides_find(time_slides, offset_vector).pop()
+		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
+		if not found_instruments.issubset(on_instruments):
+			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
-
-
-#
-# =============================================================================
-#
-#                             Assign coinc_def IDs
-#
-# =============================================================================
-#
-
-
-def assign_coinc_def_ids(xmldoc, verbose = False):
-	if verbose:
-		print >>sys.stderr, "assigning coinc_definer IDs ..."
-
-	#
-	# get the time slide vectors, these will be used to determine what
-	# insruments were on for each coinc
-	#
-
-	time_slides = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
-
-	#
-	# find the coinc_definer_ids for sngl_inspiral <--> sngl_inspiral
-	# coincidences, or create them if needed
-	#
-
-	coinc_def_ids = dict([
-		(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
-		for key, coinc_def in ligolw_thinca.InspiralCoincTypes.items()
-	])
-	required_coinc_def_ids = set()
-
-	#
-	# loop over coincs
-	#
-
-	for coinc in table.get_table(xmldoc, lsctables.CoincTable.tableName):
-		#
-		# from the alphabetized list of instruments that were on at
-		# the time of the coinc, retrieve the coinc_def_id for this
-		# coinc
-		#
-
-		coinc.coinc_def_id = coinc_def_ids[tuple(sorted(time_slides[coinc.time_slide_id].keys()))]
-		required_coinc_def_ids.add(coinc.coinc_def_id)
-
-	#
-	# remove unused rows from the coinc_definer table
-	#
-
-	coinc_definer_table = table.get_table(xmldoc, lsctables.CoincDefTable.tableName)
-	for i in range(len(coinc_definer_table) - 1, -1, -1):
-		if coinc_definer_table[i].coinc_def_id not in required_coinc_def_ids:
-			del coinc_definer_table[i]
 
 
 #
@@ -971,8 +896,6 @@ if options.veto_segments:
 	apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
 elif options.verbose:
 	print >>sys.stderr, "no vetoes applied"
-
-assign_coinc_def_ids(xmldoc, verbose = options.verbose)
 
 depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 

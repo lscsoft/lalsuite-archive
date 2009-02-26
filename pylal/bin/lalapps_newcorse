@@ -139,87 +139,61 @@ class Summaries(object):
 
 		#
 		# iterate over instrument combinations creating bins for
-		# the different categories of coinc
+		# the different categories of coinc.  each choice of
+		# instruments that were on and instruments that
+		# participated defines a unique coinc category
 		#
 
 		self.snrs = {}
-		for combo in [combo for m in range(2, len(self.instruments) + 1) for combo in iterutils.choices(self.instruments, m)]:
-			#
-			# look up the inspiral coincidence type for this
-			# instrument combo
-			#
-
-			coinc_type = ligolw_thinca.InspiralCoincTypes[combo].search_coinc_type
-
-			#
-			# if both LHO antennas provided a trigger for the
-			# coinc --> one coinc type, with amplitude
-			# consistency cut;  if one LHO antenna provided a
-			# trigger for the coinc --> two coinc types, with
-			# and without amplitude consistency cut; if neither
-			# LHO antenna contributed a trigger for the coinc
-			# --> one coinc type, without amplitude consistency
-			# cut.
-			#
-
-			if ("H1" in combo) and ("H2" in combo):
-				self.snrs[(coinc_type, True)] = tuple(list() for n in range(len(mass_bins)))
-			elif ("H1" in combo) or ("H2" in combo):
-				self.snrs[(coinc_type, True)] = tuple(list() for n in range(len(mass_bins)))
-				self.snrs[(coinc_type, False)] = tuple(list() for n in range(len(mass_bins)))
-			else:
-				self.snrs[(coinc_type, False)] = tuple(list() for n in range(len(mass_bins)))
+		for on_instruments in (combo for m in range(2, len(self.instruments) + 1) for combo in iterutils.choices(self.instruments, m)):
+			for participating_instruments in (combo for m in range(2, len(on_instruments) + 1) for combo in iterutils.choices(on_instruments, m)):
+				self.snrs[(",".join(on_instruments), ",".join(participating_instruments))] = tuple(list() for n in range(len(mass_bins)))
 
 		#
 		# initialize the live-time book-keeping
 		#
 
 		self.rings = segments.segmentlist()
-		self.offset_vectors = []
+		self.offset_vectors = {}
 		self.cached_livetime = {}
 
 	def add_rings(self, rings):
 		self.rings.extend(rings)
 		self.rings.sort()
-		# FIXME: use any built-in when Python 2.5 is required
+		# FIXME: use any() built-in when Python 2.5 is required
 		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
 			raise ValueError, "found non-disjoint rings %s and %s" % (repr(a), repr(b))
 
-	def add_offset_vectors(self, offset_vectors):
-		self.offset_vectors[:] = ligolw_tisi.time_slide_list_merge(self.offset_vectors, offset_vectors)
+	def set_offset_vectors(self, offset_vectors):
+		self.offset_vectors = offset_vectors
 
-	def livetime(self, offsetvector):
-		# FIXME:  the offset vector only records offsets for the
-		# instruments that were on at the time, not for the
-		# instruments that were off.  computing the live time for
-		# this instrument combination requires us to know what time
-		# shifts to apply to the instruments that were off so that
-		# we can re-apply the same time shifts
-		#return SnglInspiralUtils.compute_thinca_livetime(set(self.instruments), self.rings, self.vetosegments, offsetvector)
-		return 0.0
+	def livetime(self, on_instruments, offsetvector):
+		on_instruments = set(on_instruments.split(","))
+		return SnglInspiralUtils.compute_thinca_livetime(on_instruments, set(self.instruments) - on_instruments, self.rings, self.vetosegments, offsetvector)
 
-	def add_coinc(self, coinc_type, w_lho_amp_cut, mchirp, snr):
-		self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]].append(snr)
+	def add_coinc(self, on_instruments, participating_instruments, mchirp, snr):
+		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]].append(snr)
 
-	def count(self, coinc_type, w_lho_amp_cut, mchirp, snr):
+	def count(self, on_instruments, participating_instruments, mchirp, snr):
 		"""
-		Return the number of coincs of type coinc_type that were
-		constructed with the LHO amplitude cut if w_lho_amp_cut is
-		True or without the LHO amplitude cut if w_lho_amp_cut is
-		False, that are in the mass bin corresponding to mchirp,
-		and have a combined SNR greater than or equal to snr.
+		Return the number of coincs in the category defined by
+		(on_instruments, participating_instruments) that are in the
+		mass bin corresponding to mchirp and have a combined SNR
+		greater than or equal to snr.  The on_ and
+		participating_instruments are strings containing the
+		instruments in alphabetical order separated by commas
 		"""
-		snrs = self.snrs[(coinc_type, w_lho_amp_cut)][self.mass_bins[mchirp]]
+		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]]
 		return len([x for x in snrs if x >= snr])
 
-	def rate(self, coinc_type, w_lho_amp_cut, mchirp, snr):
+	def rate(self, time_slide_id, on_instruments, participating_instruments, mchirp, snr):
 		try:
-			livetime = self.cached_livetime[(coinc_type, w_lho_amp_cut)]
+			livetime = self.cached_livetime[(on_instruments, participating_instruments)]
 		except KeyError:
 			# FIXME:  calculate and store the background
 			# livetime for this category
-			livetime = self.cached_livetime[(coinc_type, w_lho_amp_cut)] = 1.0
-		return self.count(coinc_type, w_lho_amp_cut, mchirp, snr) / livetime
+			livetime = self.cached_livetime[(on_instruments, participating_instruments)] = self.livetime(on_instruments, self.offset_vectors[time_slide_id])
+		return self.count(on_instruments, participating_instruments, mchirp, snr) / livetime
 
 
 #
@@ -285,39 +259,17 @@ for n, filename in enumerate(filenames):
 	background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
 
 	#
-	# retrieve and store the set of time slide vectors
-	#
-
-	background.add_offset_vectors(lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values())
-
-	#
 	# count background coincs by type and mass bin
 	#
 
-	for inspiral_coinc_type, lho_ampl_cut_applied, mchirp, snr in connection.cursor().execute("""
+	for on_instruments, participating_instruments, mchirp, snr in connection.cursor().execute("""
 SELECT
-	coinc_definer.search_coinc_type,
-	-- true if both H1 and H2 were on at time of coinc
-	EXISTS (
-		SELECT
-			*
-		FROM
-			time_slide AS offset_a
-			JOIN time_slide AS offset_b ON (
-				offset_a.time_slide_id == offset_b.time_slide_id
-				AND offset_a.instrument == 'H1'
-				AND offset_b.instrument == 'H2'
-			)
-		WHERE
-			offset_a.time_slide_id == coinc_event.time_slide_id
-	),
+	coinc_event.instruments,
+	coinc_inspiral.ifos,
 	coinc_inspiral.mchirp,
 	coinc_inspiral.snr
 FROM
 	coinc_event
-	JOIN coinc_definer ON (
-		coinc_definer.coinc_def_id == coinc_event.coinc_def_id
-	)
 	JOIN coinc_inspiral ON (
 		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
 	)
@@ -338,7 +290,7 @@ WHERE
 		# appropriate coinc type
 		#
 
-		background.add_coinc(inspiral_coinc_type, lho_ampl_cut_applied, mchirp, snr)
+		background.add_coinc(on_instruments, participating_instruments, mchirp, snr)
 
 	#
 	# close the database
@@ -374,10 +326,13 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.create_function("background_count", 4, background.count)
-	connection.create_function("background_rate", 4, background.rate)
+	connection.create_function("background_rate", 5, background.rate)
 
-	for offsetvector in lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values():
-		print "%s --> %g s" % (repr(offsetvector), background.livetime(offsetvector))
+	#
+	# retrieve the time slide vectors used in this document
+	#
+
+	background.set_offset_vectors(lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict())
 
 	#
 	# count background coincs by type and mass bin
@@ -390,21 +345,9 @@ SET
 	false_alarm_rate = (
 		SELECT
 			background_rate(
-				coinc_definer.search_coinc_type,
-				-- true if both H1 and H2 were on at time of coinc
-				EXISTS (
-					SELECT
-						*
-					FROM
-						time_slide AS offset_a
-						JOIN time_slide AS offset_b ON (
-							offset_a.time_slide_id == offset_b.time_slide_id
-							AND offset_a.instrument == 'H1'
-							AND offset_b.instrument == 'H2'
-						)
-					WHERE
-						offset_a.time_slide_id == coinc_event.time_slide_id
-				),
+				coinc_event.time_slide_id,
+				coinc_event.instruments,
+				coinc_inspiral.ifos,
 				coinc_inspiral.mchirp,
 				coinc_inspiral.snr
 			)
@@ -415,7 +358,7 @@ SET
 			)
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
-)
+	)
 	""")
 	connection.commit()
 

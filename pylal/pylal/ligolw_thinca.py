@@ -117,39 +117,11 @@ def append_process(xmldoc, comment = None, force = None, program = None, e_thinc
 
 
 #
-# Build the allowed sngl_inspiral <--> sngl_inspiral coinc types.
-# InspiralCoincTypes is a dictionary mapping tuples of in-order instrument
-# names to matching instances of the CoincDef class from the lsctables
-# module.
-#
-# Example:
-#
-# InspiralCoincTypes[("H1", "V1")]
-#
-# retrieves an instance of the CoincDef class whose search and search type
-# attributes are those for H1--V1 coincs.
+# The sngl_inspiral <--> sngl_inspiral coinc type.
 #
 
 
-_allinstruments = ["G1", "H1", "H2", "L1", "V1"]
-_allinstruments.sort()
-InspiralCoincTypes = dict([
-	(
-		tuple(instruments),
-		lsctables.CoincDef(
-			coinc_def_id = None,
-			search = u"inspiral",
-			search_coinc_type = n,
-			description = u"%s sngl_inspiral<-->sngl_inspiral coincidences" % ",".join(instruments)
-		)
-	)
-	for n, instruments in enumerate([
-		instruments
-		for m in range(2, len(_allinstruments) + 1)
-		for instruments in iterutils.choices(_allinstruments, m)
-	])
-])
-del _allinstruments
+InspiralCoincDef = lsctables.CoincDef(search = u"inspiral", search_coinc_type = 0, description = u"sngl_inspiral<-->sngl_inspiral coincidences")
 
 
 #
@@ -318,7 +290,7 @@ def ligolw_thinca(
 	process_id,
 	EventListType,
 	CoincTables,
-	coinc_definer_rows,
+	coinc_definer_row,
 	event_comparefunc,
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
@@ -326,12 +298,13 @@ def ligolw_thinca(
 	verbose = False
 ):
 	#
-	# prepare the coincidence table interface
+	# prepare the coincidence table interface.  only one type of
+	# coincidence, use None as key in fake coinc type look-up table.
 	#
 
 	if verbose:
 		print >>sys.stderr, "indexing ..."
-	coinc_tables = CoincTables(xmldoc, coinc_definer_rows)
+	coinc_tables = CoincTables(xmldoc, {None: coinc_definer_row})
 
 	#
 	# build the event list accessors, populated with events from those
@@ -392,11 +365,8 @@ def ligolw_thinca(
 			print >>sys.stderr, "\tsearching ..."
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
-				# the in-order tuple of instruments
-				# providing triggers for the coinc is used
-				# as the key to look up the coinc type
-				coinc_instruments = tuple(sorted(event.ifo for event in ntuple))
-				coinc_tables.append_coinc(process_id, time_slide_id, coinc_instruments, ntuple)
+				# pass None for the coinc type key
+				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple)
 
 	#
 	# remove time offsets from events

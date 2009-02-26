@@ -164,6 +164,9 @@ for n, filename in enumerate(filenames):
 	# been performed yet so that behaviour cannot be changed but we
 	# need the IDs to be unique before starting the coincidence engine.
 	#
+	# FIXME:  remove this when LAL writes trigger files with unique
+	# IDs.
+	#
 
 	tbl = lsctables.table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	tbl.set_next_id(lsctables.SnglInspiralID(0))
@@ -180,7 +183,7 @@ for n, filename in enumerate(filenames):
 		process_id = process.process_id,
 		EventListType = ligolw_thinca.InspiralEventList,
 		CoincTables = ligolw_thinca.InspiralCoincTables,
-		coinc_definer_rows = ligolw_thinca.InspiralCoincTypes,
+		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
 		verbose = options.verbose
