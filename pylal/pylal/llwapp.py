@@ -86,39 +86,6 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 	return tisitable.get_time_slide_id(time_slide, create_new = create_new)
 
 
-def get_zero_lag_time_slides(xmldoc, instrument_combinations = None):
-	"""
-	Return a dictionary of the time slides that have all zero offsets.
-	The dictionary maps time slide IDs to dictionaries of instrument
-	--> offset mappings.  The optional instrument_combinations argument
-	can be used to provide a list of lists of instrument combinations
-	to consider.  For example, [["H1", "H2"], ["H1", "H2", "L1"]]
-	requests time slides describing all-zero offsets for either the
-	H1+H2 or H1+H2+L1 instrument combinations.  Order doesn't matter
-	within an individual instrument combination.  Passing
-	instrument_combinations = None (the default) requests time slides
-	for all instrument combinations.
-	"""
-	# convert instrument combinations into sets for easy comparison
-	if instrument_combinations is not None:
-		instrument_combinations = map(set, instrument_combinations)
-
-	# extract zero-lag ID --> offset dictionary mapping
-	zero_lag_offset_dicts = {}
-	for id, offset_dict in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().items():
-		for offset in offset_dict.values():
-			if offset != 0:
-				# not zero-lag
-				break
-		else:
-			# loop exited normally --> all offsets == 0
-			if instrument_combinations is None or set(offset_dict.keys()) in instrument_combinations:
-				zero_lag_offset_dicts[id] = offset_dict
-
-	# done
-	return zero_lag_offset_dicts
-
-
 def get_coinc_def_id(xmldoc, search, coinc_type, create_new = True, description = u""):
 	"""
 	Wrapper for the get_coinc_def_id() method of the CoincDefiner table
@@ -237,8 +204,8 @@ def set_process_end_time(process):
 def append_process_params(xmldoc, process, params):
 	"""
 	xmldoc is an XML document tree, process is the row in the process
-	table for which these are the parameters, and params is a list of
-	(name, type, value) tuples one for each parameter.
+	table for which these are the parameters, and params is an iterable
+	of (name, type, value) tuples one for each parameter.
 	"""
 	paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
 	for name, type, value in params:
