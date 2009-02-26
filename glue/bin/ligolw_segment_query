@@ -44,6 +44,11 @@ except ImportError:
 import sys
 import os
 import glob
+import time
+import socket
+
+
+from glue import gpstime
 
 import glue.segments
 
@@ -55,6 +60,8 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
+from glue import LDBDClient
+from glue import gsiserverutils
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -104,7 +111,8 @@ def parse_command_line():
 
     parser.add_option("-S", "--strict-off", metavar = "use_strict", action = "store_true", help = "The default behavior is to truncate segments so that returned segments are entirely in the interval [gps-start-time, gps-end-time).  However if this option is given, the entire non-truncated segment is returned if any part of it overlaps the interval.")
 
-
+    parser.add_option("-o", "--output_file",   metavar = "output_file", help = "File to which output should be written.  Defaults to stdout.")
+    
     options, others = parser.parse_args()
 
     # Make sure we have something to do
@@ -115,39 +123,38 @@ def parse_command_line():
     # Make sure we have required arguments
     database_location = None
     file_location     = None
-    
-    if options.ping:
-        if (not options.segment and not options.database):
-            raise ValueError("--ping requires [ --segment | --database ]")
-    elif options.vers:
-        pass
-    else:
-        # Make sure we know who to contact for data
-        if options.segment:
-            if options.segment.startswith('ldbd:'):
-                datbase_location = options.segment[len('ldbd:'):]
-            elif options.segment.startswith('file:'):
-                file_location = options.segment[len('file:'):]
-            else:
-                raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
-        elif options.use_database:
-            if 'LSC_SEGFIND_SERVER' not in env:
-                raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-            database_location = env['LSC_SEGFIND_SERVER']
-        elif options.use_files:
-            if 'LSC_SEGFIND_SERVER' not in env:
-                raise ValueError( "--dmt_file specified but DMT_SEGMENT_LOCATION not set" )
-            file_location = env['DMT_SEGMENT_LOCATION']
+
+    # Make sure we know who to contact for data
+    if options.segment:
+        if options.segment.startswith('ldbd:'):
+            database_location = options.segment[len('ldbd://'):]
+        elif options.segment.startswith('file:'):
+            file_location = options.segment[len('file://'):]
         else:
-            raise ValueError( "One of [ --segment | --database | --dmt_file ] must be provided" )
+            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+    elif options.use_database:
+        if 'LSC_SEGFIND_SERVER' not in env:
+            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
+        database_location = env['LSC_SEGFIND_SERVER']
+    elif options.use_files:
+        if 'LSC_SEGFIND_SERVER' not in env:
+            raise ValueError( "--dmt_file specified but DMT_SEGMENT_LOCATION not set" )
+        file_location = env['DMT_SEGMENT_LOCATION']
+    else:
+        raise ValueError( "One of [ --segment | --database | --dmt_file ] must be provided" )
         
-        # Make sure we have start and end times
+
+    # Unless we're pinging, make sure we have start and end times
+    if options.ping:
+        if not database_location:
+            raise ValueError("--ping requires [ --segment | --database ]")
+    else:
         if not options.gps_start_time:
             raise ValueError( "missing required argument --gps-start-time" )
-
+    
         if not options.gps_end_time:
             raise ValueError( "missing required argument --gps-end-time" )
-
+    
     return options, database_location, file_location
 
 
@@ -191,7 +198,7 @@ def split_segment_ids(segment_ids):
 
 
 
-def run_query(connection, segment_resolver, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
+def run_query(connection, query_engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
     """Runs a segment query.
     connection: an object that represents a connection to the back end (ldbd handle or sqlite connection)
     segment_resolver: the function to call to get segments for a single ifo:name or ifo:name:version specification
@@ -205,12 +212,12 @@ def run_query(connection, segment_resolver, gps_start_time, gps_end_time, includ
     excluded_segments = glue.segments.segmentlist([])
 
     for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
-        included_segments |= segment_resolver(connection, gps_start_time, gps_end_time, ifo, segment_name, version)
+        included_segments |= build_segment_list(connection, query_engine, gps_start_time, gps_end_time, ifo, segment_name, version)
 
     # Excluded segments are not required
     if excluded_segments_string:
         for ifo, segment_name, version in split_segment_ids(excluded_segments_string.split(',')):
-            excluded_segments |= segment_resolver(connection, gps_start_time, gps_end_time, ifo, segment_name, version)
+            excluded_segments |= build_segment_list(connection, query_engine, gps_start_time, gps_end_time, ifo, segment_name, version)
 
 
     result = included_segments - excluded_segments
@@ -220,9 +227,134 @@ def run_query(connection, segment_resolver, gps_start_time, gps_end_time, includ
 
 
 
-def output(url, text_file_name, xml_file_name):
-    """Sends output to files """
-    raise Exception( "Not yet implemented" )
+def build_segment_list(connection, query_engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
+    result = glue.segments.segmentlist([])
+
+    # Do we have a version number?
+    if version is not None:
+        # We can't use queries paramaterized with ? since the ldbd protocol doesn't support it...
+        rows = query_engine(connection, """
+          SELECT segment.start_time, segment.end_time, segment_definer.version
+          FROM segment, segment_definer
+          WHERE segment.segment_def_id = segment_definer.segment_def_id
+          AND   segment_definer.ifos = '%s'
+          AND   segment_definer.name = '%s'
+          AND   segment_definer.version = %s
+          AND   segment.start_time >= %s
+          AND   segment.end_time <= %s""" % (ifo, segment_name, version, gps_start_time, gps_end_time))
+
+        for start_time, end_time, version in rows:
+            result |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
+    else:
+        segmentlists = {}
+
+        # Get all segments and associated version
+        rows = query_engine(connection, """
+          SELECT segment.start_time, segment.end_time, segment_definer.version
+          FROM segment, segment_definer
+          WHERE segment.segment_def_id = segment_definer.segment_def_id
+          AND   segment_definer.ifos = '%s'
+          AND   segment_definer.name = '%s'
+          AND   segment.start_time >= %s
+          AND   segment.end_time <= %s""" % (ifo, segment_name, gps_start_time, gps_end_time))
+
+        # Build up segmentlists for each version
+        for start_time, end_time, version in rows:
+            if version not in segmentlists:
+                segmentlists[version] = glue.segments.segmentlist([])
+                
+            segmentlists[version] |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
+
+
+        # For each version, starting from the highest, add the segments to the
+        # full segment list...
+        all_versions = sorted(segmentlists.keys(), lambda x,y: cmp(y,x))
+        
+        for version in all_versions:
+            cur_segment = segmentlists[version]
+            cur_segment.coalesce()
+
+            result |= cur_segment
+
+            # Remove this version
+            del segmentlists[version]
+
+            # remove all times after the start of this segment from the segments with lower version numbers
+            remove_segmentlist = glue.segments.segmentlist([glue.segments.segment(cur_segment[0][0], glue.segments.infinity())])
+            
+            for k in segmentlists:
+                segmentlists[k] -= remove_segmentlist
+
+    return result
+
+
+
+
+def register_process(doc):
+    proctable = lsctables.New(lsctables.ProcessTable)
+    doc.childNodes[0].appendChild(proctable)
+
+    proc_id = proctable.get_next_id()
+
+    process         = lsctables.Process()
+    process.program = PROGRAM_NAME
+    process.version = __version__
+    process.cvs_repository = "lscsoft"
+    process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(__date__, "%Y/%m/%d %H:%M:%S")))
+    process.comment        = ""
+    process.is_online      = 0
+    process.node           = socket.gethostbyaddr(socket.gethostname())[0]
+    process.username       = USER_NAME
+    process.unix_procid    = PROGRAM_PID
+    process.start_time     = gpstime.GpsSecondsFromPyUTC(time.time())
+    process.end_time       = 0
+    process.jobid          = 0
+    process.domain         = ""
+    process.ifos           = ""
+    process.process_id     = proc_id
+
+    proctable.append(process)
+
+    return proc_id
+
+
+
+def register_segment_definer(doc):
+    seg_def_table = lsctables.New(lsctables.SegmentDefTable)
+    doc.childNodes[0].appendChild(seg_def_table)
+
+    seg_def_id = seg_def_table.get_next_id()
+
+    return seg_def_id
+
+
+
+def output(segmentlist, output_name):
+    """Generates XML, sends to output_name (or stdout if output_name == None)"""
+
+    doc = ligolw.Document()
+    doc.appendChild(ligolw.LIGO_LW())
+
+    proc_id    = register_process(doc)
+    seg_def_id = register_segment_definer(doc)
+    
+    segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time", "active"])
+    doc.childNodes[0].appendChild(segtable)
+
+    for seg in segmentlist:
+        segment            = lsctables.Segment()
+        segment.process_id = proc_id
+        segment.segment_def_id = seg_def_id
+        segment.segment_id = segtable.get_next_id()
+        segment.start_time = seg[0]
+        segment.end_time   = seg[1]
+        segment.active     = 1
+
+        segtable.append(segment)
+
+        
+    utils.write_filename(doc, output_name)
+
 
 
 
@@ -235,24 +367,47 @@ def output(url, text_file_name, xml_file_name):
 #
 
 
-def setup_database(url):
-    raise Exception( "Not yet implemented" )
+def setup_database(host_and_port):
+    port = 30020
+    
+    if host_and_port.find(':') < 0:
+        host = host_and_port
+    else:
+        # server and port specified
+        host, portString = host_and_port.split(':')
+        port = int(portString)
 
 
-def ping_server(server_url):
-    raise Exception( "Not yet implemented" )
+    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
+    # open connection to LDBD Server
+    client = None
+
+    try:
+        client = LDBDClient.LDBDClient(host, port, identity)
+    except Exception, e:
+        print >>sys.stderr, \
+              "Unable to connect to LDBD Server %s:%d" % (host, port)
+        if gsiserverutils.checkCredentials():
+            print >>sys.stderr, "Got the following error : " + str(e)
+            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
+
+
+    return client
+
+
+def ping_server(client):
+    print client.ping()
 
 def db_get_types(connection, gps_start_time, gps_end_time):
     # (ifos, name, version,segment_definer.comment, segment_summary.start_time, segment_summary.end_time, segment_summary.comment)
     raise Exception( "Not yet implemented" )
 
 
-def db_build_segment_list(connection, gps_start_time, gps_end_time, ifo, segment_name, version = None):
-    # (ifos, name, version,segment_definer.comment, segment_summary.start_time, segment_summary.end_time, segment_summary.comment)
-    raise Exception( "Not yet implemented" )
+def db_query_engine(connection, query):
+    fh = sys.__stdout__
 
-
+    fh.write(connection.query(query))
 
 
 #
@@ -288,76 +443,18 @@ def xml_get_types(connection, gps_start_time, gps_end_time):
     raise Exception( "Not yet implemented" )
 
 
-def xml_build_segment_list(connection, gps_start_time, gps_end_time, ifo, segment_name, version = None):
-    result = glue.segments.segmentlist([])
 
-    # Do we have a version number?
-    if version is not None:
+def xml_query_engine(connection, query):
+    cursor  = connection.cursor()
+    cursor.execute(query, ())
+    results = []
         
-        cursor  = connection.cursor()
+    for start_time, end_time, version in cursor:
+        results.append( (start_time, end_time, version) )
 
-        cursor.execute("""
-        SELECT segment.start_time, segment.end_time
-        FROM segment, segment_definer
-        WHERE segment.segment_def_id = segment_definer.segment_def_id
-        AND   segment_definer.ifos = ?
-        AND   segment_definer.name = ?
-        AND   segment_definer.version = ?
-        AND   segment.start_time >= ?
-        AND   segment.end_time <= ?""", (ifo, segment_name, version, gps_start_time, gps_end_time))
+    cursor.close()
 
-
-        for row in cursor:
-            result |= glue.segments.segmentlist([glue.segments.segment(row[0], row[1])])
-
-        cursor.close()
-    else:
-        cursor = connection.cursor()
-
-        segmentlists = {}
-
-        # Get all segments and associated version
-        cursor.execute("""
-        SELECT segment_definer.version, segment.start_time, segment.end_time
-        FROM segment, segment_definer
-        WHERE segment.segment_def_id = segment_definer.segment_def_id
-        AND   segment_definer.ifos = ?
-        AND   segment_definer.name = ?
-        AND   segment.start_time >= ?
-        AND   segment.end_time <= ?""", (ifo, segment_name, gps_start_time, gps_end_time))
-
-        # Build up segmentlists for each version
-        for row in cursor:
-            version, start_time, end_time = row
-
-            if version not in segmentlists:
-                segmentlists[version] = glue.segments.segmentlist([])
-                
-            segmentlists[version] |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
-
-        cursor.close()
-
-
-        # For each version, starting from the highest, add the segments to the
-        # full segment list...
-        all_versions = sorted(segmentlists.keys(), lambda x,y: cmp(y,x))
-        
-        for version in all_versions:
-            cur_segment = segmentlists[version]
-            cur_segment.coalesce()
-
-            result |= cur_segment
-
-            # Remove this version
-            del segmentlists[version]
-
-            # remove all times after the start of this segment from the segments with lower version numbers
-            remove_segmentlist = glue.segments.segmentlist([glue.segments.segment(cur_segment[0][0], glue.segments.infinity())])
-            
-            for k in segmentlists:
-                segmentlists[k] -= remove_segmentlist
-
-    return result
+    return results
 
 
 
@@ -372,27 +469,29 @@ def xml_build_segment_list(connection, gps_start_time, gps_end_time, ifo, segmen
 if __name__ == '__main__':
     options, database_location, file_location  = parse_command_line()    
 
+    # Ping is the easy one...
     if options.ping:
-        sys.exit( ping_server(database_location) )
+        connection = setup_database(database_location)
+        sys.exit( ping_server(connection) )
+
+
+    gps_start_time = int(options.gps_start_time)
+    gps_end_time   = int(options.gps_end_time)    
+
+    if database_location:
+        connection   = setup_database(database_location)
+        query_engine = db_query_engine
+    else:
+        cconnection  = setup_files(file_location, gps_start_time, gps_end_time)
+        query_engine = xml_query_engine
 
     
     if options.vers:
         sys.exit( do_version() )
 
-    gps_start_time = int(options.gps_start_time)
-    gps_end_time   = int(options.gps_end_time)
-    
-    connection = setup_files(file_location, gps_start_time, gps_end_time)
 
-    segment_resolver = None
-    
-    if database_location:
-        segment_resolver = db_build_segment_list
-    else:
-        segment_resolver = xml_build_segment_list
-        
-    segments = run_query(connection, segment_resolver, gps_start_time, gps_end_time,
+    segments = run_query(connection, query_engine, gps_start_time, gps_end_time,
                          options.include_segments,options.exclude_segments)
                          
-        
-    print segments
+    
+    output(segments, options.output_file)
