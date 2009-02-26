@@ -1933,6 +1933,11 @@ class TimeSlideTable(table.Table):
 	next_id = TimeSlideID(0)
 	interncolumns = ("process_id", "time_slide_id", "instrument")
 
+	# FIXME:  this method is now only used by snglcoinc.py in pylal,
+	# and that use should be replaced with a call to this class'
+	# .as_dict() method.  A change request is pending for snglcoinc.py,
+	# so it's hard to make other modifications at the moment.  remember
+	# to take care of this later.
 	def get_offset_dict(self, id):
 		"""
 		Return a dictionary of instrument/offset pairs as described
@@ -1993,16 +1998,6 @@ class TimeSlideTable(table.Table):
 
 		# return new ID
 		return id
-
-	def is_null(self, id):
-		"""
-		Test that a time slide ID identifies an all-zero time
-		slide.
-		"""
-		for offset in self.get_offset_dict(id).itervalues():
-			if offset:
-				return False
-		return True
 
 
 class TimeSlide(object):
