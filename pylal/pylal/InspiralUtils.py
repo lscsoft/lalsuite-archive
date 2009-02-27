@@ -111,14 +111,14 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
   if format == 'html':
     tx = '<table border = "1">'
     xt = '</table>'
-    thx = '<tr><td colspan=12>'
+    thx = '<tr><td colspan=14>'
     rx = '<tr><td>'
     xr = '</td></tr>'
     xccx = '</td><td>'
   elif format == 'wiki':
     tx = ''
     xt = ''
-    thx = '||<-12>'
+    thx = '||<-14>'
     rx = '||'
     xr = '||\n'
     xccx = '||'
@@ -141,7 +141,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
     CoincSummTable = CoincSummTable + tx + thx + coincComment + xr 
     CoincSummTable = CoincSummTable + \
         rx + ' Rank ' + xccx + ' followup ' + xccx + 'Coinc IFOs' + xccx +\
-	statTag + xccx + ' end_time ' + \
+	statTag + xccx + 'False Alarm Probability' + xccx + ' end_time ' + \
         xccx + ' end_time_ns ' + xccx + ' mass1 ' + xccx + ' mass2 ' + xccx + ' mchirp ' + \
         xccx + ' eta ' + xccx + ' snr ' + xccx + ' chisq ' + xccx + ' effective_snr ' + xr
     for coinc in coincTable:
@@ -163,7 +163,7 @@ def write_coinc_summ_table(tableList = [], commentList = [], stat=None, statTag=
         CoincSummTable = CoincSummTable + rx + '<|' + str(coinc.numifos) + '>' + followupLink + xccx
       # cycle through info
       for trig in coinc:
-        CoincSummTable = CoincSummTable + trig.ifo + xccx + str(coinc.stat) + xccx + str(trig.end_time) + \
+        CoincSummTable = CoincSummTable + trig.ifo + xccx + str(coinc.stat) + xccx + str(coinc.fap) + xccx + str(trig.end_time) + \
                 xccx + str(trig.end_time_ns) + xccx + str(trig.mass1) + xccx + str(trig.mass2) + xccx + str(trig.mchirp) + \
                 xccx + str(trig.eta) + xccx + str(trig.snr) + xccx + str(trig.chisq) + xccx + str(trig.get_effective_snr()) + xr + \
                 rx
