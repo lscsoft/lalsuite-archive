@@ -182,7 +182,7 @@ class coincInspiralTable:
   """
   class row(object):
     __slots__ = ["event_id", "numifos", "stat", "likelihood",
-                 "sim", "rsq", "bl"] + list(ifos)
+                 "sim", "rsq", "bl", "fap"] + list(ifos)
     
     def __init__(self, event_id, numifos = 0, stat = 0, likelihood = 0):
       self.event_id = event_id
@@ -191,6 +191,7 @@ class coincInspiralTable:
       self.likelihood = likelihood
       self.rsq=0
       self.bl=0
+      self.fap = 0.0
       
     def add_trig(self,trig,statistic):
       # Coincidence IDs are intended to be unique.  If there is a collision,
@@ -217,6 +218,8 @@ class coincInspiralTable:
         self.stat = trig.get_far()
       elif 'ifar' == statistic.name:
         self.stat = trig.get_ifar()
+      elif 'lvS5stat' == statistic.name:
+        self.stat = trig.get_lvS5stat()
       else:
         self.stat = (self.stat**2 + getattr(trig,statistic.name)**2)**(1./2)
       
@@ -326,6 +329,22 @@ class coincInspiralTable:
     if descending:
       stat_list.reverse()
     self.rows = [coinc for (stat,coinc) in stat_list]
+
+  def calculate_fap(self, stats, use_likelihood = False):
+    """
+    Calculates false alarm probability for each coinc using stats array.
+    @param stats: array of loudest statistics forund in each of the time slides
+    """
+
+    for coinc in self:
+      if not use_likelihood:
+        index = numpy.searchsorted(stats, coinc.stat)
+        if index == 0:
+          coinc.fap = 100.0
+        elif index == len(stats):
+          coinc.fap = 0.0
+        else:
+          coinc.fap = 100.0 * float((len(stats) - index)) /float(len(stats))
 
   def getslide(self, slide_num):
     """
@@ -548,8 +567,7 @@ class coincInspiralTable:
     @param thresh: the threshold on the statistic
     """
     from glue.ligolw import table 
-    simInspirals = table.new_from_template(self.sim_table)
-    try: simInspirals = table.new_from_template(sim.sngl_table)
+    try: simInspirals = table.new_from_template(self.sim_table)
     except: simInspirals = lsctables.New(lsctables.SimInspiralTable)
     for coinc in self:
       if statistic == 'far':
