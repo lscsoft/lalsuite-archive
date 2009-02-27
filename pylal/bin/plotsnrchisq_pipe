@@ -46,21 +46,29 @@ sys.path.append('@PYTHONLIBDIR@')
 rc('text', usetex=False)
 
 def whiteTmp(newtemplate, ASD_vector, ASD_freq):
+   # FIXME Hardcoded to a 256 second segment length
+   # Assumes sample rate is < = 4096 
+   segLen = 256.0
+   deltaT = segLen / len(newtemplate) 
+   fsamp = 1.0 / deltaT
+   deltaF = ASD_freq[1]-  ASD_freq[0]
    # "Whiten" the template
    fft_template = numpy.fft.fft(newtemplate)
    whiteffttemplate = []
+   maxFreqIndex = int(len(ASD_freq) * (fsamp/2) / ( max(ASD_freq) + 1./segLen))- 1
    nb2 = len(fft_template)/2
    maxASD = max(ASD_vector)
+   
    tmpFreq = []
    stix = 0
    stpix = 0
    for n in range(len(fft_template)):
-     if n < nb2:
+     if n < maxFreqIndex:
         denom_fac = ASD_vector[n]
         f = ASD_freq[n]
      else:
-        denom_fac = ASD_vector[2*nb2 - n]
-        f = (0.0 - ASD_freq[2*nb2 - n])
+        denom_fac = ASD_vector[maxFreqIndex - n]
+        f = (0.0 - ASD_freq[maxFreqIndex - n])
      tmpFreq.append(f)
      if f >= 0 and f < 30 or f > 1024: denom_fac = maxASD
      if f < -1024 or f > -30 and f < 0: denom_fac = maxASD 
@@ -77,6 +85,7 @@ def whiteTmp(newtemplate, ASD_vector, ASD_freq):
 
    return fft_template, whiteffttemplate, tmpFreq, stix, stpix, whitetemplate
 
+# FUNCTION TO RETURN THE TEMPLATE TIME SERIES
 def getTemplate(template_tuple):
    template_vector = template_tuple[0]
    newtemplate = []
@@ -165,7 +174,6 @@ def plotsnrchisq(opts,args,gpsTime,frameFile,outputPath,inspProcParams,user_tag=
     except:
       print "WARNING: couldn't extract TEMPLATE channel, continuing"
       template_tuple = None
-
     PSD_tuple = Fr.frgetvect(frameFile,chanNamePSD,-1,segLenSec*8,0)
     #print PSD_tuple
     snr_position = eval(gpsTime) - (gpsStart + gpsPosition* (segLenSec - segOverlapSec) )
