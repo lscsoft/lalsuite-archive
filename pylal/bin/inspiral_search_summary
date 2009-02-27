@@ -21,6 +21,119 @@ from glue.ligolw import ligolw
 import numpy
 import cPickle
 
+######################################################################################################
+# Functions
+######################################################################################################
+def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
+  max_val = None, nbins = 20, stat=None, scalebkg=False):
+  """
+  function to plot a cumulative histogram of the snr of coincident events
+  in the zero lag and times slides
+  
+  @param zerolag_stats: array of zero lag statistic
+  @param slide_stats: dictionary of time slide statistic
+  @param min_val: minimum of snr to be plotted
+  @param max_val: maximum of snr to be plotted
+  @param nbins: number of bins to use in histogram
+  @param stat: the statistic being used
+  @param scalebkg: Use this option if plotting playground zero lag against
+  full data time slides (it will rescale the time slides).
+  """
+  internal_min = numpy.inf
+  internal_max = -numpy.inf
+
+  if not zerolag_stats == None:
+	  internal_max = max(internal_max, zerolag_stats.max())
+	  internal_min = min(internal_min, zerolag_stats.min())
+
+  if not slide_stats == None:
+	max_slide_stat = 0.0
+	min_slide_stat = 0.0
+	for key in slide_stats.keys():
+	  max_slide_stat = max(max_slide_stat, slide_stats[key].max())
+	  min_slide_stat = min(min_slide_stat, slide_stats[key].min())
+
+	internal_max = max(internal_max, max_slide_stat)
+	internal_min = min(internal_min, min_slide_stat)
+
+  # set up the bin boundaries
+  if not max_val:
+    max_val = internal_max
+  if not min_val:
+    min_val = internal_min
+
+  if min_val >= max_val:
+    # CHECKME: what should we do without any trigs or slide_trigs?
+    # This is the old behavior.
+    min_val = 5.
+    max_val = 10.
+  if min_val == max_val:
+    # NB: this is numpy.histogram's default behavior for equal max and min
+    min_val -= 0.5
+    max_val += 0.5
+
+  bins = numpy.linspace(min_val, max_val, nbins)
+
+  # hist of the zero lag:
+  if not zerolag_stats == None:
+    zero_dist, xbin = numpy.histogram(zerolag_stats, bins)
+    cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
+
+  # hist of the slides:
+  if not slide_stats == None:
+    cum_dist_slide = []
+    for key in slide_stats.keys():
+      num_slide, bin = numpy.histogram(slide_stats[key], bins)
+      cum_slide = num_slide[::-1].cumsum()[::-1]
+      cum_dist_slide.append(cum_slide)
+    cum_dist_slide = numpy.array(cum_dist_slide)
+    slide_mean = cum_dist_slide.mean(axis=0)
+    slide_std = cum_dist_slide.std(axis=0)
+    if scalebkg:
+      slide_mean *= 600./6370.
+      slide_std *= sqrt(600./6370.)
+	  
+  if ("bitten_l" in stat) or ("ifar" in stat):
+     xvals=bins
+  else:
+     xvals=bins*bins
+
+  figure()
+  
+  # plot zero lag
+  if not zerolag_stats == None:
+    semilogy(xvals,cum_dist_zero+0.0001,'r^',markerfacecolor="b",\
+        markersize=12)
+
+  # plot time slides
+  if not slide_stats == None:
+	ds = (bins[1] - bins[0]) / 2
+	slide_min = []
+	for i in range( len(slide_mean) ):
+	  slide_min.append( max(slide_mean[i] - slide_std[i], 0.0001) )
+	  slide_mean[i] = max(slide_mean[i], 0.0001)
+	semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
+	tmpx,tmpy = viz.makesteps(bins,slide_min,slide_mean+slide_std)
+	if ("bitten_l" in stat) or ('ifar' in stat):
+	  p=fill((tmpx-ds),tmpy, facecolor='y')
+	else:
+	  p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
+	setp(p, alpha=0.3)
+
+  if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
+  elif stat == 'ifar': xlab = 'ifar'
+  elif stat == 'lvS5stat': xlab = 'ranking statistic'
+  elif stat: xlab = 'combined ' + stat.replace('_',' ')
+  else: xlab = 'Combined Statistic'
+  xlabel(xlab, size='x-large')
+  ylabel('Number of events', size='x-large')
+  title_text = 'Cum. hist. of num events vs ' + xlab
+  title(title_text, size='x-large')
+
+
+
+
+
 ################################################################################
 # Main program
 ################################################################################
@@ -142,6 +255,13 @@ tagList = []
 fig_num = 0
 comments = ""
 
+# Change to Agg back-end if show() will not be called 
+# thus avoiding display problem
+import matplotlib
+matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+
 #Calculating statistic for coincidences
 statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
 
@@ -181,6 +301,12 @@ if  not len(zero_lag_files) > 0:
 if not opts.skip_timeslides:
   InspiralUtils.message(opts, "Finding loudest events in each of the time slides ...")
 
+  # define dictionary to hold stats for each time slide
+  stats_dic = {}
+  for slide in range(1, opts.num_slides + 1):
+	stats_dic[slide] = numpy.zeros(1)
+	stats_dic[-slide] = numpy.zeros(1)
+	
   # define array that stores maximum statistic for each of the time slide
   max_stat_array = numpy.zeros(2*opts.num_slides, dtype = float)
 
@@ -211,9 +337,11 @@ if not opts.skip_timeslides:
       # store this slide's maximum statistic
       if len(forward_slide_coincs) > 0:
         if opts.use_likelihood:
-          max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getlikelihood()))
+		  max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getlikelihood()))
+		  stats_dic[slide] = numpy.append(stats_dic[slide], forward_slide_coincs.getlikelihood())
         else:
-           max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
+		  max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
+		  stats_dic[slide] = numpy.append(stats_dic[slide], forward_slide_coincs.getstat())
  	
       # for slide backward
       # get coincs from the current slide
@@ -222,12 +350,18 @@ if not opts.skip_timeslides:
       # store this slide's  maximum statistic
       if len( backward_slide_coincs) > 0:    
         if opts.use_likelihood:
-          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getlikelihood()))
+		  max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getlikelihood()))
+		  stats_dic[-slide] = numpy.append(stats_dic[-slide], backward_slide_coincs.getlikelihood())
         else:
-          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getstat()))
+		  max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getstat()))
+		  stats_dic[-slide] = numpy.append(stats_dic[-slide], backward_slide_coincs.getstat())
 
 
       # end of the loop over slides
+  
+  # get rid of zeros
+  for key in stats_dic.keys():
+	stats_dic[key] = numpy.trim_zeros(stats_dic[key])
   
   if opts.save_background_stats:
   
@@ -254,7 +388,7 @@ else:
   max_stat_array = cPickle.load(max_stat_file)
 
 
-# getting N loudest zero-lag candidates
+# reading in zero lag files
 ###########################################################################################################################
 
 #sort background stats
@@ -277,6 +411,45 @@ if opts.use_likelihood:
   # add likelihood values to coincs
   inspiral_likelihood.add_likelihood(CoincTriggers, LikelihoodTriggers)       
     
+
+# making cumulative a plot of cumulative histogram
+
+figure(1)
+cumhiststat(CoincTriggers.getstat(), stats_dic, stat=statistic.name)
+grid(True)
+if opts.enable_output is True:  
+  name = "cum_hist_" + statistic.name 
+  text = "Cumulative histogram of " + statistic.name + " distribution"
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+  close()
+  fnameList.append(fname)
+  tagList.append(text)
+
+# making zoomed in cumulative histrogram
+
+rescaled_zerolag_stat = numpy.log(numpy.exp(CoincTriggers.getstat()) - 1.0 + 10**(-20))
+
+rescaled_stats_dic = copy.copy(stats_dic)
+
+for key in rescaled_stats_dic.keys():
+  rescaled_stats_dic[key] = numpy.log(numpy.exp(rescaled_stats_dic[key]) - 1.0 + 10**(-20))
+
+figure(2)
+cumhiststat(rescaled_zerolag_stat, rescaled_stats_dic, stat=statistic.name)
+grid(True)
+if opts.enable_output is True:  
+  name = "zoomed in cum_hist_" + statistic.name 
+  text = " Zoomed in cumulative histogram of " + statistic.name + " distribution"
+  fname = InspiralUtils.set_figure_name(opts, name)
+  fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+  close()
+  fnameList.append(fname)
+  tagList.append(text)
+
+
+# getting N loudest zero-lag candidates
+###########################################################################################################################
 
 # sort coincs in descending order according to their statistic
 CoincTriggers.sort()
@@ -304,10 +477,3 @@ if opts.enable_output is True:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=warn_msg,
         CoincSummTable=coincSumm)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-
-
-
-
-
-
