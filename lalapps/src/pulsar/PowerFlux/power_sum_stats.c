@@ -1098,11 +1098,12 @@ int max_dx_bin;
 float weight, min_weight, max_weight;
 float sum, sum_sq, sum1, sum3, sum4;
 int half_window=args_info.half_window_arg;
-float *weight_tmp=NULL;
-__m128 v4a,v4b, v4c, v4weight, v4tmp;
+float *tmp2=NULL;
+__m128 v4a,v4b, v4c, v4d, v4weight, v4tmp, v4sum, v4sum_sq, v4sum3, v4sum4, v4zero;
 
 /* allocate on stack, for speed */
 tmp=aligned_alloca(useful_bins*sizeof(*tmp));
+tmp2=aligned_alloca(4*sizeof(tmp2));
 
 memset(&nstats, 0, sizeof(nstats));
 
@@ -1136,8 +1137,6 @@ if(pps->weight_arrays_non_zero) {
 		pps->collapsed_weight_arrays=1;
 		}
 
-	weight_tmp=aligned_alloca(4*sizeof(*weight_tmp));
-
 	for(i=0;i<(useful_bins-3);i+=4) {
 		/* compute weight */
 		v4a=_mm_load_ps(&(pps->weight_pppp[i]));
@@ -1168,23 +1167,23 @@ if(pps->weight_arrays_non_zero) {
 
 		v4weight=_mm_add_ps(v4weight, v4c);
 
-		_mm_store_ps(weight_tmp, v4weight);
+		_mm_store_ps(tmp2, v4weight);
 
 		/* update max and min weight variables */
 
-		weight=weight_tmp[0];
+		weight=tmp2[0];
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		weight=weight_tmp[1];
+		weight=tmp2[1];
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		weight=weight_tmp[2];
+		weight=tmp2[2];
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
-		weight=weight_tmp[3];
+		weight=tmp2[3];
 		if(weight>max_weight)max_weight=weight;
 		if(weight<min_weight)min_weight=weight;
 
@@ -1227,6 +1226,7 @@ if(pps->weight_arrays_non_zero) {
 		}
 
 	/* verify */
+	#if 0
 	if(0){
 		float a1, a2, m1, m2;
 		int *b1=&a1, *b2=&a2;
@@ -1267,6 +1267,7 @@ if(pps->weight_arrays_non_zero) {
 			fprintf(stderr, " *5* %g %g %g %g\n", m2, m1, min_weight, max_weight);
 			}
 		}
+	#endif
 	} else {
 	weight=(pps->c_weight_pppp*ag->pppp+
 		pps->c_weight_pppc*ag->pppc+
@@ -1335,16 +1336,30 @@ for(i=1;i<useful_bins;i++) {
 
 sum=0.0;
 
-for(i=0;i<max_dx_bin-half_window;i++) {
-	a=tmp[i];
-	sum+=a;
+v4sum=_mm_setzero_ps();
+for(i=0;i<max_dx_bin-half_window-3;i+=4) {
+	v4sum=_mm_add_ps(v4sum, _mm_load_ps(&(tmp[i])));
+	}
+
+for(;i<max_dx_bin-half_window;i++) {
+	sum+=tmp[i];
 	}
 
 count=i;
-for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
-	a=tmp[i];
-	sum+=a;
+for(i=max_dx_bin+half_window+1;(i& 3) && (i<useful_bins);i++) {
+	sum+=tmp[i];
 	}
+
+for(;i<useful_bins-3;i+=4) {
+	v4sum=_mm_add_ps(v4sum, _mm_load_ps(&(tmp[i])));
+	}
+
+for(;i<useful_bins;i++) {
+	sum+=tmp[i];
+	}
+_mm_store_ps(tmp2, v4sum);
+sum+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
 count+=i-max_dx_bin-half_window-1;
 
 inv_count=1.0/count;
@@ -1356,7 +1371,27 @@ sum_sq=0.0;
 sum1=0.0;
 sum3=0.0;
 sum4=0.0;
-for(i=0;i<max_dx_bin-half_window;i++) {
+v4sum=_mm_setzero_ps();
+v4sum_sq=_mm_setzero_ps();
+v4sum3=_mm_setzero_ps();
+v4sum4=_mm_setzero_ps();
+v4zero=_mm_setzero_ps();
+
+v4a=_mm_load1_ps(&M);
+v4b=_mm_load1_ps(&normalizer);
+for(i=0;i<max_dx_bin-half_window-3;i+=4) {
+	v4tmp=_mm_mul_ps(_mm_sub_ps(_mm_load_ps(&(tmp[i])), v4a), v4b);
+	v4c=_mm_mul_ps(v4tmp, v4tmp);
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	v4d=_mm_min_ps(v4tmp, v4zero);
+	v4sum=_mm_sub_ps(v4sum, v4d);
+	v4sum3=_mm_sub_ps(v4sum3, _mm_mul_ps(v4d, v4c));
+
+	v4sum_sq=_mm_add_ps(v4sum_sq, v4c);
+	v4sum4=_mm_add_ps(v4sum4, _mm_mul_ps(v4c, v4c));
+	}
+
+for(;i<max_dx_bin-half_window;i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
 	/* collect negative first and second moment statistics - these would describe background behaviour */
@@ -1368,7 +1403,7 @@ for(i=0;i<max_dx_bin-half_window;i++) {
 	sum4+=b*b;
 	}
 
-for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
+for(i=max_dx_bin+half_window+1;(i & 3) && (i<useful_bins);i++) {
 	a=(tmp[i]-M)*normalizer;
 	b=a*a;
 	/* collect negative first and second moment statistics - these would describe background behaviour */
@@ -1379,6 +1414,42 @@ for(i=max_dx_bin+half_window+1;i<useful_bins;i++) {
 	sum_sq+=b;
 	sum4+=b*b;
 	}
+
+for(;i<useful_bins-3;i+=4) {
+	v4tmp=_mm_mul_ps(_mm_sub_ps(_mm_load_ps(&(tmp[i])), v4a), v4b);
+	v4c=_mm_mul_ps(v4tmp, v4tmp);
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	v4d=_mm_min_ps(v4tmp, v4zero);
+	v4sum=_mm_sub_ps(v4sum, v4d);
+	v4sum3=_mm_sub_ps(v4sum3, _mm_mul_ps(v4d, v4c));
+
+	v4sum_sq=_mm_add_ps(v4sum_sq, v4c);
+	v4sum4=_mm_add_ps(v4sum4, _mm_mul_ps(v4c, v4c));
+	}
+
+for(;i<useful_bins;i++) {
+	a=(tmp[i]-M)*normalizer;
+	b=a*a;
+	/* collect negative first and second moment statistics - these would describe background behaviour */
+	if(a<0) {
+		sum1-=a;
+		sum3-=a*b;
+		}
+	sum_sq+=b;
+	sum4+=b*b;
+	}
+
+_mm_store_ps(tmp2, v4sum);
+sum1+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum_sq);
+sum_sq+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum3);
+sum3+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
+
+_mm_store_ps(tmp2, v4sum4);
+sum4+=tmp2[0]+tmp2[1]+tmp2[2]+tmp2[3];
 
 S=sqrt(sum_sq/(count-1))*max_dx;
 inv_S=1.0/S;
