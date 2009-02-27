@@ -214,7 +214,7 @@ pstats_accum.max_weight=-1;
 for(i=0;i<count;i++) {
 	zero_partial_power_sum_F(pps);
 	for(k=0;k<nchunks;k++) {
-		accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
+		sse_accumulate_partial_power_sum_F(pps, (ps[k][i].pps));
 		}
 	power_sum_stats(pps, &(pstats));
 
@@ -266,6 +266,8 @@ for(i=0;i<count;i++) {
 		FILL_EXTRA_PARAMS(ei->band_info[skyband].highest_ks);
 		} else {
 
+		ei->band_info[skyband].ntemplates+=pstats.ntemplates;
+
 		if(pstats.highest_ul.ul>ei->band_info[skyband].highest_ul.ul) {
 			FILL_POINT_STATS(ei->band_info[skyband].highest_ul, pstats.highest_ul);
 			}
@@ -301,6 +303,8 @@ for(i=0;i<count;i++) {
 		memcpy(&pstats_accum, &pstats, sizeof(pstats));
 		continue;
 		}
+
+	pstats_accum.ntemplates+=pstats.ntemplates;
 
 	if(pstats.highest_ul.ul>pstats_accum.highest_ul.ul) {
 		memcpy(&pstats_accum.highest_ul, &pstats.highest_ul, sizeof(pstats.highest_ul));
@@ -338,18 +342,19 @@ free_partial_power_sum_F(pps);
 if(write_data_log_header) {
 	write_data_log_header=0;
 	/* we write this into the main log file so that data.log files can simply be concatenated together */
-	fprintf(LOG, "data_log: kind label index set pi pps_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
+	fprintf(LOG, "data_log: kind label index set pi pps_count template_count first_bin min_gps max_gps skyband frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction\n");
 	}
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_POINT(psum, pstat, kind)	{\
-	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
+	fprintf(DATA_LOG, "%s \"%s\" %d %s %d %d %d %d %lf %lf %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf\n", \
 		kind, \
 		args_info.label_arg, \
 		data_log_index, \
 		ei->name, \
 		pi, \
 		count, \
+		pstats_accum.ntemplates, \
 		first_bin+side_cut, \
 		psum.min_gps, \
 		psum.max_gps, \
@@ -480,11 +485,11 @@ void output_extreme_info(RGBPic *p, EXTREME_INFO *ei)
 {
 int skyband;
 
-fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count\n");
+fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spindown ra dec iota psi snr ul ll M S ks_value ks_count m1_neg m3_neg m4 frequency_bin max_weight weight_loss_fraction max_ks_value max_m1_neg min_m1_neg max_m3_neg min_m3_neg max_m4 min_m4 max_weight_loss_fraction valid_count masked_count template_count\n");
 
 /* now that we know extreme points go and characterize them */
 #define WRITE_SKYBAND_POINT(pstat, kind)	\
-	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d\n", \
+	fprintf(LOG, "band_info: %s \"%s\" %d %s %s %d %lf %lg %lf %lf %lf %lf %lf %lg %lg %lg %lg %lf %d %lf %lf %lf %d %lg %lf %lf %lf %lf %lf %lf %lf %lf %lf %d %d %d\n", \
 		kind, \
 		args_info.label_arg, \
 		skyband, \
@@ -519,7 +524,8 @@ fprintf(LOG, "tag: kind label skyband skyband_name set first_bin frequency spind
 		ei->band_info[skyband].min_m4, \
 		ei->band_info[skyband].max_weight_loss_fraction, \
 		ei->band_valid_count[skyband], \
-		ei->band_masked_count[skyband] \
+		ei->band_masked_count[skyband], \
+		ei->band_info[skyband].ntemplates \
 		); 
 
 for(skyband=0;skyband<fine_grid->nbands;skyband++) {
@@ -632,7 +638,7 @@ time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-	if(pi % 100 == 0) {
+	if(pi % 5 == 0) {
 		time(&end_time);
 		if(end_time<start_time)end_time=start_time;
 		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));

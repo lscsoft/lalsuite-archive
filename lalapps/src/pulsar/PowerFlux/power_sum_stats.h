@@ -64,6 +64,7 @@ typedef struct {
 	double min_m3_neg;
 	double max_m4;
 	double min_m4;
+	int ntemplates;
 	} POWER_SUM_STATS;
 
 void compute_alignment_coeffs(ALIGNMENT_COEFFS *ac);
@@ -73,5 +74,6 @@ void generate_alignment_grid(void);
 void power_sum_stats(PARTIAL_POWER_SUM_F *pps, POWER_SUM_STATS *stats);
 
 void init_power_sum_stats(void);
+void power_sum_stats_selftest(void);
 
 #endif

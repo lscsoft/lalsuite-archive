@@ -841,6 +841,10 @@ snprintf(s, 20000, "bands.dat");
 dump_ints(s, patch_grid->band, patch_grid->npoints, 1);
 fflush(LOG);
 
+
+power_cache_selftest();
+power_sum_stats_selftest();
+
 /* MAIN LOOP stage */
 time(&stage_time);
 fprintf(LOG, "outer_loop_start: %d\n", (int)(stage_time-start_time));

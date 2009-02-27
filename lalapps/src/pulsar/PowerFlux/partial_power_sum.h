@@ -28,7 +28,11 @@ typedef struct {
 
 SUFFIX(PARTIAL_POWER_SUM) *SUFFIX(allocate_partial_power_sum)(int pps_bins);
 void SUFFIX(zero_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps);
+void SUFFIX(randomize_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps);
 void SUFFIX(accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial);
+int SUFFIX(compare_partial_power_sums)(char *prefix, SUFFIX(PARTIAL_POWER_SUM) *ref, SUFFIX(PARTIAL_POWER_SUM) *test);
+void SUFFIX(cblas_accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial);
+void SUFFIX(sse_accumulate_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *accum, SUFFIX(PARTIAL_POWER_SUM) *partial);
 void SUFFIX(free_partial_power_sum)(SUFFIX(PARTIAL_POWER_SUM) *pps);
 void SUFFIX(dump_partial_power_sum)(FILE *out, SUFFIX(PARTIAL_POWER_SUM) *pps);
 

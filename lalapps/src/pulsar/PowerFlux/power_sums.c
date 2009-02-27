@@ -88,6 +88,8 @@ for(i=0;i<count;i++) {
 	(*ps_out)[i].spindown=ps[i].spindown;
 	(*ps_out)[i].ra=ps[i].ra;
 	(*ps_out)[i].dec=ps[i].dec;
+	(*ps_out)[i].min_gps=ps[i].min_gps;
+	(*ps_out)[i].max_gps=ps[i].max_gps;
 	(*ps_out)[i].patch_ra=ps[i].patch_ra;
 	(*ps_out)[i].patch_dec=ps[i].patch_dec;
 
@@ -187,6 +189,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 		groups[k]=do_alloc(segment_count, sizeof(SEGMENT_INFO));
 		}
 
+	/* group segments into bunches with similar shifts - mostly by sidereal time
+           this way there is larger correllation of frequency shifts during summing and better use of power cache */
 	si_local=si;
 	for(j=0;j<segment_count;j++) {
 		a=(center_frequency*(float)args_info.doppler_multiplier_arg*(patch_e[0]*si_local->detector_velocity[0]
@@ -207,6 +211,8 @@ for(gps_idx=gps_start; gps_idx<gps_stop; gps_idx+=gps_step) {
 // 	for(k=0;k<GROUP_COUNT;k++) {
 // 		fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
 // 		}
+
+	/* loop over groups */
 
 	for(k=0;k<group_count;k++) {
  		//fprintf(stderr, "group %d has %d segments\n", k, group_segment_count[k]);
