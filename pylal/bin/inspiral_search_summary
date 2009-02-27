@@ -1,0 +1,313 @@
+#!/usr/bin/python
+__author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+__prog__="inspiral_search_summary"
+__Id__ = "$Id$"
+
+
+#loading standard modules
+from optparse import *
+import glob
+import sys
+#loading modules used for input/output of data 
+from glue import lal
+from glue.ligolw import lsctables
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import InspiralUtils
+from glue.ligolw import ligolw
+import numpy
+import cPickle
+
+################################################################################
+# Main program
+################################################################################
+usage= """
+usage: %prog [options]
+
+This code calculates false alarm probability for N loudest candidates in the search and prints them to a summary html page.
+"""
+###############################################################################
+# Options to read in Input
+###############################################################################
+def parse_command_line():
+
+  """
+  Parser function dedicated
+  """
+
+  parser = OptionParser( usage=usage, version="%prog CVS $Id$ " )
+
+  parser.add_option("","--slides-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB time slides files to read" )
+	
+  parser.add_option("","--zero-lag-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB zero-lag files to read" )
+	
+  parser.add_option("","--input-cache-file",action="store",type="string",\
+      default=None, metavar="ZEROLAGCACHEFILE",help="name of the cache file including the path" )
+
+  parser.add_option("","--slides-pattern",\
+      default="", metavar="SLIDESPATTERN", help="the time slides files pattern the cache file, specified by --input-cache-file option, will be seived with.")
+	
+  parser.add_option("","--zero-lag-pattern",\
+      default="", metavar="INJSPATTERN", help="the found injections files pattern the cache file, specified by --input-cache-file option, will be seived with.")
+
+  parser.add_option("","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in building coinc table, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq, ifar")
+	
+  parser.add_option("", "--use-likelihood",action="store_true", default=False,\
+      help="enables likelihood to be used as detection statistic")
+		
+  parser.add_option("","--num-events", action="store",type="int",\
+      default = 1, help="number of loudest events to be printed" )
+	
+  parser.add_option("", "--save-background-stats",action="store_true", default=False,\
+      help="save loudest events found in each time slide")
+	  
+  parser.add_option("","--output-background-file", action="store",type="string",\
+      default = None, help="output file for loudest events found in each time slide" )
+
+  parser.add_option("", "--skip-timeslides",action="store_true", default=False,\
+      help="skip time slides, use loudest-background-events-file instead.")
+	
+  parser.add_option("","--loudest-background-stats-file", action="store",type="string",\
+      default = None, help="file with loudest events found in each time slide" )
+		
+  parser.add_option("","--num-slides", action="store",type="int",\
+      default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file of the search" )
+		
+  parser.add_option("","--verbose", action="store_true",\
+      default=False, help="print information" )
+
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
+
+  
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default=None,  metavar="PATH",\
+      help="path where the figures would be stored")
+
+
+  parser.add_option("-O","--enable-output",action="store_true",\
+      default="false",  metavar="OUTPUT",\
+      help="enable the generation of the html and cache documents")
+
+
+  parser.add_option("", "--figure-resolution",action="store",type="int",\
+      default=50, metavar="FIGURERESOLUTION", \
+      help="resolution of the thumbnails (50 by default)" )
+
+  parser.add_option("", "--html-for-cbcweb",action="store",\
+      default=False, metavar = "CVS DIRECTORY", help="publish the html "\
+      "output in a format that can be directly published on the cbc webpage "\
+      "or in CVS. This only works IF --enable-output is also specified. The "\
+      "argument should be the cvs directory where the html file will be placed "\
+      "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
+
+
+  (opts,args) = parser.parse_args()
+
+  return opts, sys.argv[1:]
+#####################################################################
+opts, args = parse_command_line()
+# Sanity checks
+######################################################################
+
+if opts.skip_timeslides and not opts.loudest_background_events_file:
+  print >> sys.stderr, "--loudest-background-events-file must be given if --skip-timeslides option is used"
+  sys.exit(1)
+  
+if not opts.skip_timeslides and not opts.num_slides:
+  print >> sys.stderr, "number of time slides should be provided if running with time slides triggers,"
+  print >> sys.stderr, "use --num-slides option"
+  sys.exit(1)
+   
+  
+
+if not (opts.input_cache_file or opts.slides_glob):
+  print >>sys.stderr, "Some of the options specifying the input files containing single inspiral tables are missing." 
+  print >> sys.stderr, " Either --input-cache-file or --slides-glob must be given."
+  sys.exit(1)
+  
+# Initializing the html output
+InspiralUtils.message(opts, "Initialisation...")
+opts = InspiralUtils.initialise(opts, __prog__, __version__)
+fnameList = []
+tagList = []
+fig_num = 0
+comments = ""
+
+#Calculating statistic for coincidences
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
+
+  
+# contsructing lists of data files containing time slides and zero-lag triggers respectively
+########################################################################################################	
+if opts.input_cache_file:
+  InspiralUtils.message(opts, "Reading input-cache-file ...")
+  slidesfiles = []
+  zero_lag_files = []
+  SnglInspiralCache = lal.Cache.fromfile(open(opts.input_cache_file))
+  if not opts.skip_timeslides:
+    slidesfiles = SnglInspiralCache.sieve(description = opts.slides_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+  zero_lag_files = SnglInspiralCache.sieve(description = opts.zero_lag_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+else:
+  slidesfiles = []
+  zero_lag_files = []
+  if not opts.skip_timeslides:
+    slidesfiles = glob.glob(opts.slides_glob)
+  zero_lag_files = glob.glob(opts.zero_lag_glob)
+
+  
+# check if file lists are not empty
+if not opts.skip_timeslides:
+  if not len(slidesfiles) > 0:
+    print >>sys.stderr, "List of time slides files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
+    sys.exit(1)
+if  not len(zero_lag_files) > 0:
+  print >>sys.stderr, "List of zero-lag files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
+  sys.exit(1) 
+
+
+# Finding loudest events in each of the time slides
+########################################################################################################################
+
+
+if not opts.skip_timeslides:
+  InspiralUtils.message(opts, "Finding loudest events in each of the time slides ...")
+
+  # define array that stores maximum statistic for each of the time slide
+  max_stat_array = numpy.zeros(2*opts.num_slides, dtype = float)
+
+  InspiralUtils.message(opts," reading in time slides ...")
+  for file in slidesfiles:
+    # read in time slides triggers 
+    slidesTriggers = None
+    InspiralUtils.message(opts," reading in " + file)
+    slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], non_lsc_tables_ok=True)
+    InspiralUtils.message(opts,"reconstructing coins ...")
+    # construct the time slides coincs
+    slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
+
+    # read InspiralLikelihoodTable if necessary and add likelihood values to coincs  
+    if opts.use_likelihood:
+      slidesLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles([file])
+      # add likelihood values to coincs
+      inspiral_likelihood.add_likelihood(slidesCoincTriggers, slidesLikelihoodTriggers)       
+
+
+    for slide in range(1, opts.num_slides + 1):
+      #  triggers in each time slide are sorted in descending order in statistic which is passed to an array
+
+      # for slide forward
+      # get coincs from the current slide
+      forward_slide_coincs = slidesCoincTriggers.getslide(slide)
+
+      # store this slide's maximum statistic
+      if len(forward_slide_coincs) > 0:
+        if opts.use_likelihood:
+          max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getlikelihood()))
+        else:
+           max_stat_array[slide - 1] = max(max_stat_array[slide - 1], numpy.max(forward_slide_coincs.getstat()))
+ 	
+      # for slide backward
+      # get coincs from the current slide
+      backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
+
+      # store this slide's  maximum statistic
+      if len( backward_slide_coincs) > 0:    
+        if opts.use_likelihood:
+          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getlikelihood()))
+        else:
+          max_stat_array[slide - 1 + opts.num_slides] = max(max_stat_array[slide - 1 + opts.num_slides], numpy.max(backward_slide_coincs.getstat()))
+
+
+      # end of the loop over slides
+  
+  if opts.save_background_stats:
+  
+	InspiralUtils.message(opts,"saving max_stat_array into a file ...")
+	
+	#open output file
+	file = open(opts.output_background_file, "w")
+
+	#saving max_stat_array
+	cPickle.dump(max_stat_array, file)
+
+	#close file
+	file.close()
+
+  InspiralUtils.message(opts, "Done." )
+else:
+  InspiralUtils.message(opts, "Skiping time slides...")
+  InspiralUtils.message(opts, "using max_stat_array from " + str(opts.loudest_background_stats_file))
+  
+  # open file
+  max_stat_file = open(opts.loudest_background_stats_file, "rb")
+  
+  # get max_stat_array
+  max_stat_array = cPickle.load(max_stat_file)
+
+
+# getting N loudest zero-lag candidates
+###########################################################################################################################
+
+#sort background stats
+max_stat_array = numpy.sort(max_stat_array)
+
+InspiralUtils.message(opts,"Reading zero-lag files ...")
+# read in sngl inspiral table
+Triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zero_lag_files, mangle_event_id=False, non_lsc_tables_ok=True)
+
+InspiralUtils.message(opts," reconstructing coincs ...")
+
+# construct coincidence 
+CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+
+# read InspiralLikelihoodTable if necessary  
+if opts.use_likelihood:
+
+  LikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(zero_lag_files)
+  
+  # add likelihood values to coincs
+  inspiral_likelihood.add_likelihood(CoincTriggers, LikelihoodTriggers)       
+    
+
+# sort coincs in descending order according to their statistic
+CoincTriggers.sort()
+
+#Make an empty table to put the first N coincs in
+loudest_coincs = CoincInspiralUtils.coincInspiralTable(stat = CoincTriggers.stat)
+loudest_coincs.extend(CoincTriggers[:opts.num_events])
+
+# For each of the loudest coincs calculate false alarm probability
+loudest_coincs.calculate_fap(stats = max_stat_array)
+
+warn_msg = " "
+
+if opts.enable_output is True:
+  if opts.verbose: print >> sys.stdout, "Writing html file and cache."
+  # make CoincSummTable
+  coincTList = []
+  commentList = []
+  
+  coincTList.append(loudest_coincs)
+  commentList.append(str(opts.num_events) + ' loudest events of the search ' + 's' )
+  coincSumm = InspiralUtils.write_coinc_summ_table(
+        tableList = coincTList, commentList = commentList, stat = statistic,
+        statTag = opts.statistic, number= opts.num_events, format='html')
+  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=warn_msg,
+        CoincSummTable=coincSumm)
+  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+
+
+
+
+
+
