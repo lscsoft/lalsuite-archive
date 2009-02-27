@@ -1539,7 +1539,7 @@ class followupdqdb:
         self.urlPattern="http://ldas-cit.ligo.caltech.edu/segments/S5/%s/dq_segments.txt"
         self.pathPattern="%s/%s/dq_segments.txt"
         self.sqlFile="/followupDQ.sqlite"
-        self.sqlPath=self.myHome
+        self.sqlPath=self.myHome+"/"
         self.ifoList=["L1","H1","H2"]
         self.dbFiles=[]
         for ifo in self.ifoList:
@@ -1695,6 +1695,8 @@ path %s\n"%(myPath))
         filename=os.path.normpath(file)
         self.sqlFile=os.path.basename(filename)
         self.sqlPath=os.path.dirname(filename)
+        if os.path.isdir(self.sqlPath):
+          self.sqlPath=self.sqlPath+"/"
         return
 
     def setVersion(self,version=None):
