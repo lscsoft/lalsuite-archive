@@ -421,7 +421,11 @@ for CL_ind, CL in enumerate(CLs):
         boundary_of_nonzero_along(inband_by_m2_D, axis=1)
     D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
     D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
-
+    
+# write out the exclusion data
+file_out = open('pylal_grbUL-exclusion-'+opts.user_tag+'.pickle','w')
+pickle.dump([CLs, m2_bins, D1D2_by_CL_m2], file_out)
+file_out.close()
 ################################################################################
 # plots
 fnameList = []
