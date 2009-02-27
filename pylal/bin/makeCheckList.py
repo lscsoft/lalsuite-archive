@@ -350,7 +350,7 @@ preBuiltDB=opts.defaultSQL
 if opts.defaultSQL == None:
   preBuiltDB=""
 if os.path.isfile(preBuiltDB):
-  checklistDB=fu_utils.followupdqdb(False)
+  checklistDB=fu_utils.followupdqdb(True)
   checklistDB.setDB(preBuiltDB)
 else:
   checklistDB=fu_utils.followupdqdb()
