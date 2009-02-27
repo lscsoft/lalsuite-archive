@@ -836,6 +836,8 @@ class SnglInspiralTable(table.Table):
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
+                if column =='lvS5stat':
+                        return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
 		else:
@@ -863,6 +865,9 @@ class SnglInspiralTable(table.Table):
 
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
+
+        def get_lvS5stat(self):
+                return self.get_column('beta')
 
 	def ifocut(self,ifo):
 		ifoTrigs = table.new_from_template(self)
@@ -948,6 +953,9 @@ class SnglInspiral(object):
 		if self.alpha < 0.000000001:
 			self.alpha = 0.000000001
 		return 1./self.alpha
+
+	def get_lvS5stat(self):
+		return self.beta
 
 	def get_id_parts(self):
 		"""
