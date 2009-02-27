@@ -493,8 +493,8 @@ int compare_point_stats(char *prefix, POINT_STATS *ref, POINT_STATS *test)
 {
 
 #define TEST(field, format, tolerance) \
-	if( (ref->field!=test->field) && !(abs(test->field-ref->field)<tolerance*(abs(ref->field)+abs(test->field)))) { \
-		fprintf(stderr, "%s" #field " do not match ref=" format " test=" format " test-ref=" format "\n", \
+	if( (ref->field!=test->field) && !(fabs(test->field-ref->field)<tolerance*(fabs(ref->field)+fabs(test->field)))) { \
+		fprintf(stderr, "%s" #field " fields do not match ref=" format " test=" format " test-ref=" format "\n", \
 			prefix, \
 			ref->field, test->field, test->field-ref->field); \
 		return -1; \
@@ -1513,6 +1513,18 @@ ps2=allocate_partial_power_sum_F(useful_bins);
 
 randomize_partial_power_sum_F(ps1);
 
+/* make sure we don't get negative power sums */
+
+ps1->c_weight_pppp+=1000;
+ps1->c_weight_ppcc+= 300;
+ps1->c_weight_cccc+=1000;
+
+for(k=0;k<ps1->nbins;k++) {
+	ps1->power_pp[k]+=100;
+	ps1->power_cc[k]+=110;
+	}
+
+
 for(k=0;k<alignment_grid_free;k++) {
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
@@ -1524,13 +1536,37 @@ for(k=0;k<alignment_grid_free;k++) {
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	cblas_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
-	result+=compare_point_stats("cblas:", &pst_ref, &pst_test);
+	result+=compare_point_stats("cblas1:", &pst_ref, &pst_test);
 
 	/* cblas */
 	zero_partial_power_sum_F(ps2);
 	accumulate_partial_power_sum_F(ps2, ps1);
 	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
-	result+=compare_point_stats("sse:", &pst_ref, &pst_test);
+	result+=compare_point_stats("sse1:", &pst_ref, &pst_test);
+	}
+
+ps1->weight_arrays_non_zero=0;
+
+for(k=0;k<alignment_grid_free;k++) {
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+
+	/* reference */
+	point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_ref));
+
+	/* cblas */
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	cblas_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
+	result+=compare_point_stats("cblas2:", &pst_ref, &pst_test);
+
+	/* cblas */
+	zero_partial_power_sum_F(ps2);
+	accumulate_partial_power_sum_F(ps2, ps1);
+	sse_point_power_sum_stats_linear(ps2, &(alignment_grid[k]), &(pst_test));
+	result+=compare_point_stats("sse2:", &pst_ref, &pst_test);
+
+	fprintf(stderr, "%d %f %f %d\n", k, alignment_grid[k].iota, alignment_grid[k].psi, result);
 	}
 
 if(result<0) {

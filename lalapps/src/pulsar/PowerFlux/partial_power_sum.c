@@ -216,8 +216,8 @@ if(test->type!=sizeof(REAL)) {
 	}
 
 #define TEST(field, format, tolerance) \
-	if( (ref->field!=test->field) && !(abs(test->field-ref->field)<tolerance*(abs(ref->field)+abs(test->field)))) { \
-		fprintf(stderr, "%s" #field " do not match ref=" format " test=" format " test-ref=" format "\n", \
+	if( (ref->field!=test->field) && !(fabs(test->field-ref->field)<tolerance*(fabs(ref->field)+fabs(test->field)))) { \
+		fprintf(stderr, "%s" #field " fields do not match ref=" format " test=" format " test-ref=" format "\n", \
 			prefix, \
 			ref->field, test->field, test->field-ref->field); \
 		return -3; \
@@ -237,8 +237,8 @@ TEST(c_weight_cccc, "%g", 1e-4)
 #undef TEST
 
 #define TEST(field, tolerance) \
-	if((ref->field[i]!=test->field[i]) && !(abs(test->field[i]-ref->field[i])<tolerance*(abs(test->field[i])+abs(ref->field[i])))) { \
-		fprintf(stderr, "%s" #field "[%d] mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
+	if((ref->field[i]!=test->field[i]) && !(fabs(test->field[i]-ref->field[i])<tolerance*(fabs(test->field[i])+fabs(ref->field[i])))) { \
+		fprintf(stderr, "%s" #field "[%d] fields mismatch ref=%g test=%g test-ref=%g\n", prefix, i, ref->field[i], test->field[i], test->field[i]-ref->field[i]); \
 		return -4; \
 		}
 
