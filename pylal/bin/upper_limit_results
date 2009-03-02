@@ -64,7 +64,7 @@ runs = []
 spins = []
 sourceTypes = []
 userTag = cp.get('main','user-tag')
-combinedResults = False
+combinedResults = opts.combined_results
 upperLimitDir = opts.upper_limit_dir
 outputDir = opts.output_dir
 make_dir(outputDir)
