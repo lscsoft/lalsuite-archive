@@ -747,11 +747,11 @@ class followUpList:
                   "G1" : None, "V1" : None, "T1" : None}
     self.ifos = '' # added to construct a new field in "followups", see function getfollowuptrigs
     self.ifolist_in_coinc = None
-    self.ifoTag = ''
+    self.ifoTag = None
     self.coincs = Coincs
     self.missed = Missed
     self.eventID = None
-    self.stat = None
+    self.statValue = None
     self.far = None
     self.page = None
     self.summarydir = None
@@ -800,7 +800,7 @@ class followUpList:
     self.page = page
 
   def write_trigger_info(self, fobj):
-    fobj.write("Rank:"+str(self.rank)+",ID:"+str(self.eventID)+",Stat:"+str(self.stat)+",FAR:"+str(self.far)+",Type:"+str(self.get_coinc_type())+",")
+    fobj.write("Rank:"+str(self.rank)+",ID:"+str(self.eventID)+",Stat:"+str(self.statValue)+",FAR:"+str(self.far)+",Type:"+str(self.get_coinc_type())+",IfoTime:"+str(self.ifoTag)+",")
     for ifo in ['H1','H2','L1','V1']:
       if self.gpsTime[ifo]:
         if self.magic_number:
