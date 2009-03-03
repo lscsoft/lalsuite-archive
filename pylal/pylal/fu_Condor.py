@@ -418,13 +418,15 @@ lalapps_skymap --h1-frame-file H1-INSPIRAL_SECOND_H1H2L1V1_FOLLOWUP_866088314000
     self.add_var_opt("ra-res",self.ra_res)
     self.add_var_opt("dec-res",self.dec_res)
     self.add_var_opt("event-id",trig.eventID)
-    self.add_var_opt("h1-frame-file","none");
-    self.add_var_opt("h1-xml-file","none");
-    self.add_var_opt("l1-frame-file","none");
-    self.add_var_opt("l1-xml-file","none");
-    self.add_var_opt("v1-frame-file","none");
-    self.add_var_opt("v1-xml-file","none");
-    self.add_var_opt("sample-rate",self.sample_rate);
+    self.add_var_opt("h1-frame-file","none")
+    self.add_var_opt("h1-xml-file","none")
+    self.add_var_opt("h2-frame-file","none")
+    self.add_var_opt("h2-xml-file","none")
+    self.add_var_opt("l1-frame-file","none")
+    self.add_var_opt("l1-xml-file","none")
+    self.add_var_opt("v1-frame-file","none")
+    self.add_var_opt("v1-xml-file","none")
+    self.add_var_opt("sample-rate",self.sample_rate)
 
     if not opts.disable_dag_categories:
       self.set_category(job.name.lower())
