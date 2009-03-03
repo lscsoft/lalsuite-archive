@@ -1917,6 +1917,41 @@ class SegmentDef(object):
 SegmentDefTable.RowType = SegmentDef
 
 
+
+
+#
+# =============================================================================
+#
+#                            segment_summary:table
+#
+# =============================================================================
+#
+
+
+SegmentSumID = ilwd.get_ilwdchar_class(u"segment_summary", u"segment_sum_id")
+
+
+class SegmentSumTable(table.Table):
+	tableName = "segment_summary:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"segment_sum_id": "ilwd:char",
+		"start_time": "int_4s",
+		"end_time": "int_4s",
+		"comment": "lstring",
+		"segment_def_id": "ilwd:char"
+	}
+	constraints = "PRIMARY KEY (segment_sum_id)"
+	next_id = SegmentSumID(0)
+	interncolumns = ("process_id","segment_def_id")
+
+
+class SegmentSum(object):
+	__slots__ = SegmentSumTable.validcolumns.keys()
+
+SegmentSumTable.RowType = SegmentSum
+
+
 #
 # =============================================================================
 #
@@ -2290,6 +2325,7 @@ TableByName = {
 	table.StripTableName(SegmentTable.tableName): SegmentTable,
 	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
 	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
+	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
 	table.StripTableName(CoincDefTable.tableName): CoincDefTable,
 	table.StripTableName(CoincTable.tableName): CoincTable,
