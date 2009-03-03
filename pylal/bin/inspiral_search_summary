@@ -248,6 +248,10 @@ def parse_command_line():
   parser.add_option("-Z","--zero-lag-playground",action="store_true",\
       default=False,\
       help="scale number of bkg triggers in slide plots by 600/6370")
+
+  parser.add_option("","--ignore-IFO-times",action="store",type="string",\
+      default='', metavar=" USERTAG",\
+      help="comma separated IFO times that should not be included in efficiency calculation e.g. H1H2,H2L1. This option will work only with s5 LV search files." )
   
   parser.add_option("-P","--output-path",action="store",\
       type="string",default=None,  metavar="PATH",\
@@ -374,6 +378,41 @@ if  not len(no_bg_zero_lag_files) > 0:
   print >>sys.stderr, "List of no-bg-zero-lag files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
   sys.exit(1) 
 
+
+# get rid of certain IFO times if necessary
+if opts.ignore_IFO_times:
+
+  ifo_times_to_ignore = opts.ignore_IFO_times.split(",")
+
+  # time slides
+  # Assumes that ifo time is the first thing in the file name
+  new_slidesfiles = []
+  for file in slidesfiles:
+    if not (file.split("/")[-1].split("_")[0] in ifo_times_to_ignore):
+      new_slidesfiles.append(file)
+
+  slidesfiles = []
+  slidesfiles = new_slidesfiles
+
+  # zero lag
+  # Assumes that ifo time is the first thing in the file name
+  new_zero_lag_files = []
+  for file in zero_lag_files:
+    if not (file.split("/")[-1].split("_")[0] in ifo_times_to_ignore):
+      new_zero_lag_files.append(file)
+
+  zero_lag_files = []
+  zero_lag_files = new_zero_lag_files 
+
+  # no bg zero lag
+  # Assumes that ifo times is the first thing in the file name
+  new_no_bg_zero_lag_files = []
+  for file in no_bg_zero_lag_files:
+    if not (file.split("/")[-1].split("_")[0] in ifo_times_to_ignore):
+      new_no_bg_zero_lag_files.append(file)
+
+  no_bg_zero_lag_files = []
+  no_bg_zero_lag_files = new_no_bg_zero_lag_files
 
 # Finding loudest events in each of the time slides
 ########################################################################################################################
