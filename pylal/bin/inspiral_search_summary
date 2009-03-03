@@ -5,11 +5,11 @@ __date__ = "$Date$"[7:-2]
 __prog__="inspiral_search_summary"
 __Id__ = "$Id$"
 
-
 #loading standard modules
 from optparse import *
 import glob
 import sys
+import os
 #loading modules used for input/output of data 
 from glue import lal
 from glue.ligolw import lsctables
@@ -93,7 +93,7 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
       slide_mean *= 600./6370.
       slide_std *= sqrt(600./6370.)
 	  
-  if ("bitten_l" in stat) or ("ifar" in stat):
+  if ("bitten_l" in stat) or ("ifar" in stat) or ("lvS5stat" in stat):
      xvals=bins
   else:
      xvals=bins*bins
@@ -114,7 +114,7 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
 	  slide_mean[i] = max(slide_mean[i], 0.0001)
 	semilogy(xvals,asarray(slide_mean), 'r+', markersize=12)
 	tmpx,tmpy = viz.makesteps(bins,slide_min,slide_mean+slide_std)
-	if ("bitten_l" in stat) or ('ifar' in stat):
+	if ("bitten_l" in stat) or ('ifar' in stat) or ('lvS5stat' in stat):
 	  p=fill((tmpx-ds),tmpy, facecolor='y')
 	else:
 	  p=fill((tmpx-ds)*(tmpx-ds),tmpy, facecolor='y')
@@ -122,7 +122,7 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
 
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
   elif stat == 'ifar': xlab = 'ifar'
-  elif stat == 'lvS5stat': xlab = 'ranking statistic'
+  elif stat == 'lvS5stat': xlab = 'effective likelihood'
   elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
   xlabel(xlab, size='x-large')
@@ -130,9 +130,44 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
   title_text = 'Cum. hist. of num events vs ' + xlab
   title(title_text, size='x-large')
 
+def writeProcessParams(name, version, command):
+  """
+  Convert input parameters from the process params that the code was called 
+  with into a formatted string that can be saved within an other document 
+  (e.g., HTML)
 
+  @param name: name of the executable/script
+  @param version:version of the executable/script
+  @param command: command line arguments from a pylal script
+  @return text
+  """
+  text = "Figure(s) produced with " + name + ", " \
+      + version + ", invoked with the following command line arguments:" \
+      + '<br>\n<p style="width:80%; color:blue">'+ name
+  for arg in command:
+    text += " " +  arg
+  text+='</p>'
 
+  return text
 
+def write_cache_output(opts, html_filename,fnameList):
+  """
+  write the output cache file of theplotting functions
+  """
+
+  output_cache_name = opts.prefix + opts.suffix +'.cache'
+  if opts.output_path:
+    output_cache_name = opts.output_path + output_cache_name
+  this = open(output_cache_name, 'w')
+  if opts.enable_output is True:
+    this.write(os.path.basename(html_filename) + '\n')
+  for filename in fnameList:
+    if str(filename).endswith('.png'):
+      fname = "Images/"+os.path.basename(filename) # set the correct name for linking
+    elif str(filename).endswith('.html'):
+      fname = os.path.basename(str(filename)) # set the correct name for linking
+    this.write(fname + '\n')
+  this.close()
 
 ################################################################################
 # Main program
@@ -158,6 +193,9 @@ def parse_command_line():
 	
   parser.add_option("","--zero-lag-glob",action="store",type="string",\
       default=None, metavar=" GLOB",help="GLOB zero-lag files to read" )
+
+  parser.add_option("","--no-bg-zero-lag-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB no background zero lag files to read")
 	
   parser.add_option("","--input-cache-file",action="store",type="string",\
       default=None, metavar="ZEROLAGCACHEFILE",help="name of the cache file including the path" )
@@ -166,7 +204,11 @@ def parse_command_line():
       default="", metavar="SLIDESPATTERN", help="the time slides files pattern the cache file, specified by --input-cache-file option, will be seived with.")
 	
   parser.add_option("","--zero-lag-pattern",\
-      default="", metavar="INJSPATTERN", help="the found injections files pattern the cache file, specified by --input-cache-file option, will be seived with.")
+      default="", metavar="ZEROLAGPATTERN", help="the zero lag files pattern the cache file, specified by --input-cache-file option, will be seived with.")
+
+  parser.add_option("","--no-bg-zero-lag-pattern",\
+      default="", metavar="NO_BG_ZERO_LAG_PATTERN", help="the zero lag with no background files pattern the cache file, specified by"\
+      " --input-cache-file option, will be seived with.")
 
   parser.add_option("","--statistic",action="store",default='snr',\
       type="string",\
@@ -174,6 +216,9 @@ def parse_command_line():
 	
   parser.add_option("", "--use-likelihood",action="store_true", default=False,\
       help="enables likelihood to be used as detection statistic")
+
+  parser.add_option("","--make_zoomed_histogram",action="store_true", default=False,\
+      help="Make a zoomed-in histogram plot")
 		
   parser.add_option("","--num-events", action="store",type="int",\
       default = 1, help="number of loudest events to be printed" )
@@ -200,6 +245,9 @@ def parse_command_line():
       default=None, metavar=" USERTAG",\
       help="The user tag used in the name of the figures" )
 
+  parser.add_option("-Z","--zero-lag-playground",action="store_true",\
+      default=False,\
+      help="scale number of bkg triggers in slide plots by 600/6370")
   
   parser.add_option("-P","--output-path",action="store",\
       type="string",default=None,  metavar="PATH",\
@@ -228,6 +276,34 @@ def parse_command_line():
   return opts, sys.argv[1:]
 #####################################################################
 opts, args = parse_command_line()
+
+
+def init_markup_page( opts):
+  """
+  Load the markup module, and initialise the HTML document if the opts 
+  argument contains enable_ouput option.
+
+  @param  opts : the user arguments 
+  @return page 
+  @return extra 
+  """
+  # Initialise the html output file
+  if opts.enable_output is True:
+    try:
+      from glue import markup
+      from glue.markup import oneliner as extra_oneliner
+    except:
+      raise ImportError("Require markup.py to generate the html page")
+
+    page = markup.page()
+    try:
+      page.init(title=__title__)
+    except:
+      page.init()
+
+  return page, extra_oneliner
+
+
 # Sanity checks
 ######################################################################
 
@@ -272,17 +348,20 @@ if opts.input_cache_file:
   InspiralUtils.message(opts, "Reading input-cache-file ...")
   slidesfiles = []
   zero_lag_files = []
+  no_bg_zero_lag_files = []
   SnglInspiralCache = lal.Cache.fromfile(open(opts.input_cache_file))
   if not opts.skip_timeslides:
     slidesfiles = SnglInspiralCache.sieve(description = opts.slides_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
   zero_lag_files = SnglInspiralCache.sieve(description = opts.zero_lag_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+  no_bg_zero_lag_files = SnglInspiralCache.sieve(description = opts.no_bg_zero_lag_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
 else:
   slidesfiles = []
   zero_lag_files = []
+  no_bg_zero_lag_files = []
   if not opts.skip_timeslides:
     slidesfiles = glob.glob(opts.slides_glob)
   zero_lag_files = glob.glob(opts.zero_lag_glob)
-
+  no_bg_zero_lag_files = glob.glob(opts.no_bg_zero_lag_glob)
   
 # check if file lists are not empty
 if not opts.skip_timeslides:
@@ -291,6 +370,8 @@ if not opts.skip_timeslides:
     sys.exit(1)
 if  not len(zero_lag_files) > 0:
   print >>sys.stderr, "List of zero-lag files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
+if  not len(no_bg_zero_lag_files) > 0:
+  print >>sys.stderr, "List of no-bg-zero-lag files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
   sys.exit(1) 
 
 
@@ -316,7 +397,7 @@ if not opts.skip_timeslides:
     slidesTriggers = None
     InspiralUtils.message(opts," reading in " + file)
     slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], non_lsc_tables_ok=True)
-    InspiralUtils.message(opts,"reconstructing coins ...")
+    InspiralUtils.message(opts,"reconstructing coincs ...")
     # construct the time slides coincs
     slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
 
@@ -397,25 +478,28 @@ max_stat_array = numpy.sort(max_stat_array)
 InspiralUtils.message(opts,"Reading zero-lag files ...")
 # read in sngl inspiral table
 Triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(zero_lag_files, mangle_event_id=False, non_lsc_tables_ok=True)
+NoBgTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(no_bg_zero_lag_files, mangle_event_id=False, non_lsc_tables_ok=True)
 
 InspiralUtils.message(opts," reconstructing coincs ...")
 
 # construct coincidence 
 CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+NoBgCoincTriggers = CoincInspiralUtils.coincInspiralTable(NoBgTriggers, statistic)
 
 # read InspiralLikelihoodTable if necessary  
 if opts.use_likelihood:
 
   LikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(zero_lag_files)
-  
+  NoBgLikelihoodTriggers = inspiral_likelihood.ReadInspiralLikelihoodFromFiles(no_bg_zero_lag_files) 
+ 
   # add likelihood values to coincs
   inspiral_likelihood.add_likelihood(CoincTriggers, LikelihoodTriggers)       
-    
+  inspiral_likelihood.add_likeliihood(NoBgCoincTriggers, NoBgLikelihoodTriggers) 
 
 # making cumulative a plot of cumulative histogram
 
 figure(1)
-cumhiststat(CoincTriggers.getstat(), stats_dic, stat=statistic.name)
+cumhiststat(CoincTriggers.getstat(), stats_dic, stat=statistic.name, scalebkg=opts.zero_lag_playground)
 grid(True)
 if opts.enable_output is True:  
   name = "cum_hist_" + statistic.name 
@@ -426,26 +510,27 @@ if opts.enable_output is True:
   fnameList.append(fname)
   tagList.append(text)
 
-# making zoomed in cumulative histrogram
+# make a zoomed-in cumulative histogram
+if opts.make_zoomed_histogram:
 
-rescaled_zerolag_stat = numpy.log(numpy.exp(CoincTriggers.getstat()) - 1.0 + 10**(-20))
+  rescaled_zerolag_stat = numpy.log(numpy.exp(CoincTriggers.getstat()) - 1.0 + 10**(-10))
 
-rescaled_stats_dic = copy.copy(stats_dic)
+  rescaled_stats_dic = copy.copy(stats_dic)
 
-for key in rescaled_stats_dic.keys():
-  rescaled_stats_dic[key] = numpy.log(numpy.exp(rescaled_stats_dic[key]) - 1.0 + 10**(-20))
+  for key in rescaled_stats_dic.keys():
+    rescaled_stats_dic[key] = numpy.log(numpy.exp(rescaled_stats_dic[key]) - 1.0 + 10**(-10))
 
-figure(2)
-cumhiststat(rescaled_zerolag_stat, rescaled_stats_dic, stat=statistic.name)
-grid(True)
-if opts.enable_output is True:  
-  name = "zoomed in cum_hist_" + statistic.name 
-  text = " Zoomed in cumulative histogram of " + statistic.name + " distribution"
-  fname = InspiralUtils.set_figure_name(opts, name)
-  fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
-  close()
-  fnameList.append(fname)
-  tagList.append(text)
+  figure(2)
+  cumhiststat(rescaled_zerolag_stat, rescaled_stats_dic, stat=statistic.name, scalebkg=opts.zero_lag_playground)
+  grid(True)
+  if opts.enable_output is True:  
+    name = "zoomed in cum_hist_" + statistic.name 
+    text = " Zoomed in cumulative histogram of " + statistic.name + " distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    close()
+    fnameList.append(fname)
+    tagList.append(text)
 
 
 # getting N loudest zero-lag candidates
@@ -453,6 +538,7 @@ if opts.enable_output is True:
 
 # sort coincs in descending order according to their statistic
 CoincTriggers.sort()
+NoBgCoincTriggers.sort()
 
 #Make an empty table to put the first N coincs in
 loudest_coincs = CoincInspiralUtils.coincInspiralTable(stat = CoincTriggers.stat)
@@ -461,19 +547,57 @@ loudest_coincs.extend(CoincTriggers[:opts.num_events])
 # For each of the loudest coincs calculate false alarm probability
 loudest_coincs.calculate_fap(stats = max_stat_array)
 
-warn_msg = " "
+# For each of the no_bg loudest coincs, set the fap to 0 (since the beta column contains the efficiency factor)
+for coinc in NoBgCoincTriggers:
+  coinc.fap = 0.0
 
 if opts.enable_output is True:
   if opts.verbose: print >> sys.stdout, "Writing html file and cache."
-  # make CoincSummTable
+
   coincTList = []
+  nobgcoincTList = []
+
   commentList = []
+  nobgcommentList = []
   
   coincTList.append(loudest_coincs)
-  commentList.append(str(opts.num_events) + ' loudest events of the search ' + 's' )
+  nobgcoincTList.append(NoBgCoincTriggers)
+  
+  commentList.append(str(opts.num_events) + ' loudest events of the search ' )
+  nobgcommentList.append('Loudest events of the search that have no estimated background because they are louder than all time slides in their category' )
+
+  # MAKE THE SUMMARY TABLE
   coincSumm = InspiralUtils.write_coinc_summ_table(
         tableList = coincTList, commentList = commentList, stat = statistic,
         statTag = opts.statistic, number= opts.num_events, format='html')
-  html_filename = InspiralUtils.write_html_output(opts, args, fnameList, tagList, comment=warn_msg,
-        CoincSummTable=coincSumm)
-  InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+  # MAKE THE NO_BACKGROUND SUMMARY TABLE (LABEL THE STATISTIC EFFICIENCY)
+  nobgcoincSumm = InspiralUtils.write_coinc_summ_table(
+        tableList = nobgcoincTList, commentList = nobgcommentList, stat = statistic,
+        statTag = 'Efficiency Factor', number= opts.num_events, format='html')
+
+  page, extra = init_markup_page(opts)
+  page.h1("Summary of Loudest Events")
+  page.hr()
+  html_filename = opts.output_path + "/loudesteventsummary.html"
+  html_file = open(html_filename,"w")
+ 
+  for tag,filename in zip(tagList,fnameList):
+    fname = "Images/" + os.path.basename(filename)
+    fname_thumb = fname[:-4] + "_thumb.png"
+    page.a(extra.img(src=[fname_thumb], width=400, \
+        alt=tag, border="2"), title=tag, href=[ fname])
+
+  page.add("<hr/>")
+  page.add(coincSumm)
+  page.add(nobgcoincSumm)
+  page.hr()
+  text = writeProcessParams( opts.name, opts.version,  args)
+  page.add(text)
+  html_file.write(page(False))
+  html_file.close()
+
+  write_cache_output(opts, html_filename, fnameList)
+
+
+
