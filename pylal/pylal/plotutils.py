@@ -87,7 +87,7 @@ class BasicPlot(object):
         Close the plot and release its memory.
         """
         pylab.close(self.fig)
-
+        
     def add_legend_if_labels_exist(self, *args, **kwargs):
         """
         Create a legend if there are any non-trivial labels.
@@ -226,7 +226,7 @@ class VerticalBarHistogram(BasicPlot):
         self.kwarg_sets.append(kwargs)
 
     @method_callable_once
-    def finalize(self, num_bins=20):
+    def finalize(self, num_bins=20, normed=False):
         # determine binning
         min_stat, max_stat = determine_common_bin_limits(self.data_sets)
         bins = numpy.linspace(min_stat, max_stat, num_bins)
@@ -235,23 +235,34 @@ class VerticalBarHistogram(BasicPlot):
         width = (1 - 0.1 * len(self.data_sets)) * max_stat / num_bins
 
         # make plot
+        legends = []
+        plot_list = []
         for i, (data_set, plot_kwargs) in \
             enumerate(itertools.izip(self.data_sets, self.kwarg_sets)):
             # set default values
             plot_kwargs.setdefault("alpha", 0.6)
             plot_kwargs.setdefault("align", "center")
-
+            plot_kwargs.setdefault("width", width)
+           
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins)
+            y, x = numpy.histogram(data_set, bins=bins, normed=normed)
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
 
             # plot
-            self.ax.bar(x, y, **plot_kwargs)
+            plot_item = self.ax.bar(x, y, **plot_kwargs)
+
+            # add legend and the right plot instance
+            # for creating the correct labels!
+            if "label" in plot_kwargs and \
+                   not plot_kwargs["label"].startswith("_"):
+
+                legends.append(plot_kwargs["label"])
+                plot_list.append(plot_item[0])                
 
         # add legend if there are any non-trivial labels
-        self.add_legend_if_labels_exist()
+        self.ax.legend(plot_list, legends)
 
         # decrement reference counts
         del self.data_sets
