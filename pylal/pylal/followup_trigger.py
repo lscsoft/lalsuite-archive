@@ -19,6 +19,7 @@
 __Id__ = "$Id$"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
+__prog__ = "followup_trigger.py"
 
 import os
 import sys
@@ -29,7 +30,8 @@ import tempfile
 
 import matplotlib
 matplotlib.use('Agg')
-import pylab 
+import pylab
+import numpy
 ## try:
 ##   set
 ## except NameError:
@@ -41,10 +43,12 @@ from pylal import SimInspiralUtils
 from pylal import CoincInspiralUtils
 from pylal import SearchSummaryUtils
 from pylal import grbsummary
+from pylal import viz
 from glue import lal
 from glue import markup
 from glue import segments
 from glue import segmentsUtils
+from glue import iterutils
 from glue.markup import oneliner as extra
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -52,7 +56,6 @@ from glue.ligolw import utils
 from glue.ligolw import ligolw
 from glue.ligolw.utils import ligolw_add
 
-import numpy
 
 
 ##########################################################
@@ -111,13 +114,24 @@ class FollowupTrigger:
 
     # set arguments from the options
     self.opts = opts
-    self.cache = cache
     self.tag = opts.user_tag
     self.verbose = opts.verbose
     self.exttrig = opts.followup_exttrig
     self.output_path = opts.output_path
     self.time_window = opts.followup_time_window
-    self.sned = None
+    self.sned = opts.followup_sned
+
+    # Choose the cache-file
+    if opts.followup_tag is None:
+      if opts.verbose: 
+        print "WARNING: All injection files are considered. Is that desired?"
+        print "         Or do you want to select an injection run with --followup-tag INJRUN ?"
+      self.cache = cache
+    else:
+      if opts.verbose:
+        print "WARNING: Only a selected injection run is taken into account: ", opts.followup_tag
+        print "         Is that the desired behaviour? You might reconsider removing --followup-tag INJRUN "
+      self.cache = cache.sieve(description = opts.followup_tag)
     
     # Value for the injection window. This value might be taken from 
     # a processParams table (see function get_injection_window)
@@ -133,6 +147,12 @@ class FollowupTrigger:
     self.followup_time = None
     self.injection_id = None  # only needed if time is an injection
     self.flag_followup = False
+
+    # a dictionary used to create a list of injections to followup
+    # taking into account the 'combined' effective distance
+    # and vetoes as well
+    self.followup_dict = {'inj':lsctables.New(lsctables.SimInspiralTable), 'dist':[], 'type':[]}
+    self.vetoed_injections = lsctables.New(lsctables.SimInspiralTable)
 
     if self.verbose:
       print "\nStarting initializing the Followup class..."
@@ -178,33 +198,46 @@ class FollowupTrigger:
     self.sned = executable
 
   # -----------------------------------------------------
-  def execute_sned(self, inj):
+  def execute_sned(self, injections):
     """
     Makes an external call to lalapps_sned to recalculate
     the effective distances
-    @param inj: the injection to be cvonverted
+    @param injections: the list of injections to be converted
     @return: the recalculated injection
     """
 
+    def fix_numrel_columns(sims):
+       """	
+       Due to a mismatch between our LAL tag and the LAL HEAD, against which
+       we compile pylal, there are missing columns that cannot be missing.
+       Just put in nonsense values so that glue.ligolw code won't barf.
+       """
+       for sim in sims:
+         sim.numrel_data="nan"
+         sim.numrel_mode_max = 0
+         sim.numrel_mode_min = 0
+
+    file1 = '.followup_trigger.output.xml'
+    file2 = '.followup_trigger.input.xml'
     
-    file1 = 'test1.xml'
-    file2 = 'test2.xml'
-    
-    # write out a dummy file
-    grbsummary.write_rows([inj], lsctables.SimInspiralTable, file1)
+    # write out a dummy file, after fixing the columns
+    fix_numrel_columns(injections)
+    grbsummary.write_rows(injections, lsctables.SimInspiralTable, file1)
   
     # call command for lalapps_sned
+    # FIXME: Hardcoded lower cutoff frequency
     command = self.sned+' --f-lower 40.0  --inj-file '+file1+\
               '  --output '+file2
-    
-    os.system(command)
+    if self.verbose:
+      print "Executing command '%s'" % command
+    subprocess.call(command.split())
 
     # read in the 'converted' injection
     doc = ligolw_add.ligolw_add(ligolw.Document(), [file2])
     inj_sned = lsctables.getTablesByType(doc, lsctables.SimInspiralTable)
 
     # return a single SimInspiral table
-    return inj_sned[0][0]
+    return inj_sned[0]
 
   # -----------------------------------------------------
   def setTag(self, tag):
@@ -230,6 +263,7 @@ class FollowupTrigger:
     """
 
     # default value
+    # FIXME: No default value
     self.injection_window = 0.050
 
     # get the process params table from one of the COIRE files
@@ -448,6 +482,14 @@ class FollowupTrigger:
     """
     return float(trig.end_time) + float(trig.end_time_ns) * 1.0e-9
 
+
+  # -----------------------------------------------------
+  def get_effective_snr(self, trig):
+    if trig.chisq>0:
+      return trig.get_effective_snr()
+    else:
+      return 0.0
+
   # -----------------------------------------------------
   def get_sim_time(self, sim, ifo = None):
     """
@@ -479,8 +521,10 @@ class FollowupTrigger:
     @param time_trigger: The time to be investigated
     @param ifo: The name of the IFO to be investigated
     """
+    if self.vetodict[ifo] is None:
+      return False
     
-    return iterutils.any(time_trigger in seg for seg in self.vetodict[ifoName])
+    return iterutils.any(time_trigger in seg for seg in self.vetodict[ifo])
 
   # -----------------------------------------------------
   def put_text(self, text):
@@ -572,6 +616,7 @@ class FollowupTrigger:
           loudest_details[ifo]["eff_dist"] = loudest.eff_distance
           loudest_details[ifo]["chisq"] = loudest.chisq
           loudest_details[ifo]["timeTrigger"] = float(loudest.get_end())
+	  loudest_details[ifo]["eff_snr"] = self.get_effective_snr(loudest)
 
         # plot the triggers
         pylab.plot( time_large, selected_large.get_column('snr'),\
@@ -580,7 +625,7 @@ class FollowupTrigger:
               self.colors[ifo]+'s', label=ifo)
 
         # highlight any veto
-        # FOR NOW: COMMENTED OUT...
+        # FIXME: FOR NOW: COMMENTED OUT...
         ## self.highlight_veto(self.followup_time, seg_large, ifo, ylims)  
 
       # draw the injection times and other stuff
@@ -663,9 +708,10 @@ class FollowupTrigger:
     """
 
     if self.sned:
-      inj = execute_sned(inj)
+      inj_sned = self.execute_sned([inj])[0]
 
-    ## create the web-page and add a table
+    # FIXME: Add expected SNR
+    # create the web-page and add a table
     page = markup.page()
     page.h1("Followup injection #"+str(self.number))
     page.add('<table border="2" >')          
@@ -679,10 +725,12 @@ class FollowupTrigger:
     self.fill_table( page, ['end_time', inj.geocent_end_time] )
     self.fill_table( page, ['end_time_ns', inj.geocent_end_time_ns] )    
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
-    self.fill_table( page, ['eff_dist_h','%.1f' %  inj.eff_dist_h] )
-    self.fill_table( page, ['eff_dist_l','%.1f' %  inj.eff_dist_l] )
-    self.fill_table( page, ['eff_dist_v','%.1f' %  inj.eff_dist_v] )
-    self.fill_table( page, ['eff_dist_g','%.1f' %  inj.eff_dist_g] )  
+    for ifo_id in ['h','l','v','g']:
+      if self.sned:
+        self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f / %5.1f' %  \
+	           (eval("inj.eff_dist_%s" % ifo_id), eval("inj_sned.eff_dist_%s" % ifo_id))] )
+      else:
+        self.fill_table( page, ['eff_dist_%s' % ifo_id, '%5.1f' % eval("inj.eff_dist_%s" % ifo_id)] )
     self.fill_table( page, ['playground','%s' %  InspiralUtils.isPlayground(inj)] )    
     page.add('</table></td>')
     page.hr()
@@ -697,20 +745,23 @@ class FollowupTrigger:
     @param trig: an sngl_inspiral table
     """
     
-    ## create the web-page and add a table
+    # create the web-page and add a table
     page = markup.page()
     page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2" >')          
-    self.fill_table( page, ['<b>parameter','<b>value'] )
-    self.fill_table( page, ['Number', self.number] )
-    self.fill_table( page, ['inj ID', self.injection_id] )
-    self.fill_table( page, ['mass1', '%.2f'% trig.mass1] )
-    self.fill_table( page, ['mass2', '%.2f'% trig.mass2] )
-    self.fill_table( page, ['mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
-    self.fill_table( page, ['mchirp', '%.2f' % (trig.mchirp)] )
-    self.fill_table( page, ['end_time', trig.end_time] )
-    self.fill_table( page, ['end_time_ns', trig.end_time_ns] )    
-    self.fill_table( page, ['eff_distance', '%.1f' % trig.eff_distance] )
+    self.fill_table(page, ['<b>parameter','<b>value'] )
+    self.fill_table(page, ['Number', self.number] )
+    self.fill_table(page, ['inj ID', self.injection_id] )
+    self.fill_table(page, ['mass1', '%.2f'% trig.mass1] )
+    self.fill_table(page, ['mass2', '%.2f'% trig.mass2] )
+    self.fill_table(page, ['mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
+    self.fill_table(page, ['mchirp', '%.2f' % (trig.mchirp)] )
+    self.fill_table(page, ['end_time', trig.end_time] )
+    self.fill_table(page, ['end_time_ns', trig.end_time_ns] )    
+    self.fill_table(page, ['snr', trig.snr])
+    self.fill_table(page, ['chisq', trig.chisq])
+    self.fill_table(page, ['eff_snr', self.get_effective_snr(trig)])
+    self.fill_table(page, ['eff_distance', '%.1f' % trig.eff_distance] )
     page.add('</table></td><br>')
     page.hr()
     
@@ -729,6 +780,8 @@ class FollowupTrigger:
     page.h1("Followup trigger #"+str(self.number))
     page.add('<table border="2">')
 
+    self.fill_table( page, ['Statistic: ', coinc.stat] )
+
     for ifo in ['H1','H2','L1','V1','G1']:
       if hasattr(coinc,ifo):
         trig = getattr(coinc,ifo)
@@ -737,6 +790,7 @@ class FollowupTrigger:
         self.fill_table( page, ['<b>parameter','<b>'+ifo] )
         self.fill_table( page, ['Number', self.number] )
         self.fill_table( page, ['inj ID', self.injection_id] )
+        self.fill_table( page, ['Effective SNR',self.get_effective_snr(trig)] )
         self.fill_table( page, ['SNR', trig.snr] )
         self.fill_table( page, ['ChiSq', trig.chisq] )
         self.fill_table( page, ['RSQ', trig.rsqveto_duration] )                        
@@ -749,7 +803,6 @@ class FollowupTrigger:
         self.fill_table( page, ['eff_distance', '%.1f' % trig.eff_distance] )
         page.add('</table></td>')                
 
-    
     page.add('</table><br>')
     page.hr()
     
@@ -786,8 +839,10 @@ class FollowupTrigger:
     
     ## print out the result for this particular injection
     page.add('<td><table border="2" >')
-    self.fill_table( page, ['<b>step','<b>F/M', '<b>Rec. SNR', '<b>Rec. mchirp', \
-                      '<b>Rec. eff_dist', '<b>Rec. chisq', '<b>Veto ON/OFF'] )
+    self.fill_table( page, ['<b>step','<b>F/M', '<b>Rec. SNR', \
+                            '<b>Rec. mchirp', '<b>Rec. eff_dist', \
+                            '<b>Rec. chisq','<b>Rec eff_snr',\
+                            '<b>Veto ON/OFF'] )
 
     # loop over the stages and create the table with
     # the various data in it (when available)
@@ -796,12 +851,13 @@ class FollowupTrigger:
         result = invest_dict[stage]
 
         # Fill in the details of the loudest found coinc.
-        found_ifo=''
-        loudest_snr=''
-        loudest_mchirp=''
-        loudest_eff_dist=''
-        loudest_chisq=''
-        veto_onoff=''
+        found_ifo = ''
+        loudest_snr = ''
+        loudest_mchirp = ''
+        loudest_eff_dist = ''
+        loudest_chisq = ''
+	loudest_effsnr = ''
+        veto_onoff = ''
 
         # add all the IFO's for this coincident
         for ifo in result['foundset']:
@@ -809,10 +865,17 @@ class FollowupTrigger:
           
           # Parameters of the loudest trigger, taken from the
           # 'loudest-details' dictionary, created in 'create_timeseries'
-          loudest_snr += ifo + ': ' + str(result['loudest_details'][ifo]['snr'])+'<br>'
-          loudest_mchirp += ifo + ': ' + str(result['loudest_details'][ifo]['mchirp'])+'<br>'
-          loudest_eff_dist += ifo + ': ' + str(result['loudest_details'][ifo]['eff_dist'])+'<br>'
-          loudest_chisq += ifo + ': ' + str(result['loudest_details'][ifo]['chisq'])+'<br>'
+	  loudest_snr += "%s : %.3f <br>" % \
+                         (ifo, result['loudest_details'][ifo]['snr'])
+	  loudest_mchirp += "%s : %.3f <br>" % \
+                            (ifo, result['loudest_details'][ifo]['mchirp'])
+	  loudest_eff_dist += "%s : %.3f <br>" % \
+                              (ifo, result['loudest_details'][ifo]['eff_dist'])
+	  loudest_chisq += "%s : %.3f <br>" % \
+                           (ifo, result['loudest_details'][ifo]['chisq'])
+	  loudest_effsnr += "%s : %.3f <br>" % \
+                            (ifo, result['loudest_details'][ifo]['eff_snr'])
+
           
           # Check whether some of the ifo times is vetoed
           time_trigger = float(result['loudest_details'][ifo]['timeTrigger'])
@@ -831,7 +894,9 @@ class FollowupTrigger:
                                    'loudest<br>'+loudest_snr, \
                                    'loudest<br>'+loudest_mchirp, \
                                    'loudest<br>'+loudest_eff_dist,\
-                                   'loudest<br>'+loudest_chisq, veto_onoff])
+                                   'loudest<br>'+loudest_chisq, \
+				   'loudest<br>'+loudest_effsnr,
+				   veto_onoff])
         else:
           self.fill_table( page, [ stage,  '<font color="red">MISSED'])
           
@@ -874,7 +939,8 @@ class FollowupTrigger:
     return self.followup(page)
 
   # -----------------------------------------------------
-  def from_sngl(self, sngl, ifo = None, more_infos = False, injection_id = None):
+  def from_sngl(self, sngl, ifo = None, more_infos = False, \
+                injection_id = None):
     """
     Creates a followup page from a single trigger.
     @param sngl: the sngl trigger to be followed up
@@ -896,7 +962,8 @@ class FollowupTrigger:
     return self.followup(page)
     
   # -----------------------------------------------------
-  def from_missed(self, missed, ifo = None, more_infos = True, injection_id = None):
+  def from_missed(self, missed, ifo = None, more_infos = True, \
+                  injection_id = None):
     """
     Creates a followup page from a missed injection.
     @param sngl: the missed injection to be followed up
@@ -910,7 +977,8 @@ class FollowupTrigger:
                                injection_id = injection_id )    
     
   # -----------------------------------------------------
-  def from_found(self, found, ifo = None, more_infos = False, injection_id = None):
+  def from_found(self, found, ifo = None, more_infos = False, \
+                 injection_id = None):
     """
     Creates a followup page from a found injection.
     @param sngl: the found injection to be followed up
@@ -924,7 +992,8 @@ class FollowupTrigger:
                                injection_id = injection_id )
     
   # -----------------------------------------------------
-  def from_injection(self, injection, ifo = None, more_infos = True, injection_id = None):
+  def from_injection(self, injection, ifo = None, more_infos = True, \
+                     injection_id = None):
     """
     Creates a followup page from an injection.
     @param injection: the injection to be followed up
@@ -953,7 +1022,8 @@ class FollowupTrigger:
 
   
   # -----------------------------------------------------
-  def from_time(self, trigger_time, ifo = None, more_infos = False, injection_id = None): 
+  def from_time(self, trigger_time, ifo = None, more_infos = False, \
+                injection_id = None): 
     """
     Creates a followup page from a given time.
     @param trigger_time: the time to be followed up
@@ -1019,10 +1089,12 @@ class FollowupTrigger:
         for cat in [1,2,3,4]:          
           select_list=self.select_category(file_list, cat)
           if len(select_list)==0:
-            print "WARNING (not that bad): No THINCA_SECOND files found for category ", cat
+            print "WARNING (not that bad): "\
+                  "No THINCA_SECOND files found for category ", cat
             continue          
           modstage = stage+'_CAT_' + str(cat)
-          invest_dict[modstage] = self.create_timeseries(select_list,modstage, self.number)
+          invest_dict[modstage] = self.create_timeseries(select_list,modstage,\
+                                                         self.number)
       else:
         invest_dict[stage]=self.create_timeseries(file_list, stage, self.number)
 
@@ -1057,3 +1129,276 @@ class FollowupTrigger:
     self.fname_list.append(htmlfilename)
     return htmlfilename
 
+  # -----------------------------------------------------
+  def find_unvetoed_ifos(self, inj, ifo_list):
+    """
+    Find the list of unvetoed injections for this particular
+    injection (missed or found)
+    @param inj: the injection (SimInspiral table)
+    @param ifo_list: the ifo list
+    """
+
+    unvetoed_ifos = []
+    for ifo in ifo_list:
+      veto_time = float(getattr(inj, ifo[0].lower()+'_end_time'))
+      if not self.is_veto(veto_time, ifo):
+        unvetoed_ifos.append(ifo)
+
+    return unvetoed_ifos
+
+  # -----------------------------------------------------
+  def get_relevant_distance(self, inj, ifo_list):
+    """
+    Find the relevant distance for this injection,
+    given  the list of IFO's
+    """
+
+    # take the second largest effective distance
+    list_dist = []
+    for ifo in ifo_list:
+      list_dist.append(getattr(inj, 'eff_dist_'+ifo[0].lower()))
+    list_dist.sort()
+
+    return list_dist[1]
+  
+  # -----------------------------------------------------
+  def populate_followup_list(self, inj, ifo_list):
+    """
+    Find the relevant effective distance for this injection
+    including any possible vetoes.
+    """
+
+    # retreive list of unvetoed IFOs
+    unvetoed_ifos = self.find_unvetoed_ifos(inj, ifo_list)
+
+    if len(unvetoed_ifos)>=2:
+      # if there are 2 or more unvetoed IFO's left
+      # a coincidence is possible. Need to followup this case
+
+      # find the type (for plotting issues)
+      type = 'ks'
+      if len(unvetoed_ifos) == len(ifo_list):
+        # no veto for any ifo
+        type = 'ro'
+
+      # get the relevant distance
+      rel_dist = self.get_relevant_distance(inj, unvetoed_ifos)
+
+      # append to the list of potential injections to be followed up
+      self.followup_dict['inj'].append(inj)
+      self.followup_dict['dist'].append(rel_dist)
+      self.followup_dict['type'].append(type)
+
+    else:
+      self.vetoed_injections.append(inj)
+
+  # -----------------------------------------------------
+  def followup_missed_injections(self, opts, missed_injections, \
+                                 found_injections, \
+                                 xvalue = 'mtotal', xlog = 'linear', \
+                                 ylog = 'log'):
+    """
+    This function will do the complete followup on each relevant
+    missed injection. 
+    """
+
+
+    # FIXME: put this dict into a basic class
+    foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', \
+                   'H2V1':'<','L1V1':'>', 'H1H2L1':'s', 'H1H2V1':'D',\
+                   'H2L1V1':'d', 'H1L1V1':'1',\
+                   'H1H2L1V1':'p', 'H1':'x', 'H2':'x', 'L1':'x', 'V1':'x'}
+  
+    # populate the injections to be followed up
+    ifo_list =  get_ifo_list(opts.ifo_times)
+    for inj in missed_injections:
+      self.populate_followup_list(inj, ifo_list)
+
+    # select the first N injections to followup
+    if opts.followup_number:
+      index = numpy.argsort(self.followup_dict['dist'])
+      number_to_followup = min(len(index), opts.followup_number)
+    else:
+      raise NotImplementedError,"NotImplemented. You only can specify the "\
+            "number of injections to be followed up. "
+
+    # Handle the found injections. Distinguish them by the
+    # IFO's they were found with
+    found_dist = {}
+    found_masses = {}
+    for type in found_injections.keys():
+      temp_dist = None
+
+      # create a list of IFO's from the one-word-list
+      sub_ifo_list = get_ifo_list(type)
+
+      # get the distance and the masses
+      found_dist[type] = [self.get_relevant_distance(inj, sub_ifo_list)\
+                          for inj in found_injections[type]]
+      
+      found_masses[type], legend = get_data_from_table( \
+        found_injections[type], xvalue)
+      
+    ## create the main image
+    pylab.clf()
+
+    # plot the found injections
+    for type in found_injections.keys():
+
+      # create a list of IFO's from the one-word-list
+      sub_ifo_list = get_ifo_list(type)
+      
+      # Color the markers blue iff this inj is found in all 
+      # possible detectors
+      col = 'm'
+      if len(sub_ifo_list) == len(ifo_list):
+        col = 'b'
+
+      # FIXME: foundSymbol not defined
+      pylab.plot( found_masses[type], found_dist[type], col+foundSymbol[type], \
+            markerfacecolor='None',markeredgecolor=col, \
+            label = type, markersize=10, markeredgewidth=1)
+
+    # don't forget to plot the real vetoed ones
+    dist = [self.get_relevant_distance(inj, ifo_list)\
+            for inj in self.vetoed_injections]
+    masses =  viz.readcol(self.vetoed_injections,"mass1")+\
+             viz.readcol(self.vetoed_injections,"mass2")
+    pylab.plot( masses, dist, 'ks', \
+                markerfacecolor='None',label='vetoed',\
+                markeredgecolor='k',markersize=10, markeredgewidth=1)
+
+    # plot the missed ones
+    missed_masses, legend = get_data_from_table( self.followup_dict['inj'], xvalue)
+
+    pylab.plot( missed_masses, self.followup_dict['dist'], 'ro', \
+          markerfacecolor='None',label='(prop) missed',\
+          markeredgecolor='r',markersize=10, markeredgewidth=1)
+
+
+    legy = 'Decisive effective distance [Mpc]'
+    title_text = legend+' vs '+legy
+    pylab.title( opts.title + ' '+title_text+' in '+opts.ifo_times+\
+                 ' times', size='x-large')
+    pylab.xlabel(legend, size='x-large')
+    pylab.ylabel(legy, size='x-large')
+    pylab.grid(True)
+    pylab.legend()
+
+    # create a mapDist
+    mapDict ={'object':'', \
+              'text':'Click on a filled circle to go to the followup page',\
+              'xCoords':[], 'yCoords':[], 'links': []}
+
+    # coordinates of the actual picture in the image
+    # FIXME: These numbers might change for different solutions,
+    # and image types.
+    boundFigX = [100.0,720.0]
+    boundFigY = [540.0, 60.0]
+
+    # choose lin/log for the axes
+    pylab.gca().set_xscale(xlog)   
+    pylab.gca().set_yscale(ylog)   
+
+    # limits on the axes for the image
+    axes=pylab.gcf().axes[0]
+    rangeFigX = axes.get_xlim()
+    rangeFigY = numpy.log10( axes.get_ylim() )
+  
+    # calculating scaling factors
+    slopeX = (boundFigX[1]-boundFigX[0])/(rangeFigX[1]-rangeFigX[0])
+    interX = boundFigX[1] - slopeX*rangeFigX[1]
+    slopeY = (boundFigY[1]-boundFigY[0])/(rangeFigY[1]-rangeFigY[0])
+    interY = boundFigY[1] - slopeY*rangeFigY[1]
+    
+
+    # loop over all missed injections
+    for ind in index[:number_to_followup]:
+      
+      # get the relevant data for this injection to be followed up
+      inj = self.followup_dict['inj'][ind]
+      type = self.followup_dict['type'][ind]
+      eff_dist = self.followup_dict['dist'][ind]
+      eff_dist_log = numpy.log10(eff_dist)
+      total_mass = inj.mass1+inj.mass2
+
+
+      # get the coordinates of this missed injection
+      px = int(interX+slopeX*total_mass)
+      py = int(interY+slopeY*eff_dist_log)
+      
+      # highlight the clickable missed ones; depending if it is
+      # a real missed one or a possible missed one (with vetoes)
+      pylab.plot( [total_mass], [eff_dist], type, markerfacecolor = type[0], \
+            markersize=10)
+
+      # do the followup and create the followup page
+      followuphtml = self.from_missed(inj)
+      
+      # add the point and the link to the mapDict
+      mapDict['xCoords'].append(px)
+      mapDict['yCoords'].append(py)
+      mapDict['links'].append(followuphtml)
+
+    return mapDict
+  
+#######################################################################
+def get_data_from_table(table, col_name, ifo = None):
+  """
+  Retrieves data from a table, including non-table entries
+  such as 'mtotal' and 'time'
+  @param table: the table containing the data
+  @param col_name: the name of the column
+  @param ifo: the ifo for which the column is returned
+  """
+
+  if col_name=='time':
+     data = [t for t in viz.timeindays(viz.readcol(table,"end_time", ifo))]
+     legend = "End time (in days)"
+  elif col_name == 'mtotal':
+     data = viz.readcol(table,"mass1")+viz.readcol( table,"mass2")
+     legend = "Total mass"
+  else:
+     data = viz.readcol(table, col_name)
+     legend = xname
+
+  return data, legend
+
+#######################################################################
+def getData( table, xname, yname, ifo  ):
+  """
+  Retrieves data from a table, including non-table entries
+  such as 'mtotal' and 'time'
+  @param table: the table with the data
+  @param xname: the x-value
+  @param yname: the y-value
+  @param ifo  : the ifo for which the time or distance is returned
+  """
+
+  if xname=='time':
+    xp= [ t-opts.time_offset \
+          for t in viz.timeindays(viz.readcol( table,"end_time", ifo)) ]
+    legx = "End time (in days)"
+  elif xname == 'mtotal':    
+    xp = viz.readcol( table,"mass1")+viz.readcol( table,"mass2")
+    legx = "Total mass"
+  else:
+    xp = viz.readcol( table,xname)
+    legx = xname
+  
+
+  if yname == 'eff_dist':
+    yp = viz.readcol( table,"eff_dist", ifo )
+    legy = "Effective distance"
+  else:
+    yp = viz.readcol( table,yname)
+    legy = yname
+
+  return xp, yp, legx, legy
+
+####################################################
+def get_ifo_list(ifo_times):
+  ifo_list = []
+  for i in range(len(ifo_times)/2):
+    ifo_list.append(ifo_times[2*i:2*i+2])
+  return ifo_list
