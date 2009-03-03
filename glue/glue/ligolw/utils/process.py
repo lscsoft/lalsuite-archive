@@ -103,7 +103,7 @@ def set_process_end_time(process):
 	"""
 	Set the end time in a row in a process table to the current time.
 	"""
-	process.start_time = gpstime.GpsSecondsFromPyUTC(time.time())
+	process.end_time = gpstime.GpsSecondsFromPyUTC(time.time())
 	return process
 
 
