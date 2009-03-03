@@ -37,6 +37,7 @@ from pylal import SimInspiralUtils
 from pylal import InspiralUtils
 import numpy
 from pylal import followup_missed
+from pylal import followup_trigger
 
 #######################################################################
 def isSummValue(name, attrs):
@@ -112,95 +113,6 @@ def savePlot(opts, filename, tag, keep=False):
   if not opts.show_plot and not keep:
     close()
   return fname
-
-#######################################################################
-def createImageMap(opts, missedInj, ifo, tag):
-  """
-  This function will do a followup on some or all missed injections
-  by using the class FollowupMissed in followup_missed.py.
-  This will create a html page containing informations about the missed
-  trigger(s) and containing plots of time series around the missed injection(s).
-  Also, this function adds an ImageMap to the main html file.
-  @param missedInj: a sim_inspiral table of a missed injection that might be followed up
-  @param ifo:       the IFO corresponding to this missed injection
-  @param tag:       the tag which is added to the created filenames
-  """
-
-  # reset the number and set the tag
-  followup.reset()
-  followup.setTag( tag )
-  
-  # create a mapDist
-  mapDict ={'object':'', \
-            'text':'Click on a filled circle to go to the followup page',\
-            'xCoords':[], 'yCoords':[], 'links': []}
-
-  # coordinates of the actual picture in the image
-  # TODO: These numbers might change for different solutions,
-  # image types...
-  boundFigX = [100.0,720.0]
-  boundFigY = [540.0, 60.0]
-
-  # limits on the axes for the image
-  axes=gcf().axes[0]
-  rangeFigX = axes.get_xlim()
-  rangeFigY = log10( axes.get_ylim() )
-
-  # calculating scaling factors
-  slopeX = (boundFigX[1]-boundFigX[0])/(rangeFigX[1]-rangeFigX[0])
-  interX = boundFigX[1] - slopeX*rangeFigX[1]
-  slopeY = (boundFigY[1]-boundFigY[0])/(rangeFigY[1]-rangeFigY[0])
-  interY = boundFigY[1] - slopeY*rangeFigY[1]
-
-  # figure out the missed injections to be followed up
-  if opts.followup_number:
-
-    # get the distances and sort them
-    distVector = viz.readcol( missedInj, 'eff_dist', ifo )
-    index = argsort(distVector)
-    n=min( len(distVector), opts.followup_number)
-    missedInjUse = [missedInj[index[i]] for i in range(n)]
-
-  else:
-    # use the estimated distance curve
-    missedInjUse = []
-    for inj in missedInj:
-      dist20 = getattr( opts, "followup_dist_%s" % ifo[0].lower() )
-      estDist = followup.estimatedDistance( inj.mass1, inj.mass2, dist20)
-      if getattr( inj, 'eff_dist_'+ifo[0].lower())<estDist:
-        missedInjUse.append( inj )
-
-  # loop over all missed injections
-  for inj in missedInjUse:
-    
-    # do the followup and create the followup page
-    followuphtml = followup.followup(inj, ifo)
-    
-    # get the coordinates of this missed injection
-    totalMass = inj.mass1+inj.mass2
-    effDist = getattr( inj, 'eff_dist_'+ifo[0].lower())
-    effDistLog = log10(effDist)
-    px = int( interX+slopeX*totalMass )
-    py = int( interY+slopeY*effDistLog )
-
-    # highlight the clickable missed ones
-    plot( [totalMass], [effDist], 'ro', markerfacecolor = 'r', markersize=10)
-
-    # add the point and the link to the mapDict
-    mapDict['xCoords'].append( px )
-    mapDict['yCoords'].append( py )
-    mapDict['links'].append( followuphtml )
-    
-  # save the figure (containing filled circles)
-  if opts.enable_output:
-
-    # save the figure and add it to the list of maps
-    # after removal of the first directory...
-    filename = savePlot( opts, tag+"_map", "test" )
-    index=filename.index('/')+1 
-    mapDict['object']=filename[index:]
-    mapList.append( mapDict )
-
 
 #################################################################
 
@@ -345,6 +257,10 @@ def parse_command_line():
   parser.add_option("","--followup-time-window",action="store",\
       type="float",default=20.0,  metavar="FOLLOWUPTIMEWINDOW",\
       help="time-window to be plotted in the followup [in seconds]")
+  parser.add_option("","--followup-sned",action="store",\
+        type="string",default=None, \
+	help="optional: specifies the path to lalapps_sned to compute "\
+	     "the correct effective distance")
   parser.add_option("", "--html-for-cbcweb",action="store",\
       default=False, metavar = "CVS DIRECTORY", help="publish the html "\
       "output in a format that can be directly published on the cbc webpage "\
@@ -497,6 +413,9 @@ foundInj  = dict()
 foundTrig = dict()
 possibleMissedInj = lsctables.New(lsctables.SimInspiralTable)
 missedInj = lsctables.New(lsctables.SimInspiralTable)
+followupInj = lsctables.New(lsctables.SimInspiralTable)
+vetoedInj = lsctables.New(lsctables.SimInspiralTable)
+missedVetoedInj = lsctables.New(lsctables.SimInspiralTable)
 allFoundTrig = lsctables.New(lsctables.SnglInspiralTable)
 allFoundInj = lsctables.New(lsctables.SimInspiralTable) 
 
@@ -556,25 +475,41 @@ for misentry, misfile in zip(miscache,misFiles):
 
 # initialize the followup class
 if opts.do_followup:
-  followup = followup_missed.FollowupMissed( cache, opts)
+  followup = followup_trigger.FollowupTrigger(cache, opts)
 
-if opts.do_followup and not opts.count_vetoes_as_missed:
-  # break missed injections into vetoes and unvetoed
+## take the vetoes into account for the followup (not else??)
+if opts.do_followup and not opts.count_vetoes_as_missed and False:
   if opts.verbose:
     print "Using veto files to determine which injections were missed due to vetoes."
-  vetoedInj = lsctables.New(lsctables.SimInspiralTable)
+
+  # loop over each possible missed injection
   for inj in possibleMissedInj:
+
+    # count how many IFO's remain after applying the veto
     unvetoedIFOs = 0
     for ifo in ifoList:
       vetoTime = float(getattr(inj,ifo[0].lower()+'_end_time'))
-      if not followup.isThereVeto(vetoTime,ifo): unvetoedIFOs += 1
-    if unvetoedIFOs > 1:
+      if not followup.is_veto(vetoTime,ifo): unvetoedIFOs += 1
+
+    if unvetoedIFOs == 0:
+      # no IFO is vetoed. So this injection is clearly missed and needs
+      # to be followed up
       missedInj.append(inj)
-    else:
+      followupInj.append(inj)
+    elif unvetoedIFOs < 2:
+      # At most one IFO is unvetoed. You will never get a coincident candidate
+      # from this injection, so this is clearly vetoed.
       vetoedInj.append(inj)
+    else:
+      # Here are two or more IFO's remaining, the rest has been vetoed.
+      # So the injection could have been found. Need to followup.
+      missedVetoedInj.append(inj)
+      followupInj.append(inj)
 else:
+  # well, no veto -> all missed injections are missed...
   missedInj = possibleMissedInj
- 
+  followupInj = possibleMissedInj
+
 
 ##############################################################################
 # read in the range if desired
@@ -600,7 +535,27 @@ foundSymbol = {'H1H2':'x', 'H1L1':'^', 'H2L1':'+', 'H1V1':'v', 'H2V1':'<','L1V1'
 foundSymbols = ['','','','','','','','' ]
 
 gpsDigits = "9"
-xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")  
+xmajorFormatter = FormatStrFormatter("%"+gpsDigits+"d")
+
+
+##############################################################################
+# Do the followup in a nicely one-function call
+if opts.do_followup:
+
+  mapDict = followup.followup_missed_injections(opts, missedInj, foundInj)
+
+  # save the figure (containing filled circles)
+  if opts.enable_output:
+
+    # save the figure and add it to the list of maps
+    # after removal of the first directory...
+    filename = 'totalmass-maxEffDist_log-map'
+    filename = savePlot( opts, 'totalmass-decisiveEffDist_log-map', \
+                         opts.user_tag or '')
+    index=filename.index('/')+1
+    mapDict['object']=filename[index:]
+    mapList.append( mapDict )
+
 ##############################################################################
 # Create all the plots
 
@@ -683,10 +638,6 @@ for xname, yname, ys in zip( xplot, yplot, yscale):
         filename = xname+'-'+yname+'-log-'+ifo
         savePlot( opts, filename, titleText, keep=True)
         
-        # include followup links
-        if xname=="mtotal" and yname=="eff_dist" and opts.do_followup:
-          createImageMap(opts, missedInj, ifo,  filename)
-
         if not opts.show_plot:
           close()
 
@@ -744,7 +695,7 @@ if opts.enable_output is True:
 
   # create the cache-file
   if opts.do_followup:
-    fnameList.extend( followup.fnameList )
+    fnameList.extend( followup.fname_list )
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
 
 #########################################################################
