@@ -1446,7 +1446,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
 
   #def __init__(self, chiaJob, procParams, trig, cp,opts,dag, trig_node, notrig_node ):
 
-  def __init__(self,job,trig,opts,dag):
+  def __init__(self,job,trig,opts,dag,cp):
 
     if 1:#try:
       # the use of this class would require some reorganisation in fu_Condor.py
@@ -1457,12 +1457,11 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.id = job.name + '-CHIA-' + str(trig.statValue) + '_' + str(trig.eventID)
       #self.setupNodeWeb(job)
       self.output_file_name = ""
-      self.add_var_opt("segment-length","1048576")
-      self.add_var_opt("dynamic-range-exponent","6.900000e+01")
-      self.add_var_opt("low-frequency-cutoff","4.000000e+01")
-      self.add_var_opt("sample-rate","4096")
-      self.add_var_opt("cohsnr-threshold","5.5")
-      #self.add_var_opt("ifo-tag","H1H2")
+      self.add_var_opt("segment-length",string.strip(cp.get('chia','segment-length')))
+      self.add_var_opt("dynamic-range-exponent",string.strip(cp.get('chia','dynamic-range-exponent')))
+      self.add_var_opt("low-frequency-cutoff",string.strip(cp.get('chia','low-frequency-cutoff')))
+      self.add_var_opt("sample-rate",string.strip(cp.get('chia','sample-rate')))
+      self.add_var_opt("cohsnr-threshold",string.strip(cp.get('chia','cohsnr-threshold')))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
