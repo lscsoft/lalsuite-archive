@@ -280,6 +280,12 @@ class LIGOLwParser:
           if delim != ',':
             raise LIGOLwParseError, 'unable to handle stream delimiter: '+delim
 
+          # If the result set is empty tag[2] is an empty array, which causes
+          # the next step to fail.  Add an empty string in this case.
+          if len(tag[2]) == 0:
+            tag[2].append("")
+
+
           # strip newlines from the stream and parse it
           stream = csv.reader([re.sub(r'\n','',tag[2][0])],LIGOLWStream).next()
 
