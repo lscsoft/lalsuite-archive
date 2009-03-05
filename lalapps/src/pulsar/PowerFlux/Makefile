@@ -1,5 +1,5 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.30-64
+VERSION=1.4.32-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/

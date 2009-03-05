@@ -1521,12 +1521,19 @@ stats->max_m4=-1;
 stats->min_m4=1e50;
 stats->ntemplates=0;
 
-memset(&pst, 0, sizeof(pst));
-
 for(k=0;k<alignment_grid_free;k++) {
+	memset(&pst, 0, sizeof(pst));
+
 	point_power_sum_stats(pps, &(alignment_grid[k]), &(pst));
 
-	if(pst.ul<0)continue;
+	if(pst.ul<0) {
+		/* propagate masked points */
+		stats->max_weight_loss_fraction=1.0;
+
+		/* abort computation at this point. This has the benefit of reducing computation time for highly contaminated bands which would also produce a lot of high SNR outliers */
+		return;
+		continue;
+		}
 
 	stats->ntemplates++;
 
