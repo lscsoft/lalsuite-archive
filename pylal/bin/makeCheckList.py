@@ -359,6 +359,7 @@ results=checklistDB.queryDB(int(float(gpstime0)),600)
 checklistDB.close()
 htmlStart="<table bgcolor=grey border=1px><tr><th>IFO</th><th>Flag</th><th>Start(s)</th><th>Offset(s)</th><th>Stop(s)</th><th>Offset(s)</th></tr>"
 htmlRows=list()
+htmlRowsVeto=list()
 htmlStop="</table>"
 trigGPS=float(gpstime0)
 for ifo in checklistDB.ifoList:
@@ -372,16 +373,30 @@ for ifo in checklistDB.ifoList:
         mycolor="green"
       else:
         mycolor="red"
-      htmlRows.append(rowText%(mycolor,ifo,\
-                               token[0],\
-                               token[2],\
-                               token[2]-trigGPS,\
-                               token[3],\
-                               token[3]-trigGPS))
+      if token[0].split("_")[0] != "VETO":
+        htmlRows.append(rowText%(mycolor,ifo,\
+                                 token[0],\
+                                 token[2],\
+                                 token[2]-trigGPS,\
+                                 token[3],\
+                                 token[3]-trigGPS))
+      else:
+        htmlRowsVeto.append(rowText%(mycolor,ifo,\
+                                 token[0],\
+                                 token[2],\
+                                 token[2]-trigGPS,\
+                                 token[3],\
+                                 token[3]-trigGPS))
 htmlMiddle=""
 for row in htmlRows:
   htmlMiddle="%s %s"%(htmlMiddle,row)
 dqTable=htmlStart+htmlMiddle+htmlStop
+
+htmlMiddleVeto=""
+for row in htmlRowsVeto:
+  htmlMiddleVeto="%s %s"%(htmlMiddleVeto,row)
+vetoTable=htmlStart+htmlMiddleVeto+htmlStop
+
 #
 # Insert the new text string of a table using markup.py functions
 page.td(dqTable)
@@ -395,7 +410,7 @@ page.tr()
 page.td("#2 Veto investigations")
 page.td("Does the candidate survive the veto investigations performed at its time ?")
 page.td()
-page.td()
+page.td(vetoTable)
 #file.write("  <td>")
 #for j,ifo in enumerate(ifoList):
 #  file.write("<table>")
