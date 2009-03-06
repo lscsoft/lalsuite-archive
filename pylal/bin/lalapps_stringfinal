@@ -212,9 +212,11 @@ WHERE
 				self.foreground.append(abs(amplitude) * self.amplitude_factor)
 
 	def finish(self):
-		print "Total time in %s foreground segments: %s s" % (self.instrument, str(self.foreground_time))
-		print "Total time in %s background segments: %s s" % (self.instrument, str(self.background_time))
-		self.axes.set_title(r"\begin{center}Cummulative Coincident Event Rate vs.\ Amplitude in %s\\%d Foreground, %d Background Events\end{center}" % (self.instrument, len(self.foreground), len(self.background)))
+		print "%s zero-lag events: %d" % (self.instrument, len(self.foreground))
+		print "Total time in %s zero-lag segments: %s s" % (self.instrument, str(self.foreground_time))
+		print "%s time-slide events: %d" % (self.instrument, len(self.background))
+		print "Total time in %s time-slide segments: %s s" % (self.instrument, str(self.background_time))
+		self.axes.set_title(r"Cummulative Coincident Event Rate vs.\ Amplitude in %s" % self.instrument)
 		self.background.sort()
 		self.foreground.sort()
 		print "Amplitude of loudest %s zero-lag survivor: %.9g s^(-1/3)" % (self.instrument, self.foreground[-1])
@@ -240,9 +242,10 @@ WHERE
 		poly_x = numpy.concatenate((self.background, self.background[::-1]))
 		poly_y = numpy.concatenate((background_y + 2 * background_yerr, (background_y - 2 * background_yerr)[::-1]))
 		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
-		self.axes.plot(self.background, background_y, "ko-")
+		line1 = self.axes.plot(self.background, background_y, "ko-")
 
-		self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+		line2 = self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+		self.axes.legend((line1, line2), (r"Time-slide events", r"Zero-lag events"), loc = "upper right")
 
 		self.axes.set_xlim([xmin, xmax])
 		self.axes.set_ylim([ymin, ymax])
