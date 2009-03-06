@@ -713,3 +713,92 @@ class ROCPlot(BasicPlot):
         del self.bg_sets
         del self.eff_weight_sets
         del self.kwarg_sets
+
+class QQPlot(BasicPlot):
+    """
+    Plot the global rank versus the self rank, like a Q-Q plot, i.e.
+    differences between the probability distribution of a
+    statistical population to a test population.
+    """
+    def __init__(self, *args, **kwargs):
+        BasicPlot.__init__(self, *args, **kwargs)
+        self.fg_data = []
+        self.bg_data = []
+        self.fg_kwargs = []
+        self.bg_kwargs = []
+        self.kwargs = None
+
+    def add_content(self, *args):
+        raise NotImplementedError, "A function 'add_content' is not "\
+              "implemented for QQPlot. "\
+              "Please use the functions 'add_fg' and 'add_bg'."
+
+    def _compute_quantiles(self, fg, bg):
+        """
+        Calculates the sorted quantiles to be plotted.
+        """
+        from scipy import stats
+
+        N_FG = len(fg)
+        N_BG = len(bg)
+        N_tot = N_BG + N_FG
+
+        # global rank vs self rank; very much like a Q-Q plot
+        bg_self_quantile = stats.rankdata(bg).astype(float) / N_BG
+        fg_self_quantile = stats.rankdata(fg).astype(float) / N_FG
+
+        popAB = numpy.concatenate((fg, bg))
+        popAB_ranked = stats.rankdata(popAB).astype(float)
+        fg_global_quantile = popAB_ranked[:N_FG] / N_tot
+        bg_global_quantile = popAB_ranked[N_FG:] / N_tot
+
+        fg_self_quantile.sort()
+        bg_self_quantile.sort()
+        fg_global_quantile.sort()
+        bg_global_quantile.sort()
+
+        return fg_self_quantile, bg_self_quantile, fg_global_quantile, bg_global_quantile
+
+    def add_fg(self, data, **kwargs):
+        """
+        Add the foreground data and the kwargs to a list for the
+        """
+        self.fg_data.append(data)
+        self.fg_kwargs.append(kwargs)
+
+    def add_bg(self, data, **kwargs):
+        """
+        Add the foreground data and the kwargs to a list for the
+        """
+        self.bg_data.append(data)
+        self.bg_kwargs.append(kwargs)
+
+    @method_callable_once
+    def finalize(self, loc=0):
+
+        if len(self.fg_data)!=len(self.bg_data):
+            raise ValueError, "You have to add the same number of foreground data"\
+                  " as background data. But you have specified %d sets of foreground data but %d"\
+                  " sets of background data. " % ( len(self.fg_data), len(self.bg_data))
+
+        for fg, bg, fg_kwargs, bg_kwargs in itertools.izip(self.fg_data, self.bg_data, \
+                                                           self.fg_kwargs, self.bg_kwargs):
+
+            fg_self, bg_self, fg_global, bg_global = \
+                     self._compute_quantiles(fg, bg)
+
+            self.ax.plot(bg_self, bg_global, **bg_kwargs)
+            self.ax.plot(fg_self, fg_global, **fg_kwargs)
+
+        # make it pretty
+        self.ax.grid(True)
+
+        # add legend if there are any non-trivial labels
+        self.ax.legend(loc=4)
+
+        # decrement reference counts
+        del self.fg_data
+        del self.bg_data
+        del self.fg_kwargs
+        del self.bg_kwargs
+        del self.kwargs
