@@ -336,7 +336,7 @@ def load_url(url, verbose = False, gz = False, xmldoc = None):
 	if verbose:
 		print >>sys.stderr, "reading %s ..." % (url and ("'%s'" % url) or "stdin")
 	if url is not None:
-		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 		if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 			fileobj = file(path)
 		else:
@@ -460,7 +460,7 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 	if url is None:
 		scheme, host, path = "", "", None
 	else:
-		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+		scheme, host, path, nul, nul, nul = urlparse.urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
 	else:
