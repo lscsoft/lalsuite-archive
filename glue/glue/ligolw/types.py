@@ -100,12 +100,16 @@ def ligolw_string_format_func(s):
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
+def ligolw_blob_format_func(b):
+	return u"\"%s\"" % base64.standard_b64encode(b)
+
+
 FormatFunc = {
 	u"char_s": ligolw_string_format_func,
 	u"char_v": ligolw_string_format_func,
-	u"ilwd:char": ligolw_string_format_func,
-	u"ilwd:char_u": lambda b: "\"%s\"" % base64.standard_b64encode(b),
-	u"blob": lambda b: "\"%s\"" % base64.standard_b64encode(b),
+	u"ilwd:char": u"\"%s\"".__mod__,
+	u"ilwd:char_u": ligolw_blob_format_func,
+	u"blob": ligolw_blob_format_func,
 	u"lstring": ligolw_string_format_func,
 	u"string": ligolw_string_format_func,
 	u"int_2s": u"%d".__mod__,
