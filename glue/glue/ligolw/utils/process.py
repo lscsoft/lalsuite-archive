@@ -27,28 +27,23 @@
 
 
 """
-A collection of utilities to assist in writing applications that manipulate
-data in LIGO Light-Weight XML format.
+A collection of utilities to assist applications in manipulating the
+process and process_params tables in LIGO Light-Weight XML documents.
 """
 
 
 import os
-import pickle
 import socket
 import time
 
 import StringIO
 
-from glue import segments
 from glue import gpstime
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
-from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import types as ligolwtypes
-from glue.ligolw import utils
-
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>, Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -56,6 +51,13 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 
+#
+# =============================================================================
+#
+#                               Process Metadata
+#
+# =============================================================================
+#
 
 
 def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
@@ -65,13 +67,11 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	cvs_entry_time should be a string in the format "YYYY/MM/DD
 	HH:MM:SS".  is_online should be a boolean, jobid an integer.
 	"""
-
 	try:
 		proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
 	except ValueError:
 		proctable = lsctables.New(lsctables.ProcessTable)
 		xmldoc.childNodes[0].appendChild(proctable)
-
 
 	proctable.sync_next_id()
 
@@ -136,6 +136,28 @@ def append_process_params(xmldoc, process, params):
 			row.value = None
 		paramtable.append(row)
 	return process
+
+
+def get_process_params(xmldoc, program, param):
+	"""
+	Return a list of the values stored in the process_params table for
+	params named param for the program named program.  Raises
+	ValueError if not exactly one program by that name is listed in the
+	document.  The values are returned as Python native types, not as
+	the strings appearing in the XML document.
+	"""
+	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
+	if len(process_ids) != 1:
+		raise ValueError, "process table must contain exactly one program named '%s'" % program
+	return [row.get_pyvalue() for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+
+
+def doc_includes_process(xmldoc, program):
+	"""
+	Return True if the process table in xmldoc includes entries for a
+	program named program.
+	"""
+	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
 
 
 class PersistentStringIO(StringIO.StringIO):
