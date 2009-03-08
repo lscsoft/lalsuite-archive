@@ -48,6 +48,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import ligolw_thinca
 from pylal import ligolw_tisi
@@ -119,12 +120,12 @@ def initialize_process(xmldoc, comment = u""):
 def set_process_params(xmldoc, process, options):
 	params = []
 	if options.zero_lag_file:
-		params.append(("--zero-lag-file", "lstring", options.zero_lag_file))
+		params.append((u"--zero-lag-file", u"lstring", options.zero_lag_file))
 	if options.time_slide_file:
-		params.append(("--time-slide-file", "lstring", options.time_slide_file))
-	params.append(("--output", "lstring", options.output))
+		params.append((u"--time-slide-file", u"lstring", options.time_slide_file))
+	params.append((u"--output", u"lstring", options.output))
 
-	llwapp.append_process_params(xmldoc, process, params)
+	ligolw_process.append_process_params(xmldoc, process, params)
 
 	return xmldoc
 

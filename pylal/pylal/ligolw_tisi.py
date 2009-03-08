@@ -38,6 +38,7 @@ from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 
 
@@ -173,9 +174,9 @@ def load_time_slides(filename, verbose = False, gz = False):
 
 
 def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = "ligolw_tisi", version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(doc, program = u"ligolw_tisi", version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-	llwapp.append_process_params(doc, process, [("--instrument", "lstring", instrument) for instrument in kwargs["instrument"]])
+	ligolw_process.append_process_params(doc, process, [(u"--instrument", u"lstring", instrument) for instrument in kwargs["instrument"]])
 
 	return process
 

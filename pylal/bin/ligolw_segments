@@ -42,6 +42,7 @@ from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 
 
@@ -95,14 +96,14 @@ def append_process(xmldoc, options):
 
 	params = []
 	if options.output is not None:
-		params += [("--output", "lstring", options.output)]
+		params += [(u"--output", u"lstring", options.output)]
 	for item in options.insert_from_segwizard.iteritems():
-		params += [("--insert-from-segwizard", "lstring", "=".join(item))]
+		params += [(u"--insert-from-segwizard", u"lstring", "=".join(item))]
 	if options.name is not None:
-		params += [("--name", "lstring", options.name)]
+		params += [(u"--name", u"lstring", options.name)]
 	if options.comment is not None:
-		params += [("--comment", "lstring", options.comment)]
-	llwapp.append_process_params(xmldoc, process, params)
+		params += [(u"--comment", u"lstring", options.comment)]
+	ligolw_process.append_process_params(xmldoc, process, params)
 
 	return process
 

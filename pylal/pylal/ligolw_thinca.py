@@ -33,6 +33,7 @@ import sys
 
 from glue import iterutils
 from glue.ligolw import lsctables
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
@@ -89,20 +90,20 @@ process_program_name = "ligolw_thinca"
 
 
 def append_process(xmldoc, comment = None, force = None, program = None, e_thinca_parameter = None, verbose = None):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = comment)
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = comment)
 
 	params = [
-		("--program", "lstring", program),
-		("--e-thinca-parameter", "real_8", e_thinca_parameter)
+		(u"--program", u"lstring", program),
+		(u"--e-thinca-parameter", u"real_8", e_thinca_parameter)
 	]
 	if comment is not None:
-		params += [("--comment", "lstring", comment)]
+		params += [(u"--comment", u"lstring", comment)]
 	if force is not None:
-		params += [("--force", None, None)]
+		params += [(u"--force", None, None)]
 	if verbose is not None:
-		params += [("--verbose", None, None)]
+		params += [(u"--verbose", None, None)]
 
-	llwapp.append_process_params(xmldoc, process, params)
+	ligolw_process.append_process_params(xmldoc, process, params)
 
 	return process
 
