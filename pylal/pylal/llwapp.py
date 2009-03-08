@@ -36,6 +36,7 @@ import os
 import pickle
 import socket
 import time
+import warnings
 
 
 from glue import segments
@@ -44,7 +45,7 @@ from glue.ligolw import table
 from glue.ligolw import param
 from glue.ligolw import lsctables
 from glue.ligolw import types as ligolwtypes
-from glue.ligolw import utils
+from glue.ligolw.utils import process as ligolwprocess
 from pylal.date import XLALUTCToGPS
 
 
@@ -161,85 +162,52 @@ def yaml_from_param(elem, name):
 #
 
 
-def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
+def append_process(*args, **kwargs):
 	"""
-	Add an entry to the process table in xmldoc.  program, version,
-	cvs_repository, comment, domain, and ifos should all be strings.
-	cvs_entry_time should be a string in the format "YYYY/MM/DD
-	HH:MM:SS".  is_online should be a boolean, jobid an integer.
+	Identical to the append_process() function in
+	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
+	time to get the leap seconds correct.
 	"""
-	proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
-	proctable.sync_next_id()
-	process = lsctables.Process()
-	process.program = program
-	process.version = version
-	process.cvs_repository = cvs_repository
-	if cvs_entry_time is not None:
-		process.cvs_entry_time = XLALUTCToGPS(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")).seconds
-	else:
-		process.cvs_entry_time = None
-	process.comment = comment
-	process.is_online = int(is_online)
-	process.node = socket.gethostname()
-	process.username = os.environ["LOGNAME"]
-	process.unix_procid = os.getpid()
-	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
-	process.end_time = None
-	process.jobid = jobid
-	process.domain = domain
-	process.set_ifos(ifos)
-	process.process_id = proctable.get_next_id()
-	proctable.append(process)
+	process = ligolwprocess.append_process(*args, **kwargs)
+	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None:
+		process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
 	return process
 
 
 def set_process_end_time(process):
 	"""
-	Set the end time in a row in a process table to the current time.
+	Identical to the set_process_end_time() function in
+	glue.ligolw.utils.process except uses LAL to convert UTC to GPS
+	time to get the leap seconds correct.
 	"""
 	process.end_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
 
 
-def append_process_params(xmldoc, process, params):
+def append_process_params(*args, **kwargs):
 	"""
-	xmldoc is an XML document tree, process is the row in the process
-	table for which these are the parameters, and params is an iterable
-	of (name, type, value) tuples one for each parameter.
+	Deprecated.  Use glue.ligolw.utils.process.append_process_params
+	instead.
 	"""
-	paramtable = table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName)
-	for name, type, value in params:
-		row = lsctables.ProcessParams()
-		row.program = process.program
-		row.process_id = process.process_id
-		row.param = unicode(name)
-		if type is not None:
-			row.type = unicode(type)
-			if row.type not in ligolwtypes.Types:
-				raise ValueError, "invalid type '%s' for parameter '%s'" % (row.type, row.param)
-		else:
-			row.type = None
-		if value is not None:
-			row.value = unicode(value)
-		else:
-			row.value = None
-		paramtable.append(row)
-	return process
+	warnings.warn("function pylal.llwapp.append_process_params is deprecated, use glue.ligolw.utils.process.append_process_params instead", DeprecationWarning, stacklevel = 2)
+	return ligolwprocess.append_process_params(*args, **kwargs)
 
 
-def get_process_params(xmldoc, program, param):
-	process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program(program)
-	if len(process_ids) != 1:
-		raise ValueError, "process table must contain exactly one program named '%s'" % program
-	return [row.get_pyvalue() for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if (row.process_id in process_ids) and (row.param == param)]
+def get_process_params(*args, **kwargs):
+	"""
+	Deprecated.  Use glue.ligolw.utils.process.get_process_params()
+	instead.
+	"""
+	warnings.warn("function pylal.llwapp.get_process_params is deprecated, use glue.ligolw.utils.process.get_process_params instead", DeprecationWarning, stacklevel = 2)
+	return ligolwprocess.get_process_params(*args, **kwargs)
 
 
-def doc_includes_process(doc, program):
+def doc_includes_process(*args, **kwargs):
 	"""
-	Return True if the process table in doc includes entries for a
-	program named program.
+	Deprecated.  Use glue.ligolw.utils.doc_includes_process() instead.
 	"""
-	return program in table.get_table(doc, lsctables.ProcessTable.tableName).getColumnByName("program")
+	warnings.warn("function pylal.llwapp.doc_includes_process is deprecated, use glue.ligolw.utils.process.doc_includes_process instead", DeprecationWarning, stacklevel = 2)
+	return ligolwprocess.doc_includes_process(*args, **kwargs)
 
 
 #
