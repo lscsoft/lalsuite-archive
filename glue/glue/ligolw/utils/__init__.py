@@ -457,7 +457,10 @@ def write_url(xmldoc, url, verbose = False, gz = False):
 	>>> from glue.ligolw import utils
 	>>> utils.write_url(xmldoc, "file:///data.xml")
 	"""
-	(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
+	if url is None:
+		scheme, host, path = "", "", None
+	else:
+		(scheme, host, path, nul, nul, nul) = urlparse.urlparse(url)
 	if scheme.lower() in ("", "file") and host.lower() in ("", "localhost"):
 		return write_filename(xmldoc, path, verbose = verbose, gz = gz)
 	else:
