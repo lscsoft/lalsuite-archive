@@ -33,6 +33,7 @@ import sys
 
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
@@ -90,22 +91,22 @@ process_program_name = "ligolw_burca"
 
 
 def append_process(xmldoc, **kwargs):
-	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(xmldoc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
 	params = [
-		("--program", "lstring", kwargs["program"]),
-		("--coincidence-algorithm", "lstring", kwargs["coincidence_algorithm"])
+		(u"--program", u"lstring", kwargs["program"]),
+		(u"--coincidence-algorithm", u"lstring", kwargs["coincidence_algorithm"])
 	]
 	if "stringcusp_params" in kwargs:
-		params += [("--stringcusp-params", "lstring", kwargs["stringcusp_params"])]
+		params += [(u"--stringcusp-params", u"lstring", kwargs["stringcusp_params"])]
 	if "force" in kwargs and kwargs["force"]:
-		params += [("--force", None, None)]
+		params += [(u"--force", None, None)]
 	if kwargs["coincidence_algorithm"] in ("stringcusp",):
 		for key, value in kwargs["thresholds"].iteritems():
 			if key[0] < key[1]:
-				params += [("--thresholds", "lstring", "%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
+				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
 
-	llwapp.append_process_params(xmldoc, process, params)
+	ligolw_process.append_process_params(xmldoc, process, params)
 
 	return process
 

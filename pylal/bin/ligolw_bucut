@@ -37,6 +37,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 from glue.ligolw.utils import segments as ligolw_segments
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import SimBurstUtils
 from pylal.date import LIGOTimeGPS
@@ -206,68 +207,68 @@ process_program_name = "ligolw_bucut"
 
 
 def append_process(doc, options):
-	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = options.comment)
+	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = options.comment)
 
 	params = []
 	if options.coinc_only:
-		params += [("--coinc-only", None, None)]
+		params += [(u"--coinc-only", None, None)]
 	if options.inj_made_only:
-		params += [("--inj-made-only", None, None)]
+		params += [(u"--inj-made-only", None, None)]
 	if options.min_amplitude is not None:
-		params += [("--min-amplitude", "real_4", options.min_amplitude)]
+		params += [(u"--min-amplitude", u"real_4", options.min_amplitude)]
 	if options.max_amplitude is not None:
-		params += [("--max-amplitude", "real_4", options.max_amplitude)]
+		params += [(u"--max-amplitude", u"real_4", options.max_amplitude)]
 	if options.min_bandwidth is not None:
-		params += [("--min-bandwidth", "real_4", options.min_bandwidth)]
+		params += [(u"--min-bandwidth", u"real_4", options.min_bandwidth)]
 	if options.max_bandwidth is not None:
-		params += [("--max-bandwidth", "real_4", options.max_bandwidth)]
+		params += [(u"--max-bandwidth", u"real_4", options.max_bandwidth)]
 	if options.min_central_freq is not None:
-		params += [("--min-central-freq", "real_4", options.min_central_freq)]
+		params += [(u"--min-central-freq", u"real_4", options.min_central_freq)]
 	if options.max_central_freq is not None:
-		params += [("--max-central-freq", "real_4", options.max_central_freq)]
+		params += [(u"--max-central-freq", u"real_4", options.max_central_freq)]
 	if options.min_confidence is not None:
-		params += [("--min-confidence", "real_4", options.min_confidence)]
+		params += [(u"--min-confidence", u"real_4", options.min_confidence)]
 	if options.max_confidence is not None:
-		params += [("--max-confidence", "real_4", options.max_confidence)]
+		params += [(u"--max-confidence", u"real_4", options.max_confidence)]
 	if options.min_duration is not None:
-		params += [("--min-duration", "real_4", options.min_duration)]
+		params += [(u"--min-duration", u"real_4", options.min_duration)]
 	if options.max_duration is not None:
-		params += [("--max-duration", "real_4", options.max_duration)]
+		params += [(u"--max-duration", u"real_4", options.max_duration)]
 	if options.min_fhigh is not None:
-		params += [("--min-fhigh", "real_4", options.min_fhigh)]
+		params += [(u"--min-fhigh", u"real_4", options.min_fhigh)]
 	if options.max_fhigh is not None:
-		params += [("--max-fhigh", "real_4", options.max_fhigh)]
+		params += [(u"--max-fhigh", u"real_4", options.max_fhigh)]
 	if options.min_flow is not None:
-		params += [("--min-flow", "real_4", options.min_flow)]
+		params += [(u"--min-flow", u"real_4", options.min_flow)]
 	if options.max_flow is not None:
-		params += [("--max-flow", "real_4", options.max_flow)]
+		params += [(u"--max-flow", u"real_4", options.max_flow)]
 	if options.min_hrss is not None:
-		params += [("--min-hrss", "real_4", options.min_hrss)]
+		params += [(u"--min-hrss", u"real_4", options.min_hrss)]
 	if options.max_hrss is not None:
-		params += [("--max-hrss", "real_4", options.max_hrss)]
+		params += [(u"--max-hrss", u"real_4", options.max_hrss)]
 	for instrument in options.cut_instrument:
-		params += [("--cut-instrument", "lstring", instrument)]
+		params += [(u"--cut-instrument", u"lstring", instrument)]
 	if options.min_peak_time is not None:
-		params += [("--min-peak-time", "lstring", options.min_peak_time)]
+		params += [(u"--min-peak-time", u"lstring", options.min_peak_time)]
 	if options.max_peak_time is not None:
-		params += [("--max-peak-time", "lstring", options.max_peak_time)]
+		params += [(u"--max-peak-time", u"lstring", options.max_peak_time)]
 	if options.min_snr is not None:
-		params += [("--min-snr", "real_4", options.min_snr)]
+		params += [(u"--min-snr", u"real_4", options.min_snr)]
 	if options.max_snr is not None:
-		params += [("--max-snr", "real_4", options.max_snr)]
+		params += [(u"--max-snr", u"real_4", options.max_snr)]
 	if options.min_start_time is not None:
-		params += [("--min-start-time", "lstring", options.min_start_time)]
+		params += [(u"--min-start-time", u"lstring", options.min_start_time)]
 	if options.max_start_time is not None:
-		params += [("--max-start-time", "lstring", options.max_start_time)]
+		params += [(u"--max-start-time", u"lstring", options.max_start_time)]
 	if options.min_stop_time is not None:
-		params += [("--min-stop-time", "lstring", options.min_stop_time)]
+		params += [(u"--min-stop-time", u"lstring", options.min_stop_time)]
 	if options.max_stop_time is not None:
-		params += [("--max-stop-time", "lstring", options.max_stop_time)]
+		params += [(u"--max-stop-time", u"lstring", options.max_stop_time)]
 	if options.program:
-		params += [("--program", "lstring", options.program)]
+		params += [(u"--program", u"lstring", options.program)]
 	if options.veto_file:
-		params += [("--veto-file", "lstring", options.veto_file)]
-	llwapp.append_process_params(doc, process, params)
+		params += [(u"--veto-file", u"lstring", options.veto_file)]
+	ligolw_process.append_process_params(doc, process, params)
 
 	return process
 

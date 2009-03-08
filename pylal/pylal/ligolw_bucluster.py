@@ -34,6 +34,7 @@ from glue import segments
 from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 
 
@@ -55,9 +56,9 @@ process_program_name = "ligolw_bucluster"
 
 
 def append_process(doc, **kwargs):
-	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = "lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
+	process = llwapp.append_process(doc, program = process_program_name, version = __version__, cvs_repository = u"lscsoft", cvs_entry_time = __date__, comment = kwargs["comment"])
 
-	llwapp.append_process_params(doc, process, [("--cluster-algorithm", "lstring", kwargs["cluster_algorithm"])])
+	ligolw_process.append_process_params(doc, process, [(u"--cluster-algorithm", u"lstring", kwargs["cluster_algorithm"])])
 
 	return process
 
