@@ -329,7 +329,7 @@ def ligolw_thinca(
 	time_slides = coinc_tables.get_ordered_time_slides()
 	for n, (time_slide_id, offsetdict) in enumerate(time_slides):
 		if verbose:
-			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(["%s = %+.16g s" % (i, o) for i, o in sorted(offsetdict.items())]))
+			print >>sys.stderr, "time slide %d/%d: %s" % (n + 1, len(time_slides), ", ".join(("%s = %+.16g s" % x) for x in sorted(offsetdict.items())))
 
 		#
 		# can we do it?
