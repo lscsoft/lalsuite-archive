@@ -184,6 +184,6 @@ def register_to_ldbd(client, program, options, version = '0', cvs_repository = '
 
 	fake_file = StringIO.StringIO()
 	xmldoc.write(fake_file)
-	client.insert(fake_file.buffer)
+	client.insert(fake_file.getvalue())
 
 	return process.process_id
