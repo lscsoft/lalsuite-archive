@@ -318,23 +318,7 @@ def get_column_info(connection, table_name):
 	Return an in order list of (name, type) tuples describing the
 	columns in the given table.
 	"""
-
-	# At LHO the following fails for the veto_definer table (and no others).  This may have something to do with
-	# unicode encoding, but I'm not sure.  Until I can figure this out, kludge around it.
-	#
-	# statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
-
-	cursor = connection.cursor().execute("SELECT name,sql FROM sqlite_master WHERE type == 'table'")
-	statement = None
-
-	for row in cursor:
-		name, tmp_sql = row
-		if str(name) == str(table_name):
-			statement = tmp_sql
-
-	if statement == None:
-		raise ligolw.ElementError, "Unable to find table named '%s' in sqlite_master" % table_name
-												
+	statement, = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE type == 'table' AND name == ?", (table_name,)).fetchone()
 	coldefs = re.match(_sql_create_table_pattern, statement).groupdict()["coldefs"]
 	return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(_sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
@@ -484,9 +468,14 @@ class DBTable(table.Table):
 
 	def __init__(self, *args):
 		table.Table.__init__(self, *args)
+
+		# save the stripped name
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
+
 		# convert class attribute to an instance attribute
 		self.connection = self.connection
+
+		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
 
 	def _end_of_columns(self):
