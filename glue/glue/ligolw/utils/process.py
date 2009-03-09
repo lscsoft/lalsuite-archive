@@ -159,27 +159,12 @@ def doc_includes_process(xmldoc, program):
 	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
 
 
-class PersistentStringIO(StringIO.StringIO):
-	"""
-	A utility class that looks enough like a file to fool Document.write(), but
-	which writes to a string so we can avoide the overhead of writing to a file and then
-	immediately reading from it.
-	"""
-	buffer = ''
-
-	def close(self):
-		self.buffer = self.getvalue()
-		StringIO.StringIO.close(self)
-
-
-
 def register_to_xmldoc(xmldoc, program, options, version = None, cvs_date = None):
 	"""
 	Register the current process and params to an xml document
 	"""
 	process = append_process(xmldoc, program = program, version = version, cvs_entry_time = cvs_date)	
 	params  = map(lambda key:(key, 'lstring', options.__dict__[key]), filter(lambda x: options.__dict__[x], options.__dict__))
-	
 	append_process_params(xmldoc, process, params)
 
 	return process.process_id
@@ -191,17 +176,14 @@ def register_to_ldbd(client, program, options, version = '0', cvs_repository = '
 	Register the current process and params to a database via a LDBDClient
 	"""
 	xmldoc = ligolw.Document()
-	xmldoc.appendChild(ligolw.LIGO_LW()) 
+	xmldoc.appendChild(ligolw.LIGO_LW())
 
 	process = append_process(xmldoc, program, version, cvs_repository, cvs_entry_time, comment, is_online, jobid, domain, ifos)
-
 	params  = map(lambda key:(key, 'lstring', options.__dict__[key]), filter(lambda x: options.__dict__[x], options.__dict__))
-	
 	append_process_params(xmldoc, process, params)
 
-	fake_file = PersistentStringIO()
+	fake_file = StringIO.StringIO()
 	xmldoc.write(fake_file)
-
 	client.insert(fake_file.buffer)
-	return process.process_id
 
+	return process.process_id
