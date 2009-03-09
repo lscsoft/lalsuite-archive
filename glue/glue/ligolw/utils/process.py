@@ -34,12 +34,11 @@ process and process_params tables in LIGO Light-Weight XML documents.
 
 import os
 import socket
+import StringIO
 import time
 
-import StringIO
 
 from glue import gpstime
-
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -63,9 +62,10 @@ __date__ = "$Date$"[7:-2]
 def append_process(xmldoc, program = None, version = None, cvs_repository = None, cvs_entry_time = None, comment = None, is_online = False, jobid = 0, domain = None, ifos = None):
 	"""
 	Add an entry to the process table in xmldoc.  program, version,
-	cvs_repository, comment, domain, and ifos should all be strings.
-	cvs_entry_time should be a string in the format "YYYY/MM/DD
-	HH:MM:SS".  is_online should be a boolean, jobid an integer.
+	cvs_repository, comment, domain, and ifos should all be strings or
+	unicodes.  cvs_entry_time should be a string or unicode in the
+	format "YYYY/MM/DD HH:MM:SS".  is_online should be a boolean, jobid
+	an integer.
 	"""
 	try:
 		proctable = table.get_table(xmldoc, lsctables.ProcessTable.tableName)
@@ -75,13 +75,12 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 
 	proctable.sync_next_id()
 
-	process = lsctables.Process()
+	process = proctable.RowType()
 	process.program = program
 	process.version = version
 	process.cvs_repository = cvs_repository
 	if cvs_entry_time is not None:
 		process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")))
-
 	else:
 		process.cvs_entry_time = None
 	process.comment = comment
@@ -120,7 +119,7 @@ def append_process_params(xmldoc, process, params):
 		xmldoc.childNodes[0].appendChild(paramtable)
 
 	for name, type, value in params:
-		row = lsctables.ProcessParams()
+		row = paramtable.RowType()
 		row.program = process.program
 		row.process_id = process.process_id
 		row.param = unicode(name)
