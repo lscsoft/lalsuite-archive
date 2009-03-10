@@ -80,7 +80,7 @@ __version__ = "$Revision$"[11:-2]
 #
 # =============================================================================
 #
-#                               Type Information
+#                               Type Categories
 #
 # =============================================================================
 #
@@ -96,22 +96,31 @@ TimeTypes = set([u"GPS", u"Unix", u"ISO-8601"])
 Types = BlobTypes | StringTypes | NumericTypes | TimeTypes
 
 
-def ligolw_string_format_func(s):
+#
+# =============================================================================
+#
+#                         Output Format Look-up Table
+#
+# =============================================================================
+#
+
+
+def string_format_func(s):
 	return u"\"%s\"" % unicode(s).replace(u"\\", u"\\\\").replace(u"\"", u"\\\"")
 
 
-def ligolw_blob_format_func(b):
+def blob_format_func(b):
 	return u"\"%s\"" % base64.standard_b64encode(b)
 
 
 FormatFunc = {
-	u"char_s": ligolw_string_format_func,
-	u"char_v": ligolw_string_format_func,
+	u"char_s": string_format_func,
+	u"char_v": string_format_func,
 	u"ilwd:char": u"\"%s\"".__mod__,
-	u"ilwd:char_u": ligolw_blob_format_func,
-	u"blob": ligolw_blob_format_func,
-	u"lstring": ligolw_string_format_func,
-	u"string": ligolw_string_format_func,
+	u"ilwd:char_u": blob_format_func,
+	u"blob": blob_format_func,
+	u"lstring": string_format_func,
+	u"string": string_format_func,
 	u"int_2s": u"%d".__mod__,
 	u"int_2u": u"%u".__mod__,
 	u"int_4s": u"%d".__mod__,
@@ -124,6 +133,15 @@ FormatFunc = {
 	u"float": u"%.8g".__mod__,
 	u"double": u"%.16g".__mod__
 }
+
+
+#
+# =============================================================================
+#
+#                  Conversion To And From Native Python Types
+#
+# =============================================================================
+#
 
 
 ToPyType = {
@@ -159,6 +177,15 @@ FromPyType = {
 }
 
 
+#
+# =============================================================================
+#
+#                  Conversion To and From Native Numpy Types
+#
+# =============================================================================
+#
+
+
 ToNumPyType = {
 	u"int_2s": "int16",
 	u"int_2u": "uint16",
@@ -184,6 +211,15 @@ FromNumPyType = {
 	"float32": u"real_4",
 	"float64": u"real_8"
 }
+
+
+#
+# =============================================================================
+#
+#                  Conversion To and From Native SQLite Types
+#
+# =============================================================================
+#
 
 
 ToSQLiteType = {
