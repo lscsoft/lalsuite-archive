@@ -638,7 +638,7 @@ time(&start_time);
 
 fprintf(stderr, "%d patches to process\n", patch_grid->npoints);
 for(pi=0;pi<patch_grid->npoints;pi++) {
-	if(pi % 5 == 0) {
+	if(pi % 100 == 0) {
 		time(&end_time);
 		if(end_time<start_time)end_time=start_time;
 		fprintf(stderr, "%d (%f patches/sec)\n", pi, pi/(1.0*(end_time-start_time+1.0)));
