@@ -159,15 +159,15 @@ def doc_includes_process(xmldoc, program):
 	return program in table.get_table(xmldoc, lsctables.ProcessTable.tableName).getColumnByName("program")
 
 
-def register_to_xmldoc(xmldoc, program, options, version = None, cvs_date = None):
+def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	"""
-	Register the current process and params to an xml document
+	Register the current process and params to an XML document.  Any
+	additional keyword arguments are passed to append_process().
+	Returns the new row from the process table.
 	"""
-	process = append_process(xmldoc, program = program, version = version, cvs_entry_time = cvs_date)	
-	params  = map(lambda key:(key, 'lstring', options.__dict__[key]), filter(lambda x: options.__dict__[x], options.__dict__))
-	append_process_params(xmldoc, process, params)
-
-	return process.process_id
+	process = append_process(xmldoc, program = program, **kwargs)
+	append_process_params(xmldoc, process, ((key, ligolwtypes.FromPyType[type(value)], value) for key, value in paramdict.items() if value))
+	return process
 
 
 # The tables in the segment database declare most fields "NOT NULL", so provide stub values

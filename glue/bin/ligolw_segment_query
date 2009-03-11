@@ -592,7 +592,7 @@ if __name__ == '__main__':
     # set up the response
     doc = ligolw.Document()
     doc.appendChild(ligolw.LIGO_LW())
-    process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options, version = __version__, cvs_date = __date__)
+    process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__, version = __version__, cvs_entry_time = __date__).process_id
 
     temp_files = False
 
