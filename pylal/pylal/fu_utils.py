@@ -839,25 +839,27 @@ def generateXMLfile(cp,ckey,ifo,outputPath=None,type='plot',use_max_template=Non
   else:
     trig = getattr(ckey,ifo)
 
+  trigger = copy.deepcopy(trig)
+
   if type == "coh":
     if cp.has_option("followup-coh-trigbank",ifo+"_channel"):
-      trig.channel = cp.get("followup-coh-trigbank",ifo+"_channel")
+      trigger.channel = cp.get("followup-coh-trigbank",ifo+"_channel")
     else:
       print >> sys.stderr, "the section [followup-coh-trigbank] in the .ini file should contain a field \""+ifo+"_channel\""
       sys.exit(1)
   else:
     properChannelTrig = getattr(ckey,ifo)
-    trig.channel = properChannelTrig.channel
-  trig.ifo = ifo
+    trigger.channel = properChannelTrig.channel
+  trigger.ifo = ifo
   #print ifo, getattr(ckey,ifo).ifo
   #print trig.channel, trig.ifo, maxSNR, getattr(ckey, 'event_id')
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
-  valid_columns = trig.__slots__
+  valid_columns = trigger.__slots__
   columns = []
   notcolumns = []
   for col in valid_columns:
     try: 
-      getattr(trig,col)
+      getattr(trigger,col)
       columns.append(col)
     except:
       notcolumns.append(col)
@@ -866,14 +868,14 @@ def generateXMLfile(cp,ckey,ifo,outputPath=None,type='plot',use_max_template=Non
     for col in notcolumns:
       print "\n adding column " + col
       columns.append(col)
-      setattr(trig,col,0)
+      setattr(trigger,col,0)
 
   process_params_table = lsctables.New(lsctables.ProcessParamsTable)
   xmldoc.childNodes[-1].appendChild(process_params_table) 
 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable,columns)
   xmldoc.childNodes[-1].appendChild(sngl_inspiral_table)
-  sngl_inspiral_table.append(trig)
+  sngl_inspiral_table.append(trigger)
 
   fileName = ifo + '-TRIGBANK_FOLLOWUP_' + type + str(int(ckey.event_id)) + ".xml.gz"
   if outputPath:
@@ -1516,16 +1518,18 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
       maxIFO = t.ifo
   trig = getattr(ckey,maxIFO)
 
+  trigcopy = copy.deepcopy(trig)
+
   #This is a hack since data channel can differ among ifos
   #properChannelTrig = getattr(ckey,maxIFO)
   #trig.channel = properChannelTrig.channel
   # BEFORE WE MAKE A NEW TABLE FIGURE OUT WHAT COLUMNS ARE VALID !!!
-  valid_columns = trig.__slots__
+  valid_columns = trigcopy.__slots__
   columns = []
   notcolumns = []
   for col in valid_columns:
     try:
-      getattr(trig,col)
+      getattr(trigcopy,col)
       columns.append(col)
     except:
       notcolumns.append(col)
@@ -1534,7 +1538,7 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
     for col in notcolumns:
       print "\n adding column " + col
       columns.append(col)
-      setattr(trig,col,0)
+      setattr(trigcopy,col,0)
 
   process_table = lsctables.New(lsctables.ProcessTable)
   xmldoc.childNodes[-1].appendChild(process_table)
@@ -1561,7 +1565,7 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
 
   for j in range(0,len(ifoTag)-1,2):
     itf = ifoTag[j:j+2]
-    trigger = copy.deepcopy(trig)
+    trigger = copy.deepcopy(trigcopy)
     trigger.ifo = itf
     sngl_inspiral_table.append(trigger)
 
