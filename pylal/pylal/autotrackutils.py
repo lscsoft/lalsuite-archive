@@ -205,7 +205,7 @@ class nhood:
         return self.memberCount
     #End
 
-    def __setVolume__(self.volume=0):
+    def __setVolume__(self,volume=0):
         """
         Sets the volume value of this grouping.
         """
