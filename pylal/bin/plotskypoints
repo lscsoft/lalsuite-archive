@@ -16,6 +16,8 @@ import exceptions
 import glob
 from types import *
 
+import random
+
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
 
@@ -33,8 +35,10 @@ import glue.iterutils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
-from pylal.xlal import date
+from pylal import date
+#from pylal.xlal import date
 from pylal.xlal import tools
+from pylal.xlal import inject
 import numpy
 
 from glue.ligolw import ligolw, table as tab, lsctables, utils
@@ -51,7 +55,7 @@ def annotate_plot(x,y,t):
   ylabel(y)
   title(t)
   
-def compute_deltarms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
+def compute_delta_t_rms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
   earth_center = numpy.zeros(3)
   tgeo={}
   # compute the geocentric time from each trigger
@@ -62,12 +66,12 @@ def compute_deltarms(gps,longitude,latitude,ifo_list,ifo_coincs,detector_locatio
   time={}
   for ifos in ifo_coincs:
     time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS( tgeo[ifos[0]] - tgeo[ifos[1]] )
-  deltarms = 0.0
+  delta_t_rms = 0.0
   for ifos in ifo_coincs:
-    deltarms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
-  return sqrt(deltarms)
+    delta_t_rms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
+  return sqrt(delta_t_rms)
       
-def compute_deltarms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
+def compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,ifo_coincs,detector_locations):
   earth_center = numpy.zeros(3)
 
   # compute the time to be subtracted to go to reference frequency for each trigger
@@ -85,25 +89,66 @@ def compute_deltarms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,if
   time={}
   for ifos in ifo_coincs:
     time[ifos[0]+ifos[1]] = 1.0e-9*date.XLALGPSToINT8NS( tgeo[ifos[0]] - tgeo[ifos[1]] )
-  deltarms = 0.0
+  delta_t_rms = 0.0
   for ifos in ifo_coincs:
-    deltarms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
-  return sqrt(deltarms)
+    delta_t_rms += time[ifos[0]+ifos[1]] * time[ifos[0]+ifos[1]]
+  return sqrt(delta_t_rms)
 
+#compute the rms difference in the ratio of the difference of the squares of
+#Deff to the sum of the squares of Deff between the measured values
+#and a "marginalized" effective distance
+#this is just the squared Deff integrated over inclination and polarization
+#this quantity is proportional to (F+^2 + Fx^2)^(-1)
+def compute_delta_D_rms(gps,longitude,latitude,ifo_list,ifo_coincs,effective_distances,detector_response):
+  gmst = {}
+  for ifo in ifo_list:
+    gmst[ifo] = date.XLALGreenwichMeanSiderealTime(gps[ifo])
 
-def skyplot(deltarms, time_threshold, longitude, latitude, symbol, plotpoint=False):
-  if deltarms <= time_threshold:
-    if plotpoint:
-      plot(asarray([longitude]), asarray([latitude]),'r'+symbol) 
-    return 1
-  elif deltarms >= time_threshold and deltarms < 2.0* time_threshold:  #changed > to >=; these points should be yellow, right?
-    if plotpoint:
-      plot(asarray([longitude]), asarray([latitude]),'y'+symbol)
-    return 2
-  else:
+  #compute a quantity proportional to the marginalized effective distances
+  #we'll only be considering ratios, so the constants don't matter
+  D_marg_sq = {}
+  F_plus = {}
+  F_cross = {}
+  for ifo in ifo_list:
+    F_plus[ifo], F_cross[ifo] = inject.XLALComputeDetAMResponse(detector_response[ifo], \
+                                                                longitude, latitude, 0, gmst[ifo])
+    D_marg_sq[ifo] = 1/(F_plus[ifo]*F_plus[ifo]+F_cross[ifo]*F_cross[ifo])
+
+  #compute the difference between these and the measured values 
+  delta_D = {}
+  effD_diff = 0.0
+  effD_sum = 0.0
+  Dmarg_diff = 0.0
+  Dmarg_sum = 0.0
+  for ifos in ifo_coincs:
+    effD_diff = effective_distances[ifos[0]]*effective_distances[ifos[0]]  \
+                - effective_distances[ifos[1]]*effective_distances[ifos[1]]
+    effD_sum = effective_distances[ifos[0]]*effective_distances[ifos[0]]  \
+                + effective_distances[ifos[1]]*effective_distances[ifos[1]]
+    Dmarg_diff = D_marg_sq[ifos[0]] - D_marg_sq[ifos[1]]
+    Dmarg_sum = D_marg_sq[ifos[0]] + D_marg_sq[ifos[1]]
+    delta_D[ifos[0]+ifos[1]] = (effD_diff/effD_sum) - (Dmarg_diff/Dmarg_sum)
+
+  delta_D_rms = 0.0
+  for ifos in ifo_coincs:
+    delta_D_rms += delta_D[ifos[0]+ifos[1]]*delta_D[ifos[0]+ifos[1]]
+  return sqrt(delta_D_rms)
+    
+def skyplot(delta_t_rms, time_threshold, longitude, latitude, symbol, plotpoint=False):
+  if delta_t_rms > 2.0*time_threshold:
     if plotpoint:
       plot(asarray([longitude]), asarray([latitude]),'b'+symbol)
     return 0
+  elif 2.0*time_threshold >= delta_t_rms > time_threshold: #and delta_t_rms < 2.0* time_threshold:  #changed > to >=; these points should be yellow, right?
+    if plotpoint:
+      plot(asarray([longitude]), asarray([latitude]),'y'+symbol)
+    return 2
+  elif delta_t_rms <= time_threshold:
+    if plotpoint:
+      plot(asarray([longitude]), asarray([latitude]),'r'+symbol) 
+    return 1
+  else:
+    return -1
 
 def gridsky(resolution):
   latitude = 0.0
@@ -121,13 +166,81 @@ def gridsky(resolution):
       points.append(numpy.asarray([latitude-0.5*pi, longitude]))
   return points
 
+#grid a small portion of the sky 
+def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
+  points = []
+  ds = pi*sqrt(2.0)*fine_res/180.0
+  box_err = pi*sqrt(2.0)*coarse_res/180.0
+
+#  if (latmin < box_err) and (latmax > 0) and (lonmax - lonmin) > pi:
+#   latitude = 0.0 
+#   longitude = 0.0
+#   while latitude <= (latmax + abs(latmin - box_err) + box_err):
+#     latitude += ds
+#     longitude = 0.0
+#     points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
+#     while longitude <= (lonmin + box_err):
+#        longitude += ds / abs(sin(latitude))
+#        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
+#   latitude = 0.0
+#   longitude = lonmax - box_err
+#   while latitude <= (latmax + abs(latmin - box_err) + box_err):
+#     latitude += ds
+#     longitude = lonmax - box_err
+#     while longitude <= 2*pi:
+#        longitude += ds / abs(sin(latitude))
+#        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude])) 
+     
+  if (latmin < box_err) and (latmax > 0):    
+    latitude = 0.0
+    longitude = lonmin - box_err
+    while latitude <= (latmax + abs(latmin - box_err) + box_err):
+      latitude += ds
+      longitude = lonmin - box_err
+      points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
+      while longitude <= (lonmax + box_err):
+        longitude += ds / abs(sin(latitude))
+        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
+        
+#  elif (lonmax - lonmin) > pi:
+#    latitude = latmin - box_err
+#    longitude = 0.0
+#    while latitude <= (latmax+box_err):
+#      points.append(numpy.asarray([latitude,longitude]))
+#      while longitude <= (lonmin + box_err):
+#        longitude += ds / abs(sin(latitude))
+#        points.append(numpy.asarray([latitude,longitude]))
+#      latitude += ds
+#      longitude = lonmin - box_err
+#    latitude = latmin - box_err
+#    longitude = lonmax - box_err
+#    while latitude <= (latmax+box_err):
+#      points.append(numpy.asarray([latitude,longitude]))
+#      while longitude <= 2*pi:
+#        longitude += ds / abs(sin(latitude))
+#        points.append(numpy.asarray([latitude,longitude]))
+#      latitude += ds
+#      longitude = lonmax - box_err
+    
+  else:
+    latitude = latmin - box_err
+    longitude = lonmin - box_err
+    while latitude <= (latmax+box_err):
+      points.append(numpy.asarray([latitude,longitude]))
+      while longitude <= (lonmax + box_err):
+        longitude += ds / abs(sin(latitude))
+        points.append(numpy.asarray([latitude,longitude]))
+      latitude += ds
+      longitude = lonmin - box_err
+  return points
+
 # distance on the sphere
 def sphdist(p1,p2):
 
   cos_lat_plus = cos(p1[0]+p2[0])
   cos_lat_minus = cos(p1[0]-p2[0])
   cos_lon_minus = cos(p1[1]-p2[1])
-  
+
   return arccos(0.5*(cos_lat_plus*(cos_lon_minus-1)+cos_lat_minus*(cos_lon_minus+1)))
 
 # compute distance between clusters
@@ -151,20 +264,20 @@ def find_clusters(points, max_d):
   for pt1 in points:
     for pt2 in points:
       dist_dict[(pt1,pt2)] = sphdist(pt1,pt2)
-
+      
   # begin by declaring each point a cluster
   clusters = [[pt] for pt in points]
 
-  while True:
+  while 1:
     # location of the closest clusters
     loc1, loc2 = 0, 0
     # variable used in find minimum distance between clusters
     dtemp = 99999
       
-    for i in range(len(clusters)):
-      for j in range(i+1, len(clusters)):
+    for i in xrange(len(clusters)):
+      for j in xrange(i+1, len(clusters)):
         dij = clus_dist(clusters[i],clusters[j],dist_dict)
-        if (dij < max_d) and (dij < dtemp):
+        if dij < max_d < dtemp: #and (dij < dtemp):
           dtemp = dij
           loc1, loc2 = i, j
             
@@ -218,11 +331,264 @@ def make_html_table(two_dim_seq, header_row=None):
     html.append("</table><br>")
     return "\n".join(html)
 
+#the following stuff is for creating google sky output
+#heavily inspired and borowed from pylal_exttrig_summary
+#start with the pieces of the html template
+#the first piece lays out the basic html file
+#right now this piece has a key from google that only works for http://www.lsc-group.phys.uwm.edu/~larry/
+html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+  <title>macrotitle</title>
+  <style type="text/css">
+    #left_content {
+        float: left;
+        width: 20%;
+        background: #fff;
+        border-right: 2px solid #000;
+        border-bottom: 2px solid #000;
+        margin-right: 15px;
+        padding-bottom: 20px;
+    }
+    
+    #map_canvas {
+      width: 78%;
+      height: 96%;
+      overflow: hidden;
+    }
+  </style> 
+
+  <!-- Begin map setup-->
+  <script src="http://maps.l.google.com/maps?file=api&amp;v=2.x&amp;key=ABQIAAAAbTWRfv2rfvKE5o1huKzj2RQWJyssDG6WCnXjieoP-w1ZUqB9ABQU5ccdrutYANVe-cu_MuNxytA-UA" type="text/javascript"></script>
+
+  <script type="text/javascript">
+	var map;
+	var overlay;
+
+        function resize(){  
+	  var frame = document.getElementById("map_canvas");  
+	  var htmlheight = document.body.parentNode.scrollHeight;  
+	  var windowheight = window.innerHeight;  
+	  if ( htmlheight < windowheight ) {
+            document.body.style.height = windowheight + "px"; frame.style.height = windowheight + "px";
+          }  
+	  else {
+            document.body.style.height = htmlheight + "px"; frame.style.height = htmlheight + "px";
+          }  
+        } 
+
+        function initialize() {
+          resize();
+          if (GBrowserIsCompatible()) {
+            map = new GMap2(document.getElementById("map_canvas"), {
+            mapTypes : G_SKY_MAP_TYPES
+            });
+   	    map.setCenter(new GLatLng(0, 0), 3);
+            map.addControl(new GLargeMapControl());
+            map.addControl(new GMapTypeControl());
+            map.enableScrollWheelZoom();
+          }
+        }
+
+        //callback function for centering on and zooming to selected object
+        var zoomToObject = function() {
+   	  map.setCenter(overlay.getDefaultCenter(),3)
+        }
+
+        function load_file(filename) {
+          // load new one and re-center on the object
+          overlay = new GGeoXml(filename, zoomToObject);
+          map.addOverlay(overlay);
+        }
+  </script>
+  <!-- End map setup -->
+  
+</head>
+
+<body onload="initialize()" onunload="GUnload()">
+  <div id="left_content">
+  <h2>Galaxies Within Confidence Region</h2>   
+    <form>
+    macrogalaxybuttons
+    </form>
+  <hr/>
+  <h2>Points With Highest Confidence</h2>
+    <form> 
+    macropointbuttons
+    </form>
+    </div>
+  
+  <div id="map_canvas"></div>
+ 
+</body>
+</html>
+"""
+
+#each of the buttons will look like this
+html_button_template = '<input type=\"button\" value=\"macrobuttonlabel\" onclick=\"load_file(\'macrofilename.kml\')\" /><br/>'
+
+
+
+#templates for the kml files
+kml_galaxy_template = """
+<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky">
+<Document>
+  <Placemark>
+    <name>macroname</name>
+    <description>
+      <![CDATA[
+        <p> Position (ra,dec): (macrolon,macrolat)</p>
+        <p> Distance: macrodistance kpc </p>
+        <p> Luminosity: macrolum mwes </p>
+      ]]>
+    </description>
+    <LookAt>
+      <longitude>macrogskylon</longitude>
+      <latitude>macrolat</latitude>
+      <altitude>0</altitude>
+      <range>10000</range>
+      <tilt>0</tilt>
+      <heading>0</heading>
+    </LookAt>
+   
+    <Point>
+      <coordinates>macrogskylon,macrolat,0</coordinates>
+    </Point>
+  </Placemark>
+</Document>
+</kml>
+"""
+
+kml_point_template = """
+<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky">
+<Document>
+  <Placemark>
+    <name>macroname</name>
+    <description>
+      <![CDATA[
+        <p> Position (ra,dec): (macrolon,macrolat)</p>
+        <p> Confidence: macroconfidence</p>
+      ]]>
+    </description>
+    <LookAt>
+      <longitude>macrogskylon</longitude>
+      <latitude>macrolat</latitude>
+      <altitude>0</altitude>
+      <range>10000</range>
+      <tilt>0</tilt>
+      <heading>0</heading>
+    </LookAt>
+   
+    <Point>
+      <coordinates>macrogskylon,macrolat,0</coordinates>
+    </Point>
+  </Placemark>
+</Document>
+</kml>
+"""
+
+def mkdirsafe( directory, nag = False ):
+  """
+  Create a directory if it does not already exist.
+  Optionally, nag if it already exists.
+  """
+  try:
+     os.makedirs(directory)
+  except OSError, (errno, strerror):
+    if errno == 17 and nag:
+      raise OSError, "Directory '%s' already exists, all files "\
+            "contained will be included in summary file, "\
+            "although not related to THIS summary!" \
+            " Suggestion: rename directory '%s'." % \
+            (directory, directory)
+    if errno!=17:
+      raise
+    
+def write_file(root_dir, filename, content):
+  """
+  Writes a file to disk.
+  @param root_dir: directory where to write the file
+  @param filename: name of the file
+  @param content: contents of the file
+  """
+  
+  f = open(root_dir+'/'+filename,'w')
+  f.write(content)
+  f.close()
+
+def make_galaxy_kml(galaxy):
+  """
+  create kml file for a galaxy
+  """
+  kml = kml_galaxy_template
+  kml = kml.replace('macroname',galaxy.name)
+  kml = kml.replace('macrolon',str(180/pi*galaxy.ra))
+  kml = kml.replace('macrolat',str(180/pi*galaxy.dec))
+  kml = kml.replace('macrodistance',str(galaxy.distance_kpc))
+ # kml = kml.replace('macrodisterror',str(galaxy.distance_error))
+  kml = kml.replace('macrolum',str(galaxy.luminosity_mwe))
+  kml = kml.replace('macrogskylon',str(180*(galaxy.ra/pi - 1)))
+
+  return kml
+
+def make_pointing_kml(gps_time, rank, lon, lat, confidence):
+  """
+  create kml file for a point of interest
+  """
+  kml = kml_point_template
+  kml = kml.replace('macroname',gps_time + ' number '+rank)
+  kml = kml.replace('macrolon',str(180/pi*lon))
+  kml = kml.replace('macrolat',str(180/pi*lat))
+  kml = kml.replace('macrogskylon',str(180*(lon/pi - 1)))
+  kml = kml.replace('macroconfidence',confidence)
+
+  return kml
+
+#right now the buttons are hardcoded to display from anything under
+#http://www.lsc-group.phys.uwm.edu/~larry/
+def make_galaxy_button(gps_time,galaxy):
+  """
+  create button for each galaxy
+  """
+  galaxy_button = html_button_template
+  galaxy_button = galaxy_button.replace('macrobuttonlabel',galaxy.name)
+  galaxy_button = galaxy_button.replace('macrofilename','http://www.lsc-group.phys.uwm.edu/~larry/'+gps_time+'/kml/'+galaxy.name)
+
+  return galaxy_button
+
+def make_pointing_button(gps_time,rank):
+  """
+  create button for each pointing
+  """
+  pointing_button = html_button_template
+  pointing_button = pointing_button.replace('macrobuttonlabel','number '+rank)
+  pointing_button = pointing_button.replace('macrofilename','http://www.lsc-group.phys.uwm.edu/~larry/'+gps_time+'/kml/'+gps_time+'_'+rank)
+
+  return pointing_button
+
+def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons):
+  """
+  create google sky summary page
+  """
+  html = html_template
+  html = html.replace('macrotitle',gps_time)
+  html = html.replace('macrogalaxybuttons',galaxy_buttons)
+  html = html.replace('macropointbuttons',pointing_buttons)
+
+  return html
+  
+
+  
+  
+
 # What we want to do:
 # read in the coinc
 # extract the GPS time for each trigger
 # loop over random sky points
 #   determine the geo centric time for each and compute rms difference
+# those points that are "good enough" then get subjected to a
+# threshold on the ratios of their measured effective distances
 
 ##############################################################################
 usage = """
@@ -248,8 +614,12 @@ def parse_command_line():
       default=0.001, metavar=" TIME_THRESHOLD",help="threshold on rms time difference" )
   parser.add_option("-b","--n-sky",action="store",type="int",\
       default=1000, metavar=" N_SKY",help="number of sky points to throw" )
-  parser.add_option("-c","--resolution",action="store",type="float",\
-      default=1.0, metavar=" RESOLUTION",help="number of sky points to throw" )
+#  parser.add_option("-c","--resolution",action="store",type="float",\
+#      default=1.0, metavar=" RESOLUTION",help="number of sky points to throw" )
+  parser.add_option("-c","--coarse-resolution",action="store",type="float",\
+      default=4.0, metavar=" COARSE_RESOLUTION",help="number of sky points to throw in round one" )
+  parser.add_option("-i","--fine-resolution",action="store",type="float",\
+      default=0.5, metavar=" RESOLUTION",help="number of sky points to throw in round two" )
   parser.add_option("-d","--plotpoints",action="store_true",\
       default=False, help="make a color coded plot of the sky" )
   parser.add_option("-V","--verbose",action="store_true",\
@@ -269,6 +639,8 @@ def parse_command_line():
                     default=False, help="use time at reference frequency instead of end time" )
   parser.add_option("-f","--reference_frequency",action="store",type="float",\
                     default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
+  #this one doesn't work generally yet because of issues with keys from google, etc.
+  parser.add_option("--enable-google-sky-output", action="store_true", default=False, help="enable google sky output")
 
   # InspiralUtils compatibility
   #parser.add_option("--gps-start-time", type="int", help="GPS start time of data analyzed")
@@ -277,8 +649,8 @@ def parse_command_line():
   parser.add_option("--user-tag", help="a tag to label your plots")
   parser.add_option("--output-path", help="root of the HTML output")
   parser.add_option("--enable-output", action="store_true", default=False, help="enable plots and HTML output")
-  parser.add_option("--html-for-cbcweb", action="store_true", \
-                    default=False, help="enable HTML output with the appropriate headers for the CBC website")
+  #parser.add_option("--html-for-cbcweb", action="store_true", \
+  #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
                     help="display the plots to screen if an X11 display is available")
 
@@ -314,12 +686,15 @@ xhigh = 0
 
 if opts.countgalaxies:
   if opts.usecatalog is not None:
-    gal_columns =["name","distance_kpc","ra","dec"]
+    gal_columns =["name","distance_kpc","ra","dec","luminosity_mwe"]
     catalog = galaxyutils.GalaxyCatalog.from_file(open(opts.usecatalog), load_columns=gal_columns)
   else:
-    raise ValueError, "no galaxy catalog specified"
+    print >>sys.stdout, "no galaxy catalog specified"
 ####################################################################
+# stupidity check
 
+if opts.fine_resolution > opts.coarse_resolution:
+  raise ValueError, "fine resolution is greater than coarse resolution" 
 
 #####################################################################
 # glob the list of files to read in
@@ -353,7 +728,7 @@ if opts.glob is not None:
 inspTriggers = None
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
 
-meaninjdeltarms = 0.
+meaninjdelta_t_rms = 0.
 meanpointings_narrow = 0.
 meanpointings_wide = 0.
 ninj = 0
@@ -373,6 +748,12 @@ detector_locations["L1"] =tools.cached_detector["LLO_4k"].location
 detector_locations["H1"] =tools.cached_detector["LHO_4k"].location 
 detector_locations["V1"] =tools.cached_detector["VIRGO"].location
 
+#get detector response
+detector_response = {}
+detector_response["L1"] = tools.cached_detector["LLO_4k"].response
+detector_response["H1"] = tools.cached_detector["LHO_4k"].response
+detector_response["V1"] = tools.cached_detector["VIRGO"].response
+
 #set the time threshold
 time_threshold = opts.time_threshold
 
@@ -383,16 +764,33 @@ if opts.verbose:
   
 # arrays to build statistics
 asnr = []
-adelta = []
+asnrH1 = []
+asnrL1 = []
+asnrV1 = []
+
+adelta_t = []
+adelta_D = []
+adelta_comb_stat = []
+adelta_comb_stat_coarse = []
 apoints = []
 afound = []
+
+adel_t_inj_sq = []
+adel_D_inj_sq = []
+adel_t = []
+adel_D = []
+adel_t_sq = []
+adel_D_sq = []
+
+askydist = []
+
 if opts.countgalaxies:
   agalpoints = []
 
 #distance threshhold for clustering
-if opts.countgalaxies:
-  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
-  dmax = sphdist((0,0), (pt_step,pt_step))
+#if opts.countgalaxies:
+#  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
+#  dmax = sphdist((0,0), (pt_step,pt_step))
  
 for coinc in coincTriggers:
 
@@ -406,6 +804,7 @@ for coinc in coincTriggers:
     print "The L1 snr is %f" % getattr(coinc,"L1").snr
     print "The V1 snr is %f" % getattr(coinc,"V1").snr
 
+   
   # get gps times of events
 
   # following line suggested by nick as an alternative to
@@ -416,6 +815,12 @@ for coinc in coincTriggers:
   mass2 = dict((trig.ifo,getattr(coinc,trig.ifo).mass2)  for trig in coinc)
 
   # gps = coinc.get_gps_times()
+
+  #take the parameters from the injection
+  effD_inj = {}
+  effD_inj["H1"] = getattr(coinc, "sim").eff_dist_h
+  effD_inj["L1"] = getattr(coinc, "sim").eff_dist_l
+  effD_inj["V1"] = getattr(coinc, "sim").eff_dist_v
  
   # extract ifos that gave this
   (coinc_type, ifo_list) = coinc.get_ifos()
@@ -427,6 +832,10 @@ for coinc in coincTriggers:
   else:
     if opts.plotpoints:
       figure()
+      
+  asnrH1.append(getattr(coinc,"H1").snr)
+  asnrL1.append(getattr(coinc,"L1").snr)
+  asnrV1.append(getattr(coinc,"V1").snr)
 
 
   #remove H2 if it's there
@@ -437,90 +846,235 @@ for coinc in coincTriggers:
   ifo_coincs.extend(list(glue.iterutils.choices(ifo_list, 2)))
   
   # grid the sky
-  skypoints = gridsky(opts.resolution)
+  # skypoints = gridsky(opts.resolution)
+ 
+  #grid the sky coarsely for now
+  coarsegrid = gridsky(opts.coarse_resolution,)
   if opts.verbose:
-    print "The number of sky points to consider is %f" % len(skypoints)
+    print "The number of sky points to consider is %f" % len(coarsegrid)
+    #print "The number of sky points to consider is %f" % len(skypoints)
+
+  #
+  coarse_confidence = []
 
   # parameters from the injection
   injlong = getattr(coinc,"sim").longitude
   injlat = getattr(coinc,"sim").latitude
   if opts.use_reference_time:
-    injdeltarms = compute_deltarms_ref(gps,mass1,mass2,ref_freq,injlong,injlat,ifo_list,\
+    injdelta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,injlong,injlat,ifo_list,\
                                        ifo_coincs,detector_locations)
   else:
-    injdeltarms = compute_deltarms(gps,injlong,injlat,ifo_list,\
+    injdelta_t_rms = compute_delta_t_rms(gps,injlong,injlat,ifo_list,\
                                    ifo_coincs,detector_locations)
-  meaninjdeltarms = meaninjdeltarms+injdeltarms
+
+  injdelta_D_rms= compute_delta_D_rms(gps,injlong,injlat,ifo_list, \
+                                      ifo_coincs,effD_inj,detector_response)
+  adelta_t.append(injdelta_t_rms)
+  adelta_D.append(injdelta_D_rms)
+  
+   
+  meaninjdelta_t_rms = meaninjdelta_t_rms+injdelta_t_rms
   ninj = ninj + 1
   if opts.verbose:
-    print "The injection had deltarms %f seconds" % injdeltarms
-  #time_threshold=injdeltarms+1.0e-6
-  countindex = skyplot(injdeltarms, time_threshold, injlong, injlat,\
+    print "The injection had delta_t_rms %f seconds" % injdelta_t_rms
+  #time_threshold=injdelta_t_rms+1.0e-6
+  countindex = skyplot(injdelta_t_rms, time_threshold, injlong, injlat,\
       'o', opts.plotpoints)
   afound.append(countindex)
 
+  
+
   # lists to gather hotspots (points within time-threshold),
   # warmspots (points within twice the time-threshold) and clusters
-  if opts.countgalaxies:
-    hotspots = []
-    warmspots = []
-    hs_clusters = []
-    ws_clusters = []
+#  if opts.countgalaxies:
+#  hotspots = []
+#  warmspots = []
+#  hs_clusters = []
+#  ws_clusters = []
+
+ #create a dictionary of measured effective distances
+  effective_distances = {}
+  effective_distances["H1"] = getattr(coinc, "H1").eff_distance
+  effective_distances["L1"] = getattr(coinc, "L1").eff_distance
+  effective_distances["V1"] = getattr(coinc, "V1").eff_distance
+
   
   # search the sky
-  for point in skypoints:
+  #for point in skypoints:
+  for point in coarsegrid:
     count[0] += 1
-
+  
     # extract sky position
     latitude = point[0]
     longitude = point[1]
 
     if opts.use_reference_time:
-      deltarms = compute_deltarms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
+      delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
                                       ifo_coincs,detector_locations)
     else:
-      deltarms = compute_deltarms(gps,longitude,latitude,ifo_list,\
+      delta_t_rms = compute_delta_t_rms(gps,longitude,latitude,ifo_list,\
                                   ifo_coincs,detector_locations)
 
-    countindex =skyplot(deltarms, time_threshold, longitude, latitude,\
-      '+', opts.plotpoints)
+ #   countindex =skyplot(delta_t_rms, time_threshold, longitude, latitude,\
+ #     '+', opts.plotpoints)
 
-    if countindex:
-      count[countindex] += 1.0
-      if (int(countindex) == 1) and (opts.countgalaxies):
-        hotspots.append((point[0],point[1]))
-      if (int(countindex) == 2) and (opts.countgalaxies):
-        warmspots.append((point[0],point[1]))
-        
-    if ( not (count[0] % 1000) and opts.verbose):
-      print count[0]
+ #   if countindex:
+ #     count[countindex] += 1.0
+ #     if (int(countindex) == 1): #and (opts.countgalaxies):
+ #       hotspots.append((point[0],point[1]))
+ #     elif (int(countindex) == 2): #and (opts.countgalaxies):
+ #       warmspots.append((point[0],point[1]))
+    coarse_confidence.append([(point[0],point[1]),delta_t_rms/time_threshold \
+                              + compute_delta_D_rms(gps,longitude,latitude,ifo_list, \
+                                 ifo_coincs,effective_distances,detector_response)])
+      
+      
+ #   if ( not (count[0] % 1000) and opts.verbose):
+ #     print count[0]
 
-  narrowcount=count[1]
-  widecount=count[2]
-  meanpointings_narrow = meanpointings_narrow + narrowcount
-  meanpointings_wide = meanpointings_wide + widecount
-  if opts.verbose:
-    print "Narrow field volume: %i" % (narrowcount)
-    print "Wide field volume: %i" % (widecount)
-  else:
-    asnr.append(coinc.stat)
-    adelta.append(injdeltarms)
-    apoints.append(narrowcount)
-    print "%f %f %i %i %f" % (coinc.stat, injdeltarms, narrowcount,\
-        afound[-1], getattr(coinc,"sim").distance)
-    
+ # narrowcount=count[1]
+ # widecount=count[2]
+ # meanpointings_narrow = meanpointings_narrow + narrowcount
+ # meanpointings_wide = meanpointings_wide + widecount
+ # if opts.verbose:
+ #   print "Narrow field volume: %i" % (narrowcount)
+ #   print "Wide field volume: %i" % (widecount)
+ # else:
+ #   asnr.append(coinc.stat)
+ #   adelta_t.append(injdelta_t_rms)
+ #   apoints.append(narrowcount)
+ #   adel_D_inj.append(injdelta_D_rms)
+ #   adel_t_inj_sq.append(injdelta_t_rms*injdelta_t_rms)
+ #   adel_D_inj_sq.append(injdelta_D_rms*injdelta_D_rms)
+  #  adel_D2.append(injdelta_D_rms2)
+ # print "%f %f %i %i %f" % (coinc.stat, injdelta_t_rms, narrowcount,\
+ #       afound[-1], getattr(coinc,"sim").distance)
+
+
 ####################################################################
   # cluster the hotspots and warmspots
-  if opts.countgalaxies:
-    hs_clusters = find_clusters(hotspots, dmax)
-    ws_clusters = find_clusters(warmspots, dmax)
+  #if opts.countgalaxies:
+  #  hs_clusters = find_clusters(hotspots, dmax)
+  #  ws_clusters = find_clusters(warmspots, dmax)
 
 ####################################################################
-      
+  #create a dictionary of measured effective distances
+  effective_distances = {}
+  effective_distances["H1"] = getattr(coinc, "H1").eff_distance
+  effective_distances["L1"] = getattr(coinc, "L1").eff_distance
+  effective_distances["V1"] = getattr(coinc, "V1").eff_distance
+
+  #goodspots = []
+  #for pt in hotspots:
+  #  goodspots.append(pt)
+ # for pt in warmspots:
+ #   goodspots.append(pt)
+
+#  for pt in delta_dict:
+#    delta_dict[pt].append(compute_delta_D_rms2(gps,pt[1],pt[0],ifo_list, \
+#                                     ifo_coincs,effective_distances,detector_response))
+#  for pt in coarse_confidence:
+#    pt[1] += compute_delta_D_rms(gps,pt[0][1],pt[0][0],ifo_list, \
+#                                 ifo_coincs,effective_distances,detector_response)
+
+  coarse_confidence.sort(key = lambda x: x[1])
+
+  pt_step = pi*sqrt(2.0)*2*opts.coarse_resolution/180.0
+  dmax = sphdist((0,0), (pt_step,pt_step))
+
+  coarse_hotspots =[pt[0] for pt in coarse_confidence if pt[1] <= 3*coarse_confidence[0][1]]
+  for pt in coarse_confidence:
+    if pt[1] > 3*coarse_confidence[0][1] and (opts.plotpoints or opts.enable_output):
+      plot(asarray([pt[0][1]]), asarray([pt[0][0]]),'bx')
+  #[pt[0] for pt in coarse_confidence[:10]]
+  coarse_hs_clusters = find_clusters(coarse_hotspots,dmax)
+
+  adelta_comb_stat_coarse.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/coarse_confidence[0][1])
+  
+  #list to hold each cluster and its confidence values
+  final_confidences = []
+
+  #keep track of which points are in each cluster 
+  if opts.countgalaxies:
+    num_clusts = len(coarse_hs_clusters)
+    clust_count = 0
+    
+  for cluster in coarse_hs_clusters:
+
+    lats = [pt[0] for pt in cluster]
+    lons = [pt[1] for pt in cluster]
+    latmin = min(lats)
+    latmax = max(lats)
+    lonmin = min(lons)
+    lonmax = max(lons)
+
+    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax)
+
+    fine_confidence = []
+  
+    for point in finegrid:
+      latitude = point[0]
+      longitude = point[1]
+
+      if opts.use_reference_time:
+        delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
+                                              ifo_coincs,detector_locations)
+      else:
+        delta_t_rms = compute_delta_t_rms(gps,longitude,latitude,ifo_list,\
+                                          ifo_coincs,detector_locations)
+      if opts.countgalaxies:
+        fine_confidence.append([(point[0],point[1]),delta_t_rms/time_threshold \
+                                + compute_delta_D_rms(gps,longitude,latitude,ifo_list, \
+                                                      ifo_coincs,effective_distances, \
+                                                      detector_response),clust_count])
+    
+    
+      else:
+        fine_confidence.append([(point[0],point[1]),delta_t_rms/time_threshold \
+                                + compute_delta_D_rms(gps,longitude,latitude,ifo_list, \
+                                                      ifo_coincs,effective_distances, \
+                                                     detector_response)])
+      if opts.countgalaxies:
+        clust_count += 1
+    
+  fine_confidence.sort(key = lambda x: x[1])
+  
+  if (opts.plotpoints or opts.enable_output):
+    plot(asarray([fine_confidence[0][0][1]]), asarray([fine_confidence[0][0][0]]),'rs')
+
+  best_confidence = fine_confidence[0][1]
+  
+  adelta_comb_stat.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/best_confidence)
+
+  narrowcount = 0.0
+  widecount = 0.0 
+  if opts.countgalaxies:
+    best_points = []
+    
+  for pt in fine_confidence:
+    if 4*best_confidence >= pt[1] >= 2*best_confidence:
+      if (opts.plotpoints or opts.enable_output):
+        plot(asarray([pt[0][1]]), asarray([pt[0][0]]), 'yx')
+      widecount += 1.0
+      if opts.countgalaxies:
+        best_points.append(pt)
+    elif pt[1] < 2*best_confidence:
+      if (opts.plotpoints or opts.enable_output):
+        plot(asarray([pt[0][1]]), asarray([pt[0][0]]), 'rx')
+      narrowcount += 1.0
+      if opts.countgalaxies:
+        best_points.append(pt)
+
+  apoints.append(narrowcount)
+  asnr.append(coinc.stat)
+  if (opts.plotpoints or opts.enable_output):
+    axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+    annotate_plot("Right Ascension (radians)", "Declination (radians)",\
+                  "Reconstructed sky position")
+  
   if opts.countgalaxies:
     if opts.Deffcut:
-      max_dist = 1000*min(getattr(coinc, "sim").eff_dist_h, getattr(coinc, "sim").eff_dist_l, \
-                     getattr(coinc, "sim").eff_dist_v)
+      max_dist = 1000*min(effective_distances[ifo] for ifo in ifo_list)
     else:
       # this is farther than we can see, so it should encompass everything
       # if done this way, it's only a single if statement
@@ -532,33 +1086,38 @@ for coinc in coincTriggers:
 
     # draw rectangles around the hotspots and count the number of galaxies in that rectangle
     # also restric to galaxies between here and the effective distance measured in the detectors (turns out to be a strong cut)
-    for i in range(len(hs_clusters)):
+    for i in xrange(num_clusts):
       
-      lats = [pt[0] for pt in hs_clusters[i]]
-      latmin = min(lats)
-      latmax = max(lats)
+      lats = [pt[0][0] for pt in best_points if pt[2] == i]
+      if lats:
+        latmin = min(lats)
+        latmax = max(lats)
+
+      if latmax - latmin < 0.001:
+        latmin -= 0.001
+        latmax += 0.001
       
-      lons = [pt[1] for pt in hs_clusters[i]]
-      lonmin = min(lons)
-      lonmax = max(lons)
+      lons = [pt[0][1] for pt in best_points if pt[2] == i]
+      if lons:
+        lonmin = min(lons)
+        lonmax = max(lons)
+
+      if lonmax - lonmin < 0.001:
+        lonmin -= 0.001
+        lonmax += 0.001
       
       if (latmin < 0) and (latmax > 0):
-        bottom_rect = catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(latmin,lonmin),(latmin,lonmax),(0,lonmin), (0,lonmax)]))
-        top_rect = catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(0,lonmin),(0,lonmax),(latmax,lonmin), (latmax,lonmax)]))
-        if bottom_rect:
-          for galaxy in bottom_rect:
-            galaxies.append(str(galaxy).split())
-        if top_rect:
-          for galaxy in top_rect:
-            galaxies.append(str(galaxy).split())
+        galaxies = catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(lonmin,latmin),(lonmax,latmin),(lonmin,0), (lonmax,0)])) \
+          + catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(lonmin,0),(lonmax,0),(lonmin,latmax), (lonmax,latmax)]))
       else:
-        gals_in_rect = catalog.within_distances(0,max_dist).within_polygon( \
-          numpy.array([(latmin,lonmin),(latmin,lonmax),(latmax,lonmin), (latmax,lonmax)]))
-        if gals_in_rect:
-          for galaxy in gals_in_rect:
-            galaxies.append(str(galaxy).split())
+        galaxies = catalog.within_distances(0,max_dist).within_polygon( \
+          numpy.array([(lonmin,latmin),(lonmax,latmin),(lonmin,latmax), (lonmax,latmax)]))
+
+      if galaxies and (opts.plotpoints or opts.enable_output):
+        for gal in galaxies:
+          plot(asarray([gal.ra]), asarray([gal.dec]), color = (0.5,0,0.5), marker = '^')
  
       galaxy_counter[i] = len(galaxies)
        
@@ -570,16 +1129,18 @@ for coinc in coincTriggers:
   #if opts.plotpoints:
   if opts.enable_output:
 
-    # plot the hotspot with the most galaxies as purple
-    if opts.countgalaxies:
-      min_num_gals = -1
-      for i in galaxy_counter:
-        if galaxy_counter[i] > min_num_gals:
-          this_one = i
-          min_num_gals = galaxy_counter[i]
-      if min_num_gals > 0:
-        for pt in hs_clusters[this_one]:
-          plot(asarray([pt[1]]), asarray([pt[0]]), color = (0.5,0,0.5), marker = 'x')
+    # plot the spot with the most galaxies as purple
+    #if opts.countgalaxies:
+    #  min_num_gals = -1
+    #  for i in galaxy_counter:
+    #    if galaxy_counter[i] > min_num_gals:
+    #      this_one = i
+    #      min_num_gals = galaxy_counter[i]
+    #  if min_num_gals > 0:
+    #    for pt in best_points:
+    #      if pt[2] == this_one:
+    #        pass
+    #        plot(asarray([pt[0][1]]), asarray([pt[0][0]]), color = (0.5,0,0.5), marker = 'x')
           
     axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
     annotate_plot("Right Ascension (radians)", "Declination (radians)",\
@@ -597,42 +1158,102 @@ for coinc in coincTriggers:
 #    fnameList.append(fname)
 #    tagList.append(text)
 
+    html_footer += "Ten best points:<br><br>\n"
+    best_pts_columns = ['rank', 'ra', 'dec', 'confidence']
+    ten_best_pts = []
+    for i in range(10):
+      ten_best_pts.append([i+1,fine_confidence[i][0][1],fine_confidence[i][0][0],fine_confidence[i][1]])
+    html_footer += make_html_table(ten_best_pts,best_pts_columns)
+    html_footer += "\n\n"
+    
     if opts.countgalaxies:
       #write out a table of galaxies, if there are any
-      html_footer += "Summary of galaxies found:<br><br>\n"
+      html_footer += "Summary of galaxies in confidence region:<br><br>\n"
       if galaxies:
-        html_footer += make_html_table(galaxies, gal_columns)
+        html_footer += make_html_table([str(gal).split() for gal in galaxies], gal_columns)
       else:
-        html_footer += "No galaxies there!"
-  
+        html_footer += "No galaxies there!<br><br>\n"
+
+    if opts.enable_google_sky_output:
+      #now put in a link to the google sky output page
+      html_footer += '\n\n <a href=\"http://www.lsc-group.phys.uwm.edu/~larry/'+str(opts.gps_start_time)+'/'+str(opts.gps_start_time) + \
+                     '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
+    
+ 
     html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
                      [fname], [text], comment=html_footer, cbcweb=False)
     if not opts.show_plot:
       close()
+    #next create the google sky output
 
-  if opts.plotpoints and opts.show_plot:
-    axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
-    annotate_plot("Right Ascension (radians)", "Declination (radians)",\
-        "Reconstructed sky position") 
+    if opts.enable_google_sky_output:
+      gsky_root_dir = opts.output_path + str(opts.gps_start_time) + '/'
+      kml_root_dir = gsky_root_dir + '/kml/'
+      mkdirsafe(gsky_root_dir)
+      mkdirsafe(kml_root_dir)
+
+      galaxy_buttons = ''
+      pointing_buttons = ''
     
+      if opts.countgalaxies:
+        for galaxy in galaxies:
+          galaxy_kml = make_galaxy_kml(galaxy)
+          write_file(kml_root_dir,galaxy.name+'.kml',galaxy_kml)
 
+          galaxy_button = make_galaxy_button(str(opts.gps_start_time),galaxy)
+          galaxy_buttons += galaxy_button +'\n\t'
+
+        for pt in ten_best_pts:
+          pointing_kml = make_pointing_kml(str(opts.gps_start_time),str(pt[0]),pt[1],pt[2],str(pt[3]))
+          write_file(kml_root_dir,str(opts.gps_start_time)+'_'+str(pt[0])+'.kml',pointing_kml)
+
+          pointing_button = make_pointing_button(str(opts.gps_start_time),str(pt[0]))
+          pointing_buttons += pointing_button +'\n\t'
+
+      gsky_summary = make_googlesky_summary(str(opts.gps_start_time),galaxy_buttons,pointing_buttons)
+      write_file(gsky_root_dir,str(opts.gps_start_time)+'_plotskypoints_summary.html',gsky_summary)
 
 figure()
-plot(asarray(asnr), asarray(adelta),'ro') 
-annotate_plot("$\rho$", "$\Delta_{rms}$ (sec)","Timing accuracy")
+plot(asarray(asnr), asarray(adelta_t),'ro') 
+annotate_plot(r"$\rho$", "$\Delta t_{rms}$ (sec)","Timing accuracy")
+figure()
+plot(asarray(asnr), asarray(adelta_D),'ro') 
+annotate_plot(r"$\rho$", "$\Delta D_{rms}$ ","$D_{eff}$ measure  accuracy")
+figure()
+plot(asarray(asnr), asarray(adelta_comb_stat),'ro') 
+annotate_plot(r"$\rho$", "Confidence","Confidence Accuracy")
+figure()
+hist(asarray(adelta_comb_stat),bins=20)
+annotate_plot("normalized confidence on the fine grid", "number of signals in bin", ("confidence histogram for the fine grid"))
+figure()
+hist(asarray(adelta_comb_stat_coarse),bins=20)
+annotate_plot("normalized confidence on the coarse grid ", "number of signals in bin", ("confidence histogram for the coarse grid"))
 figure()
 plot(asarray(asnr), asarray(apoints),'bo') 
-annotate_plot("$\rho$", "No. of Pointings",("Pointings with radius %2d degrees" % opts.resolution))
+annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of combined snr" % opts.fine_resolution))
+figure()
+plot(asarray(asnrH1), asarray(apoints),'bo') 
+annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of H1 snr" % opts.fine_resolution))
+figure()
+plot(asarray(asnrL1), asarray(apoints),'bo') 
+annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of L1 snr" % opts.fine_resolution))
+figure()
+plot(asarray(asnrV1), asarray(apoints),'bo') 
+annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of V1 snr" % opts.fine_resolution))
+figure()
+hist(asarray(apoints),bins=500)
+annotate_plot("No. of Pointings","No. of signals in bin", ("Histogram of Pointings"))
+
 if opts.countgalaxies:
   figure()
   plot(asarray(asnr), asarray(agalpoints), 'go')
-  annotate_plot("$\rho$", "No. of Galaxies", ("Number of Galaxies"))
+  annotate_plot(r"$\rho_{\rm eff}$", "No. of Galaxies", ("Number of Galaxies"))
 
-meaninjdeltarms = meaninjdeltarms/ninj
+meaninjdelta_t_rms = meaninjdelta_t_rms/ninj
 meanpointings_narrow = meanpointings_narrow/ninj
 meanpointings_wide = meanpointings_wide/ninj
 print "Number of injections", ninj
-print "Mean timing accuracy %f" % meaninjdeltarms
+print "Mean timing accuracy %f" % meaninjdelta_t_rms
 print "Mean pointings (narrow) %f" % meanpointings_narrow
 print "Mean pointings (wide) %f" % meanpointings_wide
 
