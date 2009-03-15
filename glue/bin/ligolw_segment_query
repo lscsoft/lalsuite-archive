@@ -151,7 +151,7 @@ def parse_command_line():
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
         database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
+        if 'DMT_SEGMENT_LOCATION' not in os.environ:
             raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
         file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
     else:
@@ -297,7 +297,7 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
 
 
     
-def run_query_segments(doc, connection, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
+def run_query_segments(doc, proc_id, seg_def_id, connection, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
     """Runs a segment query.
     connection: an object that represents a connection to the back end (ldbd handle or sqlite connection)
     segment_resolver: the function to call to get segments for a single ifo:name or ifo:name:version specification
@@ -578,6 +578,11 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 # =============================================================================
 #
 
+from glue.ligolw import types as ligolwtypes
+
+ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
+
+
 if __name__ == '__main__':
     options, database_location, file_location  = parse_command_line()    
 
@@ -611,7 +616,7 @@ if __name__ == '__main__':
         
 
     if options.query_segments:
-       run_query_segments(doc, connection, engine, gps_start_time, gps_end_time,
+       run_query_segments(doc, process_id, '1', connection, engine, gps_start_time, gps_end_time,
                           options.include_segments,options.exclude_segments)
 
 
