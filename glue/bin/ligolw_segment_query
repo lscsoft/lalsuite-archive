@@ -509,7 +509,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-
+        sys.exit(-1)
 
     return client
 
