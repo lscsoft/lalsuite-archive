@@ -360,10 +360,23 @@ if slidefilelists:
     # read raw triggers and time-shift them appropriately
     slideTriggers = SnglInspiralUtils.ReadSnglInspiralSlidesFromFiles(filegroup,
       shift_vector, verbose=opts.verbose)
+
+    if slideTriggers == None:
+      slideTriggers = []
+
     populate_mtotal(slideTriggers)
 
     segs = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
-    slideTimeAnalyzed = float(abs(segs[opts.ifo_times]))
+
+    # Check the seglists agree with the ifo times 
+    for i in segs.keys():
+      if opts.ifo_times.find(i) == -1:
+        raise ValueError
+
+    if len(opts.ifo_times) != len(segs.keys()) * len(segs.keys()[0]):
+      raise ValueError
+
+    slideTimeAnalyzed = float(abs(segs.intersection(segs.iterkeys())))
 
     # perform the veto
     if opts.veto_file is not None:
