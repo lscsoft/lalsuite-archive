@@ -129,7 +129,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
 
     # Between H1 and H2, identify the ifo with the lower SNR 
     if ifoH1 == 1 and ifoH2 ==1:
-      if IfoSNR['H1'] < IfoSNR['H2']:
+      if float(IfoSNR['H1']) < float(IfoSNR['H2']):
         ifoWithLowerSNRInH1H2 = 'H1'
       else: 
         ifoWithLowerSNRInH1H2 = 'H2'
@@ -374,7 +374,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
       legendText.append('H1-H2 null-stat-sq')
       hold(1)
-      itf = ifoWithLowerSNRInH1H2  
+      itf = ifoWithLowerSNRInH1H2
       itfFrameFileArg = '--' + str(itf) + '-framefile'
       #print >> sys.stdout, "Extracting data from ifo " + str(itf)
       for row in chiaProcParams:
