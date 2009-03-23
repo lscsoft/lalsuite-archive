@@ -150,8 +150,8 @@
                 </replica-catalog>
                 <profile namespace="env" key="GLOBUS_LOCATION" >/opt/osg/globus</profile>
                 <profile namespace="env" key="LD_LIBRARY_PATH" >/opt/osg/globus/lib</profile>
-                <profile namespace="env" key="PEGASUS_HOME" >/opt/osg/pegasus</profile>
-                <profile namespace="env" key="app" >/usr/local/packages/ligo</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/usr/local/packages/osg-1.0.0/ligo/pegasus</profile>
+                <profile namespace="env" key="app" >/usr/local/packages/osg-1.0.0/ligo</profile>
                 <profile namespace="env" key="data" >/ligo/data</profile>
                 <profile namespace="env" key="grid3" >/usr/local/packages/osg-1.0.0/wn</profile>
                 <profile namespace="env" key="tmp" >/var/scratch</profile>
