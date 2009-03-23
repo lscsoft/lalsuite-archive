@@ -42,7 +42,7 @@ import optparse
 import sys
 
 import numpy
-numpy.seterr(all="raise")  # throw an exception on any funny business
+numpy.seterr(over="raise", under="ignore")
 from scipy import stats
 import matplotlib
 matplotlib.use("Agg")
@@ -214,6 +214,12 @@ def parse_args():
     parser.add_option("--smoothing-radius", type="float", metavar="SIGMA",
         help="enable smoothing in the L, D plane with a Gaussian kernel"\
              "of standard deviation SIGMA in pixels (default: no smoothing)")
+    parser.add_option("--nonuniform-smoothing-D", type="float", metavar="SIZE",
+        help="enable a non-uniform smoothing of p(L|D) over D with a kernel "\
+        "that varies proportionally to SIZE*D (default: no smoothing)")
+    parser.add_option("--nonuniform-smoothing-L", type="float", metavar="SIZE",
+        help="enable a non-uniform smoothing of p(L|D) over L with a kernel "\
+        "that varies proportionally to SIZE*(Lmax - L) (default: no smoothing)")
     parser.add_option("--verbose", action="store_true", default=False,
         help="extra information to the console")
 
@@ -303,7 +309,7 @@ MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
 if opts.verbose:
     print "Computing P(L | D_best)..."
 
-num_L = 100
+num_L = 40
 L_min = eps
 L_max = max(offsource_log_L_by_trial_m2.max(),
             inj_log_L_by_trial_m2.max())
@@ -337,6 +343,34 @@ if opts.smoothing_radius is not None:
     window = rate.gaussian_window(opts.smoothing_radius)
     for num_sims_by_D in num_sims_by_m2_D:
         rate.filter_array(num_sims_by_D, window)
+
+# smooth in D with growing Gaussian
+if opts.nonuniform_smoothing_D:
+    # Make each row (after) a linear combination of rows (before)
+    # This is like a one-dimensional convolution in D, but with a kernel
+    # that grows proportionally to D.
+    # NB: numpy.fromfunction(f, shape) fills the (i, j) element with f(i, j).
+    # NB: numpy.dot(a, b) does a product and sum, iterating over the last
+    # dimension of a and the second-to-last dimension of b.
+    A = numpy.fromfunction(\
+        lambda i, j: numpy.exp(-(i - j) * (i - j) \
+            / (2 * opts.nonuniform_smoothing_D * (i + 1))),
+        shape=(len(D_bins), len(D_bins)))
+    A /= A.sum(axis=1)[:, None]  # conserve counts
+    count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
+    num_sims_by_m2_D = numpy.dot(num_sims_by_m2_D, A)
+
+
+# smooth in L with shrinking Gaussian
+# NB: convolutions commute and these convolutions are separable
+if opts.nonuniform_smoothing_L:
+    B = numpy.fromfunction(\
+        lambda i, j: numpy.exp(-(i - j) * (i - j) \
+            / (2 * opts.nonuniform_smoothing * (len(L_bins) - i))),
+        shape=(len(L_bins), len(L_bins)))
+    B /= B.sum(axis=1)[:, None]  # conserve counts
+    count_by_L_m2_D = numpy.dot(count_by_L_m2_D.transpose((1, 2, 0)),
+                                B).transpose((2, 0, 1))
 
 ##############################################################################
 # Take calibration systematics into account by rescaling D bins
