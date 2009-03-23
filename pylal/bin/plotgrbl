@@ -215,13 +215,14 @@ if opts.verbose:
 raw_pc0_by_mc = get_fap(onsource_loudest_by_mc)
 
 # with multiple candidates, take the minimum FAP to get the maximum IFAR
-# for FAP == 0, use 1e-10 instead
-offsource_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 \
+# for FAP == 0, use 1e-5 instead
+offsource_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-5 \
     for trial in offsource_loudest_by_trial_mc),
     dtype=float, count=num_offsource_trials)
-inj_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-10 for trial \
+inj_fap_by_trial = numpy.fromiter((get_min_fap(trial) or 1e-5 for trial \
     in inj_loudest_by_inj_mc), dtype=float, count=num_inj)
 
+on_ifar = 1 / (get_min_fap(onsource_loudest_by_mc) or 1e-5)
 off_ifar = 1 / offsource_fap_by_trial
 inj_ifar = 1 / inj_fap_by_trial
 
@@ -468,7 +469,7 @@ if opts.enable_output:
 if not opts.show_plot:
     plot.close()
 
-## L(c|h) vs m2
+## L vs m2 for loudest candidates
 # TODO: before and after MC and calibration systematics
 text = "ln L(c(mc)|h(m2))"
 
@@ -508,7 +509,7 @@ if not opts.show_plot:
 text = "ln sum L vs max rho"
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"$\ln (\Sigma L)$",
-    r"$\ln (\Sigma L)\textrm{ vs max eff SNR}$")
+    r"$\max \ln (\Sigma L)\textrm{ vs max eff SNR}$")
 
 # injections
 x_data = inj_loudest_by_inj_mc.max(axis=1)
@@ -517,7 +518,7 @@ non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
 y_data = y_data[non_empty_trials]
 plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
-    label="injections", markersize=2)
+    label="injections", markersize=4)
 
 # background
 x_data = offsource_loudest_by_trial_mc.max(axis=1)
@@ -526,7 +527,7 @@ non_empty_trials = (x_data > 0) & (y_data > 0)
 x_data = x_data[non_empty_trials]
 y_data = y_data[non_empty_trials]
 plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
-    label="background", markersize=4)
+    label="background", markersize=6)
 
 # on-source observation
 if log_L_by_m2.sum() > 0:
@@ -541,6 +542,92 @@ plot.ax.axis("tight")
 
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_sum_L_vs_rho_max")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## IFAR vs rho
+text = "IFAR vs max rho"
+
+plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff,max}$", r"IFAR",
+    r"max IFAR vs max eff SNR")
+
+# injections
+x_data = inj_loudest_by_inj_mc.max(axis=1)
+y_data = inj_ifar
+non_empty_trials = (x_data > 0) & (y_data > 0)
+x_data = x_data[non_empty_trials]
+y_data = y_data[non_empty_trials]
+plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
+    label="injections", markersize=4)
+
+# background
+x_data = offsource_loudest_by_trial_mc.max(axis=1)
+y_data = off_ifar
+non_empty_trials = (x_data > 0) & (y_data > 0)
+x_data = x_data[non_empty_trials]
+y_data = y_data[non_empty_trials]
+plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
+    label="background", markersize=6)
+
+# on-source observation
+if log_L_by_m2.sum() > 0:
+    plot.add_content([onsource_loudest_by_mc.max()], [on_ifar],
+        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="None")
+
+plot.finalize(loc=4)
+plot.ax.set_xscale("log")
+plot.ax.set_yscale("log")
+plot.ax.axis("tight")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "IFAR_vs_rho_max")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(text)
+if not opts.show_plot:
+    plot.close()
+
+## L_sum vs IFAR
+text = "max ln sum L vs max IFAR"
+
+plot = plotutils.SimplePlot(r"IFAR", r"$\ln (\Sigma L)$",
+    r"$\max \ln (\Sigma L)\textrm{ vs max IFAR}$")
+
+# injections
+x_data = inj_ifar
+y_data = inj_log_sum_L_by_trial
+non_empty_trials = (x_data > 0) & (y_data > 0)
+x_data = x_data[non_empty_trials]
+y_data = y_data[non_empty_trials]
+plot.add_content(x_data, y_data, marker=".", color="b", linestyle="None",
+    label="injections", markersize=4)
+
+# background
+x_data = off_ifar
+y_data = offsource_log_sum_L_by_trial
+non_empty_trials = (x_data > 0) & (y_data > 0)
+x_data = x_data[non_empty_trials]
+y_data = y_data[non_empty_trials]
+plot.add_content(x_data, y_data, marker="x", color="r", linestyle="None",
+    label="background", markersize=6)
+
+# on-source observation
+if log_L_by_m2.sum() > 0:
+    plot.add_content([on_ifar], [log_sum_L],
+        marker="o", markeredgecolor="k", linestyle="None", markeredgewidth=2,
+        label="on-source observation", markersize=8, markerfacecolor="None")
+
+plot.finalize(loc=2)
+plot.ax.set_xscale("log")
+plot.ax.set_yscale("log")
+plot.ax.axis("tight")
+
+if opts.enable_output:
+    fname = InspiralUtils.set_figure_name(opts, "log_sum_L_vs_IFAR_max")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
