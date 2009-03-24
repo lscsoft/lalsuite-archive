@@ -371,7 +371,7 @@
                 </head-fs>
                 <profile namespace="env" key="GLOBUS_LOCATION" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus</profile>
                 <profile namespace="env" key="LD_LIBRARY_PATH" >/ldcg/stow_pkgs/ldg-4.5/ldg/vdt/globus/lib</profile>
-                <profile namespace="env" key="PEGASUS_HOME" >/archive/home/bdaudert/downloads/pegasus-2.2.0cvs</profile>
+                <profile namespace="env" key="PEGASUS_HOME" >/archive/home/bdaudert/downloads/pegasus-2.2.0</profile>
                 <profile namespace="pegasus" key="grid" >local</profile>
         </site>
         <site  handle="MIT_CMS" arch="x86" os="LINUX">
