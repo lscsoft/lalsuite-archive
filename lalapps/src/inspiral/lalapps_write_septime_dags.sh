@@ -30,6 +30,12 @@ echo
 h1_veto_file='../segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
 h2_veto_file='../segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
 l1_veto_file='../segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+if [ ${cat} == 'CAT_2' ]; then
+  ln -s '../segments/H1-CATEGORY_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt' '../segments/H1-COMBINED_CAT_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+  ln -s '../segments/H2-CATEGORY_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt' '../segments/H2-COMBINED_CAT_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+  ln -s '../segments/L1-CATEGORY_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt' '../segments/L1-COMBINED_CAT_2_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+fi
+
 # don't touch anything below here
 ################################################################################
 
@@ -141,11 +147,11 @@ echo -e "\n...done."
 
 #generate time-slide dag
 echo "Genearting septime_slide.dag and .sub files..."
-num_thincas=`grep THINCA_SLIDE_SECOND.*FULL_DATA_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
+num_thincas=`grep THINCA_SLIDE_SECOND.*FULL_DATA_${cat} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g | wc -l` 
 thinca_idx=1
 
 if [ 1 ]; then
-  for file in `grep THINCA_SLIDE_SECOND.*FULL_DATA_CAT_3 ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
+  for file in `grep THINCA_SLIDE_SECOND.*FULL_DATA_${cat} ${hipe_cache} | awk '{print $5}' | sed s+file://localhost++g`; do
     echo -ne "processing ${thinca_idx} / ${num_thincas}\r" >&2
     thinca_idx=$(( ${thinca_idx} + 1 ))
     infile=`basename $file`
