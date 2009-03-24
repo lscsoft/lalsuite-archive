@@ -25,6 +25,7 @@
 # =============================================================================
 #
 
+
 try:
 	import sqlite3
 except ImportError:
@@ -67,6 +68,7 @@ __version__ = "$Revision$"[11:-2]
 # Open database
 #
 
+
 def setup(target):
 	connection = sqlite3.connect(target)
 	dbtables.DBTable_set_connection(connection)
@@ -80,6 +82,7 @@ def setup(target):
 #
 # How to insert
 #
+
 
 def insert(connection, urls, preserve_ids = False, verbose = False):
 	"""
@@ -120,6 +123,8 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 #
 # How to extract
 #
+
+
 def extract(connection, filename, table_names = None, verbose = False):
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(dbtables.get_xml(connection, table_names))
@@ -127,5 +132,3 @@ def extract(connection, filename, table_names = None, verbose = False):
 
 	# delete cursors
 	xmldoc.unlink()
-
-
