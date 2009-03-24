@@ -345,12 +345,12 @@ class CacheEntry(object):
 
 		>>> c = CacheEntry("H1", "S5", segments.segment(815901601, 815902177.5), "file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
 		>>> print c.segment
-		[815901601 ... 815902177.5]
+		[815901601 ... 815902177.5)
 		>>> print str(c)
 		'H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml'
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml")
 		>>> print c.segment
-		[815901601 ... 815902177.5]
+		[815901601 ... 815902177.5)
 		>>> c = CacheEntry("H1 S5 815901601 576.5 file://localhost/home/kipp/tmp/1/H1-815901601-576.xml", coltype = int)
 		ValueError: invalid literal for int(): 576.5
 		"""
