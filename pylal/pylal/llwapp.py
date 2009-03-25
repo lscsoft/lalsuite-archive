@@ -171,6 +171,7 @@ def append_process(*args, **kwargs):
 	process = ligolwprocess.append_process(*args, **kwargs)
 	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None:
 		process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
+	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
 
 
