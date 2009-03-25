@@ -166,73 +166,70 @@ def gridsky(resolution):
       points.append(numpy.asarray([latitude-0.5*pi, longitude]))
   return points
 
-#grid a small portion of the sky 
+#grid a small portion of the sky
 def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
   box_err = pi*sqrt(2.0)*coarse_res/180.0
+  latmin += pi/2 - box_err
+  latmax += pi/2 + box_err
+  lonmin -= box_err
+  lonmax += box_err
+  if latmin < 0:
+    latmin = 0
+  if latmax > pi:
+    latmax = pi
+  if lonmin < 0:
+    lonmin = 0
+  if lonmax > 2*pi:
+    lonmax = 2*pi
 
-#  if (latmin < box_err) and (latmax > 0) and (lonmax - lonmin) > pi:
-#   latitude = 0.0 
-#   longitude = 0.0
-#   while latitude <= (latmax + abs(latmin - box_err) + box_err):
-#     latitude += ds
-#     longitude = 0.0
-#     points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
-#     while longitude <= (lonmin + box_err):
-#        longitude += ds / abs(sin(latitude))
-#        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
-#   latitude = 0.0
-#   longitude = lonmax - box_err
-#   while latitude <= (latmax + abs(latmin - box_err) + box_err):
-#     latitude += ds
-#     longitude = lonmax - box_err
-#     while longitude <= 2*pi:
-#        longitude += ds / abs(sin(latitude))
-#        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude])) 
-     
-  if (latmin < box_err) and (latmax > 0):    
-    latitude = 0.0
-    longitude = lonmin - box_err
-    while latitude <= (latmax + abs(latmin - box_err) + box_err):
-      latitude += ds
-      longitude = lonmin - box_err
-      points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
-      while longitude <= (lonmax + box_err):
-        longitude += ds / abs(sin(latitude))
-        points.append(numpy.asarray([latitude-abs(latmin - box_err),longitude]))
-        
-#  elif (lonmax - lonmin) > pi:
-#    latitude = latmin - box_err
-#    longitude = 0.0
-#    while latitude <= (latmax+box_err):
-#      points.append(numpy.asarray([latitude,longitude]))
-#      while longitude <= (lonmin + box_err):
-#        longitude += ds / abs(sin(latitude))
-#        points.append(numpy.asarray([latitude,longitude]))
-#      latitude += ds
-#      longitude = lonmin - box_err
-#    latitude = latmin - box_err
-#    longitude = lonmax - box_err
-#    while latitude <= (latmax+box_err):
-#      points.append(numpy.asarray([latitude,longitude]))
-#      while longitude <= 2*pi:
-#        longitude += ds / abs(sin(latitude))
-#        points.append(numpy.asarray([latitude,longitude]))
-#      latitude += ds
-#      longitude = lonmax - box_err
-    
-  else:
-    latitude = latmin - box_err
-    longitude = lonmin - box_err
-    while latitude <= (latmax+box_err):
-      points.append(numpy.asarray([latitude,longitude]))
-      while longitude <= (lonmax + box_err):
-        longitude += ds / abs(sin(latitude))
-        points.append(numpy.asarray([latitude,longitude]))
-      latitude += ds
-      longitude = lonmin - box_err
+  latitude = latmin
+  longitude = lonmin
+  while latitude <= latmax:
+    points.append(numpy.asarray([latitude-pi/2,longitude]))
+    while longitude <= lonmax:
+      longitude += ds / abs(sin(latitude))
+      points.append(numpy.asarray([latitude-pi/2,longitude]))
+    latitude += ds
+    longitude = lonmin
+
+  #deal with periodic grid issues by always starting at (0,0) and then translating back to the original position
+#  latdiff = latmax - latmin + 2*box_err
+#  londiff = lonmax - lonmin + 2*box_err
+#  if abs(latdiff) > 0.5*pi :
+#    newlatmax = periodic(-latdiff,pi)
+#    sgn = -1
+#  else:
+#    newlatmax = latdiff
+#    sgn = 1
+#  if abs(londiff) > pi:
+#    newlonmax = periodic(lonmin-lonmax-2*box_err,2*pi)
+#  else:
+#    newlonmax = lonmax - lonmin + 2*box_err
+
+#  latitude = 0
+#  longitude = 0
+#  points = [numpy.asarray([latitude-0.5*pi, longitude])] 
+#  while latitude <= newlatmax:
+#    latitude += ds
+#    longitude = 0
+#    points.append(numpy.asarray([periodic(latitude+latmax+box_err,pi)-0.5*pi,periodic(longitude+lonmax+box_err,2*pi)]))
+#    while longiude <= newlonmax:
+#      longitude += ds / abs(sin(latitude))
+#      points.append(numpy.asarray([periodic(latitude+latmax+box_err,pi)-0.5*pi,periodic(longitude+lonmax+box_err,2*pi)]))
+
   return points
+
+#enforce periodic boundary conditions on things
+#this helps avoid ambiguities in gridding and convex hull finding that arise when working on the surface of the 2-sphere
+#assumes things are periodic between 0 and xmax
+def periodic(x,xmax):
+  if x < 0:
+    return x + xmax
+  if x > xmax:
+    return x - xmax
+  return x
 
 # distance on the sphere
 def sphdist(p1,p2):
@@ -1118,6 +1115,9 @@ for coinc in coincTriggers:
       if galaxies and (opts.plotpoints or opts.enable_output):
         for gal in galaxies:
           plot(asarray([gal.ra]), asarray([gal.dec]), color = (0.5,0,0.5), marker = '^')
+        axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
+        annotate_plot("Right Ascension (radians)", "Declination (radians)",\
+                      "Reconstructed sky position")
  
       galaxy_counter[i] = len(galaxies)
        
