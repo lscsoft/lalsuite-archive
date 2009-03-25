@@ -883,7 +883,8 @@ def generateXMLfile(cp,ckey,ifo,outputPath=None,type='plot',use_max_template=Non
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)   
 
 def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
-  
+
+  sngl_copy = copy.deepcopy(sngl)
   trig =  getattr(fuTrig.coincs,ifo)
   mass = trig.mass1 + trig.mass2
   if outputPath:
@@ -899,18 +900,18 @@ def generateBankVetoBank(fuTrig, ifo,sngl,subBankSize,outputPath=None):
   notcolumns = []
   for col in valid_columns:
     try:
-      getattr(sngl[0],col)
+      getattr(sngl_copy[0],col)
       columns.append(col)
     except:
       notcolumns.append(col) 
   sngl_inspiral_table = lsctables.New(lsctables.SnglInspiralTable)
-  sngl.sort(lambda a, b: cmp(a.mtotal, b.mtotal))
-  index = sngl.getColumnByName('mtotal').index(mass)
-  fromEnd = len(sngl)-index-int(subBankSize/2)
+  sngl_copy.sort(lambda a, b: cmp(a.mtotal, b.mtotal))
+  index = sngl_copy.getColumnByName('mtotal').index(mass)
+  fromEnd = len(sngl_copy)-index-int(subBankSize/2)
   if fromEnd < 0:
-    sngl_sub = sngl[index+fromEnd-int(subBankSize/2):-1]
+    sngl_sub = sngl_copy[index+fromEnd-int(subBankSize/2):-1]
   else: 
-    sngl_sub = sngl[index-int(subBankSize/2):index+int(subBankSize/2)]
+    sngl_sub = sngl_copy[index-int(subBankSize/2):index+int(subBankSize/2)]
  
   for row in sngl_sub:
     for col in notcolumns:
