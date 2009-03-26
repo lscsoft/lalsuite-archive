@@ -1,0 +1,805 @@
+#!/usr/bin/env python
+#
+# Copyright (C) 2008  Nickolas Fotopoulos
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+"""
+pylal_expose: EXternal-trigger POpulation SEarch
+
+This code computes the probability that a set of loudest statistics from
+searches for external triggers is drawn from the same distribution as a
+set of loudest statistics from background trials.
+"""
+
+from __future__ import division
+
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2] or None
+__Id__ = "$Id$"
+__prog__ = "pylal_expose"
+__title__ = "External Trigger Population Search"
+
+import sys
+import copy
+import glob
+import optparse
+import random
+import cPickle as pickle
+itertools = __import__("itertools")
+                       
+import numpy 
+from scipy import stats
+import pylab as plt
+plt.rc('text', usetex=True)
+
+
+from glue import iterutils
+from pylal import InspiralUtils
+from pylal import grbsummary
+from pylal import plotutils
+from pylal import rate
+
+#
+# Functions
+#
+def extract_grb_name(file):
+    parts = file.split('_')
+    for part in parts:
+        if 'GRB' in part:
+            return part[3:]
+
+    return None
+            
+def extract_grb_names(filelist):
+    """
+    Given a list of pickle filenames, this function
+    extracts the GRB names from the files.
+    """
+    grb_list = set()
+    for file in filelist:
+        grb_list.add(extract_grb_name(file))
+
+    return grb_list
+    
+def find_file(filelist, grb_name):
+    for file in filelist:
+        if grb_name in file:
+            return file
+
+    raise ValueError, "GRB %s not found in filelist" % grb_name
+
+def load_grb_table(filename_grb, files_onsource, files_offsource,\
+                    redshift_rejection = True):
+    """
+    Loads the GRB table from the given filename
+    but selects only the GRB's that are listed in the
+    grb_list and which are available; rejecting any GRB with a
+    redshift measurement if the flag is set to True.
+    """
+
+    ## FIXME
+    # this is a list of short GRB's being analyzed with redshift measurement,
+    # which is not part of the usual GRB.xml file. This should be updated instead,
+    # but we don't have a xml editor.
+    additional_GRB_with_redshift = ['061217','070429B']
+    
+    if len(files_onsource)!=len(files_offsource):
+        raise ValueError, "The number of onsource files and offsource files"\
+              " is different. They should be the same!"
+
+    list_onsource = extract_grb_names(files_onsource)
+    list_offsource = extract_grb_names(files_offsource)
+    if list_onsource!=list_offsource:
+        raise ValueError, "The onsource files do not match the offsource files!"
+    list_grbs = list_onsource
+    
+    # read all the GRBs
+    ext_trigs = grbsummary.load_external_triggers(filename_grb)
+
+    temp_trigs = []
+    new_files_onsource = []
+    new_files_offsource = []
+
+    # main loop over all GRB's
+    for grb in ext_trigs:
+        
+        if grb.event_number_grb in list_grbs:
+            if redshift_rejection and (grb.event_z>0 or \
+                                       grb.event_number_grb in additional_GRB_with_redshift):
+                print >>sys.stderr, "GRB %s has a redshift measurement: "\
+                      "rejected." % grb.event_number_grb
+            else:
+            
+                temp_trigs.append(grb)
+                new_files_onsource.append(find_file(files_onsource, grb.event_number_grb))
+                new_files_offsource.append(find_file(files_offsource, grb.event_number_grb))
+                print >>sys.stderr, "GRB %s has been added to the analysis list " %\
+                      grb.event_number_grb
+        
+    return list_grbs, temp_trigs, new_files_onsource,  new_files_offsource
+    
+
+def mannwhitney_u(x, y):
+    """
+    Return the Mann-Whitney U statistic on the provided scores.  Copied from
+    scipy.stats.mannwhitneyu except that we only return the U such that
+    large U means that population x was systematically larger than population
+    y, rather than the smaller U between x and y.  The two possible U values
+    one can report are related by U' = n1*n2 - U.
+    """
+    x = numpy.asarray(x)
+    y = numpy.asarray(y)
+    if x.ndim != 1 or y.ndim != 1:
+        raise ValueError, "populations must be rank 1 collections"
+    n1 = len(x)
+    n2 = len(y)
+
+    ranked = stats.rankdata(numpy.concatenate((x,y)))
+    rankx = ranked[0:n1]  # get the x-ranks
+    u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
+    return n1 * n2 - u1  # return U for y
+
+
+def mannwhitney_u_zscore(n1, n2, U_value):
+    """
+    Return the z-score of a given U value from the Mann-Whitney U test using
+    the normal approximation.  Not appropriate for n1 + n2 < ~20.
+    """
+    mean_U = n1 * n2 / 2
+    stdev_U = numpy.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
+    return (U_value - mean_U) / stdev_U
+
+def mannwhitney_z(x_list, y_list):
+    """
+    Return the Mann-Whitney z value on the provided scores.  Copied from
+    scipy.stats.mannwhitneyu except that we only return the U such that
+    large U means that population x was systematically larger than population
+    y, rather than the smaller U between x and y.  The two possible U values
+    one can report are related by U' = n1*n2 - U.
+    """
+
+    u_list = []
+    z_list = []
+    for x,y in zip(x_list, y_list):
+        n1 = len(x)
+        n2 = len(y)
+
+        # calculate the u value
+        u = mannwhitney_u(x, y)
+        u_list.append(u)
+       
+        # calculate the z-value
+        mean_U = n1 * n2 / 2
+        stdev_U = numpy.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
+        z_list.append( (u - mean_U) / stdev_U)
+                
+    return numpy.asarray(z_list), numpy.asarray(u_list)
+
+def float_to_latex(x, format="%g"):
+    """
+    Convert a floating point number to a latex representation.  In particular,
+    scientific notation is handled gracefully: e -> 10^
+    """
+    base_str = format % x
+    if "e" not in base_str:
+        return base_str
+    mantissa, exponent = base_str.split("e")
+    exponent = str(int(exponent))  # remove leading 0 or +
+
+    return mantissa + r"\times 10^{" + exponent + "}"
+
+def create_fake_set(ifar_off_by_m2, type='random', number=14):
+    """
+    Create a fake onsource population set with the
+    given length (number).
+    """
+    pop_fake_by_m2 = [[] for i in range(opts.m2_nbins) ]
+
+    for index_m2 in range(opts.m2_nbins):
+
+        pop = ifar_off_by_m2[index_m2]
+        index = numpy.argsort(pop)
+    
+        # create the various fake lists to test the whole procedure
+        if type=="random":
+            pop_fake_by_m2[index_m2] = [random.choice(pop)for i in range(number)]
+        elif type=="max":
+            pop_fake_by_m2[index_m2] = [pop[index[-n-1]] for n in range(number)]
+        elif type=="single":
+            pop_fake_by_m2[index_m2] = [pop[index[-1]]]
+            pop_fake_by_m2[index_m2].extend([random.choice(pop)for i in range(number)])
+        else:
+            raise NotImplementedError, "ERROR: Type %s not implemented,"\
+                  " you have to choose one of {random,max,single}." % type
+        
+    return pop_fake_by_m2
+
+ 
+def create_education_plots(popA_by_m2, popB_by_m2):
+    """
+    Create some basic overview plots that shows the relations between
+    the used values, the statistics and the probabilities.
+    More or less for educational reasone only relevant.
+    """
+
+    # example values (in fact the real values)
+    n1 = 14
+    n2 = 5128
+    mean_U = n1*n2/2    
+    
+    list_U = []
+    list_z = []
+    list_p1 = []
+    list_p2 = []
+    for value_U in numpy.arange(mean_U-20000, mean_U+20000, 20):
+        
+        z_value = mannwhitney_u_zscore(n1, n2, value_U)  
+        p_one_sided = stats.distributions.norm.sf(z_value)
+        p_two_sided = stats.erfc(abs(z_value) / numpy.sqrt(2.))
+
+        list_U.append(value_U)
+        list_z.append(z_value)
+        list_p1.append(p_one_sided)
+        list_p2.append(p_two_sided)
+
+    plot = plotutils.SimplePlot(r"U" ,"z/p1/p2","Mapping of U to z and the probabilities")
+    plot.add_content(list_U, list_z, color='r', linewidth = 3, label='z value')
+    plot.add_content(list_U, list_p1, color='b', linewidth = 3,label='p one sided')
+    plot.add_content(list_U, list_p2, color='g', linewidth = 3,label='p two sided')
+    plot.add_content([mean_U, mean_U], [-2, +2], color='k', linewidth = 3,label='neutral U')
+    plot.finalize()
+    plot.ax.axis([30000, 55000, -2, +2])
+    fname = InspiralUtils.set_figure_name(opts, "example1")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(fname)
+    
+    plot = plotutils.SimplePlot(r"z" ,"p","Mapping of z to the probabilities")
+    plot.add_content(list_z, list_p1, color='b', linewidth = 3,label='p one sided')
+    plot.add_content(list_z, list_p2, color='g', linewidth = 3,label='p two sided')
+    plot.add_content([0.1, 0.1],[0, 1], color = 'k', linewidth = 2, linestyle='-.')
+    plot.add_content([1.12, 1.12],[0, 1], color = 'c', linewidth = 2, linestyle='-.')
+    plot.add_content([2.84, 2.84],[0, 1], color = 'r', linewidth = 2, linestyle='-.',)
+    plot.finalize()
+    plot.ax.axis([-3, +3, 0, +1])
+    fname = InspiralUtils.set_figure_name(opts, "example2")
+    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+    fnameList.append(fname)
+    tagList.append(fname)
+
+def check_independency_in_m2(offsource_fap_by_m2):
+    """
+    This is a function to gain confidence in the statement
+    to say that the z-values as a function of m2 bins are
+    actually independend. To to that, a bunch of random draws are used
+    ands then - the Mann-Whitney U test....
+    """
+
+    distr = []
+    cdistr = []
+    sum_distr = []
+    n_trials = 500
+    n_m2_bins = opts.m2_nbins
+    for trial in range(n_trials):
+        
+        # draw a random distribution from the offsource
+        use_fap_by_m2 = create_fake_set(offsource_fap_by_m2, 'random', number=14)
+
+        # calculate all z and U values
+        z_by_m2, U_by_m2 =  mannwhitney_z(use_fap_by_m2, offsource_fap_by_m2)
+
+        # store the z-values as function of m2
+        distr.extend(z_by_m2)
+
+        # checking the procedure: draw real normal values as well
+        cdistr.extend([random.gauss(0,1) for i in range(n_m2_bins)])
+
+        # and store the sum of each trial as well...
+        sum_distr.append(sum(z_by_m2))
+
+    # create a histogram of the trial values
+    nbins = 40
+    hy, hx, dummy = plt.hist(distr, nbins)
+
+    # get the binning; to be used to make a neccessary bin-shift
+    dx = hx[1]-hx[0]
+    px = hx+dx/2.0
+    py = numpy.exp(-px**2/2.0)/numpy.sqrt(6.2831853071795862)
+    
+    # make the WMU test...
+    u = mannwhitney_u(distr, py)
+    z_val = mannwhitney_u_zscore(len(distr), len(py), u)
+    print "Confidence of the z_by_m2 distribution different from a Normal distribution: %.3f sigma " %\
+          (z_val)
+
+    # Make a test MWU-test
+    u = mannwhitney_u(cdistr, py)
+    z_val = mannwhitney_u_zscore(len(cdistr), len(py), u)
+    print "Confidence of a Normal distribution different than a Normal distribution: %.3f sigma " %\
+          (z_val)
+   
+    ## create some supporting plots
+    scale = sum(hy)/sum(py)
+    py = scale*py
+    plt.clf()
+    plt.hist(distr, nbins)
+    plt.grid(True)        
+    plt.plot(hx, py, 'r', linewidth = 3)
+    plt.xlabel('sigma')
+    plt.ylabel('number')  
+    plt.savefig('pylal_expose_independenceTest-m2-trials.png')
+    
+    cy, cx, dummy = plt.hist(cdistr, nbins)
+    scale = sum(cy)/sum(py)
+    py = scale*py
+    plt.clf()
+    plt.plot(cx, cy, 'r-')
+    plt.plot(hx, py, 'b-')
+    plt.grid(True)
+    plt.xlabel('sigma')
+    plt.ylabel('number')  
+    plt.savefig('pylal_expose_independenceTest-check.png')
+
+
+    ## check out the sum distribution
+    nbins = 30
+    plt.clf()
+    sy, sx, dummy = plt.hist(sum_distr, nbins)
+    sigma = numpy.sqrt(n_m2_bins)
+    ty = numpy.exp(-(sx/sigma)**2/2.0)/numpy.sqrt(6.2831853071795862)/sigma
+    scale = sum(sy)/sum(ty)
+    ty = scale*ty
+    plt.plot(sx,ty, 'r-')
+    plt.grid(True)
+    plt.xlabel('sigma')
+    plt.ylabel('number')    
+    plt.savefig('pylal_expose_independenceTest-sum-distr.png')    
+
+    
+def check_distribution_far(opts, ext_trigs, ifar_on_by_m2, ifar_off_by_grb_m2):
+    """
+    This function is entirely a checking function that
+    might not used later. It is just to check the offsource
+    distributions of the several GRBs
+    """
+    dm = (opts.m2_max - opts.m2_min) / opts.m2_nbins
+    m2_centres = opts.m2_min + numpy.arange(opts.m2_nbins, dtype=float) * dm+dm
+    
+    num_m2 = opts.m2_nbins
+    num_grb = len(ifar_on_by_m2[0])
+    print "Number GRBs in data set: ", num_grb
+
+    # some combinations of colors/styles
+    colors = itertools.cycle(('b', 'g', 'r', 'c', 'm', 'y', 'k'))
+    linestyles = itertools.cycle(('-','-.',':'))    
+    
+    # loop over each m2 bin
+    for index_m2, m2_centre in enumerate(m2_centres):
+
+        # prepare the plot
+        plot = plotutils.SimplePlot(r"log( IFAR($m_2\in$  [%.1f, %.1f]) )" %\
+                                    (m2_centre-dm, m2_centre), r"cumulative sum",\
+                                    r"Cumulative distribution offsource-ifar")
+        # loop over each grb
+        pop_min = 1./324.0
+        pop_max = 1.0    
+        
+        # create the hist data in a consistent binning
+        bins = rate.LinearBins(pop_min, pop_max, 20)
+        px = bins.lower()
+        
+        for index_grb, (grb, ifar_off_by_m2) in enumerate(zip(ext_trigs,ifar_off_by_grb_m2)):
+
+            pop = ifar_off_by_grb_m2[index_grb][index_m2]
+            pop =  list(iterutils.flatten(pop))
+
+            # create the histogram and fill it
+            hist = numpy.zeros(20)
+            for value in pop:
+                hist[bins[value]] += 1            
+
+            # create an 'inverse' cumulative histogram
+            dummy = 1.0-numpy.cumsum(hist)/numpy.sum(hist)
+            hist_cum = [1.0]
+            hist_cum.extend(dummy[0:-1])
+
+            # add content to the plot
+            plot.add_content(numpy.log10(px), hist_cum, color = colors.next(),\
+                             linestyle = linestyles.next())#,label =grb.event_number_grb )
+            
+        plot.finalize()
+        plot.ax.set_yscale("log")
+        fname = InspiralUtils.set_figure_name(opts, "offsource_ifar-%.1f"%m2_centre)
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(fname)
+        
+    opts.enable_output = True
+    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
+          fnameList, tagList, comment=html_footer)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+
+    
+def draw_plots(opts, popA_by_m2, popB_by_m2, U_by_m2, z_by_m2,
+               p_one_sided_by_m2, p_two_sided_by_m2):
+    
+    #
+    # Draw plots
+    #
+    
+    dm = (opts.m2_max - opts.m2_min) / opts.m2_nbins
+    m2_edges = opts.m2_min + numpy.arange(opts.m2_nbins + 1, dtype=float) * dm
+    
+    for m2_low, m2_high, popA, popB, U, z, p_one_sided, p_two_sided in \
+        zip(m2_edges[:-1], m2_edges[1:], popA_by_m2, popB_by_m2, \
+            U_by_m2, z_by_m2, p_one_sided_by_m2, p_two_sided_by_m2):
+
+        mass_text = "m2_%.1f-%.1f-" % (m2_low, m2_high)
+                
+        #
+        # Create the histogram comparison
+        #
+        plot_title = r"$m_2 \in [%.2f, %.2f), U=%d, z_U=%s, p_1=%s, p_2=%s$" \
+            % (m2_low, m2_high, int(U), float_to_latex(z, "%5.2g"),
+               float_to_latex(p_one_sided, "%5.2g"),
+               float_to_latex(p_two_sided, "%5.2g"))    
+        plot = plotutils.VerticalBarHistogram(r"$IFAR(m_2 \in [%.2f, %.2f))$" %\
+                                              (m2_low, m2_high) ,"PDF",plot_title)
+        plot.add_content(popA, color='r', label = r'On source', bottom = 1.0e-4)
+        plot.add_content(popB, color='b', label = r'Off source', bottom = 1.0e-4)
+        plot.finalize(normed=True)
+        plot.ax.set_yscale('log')
+
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts, "hist-"+mass_text)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(fname)
+
+        #
+        # Create the QQ plot
+        #
+        plot_title = r"$m_2 \in [%.2f, %.2f), U=%d, z_U=%s, p_1=%s, p_2=%s$" \
+                     % (m2_low, m2_high, int(U), float_to_latex(z, "%5.2g"),
+                        float_to_latex(p_one_sided, "%5.2g"),
+                        float_to_latex(p_two_sided, "%5.2g"))
+        plot = plotutils.QQPlot(r"self quantile" ,"combined quantile",plot_title)
+        plot.add_bg(popB, linewidth = 3, label="\"Off source\"")
+        plot.add_fg(popA, color='r', marker = 'o',label = r'On source',\
+                         linestyle='None',markersize=10)    
+        plot.finalize()
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts, "qq-"+mass_text)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(fname)
+
+    #
+    # Create the 'money' plots
+    #
+    plot = plotutils.SimplePlot(r"$m_2$" ,r"probability",\
+                                r"Probability of background consistency for all data")
+    m2_centers = opts.m2_min + numpy.arange(opts.m2_nbins, dtype=float) * dm +dm
+
+    plot.add_content(m2_centers, p_one_sided_by_m2, \
+                     color='b', linewidth = 3, label='p one sided')
+    plot.add_content(m2_centers, p_two_sided_by_m2, \
+                     color='g', linewidth = 3, label='p two sided')
+    plot.finalize()
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "p_vs_m2")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(fname)
+
+    plot = plotutils.SimplePlot(r"m_2" ,r"probability",\
+                                r"Probability of background consistency for all data")
+    m2_centers = opts.m2_min + numpy.arange(opts.m2_nbins, dtype=float) * dm +dm
+
+    plot.add_content(m2_centers, p_one_sided_by_m2, \
+                     color='b', linewidth = 3, label='p one sided')
+    plot.finalize()
+    plot.ax.set_yscale('log')
+    plot.ax.axis([0, 40, 0.001, 1])
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "p1_vs_m2")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(fname)
+        
+    plot = plotutils.SimplePlot(r"m_2" ,r"Significance (sigma)",\
+                                r"Sigma for background inconsistency for all data")
+    plot.add_content(m2_centers, z_by_m2, \
+                     color='b', linewidth = 3, label='p one sided')
+    plot.add_content([0,40],[0,0], color='k', linewidth = 2)
+    plot.finalize()
+    if opts.enable_output:
+        fname = InspiralUtils.set_figure_name(opts, "z_vs_m2")
+        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+        fnameList.append(fname)
+        tagList.append(fname)        
+
+    # print a combined statement
+    sum_z = numpy.sum(z_by_m2)
+    scale = numpy.sqrt(opts.m2_nbins)
+    sigma_combined = sum_z / scale
+    text = "Combined result over every m2-bin: %.3f sigma<br>" % sigma_combined
+    return text
+
+
+    
+def perform_test(popA_by_m2, popB_by_m2, html_footer):
+    """
+    Perform the statistical test for all m2 bins
+    """
+
+    # calculate all z and U values
+    z_by_m2, U_by_m2 =  mannwhitney_z(popA_by_m2, popB_by_m2)
+
+    # sf = 1 - cdf
+    p_one_sided_by_m2 = stats.distributions.norm.sf(z_by_m2)
+    
+    # erfc = 1 - erf
+    p_two_sided_by_m2 = stats.erfc(abs(z_by_m2) / numpy.sqrt(2.))    
+
+  
+    #
+    # Output results
+    #
+    text = "n1, n2 = %d, %d<br>" % (N_A, N_B)
+    text += "Mann-Whitney U by m2=%s<br>"% U_by_m2
+    text += "z-score by m2 =%s<br>"% z_by_m2
+    text += "p_one_sided by m2 =%s<br>"% p_one_sided_by_m2
+    text +=  "p_two_sided by m2 =%s<br>"% p_two_sided_by_m2
+    html_footer += text
+    
+    #
+    # Create the results plots
+    #
+    text = draw_plots(opts, popA_by_m2, popB_by_m2, U_by_m2, z_by_m2,
+                      p_one_sided_by_m2, p_two_sided_by_m2)
+
+    html_footer += text
+    return html_footer
+
+def perform_test_sum(popA_by_m2, popB_by_m2, html_footer):
+    """
+    Perform the statistical test on log(sum L)
+    """
+
+    # create the individual sums
+    print len(popA_by_m2)
+    print popA_by_m2    
+    
+    sum_on = numpy.log(sum(popA_by_m2))
+
+    print len(popB_by_m2)
+    sum_off = [numpy.log(sum(x)) for x in popB_by_m2]
+
+    print sum_off
+
+    sys.exit(0)
+    
+    # calculate all z and U values
+    z_by_m2, U_by_m2 =  mannwhitney_z(popA_by_m2, popB_by_m2)
+
+    # sf = 1 - cdf
+    p_one_sided_by_m2 = stats.distributions.norm.sf(z_by_m2)
+    
+    # erfc = 1 - erf
+    p_two_sided_by_m2 = stats.erfc(abs(z_by_m2) / numpy.sqrt(2.))    
+
+  
+    #
+    # Output results
+    #
+    text = "n1, n2 = %d, %d<br>" % (N_A, N_B)
+    text += "Mann-Whitney U by m2=%s<br>"% U_by_m2
+    text += "z-score by m2 =%s<br>"% z_by_m2
+    text += "p_one_sided by m2 =%s<br>"% p_one_sided_by_m2
+    text +=  "p_two_sided by m2 =%s<br>"% p_two_sided_by_m2
+    html_footer += text
+
+    
+
+def parse_args():
+    """
+    Parsing the command line arguments. 
+    """
+    parser = optparse.OptionParser(version=__version__)
+
+    # inputs
+    parser.add_option("--onsource-glob", help="glob matching pickle files " \
+        "containing the loudest on-source coincidences")
+    parser.add_option("--offsource-glob", help="glob matching pickle files " \
+        "containing the loudest off-source coincidences")
+    parser.add_option("--file-grb", default = "listGRB.xml", \
+                      help="xml file containing the GRB data.")
+
+    parser.add_option("--analyze", type="string",help="Specifies what to "\
+                      "analyze. Possible values: {box,max,random,single}.")
+    parser.add_option("--number", type="int",help="The number of onsource trials "\
+                      "to be selected. Default = 10.",default=10)
+    
+    parser.add_option("--m2-min", type="float", help="minimum m2 value")
+    parser.add_option("--m2-max", type="float", help="maximum m2 value")
+    parser.add_option("--m2-nbins", type="int", help="number of m2 bins")
+
+    # InspiralUtils compatibility
+    parser.add_option("--gps-start-time", type="int",
+        help="GPS start time of data analyzed")
+    parser.add_option("--gps-end-time", type="int",
+        help="GPS end time of data analyzed")
+    parser.add_option("--ifo-tag", help="IFO coincidence time analyzed")
+    parser.add_option("--user-tag", help="a tag to label your plots")
+    parser.add_option("--output-path", help="root of the HTML output")
+    parser.add_option("--enable-output", action="store_true",
+        default=False, help="enable plots and HTML output")
+    parser.add_option("--html-for-cbcweb", action="store_true",
+        default=False, help="enable HTML output with the appropriate headers "
+        "for the CBC website")
+    parser.add_option("--show-plot", action="store_true", default=False,
+        help="display the plots to screen if an X11 display is available")
+    
+    parser.add_option("--test", action="store_true",
+        default=False, help="TEST")
+   
+    # odds and ends
+    parser.add_option("--verbose", action="store_true", default=False,
+        help="print extra information to stdout")
+
+    options, arguments = parser.parse_args()
+
+    if options.ifo_tag is not None:
+        options.ifo_times = options.ifo_tag
+
+    for opt in ("onsource_glob", "offsource_glob"):
+        if getattr(options, opt) is None:
+            raise ValueError,  "--%s is required" % opt.replace("_", "-")
+
+    check_list = ['box','max','random','single']
+    if options.analyze not in check_list:
+        raise ValueError,  "Option '--analyze' must take one of the "\
+              "following options: %s"% check_list
+
+
+    # Default hack: Not nice, but FIXME, i.e. load the grbUL pickle file!!
+    if options.m2_min is None:
+        options.m2_min = 1
+        options.m2_max = 40
+        options.m2_nbins = 13
+
+    return options, arguments
+
+
+def calculate_ifar(L_by_m2):
+    return 1.0 / (offsource_L_by_trial_m2 >= L_by_m2[None, :]).sum(axis=0)
+
+
+#########################################################
+####################  MAIN  ############################
+#########################################################
+
+#
+# initialization
+#
+opts, args = parse_args()
+InspiralUtils.initialise(opts, __prog__, __version__)
+html_footer = ""
+fnameList = []
+tagList = []
+print "The following output has been created with pylal_expose"\
+      " version ", __version__
+
+#
+# Read input and select GRB data
+#
+
+# get the list of files
+files_onsource = glob.glob(opts.onsource_glob)
+files_offsource = glob.glob(opts.offsource_glob)
+if len(files_onsource)!=len(files_offsource):
+    print >> sys.stderr, "Length of the two globs are not equal. "\
+          "Probable one or more files are missing?"
+    sys.exit(1)
+
+
+# select the GRB's to be used
+list_grbs, ext_trigs, files_onsource,  files_offsource =\
+           load_grb_table(opts.file_grb, files_onsource, files_offsource)
+number_grb = len(ext_trigs)
+
+
+#
+# prepare the data set
+#
+
+ifar_on_by_m2 = [[] for i in range(opts.m2_nbins) ]
+ifar_off_by_m2 = [[] for i in range(opts.m2_nbins) ]
+
+onsource_fap_by_m2 = [[] for i in range(opts.m2_nbins) ]
+offsource_fap_by_m2 = [[] for i in range(opts.m2_nbins) ]
+
+# for testing purposes only
+offsource_fap_by_grb_m2 = [[[] for i in range(opts.m2_nbins) ] for j in range(number_grb)]
+
+
+test_array = None
+for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsource)):
+
+    # read the data from the files
+    onsource_L_by_m2 = pickle.load(open(file_on))[3]
+    offsource_L_by_trial_m2 = pickle.load(open(file_off))[2]
+    n_trials = offsource_L_by_trial_m2.shape[0]
+ 
+    # Nicks suggestion
+    fac = n_trials/324.0
+    dummy_onsource =  calculate_ifar(onsource_L_by_m2)
+    for index_m2 in range(opts.m2_nbins):
+        onsource_fap_by_m2[index_m2].append(fac*dummy_onsource[index_m2])
+
+
+    dummy_offsource = numpy.array(map(calculate_ifar, offsource_L_by_trial_m2))
+    for index_m2 in range(opts.m2_nbins):
+        offsource_fap_by_m2[index_m2].extend(fac*dummy_offsource[:, index_m2])
+        offsource_fap_by_grb_m2[index_grb][index_m2].append(fac*dummy_offsource[:, index_m2])
+
+# get some numbers
+N_A = len(onsource_fap_by_m2[0])
+N_B = len(offsource_fap_by_m2[0])
+N_tot = N_A + N_B
+
+
+#
+# Make a distribution check
+#
+if opts.test:
+    
+    create_education_plots(onsource_fap_by_m2, offsource_fap_by_m2)    
+    check_distribution_far(opts, ext_trigs, onsource_fap_by_m2, offsource_fap_by_grb_m2)
+
+    # Make the distribution check for independency
+    check_independency_in_m2(offsource_fap_by_m2)    
+    sys.exit(0)
+
+    
+#
+# call the main function to perform the actual test
+#
+
+# using fake samples?
+if opts.analyze=='openbox':
+    print "Warning! Using openbox data"
+    use_fap_by_m2 = onsource_fap_by_m2
+else:
+    use_fap_by_m2 = create_fake_set(offsource_fap_by_m2, opts.analyze, number=number_grb)
+
+###html_footer = perform_test_sum(onsource_L_by_m2, offsource_L_by_trial_m2)
+
+
+# perform the main test
+html_footer = perform_test(use_fap_by_m2, offsource_fap_by_m2, html_footer)
+
+# make the population-test on log(sum L)
+###html_footer = perform_test_sum(use_fap_by_m2, offsource_fap_by_m2, html_footer)
+
+# create the output and the html file
+if opts.enable_output:
+    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
+          fnameList, tagList, comment=html_footer)
+    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
