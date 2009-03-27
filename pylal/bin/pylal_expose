@@ -77,7 +77,8 @@ def extract_grb_names(filelist):
     
 def find_file(filelist, grb_name):
     for file in filelist:
-        if grb_name in file:
+        id = file.split('_')[3][3:]
+        if grb_name == id:
             return file
 
     raise ValueError, "GRB %s not found in filelist" % grb_name
@@ -123,13 +124,12 @@ def load_grb_table(filename_grb, files_onsource, files_offsource,\
                 print >>sys.stderr, "GRB %s has a redshift measurement: "\
                       "rejected." % grb.event_number_grb
             else:
-            
                 temp_trigs.append(grb)
                 new_files_onsource.append(find_file(files_onsource, grb.event_number_grb))
-                new_files_offsource.append(find_file(files_offsource, grb.event_number_grb))
+                new_files_offsource.append(find_file(files_offsource, grb.event_number_grb))                
                 print >>sys.stderr, "GRB %s has been added to the analysis list " %\
                       grb.event_number_grb
-        
+                
     return list_grbs, temp_trigs, new_files_onsource,  new_files_offsource
     
 
@@ -281,95 +281,7 @@ def create_education_plots(popA_by_m2, popB_by_m2):
     fnameList.append(fname)
     tagList.append(fname)
 
-def check_independency_in_m2(offsource_fap_by_m2):
-    """
-    This is a function to gain confidence in the statement
-    to say that the z-values as a function of m2 bins are
-    actually independend. To to that, a bunch of random draws are used
-    ands then - the Mann-Whitney U test....
-    """
 
-    distr = []
-    cdistr = []
-    sum_distr = []
-    n_trials = 500
-    n_m2_bins = opts.m2_nbins
-    for trial in range(n_trials):
-        
-        # draw a random distribution from the offsource
-        use_fap_by_m2 = create_fake_set(offsource_fap_by_m2, 'random', number=14)
-
-        # calculate all z and U values
-        z_by_m2, U_by_m2 =  mannwhitney_z(use_fap_by_m2, offsource_fap_by_m2)
-
-        # store the z-values as function of m2
-        distr.extend(z_by_m2)
-
-        # checking the procedure: draw real normal values as well
-        cdistr.extend([random.gauss(0,1) for i in range(n_m2_bins)])
-
-        # and store the sum of each trial as well...
-        sum_distr.append(sum(z_by_m2))
-
-    # create a histogram of the trial values
-    nbins = 40
-    hy, hx, dummy = plt.hist(distr, nbins)
-
-    # get the binning; to be used to make a neccessary bin-shift
-    dx = hx[1]-hx[0]
-    px = hx+dx/2.0
-    py = numpy.exp(-px**2/2.0)/numpy.sqrt(6.2831853071795862)
-    
-    # make the WMU test...
-    u = mannwhitney_u(distr, py)
-    z_val = mannwhitney_u_zscore(len(distr), len(py), u)
-    print "Confidence of the z_by_m2 distribution different from a Normal distribution: %.3f sigma " %\
-          (z_val)
-
-    # Make a test MWU-test
-    u = mannwhitney_u(cdistr, py)
-    z_val = mannwhitney_u_zscore(len(cdistr), len(py), u)
-    print "Confidence of a Normal distribution different than a Normal distribution: %.3f sigma " %\
-          (z_val)
-   
-    ## create some supporting plots
-    scale = sum(hy)/sum(py)
-    py = scale*py
-    plt.clf()
-    plt.hist(distr, nbins)
-    plt.grid(True)        
-    plt.plot(hx, py, 'r', linewidth = 3)
-    plt.xlabel('sigma')
-    plt.ylabel('number')  
-    plt.savefig('pylal_expose_independenceTest-m2-trials.png')
-    
-    cy, cx, dummy = plt.hist(cdistr, nbins)
-    scale = sum(cy)/sum(py)
-    py = scale*py
-    plt.clf()
-    plt.plot(cx, cy, 'r-')
-    plt.plot(hx, py, 'b-')
-    plt.grid(True)
-    plt.xlabel('sigma')
-    plt.ylabel('number')  
-    plt.savefig('pylal_expose_independenceTest-check.png')
-
-
-    ## check out the sum distribution
-    nbins = 30
-    plt.clf()
-    sy, sx, dummy = plt.hist(sum_distr, nbins)
-    sigma = numpy.sqrt(n_m2_bins)
-    ty = numpy.exp(-(sx/sigma)**2/2.0)/numpy.sqrt(6.2831853071795862)/sigma
-    scale = sum(sy)/sum(ty)
-    ty = scale*ty
-    plt.plot(sx,ty, 'r-')
-    plt.grid(True)
-    plt.xlabel('sigma')
-    plt.ylabel('number')    
-    plt.savefig('pylal_expose_independenceTest-sum-distr.png')    
-
-    
 def check_distribution_far(opts, ext_trigs, ifar_on_by_m2, ifar_off_by_grb_m2):
     """
     This function is entirely a checking function that
@@ -525,7 +437,7 @@ def draw_plots(opts, popA_by_m2, popB_by_m2, U_by_m2, z_by_m2,
     plot = plotutils.SimplePlot(r"m_2" ,r"Significance (sigma)",\
                                 r"Sigma for background inconsistency for all data")
     plot.add_content(m2_centers, z_by_m2, \
-                     color='b', linewidth = 3, label='p one sided')
+                     color='b', linewidth = 3, label='sigma derivation')
     plot.add_content([0,40],[0,0], color='k', linewidth = 2)
     plot.finalize()
     if opts.enable_output:
@@ -577,46 +489,111 @@ def perform_test(popA_by_m2, popB_by_m2, html_footer):
     html_footer += text
     return html_footer
 
-def perform_test_sum(popA_by_m2, popB_by_m2, html_footer):
+def perform_test_condense(fg_pop, bg_pop, html_footer):
     """
     Perform the statistical test on log(sum L)
     """
 
-    # create the individual sums
-    print len(popA_by_m2)
-    print popA_by_m2    
-    
-    sum_on = numpy.log(sum(popA_by_m2))
 
-    print len(popB_by_m2)
-    sum_off = [numpy.log(sum(x)) for x in popB_by_m2]
+    def choose_values(case, popA, popB):
+        n = len(popA)
+        if case=='random':
+            return [random.choice(popB) for i in range(n)]
+        elif case=='max':
+            return [random.choice(popB[:200]) for i in range(n)]
+        elif case=='single':
+            list = [random.choice(popB) for i in range(n)]
+            list.append(min(popB))
+            return list
 
-    print sum_off
 
-    sys.exit(0)
-    
-    # calculate all z and U values
-    z_by_m2, U_by_m2 =  mannwhitney_z(popA_by_m2, popB_by_m2)
-
-    # sf = 1 - cdf
-    p_one_sided_by_m2 = stats.distributions.norm.sf(z_by_m2)
-    
-    # erfc = 1 - erf
-    p_two_sided_by_m2 = stats.erfc(abs(z_by_m2) / numpy.sqrt(2.))    
-
+        return None
   
-    #
-    # Output results
-    #
-    text = "n1, n2 = %d, %d<br>" % (N_A, N_B)
-    text += "Mann-Whitney U by m2=%s<br>"% U_by_m2
-    text += "z-score by m2 =%s<br>"% z_by_m2
-    text += "p_one_sided by m2 =%s<br>"% p_one_sided_by_m2
-    text +=  "p_two_sided by m2 =%s<br>"% p_two_sided_by_m2
-    html_footer += text
+    # sort the background population for easier faking
+    bg_pop.sort()
+
+    result = {}
+    for case in ['random','max','single']:
+
+        result[case]=[]
+        for trial in range(1):
+
+            # chose a set of fake numbers
+            test_pop = choose_values(case, fg_pop, bg_pop)
+
+            # and compute the z-value
+            n1 = len(test_pop)
+            n2 = len(bg_pop)            
+            u = mannwhitney_u(test_pop, bg_pop)
+            z_val = mannwhitney_u_zscore(n1, n2, u)
+
+            # store it
+            result[case].append(-z_val)
+
+            #
+            # Create the QQ plot
+            #
+            plot_title = r"$fake U=%d, z_U=%s$" \
+                         % (int(u), float_to_latex(-z_val, "%5.2g"))
+            plot = plotutils.QQPlot(r"self quantile" ,"combined quantile",plot_title)
+            plot.add_bg(bg_pop, linewidth = 3, label="\"Off source\"")
+            plot.add_fg(test_pop, color='r', marker = 'o',label = r'On source',\
+                        linestyle='None',markersize=10)    
+            plot.finalize()
+            if opts.enable_output:
+                fname = InspiralUtils.set_figure_name(opts, "qq-fake-"+case)
+                fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+                fnameList.append(fname)
+                tagList.append(fname)
+                
+
+    # make some test plots
+    nbins = 40
+    ay, ax, dummy = plt.hist(result['random'],nbins)
+    by, bx, dummy = plt.hist(result['single'],nbins)
+    cy, cx, dummy = plt.hist(result['max'],nbins)    
+
+    plt.clf()
+    plt.plot(ax, ay, 'r-',lw=3)
+    plt.plot(bx, by, 'b-',lw=3)
+    plt.plot(cx, cy, 'g-',lw=3)
+    plt.grid(True)
+    plt.xlabel('z value (sigma)',size='x-large')
+    plt.ylabel('number',size='x-large')
+    plt.legend(('random','single','max'))
+    #plt.savefig('pylal_expose-test_condense.png')
+
+    if False:
+        # 'open the box'...
+        n1 = len(fg_pop)
+        n2 = len(bg_pop)            
+        u = mannwhitney_u(fg_pop, bg_pop)
+        z_val = mannwhitney_u_zscore(n1, n2, u)
+        html_footer+='Combined result: %.3f sigma<br>' % z_val
+
+        #
+        # Create the QQ plot
+        #
+        plot_title = r"$OPENBOX U=%d, z_U=%s$" \
+                     % (int(u), float_to_latex(-z_val, "%5.2g"))
+        plot = plotutils.QQPlot(r"self quantile" ,"combined quantile",plot_title)
+        plot.add_bg(bg_pop, linewidth = 3, label="\"Off source\"")
+        plot.add_fg(fg_pop, color='r', marker = 'o',label = r'On source',\
+                    linestyle='None',markersize=10)    
+        plot.finalize()
+        if opts.enable_output:
+            fname = InspiralUtils.set_figure_name(opts, "qq-OPENBOX-"+case)
+            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
+            fnameList.append(fname)
+            tagList.append(fname)
+    
+    return html_footer
+        
+    
 
     
 
+    
 def parse_args():
     """
     Parsing the command line arguments. 
@@ -706,6 +683,7 @@ tagList = []
 print "The following output has been created with pylal_expose"\
       " version ", __version__
 
+
 #
 # Read input and select GRB data
 #
@@ -721,8 +699,10 @@ if len(files_onsource)!=len(files_offsource):
 
 # select the GRB's to be used
 list_grbs, ext_trigs, files_onsource,  files_offsource =\
-           load_grb_table(opts.file_grb, files_onsource, files_offsource)
+           load_grb_table(opts.file_grb, files_onsource, files_offsource,\
+                          redshift_rejection=True)
 number_grb = len(ext_trigs)
+print "Number of GRB's used: ", number_grb
 
 
 #
@@ -732,32 +712,61 @@ number_grb = len(ext_trigs)
 ifar_on_by_m2 = [[] for i in range(opts.m2_nbins) ]
 ifar_off_by_m2 = [[] for i in range(opts.m2_nbins) ]
 
+# for the test over m2
 onsource_fap_by_m2 = [[] for i in range(opts.m2_nbins) ]
 offsource_fap_by_m2 = [[] for i in range(opts.m2_nbins) ]
 
+# for the condensed test
+onsource_det_stat = []
+offsource_det_stat = []
+
 # for testing purposes only
 offsource_fap_by_grb_m2 = [[[] for i in range(opts.m2_nbins) ] for j in range(number_grb)]
-
 
 test_array = None
 for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsource)):
 
     # read the data from the files
-    onsource_L_by_m2 = pickle.load(open(file_on))[3]
-    offsource_L_by_trial_m2 = pickle.load(open(file_off))[2]
+    dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
+           pickle.load(open(file_on))
+    
+    dummy, dummy, offsource_L_by_trial_m2, off_log_sum_L_by_trial =\
+           pickle.load(open(file_off))
     n_trials = offsource_L_by_trial_m2.shape[0]
  
-    # Nicks suggestion
+    # Nicks suggestion; onsource_by_m2
     fac = n_trials/324.0
     dummy_onsource =  calculate_ifar(onsource_L_by_m2)
     for index_m2 in range(opts.m2_nbins):
         onsource_fap_by_m2[index_m2].append(fac*dummy_onsource[index_m2])
 
-
+    # offsource_by_m2
     dummy_offsource = numpy.array(map(calculate_ifar, offsource_L_by_trial_m2))
     for index_m2 in range(opts.m2_nbins):
         offsource_fap_by_m2[index_m2].extend(fac*dummy_offsource[:, index_m2])
         offsource_fap_by_grb_m2[index_grb][index_m2].append(fac*dummy_offsource[:, index_m2])
+
+    #
+    # using detection statistics
+    #
+    
+    # count how many offsource trials are louder than the onsource        
+    count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
+
+    # calculate the statistics probability
+    stat = count_louder/n_trials
+    onsource_det_stat.append(stat)
+
+    # make the same for the associated offsource values as well:
+    for off_trial in off_log_sum_L_by_trial:
+        count_louder = (off_log_sum_L_by_trial >= off_trial).sum(axis=0)
+        offsource_det_stat.append(count_louder/n_trials)
+
+    # make the double check of the detection statistic
+    words = file_on.split('_')
+    grb_name = words[3][3:]
+    print "For %7s:  %.3f" % (grb_name, stat)
+   
 
 # get some numbers
 N_A = len(onsource_fap_by_m2[0])
@@ -766,18 +775,19 @@ N_tot = N_A + N_B
 
 
 #
-# Make a distribution check
+# Make a distribution check and create 'educational' plots
 #
 if opts.test:
     
     create_education_plots(onsource_fap_by_m2, offsource_fap_by_m2)    
     check_distribution_far(opts, ext_trigs, onsource_fap_by_m2, offsource_fap_by_grb_m2)
-
-    # Make the distribution check for independency
-    check_independency_in_m2(offsource_fap_by_m2)    
     sys.exit(0)
 
-    
+#
+# create the condensed population statement
+#
+html_footer = perform_test_condense(onsource_det_stat, offsource_det_stat, html_footer)
+
 #
 # call the main function to perform the actual test
 #
@@ -789,14 +799,9 @@ if opts.analyze=='openbox':
 else:
     use_fap_by_m2 = create_fake_set(offsource_fap_by_m2, opts.analyze, number=number_grb)
 
-###html_footer = perform_test_sum(onsource_L_by_m2, offsource_L_by_trial_m2)
-
-
-# perform the main test
+# create the m2 population statement
 html_footer = perform_test(use_fap_by_m2, offsource_fap_by_m2, html_footer)
 
-# make the population-test on log(sum L)
-###html_footer = perform_test_sum(use_fap_by_m2, offsource_fap_by_m2, html_footer)
 
 # create the output and the html file
 if opts.enable_output:
