@@ -171,53 +171,61 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
   box_err = pi*sqrt(2.0)*coarse_res/180.0
-  latmin += pi/2 - box_err
-  latmax += pi/2 + box_err
-  lonmin -= box_err
-  lonmax += box_err
-  if latmin < 0:
-    latmin = 0
-  if latmax > pi:
-    latmax = pi
-  if lonmin < 0:
-    lonmin = 0
-  if lonmax > 2*pi:
-    lonmax = 2*pi
+#  latmin += pi/2 - box_err
+#  latmax += pi/2 + box_err
+#  lonmin -= box_err
+#  lonmax += box_err
+#  if latmin < 0:
+#    latmin = 0
+#  if latmax > pi:
+#    latmax = pi
+#  if lonmin < 0:
+#    lonmin = 0
+#  if lonmax > 2*pi:
+#    lonmax = 2*pi
 
-  latitude = latmin
-  longitude = lonmin
-  while latitude <= latmax:
-    points.append(numpy.asarray([latitude-pi/2,longitude]))
-    while longitude <= lonmax:
-      longitude += ds / abs(sin(latitude))
-      points.append(numpy.asarray([latitude-pi/2,longitude]))
-    latitude += ds
-    longitude = lonmin
+#  latitude = latmin
+#  longitude = lonmin
+#  while latitude <= latmax:
+#    points.append(numpy.asarray([latitude-pi/2,longitude]))
+#    while longitude <= lonmax:
+#      longitude += ds / abs(sin(latitude))
+#      points.append(numpy.asarray([latitude-pi/2,longitude]))
+#    latitude += ds
+#    longitude = lonmin
 
   #deal with periodic grid issues by always starting at (0,0) and then translating back to the original position
-#  latdiff = latmax - latmin + 2*box_err
-#  londiff = lonmax - lonmin + 2*box_err
-#  if abs(latdiff) > 0.5*pi :
-#    newlatmax = periodic(-latdiff,pi)
-#    sgn = -1
-#  else:
-#    newlatmax = latdiff
-#    sgn = 1
-#  if abs(londiff) > pi:
-#    newlonmax = periodic(lonmin-lonmax-2*box_err,2*pi)
-#  else:
-#    newlonmax = lonmax - lonmin + 2*box_err
+  latdiff = latmax - latmin + 2*box_err
+  londiff = lonmax - lonmin + 2*box_err
+  if abs(latdiff) > 0.5*pi :
+    lat_displacement = latmax
+    trans_latmax =periodic(-latdiff,pi) 
+  else:
+    lat_displacement = latmin
+    trans_latmax = latdiff
+  if abs(londiff) > pi:
+    lon_displacement = lonmax
+    trans_lonmax = periodic(-londiff,2*pi)
+  else:
+    lon_displacement = lonmin
+    trans_lonmax = londiff
 
-#  latitude = 0
-#  longitude = 0
-#  points = [numpy.asarray([latitude-0.5*pi, longitude])] 
-#  while latitude <= newlatmax:
-#    latitude += ds
-#    longitude = 0
-#    points.append(numpy.asarray([periodic(latitude+latmax+box_err,pi)-0.5*pi,periodic(longitude+lonmax+box_err,2*pi)]))
-#    while longiude <= newlonmax:
-#      longitude += ds / abs(sin(latitude))
-#      points.append(numpy.asarray([periodic(latitude+latmax+box_err,pi)-0.5*pi,periodic(longitude+lonmax+box_err,2*pi)]))
+  latitude = 0
+  longitude = 0
+  points = [numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)])] 
+  while latitude <= trans_latmax:
+    latitude += ds
+    longitude = 0
+    points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
+    while longitude <= trans_lonmax:
+      longitude += ds / abs(sin(latitude))
+      points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
+
+  print "latmin", latmin
+  print "latmax", latmax
+  print "lonmin", lonmin
+  print "lonmax", lonmax
+  print "######"
 
   return points
 
@@ -227,7 +235,7 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
 def periodic(x,xmax):
   if x < 0:
     return x + xmax
-  if x > xmax:
+  if x >= xmax:
     return x - xmax
   return x
 
