@@ -368,6 +368,9 @@ create_plots = False
 # prepare some lists
 list_dag = []
 all_dag_time = 0.0
+all_cpu_time = 0.0
+total_endtime = 0.0
+total_starttime = 90000000000.0
 
 # counter for all analyzed out-files
 c = 0
@@ -413,6 +416,12 @@ for dag_dict in dag_list:
             duration +=end-start
 
         job['time'] = duration
+
+	# store the absolute start and end time
+	if time_end>0 and time_end>total_endtime:
+	  total_endtime = time_end
+	if time_start>0 and time_start<total_starttime:
+	  total_starttime = time_start
 
       else:
         number_incorrect += 1
@@ -463,6 +472,7 @@ for dag_dict in dag_list:
     ## get the runing times for all DAG's 
     runtime = dag.wallclocktime
     all_dag_time += runtime
+    all_cpu_time += total_time
     print "\n----------------------------------------------------------"
     print "DAG %s: %s" % (os.path.basename(out_name), dag.print_status())
     print "Total analysis time: %.1f CPU hours (%.1f CPU days) on ~%.1f nodes| "\
@@ -487,5 +497,11 @@ for dag_dict in dag_list:
       pylab.savefig('dag_analyzer-usedNodes.png')
 
 print "\n=========================================================="
-print "The TOTAL running time of all DAG's is %.1f hours (%.1f days)" % \
-      (all_dag_time/3600.0, all_dag_time/86400.0)
+print "The TOTAL running time of all DAG's is %.1f hours (%.1f days) | "\
+      "CPU-time: %.1f hours (%.1f days) " % \
+      (all_dag_time/3600.0, all_dag_time/86400.0, \
+       all_cpu_time/3600.0, all_cpu_time/86400.0)
+
+asc_start = time.asctime(time.gmtime(total_starttime))
+asc_end = time.asctime(time.gmtime(total_endtime))
+print "Run took place from %s to %s" % (asc_start, asc_end) 
