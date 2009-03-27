@@ -211,6 +211,8 @@ class getCache(UserDict):
         # is made under LOCAL_XML_COPY, and the event_id is converted 
         # from int_8s to ilwd:char
         if opts.convert_eventid:
+          path = self.doFileCopyAndEventIdConvert(cp,[path],True)[0]
+        elif opts.create_localcopy:
           path = self.doFileCopyAndEventIdConvert(cp,[path])[0]
         doc = utils.load_filename(path,False,gz)
         proc = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
@@ -316,6 +318,8 @@ class getCache(UserDict):
     # is made under LOCAL_XML_COPY, and the event_id is converted
     # from int_8s to ilwd:char
     if opts.convert_eventid:
+      triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList,True)
+    elif opts.create_localcopy:
       triggerList = self.doFileCopyAndEventIdConvert(cp,triggerList)
       
     numtrigs = string.strip(cp.get('followup-triggers','num-trigs'))
@@ -326,15 +330,16 @@ class getCache(UserDict):
     return numtrigs, found, coincs, search
 
 
-  def doFileCopyAndEventIdConvert(self,cp,inputxmlfilelist):
+  def doFileCopyAndEventIdConvert(self,cp,inputxmlfilelist,convert=False):
     newfilelist = []
     for inputxmlfile in inputxmlfilelist:
       if not os.path.isfile("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1]):
         shutil.copy(inputxmlfile,'LOCAL_XML_COPY')
-        convert_process = call(cp.get('condor','pylal_conv_eventid') + " LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1], shell=True)
-        if convert_process != 0:
-          print >> sys.stderr, "ligolw_conv_inspid could not be run on file " + inputxmlfile.split('/')[-1]
-          sys.exit(1)
+        if convert:
+          convert_process = call(cp.get('condor','pylal_conv_eventid') + " LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1], shell=True)
+          if convert_process != 0:
+            print >> sys.stderr, "ligolw_conv_inspid could not be run on file " + inputxmlfile.split('/')[-1]
+            sys.exit(1)
       else:
         print "The file " + inputxmlfile.split('/')[-1] + " already exist in LOCAL_XML_COPY. It will not be overwritten"
       newfilelist.append("LOCAL_XML_COPY/" + inputxmlfile.split('/')[-1])
