@@ -836,8 +836,8 @@ class SnglInspiralTable(table.Table):
 			return self.get_effective_snr()
 		if column == 'snr_over_chi':
 			return self.get_snr_over_chi()
-                if column =='lvS5stat':
-                        return self.get_lvS5stat()
+		if column =='lvS5stat':
+			return self.get_lvS5stat()
 		elif column == 'chirp_distance':
 			return self.get_chirp_dist()
 		else:
@@ -857,7 +857,7 @@ class SnglInspiralTable(table.Table):
 		chisq = self.get_column('chisq')
 		chisq_dof = self.get_column('chisq_dof')
 		return snr/ (1 + snr**2/fac)**(0.25) / (chisq/(2*chisq_dof - 2) )**(0.25)
-    
+
 	def get_chirp_distance(self,ref_mass = 1.40):
 		mchirp = self.get_column('mchirp')
 		eff_dist = self.get_column('eff_distance')
@@ -866,8 +866,8 @@ class SnglInspiralTable(table.Table):
 	def get_snr_over_chi(self):
 		return self.get_column('snr')/self.get_column('chisq')**(1./2)
 
-        def get_lvS5stat(self):
-                return self.get_column('beta')
+	def get_lvS5stat(self):
+		return self.get_column('beta')
 
 	def ifocut(self,ifo):
 		ifoTrigs = table.new_from_template(self)
@@ -1013,7 +1013,7 @@ class CoincInspiralTable(table.Table):
 	tableName = "coinc_inspiral:table"
 	validcolumns = {
 		"coinc_event_id": "ilwd:char",
-                "ifos": "lstring",
+		"ifos": "lstring",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"mchirp": "real_8",
@@ -1765,10 +1765,7 @@ class SegmentTable(table.Table):
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"segment_def_id": "ilwd:char",
-		"segment_def_cdb": "int_4s",
-		"active": "int_4s",
-		"segnum": "int_4s",
-		"insertion_time": "int_4s"
+		"segment_def_cdb": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_id)"
 	next_id = SegmentID(0)
@@ -1779,7 +1776,7 @@ class Segment(object):
 	__slots__ = SegmentTable.validcolumns.keys()
 
 	def __cmp__(self, other):
-		return cmp(self.get(), other.get()) or cmp(self.get_active(), other.get_active())
+		return cmp(self.get(), other.get())
 
 	def get(self):
 		"""
@@ -1794,35 +1791,10 @@ class Segment(object):
 		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
 		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
 
-	def get_active(self):
-		"""
-		Return True if the segment is active, False if the segment
-		is inactive and None if neither is the case.
-		"""
-		if self.active == 1:
-			return True
-		if self.active == 0:
-			return False
-		if self.active is None:
-			return None
-		raise ValueError, self.active
 
-	def set_active(self, active):
-		"""
-		Sets the segment to active if active is True, to inactive
-		if active if False, and undefined if active is None.
-		"""
-		if active:
-			# Anything that is "True" --> 1
-			self.active = 1
-		elif active is None:
-			# None --> None
-			self.active = None
-		else:
-			# Antyhing that is "False" except None --> 0
-			self.active = 0
-		return self
 
+		self.start_time, self.start_time_ns = segment[0].seconds
+		self.end_time, self_end_time.ns = segment[1].seconds
 
 SegmentTable.RowType = Segment
 
@@ -1882,13 +1854,10 @@ class SegmentDefTable(table.Table):
 		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
 		"segment_def_id": "ilwd:char",
-		"run": "lstring",
 		"ifos": "lstring",
 		"name": "lstring",
 		"version": "int_4s",
 		"comment": "lstring",
-		"state_vec_major": "int_4s",
-		"state_vec_minor": "int_4s",
 		"insertion_time": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_def_id)"
@@ -1934,12 +1903,14 @@ SegmentSumID = ilwd.get_ilwdchar_class(u"segment_summary", u"segment_sum_id")
 class SegmentSumTable(table.Table):
 	tableName = "segment_summary:table"
 	validcolumns = {
+		"creator_db": "int_4s",
 		"process_id": "ilwd:char",
 		"segment_sum_id": "ilwd:char",
 		"start_time": "int_4s",
 		"end_time": "int_4s",
 		"comment": "lstring",
-		"segment_def_id": "ilwd:char"
+		"segment_def_id": "ilwd:char",
+		"segment_def_cdb": "int_4s"
 	}
 	constraints = "PRIMARY KEY (segment_sum_id)"
 	next_id = SegmentSumID(0)

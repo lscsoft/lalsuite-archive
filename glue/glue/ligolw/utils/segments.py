@@ -141,13 +141,9 @@ class LigolwSegments(object):
 		# table and segment_table index
 		for row in self.segment_def_map_table:
 			segment_row = index[row.segment_id]
-			active = segment_row.get_active()
-			if active is True:
-				self.segment_lists[row.segment_def_id].active.append(segment_row.get())
-			elif active is False:
-				self.segment_lists[row.segment_def_id].inactive.append(segment_row.get())
-			else:
-				raise ValueError, "invalid activity flag '%s' for segment '%s'" % (repr(row.activity), str(row.segment_id))
+			# As of S6 all segments in the DB are active and there is no 
+			# active flag
+			self.segment_lists[row.segment_def_id].active.append(segment_row.get())
 		del self.segment_def_map_table[:]
 		del index
 
@@ -236,7 +232,6 @@ class LigolwSegments(object):
 			for seg, activity in iterutils.inorder(((seg, True) for seg in ligolw_segment_list.active), ((seg, False) for seg in ligolw_segment_list.inactive)):
 				segment_row = segment_table.RowType()
 				segment_row.set(seg)
-				segment_row.set_active(activity)
 				segment_row.process_id = process.process_id
 				segment_row.segment_id = segment_table.get_next_id()
 				yield segment_row, segment_def_row
@@ -344,6 +339,13 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	#
 
 	result = segments.segmentlistdict()
+
+	# As of S6 there are only active segments, so if the call is
+	# asking for inactive segments we can immediately return
+
+	if not activity:
+		return result
+
 	for row in map_table:
 		try:
 			instruments = instrument_index[row.segment_def_id]
@@ -351,13 +353,12 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 			# not a segment list we want
 			continue
 		row = segment_index[row.segment_id]
-		if row.get_active() == activity:
-			seg = row.get()
-			for instrument in instruments:
-				try:
-					result[instrument].append(seg)
-				except KeyError:
-					result[instrument] = segments.segmentlist([seg])
+		seg = row.get()
+		for instrument in instruments:
+			try:
+				result[instrument].append(seg)
+			except KeyError:
+				result[instrument] = segments.segmentlist([seg])
 
 	#
 	# done
