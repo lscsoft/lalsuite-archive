@@ -36,7 +36,7 @@ Types<-lapply(Types, function(x)gsub("logical", "numeric", x))
 
 
 CreateQuery<-p("CREATE TABLE ", CoincTableName, "(Line INTEGER AUTO_INCREMENT")
-LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", CoincTableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' IGNORE 1 LINES (")
+LoadQuery<-p("LOAD DATA LOCAL INFILE '", fnout, "' INTO TABLE ", CoincTableName, " FIELDS TERMINATED BY ' ' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' (")
 
 # "
 
