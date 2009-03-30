@@ -35,6 +35,7 @@ try:
   from glue.ligolw import lsctables
   from glue.ligolw import ligolw 
   from glue.ligolw.utils import process
+  from glue.ligolw import types as ligolwtypes 
 except ImportError, e:
   print >> sys.stderr, """
 Error: unable to import modules from glue.
@@ -46,7 +47,7 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"[7:-2] 
+__date__ = "$Date$"[7:-2]
 __version__ ="$Revision$"[11:-2]
 __src__ = "$Source$"
 
@@ -126,6 +127,8 @@ if not options.segment_file:
   errmsg += "Error: --segment-file must be specified\n"
 if options.insert and options.append:
   errmsg += "Error: Exactly one of [--insert | --append] can be specified\n"
+if (not options.ping) and (not options.insert) and (not options.append):
+  errmsg += "One of --ping, --help, --insert, --append must be specified\n"
   
 if len(errmsg) and not options.ping:
   print >> sys.stderr, errmsg
@@ -175,9 +178,11 @@ else:
   doc = ligolw.Document()
   doc.appendChild(ligolw.LIGO_LW())
 
-  process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options,
+  ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(0)] 
+
+  process_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__,
                version = __version__,
-               cvs_date = __date__) 
+               cvs_entry_time = __date__).process_id
 
   ##########################################################################
   #             Process segment-file and summary-file 
@@ -193,6 +198,7 @@ else:
     sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
     sql += "ifos = '%s' AND " % options.ifos
     sql += "name = '%s' " % options.name
+    print "sql", sql
   if options.append:
     sql = "SELECT count(segment_definer.segment_def_id), " 
     sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
