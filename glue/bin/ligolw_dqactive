@@ -54,6 +54,10 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils
 
 
+from glue.ligolw.utils import ligolw_sqlite
+from glue.ligolw import dbtables
+
+
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
 USER_NAME    = os.getlogin()
@@ -119,9 +123,7 @@ if __name__ == '__main__':
 
     # TODO: These should have better names that include the
     # start and end times
-    temp_xml     = options.temp_dir + '/combined_temp.xml'
     temp_db      = options.temp_dir + '/temp.db'
-
     glob_pattern = options.input_dir
     
     if not glob_pattern.endswith('/'):
@@ -129,36 +131,14 @@ if __name__ == '__main__':
 
     glob_pattern += options.glob_pattern
 
-    xml_files = glob.glob(glob_pattern)
-
-    #
-    # Using the ligolw_sqlite methods to sequentially read in the data
-    # doesn't work, because it doesn't keep track of the primary keys
-    # (TODO: This should be fixed) so in the meantime use the
-    # lilgolw_add methods to merge to a temporary file (TODO: the file
-    # isn't really needed, we should be able to just pass the xmldoc
-    # to ligolw_sqlite.insert)
-    #    
-    lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
-    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), xml_files, non_lsc_tables_ok = True)
-    utils.write_filename(xmldoc, temp_xml)
-
-    #
-    # importing these causes some global attributes to be set, which
-    # configures the system to use dbtables, which breaks ligolw_add.
-    # So we have to import after the above work is done...
-    #
-    from glue.ligolw.utils import ligolw_sqlite
-    from glue.ligolw import dbtables
-
+    xml_files  = glob.glob(glob_pattern)
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, [temp_xml])
+    ligolw_sqlite.insert(connection, xml_files)
 
-    cursor            = connection.cursor()
-
-    f = open(options.time_file)
+    cursor = connection.cursor()
+    f      = open(options.time_file)
 
     for line in f:
         if line.startswith('#') or len(line.strip(' \t\n\r')) == 0 :
@@ -181,12 +161,6 @@ if __name__ == '__main__':
 
         print
 
-
-    #
-    # Clean up
-    #
-    if not options.keep_xml:
-        os.remove(temp_xml)
 
     if not options.keep_db:
         os.remove(temp_db)
