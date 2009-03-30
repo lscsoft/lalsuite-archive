@@ -471,7 +471,7 @@ class segmentlist(list):
 		if it is a segmentlist of m segments this operation is O(m
 		log n).
 
-		Note the difference between this operator, and the standard
+		Note the difference between this operator and the standard
 		Python "in" operator for sequence-like objects:  in the
 		case of standard sequence-like objects the in operator
 		checks for an exact match between the given item and one of
@@ -480,6 +480,8 @@ class segmentlist(list):
 		segments in the segmentlist.
 		"""
 		if isinstance(item, self.__class__):
+			# FIXME:  in Python >= 2.5, use all() builtin
+			# return all(seg in self for seg in item)
 			for seg in item:
 				if seg not in self:
 					return False
