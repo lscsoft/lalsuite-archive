@@ -18,12 +18,136 @@ from pylal import SnglInspiralUtils
 from pylal import SimInspiralUtils
 from pylal import InspiralUtils
 from glue.ligolw import ligolw
+from scipy import *
 import numpy
 import cPickle
 
 ######################################################################################################
 # Functions
 ######################################################################################################
+
+def poly_between(x, ylower, yupper):
+    """
+    given a sequence of x, ylower and yupper, return the polygon that
+    fills the regions between them.  ylower or yupper can be scalar or
+    iterable.  If they are iterable, they must be equal in length to x
+
+    return value is x, y arrays for use with Axes.fill
+    """
+    Nx = len(x)
+    if not iterable(ylower):
+      ylower = ylower*numpy.ones(Nx)
+
+    if not iterable(yupper):
+      yupper = yupper*numpy.ones(Nx)
+
+    x = numpy.concatenate( (x,x[::-1]) )
+    y = numpy.concatenate( (yupper, ylower[::-1]) )
+    return x,y
+
+
+def get_cum_num(x):
+  """Return the array of cumulative numbers calculated based on frequencies with which each uniq element of data array x is appearing.
+     @param x: array containing values of stochastic variable X
+         The array of cum numbers is a two-dimesional array. Zeroth row contains all unique values of variable X sorted in ascending order,
+         whereas first row contains the corresponding to these cumulative numbers.
+  """
+  if len(x) >0:
+    p1 = numpy.fliplr(stats.itemfreq(x).transpose())
+    p1[1] = p1[1].cumsum()
+    p = numpy.fliplr(p1)
+    return p
+  else:
+     raise ValueError, "empty frequency array"
+
+
+
+def calculate_ifar(zerolag_stats, slide_stats, slide_time):
+  """
+  Function to calculate ifar for all triggers in zero-lag and time slides
+  @param zerolag_stats: array of zero lag statistic
+  @param slide_stats: dictionary of time slide statistic
+  @param slide_time: duration of slides
+  """
+
+  # define array to hold ifar for zerolag
+  zerolag_ifar = numpy.zeros(len(zerolag_stats))
+
+  # define dictionary to hold ifar for slides
+  slide_ifar = {}
+  
+  for key in slide_stats.keys():
+    slide_ifar[key] = numpy.zeros(len(slide_stats[key]))
+
+  # get all background stats
+  all_slide_stats = numpy.zeros(1)
+
+  for key in slide_stats.keys():
+    all_slide_stats = numpy.concatenate((all_slide_stats, slide_stats[key]))
+
+  # get rid of zero
+  all_slide_stats = numpy.trim_zeros(all_slide_stats)
+
+  # sort it
+  all_slide_stats.sort()
+
+  # calculate total number of background events
+  N_total_slides = len(all_slide_stats)
+
+  # calculate ifar for zero lag
+  for i in range(len(zerolag_ifar)):
+    index = numpy.searchsorted(all_slide_stats, zerolag_stats[i])
+    if index == 0:
+      zerolag_ifar[i] = float(N_total_slides)
+    elif index == N_total_slides:
+      zerolag_ifar[i] = 0.5
+    else:
+      zerolag_ifar[i] = float(N_total_slides - index)
+
+  # divide by duration of slides and normalize it to 1 year
+  zerolag_ifar = (zerolag_ifar * 31536000.0) / float(slide_time)
+
+  # take the inverse
+  zerolag_ifar = 1.0 / zerolag_ifar
+
+
+  # calculate ifar for slides
+
+  for key in slide_stats.keys():
+    for i in range(len(slide_stats[key])):
+      index = numpy.searchsorted(all_slide_stats, slide_stats[key][i])
+      if index == 0:
+        slide_ifar[key][i] = float(N_total_slides)
+      elif index == N_total_slides:
+        slide_ifar[key][i] = 0.5
+      else:
+        slide_ifar[key][i] = float(N_total_slides - index)
+
+    # divide by duration of slides and normalize it to 1 year
+    slide_ifar[key] = (slide_ifar[key] * 31536000.0) / float(slide_time)
+
+    # take the inverse
+    slide_ifar[key] = 1.0 / slide_ifar[key]
+
+
+  return zerolag_ifar, slide_ifar
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
   max_val = None, nbins = 20, stat=None, scalebkg=False):
   """
@@ -121,7 +245,7 @@ def cumhiststat(zerolag_stats=None, slide_stats=None, min_val = None, \
 	setp(p, alpha=0.3)
 
   if stat == 'coherent_snr': xlab = 'Coherent SNR$^{2}$'
-  elif stat == 'ifar': xlab = 'ifar'
+  elif stat == 'ifar': xlab = 'Inverse False Alarm Rate (years)'
   elif stat == 'lvS5stat': xlab = 'ln(effective likelihood)'
   elif stat: xlab = 'combined ' + stat.replace('_',' ')
   else: xlab = 'Combined Statistic'
@@ -271,6 +395,13 @@ def parse_command_line():
 	
   parser.add_option("","--loudest-background-stats-file", action="store",type="string",\
       default = None, help="file with loudest events found in each time slide" )
+		
+  parser.add_option("", "--plot-ifar",action="store_true", default=False,\
+      help="make plots of inverse false alarm rate")
+	  
+  parser.add_option("","--septime-files",action="store",type="string",\
+      default=None,help="GLOB septime files" )
+	  
 		
   parser.add_option("","--num-slides", action="store",type="int",\
       default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file of the search" )
@@ -470,11 +601,17 @@ if opts.ignore_IFO_times:
 if not opts.skip_timeslides:
   InspiralUtils.message(opts, "Finding loudest events in each of the time slides ...")
 
-  # define dictionary to hold stats for each time slide
+  # define dictionary to hold loudest stats for each time slide
   stats_dic = {}
   for slide in range(1, opts.num_slides + 1):
 	stats_dic[slide] = numpy.zeros(1)
 	stats_dic[-slide] = numpy.zeros(1)
+  
+  # define dictionary to hold stats for each time slide
+  all_stats_dic = {}
+  for slide in range(1, opts.num_slides + 1):
+        all_stats_dic[slide] = numpy.zeros(1)
+        all_stats_dic[-slide] = numpy.zeros(1)
 	
   # define array that stores maximum statistic for each of the time slide
   max_stat_array = numpy.zeros(2*opts.num_slides, dtype = float)
@@ -508,8 +645,9 @@ if not opts.skip_timeslides:
       # for slide forward
       # get coincs from the current slide
       forward_slide_coincs = slidesCoincTriggers.getslide(slide)
-      if (opts.plot_mchirp_vs_effective_snr or opts.plot_mchirp_vs_stat) and (len(forward_slide_coincs) > 0):
+      if (opts.plot_mchirp_vs_effective_snr or opts.plot_mchirp_vs_stat or opts.plot_ifar) and (len(forward_slide_coincs) > 0):
 		forward_slide_coincs.sort()
+		all_stats_dic[slide] = numpy.concatenate((all_stats_dic[slide], forward_slide_coincs.getstat()))
 		if len(loudest_slides_dic[slide]) > 0:
 		  if forward_slide_coincs[0].stat >= loudest_slides_dic[slide][0].stat:
 			loudest_slides_dic[slide][0] = forward_slide_coincs[0]
@@ -531,6 +669,7 @@ if not opts.skip_timeslides:
 	  
       if (opts.plot_mchirp_vs_effective_snr or opts.plot_mchirp_vs_stat) and (len(backward_slide_coincs) > 0):
 		backward_slide_coincs.sort()
+		all_stats_dic[-slide] = numpy.concatenate((all_stats_dic[-slide], backward_slide_coincs.getstat()))
 		if len(loudest_slides_dic[-slide]) > 0:
 		  if backward_slide_coincs[0].stat >= loudest_slides_dic[-slide][0].stat:
 			loudest_slides_dic[-slide][0] = backward_slide_coincs[0]
@@ -554,6 +693,9 @@ if not opts.skip_timeslides:
   for key in stats_dic.keys():
 	stats_dic[key] = numpy.trim_zeros(stats_dic[key])
   
+  for key in all_stats_dic.keys():
+        all_stats_dic[key] = numpy.trim_zeros(all_stats_dic[key])
+
   if opts.save_background_stats:
   
 	InspiralUtils.message(opts,"saving max_stat_array into a file ...")
@@ -660,6 +802,117 @@ if opts.make_effective_likelihood_histogram:
     close()
     fnameList.append(fname)
     tagList.append(text)
+
+
+if opts.plot_ifar:
+  
+  # glob for septime files
+  septime_files = glob.glob(opts.septime_files)
+
+  total_slide_time = 0
+
+  for septime_file in septime_files:
+    # open file
+    timefile = open(septime_file, 'r')
+    slide_time = 0
+    # read it in line by line
+    line_index = 0
+    for line in timefile:
+      line = line.split()
+      line_index += 1
+      if line_index ==1 :
+        zero_lag_time = float(line[1])
+      else:
+        slide_time += float(line[1])
+
+    #close file
+    timefile.close()
+
+	# increment total slide time
+    total_slide_time += slide_time
+
+  zerolag_ifar, slides_ifar = calculate_ifar(CoincTriggers.getstat(), all_stats_dic, total_slide_time)
+  
+  zerolag_ifar_file = open("zerolag_ifar.pickle", "wb")
+  cPickle.dump(zerolag_ifar, zerolag_ifar_file)
+  zerolag_ifar_file.close()
+
+  # make a cumulative histogram of ifar
+  fig_num += 1
+  figure(fig_num)
+  log_slides_ifar = {}
+  for key in slides_ifar.keys():
+    log_slides_ifar[key] = numpy.log10(slides_ifar[key])
+  cumhiststat(numpy.log10(zerolag_ifar), log_slides_ifar, stat="ifar", scalebkg=opts.zero_lag_playground)
+  grid(True)
+  if opts.enable_output is True:
+    name = "ifar_cum_hist"
+    text = " Cumulative histogram of IFAR distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    close()
+    fnameList.append(fname)
+    tagList.append(text)
+		
+
+  # make another ifar plot
+  
+  zerolag_cum_num = get_cum_num(zerolag_ifar)
+  xmin = zerolag_cum_num[0,0]
+  xmax = zerolag_cum_num[0,-1]
+  ymax = zerolag_cum_num[1, 0]
+  
+  slides_cum_num = {}
+  for key in slides_ifar.keys():
+    slides_cum_num[key] = get_cum_num(slides_ifar[key])
+    xmin = min(xmin, slides_cum_num[key][0,0])
+    xmax = max(xmax, slides_cum_num[key][0,-1])
+    ymax = max(ymax, slides_cum_num[key][1,0])
+
+  fig_num += 1
+  figure(fig_num)
+
+  for key in slides_cum_num.keys():
+    loglog( slides_cum_num[key][0], slides_cum_num[key][1], linestyle='-', color='gray', alpha=0.2, label='_nolegend_')
+    hold(True)
+
+  # plot background
+  xbkg = numpy.logspace( -4, 2, num=100, endpoint=True, base=10.0 )
+  ybkg = (zerolag_cum_num[1,0]*zerolag_cum_num[0,0])*1./xbkg
+  loglog( xbkg, ybkg, 'k--', linewidth=2, label='_nolegend_' )
+  # plot error
+  bkgplus = ybkg + sqrt(ybkg)
+  bkgminus = ybkg - sqrt(ybkg)
+  bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+  xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+  fill( xs, ys, facecolor='y', alpha=0.4, label='_nolegend_' )
+
+  bkgplus = ybkg + 2*sqrt(ybkg)
+  bkgminus = ybkg - 2*sqrt(ybkg)
+  bkgminus = where( bkgminus<=0, 1e-5, bkgminus ) # prevent (-) values
+  xs, ys = poly_between( xbkg, bkgminus, bkgplus )
+  fill( xs, ys, facecolor='y', alpha=0.2, label='_nolegend_' )
+
+
+  # plot foreground
+  loglog( zerolag_cum_num[0], zerolag_cum_num[1], marker='^', linestyle='None', markerfacecolor='b', markeredgecolor='k', alpha=0.9, label='Combined Triggers' )
+
+  xlabel( r"Inverse False Alarm Rate (years)", size='x-large' )
+  ylabel( r"Cumulative \#", size='x-large' )
+  legend()
+  xlim(xmin*0.8, xmax*1.1)
+  ylim(0.5*zerolag_cum_num[1,0]*zerolag_cum_num[0,0]/(xmax*1.1), ymax*1.1)
+
+  if opts.enable_output is True:
+    name = "another_ifar_plot"
+    text = "Combined Cumulative Histogram of IFAR distribution"
+    fname = InspiralUtils.set_figure_name(opts, name)
+    fname_thumb = InspiralUtils.savefig_pylal( filename=fname )
+    close()
+    fnameList.append(fname)
+    tagList.append(text)
+
+
 
 # getting N loudest zero-lag candidates
 ###########################################################################################################################
