@@ -161,9 +161,13 @@ def doc_includes_process(xmldoc, program):
 
 def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	"""
-	Register the current process and params to an XML document.  Any
-	additional keyword arguments are passed to append_process().
-	Returns the new row from the process table.
+	Register the current process and params to an XML document.
+	program is the name of the program.  paramdict is a dictionary of
+	name/value pairs that will be used to populate the process_params
+	table (the LIGO Light Weight type string for each param will be
+	deduced from the Python type of the param).  Any additional keyword
+	arguments are passed to append_process().  Returns the new row from
+	the process table.
 	"""
 	process = append_process(xmldoc, program = program, **kwargs)
 	append_process_params(xmldoc, process, ((key, ligolwtypes.FromPyType[type(value)], value) for key, value in paramdict.items() if value))
@@ -171,19 +175,19 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 
 
 # The tables in the segment database declare most fields "NOT NULL", so provide stub values
-def register_to_ldbd(client, program, options, version = '0', cvs_repository = '-', cvs_entry_time = 0, comment = '-', is_online = False, jobid = 0, domain = None, ifos = '-'):
+def register_to_ldbd(client, program, paramdict, version = u'0', cvs_repository = u'-', cvs_entry_time = 0, comment = u'-', is_online = False, jobid = 0, domain = None, ifos = u'-'):
 	"""
-	Register the current process and params to a database via a LDBDClient
+	Register the current process and params to a database via a
+	LDBDClient.  The program and paramdict arguments and any additional
+	keyword arguments are the same as those for register_to_xmldoc().
+	Returns the new row from the process table.
 	"""
 	xmldoc = ligolw.Document()
 	xmldoc.appendChild(ligolw.LIGO_LW())
-
-	process = append_process(xmldoc, program, version, cvs_repository, cvs_entry_time, comment, is_online, jobid, domain, ifos)
-	params  = map(lambda key:(key, 'lstring', options.__dict__[key]), filter(lambda x: options.__dict__[x], options.__dict__))
-	append_process_params(xmldoc, process, params)
+	process = register_to_xmldoc(xmldoc, program, paramdict, version = version, cvs_repository = cvs_repository, cvs_entry_time = cvs_entry_time, comment = comment, is_online = is_online, jobid = jobid, domain = domain, ifos = ifos)
 
 	fake_file = StringIO.StringIO()
 	xmldoc.write(fake_file)
 	client.insert(fake_file.getvalue())
 
-	return process.process_id
+	return process
