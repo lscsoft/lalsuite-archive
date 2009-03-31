@@ -75,6 +75,7 @@
 #include <lal/FindChirpBCV.h>
 #include <lal/FindChirpBCVSpin.h>
 #include <lal/FindChirpPTF.h>
+#include <lal/FindChirpACTD.h>
 #include <lal/FindChirpChisq.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALTrigScanCluster.h>
@@ -305,7 +306,7 @@ int    writeSpectrum    = 0;            /* write computed psd to file   */
 int    writeRhosq       = 0;            /* write rhosq time series      */
 int    writeChisq       = 0;            /* write chisq time series      */
 int    writeCData       = 0;            /* write complex time series c  */
-
+int    writeTemplate    = 0;            /* write the template time series */
 
 /* other command line args */
 CHAR comment[LIGOMETA_COMMENT_MAX];     /* process param comment        */
@@ -333,7 +334,8 @@ int main( int argc, char *argv[] )
   FrameHNode *thisCoherentFrame = NULL;
   UINT4          nRhosqFr = 0;
   UINT4          nChisqFr = 0;
-
+  REAL4TimeSeries 		templateTimeSeries;
+  REAL4Vector                  *templateTimeSeriesVector = NULL;
   /* raw input data storage */
   REAL4TimeSeries               chan;
   REAL8TimeSeries               strainChan;
@@ -1948,6 +1950,7 @@ int main( int argc, char *argv[] )
       case EOB:
       case EOBNR:
       case FindChirpPTF:
+      case AmpCorPPN:
         if ( vrbflg ) 
           fprintf( stdout, "findchirp conditioning data for TD or PTF\n" );
         LAL_CALL( LALFindChirpTDData( &status, fcSegVec, dataSegVec, 
@@ -2257,12 +2260,74 @@ int main( int argc, char *argv[] )
                   bankCurrent, fcTmpltParams ), &status );
             break;
 
+          case AmpCorPPN:
+            LAL_CALL( LALFindChirpACTDTemplate( &status, fcFilterInput->fcTmplt,
+                  bankCurrent, fcTmpltParams ), &status );
+            break;
+
           default:
             fprintf( stderr, 
                 "error: unknown waveform template approximant \n" );
             exit( 1 );
             break;
         }
+      }
+
+      /* Write out the template time series if requested */
+      if (writeTemplate )
+      {
+        /* Locally scoped variables */
+        CHAR snrsqStr[LALNameLength];
+        COMPLEX8Vector *templateFFTDataVector = NULL;
+        REAL4FFTPlan *plan = NULL; 
+        REAL8 deltaF;
+        INT4 kmax, numPoints, nb2;
+        LALSnprintf( snrsqStr, LALNameLength*sizeof(CHAR),
+                  "TEMPLATE");
+        memcpy(&templateTimeSeries, &chan, sizeof(REAL4TimeSeries));
+        strcpy( templateTimeSeries.name, chan.name );
+        /* Things are complicated if the template is in the Frequency domain */
+        if ( approximant==FindChirpSP )
+          {
+          nb2 = fcTmpltParams->xfacVec->length;
+          numPoints = (int) floor( (nb2-1) * 2.0);
+          templateTimeSeriesVector = XLALCreateREAL4Vector(numPoints);
+          templateFFTDataVector = XLALCreateCOMPLEX8Vector(nb2);
+          numPoints = templateTimeSeriesVector->length;
+        
+          deltaF = 1.0 / ( fcTmpltParams->deltaT * (REAL8) numPoints / 2.0);
+          kmax = fcFilterInput->fcTmplt->tmplt.fFinal / deltaF < numPoints/2 ?
+            fcFilterInput->fcTmplt->tmplt.fFinal / deltaF : numPoints/2;
+          
+          for (i = 0; i < nb2; i++)
+            {
+            if (1 || (i * deltaF) > fLow && i < kmax)
+              {
+              templateFFTDataVector->data[i].re = fcFilterInput->fcTmplt->data->data[i].re * fcTmpltParams->xfacVec->data[i];
+              templateFFTDataVector->data[i].im = fcFilterInput->fcTmplt->data->data[i].im * fcTmpltParams->xfacVec->data[i];
+              } 
+            else 
+              {
+              templateFFTDataVector->data[i].re = 0;
+              templateFFTDataVector->data[i].im = 0;
+              }
+            }
+          plan = XLALCreateReverseREAL4FFTPlan( numPoints, 0);
+          if ( XLALREAL4ReverseFFT( templateTimeSeriesVector, templateFFTDataVector, plan) )  fprintf(stderr, "\n\nFFT FAILED\n\n");
+          templateTimeSeries.data = templateTimeSeriesVector;
+          }
+        /* Much easier for a TD template */
+        else
+          templateTimeSeries.data = fcTmpltParams->xfacVec;
+
+        if (templateTimeSeries.data)
+               outFrame = fr_add_proc_REAL4TimeSeries( outFrame,
+                  &templateTimeSeries, "none", snrsqStr );
+        else fprintf(stderr,"fcTmpltParams->xfacVec is NULL\n");
+        /* if we had to make intermediate data products, destroy them */
+        /* The template time series persists and will be destroyed later */
+        if (templateFFTDataVector) XLALDestroyCOMPLEX8Vector(templateFFTDataVector);
+        if (plan) XLALDestroyREAL4FFTPlan( plan );
       }
 
       ccFlag = 1;
@@ -2352,6 +2417,7 @@ int main( int argc, char *argv[] )
                 fcFilterInput->fcTmplt->tmplt.mass2 );
 
             fcFilterInput->segment = fcSegVec->data + i;
+  
 
             /* decide which filtering routine to use */
             switch ( approximant )
@@ -2399,6 +2465,14 @@ int main( int argc, char *argv[] )
                       fcDataParams ), &status );
                 LAL_CALL( LALFindChirpPTFFilterSegment( &status, 
                       &eventList, fcFilterInput, fcFilterParams ), &status ); 
+                break;
+
+              case AmpCorPPN:
+                LAL_CALL( LALFindChirpACTDNormalize( &status, 
+                      fcFilterInput->fcTmplt, fcTmpltParams,
+                      fcDataParams ), &status );
+                LAL_CALL( LALFindChirpACTDFilterSegment( &status, 
+                      &eventList, fcFilterInput, fcFilterParams ), &status );
                 break;
 
               default:
@@ -2581,6 +2655,7 @@ int main( int argc, char *argv[] )
                       fcFilterInput->fcTmplt, fcFilterInput->segment,
                       fcDataParams ), &status );
                 }
+              case AmpCorPPN:
               case FindChirpSP:
                 /* find any events in the time series of snr and chisq */
                 LAL_CALL( LALFindChirpClusterEvents( &status,
@@ -3215,6 +3290,9 @@ int main( int argc, char *argv[] )
   /* Free the analyseThisTmplt vector */
   if ( analyseThisTmplt) LALFree (analyseThisTmplt);
 
+  /* Free template time series vector */
+  if (templateTimeSeriesVector) XLALDestroyREAL4Vector(templateTimeSeriesVector);
+
   if ( vrbflg ) fprintf( stdout, "checking memory leaks and exiting\n" );
   LALCheckMemoryLeaks();
 
@@ -3381,6 +3459,7 @@ fprintf( a, "  --write-spectrum             write the uncalibrated psd to a fram
 fprintf( a, "  --write-snrsq                write the snr time series for each data segment\n");\
 fprintf( a, "  --write-chisq                write the r^2 time series for each data segment\n");\
 fprintf( a, "  --write-cdata                write the complex filter output\n");\
+fprintf( a, "  --write-template                write the template time series\n");\
 fprintf( a, "\n");
 
 int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
@@ -3494,6 +3573,7 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
     {"write-snrsq",             no_argument,       &writeRhosq,       1 },
     {"write-chisq",             no_argument,       &writeChisq,       1 },
     {"write-cdata",             no_argument,       &writeCData,       1 },
+    {"write-template",          no_argument,       &writeTemplate,       1 },
     {0, 0, 0, 0}
   };
   int c;
@@ -4041,6 +4121,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         else if ( ! strcmp( "FindChirpPTF", optarg ) )
         {
           approximant = FindChirpPTF;
+        }
+        else if ( ! strcmp( "AmpCorPPN", optarg ) )
+        {
+          approximant = AmpCorPPN;
         }
         else
         {
