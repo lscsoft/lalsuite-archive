@@ -413,8 +413,7 @@ plot.add_content(L_sum_star[non_empty_ind], P_L_sum_star[non_empty_ind],
     marker=".", linestyle="None")
 plot.finalize()
 plot.ax.set_xscale("log")
-
-#plot.ax.axis("tight")
+plot.ax.autoscale_view()
 
 # pLsum0
 if actual_candidate_mask.any():
