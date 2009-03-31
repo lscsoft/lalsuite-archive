@@ -48,6 +48,7 @@ $Id$
 #include <lal/Date.h>
 #include <lal/AVFactories.h>
 #include <lal/FindChirp.h>
+#include <lal/FindChirpACTD.h>
 
 #define rint(x) (floor((x)+0.5))
 
@@ -82,6 +83,8 @@ LALFindChirpClusterEvents (
   REAL4                 chisqThreshFac = 0;
   UINT4                 numChisqBins = 0;
   COMPLEX8             *q = NULL;
+  COMPLEX8Vector       **qVecACTD = NULL;
+  COMPLEX8Vector       **qtildeVecACTD = NULL;
   SnglInspiralTable    *thisEvent = NULL;
   CHAR                  searchName[LIGOMETA_SEARCH_MAX];
   UINT4			bvDOF = 0;
@@ -125,9 +128,17 @@ LALFindChirpClusterEvents (
    * set up the variables needed to cluster
    *
    */
-  
-  q = params->qVec->data;
-  numPoints = params->qVec->length;
+  if ( params->approximant == AmpCorPPN )
+  {
+    qVecACTD = params->qVecACTD;
+    qtildeVecACTD = params->qtildeVecACTD;
+    numPoints = params->qVecACTD[0]->length;
+  }
+  else
+  {
+    q = params->qVec->data;
+    numPoints = params->qVec->length;
+  }
   ignoreIndex = params->ignoreIndex;
   deltaT = params->deltaT;
   deltaF = 1.0 / ( (REAL4) params->deltaT * (REAL4) numPoints );
@@ -204,8 +215,22 @@ LALFindChirpClusterEvents (
   /* look for an events in the filter output */
   for ( j = ignoreIndex; j < numPoints - ignoreIndex; ++j )
   {
-    REAL4 modqsq = q[j].re * q[j].re + q[j].im * q[j].im;
+    REAL4 modqsq;
 
+    if ( params->approximant == AmpCorPPN )
+    {
+      INT4 k;
+      modqsq = 0;
+      for ( k = 0; k < NACTDVECS; k++ )
+      {
+        q = qVecACTD[k]->data;
+        modqsq += q[j].re * q[j].re + q[j].im * q[j].im;
+      }
+    }
+    else
+    {
+      modqsq = q[j].re * q[j].re + q[j].im * q[j].im;
+    }
     /* if snrsq exceeds threshold at any point */
     if ( modqsq > modqsqThresh )
     {
