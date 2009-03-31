@@ -49,13 +49,20 @@ from lalapps import inspiral
 ##############################################################################
 # A few new methods 
 
-def getFileMatchingTrigger(jobname,string_id):
+def getFileMatchingTrigger(jobname,string_id,file_list=False):
   if os.access(jobname,os.F_OK):
     filesInDir = os.listdir(jobname)
+    fileList = []
     for paramFile in filesInDir:
       if fnmatch.fnmatch(paramFile, "*"+string_id+"*.html"):
-        return "../"+jobname+"/"+paramFile
-    return False
+        if file_list:
+          fileList.append("../"+jobname+"/"+paramFile)
+        else:
+          return "../"+jobname+"/"+paramFile
+    if fileList:
+      return fileList
+    else:
+      return False
   else: return False
 
 ######################## OPTION PARSING  #####################################
@@ -183,6 +190,7 @@ framecheck = []
 chia = []
 skymap = []
 singlemcmc = []
+fu_triggers = []
 
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
@@ -293,6 +301,10 @@ skymapFile = getFileMatchingTrigger("pylal_skyPlotJob",opts.trigger_id)
 if skymapFile:
   skymap.append(skymapFile)
 
+# links to followup of triggers in the chunk 
+followupTriggerFile = getFileMatchingTrigger("followUpTriggers",opts.trigger_id,True)
+if followupTriggerFile:
+  fu_triggers.append(followupTriggerFile)
 
 # build the checklist table
 page.h2()
@@ -544,7 +556,11 @@ page.tr()
 page.td("#10 Snr versus time")
 page.td("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
 page.td()
-page.td()
+fuTriggerLinks = ""
+for fu_link in fu_triggers[0]:
+  window = fu_link.split("-")[-1].strip(".html")
+  fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
+page.td(fuTriggerLinks)
 page.td()
 page.tr.close()
 

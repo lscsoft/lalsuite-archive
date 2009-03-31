@@ -1636,7 +1636,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       if isinstance(node,h1h2QeventNode) and "H1" in trig.ifolist_in_coinc:
         if str(trig.gpsTime["H1"]) in node.id and node.validNode:
           self.add_parent(node)
-      if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode):
+      if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode) or isinstance(node,followupTriggerNode):
         if str(trig.eventID) in node.id and node.validNode:
           self.add_parent(node)
     
@@ -1645,4 +1645,65 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.validate()
     else: self.invalidate()
 
+
+##############################################################################
+# job class for plotting triggers in the chunk versus time
+
+class followupTriggerJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  A job to plot the triggers in the chunk
+  """
+  def __init__(self, options, cp):
+    """
+    """
+    self.__prog__ = 'followUpTriggers'
+    self.__executable = string.strip(cp.get('condor','fu_triggers'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__prog__)
+
+##############################################################################
+# node class for plotting triggers in the chunk versus time
+
+class followupTriggerNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  A node to plot triggers in the chunk
+  """
+  def __init__(self,job,trig,cp,opts,dag):
+    """
+    """
+    self.friendlyName = 'plot triggers'
+    pipeline.CondorDAGNode.__init__(self,job)
+
+    self.id = job.name + "-" + str(trig.eventID)
+
+    if opts.generate_fu_cache or not cp.has_option('followup-triggers','hipe-output-cache'):
+      cacheString = 'fu_hipe.cache'
+    else:
+      cacheString = string.strip(cp.get('followup-triggers','hipe-output-cache'))
+
+    followupTag = string.strip(cp.get("followup-triggersInChunk","tag"))
+
+    if cp.has_option("followup-triggersInChunk","exttrig"):
+      self.add_var_opt("followup-exttrig",True)
+
+    if cp.has_option("followup-triggersInChunk","sned"):
+      self.add_var_opt("followup-sned",string.strip(cp.get("followup-triggersInChunk","sned")))
+
+    self.add_var_opt("gps-time",float(trig.gpsTime[trig.ifolist_in_coinc[0]]))
+    self.add_var_opt("ifo-times",trig.ifoTag)
+    self.add_var_opt("followup-tag",followupTag)
+    self.add_var_opt("windows",string.strip(cp.get('followup-triggersInChunk','windows')))
+    self.add_var_opt("event-id",str(trig.eventID))
+    self.add_var_opt("cache-file",cacheString)
+    self.setupNodeWeb(job,True,None,None,None,dag.cache)
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name.lower())
+
+    if opts.followup_triggers:
+      dag.addNode(self,self.friendlyName)
+      self.validate()
+    else: self.invalidate()
 
