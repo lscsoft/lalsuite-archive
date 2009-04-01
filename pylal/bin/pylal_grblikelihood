@@ -27,9 +27,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "pylal_grblikelihood"
 __title__ = "GRB interpretation"
 
@@ -44,6 +41,7 @@ import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
 
 from pylal import CoincInspiralUtils
+from pylal import git_version
 from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import rate
@@ -273,7 +271,7 @@ def max_L(trial_log_L_by_mc_m2):
         return trial_log_L_by_mc_m2[candidate_mask, :].max(axis=0)
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # cache input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
