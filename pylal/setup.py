@@ -4,8 +4,10 @@
 
 
 import os
+from misc import determine_git_version
 from distutils.core import setup, Extension
 from distutils.command import install
+from distutils.command import build_py
 from distutils.command import sdist
 from distutils import log
 from sys import version_info
@@ -30,6 +32,24 @@ def remove_root(path, root):
 		return os.path.normpath(path).replace(os.path.normpath(root), "")
 	return os.path.normpath(path)
 
+class pylal_build_py(build_py.build_py):
+	def run(self):
+		# create the git_version module in the staged library directory
+		try:
+			try:
+				git_version_fileobj = open("pylal/git_version.py", "w")
+				determine_git_version.write_git_version(git_version_fileobj)
+			finally:
+				git_version_fileobj.close()
+		except determine_git_version.GitInvocationError:
+			try:
+				git_version_fileobj = open("pylal/git_version.py", "w")
+				determine_git_version.write_empty_git_version(git_version_fileobj)
+			finally:
+				git_version_fileobj.close()
+
+		# resume normal build procedure
+		build_py.build_py.run(self)
 
 class pylal_install(install.install):
 	def run(self):
@@ -110,7 +130,8 @@ setup(
 		"pylal",
 		"pylal.xlal"
 	],
- 	cmdclass = {
+	cmdclass = {
+		"build_py": pylal_build_py,
 		"install": pylal_install,
 		"sdist": pylal_sdist
 	},
