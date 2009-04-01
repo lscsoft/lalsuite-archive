@@ -2,7 +2,7 @@
 
 # $Id$
 
-__author__ = "Stephen Fairhurst <sfairhur@gravity.phys.uwm.edu>"
+__author__ = "Patrick Brady <patrick.brady@ligo.org> and Larry Price <larry.price@ligo.org> "
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 __prog__="plotskypoints"
