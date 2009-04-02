@@ -569,6 +569,10 @@ LALFindChirpACTDNormalize(
   */
   /* XXX UNCOMMENT ABOVE TO TEST ORTHONORMALIZATION XXX */
 
+  /* Since the template is now properly normalized, set norm to 1.0 */
+  fcTmplt->norm = 4.0 * deltaT / (REAL4)(numPoints);
+  fcTmplt->norm = fcTmplt->norm * fcTmplt->norm;
+
   /* normal exit */
   RETURN( status );
 

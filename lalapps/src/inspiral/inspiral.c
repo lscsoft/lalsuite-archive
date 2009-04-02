@@ -75,6 +75,7 @@
 #include <lal/FindChirpBCV.h>
 #include <lal/FindChirpBCVSpin.h>
 #include <lal/FindChirpPTF.h>
+#include <lal/FindChirpACTD.h>
 #include <lal/FindChirpChisq.h>
 #include <lal/GenerateInspiral.h>
 #include <lal/LALTrigScanCluster.h>
@@ -1949,6 +1950,7 @@ int main( int argc, char *argv[] )
       case EOB:
       case EOBNR:
       case FindChirpPTF:
+      case AmpCorPPN:
         if ( vrbflg ) 
           fprintf( stdout, "findchirp conditioning data for TD or PTF\n" );
         LAL_CALL( LALFindChirpTDData( &status, fcSegVec, dataSegVec, 
@@ -2258,6 +2260,11 @@ int main( int argc, char *argv[] )
                   bankCurrent, fcTmpltParams ), &status );
             break;
 
+          case AmpCorPPN:
+            LAL_CALL( LALFindChirpACTDTemplate( &status, fcFilterInput->fcTmplt,
+                  bankCurrent, fcTmpltParams ), &status );
+            break;
+
           default:
             fprintf( stderr, 
                 "error: unknown waveform template approximant \n" );
@@ -2460,6 +2467,14 @@ int main( int argc, char *argv[] )
                       &eventList, fcFilterInput, fcFilterParams ), &status ); 
                 break;
 
+              case AmpCorPPN:
+                LAL_CALL( LALFindChirpACTDNormalize( &status, 
+                      fcFilterInput->fcTmplt, fcTmpltParams,
+                      fcDataParams ), &status );
+                LAL_CALL( LALFindChirpACTDFilterSegment( &status, 
+                      &eventList, fcFilterInput, fcFilterParams ), &status );
+                break;
+
               default:
                 fprintf( stderr, 
                     "error: unknown waveform approximant for filter\n" );
@@ -2640,6 +2655,7 @@ int main( int argc, char *argv[] )
                       fcFilterInput->fcTmplt, fcFilterInput->segment,
                       fcDataParams ), &status );
                 }
+              case AmpCorPPN:
               case FindChirpSP:
                 /* find any events in the time series of snr and chisq */
                 LAL_CALL( LALFindChirpClusterEvents( &status,
@@ -4105,6 +4121,10 @@ int arg_parse_check( int argc, char *argv[], MetadataTable procparams )
         else if ( ! strcmp( "FindChirpPTF", optarg ) )
         {
           approximant = FindChirpPTF;
+        }
+        else if ( ! strcmp( "AmpCorPPN", optarg ) )
+        {
+          approximant = AmpCorPPN;
         }
         else
         {

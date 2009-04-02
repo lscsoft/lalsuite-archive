@@ -191,6 +191,11 @@ int XLALInspiralGetApproximantString( CHAR        *output,
           "TaylorN" ); 
       break;
 
+    case AmpCorPPN:
+      LALSnprintf( approxString, LIGOMETA_SEARCH_MAX * sizeof(CHAR),
+          "AmpCorPPN" );
+      break;
+
     default:
       XLALPrintError("Unknown or unsupported approximant.\n");
       XLAL_ERROR( func, XLAL_EINVAL );

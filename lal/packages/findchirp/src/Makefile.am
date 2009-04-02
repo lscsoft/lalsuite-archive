@@ -20,7 +20,7 @@ FINDCHIRPSOURCES = FindChirpMemory.c FindChirpLinkedList.c \
   FindChirpBCVCFilter.c CoherentInspiralFilter.c \
   CoherentInspiralInput.c FindChirpBankVeto.c \
   FindChirpIMRSimulation.c FindChirpPhenomWaveform.c \
-  # FindChirpACTDTemplate.c FindChirpACTDFilter.c
+  FindChirpACTDTemplate.c FindChirpACTDFilter.c
 
 libfindchirp_la_SOURCES = $(FINDCHIRPSOURCES)
 
