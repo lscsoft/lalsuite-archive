@@ -37,7 +37,7 @@ html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http
   <style type="text/css">
     #left_content {
         float: left;
-        width: 20%%;
+        width: 20%;
         background: #fff;
         border-right: 2px solid #000;
         border-bottom: 2px solid #000;
@@ -46,8 +46,8 @@ html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http
     }
 
     #map_canvas {
-      width: 78%%;
-      height: 92%%;
+      width: 78%;
+      height: 92%;
       overflow: hidden;
     }
   </style>
