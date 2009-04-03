@@ -25,11 +25,14 @@ from __future__ import division
 
 import math
 
-#right now this piece has a key from google that only works for http://www.lsc-group.phys.uwm.edu/~larry/
-larry_key = "ABQIAAAA0FPbpfgtkivdSXYUufXvAxQkoyulTxmH-DD2vRYIIWAC-rYhQhTfKiToAXAf7k_nDVMZa5jkbMy_hQ"
+# Google API key that only works for http://www.lsc-group.phys.uwm.edu/~larry/
+larry_key = "ABQIAAAAbTWRfv2rfvKE5o1huKzj2RQWJyssDG6WCnXjieoP-w1ZUqB9ABQU5ccdrutYANVe-cu_MuNxytA-UA"
+nvf_key = "ABQIAAAA0FPbpfgtkivdSXYUufXvAxQkoyulTxmH-DD2vRYIIWAC-rYhQhTfKiToAXAf7k_nDVMZa5jkbMy_hQ"
+
 
 # fill in macrokey and macroleftcontent
-html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+html_template = \
+"""<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
@@ -87,6 +90,16 @@ html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http
     }
 
     function load_file(url, zoomlevel) {
+      // Google Maps only supports absolute URLs
+      if (url.substr(0, 4) != "http") {
+        var cur_url = document.location.href;
+        var dir = cur_url.substr(0, cur_url.lastIndexOf('/') + 1);
+        url = dir + url;
+      }
+
+      // Google Maps does not support https
+      url = url.replace("https", "http");
+
       // load the KML file
       overlay = new GGeoXml(url);
 
@@ -121,13 +134,16 @@ macroleftcontent
 html_button_template = '<input type=\"button\" value=\"macrolabel\" onclick=\"load_file(\'macrourl\', macrozoomlevel)\" /><br/>'
 
 # fill in Placemarks and other tags in macrotags
-kml_point_template = """
-<kml xmlns="http://earth.google.com/kml/2.2" hint="target=sky">
+kml_point_template = \
+"""<kml xmlns="http://earth.google.com/kml/2.2" hint="target=sky">
 <Document>
 macrotags
 </Document>
 </kml>
 """
+
+# this button clears all overlays but does not reset the view
+html_clear_button = '<input type=\"button\" value=\"clear all\" onclick=\"map.clearOverlays()\" /><br/>'
 
 rad2deg_fac = 180. / math.pi
 def rad2latlon(rad_tup):
@@ -199,16 +215,19 @@ class Placemark(object):
         kml += "    <Point>\n      <coordinates>%g,%g,0</coordinates>\n" \
                "    </Point>\n" % latlon
         if self.point_color_str is not None:
-            kml += "    <Style><IconStyle><Icon>\n        <href>" \
-        "http://maps.google.com/mapfiles/ms/micons/%s-dot.png" \
-        "</href>\n    </Icon></IconStyle></Style>\n" % self.point_color_str
+            kml += "    <Style>\n      <IconStyle>\n        <Icon>\n"\
+                "          <href>" \
+                "http://maps.google.com/mapfiles/ms/micons/%s-dot.png</href>\n"\
+                "        </Icon>\n      </IconStyle>\n"\
+                "    </Style>\n" % self.point_color_str
         if self.fov_rad is not None:
             range = fov2range(self.fov_rad)
         else:
             range = 33209  # half a degree; ~diameter of moon
-        kml +=  "    <LookAt><longitude>%g</longitude>" \
-            "<latitude>%g</latitude><altitude>0</altitude>" \
-            "<range>%g</range><tilt>0</tilt><heading>0</heading></LookAt>\n"\
+        kml +=  "    <LookAt>\n      <longitude>%g</longitude>\n" \
+            "      <latitude>%g</latitude>\n      <altitude>0</altitude>\n" \
+            "      <range>%g</range>\n      <tilt>0</tilt>\n"\
+            "      <heading>0</heading>\n    </LookAt>\n"\
             % (latlon + (range,))
         if self.extra_kml_tags is not None:
             kml += self.extra_kml_tags

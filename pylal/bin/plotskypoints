@@ -377,7 +377,11 @@ left_content_template = \
   <h2>Points With Highest Confidence</h2>
     <form>
       macropointbuttons
-    </form>"""
+    </form>
+  <hr/>
+    <form>
+      %s
+    </form>""" % googlesky.html_clear_button
 
 galaxy_description_template = \
 """        <p> Position (ra,dec): (macrolon,macrolat)</p>
@@ -396,10 +400,10 @@ class GalaxyKMLDocument(googlesky.KMLDocument):
   """
   Represent a KML file for a pylal.galaxyutils.galaxy object.
   """
-  def __init__(self, url, label, galaxy=None, color=None):
+  def __init__(self, url, label, galaxy=None, color="yellow"):
+    googlesky.KMLDocument.__init__(self, url, label)
     if galaxy is not None:
       self.add_galaxy(galaxy, color)
-    googlesky.KMLDocument.__init__(self, url, label)
 
   def add_galaxy(self, galaxy, color="yellow"):
     descr_html = galaxy_description_template\
@@ -416,19 +420,22 @@ class PointingKMLDocument(googlesky.KMLDocument):
   Represent a single telescope pointing for a galaxy object.
   """
   def __init__(self, url, label, gps_time, rank, lon, lat, confidence,
-    colo="blue"):
-    id = gps_time + "_" + rank
-    name = gps_time + ' number ' + rank
+    color="blue"):
+    googlesky.KMLDocument.__init__(self, url, label)
+    self.id = gps_time + "_" + rank
+    self.name = gps_time + ' number ' + rank
+    self.add_pointing(gps_time, rank, lon, lat, confidence, color)
+
+  def add_pointing(self, gps_time, rank, lon, lat, confidence, color="blue"):
     descr_html = point_description_template\
-        .replace("macrolon", lon)\
-        .replace("macrolat", lat)\
-        .replace("macroconfidence", confidence)
-    self.add_placemark(googlesky.Placemark(id=id, name=name,
+        .replace("macrolon", str(lon))\
+        .replace("macrolat", str(lat))\
+        .replace("macroconfidence", str(confidence))
+    self.add_placemark(googlesky.Placemark(id=self.id, name=self.name,
         description_html=descr_html, fov_rad=None,
         point_rad=(lon, lat), point_color_str=color))
-    googlesky.KMLDocument.__init__(self, url, label)
 
-def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons):
+def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons, key):
   """
   create google sky summary page
   """
@@ -437,7 +444,7 @@ def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons):
     .replace('macrogalaxybuttons', galaxy_buttons)\
     .replace('macropointbuttons', pointing_buttons)
   html = googlesky.html_template\
-    .replace("macrokey", googlesky.larry_key)\
+    .replace("macrokey", key)\
     .replace("macroleftcontent", left_nav_html)
   return html
 
@@ -500,6 +507,9 @@ def parse_command_line():
                     default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
   #this one doesn't work generally yet because of issues with keys from google, etc.
   parser.add_option("--enable-google-sky-output", action="store_true", default=False, help="enable google sky output")
+  parser.add_option("--google-map-key", metavar="KEY",
+    help="the Google-issued API key specific to the URL from which your "\
+    "page will be hosted")
 
   # InspiralUtils compatibility
   #parser.add_option("--gps-start-time", type="int", help="GPS start time of data analyzed")
@@ -516,6 +526,9 @@ def parse_command_line():
 
   (options,args) = parser.parse_args()
 
+  if options.enable_google_sky_output and (options.google_map_key is None):
+    raise ValueError, "if --enable-google-sky-output is specified, require "\
+        "--google-map-key as well."
 
   return options, sys.argv[1:]
 
@@ -1044,10 +1057,10 @@ for coinc in coincTriggers:
 
     if opts.enable_google_sky_output:
       #now put in a link to the google sky output page
-      html_footer += '\n\n <a href=\"http://www.lsc-group.phys.uwm.edu/~larry/'+str(opts.gps_start_time)+'/'+str(opts.gps_start_time) + \
-                     '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
-    
- 
+      html_footer += '\n\n <a href=\"' + str(opts.gps_start_time) + '/' \
+        + str(opts.gps_start_time) + \
+        '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
+
     html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
                      [fname], [text], comment=html_footer, cbcweb=False)
     if not opts.show_plot:
@@ -1060,31 +1073,31 @@ for coinc in coincTriggers:
       mkdirsafe(gsky_root_dir)
       mkdirsafe(kml_root_dir)
 
-    galaxy_buttons = []
-    pointing_buttons = []
+      galaxy_buttons = []
+      pointing_buttons = []
 
-    if opts.plotgalaxies:
-      for galaxy in galaxies:
-        galaxy_kml_url = 'http://www.lsc-group.phys.uwm.edu/~larry/' \
-          + str(opts.gps_start_time) + '/kml/' + galaxy.name + ".kml"
-        galaxy_kml = GalaxyKMLDocument(galaxy_kml_url, galaxy.name, galaxy)
-        write_file(kml_root_dir, galaxy.name + '.kml', str(galaxy_kml))
-        galaxy_buttons.append(galaxy_kml.get_button_html())
+      if opts.plotgalaxies:
+        start_time = str(opts.gps_start_time)
+        for galaxy in galaxies:
+          galaxy_kml_url = 'kml/' + galaxy.name + ".kml"
+          galaxy_kml = GalaxyKMLDocument(galaxy_kml_url, galaxy.name, galaxy)
+          write_file(kml_root_dir, galaxy.name + '.kml', str(galaxy_kml))
+          galaxy_buttons.append(galaxy_kml.get_button_html())
 
-      for pt in ten_best_pts:
-        pointing_label = str(opts.gps_start_time) + "_" + rank
-        pointing_url = 'http://www.lsc-group.phys.uwm.edu/~larry/' \
-          + str(opts.gps_start_time) + '/kml/' + pointing_label
-        pointing_kml = PointingKMLDocument(pointing_url, pointing_label,
-          gps_time, str(pt[0]), pt[1], pt[2], str(pt[3]))
-        write_file(kml_root_dir, pointing_label + '.kml', str(pointing_kml))
-        pointing_buttons.append(pointing_kml.get_button_html())
+        for pt in ten_best_pts:
+          pointing_filename = start_time + "_" + str(pt[0]) + ".kml"
+          pointing_url = 'kml/' + pointing_filename
+          pointing_kml = PointingKMLDocument(pointing_url,
+            "number " + str(pt[0]), start_time, str(pt[0]), pt[1], pt[2],
+            str(pt[3]))
+          write_file(kml_root_dir, pointing_filename, str(pointing_kml))
+          pointing_buttons.append(pointing_kml.get_button_html())
 
-    gsky_summary = make_googlesky_summary(str(opts.gps_start_time),
-      "\n\t".join(galaxy_buttons, "\n\t".join(pointing_buttons)))
-    write_file(gsky_root_dir,
-               str(opts.gps_start_time) + '_plotskypoints_summary.html',
-               gsky_summary)
+      gsky_summary = make_googlesky_summary(start_time,
+        "\n      ".join(galaxy_buttons), "\n      ".join(pointing_buttons),
+        opts.google_map_key)
+      write_file(gsky_root_dir, start_time + '_plotskypoints_summary.html',
+                 gsky_summary)
 
 figure()
 plot(asarray(asnr), asarray(adelta_t),'ro') 
