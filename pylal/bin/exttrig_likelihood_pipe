@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 """
 exttrig_likelihood_pope - generates steps to test likelihood or to open the box
 
-$Id$
+$Id: exttrig_likelihood_pipe,v 1.2.2.2 2009/02/10 03:46:16 nvf Exp $
 
 This script generates a condor DAG(?) for the last step of the 
 inspiral exttrig pipeline, which is either to create likelihood plots
@@ -10,8 +10,8 @@ with a fake onsource trial or to open the box with the real onsource data.
 """
 
 __author__ = 'Alexander Dietz <Alexander.Dietz@lapp.in2p3.fr>'
-__date__ = '$Date$'
-__version__ = '$Revision$'[11:-2]
+__date__ = '$Date: 2009/02/10 03:46:16 $'
+__version__ = '$Revision: 1.2.2.2 $'[11:-2]
 
 ##############################################################################
 # import standard modules and append the lalapps prefix to the python path
@@ -149,7 +149,7 @@ def create_paste_call(cp, opts):
   call+=' --destination '+dest_filename
   call+=' --paste-strategy delete_all'
   call+=' --output-filename '   +output_filename
-  call+=' --event-id-type int_8s --restrict-source-times --verbose'
+  call+=' --restrict-source-times --verbose'
 
   if opts.fake=='offsource':
     call+= ' --take-offsource-trial '+str(opts.trial)
@@ -247,6 +247,7 @@ def create_grbUL_call(cp, opts):
   call += ' --user-tag ' + input_user_tag + '_' + opts.user_tag
   call += ' --enable-output'
   call += ' --h1-calibration 0.1'
+  call += ' --v1-calibration 0.1'
   call += ' --likelihood-threshold 1'
 
   if opts.stage=='OPENBOX':
@@ -348,7 +349,7 @@ command_line = sys.argv[1:]
 #################################
 # if --version flagged
 if opts.version:
-  print "$Id$"
+  print "$Id: exttrig_likelihood_pipe,v 1.2.2.2 2009/02/10 03:46:16 nvf Exp $"
   sys.exit(0)
 
 

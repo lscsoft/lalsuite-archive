@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -30,9 +30,9 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
+__version__ = "$Revision: 1.8.2.3 $"[11:-2]
+__date__ = "$Date: 2009/02/19 17:57:57 $"
+__Id__ = "$Id: pylal_grbUL,v 1.8.2.3 2009/02/19 17:57:57 nvf Exp $"
 __prog__ = "pylal_grbUL"
 __title__ = "GRB interpretation"
 
@@ -161,7 +161,7 @@ def get_level_crossings(xy_array, level, y_bins):
                         for col in xy_array])
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version="%prog CVS $Id: pylal_grbUL,v 1.8.2.3 2009/02/19 17:57:57 nvf Exp $ ")
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
@@ -206,6 +206,10 @@ def parse_args():
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--v1-calibration-uncertainty", metavar="FAC",
+        type="float", default=0.,
+        help="fractional uncertainty in the DC calibration of "
+        "V1; rescale distances by (1 +/- max(FAC))*D")
 
     # odds and ends
     parser.add_option("--likelihood-threshold", type="float", metavar="THRESH",
@@ -219,8 +223,8 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
-    if len(options.ifo_tag) != 4:
-        raise ValueError, "Only two-IFO combinations are supported."
+    #if len(options.ifo_tag) != 4:
+    #    raise ValueError, "Only two-IFO combinations are supported."
 
     if (options.likelihood_threshold is not None) \
         and (options.likelihood_threshold <= 0):
@@ -342,9 +346,10 @@ if opts.smoothing_radius is not None:
 # Take calibration systematics into account by rescaling D bins
 # NB: Needs to be after injections are binned, but before actual distances
 #     are extracted from the search.
-supported_ifos = set(("H1", "H2", "L1"))
+supported_ifos = set(("H1", "H2", "L1","V1"))
 if opts.ifo_tag is not None:
-    ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
+    ifos = set(opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag)/2))
+    #ifos = (opts.ifo_tag[:2], opts.ifo_tag[2:])
     if not supported_ifos.issuperset(ifos):
         raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
 else:
@@ -422,6 +427,11 @@ for CL_ind, CL in enumerate(CLs):
     D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
     D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
 
+# write out the exclusion data
+file_out = open('pylal_grbUL-exclusion-'+opts.user_tag+'.pickle','w')
+pickle.dump([CLs, m2_bins, D1D2_by_CL_m2], file_out)
+file_out.close()
+
 ################################################################################
 # plots
 fnameList = []
@@ -458,6 +468,7 @@ if opts.enable_output:
     tagList.append(text)
 if not opts.show_plot:
     plot.close()
+
 
 for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     ## p(L | D)

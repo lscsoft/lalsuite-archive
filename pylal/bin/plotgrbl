@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -27,9 +27,9 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
+__version__ = "$Revision: 1.3.2.6 $"[11:-2]
+__date__ = "$Date: 2009/02/21 00:04:16 $"
+__Id__ = "$Id: plotgrbl,v 1.3.2.6 2009/02/21 00:04:16 nvf Exp $"
 __prog__ = "plotgrbl"
 __title__ = "GRB likelihood diagnostics"
 
@@ -73,6 +73,27 @@ trace_m2_bin = 0
 
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
+def get_mean_mchirp_GRB070923(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc.
+    """
+    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
+    ifos = ''
+    for ifo in ['H1','L1','V1']:
+      if hasattr(coinc, ifo):
+        ifos += ifo
+    if ifos=='H1L1V1':
+      modified_mean_mchirp = mean_mchirp
+    elif ifos=='H1L1':
+      modified_mean_mchirp = mean_mchirp+20.0
+    elif ifos=='H1V1':
+      modified_mean_mchirp = mean_mchirp+40.0
+    elif ifos=='L1V1':
+      modified_mean_mchirp = mean_mchirp+60.0
+    else:
+      modified_mean_mchirp = -1
+
+    return modified_mean_mchirp
 
 def get_fap(snr_by_mc):
     """
@@ -110,6 +131,7 @@ def make_html_table(two_dim_seq, header_row=None):
         last_len = len(header_row)
     for row in two_dim_seq:
         if len(row) != last_len:
+	    print len(header_row), len(row), row
             raise ValueError, "header and row lengths must all be consistent."
         last_len = len(row)
         html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
@@ -119,7 +141,7 @@ def make_html_table(two_dim_seq, header_row=None):
 
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version="%prog CVS $Id: plotgrbl,v 1.3.2.6 2009/02/21 00:04:16 nvf Exp $ ")
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
@@ -197,6 +219,7 @@ for m2_D in m2_D_by_inj:
 num_sims_by_m2_D = num_sims_by_m2_D.array
 
 num_offsource_trials = offsource_loudest_by_trial_mc.shape[0]
+
 num_inj = inj_log_L_by_trial_m2.shape[0]
 if inj_loudest_by_inj_mc.shape[0] != num_inj:
     raise ValueError, "relic injections do not match grblikelihood injections"
@@ -295,32 +318,61 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
+    all_ifos = ['H1','L1','V1']
     columns = ["mc_bin", "event_id"] \
-        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifos] \
+        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
-    for low, hi, pc0 in \
-        zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc):
+
+    ## split up the coincs before
+    mchirp_dict = {}
+    for coinc in onsource_coincs:
+      ifo_text = ''
+      mc = get_mean_mchirp_GRB070923(coinc)
+      for ifo in all_ifos:
+        if hasattr(coinc, ifo):
+          ifo_text+=ifo
+
+      index = mc_bins[mc]
+      mchirp_dict[index]=coinc
+
+
+    for index, (low, hi, pc0) in \
+        enumerate(zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc)):
         row = ["[%.2f, %.2f)" % (low, hi)]
-        mc_coincs = onsource_coincs.getChirpMass(low, hi)
-        if len(mc_coincs) == 0:
+        #mc_coincs = onsource_coincs.getChirpMass(low, hi)
+	try:
+	  mc_coincs = mchirp_dict[index]
+	except:
+	  mc_coincs = None
+
+        if mc_coincs is None:
             row += ["&mdash;"] * (len(columns) - len(row))
-        elif len(mc_coincs) == 1:
-            c = mc_coincs[0]
+        else:
+            c = mc_coincs
             # XXX: hardcoded effective SNR
-            row += [c.event_id] \
-                + ["%.4g" % trig.get_effective_snr() for trig in c] \
+	    text = []
+	    for ifo in all_ifos:
+	      try:
+	        trig = getattr(c,ifo)
+                text+=["%.4g" % trig.get_effective_snr()]
+	      except:
+	        text+=['&mdash;']
+	
+            row += [c.event_id] +text\
                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
                    "%.4g" % pc0]
         rows.append(row)
+ 
     html_footer += make_html_table(rows, columns)
 
     # print per-m2 info
     temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
     temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
+
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
     columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
@@ -330,7 +382,10 @@ else:
     for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
         log_L_by_m2, pL0_by_m2):
         row = ["[%.2f, %.2f)" % m2_range]
-        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+
+        m2_coincs = [mchirp_dict[mc_ind]]
+        #m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+
         if len(m2_coincs) == 0:
             row.append("&mdash;")
         elif len(m2_coincs) == 1:
