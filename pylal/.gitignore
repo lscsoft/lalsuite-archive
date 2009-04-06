@@ -1,0 +1,4 @@
+*.pyc
+build
+etc/pylal-user-env.*sh
+pylal/git_version.py
