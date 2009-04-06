@@ -60,8 +60,19 @@ def run_external_command(command, honour_ret_code=True):
   return ret_code, output
 
 #
-# main program entry point
+# primary functions
 #
+def in_git_repository():
+  """
+  Return True if we are in a git repository and False if not.
+
+  NB: Unfortunately there is a magic number without any documentation to back
+  it up. It turns out that git status returns non-zero exit codes for all sorts
+  of success conditions, but I cannot find any documentation of them. 128 was
+  determined empirically.  I sure hope that it's portable.
+  """
+  return run_external_command("git status", honour_ret_code=False)[0] != 128
+
 def write_git_version(fileobj):
   """
   Query git to determine current repository status and write a Python module
