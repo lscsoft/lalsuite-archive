@@ -26,7 +26,6 @@ class PkgConfig(object):
 full_lal_pkg_config = PkgConfig("lal lalframe lalmetaio lalsupport")
 lal_pkg_config = PkgConfig("lal")
 
-
 def remove_root(path, root):
 	if root:
 		return os.path.normpath(path).replace(os.path.normpath(root), "")
@@ -34,14 +33,19 @@ def remove_root(path, root):
 
 class pylal_build_py(build_py.build_py):
 	def run(self):
-		# create the git_version module in the staged library directory
-		try:
+		# create the git_version module
+		if determine_git_version.in_git_repository():
 			try:
+				log.info("generating pylal/git_version.py")
 				git_version_fileobj = open("pylal/git_version.py", "w")
 				determine_git_version.write_git_version(git_version_fileobj)
 			finally:
 				git_version_fileobj.close()
-		except determine_git_version.GitInvocationError:
+		elif os.path.exists("pylal/git_version.py"):
+			# We're probably being built from a release tarball; don't overwrite
+			log.info("not in git checkout; using existing pylal/git_version.py")
+		else:
+			log.info("not in git checkout; writing empty pylal/git_version.py")
 			try:
 				git_version_fileobj = open("pylal/git_version.py", "w")
 				determine_git_version.write_empty_git_version(git_version_fileobj)
@@ -113,6 +117,22 @@ class pylal_sdist(sdist.sdist):
 				os.unlink(os.path.join("etc", script))
 			except:
 				pass
+
+		# create the git_version module
+		if determine_git_version.in_git_repository():
+			log.info("generating pylal/git_version.py")
+			try:
+				git_version_fileobj = open("pylal/git_version.py", "w")
+				determine_git_version.write_git_version(git_version_fileobj)
+			finally:
+				git_version_fileobj.close()
+		else:
+			log.info("not in git checkout; writing empty pylal/git_version.py")
+			try:
+				git_version_fileobj = open("pylal/git_version.py", "w")
+				determine_git_version.write_empty_git_version(git_version_fileobj)
+			finally:
+				git_version_fileobj.close()
 
 		# now run sdist
 		sdist.sdist.run(self)
