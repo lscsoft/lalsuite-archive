@@ -52,10 +52,15 @@ from pylal import InspiralUtils
 from pylal import grbsummary
 from pylal import plotutils
 from pylal import rate
+import PopStatement
 
 #
 # Functions
 #
+def flush(text):
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
 def extract_grb_name(file):
     parts = file.split('_')
     for part in parts:
@@ -282,7 +287,7 @@ def create_education_plots(popA_by_m2, popB_by_m2):
     tagList.append(fname)
 
 
-def check_distribution_far(opts, ext_trigs, ifar_on_by_m2, ifar_off_by_grb_m2):
+def check_distribution_far(opts, ext_trigs, ifar_on_by_m2, ifar_off_by_grb_m2, tag = ''):
     """
     This function is entirely a checking function that
     might not used later. It is just to check the offsource
@@ -335,7 +340,7 @@ def check_distribution_far(opts, ext_trigs, ifar_on_by_m2, ifar_off_by_grb_m2):
             
         plot.finalize()
         plot.ax.set_yscale("log")
-        fname = InspiralUtils.set_figure_name(opts, "offsource_ifar-%.1f"%m2_centre)
+        fname = InspiralUtils.set_figure_name(opts, "offsource_ifar-%.1f%s"%(m2_centre,tag))
         fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
         fnameList.append(fname)
         tagList.append(fname)
@@ -489,7 +494,7 @@ def perform_test(popA_by_m2, popB_by_m2, html_footer):
     html_footer += text
     return html_footer
 
-def perform_test_condense(fg_pop, bg_pop, html_footer):
+def perform_test_condense(fg_pop, bg_pop, html_footer, special_tag = ''):
     """
     Perform the statistical test on log(sum L)
     """
@@ -516,7 +521,10 @@ def perform_test_condense(fg_pop, bg_pop, html_footer):
     for case in ['random','max','single']:
 
         result[case]=[]
-        for trial in range(1):
+        for trial in range(100):
+            sys.stdout.write("\rtrial %d  " % (trial))
+            sys.stdout.flush()
+            
 
             # chose a set of fake numbers
             test_pop = choose_values(case, fg_pop, bg_pop)
@@ -541,7 +549,7 @@ def perform_test_condense(fg_pop, bg_pop, html_footer):
                         linestyle='None',markersize=10)    
             plot.finalize()
             if opts.enable_output:
-                fname = InspiralUtils.set_figure_name(opts, "qq-fake-"+case)
+                fname = InspiralUtils.set_figure_name(opts, "qq-fake-"+case+special_tag)
                 fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
                 fnameList.append(fname)
                 tagList.append(fname)
@@ -561,7 +569,7 @@ def perform_test_condense(fg_pop, bg_pop, html_footer):
     plt.xlabel('z value (sigma)',size='x-large')
     plt.ylabel('number',size='x-large')
     plt.legend(('random','single','max'))
-    #plt.savefig('pylal_expose-test_condense.png')
+    plt.savefig('pylal_expose-test_condense'+special_tag+'.png')
 
     if False:
         # 'open the box'...
@@ -582,14 +590,98 @@ def perform_test_condense(fg_pop, bg_pop, html_footer):
                     linestyle='None',markersize=10)    
         plot.finalize()
         if opts.enable_output:
-            fname = InspiralUtils.set_figure_name(opts, "qq-OPENBOX-"+case)
+            fname = InspiralUtils.set_figure_name(opts, "qq-OPENBOX-"+case+special_tag)
             fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
             fnameList.append(fname)
             tagList.append(fname)
     
     return html_footer
+
         
+def master_test():
+    """
+    This is a master-test (MC simulation)
+    """
+
+    def wmu(test_pop, bg_pop):
+        n1 = len(test_pop)
+        n2 = len(bg_pop)            
+        u = mannwhitney_u(test_pop, bg_pop)
+        z_val = mannwhitney_u_zscore(n1, n2, u)
+        return z_val
     
+    n_sim = 1000
+
+    n_a = 14 # number of GRB
+    n_b = 324 # number of values of each GRB
+
+    vec1 = []
+    vec2 = []
+    test_value = 2.0
+
+    for trial in range(n_sim):
+        # create the 'onsource' sample for the 'likelihood'...
+        onsource_lik = test_value*numpy.ones(n_a)
+        onsource_far = []
+
+        compare_sample_lik = []
+        compare_sample_far = []
+        
+        for a in range(n_a):
+
+            dummy = []
+            for b in range(n_b):
+                u = random.gauss(0,1)
+
+                dummy.append(u)
+
+            # add the 'likelihood-values' to the sample
+            compare_sample_lik.extend(dummy)
+
+            # compute the onsource 'FAR'
+            s = dummy > onsource_lik[a]
+            item_far =  sum(s)/n_b
+            onsource_far.append(item_far)
+            
+            # compute and add the 'IFAR' values
+            dummy = []
+            for b in range(n_b):
+                dummy.append(float(b)/float(n_b))
+            compare_sample_far.extend(dummy)
+           
+
+        ## now we have the bits (for the given trial)
+        ## and can go on
+
+        z1 = wmu(onsource_lik, compare_sample_lik)
+        z2 = wmu(onsource_far, compare_sample_far)
+
+        vec1.append(z1)
+        vec2.append(z2)
+                        
+            
+    print vec1
+    print vec2
+    
+
+            
+    nbins = 20
+    ay, ax, dummy = plt.hist(vec1,nbins)
+    by, bx, dummy = plt.hist(vec2,nbins)
+    #by, bx, dummy = plt.hist(result['single'],nbins)
+    #cy, cx, dummy = plt.hist(result['max'],nbins)    
+
+    plt.clf()
+    plt.plot(ax, ay, 'r-',lw=3)
+    plt.plot(bx, by, 'b-',lw=3)
+    #plt.plot(cx, cy, 'g-',lw=3)
+    plt.grid(True)
+    plt.xlabel('z value (sigma)',size='x-large')
+    plt.ylabel('number',size='x-large')
+    #plt.legend(('random','single','max'))
+    plt.savefig('pylal_expose-mastertest.png')
+
+    sys.exit(0)
 
     
 
@@ -612,6 +704,9 @@ def parse_args():
                       "analyze. Possible values: {box,max,random,single}.")
     parser.add_option("--number", type="int",help="The number of onsource trials "\
                       "to be selected. Default = 10.",default=10)
+    parser.add_option("--type", type="string",help="Type of data to be used: "\
+                      "Either FAR or LOGSUML.",default=None)
+    
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
     parser.add_option("--m2-max", type="float", help="maximum m2 value")
@@ -642,10 +737,11 @@ def parse_args():
 
     options, arguments = parser.parse_args()
 
+
     if options.ifo_tag is not None:
         options.ifo_times = options.ifo_tag
 
-    for opt in ("onsource_glob", "offsource_glob"):
+    for opt in ("onsource_glob", "offsource_glob","type"):
         if getattr(options, opt) is None:
             raise ValueError,  "--%s is required" % opt.replace("_", "-")
 
@@ -705,6 +801,12 @@ number_grb = len(ext_trigs)
 print "Number of GRB's used: ", number_grb
 
 
+grb_data = pickle.load(file('list_grb.pickle'))
+
+#files_onsource = [files_onsource[0], files_onsource[1] ]
+#files_offsource = [files_offsource[0], files_onsource[1] ]
+
+
 #
 # prepare the data set
 #
@@ -720,8 +822,16 @@ offsource_fap_by_m2 = [[] for i in range(opts.m2_nbins) ]
 onsource_det_stat = []
 offsource_det_stat = []
 
+onsource_det_lik = []
+offsource_det_lik = []
+
 # for testing purposes only
 offsource_fap_by_grb_m2 = [[[] for i in range(opts.m2_nbins) ] for j in range(number_grb)]
+
+# create two PopStatement instances, one with the real offsource data
+# and one with a faked one (same distribution)
+pop_fake = PopStatement.PopStatement(grb_data,'_fake')
+pop_stat = PopStatement.PopStatement(grb_data,'_real')
 
 test_array = None
 for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsource)):
@@ -756,23 +866,188 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
     # calculate the statistics probability
     stat = count_louder/n_trials
     onsource_det_stat.append(stat)
+    onsource_det_lik.append(log_sum_L)
 
     # make the same for the associated offsource values as well:
     for off_trial in off_log_sum_L_by_trial:
         count_louder = (off_log_sum_L_by_trial >= off_trial).sum(axis=0)
         offsource_det_stat.append(count_louder/n_trials)
+    offsource_det_lik.extend(off_log_sum_L_by_trial)
 
     # make the double check of the detection statistic
     words = file_on.split('_')
     grb_name = words[3][3:]
-    print "For %7s:  %.3f" % (grb_name, stat)
-   
+    
+    p0 = (off_log_sum_L_by_trial > -numpy.inf).sum(axis=0)/n_trials
+    print "'%s':%.2f,\\" % (grb_name, log_sum_L)
 
+
+    # populate the popStatement instance with real background/onsource
+    pop_stat.add_background_by_trial(grb_name, off_log_sum_L_by_trial)
+    pop_stat.add_foreground(grb_name, log_sum_L)
+
+    # populate the popStatement instance with faked background/onsource
+    fake_off = [random.expovariate(0.2) for i in range(n_trials)]
+    fake_off = numpy.asarray(fake_off)
+    pop_fake.add_background_by_trial(grb_name, fake_off)
+    pop_fake.add_foreground(grb_name, 10.0) # not used anyway
+
+# finalize the sampling
+pop_fake.finalize()
+pop_stat.finalize()
+
+# create overview plots
+pop_stat.check_off_distribution_lik()
+pop_stat.check_off_distribution_far()
+pop_fake.check_off_distribution_lik()
+pop_fake.check_off_distribution_far()
+
+def plot_hists(datas, legends, tag, sname):
+    
+    # create the hist data in a consistent binning
+    nbins = 30
+    val_min = min( min(datas[0]), min(datas[1]))
+    val_max = max( max(datas[0]), max(datas[1]))
+    bins = rate.LinearBins(val_min, val_max, nbins)
+    px = bins.lower()
+
+    # create the histogram and fill it
+    hist1 = numpy.zeros(nbins)
+    hist2 = numpy.zeros(nbins)
+    for value1, value2 in zip(datas[0], datas[1]):
+        hist1[bins[value1]] += 1
+        hist2[bins[value2]] += 1    
+
+    plt.clf()
+    plt.plot(px, hist1, 'r-')
+    plt.plot(px, hist2, 'b-')
+    plt.grid(True)
+    plt.xlabel(tag)
+    plt.ylabel('number')
+    plt.legend(legends)
+    plt.savefig('pylal_expose_check-'+sname+'.png')
+
+
+def create_hist(data):
+    nbins = 30
+    val_min = min(data)-1.0
+    val_max = max(data)+1.0
+    bins = rate.LinearBins(val_min, val_max, nbins)
+    px = bins.lower()
+
+    # create the histogram and fill it
+    hist = numpy.zeros(nbins)
+    for value in data:
+        hist[bins[value]] += 1
+    return px, hist
+        
+# choose random
+vec_lik_real = []
+vec_lik_fake = []
+vec_ifar_real = []
+vec_ifar_fake = []
+
+for i in range(5000):
+    # draw random values and calculate the z-value
+    pop_stat.select_fake('random')
+    z_lik, z_ifar = pop_stat.compute_wmu()
+    vec_lik_real.append(z_lik)
+    vec_ifar_real.append(z_ifar)    
+
+    # draw random values and calculate the z-value    
+    pop_fake.select_fake('random')
+    z_lik, z_ifar = pop_fake.compute_wmu()
+    vec_lik_fake.append(z_lik)
+    vec_ifar_fake.append(z_ifar)
+
+    # draw random values and calculate the z-value
+    ###pop_stat.select_fake('random')
+    pop_stat.use_lik = []
+    pop_stat.use_ifar = []
+    for i in range(len(pop_stat.off_lik_by_grb)):
+        index = random.randrange(len(pop_stat.off_lik))        
+        pop_stat.use_lik.append(pop_stat.off_lik[index])
+        pop_stat.use_ifar.append(pop_stat.off_ifar[index])
+    z_lik, z_ifar = pop_stat.compute_wmu()
+    vec_lik_fake.append(z_lik)
+    vec_ifar_fake.append(z_ifar)  
+
+
+# create some overview plots
+plot_hists( [vec_lik_real, vec_lik_fake],['lik-real','lik-fake'],\
+            'sigma','likelihoods')
+plot_hists( [vec_ifar_real, vec_ifar_fake],['ifar-real','ifar-fake'],\
+            'sigma','ifars')
+plot_hists( [vec_lik_fake, vec_ifar_fake],['lik-fake','ifar-fake'],\
+            'sigma','fake')
+plot_hists( [vec_lik_real, vec_ifar_real],['lik-real','ifar-real'],\
+            'sigma','real')
+
+
+print "Second step"
+vec_lik = {}
+vec_ifar = {}
+
+for type in ['random','single','max']:
+    print "Samples drawn from ", type
+
+    dummy_lik = []
+    dummy_ifar = []
+    for i in range(5000):
+        pop_stat.select_fake(type)
+        z_lik, z_ifar = pop_stat.compute_wmu()        
+        dummy_lik.append(z_lik)
+        dummy_ifar.append(z_ifar)
+
+    vec_lik[type]=dummy_lik
+    vec_ifar[type]=dummy_ifar    
+
+a1, a2 = create_hist(vec_lik['random'])
+b1, b2 = create_hist(vec_lik['single'])
+c1, c2 = create_hist(vec_lik['max'])     
+
+plt.clf()
+plt.plot(a1, a2, 'r-')
+plt.plot(b1, b2, 'b-')
+plt.plot(c1, c2, 'g-')
+plt.grid(True)
+plt.xlabel('sigma')
+plt.ylabel('number')
+plt.legend(('random','single','max'))
+plt.savefig('pylal_expose_check-lik_rsm.png')
+
+a1, a2 = create_hist(vec_ifar['random'])
+b1, b2 = create_hist(vec_ifar['single'])
+c1, c2 = create_hist(vec_ifar['max'])     
+
+plt.clf()
+plt.plot(a1, a2, 'r-')
+plt.plot(b1, b2, 'b-')
+plt.plot(c1, c2, 'g-')
+plt.grid(True)
+plt.xlabel('sigma')
+plt.ylabel('number')
+plt.legend(('random','single','max'))
+plt.savefig('pylal_expose_check-ifar_rsm.png')
+
+
+
+    
+
+sys.exit(0)
+
+print "Performing the old tests"
 # get some numbers
 N_A = len(onsource_fap_by_m2[0])
 N_B = len(offsource_fap_by_m2[0])
 N_tot = N_A + N_B
 
+# first test on the condense population statement
+
+html_footer = perform_test_condense(onsource_det_stat, offsource_det_stat, html_footer, '-stat')
+html_footer = perform_test_condense(onsource_det_lik, offsource_det_lik, html_footer, '-lik')
+
+sys.exit(0)
 
 #
 # Make a distribution check and create 'educational' plots
