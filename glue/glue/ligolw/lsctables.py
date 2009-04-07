@@ -1802,43 +1802,6 @@ SegmentTable.RowType = Segment
 #
 # =============================================================================
 #
-#                            segment_def_map:table
-#
-# =============================================================================
-#
-
-
-SegmentDefMapID = ilwd.get_ilwdchar_class(u"segment_def_map", u"seg_def_map_id")
-
-
-class SegmentDefMapTable(table.Table):
-	tableName = "segment_def_map:table"
-	validcolumns = {
-		"creator_db": "int_4s",
-		"process_id": "ilwd:char",
-		"seg_def_map_id": "ilwd:char",
-		"segment_cdb": "int_4s",
-		"segment_id": "ilwd:char",
-		"segment_def_cdb": "int_4s",
-		"segment_def_id": "ilwd:char",
-		"state_vec_map": "int_4s",
-		"insertion_time": "int_4s"
-	}
-	constraints = "PRIMARY KEY (seg_def_map_id)"
-	next_id = SegmentDefMapID(0)
-	interncolumns = ("process_id", "segment_def_id")
-
-
-class SegmentDefMap(object):
-	__slots__ = SegmentDefMapTable.validcolumns.keys()
-
-
-SegmentDefMapTable.RowType = SegmentDefMap
-
-
-#
-# =============================================================================
-#
 #                            segment_definer:table
 #
 # =============================================================================
@@ -2294,7 +2257,6 @@ TableByName = {
 	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
 	table.StripTableName(FilterTable.tableName): FilterTable,
 	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
 	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
 	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,
