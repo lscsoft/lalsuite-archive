@@ -41,6 +41,7 @@ import re
 
 
 from glue import iterutils
+from glue import lal
 from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -77,21 +78,43 @@ def parse_command_line():
 	)
 	parser.add_option("--zero-lag-file", help = "Thinca output file containing zero lag triggers.")
 	parser.add_option("--time-slide-file", help = "Thinca output file containing time slide triggers.")
+	parser.add_option("--ihope-cache", help = "Get thinca files from this ihope cache.")
 	parser.add_option("--output", help = "Output file name (required).")
 	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
-	if not ((options.zero_lag_file or options.time_slide_file) and options.output):
-		raise ValueError, "must specify --output and at least one of --zero-lag-file and --time-slide-file"
+	if options.ihope_cache:
+		if options.zero_lag_file or options.time_slide_file:
+			raise ValueError, "cannot specify --zero-lag-file or --time-slide-file with --ihope-cache"
+		if options.verbose:
+			print >>sys.stderr, "reading %s ..." % options.ihope_cache
+		# find CAT3 full data cache entries
+		url_pairs = [c for c in map(lal.CacheEntry, file(options.ihope_cache)) if "EOBNRINJ" in c.description and "CAT_3" in c.description]
+		#url_pairs = [c for c in map(lal.CacheEntry, file(options.ihope_cache)) if "FULL_DATA" in c.description and "CAT_3" in c.description]
+		# separate zero-lag and slides files
+		zero_lag_urls = [c.url for c in sorted(c for c in url_pairs if "THINCA_SECOND" in c.description)]
+		slide_urls = [c.url for c in sorted(c for c in url_pairs if "THINCA_SLIDE_SECOND" in c.description)]
+		# pad both lists with None's so they have the same number
+		# of entries
+		zero_lag_urls += [None,] * (max(len(zero_lag_urls), len(slide_urls)) - len(zero_lag_urls))
+		slide_urls += [None,] * (max(len(zero_lag_urls), len(slide_urls)) - len(slide_urls))
+		# match up each zero-lag url with corresponding slides url
+		url_pairs = zip(zero_lag_urls, slide_urls)
+	else:
+		if not (options.zero_lag_file or options.time_slide_file):
+			raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
+		url_pairs = (options.zero_lag_file, options.time_slide_file)
+	if not options.output:
+		raise ValueError, "must specify --output"
 	if options.veto_segments and not options.veto_segments_name:
 		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
 
-	return options
+	return options, url_pairs
 
 
 #
@@ -155,11 +178,12 @@ def add_missing_id_columns(xmldoc, verbose = False):
 	#
 
 	for name in (lsctables.SummValueTable.tableName, lsctables.SearchSummVarsTable.tableName):
-		tbl = table.get_table(xmldoc, name)
 		try:
+			tbl = table.get_table(xmldoc, name)
 			tbl.appendColumn(tbl.next_id.column_name)
 		except ValueError:
-			# table already has ID column
+			# document doesn't have this table or already has
+			# ID column
 			continue
 		if verbose:
 			print >>sys.stderr, name,
@@ -189,9 +213,14 @@ def fix_ifos_columns(xmldoc, verbose = False):
 	#
 
 	for table_name in (lsctables.ProcessTable.tableName, lsctables.SearchSummaryTable.tableName):
+		try:
+			tbl = table.get_table(xmldoc, table_name)
+		except ValueError:
+			# document doesn't have this table
+			continue
 		if options.verbose:
 			print >>sys.stderr, table_name,
-		for row in table.get_table(xmldoc, table_name):
+		for row in tbl:
 			row.set_ifos(row.get_ifos())
 
 	#
@@ -311,14 +340,10 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 		#
 		# confirm that the offset vector contains offsets for all
 		# the instruments named in the search_summary table
-		# entries, and remove any instruments from the offset
-		# vector that were not named in the search_summary table
 		# entries.
 		#
 
-		for instrument in set(offset_vector.keys()) - instruments:
-			del offset_vector[instrument]
-		if set(offset_vector.keys()) != instruments:
+		if not instruments.issubset(set(offset_vector.keys())):
 			missing_instruments = set(offset_vector.keys()) - instruments
 			raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
 
@@ -474,18 +499,6 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	rings = retrieve_ring_boundaries(xmldoc)
 
 	#
-	# find the sngl_inspiral table
-	#
-
-	try:
-		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
-	except ValueError:
-		# no sngl_inspiral table --> no-op
-		if verbose:
-			print >>sys.stderr, "cannot find sngl_inspiral table"
-		return
-
-	#
 	# find the coinc_definer_id for sngl_inspiral <--> sngl_inspiral
 	# coincidences, or create it if needed
 	#
@@ -527,6 +540,18 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc_inspiral_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.CoincInspiralTable))
 
 	#
+	# find the sngl_inspiral table
+	#
+
+	try:
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		# no sngl_inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "cannot find sngl_inspiral table"
+		return
+
+	#
 	# find the time_slide table, and convert it to a dictionary of
 	# offset vectors
 	#
@@ -538,6 +563,7 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 	# iterate over reconstructed coincs
 	#
 
+	sngl_inspiral_table.sort(lambda a, b: cmp(a.event_id, b.event_id))
 	for event_id, events in itertools.groupby(sngl_inspiral_table, lambda row: row.event_id):
 		#
 		# alphabetize events by instrument
@@ -720,7 +746,13 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	# find the tables we'll need
 	#
 
-	sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	try:
+		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
+	except ValueError:
+		# no sngl_inspiral table --> no-op
+		if verbose:
+			print >>sys.stderr, "\tcannot find sngl_inspiral table"
+		return
 	coinc_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 	coinc_inspiral_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
@@ -762,13 +794,13 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	index = dict((row.event_id, row) for row in sngl_inspiral_table)
 
 	coinc_map_table.sort(lambda a, b: cmp(a.coinc_event_id, b.coinc_event_id))
-	index.update(dict(
+	index = dict(
 		(coinc_event_id, tuple(index[row.event_id] for row in rows))
 		for coinc_event_id, rows in itertools.groupby(
 			(row for row in coinc_map_table if row.table_name == "sngl_inspiral"),
 			lambda row: row.coinc_event_id
 		)
-	))
+	)
 
 	coinc_inspirals = dict((row.coinc_event_id, row) for row in coinc_inspiral_table)
 
@@ -815,7 +847,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 			continue
 
-		if found_instruments - expected_instruments:
+		if not found_instruments.issubset(expected_instruments):
 			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
 
 		#
@@ -857,7 +889,18 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
 		if not found_instruments.issubset(on_instruments):
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
+			# FIXME:  thinca finds, for example, triples in
+			# double time.  this is mostly a bug in the
+			# definition of what it is that thinca does, but
+			# thinca_to_coinc must know what thinca does in
+			# order to reconstruct the metadata.  We can't do
+			# that correctly right now, but to make progress
+			# this is just a warning instead of an error.
+			if verbose:
+				print >>sys.stderr, "warning: coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
+			#raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
+
+		coinc_event.set_instruments(on_instruments)
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
@@ -872,34 +915,38 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 
 
-options = parse_command_line()
+options, url_pairs = parse_command_line()
 
 if options.veto_segments:
 	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
 
-xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [filename for filename in (options.zero_lag_file, options.time_slide_file) if filename], verbose = options.verbose)
-lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
-process = initialize_process(xmldoc)
-set_process_params(xmldoc, process, options)
+for n, url_pair in enumerate(url_pairs):
+	lsctables.SnglInspiralTable.next_id = None
+	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
+	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
-add_missing_id_columns(xmldoc, verbose = options.verbose)
-# FIXME:  uncomment this after Kipp talks people into it.
-#fix_ifos_columns(xmldoc, verbose = options.verbose)
+	process = initialize_process(xmldoc)
+	set_process_params(xmldoc, process, options)
 
-populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
+	add_missing_id_columns(xmldoc, verbose = options.verbose)
+	# FIXME:  uncomment this after Kipp talks people into it.
+	#fix_ifos_columns(xmldoc, verbose = options.verbose)
 
-populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
+	populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
 
-depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
+	populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
 
-if options.veto_segments:
-	apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
-elif options.verbose:
-	print >>sys.stderr, "no vetoes applied"
+	depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
-depopulate_time_slide_table(xmldoc, verbose = options.verbose)
+	if options.veto_segments:
+		apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
+	elif options.verbose:
+		print >>sys.stderr, "no vetoes applied"
 
-llwapp.set_process_end_time(process)
+	depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
-utils.write_filename(xmldoc, options.output, verbose = options.verbose, gz = (options.output or "stdout").endswith(".gz"))
+	llwapp.set_process_end_time(process)
+
+	output = "%05d_%s" % (n, options.output)
+	utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
