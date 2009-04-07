@@ -84,6 +84,9 @@ def get_time_slide_id(xmldoc, time_slide, create_new = None):
 			raise e
 		tisitable = lsctables.New(lsctables.TimeSlideTable)
 		xmldoc.childNodes[0].appendChild(tisitable)
+	# make sure the next_id attribute is correct
+	tisitable.sync_next_id()
+	# get the id
 	return tisitable.get_time_slide_id(time_slide, create_new = create_new)
 
 

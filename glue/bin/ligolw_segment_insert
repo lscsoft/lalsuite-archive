@@ -47,9 +47,9 @@ Check that glue is correctly installed and in your PYTHONPATH.
   sys.exit(1)
 ##################################################################
 __author__ = "Ping Wei <piwei@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ ="$Revision$"[11:-2]
-__src__ = "$Source$"
+__date__ = "$Date: 2009/03/30 04:17:22 $"[7:-2]
+__version__ ="$Revision: 1.3 $"[11:-2]
+__src__ = "$Source: /usr/local/cvs/lscsoft/glue/bin/ligolw_segment_insert,v $"
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -198,7 +198,6 @@ else:
     sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
     sql += "ifos = '%s' AND " % options.ifos
     sql += "name = '%s' " % options.name
-    print "sql", sql
   if options.append:
     sql = "SELECT count(segment_definer.segment_def_id), " 
     sql += "max(segment_summary.end_time) FROM segment_definer, segment_summary WHERE "
@@ -206,6 +205,7 @@ else:
     sql += "name = '%s' AND " % options.name
     sql += "version = %d " % int(options.version)
   typexml = myClient.query(sql)
+
 
   del myClient
   myClient = None
@@ -363,7 +363,6 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
 
     fake_file = StringIO.StringIO()
     doc.write(fake_file)
-    print fake_file.getvalue()
     if not myClient:
       myClient = LDBDClient.LDBDClient(host, port, identity)
     myClient.insert(fake_file.getvalue())

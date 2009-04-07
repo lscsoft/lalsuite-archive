@@ -82,6 +82,7 @@ def parse_command_line():
 	parser.add_option("--output", help = "Output file name (required).")
 	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
+	parser.add_option("--effective-snr-factor", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
@@ -488,7 +489,7 @@ def retrieve_ring_boundaries(xmldoc):
 #
 
 
-def populate_coinc_event_sngls(xmldoc, process, verbose = False):
+def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, verbose = False):
 	if verbose:
 		print >>sys.stderr, "constructing coincs ...",
 
@@ -631,7 +632,8 @@ def populate_coinc_event_sngls(xmldoc, process, verbose = False):
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.set_ifos(str(event.ifo) for event in events)
 		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
+		#coinc_inspiral.mchirp = sum(event.mtotal for event in events) / len(events)
+		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 
 		#
@@ -935,7 +937,7 @@ for n, url_pair in enumerate(url_pairs):
 
 	populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
 
-	populate_coinc_event_sngls(xmldoc, process, verbose = options.verbose)
+	populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
 	depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
