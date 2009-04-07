@@ -104,8 +104,10 @@ def append_process(doc, options):
     """
     Append a process table and a process_params table to doc.
     """
-    process = llwapp.append_process(doc, "paste_triggers", __version__,
-                                    "lscsoft", __date__)
+    
+    process = llwapp.append_process(doc, "paste_triggers","GRB 070923 version",
+                                    "lscsoft","2009/04/07 11:44:00")
+				    
 
     def map_val(name, val):
         """
