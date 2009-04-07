@@ -102,22 +102,6 @@ def parse_command_line():
 #
 
 
-def time_slides_extent(offsets):
-	min_offset = max_offset = offsets[0].itervalues().next()
-	for d in offsets:
-		for offset in d.itervalues():
-			min_offset = min(min_offset, offset)
-			max_offset = max(max_offset, offset)
-	return min_offset, max_offset
-
-
-def time_slide_is_null(offsets):
-	for offset in offsets.itervalues():
-		if offset != 0:
-			return False
-	return True
-
-
 class RateContours(SnglBurstUtils.BurstPlot):
 	def __init__(self, x_instrument, y_instrument):
 		SnglBurstUtils.BurstPlot.__init__(self, "%s Offset (s)" % x_instrument, "%s Offset (s)" % y_instrument)
@@ -134,7 +118,8 @@ class RateContours(SnglBurstUtils.BurstPlot):
 			self.tisi_rows = contents.time_slide_table.as_dict().values()
 
 			# find the largest and smallest offsets
-			min_offset, max_offset = time_slides_extent(self.tisi_rows)
+			min_offset = min(offset for vector in self.tisi_rows for offset in vector.values())
+			max_offset = max(offset for vector in self.tisi_rows for offset in vector.values())
 
 			# a guess at the time slide spacing:  works if the
 			# time slides are distributed as a square grid over
@@ -186,10 +171,12 @@ WHERE
 		xcoords, ycoords = self.bins.centres()
 		self.axes.contour(xcoords, ycoords, numpy.transpose(numpy.log(zvals)))
 		for offsets in self.tisi_rows:
-			if time_slide_is_null(offsets):
-				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "r+")
-			else:
+			if any(offsets):
+				# time slide vector is non-zero-lag
 				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "k+")
+			else:
+				# time slide vector is zero-lag
+				self.axes.plot((offsets[self.x_instrument],), (offsets[self.y_instrument],), "r+")
 
 		self.axes.set_xlim([self.bins.bins().min[0], self.bins.bins().max[0]])
 		self.axes.set_ylim([self.bins.bins().min[1], self.bins.bins().max[1]])
