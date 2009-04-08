@@ -2,11 +2,11 @@
 """
 Utilities for the inspiral plotting functions
 """
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__Id__ = "$Id$"
+__version__ = "$Revision: 1.41 $"
+__date__ = "$Date: 2009/02/27 20:21:07 $"
+__Id__ = "$Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $"
 
-# $Source$
+# $Source: /usr/local/cvs/lscsoft/pylal/pylal/InspiralUtils.py,v $
 
 from glue import lal
 from glue import segments
@@ -20,10 +20,50 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
+from pylal import git_version
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
+
+
+class InspiralPage:
+  """
+  This is a class to contain all the bits of a inspiral page
+  showing the results of a piece of code.
+  """
+
+  def __init__(self, options, prog_name):
+    """
+    Initializes this class by parsing the code name
+    and the options parsed to the code.
+    The version of the codes is used from git_version.
+    """
+
+    self.prog = prog_name
+    self.version = git_version.verbose_msg
+    self.opts = options
+
+    self.fname_list = []
+    self.tag_list = []
+    self.html_footer = ""
+
+  def add_plot(self, plot_fig, text):
+    
+    fname = set_figure_name(self.opts, text)
+    fname_thumb = savefig_pylal(fname, fig=plot_fig)
+    
+    self.fname_list.append(fname)
+    self.tag_list.append(fname)
+
+  def write_page(self):
+    if self.opts.enable_output:
+      html_filename = write_html_output(self.opts, sys.argv[1:],\
+                                        self.fname_list, self.tag_list,\
+                                        comment=self.html_footer)
+      write_cache_output(self.opts, html_filename, self.fname_list)
+      
+  
 
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   dpi_thumb=50, fig=None):
@@ -180,7 +220,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   if cbcweb:
     page.addheader("<%method title>" + opts.name + " results</%method>")
     page.addheader("<%method headline>" + opts.name + " results</%method>")
-    page.addheader("<%method cvsid> $Id$ </%method>")
+    page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
   else:
     page.h1(opts.name + " results")
 
