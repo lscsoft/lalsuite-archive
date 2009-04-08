@@ -1792,48 +1792,7 @@ class Segment(object):
 		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
 
 
-
-		self.start_time, self.start_time_ns = segment[0].seconds
-		self.end_time, self_end_time.ns = segment[1].seconds
-
 SegmentTable.RowType = Segment
-
-
-#
-# =============================================================================
-#
-#                            segment_def_map:table
-#
-# =============================================================================
-#
-
-
-SegmentDefMapID = ilwd.get_ilwdchar_class(u"segment_def_map", u"seg_def_map_id")
-
-
-class SegmentDefMapTable(table.Table):
-	tableName = "segment_def_map:table"
-	validcolumns = {
-		"creator_db": "int_4s",
-		"process_id": "ilwd:char",
-		"seg_def_map_id": "ilwd:char",
-		"segment_cdb": "int_4s",
-		"segment_id": "ilwd:char",
-		"segment_def_cdb": "int_4s",
-		"segment_def_id": "ilwd:char",
-		"state_vec_map": "int_4s",
-		"insertion_time": "int_4s"
-	}
-	constraints = "PRIMARY KEY (seg_def_map_id)"
-	next_id = SegmentDefMapID(0)
-	interncolumns = ("process_id", "segment_def_id")
-
-
-class SegmentDefMap(object):
-	__slots__ = SegmentDefMapTable.validcolumns.keys()
-
-
-SegmentDefMapTable.RowType = SegmentDefMap
 
 
 #
@@ -1907,7 +1866,9 @@ class SegmentSumTable(table.Table):
 		"process_id": "ilwd:char",
 		"segment_sum_id": "ilwd:char",
 		"start_time": "int_4s",
+		"start_time_ns": "int_4s",
 		"end_time": "int_4s",
+		"end_time_ns": "int_4s",
 		"comment": "lstring",
 		"segment_def_id": "ilwd:char",
 		"segment_def_cdb": "int_4s"
@@ -1916,9 +1877,36 @@ class SegmentSumTable(table.Table):
 	next_id = SegmentSumID(0)
 	interncolumns = ("process_id","segment_def_id")
 
+	def get(self, segment_def_id = None):
+		"""
+		Return a segmentlist object describing the times spanned by
+		the segments carrying the given segment_def_id.  If
+		segment_def_id is None then all segments are returned.
+
+		Note:  the result is not coalesced, the segmentlist
+		contains the segments as they appear in the table.
+		"""
+		if segment_def_id is None:
+			return segments.segmentlist(row.get() for row in self)
+		return segments.segmentlist(row.get() for row in self if row.segment_def_id == segment_def_id)
+
 
 class SegmentSum(object):
 	__slots__ = SegmentSumTable.validcolumns.keys()
+
+	def get(self):
+		"""
+		Return the segment described by this row.
+		"""
+		return segments.segment(LIGOTimeGPS(self.start_time, self.start_time_ns), LIGOTimeGPS(self.end_time, self.end_time_ns))
+
+	def set(self, segment):
+		"""
+		Set the segment described by this row.
+		"""
+		self.start_time, self.start_time_ns = segment[0].seconds, segment[0].nanoseconds
+		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
+
 
 SegmentSumTable.RowType = SegmentSum
 
@@ -2294,7 +2282,6 @@ TableByName = {
 	table.StripTableName(ExtTriggersTable.tableName): ExtTriggersTable,
 	table.StripTableName(FilterTable.tableName): FilterTable,
 	table.StripTableName(SegmentTable.tableName): SegmentTable,
-	table.StripTableName(SegmentDefMapTable.tableName): SegmentDefMapTable,
 	table.StripTableName(SegmentDefTable.tableName): SegmentDefTable,
 	table.StripTableName(SegmentSumTable.tableName): SegmentSumTable,
 	table.StripTableName(TimeSlideTable.tableName): TimeSlideTable,

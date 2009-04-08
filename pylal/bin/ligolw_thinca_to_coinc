@@ -36,8 +36,8 @@ Translate thinca-style sngl_inspiral coincs to coinc-tables-style coincs.
 import itertools
 import math
 from optparse import OptionParser
-import sys
 import re
+import sys
 
 
 from glue import iterutils
@@ -91,22 +91,53 @@ def parse_command_line():
 			raise ValueError, "cannot specify --zero-lag-file or --time-slide-file with --ihope-cache"
 		if options.verbose:
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
-		# find CAT3 full data cache entries
-		url_pairs = [c for c in map(lal.CacheEntry, file(options.ihope_cache)) if "EOBNRINJ" in c.description and "CAT_3" in c.description]
-		#url_pairs = [c for c in map(lal.CacheEntry, file(options.ihope_cache)) if "FULL_DATA" in c.description and "CAT_3" in c.description]
-		# separate zero-lag and slides files
-		zero_lag_urls = [c.url for c in sorted(c for c in url_pairs if "THINCA_SECOND" in c.description)]
-		slide_urls = [c.url for c in sorted(c for c in url_pairs if "THINCA_SLIDE_SECOND" in c.description)]
-		# pad both lists with None's so they have the same number
-		# of entries
-		zero_lag_urls += [None,] * (max(len(zero_lag_urls), len(slide_urls)) - len(zero_lag_urls))
-		slide_urls += [None,] * (max(len(zero_lag_urls), len(slide_urls)) - len(slide_urls))
-		# match up each zero-lag url with corresponding slides url
-		url_pairs = zip(zero_lag_urls, slide_urls)
+		# find second thinca cache entries
+		pattern = re.compile("THINCA(_SLIDE)?_SECOND_[^_]+_(?P<tag>FULL_DATA|[^_]+)_CAT_(?P<cat>[\d]+)_VETO")
+		zero_lag_urls = {}
+		slide_urls = {}
+		for c in map(lal.CacheEntry, file(options.ihope_cache)):
+			category = pattern.match(c.description)
+			if category is None:
+				continue
+			category = category.groups()
+			if category[0] is None:
+				# zero-lag URL
+				try:
+					zero_lag_urls[category[1:]].append(c)
+				except KeyError:
+					zero_lag_urls[category[1:]] = [c]
+			else:
+				# slide URL
+				try:
+					slide_urls[category[1:]].append(c)
+				except KeyError:
+					slide_urls[category[1:]] = [c]
+		# extract URLs.  sorting cache entries puts them in time
+		# order
+		zero_lag_urls = dict((key, [c.url for c in sorted(cache)]) for key, cache in zero_lag_urls.items())
+		slide_urls = dict((key, [c.url for c in sorted(cache)]) for key, cache in slide_urls.items())
+		# pad lists with None's so zero-lag and slide lists exist
+		# for all the same categories and have the same number of
+		# entries
+		for key in set(zero_lag_urls.keys()) | set(slide_urls.keys()):
+			if key not in slide_urls:
+				# must be in zero-lag
+				slide_urls[key] = [None,] * len(zero_lag_urls[key])
+			elif key not in zero_lag_urls:
+				# must be in slides
+				zero_lag_urls[key] = [None,] * len(slide_urls[key])
+			# must be in both, make sure lengths are the same
+			elif len(zero_lag_urls[key]) > len(slide_urls[key]):
+				slide_urls[key] += [None,] * (len(zero_lag_urls[key]) - len(slide_urls[key]))
+			elif len(zero_lag_urls[key]) < len(slide_urls[key]):
+				zero_lag_urls[key] += [None,] * (len(slide_urls[key]) - len(zero_lag_urls[key]))
+		# match up each zero-lag url with corresponding slides urls
+		# in each category
+		categories = dict((key, zip(zero_lag_urls[key], slide_urls[key])) for key in zero_lag_urls.keys())
+	elif options.zero_lag_file or options.time_slide_file:
+		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
-		if not (options.zero_lag_file or options.time_slide_file):
-			raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
-		url_pairs = (options.zero_lag_file, options.time_slide_file)
+		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
 	if not options.output:
 		raise ValueError, "must specify --output"
 	if options.veto_segments and not options.veto_segments_name:
@@ -115,7 +146,7 @@ def parse_command_line():
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
 
-	return options, url_pairs
+	return options, categories
 
 
 #
@@ -917,38 +948,40 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 
 
-options, url_pairs = parse_command_line()
+options, url_categories = parse_command_line()
 
 if options.veto_segments:
 	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
 
 
-for n, url_pair in enumerate(url_pairs):
-	lsctables.SnglInspiralTable.next_id = None
-	xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
-	lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
+for (tag, veto_category), url_pairs in url_categories.items():
+	output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output, tag and ("_%s" % tag) or "", veto_category and ("_CAT%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
+	for n, url_pair in enumerate(url_pairs):
+		lsctables.SnglInspiralTable.next_id = None
+		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
+		lsctables.SnglInspiralTable.next_id = lsctables.SnglInspiralID(0)
 
-	process = initialize_process(xmldoc)
-	set_process_params(xmldoc, process, options)
+		process = initialize_process(xmldoc)
+		set_process_params(xmldoc, process, options)
 
-	add_missing_id_columns(xmldoc, verbose = options.verbose)
-	# FIXME:  uncomment this after Kipp talks people into it.
-	#fix_ifos_columns(xmldoc, verbose = options.verbose)
+		add_missing_id_columns(xmldoc, verbose = options.verbose)
+		# FIXME:  uncomment this after Kipp talks people into it.
+		#fix_ifos_columns(xmldoc, verbose = options.verbose)
 
-	populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
+		populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
 
-	populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
+		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
-	depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
+		depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
-	if options.veto_segments:
-		apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
-	elif options.verbose:
-		print >>sys.stderr, "no vetoes applied"
+		if options.veto_segments:
+			apply_vetoes(xmldoc, options.veto_segments, process, verbose = options.verbose)
+		elif options.verbose:
+			print >>sys.stderr, "no vetoes applied"
 
-	depopulate_time_slide_table(xmldoc, verbose = options.verbose)
+		depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
-	llwapp.set_process_end_time(process)
+		llwapp.set_process_end_time(process)
 
-	output = "%05d_%s" % (n, options.output)
-	utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
+		output = output_template % n
+		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
