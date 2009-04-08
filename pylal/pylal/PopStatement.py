@@ -102,6 +102,8 @@ class PopStatement:
 
     def calculate_ifar(self, value, sample, n_sample):
         count_louder = (sample >= value).sum(axis=0)
+
+        count_louder = max(count_louder, 1)
         return n_sample/count_louder
         #return count_louder/n_sample
 
@@ -176,19 +178,18 @@ class PopStatement:
                              linestyle = linestyle, label=grb_name)
         plot.finalize()
         plot.ax.set_yscale("log")
-        plot.savefig('pylal_expose-check_off_distribution-'+\
-                     sname+self.name_suffix+'.png')
+        return plot
         
    
 
     def check_off_distribution_lik(self):
-        self.check_off_distribution(self.off_lik_by_grb, far = False)
+        return self.check_off_distribution(self.off_lik_by_grb, far = False)
 
     def check_off_distribution_far(self):        
-        self.check_off_distribution(self.off_ifar_by_grb, far = True)
+        return self.check_off_distribution(self.off_ifar_by_grb, far = True)
 
 
-    def select_fake(self, type):
+    def select_onsource(self, type):
         """
         Selecting fake trials from the set of offsource
         trials for each GRB. 
@@ -200,6 +201,11 @@ class PopStatement:
         # delete the old items
         self.use_lik = []
         self.use_ifar = []
+
+        if type=='box':
+            self.use_lik  = self.on_lik_by_grb
+            self.use_ifar = self.on_ifar_by_grb
+            return
 
         
         for counter, (off_lik, off_ifar) in \
@@ -215,7 +221,7 @@ class PopStatement:
             elif type=='max' or (type=='single' and counter==0):
                 self.use_lik.append(max(off_lik))
                 self.use_ifar.append(max(off_ifar))
-
+    
     def mannwhitney_u(self, x, y):
         """
         Return the Mann-Whitney U statistic on the provided scores.  Copied from
