@@ -1792,10 +1792,6 @@ class Segment(object):
 		self.end_time, self.end_time_ns = segment[1].seconds, segment[1].nanoseconds
 
 
-
-		self.start_time, self.start_time_ns = segment[0].seconds
-		self.end_time, self_end_time.ns = segment[1].seconds
-
 SegmentTable.RowType = Segment
 
 
