@@ -135,7 +135,18 @@ def load_grb_table(filename_grb, files_onsource, files_offsource,\
                 
     return list_grbs, temp_trigs, new_files_onsource,  new_files_offsource
     
+def create_hist(data):
+    nbins = 30
+    val_min = min(data)-1.0
+    val_max = max(data)+1.0
+    bins = rate.LinearBins(val_min, val_max, nbins)
+    px = bins.lower()
 
+    # create the histogram and fill it
+    hist = numpy.zeros(nbins)
+    for value in data:
+        hist[bins[value]] += 1
+    return px, hist
     
 def parse_args():
     """
@@ -155,8 +166,6 @@ def parse_args():
 
     parser.add_option("--analyze", type="string",help="Specifies what to "\
                       "analyze. Possible values: {box,test}.")
-    parser.add_option("--number", type="int",help="The number of onsource trials "\
-                      "to be selected. Default = 22.",default=22)
     parser.add_option("--reject-redshift-grb", action="store_true",
                       help="Enables any GRB with a redshift value to be rejected. "\
                       "Not recommended.", default=False)
@@ -219,12 +228,7 @@ def parse_args():
 # initialization
 #
 opts, args = parse_args()
-InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
-html_footer = ""
-fnameList = []
-tagList = []
-print "The following output has been created with pylal_expose"\
-      " version ", git_version.verbose_msg
+page = InspiralUtils.InspiralPage(opts)
 
 
 #
@@ -245,7 +249,7 @@ list_grbs, ext_trigs, files_onsource,  files_offsource =\
            load_grb_table(opts.grb_xml, files_onsource, files_offsource,\
                           redshift_rejection = opts.reject_redshift_grb)
 number_grb = len(ext_trigs)
-print "Number of GRB's used: ", number_grb
+page.write("Number of GRB's used: %d" % number_grb)
 
 
 # create the PopStatement instances which are used to handle the
@@ -269,7 +273,6 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
     words = file_on.split('_')
     grb_name = words[3][3:]
 
-    
     # read the data from the files
     dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
            pickle.load(open(file_on))
@@ -278,18 +281,18 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
            pickle.load(open(file_off))
     n_trials = offsource_L_by_trial_m2.shape[0]
 
+    # add data to the m2-pop statement instances
     for index_m2, (m2_low, m2_high) in \
-        enumerate(zip(m2_edges[:-1], m2_edges[1:])):
-        
+        enumerate(zip(m2_edges[:-1], m2_edges[1:])):             
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-        pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[index_m2])
+        pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[:,index_m2])
         pop_m2[mass_bin].add_foreground(grb_name, onsource_L_by_m2[index_m2])
         
         
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials
-    print "GRB%s p(c|0)= %f " %(grb_name, stat)
+    page.write("GRB%s p(c|0)= %f " %(grb_name, stat))
         
 
     # populate the popStatement instance with real background/onsource
@@ -298,38 +301,24 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
 
 
 # finalize the sampling
-
 for pop_inst in pop_m2.values():
     pop_inst.finalize()
 pop_stat.finalize()
 
 # create overview plots (for the condense case)
 plot = pop_stat.check_off_distribution_lik()
-fname = InspiralUtils.set_figure_name(opts, "check_off_distribution-lik")
-fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-fnameList.append(fname)
-tagList.append(fname)
+page.add_plot(plot.fig, "check_off_distribution-lik")
 
 plot = pop_stat.check_off_distribution_far()
-fname = InspiralUtils.set_figure_name(opts, "check_off_distribution-far")
-fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-fnameList.append(fname)
-tagList.append(fname)
+page.add_plot(plot.fig, "check_off_distribution-far")
 
-
-
-# create the output and the html file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-                                                    fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-
+# decide what to do: a general test or choose an onsource
 if opts.analyze=='test':
     vec_lik = {}
     vec_ifar = {}
     
-    for type in ['random','single','max']:
+    #for type in ['random','single','max']:
+    for type in ['max']:    
         print "Samples drawn from ", type
         
         dummy_lik = []
@@ -340,6 +329,7 @@ if opts.analyze=='test':
             dummy_lik.append(z_lik)
             dummy_ifar.append(z_ifar)
 
+            print z_lik
         vec_lik[type]=dummy_lik
         vec_ifar[type]=dummy_ifar    
 
@@ -355,11 +345,8 @@ if opts.analyze=='test':
     plt.xlabel('sigma')
     plt.ylabel('number')
     plt.legend(('random','single','max'))
-    fname = InspiralUtils.set_figure_name(opts, "test-lik")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(fname)
-    
+    page.add_plot(plt.gcf(), "test-lik")
+        
     a1, a2 = create_hist(vec_ifar['random'])
     b1, b2 = create_hist(vec_ifar['single'])
     c1, c2 = create_hist(vec_ifar['max'])     
@@ -372,35 +359,65 @@ if opts.analyze=='test':
     plt.xlabel('sigma')
     plt.ylabel('number')
     plt.legend(('random','single','max'))
-    fname = InspiralUtils.set_figure_name(opts, "test-ifar")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(fname)
+    page.add_plot(plt.gcf(), "test-ifar")    
     
 else:
 
-    
-    pop_stat.select_onsource(opts.analyze)
-    z_lik, z_ifar = pop_stat.compute_wmu()
-    
-    z_lik_by_m2 = numpy.zeros(len(m2_edges), float)
-    z_ifar_by_m2 = numpy.zeros(len(m2_edges), float)    
+
+    # prepare arrays to hold the data
+    z_lik_by_m2 = numpy.zeros(len(m2_edges)-1, float)
+    z_ifar_by_m2 = numpy.zeros(len(m2_edges)-1, float)
+    p_by_m2 = numpy.zeros(len(m2_edges)-1, float)
+
+    # analyse each of the m2 pop instances
     for index_m2, (m2_low, m2_high) in \
             enumerate(zip(m2_edges[:-1], m2_edges[1:])):
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
         pop_m2[mass_bin].select_onsource(opts.analyze)
         z_lik_by_m2[index_m2], z_ifar_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
+        p_by_m2[index_m2] = pop_m2[mass_bin].p_one_sided
 
-    print "The result of the analysis for the condense statement is: %.2f (LIK)  %.2f (IFAR)" %\
-          (z_lik, z_ifar)
-    print "Here are the m2-binned results: "
-    print z_lik_by_m2
-    print z_ifar_by_m2
+        # create the plots
+        plot = pop_m2[mass_bin].create_plot_hist()
+        page.add_plot(plot.fig, "hist-"+mass_bin)
+        plot = pop_m2[mass_bin].create_plot_qq()
+        page.add_plot(plot.fig, "qq-"+mass_bin)
 
-        
-# create the output and the html file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-          fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+    # select either a fake trial or the box
+    pop_stat.select_onsource(opts.analyze)
+    z_lik, z_ifar = pop_stat.compute_wmu()
+
+    plot = pop_stat.create_plot_hist()
+    page.add_plot(plot.fig, "histCondense")
+    plot = pop_stat.create_plot_qq()
+    page.add_plot(plot.fig, "qqCondense")
+
+    # write toe basic result to the output and to the web page
+    text = "The result of the analysis for the condense statement is: "+\
+               "%.2f (LIK)  %.2f (IFAR) sigma (i.e. %.3e Perc. )" %\
+               (z_lik, z_ifar, 100.0*pop_stat.p_one_sided)
+    page.write(text)
+
+    
+    # create the final plot
+    plt.clf()
+    plt.plot(m2_edges[:-1], z_lik_by_m2, 'r-', linewidth = 3)
+    plt.plot(m2_edges[:-1], z_ifar_by_m2, 'b-', linewidth = 3)    
+    plt.grid(True)
+    plt.xlabel('m2')
+    plt.ylabel('sigma')
+    plt.legend(('likelihood','IFAR'))
+    page.add_plot(plt.gcf(), "condense_sigma-"+opts.analyze)
+
+    plt.clf()
+    plt.plot(m2_edges[:-1], p_by_m2, 'r-', linewidth = 3)
+    plt.grid(True)
+    plt.xlabel('m2')
+    plt.ylabel('p (one sided)')
+    page.add_plot(plt.gcf(), "condense_prob-"+opts.analyze)
+
+    
+
+# create the html page    
+page.write_page()
