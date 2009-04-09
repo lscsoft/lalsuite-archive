@@ -269,9 +269,9 @@ def writeProcessParams(name, version, command):
   @param command: command line arguments from a pylal script
   @return text
   """
-  text = "Figure(s) produced with " + name + ", " \
-      + version + ", invoked with the following command line arguments:" \
-      + '</br>\n<p style="width:80%; color:blue">'+ name
+  text = "Figure(s) produced with '" + name + "' with version: <br>" \
+      + version  \
+      + '<br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
     text += " " +  arg
   text+='</p>'
@@ -322,9 +322,10 @@ def ContentHandler(PartialLIGOLWContentHandler):
 
 
 
-def initialise(opts, name, version):
+def initialise(opts, name, version = None):
   """
   Create suffix and prefix that will be used to name the output files.
+  'version' is outdated and not used anymore.
 
   @param opts : the user arguments (user_tag, gps_end_time and 
   gps_start_time are used).
@@ -332,6 +333,7 @@ def initialise(opts, name, version):
   @return prefix 
   @return suffix
   """
+
 
   # compose prefix
   prefix = name
@@ -371,7 +373,7 @@ def initialise(opts, name, version):
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
-  opts.version = version
+  opts.version = git_version.verbose_msg.replace('\n','<br>')
 
   # make sure output_path is set correctly
   if opts.output_path is not None:
