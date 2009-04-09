@@ -239,7 +239,7 @@ class ProcessTable(table.Table):
 		Return a set containing the process IDs from rows whose
 		program string equals the given program.
 		"""
-		return set([row.process_id for row in self if row.program == program])
+		return set(row.process_id for row in self if row.program == program)
 
 
 class Process(object):
@@ -373,7 +373,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist([row.get_in() for row in self])
+		return segments.segmentlist(row.get_in() for row in self)
 
 	def get_outlist(self):
 		"""
@@ -383,7 +383,7 @@ class SearchSummaryTable(table.Table):
 		Note:  the result is not coalesced, the segmentlist
 		contains the segments as they appear in the table.
 		"""
-		return segments.segmentlist([row.get_out() for row in self])
+		return segments.segmentlist(row.get_out() for row in self)
 
 	def get_in_segmentlistdict(self, process_ids = None):
 		"""
@@ -930,7 +930,7 @@ class SnglInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
+		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
 
@@ -1216,7 +1216,7 @@ class MultiInspiralTable(table.Table):
 		@param slide_num: the slide number to recover (contained in the event_id)
 		"""
 		slideTrigs = table.new_from_template(self)
-		slideTrigs.extend([row for row in self if row.get_slide_number() == slide_num])
+		slideTrigs.extend(row for row in self if row.get_slide_number() == slide_num)
 		return slideTrigs
 
 class MultiInspiral(object):
