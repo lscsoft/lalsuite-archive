@@ -2,11 +2,6 @@
 """
 Utilities for the inspiral plotting functions
 """
-__version__ = "$Revision: 1.41 $"
-__date__ = "$Date: 2009/02/27 20:21:07 $"
-__Id__ = "$Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $"
-
-# $Source: /usr/local/cvs/lscsoft/pylal/pylal/InspiralUtils.py,v $
 
 from glue import lal
 from glue import segments
@@ -27,7 +22,7 @@ colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
 
 
-class InspiralPage:
+class InspiralPage(object):
   """
   This is a class to contain all the bits of a inspiral page
   showing the results of a piece of code.
@@ -35,18 +30,17 @@ class InspiralPage:
 
   def __init__(self, options):
     """
-    Initializes this class by parsing the code name
-    and the options parsed to the code.
-    The version of the codes is used from git_version.
+    Initializes this class with the options.
     """
-
-    self.prog = sys.argv[0]
-    self.version = git_version.verbose_msg
     self.opts = options
-
+    
     self.fname_list = []
     self.tag_list = []
     self.html_footer = ""
+
+    # just adding some stuff to the opts structure
+    # (should be fixed later)
+    initialise(self.opts, sys.argv[0])
 
   def add_plot(self, plot_fig, text):
     """
