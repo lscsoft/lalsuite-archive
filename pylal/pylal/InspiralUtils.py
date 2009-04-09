@@ -33,14 +33,14 @@ class InspiralPage:
   showing the results of a piece of code.
   """
 
-  def __init__(self, options, prog_name):
+  def __init__(self, options):
     """
     Initializes this class by parsing the code name
     and the options parsed to the code.
     The version of the codes is used from git_version.
     """
 
-    self.prog = prog_name
+    self.prog = sys.argv[0]
     self.version = git_version.verbose_msg
     self.opts = options
 
@@ -49,6 +49,9 @@ class InspiralPage:
     self.html_footer = ""
 
   def add_plot(self, plot_fig, text):
+    """
+    Add a plot to the page
+    """
     
     fname = set_figure_name(self.opts, text)
     fname_thumb = savefig_pylal(fname, fig=plot_fig)
@@ -57,11 +60,22 @@ class InspiralPage:
     self.tag_list.append(fname)
 
   def write_page(self):
+    """
+    create the page
+    """
     if self.opts.enable_output:
       html_filename = write_html_output(self.opts, sys.argv[1:],\
                                         self.fname_list, self.tag_list,\
                                         comment=self.html_footer)
       write_cache_output(self.opts, html_filename, self.fname_list)
+
+  def write(self, text):
+    """
+    Write some text to the standard output AND
+    to the page.
+    """
+    print text
+    self.html_footer+=text+'<br>'
       
   
 
@@ -324,8 +338,8 @@ def writeProcessParams(name, version, command):
   @param command: command line arguments from a pylal script
   @return text
   """
-  text = "Figure(s) produced with " + name + ", " \
-      + version + ", invoked with the following command line arguments:" \
+  text = "Figure(s) produced with '" + name + "' with version: <br>" \
+      + version  \
       + '<br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
     text += " " +  arg
@@ -377,9 +391,10 @@ def ContentHandler(PartialLIGOLWContentHandler):
 
 
 
-def initialise(opts, name, version):
+def initialise(opts, name, version = None):
   """
   Create suffix and prefix that will be used to name the output files.
+  'version' is outdated and not used anymore.
 
   @param opts : the user arguments (user_tag, gps_end_time and 
   gps_start_time are used).
@@ -387,6 +402,7 @@ def initialise(opts, name, version):
   @return prefix 
   @return suffix
   """
+
 
   # compose prefix
   prefix = name
@@ -426,7 +442,7 @@ def initialise(opts, name, version):
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
-  opts.version = version
+  opts.version = git_version.verbose_msg.replace('\n','<br>')
 
   # make sure output_path is set correctly
   if opts.output_path is not None:
