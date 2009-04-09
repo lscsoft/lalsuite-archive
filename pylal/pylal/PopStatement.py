@@ -32,6 +32,12 @@ class PopStatement:
         self.list_grbs = []
         self.grb_data = grb_data
         self.name_suffix = name_suffix
+
+        
+        self.p_one_sided = None
+        self.p_two_sided = None
+        self.u = None
+        self.z = None
         
         # some combinations of colors/styles
         linestyles = []
@@ -221,6 +227,7 @@ class PopStatement:
             elif type=='max' or (type=='single' and counter==0):
                 self.use_lik.append(max(off_lik))
                 self.use_ifar.append(max(off_ifar))
+                
     
     def mannwhitney_u(self, x, y):
         """
@@ -240,8 +247,8 @@ class PopStatement:
         ranked = stats.rankdata(np.concatenate((x,y)))
         rankx = ranked[0:n1]  # get the x-ranks
         u1 = n1 * n2 + (n1 * (n1 + 1)) / 2.0 - rankx.sum()  # calc U for x
-        return n1 * n2 - u1  # return U for y
-
+        self.u =  n1 * n2 - u1  # return U for y
+        return self.u
 
     def mannwhitney_u_zscore(self, pop_test, pop_ref):
         """
@@ -254,20 +261,69 @@ class PopStatement:
         u_value = self.mannwhitney_u(pop_test, pop_ref)
         mean_U = n1 * n2 / 2
         stdev_U = np.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
-        z_val = (u_value - mean_U) / stdev_U
+        self.z = (u_value - mean_U) / stdev_U
         
-        return z_val
+        return self.z
 
     def compute_wmu(self):
         """
         Computes the WMU z-score for the both cases
         using likelihood and the IFAR
         """
-        
-        z_lik = self.mannwhitney_u_zscore(self.use_lik, self.off_lik)
-        z_ifar = self.mannwhitney_u_zscore(self.use_ifar, self.off_ifar)
 
+        z_ifar = self.mannwhitney_u_zscore(self.use_ifar, self.off_ifar)        
+        z_lik = self.mannwhitney_u_zscore(self.use_lik, self.off_lik)
+
+        # sf = 1 - cdf
+        self.p_one_sided = stats.distributions.norm.sf(z_lik)
+         
+        # erfc = 1 - erf
+        self.p_two_sided = stats.erfc(abs(z_lik) / np.sqrt(2.))  
+         
         return z_lik, z_ifar
 
+    def float_to_latex(self, x, format="%g"):
+        """
+        Convert a floating point number to a latex representation.  In particular,
+        scientific notation is handled gracefully: e -> 10^
+        """
+        base_str = format % x
+        if "e" not in base_str:
+            return base_str
+        mantissa, exponent = base_str.split("e")
+        exponent = str(int(exponent))  # remove leading 0 or +
+    
+    def create_plot_hist(self):
+                
+        #
+        # Create the histogram comparison
+        #
+        plot_title = r"$m_2 \in [%s), U=%d, z_U=%s, p_1=%s, p_2=%s$" \
+            % (self.name_suffix , int(self.u), self.float_to_latex(self.z, "%5.2g"),
+               self.float_to_latex(self.p_one_sided, "%5.2g"),
+               self.float_to_latex(self.p_two_sided, "%5.2g"))    
+        plot = plotutils.VerticalBarHistogram(r"$IFAR(m_2 \in [%s))$" %\
+                                              self.name_suffix, "PDF", plot_title)
+        plot.add_content(self.use_lik, color='r', label = r'On source', bottom = 1.0e-4)
+        plot.add_content(self.off_lik, color='b', label = r'Off source', bottom = 1.0e-4)
+        plot.finalize(normed=True)
+        plot.ax.set_yscale('log')
+        return plot
+
+
+    def create_plot_qq(self):
         
+        #
+        # Create the QQ plot
+        #
+        plot_title = r"$m_2 \in [%s), U=%d, z_U=%s, p_1=%s, p_2=%s$" \
+                     % (self.name_suffix , int(self.u), self.float_to_latex(self.z, "%5.2g"),
+                        self.float_to_latex(self.p_one_sided, "%5.2g"),
+                        self.float_to_latex(self.p_two_sided, "%5.2g")) 
+        plot = plotutils.QQPlot(r"self quantile", "combined quantile", plot_title)
+        plot.add_bg(self.off_lik, linewidth = 3, label="\"Off source\"")
+        plot.add_fg(self.use_lik, color='r', marker = 'o',label = r'On source',\
+                         linestyle='None',markersize=10)    
+        plot.finalize()
+        return plot
 
