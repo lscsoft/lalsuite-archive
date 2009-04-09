@@ -52,6 +52,12 @@ from pylal.date import LIGOTimeGPS
 from pylal.xlal import tools
 
 
+#
+# Use a memory-efficient row class written in C for the coinc_event_map
+# table
+#
+
+
 lsctables.CoincMapTable.RowType = lsctables.CoincMap = tools.CoincMap
 
 
@@ -183,23 +189,19 @@ class DocContents(object):
 		#
 
 		# index sngl_burst table
-		index = {}
-		for row in self.snglbursttable:
-			index[row.event_id] = row
+		index = dict((row.event_id, row) for row in self.snglbursttable)
 		# find IDs of burst<-->burst coincs
-		self.coincs = {}
-		for coinc in self.coinctable:
-			if coinc.coinc_def_id == bb_coinc_def_id:
-				self.coincs[coinc.coinc_event_id] = []
+		self.coincs = dict((row.coinc_event_id, []) for row in self.coinctable if row.coinc_def_id == bb_coinc_def_id)
 		# construct event list for each burst<-->burst coinc
 		for row in self.coincmaptable:
-			if row.coinc_event_id in self.coincs:
+			try:
 				self.coincs[row.coinc_event_id].append(index[row.event_id])
+			except KeyError:
+				continue
 		del index
 		# sort each event list by peak time and convert to tuples
 		# for speed
-		for coinc_event_id in self.coincs.keys():
-			events = self.coincs[coinc_event_id]
+		for coinc_event_id, events in self.coincs.items():
 			events.sort(lambda a, b: cmp(a.peak_time, b.peak_time) or cmp(a.peak_time_ns, b.peak_time_ns))
 			self.coincs[coinc_event_id] = tuple(events)
 		# convert dictionary to a list
@@ -260,7 +262,7 @@ class DocContents(object):
 		# offsets that should be applied to the coinc, but for now
 		# injections are done at zero lag so this isn't a problem
 		# yet
-		return [(coinc_event_id, bursts) for coinc_event_id, bursts in self.coincs if (t - self.coinc_peak_time_window <= bursts[-1].get_peak()) and (bursts[0].get_peak() <= t + self.coinc_peak_time_window)]
+		return [(coinc_event_id, events) for coinc_event_id, events in self.coincs if (t - self.coinc_peak_time_window <= events[-1].get_peak()) and (events[0].get_peak() <= t + self.coinc_peak_time_window)]
 
 	def sort_triggers_by_id(self):
 		"""
@@ -275,7 +277,7 @@ class DocContents(object):
 		process, and belonging to the set of coincidences defined
 		by the given coinc_def_id.
 		"""
-		coinc = lsctables.Coinc()
+		coinc = self.coinctable.RowType()
 		coinc.process_id = self.process.process_id
 		coinc.coinc_def_id = coinc_def_id
 		coinc.coinc_event_id = self.coinctable.get_next_id()
@@ -359,24 +361,24 @@ def find_sngl_burst_matches(contents, sim, comparefunc):
 	return [burst for burst in contents.bursts_near_peaktime(sim.get_time_geocent()) if not comparefunc(sim, burst)]
 
 
-def add_sim_burst_coinc(contents, sim, bursts):
+def add_sim_burst_coinc(contents, sim, events):
 	"""
 	Create a coinc_event in the coinc table, and add arcs in the
 	coinc_event_map table linking the sim_burst row and the list of
 	sngl_burst rows to the new coinc_event row.
 	"""
 	coinc = contents.new_coinc(contents.sb_coinc_def_id)
-	coinc.set_instruments(event.ifo for event in bursts)
-	coinc.nevents = len(bursts)
+	coinc.set_instruments(event.ifo for event in events)
+	coinc.nevents = len(events)
 
-	coincmap = lsctables.CoincMap()
+	coincmap = contents.coincmaptable.RowType()
 	coincmap.coinc_event_id = coinc.coinc_event_id
 	coincmap.table_name = sim.simulation_id.table_name
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
-	for event in bursts:
-		coincmap = lsctables.CoincMap()
+	for event in events:
+		coincmap = contents.coincmaptable.RowType()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.table_name = event.event_id.table_name
 		coincmap.event_id = event.event_id
@@ -392,7 +394,7 @@ def add_sim_burst_coinc(contents, sim, bursts):
 #
 
 
-def find_coinc_matches(coincs, sim, comparefunc):
+def find_exact_coinc_matches(coincs, sim, comparefunc):
 	"""
 	Return a list of the coinc_event_ids of the burst<-->burst coincs
 	in which all burst events match sim.
@@ -400,7 +402,7 @@ def find_coinc_matches(coincs, sim, comparefunc):
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, bursts in coincs if True not in [bool(comparefunc(sim, burst)) for burst in bursts]]
+	return [coinc_event_id for coinc_event_id, events in coincs if True not in (bool(comparefunc(sim, event)) for event in events)]
 
 
 def find_near_coinc_matches(coincs, sim, comparefunc):
@@ -411,7 +413,7 @@ def find_near_coinc_matches(coincs, sim, comparefunc):
 	# FIXME:  this test does not consider the time slide offsets that
 	# should be applied to the coinc, but for now injections are done
 	# at zero lag so this isn't a problem yet
-	return [coinc_event_id for coinc_event_id, bursts in coincs if False in [bool(comparefunc(sim, burst)) for burst in bursts]]
+	return [coinc_event_id for coinc_event_id, events in coincs if False in (bool(comparefunc(sim, event)) for event in events)]
 
 
 def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
@@ -423,14 +425,14 @@ def add_sim_coinc_coinc(contents, sim, coinc_event_ids, coinc_def_id):
 	coinc = contents.new_coinc(coinc_def_id)
 	coinc.nevents = len(coinc_event_ids)
 
-	coincmap = lsctables.CoincMap()
+	coincmap = contents.coincmaptable.RowType()
 	coincmap.coinc_event_id = coinc.coinc_event_id
 	coincmap.table_name = sim.simulation_id.table_name
 	coincmap.event_id = sim.simulation_id
 	contents.coincmaptable.append(coincmap)
 
 	for coinc_event_id in coinc_event_ids:
-		coincmap = lsctables.CoincMap()
+		coincmap = contents.coincmaptable.RowType()
 		coincmap.coinc_event_id = coinc.coinc_event_id
 		coincmap.table_name = coinc_event_id.table_name
 		coincmap.event_id = coinc_event_id
@@ -483,9 +485,9 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 	for n, sim in enumerate(contents.simbursttable):
 		if verbose:
 			print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
-		bursts = find_sngl_burst_matches(contents, sim, snglcomparefunc)
-		if bursts:
-			add_sim_burst_coinc(contents, sim, bursts)
+		events = find_sngl_burst_matches(contents, sim, snglcomparefunc)
+		if events:
+			add_sim_burst_coinc(contents, sim, events)
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
 
@@ -500,7 +502,7 @@ def ligolw_binjfind(xmldoc, process, search, snglcomparefunc, nearcoinccomparefu
 			if verbose:
 				print >>sys.stderr, "\t%.1f%%\r" % (100.0 * n / N),
 			coincs = contents.coincs_near_peaktime(sim.get_time_geocent())
-			coinc_event_ids = find_coinc_matches(coincs, sim, snglcomparefunc)
+			coinc_event_ids = find_exact_coinc_matches(coincs, sim, snglcomparefunc)
 			if coinc_event_ids:
 				add_sim_coinc_coinc(contents, sim, coinc_event_ids, contents.sce_coinc_def_id)
 			coinc_event_ids = find_near_coinc_matches(coincs, sim, nearcoinccomparefunc)

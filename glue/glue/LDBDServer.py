@@ -4,7 +4,7 @@ LDBDClient by connecting to the DB2 database.
 
 This module requires U{pyGlobus<http://www-itg.lbl.gov/gtg/projects/pyGlobus/>}.
 
-$Id$
+$Id: LDBDServer.py,v 1.54 2009/02/10 16:34:05 duncan Exp $
 
 This file is part of the Grid LSC User Environment (GLUE)
 
@@ -22,7 +22,7 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__version__ = '$Revision$'[11:-2]
+__version__ = '$Revision: 1.54 $'[11:-2]
 
 import os
 import sys
@@ -54,7 +54,8 @@ def initialize(configuration,log):
   # define the global variables used by the server
   global logger, max_bytes, xmlparser, dbobj, rls
   global dmt_proc_dict, dmt_seg_def_dict, creator_db
-  
+  global ldbd_com, db2_com, port
+
   # initialize the logger
   logger = log
   logger.info("Initializing server module %s" % __name__ )
@@ -62,6 +63,11 @@ def initialize(configuration,log):
   # initialize the database hash table
   dbobj = ldbd.LIGOMetadataDatabase(configuration['dbname'])
   max_bytes = configuration['max_client_byte_string']
+
+  # initialize the ldbd commands and db2 command restrictions
+  port = configuration['port']
+  ldbd_com = configuration['ldbd_com'].split(',')
+  db2_com = configuration['db2_com'].split(',')
 
   # create the xml parser
   xmlparser = pyRXP.Parser()
@@ -146,7 +152,7 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       'INSERTDMT' : self.insertdmt
     }
 
-    try:
+    if True:
       # from the socket object create a file object
       self.sfile = self.request.makefile("rw")
       f = self.sfile
@@ -166,9 +172,9 @@ class ServerHandler(SocketServer.BaseRequestHandler):
       if input[-1] != '\0':
         logger.error("Bad input on socket: %s" % input)
         raise ServerHandlerException, "Last byte of input is not null byte"
-    except Exception, e:
-      logger.error("Error reading input on socket: %s" %  e)
-      return
+    #except Exception, e:
+    #  logger.error("Error reading input on socket: %s" %  e)
+    #  return
 
     try:
       # parse out the method and arguments 
@@ -183,6 +189,36 @@ class ServerHandler(SocketServer.BaseRequestHandler):
         "Error parsing method and argument string: %s" % e
       self.__reply__(1, msg)
       return
+
+    # Set read and read/write access to different ports according to their configuration file
+    try:
+      # ldbd_com lists the allowed methodString for ldbd server based on the port number it is running on
+      if methodString in ldbd_com:
+        pass
+      else:
+        msg = "\nOnly authorized users can %s\n" % methodString
+        msg += "To %s, authorized users please explicitly append port number 30020 to " % methodString
+        msg += "your --server agument at command line" 
+        logmsg = "ldbd server on port %d DO NOT support %s" % (port, methodString)
+        logger.error(logmsg) 
+        self.__reply__(1,msg)
+        raise ServerHandlerException, msg 
+      # list allowed sql commands when methodString is QUERY
+      if methodString=='QUERY':
+        # get the sql command, for example "SELECT, UPDATE, INSERT"
+        # see if the command is in the .ini file "db2_com" variable 
+        dbcommand =  argStringList[0].split(' ')[0].upper()
+        if dbcommand in db2_com:
+          pass
+        else:
+           msg = 'ldbd server on port %d DO NOT support "%s"' % (port, dbcommand)
+           logger.error(msg) 
+           self.__reply__(1,msg)
+           raise ServerHandlerException, msg
+    except Exception, e:
+      logger.error("Error filtering allowed commands: %s" % e) 
+      return
+
                 
     try:
       # look up method in dictionary

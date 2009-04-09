@@ -79,7 +79,9 @@ def append_process(xmldoc, program = None, version = None, cvs_repository = None
 	process.program = program
 	process.version = version
 	process.cvs_repository = cvs_repository
-	if cvs_entry_time is not None:
+	# FIXME:  remove the "" case when the git versioning business is
+	# sorted out
+	if cvs_entry_time is not None and cvs_entry_time != "":
 		process.cvs_entry_time = gpstime.GpsSecondsFromPyUTC(time.mktime(time.strptime(cvs_entry_time, "%Y/%m/%d %H:%M:%S")))
 	else:
 		process.cvs_entry_time = None
