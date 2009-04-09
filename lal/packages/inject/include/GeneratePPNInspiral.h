@@ -307,6 +307,8 @@ typedef struct tagPPNParamStruc {
   LIGOTimeGPS epoch;    /* start time of output time series */
 
   /* Input parameters. */
+  REAL8 mTot_real8; /* total system mass (Msun) */
+  REAL8 eta_real8;  /* mass ratio */
   REAL4 mTot;       /* total system mass (Msun) */
   REAL4 eta;        /* mass ratio */
   REAL4 d;          /* distance (metres) */

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-# $Id$
+# $Id: Makefile.am,v 1.58 2009/02/05 14:09:19 ram Exp $
 if LALMETAIO
 LALMETAIOPROGRAMS = lalapps_exc_resp lalapps_ivana lalapps_chirplen
 # lalapps_inspmultiawg
@@ -8,8 +8,8 @@ LALMETAIOPROGRAMS =
 endif
 bin_PROGRAMS = lalapps_inspawgfile $(LALMETAIOPROGRAMS) \
                lalapps_random_bank  lalapps_effdist\
-               lalapps_InspiralOverlap lalapps_inspiralDistance lalapps_DistanceVsMass
-
+               lalapps_InspiralOverlap lalapps_inspiralDistance lalapps_DistanceVsMass \
+               lalapps_BankEfficiency
 
 lalapps_DistanceVsMass_SOURCES 		= DistanceVsMass.c
 lalapps_inspiralDistance_SOURCES 	= inspiralDistance.c
@@ -17,6 +17,7 @@ lalapps_inspawgfile_SOURCES 		= inspawgfile.c
 lalapps_random_bank_SOURCES 		= random_bank.c
 lalapps_effdist_SOURCES 		= effdist.c
 lalapps_InspiralOverlap_SOURCES 	= InspiralOverlap.c 
+lalapps_BankEfficiency_SOURCES         = BankEfficiency.c BankEfficiency.h
 
 if LALMETAIO
 lalapps_exc_resp_SOURCES 		= exc_resp.c

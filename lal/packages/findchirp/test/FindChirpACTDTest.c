@@ -99,8 +99,8 @@ int main( int argc, char **argv )
   REAL4 mass1 = M1;
   REAL4 mass2 = M2;
 
-  REAL4 sigMass1 = M1;
-  REAL4 sigMass2 = M2;
+  REAL8 sigMass1 = M1;
+  REAL8 sigMass2 = M2;
   
   UINT4 injSignal = 0;
   
@@ -444,15 +444,16 @@ int main( int argc, char **argv )
 
     /* Variable parameters. */
     params.deltaT = dt;
-    params.mTot = sigMass1 + sigMass2;
-    params.eta = sigMass1*sigMass2/( params.mTot*params.mTot );
+    params.mTot_real8 = sigMass1 + sigMass2;
+    params.eta_real8 = sigMass1*sigMass2/( params.mTot_real8*params.mTot_real8);
     params.inc = inc;
     params.phi = phi;
     params.psi = psi;
     params.d = 1.0;
     params.fStartIn = fmin;
     params.fStopIn = - 1.0 / 
-                     ( 6.0 * sqrt(6.0) * LAL_PI * params.mTot * LAL_MTSUN_SI );
+                     ( 6.0 * sqrt(6.0) * LAL_PI * 
+                       params.mTot_real8 * LAL_MTSUN_SI );
 
     /* Amplitude switches */
     params.ampOrder = amp;

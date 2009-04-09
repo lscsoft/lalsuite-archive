@@ -46,6 +46,10 @@
 #include <lal/Date.h>
 #include <lal/Units.h>
 
+#include <lal/FindChirp.h>
+#include <lal/FindChirpSP.h>
+#include <lal/FindChirpTD.h>
+#include <lal/FindChirpACTD.h>
 
 
 /* Here, I defined my own xml table outside the lal strcuture although
@@ -101,11 +105,11 @@ fputs( "      <Stream Name=\"bankefficiencygroup:bankefficiency:table\"         
 
 
 /* --- some CVS macros --- */
-#define CVS_ID_STRING      "$Id$"
-#define CVS_NAME_STRING    "$Name$"
-#define CVS_REVISION       "$Revision$"
-#define CVS_SOURCE         "$Source$"
-#define CVS_DATE           "$Date$"
+#define CVS_ID_STRING      "$Id: BankEfficiency.h,v 1.52 2008/07/07 17:36:46 devanka Exp $"
+#define CVS_NAME_STRING    "$Name:  $"
+#define CVS_REVISION       "$Revision: 1.52 $"
+#define CVS_SOURCE         "$Source: /usr/local/cvs/lscsoft/lalapps/src/findchirp/BankEfficiency.h,v $"
+#define CVS_DATE           "$Date: 2008/07/07 17:36:46 $"
 #define PROGRAM_NAME       "BankEfficiency"
 
 /* --- Some Error messages --- */

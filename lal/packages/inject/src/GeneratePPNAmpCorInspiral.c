@@ -235,7 +235,7 @@ LALGeneratePPNAmpCorInspiral(
   UINT4 ampOrder;                  /* Amplitude Order */
   INT4 harmonics;                  /* Number of harmonics */
   REAL4 mTot, mu;                  /* total mass and reduced mass */
-  REAL4 eta, etaInv;               /* mass ratio and its inverse */
+  REAL8 eta, etaInv;               /* mass ratio and its inverse */
   REAL4 phiC;                      /* phase at coalescence */
   REAL4 cosI, cos2I, cos4I, cos6I; /* cosine of system inclination */
   REAL4 sinI, sin2I, sin4I, sin5I; /* sine of system inclination */
@@ -245,7 +245,7 @@ LALGeneratePPNAmpCorInspiral(
   REAL4 fthree, ffour, ffive, fsix, fseven; /* powers in f2a to speed up 
                                                waveform construction */
   REAL4 preFac;        /* Overall prefactor in waveforms */
-  REAL4 delta;         /* relative mass difference */
+  REAL8 delta;         /* relative mass difference */
   REAL4 sd, scd;       /* sinI*delta, sd*cosI*/
 
   /* Integration parameters. */
@@ -367,10 +367,10 @@ LALGeneratePPNAmpCorInspiral(
    *******************************************************************/
 
   /* Compute parameters of the system. */
-  mTot = params->mTot;
+  mTot = params->mTot_real8;
   ASSERT( mTot != 0.0, stat, GENERATEPPNINSPIRALH_EMBAD,
     GENERATEPPNINSPIRALH_MSGEMBAD );
-  eta = params->eta;
+  eta = params->eta_real8;
   ASSERT( eta != 0.0, stat, GENERATEPPNINSPIRALH_EMBAD,
     GENERATEPPNINSPIRALH_MSGEMBAD );
   etaInv = 2.0 / eta;
@@ -389,10 +389,10 @@ LALGeneratePPNAmpCorInspiral(
   phiC = params->phi;
 
   preFac = -2.0*mu*LAL_MRSUN_SI/params->d; 
-  delta = pow((1-4*eta), 0.5); 
+  delta = sqrt(1.0-4.0*eta); 
   sd = sinI*delta;
   scd = sd*cosI;
-
+  fprintf( stderr, "\n eta = %.16f delta = %e, sd = %e\n", eta, delta, sd);
 
 
   /* *************************************************************
