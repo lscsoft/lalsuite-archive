@@ -92,7 +92,7 @@ def parse_command_line():
 		if options.verbose:
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
 		# find second thinca cache entries
-		pattern = re.compile("THINCA(_SLIDE)?_SECOND_[^_]+_(?P<tag>FULL_DATA|[^_]+)_CAT_(?P<cat>[\d]+)_VETO")
+		pattern = re.compile("THINCA(_SLIDE)?_SECOND_[^_]+_(?P<tag>.+)_CAT_(?P<cat>[\d]+)_VETO")
 		zero_lag_urls = {}
 		slide_urls = {}
 		for c in map(lal.CacheEntry, file(options.ihope_cache)):
