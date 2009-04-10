@@ -613,7 +613,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		# build a coinc_event
 		#
 
-		coinc = lsctables.Coinc()
+		coinc = coinc_event_table.RowType()
 		coinc.process_id = process.process_id
 		coinc.coinc_event_id = coinc_event_table.get_next_id()
 		coinc.coinc_def_id = coinc_def_id
@@ -642,7 +642,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#
 
 		for event in events:
-			coincmap = lsctables.CoincMap()
+			coincmap = coinc_event_map_table.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.event_id = event.event_id = sngl_inspiral_table.get_next_id()
 			coincmap.table_name = coincmap.event_id.table_name
@@ -917,23 +917,17 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 
 		#
 		# set the coinc's instruments to just those that were on at
-		# the time of the coinc
+		# the time of the coinc.  note that because the assignment
+		# of a single time to a coinc is a poorly-defined
+		# procedure, it can come to pass that a coinc is said to
+		# have occured at a time when the instruments that
+		# participate in it are vetoed.  we sweep this under the
+		# rug by adding to the list of instruments that are on at
+		# least those that participated in the coinc.
 		#
 
 		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
-		if not found_instruments.issubset(on_instruments):
-			# FIXME:  thinca finds, for example, triples in
-			# double time.  this is mostly a bug in the
-			# definition of what it is that thinca does, but
-			# thinca_to_coinc must know what thinca does in
-			# order to reconstruct the metadata.  We can't do
-			# that correctly right now, but to make progress
-			# this is just a warning instead of an error.
-			if verbose:
-				print >>sys.stderr, "warning: coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
-			#raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
-
-		coinc_event.set_instruments(on_instruments)
+		coinc_event.set_instruments(on_instruments | found_instruments)
 
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
