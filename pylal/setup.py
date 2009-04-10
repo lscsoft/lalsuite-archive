@@ -231,6 +231,7 @@ setup(
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
+		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotgrbl"),
