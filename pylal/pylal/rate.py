@@ -319,9 +319,10 @@ class IrregularBins(Bins):
 	"""
 	def __init__(self, boundaries):
 		"""
-		Initialize a set of custom bins with the bin boundaries.  This includes
-		all left edges plus the right edge.  The boundaries must be monotonic
-		and there must be at least two elements.
+		Initialize a set of custom bins with the bin boundaries.
+		This includes all left edges plus the right edge.  The
+		boundaries must be monotonic and there must be at least two
+		elements.
 		"""
 		# check pre-conditions
 		if len(boundaries) < 2:
@@ -357,13 +358,12 @@ class IrregularBins(Bins):
 			else:
 				stop = self[x.stop]
 			return slice(start, stop)
-		ind = bisect.bisect_left(self.boundaries, x)
-		# raise exception if x is outside of all bins
-		if (ind == 0 and x != self.min) or ind == len(self.boundaries):
+		if x < self.min or x > self.max:
 			raise IndexError, x
-		if x in self.boundaries[:-1]:  # floats will always be hard
-			return ind
-		return ind - 1
+		# special measure-zero edge case
+		if x == self.max:
+			return len(self.boundaries) - 2
+		return bisect.bisect_right(self.boundaries, x) - 1
 
 	def lower(self):
 		return self.boundaries[:-1]
