@@ -110,7 +110,7 @@ class LigolwSegments(object):
 		try:
 			self.segment_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
 		except ValueError:
-			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, ("process_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id")))
+			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, ("process_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id", "comment")))
 
 		try:
 			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
@@ -231,6 +231,8 @@ class LigolwSegments(object):
 				row.process_id = process_row.process_id
 				setattr(row, id_column, target_table.get_next_id())
 				row.segment_def_id = segment_def_row.segment_def_id
+				if hasattr(row, "comment"):
+					row.comment = None
 				yield row, target_table
 
 		#
