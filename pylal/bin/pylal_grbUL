@@ -40,6 +40,7 @@ import cPickle as pickle
 import itertools
 import optparse
 import sys
+import warnings
 
 import numpy
 numpy.seterr(over="raise", under="ignore")
@@ -127,10 +128,13 @@ def get_confidence_band(p_by_L, rank_by_L, CL):
     if len(p_by_L) != len(rank_by_L):
         raise ValueError, "p_by_L and rank_by_L do not have matching length"
     if p_by_L.sum() < CL:
-        raise ValueError, "not enough probability to satisfy requested CL"
+        warnings.warn("not enough probability to satisfy requested CL")
+        return 0, len(p_by_L) - 1
 
     # iterate from highest rank to lowest
     order = reversed(rank_by_L.argsort())
+
+    # start with the trivial belt and start expanding outward
     ind_low = ind_high = order.next()
     if p_by_L[ind_low] >= CL:
         return ind_low, ind_high
@@ -138,6 +142,42 @@ def get_confidence_band(p_by_L, rank_by_L, CL):
         ind_low = min(ind_low, new_ind)
         ind_high = max(ind_high, new_ind)
         P_cum = p_by_L[ind_low:ind_high+1].sum()
+        if P_cum >= CL:
+            return ind_low, ind_high
+    raise ValueError, "should never get here"
+
+def get_confidence_band_with_MC_err(p_by_L, rank_by_L, CL, MC_fac, N_by_L):
+    """
+    Return the lower and upper L indices defining a confidence belt
+    that contains the minimum possible probability >= CL, starting from
+    highest rank.  Include MC error so that P - MC_fac / sqrt(N) >= CL.
+    """
+    if len(p_by_L) == 0:
+        raise ValueError, "empty probability array"
+    if len(p_by_L) != len(rank_by_L):
+        raise ValueError, "p_by_L and rank_by_L do not have matching length"
+    if len(p_by_L) != len(N_by_L):
+        raise ValueError, "p_by_L and N_by_L do not have matching length"
+    if p_by_L.sum() - MC_fac * p_by_L.sum() * (1 - p_by_L.sum()) \
+        / numpy.sqrt(N_by_L.sum()) < CL:
+        warnings.warn("not enough probability to satisfy requested CL")
+        return 0, len(p_by_L) - 1
+
+    # iterate from highest rank to lowest
+    order = reversed(rank_by_L.argsort())
+
+    # start with the trivial belt and start expanding outward
+    ind_low = ind_high = order.next()
+    if (p_by_L[ind_low] - \
+        MC_fac * p_by_L[ind_low] * (1 - p_by_L[ind_low]) \
+        / numpy.sqrt(N_by_L[ind_low])) >= CL:
+        return ind_low, ind_high
+    for new_ind in order:
+        ind_low = min(ind_low, new_ind)
+        ind_high = max(ind_high, new_ind)
+        P_cum = p_by_L[ind_low:ind_high+1].sum()
+        P_cum -= MC_fac * P_cum * (1 - P_cum) \
+            / numpy.sqrt(N_by_L[ind_low:ind_high].sum())
         if P_cum >= CL:
             return ind_low, ind_high
     raise ValueError, "should never get here"
@@ -219,7 +259,7 @@ def parse_args():
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
 
-    # Calibration uncertainty
+    # Uncertainty
     parser.add_option("--h1-calibration-uncertainty", metavar="FAC",
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
@@ -232,6 +272,9 @@ def parse_args():
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--include-MC-error", metavar="NSIGMA", type="float",
+        help="include NSIGMA standard deviations of 1/sqrt(N) Monte-Carlo "\
+        "uncertainty.")
 
     # odds and ends
     parser.add_option("--likelihood-threshold", type="float", metavar="THRESH",
@@ -386,7 +429,6 @@ if opts.nonuniform_smoothing_D:
     count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
     num_sims_by_m2_D = numpy.dot(num_sims_by_m2_D, A)
 
-
 # smooth in L with shrinking Gaussian
 # NB: convolutions commute and these convolutions are separable
 if opts.nonuniform_smoothing_L:
@@ -458,8 +500,13 @@ for CL_ind, CL in enumerate(CLs):
     # get confidence bands in L
     for m2_ind, D_ind in numpy.ndindex((len(m2_bins), len(D_bins))):
         L_slice = (slice(None, None, None), m2_ind, D_ind)
-        low_ind, high_ind = get_confidence_band(\
-            pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL)
+        if opts.include_MC_error is None:
+            low_ind, high_ind = get_confidence_band(\
+                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL)
+        else:
+            low_ind, high_ind = get_confidence_band_with_MC_err(\
+                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL,
+                opts.include_MC_error, count_by_L_m2_D[L_slice])
         L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 0] = L_lower(low_ind)
         L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 1] = L_upper(high_ind)
 
@@ -523,6 +570,15 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
         r"[%.1f, %.1f) M_\odot$" % m2_range)
     plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
     plot.finalize()
+
+    # XXX: Hack around an apparent matplotlib API backwards-incompatibility
+    # When all clusters have 0.90 or higher, remove the try-except.
+    try:
+      image = [c for c in plot.ax.get_children() \
+               if isinstance(c, matplotlib.image.AxesImage)][0]
+      image.set_clim((0, 1))
+    except AttributeError:
+      pass
 
     if opts.enable_output:
         fname = InspiralUtils.set_figure_name(opts,
