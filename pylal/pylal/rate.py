@@ -359,10 +359,10 @@ class IrregularBins(Bins):
 			return slice(start, stop)
 		ind = bisect.bisect_left(self.boundaries, x)
 		# raise exception if x is outside of all bins
-		# allow the "measure zero" corner case of (x == right boundary)
-		if ind == 0 or (ind == len(self.boundaries) and \
-						x != self.boundaries[-1]):
+		if (ind == 0 and x != self.min) or ind == len(self.boundaries):
 			raise IndexError, x
+		if x in self.boundaries[:-1]:  # floats will always be hard
+			return ind
 		return ind - 1
 
 	def lower(self):
