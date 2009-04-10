@@ -1016,7 +1016,7 @@ class CoincInspiralTable(table.Table):
 		"ifos": "lstring",
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
-		"mchirp": "real_8",
+		"mass": "real_8",
 		"snr": "real_8",
 		"false_alarm_rate": "real_8"
 	}

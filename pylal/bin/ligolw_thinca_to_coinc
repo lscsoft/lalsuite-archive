@@ -73,7 +73,7 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(
 		version = "%prog CVS $Id$",
-		usage = "%prog [options] --output filename",
+		usage = "%prog [options] --output-prefix filename",
 		description = "Converts thinca output files to coinc tables format.  Files whose names end in \".gz\" are assumed to be gzip-compressed.  If an ihope cache is provided then all second-stage thinca files found in the cache will be processed, grouped by run tag.  Otherwise, one or both of a zero-lag or time-slide thinca output file must be provided."
 	)
 	parser.add_option("--zero-lag-file", metavar = "filename", help = "Thinca output file containing zero lag triggers.")
@@ -138,8 +138,8 @@ def parse_command_line():
 		categories = {(None, None): [(options.zero_lag_file, options.time_slide_file)]}
 	else:
 		raise ValueError, "must specify --ihope-cache or at least one of --zero-lag-file and --time-slide-file"
-	if not options.output:
-		raise ValueError, "must specify --output"
+	if not options.output_prefix:
+		raise ValueError, "must specify --output-prefix"
 	if options.veto_segments and not options.veto_segments_name:
 		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
@@ -178,7 +178,15 @@ def set_process_params(xmldoc, process, options):
 		params.append((u"--zero-lag-file", u"lstring", options.zero_lag_file))
 	if options.time_slide_file:
 		params.append((u"--time-slide-file", u"lstring", options.time_slide_file))
-	params.append((u"--output", u"lstring", options.output))
+	if options.ihope_cache:
+		params.append((u"--ihope-cache", u"lstring", options.ihope_cache))
+	#if options.veto_segments:
+	#	params.append((u"--veto-segments", u"lstring", options.veto_segments))
+	if options.veto_segments_name:
+		params.append((u"--veto-segments-name", u"lstring", options.veto_segments_name))
+	if options.effective_snr_factor:
+		params.append((u"--effective-snr-factor", u"lstring", options.effective_snr_factor))
+	params.append((u"--output-prefix", u"lstring", options.output_prefix))
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
@@ -654,7 +662,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		# - end_time is the end time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - mchirp is average of mchirps
+		# - mass is average of mtotals
 		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
@@ -662,8 +670,8 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		coinc_inspiral = lsctables.CoincInspiral()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
 		coinc_inspiral.set_ifos(str(event.ifo) for event in events)
-		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		#coinc_inspiral.mchirp = sum(event.mtotal for event in events) / len(events)
+		#coinc_inspiral.mass = sum(event.mchirp for event in events) / len(events)
+		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 
@@ -949,7 +957,7 @@ if options.veto_segments:
 
 
 for (tag, veto_category), url_pairs in url_categories.items():
-	output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output, tag and ("_%s" % tag) or "", veto_category and ("_CAT%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
+	output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output_prefix, tag and ("_%s" % tag) or "", veto_category and ("_CAT%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
 	for n, url_pair in enumerate(url_pairs):
 		lsctables.SnglInspiralTable.next_id = None
 		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
