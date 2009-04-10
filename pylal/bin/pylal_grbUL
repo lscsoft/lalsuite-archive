@@ -116,6 +116,32 @@ def boundary_of_nonzero_along(arr, axis):
     return (min_arr.reshape(s[:axis] + s[axis+1:]),
             max_arr.reshape(s[:axis] + s[axis+1:]))
 
+def get_confidence_band(p_by_L, rank_by_L, CL):
+    """
+    Return the lower and upper L indices defining a confidence belt
+    that contains the minimum possible probability >= CL, starting from
+    highest rank.
+    """
+    if len(p_by_L) == 0:
+        raise ValueError, "empty probability array"
+    if len(p_by_L) != len(rank_by_L):
+        raise ValueError, "p_by_L and rank_by_L do not have matching length"
+    if p_by_L.sum() < CL:
+        raise ValueError, "not enough probability to satisfy requested CL"
+
+    # iterate from highest rank to lowest
+    order = reversed(rank_by_L.argsort())
+    ind_low = ind_high = order.next()
+    if p_by_L[ind_low] >= CL:
+        return ind_low, ind_high
+    for new_ind in order:
+        ind_low = min(ind_low, new_ind)
+        ind_high = max(ind_high, new_ind)
+        P_cum = p_by_L[ind_low:ind_high+1].sum()
+        if P_cum >= CL:
+            return ind_low, ind_high
+    raise ValueError, "should never get here"
+
 def get_level_crossings(xy_array, level, y_bins):
     """
     Return the linearly interpolated y values where the xy_array dips first
@@ -412,14 +438,7 @@ else:
     obs_L_bins_by_m2 = numpy.zeros(len(m2_bins))  # lowest possible L
 
 # rank L bins for each m2, D
-# the inverse of an argsort is the argsort of the argsort
 R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
-rank_by_L_m2_D = R_by_L_m2_D.argsort(axis=0)
-orig_order_by_L_m2_D = rank_by_L_m2_D.argsort(axis=0)
-
-# order p(L|D) by our ranking
-pLD_sorted_by_L_m2_D = take_axis_argsort(pLD_by_L_m2_D, rank_by_L_m2_D, axis=0)
-pLD_cumsum_by_L_m2_D = pLD_sorted_by_L_m2_D.cumsum(axis=0)
 
 # vectorize some useful lookup functions
 L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
@@ -436,26 +455,23 @@ L1L2_by_CL_m2_D = numpy.zeros((len(CLs), len(m2_bins), len(D_bins), 2),
     dtype=float)
 D1D2_by_CL_m2 = numpy.zeros((len(CLs), len(m2_bins), 2), dtype=float)
 for CL_ind, CL in enumerate(CLs):
-    # Find region containing the highest-ranked L bins that sum to >= CL,
-    # then translate back to normal L ordering.
-    included_by_CL_L_m2_D[CL_ind, ...] = \
-        take_axis_argsort(pLD_cumsum_by_L_m2_D >= 1 - CL,
-                          orig_order_by_L_m2_D, axis=0)
-
     # get confidence bands in L
-    low_by_m2_D, high_by_m2_D = \
-        boundary_of_nonzero_along(included_by_CL_L_m2_D[CL_ind, ...], axis=0)
-    L1L2_by_CL_m2_D[CL_ind, :, :, 0] = L_lower(low_by_m2_D)
-    L1L2_by_CL_m2_D[CL_ind, :, :, 1] = L_upper(high_by_m2_D)
+    for m2_ind, D_ind in numpy.ndindex((len(m2_bins), len(D_bins))):
+        L_slice = (slice(None, None, None), m2_ind, D_ind)
+        low_ind, high_ind = get_confidence_band(\
+            pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL)
+        L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 0] = L_lower(low_ind)
+        L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 1] = L_upper(high_ind)
 
     # use confidence bands to discover our extent in D for our observed L
-    inband_by_m2_D = (low_by_m2_D <= obs_L_bins_by_m2[:, None]) \
-                   & (obs_L_bins_by_m2[:, None] <= high_by_m2_D)
+    inband_by_m2_D = \
+        (L1L2_by_CL_m2_D[CL_ind, :, :, 0] <= log_L_by_m2[:, None]) \
+      & (L1L2_by_CL_m2_D[CL_ind, :, :, 1] >= log_L_by_m2[:, None])
     low_by_m2, high_by_m2 = \
         boundary_of_nonzero_along(inband_by_m2_D, axis=1)
     D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
     D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
-    
+
 # write out the exclusion data
 file_out = open('pylal_grbUL-exclusion-'+opts.user_tag+'.pickle','w')
 pickle.dump([CLs, m2_bins, D1D2_by_CL_m2], file_out)
@@ -572,30 +588,6 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
         tagList.append(text)
     if not opts.show_plot:
         plot.close()
-
-    ## Feldman-Cousins confidence bands (m2, D) image
-    for CL, included_by_L_D in zip(CLs, included_by_CL_L_m2_D[:, :, m2_ind, :]):
-        text = "Feldman-Cousins confidence regions"
-
-        plot = plotutils.ImagePlot(r"$m_\mathrm{companion}\ (M_\odot)$",
-            r"$D\ \mathrm{(Mpc)}$", r"$\textrm{FC "\
-            r"%d\%% inclusion regions for } m_\mathrm{companion} "\
-            r"\in [%.1f, %.1f) M_\odot$" \
-            % (int(CL * 100), m2_range[0], m2_range[1]))
-
-        plot.add_content(included_by_L_D.T, L_bins, D_bins)
-        plot.finalize(cmap=pylab.cm.gray_r, interpolation="nearest",
-                      colorbar=False)
-
-        if opts.enable_output:
-            fname = InspiralUtils.set_figure_name(opts,
-                "FC_%d_%.1f_inclusion_by_L_D" % (int(100 * CL), m2_range[0]))
-            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-            fnameList.append(fname)
-            tagList.append(text)
-        if not opts.show_plot:
-            pylab.close()
-
 
 ## OLD upper limit contours (m2, D) image
 text = "(m2, D) contours including MC error"
