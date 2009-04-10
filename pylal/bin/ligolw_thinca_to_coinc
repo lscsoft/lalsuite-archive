@@ -957,7 +957,7 @@ if options.veto_segments:
 
 
 for (tag, veto_category), url_pairs in url_categories.items():
-	output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output_prefix, tag and ("_%s" % tag) or "", veto_category and ("_CAT%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
+	output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output_prefix, tag and ("_%s" % tag) or "", veto_category and ("_CAT_%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
 	for n, url_pair in enumerate(url_pairs):
 		lsctables.SnglInspiralTable.next_id = None
 		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
