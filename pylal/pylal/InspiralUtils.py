@@ -2,11 +2,6 @@
 """
 Utilities for the inspiral plotting functions
 """
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__Id__ = "$Id$"
-
-# $Source$
 
 from glue import lal
 from glue import segments
@@ -20,10 +15,63 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import SnglInspiralUtils
 from pylal import CoincInspiralUtils
+from pylal import git_version
 
 # set default color code for inspiral plotting functions
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
+
+
+class InspiralPage(object):
+  """
+  This is a class to contain all the bits of a inspiral page
+  showing the results of a piece of code.
+  """
+
+  def __init__(self, options):
+    """
+    Initializes this class with the options.
+    """
+    self.opts = options
+    
+    self.fname_list = []
+    self.tag_list = []
+    self.html_footer = ""
+
+    # just adding some stuff to the opts structure
+    # (should be fixed later)
+    initialise(self.opts, sys.argv[0])
+
+  def add_plot(self, plot_fig, text):
+    """
+    Add a plot to the page
+    """
+    
+    fname = set_figure_name(self.opts, text)
+    fname_thumb = savefig_pylal(fname, fig=plot_fig)
+    
+    self.fname_list.append(fname)
+    self.tag_list.append(fname)
+
+  def write_page(self):
+    """
+    create the page
+    """
+    if self.opts.enable_output:
+      html_filename = write_html_output(self.opts, sys.argv[1:],\
+                                        self.fname_list, self.tag_list,\
+                                        comment=self.html_footer)
+      write_cache_output(self.opts, html_filename, self.fname_list)
+
+  def write(self, text):
+    """
+    Write some text to the standard output AND
+    to the page.
+    """
+    print text
+    self.html_footer+=text+'<br>'
+      
+  
 
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   dpi_thumb=50, fig=None):
@@ -193,7 +241,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
   if cbcweb:
     page.addheader("<%method title>" + opts.name + " results</%method>")
     page.addheader("<%method headline>" + opts.name + " results</%method>")
-    page.addheader("<%method cvsid> $Id$ </%method>")
+    page.addheader("<%method cvsid> $Id: InspiralUtils.py,v 1.41 2009/02/27 20:21:07 jclayton Exp $ </%method>")
   else:
     page.h1(opts.name + " results")
 
@@ -297,8 +345,8 @@ def writeProcessParams(name, version, command):
   @param command: command line arguments from a pylal script
   @return text
   """
-  text = "Figure(s) produced with " + name + ", " \
-      + version + ", invoked with the following command line arguments:" \
+  text = "Figure(s) produced with '" + name + "' with version: <br>" \
+      + version  \
       + '<br>\n<p style="width:80%; color:blue">'+ name
   for arg in command:
     text += " " +  arg
@@ -350,9 +398,10 @@ def ContentHandler(PartialLIGOLWContentHandler):
 
 
 
-def initialise(opts, name, version):
+def initialise(opts, name, version = None):
   """
   Create suffix and prefix that will be used to name the output files.
+  'version' is outdated and not used anymore.
 
   @param opts : the user arguments (user_tag, gps_end_time and 
   gps_start_time are used).
@@ -360,6 +409,7 @@ def initialise(opts, name, version):
   @return prefix 
   @return suffix
   """
+
 
   # compose prefix
   prefix = name
@@ -399,7 +449,7 @@ def initialise(opts, name, version):
   opts.prefix = prefix
   opts.suffix = suffix
   opts.name = name
-  opts.version = version
+  opts.version = git_version.verbose_msg.replace('\n','<br>')
 
   # make sure output_path is set correctly
   if opts.output_path is not None:

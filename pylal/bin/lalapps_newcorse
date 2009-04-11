@@ -171,29 +171,29 @@ class Summaries(object):
 		on_instruments = set(on_instruments.split(","))
 		return SnglInspiralUtils.compute_thinca_livetime(on_instruments, set(self.instruments) - on_instruments, self.rings, self.vetosegments, offsetvector)
 
-	def add_coinc(self, on_instruments, participating_instruments, mchirp, snr):
-		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]].append(snr)
+	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
+		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]].append(snr)
 
-	def count(self, on_instruments, participating_instruments, mchirp, snr):
+	def count(self, on_instruments, participating_instruments, mass, snr):
 		"""
 		Return the number of coincs in the category defined by
 		(on_instruments, participating_instruments) that are in the
-		mass bin corresponding to mchirp and have a combined SNR
+		mass bin corresponding to mass and have a combined SNR
 		greater than or equal to snr.  The on_ and
 		participating_instruments are strings containing the
 		instruments in alphabetical order separated by commas
 		"""
-		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]]
+		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]]
 		return len([x for x in snrs if x >= snr])
 
-	def rate(self, time_slide_id, on_instruments, participating_instruments, mchirp, snr):
+	def rate(self, time_slide_id, on_instruments, participating_instruments, mass, snr):
 		try:
 			livetime = self.cached_livetime[(on_instruments, participating_instruments)]
 		except KeyError:
 			# FIXME:  calculate and store the background
 			# livetime for this category
 			livetime = self.cached_livetime[(on_instruments, participating_instruments)] = self.livetime(on_instruments, self.offset_vectors[time_slide_id])
-		return self.count(on_instruments, participating_instruments, mchirp, snr) / livetime
+		return self.count(on_instruments, participating_instruments, mass, snr) / livetime
 
 
 #
@@ -262,11 +262,11 @@ for n, filename in enumerate(filenames):
 	# count background coincs by type and mass bin
 	#
 
-	for on_instruments, participating_instruments, mchirp, snr in connection.cursor().execute("""
+	for on_instruments, participating_instruments, mass, snr in connection.cursor().execute("""
 SELECT
 	coinc_event.instruments,
 	coinc_inspiral.ifos,
-	coinc_inspiral.mchirp,
+	coinc_inspiral.mass,
 	coinc_inspiral.snr
 FROM
 	coinc_event
@@ -290,7 +290,7 @@ WHERE
 		# appropriate coinc type
 		#
 
-		background.add_coinc(on_instruments, participating_instruments, mchirp, snr)
+		background.add_coinc(on_instruments, participating_instruments, mass, snr)
 
 	#
 	# close the database
@@ -348,7 +348,7 @@ SET
 				coinc_event.time_slide_id,
 				coinc_event.instruments,
 				coinc_inspiral.ifos,
-				coinc_inspiral.mchirp,
+				coinc_inspiral.mass,
 				coinc_inspiral.snr
 			)
 		FROM
