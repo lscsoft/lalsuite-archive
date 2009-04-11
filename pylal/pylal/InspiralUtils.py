@@ -23,6 +23,57 @@ from pylal import SnglInspiralUtils
 colors = {'G1':'k','H1':'r','H2':'b','L1':'g','V1':'m'}
 symbols = {'G1':'Y','H1':'x','H2':'o','L1':'+','V1':'1'}
 
+class InspiralPage(object):
+  """
+  This is a class to contain all the bits of a inspiral page
+  showing the results of a piece of code.
+  """
+
+  def __init__(self, options):
+    """
+    Initializes this class with the options.
+    """
+    self.opts = options
+    
+    self.fname_list = []
+    self.tag_list = []
+    self.html_footer = ""
+
+    # just adding some stuff to the opts structure
+    # (should be fixed later)
+    initialise(self.opts, os.path.basename(sys.argv[0]))
+
+  def add_plot(self, plot_fig, text):
+    """
+    Add a plot to the page
+    """
+    
+    fname = set_figure_name(self.opts, text)
+    fname_thumb = savefig_pylal(fname, fig=plot_fig)
+    
+    self.fname_list.append(fname)
+    self.tag_list.append(fname)
+
+  def write_page(self):
+    """
+    create the page
+    """
+    if self.opts.enable_output:
+      html_filename = write_html_output(self.opts, sys.argv[1:],\
+                                        self.fname_list, self.tag_list,\
+                                        comment=self.html_footer or None)
+      write_cache_output(self.opts, html_filename, self.fname_list)
+
+  def write(self, text):
+    """
+    Write some text to the standard output AND
+    to the page.
+    """
+    print text
+    self.html_footer+=text+'<br>'
+      
+  
+
 def savefig_pylal(filename=None, filename_thumb=None, doThumb=True, dpi=None,
   dpi_thumb=50, fig=None):
   """
@@ -76,7 +127,7 @@ def message(opts, text):
   """
 
   """
-  if opts.verbose is True:
+  if opts.verbose:
     print text
   return text+'</br>\n'
 
@@ -138,7 +189,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
      
 
       # set the thumbnail pictures if required
-    if doThumb is True:
+    if doThumb:
       fname_thumb = fname[:-4] + "_thumb.png"
     else:
       fname_thumb =fname
@@ -169,7 +220,13 @@ def write_html_output(opts, args, fnameList, tagLists, \
       page.add('</P></MAP></OBJECT><br>')
       page.add("<hr/>")    
 
-  if opts.enable_output is True:
+  if opts.enable_output:
+    if comment is not None:
+      page.add("<div> "+comment+"</div>")
+      page.hr()
+    if CoincSummTable is not None:
+      page.add(CoincSummTable)
+      page.hr()
     text = writeProcessParams( opts.name, opts.version,  args)
     page.add(text)
     if comment is not None:
@@ -190,7 +247,7 @@ def write_cache_output(opts, html_filename,fnameList):
   if opts.output_path:
     output_cache_name = opts.output_path + output_cache_name
   this = open(output_cache_name, 'w')
-  if opts.enable_output is True:
+  if opts.enable_output:
     this.write(os.path.basename(html_filename) + '\n')
   for filename in fnameList:
     if str(filename).endswith('.png'): 
@@ -345,7 +402,7 @@ def init_markup_page( opts):
   @return extra 
   """
   # Initialise the html output file
-  if opts.enable_output is True:
+  if opts.enable_output:
     try:
       from glue import markup
       from glue.markup import oneliner as extra_oneliner
@@ -378,7 +435,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
 
   # for each file in the list 
   for thisFile in fList:
-    if verbose is True:
+    if verbose:
       print str(count+1)+"/"+str(len(fList))+" " + thisFile
     count = count+1
     massNum = 0
