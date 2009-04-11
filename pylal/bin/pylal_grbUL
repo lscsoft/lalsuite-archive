@@ -30,9 +30,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "pylal_grbUL"
 __title__ = "GRB interpretation"
 
@@ -49,6 +46,7 @@ import matplotlib
 matplotlib.use("Agg")
 import pylab
 from pylal import InspiralUtils
+from pylal import git_version
 from pylal import plotutils
 from pylal import rate
 from pylal import viz
@@ -227,7 +225,7 @@ def get_level_crossings(xy_array, level, y_bins):
                         for col in xy_array])
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
