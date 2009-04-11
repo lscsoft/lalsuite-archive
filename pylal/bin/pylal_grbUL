@@ -248,6 +248,7 @@ def parse_args():
         help="GPS start time of data analyzed")
     parser.add_option("--gps-end-time", type="int",
         help="GPS end time of data analyzed")
+    parser.add_option("--ifo-times", help="IFOs participating in coincidences")
     parser.add_option("--ifo-tag", help="IFO coincidence time analyzed")
     parser.add_option("--user-tag", help="a tag to label your plots")
     parser.add_option("--output-path", help="root of the HTML output")
@@ -316,24 +317,16 @@ html_footer = ""
 # Read input
 
 if opts.verbose:
-    print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, onsource_loudest_by_mc \
-    = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
-    = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+    print "Reading in bin definitions..."
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
-log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
-    log_L_by_m2, log_sum_L = \
-    pickle.load(open(opts.grblikelihood_onsource))
-offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
-    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial = \
+_, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
+_, _, offsource_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_offsource))
-inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2, \
-    inj_log_L_by_trial_m2, inj_log_sum_L_by_trial = \
+_, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections
@@ -346,9 +339,6 @@ else:
 offsource_log_L_by_trial_m2[offsource_log_L_by_trial_m2 < eps] = eps
 inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < eps] = eps
 log_L_by_m2[log_L_by_m2 < eps] = eps
-
-m2_by_inj, D_by_inj = zip(*m2_D_by_inj)
-
 
 ##############################################################################
 # Compute P(L > L_obs | h) (old UL statement; irrelevant for Feldman-Cousins)
@@ -473,12 +463,6 @@ D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
 D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
 pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
 
-# Find L bin of our observation
-if actual_candidate_mask.any():
-    obs_L_bins_by_m2 = numpy.array([L_bins[log_L] for log_L in log_L_by_m2])
-else:
-    obs_L_bins_by_m2 = numpy.zeros(len(m2_bins))  # lowest possible L
-
 # rank L bins for each m2, D
 R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
 
@@ -523,6 +507,7 @@ for CL_ind, CL in enumerate(CLs):
 file_out = open('pylal_grbUL-exclusion-'+opts.user_tag+'.pickle','w')
 pickle.dump([CLs, m2_bins, D1D2_by_CL_m2], file_out)
 file_out.close()
+
 ################################################################################
 # plots
 fnameList = []
@@ -565,8 +550,8 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     text = "p(L|D)"
 
     num_sigmas = stats.norm.ppf(0.9)
-    plot = plotutils.ImagePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
-        r"$p(\rho_L^2 | D) \textrm{ for } m_\mathrm{companion} \in "\
+    plot = plotutils.ImagePlot(r"$\ln L$", r"$D\ \mathrm{(Mpc)}$",
+        r"$p(L \,|\, D) \textrm{ for } m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
     plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
     plot.finalize()
@@ -592,7 +577,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     ## D_best(L)
     text = "D_best(L)"
 
-    plot = plotutils.SimplePlot(r"$\rho_L^2$",
+    plot = plotutils.SimplePlot(r"$\ln L$",
         r"$D_\mathrm{best}$",
         r"$\textrm{FC }D_\mathrm{best} "\
         r"\textrm{ for } m_\mathrm{companion} \in "\
@@ -613,7 +598,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     ## Feldman-Cousins confidence belts
     text = "Feldman-Cousins confidence belts"
 
-    plot = plotutils.SimplePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
+    plot = plotutils.SimplePlot(r"$\ln L$", r"$D\ \mathrm{(Mpc)}$",
         r"$\textrm{FC confidence belts for } "\
         r"m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
