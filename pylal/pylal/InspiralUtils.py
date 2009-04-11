@@ -404,7 +404,7 @@ def initialise(opts, name, version = None):
     if opts.ifo_times:
       prefix = opts.ifo_times +"-"+ prefix
   except:
-     print >> sys.stderr, "--ifo-time option not implemented in the "+name +" executable. skipping..."
+     print >> sys.stderr, "--ifo-times option not implemented in the "+name +" executable. skipping..."
      pass
   try:
     if opts.ifo_tag:
