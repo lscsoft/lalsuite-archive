@@ -308,8 +308,7 @@ opts, args = parse_args()
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
-html_footer = ""
+page = InspiralUtils.InspiralPage(opts)
 
 ##############################################################################
 # Read input
@@ -536,10 +535,7 @@ plot.finalize()
 plot.ax.set_ylim((D_bins.min, D_bins.max))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "FC_exclusion_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
+    page.add_plot(plot.fig, "FC_exclusion_by_m2_D")
 if not opts.show_plot:
     plot.close()
 
@@ -564,11 +560,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
       pass
 
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "pLD_by_m2_D_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "pLD_by_m2_D_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
 
@@ -586,10 +578,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.ax.set_xlim((L_bins.min, L_bins.max))
 
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts, "D_best_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "D_best_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
 
@@ -620,11 +609,7 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.ax.set_ylim((0, D_bins.max))
 
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "confidence_belts_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "confidence_belts_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
 
@@ -650,24 +635,14 @@ plot.finalize()
 plot.ax.set_ylim((0, D_bins.max))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "old_exclusion_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
+    page.add_plot(plot.fig, "old_exclusion_by_m2_D")
 if not opts.show_plot:
     plot.close()
 
 
 #############################################################################
 # Generate HTML and cache file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-        fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-    if opts.html_for_cbcweb:
-        html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=True)
+page.write_page()
 
 if opts.show_plot:
     pylab.show()
