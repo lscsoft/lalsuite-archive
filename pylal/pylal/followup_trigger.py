@@ -121,6 +121,14 @@ class FollowupTrigger:
     self.time_window = opts.followup_time_window
     self.sned = opts.followup_sned
 
+    # Set argument "old_document" to true if the option is specified.
+    # Do not crash if "opts.old_document" is not defined in the script
+    # calling this method. 
+    if not hasattr(opts, "old_document"):
+      self.old_document = False
+    else:
+      self.old_document = opts.old_document
+
     # Choose the cache-file
     if opts.followup_tag is None:
       if opts.verbose: 
@@ -553,7 +561,7 @@ class FollowupTrigger:
       print "Processing INSPIRAL triggers from files ", trigger_files
       
     sngls = SnglInspiralUtils.ReadSnglInspiralFromFiles( \
-              trigger_files , verbose=False)
+              trigger_files , verbose=False, old_document=self.old_document)
 
     # create a figure and initialize some lists
     fig=pylab.figure()
