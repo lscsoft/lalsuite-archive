@@ -85,15 +85,6 @@ class PopStatement(object):
         Finalize the values, recalculates the FAR of the
         foreground values
         """
-
-        #self.on_lik_by_grb = np.asarray(self.on_lik_by_grb)
-
-        # create the IFAR values for the onsource
-       ##  for on_lik, off_lik in zip(self.on_lik_by_grb,self.off_lik_by_grb):
-##             n_sample = float(len(off_lik))
-##             ifar = self.calculate_ifar(on_lik, off_lik, n_sample)
-##             self.on_ifar_by_grb.append(ifar)
-
         self.on_ifar_by_grb = map(self.calculate_ifar, \
                                       self.on_lik_by_grb, self.off_lik_by_grb)
 
@@ -107,7 +98,7 @@ class PopStatement(object):
         """
         vector_ifar = []
         for item in sample:
-            ifar = self.calculate_ifar(item, sample, len(sample))
+            ifar = self.calculate_ifar(item, sample)
             vector_ifar.append(ifar)
 
         return vector_ifar
@@ -122,12 +113,6 @@ class PopStatement(object):
         return n_sample/count_louder
 
 
-   ##  def remove_infs_from_list(self,list):
-##         """
-##         Removing infinite values
-##         """        
-##         return [l for l in list if l != -np.inf and l != +np.inf]
-
     def get_min_max(self, list_of_lists_unequal, use_infs = False):
         """
         Get the min and max values from a list of lists,
@@ -141,19 +126,6 @@ class PopStatement(object):
             val_min = min(ilist + [val_min])
             val_max = max(ilist + [val_min])            
             
-            ## val_max = max(ilist + [val_min])
-##             # NB: We want to ignore all +/-inf values, so
-##             # set them all to be +inf for min and -inf for max.
-##             tmp_arr = np.array(orig_list, dtype=float)
-##             tmp_arr = tmp_arr [~np.isinf(tmp_arr)]
-##             if len(tmp_arr) == 0:
-##                 # NB: This also catches the case where len(orig_list) == 0.
-##                 val_min = np.inf
-##                 val_max = -np.inf
-##                 continue
-##             val_min = tmp_arr.min()
-##             val_max = tmp_arr.max()
-
         return val_min, val_max
     
     def check_off_distribution(self, off_by_grb, far = False):
@@ -179,7 +151,6 @@ class PopStatement(object):
 
             tmp_arr = np.array(tmp_pop, dtype=float)
             off_pop = tmp_arr[~np.isinf(tmp_arr)]            
-            #off_pop = self.remove_infs_from_list(off_pop)
             off_pop.sort()
             py = range(len(off_pop), 0, -1)
             if far:
