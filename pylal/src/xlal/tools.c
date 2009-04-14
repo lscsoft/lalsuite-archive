@@ -507,7 +507,7 @@ static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *a
 	if(!PyArg_ParseTuple(args, "O!O!", &pylal_SnglInspiralTable_Type, &row1, &pylal_SnglInspiralTable_Type, &row2))
 		return NULL;
 
-	accuracyparams = calloc(0, sizeof(*accuracyparams));
+	accuracyparams = calloc(1, sizeof(*accuracyparams));
 	if(!accuracyparams)
 		return PyErr_NoMemory();
 	XLALPopulateAccuracyParams(accuracyparams);
