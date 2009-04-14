@@ -169,6 +169,15 @@ PyTypeObject pylal_LALDetector_Type = {
 
 
 /*
+ * Cached ID types
+ */
+
+
+static PyObject *sngl_inspiral_event_id_type = NULL;
+static PyObject *process_id_type = NULL;
+
+
+/*
  * Member access
  */
 
@@ -231,11 +240,66 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 };
 
 
+static int pylal_SnglInspiralTable_process_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
+
+	if((PyObject *) val->ob_type != process_id_type) {
+		PyErr_SetObject(PyExc_TypeError, val);
+		return -1;
+	}
+
+	row->process_id_i = i;
+
+	return 0;
+}
+
+
+static PyObject *pylal_SnglInspiralTable_process_id_get(PyObject *obj, void *data)
+{
+	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
+
+	return PyObject_CallFunction(process_id_type, "l", row->process_id_i);
+}
+
+
+static int pylal_SnglInspiralTable_event_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
+
+	if((PyObject *) val->ob_type != sngl_inspiral_event_id_type) {
+		PyErr_SetObject(PyExc_TypeError, val);
+		return -1;
+	}
+
+	row->event_id.id = i;
+
+	return 0;
+}
+
+
+static PyObject *pylal_SnglInspiralTable_event_id_get(PyObject *obj, void *data)
+{
+	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
+
+	return PyObject_CallFunction(sngl_inspiral_event_id_type, "l", row->event_id.id);
+}
+
+
 static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
-	{"event_id", pylal_longlong_get, pylal_longlong_set, "event_id", (void *) offsetof(pylal_SnglInspiralTable, event_id.id)},
+	{"process_id", pylal_SnglInspiralTable_process_id_get, pylal_SnglInspiralTable_process_id_set, "process_id", NULL},
+	{"event_id", pylal_SnglInspiralTable_event_id_get, pylal_SnglInspiralTable_event_id_set, "event_id", NULL},
 	{NULL,}
 };
 
@@ -547,6 +611,8 @@ void inittools(void)
 		return;
 	Py_INCREF(&pylal_SnglInspiralTable_Type);
 	PyModule_AddObject(module, "SnglInspiralTable", (PyObject *) &pylal_SnglInspiralTable_Type);
+	process_id_type = get_ilwdchar_class("process", "process_id");
+	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
 
 	/* CoincMap */
 	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
