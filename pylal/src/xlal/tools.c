@@ -500,21 +500,21 @@ PyTypeObject ligolw_CoincMap_Type = {
 
 static PyObject *pylal_XLALCalculateEThincaParameter(PyObject *self, PyObject *args)
 {
-	InspiralAccuracyList *accuracyparams;
+	static InspiralAccuracyList accuracyparams;
+	static int accuracyparams_set = 0;
 	pylal_SnglInspiralTable *row1, *row2;
 	double result;
 
 	if(!PyArg_ParseTuple(args, "O!O!", &pylal_SnglInspiralTable_Type, &row1, &pylal_SnglInspiralTable_Type, &row2))
 		return NULL;
 
-	accuracyparams = calloc(1, sizeof(*accuracyparams));
-	if(!accuracyparams)
-		return PyErr_NoMemory();
-	XLALPopulateAccuracyParams(accuracyparams);
+	if(!accuracyparams_set) {
+		memset(&accuracyparams, 0, sizeof(accuracyparams));
+		XLALPopulateAccuracyParams(&accuracyparams);
+		accuracyparams_set = 1;
+	}
 
-	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, accuracyparams);
-
-	free(accuracyparams);
+	result = XLALCalculateEThincaParameter(&row1->sngl_inspiral, &row2->sngl_inspiral, &accuracyparams);
 
 	if(XLAL_IS_REAL8_FAIL_NAN(result)) {
 		XLALClearErrno();
