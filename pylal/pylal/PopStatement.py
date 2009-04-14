@@ -1,5 +1,21 @@
-
-
+#!/usr/bin/env python
+#
+# Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
 import os
 import sys
 import random
@@ -8,10 +24,11 @@ itertools = __import__("itertools")
 import numpy as np
 from scipy import stats
 
+from glue import iterutils
 from pylal import plotutils
 from pylal import rate
 
-class PopStatement:
+class PopStatement(object):
 
     def __init__(self, grb_data, name_suffix):
         """
@@ -39,15 +56,7 @@ class PopStatement:
         self.u = None
         self.z = None
         
-        # some combinations of colors/styles
-        linestyles = []
-        colors = []
-        for linestyle in ['-','-.',':']:
-            for color in ['b', 'g', 'r', 'c', 'm', 'y', 'k']:
-                linestyles.append(linestyle)
-                colors.append(color)
-        self.linestyles = itertools.cycle(linestyles)
-        self.colors = itertools.cycle(colors)
+        self.colors = itertools.cycle(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
  
 
     def add_background_by_trial(self, grb_name, pop_background_by_trial):
@@ -77,48 +86,47 @@ class PopStatement:
         foreground values
         """
 
-        self.on_lik_by_grb = np.asarray(self.on_lik_by_grb)
+        #self.on_lik_by_grb = np.asarray(self.on_lik_by_grb)
 
         # create the IFAR values for the onsource
-        for on_lik, off_lik in zip(self.on_lik_by_grb,self.off_lik_by_grb):
-            n_sample = float(len(off_lik))
-            ifar = self.calculate_ifar(on_lik, off_lik, n_sample)
-            self.on_ifar_by_grb.append(ifar)
+       ##  for on_lik, off_lik in zip(self.on_lik_by_grb,self.off_lik_by_grb):
+##             n_sample = float(len(off_lik))
+##             ifar = self.calculate_ifar(on_lik, off_lik, n_sample)
+##             self.on_ifar_by_grb.append(ifar)
+
+        self.on_ifar_by_grb = map(self.calculate_ifar, \
+                                      self.on_lik_by_grb, self.off_lik_by_grb)
 
         # create the combined/complete offsource sample
-        self.off_lik = []
-        self.off_ifar = []
-        for off_lik, off_ifar in zip(self.off_lik_by_grb, self.off_ifar_by_grb):
-            self.off_lik.extend(off_lik)
-            self.off_ifar.extend(off_ifar)            
-
-
+        self.off_lik = list(iterutils.flatten(self.off_lik_by_grb))
+        self.off_ifar = list(iterutils.flatten(self.off_ifar_by_grb))
+        
     def calculate_off_to_ifar(self, sample, sample_ref):
         """
         Calculates a list of FAR given the items in the sample
         """
         vector_ifar = []
-        n_sample = float(len(sample))
         for item in sample:
-            ifar = self.calculate_ifar(item, sample, n_sample)
+            ifar = self.calculate_ifar(item, sample, len(sample))
             vector_ifar.append(ifar)
-                        
-                
+
         return vector_ifar
 
-    def calculate_ifar(self, value, sample, n_sample):
+
+    def calculate_ifar(self, value, sample):
+
+        n_sample = float(len(sample))
         count_louder = (sample >= value).sum(axis=0)
 
         count_louder = max(count_louder, 1)
         return n_sample/count_louder
-        #return count_louder/n_sample
 
 
-    def remove_infs_from_list(self,list):
-        """
-        Just removes any inf's from a given list
-        """        
-        return [l for l in list if l != -np.inf and l != +np.inf]
+   ##  def remove_infs_from_list(self,list):
+##         """
+##         Removing infinite values
+##         """        
+##         return [l for l in list if l != -np.inf and l != +np.inf]
 
     def get_min_max(self, list_of_lists_unequal, use_infs = False):
         """
@@ -127,18 +135,24 @@ class PopStatement:
         Using Nick algorithm, email 3 Apr 2009.
         """
 
-        for orig_list in list_of_lists_unequal:
-            # NB: We want to ignore all +/-inf values, so
-            # set them all to be +inf for min and -inf for max.
-            tmp_arr = np.array(orig_list, dtype=float)
-            tmp_arr = tmp_arr [~np.isinf(tmp_arr)]
-            if len(tmp_arr) == 0:
-                # NB: This also catches the case where len(orig_list) == 0.
-                val_min = np.inf
-                val_max = -np.inf
-                continue
-            val_min = tmp_arr.min()
-            val_max = tmp_arr.max()
+        val_min = +np.infty
+        val_min = -np.infty        
+        for ilist in list_of_lists_unequal:                        
+            val_min = min(ilist + [val_min])
+            val_max = max(ilist + [val_min])            
+            
+            ## val_max = max(ilist + [val_min])
+##             # NB: We want to ignore all +/-inf values, so
+##             # set them all to be +inf for min and -inf for max.
+##             tmp_arr = np.array(orig_list, dtype=float)
+##             tmp_arr = tmp_arr [~np.isinf(tmp_arr)]
+##             if len(tmp_arr) == 0:
+##                 # NB: This also catches the case where len(orig_list) == 0.
+##                 val_min = np.inf
+##                 val_max = -np.inf
+##                 continue
+##             val_min = tmp_arr.min()
+##             val_max = tmp_arr.max()
 
         return val_min, val_max
     
@@ -161,9 +175,11 @@ class PopStatement:
         bins = rate.LinearBins(pop_min, pop_max, nbins)
         px = bins.lower()
         
-        for grb_name, off_pop in zip(self.list_grbs, off_by_grb):
+        for grb_name, tmp_pop in zip(self.list_grbs, off_by_grb):
 
-            off_pop = self.remove_infs_from_list(off_pop)
+            tmp_arr = np.array(tmp_pop, dtype=float)
+            off_pop = tmp_arr[~np.isinf(tmp_arr)]            
+            #off_pop = self.remove_infs_from_list(off_pop)
             off_pop.sort()
             py = range(len(off_pop), 0, -1)
             if far:
