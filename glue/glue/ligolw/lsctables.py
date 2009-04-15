@@ -508,6 +508,288 @@ SearchSummVarsTable.RowType = SearchSummVars
 #
 # =============================================================================
 #
+#                            experiment:table
+#
+# =============================================================================
+#
+
+
+ExpDefID = ilwd.get_ilwdchar_class(u"experiment", u"experiment_id")
+
+
+class ExperimentTable(table.Table):
+	tableName = "experiment:table"
+	validcolumns = {
+		"experiment_id": "ilwd:char",
+		"search_group": "lstring",
+		"search": "lstring",
+		"lars_id": "ilwd:char",
+		"instruments": "lstring",
+		"gps_start_time": "int_4s",
+		"gps_end_time": "int_4s",
+		"comments": "lstring"
+	}
+	constraints = "PRIMARY KEY (experiment_id)"
+	next_id = ExpDefID(0)
+
+
+	def get_expr_id(self, search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = None):
+		"""
+		Return the expr_def_id for the row in the table whose
+		values match the givens.
+		If a matching row is not found, returns None.
+		"""
+		
+		# look for the ID
+		for row in self:
+			if (row.search_group, row.search, row.lars_id, row.instruments, row.gps_start_time, row.gps_end_time, row.comments) == (search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments):
+				# found it
+				return row.experiment_id
+
+		# experiment not found in table
+		return None
+
+	def write_new_expr_id(self, search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = None):
+		"""
+		Creates a new def_id for the given arguments and returns it. 
+		If an entry already exists with these, will just return that id.
+		"""
+		
+		# check if id already exists
+		check_id = self.get_expr_id( search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = comments )
+		if check_id:
+			return check_id
+
+		# experiment not found in table
+		row = self.RowType()
+		row.experiment_id = self.get_next_id()
+		row.search_group = search_group
+		row.search = search
+		row.lars_id = lars_id
+		row.instruments = instruments
+		row.gps_start_time = gps_start_time
+		row.gps_end_time = gps_end_time
+		row.comments = comments
+		self.append(row)
+
+		# return new ID
+		return row.experiment_id
+
+	def get_instruments_from_id(self, experiment_id):
+		"""
+		Gets instrument set with the given experiment_id.
+		"""
+
+		for row in self:
+			if row.experiment_id == experiment_id:
+				return row.instruments
+
+		# if get to hear, id not in table
+		raise KeyError, "id %s not found in table" %(`experiment_id`)
+
+
+class Experiment(object):
+	__slots__ = ExperimentTable.validcolumns.keys()
+
+	# FIXME: Following functions will only work for ifos; want to generalize
+	# this so it could be any type of instrument (e.g., PANSTAR)
+	def get_instruments(self):
+		"""
+		Return a set of the instruments for this row.
+		"""
+		return instrument_set_from_ifos(self.instruments)
+
+	def set_instruments(self, instruments):
+		"""
+		Serialize a sequence of instruments into the ifos
+		attribute.  The instrument names must not contain the ","
+		character.
+		"""
+		self.instruments = ifos_from_instrument_set(instruments)
+
+ExperimentTable.RowType = Experiment
+
+
+
+#
+# =============================================================================
+#
+#                            experiment_summary:table
+#
+# =============================================================================
+#
+
+
+ExpSummID = ilwd.get_ilwdchar_class(u"experiment_summary", u"experiment_summ_id")
+
+
+class ExperimentSummaryTable(table.Table):
+	tableName = "experiment_summary:table"
+	validcolumns = {
+		"experiment_summ_id": "ilwd:char",
+		"experiment_id": "ilwd:char",
+		"veto_def_id": "ilwd:char",
+		"time_slide_id": "ilwd:char",
+		"zero_lag": "int",
+		"simulation": "int",
+		"duration": "int_4s",
+		"nevents": "int_4u"
+	}
+	constraints = "PRIMARY KEY (experiment_summ_id)"
+	how_to_index = {
+		"es_ei_index": ("experiment_id",),
+	}
+	next_id = ExpSummID(0)
+	
+
+	def as_id_dict(self):
+		"""
+		Return table as a dictionary mapping experiment_id, time_slide_id
+		and veto_def_id to the expr_summ_id.
+		"""
+		d = {}
+		for row in self:
+			if row.experiment_id not in d:
+				d[row.experiment_id] = {}
+			if (row.time_slide_id, row.veto_def_id, row.simulation) in d[row.experiment_id]:
+				# entry already exists, raise error
+				raise KeyError, "Duplicate entries in experiment_summary table" 
+			d[row.experiment_id][(row.time_slide_id, row.veto_def_id, row.simulation)] = row.experiment_summ_id
+
+		return d
+
+	def get_expr_summ_id(self, experiment_id, veto_def_id, time_slide_id, simulation = False):
+		"""
+		Return the expr_summ_id for the row in the table whose experiment_id, 
+		time_slide_id, and veto_def_id match the given. If simulation
+		set to true, will retrieve injection run.
+		If a matching row is not found, returns None.
+		"""
+		# look for the ID
+		for row in self:
+			if (row.experiment_id, row.veto_def_id, row.time_slide_id, row.simulation) == (experiment_id, veto_def_id, time_slide_id, int(simulation)):
+				# found it
+				return row.experiment_summ_id
+
+		# if get to here, experiment not found in table
+		return None
+
+	def write_experiment_summ(self, experiment_id, veto_def_id, time_slide_id, zero_lag = False, simulation = False ):
+		"""
+		Writes a single entry to the experiment_summ table. This can be used
+		for either injections or non-injection experiments. However, it is
+		recommended that this only be used for injection experiments; for
+		non-injection experiments write_experiment_summ_set should be used to
+		ensure that an entry gets written for every time-slide performed.
+		"""
+		# check if entry alredy exists; if so, return value
+		check_id = self.get_expr_summ_id(experiment_id, veto_def_id, time_slide_id, simulation)
+		if check_id:
+			return check_id
+
+		row = self.RowType()
+		row.experiment_summ_id = self.get_next_id()
+		row.experiment_id = experiment_id
+		row.veto_def_id = veto_def_id
+		row.time_slide_id = time_slide_id
+		row.zero_lag = zero_lag
+		row.simulation = simulation
+		row.nevents = None
+		row.duration = None
+		self.append(row)
+		
+		return row.experiment_summ_id
+
+	def write_experiment_summ_set(self, experiment_id, veto_def_id, time_slide_dict, return_dict = False):
+		"""
+		Method for writing a new set of non-injection experiments to the experiment
+		summary table. This ensures that for every entry in the 
+        experiment table, an entry for every slide is added to
+		the experiment_summ table, rather than just an entry for slides that
+		have events in them. 
+		
+		Note: Simulation is hard-coded to False because time-slides
+		are not performed with injections.
+		"""
+		for slide_id in time_slide_dict:
+			self.write_experiment_summ( experiment_id, veto_def_id, slide_id, zero_lag = not any( time_slide_dict[slide_id].values() ), simulation = False )
+
+		if return_dict:
+			return self.as_id_dict()
+
+
+	def add_nevents(self, experiment_summ_id, num_events, add_to_current = True):
+		"""
+		Add num_events to the nevents column in a specific entry in the table. If
+		add_to_current is set to False, will overwrite the current nevents entry in
+		the row with num_events. Otherwise, default is to add num_events to
+		the current value.
+
+		Note: Can subtract events by passing a negative number to num_events.
+		"""
+		for row in self:
+			if row.experiment_summ_id != experiment_summ_id:
+				continue
+			if add_to_current:
+				row.nevents += num_events
+				return row.nevents
+			else:
+				row.nevents = num_events
+				return row.nevents
+				
+		# if get to here, couldn't find experiment_summ_id in the table
+		raise ValueError, "%s could not be found in the table" %(str(experiment_summ_id))
+
+
+class ExperimentSummary(object):
+	__slots__ = ExperimentSummaryTable.validcolumns.keys()
+
+
+ExperimentSummaryTable.RowType = ExperimentSummary
+
+#
+# =============================================================================
+#
+#                            experiment_map:table
+#
+# =============================================================================
+#
+
+
+class ExperimentMapTable(table.Table):
+	tableName = "experiment_map:table"
+	validcolumns = {
+		"experiment_summ_id": "ilwd:char",
+		"coinc_event_id": "ilwd:char",
+	}
+	how_to_index = {
+		"em_esi_index": ("experiment_summ_id",),
+		"em_cei_index": ("coinc_event_id",)
+	}
+
+	def get_experiment_summ_ids( self, coinc_event_id ):
+		"""
+		Gets all the experiment_summ_ids that map to a given coinc_event_id.
+		"""
+		experiment_summ_ids = []
+		for row in self:
+			if row.coinc_event_id == coinc_event_id:
+				experiment_summ_ids.append(row.experiment_summ_id)
+		if len(experiment_summ_ids) == 0:
+			raise ValueError, "%s could not be found in the experiment_map table." %(`coinc_event_id`)
+		return experiment_summ_ids
+
+
+class ExperimentMap(object):
+	__slots__ = ExperimentMapTable.validcolumns.keys()
+
+
+ExperimentMapTable.RowType = ExperimentMap
+
+
+#
+# =============================================================================
+#
 #                               sngl_burst:table
 #
 # =============================================================================
@@ -1903,6 +2185,7 @@ class SegmentSum(object):
 SegmentSumTable.RowType = SegmentSum
 
 
+
 #
 # =============================================================================
 #
@@ -2258,6 +2541,8 @@ TableByName = {
 	table.StripTableName(ProcessParamsTable.tableName): ProcessParamsTable,
 	table.StripTableName(SearchSummaryTable.tableName): SearchSummaryTable,
 	table.StripTableName(SearchSummVarsTable.tableName): SearchSummVarsTable,
+	table.StripTableName(ExperimentTable.tableName): ExperimentTable,
+	table.StripTableName(ExperimentSummaryTable.tableName): ExperimentSummaryTable,
 	table.StripTableName(SnglBurstTable.tableName): SnglBurstTable,
 	table.StripTableName(MultiBurstTable.tableName): MultiBurstTable,
 	table.StripTableName(SnglInspiralTable.tableName): SnglInspiralTable,
