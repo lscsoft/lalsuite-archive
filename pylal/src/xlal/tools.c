@@ -100,7 +100,7 @@ struct ilwdchar_id_description {
 static int pylal_ilwdchar_id_set(PyObject *obj, PyObject *val, void *data)
 {
 	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
-	void *location = (uint8_t *) obj + desc->offset;
+	void *location = (void *) obj + desc->offset;
 	long i = PyInt_AsLong(val);
 
 	if(PyErr_Occurred())
@@ -120,7 +120,7 @@ static int pylal_ilwdchar_id_set(PyObject *obj, PyObject *val, void *data)
 static PyObject *pylal_ilwdchar_id_get(PyObject *obj, void *data)
 {
 	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
-	void *location = (uint8_t *) obj + desc->offset;
+	void *location = (void *) obj + desc->offset;
 
 	return PyObject_CallFunction(*desc->id_type, "l", *(long *) location);
 }
