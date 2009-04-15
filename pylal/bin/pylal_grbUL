@@ -30,9 +30,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "pylal_grbUL"
 __title__ = "GRB interpretation"
 
@@ -40,6 +37,7 @@ import cPickle as pickle
 import itertools
 import optparse
 import sys
+import warnings
 
 import numpy
 numpy.seterr(over="raise", under="ignore")
@@ -48,6 +46,7 @@ import matplotlib
 matplotlib.use("Agg")
 import pylab
 from pylal import InspiralUtils
+from pylal import git_version
 from pylal import plotutils
 from pylal import rate
 from pylal import viz
@@ -116,6 +115,71 @@ def boundary_of_nonzero_along(arr, axis):
     return (min_arr.reshape(s[:axis] + s[axis+1:]),
             max_arr.reshape(s[:axis] + s[axis+1:]))
 
+def get_confidence_band(p_by_L, rank_by_L, CL):
+    """
+    Return the lower and upper L indices defining a confidence belt
+    that contains the minimum possible probability >= CL, starting from
+    highest rank.
+    """
+    if len(p_by_L) == 0:
+        raise ValueError, "empty probability array"
+    if len(p_by_L) != len(rank_by_L):
+        raise ValueError, "p_by_L and rank_by_L do not have matching length"
+    if p_by_L.sum() < CL:
+        warnings.warn("not enough probability to satisfy requested CL")
+        return 0, len(p_by_L) - 1
+
+    # iterate from highest rank to lowest
+    order = reversed(rank_by_L.argsort())
+
+    # start with the trivial belt and start expanding outward
+    ind_low = ind_high = order.next()
+    if p_by_L[ind_low] >= CL:
+        return ind_low, ind_high
+    for new_ind in order:
+        ind_low = min(ind_low, new_ind)
+        ind_high = max(ind_high, new_ind)
+        P_cum = p_by_L[ind_low:ind_high+1].sum()
+        if P_cum >= CL:
+            return ind_low, ind_high
+    raise ValueError, "should never get here"
+
+def get_confidence_band_with_MC_err(p_by_L, rank_by_L, CL, MC_fac, N_by_L):
+    """
+    Return the lower and upper L indices defining a confidence belt
+    that contains the minimum possible probability >= CL, starting from
+    highest rank.  Include MC error so that P - MC_fac / sqrt(N) >= CL.
+    """
+    if len(p_by_L) == 0:
+        raise ValueError, "empty probability array"
+    if len(p_by_L) != len(rank_by_L):
+        raise ValueError, "p_by_L and rank_by_L do not have matching length"
+    if len(p_by_L) != len(N_by_L):
+        raise ValueError, "p_by_L and N_by_L do not have matching length"
+    if p_by_L.sum() - MC_fac * p_by_L.sum() * (1 - p_by_L.sum()) \
+        / numpy.sqrt(N_by_L.sum()) < CL:
+        warnings.warn("not enough probability to satisfy requested CL")
+        return 0, len(p_by_L) - 1
+
+    # iterate from highest rank to lowest
+    order = reversed(rank_by_L.argsort())
+
+    # start with the trivial belt and start expanding outward
+    ind_low = ind_high = order.next()
+    if (p_by_L[ind_low] - \
+        MC_fac * p_by_L[ind_low] * (1 - p_by_L[ind_low]) \
+        / numpy.sqrt(N_by_L[ind_low])) >= CL:
+        return ind_low, ind_high
+    for new_ind in order:
+        ind_low = min(ind_low, new_ind)
+        ind_high = max(ind_high, new_ind)
+        P_cum = p_by_L[ind_low:ind_high+1].sum()
+        P_cum -= MC_fac * P_cum * (1 - P_cum) \
+            / numpy.sqrt(N_by_L[ind_low:ind_high].sum())
+        if P_cum >= CL:
+            return ind_low, ind_high
+    raise ValueError, "should never get here"
+
 def get_level_crossings(xy_array, level, y_bins):
     """
     Return the linearly interpolated y values where the xy_array dips first
@@ -161,7 +225,7 @@ def get_level_crossings(xy_array, level, y_bins):
                         for col in xy_array])
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
@@ -182,6 +246,7 @@ def parse_args():
         help="GPS start time of data analyzed")
     parser.add_option("--gps-end-time", type="int",
         help="GPS end time of data analyzed")
+    parser.add_option("--ifo-times", help="IFOs participating in coincidences")
     parser.add_option("--ifo-tag", help="IFO coincidence time analyzed")
     parser.add_option("--user-tag", help="a tag to label your plots")
     parser.add_option("--output-path", help="root of the HTML output")
@@ -193,7 +258,7 @@ def parse_args():
     parser.add_option("--show-plot", action="store_true", default=False,
         help="display the plots to screen if an X11 display is available")
 
-    # Calibration uncertainty
+    # Uncertainty
     parser.add_option("--h1-calibration-uncertainty", metavar="FAC",
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
@@ -206,6 +271,9 @@ def parse_args():
         type="float", default=0.,
         help="fractional uncertainty in the DC calibration of "
         "L1; rescale distances by (1 +/- max(FAC))*D")
+    parser.add_option("--include-MC-error", metavar="NSIGMA", type="float",
+        help="include NSIGMA standard deviations of 1/sqrt(N) Monte-Carlo "\
+        "uncertainty.")
 
     # odds and ends
     parser.add_option("--likelihood-threshold", type="float", metavar="THRESH",
@@ -240,31 +308,22 @@ opts, args = parse_args()
 
 ##############################################################################
 # HTML initialization
-InspiralUtils.initialise(opts, __prog__, __version__)
-html_footer = ""
+page = InspiralUtils.InspiralPage(opts)
 
 ##############################################################################
 # Read input
 
 if opts.verbose:
-    print "Reading in bin definitions and loudest statistics..."
-statistic, mc_bins, onsource_loudest_by_mc \
-    = pickle.load(open(opts.relic_onsource))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
-    = pickle.load(open(opts.relic_offsource))
-statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, inj_loudest_by_inj_mc \
+    print "Reading in bin definitions..."
+statistic, mc_bins, m2_bins, D_bins, m2_D_by_inj, _ \
     = pickle.load(open(opts.relic_injections))
 if statistic != "effective_snr":
     raise NotImplemented
 
-log_pc0_by_mc, log_pch_by_mc_m2, actual_candidate_mask, \
-    log_L_by_m2, log_sum_L = \
-    pickle.load(open(opts.grblikelihood_onsource))
-offsource_pc0_by_trial_mc, offsource_pch_by_trial_mc_m2, \
-    offsource_log_L_by_trial_m2, offsource_log_sum_L_by_trial = \
+_, _, _, log_L_by_m2, _ = pickle.load(open(opts.grblikelihood_onsource))
+_, _, offsource_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_offsource))
-inj_log_pc0_by_trial_mc, inj_log_pch_by_trial_mc_m2, \
-    inj_log_L_by_trial_m2, inj_log_sum_L_by_trial = \
+_, _, inj_log_L_by_trial_m2, _ = \
     pickle.load(open(opts.grblikelihood_injections))
 
 # Set everything less than THRESH to THRESH, including missed injections
@@ -277,9 +336,6 @@ else:
 offsource_log_L_by_trial_m2[offsource_log_L_by_trial_m2 < eps] = eps
 inj_log_L_by_trial_m2[inj_log_L_by_trial_m2 < eps] = eps
 log_L_by_m2[log_L_by_m2 < eps] = eps
-
-m2_by_inj, D_by_inj = zip(*m2_D_by_inj)
-
 
 ##############################################################################
 # Compute P(L > L_obs | h) (old UL statement; irrelevant for Feldman-Cousins)
@@ -360,7 +416,6 @@ if opts.nonuniform_smoothing_D:
     count_by_L_m2_D = numpy.dot(count_by_L_m2_D, A)
     num_sims_by_m2_D = numpy.dot(num_sims_by_m2_D, A)
 
-
 # smooth in L with shrinking Gaussian
 # NB: convolutions commute and these convolutions are separable
 if opts.nonuniform_smoothing_L:
@@ -405,21 +460,8 @@ D_centre = numpy.frompyfunc(D_bins.centres().__getitem__, 1, 1)
 D_best_by_L_m2 = D_centre(pLD_by_L_m2_D.argmax(axis=2))
 pLD_best_by_L_m2 = pLD_by_L_m2_D.max(axis=2)
 
-# Find L bin of our observation
-if actual_candidate_mask.any():
-    obs_L_bins_by_m2 = numpy.array([L_bins[log_L] for log_L in log_L_by_m2])
-else:
-    obs_L_bins_by_m2 = numpy.zeros(len(m2_bins))  # lowest possible L
-
 # rank L bins for each m2, D
-# the inverse of an argsort is the argsort of the argsort
 R_by_L_m2_D = pLD_by_L_m2_D / (pLD_best_by_L_m2[:, :, None] + 1e-10)
-rank_by_L_m2_D = R_by_L_m2_D.argsort(axis=0)
-orig_order_by_L_m2_D = rank_by_L_m2_D.argsort(axis=0)
-
-# order p(L|D) by our ranking
-pLD_sorted_by_L_m2_D = take_axis_argsort(pLD_by_L_m2_D, rank_by_L_m2_D, axis=0)
-pLD_cumsum_by_L_m2_D = pLD_sorted_by_L_m2_D.cumsum(axis=0)
 
 # vectorize some useful lookup functions
 L_lower = numpy.frompyfunc(L_bins.lower().__getitem__, 1, 1)
@@ -436,30 +478,33 @@ L1L2_by_CL_m2_D = numpy.zeros((len(CLs), len(m2_bins), len(D_bins), 2),
     dtype=float)
 D1D2_by_CL_m2 = numpy.zeros((len(CLs), len(m2_bins), 2), dtype=float)
 for CL_ind, CL in enumerate(CLs):
-    # Find region containing the highest-ranked L bins that sum to >= CL,
-    # then translate back to normal L ordering.
-    included_by_CL_L_m2_D[CL_ind, ...] = \
-        take_axis_argsort(pLD_cumsum_by_L_m2_D >= 1 - CL,
-                          orig_order_by_L_m2_D, axis=0)
-
     # get confidence bands in L
-    low_by_m2_D, high_by_m2_D = \
-        boundary_of_nonzero_along(included_by_CL_L_m2_D[CL_ind, ...], axis=0)
-    L1L2_by_CL_m2_D[CL_ind, :, :, 0] = L_lower(low_by_m2_D)
-    L1L2_by_CL_m2_D[CL_ind, :, :, 1] = L_upper(high_by_m2_D)
+    for m2_ind, D_ind in numpy.ndindex((len(m2_bins), len(D_bins))):
+        L_slice = (slice(None, None, None), m2_ind, D_ind)
+        if opts.include_MC_error is None:
+            low_ind, high_ind = get_confidence_band(\
+                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL)
+        else:
+            low_ind, high_ind = get_confidence_band_with_MC_err(\
+                pLD_by_L_m2_D[L_slice], R_by_L_m2_D[L_slice], CL,
+                opts.include_MC_error, count_by_L_m2_D[L_slice])
+        L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 0] = L_lower(low_ind)
+        L1L2_by_CL_m2_D[CL_ind, m2_ind, D_ind, 1] = L_upper(high_ind)
 
     # use confidence bands to discover our extent in D for our observed L
-    inband_by_m2_D = (low_by_m2_D <= obs_L_bins_by_m2[:, None]) \
-                   & (obs_L_bins_by_m2[:, None] <= high_by_m2_D)
+    inband_by_m2_D = \
+        (L1L2_by_CL_m2_D[CL_ind, :, :, 0] <= log_L_by_m2[:, None]) \
+      & (L1L2_by_CL_m2_D[CL_ind, :, :, 1] >= log_L_by_m2[:, None])
     low_by_m2, high_by_m2 = \
         boundary_of_nonzero_along(inband_by_m2_D, axis=1)
     D1D2_by_CL_m2[CL_ind, :, 0] = D_lower(low_by_m2)
     D1D2_by_CL_m2[CL_ind, :, 1] = D_upper(high_by_m2)
-    
+
 # write out the exclusion data
 file_out = open('pylal_grbUL-exclusion-'+opts.user_tag+'.pickle','w')
 pickle.dump([CLs, m2_bins, D1D2_by_CL_m2], file_out)
 file_out.close()
+
 ################################################################################
 # plots
 fnameList = []
@@ -490,10 +535,7 @@ plot.finalize()
 plot.ax.set_ylim((D_bins.min, D_bins.max))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "FC_exclusion_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
+    page.add_plot(plot.fig, "FC_exclusion_by_m2_D")
 if not opts.show_plot:
     plot.close()
 
@@ -502,25 +544,30 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     text = "p(L|D)"
 
     num_sigmas = stats.norm.ppf(0.9)
-    plot = plotutils.ImagePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
-        r"$p(\rho_L^2 | D) \textrm{ for } m_\mathrm{companion} \in "\
+    plot = plotutils.ImagePlot(r"$\ln L$", r"$D\ \mathrm{(Mpc)}$",
+        r"$p(L \,|\, D) \textrm{ for } m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
     plot.add_content(pLD_by_L_m2_D[:, m2_ind, :].T, L_bins, D_bins)
     plot.finalize()
 
+    # XXX: Hack around an apparent matplotlib API backwards-incompatibility
+    # When all clusters have 0.90 or higher, remove the try-except.
+    try:
+      image = [c for c in plot.ax.get_children() \
+               if isinstance(c, matplotlib.image.AxesImage)][0]
+      image.set_clim((0, 1))
+    except AttributeError:
+      pass
+
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "pLD_by_m2_D_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "pLD_by_m2_D_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
 
     ## D_best(L)
     text = "D_best(L)"
 
-    plot = plotutils.SimplePlot(r"$\rho_L^2$",
+    plot = plotutils.SimplePlot(r"$\ln L$",
         r"$D_\mathrm{best}$",
         r"$\textrm{FC }D_\mathrm{best} "\
         r"\textrm{ for } m_\mathrm{companion} \in "\
@@ -531,17 +578,14 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.ax.set_xlim((L_bins.min, L_bins.max))
 
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts, "D_best_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "D_best_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
 
     ## Feldman-Cousins confidence belts
     text = "Feldman-Cousins confidence belts"
 
-    plot = plotutils.SimplePlot(r"$\rho_L^2$", r"$D\ \mathrm{(Mpc)}$",
+    plot = plotutils.SimplePlot(r"$\ln L$", r"$D\ \mathrm{(Mpc)}$",
         r"$\textrm{FC confidence belts for } "\
         r"m_\mathrm{companion} \in "\
         r"[%.1f, %.1f) M_\odot$" % m2_range)
@@ -565,37 +609,9 @@ for m2_ind, m2_range in enumerate(zip(m2_bins.lower(), m2_bins.upper())):
     plot.ax.set_ylim((0, D_bins.max))
 
     if opts.enable_output:
-        fname = InspiralUtils.set_figure_name(opts,
-            "confidence_belts_%.1f" % m2_range[0])
-        fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-        fnameList.append(fname)
-        tagList.append(text)
+        page.add_plot(plot.fig, "confidence_belts_%.1f" % m2_range[0])
     if not opts.show_plot:
         plot.close()
-
-    ## Feldman-Cousins confidence bands (m2, D) image
-    for CL, included_by_L_D in zip(CLs, included_by_CL_L_m2_D[:, :, m2_ind, :]):
-        text = "Feldman-Cousins confidence regions"
-
-        plot = plotutils.ImagePlot(r"$m_\mathrm{companion}\ (M_\odot)$",
-            r"$D\ \mathrm{(Mpc)}$", r"$\textrm{FC "\
-            r"%d\%% inclusion regions for } m_\mathrm{companion} "\
-            r"\in [%.1f, %.1f) M_\odot$" \
-            % (int(CL * 100), m2_range[0], m2_range[1]))
-
-        plot.add_content(included_by_L_D.T, L_bins, D_bins)
-        plot.finalize(cmap=pylab.cm.gray_r, interpolation="nearest",
-                      colorbar=False)
-
-        if opts.enable_output:
-            fname = InspiralUtils.set_figure_name(opts,
-                "FC_%d_%.1f_inclusion_by_L_D" % (int(100 * CL), m2_range[0]))
-            fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-            fnameList.append(fname)
-            tagList.append(text)
-        if not opts.show_plot:
-            pylab.close()
-
 
 ## OLD upper limit contours (m2, D) image
 text = "(m2, D) contours including MC error"
@@ -619,24 +635,14 @@ plot.finalize()
 plot.ax.set_ylim((0, D_bins.max))
 
 if opts.enable_output:
-    fname = InspiralUtils.set_figure_name(opts, "old_exclusion_by_m2_D")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(text)
+    page.add_plot(plot.fig, "old_exclusion_by_m2_D")
 if not opts.show_plot:
     plot.close()
 
 
 #############################################################################
 # Generate HTML and cache file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-        fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-    if opts.html_for_cbcweb:
-        html_filename_publish = InspiralUtils.write_html_output(opts,
-            sys.argv[1:], fnameList, tagList, comment=html_footer, cbcweb=True)
+page.write_page()
 
 if opts.show_plot:
     pylab.show()

@@ -169,7 +169,7 @@ if not configFilePath:
 # created elsewhere
 configuration = {
   'server' : None,
-  'port' : 30020,
+  'port' : 30015,
   'gridmap' : 'grid-mapfile',
   'certfile' : 'ldbdcert.pem',
   'keyfile' : 'ldbdkey.pem',
@@ -182,8 +182,11 @@ configuration = {
   'logfile' : 'ldbdd.log',
   'logmaxbytes' : 1024 * 1024 * 1,
   'logbackupcount' : 5,
-  'loglevel' : 'INFO'
+  'loglevel' : 'INFO',
+  'ldbd_com':'',
+  'db2_com':''
   }
+
 
 # grab configuration
 myConfigParser = ConfigParser.ConfigParser()
