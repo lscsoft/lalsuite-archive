@@ -53,8 +53,8 @@
 
 
 struct inline_string_description {
-	size_t offset;
-	size_t length;
+	Py_ssize_t offset;
+	Py_ssize_t length;
 };
 
 
@@ -108,6 +108,41 @@ static int pylal_longlong_set(PyObject *obj, PyObject *val, void *data)
 	*x = PyLong_AsLongLong(val);
 
 	return PyErr_Occurred() ? -1 : 0;
+}
+
+
+struct ilwdchar_id_description {
+	Py_ssize_t offset;
+	PyObject **id_type;
+};
+
+
+static int pylal_ilwdchar_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
+	void *location = (uint8_t *) obj + desc->offset;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
+
+	if((PyObject *) val->ob_type != *desc->id_type) {
+		PyErr_SetObject(PyExc_TypeError, val);
+		return -1;
+	}
+
+	*(long *) location = i;
+
+	return 0;
+}
+
+
+static PyObject *pylal_ilwdchar_id_get(PyObject *obj, void *data)
+{
+	const struct ilwdchar_id_description *desc = (struct ilwdchar_id_description *) data;
+	void *location = (uint8_t *) obj + desc->offset;
+
+	return PyObject_CallFunction(*desc->id_type, "l", *(long *) location);
 }
 
 
@@ -240,33 +275,6 @@ static struct PyMemberDef pylal_SnglInspiralTable_members[] = {
 };
 
 
-static int pylal_SnglInspiralTable_process_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != process_id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	row->process_id_i = i;
-
-	return 0;
-}
-
-
-static PyObject *pylal_SnglInspiralTable_process_id_get(PyObject *obj, void *data)
-{
-	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
-
-	return PyObject_CallFunction(process_id_type, "l", row->process_id_i);
-}
-
-
 static int pylal_SnglInspiralTable_event_id_set(PyObject *obj, PyObject *val, void *data)
 {
 	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
@@ -290,7 +298,7 @@ static PyObject *pylal_SnglInspiralTable_event_id_get(PyObject *obj, void *data)
 {
 	pylal_SnglInspiralTable *row = (pylal_SnglInspiralTable *) obj;
 
-	return PyObject_CallFunction(sngl_inspiral_event_id_type, "l", row->event_id.id);
+	return PyObject_CallFunction(sngl_inspiral_event_id_type, "l", (long) row->event_id.id);
 }
 
 
@@ -298,7 +306,7 @@ static struct PyGetSetDef pylal_SnglInspiralTable_getset[] = {
 	{"ifo", pylal_inline_string_get, pylal_inline_string_set, "ifo", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.ifo), LIGOMETA_IFO_MAX}},
 	{"search", pylal_inline_string_get, pylal_inline_string_set, "search", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.search), LIGOMETA_SEARCH_MAX}},
 	{"channel", pylal_inline_string_get, pylal_inline_string_set, "channel", &(struct inline_string_description) {offsetof(pylal_SnglInspiralTable, sngl_inspiral.channel), LIGOMETA_CHANNEL_MAX}},
-	{"process_id", pylal_SnglInspiralTable_process_id_get, pylal_SnglInspiralTable_process_id_set, "process_id", NULL},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SnglInspiralTable, process_id_i), &process_id_type}},
 	{"event_id", pylal_SnglInspiralTable_event_id_get, pylal_SnglInspiralTable_event_id_set, "event_id", NULL},
 	{NULL,}
 };
@@ -423,37 +431,10 @@ static PyObject *ligolw_CoincMap_table_name_get(PyObject *obj, void *data)
 }
 
 
-static int ligolw_CoincMap_coinc_event_id_set(PyObject *obj, PyObject *val, void *data)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
-	long i = PyInt_AsLong(val);
-
-	if(PyErr_Occurred())
-		return -1;
-
-	if((PyObject *) val->ob_type != coinc_event_id_type) {
-		PyErr_SetObject(PyExc_TypeError, val);
-		return -1;
-	}
-
-	coinc_map->coinc_event_id_i = i;
-
-	return 0;
-}
-
-
-static PyObject *ligolw_CoincMap_coinc_event_id_get(PyObject *obj, void *data)
-{
-	ligolw_CoincMap *coinc_map = (ligolw_CoincMap *) obj;
-
-	return PyObject_CallFunction(coinc_event_id_type, "l", coinc_map->coinc_event_id_i);
-}
-
-
 static struct PyGetSetDef ligolw_CoincMap_getset[] = {
 	{"event_id", ligolw_CoincMap_event_id_get, ligolw_CoincMap_event_id_set, "event_id", NULL},
 	{"table_name", ligolw_CoincMap_table_name_get, ligolw_CoincMap_table_name_set, "table_name", NULL},
-	{"coinc_event_id", ligolw_CoincMap_coinc_event_id_get, ligolw_CoincMap_coinc_event_id_set, "coinc_event_id", NULL},
+	{"coinc_event_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "coinc_event_id", &(struct ilwdchar_id_description) {offsetof(ligolw_CoincMap, coinc_event_id_i), &coinc_event_id_type}},
 	{NULL,}
 };
 
