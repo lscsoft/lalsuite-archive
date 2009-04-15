@@ -91,26 +91,6 @@ static int pylal_inline_string_set(PyObject *obj, PyObject *val, void *data)
 }
 
 
-static PyObject *pylal_longlong_get(PyObject *obj, void *data)
-{
-	size_t offset = (size_t) data;
-	long long *x = (void *) obj + offset;
-
-	return PyLong_FromLongLong(*x);
-}
-
-
-static int pylal_longlong_set(PyObject *obj, PyObject *val, void *data)
-{
-	size_t offset = (size_t) data;
-	long long *x = (void *) obj + offset;
-
-	*x = PyLong_AsLongLong(val);
-
-	return PyErr_Occurred() ? -1 : 0;
-}
-
-
 struct ilwdchar_id_description {
 	Py_ssize_t offset;
 	PyObject **id_type;
@@ -348,6 +328,162 @@ PyTypeObject pylal_SnglInspiralTable_Type = {
 	.tp_getset = pylal_SnglInspiralTable_getset,
 	.tp_name = MODULE_NAME ".SnglInspiralTable",
 	.tp_new = pylal_SnglInspiralTable___new__,
+};
+
+
+/*
+ * ============================================================================
+ *
+ *                           SimInspiralTable Type
+ *
+ * ============================================================================
+ */
+
+
+/*
+ * Cached ID types
+ */
+
+
+static PyObject *sim_inspiral_simulation_id_type = NULL;
+
+
+/*
+ * Member access
+ */
+
+
+static struct PyMemberDef pylal_SimInspiralTable_members[] = {
+	{"geocent_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.geocent_end_time.gpsSeconds), 0, "geocent_end_time"},
+	{"geocent_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.geocent_end_time.gpsNanoSeconds), 0, "geocent_end_time_ns"},
+	{"h_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.h_end_time.gpsSeconds), 0, "h_end_time"},
+	{"h_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.h_end_time.gpsNanoSeconds), 0, "h_end_time_ns"},
+	{"l_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.l_end_time.gpsSeconds), 0, "l_end_time"},
+	{"l_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.l_end_time.gpsNanoSeconds), 0, "l_end_time_ns"},
+	{"g_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.g_end_time.gpsSeconds), 0, "g_end_time"},
+	{"g_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.g_end_time.gpsNanoSeconds), 0, "g_end_time_ns"},
+	{"t_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.t_end_time.gpsSeconds), 0, "t_end_time"},
+	{"t_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.t_end_time.gpsNanoSeconds), 0, "t_end_time_ns"},
+	{"v_end_time", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.v_end_time.gpsSeconds), 0, "v_end_time"},
+	{"v_end_time_ns", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.v_end_time.gpsNanoSeconds), 0, "v_end_time_ns"},
+	{"end_time_gmst", T_DOUBLE, offsetof(pylal_SimInspiralTable, sim_inspiral.end_time_gmst), 0, "end_time_gmst"},
+	{"mass1", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.mass1), 0, "mass1"},
+	{"mass2", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.mass2), 0, "mass2"},
+	{"mchirp", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.mchirp), 0, "mchirp"},
+	{"eta", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eta), 0, "eta"},
+	{"distance", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.distance), 0, "distance"},
+	{"longitude", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.longitude), 0, "longitude"},
+	{"latitude", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.latitude), 0, "latitude"},
+	{"inclination", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.inclination), 0, "inclination"},
+	{"coa_phase", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.coa_phase), 0, "coa_phase"},
+	{"polarization", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.polarization), 0, "polarization"},
+	{"psi0", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.psi0), 0, "psi0"},
+	{"psi3", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.psi3), 0, "psi3"},
+	{"alpha", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha), 0, "alpha"},
+	{"alpha1", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha1), 0, "alpha1"},
+	{"alpha2", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha2), 0, "alpha2"},
+	{"alpha3", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha3), 0, "alpha3"},
+	{"alpha4", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha4), 0, "alpha4"},
+	{"alpha5", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha5), 0, "alpha5"},
+	{"alpha6", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.alpha6), 0, "alpha6"},
+	{"beta", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.beta), 0, "beta"},
+	{"spin1x", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin1x), 0, "spin1x"},
+	{"spin1y", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin1y), 0, "spin1y"},
+	{"spin1z", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin1z), 0, "spin1z"},
+	{"spin2x", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin2x), 0, "spin2x"},
+	{"spin2y", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin2y), 0, "spin2y"},
+	{"spin2z", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.spin2z), 0, "spin2z"},
+	{"theta0", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.theta0), 0, "theta0"},
+	{"phi0", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.phi0), 0, "phi0"},
+	{"f_lower", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.f_lower), 0, "f_lower"},
+	{"f_final", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.f_final), 0, "f_final"},
+	{"eff_dist_h", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eff_dist_h), 0, "eff_dist_h"},
+	{"eff_dist_l", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eff_dist_l), 0, "eff_dist_l"},
+	{"eff_dist_g", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eff_dist_t), 0, "eff_dist_t"},
+	{"eff_dist_t", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eff_dist_g), 0, "eff_dist_g"},
+	{"eff_dist_v", T_FLOAT, offsetof(pylal_SimInspiralTable, sim_inspiral.eff_dist_v), 0, "eff_dist_v"},
+	{"numrel_mode_min", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_mode_min), 0, "numrel_mode_min"},
+	{"numrel_mode_max", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_mode_max), 0, "numrel_mode_max"},
+	{"amp_order", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.amp_order), 0, "amp_order"},
+	{"bandpass", T_INT, offsetof(pylal_SimInspiralTable, sim_inspiral.bandpass), 0, "bandpass"},
+	{NULL,}
+};
+
+
+static int pylal_SimInspiralTable_simulation_id_set(PyObject *obj, PyObject *val, void *data)
+{
+	pylal_SimInspiralTable *row = (pylal_SimInspiralTable *) obj;
+	long i = PyInt_AsLong(val);
+
+	if(PyErr_Occurred())
+		return -1;
+
+	if((PyObject *) val->ob_type != sim_inspiral_simulation_id_type) {
+		PyErr_SetObject(PyExc_TypeError, val);
+		return -1;
+	}
+
+	row->event_id.id = i;
+
+	return 0;
+}
+
+
+static PyObject *pylal_SimInspiralTable_simulation_id_get(PyObject *obj, void *data)
+{
+	pylal_SimInspiralTable *row = (pylal_SimInspiralTable *) obj;
+
+	return PyObject_CallFunction(sim_inspiral_simulation_id_type, "l", (long) row->event_id.id);
+}
+
+
+static struct PyGetSetDef pylal_SimInspiralTable_getset[] = {
+	{"waveform", pylal_inline_string_get, pylal_inline_string_set, "waveform", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.waveform), LIGOMETA_WAVEFORM_MAX}},
+	{"source", pylal_inline_string_get, pylal_inline_string_set, "source", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.source), LIGOMETA_SOURCE_MAX}},
+	{"numrel_data", pylal_inline_string_get, pylal_inline_string_set, "numrel_data", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.numrel_data), LIGOMETA_STRING_MAX}},
+	{"taper", pylal_inline_string_get, pylal_inline_string_set, "taper", &(struct inline_string_description) {offsetof(pylal_SimInspiralTable, sim_inspiral.taper), LIGOMETA_INSPIRALTAPER_MAX}},
+	{"process_id", pylal_ilwdchar_id_get, pylal_ilwdchar_id_set, "process_id", &(struct ilwdchar_id_description) {offsetof(pylal_SimInspiralTable, process_id_i), &process_id_type}},
+	{"simulation_id", pylal_SimInspiralTable_simulation_id_get, pylal_SimInspiralTable_simulation_id_set, "simulation_id", NULL},
+	{NULL,}
+};
+
+
+/*
+ * Methods
+ */
+
+
+static PyObject *pylal_SimInspiralTable___new__(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+	/* call the generic __new__() */
+	pylal_SimInspiralTable *new = (pylal_SimInspiralTable *) PyType_GenericNew(type, args, kwds);
+
+	if(!new)
+		return NULL;
+
+	/* link the event_id pointer in the sngl_inspiral table structure
+	 * to the event_id structure */
+	new->sim_inspiral.event_id = &new->event_id;
+
+	/* done */
+	return (PyObject *) new;
+}
+
+
+/*
+ * Type
+ */
+
+
+PyTypeObject pylal_SimInspiralTable_Type = {
+	PyObject_HEAD_INIT(NULL)
+	.tp_basicsize = sizeof(pylal_SimInspiralTable),
+	.tp_doc = "LAL's SimInspiralTable structure",
+	.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_CHECKTYPES,
+	.tp_members = pylal_SimInspiralTable_members,
+	.tp_getset = pylal_SimInspiralTable_getset,
+	.tp_name = MODULE_NAME ".SimInspiralTable",
+	.tp_new = pylal_SimInspiralTable___new__,
 };
 
 
@@ -594,6 +730,13 @@ void inittools(void)
 	PyModule_AddObject(module, "SnglInspiralTable", (PyObject *) &pylal_SnglInspiralTable_Type);
 	process_id_type = get_ilwdchar_class("process", "process_id");
 	sngl_inspiral_event_id_type = get_ilwdchar_class("sngl_inspiral", "event_id");
+
+	/* SimInspiralTable */
+	if(PyType_Ready(&pylal_SimInspiralTable_Type) < 0)
+		return;
+	Py_INCREF(&pylal_SimInspiralTable_Type);
+	PyModule_AddObject(module, "SimInspiralTable", (PyObject *) &pylal_SimInspiralTable_Type);
+	sim_inspiral_simulation_id_type = get_ilwdchar_class("sim_inspiral", "simulation_id");
 
 	/* CoincMap */
 	if(PyType_Ready(&ligolw_CoincMap_Type) < 0)
