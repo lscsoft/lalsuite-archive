@@ -730,6 +730,8 @@ class ExperimentSummaryTable(table.Table):
 		for row in self:
 			if row.experiment_summ_id != experiment_summ_id:
 				continue
+			if row.nevents is None:
+				row.nevents = 0
 			if add_to_current:
 				row.nevents += num_events
 				return row.nevents

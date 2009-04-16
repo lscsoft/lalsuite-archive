@@ -37,6 +37,7 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal import snglcoinc
 from pylal.date import LIGOTimeGPS
+from pylal import tools
 from pylal.xlal import tools as xlaltools
 
 
@@ -90,7 +91,9 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 			cmp(self.search, other.search)
 		)
 
-lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = SnglInspiral
+# FIXME:  can't use C row class until event_ids don't have bazillions of
+# digits because Macs blow.  can't have 64-bit python a Mac.  nope.
+#lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = SnglInspiral
 
 
 #
@@ -305,7 +308,7 @@ def inspiral_coinc_compare(a, b, e_thinca_parameter):
 	"""
 	try:
 		# FIXME:  should it be ">" or ">="?
-		return xlaltools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
+		return tools.XLALCalculateEThincaParameter(a, b) > e_thinca_parameter
 	except ValueError:
 		# ethinca test failed to converge == events are not
 		# coincident
