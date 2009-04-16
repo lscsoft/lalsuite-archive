@@ -1678,6 +1678,9 @@ class followupTriggerNode(pipeline.CondorDAGNode,webTheNode):
 
     self.id = job.name + "-" + str(trig.eventID)
 
+    if opts.convert_eventid:
+      self.add_var_opt("old-document",True)
+
     if opts.generate_fu_cache or not cp.has_option('followup-triggers','hipe-output-cache'):
       cacheString = 'fu_hipe.cache'
     else:

@@ -26,7 +26,7 @@ set of loudest statistics from background trials.
 
 from __future__ import division
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>, Alexander Dietz alexander.dietz@lapp.in2p3.fr"
 __prog__ = "pylal_expose"
 __title__ = "External Trigger Population Search"
 
@@ -67,16 +67,16 @@ def extract_grb_name(file):
 
     return None
             
-def extract_grb_names(filelist):
-    """
-    Given a list of pickle filenames, this function
-    extracts the GRB names from the files.
-    """
-    grb_list = set()
-    for file in filelist:
-        grb_list.add(extract_grb_name(file))
+## def extract_grb_names(filelist):
+##     """
+##     Given a list of pickle filenames, this function
+##     extracts the GRB names from the files.
+##     """
+##     grb_list = set()
+##     for file in filelist:
+##         grb_list.add(extract_grb_name(file))
 
-    return grb_list
+##     return grb_list
     
 def find_file(filelist, grb_name):
     for file in filelist:
@@ -105,8 +105,10 @@ def load_grb_table(filename_grb, files_onsource, files_offsource,\
         raise ValueError, "The number of onsource files and offsource files"\
               " is different. They should be the same!"
 
-    list_onsource = extract_grb_names(files_onsource)
-    list_offsource = extract_grb_names(files_offsource)
+    list_onsource = set(extract_grb_name(f) for f in files_onsource)
+    #list_onsource = extract_grb_names(files_onsource)
+    #list_offsource = extract_grb_names(files_offsource)
+    list_offsource = set(extract_grb_name(f) for f in files_offsource)
     if list_onsource!=list_offsource:
         raise ValueError, "The onsource files do not match the offsource files!"
     list_grbs = list_onsource
@@ -260,9 +262,10 @@ pop_stat = PopStatement.PopStatement(grb_data,'condensed')
 
 # create the PopStatement instances for the m2-bin analysis
 pop_m2 = {}
-dm = (opts.m2_max - opts.m2_min) / opts.m2_nbins
-m2_edges = opts.m2_min + numpy.arange(opts.m2_nbins + 1, dtype=float) * dm
-for m2_low, m2_high in zip(m2_edges[:-1], m2_edges[1:]):
+#dm = (opts.m2_max - opts.m2_min) / opts.m2_nbins
+#m2_edgesx = opts.m2_min + numpy.arange(opts.m2_nbins + 1, dtype=float) * dm
+m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins )
+for m2_low, m2_high in zip(m2_bins.lower(), m2_bins.upper()):
     mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
     pop_m2[mass_bin] = PopStatement.PopStatement(grb_data, mass_bin)
 
@@ -283,7 +286,7 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
 
     # add data to the m2-pop statement instances
     for index_m2, (m2_low, m2_high) in \
-        enumerate(zip(m2_edges[:-1], m2_edges[1:])):             
+        enumerate(zip(m2_bins.lower(), m2_bins.upper())):             
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
         pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[:,index_m2])
         pop_m2[mass_bin].add_foreground(grb_name, onsource_L_by_m2[index_m2])
@@ -317,8 +320,7 @@ if opts.analyze=='test':
     vec_lik = {}
     vec_ifar = {}
     
-    #for type in ['random','single','max']:
-    for type in ['max']:    
+    for type in ['random','single','max']:
         print "Samples drawn from ", type
         
         dummy_lik = []
@@ -329,7 +331,6 @@ if opts.analyze=='test':
             dummy_lik.append(z_lik)
             dummy_ifar.append(z_ifar)
 
-            print z_lik
         vec_lik[type]=dummy_lik
         vec_ifar[type]=dummy_ifar    
 
@@ -365,13 +366,13 @@ else:
 
 
     # prepare arrays to hold the data
-    z_lik_by_m2 = numpy.zeros(len(m2_edges)-1, float)
-    z_ifar_by_m2 = numpy.zeros(len(m2_edges)-1, float)
-    p_by_m2 = numpy.zeros(len(m2_edges)-1, float)
+    z_lik_by_m2 = numpy.zeros(opts.m2_nbins, float)
+    z_ifar_by_m2 = numpy.zeros(opts.m2_nbins, float)
+    p_by_m2 = numpy.zeros(opts.m2_nbins, float)
 
     # analyse each of the m2 pop instances
     for index_m2, (m2_low, m2_high) in \
-            enumerate(zip(m2_edges[:-1], m2_edges[1:])):
+            enumerate(zip(m2_bins.lower(), m2_bins.upper())):
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
         pop_m2[mass_bin].select_onsource(opts.analyze)
@@ -402,8 +403,8 @@ else:
     
     # create the final plot
     plt.clf()
-    plt.plot(m2_edges[:-1], z_lik_by_m2, 'r-', linewidth = 3)
-    plt.plot(m2_edges[:-1], z_ifar_by_m2, 'b-', linewidth = 3)    
+    plt.plot(m2_bins.centres(), z_lik_by_m2, 'r-', linewidth = 3)
+    plt.plot(m2_bins.centres(), z_ifar_by_m2, 'b-', linewidth = 3)    
     plt.grid(True)
     plt.xlabel('m2')
     plt.ylabel('sigma')
@@ -411,7 +412,7 @@ else:
     page.add_plot(plt.gcf(), "condense_sigma-"+opts.analyze)
 
     plt.clf()
-    plt.plot(m2_edges[:-1], p_by_m2, 'r-', linewidth = 3)
+    plt.plot(m2_bins.centres(), p_by_m2, 'r-', linewidth = 3)
     plt.grid(True)
     plt.xlabel('m2')
     plt.ylabel('p (one sided)')
