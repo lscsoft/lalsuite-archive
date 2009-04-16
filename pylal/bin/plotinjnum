@@ -31,7 +31,7 @@ def found_missed(opts,foundFiles,missedFiles):
   for file in foundFiles:
     file = [file]
     simFound = SimInspiralUtils.ReadSimInspiralFromFiles(file)
-    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True)
+    inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(file,mangle_event_id=True,old_document=opts.old_document)
     if simFound and inspTriggers:
     # construct the coincs
       fileCoincTriggers = \
@@ -198,6 +198,10 @@ def parse_command_line():
       "or in CVS. This only works IF --enable-output is also specified. The "\
       "argument should be the cvs directory where the html file will be placed "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
+
+  parser.add_option("", "--old-document",action="store_true",\
+      default=False,help="this option turns on mangling. you are only "\
+      "supposed to use it if you are handling old documents")
 
   (options,args) = parser.parse_args()
   # test the input options

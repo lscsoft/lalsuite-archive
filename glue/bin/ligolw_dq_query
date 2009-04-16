@@ -93,8 +93,6 @@ __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
 __date__    = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-
-__date__    = "$Date$"[7:-2]
 #
 # =============================================================================
 #
@@ -209,6 +207,9 @@ def build_segment_clause(clauses):
     def build_segment_subclause(clause):
         tmp = clause.split(':')
 
+        if len(tmp) == 1 or tmp[1] == '*':
+            return "segment_definer.ifos = '%s'" % (tmp[0])
+
         if len(tmp) == 2 or tmp[2] == '*':
             return "segment_definer.ifos = '%s' AND segment_definer.name = '%s'" % (tmp[0], tmp[1])
 
@@ -256,8 +257,7 @@ def run_report(doc, process_id, engine, include_segments, times):
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
-       rows = engine.query("""
-           SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
+       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
            AND   segment.start_time < %d %s
@@ -268,8 +268,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_start[key] = row[3]
 
-       rows = engine.query("""
-           SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
+       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
            AND   segment.end_time < %d %s
@@ -280,8 +279,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_end[key] = row[3]
 
-       rows = engine.query("""
-           SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
+       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
            AND   segment.start_time > %d %s
@@ -292,8 +290,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             min_start[key] = row[3]
 
-       rows = engine.query("""
-           SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
+       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
            AND   segment.end_time > %d %s
@@ -344,8 +341,7 @@ def run_active(doc, process_id, engine, include_segments, times):
     if include_segments:
         segment_clause = ' AND ' + build_segment_clause(include_segments)
 
-    rows = engine.query("""
-        SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, segment_definer.comment, segment.start_time, segment.end_time
+    rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, segment_definer.comment, segment.start_time, segment.end_time
         FROM segment_definer, segment_summary, segment
         WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
         AND   segment.start_time BETWEEN segment_summary.start_time AND segment_summary.end_time
@@ -377,8 +373,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
     if include_segments:
         segment_clause = ' AND ' + build_segment_clause(include_segments)
 
-    rows = engine.query("""
-        SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, segment_definer.comment,
+    rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, segment_definer.comment,
                segment_summary.start_time, segment_summary.end_time
         FROM segment_definer, segment_summary
         WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
@@ -452,12 +447,27 @@ def ping_server(client):
 #
 
 
-def setup_files(dir_name):
+def file_filter(file_name, start_time, end_time):
+    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
+    times returns true if the file falls into the time interval."""
+    
+    pieces    = file_name.split('-')
+    file_time = int(pieces[-2])
+
+    return file_time >= (start_time-16) and file_time <= (end_time+16)
+
+
+def setup_files(dir_name, options, times):
     # extract directory from URL
     glob_pattern = dir_name + '/*.xml'
 
     # Filter out the ones that are outside our time range
-    xml_files = glob.glob(glob_pattern)
+    if options.active or options.defined:
+	xml_files = []
+	for t in times:
+            xml_files += filter(lambda x: file_filter(x, t[0], t[1]), glob.glob(glob_pattern))
+    else:
+        xml_files = glob.glob(glob_pattern)
 
     # TODO: This should have a better name that includes the
     # start and end times
@@ -521,7 +531,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location)
+        connection = setup_files(file_location, options, times)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 

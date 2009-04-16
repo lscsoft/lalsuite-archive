@@ -40,7 +40,7 @@ class InspiralPage(object):
 
     # just adding some stuff to the opts structure
     # (should be fixed later)
-    initialise(self.opts, sys.argv[0])
+    initialise(self.opts, os.path.basename(sys.argv[0]))
 
   def add_plot(self, plot_fig, text):
     """
@@ -60,7 +60,7 @@ class InspiralPage(object):
     if self.opts.enable_output:
       html_filename = write_html_output(self.opts, sys.argv[1:],\
                                         self.fname_list, self.tag_list,\
-                                        comment=self.html_footer)
+                                        comment=self.html_footer or None)
       write_cache_output(self.opts, html_filename, self.fname_list)
 
   def write(self, text):
@@ -126,7 +126,7 @@ def message(opts, text):
   """
 
   """
-  if opts.verbose is True:
+  if opts.verbose:
     print text
   return text+'<br>\n'
 
@@ -268,7 +268,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
      
 
       # set the thumbnail pictures if required
-    if doThumb is True:
+    if doThumb:
       fname_thumb = fname[:-4] + "_thumb.png"
     else:
       fname_thumb =fname
@@ -299,7 +299,7 @@ def write_html_output(opts, args, fnameList, tagLists, \
       page.add('</P></MAP></OBJECT><br>')
       page.add("<hr/>")    
 
-  if opts.enable_output is True:
+  if opts.enable_output:
     if comment is not None:
       page.add("<div> "+comment+"</div>")
       page.hr()
@@ -323,7 +323,7 @@ def write_cache_output(opts, html_filename,fnameList):
   if opts.output_path:
     output_cache_name = opts.output_path + output_cache_name
   this = open(output_cache_name, 'w')
-  if opts.enable_output is True:
+  if opts.enable_output:
     this.write(os.path.basename(html_filename) + '\n')
   for filename in fnameList:
     if str(filename).endswith('.png'): 
@@ -417,7 +417,7 @@ def initialise(opts, name, version = None):
     if opts.ifo_times:
       prefix = opts.ifo_times +"-"+ prefix
   except:
-     print >> sys.stderr, "--ifo-time option not implemented in the "+name +" executable. skipping..."
+     print >> sys.stderr, "--ifo-times option not implemented in the "+name +" executable. skipping..."
      pass
   try:
     if opts.ifo_tag:
@@ -480,7 +480,7 @@ def init_markup_page( opts):
   @return extra 
   """
   # Initialise the html output file
-  if opts.enable_output is True:
+  if opts.enable_output:
     try:
       from glue import markup
       from glue.markup import oneliner as extra_oneliner
@@ -513,7 +513,7 @@ def readHorizonDistanceFromSummValueTable(fList, verbose=False):
 
   # for each file in the list 
   for thisFile in fList:
-    if verbose is True:
+    if verbose:
       print str(count+1)+"/"+str(len(fList))+" " + thisFile
     count = count+1
     massNum = 0
