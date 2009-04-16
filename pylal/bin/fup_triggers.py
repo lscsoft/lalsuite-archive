@@ -76,6 +76,10 @@ parser.add_option("","--followup-tag",action="store",\
     type="string", default=None, metavar=" STRING",\
     help="select an injection run using tag")
 
+parser.add_option("", "--old-document",action="store_true",\
+    default=False,help="this option turns on type remapping. you are only "\
+    "supposed to use it if you are handling old documents")
+
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
 
