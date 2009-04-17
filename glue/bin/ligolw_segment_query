@@ -258,8 +258,7 @@ def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, se
     # Do we have a version number?
     if version is not None:
         # We can't use queries paramaterized with ? since the ldbd protocol doesn't support it...
-        rows = engine.query("""
-          SELECT segment.start_time, segment.end_time, segment_definer.version
+        rows = engine.query("""SELECT segment.start_time, segment.end_time, segment_definer.version
           FROM segment, segment_definer
           WHERE segment.segment_def_id = segment_definer.segment_def_id
           AND   segment_definer.ifos = '%s'
@@ -274,8 +273,7 @@ def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, se
         engine.close()
     else:
         # Find all versions, segments and segment summaries
-        rows = engine.query("""
-            SELECT segment_definer.version,
+        rows = engine.query("""SELECT segment_definer.version,
                    segment_summary.start_time, segment_summary.end_time,
                    segment.start_time, segment.end_time
             FROM segment_summary, segment_definer, segment
@@ -364,8 +362,7 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
     resulttable = lsctables.New(ShowTypesResultTable)
     doc.childNodes[0].appendChild(resulttable)
     
-    rows = engine.query("""
-          SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
+    rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
                  (CASE WHEN segment_definer.comment IS NULL THEN '-' WHEN segment_definer.comment IS NOT NULL THEN segment_definer.comment END),
                  segment_summary.start_time, segment_summary.end_time,
                  (CASE WHEN segment_summary.comment IS NULL THEN '-' WHEN segment_summary.comment IS NOT NULL THEN segment_summary.comment END)
@@ -465,8 +462,7 @@ def run_query_segments(doc, proc_id, connection, engine, gps_start_time, gps_end
 def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_time, included_segments):
     query_segment = glue.segments.segmentlist([glue.segments.segment(gps_start_time, gps_end_time)])
 
-    sql = """
-    SELECT segment_definer.ifos, segment_definer.name,segment_definer.version,
+    sql = """SELECT segment_definer.ifos, segment_definer.name,segment_definer.version,
            (CASE WHEN segment_definer.comment IS NULL THEN '-' WHEN segment_definer.comment IS NOT NULL THEN segment_definer.comment END),
            segment_summary.start_time, segment_summary.end_time,
            (CASE WHEN segment_summary.comment IS NULL THEN '-' WHEN segment_summary.comment IS NOT NULL THEN segment_summary.comment END)

@@ -324,7 +324,7 @@ if __name__ == '__main__':
 
 
     # Get start and end times for file names
-    min_start_time, max_end_time = segment_query_engine.query("select min(start_time), max(end_time) from segment").next()
+    min_start_time, max_end_time = segment_query_engine.query("select min(start_time), max(end_time) from segment")[0]
 
     #
     # Get the set of veto categories and ifos for which we have segments 
