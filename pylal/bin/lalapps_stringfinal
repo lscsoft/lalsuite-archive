@@ -38,6 +38,8 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+from scipy import interpolate
+from scipy import optimize
 try:
 	import sqlite3
 except ImportError:
@@ -319,23 +321,6 @@ def slope(x, y):
 	return slope
 
 
-def solve(x, y, xval = None, yval = None):
-	"""
-	From the x and y arrays, solve for the value of x where y = yval,
-	or for the value of y where x = xval.  Can't do both.  A linear
-	interpolation is done between (x,y) pairs.
-	"""
-	# FIXME: assumes x and y are both monotonically increasing!
-	if xval is None and yval is not None:
-		i = bisect.bisect_left(y, yval)
-		return x[i - 1] + (x[i] - x[i - 1]) * (yval - y[i - 1]) / (y[i] - y[i - 1])
-	elif xval is not None and yval is None:
-		i = bisect.bisect_left(x, xval)
-		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
-	else:
-		raise ValueError, "invalid arguments"
-
-
 def upper_err(y, yerr, deltax):
 	z = y + yerr
 	deltax = int(deltax)
@@ -396,8 +381,8 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	line = axes.plot(x, eff, colour + "-")
 
 	# compute 50% point and its uncertainty
-	A50 = solve(x, eff, yval = 0.5)
-	A50_err = solve(x, net_xerr, xval = A50)
+	A50 = optimize.bisect(interpolate.interp1d(x, eff - 0.5), x[0], x[-1], xtol = 1e-40)
+	A50_err = interpolate.interp1d(x, net_xerr)(A50)
 
 	# mark 50% point on graph
 	axes.axvline(A50, color = colour)
@@ -405,7 +390,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
-	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / solve(x, dydx, xval = A50)**2.0)**(1.0/3.0))
+	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
 	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
