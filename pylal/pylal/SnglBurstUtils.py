@@ -34,8 +34,8 @@ matplotlib.rcParams.update({
 	"xtick.labelsize": 8.0,
 	"ytick.labelsize": 8.0,
 	"legend.fontsize": 8.0,
-	"figure.dpi": 300,
-	"savefig.dpi": 300,
+	"figure.dpi": 600,
+	"savefig.dpi": 600,
 	"text.usetex": True	# render all text with TeX
 })
 from matplotlib import figure
@@ -252,13 +252,15 @@ def latexnumber(s):
 
 
 class BurstPlot(object):
-	def __init__(self, x_label, y_label):
+	def __init__(self, x_label, y_label, width = 165.0):
+		"""
+		width is in mm
+		"""
 		self.nevents = 0
 		self.fig = figure.Figure()
 		FigureCanvas(self.fig)
-		# 6.5" wide, golden ratio high
-		self.fig.set_size_inches(6.5, 6.5 / ((1 + math.sqrt(5)) / 2))
-		#self.fig.set_size_inches(16, 8)
+		# width mm wide, golden ratio high
+		self.fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
 		self.axes = self.fig.gca()
 		self.axes.grid(True)
 		self.axes.set_xlabel(x_label)
