@@ -532,7 +532,6 @@ class ExperimentTable(table.Table):
 	constraints = "PRIMARY KEY (experiment_id)"
 	next_id = ExpDefID(0)
 
-
 	def get_expr_id(self, search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments = None):
 		"""
 		Return the expr_def_id for the row in the table whose
@@ -607,8 +606,8 @@ class Experiment(object):
 		"""
 		self.instruments = ifos_from_instrument_set(instruments)
 
-ExperimentTable.RowType = Experiment
 
+ExperimentTable.RowType = Experiment
 
 
 #
@@ -640,7 +639,6 @@ class ExperimentSummaryTable(table.Table):
 		"es_ei_index": ("experiment_id",),
 	}
 	next_id = ExpSummID(0)
-	
 
 	def as_id_dict(self):
 		"""
@@ -748,6 +746,7 @@ class ExperimentSummary(object):
 
 
 ExperimentSummaryTable.RowType = ExperimentSummary
+
 
 #
 # =============================================================================
@@ -2119,8 +2118,6 @@ class SegmentDef(object):
 
 
 SegmentDefTable.RowType = SegmentDef
-
-
 
 
 #
