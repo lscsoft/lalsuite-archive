@@ -80,6 +80,9 @@ def parse_args():
     parser.add_option("--reject-redshift-grb", action="store_true",
                       help="Enables any GRB with a redshift value to be rejected. "\
                       "Not recommended.", default=False)
+    parser.add_option("--reject-no-candidate", action="store_true",
+                      help="Rejects any GRB which does not have any candidate"\
+                      " for the population statement.", default=False)
     
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
@@ -172,14 +175,7 @@ for grb_name in list_grb:
            pickle.load(open(file_off))
     n_trials = offsource_L_by_trial_m2.shape[0]
 
-    # add data to the m2-pop statement instances
-    for index_m2, (m2_low, m2_high) in \
-        enumerate(zip(m2_bins.lower(), m2_bins.upper())):             
-        mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-        pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[:,index_m2])
-        pop_m2[mass_bin].add_foreground(grb_name, onsource_L_by_m2[index_m2])
-        
-        
+
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials
@@ -187,7 +183,18 @@ for grb_name in list_grb:
     if log_sum_L == -numpy.infty:
         text+= "(no candidate)"    
     page.write(text)
-        
+
+    if opts.reject_no_candidate and log_sum_L == -numpy.infty:
+        print "This GRB will not be used for the final population statement"
+        continue
+
+    # add data to the m2-pop statement instances
+    for index_m2, (m2_low, m2_high) in \
+        enumerate(zip(m2_bins.lower(), m2_bins.upper())):             
+        mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
+        pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[:,index_m2])
+        pop_m2[mass_bin].add_foreground(grb_name, onsource_L_by_m2[index_m2])
+                       
 
     # populate the popStatement instance with real background/onsource
     pop_stat.add_background_by_trial(grb_name, off_log_sum_L_by_trial)
@@ -223,6 +230,9 @@ if opts.analyze=='test':
 
             dummy_lik.append(z_lik)
             dummy_ifar.append(z_ifar)
+            
+        pickle.dump(dummy_lik, open('expose_random_z.pickle','w'))
+        sys.exit(0)
 
         vec_lik[type]=dummy_lik
         vec_ifar[type]=dummy_ifar
