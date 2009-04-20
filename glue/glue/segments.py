@@ -1208,13 +1208,7 @@ class segmentlistdict(dict):
 #
 
 
-#
-# FIXME:  commented out until LSCsegFind client/server protocol fixed.
-#
-
-
-#try:
-#	from __segments import *
-#except ImportError:
-#	pass
-
+try:
+	from __segments import *
+except ImportError:
+	pass
