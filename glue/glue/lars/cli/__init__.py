@@ -128,7 +128,7 @@ def objectify(d):
     # make xmlrpc return values look like soap return values so we
     # can quickly un-soapify this stuff.
     if type(d) != dict: return d
-    class X(): pass
+    class X(object): pass
     rv = X()
     for key in d.keys():
         setattr(rv, key, d[key])
