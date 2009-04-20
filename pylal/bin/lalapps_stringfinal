@@ -38,6 +38,8 @@ from optparse import OptionParser
 import math
 from matplotlib import patches
 import numpy
+from scipy import interpolate
+from scipy import optimize
 try:
 	import sqlite3
 except ImportError:
@@ -219,13 +221,15 @@ WHERE
 		self.axes.set_title(r"Cummulative Coincident Event Rate vs.\ Amplitude in %s" % self.instrument)
 		self.background.sort()
 		self.foreground.sort()
+		self.background = numpy.array(self.background, dtype = "double")
+		self.foreground = numpy.array(self.foreground, dtype = "double")
 		print "Amplitude of loudest %s zero-lag survivor: %.9g s^(-1/3)" % (self.instrument, self.foreground[-1])
 		# ratio of live times
 		foregrounds_per_background = self.foreground_time / self.background_time
 		# cummulative number expected in foreground
 		background_y = numpy.arange(len(self.background), 0.0, -1.0, dtype = "double") * foregrounds_per_background
 		# \sqrt{N} std dev expected in foreground
-		background_yerr = numpy.sqrt(numpy.array(background_y))
+		background_yerr = numpy.sqrt(background_y)
 		# convert to rate and uncertainty expected in foreground
 		background_y /= self.foreground_time
 		background_yerr /= self.foreground_time
@@ -240,11 +244,10 @@ WHERE
 		ymin = 1e-8
 		ymax = 1e-4
 		poly_x = numpy.concatenate((self.background, self.background[::-1]))
-		poly_y = numpy.concatenate((background_y + 2 * background_yerr, (background_y - 2 * background_yerr)[::-1]))
+		poly_y = numpy.concatenate((background_y + 1 * background_yerr, (background_y - 1 * background_yerr)[::-1]))
 		self.axes.add_patch(patches.Polygon(zip(poly_x, numpy.clip(poly_y, ymin, ymax)), edgecolor = "k", facecolor = "k", alpha = 0.3))
-		line1 = self.axes.plot(self.background, background_y, "ko-")
-
-		line2 = self.axes.plot(self.foreground, foreground_y, "ro-", markeredgecolor = "r")
+		line1, = self.axes.plot(self.background.repeat(2)[:-1], background_y.repeat(2)[1:], color = "k", linestyle = "-")
+		line2, = self.axes.plot(self.foreground, foreground_y, "ko", markeredgecolor = "k")
 		self.axes.legend((line1, line2), (r"Time-slide events", r"Zero-lag events"), loc = "upper right")
 
 		self.axes.set_xlim([xmin, xmax])
@@ -309,7 +312,8 @@ AS
 
 def slope(x, y):
 	"""
-	From the x and y array, compute the slope everywhere.
+	From the x and y arrays, compute the slope at the x co-ordinates
+	using a first-order finite difference approximation.
 	"""
 	slope = numpy.zeros((len(x),), dtype = "double")
 	slope[0] = (y[1] - y[0]) / (x[1] - x[0])
@@ -317,23 +321,6 @@ def slope(x, y):
 		slope[i] = (y[i + 1] - y[i - 1]) / (x[i + 1] - x[i - 1])
 	slope[-1] = (y[-1] - y[-2]) / (x[-1] - x[-2])
 	return slope
-
-
-def solve(x, y, xval = None, yval = None):
-	"""
-	From the x and y arrays, solve for the value of x where y = yval,
-	or for the value of y where x = xval.  Can't do both.  A linear
-	interpolation is done between (x,y) pairs.
-	"""
-	# FIXME: assumes x and y are both monotonically increasing!
-	if xval is None and yval is not None:
-		i = bisect.bisect_left(y, yval)
-		return x[i - 1] + (x[i] - x[i - 1]) * (yval - y[i - 1]) / (y[i] - y[i - 1])
-	elif xval is not None and yval is None:
-		i = bisect.bisect_left(x, xval)
-		return y[i - 1] + (y[i] - y[i - 1]) * (xval - x[i - 1]) / (x[i] - x[i - 1])
-	else:
-		raise ValueError, "invalid arguments"
 
 
 def upper_err(y, yerr, deltax):
@@ -361,7 +348,7 @@ def write_efficiency(fileobj, bins, eff, yerr, filterwidth):
 		print >>fileobj, math.log(A), e, De
 
 
-def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_width, colour):
+def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_width, colour = "k", erroralpha = 0.3, linestyle = "-"):
 	# extract array of x co-ordinates, and the factor by which x
 	# increases from one sample to the next.
 	(x,) = efficiency.centres()
@@ -391,21 +378,21 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 	write_efficiency(dump_file, efficiency.bins(), eff, net_yerr, filter_width)
 
 	# plot the efficiency curve and uncertainty region
-	patch = patches.Polygon(zip(numpy.concatenate((x, x[::-1])), numpy.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = 0.3)
+	patch = patches.Polygon(zip(numpy.concatenate((x, x[::-1])), numpy.concatenate((eff + upper_err(eff, yerr, filter_width / 2), (eff - lower_err(eff, yerr, filter_width / 2))[::-1]))), edgecolor = colour, facecolor = colour, alpha = erroralpha)
 	axes.add_patch(patch)
-	line = axes.plot(x, eff, colour + "-")
+	line, = axes.plot(x, eff, colour + linestyle)
 
 	# compute 50% point and its uncertainty
-	A50 = solve(x, eff, yval = 0.5)
-	A50_err = solve(x, net_xerr, xval = A50)
+	A50 = optimize.bisect(interpolate.interp1d(x, eff - 0.5), x[0], x[-1], xtol = 1e-40)
+	A50_err = interpolate.interp1d(x, net_xerr)(A50)
 
 	# mark 50% point on graph
-	axes.axvline(A50, color = colour)
+	axes.axvline(A50, color = colour, linestyle = linestyle)
 
 	# print some analysis
 	num_injections = efficiency.denominator.array.sum()
 	num_samples = len(efficiency.denominator)
-	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / solve(x, dydx, xval = A50)**2.0)**(1.0/3.0))
+	print "Bins were %g samples wide, ideal would have been %g" % (filter_width, (num_samples / num_injections / interpolate.interp1d(x, dydx)(A50)**2.0)**(1.0/3.0))
 	print "Average number of injections in each bin = %g" % efficiency.denominator.array.mean()
 
 	return line, A50, A50_err
@@ -461,11 +448,7 @@ FROM
 	def finish(self):
 		# put made and found injections in the denominators and
 		# numerators of the efficiency bins
-		self.all.sort(lambda a, b: cmp(a.amplitude, b.amplitude))
-		min_amplitude = self.all[0].amplitude * self.amplitude_factor
-		max_amplitude = self.all[-1].amplitude * self.amplitude_factor
-
-		bins = rate.NDBins((rate.LogarithmicBins(min_amplitude, max_amplitude, 400),))
+		bins = rate.NDBins((rate.LogarithmicBins(min(sim.amplitude for sim in self.all) * self.amplitude_factor, max(sim.amplitude for sim in self.all) * self.amplitude_factor, 400),))
 		efficiency = rate.BinnedRatios(bins)
 		efficiency_above_loudest = rate.BinnedRatios(bins)
 		for sim in self.found:
@@ -494,14 +477,14 @@ FROM
 		rate.filter_binned_ratios(efficiency, windowfunc)
 		rate.filter_binned_ratios(efficiency_above_loudest, windowfunc)
 
-		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, "k")
+		line1, A50, A50_err = render_data_from_bins(file("string_efficiency.dat", "w"), self.axes, efficiency, self.cal_uncertainty, self.width, colour = "k", linestyle = "--", erroralpha = 0.2)
 		print "Pipeline's 50%% efficiency point for all detections = %g +/- %g%%\n" % (A50, A50_err * 100)
 
-		line2, A50_above_loudest, A50_above_loudest_err = render_data_from_bins(file("string_efficiency_above_loudest.dat", "w"), self.axes, efficiency_above_loudest, self.cal_uncertainty, self.width, "r")
+		line2, A50_above_loudest, A50_above_loudest_err = render_data_from_bins(file("string_efficiency_above_loudest.dat", "w"), self.axes, efficiency_above_loudest, self.cal_uncertainty, self.width, colour = "k", linestyle = "-")
 		print "Pipeline's 50%% efficiency point for detections above loudest = %g +/- %g%%\n" % (A50_above_loudest, A50_above_loudest_err * 100)
 
 		# add a legend to the axes
-		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered in %s with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\)" % (self.loudest_survivor_inst, SnglBurstUtils.latexnumber("%.2g" % self.loudest_survivor_ampl))), loc = "lower right")
+		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\) in %s" % (SnglBurstUtils.latexnumber("%.2g" % self.loudest_survivor_ampl), self.loudest_survivor_inst)), loc = "lower right")
 
 		# adjust vertical limits
 		self.axes.set_ylim([0, 1])
@@ -532,7 +515,7 @@ else:
 	survivors = Survivors()
 
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d:" % (n + 1, len(filenames)),
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
