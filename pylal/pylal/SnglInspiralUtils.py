@@ -257,9 +257,9 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
 def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistdict, offsetvector):
   """
   @on_instruments is an iterable of the instruments that must be on.
-  on_instruments and off_instruments must be disjoint.
 
   @off_instruments is an iterable of the instruments that must be off.
+
   on_instruments and off_instruments must be disjoint.
 
   @rings is a list of segments defining the analysis ring boundaries.  They
@@ -268,9 +268,9 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   @vetoseglistdict is a coalesced glue.segments.segmentlistdict object
   providing the veto segments for whatever instruments have vetoes defined
   for them.  This can include veto lists for instruments other than those
-  listed on_ and off_instruments (extra lists will be ignored), and it need
-  not provide lists for all instruments (instruments for which there are no
-  veto segment lists are assumed to be on at all times).
+  listed in on_ and off_instruments (extra veto lists will be ignored), and
+  it need not provide lists for all instruments (instruments for which
+  there are no veto segment lists are assumed to be on at all times).
 
   @offsetvector is a dictionary of (instrument, offset) pairs.  This
   dictionary must contain entries for all instruments in the union of
@@ -278,7 +278,7 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   but they will be ignored).  For example, {"H1": 0.0, "H2": 5.0, "L1":
   10.0}.
   """
-  # local copies so they can be modified an iterated over more than once
+  # local copies so they can be modified and iterated over more than once
   # (in case generator expressions have been passed in)
   on_instruments = set(on_instruments)
   off_instruments = set(off_instruments)
