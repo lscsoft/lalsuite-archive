@@ -60,8 +60,19 @@ def run_external_command(command, honour_ret_code=True):
   return ret_code, output
 
 #
-# main program entry point
+# primary functions
 #
+def in_git_repository():
+  """
+  Return True if we are in a git repository and False if not.
+
+  NB: Unfortunately there is a magic number without any documentation to back
+  it up. It turns out that git status returns non-zero exit codes for all sorts
+  of success conditions, but I cannot find any documentation of them. 128 was
+  determined empirically.  I sure hope that it's portable.
+  """
+  return run_external_command("git status", honour_ret_code=False)[0] != 128
+
 def write_git_version(fileobj):
   """
   Query git to determine current repository status and write a Python module
@@ -87,17 +98,17 @@ def write_git_version(fileobj):
 
   # determine git id
   id_cmd = 'git log -1 --pretty="format:%H"'
-  git_id = run_external_command(id_cmd)[1]
+  git_id = run_external_command(id_cmd)[1].strip()
 
   # determine commit date, iso utc
   date_cmd = 'git log -1 --pretty="format:%ct"'
-  git_udate = float(run_external_command(date_cmd)[1])
+  git_udate = float(run_external_command(date_cmd)[1].strip())
   git_date = time.strftime('%Y-%m-%d %H:%M:%S +0000', time.gmtime(git_udate))
 
   # determine branch
   branch_cmd = 'git branch --no-color'
   branch_regexp = re.compile(r"\* ((?!\(no branch\)).*)", re.MULTILINE)
-  branch_match = branch_regexp.search(run_external_command(branch_cmd)[1])
+  branch_match = branch_regexp.search(run_external_command(branch_cmd)[1].strip())
   if branch_match is None:
     git_branch = None
   else:
@@ -106,6 +117,7 @@ def write_git_version(fileobj):
   # determine tag
   tag_cmd = 'git describe --exact-match --tags %s' % git_id
   status, git_tag = run_external_command(tag_cmd, honour_ret_code=False)
+  git_tag = git_tag.strip()
   if status != 0:
     git_tag = None
 
@@ -114,11 +126,11 @@ def write_git_version(fileobj):
   author_email_cmd = 'git log -1 --pretty="format:%ae"'
   committer_name_cmd = 'git log -1 --pretty="format:%cn"'
   committer_email_cmd = 'git log -1 --pretty="format:%ce"'
-  git_author_name = run_external_command(author_name_cmd)[1]
-  git_author_email = run_external_command(author_email_cmd)[1]
+  git_author_name = run_external_command(author_name_cmd)[1].strip()
+  git_author_email = run_external_command(author_email_cmd)[1].strip()
   git_author = '%s <%s>' % (git_author_name, git_author_email)
-  git_committer_name = run_external_command(committer_name_cmd)[1]
-  git_committer_email = run_external_command(committer_email_cmd)[1]
+  git_committer_name = run_external_command(committer_name_cmd)[1].strip()
+  git_committer_email = run_external_command(committer_email_cmd)[1].strip()
   git_committer = '%s <%s>' % (git_committer_name, git_committer_email)
 
   # determine tree status

@@ -172,7 +172,9 @@ def append_process(*args, **kwargs):
 	time to get the leap seconds correct.
 	"""
 	process = ligolwprocess.append_process(*args, **kwargs)
-	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None:
+	# FIXME:  remove the "" case when the git metadata business is
+	# sorted out
+	if "cvs_entry_time" in kwargs and kwargs["cvs_entry_time"] is not None and kwargs["cvs_entry_time"] != "":
 		process.cvs_entry_time = XLALUTCToGPS(time.strptime(kwargs["cvs_entry_time"], "%Y/%m/%d %H:%M:%S")).seconds
 	process.start_time = XLALUTCToGPS(time.gmtime()).seconds
 	return process
