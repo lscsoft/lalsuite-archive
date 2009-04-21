@@ -83,7 +83,8 @@ def parse_args():
     parser.add_option("--reject-no-candidate", action="store_true",
                       help="Rejects any GRB which does not have any candidate"\
                       " for the population statement.", default=False)
-    
+    parser.add_option("--reject-grb", type="string",help="Comma-seperated list"\
+                      " of GRBs to be rejected.")
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
     parser.add_option("--m2-max", type="float", help="maximum m2 value")
@@ -149,7 +150,7 @@ page = InspiralUtils.InspiralPage(opts)
 # population statement calculations
 grb_data = pickle.load(file(opts.grb_pickle))
 pop_stat = PopStatement.PopStatement(grb_data,'condensed')
-
+list_reject_grb = opts.reject_grb.split(",")
 
 # create the PopStatement instances for the m2-bin analysis
 pop_m2 = {}
@@ -184,7 +185,8 @@ for grb_name in list_grb:
         text+= "(no candidate)"    
     page.write(text)
 
-    if opts.reject_no_candidate and log_sum_L == -numpy.infty:
+    if (opts.reject_no_candidate and log_sum_L == -numpy.infty) \
+           or grb_name in list_reject_grb:
         print "This GRB will not be used for the final population statement"
         continue
 
