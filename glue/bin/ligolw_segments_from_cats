@@ -100,7 +100,7 @@ def parse_command_line():
                       
     parser.add_option("-t", "--segment",      metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
     
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
@@ -130,9 +130,11 @@ def parse_command_line():
         if 'LSC_SEGFIND_SERVER' not in os.environ:
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
         database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
-    elif options.dmt_files:
+    elif options.dmt_file:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
+            raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
+        if os.environ['DMT_SEGMENT_LOCATION'][len('file://')]!='/':
+           raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
         file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
     else:
         raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
@@ -164,7 +166,6 @@ def register_to_sqlite():
     doc = ligolw.Document()
     doc.appendChild(ligolw.LIGO_LW())
     proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
-
     seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
     doc.childNodes[0].appendChild(seg_def_table)
 
@@ -188,11 +189,23 @@ def register_to_sqlite():
     return proc_id, seg_def_id
 
 
+def get_all_files(dirname):
+    ret = []
+
+    for o in os.walk(dirname):
+        ret += map(lambda x: os.path.join(o[0], x), o[2])
+
+    return ret
+
 
 def file_filter(file_name, start_time, end_time):
     """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
     times returns true if the file falls into the time interval."""
     
+    # If this isn;t an XML file, skip it
+    if not file_name.endswith('xml'):
+        return False
+
     pieces    = file_name.split('-')
     file_time = int(pieces[-2])
 
@@ -270,14 +283,9 @@ if __name__ == '__main__':
 
     # 2. If we're working with DMT files load them into sqlite as well
     if file_location:
-        glob_pattern = file_location
-    
-        if not glob_pattern.endswith('/'):
-            glob_pattern += '/'
+        all_files = get_all_files(file_location)
 
-        glob_pattern += "*.xml"
-
-        xml_files += filter(lambda x: file_filter(x, int(options.gps_start_time), int(options.gps_end_time)), glob.glob(glob_pattern))
+        xml_files += filter(lambda x: file_filter(x, int(options.gps_start_time), int(options.gps_end_time)), all_files)
 
     ligolw_sqlite.insert(connection, xml_files)
 

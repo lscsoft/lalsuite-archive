@@ -699,7 +699,7 @@ class BinnedRatios(object):
 #
 
 
-def gaussian_window(bins):
+def gaussian_window(bins, sigma=10):
 	"""
 	Generate a normalized (integral = 1) Gaussian window in 1
 	dimension.  bins sets the width of the window in bin count.  The
@@ -708,18 +708,18 @@ def gaussian_window(bins):
 	"""
 	if bins <= 0:
 		raise ValueError, bins
-	l = 10 * int(bins / 2.0)
+	l = sigma * int(bins / 2.0)
 	w = window.XLALCreateGaussREAL8Window(l + 1, l / float(bins))
 	return w.data / w.sum
 
 
-def gaussian_window2d(bins_x, bins_y):
+def gaussian_window2d(bins_x, bins_y, sigma=10):
 	"""
 	Generate a normalized (integral = 1) Gaussian window in 2
 	dimensions.  bins_x and bins_y set the widths of the window in bin
 	counts.
 	"""
-	return numpy.outer(gaussian_window(bins_x), gaussian_window(bins_y))
+	return numpy.outer(gaussian_window(bins_x, sigma), gaussian_window(bins_y, sigma))
 
 
 def tophat_window(bins):

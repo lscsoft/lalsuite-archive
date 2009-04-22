@@ -65,8 +65,12 @@ class SqliteQueryEngine(QueryEngine):
 	
 	def query(self, sql):
 		self.cursor = self.connection.cursor().execute(sql)
+		ret         = []
 
-		return self.cursor
+		for row in self.cursor:
+			ret.append(row)
+
+		return ret
 
 	def close(self):
 		self.cursor.close()
