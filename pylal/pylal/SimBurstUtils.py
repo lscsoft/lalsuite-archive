@@ -189,6 +189,7 @@ class Efficiency_hrss_vs_freq(object):
 	def add_contents(self, contents):
 		# FIXME:  the first left outer join can yield multiple
 		# rows.
+		cursor = contents.connection.cursor()
 		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_burst.*,
@@ -209,7 +210,18 @@ WHERE
 		""", (contents.sb_definer_id,)):
 			sim = contents.sim_burst_table._row_from_cols(values)
 			coinc_event_id = values[-1]
-			instruments = set([burst.ifo for burst in SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id)])
+			instruments = set(cursor.execute("""
+SELECT
+	sngl_burst.ifo
+FROM
+	coinc_event_map
+	JOIN sngl_burst ON (
+		coinc_event_map.table_name == 'sngl_burst'
+		AND coinc_event_map.event_id == sngl_burst.event_id
+	)
+WHERE
+	coinc_event_map.coinc_event_id == ?
+			""", (coinc_event_id,)))
 			found = self.instruments.issubset(instruments)
 			# FIXME:  this following assumes all injections are
 			# done at zero lag (which is correct, for now, but

@@ -150,6 +150,12 @@ class Summaries(object):
 				self.snrs[(",".join(on_instruments), ",".join(participating_instruments))] = tuple(list() for n in range(len(mass_bins)))
 
 		#
+		# after this, the instruments are needed as a set
+		#
+
+		self.instruments = set(self.instruments)
+
+		#
 		# initialize the live-time book-keeping
 		#
 
@@ -168,8 +174,13 @@ class Summaries(object):
 		self.offset_vectors = offset_vectors
 
 	def livetime(self, on_instruments, offsetvector):
-		on_instruments = set(on_instruments.split(","))
-		return SnglInspiralUtils.compute_thinca_livetime(on_instruments, set(self.instruments) - on_instruments, self.rings, self.vetosegments, offsetvector)
+		on_instruments = frozenset(on_instruments)
+		hashable_offsetvector = frozenset(offsetvector.items())
+		try:
+			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)]
+		except KeyError:
+			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)] = SnglInspiralUtils.compute_thinca_livetime(on_instruments, self.instruments - on_instruments, self.rings, self.vetosegments, offsetvector)
+		return livetime
 
 	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
 		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]].append(snr)
@@ -184,16 +195,12 @@ class Summaries(object):
 		instruments in alphabetical order separated by commas
 		"""
 		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]]
+		# FIXME:  if the snrs were sorted, this could be done with
+		# a bisection search
 		return len([x for x in snrs if x >= snr])
 
 	def rate(self, time_slide_id, on_instruments, participating_instruments, mass, snr):
-		try:
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)]
-		except KeyError:
-			# FIXME:  calculate and store the background
-			# livetime for this category
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)] = self.livetime(on_instruments, self.offset_vectors[time_slide_id])
-		return self.count(on_instruments, participating_instruments, mass, snr) / livetime
+		return self.count(on_instruments, participating_instruments, mass, snr) / self.livetime(on_instruments.split(","), self.offset_vectors[time_slide_id])
 
 
 #
