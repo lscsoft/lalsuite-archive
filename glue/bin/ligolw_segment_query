@@ -248,12 +248,12 @@ def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, se
     Resolves an ifo, segment_name, version number (which may be *) into segments.  If version number is
     provided the query is straightforward, if not we do the following:
 
-    1. Create a time mask that initially spans the whole range from gps_start to gps_end
-    2. Select all the segment definer times and segment times that match ifo:segment_name
-    3. In reverse order of version number:
-       apply the mask to the segments of the current version
-       add the result to an accumulator
-       remove the segment_definer of the current version from the mask
+    1. Retrieve the max version of the requested segment type 
+    2. Select all the segments of the max version for the given segment type
+    3. Retreive the max summary end time of the max version for the given segment type
+    4. Select all version 1 segments after the max summary end_time of the max version for the given segment type
+    5. Combine the segments of the max version and the ongoing vesion 1
+
     """
     result = glue.segments.segmentlist([])
 
@@ -263,6 +263,7 @@ def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, se
         rows = engine.query("""SELECT segment.start_time, segment.end_time, segment_definer.version
           FROM segment, segment_definer
           WHERE segment.segment_def_id = segment_definer.segment_def_id
+          AND segment.segment_def_cdb = segment_definer.creator_db
           AND   segment_definer.ifos = '%s'
           AND   segment_definer.name = '%s'
           AND   segment_definer.version = %s
@@ -274,49 +275,52 @@ def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, se
 
         engine.close()
     else:
-        # Find all versions, segments and segment summaries
-        rows = engine.query("""SELECT segment_definer.version,
-                   segment_summary.start_time, segment_summary.end_time,
-                   segment.start_time, segment.end_time
-            FROM segment_summary, segment_definer, segment
-            WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
-            AND   segment.segment_def_id = segment_definer.segment_def_id
-            AND   segment_definer.ifos = '%s'
-            AND   segment_definer.name = '%s'
-            AND NOT (%s > segment_summary.end_time OR segment_summary.start_time > %s)
-        """ % (ifo, segment_name, gps_start_time, gps_end_time))
+        # retrieve a union of the max version and the ongoing version 1
+        # 1. retrieve the max version of the requested segment type, and its segments
+        max_ver = int(engine.query("""SELECT max(version) FROM segment_definer 
+          WHERE segment_definer.ifos = '%s'
+          AND segment_definer.name = '%s' 
+        """ % (ifo, segment_name))[0][0])
+     
+        rows = engine.query("""SELECT segment.start_time, segment.end_time
+          FROM segment, segment_definer 
+          WHERE segment.segment_def_id = segment_definer.segment_def_id
+          AND segment.segment_def_cdb = segment_definer.creator_db
+          AND   segment_definer.ifos = '%s'
+          AND   segment_definer.name = '%s'
+          AND   segment_definer.version = %d
+          AND NOT (%s > segment.end_time OR segment.start_time > %s)
+        """ % (ifo, segment_name, max_ver, gps_start_time, gps_end_time))
 
-        # Group them by version
-        segment_sum_map = {}
-        segment_map     = {}
+        # 2. retreive the max summary end time of the max version of the requested segment type
+        max_ver_endtime = int(engine.query("""SELECT max(segment_summary.end_time) 
+          FROM segment_summary, segment_definer
+          WHERE segment_summary.segment_def_id = segment_definer.segment_def_id
+          AND segment_summary.segment_def_cdb = segment_definer.creator_db
+          AND segment_definer.name= '%s'
+          AND segment_definer.ifos = '%s'
+          AND segment_definer.version = %d
+        """ % (segment_name, ifo, max_ver))[0][0])
 
-        for version, sum_start_time, sum_end_time, seg_start_time, seg_end_time in rows:
-            if version not in segment_sum_map:
-                segment_sum_map[version] = glue.segments.segmentlist([])
+        # retreive version 1 segments after the max_ver_endtime
+        rows += engine.query("""SELECT segment.start_time, segment.end_time 
+          FROM segment, segment_definer, segment_summary
+          WHERE segment.segment_def_id = segment_definer.segment_def_id
+          AND segment.segment_def_cdb = segment_definer.creator_db
+          AND segment_summary.segment_def_id = segment_definer.segment_def_id
+          AND segment_summary.segment_def_cdb = segment_definer.creator_db
+          AND segment_definer.version = 1
+          AND segment_definer.ifos = '%s'
+          AND segment_definer.name = '%s'
+          AND segment_summary.start_time >= %d
+          AND NOT (%s > segment.end_time OR segment.start_time > %s)
+        """ % (ifo, segment_name, max_ver_endtime, gps_start_time, gps_end_time))
 
-            if version not in segment_map:
-                segment_map[version] = glue.segments.segmentlist([])
-
-            segment_sum_map[version] |= glue.segments.segmentlist([glue.segments.segment(sum_start_time, sum_end_time)])
-            segment_map[version]     |= glue.segments.segmentlist([glue.segments.segment(seg_start_time, seg_end_time)])
-
-
-        # Initially our mask is the whole range
-        mask = glue.segments.segmentlist([glue.segments.segment(gps_start_time, gps_end_time)])
-
-        # Now go through versions in decending order...
-        for version in sorted(segment_sum_map.keys(), lambda x,y: cmp(y,x)):
-            # To add = apply mask to segments
-            segments_in_mask = segment_map[version] & mask
-
-            # add segments to cum. result
-            result |= segments_in_mask
-
-            # subtract segment_summary from mask
-            mask -= segment_sum_map[version]
+        for start_time, end_time in rows:
+            result |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
+        engine.close()
 
     result.coalesce()
-
     return result
 
 
