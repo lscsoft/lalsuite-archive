@@ -13,11 +13,9 @@ def findUserCredentials():
     keyFile = os.environ.get('X509_USER_KEY')
 
     if proxyFile:
-        print "CRED:", proxyFile, proxyFile
         return proxyFile, proxyFile
 
     if certFile and keyFile:
-        print "Cred:", certFile, keyFile
         return certFile, keyFile
 
     # Try default proxy

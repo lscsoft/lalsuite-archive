@@ -581,6 +581,7 @@ slidefiles = []
 coincfiles = []
 offsourcefiles = []
 
+
 if opts.glob is not None:
   allfiles = []
   for gl in opts.glob.split(" "):
@@ -598,8 +599,9 @@ if opts.glob is not None:
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "No files match your description."
-    sys.exit(0) 
-         
+    sys.exit(0)
+
+  
 #####################################################################
 # read in coinc triggers
 
@@ -613,7 +615,7 @@ ninj = 0
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = None,
+                                           mangle_event_id = True,
                                            verbose=None)
   inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
   
