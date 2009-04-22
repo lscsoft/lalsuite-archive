@@ -106,6 +106,7 @@ def parse_command_line():
 	parser.add_option("--zero-lag-file", metavar = "filename", help = "Thinca output file containing zero lag triggers.")
 	parser.add_option("--time-slide-file", metavar = "filename", help = "Thinca output file containing time slide triggers.")
 	parser.add_option("--ihope-cache", metavar = "filename", help = "Get thinca files from this ihope cache.")
+	parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Example H1,H2,L1.  If not provided, attempts will be made to deduce the instrument list either from --??-slide command line options in the process_params table or from the contents of the ifos column in the search_summary table.")
 	parser.add_option("--output-prefix", metavar = "string", help = "Set the prefix string for output filenames (required).  Output filenames are constructed automatically, and are of the form \"PREFIX_blah_blah_blah.xml.gz\".  Hint:  can include a path.")
 	parser.add_option("--veto-segments", metavar = "filename", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", metavar = "string", help = "Set the name of the veto segments to use from the XML document.")
@@ -169,6 +170,8 @@ def parse_command_line():
 		raise ValueError, "must specify --output-prefix"
 	if options.veto_segments and not options.veto_segments_name:
 		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
+	if options.instruments:
+		options.instruments = set(options.instruments.split(","))
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -207,6 +210,8 @@ def set_process_params(xmldoc, process, options):
 		params.append((u"--time-slide-file", u"lstring", options.time_slide_file))
 	if options.ihope_cache:
 		params.append((u"--ihope-cache", u"lstring", options.ihope_cache))
+	if options.instruments:
+		params.append((u"--instruments", u"lstring", ",".join(options.instruments)))
 	if options.veto_segments:
 		params.append((u"--veto-segments", u"lstring", options.veto_segments))
 	if options.veto_segments_name:
@@ -307,7 +312,24 @@ def fix_ifos_columns(xmldoc, verbose = False):
 #
 
 
-def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
+def get_thinca_process_ids(xmldoc):
+	return table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+
+
+def get_search_summary_instruments(xmldoc, thinca_process_ids):
+	"""
+	Extract the list of analyzed instruments from the thinca entries in
+	the search summary table.
+	"""
+	search_summary_instruments = set(frozenset(row.get_ifos()) for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
+	if len(search_summary_instruments) < 1:
+		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
+	if len(search_summary_instruments) > 1:
+		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(search_summary_instruments)
+	return search_summary_instruments.pop()
+
+
+def populate_thinca_time_slide_table(xmldoc, process, instruments = None, verbose = False):
 	"""
 	Reconstruct the list of time slides from lalapps_thinca's command
 	line arguments.
@@ -348,7 +370,7 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 	# were run with a --num-slides command line option
 	#
 
-	thinca_process_ids = table.get_table(xmldoc, lsctables.ProcessTable.tableName).get_ids_by_program("thinca")
+	thinca_process_ids = get_thinca_process_ids(xmldoc)
 	slides_process_ids = thinca_process_ids & set(row.process_id for row in table.get_table(xmldoc, lsctables.ProcessParamsTable.tableName) if row.param == u"--num-slides")
 
 	if len(thinca_process_ids - slides_process_ids) > 1:
@@ -357,16 +379,25 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 		raise ValueError, "document contains more than 1 non-zero-lag thinca job"
 
 	#
-	# identify the instrument names in play from the search_summary
+	# get the list of analyzed instruments from the search_summary
 	# table
 	#
 
-	instruments = set(frozenset(row.get_ifos()) for row in table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName) if row.process_id in thinca_process_ids)
-	if len(instruments) < 1:
-		raise ValueError, "cannot find entries for thinca jobs in search_summary table"
-	if len(instruments) > 1:
-		raise ValueError, "search_summary table contains entries for thinca jobs from more than 1 unique set of instruments:  found %s" % ", ".join(instruments)
-	instruments = instruments.pop()
+	search_summary_instruments = get_search_summary_instruments(xmldoc, thinca_process_ids)
+
+	#
+	# if a set of instruments has been provided by the user require it
+	# to be a superset of the instruments named in the search_summary
+	# table, either way the union of the two is the required instrument
+	# list
+	#
+
+	if instruments is None:
+		required_instruments = search_summary_instruments
+	elif search_summary_instruments.issubset(instruments):
+		required_instruments = instruments
+	else:
+		raise ValueError, "search_summary table named instrument(s) %s that were not named on the command line" % ", ".join(search_summary_instruments - instruments)
 
 	#
 	# identify lalapps_thinca's time slides
@@ -379,7 +410,7 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 		# table, and set num_slides to 0
 		#
 
-		offset_vector = dict((instrument, 0.0) for instrument in instruments)
+		offset_vector = dict((instrument, 0.0) for instrument in required_instruments)
 		num_slides = 0
 
 	else:
@@ -406,13 +437,22 @@ def populate_thinca_time_slide_table(xmldoc, process, verbose = False):
 
 		#
 		# confirm that the offset vector contains offsets for all
-		# the instruments named in the search_summary table
-		# entries.
+		# required instruments
 		#
 
-		if not instruments.issubset(set(offset_vector.keys())):
-			missing_instruments = set(offset_vector.keys()) - instruments
-			raise ValueError, "cannot find thinca command line option(s) %s in process_params table for instrument(s) %s found in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
+		if not required_instruments.issubset(set(offset_vector.keys())):
+			missing_instruments = set(offset_vector.keys()) - required_instruments
+			raise ValueError, "no option(s) %s in process_params table for instrument(s) %s in search_summary table" % (", ".join(["--%s-slide" % instrument.lower() for instrument in missing_instruments]), ", ".join(missing_instruments))
+
+		#
+		# if the user has provided an explicit list of instruments,
+		# remove instruments from the offset vector that were not
+		# named by the user
+		#
+
+		if instruments is not None:
+			for instrument in set(offset_vector.keys()) - instruments:
+				del offset_vector[instrument]
 
 	#
 	# build the time slide vectors for the cases when all instruments
@@ -566,6 +606,13 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 	rings = retrieve_ring_boundaries(xmldoc)
 
 	#
+	# get the list of analyzed instruments from the search_summary
+	# table
+	#
+
+	on_instruments = get_search_summary_instruments(xmldoc, get_thinca_process_ids(xmldoc))
+
+	#
 	# find the coinc_definer_id for sngl_inspiral <--> sngl_inspiral
 	# coincidences, or create it if needed
 	#
@@ -653,6 +700,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		coinc.coinc_event_id = coinc_event_table.get_next_id()
 		coinc.coinc_def_id = coinc_def_id
 		coinc.nevents = len(events)
+		coinc.set_instruments(on_instruments)
 		coinc.likelihood = None
 		coinc_event_table.append(coinc)
 
@@ -660,15 +708,10 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		# construct the time_slide_id from the "slide number" at
 		# index 1 in the tuple returned by get_id_parts().  all
 		# events in the coinc have the same ID at this stage so it
-		# doesn't matter which event's ID we use.  we also use the
-		# instruments named in the time slide vector to populate
-		# the initial list of instruments for this coinc.  the
-		# instrument list might be updated later when vetos are
-		# applied.
+		# doesn't matter which event's ID we use.
 		#
 
 		coinc.time_slide_id = type(time_slide_table.next_id)(events[0].get_id_parts()[1])
-		coinc.set_instruments(time_slides[coinc.time_slide_id].keys())
 
 		#
 		# link events to coinc with coinc_event_map rows.  the
@@ -997,7 +1040,7 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		# FIXME:  uncomment this after Kipp talks people into it.
 		#fix_ifos_columns(xmldoc, verbose = options.verbose)
 
-		populate_thinca_time_slide_table(xmldoc, process, verbose = options.verbose)
+		populate_thinca_time_slide_table(xmldoc, process, instruments = options.instruments, verbose = options.verbose)
 
 		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
