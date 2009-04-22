@@ -277,6 +277,8 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   on_instruments and off_instruments (it is allowed to name others as well,
   but they will be ignored).  For example, {"H1": 0.0, "H2": 5.0, "L1":
   10.0}.
+
+  The return value is a float giving the livetime in seconds.
   """
   # local copies so they can be modified and iterated over more than once
   # (in case generator expressions have been passed in)
