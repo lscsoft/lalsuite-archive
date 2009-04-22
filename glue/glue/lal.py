@@ -25,7 +25,7 @@ This module contains bits and pieces of use when interacting with LAL and
 LAL-derived code (eg. LALApps programs)
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
