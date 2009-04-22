@@ -118,12 +118,12 @@ def parse_command_line():
 
     # Data location options
     parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify a prefix 'ldbd://' in front of the actual url where the segment database locates. For example, '--segment-url=ldbd://nldas.ligo-wa.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used. ")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER. For example, 'LSC_SEGFIND_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
     parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION, for example, 'DMT_SEGMENT_LOCATION=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
 
 
     # Other options
-    parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:SCIENCE:1,H1:INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
+    parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
 
     parser.add_option("-b", "--exclude-segments", metavar = "exclude_segments", help = "This option has to be used in conjunction with --include-segment-types --exclude-segment-types subtracts the union of unwanted segments from the specified types from the results of --include-segment-types. If version information is not provided, --exclude-segment-types subtracts the union of segments from the latest version of the specified segment types. For example, --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2 --exclude-segment-types H1:DMT-WIND:1,H1:DMT-NOT_LOCKED:2,H2:DMT-NOT_LOCKED:2 will subtract the union of segments which H1 is in version 1 WIND and H1,H2 is version 2 NOT_LOCKED from the result of --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2")
 
@@ -157,9 +157,9 @@ def parse_command_line():
         else:
             raise ValueError( "segment-url %s must start with ldbd: or file:" % (options.segment_url) )
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
             raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
