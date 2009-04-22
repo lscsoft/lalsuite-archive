@@ -202,6 +202,10 @@ def file_filter(file_name, start_time, end_time):
     """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
     times returns true if the file falls into the time interval."""
     
+    # If this isn;t an XML file, skip it
+    if not file_name.endswith('xml'):
+        return False
+
     pieces    = file_name.split('-')
     file_time = int(pieces[-2])
 

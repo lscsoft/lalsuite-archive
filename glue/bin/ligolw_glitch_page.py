@@ -122,8 +122,12 @@ def generate_html(outf, triggers, colors):
 def file_filter(file_name, start_time, end_time):
     """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
     times returns true if the file falls into the time interval."""
-    pieces    = file_name.split('-')
 
+    # If this isn;t an XML file, skip it
+    if not file_name.endswith('xml'):
+        return False
+    
+    pieces    = file_name.split('-')
     file_time = int(pieces[-2])
 
     return file_time >= (start_time-16) and file_time <= (end_time+16) 

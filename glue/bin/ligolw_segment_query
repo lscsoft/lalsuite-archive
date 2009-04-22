@@ -34,7 +34,7 @@ segment database or a collection of DMT XML files:
 
   * What DQ flags exist in the database? ligolw_segment_query --show-types
   * When was a given flag inserted? ligolw_segment_query --query-types
-  * When was a given DQ flag deÞed? ligolw_segment_query --query-types 
+  * When was a given DQ flag defined? ligolw_segment_query --query-types 
   * When was a given flag active? ligolw_segment_query --query-segments
 """
 
@@ -197,6 +197,10 @@ def parse_command_line():
 def file_filter(file_name, start_time, end_time):
     """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
     times returns true if the file falls into the time interval."""
+
+    # If this isn;t an XML file, skip it
+    if not file_name.endswith('xml'):
+        return False
     
     pieces    = file_name.split('-')
     file_time = int(pieces[-2])
