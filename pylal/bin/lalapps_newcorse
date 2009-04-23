@@ -150,6 +150,12 @@ class Summaries(object):
 				self.snrs[(",".join(on_instruments), ",".join(participating_instruments))] = tuple(list() for n in range(len(mass_bins)))
 
 		#
+		# after this, the instruments are needed as a set
+		#
+
+		self.instruments = set(self.instruments)
+
+		#
 		# initialize the live-time book-keeping
 		#
 
@@ -161,15 +167,21 @@ class Summaries(object):
 		self.rings.extend(rings)
 		self.rings.sort()
 		# FIXME: use any() built-in when Python 2.5 is required
-		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
-			raise ValueError, "found non-disjoint rings %s and %s" % (repr(a), repr(b))
+		# FIXME: is this check needed?  commented out for now
+		#if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
+		#	raise ValueError, "found non-disjoint rings"
 
 	def set_offset_vectors(self, offset_vectors):
 		self.offset_vectors = offset_vectors
 
 	def livetime(self, on_instruments, offsetvector):
-		on_instruments = set(on_instruments.split(","))
-		return SnglInspiralUtils.compute_thinca_livetime(on_instruments, set(self.instruments) - on_instruments, self.rings, self.vetosegments, offsetvector)
+		on_instruments = frozenset(on_instruments)
+		hashable_offsetvector = frozenset(offsetvector.items())
+		try:
+			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)]
+		except KeyError:
+			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)] = SnglInspiralUtils.compute_thinca_livetime(on_instruments, self.instruments - on_instruments, self.rings, self.vetosegments, offsetvector)
+		return livetime
 
 	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
 		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]].append(snr)
@@ -184,16 +196,12 @@ class Summaries(object):
 		instruments in alphabetical order separated by commas
 		"""
 		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]]
+		# FIXME:  if the snrs were sorted, this could be done with
+		# a bisection search
 		return len([x for x in snrs if x >= snr])
 
 	def rate(self, time_slide_id, on_instruments, participating_instruments, mass, snr):
-		try:
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)]
-		except KeyError:
-			# FIXME:  calculate and store the background
-			# livetime for this category
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)] = self.livetime(on_instruments, self.offset_vectors[time_slide_id])
-		return self.count(on_instruments, participating_instruments, mass, snr) / livetime
+		return self.count(on_instruments, participating_instruments, mass, snr) / self.livetime(on_instruments.split(","), self.offset_vectors[time_slide_id])
 
 
 #
@@ -251,12 +259,35 @@ for n, filename in enumerate(filenames):
 	xmldoc = dbtables.get_xml(connection)
 
 	#
+	# if the database contains a sim_inspiral table then it is assumed
+	# to represent an injection run.  its rings must not added to the
+	# livetime, and it cannot provide background coincs, so it is just
+	# skipped altogether.
+	#
+
+	if "sim_inspiral" in dbtables.get_table_names(connection):
+		if options.verbose:
+			print >>sys.stderr, "database contains sim_inspiral table, skipping ..."
+
+		#
+		# close the database
+		#
+
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		continue
+
+	#
 	# retrieve and store the ring boundaries.  all segments from all
 	# segment lists in the search summary table are collected into a
 	# single list and uniqueified with set().
 	#
+	#
 
-	background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	try:
+		background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	except ValueError, s:
+		raise ValueError, "in file %s: %s" % (filename, str(s))
 
 	#
 	# count background coincs by type and mass bin
