@@ -9,11 +9,11 @@ import xmlrpclib
 from urlparse import urljoin, urlsplit, urlunsplit
 from urllib import quote_plus as quote, urlencode
 import socket
+import os
 
 from glue.lal import Cache
 from glue.lars import serviceProxy
 
-# Hardcoded.  For shame.
 DEFAULT_SERVER = "https://archie.phys.uwm.edu/lars/xmlrpc/"
 
 INI_NAME = 'lars.ini'
@@ -21,6 +21,12 @@ INI_NAME = 'lars.ini'
 commands = {}
 
 log = logging.getLogger("lars.cli")
+
+def default_service():
+    serviceUrl = os.environ.get('LARS_SERVICE', None)
+    if serviceUrl:
+        return serviceUrl
+    return DEFAULT_SERVER
 
 def mkIfos(mess, warn=False):
     """take a list of things that look like 'H1H2C'
@@ -146,7 +152,7 @@ class OptionParser(optparse.OptionParser):
             action="store",
             type="string",
             help="Server URL",
-            default=DEFAULT_SERVER,
+            default=default_service(),
             )
 
 class Command:
@@ -167,7 +173,7 @@ class Command:
         try:
             self.run_command(options, args)
         except xmlrpclib.Fault, e:
-            print "Remote Fault", e.faultCode, e.faultString
+            print "Remote Error", e.faultCode, e.faultString
         except xmlrpclib.ProtocolError, e:
             print "XMLRPC Protocol Error", e
         except socket.sslerror, e:
@@ -178,7 +184,7 @@ class Command:
         except socket.error, e:
             print "Socket error:", e[1]
         except Exception, e:
-            print "Error", type(e), e.__class__, dir(e), e
+            print "Error", e.__class__, e
 
     def run_command(self, options={}, args=[]):
         print "RUNNING:", self.name, "(I am not properly initialized!)"
@@ -434,7 +440,6 @@ class Publish(Command):
 #            printErrors(rv)
 
 
-#commands["add"] = Add()
 commands["ping"] = Ping()
 commands["info"] = Info()
 commands["reserve"] = Reserve()
