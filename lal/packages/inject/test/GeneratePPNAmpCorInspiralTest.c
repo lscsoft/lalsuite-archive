@@ -552,10 +552,13 @@ main(int argc, char **argv)
 
     /* t phi f h+ hx ht  */
     for ( i = 0; i < waveform.h->data->length; i++, t += dt )
-      fprintf( fp, "%f %.3e %1.6e %1.6e %1.6e %1.6e \n", t,
+      fprintf( fp, "%f %.3e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e \n", t,
                   waveform.phi->data->data[i],
 		  waveform.f->data->data[i],
-		  waveform.h->data->data[2*i],
+      waveform.a->data->data[3*i],
+      waveform.a->data->data[3*i+1],
+		  waveform.a->data->data[3*i+2],
+      waveform.h->data->data[2*i],
 		  waveform.h->data->data[2*i+1],
 		  hoft->data[i]);
     

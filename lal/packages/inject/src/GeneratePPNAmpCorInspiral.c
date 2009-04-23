@@ -246,7 +246,7 @@ LALGeneratePPNAmpCorInspiral(
                                                waveform construction */
   REAL4 preFac;        /* Overall prefactor in waveforms */
   REAL8 delta;         /* relative mass difference */
-  REAL4 sd, scd;       /* sinI*delta, sd*cosI*/
+  REAL8 sd, scd;       /* sinI*delta, sd*cosI*/
 
   /* Integration parameters. */
   UINT4 i;               /* index over PN terms */
