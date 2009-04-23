@@ -28,6 +28,7 @@
 #
 
 
+import bisect
 import itertools
 from optparse import OptionParser
 try:
@@ -171,21 +172,12 @@ class Summaries(object):
 	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
 		self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])].append(snr)
 
-	def count(self, on_instruments, participating_instruments, mass, snr):
-		"""
-		Return the number of coincs in the category defined by
-		(on_instruments, participating_instruments) that are in the
-		mass bin corresponding to mass and have a combined SNR
-		greater than or equal to snr.  The on_ and
-		participating_instruments are strings containing the
-		instruments in alphabetical order separated by commas
-		"""
-		# FIXME:  if the snrs were sorted, this could be done with
-		# a bisection search
-		return len([x for x in self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])] if x >= snr])
+	def index(self):
+		for snrs in self.snrs.values():
+			snrs.sort(reverse = True)
 
 	def rate(self, on_instruments, participating_instruments, mass, snr):
-		return self.count(on_instruments, participating_instruments, mass, snr) / self.cached_livetime[on_instruments]
+		return bisect.bisect_right(self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])], snr) / self.cached_livetime[on_instruments]
 
 
 #
@@ -319,6 +311,9 @@ if options.verbose:
 	print >>sys.stderr, "calculating and recording false alarm rates ..."
 
 
+background.index()
+
+
 for n, filename in enumerate(filenames):
 	#
 	# open the database
@@ -335,7 +330,6 @@ for n, filename in enumerate(filenames):
 	# prepare the database
 	#
 
-	connection.create_function("background_count", 4, background.count)
 	connection.create_function("background_rate", 4, background.rate)
 
 	#
