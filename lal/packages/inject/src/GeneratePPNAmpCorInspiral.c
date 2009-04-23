@@ -389,7 +389,7 @@ LALGeneratePPNAmpCorInspiral(
   phiC = params->phi;
 
   preFac = -2.0*mu*LAL_MRSUN_SI/params->d; 
-  delta = sqrt(1.0-4.0*eta); 
+  delta = params->delta; 
   sd = sinI*delta;
   scd = sd*cosI;
   fprintf( stderr, "\n eta = %.16f delta = %e, sd = %e\n", eta, delta, sd);

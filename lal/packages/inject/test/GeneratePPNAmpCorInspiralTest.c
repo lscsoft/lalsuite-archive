@@ -201,7 +201,7 @@ main(int argc, char **argv)
   static LALStatus stat;        /* status structure */
   CHAR *outfile = NULL;         /* name of outfile */
   CHAR *fftout  = NULL; 	      /* FFT outfile */
-  REAL4 m1 = M1, m2 = M2;       /* binary masses */
+  REAL8  m1 = M1, m2 = M2;       /* binary masses */
   REAL4 dist = DIST;            /* binary distance */
   REAL4 inc = 0.0, phii = 0.0, psi = LAL_PI_2;  /* inclination, coalescence phase, and polarization angle */
   REAL4 fmin = FMIN, fmax=FMAX; /* start and stop frequencies */
@@ -389,8 +389,9 @@ main(int argc, char **argv)
   /* Variable parameters. */
   I8ToLIGOTimeGPS( &(params.epoch), EPOCH );
   params.deltaT = dt;
-  params.mTot = m1 + m2;
-  params.eta = m1*m2/( params.mTot*params.mTot );
+  params.mTot_real8 = m1 + m2;
+  params.eta_real8 = m1*m2/( params.mTot_real8*params.mTot_real8 );
+  params.delta = pow( 1.0 - 4.0*params.eta_real8, 0.5 );
   params.inc = inc;
   params.phi = 0.0;
   params.psi = psi;
