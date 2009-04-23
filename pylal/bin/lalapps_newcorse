@@ -335,6 +335,7 @@ for n, filename in enumerate(filenames):
 	# prepare the database
 	#
 
+	connection.create_function("background_count", 4, background.count)
 	connection.create_function("background_rate", 4, background.rate)
 
 	#
@@ -348,6 +349,22 @@ SET
 	false_alarm_rate = (
 		SELECT
 			background_rate(
+				coinc_event.instruments,
+				coinc_inspiral.ifos,
+				coinc_inspiral.mass,
+				coinc_inspiral.snr
+			)
+		FROM
+			coinc_event
+			JOIN coinc_definer ON (
+				coinc_definer.coinc_def_id == coinc_event.coinc_def_id
+			)
+		WHERE
+			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	),
+	false_alarm_number = (
+		SELECT
+			background_count(
 				coinc_event.instruments,
 				coinc_inspiral.ifos,
 				coinc_inspiral.mass,

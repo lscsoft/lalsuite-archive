@@ -225,6 +225,7 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
+		coinc_inspiral.false_alarm_number = None
 		coinc_inspiral.set_end(events[0].get_end())
 		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)

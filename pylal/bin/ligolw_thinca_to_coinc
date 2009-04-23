@@ -744,6 +744,7 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
 		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
+		coinc_inspiral.false_alarm_number = None
 
 		#
 		# the time of the coinc = the end time of the first trigger
