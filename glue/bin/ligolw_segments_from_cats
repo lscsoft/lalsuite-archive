@@ -190,6 +190,13 @@ def register_to_sqlite():
     return proc_id, seg_def_id
 
 
+#
+# Do to some sort of version skew in sqlite at LHO dbtables.get_column_info
+# doesn't work if and only if a new table has been created, which we do
+# in order to make the segment_backup table.  This method is a replcement
+# that works in this case.
+# TODO: once the environment is fixed, remove this.
+#
 def kludge_get_column_info(connection, table_name):
     """
     Return an in order list of (name, type) tuples describing the
@@ -328,6 +335,7 @@ if __name__ == '__main__':
 
     process_id, segment_def_id = register_to_sqlite()
 
+    veto_connection = connection
 
     if file_location:
         #
@@ -375,7 +383,7 @@ if __name__ == '__main__':
     # Get the set of veto categories and ifos for which we have segments 
     #
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
-    ifos       = [row[0] for row in segment_query_engine.query("select distinct(ifo) from veto_definer")]
+    ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
     for ifo, category_num in [(i,c) for i in ifos for c in categories]:
         # Start a new document
@@ -383,23 +391,23 @@ if __name__ == '__main__':
         xmldoc.appendChild(ligolw.LIGO_LW())
 
         # Update the IFOs for the segment definer
-        cursor = connection.cursor()
+        cursor = veto_connection.cursor()
         cursor.execute("""UPDATE segment_definer SET ifos=? WHERE name = ?""", (ifo, PROGRAM_NAME))
-        connection.commit()
+        veto_connection.commit()
         cursor.close()
         
         #
         # Get the set of vetos
         #
-        cursor = connection.cursor()
+        cursor = veto_connection.cursor()
         cursor.execute("""SELECT * FROM veto_definer WHERE ifo = ? AND category <= ?""", (ifo, category_num))
 
         #
         # Clear out the segments table
         #
-        cursor = connection.cursor()
+        cursor = veto_connection.cursor()
         cursor.execute("DELETE FROM segment")
-        connection.commit()
+        veto_connection.commit()
         cursor.close()
 
         # If everything were in the same database we could do a join like
@@ -418,7 +426,7 @@ if __name__ == '__main__':
         # the local database we need to do a bit more work.
 
         # loop over select of name, version where ifo=current ifo and category <= current category
-        cursor = connection.cursor()
+        cursor = veto_connection.cursor()
         cursor.execute("""SELECT name, version, start_time, end_time, start_pad, end_pad
                           FROM veto_definer
                           WHERE ifo = '%s' AND category <= %s""" % (ifo, category_num))
@@ -437,15 +445,13 @@ if __name__ == '__main__':
 
             params['time_clause'] = time_clause
 
-
-            rows2 = segment_query_engine.query("""
-            SELECT %(table_name)s.start_time, %(table_name)s.end_time
+            rows2 = segment_query_engine.query("""SELECT %(table_name)s.start_time, %(table_name)s.end_time
              FROM %(table_name)s, segment_definer
              WHERE %(table_name)s.segment_def_id = segment_definer.segment_def_id
                AND segment_definer.ifos = '%(ifo)s'
                AND segment_definer.name = '%(name)s'
                %(time_clause)s
-               AND segment_definer.version = '%(version)s'""" % params)
+               AND segment_definer.version = %(version)s""" % params)
         
             for seg_start_time, seg_end_time in rows2:
                 if seg_end_time == 0:
@@ -471,7 +477,7 @@ if __name__ == '__main__':
                            ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
             segment_id += 1
             
-        connection.commit()
+        veto_connection.commit()
             
 
         #
@@ -480,13 +486,13 @@ if __name__ == '__main__':
         cursor.execute("DELETE FROM segment_summary")
         cursor.execute("""INSERT INTO segment_summary(segment_sum_id,start_time, end_time, segment_def_id, process_id) VALUES('segment_summary:segment_sum_id:0',?,?,?,?)""",
                        (min_start_time, max_end_time, str(segment_def_id), str(process_id)))
-        connection.commit()
+        veto_connection.commit()
             
         #
         # Dump to XML
         #
         output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
-        ligolw_sqlite.extract(connection, output_name, table_names = ['process','process_params', 'segment_definer','veto_definer','segment','segment_summary'] )
+        ligolw_sqlite.extract(veto_connection, output_name, table_names = ['process','process_params', 'segment_definer','veto_definer','segment','segment_summary'] )
 
         #
         # Dump to text
