@@ -48,6 +48,7 @@ class MyTransport(Transport):
         if cred:
             cert, key = cred
             return HTTPS(host, key_file=key, cert_file=cert)
+        print "Warning: No credentials found"
         return HTTPS(host)
 
 def serviceProxy(url):
