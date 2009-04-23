@@ -389,7 +389,6 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
         seg_dict[key].append(glue.segments.segment(segment_summary_start_time, segment_summary_end_time))
 
     for key, value in seg_dict.iteritems():
-        print value
         segmentlist = glue.segments.segmentlist(value)
         segmentlist.coalesce()
 
