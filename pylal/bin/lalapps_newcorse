@@ -145,9 +145,12 @@ class Summaries(object):
 		#
 
 		self.snrs = {}
+		self.cached_livetime = {}
 		for on_instruments in (combo for m in range(2, len(self.instruments) + 1) for combo in iterutils.choices(self.instruments, m)):
+			self.cached_livetime[",".join(on_instruments)] = 0
 			for participating_instruments in (combo for m in range(2, len(on_instruments) + 1) for combo in iterutils.choices(on_instruments, m)):
-				self.snrs[(",".join(on_instruments), ",".join(participating_instruments))] = tuple(list() for n in range(len(mass_bins)))
+				for n in range(len(mass_bins)):
+					self.snrs[(",".join(on_instruments), ",".join(participating_instruments), n)] = []
 
 		#
 		# after this, the instruments are needed as a set
@@ -155,36 +158,18 @@ class Summaries(object):
 
 		self.instruments = set(self.instruments)
 
-		#
-		# initialize the live-time book-keeping
-		#
-
-		self.rings = segments.segmentlist()
-		self.offset_vectors = {}
-		self.cached_livetime = {}
-
-	def add_rings(self, rings):
-		self.rings.extend(rings)
-		self.rings.sort()
-		# FIXME: use any() built-in when Python 2.5 is required
-		# FIXME: is this check needed?  commented out for now
-		#if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
-		#	raise ValueError, "found non-disjoint rings"
-
-	def set_offset_vectors(self, offset_vectors):
-		self.offset_vectors = offset_vectors
-
-	def livetime(self, on_instruments, offsetvector):
-		on_instruments = frozenset(on_instruments)
-		hashable_offsetvector = frozenset(offsetvector.items())
-		try:
-			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)]
-		except KeyError:
-			livetime = self.cached_livetime[(on_instruments, hashable_offsetvector)] = SnglInspiralUtils.compute_thinca_livetime(on_instruments, self.instruments - on_instruments, self.rings, self.vetosegments, offsetvector)
-		return livetime
+	def add_livetime(self, available_instruments, rings, offset_vectors, verbose = False):
+		if verbose:
+			print >>sys.stderr, "computing livetime for instrument combination:",
+		for on_instruments in (set(combo) for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(available_instruments, m)):
+			if verbose:
+				print >>sys.stderr, ",".join(sorted(on_instruments)),
+			self.cached_livetime[",".join(sorted(on_instruments))] += SnglInspiralUtils.compute_thinca_livetime(on_instruments, self.instruments - on_instruments, rings, self.vetosegments, offset_vectors)
+		if verbose:
+			print >>sys.stderr
 
 	def add_coinc(self, on_instruments, participating_instruments, mass, snr):
-		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]].append(snr)
+		self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])].append(snr)
 
 	def count(self, on_instruments, participating_instruments, mass, snr):
 		"""
@@ -195,13 +180,12 @@ class Summaries(object):
 		participating_instruments are strings containing the
 		instruments in alphabetical order separated by commas
 		"""
-		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mass]]
 		# FIXME:  if the snrs were sorted, this could be done with
 		# a bisection search
-		return len([x for x in snrs if x >= snr])
+		return len([x for x in self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])] if x >= snr])
 
-	def rate(self, time_slide_id, on_instruments, participating_instruments, mass, snr):
-		return self.count(on_instruments, participating_instruments, mass, snr) / self.livetime(on_instruments.split(","), self.offset_vectors[time_slide_id])
+	def rate(self, on_instruments, participating_instruments, mass, snr):
+		return self.count(on_instruments, participating_instruments, mass, snr) / self.cached_livetime[on_instruments]
 
 
 #
@@ -278,16 +262,11 @@ for n, filename in enumerate(filenames):
 		continue
 
 	#
-	# retrieve and store the ring boundaries.  all segments from all
-	# segment lists in the search summary table are collected into a
-	# single list and uniqueified with set().
-	#
+	# add livetime
 	#
 
-	try:
-		background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
-	except ValueError, s:
-		raise ValueError, "in file %s: %s" % (filename, str(s))
+	segs = llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program)
+	background.add_livetime(segs.keys(), set(seg for seglist in segs.values() for seg in seglist), lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values(), verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin
@@ -357,13 +336,7 @@ for n, filename in enumerate(filenames):
 	#
 
 	connection.create_function("background_count", 4, background.count)
-	connection.create_function("background_rate", 5, background.rate)
-
-	#
-	# retrieve the time slide vectors used in this document
-	#
-
-	background.set_offset_vectors(lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict())
+	connection.create_function("background_rate", 4, background.rate)
 
 	#
 	# count background coincs by type and mass bin
@@ -376,7 +349,6 @@ SET
 	false_alarm_rate = (
 		SELECT
 			background_rate(
-				coinc_event.time_slide_id,
 				coinc_event.instruments,
 				coinc_inspiral.ifos,
 				coinc_inspiral.mass,
