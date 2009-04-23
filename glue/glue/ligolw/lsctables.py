@@ -1293,7 +1293,8 @@ class CoincInspiralTable(table.Table):
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8"
+		"false_alarm_rate": "real_8",
+		"false_alarm_number": "int_8s"
 	}
 	# FIXME:  like some other tables here, this table should have the
 	# constraint that the coinc_event_id column is a primary key.  this
@@ -1320,6 +1321,7 @@ class CoincInspiral(object):
 
 	def get_ifos(self):
 		return instrument_set_from_ifos(self.ifos)
+
 
 CoincInspiralTable.RowType = CoincInspiral
 
