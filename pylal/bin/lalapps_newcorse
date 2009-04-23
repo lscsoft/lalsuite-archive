@@ -167,8 +167,9 @@ class Summaries(object):
 		self.rings.extend(rings)
 		self.rings.sort()
 		# FIXME: use any() built-in when Python 2.5 is required
-		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
-			raise ValueError, "found non-disjoint rings"
+		# FIXME: is this check needed?  commented out for now
+		#if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
+		#	raise ValueError, "found non-disjoint rings"
 
 	def set_offset_vectors(self, offset_vectors):
 		self.offset_vectors = offset_vectors
