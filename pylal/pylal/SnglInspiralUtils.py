@@ -254,7 +254,7 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   return seglistdict | extra
 
 
-def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistdict, offsetvector):
+def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistdict, offsetvectors):
   """
   @on_instruments is an iterable of the instruments that must be on.
 
@@ -272,11 +272,11 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   it need not provide lists for all instruments (instruments for which
   there are no veto segment lists are assumed to be on at all times).
 
-  @offsetvector is a dictionary of (instrument, offset) pairs.  This
-  dictionary must contain entries for all instruments in the union of
+  @offsetvectors is an iterable of dictionaries of instrument-offset pairs.
+  Each dictionary must contain entries for all instruments in the union of
   on_instruments and off_instruments (it is allowed to name others as well,
-  but they will be ignored).  For example, {"H1": 0.0, "H2": 5.0, "L1":
-  10.0}.
+  but they will be ignored).  An example of one dictionary of
+  instrument-offset pairs:  {"H1": 0.0, "H2": 5.0, "L1": 10.0}.
 
   The return value is a float giving the livetime in seconds.
   """
@@ -284,13 +284,15 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # (in case generator expressions have been passed in)
   on_instruments = set(on_instruments)
   off_instruments = set(off_instruments)
+  offsetvectors = tuple(offsetvectors)
 
   # check that the on and off instruments are disjoint, and that the offset
   # vector provides values for all instruments of interest
   if on_instruments & off_instruments:
     raise ValueError, "on_instruments and off_instruments not disjoint"
-  if not set(offsetvector.keys()).issuperset(on_instruments | off_instruments):
-    raise ValueError, "incomplete offset vector"
+  for offsetvector in offsetvectors:
+    if not set(offsetvector.keys()).issuperset(on_instruments | off_instruments):
+      raise ValueError, "incomplete offset vector %s" % repr(offsetvector)
 
   # performance aid:  only need to retain offsets for instruments appearing
   # in the veto segment lists.  instruments not appearing in the veto
@@ -298,7 +300,7 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   on_instruments &= set(vetoseglistdict.keys())
   off_instruments &= set(vetoseglistdict.keys())
   all_instruments = on_instruments | off_instruments
-  offsetvector = dict((key, value) for key, value in offsetvector.items() if key in all_instruments)
+  offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
 
   # performance aid:  don't need veto segment lists for instruments whose
   # state is unimportant
@@ -315,8 +317,9 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # be off is not vetoed
   live_time = 0.0
   for ring in rings:
-    slidvetoes = slideSegListDictOnRing(ring, vetoseglistdict, offsetvector)
-    live_time += float(abs(segments.segmentlist([ring]) - slidvetoes.union(on_instruments) - (~slidvetoes).union(off_instruments)))
+    for offsetvector in offsetvectors:
+      slidvetoes = slideSegListDictOnRing(ring, vetoseglistdict, offsetvector)
+      live_time += float(abs(segments.segmentlist([ring]) - slidvetoes.union(on_instruments) - (~slidvetoes).union(off_instruments)))
 
   # done
   return live_time
