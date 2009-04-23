@@ -6,7 +6,7 @@ import glue.lars
 
 from glue.lars.cli import commands
 
-import sys
+import sys, os
 
 try:
     cmd = sys.argv[1]
@@ -17,5 +17,6 @@ if cmd in commands:
     commands[cmd].run(sys.argv[2:])
 else:
     command_names = " | ".join([name for name in commands.keys()])
-    print "Usage: %s (%s) [options] [args]" % (sys.argv[0], command_names)
+    print "Usage: %s (%s) [options] [args]" % \
+        (os.path.basename(sys.argv[0]), command_names)
     sys.exit(1)

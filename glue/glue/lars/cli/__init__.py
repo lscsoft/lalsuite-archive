@@ -9,11 +9,11 @@ import xmlrpclib
 from urlparse import urljoin, urlsplit, urlunsplit
 from urllib import quote_plus as quote, urlencode
 import socket
+import os
 
 from glue.lal import Cache
 from glue.lars import serviceProxy
 
-# Hardcoded.  For shame.
 DEFAULT_SERVER = "https://archie.phys.uwm.edu/lars/xmlrpc/"
 
 INI_NAME = 'lars.ini'
@@ -21,6 +21,12 @@ INI_NAME = 'lars.ini'
 commands = {}
 
 log = logging.getLogger("lars.cli")
+
+def default_service():
+    serviceUrl = os.environ.get('LARS_SERVICE', None)
+    if serviceUrl:
+        return serviceUrl
+    return DEFAULT_SERVER
 
 def mkIfos(mess, warn=False):
     """take a list of things that look like 'H1H2C'
@@ -42,13 +48,18 @@ def mkIfos(mess, warn=False):
 def printAnalysis(a):
     if 'gpsend' not in a:
         a = dict(a)
-        a.update(gpsend = int(a['gpsStart']) + int(a['duration']))
+        gpsend = ""
+        if a['gpsStart'] and a['duration']:
+            gpsend = int(a['gpsStart']) + int(a['duration'])
+        a.update(gpsend = gpsend)
     print """
-UID: %(uid)s
+UID: %(uid)s %(status)s
      %(description)s
-     %(url)s
-     %(gpsStart)s %(gpsend)s
-     %(ifos)s
+     %(group)s %(analysisType)s
+     GPS Time: %(gpsStart)s %(gpsend)s
+     IFOs: %(ifos)s
+     owner: %(owner)s
+     location: %(location)s
      cachefile: %(cachefile)s""" % a
 
 def printErrors(rv):
@@ -146,7 +157,7 @@ class OptionParser(optparse.OptionParser):
             action="store",
             type="string",
             help="Server URL",
-            default=DEFAULT_SERVER,
+            default=default_service(),
             )
 
 class Command:
@@ -167,7 +178,7 @@ class Command:
         try:
             self.run_command(options, args)
         except xmlrpclib.Fault, e:
-            print "Remote Fault", e.faultCode, e.faultString
+            print "Remote Error", e.faultCode, e.faultString
         except xmlrpclib.ProtocolError, e:
             print "XMLRPC Protocol Error", e
         except socket.sslerror, e:
@@ -178,7 +189,7 @@ class Command:
         except socket.error, e:
             print "Socket error:", e[1]
         except Exception, e:
-            print "Error", type(e), e.__class__, dir(e), e
+            print "Error", e.__class__, e
 
     def run_command(self, options={}, args=[]):
         print "RUNNING:", self.name, "(I am not properly initialized!)"
@@ -339,104 +350,89 @@ class Publish(Command):
         print "Published:", rv.uid
 
 
-#class Search(Command):
-#    name ="search"
-#
-#    def init_parser(self):
-#        usage = "lars [global options] add [command options] description search_directory"
-#
-#        parser = self.parser
-#
-#        parser.add_option(
-#            "-d", "--description",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="Description to match",
-#        )
-#
-#        parser.add_option(
-#            "-C", "--cachefile",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="Location of cachefile.",
-#        )
-#
-#        parser.add_option(
-#            "-o", "--owner",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="Owner of analysis.",
-#        )
-#
-#        parser.add_option(
-#            "-u", "--url",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="URL of analysis.",
-#        )
-#
-#        parser.add_option(
-#            "-i", "--ifos",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="List of IFOs. eg 'H1,H2'",
-#        )
-#
-#        parser.add_option(
-#            "-t", "--gpstime",
-#            action="store",
-#            type="string",
-#            default=None,
-#            help="GPS time.",
-#        )
-#
-#        parser.add_option(
-#            "-b", "--browser",
-#            action="store_true",
-#            default=False,
-#            help="Show result in web browser." )
-#
-#    def run_command(self, options={}, args=[]):
-#        import webbrowser
-##       print "Opening browser"
-#        params = {}
-#        if options.description:
-#            params['description'] = options.description
-#        if options.description:
-#            params['cachefile'] = options.cachefile
-#        if options.owner:
-#            params['owner'] = options.owner
-#        if options.url:
-#            params['url'] = options.url
-#        if options.ifos:
-#            for ifo in mkIfos(options.ifos.split(','),warn=True).split(','):
-#                params['ifo_'+ifo] = 'CHECKED'
-#        if options.gpstime:
-#            params['gpstime'] = options.gpstime
-#        if params:
-#            url = urljoin(options.server, "/searchResults")
-#            url += "?" + urlencode(params)
-#        else:
-#            url = urljoin(options.server, "/search")
-#        if options.browser:
-#            print "Opening Browser"
-#            webbrowser.open_new(url)
-#        else:
-#            server = Server(options.server)
-#            rv = server.search(**params)
-#            for result in rv['results']:
-#                printAnalysis(result)
-#            printErrors(rv)
+class Search(Command):
+    name ="search"
+
+    def init_parser(self):
+        usage = "lars [global options] add [command options] description search_directory"
+
+        parser = self.parser
+
+        parser.add_option(
+            "-d", "--description",
+            action="store",
+            type="string",
+            default=None,
+            help="Description of analysis (use * for wildcard)",
+        )
+
+        parser.add_option(
+            "-T", "--type",
+            action="store",
+            type="string",
+            default=None,
+            help="Analysis Type",
+        )
+
+        parser.add_option(
+            "-l", "--limit",
+            action="store",
+            type="int",
+            default=50,
+            help="Maximum number of results (default 50)",
+        )
+
+        parser.add_option(
+            "-o", "--owner",
+            action="store",
+            type="string",
+            default=None,
+            help="Owner of analysis",
+        )
+
+        parser.add_option(
+            "-g", "--group",
+            action="store",
+            type="string",
+            default=None,
+            help="Analysis Group",
+        )
+
+        parser.add_option(
+            "-t", "--gpstime",
+            action="store",
+            type="string",
+            default=None,
+            help="GPS time",
+        )
+
+    def run_command(self, options={}, args=[]):
+        server = serviceProxy(options.server)
+        params = {}
+        if options.limit:
+           params['limit'] = options.limit
+        if options.description:
+            params['description'] = options.description
+        if options.type:
+            params['type'] = options.type
+        if options.owner:
+            params['owner'] = options.owner
+        if options.group:
+            params['group'] = options.group
+        if options.gpstime:
+            params['gpstime'] = options.gpstime
+
+        rv = server.search(params)
+
+        if not rv:
+            print "None found"
+        else:
+            for a in rv:
+                printAnalysis(a)
 
 
-#commands["add"] = Add()
 commands["ping"] = Ping()
 commands["info"] = Info()
 commands["reserve"] = Reserve()
 commands["publish"] = Publish()
-#commands["search"] = Search()
+commands["search"] = Search()
