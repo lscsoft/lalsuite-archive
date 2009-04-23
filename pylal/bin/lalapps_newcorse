@@ -259,18 +259,35 @@ for n, filename in enumerate(filenames):
 	xmldoc = dbtables.get_xml(connection)
 
 	#
-	# retrieve and store the ring boundaries.  all segments from all
-	# segment lists in the search summary table are collected into a
-	# single list and uniqueified with set().  if the database contains
-	# a sim_inspiral table then it is assumed to represent an injection
-	# run, and its rings are not added to the livetime.
+	# if the database contains a sim_inspiral table then it is assumed
+	# to represent an injection run.  its rings must not added to the
+	# livetime, and it cannot provide background coincs, so it is just
+	# skipped altogether.
 	#
 
-	if "sim_inspiral" not in dbtables.get_table_names(connection):
-		try:
-			background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
-		except ValueError, s:
-			raise ValueError, "in file %s: %s" % (filename, str(s))
+	if "sim_inspiral" in dbtables.get_table_names(connection):
+		if options.verbose:
+			print >>sys.stderr, "database contains sim_inspiral table, skipping ..."
+
+		#
+		# close the database
+		#
+
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		continue
+
+	#
+	# retrieve and store the ring boundaries.  all segments from all
+	# segment lists in the search summary table are collected into a
+	# single list and uniqueified with set().
+	#
+	#
+
+	try:
+		background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	except ValueError, s:
+		raise ValueError, "in file %s: %s" % (filename, str(s))
 
 	#
 	# count background coincs by type and mass bin
