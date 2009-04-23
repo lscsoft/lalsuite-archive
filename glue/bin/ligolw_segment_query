@@ -66,6 +66,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -194,16 +195,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-
-
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-    
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
 
 
 def split_segment_ids(segment_ids):
@@ -586,11 +577,8 @@ def ping_server(client):
 
 
 def setup_files(dir_name, gps_start_time, gps_end_time):
-    # extract directory from URL
-    glob_pattern = dir_name + '/*.xml'
-
     # Filter out the ones that are outside our time range
-    xml_files = filter(lambda x: file_filter(x, gps_start_time, gps_end_time), glob.glob(glob_pattern))
+    xml_files = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
     # TODO: This should have a better name that includes the
     # start and end times
