@@ -168,7 +168,7 @@ class Summaries(object):
 		self.rings.sort()
 		# FIXME: use any() built-in when Python 2.5 is required
 		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
-			raise ValueError, "found non-disjoint rings %s and %s" % (repr(a), repr(b))
+			raise ValueError, "found non-disjoint rings"
 
 	def set_offset_vectors(self, offset_vectors):
 		self.offset_vectors = offset_vectors
@@ -263,7 +263,10 @@ for n, filename in enumerate(filenames):
 	# single list and uniqueified with set().
 	#
 
-	background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	try:
+		background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	except ValueError, s:
+		raise ValueError, "in file %s: %s" % (filename, str(s))
 
 	#
 	# count background coincs by type and mass bin
