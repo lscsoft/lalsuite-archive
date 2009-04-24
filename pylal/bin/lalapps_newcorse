@@ -52,6 +52,13 @@ from pylal import rate
 from pylal import SnglInspiralUtils
 
 
+# FIXME:  remove when Python >= 2.5 required
+try:
+	any
+except NameError:
+	any = iterutils.any
+
+
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
