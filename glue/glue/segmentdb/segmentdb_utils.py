@@ -34,7 +34,7 @@ def get_all_files_in_range(dirname, starttime, endtime):
                 ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
         elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
             file_time = int(filename.split('-')[-2])
-            if file_time >= (starttime-16) and file_time <= (endtime+16):
+            if file_time >= (starttime-64) and file_time <= (endtime+64):
                 ret.append(os.path.join(dirname,filename))
 
     return ret
