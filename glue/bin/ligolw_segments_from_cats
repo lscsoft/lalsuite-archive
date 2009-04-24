@@ -45,7 +45,7 @@ except ImportError:
 import sys
 import os
 import glob
-
+import tempfile
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -279,10 +279,9 @@ if __name__ == '__main__':
     options, db_location, file_location = parse_command_line()    
 
     # 1. Load the veto file into sqlite
-    # TODO: This should have a better name that includes the
-    # start and end times
     
-    temp_db    = options.output_dir + '/temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 

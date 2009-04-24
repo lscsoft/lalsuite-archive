@@ -52,6 +52,7 @@ import pwd
 import glob
 import time
 import socket
+import tempfile
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -66,6 +67,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -194,28 +196,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-def get_all_files(dirname):
-    ret = []
-
-    for o in os.walk(dirname):
-        ret += map(lambda x: os.path.join(o[0], x), o[2])
-
-    return ret
-
-
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-
-    # If this isn;t an XML file, skip it
-    if not file_name.endswith('xml'):
-        return False
-        raise ValueError, "False file_name, not ending with xml"
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
-
 def split_segment_ids(segment_ids):
     """Given an array of strings of the form ifo:name and
     ifo:name:version, returns an array of tuples of the form (ifo,
@@ -611,22 +591,18 @@ def ping_server(client):
 
 
 def setup_files(dir_name, gps_start_time, gps_end_time):
-
     # Filter out the ones that are outside our time range
-    all_files = get_all_files(dir_name)
-    xml_files = []
-    xml_files += filter(lambda x: file_filter(x, gps_start_time, gps_end_time), all_files)
+    xml_files = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    # TODO: This should have a better name that includes the
-    # start and end times
-    temp_db      = 'temp.db'
+    handle, temp_db  = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
     ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -672,7 +648,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location, gps_start_time, gps_end_time)
+        temp_db, connection = setup_files(file_location, gps_start_time, gps_end_time)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 
@@ -695,6 +671,6 @@ if __name__ == '__main__':
 
     # Clean up
     if temp_files:
-        os.remove('temp.db')
+        os.remove(temp_db)
 
 

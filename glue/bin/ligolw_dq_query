@@ -64,6 +64,7 @@ import os
 import glob
 import time
 import socket
+import tempfile
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -478,16 +479,15 @@ def setup_files(dir_name, options, times):
     for t in times:
         xml_files += segmentdb_utils.get_all_files_in_range(dir_name, t[0], t[1])
 
-    # TODO: This should have a better name that includes the
-    # start and end times
-    temp_db      = 'temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
     ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -540,7 +540,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location, options, times)
+        temp_db, connection = setup_files(file_location, options, times)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 
@@ -559,6 +559,7 @@ if __name__ == '__main__':
 
     # Clean up
     if temp_files:
-        os.remove('temp.db')
+        os.remove(temp_db)
+
 
 
