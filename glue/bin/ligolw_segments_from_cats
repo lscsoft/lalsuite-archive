@@ -101,7 +101,7 @@ def parse_command_line():
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
                       
     parser.add_option("-t", "--segment",      metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
+    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
     parser.add_option("-f", "--dmt-file",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
     
     # Time options
@@ -129,9 +129,9 @@ def parse_command_line():
         else:
             raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_file:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
             raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
@@ -227,7 +227,7 @@ def kludge_get_column_info(connection, table_name):
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
