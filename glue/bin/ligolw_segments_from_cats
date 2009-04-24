@@ -401,7 +401,7 @@ if __name__ == '__main__':
             params = {'table_name':table_name, 'name':name, 'ifo':ifo, 'version':version, 'veto_start_time':veto_start_time, 'veto_end_time':veto_end_time}
 
             if veto_end_time == 0:
-                time_clause = ' AND %(veto_start_time)s BETWEEN %(table_name)s.start_time AND %(table_name)s.end_time ' % params
+                time_clause = ' AND %(table_name)s.end_time >= %(veto_start_time)s ' % params
             else:
                 time_clause = ' AND NOT(%(table_name)s.start_time > %(veto_end_time)s OR %(veto_start_time)s > %(table_name)s.end_time) ' % params
 
@@ -434,9 +434,19 @@ if __name__ == '__main__':
             
         segment_id = 0
         
+        cursor = veto_connection.cursor()
+
         for seg in disjoint_segments:
-            cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
-                           ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+            # You might think this would work:
+            #
+            # cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
+            #               ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+            #
+            # and 9 out of 10 times you'd be right.  The tenth time, however, the values are all inserted as None.  No idea why,
+            # but I wouldn't be surprised if it's the same mysterious effect that requires the kludge above.  Anyway,
+            # this seems to work 10 times out of ten:
+            cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values('segment:segment_id:%d', %d, %d, '%s', '%s')""" % (segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+
             segment_id += 1
             
         veto_connection.commit()
