@@ -454,7 +454,7 @@ if __name__ == '__main__':
         #
         # Dump to XML
         #
-        output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
         ligolw_sqlite.extract(veto_connection, output_name, table_names = ['process','process_params', 'segment_definer','veto_definer','segment','segment_summary'] )
 
         #
