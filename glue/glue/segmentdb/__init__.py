@@ -32,5 +32,5 @@ __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
-__all__ = ["query_engine"]
+__all__ = ["query_engine", "segmentdb_utils.py"]
 

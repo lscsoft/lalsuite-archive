@@ -45,7 +45,7 @@ except ImportError:
 import sys
 import os
 import glob
-
+import tempfile
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -55,6 +55,7 @@ from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -100,7 +101,7 @@ def parse_command_line():
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
                       
     parser.add_option("-t", "--segment",      metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
+    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
     parser.add_option("-f", "--dmt-file",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
     
     # Time options
@@ -128,9 +129,9 @@ def parse_command_line():
         else:
             raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_file:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
             raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
@@ -216,44 +217,6 @@ def kludge_get_column_info(connection, table_name):
 
 
 
-def get_all_files(dirname):
-    ret = []
-
-    for o in os.walk(dirname):
-        ret += map(lambda x: os.path.join(o[0], x), o[2])
-
-    return ret
-
-def get_all_files_in_range(dirname, starttime, endtime):
-    ret = []
-
-    first_four_start = starttime / 100000
-    first_four_end   = endtime   / 100000
-
-    for filename in os.listdir(dirname):
-        if re.match('.*-[0-9]{4}$', filename):
-            dirtime = int(filename[-4:])
-            if dirtime >= first_four_start and dirtime <= first_four_end:
-                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
-        elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
-            file_time = int(filename.split('-')[-2])
-            if file_time >= (starttime-16) and file_time <= (endtime+16):
-                ret.append(os.path.join(dirname,filename))
-
-    return ret
-
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-    
-    # If this isn;t an XML file, skip it
-    if not file_name.endswith('xml'):
-        return False
-
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
 #
 # =============================================================================
 #
@@ -264,7 +227,7 @@ def file_filter(file_name, start_time, end_time):
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
@@ -316,10 +279,9 @@ if __name__ == '__main__':
     options, db_location, file_location = parse_command_line()    
 
     # 1. Load the veto file into sqlite
-    # TODO: This should have a better name that includes the
-    # start and end times
     
-    temp_db    = options.output_dir + '/temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
@@ -329,7 +291,7 @@ if __name__ == '__main__':
 
     # 2. If we're working with DMT files load them into sqlite as well
     if file_location:
-        xml_files += get_all_files_in_range(file_location, int(options.gps_start_time), int(options.gps_end_time))
+        xml_files += segmentdb_utils.get_all_files_in_range(file_location, int(options.gps_start_time), int(options.gps_end_time))
 
     ligolw_sqlite.insert(connection, xml_files)
 
@@ -439,7 +401,7 @@ if __name__ == '__main__':
             params = {'table_name':table_name, 'name':name, 'ifo':ifo, 'version':version, 'veto_start_time':veto_start_time, 'veto_end_time':veto_end_time}
 
             if veto_end_time == 0:
-                time_clause = ' AND %(veto_start_time)s BETWEEN %(table_name)s.start_time AND %(table_name)s.end_time ' % params
+                time_clause = ' AND %(table_name)s.end_time >= %(veto_start_time)s ' % params
             else:
                 time_clause = ' AND NOT(%(table_name)s.start_time > %(veto_end_time)s OR %(veto_start_time)s > %(table_name)s.end_time) ' % params
 
@@ -472,9 +434,19 @@ if __name__ == '__main__':
             
         segment_id = 0
         
+        cursor = veto_connection.cursor()
+
         for seg in disjoint_segments:
-            cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
-                           ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+            # You might think this would work:
+            #
+            # cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
+            #               ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+            #
+            # and 9 out of 10 times you'd be right.  The tenth time, however, the values are all inserted as None.  No idea why,
+            # but I wouldn't be surprised if it's the same mysterious effect that requires the kludge above.  Anyway,
+            # this seems to work 10 times out of ten:
+            cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values('segment:segment_id:%d', %d, %d, '%s', '%s')""" % (segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
+
             segment_id += 1
             
         veto_connection.commit()
@@ -491,7 +463,7 @@ if __name__ == '__main__':
         #
         # Dump to XML
         #
-        output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
         ligolw_sqlite.extract(veto_connection, output_name, table_names = ['process','process_params', 'segment_definer','veto_definer','segment','segment_summary'] )
 
         #

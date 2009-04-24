@@ -64,6 +64,7 @@ import os
 import glob
 import time
 import socket
+import tempfile
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -78,6 +79,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -177,6 +179,13 @@ def parse_command_line():
         if not database_location:
             raise ValueError("--ping requires [ --segment ldbd:... | --database ]")
     
+    # Report is only available when hitting the database, since 
+    # we have no way of knowing where the segment boundaries are
+    # and would have to load *every* XML file.
+    if file_location and options.report:
+        print "--report can only be used with the database."
+        sys.exit(-1)
+
     return options, database_location, file_location, times
 
 
@@ -466,23 +475,19 @@ def setup_files(dir_name, options, times):
     glob_pattern = dir_name + '/*.xml'
 
     # Filter out the ones that are outside our time range
-    if options.active or options.defined:
-	xml_files = []
-	for t in times:
-            xml_files += filter(lambda x: file_filter(x, t[0], t[1]), glob.glob(glob_pattern))
-    else:
-        xml_files = glob.glob(glob_pattern)
+    xml_files = []
+    for t in times:
+        xml_files += segmentdb_utils.get_all_files_in_range(dir_name, t[0], t[1])
 
-    # TODO: This should have a better name that includes the
-    # start and end times
-    temp_db      = 'temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
     ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -535,7 +540,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location, options, times)
+        temp_db, connection = setup_files(file_location, options, times)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 
@@ -554,6 +559,7 @@ if __name__ == '__main__':
 
     # Clean up
     if temp_files:
-        os.remove('temp.db')
+        os.remove(temp_db)
+
 
 
