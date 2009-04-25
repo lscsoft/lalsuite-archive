@@ -168,7 +168,12 @@ def gridsky(resolution):
 def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
-  box_err = pi*sqrt(2.0)*coarse_res/180.0
+  epsilon = pi*sqrt(2.0)*coarse_res/180.0
+  #divide the sphere into up to four grids to do thing the right way
+  #each element of the following will be a list of [min,max] pairs
+  lat_grids = []
+  lon_grids = []
+
 #  latmin += pi/2 - box_err
 #  latmax += pi/2 + box_err
 #  lonmin -= box_err
@@ -191,33 +196,82 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
 #      points.append(numpy.asarray([latitude-pi/2,longitude]))
 #    latitude += ds
 #    longitude = lonmin
+  #make latitude run from 0 to pi, to avoid gridding problems at the equator
+  latmin += 0.5*pi
+  latmax += 0.5*pi
+  latdiff = latmax - latmin 
+  londiff = lonmax - lonmin 
+  if latdiff > 0.5*pi :
+    lat_grids.append([latmax-epsilon,pi])
+    lat_grids.append([0,latmin+epsilon])
+  else:
+    if (latmin - epsilon > 0) and (latmax + epsilon < pi):
+      lat_grids.append([latmin-epsilon,latmax+epsilon])
+    elif latmin - epsilon < 0 :
+      lat_grids.append([0,latmax+epsilon])
+      lat_grids.append([pi+latmin-epsilon,pi])
+    elif latmax + epsilon > pi:
+      lat_grids.append([latmin-epsilon,pi])
+      lat_grids.append([0,latmax+epsilon-pi])
+    else:
+      raise ValueError, "this should never happen"#, latmin, latmax
+  if londiff > pi:
+    lon_grids.append([lonmax-epsilon,2*pi])
+    lon_grids.append([0,lonmin+epsilon])
+  else:
+    if (lonmin - epsilon > 0) and (lonmax + epsilon < 2*pi):
+      lon_grids.append([lonmin-epsilon,lonmax+epsilon])
+    elif lonmin - epsilon < 0:
+      lon_grids.append([0,lonmax+epsilon])
+      lon_grids.append([2*pi+lonmin-epsilon,2*pi])
+    elif lonmax + epsilon > 2*pi:
+      lon_grids.append([lonmin-epsilon,2*pi])
+      lon_grids.append([0,lonmax+epsilon-2*pi])
+    else:
+      raise ValueError, "this should never happen"#, lonmin, lonmax
+
+  for latgrid in lat_grids:
+    for longrid in lon_grids:
+
+      latitude = latgrid[0]
+      longitude = longrid[0]
+
+      points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      while latitude <= latgrid[1]:
+        latitude += ds
+        longitude = longrid[0]
+        points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+        while longitude <= longrid[1]:
+          longitude += ds / abs(sin(latitude))
+          points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      
 
   #deal with periodic grid issues by always starting at (0,0) and then translating back to the original position
-  latdiff = latmax - latmin + 2*box_err
-  londiff = lonmax - lonmin + 2*box_err
-  if abs(latdiff) > 0.5*pi :
-    lat_displacement = latmax
-    trans_latmax =periodic(-latdiff,pi) 
-  else:
-    lat_displacement = latmin
-    trans_latmax = latdiff
-  if abs(londiff) > pi:
-    lon_displacement = lonmax
-    trans_lonmax = periodic(-londiff,2*pi)
-  else:
-    lon_displacement = lonmin
-    trans_lonmax = londiff
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  #if latdiff > 0.5*pi :
+  #  d_lat = latmax - epsilon
+  #  grid_latmax = periodic(2*epsilon-latdiff,0,pi)
+  #else:
+  #  d_lat = latmin - epsilon
+  #  grid_latmax = latdiff + 2*epsilon
+  #if londiff > pi:
+  #  d_lon = lonmax - epsilon
+  #  grid_lonmax = periodic(2*epsilon-londiff,0,2*pi)
+  #else:
+  #  d_lon = lonmin - epsilon
+  #  grid_lonmax = londiff + 2*epsilon
 
-  latitude = 0
-  longitude = 0
-  points = [numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)])] 
-  while latitude <= trans_latmax:
-    latitude += ds
-    longitude = 0
-    points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
-    while longitude <= trans_lonmax:
-      longitude += ds / abs(sin(latitude))
-      points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
+  #latitude = 0
+  #longitude = 0
+  #points = [numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)])] 
+  #while latitude <= grid_latmax:
+  #  latitude += ds
+  #  longitude = 0
+  #  points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
+  #  while longitude <= grid_lonmax:
+  #    longitude += ds / abs(sin(latitude))
+  #    points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
 
   print "latmin", latmin
   print "latmax", latmax
@@ -225,13 +279,14 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   print "lonmax", lonmax
   print "######"
 
+  #print points
   return points
 
 #enforce periodic boundary conditions on things
 #this helps avoid ambiguities in gridding and convex hull finding that arise when working on the surface of the 2-sphere
-#assumes things are periodic between 0 and xmax
-def periodic(x,xmax):
-  if x < 0:
+
+def periodic(x,xmin,xmax):
+  if x < xmin:
     return x + xmax
   if x >= xmax:
     return x - xmax
@@ -1108,6 +1163,13 @@ figure()
 plot(asarray(asnr), asarray(adelta_D),'ro') 
 annotate_plot(r"$\rho$", "$\Delta D_{rms}$ ","$D_{eff}$ measure  accuracy")
 figure()
+hist(asarray(adelta_t),bins=20)
+annotate_plot("number of signals", "timing", ("timing accuracy histogram"))
+figure()
+hist(asarray(adelta_D),bins=20)
+annotate_plot("number of signals", "Deff measure accuracy", ("Deff measure accuracy histogram"))
+
+figure()
 plot(asarray(asnr), asarray(adelta_comb_stat),'ro') 
 annotate_plot(r"$\rho$", "Confidence","Confidence Accuracy")
 figure()
@@ -1117,8 +1179,11 @@ figure()
 hist(asarray(adelta_comb_stat_coarse),bins=20)
 annotate_plot("normalized confidence on the coarse grid ", "number of signals in bin", ("confidence histogram for the coarse grid"))
 figure()
-plot(asarray(asnr), asarray(apoints),'bo') 
+plot(asarray(asnr), asarray(apoints),'bo')
+hlines(average(asarray(apoints)),0, max(asnr))
+vlines(average(asnr),0,max(apoints))
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of combined snr" % opts.fine_resolution))
+
 figure()
 plot(asarray(asnrH1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of H1 snr" % opts.fine_resolution))
