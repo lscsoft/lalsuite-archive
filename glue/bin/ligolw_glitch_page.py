@@ -39,7 +39,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
-from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue import gpstime
 
@@ -91,13 +91,13 @@ def generate_html(outf, triggers, colors):
     # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>f_final</th><th>ttotal</th><th>Q scan</th><th>DQ flags</th></tr>'
+    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>f_final</th><th>ttotal</th><th>Q scan</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
         for res in trig[:-1]:
             print >>outf, '    <td>%s</td>' % res
-        print >>outf, '    <td><a href="http://ldas-jobs.ligo-wa.caltech.edu/~inspiralbns/qscans/%d.%d">Q Scan</a></td>' % (trig[1], trig[2])
+        print >>outf, '    <td><a href="http://ldas-jobs.ligo-wa.caltech.edu/~inspiralbns/qscans/%d.%d">Q scan</a></td><td>Coming soon!</td></td>' % (trig[1], trig[2])
 
         print >>outf, '    <td>'
 
@@ -119,34 +119,20 @@ def generate_html(outf, triggers, colors):
 
 
 
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-
-    # If this isn;t an XML file, skip it
-    if not file_name.endswith('xml'):
-        return False
-    
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16) 
-
 def setup_files(dir_name, gps_start_time, gps_end_time):
-    # extract directory from URL
-    glob_pattern = dir_name + '/*.xml'
-
     # Filter out the ones that are outside our time range
-    xml_files = filter(lambda x: file_filter(x, gps_start_time, gps_end_time), glob.glob(glob_pattern))
+    xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
+
+    print "Yes: ", xml_files
 
     # TODO: This should have a better name that includes the
     # start and end times
-    temp_db      = 'glitch-temp.db'
+    temp_db    = 'glitch-temp.db'
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
+    ligolw_sqlite.insert(connection, xml_files)
 
     return connection
     
@@ -162,6 +148,9 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 
 if __name__ == '__main__':
     options = parse_command_line()    
+
+    kcount = int(options.known_count)
+    ucount = int(options.unknown_count)
 
     # Run up to now
     gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
@@ -242,6 +231,7 @@ if __name__ == '__main__':
     unknown_trigs = []
     
     for ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot in rows:
+	print ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot 
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -249,8 +239,12 @@ if __name__ == '__main__':
         # Find the flags on at this time
         flags = {}
 
+	print "Running: ", ('ligolw_dq_query --segment=%s --report %d --include-segments %s' % (options.segments, end_time, ifo))
+
+
         pipe  = os.popen('ligolw_dq_query --segment=%s --report %d --include-segments %s' % (options.segments, end_time, ifo))
         for line in pipe:
+            print line
             flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
     
             # We're not interested in the ones that aren't active at this time
@@ -260,18 +254,20 @@ if __name__ == '__main__':
                 flags[name] = (beforet, timet, aftert)
     
     
-        if 'DMT-INJECTION' in flags:
-            if len(known_trigs) < options.known_count:
-                known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
-        elif len(unknown_trigs) < options.unknown_count:
-            unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
-    
+        if ('DMT-SCIENCE' in flags and len(flags) == 1) or len(flags) == 0:
+            if len(unknown_trigs) < ucount:
+                unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
+                print "This is an unknown!"
+        elif len(known_trigs) < kcount:
+            known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
+            print "This is a known!"
+
         os.system('nohup condor_run "~qonline/qscan/bin/qscan.sh %d.%d" < /dev/null &>/dev/null &' % (end_time, end_time_ns))
 
         # Print no more than the top ten known and unknown triggers
         # (the ranking is done by the 'ODRER BY snr DESC' in the query above)
     
-        if len(known_trigs) == options.known_count and len(unknown_trigs) == options.unknown_count:
+        if len(known_trigs) == kcount and len(unknown_trigs) == ucount:
             break
     
     

@@ -266,6 +266,7 @@ def run_report(doc, process_id, engine, include_segments, times):
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
+       # The last start time before the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -277,6 +278,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_start[key] = row[3]
 
+       # The last end time before the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -288,6 +290,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_end[key] = row[3]
 
+       # The next start time after the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -299,6 +302,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             min_start[key] = row[3]
 
+       # The next end time after the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -316,23 +320,24 @@ def run_report(doc, process_id, engine, include_segments, times):
     for key in all_keys:
         ifo, name, version, tm = key
 
-        max_start_val = (key in max_start) and max_start[key] or 0
-        max_end_val   = (key in max_end)   and max_end[key]   or 0
-        min_start_val = (key in min_start) and min_start[key] or infinity 
-        min_end_val   = (key in min_end)   and min_end[key]   or infinity
+        max_start_val = (key in max_start) and max_start[key] or 0         # last start before t.o.i
+        max_end_val   = (key in max_end)   and max_end[key]   or 0         # last end before t.o.i
+        min_start_val = (key in min_start) and min_start[key] or infinity  # next start after t.o.i
+        min_end_val   = (key in min_end)   and min_end[key]   or infinity  # next end after t.o.i
 
-        # are we in an active segment?
+        # are we in an active segment?  We are if the last end is before the last start.
         if max_start_val > max_end_val:
-            prefix = '[%d' % max_start_val
+            prefix  = '[%d' % max_start_val
+            if min_end_val == infinity:
+                postfix = 'now)'
+            else:
+                postfix = '%d)' % min_end_val 
         else:
-            prefix = '%d)' % max_end_val
-
-        if min_start_val == min_end_val and min_end_val == infinity:
-            postfix = '[now'
-        elif min_start_val <= min_end_val:
-            postfix = '[%d' % min_start_val
-        else:
-            postfix = '%d)' % min_end_val
+            prefix  = '%d)' % max_end_val
+            if min_start_val == infinity:
+                postfix = '[now'
+            else:
+                postfix = '[%d' % min_start_val 
 
         value = '%s:%s:%s' % (ifo, name, version)
 
@@ -414,7 +419,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
@@ -456,24 +461,7 @@ def ping_server(client):
 #
 
 
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-    
-    # If this isn;t an XML file, skip it
-    if not file_name.endswith('xml'):
-        return False
-
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
-
-
 def setup_files(dir_name, options, times):
-    # extract directory from URL
-    glob_pattern = dir_name + '/*.xml'
-
     # Filter out the ones that are outside our time range
     xml_files = []
     for t in times:
@@ -485,7 +473,7 @@ def setup_files(dir_name, options, times):
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
+    ligolw_sqlite.insert(connection, xml_files)
 
     return temp_db, connection
     
