@@ -123,8 +123,6 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
     # Filter out the ones that are outside our time range
     xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    print "Yes: ", xml_files
-
     # TODO: This should have a better name that includes the
     # start and end times
     temp_db    = 'glitch-temp.db'
@@ -231,7 +229,6 @@ if __name__ == '__main__':
     unknown_trigs = []
     
     for ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot in rows:
-	print ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot 
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -239,12 +236,8 @@ if __name__ == '__main__':
         # Find the flags on at this time
         flags = {}
 
-	print "Running: ", ('ligolw_dq_query --segment=%s --report %d --include-segments %s' % (options.segments, end_time, ifo))
-
-
         pipe  = os.popen('ligolw_dq_query --segment=%s --report %d --include-segments %s' % (options.segments, end_time, ifo))
         for line in pipe:
-            print line
             flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
     
             # We're not interested in the ones that aren't active at this time
@@ -257,10 +250,8 @@ if __name__ == '__main__':
         if ('DMT-SCIENCE' in flags and len(flags) == 1) or len(flags) == 0:
             if len(unknown_trigs) < ucount:
                 unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
-                print "This is an unknown!"
         elif len(known_trigs) < kcount:
             known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
-            print "This is a known!"
 
         os.system('nohup condor_run "~qonline/qscan/bin/qscan.sh %d.%d" < /dev/null &>/dev/null &' % (end_time, end_time_ns))
 
