@@ -65,6 +65,7 @@ import glob
 import time
 import socket
 import tempfile
+import pwd
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -87,7 +88,7 @@ from glue.ligolw import dbtables
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
+USER_NAME    = pwd.getpwuid(os.getuid())[0]
 
 
 

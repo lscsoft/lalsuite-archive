@@ -30,6 +30,7 @@ except ImportError:
 import sys
 import os
 import glob
+import tempfile
 
 import glue.segments
 
@@ -125,7 +126,8 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 
     # TODO: This should have a better name that includes the
     # start and end times
-    temp_db    = 'glitch-temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
