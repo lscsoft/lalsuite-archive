@@ -233,7 +233,8 @@ def seg_spec_to_sql(spec):
     return sql
 
 
-def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
+
+def build_segment_list_old(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
     """
     Resolves an ifo, segment_name, version number (which may be *) into segments.  If version number is
     provided the query is straightforward, if not we do the following:
@@ -393,7 +394,6 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
         seg_dict[key].append(glue.segments.segment(segment_summary_start_time, segment_summary_end_time))
 
     for key, value in seg_dict.iteritems():
-        print value
         segmentlist = glue.segments.segmentlist(value)
         segmentlist.coalesce()
 
@@ -409,62 +409,6 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
 
 
     
-def run_query_segments(doc, proc_id, connection, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
-    """Runs a segment query.
-    connection: an object that represents a connection to the back end (ldbd handle or sqlite connection)
-    segment_resolver: the function to call to get segments for a single ifo:name or ifo:name:version specification
-    gps_start_time: gps start time
-    gps_end_time: gps end time
-    included_segments_string: comma-separated list of segment specifications to include
-    excluded_segments_string: comma-separated list of segment specifications to exclude
-    """
-    
-    included_segments = glue.segments.segmentlist([])
-    excluded_segments = glue.segments.segmentlist([])
-
-    for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
-        included_segments |= build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version)
-
-    # Excluded segments are not required
-    if excluded_segments_string:
-        for ifo, segment_name, version in split_segment_ids(excluded_segments_string.split(',')):
-            excluded_segments |= build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version)
-
-
-    result = included_segments - excluded_segments
-    result.coalesce()
-    
-    # Add ourselves as a segment definer
-    seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-    doc.childNodes[0].appendChild(seg_def_table)
-
-    seg_def_id                     = seg_def_table.get_next_id()
-    segment_definer                = lsctables.SegmentDef()
-    segment_definer.process_id     = proc_id
-    segment_definer.segment_def_id = seg_def_id
-    segment_definer.ifos           = split_segment_ids(included_segments_string.split(','))[0][0]
-    segment_definer.name           = "ligolw_segment_query"
-    segment_definer.version        = 0
-    segment_definer.comment        = ''
-
-    seg_def_table.append(segment_definer)
-
-
-    # Add the segments
-    segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
-    doc.childNodes[0].appendChild(segtable)
-
-    for seg in result:
-        segment                = lsctables.Segment()
-        segment.process_id     = proc_id
-        segment.segment_def_id = seg_def_id
-        segment.segment_id     = segtable.get_next_id()
-        segment.start_time     = seg[0]
-        segment.end_time       = seg[1]
-
-        segtable.append(segment)
-
-    return result
 
 
 
@@ -659,12 +603,12 @@ if __name__ == '__main__':
         
 
     if options.query_segments:
-       run_query_segments(doc, process_id, connection, engine, gps_start_time, gps_end_time,
-                          options.include_segments,options.exclude_segments)
+        segmentdb_utils.run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time,
+                           options.include_segments,options.exclude_segments)
 
 
     if options.query_types:
-       run_query_types(doc, process_id, connection, engine, gps_start_time, gps_end_time, options.include_segments)
+        run_query_types(doc, process_id, connection, engine, gps_start_time, gps_end_time, options.include_segments)
 
 
     utils.write_filename(doc, options.output_file)
