@@ -286,8 +286,11 @@ if __name__ == '__main__':
             
         # Start a new document
         doc = ligolw.Document()
-        doc.appendChild(ligolw.LIGO_LW())
 
+        # Keep the veto_definer for tracking purposes
+        doc.appendChild(dbtables.get_xml(veto_connection, ['veto_definer']))
+
+        # Register ourselves
         proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
 
         # loop over select of name, version where ifo=current ifo and category <= current category
@@ -312,15 +315,11 @@ if __name__ == '__main__':
         vetoed_segs.coalesce()
         segmentdb_utils.write_segments_to_xml(doc, proc_id, vetoed_segs)
             
-        #
         # Dump to XML
-        #
         output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
         utils.write_filename(doc, output_name)
 
-    #
     # Clean up
-    #
     if not options.keep_db:
         os.remove(temp_db)
 
