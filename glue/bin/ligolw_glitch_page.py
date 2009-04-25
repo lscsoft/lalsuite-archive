@@ -134,7 +134,7 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 
     ligolw_sqlite.insert(connection, xml_files)
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -169,7 +169,7 @@ if __name__ == '__main__':
 
     # Load the relevant trigger XML files into a sqlite DB and
     # get a connection
-    connection = setup_files(options.trigger_dir, gps_start_time, gps_end_time)
+    temp_db, connection = setup_files(options.trigger_dir, gps_start_time, gps_end_time)
 
     # Get the triggers
     # Note, the S5 version of this script had the condition
@@ -298,5 +298,6 @@ if __name__ == '__main__':
     f.close()
 
     # Clean up after ourselves.
-    os.remove('glitch-temp.db')
+    os.remove(temp_db)
+
 
