@@ -58,6 +58,12 @@ from glue.ligolw import dbtables
 from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
+try:
+   from glue import LDBDClient
+   from glue import gsiserverutils
+   have_ldbdc = True
+except:
+   have_ldbdc = False
 
 from glue.ligolw.utils import process
 
@@ -124,24 +130,12 @@ def parse_command_line():
     # query_engine)
     if options.segment:
         if options.segment.startswith('ldbd:'):
-            try:
-              from glue import LDBDClient
-              from glue import gsiserverutils
-            except:
-              print >> sys.stderr, "Error: unable to import LDBDClient module from glue. Please check that LDG is properly installed"
-              sys.exit(1)
             database_location = options.segment[len('ldbd://'):]
         elif options.segment.startswith('file:'):
             file_location = options.segment[len('file://'):]
         else:
             raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
     elif options.database:
-        try:
-          from glue import LDBDClient
-          from glue import gsiserverutils
-        except:
-          print >> sys.stderr, "Error: unable to import LDBDClient module from glue. Please check that LDG is properly installed"
-          sys.exit(1)
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
@@ -278,12 +272,13 @@ if __name__ == '__main__':
     
     if file_location:
         xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
-
         segment_query_engine = veto_query_engine
     else:
-        segment_connection   = setup_database(db_location)
-        segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
-                                    
+        if ( have_ldbdc is True ):
+            segment_connection   = setup_database(db_location)
+            segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
+        else:
+            print >> sys.stderr, "Error: Could not import LDBDClient. Check that LDG is properly installed"
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
