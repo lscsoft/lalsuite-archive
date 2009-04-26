@@ -165,7 +165,7 @@ def gridsky(resolution):
   return points
 
 #grid a small portion of the sky
-def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
+def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
   epsilon = pi*sqrt(2.0)*coarse_res/180.0
@@ -199,14 +199,16 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   #make latitude run from 0 to pi, to avoid gridding problems at the equator
   latmin += 0.5*pi
   latmax += 0.5*pi
-  latdiff = latmax - latmin 
-  londiff = lonmax - lonmin 
-  if latdiff > 0.5*pi :
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  if wrap_lat: #latdiff > 0.5*pi :
     lat_grids.append([latmax-epsilon,pi])
     lat_grids.append([0,latmin+epsilon])
   else:
     if (latmin - epsilon > 0) and (latmax + epsilon < pi):
       lat_grids.append([latmin-epsilon,latmax+epsilon])
+    elif (latmin - epsilon < 0) and (latmax + epsilon > pi):
+      lat_grids.append([0,pi])
     elif latmin - epsilon < 0 :
       lat_grids.append([0,latmax+epsilon])
       lat_grids.append([pi+latmin-epsilon,pi])
@@ -215,12 +217,14 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
       lat_grids.append([0,latmax+epsilon-pi])
     else:
       raise ValueError, "this should never happen"#, latmin, latmax
-  if londiff > pi:
+  if wrap_lon:#londiff > pi:
     lon_grids.append([lonmax-epsilon,2*pi])
     lon_grids.append([0,lonmin+epsilon])
   else:
     if (lonmin - epsilon > 0) and (lonmax + epsilon < 2*pi):
       lon_grids.append([lonmin-epsilon,lonmax+epsilon])
+    elif (lonmin - epsilon < 0) and (lonmax + epsilon > 2*pi):
+      lon_grids.append([0,2*pi])
     elif lonmin - epsilon < 0:
       lon_grids.append([0,lonmax+epsilon])
       lon_grids.append([2*pi+lonmin-epsilon,2*pi])
@@ -277,6 +281,8 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
   print "latmax", latmax
   print "lonmin", lonmin
   print "lonmax", lonmax
+  print "wrap lat", wrap_lat
+  print "wrap_lon", wrap_lon
   print "######"
 
   #print points
@@ -943,7 +949,24 @@ for coinc in coincTriggers:
     lonmin = min(lons)
     lonmax = max(lons)
 
-    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax)
+
+    #if latmax-latmin > pi or lonmin-lonmax > pi/2 check to see whether
+    #grids are oriented to wrap around the short (wrap_x = 1) or long (wrap_x = 0) way
+    wrap_lat = 0
+    wrap_lon = 0
+
+    if (latmax - latmin > 0.5*pi) or (lonmax-lonmin > pi):
+      for pt in cluster:
+        if not (latmax >= pt[0] >= latmin):
+          wrap_lat = 1
+          print "latwrap point", pt[0]
+        if not (lonmax >= pt[1] >= lonmin):
+          wrap_lon = 1
+          print "lonwrap point", pt[1]
+        if (wrap_lat == 1) and (wrap_lon == 1):
+          break
+
+    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon)
 
     fine_confidence = []
   
