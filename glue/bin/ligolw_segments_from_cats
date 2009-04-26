@@ -44,6 +44,7 @@ except ImportError:
 
 import sys
 import os
+import pwd
 import glob
 import tempfile
 import glue.segments
@@ -65,8 +66,10 @@ import re
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
-
+try:
+        USER_NAME = os.getlogin()
+except:
+        USER_NAME = pwd.getpwuid(os.getuid())[0]
 
 
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -316,7 +319,7 @@ if __name__ == '__main__':
         segmentdb_utils.write_segments_to_xml(doc, proc_id, vetoed_segs)
             
         # Dump to XML
-        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
         utils.write_filename(doc, output_name)
 
     # Clean up
