@@ -76,6 +76,8 @@ def parse_command_line():
     parser.add_option("-m", "--min-glitch-snr", metavar="snr",  help = "Minimum SNR to be considered a glitch (default=15.0)",  default="15.0")
     parser.add_option("-k", "--known-count",    metavar="known_count", help = "Max. number of triggers with DQ flags to print (default=10)", default="10")
     parser.add_option("-u", "--unknown-count",  metavar="unknown_count", help = "Max. number of triggers without DQ flags to print (default=10)", default="10")
+    parser.add_option("-b", "--gps-start-time",  metavar="gps_start_time", help = "Provide an explicit start time, rather than using the timestamp file")
+    parser.add_option("-n", "--gps-end-time",  metavar="gps_end_time", help = "Provide an explicit end time, rather than using now")
 
     options, others = parser.parse_args()
 
@@ -103,10 +105,8 @@ def generate_html(outf, triggers, colors):
         print >>outf, '    <td>'
 
         for name, value in trig[-1].items():
-            if name == 'DMT-SCIENCE':
-                print >>outf, '      <b>Science</b><br>'
-            elif name == 'DMT-INJECTION':
-                print >>outf, '      <b>Injection</b><br>'
+            if not name.startswith('DMT'):
+                print >>outf, '      <b>%s</b><br>' % name
             else:
                 print >>outf, '      %s %s %s<br>' % (name, value[0], value[2])
         print >>outf, '    </td>'
@@ -124,8 +124,6 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
     # Filter out the ones that are outside our time range
     xml_files  = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    # TODO: This should have a better name that includes the
-    # start and end times
     handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
     os.close(handle)
 
@@ -152,13 +150,18 @@ if __name__ == '__main__':
     kcount = int(options.known_count)
     ucount = int(options.unknown_count)
 
-    # Run up to now
-    gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
+    # Run up to now or the user-provided time
+    if options.gps_end_time:
+        gps_end_time = int(options.gps_end_time)
+    else:
+        gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
 
     # Find the last time we ran (in principle we could get this from the time
     # stamp on the HTML file, but we should allow for the possibility that 
     # someone might hand-edit that file)
-    if os.path.exists(options.timestamp_file):
+    if options.gps_start_time:
+        gps_start_time = int(options.gps_start_time)
+    elif os.path.exists(options.timestamp_file):
         f = open(options.timestamp_file)
         gps_start_time = int(f.next())
         f.close()
@@ -238,21 +241,34 @@ if __name__ == '__main__':
         # Find the flags on at this time
         flags = {}
 
-        pipe  = os.popen('ligolw_dq_query --segment=%s --report %d --include-segments %s' % (options.segments, end_time, ifo))
+        pipe  = os.popen('ligolw_dq_query --segment=%s --include-segments %s --in-segments-only --report %d' % (options.segments, ifo, end_time))
         for line in pipe:
             flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
     
-            # We're not interested in the ones that aren't active at this time
-            # (this could be an option to dg_query)
-            if not beforet.endswith(')'):
-                ifo, name, version = flag.split(':')
-                flags[name] = (beforet, timet, aftert)
+            ifo, name, version = flag.split(':')
+            flags[name] = (beforet, timet, aftert)
+
+        pipe.close()
     
-    
-        if ('DMT-SCIENCE' in flags and len(flags) == 1) or len(flags) == 0:
+        ifo_status = ''
+
+        for flag_name in ['Light','Up','Calibrated','Science','Injection']:
+            flag = 'DMT-' + flag_name.upper()
+
+            if flag in flags:
+                ifo_status += flag_name + ','
+                del flags[flag]
+
+        if len(ifo_status) > 0:
+            ifo_status = ifo_status[:-1]
+
+
+        if len(flags) == 0:
             if len(unknown_trigs) < ucount:
+                flags[ifo_status] = True
                 unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
         elif len(known_trigs) < kcount:
+            flags[ifo_status] = True
             known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, f_final, t_tot, flags))
 
         os.system('nohup condor_run "~qonline/qscan/bin/qscan.sh %d.%d" < /dev/null &>/dev/null &' % (end_time, end_time_ns))
@@ -292,10 +308,11 @@ if __name__ == '__main__':
     print >>out_html, out_tmp.getvalue()
     out_html.close()
 
-    # All done, update the timestamp
-    f = open(options.timestamp_file, 'w')
-    print >>f,  gps_end_time
-    f.close()
+    # All done, if we weren't given an ending time update the timestamp
+    if not options.gps_end_time:
+        f = open(options.timestamp_file, 'w')
+        print >>f,  gps_end_time
+        f.close()
 
     # Clean up after ourselves.
     os.remove(temp_db)
