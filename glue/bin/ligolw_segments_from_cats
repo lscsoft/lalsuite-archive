@@ -58,8 +58,7 @@ from glue.ligolw import dbtables
 from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
-from glue import LDBDClient
-from glue import gsiserverutils
+
 from glue.ligolw.utils import process
 
 import re
@@ -125,12 +124,24 @@ def parse_command_line():
     # query_engine)
     if options.segment:
         if options.segment.startswith('ldbd:'):
+            try:
+              from glue import LDBDClient
+              from glue import gsiserverutils
+            except:
+              print >> sys.stderr, "Error: unable to import LDBDClient module from glue. Please check that LDG is properly installed"
+              sys.exit(1)
             database_location = options.segment[len('ldbd://'):]
         elif options.segment.startswith('file:'):
             file_location = options.segment[len('file://'):]
         else:
             raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
     elif options.database:
+        try:
+          from glue import LDBDClient
+          from glue import gsiserverutils
+        except:
+          print >> sys.stderr, "Error: unable to import LDBDClient module from glue. Please check that LDG is properly installed"
+          sys.exit(1)
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
