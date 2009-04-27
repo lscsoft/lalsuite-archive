@@ -180,8 +180,8 @@ class Command:
         except xmlrpclib.ProtocolError, e:
             print "XMLRPC Protocol Error", e
         except socket.sslerror, e:
-            print "SSL Error (%s)\n   %s" % (e[0], e[1])
-            if e[1].endswith("unknown ca"):
+            print "SSL Error (%s)\n" % (e[0])
+            if len(e[:]) > 1 and e[1].endswith("unknown ca"):
                 print "Your proxy might not be RFC compliant."
                 print "Try 'grid-proxy-init -rfc'"
         except socket.error, e:
