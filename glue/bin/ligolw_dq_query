@@ -363,10 +363,12 @@ def run_active(doc, process_id, engine, include_segments, times):
         AND   segment_definer.segment_def_id = segment.segment_def_id
         AND """ + time_clause + segment_clause)
 
-
+    
+    distinct_names = []
     distinct_rows = []
     for x in rows:
-      if x not in distinct_rows:
+      if x[0:2] not in distinct_names:
+         distinct_names.append(x[0:2])
          distinct_rows.append(x)
 
 
