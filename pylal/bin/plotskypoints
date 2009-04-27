@@ -579,7 +579,10 @@ def parse_command_line():
   parser.add_option("--user-tag", help="a tag to label your plots")
   parser.add_option("--output-path", help="root of the HTML output")
   parser.add_option("--enable-output", action="store_true", default=False, help="enable plots and HTML output")
-  parser.add_option("--write-summary-plots", action="store_true", default=False, help="write the summary plots to an HTML page (for injection runs)")
+  parser.add_option("--write-summary-plots", action="store_true", default=False, \
+                    help="write the summary plots to an HTML page (for injection runs)")
+  parser.add_option("--write-inj-data", action="store_true", default=False, \
+                    help="create a file with data from injections")
   
   #parser.add_option("--html-for-cbcweb", action="store_true", \
   #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
@@ -734,6 +737,9 @@ if opts.plotgalaxies:
 #if opts.plotgalaxies:
 #  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
 #  dmax = sphdist((0,0), (pt_step,pt_step))
+
+if opts.write_inj_data:
+  inj_data = ""
  
 for coinc in coincTriggers:
 
@@ -776,9 +782,12 @@ for coinc in coincTriggers:
     if opts.plotpoints:
       figure()
       
-  asnrH1.append(getattr(coinc,"H1").snr)
-  asnrL1.append(getattr(coinc,"L1").snr)
-  asnrV1.append(getattr(coinc,"V1").snr)
+  H1snr = getattr(coinc,"H1").snr
+  L1snr = getattr(coinc,"L1").snr
+  V1snr = getattr(coinc,"V1").snr
+  asnrH1.append(H1snr)
+  asnrL1.append(L1snr)
+  asnrV1.append(V1snr)
 
 
   #remove H2 if it's there
@@ -932,7 +941,9 @@ for coinc in coincTriggers:
   #[pt[0] for pt in coarse_confidence[:10]]
   coarse_hs_clusters = find_clusters(coarse_hotspots,dmax)
 
-  adelta_comb_stat_coarse.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/coarse_confidence[0][1])
+  Linj = (injdelta_t_rms/time_threshold+injdelta_D_rms)
+  Linj_coarse_norm = Linj/coarse_confidence[0][1]
+  adelta_comb_stat_coarse.append(Linj_coarse_norm)
   
   #list to hold each cluster and its confidence values
   final_confidences = []
@@ -1003,8 +1014,10 @@ for coinc in coincTriggers:
     plot(asarray([fine_confidence[0][0][1]]), asarray([fine_confidence[0][0][0]]),'rs')
 
   best_confidence = fine_confidence[0][1]
+
+  Linj_fine_norm = Linj/best_confidence
   
-  adelta_comb_stat.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/best_confidence)
+  adelta_comb_stat.append(Linj_fine_norm)
 
   narrowcount = 0.0
   widecount = 0.0 
@@ -1026,7 +1039,8 @@ for coinc in coincTriggers:
         best_points.append(pt)
 
   apoints.append(narrowcount)
-  asnr.append(coinc.stat)
+  combsnr = coinc.stat
+  asnr.append(combsnr)
   if (opts.plotpoints or opts.enable_output):
     axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
     annotate_plot("Right Ascension (radians)", "Declination (radians)",\
@@ -1180,6 +1194,16 @@ for coinc in coincTriggers:
         opts.google_map_key)
       write_file(gsky_root_dir, start_time + '_plotskypoints_summary.html',
                  gsky_summary)
+      
+  if opts.write_inj_data:
+    if not opts.plotgalaxies:
+      total_num_gals = 'NA'
+    inj_data += str(combsnr) + '\t' + str(H1snr) + '\t' + str(L1snr) + '\t' + str(V1snr) + '\t'  \
+                + str(injdelta_t_rms) + '\t' + str(injdelta_D_rms) + '\t' + str(Linj) + '\t' \
+                + str(Linj_coarse_norm) + '\t' + str(Linj_fine_norm) + '\t' \
+                + str(widecount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(narrowcount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(total_num_gals) + '\n' 
 
 if opts.enable_output and opts.write_summary_plots:
   InspiralUtils.initialise(opts, __prog__, __version__)
@@ -1365,7 +1389,11 @@ if opts.write_summary_plots:
 #  html_footer += "Mean pointings (wide) " + str(meanpointings_wide) + "<br>"
   html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
                                                 fnameList, tagList, comment=html_footer, cbcweb=False)
-
+if opts.write_inj_data:
+  if opts.output_path:
+    write_file(opts.output_path, "plotskypoints_inj_data.dat", inj_data)
+  else:
+    write_file(os.curdir, "plotskypoints_inj_data.dat", inj_data)
 
 #############################################################################
 # Generate HTML and cache file
