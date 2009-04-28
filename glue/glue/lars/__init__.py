@@ -6,13 +6,42 @@ from urlparse import urlsplit
 import sys
 sys.path.append(os.path.dirname(__file__))
 
-def findUserCredentials():
+def checkProxy(fname):
+    """Check to see if this is a pre-RFC proxy.
+       Not sure if this is valid in all cases, but it works at
+       least sometimes and is better than giving the user a
+       "broken pipe" error message.
+
+       Do one of three things:
+
+         (1) If a check cannot be done because the M2Crypto lib is not
+             available, say so.
+
+         (2) If it is a RFC 3820 compliant proxy, say and do nothing.
+
+         (3) Otherwise issue a warning.
+       """
+    try:
+        import M2Crypto
+        cert = M2Crypto.X509.load_cert(fname)
+        try:
+            cert.get_ext('proxyCertInfo')
+        except LookupError:
+            # Really, there shouldn't be an undefined extension.
+            print "Warning: You seem to be using a pre-RFC proxy."
+            print "Try doing grid-proxy-init -rfc"
+    except ImportError:
+        print "Warning: cannot load M2Crypto.  Not able to check proxy"
+
+def findUserCredentials(warnOnOldProxy=1):
 
     proxyFile = os.environ.get('X509_USER_PROXY')
     certFile = os.environ.get('X509_USER_CERT')
     keyFile = os.environ.get('X509_USER_KEY')
 
     if proxyFile:
+        if warnOnOldProxy:
+            checkProxy(proxyFile)
         return proxyFile, proxyFile
 
     if certFile and keyFile:
@@ -21,6 +50,8 @@ def findUserCredentials():
     # Try default proxy
     proxyFile = os.path.join('/tmp', "x509up_u%d" % os.getuid())
     if os.path.exists(proxyFile):
+        if warnOnOldProxy:
+            checkProxy(proxyFile)
         return proxyFile, proxyFile
 
     # Try default cert/key
