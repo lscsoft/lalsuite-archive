@@ -537,8 +537,17 @@ class ExperimentTable(table.Table):
 		Return the expr_def_id for the row in the table whose
 		values match the givens.
 		If a matching row is not found, returns None.
+
+		@search_group: string representing the search group (e.g., cbc)
+		@serach: string representing search (e.g., inspiral)
+		@lars_id: string representing lars_id
+		@instruments: the instruments; must be a python set
+		@gps_start_time: string or int representing the gps_start_time of the experiment
+		@gps_end_time: string or int representing the gps_end_time of the experiment
 		"""
-		
+		# create string from instrument set
+		instruments = ifos_from_instrument_set(instruments)
+
 		# look for the ID
 		for row in self:
 			if (row.search_group, row.search, row.lars_id, row.instruments, row.gps_start_time, row.gps_end_time, row.comments) == (search_group, search, lars_id, instruments, gps_start_time, gps_end_time, comments):
@@ -552,6 +561,13 @@ class ExperimentTable(table.Table):
 		"""
 		Creates a new def_id for the given arguments and returns it. 
 		If an entry already exists with these, will just return that id.
+
+		@search_group: string representing the search group (e.g., cbc)
+		@serach: string representing search (e.g., inspiral)
+		@lars_id: string representing lars_id
+		@instruments: the instruments; must be a python set
+		@gps_start_time: string or int representing the gps_start_time of the experiment
+		@gps_end_time: string or int representing the gps_end_time of the experiment
 		"""
 		
 		# check if id already exists
@@ -565,7 +581,7 @@ class ExperimentTable(table.Table):
 		row.search_group = search_group
 		row.search = search
 		row.lars_id = lars_id
-		row.instruments = instruments
+		row.instruments = ifos_from_instrument_set(instruments)
 		row.gps_start_time = gps_start_time
 		row.gps_end_time = gps_end_time
 		row.comments = comments
@@ -574,24 +590,22 @@ class ExperimentTable(table.Table):
 		# return new ID
 		return row.experiment_id
 
-	def get_instruments_from_id(self, experiment_id):
+	def get_row_from_id(self, experiment_id):
 		"""
-		Gets instrument set with the given experiment_id.
+		Returns row in matching the given experiment_id.
 		"""
+		row = [row for row in self if row.experiment_id == experiment_id]
+		if len(row) > 1:
+			raise ValueError, "Duplicate ids in experiment table"
+		if len(row) == 0:
+			raise ValueError, "id %s not found in table" %(`experiment_id`)
 
-		for row in self:
-			if row.experiment_id == experiment_id:
-				return row.instruments
-
-		# if get to hear, id not in table
-		raise KeyError, "id %s not found in table" %(`experiment_id`)
+		return row[0]
 
 
 class Experiment(object):
 	__slots__ = ExperimentTable.validcolumns.keys()
 
-	# FIXME: Following functions will only work for ifos; want to generalize
-	# this so it could be any type of instrument (e.g., PANSTAR)
 	def get_instruments(self):
 		"""
 		Return a set of the instruments for this row.
@@ -702,7 +716,7 @@ class ExperimentSummaryTable(table.Table):
 		"""
 		Method for writing a new set of non-injection experiments to the experiment
 		summary table. This ensures that for every entry in the 
-        experiment table, an entry for every slide is added to
+		experiment table, an entry for every slide is added to
 		the experiment_summ table, rather than just an entry for slides that
 		have events in them. 
 		
@@ -1320,7 +1334,6 @@ class CoincInspiral(object):
 
 	def get_ifos(self):
 		return instrument_set_from_ifos(self.ifos)
-
 
 CoincInspiralTable.RowType = CoincInspiral
 
