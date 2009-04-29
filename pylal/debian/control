@@ -3,13 +3,13 @@ Section: lscsoft
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
 #Build-Depends: debhelper (>= 5), pkg-config, libframe-dev, libmetaio-dev (>= 8.2), lal-dev (>= 5.3), python2.4-dev, python2.5-dev, python-numpy (>= 1.1), python-matplotlib, texlive-base-bin
-Build-Depends: debhelper (>= 5), pkg-config, libframe-dev, lal-dev (>= 5.3), python2.4-dev, python-numpy, texlive-base-bin | tetex-bin
+Build-Depends: debhelper (>= 5), pkg-config, libframe-dev, lal-dev (>= 5.3), python2.4-dev, python-numpy, texlive-base-bin | tetex-bin, git-core
 Standards-Version: 3.7.2
 
 Package: python-pylal
 Architecture: any
-#Depends: ${shlibs:Depends}, ${misc:Depends}, libframe0, libmetaio1 (>= 8.2), lal (>= 5.3), python2.4, python-numpy (>= 1.1), python-matplotlib
-Depends: ${shlibs:Depends}, ${misc:Depends}, libframe0, lal (>= 5.3), python2.4, python-numpy, python-matplotlib, python-scipy, python-pysqlite2, python-glue
+#Depends: ${shlibs:Depends}, ${misc:Depends}, libframe1, libmetaio1 (>= 8.2), lal (>= 5.3), python2.4, python-numpy (>= 1.1), python-matplotlib
+Depends: ${shlibs:Depends}, ${misc:Depends}, libframe1, lal (>= 5.3), python2.4, python-numpy, python-matplotlib, python-scipy, python-pysqlite2, python-glue
 #Recommends: lalapps (>= 5.3), python2.5
 Recommends: lalapps (>= 5.3)
 Replaces: pylal

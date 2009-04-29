@@ -92,12 +92,12 @@ except ValueError, e:
 
 #try:
 for filename in filenames:
-  doc = utils.load_filename(filename, options.verbose)
+  doc = utils.load_filename(filename, gz = (filename or "stdin").endswith(".gz"), verbose = options.verbose)
   for comment in doc.getElementsByTagName(ligolw.Comment.tagName):
     comment.parentNode.removeChild(comment)
     comment.unlink()
   doc = ligolw_sicluster.ligolw_sicluster(doc, **options.__dict__)
-  utils.write_filename(doc, filename, options.verbose)
+  utils.write_filename(doc, filename, gz = (filename or "stdout").endswith(".gz"), verbose = options.verbose)
 #except Exception, e:
 #  print >>sys.stderr, "error: %s" % str(e)
 #  sys.exit(1)

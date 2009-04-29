@@ -64,6 +64,8 @@ import os
 import glob
 import time
 import socket
+import tempfile
+import pwd
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -78,6 +80,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -85,7 +88,7 @@ from glue.ligolw import dbtables
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
+USER_NAME    = pwd.getpwuid(os.getuid())[0]
 
 
 
@@ -177,6 +180,13 @@ def parse_command_line():
         if not database_location:
             raise ValueError("--ping requires [ --segment ldbd:... | --database ]")
     
+    # Report is only available when hitting the database, since 
+    # we have no way of knowing where the segment boundaries are
+    # and would have to load *every* XML file.
+    if file_location and options.report:
+        print "--report can only be used with the database."
+        sys.exit(-1)
+
     return options, database_location, file_location, times
 
 
@@ -257,6 +267,7 @@ def run_report(doc, process_id, engine, include_segments, times):
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
+       # The last start time before the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -268,6 +279,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_start[key] = row[3]
 
+       # The last end time before the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -279,6 +291,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             max_end[key] = row[3]
 
+       # The next start time after the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -290,6 +303,7 @@ def run_report(doc, process_id, engine, include_segments, times):
             all_keys[key]  = True
             min_start[key] = row[3]
 
+       # The next end time after the time of interest
        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
            FROM segment_definer, segment
            WHERE segment_definer.segment_def_id = segment.segment_def_id
@@ -307,23 +321,24 @@ def run_report(doc, process_id, engine, include_segments, times):
     for key in all_keys:
         ifo, name, version, tm = key
 
-        max_start_val = (key in max_start) and max_start[key] or 0
-        max_end_val   = (key in max_end)   and max_end[key]   or 0
-        min_start_val = (key in min_start) and min_start[key] or infinity 
-        min_end_val   = (key in min_end)   and min_end[key]   or infinity
+        max_start_val = (key in max_start) and max_start[key] or 0         # last start before t.o.i
+        max_end_val   = (key in max_end)   and max_end[key]   or 0         # last end before t.o.i
+        min_start_val = (key in min_start) and min_start[key] or infinity  # next start after t.o.i
+        min_end_val   = (key in min_end)   and min_end[key]   or infinity  # next end after t.o.i
 
-        # are we in an active segment?
+        # are we in an active segment?  We are if the last end is before the last start.
         if max_start_val > max_end_val:
-            prefix = '[%d' % max_start_val
+            prefix  = '[%d' % max_start_val
+            if min_end_val == infinity:
+                postfix = 'now)'
+            else:
+                postfix = '%d)' % min_end_val 
         else:
-            prefix = '%d)' % max_end_val
-
-        if min_start_val == min_end_val and min_end_val == infinity:
-            postfix = '[now'
-        elif min_start_val <= min_end_val:
-            postfix = '[%d' % min_start_val
-        else:
-            postfix = '%d)' % min_end_val
+            prefix  = '%d)' % max_end_val
+            if min_start_val == infinity:
+                postfix = '[now'
+            else:
+                postfix = '[%d' % min_start_val 
 
         value = '%s:%s:%s' % (ifo, name, version)
 
@@ -348,10 +363,19 @@ def run_active(doc, process_id, engine, include_segments, times):
         AND   segment_definer.segment_def_id = segment.segment_def_id
         AND """ + time_clause + segment_clause)
 
+    
+    distinct_names = []
+    distinct_rows = []
+    for x in rows:
+      if x[0:2] not in distinct_names:
+         distinct_names.append(x[0:2])
+         distinct_rows.append(x)
+
+
     seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
     doc.childNodes[0].appendChild(seg_def_table)
 
-    for ifos, name, version, comment, start_time, end_time in rows:
+    for ifos, name, version, comment, start_time, end_time in distinct_rows:
         seg_def_id                     = seg_def_table.get_next_id()
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
@@ -405,7 +429,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
@@ -447,42 +471,21 @@ def ping_server(client):
 #
 
 
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-    
-    # If this isn;t an XML file, skip it
-    if not file_name.endswith('xml'):
-        return False
-
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
-
-
 def setup_files(dir_name, options, times):
-    # extract directory from URL
-    glob_pattern = dir_name + '/*.xml'
-
     # Filter out the ones that are outside our time range
-    if options.active or options.defined:
-	xml_files = []
-	for t in times:
-            xml_files += filter(lambda x: file_filter(x, t[0], t[1]), glob.glob(glob_pattern))
-    else:
-        xml_files = glob.glob(glob_pattern)
+    xml_files = []
+    for t in times:
+        xml_files += segmentdb_utils.get_all_files_in_range(dir_name, t[0], t[1])
 
-    # TODO: This should have a better name that includes the
-    # start and end times
-    temp_db      = 'temp.db'
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
-    ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
+    ligolw_sqlite.insert(connection, xml_files)
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -535,7 +538,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location, options, times)
+        temp_db, connection = setup_files(file_location, options, times)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 
@@ -554,6 +557,7 @@ if __name__ == '__main__':
 
     # Clean up
     if temp_files:
-        os.remove('temp.db')
+        os.remove(temp_db)
+
 
 
