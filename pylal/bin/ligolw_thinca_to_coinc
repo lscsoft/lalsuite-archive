@@ -631,15 +631,16 @@ def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, 
 	experiment_ids = {}
 	for slide_id in time_slide_dict:
 		# get instrument set
-		instruments = time_slide_dict[ slide_id ].keys()
+		instruments = set(time_slide_dict[ slide_id ].keys())
+		instr = lsctables.ifos_from_instrument_set(instruments)
 
 		# Add entry to expr_table if instrument set is new
-		if instruments not in experiment_ids:
-			experiment_ids[instruments] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = verbose)
+		if instr not in experiment_ids:
+			experiment_ids[instr] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = verbose)
 
 	# Populate experiment_summ_table
-	for instruments in experiment_ids:
-		populate_experiment_summ_table( xmldoc, experiment_ids[instruments], time_slide_dict, veto_def_id, return_dict = False, verbose = verbose )
+	for instr in experiment_ids:
+		populate_experiment_summ_table( xmldoc, experiment_ids[instr], time_slide_dict, veto_def_id, return_dict = False, verbose = verbose )
 
 		
 	
@@ -961,10 +962,10 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_id, expr_sta
 		expr_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentMapTable))
 
 	#
-	# find the coinc_inspiral table
+	# find the coinc_event table
 	#
 
-	coinc_inspiral_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
+	coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
 
 	#
 	# Get the time_slide_table as dict
@@ -989,7 +990,7 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_id, expr_sta
 	# cycle through the coincs in the coinc_inspiral table
 	# assigning initial experiment_summ_ids
 	#
-	for coinc in coinc_inspiral_table:
+	for coinc in coinc_event_table:
 
 		#
 		#  map the coinc to an experiment
