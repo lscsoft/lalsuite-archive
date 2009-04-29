@@ -33,7 +33,7 @@ def checkProxy(fname):
     except ImportError:
         print "Warning: Cannot load M2Crypto.  Not able to check proxy"
         print "   If you are getting errors, perhaps you are not using"
-        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"'?
+        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?'
         print "To enable proxy checking, install m2crypto (CentOS, RedHat),"
         print "python-m2crypto (Debian) or py25-m2crypto (MacPorts)"
 
