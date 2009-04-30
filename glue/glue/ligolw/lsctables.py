@@ -1335,6 +1335,7 @@ class CoincInspiral(object):
 	def get_ifos(self):
 		return instrument_set_from_ifos(self.ifos)
 
+
 CoincInspiralTable.RowType = CoincInspiral
 
 
