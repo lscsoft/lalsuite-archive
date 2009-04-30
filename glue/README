@@ -65,20 +65,26 @@ and csh users should type:
 
 ------------------------------------------------------------------------------
 
-2. Get Glue from CVS
+2. Get Glue from Git
 
-First choose a directory in which to install the Glue sources. In this
-example, we install the sources into ${HOME}/src. If you decide to
-install somewhere else, change ${HOME}/src to the directory you have
-chosen. Change anonymous in the cvs checkout below to your lscsoft CVS
-user name, if you have one. Type:
+Glue is part of the LALSuite Git repository. First choose a directory in
+which to install the LALSuite sources. In this example, we install the
+sources into ${HOME}/src. If you decide to install somewhere else,
+change ${HOME}/src to the directory you have chosen. Change
+albert.einstein in the git clone below to you ligo.org kerberos
+principle, if you have one. Type:
 
   mkdir -p ${HOME}/src
   cd ${HOME}/src
-  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout glue
+  git clone git+ssh://albert.einstein@ligo-vcs.phys.uwm.edu/usr/local/git/lalsuite.git
 
-This will create a directory ${HOME}/src/glue containing the Glue
-sources.
+If you do not have a ligo.org kerberos principle you can get the source
+code anonymously using:
+
+  git clone git://ligo-vcs.phys.uwm.edu/lalsuite.git
+
+This will create a directory ${HOME}/src/lalsuite containing the
+LALSuite sources.
 
 
 ------------------------------------------------------------------------------
@@ -99,7 +105,7 @@ and csh users should type:
 
 Assuming you have installed the glue sources in ${HOME}/src/glue, type:
 
-  cd ${HOME}/src/glue
+  cd ${HOME}/src/lalsuite/glue
   ${PYTHON} setup.py install --prefix=${GLUE_LOCATION}
 
 This will build and install all the glue modules and programs.
