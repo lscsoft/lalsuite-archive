@@ -8,9 +8,9 @@ The Glue web site:
 
    http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 
-contains many useful links for Glue users and developers. 
+contains many useful links for Glue users and developers.
 
-If you have questions or comments about Glue, please send them to the 
+If you have questions or comments about Glue, please send them to the
 lal-discuss mailing list. You may join this list at:
 There are two LALApps mail lists/archives which are shared with LAL. These are:
 
@@ -24,7 +24,7 @@ LICENSE for more information.
 If you use GLUE in published scientific work, we request that you include a
 reference in your work as follows:
 
-"Workflows were generated using the Grid LSC User Environment (GLUE) 
+"Workflows were generated using the Grid LSC User Environment (GLUE)
 
 ------------------------------------------------------------------------------
 
@@ -122,7 +122,7 @@ If you are a csh user, edit your .login file and add the lines (changing
   endif
 
 Now log out and log back in to ensure that all environment variables have been
-updated. 
+updated.
 
 You may now use Glue! Please report any problems via the Gnats database linked
 from the Glue home page.
