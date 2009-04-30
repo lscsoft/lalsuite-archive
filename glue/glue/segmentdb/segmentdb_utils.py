@@ -242,7 +242,8 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
     # Excluded segments are not required
     if excluded_segments_string:
         for ifo, segment_name, version in split_segment_ids(excluded_segments_string.split(',')):
-            excluded_segments |= build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
+            sum_segments, seg_segments = build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
+            excluded_segments |= seg_segments
 
 
     result = included_segments - excluded_segments
