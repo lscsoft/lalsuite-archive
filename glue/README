@@ -71,7 +71,7 @@ Glue is part of the LALSuite Git repository. First choose a directory in
 which to install the LALSuite sources. In this example, we install the
 sources into ${HOME}/src. If you decide to install somewhere else,
 change ${HOME}/src to the directory you have chosen. Change
-albert.einstein in the git clone below to you ligo.org kerberos
+albert.einstein in the git clone below to your ligo.org kerberos
 principle, if you have one. Type:
 
   mkdir -p ${HOME}/src
