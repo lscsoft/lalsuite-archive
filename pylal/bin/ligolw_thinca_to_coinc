@@ -632,15 +632,14 @@ def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, 
 	for slide_id in time_slide_dict:
 		# get instrument set
 		instruments = set(time_slide_dict[ slide_id ].keys())
-		instr = lsctables.ifos_from_instrument_set(instruments)
 
 		# Add entry to expr_table if instrument set is new
-		if instr not in experiment_ids:
-			experiment_ids[instr] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = verbose)
+		if frozenset(instruments) not in experiment_ids:
+			experiment_ids[frozenset(instruments)] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = verbose)
 
 	# Populate experiment_summ_table
-	for instr in experiment_ids:
-		populate_experiment_summ_table( xmldoc, experiment_ids[instr], time_slide_dict, veto_def_id, return_dict = False, verbose = verbose )
+	for instruments in experiment_ids:
+		populate_experiment_summ_table( xmldoc, experiment_ids[instruments], time_slide_dict, veto_def_id, return_dict = False, verbose = verbose )
 
 		
 	
@@ -1211,8 +1210,8 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# for this coinc
 		current_esid = experiment_map_index[coinc_event.coinc_event_id].experiment_summ_id
 		current_eid = experiment_summ_index[current_esid].experiment_id
-		on_instr = lsctables.ifos_from_instrument_set(on_instruments)
-		if experiment_index[current_eid].instruments != on_instr:
+		current_inst = lsctables.instrument_set_from_ifos(experiment_index[current_eid].instruments)
+		if current_inst != on_instruments:
 			# create new entry in experiment table
 			use_current = experiment_index[current_eid]
 			new_eid = expr_table.write_new_expr_id(use_current.search_group, use_current.search, use_current.lars_id, on_instruments, use_current.gps_start_time, use_current.gps_end_time, comments = use_current.comments)
@@ -1230,12 +1229,14 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 				if row.coinc_event_id == coinc_event.coinc_event_id:
 					row.experiment_summ_id = new_esid
 					break
-			# update number of event in experiment_summary table
+			# update number of events in experiment_summary table
 			expr_summ_table.add_nevents( current_esid, -1 )
 			expr_summ_table.add_nevents( new_esid, 1 )
 			# update experiment_summ index
 			experiment_summ_index.update((row.experiment_summ_id, row) for row in expr_summ_table)
 			# if verbose update moved_coincs
+			if verbose:
+				on_instr = lsctables.ifos_from_instrument_set(on_instruments)
 			if verbose and experiment_index[current_eid].instruments not in moved_coincs:
 				moved_coincs[experiment_index[current_eid].instruments] = {}
 			if verbose and on_instr not in moved_coincs[experiment_index[current_eid].instruments]:
@@ -1306,7 +1307,7 @@ def compute_durations( xmldoc, veto_segments, process, verbose = False):
 	for row in expr_summ_table:
 		on_instruments = lsctables.instrument_set_from_ifos(expr_table.get_row_from_id(row.experiment_id).instruments)
 		off_instruments = set(ifo for ifo in time_slide_dict[ row.time_slide_id ]) - on_instruments
-		row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, time_slide_dict[row.time_slide_id] )
+		row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] )
 		
 
 
