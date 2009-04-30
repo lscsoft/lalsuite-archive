@@ -18,7 +18,7 @@
   *  MA  02111-1307  USA
 """
 __author__ = 'Cristina Torres <cristina.torres@ligo.org>'
-__date__ = '$Date$'
+__date__ = '$Date: 2009/03/12 01:59:18 $'
 __version__ = ''
 
 import os
@@ -56,22 +56,79 @@ process the results of the tracksearch hybrid MDGC codes.
 """
 
 
-def generateNhoodListFromFile(filename="",timestamp=str("0")):
+def generateTGNListFromFile(filename="",timestamp=str("0")):
+    """
+    This method opens a text file containing multiple TGNs and creates
+    a list of TGN objects.  It is assumed that this list of TGNs was
+    created at the same time for each TGN in the file.
+    """
     fp=open(filename,'rt')
     rawData=fp.readlines()
     fp.close()
-    linesPerNhood=2
-    if rawData.__len__().__mod__(linesPerNhood) != 0:
+    linesPerTGN=2
+    if rawData.__len__().__mod__(linesPerTGN) != 0:
         raise autotrackError("File appears inconsistent!")
-    eCount=rawData.__len__().__div__(linesPerNhood)
-    nhoodList=list()
+    eCount=rawData.__len__().__div__(linesPerTGN)
+    TGNList=list()
     for index in range(0,eCount):
-        thisNhood=nhood()
-        thisNhood.createFromString(rawData[index*2],rawData[index*2+1])
-        thisNhood.__setBirthDate__(timestamp)
-        nhoodList.append(thisNhood)
-    return nhoodList
+        thisTGN=TGN()
+        thisTGN.createFromString(rawData[index*2],rawData[index*2+1])
+        thisTGN.__setBirthDate__(timestamp)
+        thisTGN.__setGPS__(int(timestamp))
+        TGNList.append(thisTGN)
+    return TGNList
     #End
+
+def getQualityTable(backEndName="tracksearch"):
+    """
+    Method is a complex case statement that selects out given a
+    back-end name the properties that the TGN should be capable of
+    tracking. Depends on the output formatting of tracksearchMDGCv2.m
+    file
+    """
+    if backEndName.strip().lower() == "tracksearch":
+        #Fetch the property fields method out of the tracksearchutils module
+        from lalapps.tracksearchutils import candidateListProperties
+        tmpProperties=candidateListProperties()
+        #Structure ["tag",TGNarrayIndex]
+        propertiesToKeep=[
+            ["n",3],
+            ["d",4],
+            ["b",5],
+            ["l",6],
+            ["p",7],
+            ["x",8],
+            ["z",9],
+            ["w",10],
+            ["e",11],
+            ["r",12],
+            ["ww",13],
+            ["ee",14],
+            ["rr",15],
+            ["pp",16],
+            ]
+        propertiesHandDefined=[
+            ["ht","Time symmetry",17],
+            ["hf","Freq symmetry",18]
+            ]
+        #Need to know the start column where tracksesarchMDGCv2.m
+        #cuts the array and shifts the above indexs
+        startColumn=4
+        #Create a 3 list with text labels and array locations!
+        finalPropertyList=[]
+        for myRow in propertiesToKeep:
+            for thatRow in tmpProperties:
+                if thatRow[0].lower().strip() == \
+                        myRow[0].lower().strip():
+                    finalPropertyList.append([myRow[0],thatRow[1],myRow[1]])
+        for myRow in propertiesHandDefined:
+            finalPropertyList.append(myRow)
+        return finalPropertyList
+#Files edited so far
+#tracksearchutils.py
+#autotrackutils.py
+#
+#End getQualityTable()
 
 class autotrackError(Exception):
     """
@@ -92,7 +149,136 @@ class autotrackDefineIdMismatchError(Exception):
     """
     #End class autotrackDefineIdMismatchError
 
-class nhood:
+
+class plotTGN:
+    """
+    This class is a wrapper for plotting TGNs.  It can plot TGNs on a
+    2D plot of requested parameter options.
+    """
+    def __init__(self,iTGN=None,thread=bool(False)):
+        """
+        Ths method should be invoked blind with either a single TGN or
+        a list of TGNS.  Invoking without a TGN is still possible.  A
+        second argument lets the plotting code know if we are
+        comparing different TGNs or plotting a thread of TGNs.
+        """
+        self.isThread=thread
+        if (iTGN != None and type(iTGN) != type([])):
+            raise autotrackError("plotTGN expects a list of TGN objects.")
+        self.tgnList=iTGN
+        #Default quantities to plot
+        self.defaultX="d"
+        self.defaultY="n"
+    #End __init__()
+
+    def setXQuantity(self,newX="d"):
+        """
+        Using the single character string see the output of
+        getQualityTable() select the quantity to show on the Xaxis.
+        """
+        self.defaultX=newX
+    #End setXQuantity
+
+    def setYQuantity(self,newY="n"):
+        """
+        Using the single character string see the output of
+        getQualityTable() select the quantity to show on the Yaxis.
+        """
+        self.defaultY=newY
+    #End setYQuantity
+
+    def createFigure(self):
+        """
+        This function provides an interface to python plotting that
+        will plot a TGN or thread of TGNs given to the plotTGN class.
+        """
+        if self.tgnList == None:
+            raise autotrackError("Figure creation requested, no TGNs defined.")
+        if not self.isThread:
+            self.__primativePlotTGNs__()
+        if self.isThread:
+            self.__primativePlotThread__()
+        pylab.show()
+    #End createFigure()
+
+    def __primativePlotTGNs__(self):
+        """
+        Is a macro of plotting commands that takes a list of TGNs that
+        plots each of these individually as a collection of points.
+        Creates a figure plotting the thread of list of TGNs using the
+        centroid and an X,Y error bars
+        """
+        #Determine the index that corresponds to X and Y quantities
+        xIndex=0
+        yIndex=0
+        xLabel="NULL"
+        yLabel="NULL"
+        for elem in getQualityTable():
+            if elem[0].strip().lower() == self.defaultX:
+                xIndex=elem[2]
+                xLabel=elem[1]
+            if elem[0].strip().lower() == self.defaultY:
+                yIndex=elem[2]
+                yLabel=elem[1]
+        pylab.figure()
+        plotValues=list()
+        for thisTGN in self.tgnList:
+            label=str(thisTGN.getID())
+            #Get the X,Y property
+            (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
+            (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
+            plotValues.append([xC,yC,xE,yE,label])
+        for x,y,ex,ey,txtLabel in plotValues:
+            pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel)
+        pylab.title("TGNs")
+        pylab.xlabel(str(xLabel))
+        pylab.ylabel(str(yLabel))
+        pylab.legend()
+    #End __primativePlotTGNs__
+
+    def __primativePlotThread__(self):
+        """
+        Is a macro of plotting commands that takes a list of TGNs that
+        plots each of these individually as a collection of points.
+        Creates a figure plotting the thread of list of TGNs using the
+        centroid and an X,Y error bars
+        """
+        #Determine the index that corresponds to X and Y quantities
+        xIndex=0
+        yIndex=0
+        xLabel="NULL"
+        yLabel="NULL"
+        for elem in getQualityTable():
+            if elem[0].strip().lower() == self.defaultX:
+                xIndex=elem[2]
+                xLabel=elem[1]
+            if elem[0].strip().lower() == self.defaultY:
+                yIndex=elem[2]
+                yLabel=elem[1]
+        pylab.figure()
+        plotValues=list()
+        for thisTGN in self.tgnList:
+            txtLabel=str(thisTGN.getGPS())
+            #Get the X,Y property
+            (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
+            (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
+            plotValues.append([xC,yC,xE,yE,txtLabel])
+        xVec=list()
+        yVec=list()
+        for x,y,ex,ey,txtLabel in plotValues:
+            xVec.append(x)
+            yVec.append(y)
+        pylab.plot(xVec,yVec,label="Time Line")
+        for x,y,ex,ey,txtLabel in plotValues:
+            pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel)
+        pylab.title("TGN Thread")
+        pylab.xlabel(str(xLabel))
+        pylab.ylabel(str(yLabel))
+        pylab.legend()
+    #End __primativePlotThread__
+
+
+class TGN:
     """
     This class provides the definition of a single defined autotrack
     defined neighborhood.  We use these neighborhoods to track
@@ -109,10 +295,16 @@ class nhood:
         self.volume=0
         self.colCount=0
         self.birthdate=str("-1")
+        self.gpsStamp=int(-1)
         self.discoverer=str()
         self.lastSeen=float(0)
         self.center=None
         self.bound=None
+        #Convention below should match tracksearchUtils conventions
+        #Only keeping the lines that apply from method glitchDB
+        #variable named glitchDatabaseEntry method should be expanded
+        #to not be hardwired to backend defintions
+        self.qualities=getQualityTable("tracksearch")
     #End __init__ method
 
     def __setID__(self,inputArg):
@@ -126,7 +318,7 @@ class nhood:
 
     def getID(self):
         """
-        Fetches the numeric ID assigned to this nhood instance
+        Fetches the numeric ID assigned to this TGN instance
         """
         return self.idNum
     #End
@@ -141,12 +333,30 @@ class nhood:
         self.birthdate=bDate
     #End
 
+    def __setGPS__(self,gps=int(0)):
+        """
+        Set a text string which is the GPS birthdate,
+        as closely as possible for this neighborhood.
+        """
+        if type(int()) != type(gps):
+            raise autotrackError("GPS time not a INT type.")
+        self.gpsStamp=gps
+    #End
+
     def getBirthDateText(self):
         """
-        This retrieves the text string birthdate stored in nhood
+        This retrieves the text string birthdate stored in TGN
         instance.
         """
         return self.birthdate
+    #End
+
+    def getGPS(self):
+        """
+        This retrieves the integer GPS birthdate stored in TGN
+        instance.
+        """
+        return self.gpsStamp
     #End
 
     def createFromString(self,mString,bString,delim=None):
@@ -173,22 +383,24 @@ class nhood:
         sID=bData.pop(0)
         sDensity=bData.pop(0)
         if sCol >=17:
-            mCount=mData.pop(0)
-            mVolume=mData.pop(0)
+            sCount=bData.pop(0)
+            sVolume=bData.pop(0)
+        #
         if mID != sID:
             raise autotrackDefineIdMismatchError("Group labels do not match!")
         if mDensity != sDensity:
             raise autotrackDefineIdMismatchError("Group density values do not match!")
         if mCount != sCount:
             raise autotrackDefineIdMismatchError("Group count values do not match!")
-        if mVolume==sVolume:
-            raise autotrackDefineIdMismatchError("Group volume measures do not match!")
+        if mVolume!=sVolume:
+            raise autotrackDefineIdMismatchError("Group volume\
+ measures do not match! %f \t %f"%(float(mVolume),float(sVolume)))
         self.__setID__(float(mID))
         self.__setDensity__(float(mDensity))
         self.__setMemberCount__(float(mCount))
         self.__setVolume__(float(mVolume))
-        self.center=numpy.array(mData,'float64')
-        self.bound=numpy.array(bData,'float64')
+        self.center=numpy.array([numpy.float64(j) for j in mData],'float64')
+        self.bound=numpy.array([numpy.float64(j) for j in bData],'float64')
     #End createFromString
 
     def __setMemberCount__(self,mCount=0):
@@ -200,7 +412,7 @@ class nhood:
 
     def getMemberCount(self):
         """
-        get the registered members listed for this nhood
+        get the registered members listed for this TGN
         """
         return self.memberCount
     #End
@@ -214,7 +426,7 @@ class nhood:
 
     def getVolume(self):
         """
-        Gets the registered volume for a given nhood.
+        Gets the registered volume for a given TGN.
         """
         return self.volume
     #End
@@ -245,14 +457,14 @@ class nhood:
     #end exportToString()
     def getDensity(self):
         """
-        Returns the value of nhood density set.
+        Returns the value of TGN density set.
         """
         return self.density
     #End
 
     def __setDensity__(self,inputArg):
         """
-        Sets the input density value to the nhood instance.
+        Sets the input density value to the TGN instance.
         """
         if type(float(0)) != type(inputArg):
             inputArg=float(inputArg)
@@ -274,7 +486,7 @@ class nhood:
 
     def getBoundVector(self):
         """
-        Gets the variance components of this nhood instance.
+        Gets the variance components of this TGN instance.
         """
         return self.bound
     #End getBoundVector
@@ -286,35 +498,51 @@ class nhood:
         return self.center
     #End getCenterVector
 
-    def isSame(self,nhood):
+    def getCentroidErrorViaIndex(self,index=0):
+        """
+        Given an index select the that index from the Center vector
+        and the bound Vector. This will return a tuple (center,bound)
+        """
+        centerVec=self.getCenterVector()
+        boundVec=self.getBoundVector()
+        vectorLength=centerVec.__len__()
+        if vectorLength-1 < index:
+            raise autotrackError("Invalid index requested exceeds\
+elements available. Elements: %i Index Sought: %i"%(vectorLength,index))
+        center=centerVec[index]
+        bound=boundVec[index]
+        return (center,bound)
+    #End getCentroidErrorViaIndex
+
+    def isSame(self,TGN):
         """
         Checks to see if self instance is IDENTICAL to 
-        nhood instance given as argument!
+        TGN instance given as argument!
         """
         samePoint=bool(False)
-        samePoint=self.checkOverlap(nhood,0)
-        if samePoint and self.idNum==nhood.idNum and self.density==nhood.density:
+        samePoint=self.checkOverlap(TGN,0)
+        if samePoint and self.idNum==TGN.idNum and self.density==TGN.density:
             return bool(True)
         return bool(False)
             
-    def checkOverlap(self,nhood,boundSize=0.5):
+    def checkOverlap(self,TGN,boundSize=0.5):
         """
         Check to see if SELF neighborhood overlaps with other input
-        NHOOD class.  We define them as over lapping if they are
+        TGN class.  We define them as over lapping if they are
         withing boundSize stddevs of the center of SELF compared
-        to the center of argument NHOOD.
+        to the center of argument TGN.
         """
         stepVector=boundSize*numpy.array(self.getBoundVector()).__abs__()
         diffVector=numpy.array(
             self.getCenterVector()
-            -nhood.getCenterVector()).__abs__()
+            -TGN.getCenterVector()).__abs__()
         if numpy.array(diffVector<=stepVector).all():
             return bool(True)
         else:
             return bool(False)
         #End checkOverlap
 
-    def getSeparation(self,nhood):
+    def getSeparation(self,TGN):
         """
         Gets the resultant seperation vectors and normalizes this 
         value by the boundVector, then use this to compute a 
@@ -322,40 +550,36 @@ class nhood:
         """ 
         diffVector=numpy.array(
             self.getCenterVector()
-            -nhood.getCenterVector()).__abs__()
+            -TGN.getCenterVector()).__abs__()
         bv=self.getBoundVector()
         sepVector=diffVector.__div__(bv)
-#         if numpy.isnan(sepVector).any():
-#             print diffVector
-#             print bv
-#             print sepVector
         mag=numpy.sqrt(numpy.inner(sepVector,sepVector))
         return mag
     #End getSeperation
     
-    def nearestNhoodID(self,nhoodList,boundSize=0.5):
+    def nearestTGNid(self,TGNList,boundSize=0.5):
         """
         wrapper
         """
-        myN=self.nearestNhood(nhoodList,boundSize)
+        myN=self.nearestTGN(TGNList,boundSize)
         myID=myN.getID()
         return myID
 
-    def nearestNhood(self,nhoodList,boundSize=0.5):
+    def nearestTGN(self,TGNList,boundSize=0.5):
         """
-        Takes a list of nhoods and compares it to self
+        Takes a list of TGNs and compares it to self
         to determine which is the closest one, this ideally
         is the same group and we can associate the group IDs.
         """
-        if type(list())!=type(nhoodList):
-            raise autotrackError("Type of input to method nearestNhoodID is wrong!")
+        if type(list())!=type(TGNList):
+            raise autotrackError("Type of input to method nearestTGNid is wrong!")
         distanceKey=list()
-        for index in range(0,nhoodList.__len__()):
+        for index in range(0,TGNList.__len__()):
             #Ignore entries in the list that all NULL
-            if not nhoodList[index].isNULL():
-                if self.checkOverlap(nhoodList[index],boundSize):
-                    dist=self.getSeparation(nhoodList[index])
-                    idVal=nhoodList[index].getID()
+            if not TGNList[index].isNULL():
+                if self.checkOverlap(TGNList[index],boundSize):
+                    dist=self.getSeparation(TGNList[index])
+                    idVal=TGNList[index].getID()
                     distanceKey.append([dist,idVal])
         distanceKey.sort()
         try:
@@ -363,15 +587,33 @@ class nhood:
         except IndexError:
             findID=-1
         if findID > -1:
-            for nhd in nhoodList:
+            for nhd in TGNList:
                 if nhd.getID() == findID:
-                    foundNhood=nhd
+                    foundTGN=nhd
         else:
-            foundNhood=nhood()
-        return foundNhood
-    #End nearestNhood
-#End class nhood
+            foundTGN=TGN()
+        return foundTGN
+    #End nearestTGN
+#End class TGN
         
+class tgnThread:
+    """
+    This class is a simple list object with manipulation methods which
+    is called a thread that shows how the TNGs are related and it also
+    tracks knots (intersections/overlaps) of two different threads.
+    Thereby relating them. Three lists are tracked:
+    0) The thread serial number for quick ID
+    1) A thread name if given(default is thread serial number)
+    2) The list of TGN what are related and sorted by time
+    3) The list of knots (threads with overlaping TGNs)
+    """
+    def __init__(self):
+        """
+        HI
+        """
+        #End __init__()
+
+
 class autotrackSQL:
     """
     This class provides sqlite table creation query deletion etc,
@@ -384,50 +626,56 @@ class autotrackSQL:
         """
         self.dbFile=""
         self.dbSocket=None
-        self.defineTables=(
-            ('tgn',bool(True),
-             ('group_serial_number',
-              'group_birthdate',
-              'discoverer',
-              'group_label',
-              'group_density',
-              'group_member_count',
-              'group_last_seen',
-              'statistics')
-             ),
-            ('scientist_entry',bool(True),
-             ('group_serial_number',
-              'entry_date',
-              'scientist',
-              'channels_of_interest',
-              'URLs_of_interest',
-              'description_text',
-              'solution_text',
-              'misc_information',
-              'extra_field')
-             ),
-            ('plot_locations',bool(False),
-             ('group_serial_number',
-              'line_plot',
-              'aux_plots')
-             ),
-            ('sightings',bool(True),
-             ('group_serial_number',
-              'parent_group_serial_number',
-              'earliest_sighting',
-              'sighting_list')
-             ),
-            ('historical_tgn',bool(False),
-             ('group_serial_number',
-              'group_birthdate',
-              'discoverer',
-              'group_label',
-              'group_density',
-              'group_member_count',
-              'group_last_seen',
-              'statistics')
-             )
-            )
+        #Add method to define table etc
+        self.tables=dict()
+        self.table['active_tgn']={'group_serial_number':'blob',
+                                  'group_birthdate'    :'text',
+                                  'group_gps'          :'integer',
+                                  'discoverer'         :'text',
+                                  'group_IFO'          :'text',
+                                  'group_label'        :'text',
+                                  'group_density'      :'text',
+                                  'group_member_count' :'text',
+                                  'group_last_seen'    :'text',
+                                  'statistics'         :'blob'}
+
+        self.table['scientist_entry']={'group_serial_number'  :'blob',
+                                       'entry_date'           :'text',
+                                       'scientist'            :'blob',
+                                       'channels_of_interest' :'blob',
+                                       'URLs_of_interest'     :'blob',
+                                       'description_text'     :'text',
+                                       'solution_text'        :'text',
+                                       'misc_information'     :'text',
+                                       'usefulness_score'     :'text',
+                                       'extra_field1'         :'blob',
+                                       'extra_field2'         :'blob',
+                                       'extra_field3'         :'blob'}
+
+        self.table['plot_locations']={'group_serial_number' :'blob',
+                                       'line_plot'          :'blob',
+                                       'aux_plots'          :'blob'}
+
+        self.table['inactive_tgn']={'group_serial_number' :'blob',
+                                      'group_birthdate'     :'text',
+                                      'group_gps'          :'integer',
+                                      'discoverer'          :'text',
+                                      'group_label'         :'text',
+                                      'group_density'       :'real',
+                                      'group_member_count'  :'integer',
+                                      'group_last_seen'     :'text',
+                                      'statistics'          :'blob'}
+
+        self.table['active_threads']={'thread_serial_number' :'blob',
+                                      'thread_name'          :'text',
+                                      'group_list'           :'blob',
+                                      'knot_list'            :'blob'}
+
+        self.table['inactive_threads']={'thread_serial_number' :'blob',
+                                        'thread_name'          :'text',
+                                        'group_list'           :'blob',
+                                        'knot_list'            :'blob'}
+
         #Look for the table if it does not exist create it
         #otherwise load it into this object!
         self.__selectDB__(dbName)
@@ -452,7 +700,7 @@ class autotrackSQL:
             self.createTables()
         #End __selectDB__()
 
-    def getTableIndex(self,name=""):
+    def DEPRICATEDgetTableIndex(self,name=""):
         """
         Given a string searches the tuple self.defineTables to
         determine the index of that table to various function calls.
@@ -466,17 +714,40 @@ class autotrackSQL:
         return answer
     #End getTableIndex
 
-    def __createSingleTable__(self,name):
+    def __DEPRICATEDcreateSingleTable__(self,name):
         """
         This method will generate a table from the list of tables
         and definitions specified by self.autotrackTableDef or
         self.auxTableDef
         """
-        tableIndex=self.getTableIndex(name)
+        tableIndex=self.DEPRICATEDgetTableIndex(name)
         thisTable=self.defineTables[tableIndex]
         tableName=thisTable[0]
         required=thisTable[1]
         colDefs=thisTable[2]
+        rowString=""
+        for col in colDefs:
+            rowString=rowString+"%s "%(col)
+        commandString="create table %s (%s)"%(tableName,rowString)
+        try:
+            self.dbSocket.execute(commandString)
+        except:
+            sys.stderr.write("Error trying to create table.\n")
+            self.dbSocket.commit()
+            return
+        self.dbSocket.commit()
+        #End __createSingleTable__()
+
+    def __createSingleTable__(self,name=None,tabledef=None):
+        """
+        This method will generate a table from the list of tables
+        and definitions specified by self.autotrackTableDef or
+        self.auxTableDef
+        """
+        if (name == None or tabledef == None):
+            return
+        tableName=name
+        colDefs=tabledef
         rowString=""
         for col in colDefs:
             rowString=rowString+"%s "%(col)
@@ -505,9 +776,55 @@ class autotrackSQL:
         there exists one already.  In that case we throw an error
         unless we explicitly want to overwrite that table.
         """
-        for index in range(self.defineTables.__len__()):
-            thisTableName=self.defineTables[index][0]
-            sys.stdout.write("Creating table %s\n"%(thisTableName))
-            self.__createSingleTable__(thisTableName)
+        for index in self.tables.keys():
+            sys.stdout.write("Creating table %s\n"%(index))
+            self.__createSingleTable__(index,self.tables[index])
         self.dbSocket.commit()
         #End createTables()
+
+    def getThreads(self,table='tgn',time=None):
+        """
+        This method will fetch the groups defined at time NOW in table
+        TGN(default).  It returns these groups as a list of TGN objects.
+        """
+        #Search the group threads and grab a list of all threads.  
+        #Take head of each thread and try for matching it against newly
+        #seen TNGs to increase the thread length.  
+        #
+        print "HI"
+        #End getThreads()
+
+    def getThreadHeads(self,table='tgn',time=None):
+        """
+        This returns only the head of the thread to keep memory
+        requirements to a minimum.  The thread object will only
+        be loaded if a manipulation to the thread or thread report
+        method is called.
+        """
+        print "Getting all TGN heads from threads."
+        #End getThreadHeads()
+
+    def getThreadByName(self,table='tgn',name=None):
+        """
+        This function will return a thread object (list) for a 
+        TGN thread that exists in the table specified.  By default
+        we search the active threads in table TGN.
+        """
+        print "Getting single thread by name"
+        #End 
+
+    def getThreadHeadByName(self,table='tgn',name=None):
+        """
+        Returns a single TGN object the thread head for quoted
+        thread.
+        """
+        print "Getting TGN head from thread"
+        #End getThreadHeadByName
+
+    #def loadThread(self,serialNumber=None)
+    #def syncThread(self)
+    #def deactivateThread(self)
+    #def activateThread(self)
+    #def deleteThread(self)
+
+    
