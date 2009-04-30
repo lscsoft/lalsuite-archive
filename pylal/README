@@ -35,7 +35,7 @@ by "numerix      : numpy"
 
 1. Determine your Python version
 
-Python version 2.3 or greater is required to install PyLAL. Type:
+Python version 2.4 or greater is required to install PyLAL. Type:
 
   python -V
 
@@ -45,7 +45,7 @@ example:
   nvf@dirac:~$ python -V
   Python 2.4.4
 
-If you do not have version 2.3 or greater installed, contact your system
+If you do not have version 2.4 or greater installed, contact your system
 administrator for help installing Python.
 
 Set the environment variable PYTHON to be the name of your python
