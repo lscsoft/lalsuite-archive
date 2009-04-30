@@ -31,7 +31,11 @@ def checkProxy(fname):
             print "Warning: You seem to be using a pre-RFC proxy."
             print "Try doing grid-proxy-init -rfc"
     except ImportError:
-        print "Warning: cannot load M2Crypto.  Not able to check proxy"
+        print "Warning: Cannot load M2Crypto.  Not able to check proxy"
+        print "   If you are getting errors, perhaps you are not using"
+        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?'
+        print "To enable proxy checking, install m2crypto (CentOS, RedHat),"
+        print "python-m2crypto (Debian) or py25-m2crypto (MacPorts)"
 
 def findUserCredentials(warnOnOldProxy=1):
 
@@ -71,7 +75,13 @@ def findUserCredentials(warnOnOldProxy=1):
 #
 
 from xmlrpclib import ServerProxy, Error, Transport
-from httplib import HTTPS
+
+try:
+    from httplib import HTTPS
+except ImportError:
+    print "SSL is not available.  If you are on a Mac, with MacPorts,"
+    print "please install py25-socket-ssl."
+    sys.exit(1)
 
 class MyTransport(Transport):
     def make_connection(self, host):
