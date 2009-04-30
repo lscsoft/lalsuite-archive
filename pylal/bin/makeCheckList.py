@@ -557,9 +557,10 @@ page.td("#10 Snr versus time")
 page.td("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
 page.td()
 fuTriggerLinks = ""
-for fu_link in fu_triggers[0]:
-  window = fu_link.split("-")[-1].strip(".html")
-  fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
+if fu_triggers:
+  for fu_link in fu_triggers[0]:
+    window = fu_link.split("-")[-1].strip(".html")
+    fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
 page.td(fuTriggerLinks)
 page.td()
 page.tr.close()
