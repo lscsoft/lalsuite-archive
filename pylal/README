@@ -28,7 +28,7 @@ finding the .matplotlibrc file by typing:
   locate .matplotlibrc
 
 then opening the file and replacing the line
-   "numerix      : Numeric" 
+   "numerix      : Numeric"
 by "numerix      : numpy"
 
 ------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ If you are a csh user, edit your .login file and add the lines (changing
   endif
 
 Now log out and log back in to ensure that all environment variables
-have been updated. 
+have been updated.
 
 You may now use PyLAL! Please report any problems via the Gnats
 database linked from the PyLAL home page.
