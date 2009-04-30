@@ -107,9 +107,10 @@ and csh users should type:
 
   setenv PYLAL_LOCATION /opt/pylal
 
-Assuming you have installed the pylal sources in ${HOME}/src/pylal, type:
+Assuming you have installed the pylal sources in
+${HOME}/src/lalsuite/pylal, type:
 
-  cd ${HOME}/src/pylal
+  cd ${HOME}/src/lalsuite/pylal
 
 Then type:
 
