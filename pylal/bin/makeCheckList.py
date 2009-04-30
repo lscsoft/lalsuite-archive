@@ -122,6 +122,10 @@ parser.add_option("-Q","--data-quality-database",action="store",type="string",\
 the data quality sqlite database to use for DQ information queries.\
 Omission of this option will cause a default search for \
 ~/followupDQ.sqlite rebuilding it if needed.")
+parser.add_option("-R","--SNR-ratio-test",action="store",type="string",\
+metavar=" PATH2FILE", default=None, dest=defaultRatioTestPickle \,
+help="Set the location of the data (pickle) file used to perform the
+    ratio check on the candidate file.")
 ############################## Cristina Tue-Feb-10-2009:200902101724 
 
 command_line = sys.argv[1:]
@@ -140,7 +144,6 @@ if opts.version:
 #ifoList = ['H1','H2','L1']
 
 opts = InspiralUtils.initialise(opts,__prog__,__version__)
-
 
 page = markup.page(mode="strict_html")
 page._escape = False
@@ -557,20 +560,47 @@ page.td("#10 Snr versus time")
 page.td("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
 page.td()
 fuTriggerLinks = ""
-if fu_triggers:
-  for fu_link in fu_triggers[0]:
-    window = fu_link.split("-")[-1].strip(".html")
-    fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
+for fu_link in fu_triggers[0]:
+  window = fu_link.split("-")[-1].strip(".html")
+  fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
 page.td(fuTriggerLinks)
 page.td()
 page.tr.close()
 
 # Row #11
+######################
+#Code to perform test
+resultString=("IFO:IFO\t ToF\t Ratio\t Prob <br> ")
+#Text insert into page giving the SNR ratio probabilities
+preBuiltPickle=opts.defaultRatioTestPickle
+if opts.defaultRatioTestPickle == None:
+  preBuiltPickle=""
+ratioTest=fu_utils.ratioTest()
+if os.path.isfile(preBuiltPickle):
+  ratioTest.setPickleLocation(preBuiltPickle)
+for ifo1 in ifolist:
+  for ifo2 in ifolist:
+    if ifo1 != ifo2:
+      gps1=myGPS[ifo1]
+      gps2=myGPS[ifo2]
+      snr1=float(paramTable.getColumnByText(ifo1,2))
+      snr2=float(paramTable.getColumnByText(ifo2,2))
+      try:
+        snrRatio=snr1/snr2
+      except:
+        snrRatio=0
+      time=gps1-gps2
+      result=ratioTest.testRatio(ifo1,ifo2,time,snrRatio)
+      myString="%s:%s\t %2.4f\t %5.2f\t %1.3f <br>"%\
+          (ifo1,ifo2,time,snrRatio,result)
+      resultString="%s %s"%(resultString,myString)
+resultString="%s BATWING IMAGE"%(resultString)
+##############
 page.tr()
 page.td("#11 Parameters of the candidate")
 page.td("Does the candidate have a high likelihood of being a gravitational-wave according to its parameters ?")
 page.td()
-page.td()
+page.td(resultString)
 page.td()
 page.tr.close()
 
