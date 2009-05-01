@@ -138,7 +138,9 @@ def parse_command_line():
     parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:SCIENCE:1,H1:INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
 
     parser.add_option("-o", "--output-file",   metavar = "output_file", help = "File to which output should be written.  Defaults to stdout.")
-    
+   
+    parser.add_option("-i", "--in-segments-only", action = "store_true", help = "If set, report will only return segments that given times were within") 
+
     options, times = parser.parse_args()
 
     # Make sure we have exactly one thing to do
@@ -229,7 +231,8 @@ def build_segment_clause(clauses):
     return " OR ".join(subclauses)
 
 
-
+def get_full_name(ifo, name, version):
+    return '%s:%s:%d' % (ifo.strip(), name.strip(), version)
 
 #
 # =============================================================================
@@ -239,8 +242,7 @@ def build_segment_clause(clauses):
 # =============================================================================
 #
 
-
-def run_report(doc, process_id, engine, include_segments, times):
+def run_report(doc, process_id, engine, include_segments, times, in_segments_only):
     all_keys       = {}
     max_start      = {}
     max_end        = {}
@@ -267,86 +269,52 @@ def run_report(doc, process_id, engine, include_segments, times):
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
-       # The last start time before the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.start_time < %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
+        # hams!
+        # Segments we are in the midsts of
+        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
+             segment.start_time, segment.end_time
+             FROM segment_definer, segment
+             WHERE segment_definer.segment_def_id = segment.segment_def_id
+             AND %d BETWEEN segment.start_time AND segment.end_time
+             %s """ % (tm, segment_clause)) 
+
+        in_times = {}
+        for ifo, name, version, start_time, end_time in rows:
+            full_name = get_full_name(ifo, name, version)
+            in_times[full_name] = [start_time, end_time]
+            print '%-45s[%d %d %d)' % (full_name, start_time, tm, end_time)
+
+        if not in_segments_only:
+            # Segments we are between. Latest end time before of interest.
+            out_times = {}
+
+            rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
+                FROM segment_definer, segment
+                WHERE segment_definer.segment_def_id = segment.segment_def_id
+                AND segment.end_time < %d %s
+                GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
            
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            max_start[key] = row[3]
-
-       # The last end time before the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.end_time < %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
            
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            max_end[key] = row[3]
+            for ifo, name, version, end_time in rows:
+                full_name = get_full_name(ifo, name, version)
+                out_times[full_name] = ['%d)' % end_time, '[now']
 
-       # The next start time after the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.start_time > %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
-           
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            min_start[key] = row[3]
+            # The next start time after the time of interest
+            rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
+                FROM segment_definer, segment
+                WHERE segment_definer.segment_def_id = segment.segment_def_id
+                AND segment.start_time > %d %s
+                GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
 
-       # The next end time after the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.end_time > %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm,segment_clause))
-           
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            min_end[key]   = row[3]
+            for ifo, name, version, start_time in rows:
+                full_name = get_full_name(ifo, name, version)
+                value = full_name in out_times and [out_times[full_name][0], '[%s' % start_time] or ['never)', '[%s' % start_time]
+                out_times[full_name] = value
 
-
-    infinity = float('inf')
-
-    for key in all_keys:
-        ifo, name, version, tm = key
-
-        max_start_val = (key in max_start) and max_start[key] or 0         # last start before t.o.i
-        max_end_val   = (key in max_end)   and max_end[key]   or 0         # last end before t.o.i
-        min_start_val = (key in min_start) and min_start[key] or infinity  # next start after t.o.i
-        min_end_val   = (key in min_end)   and min_end[key]   or infinity  # next end after t.o.i
-
-        # are we in an active segment?  We are if the last end is before the last start.
-        if max_start_val > max_end_val:
-            prefix  = '[%d' % max_start_val
-            if min_end_val == infinity:
-                postfix = 'now)'
-            else:
-                postfix = '%d)' % min_end_val 
-        else:
-            prefix  = '%d)' % max_end_val
-            if min_start_val == infinity:
-                postfix = '[now'
-            else:
-                postfix = '[%d' % min_start_val 
-
-        value = '%s:%s:%s' % (ifo, name, version)
-
-        if len(value) < 40:
-            value += '                                        '[len(value):]
-
-        print '%s%15s\t%15d\t%15s' % (value, prefix, tm, postfix)
-
+            for key in out_times:
+                if key not in in_times:
+                    value = out_times[key]
+                    print '%-45s%s %d %s' % (key, value[0], tm, value[1])
 
 
 def run_active(doc, process_id, engine, include_segments, times):
@@ -552,7 +520,7 @@ if __name__ == '__main__':
        utils.write_filename(doc, options.output_file)
 
     if options.report:
-       run_report(doc, process_id, engine, options.include_segments, times)
+       run_report(doc, process_id, engine, options.include_segments, times, options.in_segments_only)
 
 
     # Clean up
