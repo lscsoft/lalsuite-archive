@@ -174,7 +174,12 @@ if __name__ == '__main__':
     # get a connection
     temp_db, connection = setup_files(options.trigger_dir, gps_start_time, gps_end_time)
 
-    # Get the triggers
+    # Did we find any triggers?  If not there won't even be a sngl_inspiral
+    # table, so the normal query will fail
+
+    have_triggers = connection.cursor().execute("SELECT COUNT(*) FROM sqlite_master WHERE name = 'sngl_inspiral'").fetchone()[0]
+
+    
     # Note, the S5 version of this script had the condition
     #    search = 'FindChirpSPtwoPN' 
     # The triggers from MBTA don't set this, alough it could if desirable.
@@ -206,8 +211,8 @@ if __name__ == '__main__':
     #
     # So we have to be a little trickier...
     #
-
-    rows = connection.cursor().execute("""SELECT sngl_inspiral.ifo, 
+    if have_triggers:
+        rows = connection.cursor().execute("""SELECT sngl_inspiral.ifo, 
              sngl_inspiral.end_time,
              sngl_inspiral.end_time_ns,
              sngl_inspiral.snr, 
@@ -226,6 +231,10 @@ if __name__ == '__main__':
               ORDER BY snr desc)
       AND sngl_inspiral.ifo = ? 
       ORDER BY snr DESC""",  (gps_start_time, gps_end_time, options.ifo, options.min_glitch_snr, options.ifo) )
+    else:
+        # Use an empty array so the rest of the code will flow through and
+        # update the page accordingly
+        rows = []
 
 
     # ligolw_sicluster --cluster-window ${clusterwindow} --sort-descending-snr ${xmlfile}
@@ -301,7 +310,7 @@ if __name__ == '__main__':
     if os.path.exists(options.html_file):
         in_tmp = open(options.html_file)
         for l in in_tmp:
-            print >>out_tmp, l
+            print >>out_tmp, l,
         in_tmp.close()
 
     out_html = open(options.html_file,'w')
