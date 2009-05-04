@@ -25,8 +25,10 @@ import os
 import numpy
 import copy
 import sys
-import sqlite3 as sqlite
-
+try:
+  import sqlite3 as sqlite
+except ImportError:
+  import sqlite
 if os.getenv("DISPLAY") == None:
     #Non-interactive
     try:
