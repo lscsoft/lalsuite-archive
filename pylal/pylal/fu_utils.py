@@ -1612,7 +1612,7 @@ class followupdqdb:
         self.pathPattern="%s/%s/dq_segments.txt"
         self.sqlFile="/followupDQ.sqlite"
         self.sqlPath=self.myHome+"/"
-        self.ifoList=["L1","H1","H2"]
+        self.ifoList=["L1","H1","H2","V1"]
         self.dbFiles=[]
         for ifo in self.ifoList:
             thisFile=self.pathPattern%(self.myHome,ifo)
