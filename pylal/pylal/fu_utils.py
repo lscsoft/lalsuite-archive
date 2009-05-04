@@ -1627,6 +1627,24 @@ class ratioTest:
     outputFP.close()
   #End __createPickle__()
 
+  def mapToObservatory(self,ifo=None):
+    """
+    Expects H1, V1 etc and maps it to LHO VIRGO etc.
+    """
+    obsMap={}
+    obsMap["L1"]="LLO"
+    obsMap["H1"]="LHO"
+    obsMap["H2"]="LHO"
+    obsMap["V1"]="VIRGO"
+    obsMap["G1"]="GEO"
+    obsMap["T1"]="TAMA"
+    if ifo != None:
+      try:
+        return obsMap[ifo.upper()]
+      except:
+        return None
+    return None
+  #End mapToObservatory()
 
   def fetchLambda(self,ifo1=None,ifo2=None):
     """
@@ -1692,14 +1710,12 @@ class ratioTest:
     LV=self.fetchLambda(ifo1,ifo2)
     if LV == None and ifo1 != ifo2:
       return float(-97)
-    else:
-      return float(-99)
     #Check bound set ratio TO 1 return
     #Extract 3 data vectors
     (t,minR,maxR)=self.pickleData[ifo1][ifo2]
     if not(min(t)<=timeOfFlight<=max(t)):
       print min(t),timeOfFlight,max(t)
-      return float(-96)
+      return float(0)
     rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
     (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
     if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):

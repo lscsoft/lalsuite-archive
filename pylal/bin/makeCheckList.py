@@ -23,6 +23,7 @@ import tempfile
 import ConfigParser
 import urlparse
 import urllib
+import numpy
 import fnmatch
 from UserDict import UserDict
 sys.path.append('@PYTHONLIBDIR@')
@@ -115,7 +116,6 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
-############################## Cristina Tue-Feb-10-2009:200902101724 
 parser.add_option("-Q","--data-quality-database",action="store",type="string",\
     metavar=" PATH2FILE",default=None, dest="defaultSQL",\
     help="This is the disk location of\
@@ -123,10 +123,9 @@ the data quality sqlite database to use for DQ information queries.\
 Omission of this option will cause a default search for \
 ~/followupDQ.sqlite rebuilding it if needed.")
 parser.add_option("-R","--SNR-ratio-test",action="store",type="string",\
-metavar=" PATH2FILE", default=None, dest=defaultRatioTestPickle \,
-help="Set the location of the data (pickle) file used to perform the
-    ratio check on the candidate file.")
-############################## Cristina Tue-Feb-10-2009:200902101724 
+metavar=" PATH2FILE", default=None, dest="defaultRatioTestPickle", \
+help="Set the location of the data (pickle) file used to perform the\
+ ratio check on the candidate file.")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -560,9 +559,10 @@ page.td("#10 Snr versus time")
 page.td("Is this trigger significant in a SNR versus time plot of all triggers in its analysis chunk ?")
 page.td()
 fuTriggerLinks = ""
-for fu_link in fu_triggers[0]:
-  window = fu_link.split("-")[-1].strip(".html")
-  fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
+if fu_triggers:
+  for fu_link in fu_triggers[0]:
+    window = fu_link.split("-")[-1].strip(".html")
+    fuTriggerLinks += " <a href=\"" + fu_link + "\">Triggers versus time (" + window + ")</a><br>"
 page.td(fuTriggerLinks)
 page.td()
 page.tr.close()
@@ -570,7 +570,7 @@ page.tr.close()
 # Row #11
 ######################
 #Code to perform test
-resultString=("IFO:IFO\t ToF\t Ratio\t Prob <br> ")
+resultString=(" <table border=1px><tr><th>IFO:IFO</th><th>ToF</th><th>Ratio</th><th>Prob</th></tr>")
 #Text insert into page giving the SNR ratio probabilities
 preBuiltPickle=opts.defaultRatioTestPickle
 if opts.defaultRatioTestPickle == None:
@@ -578,23 +578,26 @@ if opts.defaultRatioTestPickle == None:
 ratioTest=fu_utils.ratioTest()
 if os.path.isfile(preBuiltPickle):
   ratioTest.setPickleLocation(preBuiltPickle)
-for ifo1 in ifolist:
-  for ifo2 in ifolist:
-    if ifo1 != ifo2:
-      gps1=myGPS[ifo1]
-      gps2=myGPS[ifo2]
-      snr1=float(paramTable.getColumnByText(ifo1,2))
-      snr2=float(paramTable.getColumnByText(ifo2,2))
+for index1,ifo1 in enumerate(ifolist):
+  for index2,ifo2 in enumerate(ifolist):
+    ifoA=ratioTest.mapToObservatory(ifo1)
+    ifoB=ratioTest.mapToObservatory(ifo2)
+    if ifoA != ifoB:
+      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+      snrA=float(str(paramTable.getColumnByText(ifo1,3)).strip().strip("<td>").strip("</td>"))
+      snrB=float(paramTable.getColumnByText(ifo2,3).strip().strip("<td>").strip("</td>"))
       try:
-        snrRatio=snr1/snr2
+        snrRatio=snrA/snrB
       except:
         snrRatio=0
-      time=gps1-gps2
-      result=ratioTest.testRatio(ifo1,ifo2,time,snrRatio)
-      myString="%s:%s\t %2.4f\t %5.2f\t %1.3f <br>"%\
-          (ifo1,ifo2,time,snrRatio,result)
+      time=gpsA-gpsB
+      result=ratioTest.testRatio(ifoA,ifoB,time,snrRatio)
+      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td></tr>"%\
+          (ifoA,ifoB,time,snrRatio,result)
       resultString="%s %s"%(resultString,myString)
-resultString="%s BATWING IMAGE"%(resultString)
+imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
+resultString=" %s </table> %s"%(resultString,imageURL)
 ##############
 page.tr()
 page.td("#11 Parameters of the candidate")
