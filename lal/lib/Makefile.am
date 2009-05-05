@@ -9,7 +9,7 @@ liblal_la_LIBADD = @LIBLISTBASE@ @LALLIBADD@
 liblal_la_DEPENDENCIES = @LIBLISTBASE@ 
 bin_PROGRAMS = lal-version
 lal_version_SOURCES = lal-version.c
-lal_version_LDADD = $(top_builddir)/lib/liblal.la
+lal_version_LDADD = liblal.la
 MOSTLYCLEANFILES = LALBuildDate.c
 TESTS = lal-version
 LALBuildDate.c: $(liblal_la_DEPENDENCIES)
