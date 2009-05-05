@@ -154,7 +154,13 @@ class Summaries(object):
 			snrs.sort()
 
 	def rate(self, on_instruments, participating_instruments, mass, snr):
-		snrs = self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])]
+		try:
+			snrs = self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])]
+		except KeyError:
+			# found coinc in category that has no background
+			# events.  trap error, and create new empty event
+			# list
+			snrs = self.snrs[(on_instruments, participating_instruments, self.mass_bins[mass])] = []
 		# len(x) - bisect.bisect_left(x, snr) = (# of elements in
 		# list >= snr)
 		return (len(snrs) - bisect.bisect_left(snrs, snr)) / self.cached_livetime[on_instruments]
