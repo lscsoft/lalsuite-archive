@@ -324,7 +324,7 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
     # already checked it is not 0 in get_KW()
     seg_list=segmentsUtils.fromsegwizard(open(segment_file),coltype=float,\
                                                         strict=False)
-    totalTime=seg_list.duration()
+    totalTime=abs(seg_list)
     
     # begining and ending of analyzed time
     # those will be used for time series
@@ -389,7 +389,7 @@ def vetoStats(thresh_list, trigs, coin_KWtrigs, KWtrigs, half_window,\
         vetoedTime = segmentlist(vetoedTime[:total_index])
         # sort and merge segments
         sorted_vetoedSegs = segmentlist(vetoedTime).coalesce()
-        dT=sorted_vetoedSegs.duration() # dT is the dead time for the threshold
+        dT=abs(sorted_vetoedSegs) # dT is the dead time for the threshold
         deadTime.append(dT)
         deadTimePer.append(100*dT/totalTime)
         ## calculate use percentage
@@ -525,7 +525,7 @@ def injection_count(ifo,veto_seg,analyze_segment,injection_time_file,out_name):
     # calculate expected injections number:
     # total injection * dead time / analyzed time
     expectedNum =\
-         len(injection_times) * veto_seg.duration() / analyze_segs.duration()
+         len(injection_times) * abs(veto_seg) / abs(analyze_segs)
             
     # save the result in txt format
     line=["Vetoed Injections / Total Injections in analyzed segments:"+\
