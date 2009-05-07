@@ -570,7 +570,8 @@ page.tr.close()
 # Row #11
 ######################
 #Code to perform test
-resultString=(" <table border=1px><tr><th>IFO:IFO</th><th>ToF</th><th>Ratio</th><th>Prob</th></tr>")
+resultString=(" <table border=1px>\
+ <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th></tr>")
 #Text insert into page giving the SNR ratio probabilities
 preBuiltPickle=opts.defaultRatioTestPickle
 if opts.defaultRatioTestPickle == None:
@@ -585,8 +586,8 @@ for index1,ifo1 in enumerate(ifolist):
     if ifoA != ifoB:
       gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
       gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
-      snrA=float(str(paramTable.getColumnByText(ifo1,3)).strip().strip("<td>").strip("</td>"))
-      snrB=float(paramTable.getColumnByText(ifo2,3).strip().strip("<td>").strip("</td>"))
+      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
       try:
         snrRatio=snrA/snrB
       except:
@@ -750,6 +751,12 @@ page.td()
 page.tr.close()
 
 page.table.close()
+page.h2()
+page.add("Follow up documentation")
+page.h2.close()
+page.add("<a\
+ href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
+ follow up document</a>")
 
 if opts.enable_output:
   if not os.access(opts.output_path,os.F_OK):
