@@ -346,7 +346,7 @@ def make_monthly_seg(segment_file):
     try:
         segment_list=segmentsUtils.fromsegwizard(open(segment_file),\
                                              coltype=float,strict=False)
-        if segment_list.duration()==0:
+        if abs(segment_list)==0:
             print >>sys.stderr, """
         Error: file contains no segments or glue.segmentsUtils.fromsegwizard is
                not reading segments correctly. Please check the seg file. 
@@ -468,7 +468,7 @@ def get_analyze_segment(cp,ifo_list,tag,verbose):
             try:
                 each_list=segmentsUtils.fromsegwizard(open(fileName),\
                                                      coltype=float,strict=False)
-                if each_list.duration()==0:
+                if abs(each_list)==0:
                     sys.exit(1)
             except:
                 print >>sys.stderr, """
@@ -500,7 +500,7 @@ def get_analyze_segment(cp,ifo_list,tag,verbose):
             try:
                 each_list=segmentsUtils.fromsegwizard(open(fileName),\
                                                      coltype=float,strict=False)
-                if each_list.duration()==0:
+                if abs(each_list)==0:
                     sys.exit(1)
             except:
                 print >>sys.stderr, """

@@ -172,7 +172,7 @@ for slide in slide_num:
         thisSlideSeg &= slidVetoes.\
             intersection(ifos - set(coinc))
 
-      analyzedTimes[slide][coinc] += thisSlideSeg.duration()
+      analyzedTimes[slide][coinc] += abs(thisSlideSeg)
 
   for coinc in ifo_coincs:
     print types[coinc],analyzedTimes[slide][coinc]

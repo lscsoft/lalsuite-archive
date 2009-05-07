@@ -78,11 +78,9 @@ def printErrors(rv):
 def makeNiceUrl(url):
     (scheme, netloc, path, query, frag) = urlsplit(url)
     if not scheme:
-        # XXX warn?
         scheme = "file"
     if not netloc or netloc == 'localhost':
-        # XXX warn?
-        netloc = socket.gethostname()
+        netloc = socket.getfqdn()
     path = os.path.abspath(path)
 
     return urlunsplit((scheme, netloc, path, query, frag))
@@ -182,8 +180,8 @@ class Command:
         except xmlrpclib.ProtocolError, e:
             print "XMLRPC Protocol Error", e
         except socket.sslerror, e:
-            print "SSL Error (%s)\n   %s" % (e[0], e[1])
-            if e[1].endswith("unknown ca"):
+            print "SSL Error (%s)\n" % (e[0])
+            if len(e[:]) > 1 and e[1].endswith("unknown ca"):
                 print "Your proxy might not be RFC compliant."
                 print "Try 'grid-proxy-init -rfc'"
         except socket.error, e:
@@ -325,7 +323,9 @@ class Publish(Command):
 
         config = getLarsConfig()
         if not config:
-            print "This analysis does not appear to be reserved. (no %s)" % INI_NAME
+            print "This analysis does not appear to have a reservation. (no %s)" % INI_NAME
+            print "If a reservation has been lost, try 'lars info [--repair]'"
+            print "to try to recover your '%s'" % INI_NAME
             return
 
         id = config.get('lars','id')
@@ -343,6 +343,16 @@ class Publish(Command):
         duration = gpsEnd - gpsStart
 
         url = makeNiceUrl(os.getcwd())
+
+        if options.dry_run:
+            print "Dry run.  Results not saved"
+            print "gpsStart:  ", gpsStart
+            print "gpsEnd:    ", gpsEnd
+            print "duration:  ", duration
+            print "IFOs:      ", ifos
+            print "Cachefile: ", cachefilename
+            print "Location:  ", url
+            return
 
         server = serviceProxy(config.get('lars', 'serviceUrl'))
         rv = server.publish(id, ifos, gpsStart, duration, url, makeNiceUrl(cachefilename))

@@ -245,7 +245,7 @@ for coinc in ifo_coincs:
   segs[coinc] = seg & (~vetoes).intersection(coinc)
   if (ifos - set(coinc)):
     segs[coinc] &= vetoes.intersection(ifos - set(coinc))
-  analyzedTimes[coinc] = [(0,segs[coinc].duration())]
+  analyzedTimes[coinc] = [(0,abs(segs[coinc]))]
 
 if opts.num_slides:
   slideSegs = {}
@@ -263,7 +263,7 @@ if opts.num_slides:
       if (ifos - set(coinc)):
         slideSegs[slide][coinc] &= slidVetoes.\
             intersection(ifos - set(coinc))
-      analyzedTimes[coinc].append((slide,slideSegs[slide][coinc].duration()))
+      analyzedTimes[coinc].append((slide,abs(slideSegs[slide][coinc])))
 
 ################################################
 # sort zero-lag triggers based on times analyzed
@@ -278,9 +278,9 @@ if inspTriggers:
       inspSepTimesTriggers[coinc] = \
           lsctables.New(lsctables.SnglInspiralTable)
 
-    if opts.verbose and segs[coinc].duration():
+    if opts.verbose and abs(segs[coinc]):
       print (str(len(inspSepTimesTriggers[coinc])) + ' triggers in ' + \
-          str(segs[coinc].duration()) + ' sec analyzed ' + \
+          str(abs(segs[coinc])) + ' sec analyzed ' + \
           types[coinc] + ' time')
 
 ##################################################
@@ -306,9 +306,9 @@ if slideTriggers:
       else:
         thisSlide["sngl_trigs"][coinc] = slideTriggers[slide]["sngl_trigs"]
 
-      if opts.verbose and thisSlide["segs"][coinc].duration():
+      if opts.verbose and abs(thisSlide["segs"][coinc]):
         print (str(len(thisSlide["sngl_trigs"][coinc])) + ' triggers in ' + \
-            str(thisSlide["segs"][coinc].duration()) + ' sec analyzed ' + \
+            str(abs(thisSlide["segs"][coinc])) + ' sec analyzed ' + \
             types[coinc] + ' time, slide ' + str(slide))
 
       for row in thisSlide["sngl_trigs"][coinc]:
