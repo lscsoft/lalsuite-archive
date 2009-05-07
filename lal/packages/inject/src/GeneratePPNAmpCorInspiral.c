@@ -389,11 +389,10 @@ LALGeneratePPNAmpCorInspiral(
   phiC = params->phi;
 
   preFac = -2.0*mu*LAL_MRSUN_SI/params->d; 
-  delta = params->delta; 
+/*  delta = params->delta; */ 
+  delta = pow( 1.0 - 4.0*eta, 0.5 );
   sd = sinI*delta;
   scd = sd*cosI;
-  fprintf( stderr, "\n eta = %.16f delta = %e, sd = %e\n", eta, delta, sd);
-
 
   /* *************************************************************
    * COEFFICIENTS IN h_+ & h_x ***********************************
