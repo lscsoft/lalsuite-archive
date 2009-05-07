@@ -592,10 +592,10 @@ for index1,ifo1 in enumerate(ifolist):
         snrRatio=snrA/snrB
       except:
         snrRatio=0
-      time=gpsA-gpsB
-      result=ratioTest.testRatio(ifoA,ifoB,time,snrRatio)
+      gpsDiff=gpsA-gpsB
+      result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
       myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td></tr>"%\
-          (ifoA,ifoB,time,snrRatio,result)
+          (ifoA,ifoB,gpsDiff,snrRatio,result)
       resultString="%s %s"%(resultString,myString)
 imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
 resultString=" %s </table> %s"%(resultString,imageURL)
@@ -752,8 +752,10 @@ page.tr.close()
 
 page.table.close()
 page.h2()
-page.add("Follow up documentation")
+page.add("Miscellaneous Information")
 page.h2.close()
+timeString=str(time.gmtime()[0:6]).replace(" ","").replace(",","-")
+page.add("Checklist compiled:%s <br>\n"%(timeString))
 page.add("<a\
  href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
  follow up document</a>")

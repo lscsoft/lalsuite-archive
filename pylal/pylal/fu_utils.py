@@ -1520,7 +1520,7 @@ class ratioTest:
   is phyiscally possible but unlikely the result of this test is a
   probability that the seen SNR ratio for a given time of flight is
   physically possible.
-  Contacts: Amber Stuver and Cristina Valeria Torres
+  Contacts: Cristina Valeria Torres and Amber Stuver
   """
   def __init__(self):
     """
@@ -1533,7 +1533,7 @@ class ratioTest:
     invoking this class.
     """
     self.pickleLoaded=bool(False)
-    self.pickleLocation="http://mylocation.txt"
+    self.pickleURL="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/ratioTest.pickle"
     self.picklePath=os.path.normpath(os.getenv("HOME")+"/")
     self.pickleName="ratioTest.pickle"
     self.localPickle=os.path.normpath(self.picklePath+self.pickleName)
@@ -1562,7 +1562,8 @@ class ratioTest:
     self.__openPickle__()
     if not self.pickleLoaded:
       print "In future we will try to fetch a web posted pickle!\n"
-      print "URL of pickle is %s\n"%self.pickleLocation
+      print "URL of pickle is %s\n"%self.pickleURL
+      print "Download and install this pickle by hand.\n"
   #End __loadPickle__():
 
   def __openPickle__(self):
