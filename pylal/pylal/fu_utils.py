@@ -30,6 +30,11 @@ import fileinput
 import linecache
 import string
 import random
+import numpy
+import cPickle
+import gzip
+from scipy import interpolate
+
 from optparse import *
 from types import *
 import matplotlib
@@ -1499,6 +1504,242 @@ class nVeto:
 #
 #End nVeto() Class Definition
 ############################################################
+
+#############################################################################
+#Class to integrated SNR Ratio Testing into CBC follow up
+#Amber Stuver and Cristina V. Torres
+#Thu-Apr-23-2009:200904231541 
+#############################################################################
+# RATIO TEST CLASS
+class ratioTest:
+  """
+  Apply the SNR ratio test to a signal coincident at two
+  interferometers.  This test uses the time of flight and SNR
+  strengths measured at two seperate sites to determine if the ratio
+  of observed signal strengths is physically possible.  If the ratio
+  is phyiscally possible but unlikely the result of this test is a
+  probability that the seen SNR ratio for a given time of flight is
+  physically possible.
+  Contacts: Cristina Valeria Torres and Amber Stuver
+  """
+  def __init__(self):
+    """
+    This checks for information required to conduct this test.  The
+    initialization of this class requires the user to input a pointer
+    to the pickle file that holds all the necessary data to perform
+    this test.  If no pickle file is specified then the class object
+    looks for the pickle file at a predetermined http server and
+    attempts to download that file into the home directory of the user
+    invoking this class.
+    """
+    self.pickleLoaded=bool(False)
+    self.pickleURL="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/ratioTest.pickle"
+    self.picklePath=os.path.normpath(os.getenv("HOME")+"/")
+    self.pickleName="ratioTest.pickle"
+    self.localPickle=os.path.normpath(self.picklePath+self.pickleName)
+    self.ifoLambda={
+      'LHO':{'LHO':None,'LLO':float(0.726479)},
+      'LLO':{'LHO':float(0.726479),'LLO':None},
+      'VIRGO':{'LHO':float(1.1066),'LLO':float(1.0753)},
+      'GEO':{'LHO':float(1.0602),'LLO':float(1.1291)},
+      'TAMA':{'LHO':float(1.1089),'LLO':float(1.1221)}
+      }
+    self.pickleData=dict()
+  #End __init__()
+
+  def __loadPickle__(self,path2Pickle=None):
+    """
+    The code required to download the pickle from a specified location
+    and install the pickle into the default location for use.  This
+    method is only called if the class can not find the pickle requred
+    to run.  If we pass it a alternative complete path it tries to load it from
+    there.  
+    """
+    if path2Pickle==None:
+      path2Pickle=self.localPickle
+    else:
+      self.localPickle=path2Pickle
+    self.__openPickle__()
+    if not self.pickleLoaded:
+      print "In future we will try to fetch a web posted pickle!\n"
+      print "URL of pickle is %s\n"%self.pickleURL
+      print "Download and install this pickle by hand.\n"
+  #End __loadPickle__():
+
+  def __openPickle__(self):
+    """
+    This method opens the pre-existing pickle file and assigns the
+    information in this pickle file into variables already declared in
+    the __init__() method of this class object.  
+    """
+    #Load pickle of this structure
+    try:
+      inputFP=gzip.open(self.localPickle,'rb')
+      self.pickleData=cPickle.load(inputFP)
+      inputFP.close()
+      self.pickleLoaded=bool(True)
+    except:
+      self.pickleLoaded=bool(False)
+  #End __openPickle__(self):
+
+  def __createPickle__(self):
+    """
+    This method is used to create the needed pickle file locally from
+    input text files.  This is a hard wired method that should likely
+    never need to be invoked by anyone other than the authors of this
+    class.
+    PICKLE FORMAT for inBound determination
+    X={'ifo1':{'ifo2':[list(t),list(min Ratio),list(max Ratio)]},
+    ...
+    }
+    """
+    detectorPairs={
+      'LHO_GEO':'LHO_GEO_ratio.txt',
+      'LHO_LLO':'LHO_LLO_ratio.txt',
+      'LHO_TAMA':'LHO_TAMA_ratio.txt',
+      'LHO_VIRGO':'LHO_VIRGO_ratio.txt',
+      'LLO_GEO':'LLO_GEO_ratio.txt',
+      'LLO_TAMA':'LLO_TAMA_ratio.txt',
+      'LLO_VIRGO':'LLO_VIRGO_ratio.txt'
+      }
+    for key in detectorPairs.keys():
+      #Load a single file.
+      tVector=list()
+      minRVector=list()
+      maxRVector=list()
+      (ifo1Name,ifo2Name)=str(key).strip().split("_")
+      fp=open(detectorPairs[key],"r")
+      rawData=fp.readlines()
+      #print "IFO1: %s \t  IFO2: %s"%(ifo1Name,ifo2Name)
+      for row in rawData:
+        (a,b,c)=row.split()
+        tVector.append(float(a))
+        minRVector.append(float(b))
+        maxRVector.append(float(c))
+      if not self.pickleData.has_key(ifo1Name):
+        self.pickleData[ifo1Name]=dict()
+      self.pickleData[ifo1Name][ifo2Name]=[tVector,minRVector,maxRVector]
+      if not self.pickleData.has_key(ifo2Name):
+        self.pickleData[ifo2Name]=dict()
+      self.pickleData[ifo2Name][ifo1Name]=[tVector,minRVector,maxRVector]
+    #Save pickle of this structure
+    outputFP=gzip.open(self.pickleName,'wb')
+    cPickle.dump(self.pickleData,outputFP,2)
+    outputFP.close()
+  #End __createPickle__()
+
+  def mapToObservatory(self,ifo=None):
+    """
+    Expects H1, V1 etc and maps it to LHO VIRGO etc.
+    """
+    obsMap={}
+    obsMap["L1"]="LLO"
+    obsMap["H1"]="LHO"
+    obsMap["H2"]="LHO"
+    obsMap["V1"]="VIRGO"
+    obsMap["G1"]="GEO"
+    obsMap["T1"]="TAMA"
+    if ifo != None:
+      try:
+        return obsMap[ifo.upper()]
+      except:
+        return None
+    return None
+  #End mapToObservatory()
+
+  def fetchLambda(self,ifo1=None,ifo2=None):
+    """
+    Manipulates the keys as needed to load values from self.ifoLambda
+    properly.
+    """
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    firstKeyElements=self.ifoLambda.keys()
+    if firstKeyElements.__contains__(ifo1):
+      firstKey=ifo1
+      secondKey=ifo2
+    else:
+      firstKey=ifo2
+      secondKey=ifo1
+    try:
+      output=self.ifoLambda[firstKey][secondKey]
+      return output
+    except:
+      return None
+    #End fetchLambda()
+  
+  def setPickleLocation(self,newSpot=None):
+    """
+    Resets the location of the pickle file to some place that is non
+    standard.
+    """
+    if newSpot==None:
+      return
+    else:
+      #Break path up and store parts and entire piece
+      self.picklePath=os.path.dirname(newSpot)
+      self.pickleName=os.path.basename(newSpot)
+      self.localPickle=newSpot
+    return
+  #End setPickleLocation()
+
+  def testRatio(self,ifo1="NULL",ifo2="NULL",timeOfFlight=float(1.0),\
+                  myRatio=None):
+    """
+    A call to this method performs the check using information about
+    the IFOs and the time of flight.  A float is returned by the
+    method.  It contains the probablity that this SNR ratio give a
+    particular time of flight is physically probably. If an error is
+    encountered method returns possible values of -98,-97,-96,-95,-94.
+    Err Codes:
+    -99 : ifo1 == ifo2
+    -98 : Pickle file not loaded
+    -97 : IFO \lambda not found
+    -96 : Specified Time Delay unphysical t > abs(t_max)
+    -95 : Interpolation function call failure
+    -94 : Unknown problem
+    """
+    if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
+      return -99
+    if not self.pickleLoaded:
+      self.__loadPickle__()
+    if not self.pickleLoaded:
+      return(-98)
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    LV=None
+    LV=self.fetchLambda(ifo1,ifo2)
+    if LV == None and ifo1 != ifo2:
+      return float(-97)
+    #Check bound set ratio TO 1 return
+    #Extract 3 data vectors
+    (t,minR,maxR)=self.pickleData[ifo1][ifo2]
+    if not(min(t)<=timeOfFlight<=max(t)):
+      print min(t),timeOfFlight,max(t)
+      return float(0)
+    rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
+    (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
+    if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):
+      return float(-95)
+    else:
+      newMinR=newMinR[0]
+      newMaxR=newMaxR[0]
+    if (newMinR<=myRatio<=newMaxR):
+      return float(1.0)
+    else:
+      myOutput=float(0.0)
+      #P(ln(SNR)) = 1-exp(-|ln(SNR)|*0.726479)
+      #This above expression from Amber's webpage a tad misleading
+      #We mean 1-expcdf(abs(SNR),MU) which is 
+      #exp(-SNR/mu)
+      myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
+      #Remove following Line
+      ##myOutputJUNK=numpy.exp(-numpy.fabs(numpy.log(myRatio))*LV)
+      return myOutput
+    return float(-94)
+  #End testRatio()
+# End Class ratioTest()
+#############################################################################
 
 
 #############################################################################
