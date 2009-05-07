@@ -21,6 +21,6 @@ fi
 
 echo "Submitting : $curDirectory/SCRIPTS/wscanlite_in2p3.sh $eventTime $configFile $outputDirectory"
 
-qsub -l platform=LINUX,u_sps_virgo,hpss,u_xrootd,matlab -q T -l M=2048MB <<eof 
+qsub -l platform=LINUX,u_sps_virgo,u_hpss_virgo,u_xrootd,matlab -q T -l M=2048MB <<eof 
 $curDirectory/SCRIPTS/wscanlite_in2p3.sh $eventTime $configFile $outputDirectory
 eof
