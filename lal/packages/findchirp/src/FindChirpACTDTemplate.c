@@ -155,17 +155,10 @@ LALFindChirpACTDTemplate(
   /* input parameters */
   memset( &ppnParams, 0, sizeof(PPNParamStruc) );
   ppnParams.deltaT = deltaT;
-  ppnParams.mTot_real8 = 20.0;
-  fprintf( stderr, "\nmTot_real8  = %.16f \n", ppnParams.mTot_real8 );
-  ppnParams.mTot_real8 = (REAL8)(tmplt->mass1 + tmplt->mass2);
-  ppnParams.mTot = (REAL4)(ppnParams.mTot_real8);
-  fprintf( stderr, "\nmTot_real8  = %.16f \n", ppnParams.mTot_real8 );
-  ppnParams.eta_real8 = (REAL8)(tmplt->mass1) * (REAL8)(tmplt->mass2);
-  fprintf( stderr, "\nm1*m2  = %.16f \n", ppnParams.eta_real8 );
-  ppnParams.eta_real8 *= 1.0 / (ppnParams.mTot_real8 * ppnParams.mTot_real8);
-  ppnParams.eta = (REAL4)(ppnParams.eta_real8); 
-  fprintf( stderr, "\neta_real8  = %.16f \n", ppnParams.eta_real8 );
-  fprintf( stderr, "eta  = %.16f \n", ppnParams.eta );
+  ppnParams.mTot_real8 = tmplt->mass1 + tmplt->mass2;
+  ppnParams.eta_real8  = tmplt->mass1 * tmplt->mass2;
+  ppnParams.eta_real8 /= ppnParams.mTot_real8;
+  ppnParams.eta_real8 /= ppnParams.mTot_real8;
 
   /* Set distance at 20Mpc for testing, will be normalised anyway */
   ppnParams.d = 1.0;
@@ -189,23 +182,23 @@ LALFindChirpACTDTemplate(
   ppnParams.ampOrder = 1;
 
   /* XXX Uncomment below for extra testing XXX */  
- 
-  fprintf( stderr, "   tmplt->mass1 = %f\n", tmplt->mass1);
-  fprintf( stderr, "   tmplt->mass2 = %f\n", tmplt->mass2);
-  fprintf( stderr, "   ppnParams.deltaT   = %e\n", ppnParams.deltaT ); 
-  fprintf( stderr, "   ppnParams.mTot     = %e\n", ppnParams.mTot ); 
-  fprintf( stderr, "   ppnParams.eta      = %e\n", ppnParams.eta ); 
-  fprintf( stderr, "   ppnParams.d        = %e\n", ppnParams.d ); 
-  fprintf( stderr, "   ppnParams.fStartIn = %e\n", ppnParams.fStartIn ); 
-  fprintf( stderr, "   ppnParams.fStopIn  = %e\n", ppnParams.fStopIn ); 
-  fprintf( stderr, "   ppnParams.inc      = %e\n", ppnParams.inc ); 
-  fprintf( stderr, "   ppnParams.amporder = %d\n", ppnParams.ampOrder ); 
+  /*
+  fprintf( stderr, "   tmplt->mass1         = %f\n", tmplt->mass1);
+  fprintf( stderr, "   tmplt->mass2         = %f\n", tmplt->mass2);
+  fprintf( stderr, "   ppnParams.deltaT     = %e\n", ppnParams.deltaT ); 
+  fprintf( stderr, "   ppnParams.mTot_real8 = %e\n", ppnParams.mTot_real8 ); 
+  fprintf( stderr, "   ppnParams.eta_real8  = %e\n", ppnParams.eta_real8 ); 
+  fprintf( stderr, "   ppnParams.d          = %e\n", ppnParams.d ); 
+  fprintf( stderr, "   ppnParams.fStartIn   = %e\n", ppnParams.fStartIn ); 
+  fprintf( stderr, "   ppnParams.fStopIn    = %e\n", ppnParams.fStopIn ); 
+  fprintf( stderr, "   ppnParams.inc        = %e\n", ppnParams.inc ); 
+  fprintf( stderr, "   ppnParams.amporder   = %d\n", ppnParams.ampOrder ); 
   for( i = 0; i < tmplt->order + 1; ++i )
   {
     fprintf( stderr, "   ppnParams.ppn->data[%d] = %e\n", i, 
                                     ppnParams.ppn->data[i] );
   }
-
+  */  
   /*   XXX Uncomment above for extra testing XXX */ 
 
 
@@ -239,7 +232,6 @@ LALFindChirpACTDTemplate(
     ACTDtilde[i].data = fcTmplt->ACTDtilde->data + (i * (numPoints / 2 + 1 ) );
   }
 
-    fprintf(stdout,"ACTDTemplate\n");
   /* compute h(t) */
   /* legacy - length is the lentgh of the vectors */
   for ( j = 0; j < waveform.a->data->length; ++j )
@@ -248,9 +240,7 @@ LALFindChirpACTDTemplate(
     {
       ACTDVecs[i].data[j] = waveform.a->data->data[3*j + i]
          * cos( ( ( REAL4 )( i ) + 1.0 ) / 2.0 * waveform.phi->data->data[j] );
-      fprintf(stdout, "%f ", ACTDVecs[i].data[j] );
     }
-    fprintf(stdout,"\n");
   }
 
 
@@ -325,8 +315,6 @@ LALFindChirpACTDTemplate(
       }
     }
     ++j;
-
-    fprintf(stderr, "    Found the end of the chirp\n");
 
     if ( params->bandPassTmplt )
     {

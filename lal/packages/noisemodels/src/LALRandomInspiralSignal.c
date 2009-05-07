@@ -223,6 +223,7 @@ void LALRandomInspiralSignal
     if (!(buff.data = (REAL4*) LALCalloc(buff.length, sizeof(REAL4)) )) {
         ABORT (status, LALNOISEMODELSH_EMEM, LALNOISEMODELSH_MSGEMEM);
     }
+    
 
     /* Use the seed to initialize random(). */
     srandom(randIn->useed);

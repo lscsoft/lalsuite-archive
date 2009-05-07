@@ -437,8 +437,8 @@ LALInspiralAmplitudeCorrectedWaveEngine(
 
    /* The following fields are used by GeneratePPNAmpCor function */
    /* Variable Parameters */
-   ppnParams.mTot = mTot;
-   ppnParams.eta = etab;
+   ppnParams.mTot_real8 = mTot;
+   ppnParams.eta_real8 = etab;
    ppnParams.d = LAL_PC_SI*1.0e3;
    ppnParams.inc = params->inclination;
    /* GeneratePPN does not set the starting phase.*/

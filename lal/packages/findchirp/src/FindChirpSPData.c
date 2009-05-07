@@ -199,6 +199,7 @@ LALFindChirpSPData (
    */
 
 
+fprintf(stderr,"wigga\n");
   for ( i = 0; i < dataSegVec->length; ++i )
   {
 
@@ -222,7 +223,7 @@ LALFindChirpSPData (
  
     ASSERT( params->wtildeVec->length == fcSeg->data->data->length, status,
         FINDCHIRPSPH_EMISM, FINDCHIRPSPH_MSGEMISM );
-
+  for ( i = 0; i < dataSegVec->length; ++i )
 
     /* store the waveform approximant in the data segment */
     fcSeg->approximant = params->approximant;
@@ -274,6 +275,7 @@ LALFindChirpSPData (
     {
       if ( spec[k] == 0 )
       {
+fprintf(stderr,"wiggaa 4.75\n");
         
         ABORT( status, FINDCHIRPSPH_EDIVZ, FINDCHIRPSPH_MSGEDIVZ );
       }
@@ -435,6 +437,7 @@ LALFindChirpSPData (
 
 
   } /* end loop over data segments */
+fprintf(stderr,"wigga\n");
 
 
   /* Find the min power from the whitened time series */
