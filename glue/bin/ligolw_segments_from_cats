@@ -359,20 +359,25 @@ if __name__ == '__main__':
 
         vetoed_segs.coalesce()
 
-        # Register as a segment definer
-        seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-        # doc.childNodes[0].appendChild(seg_def_table)
+        # Find or create the segment definer table
+        tmp = filter(lambda x: type(x) == lsctables.SegmentDefTable, doc.childNodes[0].childNodes)
 
-        seg_def_id                     = seg_def_table.get_next_id()
-        segment_definer                = lsctables.SegmentDef()
-        segment_definer.process_id     = proc_id
-        segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifo
-        segment_definer.name           = "VETOED_SEGMENTS"
-        segment_definer.version        = 1
-        segment_definer.comment        = ''
+        if len(tmp) > 0:
+            seg_def_table = tmp[0]
+        else:
+            seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
 
-        seg_def_table.append(segment_definer)
+            doc.childNodes[0].appendChild(seg_def_table)
+            seg_def_id                     = seg_def_table.get_next_id()
+            segment_definer                = lsctables.SegmentDef()
+            segment_definer.process_id     = proc_id
+            segment_definer.segment_def_id = seg_def_id
+            segment_definer.ifos           = ifo
+            segment_definer.name           = "VETOED_SEGMENTS"
+            segment_definer.version        = 1
+            segment_definer.comment        = ''
+
+            seg_def_table.append(segment_definer)
 
         # And store the segments
         segmentdb_utils.write_segments_to_xml(doc, proc_id, vetoed_segs)
