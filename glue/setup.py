@@ -203,6 +203,7 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('sbin','ldbdd'),
     os.path.join('sbin','segpagegen'),
+    os.path.join('sbin','segdb_coalesce'),
     os.path.join('sbin','publishstatefromfile'),
     os.path.join('sbin','bulkpublishstate'), ],
   data_files = [
