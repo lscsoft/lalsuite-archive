@@ -43,6 +43,7 @@ except ImportError:
 import sys
 
 
+from glue.lal import CacheEntry
 from glue.ligolw import dbtables
 from glue.ligolw.utils import ligolw_sqlite
 
