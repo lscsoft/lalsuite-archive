@@ -33,6 +33,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
     
     ret = []
 
+    # Maybe the user just wants one file...
+    if os.path.isfile(dirname):
+        return [dirname]
+
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
 
