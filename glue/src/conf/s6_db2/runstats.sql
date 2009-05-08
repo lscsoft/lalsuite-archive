@@ -19,5 +19,5 @@ runstats on table LDBD.SEGMENT_DEFINER and indexes all;
 runstats on table LDBD.SEGMENT and indexes all;
 runstats on table LDBD.SEGMENT_SUMMARY and indexes all;
 runstats on table LDBD.SEGMENT for detailed indexes all
-runstats on table LDBD.SEGMENT_SUMMARY for detailed indexes all
+runstats on table LDBD.SEGMENT_SUMMARY for detailed indexes all;
 
