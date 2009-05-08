@@ -75,7 +75,7 @@ def writeTGNListToFile(filename="default",tgnList=None):
       count=tgn.getMemberCount()
       vol=tgn.getVolume()
       fp0.write("%s\n%s\n"%(a,b))
-      fp1.write("%s\t%s\t$%s"%(id,count,vol))
+      fp1.write("%s\t%s\t%s\n"%(id,count,vol))
     fp0.close()
     fp1.close()
   #End writeTGNListToFile()
@@ -389,11 +389,14 @@ class TGN:
         This input method assumes you've opened a text file container
         and will input the data from text strings.  The assumed
         delimiter is a space but can be set in the method call.
-        Old file spec had 17 cols new has 19 cols
         """
         self.delim=delim
-        mData=str(mString).lower().split(delim)
-        bData=str(bString).lower().split(delim)
+        if self.delim == " ":
+          mData=str(mString).lower().split(None)
+          bData=str(bString).lower().split(None)
+        else:
+          mData=str(mString).lower().split(delim)
+          bData=str(bString).lower().split(delim)
         mCol=mData.__len__()
         sCol=bData.__len__()
         if (mData.__len__()) != (bData.__len__()):
