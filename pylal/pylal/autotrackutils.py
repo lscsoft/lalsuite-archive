@@ -57,7 +57,29 @@ This file is intended to provide the autotrack utilities required to
 process the results of the tracksearch hybrid MDGC codes.
 """
 
-
+def writeTGNListToFile(filename="default",tgnList=None):
+    """
+    This writes the information in the tgnList to a simple text
+    file. Actually we write two files.  filename.TGN and
+    filename.AUX.  In the AUX file is information like time stamps,
+    and other misc information from the TGNs that are dumped to disk!
+    """
+    if tgnList==None:
+      return
+    #Append extensions AUX and TGN
+    fp0=open(filename+".TGN",'wt')
+    fp1=open(filename+".AUX",'wt')
+    for tgn in tgnList:
+      a,b=tgn.reverseCreateFromString()
+      id=tgn.getID()
+      count=tgn.getMemberCount()
+      vol=tgn.getVolume()
+      fp0.write("%s\n%s\n"%(a,b))
+      fp1.write("%s\t%s\t$%s"%(id,count,vol))
+    fp0.close()
+    fp1.close()
+  #End writeTGNListToFile()
+  
 def generateTGNListFromFile(filename="",timestamp=str("0")):
     """
     This method opens a text file containing multiple TGNs and creates
@@ -291,6 +313,7 @@ class TGN:
         To populate the neightborhood invoke the proper method
         depending on the source of the data, ie ascii mysql etc
         """
+        self.delim=" "
         self.idNum=float(-1)
         self.density=float(0)
         self.memberCount=0
@@ -361,13 +384,14 @@ class TGN:
         return self.gpsStamp
     #End
 
-    def createFromString(self,mString,bString,delim=None):
+    def createFromString(self,mString,bString,delim=" "):
         """
         This input method assumes you've opened a text file container
         and will input the data from text strings.  The assumed
         delimiter is a space but can be set in the method call.
         Old file spec had 17 cols new has 19 cols
         """
+        self.delim=delim
         mData=str(mString).lower().split(delim)
         bData=str(bString).lower().split(delim)
         mCol=mData.__len__()
@@ -405,6 +429,15 @@ class TGN:
         self.bound=numpy.array([numpy.float64(j) for j in bData],'float64')
     #End createFromString
 
+    def reverseCreateFromString(self):
+      """
+      Returns a tuple of two strings, that can be dumped to disk and read
+      back into a TGN object with method createFromString()
+      """
+      stringA,stringB=self.exportToString().split("\n")
+      return (stringA,stringB)
+    #End reverseCreateFromString()
+    
     def __setMemberCount__(self,mCount=0):
         """
         Sets the tally of members in the group.
@@ -438,25 +471,26 @@ class TGN:
         Create a text string that can be directly inserted into the
         text field of the sqlite database table TGN.
         """
-        delimiter=":"
+        delimiter=self.delim
         outputString=""
-        outputString=outputString+":%s"%(self.getID())
-        outputString=outputString+":%s"%(self.getDensity())
+        outputString=outputString+"%s%s"%(delimiter,self.getID())
+        outputString=outputString+"%s%s"%(delimiter,self.getDensity())
         if self.colCount >= 17:
-            outputString=outputString+":%s"%(self.getMemberCount)
-            outputString=outputString+":%s"%(self.getVolume)
+            outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
+            outputString=outputString+"%s%s"%(delimiter,self.getVolume())
         for elem in self.center:
-            outputString=outputString+":%s"%(elem)
+            outputString=outputString+"%s%s"%(delimiter,elem)
         outputString=outputString+"\n"
-        outputString=outputString+":%s"%(self.getID())
-        outputString=outputString+":%s"%(self.getDensity())
+        outputString=outputString+"%s%s"%(delimiter,self.getID())
+        outputString=outputString+"%s%s"%(delimiter,self.getDensity())
         if self.colCount >= 17:
-            outputString=outputString+":%s"%(self.getMemberCount)
-            outputString=outputString+":%s"%(self.getVolume)
+            outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
+            outputString=outputString+"%s%s"%(delimiter,self.getVolume())
         for elem in self.bound:
-            outputString=outputString+":%s"%(elem)
+            outputString=outputString+"%s%s"%(delimiter,elem)
         return outputString
     #end exportToString()
+    
     def getDensity(self):
         """
         Returns the value of TGN density set.
