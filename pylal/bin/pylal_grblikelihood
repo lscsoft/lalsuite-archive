@@ -176,7 +176,8 @@ class ConstantForegroundEstimator(ForegroundEstimator):
                     "eps.shape must be equal to "\
                     "inj_loudest_by_inj_mc.shape[1:]."
         else:
-            self.eps = 0.5 * (self.weight_by_inj.min() or 1.0) / \
+            self.eps = 0.5 * \
+                self.weight_by_inj[self.weight_by_inj.nonzero()].min() / \
                 num_sims_by_m2[None, :].repeat(self.shape[1], axis=0)
 
         # repack to speed inner loop by allowing us to call dot()
