@@ -89,7 +89,7 @@ class ConstantBackgroundEstimator(BackgroundEstimator):
         num_louder = (self.loudest_in_bg_trials > loudest_in_trial[None, ...])\
             .sum(axis=0, dtype=float)
         pc0 = num_louder / self.loudest_in_bg_trials.shape[0]
-        pc0[pc0 < self.eps] = self.eps
+        numpy.putmask(pc0, pc0 < self.eps, self.eps)
         return numpy.log(pc0)
 
 class SimpleExpExtrapEstimator(BackgroundEstimator):
