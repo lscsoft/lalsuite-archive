@@ -355,7 +355,7 @@ if __name__ == '__main__':
                 vetoed_segs |= segmentdb_utils.run_query_segments(doc, proc_id, segment_query_engine,
                                                search_interval[0][0], search_interval[0][1],
                                                '%s:%s:%d' % (ifo, name, version),
-                                               write_segments = False)
+                                               write_segments = False, start_pad = start_pad, end_pad = end_pad)
 
         vetoed_segs.coalesce()
 
