@@ -131,7 +131,7 @@ def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_na
         sum_result |= glue.segments.segmentlist([glue.segments.segment(sum_start_time, sum_end_time)])
 
     # We can't use queries paramaterized with ? since the ldbd protocol doesn't support it...
-    sql = "SELECT segment.start_time + %d, segment.end_time + %d" % (start_pad, end_pad)
+    sql = "SELECT segment.start_time + %d, segment.end_time + %d " % (start_pad, end_pad)
     sql += "FROM segment, segment_definer "
     sql += "WHERE segment.segment_def_id = segment_definer.segment_def_id "
 
