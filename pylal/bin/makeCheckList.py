@@ -116,16 +116,34 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
+
 parser.add_option("-Q","--data-quality-database",action="store",type="string",\
     metavar=" PATH2FILE",default=None, dest="defaultSQL",\
     help="This is the disk location of\
 the data quality sqlite database to use for DQ information queries.\
 Omission of this option will cause a default search for \
 ~/followupDQ.sqlite rebuilding it if needed.")
+
 parser.add_option("-R","--SNR-ratio-test",action="store",type="string",\
 metavar=" PATH2FILE", default=None, dest="defaultRatioTestPickle", \
 help="Set the location of the data (pickle) file used to perform the\
  ratio check on the candidate file.")
+
+parser.add_option("","--remote-qscan-web",action="store",type="string",\
+    metavar=" STRING",default=None,help="this option should be provided " \
+    "only if an ifo is processed remotely (for instance V1 qscans). The " \
+    "format should be an ifo string followed by a coma and a string " \
+    "that contains the url of the remote qscan result page. For instance: " \
+    "--remote-qscan-web V1,http://virgo.in2p3.fr/followups/romain/tests/lv" \
+    "/local_followup_043009/871147814-873567014/CAT3/qscan/V1/")
+
+parser.add_option("","--remote-seismic-qscan-web",action="store",type="string",\
+    metavar=" STRING",default=None,help="this option should be provided " \
+    "only if an ifo is processed remotely (for instance V1 qscans). The " \
+    "format should be an ifo string followed by a coma and a string " \
+    "that contains the url of the remote qscan result page. For instance: " \
+    "--remote-seismic-qscan-web V1,http://virgo.in2p3.fr/followups/romain/" \
+    "tests/lv/local_followup_043009/871147814-873567014/CAT3/seismic-qscan/V1/")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -217,8 +235,14 @@ for ifo_index,ifo in enumerate(ifolist):
 
   # links to qscans
   hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime)
-  rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
-  seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
+  if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
+    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime)
+  else:
+    rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
+  if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/" + gpstime)
+  else:
+    seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
   # links to analyse qscans
   analyseSeismicQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_seismic_qscan")
@@ -271,7 +295,10 @@ for j in range(0,len(opts.ifo_times)-1,2):
   if not ifolist.count(ifo):
      # links to qscans
      hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
-     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
+     if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
+       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime0)
+     else:
+       rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
      for ifo_ref in ifolist:
        snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+ifo_ref+"tmplt_"+opts.trigger_id)
