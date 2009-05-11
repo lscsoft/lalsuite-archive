@@ -44,18 +44,16 @@ except ImportError:
 
 import sys
 import os
-import glob
 
 import glue.segments
 
+from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
-
-
-from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
+from glue.segmentdb import segmentdb_utils
 
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
@@ -89,9 +87,8 @@ def parse_command_line():
         description = "Reads one or more segment files and a veto file and generates files of veto segments"        
 	)
     
-    parser.add_option("-i", "--input-dir",    metavar = "input_dir",    default = '.',      help = "Directory containing segment XML files (default=cwd).")
+    parser.add_option("-i", "--input-dir",    metavar = "input_dir",    default = '.',      help = "Directory containing segment XML files (default=cwd). It can be either one level or two levels above the actual .xml files. For example, --input-dir=/dmt/triggers/DQ_Segments, or --input-dir=/dmt/triggers/DQ_Segments/H-DQ_Segments-9247/")
     parser.add_option("-m", "--temp-dir",     metavar = "temp_dir",     default = '/tmp',   help = "Directory for temporary files (default=/tmp).")
-    parser.add_option("-g", "--glob-pattern", metavar = "glob_pattern", default = '*.xml', help = "Glob pattern for segment XML files (define=*,xml).")
     parser.add_option("-o", "--ifo",          metavar = "ifo",          help = "IFO to look at (required).")
     parser.add_option("-t", "--time-file",    metavar = "time_file",    help = "File containing GPS times of interest (one per line) (required).")
     parser.add_option("-x", "--keep-xml",     metavar = "keep_xml",     action  = "store_true", help = "Keep temporary XML file.")
@@ -123,38 +120,37 @@ if __name__ == '__main__':
 
     # TODO: These should have better names that include the
     # start and end times
-    temp_db      = options.temp_dir + '/temp.db'
-    glob_pattern = options.input_dir
-    
-    if not glob_pattern.endswith('/'):
-        glob_pattern += '/'
-
-    glob_pattern += options.glob_pattern
-
-    xml_files  = glob.glob(glob_pattern)
+    temp_db    = options.temp_dir + '/temp.db'
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
+
+    f = open(options.time_file)
+    time_from_file = []
+    xml_files = []
+    for line in f:
+      if line.startswith('#') or len(line.strip(' \t\n\r')) == 0 :
+            continue
+      gps_time = int(line)
+      xml_files += segmentdb_utils.get_all_files_in_range(options.input_dir, gps_time, gps_time)
+
+      time_from_file.append(gps_time) # collect times for later use
+    # populcate local sqlite database
     ligolw_sqlite.insert(connection, xml_files)
 
+
+    # retrieve active segment type for each time in the time_file
     cursor = connection.cursor()
-    f      = open(options.time_file)
+    for t in time_from_file:
+        print t,
 
-    for line in f:
-        if line.startswith('#') or len(line.strip(' \t\n\r')) == 0 :
-            continue
-
-        gps_time = int(line)
-
-        print gps_time,
-        
         cursor.execute("""
              SELECT DISTINCT(segment_definer.name)
              FROM segment, segment_definer
              WHERE segment.segment_def_id = segment_definer.segment_def_id
                AND segment_definer.ifos = ?
                AND ? BETWEEN segment.start_time AND segment.end_time
-               """,(options.ifo, gps_time))
+               """,(options.ifo, t))
 
         for row in cursor:
             print ( '\t%s' % row[0] ),
