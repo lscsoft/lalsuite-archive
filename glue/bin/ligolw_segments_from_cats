@@ -110,7 +110,8 @@ def parse_command_line():
                       
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
-    parser.add_option("-f", "--dmt-file",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-c", "--cumulative",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N, otherwise will contain only category N")
     
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
@@ -323,6 +324,11 @@ if __name__ == '__main__':
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
     ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
+    if options.cumulative:
+        category_selection_operator = ' <= '
+    else:
+        category_selection_operator = ' = '
+
     for ifo, category_num in [(i,c) for i in ifos for c in categories]:
         vetoed_segs = glue.segments.segmentlist([])
             
@@ -340,7 +346,7 @@ if __name__ == '__main__':
         cursor = veto_connection.cursor()
         cursor.execute("""SELECT name, version, start_time, end_time, start_pad, end_pad
                           FROM veto_definer
-                          WHERE ifo = '%s' AND category <= %s""" % (ifo, category_num))
+                          WHERE ifo = '%s' AND category %s %s""" % (ifo, category_selection_operator, category_num))
         
         for name, version, veto_start_time, veto_end_time, start_pad, end_pad in cursor:
             if veto_end_time == 0:
