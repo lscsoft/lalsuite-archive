@@ -2538,6 +2538,37 @@ LIGOLWMonTable.RowType = LIGOLWMon
 #
 # =============================================================================
 #
+#                            veto_definer:table
+#
+# =============================================================================
+#
+
+
+class VetoDefTable(table.Table):
+	tableName = "veto_definer:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"ifo": "lstring",
+		"name": "lstring",
+		"version": "int_4s",
+		"category": "int_4s",
+		"start_time": "int_4s",
+		"end_time": "int_4s",
+		"start_pad": "int_4s",
+		"end_pad": "int_4s",
+		"comment": "lstring"
+	}
+	interncolumns = ("process_id","ifo")
+
+
+class VetoDef(object):
+	__slots__ = VetoDefTable.validcolumns.keys()
+
+VetoDefTable.RowType = VetoDef
+
+#
+# =============================================================================
+#
 #                                Table Metadata
 #
 # =============================================================================
@@ -2580,7 +2611,8 @@ TableByName = {
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
+	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
+	table.StripTableName(VetoDefTable.tableName): VetoDefTable
 }
 
 
