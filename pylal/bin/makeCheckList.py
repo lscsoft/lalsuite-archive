@@ -566,6 +566,38 @@ page.td()
 page.tr.close()
 
 # Row #11
+######################
+#Code to perform test
+resultString=(" <table border=1px>\
+ <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th></tr>")
+#Text insert into page giving the SNR ratio probabilities
+preBuiltPickle=opts.defaultRatioTestPickle
+if opts.defaultRatioTestPickle == None:
+  preBuiltPickle=""
+ratioTest=fu_utils.ratioTest()
+if os.path.isfile(preBuiltPickle):
+  ratioTest.setPickleLocation(preBuiltPickle)
+for index1,ifo1 in enumerate(ifolist):
+  for index2,ifo2 in enumerate(ifolist):
+    ifoA=ratioTest.mapToObservatory(ifo1)
+    ifoB=ratioTest.mapToObservatory(ifo2)
+    if ifoA != ifoB:
+      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
+      try:
+        snrRatio=snrA/snrB
+      except:
+        snrRatio=0
+      time=gpsA-gpsB
+      result=ratioTest.testRatio(ifoA,ifoB,time,snrRatio)
+      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td></tr>"%\
+          (ifoA,ifoB,time,snrRatio,result)
+      resultString="%s %s"%(resultString,myString)
+imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
+resultString=" %s </table> %s"%(resultString,imageURL)
+##############
 page.tr()
 page.td("#11 Parameters of the candidate")
 page.td("Does the candidate have a high likelihood of being a gravitational-wave according to its parameters ?")
@@ -717,6 +749,12 @@ page.td()
 page.tr.close()
 
 page.table.close()
+page.h2()
+page.add("Follow up documentation")
+page.h2.close()
+page.add("<a\
+ href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
+ follow up document</a>")
 
 if opts.enable_output:
   if not os.access(opts.output_path,os.F_OK):
