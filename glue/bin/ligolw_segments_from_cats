@@ -111,7 +111,8 @@ def parse_command_line():
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
     parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
-    parser.add_option("-c", "--cumulative",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N, otherwise will contain only category N")
+    parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
+    parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
@@ -121,7 +122,12 @@ def parse_command_line():
 
     if not options.veto_file:
         raise ValueError, "missing required argument --veto-file"
-    
+   
+    # User must specify how to treat the categories
+    if not (options.cumulative_categories or options.separate_categories) or (options.cumulative_categories and options.separate_categories):
+        print >>sys.stderr, "Must provide one of --cumulative-categories | --separate-categories"
+        sys.exit(-1)
+
     tmp_dir = None
 
     # If the veto file is a URL, load it
@@ -324,7 +330,7 @@ if __name__ == '__main__':
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
     ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
-    if options.cumulative:
+    if options.cumulative_categories:
         category_selection_operator = ' <= '
     else:
         category_selection_operator = ' = '
