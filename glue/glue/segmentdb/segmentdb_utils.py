@@ -301,3 +301,71 @@ def split_segment_ids(segment_ids):
         return temp
 
     return map(split_segment_id, segment_ids)
+
+
+
+
+def find_segments(doc, key):
+    key_pieces = key.split(':')
+    while len(key_pieces) < 3:
+        key_pieces.append('*')
+
+    filter_func = lambda x: str(x.ifos) == key_pieces[0] and (str(x.name) == key_pieces[1] or key_pieces[1] == '*') and (str(x.version) == key_pieces[2] or key_pieces[2] == '*') 
+
+    # Find all segment definers matching the critieria
+    seg_def_table = table.get_table(doc, lsctables.SegmentDefTable.tableName)
+    seg_defs      = filter(filter_func, seg_def_table)
+    seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
+
+    # Find all segments belonging to those definers
+    seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
+    seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+
+    # Combine into a segmentlist
+    ret = glue.segments.segmentlist(map(lambda x: glue.segments.segment(x.start_time, x.end_time), seg_entries))
+
+    ret.coalesce()
+
+    return ret
+
+
+def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
+    try:
+        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+    except:
+        seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
+        xmldoc.childNodes[0].appendChild(seg_def_table)
+
+    seg_def_id                     = seg_def_table.get_next_id()
+    segment_definer                = lsctables.SegmentDef()
+    segment_definer.process_id     = proc_id
+    segment_definer.segment_def_id = seg_def_id
+    segment_definer.ifos           = ifo
+    segment_definer.name           = name
+    segment_definer.version        = version
+    segment_definer.comment        = ''
+
+    seg_def_table.append(segment_definer)
+
+    return seg_def_id
+
+
+
+def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
+    try:
+        segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+    except:
+        segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
+        xmldoc.childNodes[0].appendChild(segtable)
+
+    for seg in sgmtlist:
+        segment                = lsctables.Segment()
+        segment.process_id     = proc_id
+        segment.segment_def_id = seg_def_id
+        segment.segment_id     = segtable.get_next_id()
+        segment.start_time     = seg[0]
+        segment.end_time       = seg[1]
+
+        segtable.append(segment)
+
+
