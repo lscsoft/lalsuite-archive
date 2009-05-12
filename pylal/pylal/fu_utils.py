@@ -1544,6 +1544,15 @@ class ratioTest:
       'GEO':{'LHO':float(1.0602),'LLO':float(1.1291)},
       'TAMA':{'LHO':float(1.1089),'LLO':float(1.1221)}
       }
+    self.urlPattern=str("https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/ratioMinMax_%s_%s_hires.jpg")
+    self.ifoURL={
+      'LHO':{'LHO':None,'LLO':self.urlPattern%("LHO","LLO")},
+      'LLO':{'LHO':self.urlPattern%("LHO","LLO"),'LLO':None},
+      'VIRGO':{'LHO':self.urlPattern%("LHO","VIRGO"),'LLO':self.urlPattern%("LLO","VIRGO")},
+      'GEO':{'LHO':self.urlPattern%("LHO","GEO"),'LLO':self.urlPattern%("LLO","GEO")},
+      'TAMA':{'LHO':self.urlPattern%("LHO","TAMA"),'LLO':self.urlPattern%("LLO","TAMA")}
+      }
+
     self.pickleData=dict()
   #End __init__()
 
@@ -1647,6 +1656,28 @@ class ratioTest:
     return None
   #End mapToObservatory()
 
+  def findURL(self,ifo1=None,ifo2=None):
+    """
+    Manipulates the keys as needed determine URL of relative figure from
+    self.ifoURL for given detector pair. This returns a URL that
+    can be used to point to a precomposed plot.
+    """
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    firstKeyElements=self.ifoURL.keys()
+    if firstKeyElements.__contains__(ifo1):
+      firstKey=ifo1
+      secondKey=ifo2
+    else:
+      firstKey=ifo2
+      secondKey=ifo1
+    try:
+      output=str(self.ifoURL[firstKey][secondKey])
+      return output
+    except:
+      return None
+    #End findURL()
+    
   def fetchLambda(self,ifo1=None,ifo2=None):
     """
     Manipulates the keys as needed to load values from self.ifoLambda
@@ -1697,7 +1728,8 @@ class ratioTest:
     -97 : IFO \lambda not found
     -96 : Specified Time Delay unphysical t > abs(t_max)
     -95 : Interpolation function call failure
-    -94 : Unknown problem
+    -94 : TOF not found!
+    -93 : Unknown problem
     """
     if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
       return -99
