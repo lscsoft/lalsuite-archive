@@ -176,9 +176,12 @@ list_grb = grb_data.keys()
 list_grb.sort()
 for grb_name in list_grb:
 
-    file_on = opts.data_path+"/pylal_grblikelihood_onsource_GRB%s_OPENBOX.pickle"%grb_name
-    file_off = opts.data_path+"/pylal_grblikelihood_offsource_GRB%s_OPENBOX.pickle"%grb_name    
-    file_inj = opts.data_path+"/pylal_grblikelihood_injections_GRB%s_OPENBOX.pickle"%grb_name
+    file_on = opts.data_path+\
+              "/pylal_grblikelihood_onsource_GRB%s_OPENBOX.pickle"%grb_name
+    file_off = opts.data_path+\
+               "/pylal_grblikelihood_offsource_GRB%s_OPENBOX.pickle"%grb_name
+    file_inj = opts.data_path+\
+               "/pylal_grblikelihood_injections_GRB%s_OPENBOX.pickle"%grb_name
  
     # read the data from the files
     dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
@@ -288,8 +291,7 @@ if opts.analyze=='test':
 else:
 
     # prepare arrays to hold the data
-    z_lik_by_m2 = numpy.zeros(opts.m2_nbins, float)
-    z_ifar_by_m2 = numpy.zeros(opts.m2_nbins, float)
+    z_by_m2 = numpy.zeros(opts.m2_nbins, float)
     p_by_m2 = numpy.zeros(opts.m2_nbins, float)
 
     # analyse each of the m2 pop instances
@@ -297,8 +299,9 @@ else:
             enumerate(zip(m2_bins.lower(), m2_bins.upper())):
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
+        pop_m2[mass_bin].set_stat('lik')
         pop_m2[mass_bin].select_onsource(opts.analyze)
-        z_lik_by_m2[index_m2], z_ifar_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
+        z_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
         p_by_m2[index_m2] = pop_m2[mass_bin].p_one_sided
 
         # create the plots
@@ -321,19 +324,17 @@ else:
 
     # write the basic result to the output and to the web page
     text = "The result of the analysis for the condense statement is: "+\
-               "%.2f (LIK) sigma (i.e. %.3e Perc. )" %\
+               "%.2f sigma (i.e. %.2f Percent )" %\
                (z_lik, 100.0*pop_stat.p_one_sided)
     page.write(text)
 
     
     # create the final plot
     plt.clf()
-    plt.plot(m2_bins.centres(), z_lik_by_m2, 'r-', linewidth = 3)
-    plt.plot(m2_bins.centres(), z_ifar_by_m2, 'b-', linewidth = 3)    
+    plt.plot(m2_bins.centres(), z_by_m2, 'r-', linewidth = 3)
     plt.grid(True)
     plt.xlabel('m2')
     plt.ylabel('sigma')
-    plt.legend(('likelihood','IFAR'))
     page.add_plot(plt.gcf(), "condense_sigma-"+opts.analyze)
 
     plt.clf()
@@ -350,7 +351,7 @@ else:
     plot = pop_stat.create_pdf_plot()
     page.add_plot(plot.fig, "condense_pdf-"+opts.analyze)
 
-    plot = pop_stat.create_hist_plot(10)
+    plot = pop_stat.create_hist_plot(10,[2.5, 10.0])
     page.add_plot(plot.fig, "condense_hist-"+opts.analyze)    
 
     # write out the data for later usage

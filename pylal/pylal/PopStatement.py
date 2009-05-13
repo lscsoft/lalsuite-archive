@@ -507,7 +507,7 @@ class PopStatement(object):
         x_off, y_off = create_cdf_data(self.off_list)       
   
         # create the plot
-        plot = plotutils.SimplePlot(r"Likelihood", r"cumulative sum",\
+        plot = plotutils.SimplePlot(r"Likelihood", r"Cumulative sum",\
                                     r"Cumulative distribution")
         plot.add_content(x_off, y_off, color = 'r', \
                          linewidth = 2, label = 'off-source')
@@ -632,8 +632,6 @@ class PopStatement(object):
             val_min = range[0]
             val_max = range[1]
 
-        print val_min, val_max
-
         # create the hists
         hist_on = np.zeros(n_bin)
         hist_off = np.zeros(n_bin)   
@@ -655,14 +653,14 @@ class PopStatement(object):
         dx = px[1]-px[0]
 
         # norm the histograms
-        #n_on = len(data_on)
         norm = self.n_grb/self.n_off
         hist_on_norm = hist_on
         hist_off_norm = norm*hist_off
 
         # create the plot
-        plot = plotutils.SimplePlot(r"Likelihood", r"number",\
-                                    r"Histogramm of on/offsource")
+        plot = plotutils.SimplePlot(r"Likelihood", r"counts",\
+                                    r"Histogramm of on/offsource with %d bins"%\
+                                    (n_bin))
 
         # the norm of the normed histograms: 1.0
         plot.add_content(px, hist_on, color = 'r', marker = 'o',\
@@ -679,16 +677,14 @@ class PopStatement(object):
 
         plot.finalize()           
         plot.ax.axis([val_min, val_max, 0.0, 20.0])
+        #return plot
+            
+        # insert the lines of the data itself
+        for x in self.on_list:
+            if x>=val_min and x<=val_max: 
+                plot.ax.plot([x,x],[0.0, 1.0],'k')            
+        plot.ax.axis([val_min, val_max, 0.0, 20.0])
+        
         return plot
-        
-#        plt.savefig('plot_hist-'+type+'-'+str(n_bin)+'.png')
-        
-
-   ##  # insert the lines of the data itself
-##     for x in data_on:
-##         plt.plot([x,x],[0.0, 1.0],'k')
-##     plt.axis([val_min, val_max, 0.0, 20.0])        
-##     plt.savefig('plot_histLine-'+type+'-'+str(n_bin)+'.png')    
-##     plt.close()
 
 
