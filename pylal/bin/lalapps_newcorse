@@ -281,8 +281,8 @@ WHERE
 	# compute background livetime
 	#
 
-	for key, value in ring_sets.items():
-		background.add_livetime(key, value, background_offset_vectors, verbose = options.verbose)
+	for on_instruments, rings in ring_sets.items():
+		background.add_livetime(on_instruments, rings, background_offset_vectors, verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin
@@ -374,9 +374,6 @@ SET
 			)
 		FROM
 			coinc_event
-			JOIN coinc_definer ON (
-				coinc_definer.coinc_def_id == coinc_event.coinc_def_id
-			)
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
