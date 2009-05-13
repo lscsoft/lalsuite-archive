@@ -23,6 +23,7 @@ import tempfile
 import ConfigParser
 import urlparse
 import urllib
+import numpy
 import fnmatch
 from UserDict import UserDict
 sys.path.append('@PYTHONLIBDIR@')
@@ -115,14 +116,34 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
-############################## Cristina Tue-Feb-10-2009:200902101724 
+
 parser.add_option("-Q","--data-quality-database",action="store",type="string",\
     metavar=" PATH2FILE",default=None, dest="defaultSQL",\
     help="This is the disk location of\
 the data quality sqlite database to use for DQ information queries.\
 Omission of this option will cause a default search for \
 ~/followupDQ.sqlite rebuilding it if needed.")
-############################## Cristina Tue-Feb-10-2009:200902101724 
+
+parser.add_option("-R","--SNR-ratio-test",action="store",type="string",\
+metavar=" PATH2FILE", default=None, dest="defaultRatioTestPickle", \
+help="Set the location of the data (pickle) file used to perform the\
+ ratio check on the candidate file.")
+
+parser.add_option("","--remote-qscan-web",action="store",type="string",\
+    metavar=" STRING",default=None,help="this option should be provided " \
+    "only if an ifo is processed remotely (for instance V1 qscans). The " \
+    "format should be an ifo string followed by a coma and a string " \
+    "that contains the url of the remote qscan result page. For instance: " \
+    "--remote-qscan-web V1,http://virgo.in2p3.fr/followups/romain/tests/lv" \
+    "/local_followup_043009/871147814-873567014/CAT3/qscan/V1/")
+
+parser.add_option("","--remote-seismic-qscan-web",action="store",type="string",\
+    metavar=" STRING",default=None,help="this option should be provided " \
+    "only if an ifo is processed remotely (for instance V1 qscans). The " \
+    "format should be an ifo string followed by a coma and a string " \
+    "that contains the url of the remote qscan result page. For instance: " \
+    "--remote-seismic-qscan-web V1,http://virgo.in2p3.fr/followups/romain/" \
+    "tests/lv/local_followup_043009/871147814-873567014/CAT3/seismic-qscan/V1/")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -140,7 +161,6 @@ if opts.version:
 #ifoList = ['H1','H2','L1']
 
 opts = InspiralUtils.initialise(opts,__prog__,__version__)
-
 
 page = markup.page(mode="strict_html")
 page._escape = False
@@ -215,8 +235,14 @@ for ifo_index,ifo in enumerate(ifolist):
 
   # links to qscans
   hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime)
-  rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
-  seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
+  if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
+    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime)
+  else:
+    rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
+  if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/" + gpstime)
+  else:
+    seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
   # links to analyse qscans
   analyseSeismicQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_seismic_qscan")
@@ -269,7 +295,10 @@ for j in range(0,len(opts.ifo_times)-1,2):
   if not ifolist.count(ifo):
      # links to qscans
      hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
-     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
+     if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
+       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime0)
+     else:
+       rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
      for ifo_ref in ifolist:
        snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+ifo_ref+"tmplt_"+opts.trigger_id)
@@ -566,11 +595,43 @@ page.td()
 page.tr.close()
 
 # Row #11
+######################
+#Code to perform test
+resultString=(" <table border=1px>\
+ <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th></tr>")
+#Text insert into page giving the SNR ratio probabilities
+preBuiltPickle=opts.defaultRatioTestPickle
+if opts.defaultRatioTestPickle == None:
+  preBuiltPickle=""
+ratioTest=fu_utils.ratioTest()
+if os.path.isfile(preBuiltPickle):
+  ratioTest.setPickleLocation(preBuiltPickle)
+for index1,ifo1 in enumerate(ifolist):
+  for index2,ifo2 in enumerate(ifolist):
+    ifoA=ratioTest.mapToObservatory(ifo1)
+    ifoB=ratioTest.mapToObservatory(ifo2)
+    if ifoA != ifoB:
+      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
+      try:
+        snrRatio=snrA/snrB
+      except:
+        snrRatio=0
+      gpsDiff=gpsA-gpsB
+      result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td></tr>"%\
+          (ifoA,ifoB,gpsDiff,snrRatio,result)
+      resultString="%s %s"%(resultString,myString)
+imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
+resultString=" %s </table> %s"%(resultString,imageURL)
+##############
 page.tr()
 page.td("#11 Parameters of the candidate")
 page.td("Does the candidate have a high likelihood of being a gravitational-wave according to its parameters ?")
 page.td()
-page.td()
+page.td(resultString)
 page.td()
 page.tr.close()
 
@@ -717,6 +778,14 @@ page.td()
 page.tr.close()
 
 page.table.close()
+page.h2()
+page.add("Miscellaneous Information")
+page.h2.close()
+timeString=str(time.gmtime()[0:6]).replace(" ","").replace(",","-")
+page.add("Checklist compiled:%s <br>\n"%(timeString))
+page.add("<a\
+ href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
+ follow up document</a>")
 
 if opts.enable_output:
   if not os.access(opts.output_path,os.F_OK):

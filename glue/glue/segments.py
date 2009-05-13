@@ -1192,8 +1192,8 @@ class segmentlistdict(dict):
 # =============================================================================
 #
 
-
-try:
-	from __segments import *
-except ImportError:
-	pass
+# Removed on highmass branch to work with existing segment tools
+#try:
+#	from __segments import *
+#except ImportError:
+#	pass

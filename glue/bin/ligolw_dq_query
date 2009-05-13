@@ -65,6 +65,7 @@ import glob
 import time
 import socket
 import tempfile
+import urllib
 import pwd
 
 from glue import LDBDClient
@@ -164,7 +165,20 @@ def parse_command_line():
         elif options.segment.startswith('file:'):
             file_location = options.segment[len('file://'):]
         else:
-            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment[::-1].find('/')
+            fname   = (pos > -1) and options.segment[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
         if 'LSC_SEGFIND_SERVER' not in os.environ:
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )

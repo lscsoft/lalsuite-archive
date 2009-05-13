@@ -53,6 +53,7 @@ import glob
 import time
 import socket
 import tempfile
+import urllib
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -157,7 +158,20 @@ def parse_command_line():
         elif options.segment_url.startswith('file:'):
             file_location = options.segment_url[len('file://'):]
         else:
-            raise ValueError( "segment-url %s must start with ldbd: or file:" % (options.segment_url) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment_url)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
@@ -373,15 +387,16 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
     resulttable = lsctables.New(ShowTypesResultTable)
     doc.childNodes[0].appendChild(resulttable)
     
-    rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
+    sql = """SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
                  (CASE WHEN segment_definer.comment IS NULL THEN '-' WHEN segment_definer.comment IS NOT NULL THEN segment_definer.comment END),
                  segment_summary.start_time, segment_summary.end_time,
                  (CASE WHEN segment_summary.comment IS NULL THEN '-' WHEN segment_summary.comment IS NOT NULL THEN segment_summary.comment END)
           FROM  segment_definer, segment_summary
           WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
-          AND   (segment_summary.start_time BETWEEN %d AND %d  OR  segment_summary.end_time BETWEEN %d AND %d )
-          """ % (gps_start_time, gps_end_time, gps_start_time, gps_end_time))
+          AND   NOT (segment_summary.start_time > %d OR %d > segment_summary.end_time)
+          """ % (gps_end_time, gps_start_time)
 
+    rows = engine.query(sql)
 
     seg_dict = {}
 

@@ -33,6 +33,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
     
     ret = []
 
+    # Maybe the user just wants one file...
+    if os.path.isfile(dirname):
+        return [dirname]
+
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
 
@@ -82,13 +86,13 @@ def setup_database(host_and_port):
     return client
 
 
-def build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
+def build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None, start_pad = 0, end_pad = 0):
     """Optains a list of segments for the given ifo, name and version between the
     specified times.  If a version is given the request is straightforward and is
     passed on to build_segment_list_one.  Otherwise more complex processing is
     performed (not yet implemented)"""
     if version is not None:
-        return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
+        return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
 
     # This needs more sophisticated logic, for the moment just return the latest
     # available version
@@ -99,10 +103,10 @@ def build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, 
     rows = engine.query(sql)
     version = len(rows[0]) and rows[0][0] or 1
 
-    return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
+    return build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
 
 
-def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
+def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_name, version = None, start_pad = 0, end_pad = 0):
     """Builds a list of segments satisfying the given criteria """
     seg_result = glue.segments.segmentlist([])
     sum_result = glue.segments.segmentlist([])
@@ -127,7 +131,7 @@ def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_na
         sum_result |= glue.segments.segmentlist([glue.segments.segment(sum_start_time, sum_end_time)])
 
     # We can't use queries paramaterized with ? since the ldbd protocol doesn't support it...
-    sql = "SELECT segment.start_time, segment.end_time "
+    sql = "SELECT segment.start_time + %d, segment.end_time + %d " % (start_pad, end_pad)
     sql += "FROM segment, segment_definer "
     sql += "WHERE segment.segment_def_id = segment_definer.segment_def_id "
 
@@ -152,7 +156,7 @@ def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_na
 
 
 
-def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string = None, write_segments = True):
+def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string = None, write_segments = True, start_pad = 0, end_pad = 0):
     """Runs a segment query.  This was originally part of ligolw_query_segments, but now is also
     used by ligolw_segments_from_cats.
 
@@ -212,7 +216,7 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
 
 
     for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
-        sum_segments, seg_segments = build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
+        sum_segments, seg_segments = build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
 
         seg_def_id                     = seg_def_table.get_next_id()
         segment_definer                = lsctables.SegmentDef()
@@ -297,3 +301,71 @@ def split_segment_ids(segment_ids):
         return temp
 
     return map(split_segment_id, segment_ids)
+
+
+
+
+def find_segments(doc, key):
+    key_pieces = key.split(':')
+    while len(key_pieces) < 3:
+        key_pieces.append('*')
+
+    filter_func = lambda x: str(x.ifos) == key_pieces[0] and (str(x.name) == key_pieces[1] or key_pieces[1] == '*') and (str(x.version) == key_pieces[2] or key_pieces[2] == '*') 
+
+    # Find all segment definers matching the critieria
+    seg_def_table = table.get_table(doc, lsctables.SegmentDefTable.tableName)
+    seg_defs      = filter(filter_func, seg_def_table)
+    seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
+
+    # Find all segments belonging to those definers
+    seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
+    seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+
+    # Combine into a segmentlist
+    ret = glue.segments.segmentlist(map(lambda x: glue.segments.segment(x.start_time, x.end_time), seg_entries))
+
+    ret.coalesce()
+
+    return ret
+
+
+def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
+    try:
+        seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
+    except:
+        seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
+        xmldoc.childNodes[0].appendChild(seg_def_table)
+
+    seg_def_id                     = seg_def_table.get_next_id()
+    segment_definer                = lsctables.SegmentDef()
+    segment_definer.process_id     = proc_id
+    segment_definer.segment_def_id = seg_def_id
+    segment_definer.ifos           = ifo
+    segment_definer.name           = name
+    segment_definer.version        = version
+    segment_definer.comment        = ''
+
+    seg_def_table.append(segment_definer)
+
+    return seg_def_id
+
+
+
+def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
+    try:
+        segtable = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+    except:
+        segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
+        xmldoc.childNodes[0].appendChild(segtable)
+
+    for seg in sgmtlist:
+        segment                = lsctables.Segment()
+        segment.process_id     = proc_id
+        segment.segment_def_id = seg_def_id
+        segment.segment_id     = segtable.get_next_id()
+        segment.start_time     = seg[0]
+        segment.end_time       = seg[1]
+
+        segtable.append(segment)
+
+

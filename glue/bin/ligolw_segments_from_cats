@@ -68,6 +68,7 @@ except:
 from glue.ligolw.utils import process
 
 import re
+import urllib
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -107,9 +108,11 @@ def parse_command_line():
     parser.add_option("-o", "--output-dir",   metavar = "output_dir",   default = '.',          help = "Directory to write output (default=cwd).")
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
                       
-    parser.add_option("-t", "--segment",      metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
-    parser.add_option("-f", "--dmt-file",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
+    parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
     # Time options
     parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
@@ -119,7 +122,31 @@ def parse_command_line():
 
     if not options.veto_file:
         raise ValueError, "missing required argument --veto-file"
-    
+   
+    # User must specify how to treat the categories
+    if not (options.cumulative_categories or options.separate_categories) or (options.cumulative_categories and options.separate_categories):
+        print >>sys.stderr, "Must provide one of --cumulative-categories | --separate-categories"
+        sys.exit(-1)
+
+    tmp_dir = None
+
+    # If the veto file is a URL, load it
+    if options.veto_file.find(':') != -1:
+        tmp_dir = tempfile.mkdtemp()
+        inurl   = urllib.urlopen(options.veto_file)
+
+        # Grab the part of the name after the last slash
+        pos     = options.veto_file[::-1].find('/')
+        fname   = (pos > -1) and options.veto_file[ -1 * pos:] or "veto_definer.xml" 
+
+        options.veto_file = tmp_dir + "/" + fname
+
+        outfile = open(options.veto_file, 'w')
+        for l in inurl:
+            print >>outfile, l,
+
+        inurl.close()
+        outfile.close()
 
     # Make sure we have required arguments
     database_location = None
@@ -128,13 +155,26 @@ def parse_command_line():
     # Make sure we know who to contact for data
     # (This is redundant with ligolw_segment_query, maybe move to
     # query_engine)
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
-            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment_url)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
         if 'S6_SEGMENT_SERVER' not in os.environ:
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
@@ -146,7 +186,7 @@ def parse_command_line():
            raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
         file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
     else:
-        raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
+        raise ValueError( "One of [ --segment_url | --database | --dmt-file ] must be provided" )
 
 
     if not options.gps_start_time:
@@ -290,23 +330,29 @@ if __name__ == '__main__':
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
     ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
+    if options.cumulative_categories:
+        category_selection_operator = ' <= '
+    else:
+        category_selection_operator = ' = '
+
     for ifo, category_num in [(i,c) for i in ifos for c in categories]:
         vetoed_segs = glue.segments.segmentlist([])
             
         # Start a new document
         doc = ligolw.Document()
-
-        # Keep the veto_definer for tracking purposes
-        doc.appendChild(dbtables.get_xml(veto_connection, ['veto_definer']))
+        doc.appendChild(ligolw.LIGO_LW())
 
         # Register ourselves
         proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
+
+        # Keep the veto_definer for tracking purposes
+        doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])
 
         # loop over select of name, version where ifo=current ifo and category <= current category
         cursor = veto_connection.cursor()
         cursor.execute("""SELECT name, version, start_time, end_time, start_pad, end_pad
                           FROM veto_definer
-                          WHERE ifo = '%s' AND category <= %s""" % (ifo, category_num))
+                          WHERE ifo = '%s' AND category %s %s""" % (ifo, category_selection_operator, category_num))
         
         for name, version, veto_start_time, veto_end_time, start_pad, end_pad in cursor:
             if veto_end_time == 0:
@@ -316,12 +362,36 @@ if __name__ == '__main__':
             search_interval &= cli_interval
             search_interval.coalesce()
 
-            vetoed_segs |= segmentdb_utils.run_query_segments(doc, proc_id, segment_query_engine,
+            # There may be no overlap between the veto time and the time we're looking at
+            if len(search_interval):
+                vetoed_segs |= segmentdb_utils.run_query_segments(doc, proc_id, segment_query_engine,
                                                search_interval[0][0], search_interval[0][1],
                                                '%s:%s:%d' % (ifo, name, version),
-                                               write_segments = False)
+                                               write_segments = False, start_pad = start_pad, end_pad = end_pad)
 
         vetoed_segs.coalesce()
+
+        # Find or create the segment definer table
+        tmp = filter(lambda x: type(x) == lsctables.SegmentDefTable, doc.childNodes[0].childNodes)
+
+        if len(tmp) > 0:
+            seg_def_table = tmp[0]
+        else:
+            seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
+
+            doc.childNodes[0].appendChild(seg_def_table)
+            seg_def_id                     = seg_def_table.get_next_id()
+            segment_definer                = lsctables.SegmentDef()
+            segment_definer.process_id     = proc_id
+            segment_definer.segment_def_id = seg_def_id
+            segment_definer.ifos           = ifo
+            segment_definer.name           = "VETOED_SEGMENTS"
+            segment_definer.version        = 1
+            segment_definer.comment        = ''
+
+            seg_def_table.append(segment_definer)
+
+        # And store the segments
         segmentdb_utils.write_segments_to_xml(doc, proc_id, vetoed_segs)
             
         # Dump to XML

@@ -1623,6 +1623,16 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("ifo-tag",trig.ifoTag)
     if cp.has_option("followup-dq","input-sql"):
       self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
+    if cp.has_option("followup-ratiotest","input-pickle"):
+      self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
+
+    if cp.has_option("followup-foreground-qscan","remote-ifo"):
+      remote_ifo = cp.get("followup-foreground-qscan","remote-ifo")
+      self.add_var_opt("remote-qscan-web",remote_ifo+","+string.strip(cp.get("followup-foreground-qscan",remote_ifo+"web")))
+    if cp.has_option("followup-foreground-seismic-qscan","remote-ifo"):
+      remote_ifo = cp.get("followup-foreground-seismic-qscan","remote-ifo")
+      self.add_var_opt("remote-seismic-qscan-web",remote_ifo+","+string.strip(cp.get("followup-foreground-seismic-qscan",remote_ifo+"web")))
+
     self.setupNodeWeb(job,True,None,None,None,dag.cache)
 
     if not opts.disable_dag_categories:
