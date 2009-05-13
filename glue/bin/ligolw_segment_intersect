@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+#
+# $Id$
+#
+# Copyright (C) 2009  Larne Pekowsky
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+Takes two or more XML files containing segment tables, and calculates the
+intersection between either (1) the union of all specified segment definers
+across files or (2) each individual segment definer between files
+"""
+
+
+from optparse import OptionParser
+
+import sys
+import os
+
+from glue.ligolw import utils
+from glue.ligolw import ligolw
+from glue.ligolw import lsctables
+
+from glue.segmentdb import logic 
+
+from glue.ligolw.utils import process
+
+from glue.segmentdb.segmentdb_utils import add_to_segment_definer
+from glue.segmentdb.segmentdb_utils import add_to_segment
+from glue.segmentdb.segmentdb_utils import find_segments
+
+PROGRAM_NAME = sys.argv[0].replace('./','')
+PROGRAM_PID  = os.getpid()
+
+try:
+    USER_NAME = os.getlogin()
+except:
+    USER_NAME = pwd.getpwuid(os.getuid())[0]
+
+
+__author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
+__date__    = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+def parse_command_line():
+    """
+    Parse the command line, return an options object
+    """
+
+    parser = OptionParser(
+        version = "%prog CVS $Header$",
+        usage   = "%prog [options] file1.xml file2.xml ...",
+        description = "Takes two or more XML files containing segment tables, and calculates the\n" +
+        "intersection between either (1) the union of all specified segment definers\n" +
+        "across files or (2) each individual segment definer between files\n"
+
+                      
+	)
+    
+    parser.add_option("-o", "--output-file", metavar = "output_file", help = "Output file (default = stdout)")
+    parser.add_option("-p", "--preserve",    action  = "store_true",  help = "If set, stores metadata from all input files in output")
+    parser.add_option("-s", "--segments",    metavar = "segments",    help = "Segments to intersect (ifo:name or ifo:name:version)")
+    parser.add_option("-n", "--result-name", metavar = "result_name", default = "RESULT", help = "Name for result segment definer (default = RESULT)") 
+
+    options, filenames = parser.parse_args()
+
+    return options, filenames
+
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+if __name__ == '__main__':
+    # Settings - disable nanoseconds and other fields we don't use
+    del lsctables.SegmentTable.validcolumns['start_time_ns']
+    del lsctables.SegmentTable.validcolumns['end_time_ns']
+    del lsctables.ProcessTable.validcolumns['domain']
+    del lsctables.ProcessTable.validcolumns['jobid']
+    del lsctables.ProcessTable.validcolumns['is_online']
+
+    # And set up for boolean arguments
+    from glue.ligolw import types as ligolwtypes
+    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
+
+    options, filenames = parse_command_line()
+
+    # Set up the document
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    
+    # Register ourselves
+    proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__).process_id
+
+    if options.segments:
+        xmldoc = logic.run_segment_operation(xmldoc, filenames, 
+                                            options.segments,
+                                            logic.INTERSECT,
+                                            options.result_name, options.preserve)
+    else:
+        xmldoc = logic.run_file_operation(xmldoc, filenames, logic.INTERSECT, options.preserve)
+
+    utils.write_filename(xmldoc, options.output_file)
+
+

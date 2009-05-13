@@ -98,6 +98,9 @@ def getLarsConfig():
     f.close()
     return config
 
+def canWriteLarsConfig(serviceUrl):
+    return os.access(INI_NAME, os.R_OK|os.W_OK) or os.access('.', os.W_OK)
+
 def writeLarsConfig(serviceUrl, rv):
     config = ConfigParser.ConfigParser()
     config.add_section('lars')
@@ -129,7 +132,6 @@ def repairLarsConfig(localInfo, dbInfo, serviceUrl):
     if localInfo:
         if os.path.exists(INI_NAME):  #actually.. this should be assert()
             os.rename(INI_NAME, INI_NAME+".bak")
-    pass
     writeLarsConfig(serviceUrl, dbInfo)
 
 def objectify(d):
@@ -276,6 +278,13 @@ class Reserve(Command):
         if len(args):
             self.parser.error("")
         config = getLarsConfig()
+
+        # See if lars config is writable.
+        if not canWriteLarsConfig(options.server):
+            print "Cannot write lars.ini.  Reservation not created"
+            print "Do you own this analysis?"
+            return
+
         if config:
             print "This analysis appears to be reserved already."
             return
@@ -293,6 +302,13 @@ class Reserve(Command):
         if found:
             print "This location has already been published as:"
             printInfo(info)
+            print
+            print "Do 'lars info --repair' to recreate lars.ini"
+            return
+
+        if not (options.group and options.type and options.description):
+            self.parser.error("group, analysisType and description are required" )
+            return
 
         info = server.reserve(options.group,
                               options.type,

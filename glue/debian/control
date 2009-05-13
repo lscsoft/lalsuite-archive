@@ -2,7 +2,7 @@ Source: python-glue
 Section: lscsoft
 Priority: optional
 Maintainer: Steffen Grunewald <steffen.grunewald@aei.mpg.de>
-Build-Depends: debhelper (>= 5), python2.4-dev, python2.5-dev
+Build-Depends: debhelper (>= 5), python2.4-dev, python2.5-dev, git-core
 Standards-Version: 3.7.2
 
 Package: python-glue

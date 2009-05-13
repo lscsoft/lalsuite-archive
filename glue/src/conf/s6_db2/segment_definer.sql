@@ -62,4 +62,3 @@ CREATE INDEX segdef_cind ON segment_definer(name, version) CLUSTER
 CREATE INDEX segdef_ind_value ON segment_definer(ifos)
 ;
 
-
