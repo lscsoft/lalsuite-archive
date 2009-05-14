@@ -314,8 +314,13 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
-	# FIXME: these constraints break ID remapping in the DB backend
+	# FIXME: these constraints break ID remapping in the DB backend.
+	# an index is used instead.  switch back to the constraints when I
+	# can figure out how not to break remapping.
 	#constraints = "PRIMARY KEY (process_id, param)"
+	how_to_index = {
+		"pp_pip_index": ("process_id", "param"),
+	}
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
