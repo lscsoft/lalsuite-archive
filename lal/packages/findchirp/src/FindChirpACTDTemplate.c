@@ -501,7 +501,6 @@ LALFindChirpACTDNormalize(
   }
 
 
-
    
   /* 
    * Start with dominant harmonic. 
@@ -607,7 +606,6 @@ REAL4  XLALFindChirpACTDInnerProduct(
   REAL4 innerProduct;
   REAL4 deltaF;
   REAL4 sum = 0.0;
-  flower = 0.0;
 
   deltaF = 1.0 / ((REAL4)numPoints * deltaT);
 
@@ -618,7 +616,7 @@ REAL4  XLALFindChirpACTDInnerProduct(
       REAL4 power;
       power = a->data[k].re * b->data[k].re;
       power += a->data[k].im * b->data[k].im;
-
+      
       sum += 4.0 * deltaT *  power * wtilde[k].re / (REAL4)(numPoints);
     }
   }

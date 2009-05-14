@@ -199,7 +199,6 @@ LALFindChirpSPData (
    */
 
 
-fprintf(stderr,"wigga\n");
   for ( i = 0; i < dataSegVec->length; ++i )
   {
 
@@ -273,10 +272,8 @@ fprintf(stderr,"wigga\n");
     /* compute inverse of S_v */
     for ( k = cut; k < params->wtildeVec->length; ++k )
     {
-      if ( spec[k] == 0 )
+      if ( spec[k] == 0 || isnan( spec[k] ) )
       {
-fprintf(stderr,"wiggaa 4.75\n");
-        
         ABORT( status, FINDCHIRPSPH_EDIVZ, FINDCHIRPSPH_MSGEDIVZ );
       }
       wtilde[k].re = 1.0 / spec[k];
@@ -437,7 +434,6 @@ fprintf(stderr,"wiggaa 4.75\n");
 
 
   } /* end loop over data segments */
-fprintf(stderr,"wigga\n");
 
 
   /* Find the min power from the whitened time series */

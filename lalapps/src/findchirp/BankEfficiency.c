@@ -200,15 +200,24 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL( LALFindChirpDataInit( &status, &ampCorDataParams, 
              &ampCorInitParams ), &status);
 
+    ampCorDataSegVec->data->chan->deltaT = 
+                                     1.0 / ( REAL4 )( randIn.param.tSampling );
+
+    ampCorDataSegVec->data->spec->deltaF = randIn.param.tSampling 
+                                           / ( REAL4 )( signal.length ); 
+    ampCorFreqSegVec->data->data->deltaF = randIn.param.tSampling 
+                                           / ( REAL4 )( signal.length ); 
+
     ampCorTmpltParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
     ampCorTmpltParams->fLow = randIn.param.fLower; 
  
-    ampCorFilterParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
+    ampCorFilterParams->deltaT = 1.0 /( REAL4 )( randIn.param.tSampling );
     ampCorFilterParams->rhosqThresh = 1e-6;
     ampCorFilterParams->chisqThresh = 1e-6;
 
+    ampCorDataParams->fLow = randIn.param.fLower; 
     ampCorDataParams->dynRange = 1.0;
- 
+    ampCorDataParams->invSpecTrunc = 0;
   }
 
   /* --- Create the PSD noise ----------------------------------------------- */
@@ -286,34 +295,70 @@ main (INT4 argc, CHAR **argv )
     /* --- populate the main structure of the overlap ---*/
     overlapin.signal = signal;
 
-    /* --- AmpCorPPN Bank uses the Segment Vector Structures --- */
+    /* --- AmpCorPPN Filtering uses the Segment Vector Structures --- */
     if( userParam.template == AmpCorPPN )
     {
+      REAL4 invRootData;
+      REAL4 norm = 0.0;
       INT4 diff = ampCorDataSegVec->data->chan->data->length
                                      - overlapin.signal.length;
+
       for( i = ampCorDataSegVec->data->chan->data->length-1; i >=0; --i )
       {
         if( i > diff )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 
-            overlapin.signal.data[i];
+            1.0e20 * overlapin.signal.data[i];
         }
         else
         {
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
-    
-      for( i = 0; i <= randIn.psd.length; ++i )
+
+      /* Groan! Incompatible types to copy the memory, will have to 
+         fill each element individually. */
+      for( i = 0; i < randIn.psd.length; ++i )
       {
-        ampCorDataSegVec->data->spec->data->data[i] = randIn.psd.data[i];
-      }
-      /*
+        ampCorDataSegVec->data->spec->data->data[i] = 
+          randIn.psd.data[i] * 9.0e46;
+        ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
+        ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
+      }      
+
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
                                     &status );
-      */
+
       ampCorFilterInput->segment = ampCorFreqSegVec->data;
+      
+      /* We need to normalise the data here */
+      for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
+      {
+        REAL4 power;
+        
+        if( i * ampCorFreqSegVec->data->data->deltaF 
+                                    >= ampCorDataParams->fLow )
+        {
+          power  = ampCorFreqSegVec->data->data->data->data[i].re *
+                   ampCorFreqSegVec->data->data->data->data[i].re;
+          power += ampCorFreqSegVec->data->data->data->data[i].im *
+                   ampCorFreqSegVec->data->data->data->data[i].im;
+    
+          norm += 4.0 * power * ampCorFilterParams->deltaT 
+                  / (REAL4)(overlapin.signal.length)
+                  / ampCorDataParams->wtildeVec->data[i].re;
+        }
+      }
+
+      invRootData = pow( norm, 0.5 );  
+
+      for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
+      {
+        ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
+        ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
+      }
+    
     }
 
        
@@ -407,11 +452,11 @@ main (INT4 argc, CHAR **argv )
         case PadeF1:
         case SpinTaylor:
           if (vrbflg){
-            fprintf(stderr,"closeest template is tau0= %f tau3= %f  index=%d filterintIndex= %d,",   
+            fprintf(stderr,"closest template is tau0= %f tau3= %f  index=%d filterintIndex= %d,",   
               mybank.tau0[fast_index], mybank.tau3[fast_index],fast_index,simulation.filteringIndex);
           }
                   
-                    
+             
           /* --- first we create the template --- */
           insptmplt.massChoice = t03;
           LAL_CALL(LALInspiralParameterCalc( &status,  &(insptmplt) ), 
@@ -429,7 +474,7 @@ main (INT4 argc, CHAR **argv )
               thisTemplateIndex);
           if (simulation.lastEMatch > simulation.bestEMatch)
             simulation.bestEMatch = simulation.lastEMatch;
-          
+
           /* --- if check option is on --- */    
           if (userParam.faithfulness)
           {
@@ -469,7 +514,6 @@ main (INT4 argc, CHAR **argv )
               simulation.stop = 1;
             }
           }                        
-            
           /* --- filteing!=1 ensure that at least 1 filter will be used    ---*/
           /* --- while lastEMatch is greater than the ematch --- */          
           if ((simulation.filteringIndex !=1) &&
@@ -485,8 +529,9 @@ main (INT4 argc, CHAR **argv )
           }       
           else
           { 
-            if( userParam.template = AmpCorPPN )
+            if( userParam.template == AmpCorPPN )
             {
+              REAL4 max;
               SnglInspiralTable *event = NULL;
  
               LAL_CALL( LALFindChirpACTDTemplate( 
@@ -494,7 +539,7 @@ main (INT4 argc, CHAR **argv )
                           ampCorFilterInput->fcTmplt, 
                           &insptmplt, 
                           ampCorTmpltParams ), &status );
-         
+
               LAL_CALL( LALFindChirpACTDNormalize( 
                           &status, 
                           ampCorFilterInput->fcTmplt, 
@@ -506,25 +551,38 @@ main (INT4 argc, CHAR **argv )
                           &event,
                           ampCorFilterInput,
                           ampCorFilterParams ), &status );
-                         
 
- 
+              if( 1 )
+              {
+                FILE *fp =NULL;
+                fp = fopen( "rhosq.dat", "w" );
+                max = 0.0;
+                for( i = 1; 
+                    i < ampCorFilterParams->rhosqVec->data->length; ++i )
+                {
+                  fprintf(fp,"%e\n",
+                     ampCorFilterParams->rhosqVec->data->data[i] );
+      
+                if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
+                  {
+                    max = ampCorFilterParams->rhosqVec->data->data[i];
+                  }
+                }
+                fclose( fp );
+              }
               /* We need to fill these */
-/*
-              overlapOutputThisTemplate->rhoMax       = overlapout.max;
+
+              overlapOutputThisTemplate.rhoMax       = max;
+             /* 
               overlapOutputThisTemplate->phase        = overlapout.phase;
               overlapOutputThisTemplate->rhoBin       = overlapout.bin;
               overlapOutputThisTemplate->freq         = overlapin->param.fFinal;
               overlapOutputThisTemplate->snrAtCoaTime = 
                                                     correlation->data[startPad];
-*/
+              */
             }  
             else
-            {                   /*     
-              for( i = 0; i <= randIn.psd.length; ++i )
-              {
-                fprintf(stdout,"%e\n", randIn.psd.data[i] );
-              }*/
+            {       
 
               LAL_CALL(BankEfficiencyWaveOverlap(&status, 
                         &correlation,

@@ -60,7 +60,7 @@ static void print_usage( void );
 #define THETA    (2.6254967)
 
 
-#define FMIN     (40.0)
+#define FMIN     (35.0)
 #define FMAX     (1000.0) 
 #define SRATE    (2048) 
 #define ORDER    (4)
@@ -620,7 +620,7 @@ int main( int argc, char **argv )
   Init( &tmpltParams, &dataParams, &initParams, srate, fmin, dynRange,                     invSpecTrunc );
 
 
-  tmpltParams->taperTmplt = INSPIRAL_TAPER_START;
+  tmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
 
   tmpltParams->bandPassTmplt = 0;
 
@@ -661,7 +661,6 @@ int main( int argc, char **argv )
     fclose( fpTwo );
   }
   fprintf( stderr, "      Done!\n" );  
-
 
 
 
@@ -723,11 +722,9 @@ int main( int argc, char **argv )
 
     for( j = 0; j < fcSegVec->data->data->data->length - 1; ++j )
     {
-      if( j * fcSegVec->data->data->deltaF >= 40. )
+      if( j * fcSegVec->data->data->deltaF >= fmin )
       {
         REAL4 power;
-        if ( dataParams->wtildeVec->data[j].re == 0.0 )
-          printf(" We have a zero!!\n");
         power = fcSegVec->data->data->data->data[j].re * 
                 fcSegVec->data->data->data->data[j].re;
         power += fcSegVec->data->data->data->data[j].im * 
@@ -743,7 +740,7 @@ int main( int argc, char **argv )
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
                                               &normTestVector,
                                               dataParams->wtildeVec->data, 
-                                              40.,
+                                              fmin,
                                               fcSegVec->data->data->deltaF );
     */
     invRootData = pow( normTest, -0.5 );
@@ -761,14 +758,14 @@ int main( int argc, char **argv )
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
                                               &normTestVector,
                                               dataParams->wtildeVec->data, 
-                                              40.,
+                                              fmin,
                                               dt, numPoints );
 
     fprintf( stderr, "   < data, data>  = %1.3e\n", normTest );
     normTest = XLALFindChirpACTDInnerProduct( &normTestVector,
                                               &normTestVector2,
                                               dataParams->wtildeVec->data,
-                                              40.,
+                                              fmin,
                                               dt, numPoints );
 
     fprintf( stderr, "   < H2, data >   = %1.3e\n", normTest );
@@ -960,7 +957,7 @@ int MakeData(
   UINT4 k;
   UINT4 n, nspec;
   FILE *fp = NULL;
-  REAL8 fs, df, psdfs;
+  REAL8 fs, df;
 
   memset( &tmplt, 0, sizeof( InspiralTemplate ) );
 
@@ -1020,8 +1017,7 @@ int MakeData(
   dataSegVec->data->chan->epoch.gpsSeconds     = 0;
   dataSegVec->data->chan->epoch.gpsNanoSeconds = 0;
 
-  fs = 40.;
-  LALLIGOIPsd(&status, &psdfs, fs);
+  fs = fmin;
 
   for ( k = 0; k < nspec; ++k )
   {
@@ -1034,7 +1030,7 @@ int MakeData(
     }
     else
     {
-      dataSegVec->data->spec->data->data[k] = psdfs;
+      dataSegVec->data->spec->data->data[k] = 0.0;
     }
   
 

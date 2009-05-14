@@ -130,25 +130,21 @@ LALFindChirpACTDFilterSegment (
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   }
 
-/* XXX Is this being USED!?!?!?!?! */
   /* if we are doing a chisq, check we can store the data */
-/*  if ( input->segment->chisqBinVec->length ) 
+  if ( input->segment->chisqBinVec->length ) 
   {
     ASSERT( params->chisqVec, status,
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
     ASSERT( params->chisqVec->data, status,
         FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
   }
-*/
 
   /* make sure that the input structure exists */
   ASSERT( input, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* make sure that the input structure contains some input */
   ASSERT( input->fcTmplt, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-fprintf(stderr,"hello 1\n");
   ASSERT( input->segment, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
-fprintf(stderr,"hello 2\n");
 
   /* check the approximant */
   if ( params->approximant != AmpCorPPN )

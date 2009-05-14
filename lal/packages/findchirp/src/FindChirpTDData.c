@@ -123,9 +123,7 @@ LALFindChirpTDData (
   /* call the stationary phase conditioning to do the real work */
   params->approximant = FindChirpSP;
   LALFindChirpSPData ( status->statusPtr, fcSegVec, dataSegVec, params );
-  fprintf(stderr,"Left SPData\n");
   CHECKSTATUSPTR( status );
-  fprintf(stderr,"Status Pointer Good\n");
   params->approximant = approx;
   
   for ( i = 0; i < fcSegVec->length; ++i )
