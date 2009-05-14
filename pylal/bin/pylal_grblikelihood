@@ -328,7 +328,12 @@ def log_sum(trial_log_L_by_m2):
     """
     if (trial_log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
         return GRBL_EMPTY_TRIAL
-    return numpy.log(numpy.exp(trial_log_L_by_m2).sum())
+
+    # to avoid overflow, factor out common part of exponential; underflows OK!
+    # ln(sum exp(ln L_i)) = ln(exp(C) * sum exp(ln L_i - C))
+    #                     = C + sum(exp(ln L_i - C))
+    common = trial_log_L_by_m2.max()
+    return numpy.log(numpy.exp(trial_log_L_by_m2 - common).sum()) + common
 
 def max_L(trial_log_L_by_mc_m2):
     """
