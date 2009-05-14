@@ -34,29 +34,34 @@ intersection between either (1) the union of all specified segment definers
 across files or (2) each individual segment definer between files
 """
 
-
 from optparse import OptionParser
 
 import sys
 import os
 
 from glue.ligolw import utils
+from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 
-from glue.segmentdb.logic import run_segment_operation
-from glue.segmentdb.logic import run_file_operation
+from glue.segmentdb import logic 
 
+from glue.ligolw.utils import process
+
+from glue.segmentdb.segmentdb_utils import add_to_segment_definer
+from glue.segmentdb.segmentdb_utils import add_to_segment
+from glue.segmentdb.segmentdb_utils import find_segments
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
+
 try:
-        USER_NAME = os.getlogin()
+    USER_NAME = os.getlogin()
 except:
-        USER_NAME = pwd.getpwuid(os.getuid())[0]
+    USER_NAME = pwd.getpwuid(os.getuid())[0]
 
 
-__author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
+__author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
+__date__    = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
 
@@ -113,10 +118,20 @@ if __name__ == '__main__':
 
     options, filenames = parse_command_line()
 
+    # Set up the document
+    xmldoc = ligolw.Document()
+    xmldoc.appendChild(ligolw.LIGO_LW())
+    
+    # Register ourselves
+    proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__).process_id
+
     if options.segments:
-        xmldoc = run_segment_operation(options, filenames, 'union')
+        xmldoc = logic.run_segment_operation(xmldoc, filenames, 
+                                            options.segments,
+                                            logic.UNION,
+                                            options.result_name, options.preserve)
     else:
-        xmldoc = run_file_operation(options, filenames, 'union')
+        xmldoc = logic.run_file_operation(xmldoc, filenames, logic.UNION, options.preserve)
 
     utils.write_filename(xmldoc, options.output_file)
 

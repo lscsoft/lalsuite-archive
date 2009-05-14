@@ -28,12 +28,6 @@
 
 """
 Utility methods for doing logical operations on sets of segments
-
-TODO: The boundries between these methods and bin/ligolw_segment_union,
-bin/ligolw_segment_intersect are not as clean as I would like.  Stuff
-like registering the program to the prcess table should really go in the
-respective mains, but because of the way the documents are handled it
-is simpler to put them here.
 """
 
 
@@ -46,26 +40,21 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 
 from glue.ligolw.utils import ligolw_add
-from glue.ligolw.utils import process
 
 from glue.segmentdb.segmentdb_utils import add_to_segment_definer
 from glue.segmentdb.segmentdb_utils import add_to_segment
 from glue.segmentdb.segmentdb_utils import find_segments
-
-PROGRAM_NAME = sys.argv[0].replace('./','')
-PROGRAM_PID  = os.getpid()
-try:
-        USER_NAME = os.getlogin()
-except:
-        USER_NAME = pwd.getpwuid(os.getuid())[0]
-
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
 __date__    = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
 
-def run_file_operation(options, filenames, operation):
+# "enum" indicating operation
+INTERSECT = 'intersect'
+UNION     = 'union'
+
+def run_file_operation(outdoc, filenames, operation, preserve = True):
     """
     Performs an operation (intersect or union) across a set of files.
     That is, given a set of files each with segment definers DMT-FLAG1,
@@ -76,15 +65,12 @@ def run_file_operation(options, filenames, operation):
     
     etc
     """
-    # load it up with the input files
-    if options.preserve:
-        resultdoc = ligolw_add.ligolw_add(ligolw.Document(), filenames)
-    else:
-        resultdoc = ligolw.Document()
-        resultdoc.appendChild(ligolw.LIGO_LW())
 
-    # Register ourselves
-    proc_id = process.register_to_xmldoc(resultdoc, PROGRAM_NAME, options.__dict__).process_id
+    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
+
+    # If we're preserving, also load up everything into the output document.
+    if preserve:
+        ligolw_add.ligolw_add(outdoc, filenames)
 
     # load up the files into individual documents
     xmldocs = [ligolw_add.ligolw_add(ligolw.Document(), [fname]) for fname in filenames]
@@ -103,33 +89,31 @@ def run_file_operation(options, filenames, operation):
 
     # For each unique segment definer, find the intersection
     for ifo, name, version in segment_definers:
-        if operation == 'intersect':
+        if operation == INTERSECT:
+            # If I were feeling especially functional-ist I'd write this
+            # with reduce()
             result = glue.segments.segmentlist([glue.segments.segment(-glue.segments.infinity(), glue.segments.infinity())])
+            for xmldoc in xmldocs:
+                result &= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version))
         else:
             result = glue.segments.segmentlist([])
 
-        for xmldoc in xmldocs:
-            if operation == 'intersect':
-                result &= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version))
-            else:
+            for xmldoc in xmldocs:
                 result |= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version))
-
 
         result.coalesce()
 
         # Add a segment definer for the result
-        seg_def_id = add_to_segment_definer(resultdoc, proc_id, ifo, name, version)
+        seg_def_id = add_to_segment_definer(outdoc, proc_id, ifo, name, version)
 
         # Add the segments
-        add_to_segment(resultdoc, proc_id, seg_def_id, result)
+        add_to_segment(outdoc, proc_id, seg_def_id, result)
 
-    return resultdoc
-
-
+    return outdoc
 
 
 
-def run_segment_operation(options, filenames, operation):
+def run_segment_operation(outdoc, filenames, segments, operation, result_name = 'RESULT', preserve = True):
     """
     Performs an operation (intersect or union) across a set of segments.
     That is, given a set of files each with segment definers DMT-FLAG1,
@@ -141,37 +125,30 @@ def run_segment_operation(options, filenames, operation):
              operation
     etc
     """
-    # Create a temporary doc.  This will also be the output if we're
-    # preserving
-    xmldoc = ligolw_add.ligolw_add(ligolw.Document(), filenames)
+
+    proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
+
+    if preserve:
+        indoc = ligolw_add.ligolw_add(outdoc, filenames)
+    else:
+        indoc = ligolw_add.ligolw_add(ligolw.Document(), filenames)
 
     # Start with a segment covering all of time, then
     # intersect with each of the fields of interest
-    if operation == 'intersect':
+    if operation == INTERSECT:
         sgmntlist = glue.segments.segmentlist([glue.segments.segment(-glue.segments.infinity(), glue.segments.infinity())])
+
+        for key in segments.split(','):
+            sgmntlist &= find_segments(indoc, key)
     else:
         sgmntlist = glue.segments.segmentlist([])
 
-    for key in options.segments.split(','):
-        if operation == 'intersect':
-            sgmntlist &= find_segments(xmldoc, key)
-        else:
-            sgmntlist |= find_segments(xmldoc, key)
+        for key in segments.split(','):
+            sgmntlist |= find_segments(indoc, key)
 
-    # Now that we have the result, if we're not preserving start a fresh document
-    if not options.preserve:
-        xmldoc = ligolw.Document()
-        xmldoc.appendChild(ligolw.LIGO_LW())
-        # Could also reset the ids so we start counting at 0
+    # Add a segment definer and segments
+    seg_def_id = add_to_segment_definer(outdoc, proc_id, '', result_name, 1)
+    add_to_segment(outdoc, proc_id, seg_def_id, sgmntlist)
 
-    # Register ourselves
-    proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__).process_id
-
-    # Add a segment definer for the result
-    seg_def_id = add_to_segment_definer(xmldoc, proc_id, "", options.result_name or 'RESULT', 1)
-
-    # Add the segments
-    add_to_segment(xmldoc, proc_id, seg_def_id, sgmntlist)
-
-    return xmldoc
+    return outdoc
 
