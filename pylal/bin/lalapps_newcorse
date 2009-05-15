@@ -29,7 +29,6 @@
 
 
 import bisect
-import itertools
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -39,24 +38,12 @@ except ImportError:
 import sys
 
 
-from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue.ligolw.utils import segments as ligolw_segments
-from pylal import ligolw_thinca
-from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import rate
-from pylal import SnglInspiralUtils
-
-
-# FIXME:  remove when Python >= 2.5 required
-try:
-	any
-except NameError:
-	any = iterutils.any
+from pylal import db_thinca_rings
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -130,16 +117,15 @@ class Summaries(object):
 		self.snrs = {}
 		self.cached_livetime = {}
 
-	def add_livetime(self, available_instruments, rings, offset_vectors, verbose = False):
+	def add_livetime(self, ring_sets, veto_segments, offset_vectors, verbose = False):
 		if verbose:
-			print >>sys.stderr, "computing livetime for instrument combination:",
-		for on_instruments in (combo for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(sorted(available_instruments), m)):
-			key = ",".join(on_instruments)
-			if verbose:
-				print >>sys.stderr, key,
-			if key not in self.cached_livetime:
-				self.cached_livetime[key] = 0
-			self.cached_livetime[key] += SnglInspiralUtils.compute_thinca_livetime(set(on_instruments), available_instruments - set(on_instruments), rings, self.vetosegments, offset_vectors)
+			print >>sys.stderr, "computing livetimes:",
+		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = verbose):
+			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
+			try:
+				self.cached_livetime[on_instruments] += livetime
+			except KeyError:
+				self.cached_livetime[on_instruments] = livetime
 		if verbose:
 			print >>sys.stderr
 
@@ -182,13 +168,16 @@ class Summaries(object):
 
 options, filenames = parse_command_line()
 
-if options.veto_segments:
+if options.veto_segments is not None:
 	dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
 	connection = sqlite3.connect(":memory:")
 	dbtables.DBTable_set_connection(connection)
-	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
+	utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose)
+	options.veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
 	connection.close()
 	dbtables.DBTable_set_connection(None)
+else:
+	options.veto_segments = segments.segmentlistdict()
 
 
 #
@@ -240,49 +229,10 @@ for n, filename in enumerate(filenames):
 		continue
 
 	#
-	# retrieve non-zero-lag offset vectors
+	# compute and record background livetime
 	#
 
-	background_offset_vectors = [offsetvector for offsetvector in lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if any(offsetvector.values())]
-
-	#
-	# extract rings from non-zero-lag thinca jobs, group by instruments
-	# that were on
-	#
-
-	ring_sets = segments.segmentlistdict()
-	for row in map(lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
-SELECT
-	search_summary.*
-FROM
-	search_summary
-	JOIN process ON (
-		process.process_id == search_summary.process_id
-	)
-WHERE
-	process.program == ?
-	AND EXISTS (
-		SELECT
-			*
-		FROM
-			process_params
-		WHERE
-			process_params.process_id == search_summary.process_id
-			AND process_params.param == '--num-slides'
-	)
-	""", (options.live_time_program,))):
-		instruments = frozenset(row.get_ifos())
-		try:
-			ring_sets[instruments].append(row.get_out())
-		except KeyError:
-			ring_sets[instruments] = [row.get_out()]
-
-	#
-	# compute background livetime
-	#
-
-	for on_instruments, rings in ring_sets.items():
-		background.add_livetime(on_instruments, rings, background_offset_vectors, verbose = options.verbose)
+	background.add_livetime(db_thinca_rings.get_thinca_rings(connection, program_name = options.live_time_program), options.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin
