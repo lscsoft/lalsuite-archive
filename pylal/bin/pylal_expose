@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
@@ -84,7 +84,8 @@ def parse_args():
     parser.add_option("--reject-no-candidate", action="store_true",
                       help="Rejects any GRB which does not have any candidate"\
                       " for the population statement.", default=False)
-    parser.add_option("--reject-grb", type="string",help="Comma-seperated list"\
+    parser.add_option("--reject-grb", type="string",default = "",\
+                      help="Comma-seperated list"\
                       " of GRBs to be rejected.")
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
