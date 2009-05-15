@@ -598,7 +598,7 @@ page.tr.close()
 ######################
 #Code to perform test
 resultString=(" <table border=1px>\
- <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th></tr>")
+ <tr><th>IFO:IFO</th><th>ToF</th><th>Deff Ratio</th><th>Prob</th><th>Figure</th></tr>")
 #Text insert into page giving the SNR ratio probabilities
 preBuiltPickle=opts.defaultRatioTestPickle
 if opts.defaultRatioTestPickle == None:
@@ -621,11 +621,13 @@ for index1,ifo1 in enumerate(ifolist):
         snrRatio=0
       gpsDiff=gpsA-gpsB
       result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
-      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td></tr>"%\
-          (ifoA,ifoB,gpsDiff,snrRatio,result)
+      pairURL=ratioTest.findURL(ifoA,ifoB)
+      myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+          (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
       resultString="%s %s"%(resultString,myString)
 imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
-resultString=" %s </table> %s"%(resultString,imageURL)
+resultString=" %s </table>"%(resultString)
 ##############
 page.tr()
 page.td("#11 Parameters of the candidate")
