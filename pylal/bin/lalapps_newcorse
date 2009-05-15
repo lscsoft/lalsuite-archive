@@ -29,7 +29,6 @@
 
 
 import bisect
-import itertools
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -39,24 +38,12 @@ except ImportError:
 import sys
 
 
-from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue.ligolw.utils import segments as ligolw_segments
-from pylal import ligolw_thinca
-from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import rate
-from pylal import SnglInspiralUtils
-
-
-# FIXME:  remove when Python >= 2.5 required
-try:
-	any
-except NameError:
-	any = iterutils.any
+from pylal import db_thinca_rings
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -81,7 +68,6 @@ def parse_command_line():
 	)
 	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
-	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -104,8 +90,6 @@ def parse_command_line():
 
 	if options.live_time_program is None:
 		raise ValueError, "missing required option -p or --live-time-program"
-	if options.veto_segments and not options.veto_segments_name:
-		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	#
 	# done
@@ -130,16 +114,15 @@ class Summaries(object):
 		self.snrs = {}
 		self.cached_livetime = {}
 
-	def add_livetime(self, available_instruments, rings, offset_vectors, verbose = False):
+	def add_livetime(self, connection, veto_segments, live_time_program, verbose = False):
 		if verbose:
-			print >>sys.stderr, "computing livetime for instrument combination:",
-		for on_instruments in (combo for m in range(2, len(available_instruments) + 1) for combo in iterutils.choices(sorted(available_instruments), m)):
-			key = ",".join(on_instruments)
-			if verbose:
-				print >>sys.stderr, key,
-			if key not in self.cached_livetime:
-				self.cached_livetime[key] = 0
-			self.cached_livetime[key] += SnglInspiralUtils.compute_thinca_livetime(set(on_instruments), available_instruments - set(on_instruments), rings, self.vetosegments, offset_vectors)
+			print >>sys.stderr, "computing livetimes:",
+		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
+			try:
+				self.cached_livetime[on_instruments] += livetime
+			except KeyError:
+				self.cached_livetime[on_instruments] = livetime
 		if verbose:
 			print >>sys.stderr
 
@@ -181,14 +164,6 @@ class Summaries(object):
 
 
 options, filenames = parse_command_line()
-
-if options.veto_segments:
-	dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-	connection = sqlite3.connect(":memory:")
-	dbtables.DBTable_set_connection(connection)
-	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
-	connection.close()
-	dbtables.DBTable_set_connection(None)
 
 
 #
@@ -240,49 +215,21 @@ for n, filename in enumerate(filenames):
 		continue
 
 	#
-	# retrieve non-zero-lag offset vectors
+	# retrieve the veto segments
 	#
 
-	background_offset_vectors = [offsetvector for offsetvector in lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if any(offsetvector.values())]
+	if options.veto_segments_name is not None:
+		if options.verbose:
+			print >>sys.stderr, "retrieving veto segments ..."
+		veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
+	else:
+		veto_segments = segments.segmentlistdict()
 
 	#
-	# extract rings from non-zero-lag thinca jobs, group by instruments
-	# that were on
+	# compute and record background livetime
 	#
 
-	ring_sets = segments.segmentlistdict()
-	for row in map(lsctables.table.get_table(xmldoc, lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
-SELECT
-	search_summary.*
-FROM
-	search_summary
-	JOIN process ON (
-		process.process_id == search_summary.process_id
-	)
-WHERE
-	process.program == ?
-	AND EXISTS (
-		SELECT
-			*
-		FROM
-			process_params
-		WHERE
-			process_params.process_id == search_summary.process_id
-			AND process_params.param == '--num-slides'
-	)
-	""", (options.live_time_program,))):
-		instruments = frozenset(row.get_ifos())
-		try:
-			ring_sets[instruments].append(row.get_out())
-		except KeyError:
-			ring_sets[instruments] = [row.get_out()]
-
-	#
-	# compute background livetime
-	#
-
-	for on_instruments, rings in ring_sets.items():
-		background.add_livetime(on_instruments, rings, background_offset_vectors, verbose = options.verbose)
+	background.add_livetime(connection, veto_segments, options.live_time_program, verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin

@@ -444,80 +444,46 @@ class PopStatement(object):
         return plot
     
     # -------------------------------------------------
-    def create_cdf_data(self, data):            
-        # sort the data
-        data.sort()
-        
-        # create the x and y values
-        px = []
-        py = []
-        counter = 0
-        for value in data[::-1]:
-            
-            counter += 1
-            px.append(value)
-            py.append(counter)
-            
-        # replace the infinite values by 0.0 for plotting purposes
-        px = np.asarray(px)
-        py = np.asarray(py)            
-        inf_ind = np.isinf(px)
-        px[inf_ind] = 0.0
-        
-        # scale the values correspondingly
-        py = py/float(counter)
-        
-        return px, py
-
-    # -------------------------------------------------
     def create_cdf_plot(self):
 
-        
-        def create_cdf_data(data):            
-            # sort the data
-            data.sort()
-            
-            # create the x and y values
-            px = []
-            py = []
-            counter = 0
-            for value in data[::-1]:
-                
-                counter += 1
-                px.append(value)
-                py.append(counter)
-                
-            # replace the infinite values by 0.0 for plotting purposes
-            px = np.asarray(px)
-            py = np.asarray(py)            
-            inf_ind = np.isinf(px)
-            px[inf_ind] = 0.0
-            
-            # scale the values correspondingly
-            py = py/float(counter)
-            
-            return px, py
- 
         # create the cumulative data set
-        # with the 3-sigma line
-        # 1-sigma: 0.16, 2-sigma: 0.32, 3-sigma: 0.48
-        # by tests with 'createCumPlot.py'
-        offset = 0.48
-        x_on, y_on = create_cdf_data(self.on_list)
-        x_off, y_off = create_cdf_data(self.off_list)       
-  
+       
+        
+        self.off_list.sort()
+        on_data = np.asarray(self.on_list)
+        y_on = []
+        y_off = []
+        x_onoff = []
+        counter = 0
+        for value in self.off_list[::-1]:
+            counter += 1
+            x_onoff.append(value)
+            y_off.append(counter)
+            y_on.append((on_data>value).sum())
+
+        # replace the infinite values by 0.0 for plotting purposes
+        x_onoff = np.asarray(x_onoff)
+        y_on = np.asarray(y_on)
+        y_off = np.asarray(y_off)                    
+        inf_ind = np.isinf(x_onoff)
+        x_onoff[inf_ind] = 0.0
+            
+        # scale the values correspondingly
+        scale = y_on.max()/y_off.max()
+        y_off_scale = y_off*scale 
+          
         # create the plot
         plot = plotutils.SimplePlot(r"Likelihood", r"Cumulative sum",\
                                     r"Cumulative distribution")
-        plot.add_content(x_off, y_off, color = 'r', \
+        plot.add_content(x_onoff, y_off_scale, color = 'r', \
                          linewidth = 2, label = 'off-source')
-        plot.add_content(x_on, y_on, color = 'b', marker = 'o',\
-                         markersize = 10.0, label = 'on-source')   
+        plot.add_content(x_onoff, y_on, color = 'b',\
+                         linewidth = 3, label = 'on-source')   
         plot.finalize()
         
         # make the plot nice
         plot.ax.set_xscale('log')
-        #plot.ax.axis([2, 10, 0.0, 1.0])
+        plot.ax.axis([2, 20, 0.0, 22.0])
         plot.ax.set_xticks([2,3,5,10])
         plot.ax.set_xticklabels(['2','3','5','10'])
 
