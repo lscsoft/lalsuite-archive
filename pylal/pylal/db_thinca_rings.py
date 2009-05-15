@@ -34,6 +34,7 @@ from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import segments as ligolw_segments
+from pylal import llwapp
 from pylal import SnglInspiralUtils
 
 
