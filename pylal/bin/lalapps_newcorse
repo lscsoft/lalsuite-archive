@@ -68,7 +68,6 @@ def parse_command_line():
 	)
 	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
-	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
@@ -91,8 +90,6 @@ def parse_command_line():
 
 	if options.live_time_program is None:
 		raise ValueError, "missing required option -p or --live-time-program"
-	if options.veto_segments and not options.veto_segments_name:
-		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	#
 	# done
@@ -168,17 +165,6 @@ class Summaries(object):
 
 options, filenames = parse_command_line()
 
-if options.veto_segments is not None:
-	dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-	connection = sqlite3.connect(":memory:")
-	dbtables.DBTable_set_connection(connection)
-	utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose)
-	options.veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
-	connection.close()
-	dbtables.DBTable_set_connection(None)
-else:
-	options.veto_segments = segments.segmentlistdict()
-
 
 #
 # initialize book-keeping
@@ -229,10 +215,21 @@ for n, filename in enumerate(filenames):
 		continue
 
 	#
+	# retrieve the veto segments
+	#
+
+	if options.veto_segments_name is not None:
+		if options.verbose:
+			print >>sys.stderr, "retrieving veto segments ..."
+		veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
+	else:
+		veto_segments = segments.segmentlistdict()
+
+	#
 	# compute and record background livetime
 	#
 
-	background.add_livetime(connection, options.veto_segments, options.live_time_program, verbose = options.verbose)
+	background.add_livetime(connection, veto_segments, options.live_time_program, verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin
