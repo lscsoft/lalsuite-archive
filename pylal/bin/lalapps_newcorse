@@ -44,6 +44,10 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
+from pylal.xlal.date import LIGOTimeGPS
+
+
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
