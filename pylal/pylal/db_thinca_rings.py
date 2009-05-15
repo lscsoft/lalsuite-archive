@@ -26,6 +26,9 @@
 #
 
 
+import sys
+
+
 from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables

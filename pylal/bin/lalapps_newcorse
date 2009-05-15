@@ -117,10 +117,10 @@ class Summaries(object):
 		self.snrs = {}
 		self.cached_livetime = {}
 
-	def add_livetime(self, ring_sets, veto_segments, offset_vectors, verbose = False):
+	def add_livetime(self, connection, veto_segments, live_time_program, verbose = False):
 		if verbose:
 			print >>sys.stderr, "computing livetimes:",
-		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = verbose):
+		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
 				self.cached_livetime[on_instruments] += livetime
@@ -232,7 +232,7 @@ for n, filename in enumerate(filenames):
 	# compute and record background livetime
 	#
 
-	background.add_livetime(db_thinca_rings.get_thinca_rings(connection, program_name = options.live_time_program), options.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = options.verbose)
+	background.add_livetime(connection, options.veto_segments, options.live_time_program, verbose = options.verbose)
 
 	#
 	# count background coincs by type and mass bin
