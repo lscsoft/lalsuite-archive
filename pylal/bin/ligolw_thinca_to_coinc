@@ -1194,7 +1194,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# participate in it are vetoed.  we sweep this under the
 		# rug by adding to the list of instruments that are on at
 		# least those that participated in the coinc.
-		# the time of the coinc
 		#
 
 		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
@@ -1204,7 +1203,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# if needed
 
 		if not found_instruments.issubset(on_instruments):
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
+			continue
 		
 		# check if on_instruments matches instruments listed in experiment table
 		# for this coinc
@@ -1250,65 +1249,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		for old_instruments in moved_coincs:
 			for new_instruments in moved_coincs[old_instruments]:
 				print >> sys.stderr, "\tMoved %i coinc(s) from %s time to %s time." %(moved_coincs[old_instruments][new_instruments], old_instruments, new_instruments)
-
-#
-# =============================================================================
-#
-#                                 Compute Durations
-#
-# =============================================================================
-#
-
-
-def compute_durations( xmldoc, veto_segments, process, verbose = False):
-	"""
-	Computes livetime for each element in the experiment_summary table 
-	using SngInspiralUtils.compute_thinca_livetime and writes the result
-	to the duration column.
-	"""
-
-	if options.verbose:
-		print >> sys.stderr, "Computing durations for each experiment in the experiment_summary table..."
-
-	#
-	# find the tables we'll need
-	#
-
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-
-	#
-	# turn the time slide table into a dictionary
-	#
-
-	time_slide_dict = time_slide_table.as_dict()
-
-
-	#
-	# retrieve the ring boundaries
-	#
-
-	rings = retrieve_ring_boundaries(xmldoc)
-
-	#
-	# performance assist:  remove veto segments that don't fall in any
-	# of the rings, then remove veto segment lists that are empty
-	#
-
-	coalesced_rings = segments.segmentlist(rings).coalesce()
-	veto_segments = segments.segmentlistdict((instrument, seglist & coalesced_rings) for (instrument, seglist) in veto_segments.items() if seglist.intersects(coalesced_rings))
-
-	#
-	# cycle through experiments in the experiment_summ table 
-	# calculating the duration for each
-	#
-
-	for row in expr_summ_table:
-		on_instruments = lsctables.instrument_set_from_ifos(expr_table.get_row_from_id(row.experiment_id).instruments)
-		off_instruments = set(ifo for ifo in time_slide_dict[ row.time_slide_id ]) - on_instruments
-		row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] )
-		
 
 
 #
@@ -1366,8 +1306,6 @@ for (tag, veto_category), url_pairs in url_categories.items():
 			apply_vetoes(xmldoc, veto_segments, process, verbose = options.verbose)
 		elif options.verbose:
 			print >>sys.stderr, "no vetoes applied"
-
-		compute_durations( xmldoc, veto_segments, process, verbose = options.verbose)
 
 		depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 
