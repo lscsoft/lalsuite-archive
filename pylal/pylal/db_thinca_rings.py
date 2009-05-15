@@ -53,19 +53,21 @@ except NameError:
 #
 
 
-def get_thinca_rings(connection, program_name = "thinca"):
+def get_thinca_rings_by_available_instruments(connection, program_name = "thinca"):
   """
   Return the thinca rings from the database at the given connection.  The
   rings are returned as a glue.segments.segmentlistdict indexed by the
-  instruments that were analyzed in that ring.
+  set of instruments that were analyzed in that ring.
 
   Example:
 
-  >>> ring_sets = get_thinca_rings(connection)
-  >>> print ring_sets.keys()
+  >>> seglists = get_thinca_rings_by_available_instruments(connection)
+  >>> print seglists.keys()
   [frozenset(['H1', 'L1'])]
   """
-  ring_sets = segments.segmentlistdict()
+  # extract raw rings indexed by available instrument set
+
+  seglists = segments.segmentlistdict()
   for row in map(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
 SELECT
   search_summary.*
@@ -76,22 +78,57 @@ FROM
   )
 WHERE
   process.program == ?
-  AND EXISTS (
-    SELECT
-      *
-    FROM
-      process_params
-    WHERE
-      process_params.process_id == search_summary.process_id
-      AND process_params.param == '--num-slides'
-  )
   """, (program_name,))):
     available_instruments = frozenset(row.get_ifos())
     try:
-      ring_sets[available_instruments].append(row.get_out())
+      seglists[available_instruments].append(row.get_out())
     except KeyError:
-      ring_sets[available_instruments] = [row.get_out()]
-    return ring_sets
+      seglists[available_instruments] = [row.get_out()]
+
+  # remove rings that are exact duplicates on the assumption that there are
+  # zero-lag and time-slide thinca jobs represented in the same document
+
+  return segments.segmentlistdict((key, segments.segmentlist(set(value))) for key, value in seglists.items())
+
+
+def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
+  """
+  Return the thinca rings from the database at the given connection.  The
+  rings are returned as a coalesced glue.segments.segmentlistdict indexed
+  by instrument.
+
+  Example:
+
+  >>> seglists = get_thinca_zero_lag_segments(connection)
+  >>> print seglists.keys()
+  ['H1', 'L1']
+
+  This function is most useful if only zero-lag segments are desired
+  because it allows for more convenient manipulation of the segment lists
+  using the methods in glue.segments.  If information about background
+  segments or the original ring boundaries is desired the data returned by
+  get_thinca_rings_by_available_instruments() is required.
+  """
+  # extract the raw rings indexed by instrument
+
+  seglists = llwapp.segmentlistdict_fromsearchsummary(dbtables.get_xml(connection), program_name)
+
+  # remove rings that are exact duplicates on the assumption that there are
+  # zero-lag and time-slide thinca jobs represented in the same document
+
+  seglists = segments.segmentlistdict((key, segments.segmentlist(set(value))) for key, value in seglists.items())
+
+  # coalesce the remaining segments making sure we don't loose livetime in
+  # the process
+
+  durations_before = abs(seglists)
+  seglists.coalesce()
+  if abs(seglists) != durations_before:
+    raise ValueError, "detected overlapping thinca rings"
+
+  # done
+
+  return seglists
 
 
 def get_veto_segments(connection, name):
@@ -124,3 +161,4 @@ def get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = Fal
         livetimes[on_instruments] = 0
       livetimes[on_instruments] += SnglInspiralUtils.compute_thinca_livetime(on_instruments, available_instruments - on_instruments, rings, veto_segments, offset_vectors)
   return livetimes
+
