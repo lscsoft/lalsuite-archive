@@ -111,8 +111,6 @@ def parse_command_line():
 	parser.add_option("--veto-segments", metavar = "filename", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", metavar = "string", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
-	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the thinca-files	being used. Required.")
-	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the thinca-files	being used. Required.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
 
@@ -174,8 +172,6 @@ def parse_command_line():
 		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 	if options.instruments:
 		options.instruments = set(options.instruments.split(","))
-	if not options.experiment_start_time or not options.experiment_end_time:
-		raise ValueError, "must specify --experiment-start-time and --experiment-end-time"
 
 	if args:
 		raise ValueError, "extraneous command line arguments specified"
@@ -549,100 +545,6 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 		print >>sys.stderr, "removed %d redundant time slide vectors, %d remaining" % (length_before - length_after, length_after)
 
 
-
-#
-# =============================================================================
-#
-#          Initialize experiment and experiment_summ tables 
-#
-# =============================================================================
-#
-		
-def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = None, verbose = False):
-	"""
-	Populate the experiment table using the given entries.
-
-	@xmldoc: xmldoc to get/write table to
-	@lars_id: lars_id of the experiment
-	@search_group: lsc group that performed the experiment (e.g., cbc)
-	@search: type of search performed (e.g., inspiral, grb, etc.)
-	@expr_start_time: start time of the experiment (not of the file)
-	@expr_end_time: end time of the experiment (not of the file)
-	@comments: any desired comments
-	@verbose: be verbose
-	"""
-
-	if verbose:
-		print >> sys.stderr, "populating the Experiment Definer table..."
-
-	# find the experiment table or create one if needed
-	try:
-		expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	except ValueError:
-		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
-	
-	# write entry to experiment table if it doesn't already exist
-	return expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
-
-
-def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto_def_id, return_dict = False, verbose = False ):
-	#FIXME: Add ability to write simulation entries to be able to handle injection files
-	"""
-	Populate the experiment_summ_table using an experiment_id, a
-	veto_def_id, and a list of time_slide ids. Returns a dictionary
-	representation of the updated table.
-
-	@xmldoc: xmldoc to get/write table to
-	@experiment_id: experiment_id to be added to the table.
-	@veto_def_id: veto_def_id to be added to the table.
-	@time_slide_dict: time_slide table as dictionary; used to set time_slide_id
-	column and figure out whether or not is zero-lag. Can either be the result
-	of lsctables.time_slide_table.as_dict or any dictionary having same format. 
-	"""
-
-	if verbose:
-		print >> sys.stderr, "populating the Experiment Summary table..."
-
-  # find the experiment_summary table or create one if needed
-	try:
-		expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-	except ValueError:
-		expr_summ_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentSummaryTable))
-	
-	# populate experiment_summ table
-
-	return expr_summ_table.write_experiment_summ_set( experiment_id, veto_def_id, time_slide_dict, return_dict = return_dict )
-
-
-def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, veto_def_id, expr_start_time, expr_end_time, comments = None, verbose = False):
-	"""
-	Creates or adds entries to the experiment table and experiment_summ
-	table using the time_slide table.
-	"""
-
-	if verbose:
-		print >> sys.stderr, "Populating the experiment and experiment_summary tables using the time_slide table..."
-
-	# Get the time_slide_table as dict
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
-	
-	# Cycle through the time_slide_ids in the time_slide table and populate the
-	# expr table
-	experiment_ids = {}
-	for slide_id in time_slide_dict:
-		# get instrument set
-		instruments = set(time_slide_dict[ slide_id ].keys())
-
-		# Add entry to expr_table if instrument set is new
-		if frozenset(instruments) not in experiment_ids:
-			experiment_ids[frozenset(instruments)] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = verbose)
-
-	# Populate experiment_summ_table
-	for instruments in experiment_ids:
-		populate_experiment_summ_table( xmldoc, experiment_ids[instruments], time_slide_dict, veto_def_id, return_dict = False, verbose = verbose )
-
-		
-	
 #
 # =============================================================================
 #
@@ -831,7 +733,6 @@ def populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = 250.0, ve
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
 		# - mass is average of mtotals
-		# - mchirp is average of mchirps
 		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
@@ -942,83 +843,6 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 #
 # =============================================================================
 #
-#                          Populate experiment_map_table
-#
-# =============================================================================
-#
-
-def populate_experiment_map(search_group, search, lars_id, veto_def_id, expr_start_time, expr_end_time, verbose = False):
-
-	#
-	# find the experiment_map table or create one if needed
-	#
-	if verbose:
-		"Mapping coinc events to experiment_summary table..."
-
-	try:
-		expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
-	except ValueError:
-		expr_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentMapTable))
-
-	#
-	# find the coinc_event table
-	#
-
-	coinc_event_table = table.get_table(xmldoc, lsctables.CoincTable.tableName)
-
-	#
-	# Get the time_slide_table as dict
-	#
-
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
-
-	#
-	# find the experiment table; for now, assign all coincs to the same
-	# experiment ifo time (this may change later when vetoes are applied)
-	#
-
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-
-	#
-	# find the experiment_summary table
-	#
-
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-
-	#
-	# cycle through the coincs in the coinc_inspiral table
-	# assigning initial experiment_summ_ids
-	#
-	for coinc in coinc_event_table:
-
-		#
-		#  map the coinc to an experiment
-		#
-
-		expr_map = lsctables.ExperimentMap()
-
-		expr_map.coinc_event_id = coinc.coinc_event_id
-
-		# get the (temporary) experiment and summ id for this coinc using the
-		# instruments from the time_slide_id
-		instruments = set(time_slide_dict[coinc.time_slide_id].keys())
-		expr_id = expr_table.get_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time )
-		expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id,
-			veto_def_id, coinc.time_slide_id, simulation = False )
-		if expr_map.experiment_summ_id is None:
-			raise ValueError, "experiment_summ_id could not be found with ids %s" \
-			%(','.join([ `expr_id`, `coinc.time_slide_id`, `veto_def_id` ]))
-
-		expr_map_table.append(expr_map)
-
-		# Increment number of events in nevents column by 1
-		expr_summ_table.add_nevents( expr_map.experiment_summ_id, 1 )
-
-
-
-#
-# =============================================================================
-#
 #                                 Apply Vetoes
 #
 # =============================================================================
@@ -1032,7 +856,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	#
 	# find the tables we'll need
 	#
-	
+
 	try:
 		sngl_inspiral_table = table.get_table(xmldoc, lsctables.SnglInspiralTable.tableName)
 	except ValueError:
@@ -1044,9 +868,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	coinc_map_table = table.get_table(xmldoc, lsctables.CoincMapTable.tableName)
 	coinc_inspiral_table = table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
 	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-	expr_map_table = table.get_table(xmldoc, lsctables.ExperimentMapTable.tableName)
 
 	#
 	# turn the time slide table into a dictionary
@@ -1093,19 +914,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 	)
 
 	coinc_inspirals = dict((row.coinc_event_id, row) for row in coinc_inspiral_table)
-
-	#
-	# create an experiment_id --> experiment index, 
-	# an experiment_summ_id --> experiment_summ index,
-	# and a coinc_event_id --> experiment_map index
-	#
-	if verbose:
-		print >> sys.stderr, "\tindexing experiment tables..."
-		# set-up a dictionary to keep track of number of coincs moved to different times
-		moved_coincs = {}
-	experiment_index = dict((row.experiment_id, row) for row in expr_table)
-	experiment_summ_index = dict((row.experiment_summ_id, row) for row in expr_summ_table)
-	experiment_map_index = dict((row.coinc_event_id, row) for row in expr_map_table)
 
 	#
 	# iterate over coincs
@@ -1194,121 +1002,13 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# participate in it are vetoed.  we sweep this under the
 		# rug by adding to the list of instruments that are on at
 		# least those that participated in the coinc.
-		# the time of the coinc
 		#
 
 		on_instruments = set(instrument for instrument in offset_vector.keys() if instrument not in vetoes or coinc_time not in vetoes[instrument])
 		coinc_event.set_instruments(on_instruments | found_instruments)
 
-		# the following re-sets the detectors column in the experiment summary table,
-		# if needed
-
-		if not found_instruments.issubset(on_instruments):
-			raise ValueError, "coinc '%s' has instrument(s) %s that were off or vetoed at the slid coinc time %s" % (coinc_event.coinc_event_id, ", ".join(found_instruments - on_instruments), str(coinc_time))
-		
-		# check if on_instruments matches instruments listed in experiment table
-		# for this coinc
-		current_esid = experiment_map_index[coinc_event.coinc_event_id].experiment_summ_id
-		current_eid = experiment_summ_index[current_esid].experiment_id
-		current_inst = lsctables.instrument_set_from_ifos(experiment_index[current_eid].instruments)
-		if current_inst != on_instruments:
-			# create new entry in experiment table
-			use_current = experiment_index[current_eid]
-			new_eid = expr_table.write_new_expr_id(use_current.search_group, use_current.search, use_current.lars_id, on_instruments, use_current.gps_start_time, use_current.gps_end_time, comments = use_current.comments)
-			# update experiment index
-			experiment_index.update((row.experiment_id, row) for row in expr_table)
-			# check if the new_eid is in the experiment_summ table; if so
-			# use the associated esid as the coinc's new esid
-			use_current = experiment_summ_index[current_esid]
-			new_esid = expr_summ_table.get_expr_summ_id( new_eid, use_current.veto_def_id, use_current.time_slide_id, simulation = False ) 
-			if not new_esid: # experiment_summary set doesn't exist; create new
-				expr_summ_table.write_experiment_summ_set( new_eid, use_current.veto_def_id, time_slides )
-				new_esid = expr_summ_table.get_expr_summ_id( new_eid, use_current.veto_def_id, use_current.time_slide_id, simulation = False)
-			# update experiment_map table
-			for row in expr_map_table:
-				if row.coinc_event_id == coinc_event.coinc_event_id:
-					row.experiment_summ_id = new_esid
-					break
-			# update number of events in experiment_summary table
-			expr_summ_table.add_nevents( current_esid, -1 )
-			expr_summ_table.add_nevents( new_esid, 1 )
-			# update experiment_summ index
-			experiment_summ_index.update((row.experiment_summ_id, row) for row in expr_summ_table)
-			# if verbose update moved_coincs
-			if verbose:
-				on_instr = lsctables.ifos_from_instrument_set(on_instruments)
-			if verbose and experiment_index[current_eid].instruments not in moved_coincs:
-				moved_coincs[experiment_index[current_eid].instruments] = {}
-			if verbose and on_instr not in moved_coincs[experiment_index[current_eid].instruments]:
-				moved_coincs[experiment_index[current_eid].instruments][on_instr] = 0
-			if verbose:
-				moved_coincs[experiment_index[current_eid].instruments][on_instr] += 1 
-
-
 	if verbose:
 		print >>sys.stderr, "\t\t100.0%"
-		for old_instruments in moved_coincs:
-			for new_instruments in moved_coincs[old_instruments]:
-				print >> sys.stderr, "\tMoved %i coinc(s) from %s time to %s time." %(moved_coincs[old_instruments][new_instruments], old_instruments, new_instruments)
-
-#
-# =============================================================================
-#
-#                                 Compute Durations
-#
-# =============================================================================
-#
-
-
-def compute_durations( xmldoc, veto_segments, process, verbose = False):
-	"""
-	Computes livetime for each element in the experiment_summary table 
-	using SngInspiralUtils.compute_thinca_livetime and writes the result
-	to the duration column.
-	"""
-
-	if options.verbose:
-		print >> sys.stderr, "Computing durations for each experiment in the experiment_summary table..."
-
-	#
-	# find the tables we'll need
-	#
-
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-
-	#
-	# turn the time slide table into a dictionary
-	#
-
-	time_slide_dict = time_slide_table.as_dict()
-
-
-	#
-	# retrieve the ring boundaries
-	#
-
-	rings = retrieve_ring_boundaries(xmldoc)
-
-	#
-	# performance assist:  remove veto segments that don't fall in any
-	# of the rings, then remove veto segment lists that are empty
-	#
-
-	coalesced_rings = segments.segmentlist(rings).coalesce()
-	veto_segments = segments.segmentlistdict((instrument, seglist & coalesced_rings) for (instrument, seglist) in veto_segments.items() if seglist.intersects(coalesced_rings))
-
-	#
-	# cycle through experiments in the experiment_summ table 
-	# calculating the duration for each
-	#
-
-	for row in expr_summ_table:
-		on_instruments = lsctables.instrument_set_from_ifos(expr_table.get_row_from_id(row.experiment_id).instruments)
-		off_instruments = set(ifo for ifo in time_slide_dict[ row.time_slide_id ]) - on_instruments
-		row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] )
-		
 
 
 #
@@ -1342,32 +1042,14 @@ for (tag, veto_category), url_pairs in url_categories.items():
 
 		populate_thinca_time_slide_table(xmldoc, process, instruments = options.instruments, verbose = options.verbose)
 
-		# set variables for experiment tables
-		#FIXME: should search_group and search be command line set? comments?
-		search_group = "cbc"
-		search = "inspiral"
-
-		#FIXME: Need to come up with a method to get the appropiate lars_id and veto_def_id when
-		# they become available
-		lars_id = None
-		veto_def_id = None
-
-		# write non-injection entries to experiment tables
-		#FIXME: how to handle injection files?
-		generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, veto_def_id, options.experiment_start_time, options.experiment_end_time, comments = None, verbose = options.verbose)
-
 		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
 		depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
-
-		populate_experiment_map(search_group, search, lars_id, veto_def_id, options.experiment_start_time, options.experiment_end_time, verbose = options.verbose)
 
 		if options.veto_segments:
 			apply_vetoes(xmldoc, veto_segments, process, verbose = options.verbose)
 		elif options.verbose:
 			print >>sys.stderr, "no vetoes applied"
-
-		compute_durations( xmldoc, veto_segments, process, verbose = options.verbose)
 
 		depopulate_time_slide_table(xmldoc, verbose = options.verbose)
 

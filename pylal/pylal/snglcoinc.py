@@ -163,14 +163,14 @@ def time_slide_consideration_order(time_slide_table):
 	# inter-instrument deltas, then by ID string
 	#
 
-	def deltas(offset_vector):
+	def deltas(offset_vector, instruments):
 		for a, b in instruments:
 			try:
 				yield offset_vector[a] - offset_vector[b]
 			except KeyError:
 				yield None
 
-	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a])), tuple(deltas(offsets[b]))) or cmp(a, b))
+	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a], instruments)), tuple(deltas(offsets[b], instruments))) or cmp(a, b))
 
 
 #
@@ -282,7 +282,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 
 	# determine which time slides are possible given the instruments in
 	# the search summary table
-	timeslides = [time_slide for time_slide in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(time_slide.keys()).issubset(avail_instruments)]
+	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector.keys()).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
@@ -291,9 +291,7 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	# segments
 	coinc_proc_ids = set()
 	for row in search_summ_table:
-		if row.process_id not in proc_ids or row.process_id in coinc_proc_ids:
-			continue
-		if seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
+		if row.process_id in proc_ids and row.process_id not in coinc_proc_ids and seglistdict.intersection(row.get_ifos()).intersects_segment(row.get_out()):
 			coinc_proc_ids.add(row.process_id)
 	return coinc_proc_ids
 

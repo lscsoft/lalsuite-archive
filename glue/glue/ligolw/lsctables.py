@@ -139,10 +139,10 @@ def HasNonLSCTables(elem):
 def instrument_set_from_ifos(ifos):
 	"""
 	Convenience function for parsing the values stored in the "ifos"
-	columns found in many tables.  This function is mostly for internal
-	use by the .get_ifos() methods of the corresponding row classes.
-	The mapping from input to output is as follows (rules are applied
-	in order):
+	and "instruments" columns found in many tables.  This function is
+	mostly for internal use by the .get_ifos() and .get_instruments()
+	methods of the corresponding row classes.  The mapping from input
+	to output is as follows (rules are applied in order):
 
 	input is None --> output is None
 
@@ -152,7 +152,7 @@ def instrument_set_from_ifos(ifos):
 	input contains "+" --> output is set of strings split on "," with
 	leading and trailing whitespace stripped from each piece
 
-	after stripping input of leading and trailing whitespace,
+	else, after stripping input of leading and trailing whitespace,
 
 	input has an even length greater than two --> output is set of
 	two-character pieces
@@ -160,14 +160,22 @@ def instrument_set_from_ifos(ifos):
 	input is a non-empty string --> output is a set containing input as
 	single value
 
-	otherwise --> output is an empty set.
+	else output is an empty set.
+
+	NOTE:  the complexity of this algorithm is a consequence of there
+	being several conventions in use for encoding a set of instruments
+	into one of these columns;  it has been proposed that L.L.W.
+	documents standardize on the comma-delimited variant of the
+	encodings recognized by this function, and for this reason the
+	inverse function, ifos_from_instrument_set(), implements that
+	encoding only.
 	"""
 	if ifos is None:
 		return None
-	if "," in ifos:
-		return set(map(unicode.strip, ifos.split(",")))
-	if "+" in ifos:
-		return set(map(unicode.strip, ifos.split("+")))
+	if u"," in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u","))
+	if u"+" in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u"+"))
 	ifos = ifos.strip()
 	if len(ifos) > 2 and not len(ifos) % 2:
 		# if ifos is a string with an even number of characters
@@ -195,9 +203,9 @@ def ifos_from_instrument_set(instruments):
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(map(lambda instrument: "," in instrument or "+" in instrument, instruments)):
+	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
 		raise ValueError, instruments
-	return ",".join(instruments)
+	return u",".join(instruments)
 
 
 #
@@ -314,8 +322,13 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
-	# FIXME: these constraints break ID remapping in the DB backend
+	# FIXME: these constraints break ID remapping in the DB backend.
+	# an index is used instead.  switch back to the constraints when I
+	# can figure out how not to break remapping.
 	#constraints = "PRIMARY KEY (process_id, param)"
+	how_to_index = {
+		"pp_pip_index": ("process_id", "param"),
+	}
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
