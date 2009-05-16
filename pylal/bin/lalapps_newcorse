@@ -112,9 +112,8 @@ def parse_command_line():
 
 
 class Summaries(object):
-	def __init__(self, mass_bins, vetosegments):
+	def __init__(self, mass_bins):
 		self.mass_bins = mass_bins
-		self.vetosegments = vetosegments
 		self.snrs = {}
 		self.cached_livetime = {}
 
@@ -175,7 +174,7 @@ options, filenames = parse_command_line()
 #
 
 
-background = Summaries(options.mass_bins, options.veto_segments)
+background = Summaries(options.mass_bins)
 
 
 #
@@ -196,8 +195,6 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	xmldoc = dbtables.get_xml(connection)
 
 	#
 	# if the database contains a sim_inspiral table then it is assumed
@@ -224,7 +221,7 @@ for n, filename in enumerate(filenames):
 
 	if options.veto_segments_name is not None:
 		if options.verbose:
-			print >>sys.stderr, "retrieving veto segments ..."
+			print >>sys.stderr, "retrieving veto segments \"%s\" ..." % options.veto_segments_name
 		veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
 	else:
 		veto_segments = segments.segmentlistdict()
@@ -298,8 +295,6 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	xmldoc = dbtables.get_xml(connection)
 
 	#
 	# prepare the database
