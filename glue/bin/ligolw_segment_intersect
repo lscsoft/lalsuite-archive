@@ -39,6 +39,7 @@ from optparse import OptionParser
 
 import sys
 import os
+import pwd
 
 from glue.ligolw import utils
 from glue.ligolw import ligolw
@@ -80,7 +81,7 @@ def parse_command_line():
 
     parser = OptionParser(
         version = "%prog CVS $Header$",
-        usage   = "%prog [options] file1.xml file2.xml ...",
+        usage   = "%prog [--segment | --segment-summary] [options] file1.xml file2.xml ...",
         description = "Takes two or more XML files containing segment tables, and calculates the\n" +
         "intersection between either (1) the union of all specified segment definers\n" +
         "across files or (2) each individual segment definer between files\n"
@@ -90,10 +91,18 @@ def parse_command_line():
     
     parser.add_option("-o", "--output-file", metavar = "output_file", help = "Output file (default = stdout)")
     parser.add_option("-p", "--preserve",    action  = "store_true",  help = "If set, stores metadata from all input files in output")
-    parser.add_option("-s", "--segments",    metavar = "segments",    help = "Segments to intersect (ifo:name or ifo:name:version)")
-    parser.add_option("-n", "--result-name", metavar = "result_name", default = "RESULT", help = "Name for result segment definer (default = RESULT)") 
+    parser.add_option("-i", "--include-segments",    metavar = "include_segments",    help = "Segments to intersect (ifo:name or ifo:name:version)")
+    
+    parser.add_option("-s", "--segment",           action = "store_true",   help = "Operate on the segment table")
+    parser.add_option("-X", "--segment-summary",   action = "store_true",   help = "Operate on the segment_summary table")
 
+    parser.add_option("-n", "--result-name", metavar = "result_name", default = "RESULT", help = "Name for result segment definer (default = RESULT)") 
+    parser.add_option("-q", "--quiet",       action = "store_true",   help = "Set result status, but do not generate output")
     options, filenames = parser.parse_args()
+
+    if not (options.segment or options.segment_summary) or (options.segment and options.segment_summary):
+        print >>sys.stderr, "Please specify one of --segment or  --segment-summary"
+        sys.exit(-1)
 
     return options, filenames
 
@@ -128,14 +137,27 @@ if __name__ == '__main__':
     # Register ourselves
     proc_id = process.register_to_xmldoc(xmldoc, PROGRAM_NAME, options.__dict__).process_id
 
-    if options.segments:
-        xmldoc = logic.run_segment_operation(xmldoc, filenames, 
-                                            options.segments,
+    # If we have no filenames, assume that we're reading from stdin
+    # (ligolw_add uses None as a flag for stdin)
+    if len(filenames) == 0:
+        filenames = [None]
+
+    # Also treat the special name 'stdin' as stdin
+    filenames = map(lambda x: x != 'stdin' and x or None, filenames)
+
+    if options.include_segments:
+        xmldoc, total_time = logic.run_segment_operation(xmldoc, filenames, 
+                                            options.include_segments,
+                                            options.segment,
                                             logic.INTERSECT,
                                             options.result_name, options.preserve)
     else:
-        xmldoc = logic.run_file_operation(xmldoc, filenames, logic.INTERSECT, options.preserve)
+        xmldoc, total_time = logic.run_file_operation(xmldoc, filenames, options.segment, logic.INTERSECT, options.preserve)
 
-    utils.write_filename(xmldoc, options.output_file)
+    if not options.quiet:
+        utils.write_filename(xmldoc, options.output_file)
 
+    # Return 0 if there is no total time, 1 if there is
+    # this is mostly useful for diff and intersect
+    sys.exit(total_time and 1)
 
