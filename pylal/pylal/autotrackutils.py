@@ -116,24 +116,21 @@ def getQualityTable(backEndName="tracksearch"):
         tmpProperties=candidateListProperties()
         #Structure ["tag",TGNarrayIndex]
         propertiesToKeep=[
-            ["n",3],
-            ["d",4],
-            ["b",5],
-            ["l",6],
-            ["p",7],
-            ["x",8],
-            ["z",9],
-            ["w",10],
-            ["e",11],
-            ["r",12],
-            ["ww",13],
-            ["ee",14],
-            ["rr",15],
-            ["pp",16],
+            ["pp",2],
+            ["y",3],
+            ["b",4],
+            ["d",5],
+            ["a",6],
+            ["r",7],
+            ["rr",8],
+            ["w",9],
+            ["e",10],
+            ["ww",11],
+            ["ee",12]
             ]
         propertiesHandDefined=[
-            ["ht","Time symmetry",17],
-            ["hf","Freq symmetry",18]
+            ["ht","Time symmetry",13],
+            ["hf","Freq symmetry",14]
             ]
         #Need to know the start column where tracksesarchMDGCv2.m
         #cuts the array and shifts the above indexs
