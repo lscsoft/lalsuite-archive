@@ -89,7 +89,7 @@ class ConstantBackgroundEstimator(BackgroundEstimator):
         num_louder = (self.loudest_in_bg_trials > loudest_in_trial[None, ...])\
             .sum(axis=0, dtype=float)
         pc0 = num_louder / self.loudest_in_bg_trials.shape[0]
-        pc0[pc0 < self.eps] = self.eps
+        numpy.putmask(pc0, pc0 < self.eps, self.eps)
         return numpy.log(pc0)
 
 class SimpleExpExtrapEstimator(BackgroundEstimator):
@@ -176,7 +176,8 @@ class ConstantForegroundEstimator(ForegroundEstimator):
                     "eps.shape must be equal to "\
                     "inj_loudest_by_inj_mc.shape[1:]."
         else:
-            self.eps = 0.5 * (self.weight_by_inj.min() or 1.0) / \
+            self.eps = 0.5 * \
+                self.weight_by_inj[self.weight_by_inj.nonzero()].min() / \
                 num_sims_by_m2[None, :].repeat(self.shape[1], axis=0)
 
         # repack to speed inner loop by allowing us to call dot()
@@ -215,38 +216,108 @@ def amap(func, arr):
     """
     return numpy.array(map(func, arr))
 
-def apply_along_axis(func1d, axis, arr):
+def apply_along_axis(func1d,axis,arr,*args):
     """
+    NB: Taken directly from numpy 1.3.0. This function is broken in 1.0 and
+        1.0.4. The numpy imports and this note are the only modifications.
+
     Apply function to 1-D slices along the given axis.
 
-    Execute `func1d(a[i])` where `func1d` takes 1-D arrays, `a` is
+    Execute `func1d(a[i],*args)` where `func1d` takes 1-D arrays, `a` is
     the input array, and `i` is an integer that varies in order to apply the
     function along the given axis for each 1-D subarray in `a`.
 
-    NB: This is a reimplementation of numpy.apply_along_axis().
-        It is broken in numpy 1.0.
+    Parameters
+    ----------
+    func1d : function
+        This function should be able to take 1-D arrays. It is applied to 1-D
+        slices of `a` along the specified axis.
+    axis : integer
+        Axis along which `func1d` is applied.
+    a : ndarray
+        Input array.
+    args : any
+        Additional arguments to `func1d`.
 
+    Returns
+    -------
+    out : ndarray
+        The output array. The shape of `out` is identical to the shape of `a`,
+        except along the `axis` dimension, whose length is equal to the size
+        of the return value of `func1d`.
+
+    See Also
+    --------
+    apply_over_axes : Apply a function repeatedly over multiple axes.
+
+    Examples
+    --------
     >>> def my_func(a):
-    ...     "Average first and last element of a 1-D array"
+    ...     \"\"\"Average first and last element of a 1-D array\"\"\"
     ...     return (a[0] + a[-1]) * 0.5
     >>> b = np.array([[1,2,3], [4,5,6], [7,8,9]])
     >>> np.apply_along_axis(my_func, 0, b)
     array([4., 5., 6.])
     >>> np.apply_along_axis(my_func, 1, b)
     array([2., 5., 8.])
+
     """
-    XX = numpy.rollaxis(arr, axis, arr.ndim)  # move axis to the end
-    s = XX.shape
-    XX = XX.reshape((-1, s[-1]))  # now only 2-D with our axis at the end
-    out = amap(func1d, XX)  # do the computation
-    if out.ndim == 1:  # set to appropriate output shape
-        out = out.reshape(s[:-1])
-    elif out.ndim == 2:
-        out = out.reshape(s[:-1] + (-1,))
+    from numpy import asarray, zeros, product, isscalar
+    arr = asarray(arr)
+    nd = arr.ndim
+    if axis < 0:
+        axis += nd
+    if (axis >= nd):
+        raise ValueError("axis must be less than arr.ndim; axis=%d, rank=%d."
+            % (axis,nd))
+    ind = [0]*(nd-1)
+    i = zeros(nd,'O')
+    indlist = range(nd)
+    indlist.remove(axis)
+    i[axis] = slice(None,None)
+    outshape = asarray(arr.shape).take(indlist)
+    i.put(indlist, ind)
+    res = func1d(arr[tuple(i.tolist())],*args)
+    #  if res is a number, then we have a smaller output array
+    if isscalar(res):
+        outarr = zeros(outshape,asarray(res).dtype)
+        outarr[tuple(ind)] = res
+        Ntot = product(outshape)
+        k = 1
+        while k < Ntot:
+            # increment the index
+            ind[-1] += 1
+            n = -1
+            while (ind[n] >= outshape[n]) and (n > (1-nd)):
+                ind[n-1] += 1
+                ind[n] = 0
+                n -= 1
+            i.put(indlist,ind)
+            res = func1d(arr[tuple(i.tolist())],*args)
+            outarr[tuple(ind)] = res
+            k += 1
+        return outarr
     else:
-        raise ValueError, "can't handle functions that return arrays with "\
-            "greater than one dimension"
-    return numpy.rollaxis(out, out.ndim - 1, axis)  # reorder axis
+        Ntot = product(outshape)
+        holdshape = outshape
+        outshape = list(arr.shape)
+        outshape[axis] = len(res)
+        outarr = zeros(outshape,asarray(res).dtype)
+        outarr[tuple(i.tolist())] = res
+        k = 1
+        while k < Ntot:
+            # increment the index
+            ind[-1] += 1
+            n = -1
+            while (ind[n] >= holdshape[n]) and (n > (1-nd)):
+                ind[n-1] += 1
+                ind[n] = 0
+                n -= 1
+            i.put(indlist, ind)
+            res = func1d(arr[tuple(i.tolist())],*args)
+            outarr[tuple(i.tolist())] = res
+            k += 1
+        return outarr
 
 def log_sum(trial_log_L_by_m2):
     """
@@ -257,7 +328,12 @@ def log_sum(trial_log_L_by_m2):
     """
     if (trial_log_L_by_m2 == GRBL_EMPTY_TRIAL).all():
         return GRBL_EMPTY_TRIAL
-    return numpy.log(numpy.exp(trial_log_L_by_m2).sum())
+
+    # to avoid overflow, factor out common part of exponential; underflows OK!
+    # ln(sum exp(ln L_i)) = ln(exp(C) * sum exp(ln L_i - C))
+    #                     = C + sum(exp(ln L_i - C))
+    common = trial_log_L_by_m2.max()
+    return numpy.log(numpy.exp(trial_log_L_by_m2 - common).sum()) + common
 
 def max_L(trial_log_L_by_mc_m2):
     """

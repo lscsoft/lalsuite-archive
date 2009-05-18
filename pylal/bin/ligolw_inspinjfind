@@ -40,8 +40,7 @@ import sys
 from glue.ligolw import utils
 from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
-# FIXME, this is in my directory now, it should be in pylal
-import ligolw_inspinjfind
+from pylal import ligolw_inspinjfind
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"

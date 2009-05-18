@@ -200,6 +200,7 @@ setup(
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
+    os.path.join('bin','ligolw_segment_diff'),
     os.path.join('bin','ligolw_segment_union'),
     os.path.join('bin','ligolw_segment_query'),
     os.path.join('bin','ligolw_dq_query'),

@@ -33,6 +33,7 @@ Utility methods for doing logical operations on sets of segments
 
 import sys
 import os
+
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -43,6 +44,7 @@ from glue.ligolw.utils import ligolw_add
 
 from glue.segmentdb.segmentdb_utils import add_to_segment_definer
 from glue.segmentdb.segmentdb_utils import add_to_segment
+from glue.segmentdb.segmentdb_utils import add_to_segment_summary
 from glue.segmentdb.segmentdb_utils import find_segments
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -53,8 +55,11 @@ __version__ = "$Revision$"[11:-2]
 # "enum" indicating operation
 INTERSECT = 'intersect'
 UNION     = 'union'
+DIFF      = 'diff'
 
-def run_file_operation(outdoc, filenames, operation, preserve = True):
+
+
+def run_file_operation(outdoc, filenames, use_segment_table, operation, preserve = True):
     """
     Performs an operation (intersect or union) across a set of files.
     That is, given a set of files each with segment definers DMT-FLAG1,
@@ -68,12 +73,9 @@ def run_file_operation(outdoc, filenames, operation, preserve = True):
 
     proc_id = table.get_table(outdoc, lsctables.ProcessTable.tableName)[0].process_id
 
-    # If we're preserving, also load up everything into the output document.
-    if preserve:
-        ligolw_add.ligolw_add(outdoc, filenames)
-
     # load up the files into individual documents
     xmldocs = [ligolw_add.ligolw_add(ligolw.Document(), [fname]) for fname in filenames]
+
 
     # Get the list of dinstinct segment_definers across all docs
     segment_definers = {}
@@ -94,12 +96,20 @@ def run_file_operation(outdoc, filenames, operation, preserve = True):
             # with reduce()
             result = glue.segments.segmentlist([glue.segments.segment(-glue.segments.infinity(), glue.segments.infinity())])
             for xmldoc in xmldocs:
-                result &= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version))
-        else:
+                result &= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version), use_segment_table)
+        elif operation == UNION:
             result = glue.segments.segmentlist([])
 
             for xmldoc in xmldocs:
-                result |= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version))
+                result |= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version), use_segment_table)
+        elif operation == DIFF:
+            result = find_segments(xmldocs[0], '%s:%s:%d' % (ifo, name, version), use_segment_table)
+            
+            for xmldoc in xmldocs[1:]:
+                result -= find_segments(xmldoc, '%s:%s:%d' % (ifo, name, version), use_segment_table)
+        else:
+            raise NameError ("%s is not a known operation (intersect, union or diff)" % operation)
+
 
         result.coalesce()
 
@@ -107,13 +117,25 @@ def run_file_operation(outdoc, filenames, operation, preserve = True):
         seg_def_id = add_to_segment_definer(outdoc, proc_id, ifo, name, version)
 
         # Add the segments
-        add_to_segment(outdoc, proc_id, seg_def_id, result)
+        if use_segment_table:
+            add_to_segment(outdoc, proc_id, seg_def_id, result)
+        else:
+            add_to_segment_summary(outdoc, proc_id, seg_def_id, result)
 
-    return outdoc
+    # If we're preserving, also load up everything into the output document.
+    if preserve:
+        # Add them to the output document
+        map(lambda x: outdoc.appendChild(x.childNodes[0]), xmldocs)
+
+        # Merge the ligolw elements and tables
+        ligolw_add.merge_ligolws(outdoc)
+        ligolw_add.merge_compatible_tables(outdoc)
+
+    return outdoc, abs(result)
 
 
 
-def run_segment_operation(outdoc, filenames, segments, operation, result_name = 'RESULT', preserve = True):
+def run_segment_operation(outdoc, filenames, segments, use_segment_table, operation, result_name = 'RESULT', preserve = True):
     """
     Performs an operation (intersect or union) across a set of segments.
     That is, given a set of files each with segment definers DMT-FLAG1,
@@ -135,20 +157,34 @@ def run_segment_operation(outdoc, filenames, segments, operation, result_name = 
 
     # Start with a segment covering all of time, then
     # intersect with each of the fields of interest
+    keys = segments.split(',')
+
     if operation == INTERSECT:
         sgmntlist = glue.segments.segmentlist([glue.segments.segment(-glue.segments.infinity(), glue.segments.infinity())])
 
-        for key in segments.split(','):
-            sgmntlist &= find_segments(indoc, key)
-    else:
+        for key in keys:
+            sgmntlist &= find_segments(indoc, key, use_segment_table)
+
+    elif operation == UNION:
         sgmntlist = glue.segments.segmentlist([])
 
-        for key in segments.split(','):
-            sgmntlist |= find_segments(indoc, key)
+        for key in keys:
+            sgmntlist |= find_segments(indoc, key, use_segment_table)
+    elif operation == DIFF:
+        sgmntlist = find_segments(indoc, keys[0], use_segment_table)
+
+        for key in keys[1:]:
+            sgmntlist -= find_segments(indoc, key, use_segment_table)
+    else:
+        raise NameError("%s is not a known operation (intersect, union or diff)" % operation)
 
     # Add a segment definer and segments
     seg_def_id = add_to_segment_definer(outdoc, proc_id, '', result_name, 1)
-    add_to_segment(outdoc, proc_id, seg_def_id, sgmntlist)
 
-    return outdoc
+    if use_segment_table:
+        add_to_segment(outdoc, proc_id, seg_def_id, sgmntlist)
+    else:
+        add_to_segment_summary(outdoc, proc_id, seg_def_id, sgmntlist)
+
+    return outdoc, abs(sgmntlist)
 
