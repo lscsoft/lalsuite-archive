@@ -9,6 +9,7 @@ sysconf_DATA = lal-user-env.sh lal-user-env.csh
 BUILT_SOURCES = lal-user-env.sh lal-user-env.csh
 
 pkginclude_HEADERS = lalGitID.h
+all-local: include-link
 lalGitID.h: gitID
 
 install-exec-local: uninstall-lal-sh-target
@@ -62,3 +63,5 @@ gitID:
 	if test -f $(top_srcdir)/misc/generateGitID.sh; then \
 	$(SHELL) $(top_srcdir)/misc/generateGitID.sh $(top_srcdir) lal; \
 	fi
+
+@INCLUDEMKFILE@
