@@ -30,7 +30,7 @@
 
 """
 Takes two or more XML files containing segment tables, and calculates the
-intersection between either (1) the union of all specified segment definers
+difference A - B - C - ... between either (1) the union of all specified segment definers
 across files or (2) each individual segment definer between files
 """
 
@@ -83,7 +83,7 @@ def parse_command_line():
         version = "%prog CVS $Header$",
         usage   = "%prog [--segment | --segment-summary] [options] file1.xml file2.xml ...",
         description = "Takes two or more XML files containing segment tables, and calculates the\n" +
-        "intersection between either (1) the union of all specified segment definers\n" +
+        "difference A - B - C - ... between either (1) the union of all specified segment definers\n" +
         "across files or (2) each individual segment definer between files\n"
 
                       
@@ -91,7 +91,7 @@ def parse_command_line():
     
     parser.add_option("-o", "--output-file", metavar = "output_file", help = "Output file (default = stdout)")
     parser.add_option("-p", "--preserve",    action  = "store_true",  help = "If set, stores metadata from all input files in output")
-    parser.add_option("-i", "--include-segments",    metavar = "include_segments",    help = "Segments to intersect (ifo:name or ifo:name:version)")
+    parser.add_option("-i", "--include-segments",    metavar = "include_segments",    help = "Segments to diff (ifo:name or ifo:name:version)")
     
     parser.add_option("-s", "--segment",           action = "store_true",   help = "Operate on the segment table")
     parser.add_option("-X", "--segment-summary",   action = "store_true",   help = "Operate on the segment_summary table")
@@ -149,10 +149,10 @@ if __name__ == '__main__':
         xmldoc, total_time = logic.run_segment_operation(xmldoc, filenames, 
                                             options.include_segments,
                                             options.segment,
-                                            logic.INTERSECT,
+                                            logic.DIFF,
                                             options.result_name, options.preserve)
     else:
-        xmldoc, total_time = logic.run_file_operation(xmldoc, filenames, options.segment, logic.INTERSECT, options.preserve)
+        xmldoc, total_time = logic.run_file_operation(xmldoc, filenames, options.segment, logic.DIFF, options.preserve)
 
     if not options.quiet:
         utils.write_filename(xmldoc, options.output_file)
