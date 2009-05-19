@@ -218,6 +218,30 @@ def get_ilwdchar_class(tbl_name, col_name):
 			table_name, column_name = key
 			index_offset = len("%s:%s:" % key)
 
+			def __conform__(self, protocol):
+				# The presence of this method allows
+				# ilwdchar sub-classes to be inserted
+				# directly into SQLite databases as
+				# strings. See
+				#
+				# http://www.python.org/dev/peps/pep-0246
+				#
+				# for more information.
+				#
+				# NOTE:  GvR has rejected that PEP, so this
+				# mechanism is obsolete.  Be prepared to
+				# fix this, replacing it with whatever
+				# replaces it.
+				#
+				# NOTE:  The return should be inside an "if
+				# protocol is sqlite3.PrepareProtocol:"
+				# conditional, but that would require
+				# importing sqlite3 which would break this
+				# module on FC4 boxes, and I'm not going to
+				# spend time fixing something that's
+				# obsolete anyway.
+				return unicode(self)
+
 		ilwdchar_class_cache[key] = cached_ilwdchar_class
 
 		return cached_ilwdchar_class
