@@ -30,27 +30,27 @@ try:
 except ImportError:
   import sqlite
 if os.getenv("DISPLAY") == None:
-    #Non-interactive
-    try:
-        import matplotlib
-        matplotlib.use("Agg")
-        import pylab
-    except Exception, errorInfo: #RuntimeError,ImportError:
-        disableGraphics=True
-        sys.stderr.write("Error trying to import NON-INTERACTIVE pylab!\n")
-        sys.stderr.write("Exception Instance :%s\n"%(str(type(errorInfo))))
-        sys.stderr.write("Exception Args     :%s\n"%(str(errorInfo.args)))
-        sys.stderr.write("Pylab functionality unavailable!\n")
+  #Non-interactive
+  try:
+      import matplotlib
+      matplotlib.use("Agg")
+      import pylab
+  except Exception, errorInfo: #RuntimeError,ImportError:
+      disableGraphics=True
+      sys.stderr.write("Error trying to import NON-INTERACTIVE pylab!\n")
+      sys.stderr.write("Exception Instance :%s\n"%(str(type(errorInfo))))
+      sys.stderr.write("Exception Args     :%s\n"%(str(errorInfo.args)))
+      sys.stderr.write("Pylab functionality unavailable!\n")
 else:
-    #Interactive
-    try:
-        import pylab
-    except Exception, errorInfo: #RuntimeError,ImportError:
-        disableGraphics=True
-        sys.stderr.write("Error trying to import INTERACTIVE pylab!\n")
-        sys.stderr.write("Exception Instance :%s\n"%(str(type(errorInfo))))
-        sys.stderr.write("Exception Args     :%s\n"%(str(errorInfo.args)))
-        sys.stderr.write("Pylab functionality unavailable!\n")
+  #Interactive
+  try:
+      import pylab
+  except Exception, errorInfo: #RuntimeError,ImportError:
+      disableGraphics=True
+      sys.stderr.write("Error trying to import INTERACTIVE pylab!\n")
+      sys.stderr.write("Exception Instance :%s\n"%(str(type(errorInfo))))
+      sys.stderr.write("Exception Args     :%s\n"%(str(errorInfo.args)))
+      sys.stderr.write("Pylab functionality unavailable!\n")
 
 """
 This file is intended to provide the autotrack utilities required to
@@ -58,577 +58,618 @@ process the results of the tracksearch hybrid MDGC codes.
 """
 
 def writeTGNListToFile(filename="default",tgnList=None):
-    """
-    This writes the information in the tgnList to a simple text
-    file. Actually we write two files.  filename.TGN and
-    filename.AUX.  In the AUX file is information like time stamps,
-    and other misc information from the TGNs that are dumped to disk!
-    """
-    if tgnList==None:
-      return
-    #Append extensions AUX and TGN
-    fp0=open(filename+".TGN",'wt')
-    fp1=open(filename+".AUX",'wt')
-    for tgn in tgnList:
-      a,b=tgn.reverseCreateFromString()
-      id=tgn.getID()
-      count=tgn.getMemberCount()
-      vol=tgn.getVolume()
-      fp0.write("%s\n%s\n"%(a,b))
-      fp1.write("%s\t%s\t%s\n"%(id,count,vol))
-    fp0.close()
-    fp1.close()
+  """
+  This writes the information in the tgnList to a simple text
+  file. Actually we write two files.  filename.TGN and
+  filename.AUX.  In the AUX file is information like time stamps,
+  and other misc information from the TGNs that are dumped to disk!
+  """
+  if tgnList==None:
+    return
+  #Append extensions AUX and TGN
+  fp0=open(filename+".TGN",'wt')
+  fp1=open(filename+".AUX",'wt')
+  for tgn in tgnList:
+    a,b=tgn.reverseCreateFromString()
+    id=tgn.getID()
+    count=tgn.getMemberCount()
+    vol=tgn.getVolume()
+    fp0.write("%s\n%s\n"%(a,b))
+    fp1.write("%s\t%s\t%s\n"%(id,count,vol))
+  fp0.close()
+  fp1.close()
   #End writeTGNListToFile()
   
 def generateTGNListFromFile(filename="",timestamp=str("0")):
-    """
-    This method opens a text file containing multiple TGNs and creates
-    a list of TGN objects.  It is assumed that this list of TGNs was
-    created at the same time for each TGN in the file.
-    """
-    fp=open(filename,'rt')
-    rawData=fp.readlines()
-    fp.close()
-    linesPerTGN=2
-    if rawData.__len__().__mod__(linesPerTGN) != 0:
-        raise autotrackError("File appears inconsistent!")
-    eCount=rawData.__len__().__div__(linesPerTGN)
-    TGNList=list()
-    for index in range(0,eCount):
-        thisTGN=TGN()
-        thisTGN.createFromString(rawData[index*2],rawData[index*2+1])
-        thisTGN.__setBirthDate__(timestamp)
-        thisTGN.__setGPS__(int(timestamp))
-        TGNList.append(thisTGN)
-    return TGNList
+  """
+  This method opens a text file containing multiple TGNs and creates
+  a list of TGN objects.  It is assumed that this list of TGNs was
+  created at the same time for each TGN in the file.
+  """
+  fp=open(filename,'rt')
+  rawData=fp.readlines()
+  fp.close()
+  linesPerTGN=2
+  if rawData.__len__().__mod__(linesPerTGN) != 0:
+      raise autotrackError("File appears inconsistent!")
+  eCount=rawData.__len__().__div__(linesPerTGN)
+  TGNList=list()
+  for index in range(0,eCount):
+      thisTGN=TGN()
+      thisTGN.createFromString(rawData[index*2],rawData[index*2+1])
+      thisTGN.__setBirthDate__(timestamp)
+      thisTGN.__setGPS__(int(timestamp))
+      TGNList.append(thisTGN)
+  return TGNList
     #End
 
 def getQualityTable(backEndName="tracksearch"):
-    """
-    Method is a complex case statement that selects out given a
-    back-end name the properties that the TGN should be capable of
-    tracking. Depends on the output formatting of tracksearchMDGCv2.m
-    file
-    """
-    if backEndName.strip().lower() == "tracksearch":
-        #Fetch the property fields method out of the tracksearchutils module
-        from lalapps.tracksearchutils import candidateListProperties
-        tmpProperties=candidateListProperties()
-        #Structure ["tag",TGNarrayIndex]
-        propertiesToKeep=[
-            ["pp",2],
-            ["y",3],
-            ["b",4],
-            ["d",5],
-            ["a",6],
-            ["r",7],
-            ["rr",8],
-            ["w",9],
-            ["e",10],
-            ["ww",11],
-            ["ee",12]
-            ]
-        propertiesHandDefined=[
-            ["ht","Time symmetry",13],
-            ["hf","Freq symmetry",14]
-            ]
-        #Need to know the start column where tracksesarchMDGCv2.m
-        #cuts the array and shifts the above indexs
-        startColumn=4
-        #Create a 3 list with text labels and array locations!
-        finalPropertyList=[]
-        for myRow in propertiesToKeep:
-            for thatRow in tmpProperties:
-                if thatRow[0].lower().strip() == \
-                        myRow[0].lower().strip():
-                    finalPropertyList.append([myRow[0],thatRow[1],myRow[1]])
-        for myRow in propertiesHandDefined:
-            finalPropertyList.append(myRow)
-        return finalPropertyList
-#Files edited so far
-#tracksearchutils.py
-#autotrackutils.py
-#
+  """
+  Method is a complex case statement that selects out given a
+  back-end name the properties that the TGN should be capable of
+  tracking. Depends on the output formatting of tracksearchMDGCv2.m
+  file
+  """
+  if backEndName.strip().lower() == "tracksearch":
+      #Fetch the property fields method out of the tracksearchutils module
+      from lalapps.tracksearchutils import candidateListProperties
+      tmpProperties=candidateListProperties()
+      #We assume that the below elements to be defined were
+      #processed in tracksearchMDGCv2 et all files and are in that
+      #order left to right columns. The column values specified here
+      #are those needed to access any particular data field from the
+      #
+      #Structure ["tag",TGNarrayIndex]
+      propertiesToKeep=[
+          ["pp",1],
+          ["y",2],
+          ["b",3],
+          ["d",4],
+          ["a",5],
+          ["r",6],
+          ["rr",7],
+          ["w",8],
+          ["e",9],
+          ["ww",10],
+          ["ee",11]
+          ]
+      propertiesHandDefined=[
+          ["ht","Time symmetry",12],
+          ["hf","Freq symmetry",13]
+          ]
+      #Create a 3 list with text labels and array locations!
+      finalPropertyList=[]
+      for myRow in propertiesToKeep:
+          for thatRow in tmpProperties:
+              if thatRow[0].lower().strip() == \
+                      myRow[0].lower().strip():
+                  finalPropertyList.append([myRow[0],thatRow[1],myRow[1]])
+      for myRow in propertiesHandDefined:
+          finalPropertyList.append(myRow)
+  return finalPropertyList
 #End getQualityTable()
 
 class autotrackError(Exception):
-    """
-    Generic class raise this flag if we do not have a better
-    flag name.
-    """
-    #End class
+  """
+  Generic class raise this flag if we do not have a better
+  flag name.
+  """
+  #End class
 
 class autotrackDefineMismatchError(Exception):
-    """
-    Custom error exceptions for these class objects.
-    """
-    #End class autotrackDefineError
+  """
+  Custom error exceptions for these class objects.
+  """
+  #End class autotrackDefineError
 
 class autotrackDefineIdMismatchError(Exception):
-    """
-    Custom error handling of mismatched ID
-    """
-    #End class autotrackDefineIdMismatchError
+  """
+  Custom error handling of mismatched ID
+  """
+  #End class autotrackDefineIdMismatchError
 
 
 class plotTGN:
+  """
+  This class is a wrapper for plotting TGNs.  It can plot TGNs on a
+  2D plot of requested parameter options.
+  """
+  def __init__(self,iTGN=None,thread=bool(False)):
     """
-    This class is a wrapper for plotting TGNs.  It can plot TGNs on a
-    2D plot of requested parameter options.
+    Ths method should be invoked blind with either a single TGN or
+    a list of TGNS.  Invoking without a TGN is still possible.  A
+    second argument lets the plotting code know if we are
+    comparing different TGNs or plotting a thread of TGNs.
     """
-    def __init__(self,iTGN=None,thread=bool(False)):
-        """
-        Ths method should be invoked blind with either a single TGN or
-        a list of TGNS.  Invoking without a TGN is still possible.  A
-        second argument lets the plotting code know if we are
-        comparing different TGNs or plotting a thread of TGNs.
-        """
-        self.isThread=thread
-        if (iTGN != None and type(iTGN) != type([])):
-            raise autotrackError("plotTGN expects a list of TGN objects.")
-        self.tgnList=iTGN
-        #Default quantities to plot
-        self.defaultX="d"
-        self.defaultY="n"
-    #End __init__()
+    self.isThread=thread
+    if (iTGN != None and type(iTGN) != type([])):
+        raise autotrackError("plotTGN expects a list of TGN objects.")
+    self.tgnList=iTGN
+    #Default quantities to plot
+    self.defaultX="d"
+    self.defaultY="y"
+    #Default member scale for plots 1px == 100members
+    self.memberSteps=100;
+  #End __init__()
 
-    def setXQuantity(self,newX="d"):
-        """
-        Using the single character string see the output of
-        getQualityTable() select the quantity to show on the Xaxis.
-        """
-        self.defaultX=newX
-    #End setXQuantity
+  def setXQuantity(self,newX="d"):
+    """
+    Using the single character string see the output of
+    getQualityTable() select the quantity to show on the Xaxis.
+    """
+    self.defaultX=newX
+  #End setXQuantity
 
-    def setYQuantity(self,newY="n"):
-        """
-        Using the single character string see the output of
-        getQualityTable() select the quantity to show on the Yaxis.
-        """
-        self.defaultY=newY
-    #End setYQuantity
+  def setYQuantity(self,newY="y"):
+    """
+    Using the single character string see the output of
+    getQualityTable() select the quantity to show on the Yaxis.
+    """
+    self.defaultY=newY
+  #End setYQuantity
 
-    def createFigure(self):
-        """
-        This function provides an interface to python plotting that
-        will plot a TGN or thread of TGNs given to the plotTGN class.
-        """
-        if self.tgnList == None:
-            raise autotrackError("Figure creation requested, no TGNs defined.")
-        if not self.isThread:
-            self.__primativePlotTGNs__()
-        if self.isThread:
-            self.__primativePlotThread__()
-        pylab.show()
-    #End createFigure()
+  def createFigure(self):
+    """
+    This function provides an interface to python plotting that
+    will plot a TGN or thread of TGNs given to the plotTGN class.
+    """
+    if self.tgnList == None:
+        raise autotrackError("Figure creation requested, no TGNs defined.")
+    pylab.figure()
+    if not self.isThread:
+        self.__primativePlotTGNs__()
+    if self.isThread:
+        self.__primativePlotThread__()
+    pylab.show()
+  #End createFigure()
 
-    def __primativePlotTGNs__(self):
-        """
-        Is a macro of plotting commands that takes a list of TGNs that
-        plots each of these individually as a collection of points.
-        Creates a figure plotting the thread of list of TGNs using the
-        centroid and an X,Y error bars
-        """
-        #Determine the index that corresponds to X and Y quantities
-        xIndex=0
-        yIndex=0
-        xLabel="NULL"
-        yLabel="NULL"
-        for elem in getQualityTable():
-            if elem[0].strip().lower() == self.defaultX:
-                xIndex=elem[2]
-                xLabel=elem[1]
-            if elem[0].strip().lower() == self.defaultY:
-                yIndex=elem[2]
-                yLabel=elem[1]
-        pylab.figure()
-        plotValues=list()
-        for thisTGN in self.tgnList:
-            label=str(thisTGN.getID())
-            #Get the X,Y property
-            (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
-            (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
-            plotValues.append([xC,yC,xE,yE,label])
-        for x,y,ex,ey,txtLabel in plotValues:
-            pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel)
-        pylab.title("TGNs")
-        pylab.xlabel(str(xLabel))
-        pylab.ylabel(str(yLabel))
-        pylab.legend()
-    #End __primativePlotTGNs__
+  def createReportFigures(self):
+    """
+    This function creates a single plot with subplot of all know
+    properties plotted against each other to see if there are 
+    any relationships between TGNs
+    """
+    if self.tgnList == None:
+      raise autotrackError("Figure creation requested, no TGNs defined.")
+    #Get property list
+    shortName=[element[0] for element in getQualityTable()]
+    plotCount=shortName.__len__()*shortName.__len__()
+    #Row image count
+    countRowImages=4
+    #Col image count
+    countColImages=int(shortName.__len__()).__div__(countRowImages)
+    if int(shortName.__len__()).__mod__(countRowImages) > 0:
+      countColImages=countColImages+1
+    for myXAxis in shortName:
+      pylab.figure()
+      countImage=1
+      for myYAxis in shortName:
+        self.setXQuantity(myXAxis)
+        self.setYQuantity(myYAxis)
+        pylab.subplot(countRowImages,countColImages,countImage)
+        countImage=countImage+1
+        self.__primativePlotTGNs__(True)
+    print "HI"
+    pylab.show()
+  #End createReportFigures()
 
-    def __primativePlotThread__(self):
-        """
-        Is a macro of plotting commands that takes a list of TGNs that
-        plots each of these individually as a collection of points.
-        Creates a figure plotting the thread of list of TGNs using the
-        centroid and an X,Y error bars
-        """
-        #Determine the index that corresponds to X and Y quantities
-        xIndex=0
-        yIndex=0
-        xLabel="NULL"
-        yLabel="NULL"
-        for elem in getQualityTable():
-            if elem[0].strip().lower() == self.defaultX:
-                xIndex=elem[2]
-                xLabel=elem[1]
-            if elem[0].strip().lower() == self.defaultY:
-                yIndex=elem[2]
-                yLabel=elem[1]
-        pylab.figure()
-        plotValues=list()
-        for thisTGN in self.tgnList:
-            txtLabel=str(thisTGN.getGPS())
-            #Get the X,Y property
-            (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
-            (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
-            plotValues.append([xC,yC,xE,yE,txtLabel])
-        xVec=list()
-        yVec=list()
-        for x,y,ex,ey,txtLabel in plotValues:
-            xVec.append(x)
-            yVec.append(y)
-        pylab.plot(xVec,yVec,label="Time Line")
-        for x,y,ex,ey,txtLabel in plotValues:
-            pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel)
-        pylab.title("TGN Thread")
-        pylab.xlabel(str(xLabel))
-        pylab.ylabel(str(yLabel))
-        pylab.legend()
-    #End __primativePlotThread__
+  def __getIndexAndLabels__(self):
+    """
+    Returns index and labels for X and Y axis
+    """
+    for elem in getQualityTable():
+        if elem[0].strip().lower() == self.defaultX:
+            xIndex=elem[2]
+            xLabel=elem[1]
+        if elem[0].strip().lower() == self.defaultY:
+            yIndex=elem[2]
+            yLabel=elem[1]
+    return [xIndex,xLabel,yIndex,yLabel]
+  #End __getIndexAndLabels__()
+
+  def __primativePlotTGNs__(self,bare=bool(False)):
+    """
+    Is a macro of plotting commands that takes a list of TGNs that
+    plots each of these individually as a collection of points.
+    Creates a figure plotting the thread of list of TGNs using the
+    centroid and an X,Y error bars.  Take a optional boolean to
+    make the plot not include a title and legend
+    """
+    #Determine the index that corresponds to X and Y quantities
+    xIndex=0
+    yIndex=0
+    xLabel="NULL"
+    yLabel="NULL"
+    (xIndex,xLabel,yIndex,yLabel)=self.__getIndexAndLabels__()
+    plotValues=list()
+    gpsTimesInList=list()
+    for thisTGN in self.tgnList:
+        label=str(thisTGN.getID())
+        #Get the X,Y property
+        (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
+        (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
+        plotValues.append([xC,yC,xE,yE,label])
+        gpsTimesInList.append(thisTGN.getGPS())
+    for x,y,ex,ey,txtLabel in plotValues:
+        pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel,marker='o')
+    pylab.xlabel(str(xLabel))
+    pylab.ylabel(str(yLabel))
+    if not bare:
+      pylab.title("TGNs: %i"%(min(gpsTimesInList)))
+      pylab.legend()
+  #End __primativePlotTGNs__
+
+  def __primativePlotThread__(self,bare=bool(False)):
+    """
+    Is a macro of plotting commands that takes a list of TGNs that
+    plots each of these individually as a collection of points.
+    Creates a figure plotting the thread of list of TGNs using the
+    centroid and an X,Y error bars
+    """
+    #Determine the index that corresponds to X and Y quantities
+    xIndex=0
+    yIndex=0
+    xLabel="NULL"
+    yLabel="NULL"
+    for elem in getQualityTable():
+        if elem[0].strip().lower() == self.defaultX:
+            xIndex=elem[2]
+            xLabel=elem[1]
+        if elem[0].strip().lower() == self.defaultY:
+            yIndex=elem[2]
+            yLabel=elem[1]
+    plotValues=list()
+    gpsTimesInList=list()
+    for thisTGN in self.tgnList:
+        txtLabel=str(thisTGN.getGPS())
+        #Get the X,Y property
+        (xC,xE)=thisTGN.getCentroidErrorViaIndex(xIndex)
+        (yC,yE)=thisTGN.getCentroidErrorViaIndex(yIndex)
+        plotValues.append([xC,yC,xE,yE,txtLabel])
+        gpsTimesInList.append(thisTGN.getGPS())
+    xVec=list()
+    yVec=list()
+    for x,y,ex,ey,txtLabel in plotValues:
+        xVec.append(x)
+        yVec.append(y)
+    pylab.plot(xVec,yVec,label="Time Line")
+    for x,y,ex,ey,txtLabel in plotValues:
+        pylab.errorbar(x,y,xerr=ex,yerr=ey,label=txtLabel,marker='o')
+    pylab.xlabel(str(xLabel))
+    pylab.ylabel(str(yLabel))
+    if not bare:
+      pylab.title("TGN Thread %i"%(min(gpsTimesInList)))
+      pylab.legend()
+  #End __primativePlotThread__
 
 
 class TGN:
-    """
-    This class provides the definition of a single defined autotrack
-    defined neighborhood.  We use these neighborhoods to track
-    how the instrument behavior groups change, appear or disappear.
-    """
-    def __init__(self):
-        """ This method initializes an empty neighborhood.
-        To populate the neightborhood invoke the proper method
-        depending on the source of the data, ie ascii mysql etc
-        """
-        self.delim=" "
-        self.idNum=float(-1)
-        self.density=float(0)
-        self.memberCount=0
-        self.volume=0
-        self.colCount=0
-        self.birthdate=str("-1")
-        self.gpsStamp=int(-1)
-        self.discoverer=str()
-        self.lastSeen=float(0)
-        self.center=None
-        self.bound=None
-        #Convention below should match tracksearchUtils conventions
-        #Only keeping the lines that apply from method glitchDB
-        #variable named glitchDatabaseEntry method should be expanded
-        #to not be hardwired to backend defintions
-        self.qualities=getQualityTable("tracksearch")
-    #End __init__ method
-
-    def __setID__(self,inputArg):
-        """
-        Should set the ID numeric field
-        """
-        if type(float(0)) != type(inputArg):
-            inputArg=float(inputArg)
-        self.idNum=inputArg
-    #End
-
-    def getID(self):
-        """
-        Fetches the numeric ID assigned to this TGN instance
-        """
-        return self.idNum
-    #End
-
-    def __setBirthDate__(self,bDate=str("")):
-        """
-        Set a text string which is the GPS birthdate,
-        as closely as possible for this neighborhood.
-        """
-        if type(str()) != type(bDate):
-            bDate=str(bDate)
-        self.birthdate=bDate
-    #End
-
-    def __setGPS__(self,gps=int(0)):
-        """
-        Set a text string which is the GPS birthdate,
-        as closely as possible for this neighborhood.
-        """
-        if type(int()) != type(gps):
-            raise autotrackError("GPS time not a INT type.")
-        self.gpsStamp=gps
-    #End
-
-    def getBirthDateText(self):
-        """
-        This retrieves the text string birthdate stored in TGN
-        instance.
-        """
-        return self.birthdate
-    #End
-
-    def getGPS(self):
-        """
-        This retrieves the integer GPS birthdate stored in TGN
-        instance.
-        """
-        return self.gpsStamp
-    #End
-
-    def createFromString(self,mString,bString,delim=" "):
-        """
-        This input method assumes you've opened a text file container
-        and will input the data from text strings.  The assumed
-        delimiter is a space but can be set in the method call.
-        """
-        self.delim=delim
-        if self.delim == " ":
-          mData=str(mString).lower().split(None)
-          bData=str(bString).lower().split(None)
-        else:
-          mData=str(mString).lower().split(delim)
-          bData=str(bString).lower().split(delim)
-        mCol=mData.__len__()
-        sCol=bData.__len__()
-        if (mData.__len__()) != (bData.__len__()):
-            raise autotrackDefineMismatch("Array lengths %i:%i"%(mData.__len__(),bData.__len__()))
-        self.colCount=mCol
-        #Break off first few elements before creating arrays
-        mID=mData.pop(0)
-        mDensity=mData.pop(0)
-        if mCol >= 17:
-            mCount=mData.pop(0)
-            mVolume=mData.pop(0)
-        #
-        sID=bData.pop(0)
-        sDensity=bData.pop(0)
-        if sCol >=17:
-            sCount=bData.pop(0)
-            sVolume=bData.pop(0)
-        #
-        if mID != sID:
-            raise autotrackDefineIdMismatchError("Group labels do not match!")
-        if mDensity != sDensity:
-            raise autotrackDefineIdMismatchError("Group density values do not match!")
-        if mCount != sCount:
-            raise autotrackDefineIdMismatchError("Group count values do not match!")
-        if mVolume!=sVolume:
-            raise autotrackDefineIdMismatchError("Group volume\
- measures do not match! %f \t %f"%(float(mVolume),float(sVolume)))
-        self.__setID__(float(mID))
-        self.__setDensity__(float(mDensity))
-        self.__setMemberCount__(float(mCount))
-        self.__setVolume__(float(mVolume))
-        self.center=numpy.array([numpy.float64(j) for j in mData],'float64')
-        self.bound=numpy.array([numpy.float64(j) for j in bData],'float64')
-    #End createFromString
-
-    def reverseCreateFromString(self):
+  """
+  This class provides the definition of a single defined autotrack
+  defined neighborhood.  We use these neighborhoods to track
+  how the instrument behavior groups change, appear or disappear.
+  """
+  def __init__(self):
+      """ This method initializes an empty neighborhood.
+      To populate the neightborhood invoke the proper method
+      depending on the source of the data, ie ascii mysql etc
       """
-      Returns a tuple of two strings, that can be dumped to disk and read
-      back into a TGN object with method createFromString()
+      self.delim=" "
+      self.idNum=float(-1)
+      self.density=float(0)
+      self.memberCount=0
+      self.volume=0
+      self.colCount=0
+      self.birthdate=str("-1")
+      self.gpsStamp=int(-1)
+      self.discoverer=str()
+      self.lastSeen=float(0)
+      self.center=None
+      self.bound=None
+      #Convention below should match tracksearchUtils conventions
+      #Only keeping the lines that apply from method glitchDB
+      #variable named glitchDatabaseEntry method should be expanded
+      #to not be hardwired to backend defintions
+      self.qualities=getQualityTable("tracksearch")
+  #End __init__ method
+
+  def __setID__(self,inputArg):
       """
-      stringA,stringB=self.exportToString().split("\n")
-      return (stringA,stringB)
-    #End reverseCreateFromString()
-    
-    def __setMemberCount__(self,mCount=0):
-        """
-        Sets the tally of members in the group.
-        """
-        self.memberCount=mCount
-    #End
+      Should set the ID numeric field
+      """
+      if type(float(0)) != type(inputArg):
+          inputArg=float(inputArg)
+      self.idNum=inputArg
+  #End
 
-    def getMemberCount(self):
-        """
-        get the registered members listed for this TGN
-        """
-        return self.memberCount
-    #End
+  def getID(self):
+      """
+      Fetches the numeric ID assigned to this TGN instance
+      """
+      return self.idNum
+  #End
 
-    def __setVolume__(self,volume=0):
-        """
-        Sets the volume value of this grouping.
-        """
-        self.volume=volume
-    #End
+  def __setBirthDate__(self,bDate=str("")):
+      """
+      Set a text string which is the GPS birthdate,
+      as closely as possible for this neighborhood.
+      """
+      if type(str()) != type(bDate):
+          bDate=str(bDate)
+      self.birthdate=bDate
+  #End
 
-    def getVolume(self):
-        """
-        Gets the registered volume for a given TGN.
-        """
-        return self.volume
-    #End
+  def __setGPS__(self,gps=int(0)):
+      """
+      Set a text string which is the GPS birthdate,
+      as closely as possible for this neighborhood.
+      """
+      if type(int()) != type(gps):
+          raise autotrackError("GPS time not a INT type.")
+      self.gpsStamp=gps
+  #End
 
-    def exportToString(self):
-        """
-        Create a text string that can be directly inserted into the
-        text field of the sqlite database table TGN.
-        """
-        delimiter=self.delim
-        outputString=""
-        outputString=outputString+"%s%s"%(delimiter,self.getID())
-        outputString=outputString+"%s%s"%(delimiter,self.getDensity())
-        if self.colCount >= 17:
-            outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
-            outputString=outputString+"%s%s"%(delimiter,self.getVolume())
-        for elem in self.center:
-            outputString=outputString+"%s%s"%(delimiter,elem)
-        outputString=outputString+"\n"
-        outputString=outputString+"%s%s"%(delimiter,self.getID())
-        outputString=outputString+"%s%s"%(delimiter,self.getDensity())
-        if self.colCount >= 17:
-            outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
-            outputString=outputString+"%s%s"%(delimiter,self.getVolume())
-        for elem in self.bound:
-            outputString=outputString+"%s%s"%(delimiter,elem)
-        return outputString
-    #end exportToString()
-    
-    def getDensity(self):
-        """
-        Returns the value of TGN density set.
-        """
-        return self.density
-    #End
+  def getBirthDateText(self):
+      """
+      This retrieves the text string birthdate stored in TGN
+      instance.
+      """
+      return self.birthdate
+  #End
 
-    def __setDensity__(self,inputArg):
-        """
-        Sets the input density value to the TGN instance.
-        """
-        if type(float(0)) != type(inputArg):
-            inputArg=float(inputArg)
-        self.density=inputArg
-    #End
+  def getGPS(self):
+      """
+      This retrieves the integer GPS birthdate stored in TGN
+      instance.
+      """
+      return self.gpsStamp
+  #End
 
-    def isNULL(self):
-        """
-        Check the defined properties, returns true if they are all
-        zeroed out which is NULL according the the matlab generator.
-        """
-        isNull=bool(False)
-        cV=self.getCenterVector()
-        bV=self.getBoundVector()
-        if numpy.any(cV==0) and numpy.any(bV==0):
-            isNull=bool(True)
-        return isNull
-    #End isNull
+  def createFromString(self,mString,bString,delim=" "):
+      """
+      This input method assumes you've opened a text file container
+      and will input the data from text strings.  The assumed
+      delimiter is a space but can be set in the method call.
+      """
+      self.delim=delim
+      if self.delim == " ":
+        mData=str(mString).lower().split(None)
+        bData=str(bString).lower().split(None)
+      else:
+        mData=str(mString).lower().split(delim)
+        bData=str(bString).lower().split(delim)
+      mCol=mData.__len__()
+      sCol=bData.__len__()
+      if (mData.__len__()) != (bData.__len__()):
+          raise autotrackDefineMismatch("Array lengths %i:%i"%(mData.__len__(),bData.__len__()))
+      self.colCount=mCol
+      #Break off first few elements before creating arrays
+      mID=mData.pop(0)
+      mDensity=mData.pop(0)
+      mCount=mData.pop(0)
+      mVolume=mData.pop(0)
+      #
+      sID=bData.pop(0)
+      sDensity=bData.pop(0)
+      sCount=bData.pop(0)
+      sVolume=bData.pop(0)
+      #
+      if mID != sID:
+          raise autotrackDefineIdMismatchError("Group labels do not match!")
+      if mDensity != sDensity:
+          raise autotrackDefineIdMismatchError("Group density values do not match!")
+      if mCount != sCount:
+          raise autotrackDefineIdMismatchError("Group count values do not match!")
+      if mVolume!=sVolume:
+          raise autotrackDefineIdMismatchError("Group volume measures do not match! %f \t %f"%(float(mVolume),float(sVolume)))
+      self.__setID__(float(mID))
+      self.__setDensity__(float(mDensity))
+      self.__setMemberCount__(float(mCount))
+      self.__setVolume__(float(mVolume))
+      self.center=numpy.array([numpy.float64(j) for j in mData],'float64')
+      self.bound=numpy.array([numpy.float64(j) for j in bData],'float64')
+  #End createFromString
 
-    def getBoundVector(self):
-        """
-        Gets the variance components of this TGN instance.
-        """
-        return self.bound
-    #End getBoundVector
+  def reverseCreateFromString(self):
+    """
+    Returns a tuple of two strings, that can be dumped to disk and read
+    back into a TGN object with method createFromString()
+    """
+    stringA,stringB=self.exportToString().split("\n")
+    return (stringA,stringB)
+  #End reverseCreateFromString()
 
-    def getCenterVector(self):
-        """
-        Gets the center of the neighborhood
-        """
-        return self.center
-    #End getCenterVector
+  def __setMemberCount__(self,mCount=0):
+      """
+      Sets the tally of members in the group.
+      """
+      self.memberCount=mCount
+  #End
 
-    def getCentroidErrorViaIndex(self,index=0):
-        """
-        Given an index select the that index from the Center vector
-        and the bound Vector. This will return a tuple (center,bound)
-        """
-        centerVec=self.getCenterVector()
-        boundVec=self.getBoundVector()
-        vectorLength=centerVec.__len__()
-        if vectorLength-1 < index:
-            raise autotrackError("Invalid index requested exceeds\
-elements available. Elements: %i Index Sought: %i"%(vectorLength,index))
-        center=centerVec[index]
-        bound=boundVec[index]
-        return (center,bound)
-    #End getCentroidErrorViaIndex
+  def getMemberCount(self):
+      """
+      get the registered members listed for this TGN
+      """
+      return self.memberCount
+  #End
 
-    def isSame(self,TGN):
-        """
-        Checks to see if self instance is IDENTICAL to 
-        TGN instance given as argument!
-        """
-        samePoint=bool(False)
-        samePoint=self.checkOverlap(TGN,0)
-        if samePoint and self.idNum==TGN.idNum and self.density==TGN.density:
-            return bool(True)
-        return bool(False)
-            
-    def checkOverlap(self,TGN,boundSize=0.5):
-        """
-        Check to see if SELF neighborhood overlaps with other input
-        TGN class.  We define them as over lapping if they are
-        withing boundSize stddevs of the center of SELF compared
-        to the center of argument TGN.
-        """
-        stepVector=boundSize*numpy.array(self.getBoundVector()).__abs__()
-        diffVector=numpy.array(
-            self.getCenterVector()
-            -TGN.getCenterVector()).__abs__()
-        if numpy.array(diffVector<=stepVector).all():
-            return bool(True)
-        else:
-            return bool(False)
-        #End checkOverlap
+  def __setVolume__(self,volume=0):
+      """
+      Sets the volume value of this grouping.
+      """
+      self.volume=volume
+  #End
 
-    def getSeparation(self,TGN):
-        """
-        Gets the resultant seperation vectors and normalizes this 
-        value by the boundVector, then use this to compute a 
-        normalized magnitude of the vector.
-        """ 
-        diffVector=numpy.array(
-            self.getCenterVector()
-            -TGN.getCenterVector()).__abs__()
-        bv=self.getBoundVector()
-        sepVector=diffVector.__div__(bv)
-        mag=numpy.sqrt(numpy.inner(sepVector,sepVector))
-        return mag
-    #End getSeperation
-    
-    def nearestTGNid(self,TGNList,boundSize=0.5):
-        """
-        wrapper
-        """
-        myN=self.nearestTGN(TGNList,boundSize)
-        myID=myN.getID()
-        return myID
+  def getVolume(self):
+      """
+      Gets the registered volume for a given TGN.
+      """
+      return self.volume
+  #End
 
-    def nearestTGN(self,TGNList,boundSize=0.5):
-        """
-        Takes a list of TGNs and compares it to self
-        to determine which is the closest one, this ideally
-        is the same group and we can associate the group IDs.
-        """
-        if type(list())!=type(TGNList):
-            raise autotrackError("Type of input to method nearestTGNid is wrong!")
-        distanceKey=list()
-        for index in range(0,TGNList.__len__()):
-            #Ignore entries in the list that all NULL
-            if not TGNList[index].isNULL():
-                if self.checkOverlap(TGNList[index],boundSize):
-                    dist=self.getSeparation(TGNList[index])
-                    idVal=TGNList[index].getID()
-                    distanceKey.append([dist,idVal])
-        distanceKey.sort()
-        try:
-            findID=int(distanceKey[0][1])
-        except IndexError:
-            findID=-1
-        if findID > -1:
-            for nhd in TGNList:
-                if nhd.getID() == findID:
-                    foundTGN=nhd
-        else:
-            foundTGN=TGN()
-        return foundTGN
+  def exportToString(self):
+      """
+      Create a text string that can be directly inserted into the
+      text field of the sqlite database table TGN.
+      """
+      delimiter=self.delim
+      outputString=""
+      outputString=outputString+"%s%s"%(delimiter,self.getID())
+      outputString=outputString+"%s%s"%(delimiter,self.getDensity())
+      if self.colCount >= 17:
+          outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
+          outputString=outputString+"%s%s"%(delimiter,self.getVolume())
+      for elem in self.center:
+          outputString=outputString+"%s%s"%(delimiter,elem)
+      outputString=outputString+"\n"
+      outputString=outputString+"%s%s"%(delimiter,self.getID())
+      outputString=outputString+"%s%s"%(delimiter,self.getDensity())
+      if self.colCount >= 17:
+          outputString=outputString+"%s%s"%(delimiter,self.getMemberCount())
+          outputString=outputString+"%s%s"%(delimiter,self.getVolume())
+      for elem in self.bound:
+          outputString=outputString+"%s%s"%(delimiter,elem)
+      return outputString
+  #end exportToString()
+
+  def getDensity(self):
+      """
+      Returns the value of TGN density set.
+      """
+      return self.density
+  #End
+
+  def __setDensity__(self,inputArg):
+      """
+      Sets the input density value to the TGN instance.
+      """
+      if type(float(0)) != type(inputArg):
+          inputArg=float(inputArg)
+      self.density=inputArg
+  #End
+
+  def isNULL(self):
+      """
+      Check the defined properties, returns true if they are all
+      zeroed out which is NULL according the the matlab generator.
+      """
+      isNull=bool(False)
+      cV=self.getCenterVector()
+      bV=self.getBoundVector()
+      if numpy.any(cV==0) and numpy.any(bV==0):
+          isNull=bool(True)
+      return isNull
+  #End isNull
+
+  def getBoundVector(self):
+      """
+      Gets the variance components of this TGN instance.
+      """
+      return self.bound
+  #End getBoundVector
+
+  def getCenterVector(self):
+      """
+      Gets the center of the neighborhood
+      """
+      return self.center
+  #End getCenterVector
+
+  def getCentroidErrorViaIndex(self,index=0):
+      """
+      Given an index select the that index from the Center vector
+      and the bound Vector. This will return a tuple (center,bound)
+      """
+      centerVec=self.getCenterVector()
+      boundVec=self.getBoundVector()
+      vectorLength=centerVec.__len__()
+      if index >= vectorLength:
+          raise autotrackError("Invalid index requested exceeds\
+    elements available. Elements: %i Index Sought: %i"%(vectorLength,index))
+      center=centerVec[index]
+      bound=boundVec[index]
+      return (center,bound)
+  #End getCentroidErrorViaIndex
+
+  def isSame(self,TGN):
+      """
+      Checks to see if self instance is IDENTICAL to 
+      TGN instance given as argument!
+      """
+      samePoint=bool(False)
+      samePoint=self.checkOverlap(TGN,0)
+      if samePoint and self.idNum==TGN.idNum and self.density==TGN.density:
+          return bool(True)
+      return bool(False)
+
+  def checkOverlap(self,TGN,boundSize=0.5):
+      """
+      Check to see if SELF neighborhood overlaps with other input
+      TGN class.  We define them as over lapping if they are
+      withing boundSize stddevs of the center of SELF compared
+      to the center of argument TGN.
+      """
+      stepVector=boundSize*numpy.array(self.getBoundVector()).__abs__()
+      diffVector=numpy.array(
+          self.getCenterVector()
+          -TGN.getCenterVector()).__abs__()
+      if numpy.array(diffVector<=stepVector).all():
+          return bool(True)
+      else:
+          return bool(False)
+      #End checkOverlap
+
+  def getSeparation(self,TGN):
+      """
+      Gets the resultant seperation vectors and normalizes this 
+      value by the boundVector, then use this to compute a 
+      normalized magnitude of the vector.
+      """ 
+      diffVector=numpy.array(
+          self.getCenterVector()
+          -TGN.getCenterVector()).__abs__()
+      bv=self.getBoundVector()
+      sepVector=diffVector.__div__(bv)
+      mag=numpy.sqrt(numpy.inner(sepVector,sepVector))
+      return mag
+  #End getSeperation
+
+  def nearestTGNid(self,TGNList,boundSize=0.5):
+      """
+      wrapper
+      """
+      myN=self.nearestTGN(TGNList,boundSize)
+      myID=myN.getID()
+      return myID
+
+  def nearestTGN(self,TGNList,boundSize=0.5):
+      """
+      Takes a list of TGNs and compares it to self
+      to determine which is the closest one, this ideally
+      is the same group and we can associate the group IDs.
+      """
+      if type(list())!=type(TGNList):
+          raise autotrackError("Type of input to method nearestTGNid is wrong!")
+      distanceKey=list()
+      for index in range(0,TGNList.__len__()):
+          #Ignore entries in the list that all NULL
+          if not TGNList[index].isNULL():
+              if self.checkOverlap(TGNList[index],boundSize):
+                  dist=self.getSeparation(TGNList[index])
+                  idVal=TGNList[index].getID()
+                  distanceKey.append([dist,idVal])
+      distanceKey.sort()
+      try:
+          findID=int(distanceKey[0][1])
+      except IndexError:
+          findID=-1
+      if findID > -1:
+          for nhd in TGNList:
+              if nhd.getID() == findID:
+                  foundTGN=nhd
+      else:
+          foundTGN=TGN()
+      return foundTGN
     #End nearestTGN
 #End class TGN
         
@@ -644,11 +685,11 @@ class tgnThread:
     3) The list of knots (threads with overlaping TGNs)
     """
     def __init__(self):
-        """
-        HI
-        """
-        #End __init__()
-
+      """
+      HI
+      """
+    #End __init__()
+      
 
 class autotrackSQL:
     """
