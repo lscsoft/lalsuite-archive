@@ -97,7 +97,8 @@ class FollowupTrigger:
     # Check all the required options
     option_list = ['verbose','followup_exttrig','output_path',\
                    'followup_time_window','prefix',\
-                   'suffix','figure_resolution','user_tag']
+                   'suffix','figure_resolution','user_tag',\
+                   'followup_tag','followup_sned']
     for option in option_list:
       if not hasattr(opts, option):
         raise "Error: The following parameter is required in the "\
