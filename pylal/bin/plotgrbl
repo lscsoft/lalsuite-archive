@@ -35,6 +35,8 @@ __title__ = "GRB likelihood diagnostics"
 
 import cPickle as pickle
 import optparse
+import os.path as op
+import shutil
 import sys
 
 import numpy
@@ -268,6 +270,7 @@ if opts.verbose:
     print "Computation complete.  Writing summary page and plots..."
 
 relic_onsource_xml = opts.relic_onsource.replace(".pickle", ".xml")
+shutil.copy(relic_onsource_xml, op.join(opts.output_path, relic_onsource_xml))
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
 
