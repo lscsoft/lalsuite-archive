@@ -447,8 +447,6 @@ class PopStatement(object):
     def create_cdf_plot(self):
 
         # create the cumulative data set
-       
-        
         self.off_list.sort()
         on_data = np.asarray(self.on_list)
         y_on = []
@@ -467,18 +465,25 @@ class PopStatement(object):
         y_off = np.asarray(y_off)                    
         inf_ind = np.isinf(x_onoff)
         x_onoff[inf_ind] = 0.0
-            
+
+        # errors on the background counting?
+        #y_err = np.asarray([np.sqrt(n) for n in y_off])
+        
         # scale the values correspondingly
         scale = y_on.max()/y_off.max()
-        y_off_scale = y_off*scale 
-          
+        y_off_scale = y_off*scale
+        #y_err_scale = y_err*scale
+
         # create the plot
         plot = plotutils.SimplePlot(r"Likelihood", r"Cumulative sum",\
                                     r"Cumulative distribution")
         plot.add_content(x_onoff, y_off_scale, color = 'r', \
                          linewidth = 2, label = 'off-source')
         plot.add_content(x_onoff, y_on, color = 'b',\
-                         linewidth = 3, label = 'on-source')   
+                         linewidth = 3, label = 'on-source')
+        ## for x, y, err in zip(x_onoff, y_off_scale, y_err_scale):
+##             plot.ax.plot([x,x],[y-err, y+err], 'g')
+            
         plot.finalize()
         
         # make the plot nice
