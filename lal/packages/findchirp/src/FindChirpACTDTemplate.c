@@ -84,7 +84,9 @@ LALFindChirpACTDTemplate(
    * check that the arguments are reasonable
    *
    */
-  
+ 
+  ASSERT( NACTDVECS >= 2, status,
+      FINDCHIRPACTDH_EACTDV, FINDCHIRPACTDH_MSGEACTDV ); 
 
   /* check that the output structures exist */
   ASSERT( fcTmplt, status, 
@@ -164,7 +166,7 @@ LALFindChirpACTDTemplate(
   ppnParams.d = 1.0;
   ppnParams.fStartIn = params->fLow;
   ppnParams.fStopIn = - 1.0 /
-                    (6.0 * sqrt(6.0) * LAL_PI * ppnParams.mTot * LAL_MTSUN_SI);
+                    (6.0 * sqrt(6.0) * LAL_PI * ppnParams.mTot_real8 * LAL_MTSUN_SI);
 
    /* PPN parameter. */
    ppnParams.ppn = NULL;
@@ -177,9 +179,12 @@ LALFindChirpACTDTemplate(
 
 
   /* ACTD specific */
-  ppnParams.inc = LAL_PI_4; 
+  ppnParams.inc = LAL_PI_4;
+  /* 
   ppnParams.ampOrder = ( INT4 )( tmplt->ampOrder );
   ppnParams.ampOrder = 1;
+  */
+  ppnParams.ampOrder = ( UINT4 )( NACTDVECS - 2 );
 
   /* XXX Uncomment below for extra testing XXX */  
   /*
