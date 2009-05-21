@@ -204,12 +204,12 @@ def end_time_in_ns( end_time, end_time_ns ):
 #       Generic Initilization
 #
 
+opts, args = parse_command_line()
+
 # get input database filename
 filename = opts.input
 if not os.path.isfile( filename ):
     raise ValueError, "The input file, %s, cannot be found." % filename
-
-opts, args = parse_command_line()
 
 # Setup working databases and connections
 if opts.verbose: 
