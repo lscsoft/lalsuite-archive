@@ -1335,6 +1335,7 @@ XLALFindChirpBankSimInjectSignal (
       {
         LALSnprintf( bankInjection->waveform, LIGOMETA_WAVEFORM_MAX,
             "GeneratePPNtwoPN" );
+      }
       else if ( simParams->approx == AmpCorPPN )
       {
         LALSnprintf( bankInjection->waveform, LIGOMETA_WAVEFORM_MAX,
