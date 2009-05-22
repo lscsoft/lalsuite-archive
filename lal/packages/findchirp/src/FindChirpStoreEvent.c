@@ -184,7 +184,6 @@ LALFindChirpStoreEvent (
   thisEvent->sigmasq = norm * input->segment->segNorm->data[kmax] * 
     input->segment->segNorm->data[kmax] * input->fcTmplt->tmpltNorm;
 
-  printf(" In store event! snr = %e, norm = %e\n", thisEvent->snr, norm );
   thisEvent->snr *= norm;
   thisEvent->snr = sqrt( thisEvent->snr );
 

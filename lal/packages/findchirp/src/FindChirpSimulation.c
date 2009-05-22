@@ -327,6 +327,13 @@ LALFindChirpInjectSignals (
       waveformStartTime += (INT8) ( 1000000000.0 * 
           ((REAL8) (chan->data->length - ppnParams.length) / 2.0) * chan->deltaT
           );
+
+      /* This is needed to get bankSim to work in NRInject */
+      memcpy( &(thisEvent->geocent_end_time),  &( chan->epoch ), sizeof(LIGOTimeGPS) );
+      XLALGPSAdd( &(thisEvent->geocent_end_time),
+          ((REAL8) (chan->data->length + ppnParams.length) / 2.0) * chan->deltaT );
+
+
     }
 
     LALSnprintf( warnMsg, sizeof(warnMsg)/sizeof(*warnMsg), 
@@ -1267,6 +1274,7 @@ XLALFindChirpBankSimInjectSignal (
     {
       /* use injParams so copy the parameters from the input table */
       memcpy( bankInjection, injParams, sizeof(SimInspiralTable) );
+      bankInjection->geocent_end_time.gpsSeconds = 0;
       bankInjection->next = NULL;
     }
     else
@@ -1327,6 +1335,11 @@ XLALFindChirpBankSimInjectSignal (
       {
         LALSnprintf( bankInjection->waveform, LIGOMETA_WAVEFORM_MAX,
             "GeneratePPNtwoPN" );
+      }
+      else if ( simParams->approx == AmpCorPPN )
+      {
+        LALSnprintf( bankInjection->waveform, LIGOMETA_WAVEFORM_MAX,
+            "AmpCorPPNtwoPN" );
       }
       else
       {
@@ -1398,6 +1411,7 @@ XLALFindChirpBankSimSignalNorm(
     case GeneratePPN:
     case BCVSpin:
     case FindChirpPTF:
+    case AmpCorPPN:
       /* integrated up to Nyquist*/
       for ( k = cut; k < fcDataParams->wtildeVec->length; ++k )
       {

@@ -222,7 +222,6 @@ LALFindChirpSPData (
  
     ASSERT( params->wtildeVec->length == fcSeg->data->data->length, status,
         FINDCHIRPSPH_EMISM, FINDCHIRPSPH_MSGEMISM );
-  for ( i = 0; i < dataSegVec->length; ++i )
 
     /* store the waveform approximant in the data segment */
     fcSeg->approximant = params->approximant;
@@ -366,7 +365,6 @@ LALFindChirpSPData (
       fftVec->data[k].re = 0.0;
       fftVec->data[k].im = 0.0;
     }
-
 
     memset( tmpltPower, 0, params->tmpltPowerVec->length * sizeof(REAL4) );
     memset( fcSeg->segNorm->data, 0, fcSeg->segNorm->length * sizeof(REAL4) );

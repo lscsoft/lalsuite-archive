@@ -424,12 +424,14 @@ LALGenerateInspiralPopulatePPN(
   ATTATCHSTATUSPTR( status );
 
   /* input fields */
-  ppnParams->mTot     = thisEvent->mass1 + thisEvent->mass2;
-  ppnParams->eta      = thisEvent->eta;
-  ppnParams->d        = thisEvent->distance* 1.0e6 * LAL_PC_SI; /*in Mpc*/
-  ppnParams->inc      = thisEvent->inclination;
-  ppnParams->phi      = thisEvent->coa_phase;
-  ppnParams->ampOrder = thisEvent->amp_order;
+  ppnParams->mTot       = thisEvent->mass1 + thisEvent->mass2;
+  ppnParams->eta        = thisEvent->eta;
+  ppnParams->mTot_real8 = thisEvent->mass1 + thisEvent->mass2;
+  ppnParams->eta_real8  = thisEvent->eta;
+  ppnParams->d          = thisEvent->distance* 1.0e6 * LAL_PC_SI; /*in Mpc*/
+  ppnParams->inc        = thisEvent->inclination;
+  ppnParams->phi        = thisEvent->coa_phase;
+  ppnParams->ampOrder   = thisEvent->amp_order;
 
   /* frequency cutoffs */
   if ( thisEvent->f_lower > 0 )

@@ -50,8 +50,11 @@ NRCSID (FINDCHIRPACTDH, "$Id$");
 </lalLaTeX>
 #endif
 /* <lalErrTable> */
-#define FINDCHIRPACTDH_EQMAS 1
+#define FINDCHIRPACTDH_EQMAS  1
+#define FINDCHIRPACTDH_EACTDV 2
+
 #define FINDCHIRPACTDH_MSGEQMAS "AmpCorPPN template equal mass"
+#define FINDCHIRPACTDH_MSGEACTDV "Num ACTDVecs too few"
 /* </lalErrTable> */
 
 #if 0
