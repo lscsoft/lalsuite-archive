@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 #
 # =============================================================================
@@ -8,27 +8,28 @@
 # =============================================================================
 #
 
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
 
+from pylal import ligolw_sqlutils as sqlutils
+
+from glue.ligolw import dbtables
+from glue.ligolw.utils import process
+from glue.ligolw.utils.ligolw_sqlite import extract
+
+
+PROGRAM_NAME = sys.argv[0].replace('./', '')
 usage = \
 '''
 Clusters coincident trigges in a database and writes result out
 to a new database.
 '''
-
-from optparse import OptionParser
-try:
-  import sqlite3
-except ImportError:
-  # pre 2.5.x
-  from pysqlite2 import dbapi2 as sqlite3
-import sys
-import os
-
-from pylal.pylal import ligolw_sqlutils as sqlutils
-
-from glue.ligolw import dbtables
-from glue.ligolw.utils.ligolw_sqlite import extract
-
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
@@ -43,135 +44,144 @@ __version__ = "$Revision$"
 
 
 def parse_command_line():
-  """
-  Parse the command line, return options and check for consistency among the
-  options.
-  """
-  parser = OptionParser( version = "", usage = usage )
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = "", usage = usage )
 
-  # following are related to file input and output naming
-  parser.add_option( "-i", "--input", action = "store", type = "string",
-        default = None,                  
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
         help = 
-         '''Input database to read. Can only input one at a time.
-         ''' )
-  parser.add_option( "-o", "--output", action = "store", type = "string",
-        default = None,
+            "Input database to read. Can only input one at a time."
+            )
+    parser.add_option( "-o", "--output", action = "store", type = "string", default = None,
         help = 
-        '''Name of output database to save to.
-        ''' )
-  parser.add_option( "-x", "--write-xml-file", action = "store", type = "string",
-        default = None,
+            "Name of output database to save to."
+            )
+    parser.add_option( "-x", "--write-xml-file", action = "store", type = "string", default = None,
         help =
-        '''Writes output to specified xml file.
-        ''' )
-  parser.add_option( "-t", "--temp-space", action = "store", type = "string",
-        default = None, metavar = "path",
+            "Writes output to specified xml file. Warning: for larger databases, this can take awhile."
+            )
+    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
         help = 
-         '''Requried. Location of local disk on which to do work.
-            This is used to enhance performance in a networked 
-            environment, and to protect against accidently       
-            overwriting the input database.
-         ''' )
-  parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+            "Requried. Location of local disk on which to do work. " +
+            "This is used to enhance performance in a networked " +
+            "environment, and to protect against accidently " +      
+            "overwriting the input database."
+            )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help = 
-         '''Print progress information
-         ''' )
-  
-  # following are generic inspiral_sql options
-  parser.add_option( "", "--param-name", metavar = "PARAMETER",
-        action = "store", default = None,
+            "Print progress information"
+           )
+    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+        help =
+            "Print SQLite queries used and the approximate time taken to run each one." )
+    # following are generic inspiral_sql options
+    parser.add_option( "", "--param-name", action = "store", default = None,
+        metavar = "PARAMETER", 
         help = 
-         '''Can be any parameter in the coinc_inspiral table. 
-            Specifying this and param-ranges will only cluster 
-            triggers that fall  within the parameter range. Not 
-            specifying will cause all triggers in the database to
-            be clustered together.
-         ''' )
-  parser.add_option( "", "--param-ranges", action = "store", default = None,
+            "Can be any parameter in the coinc_inspiral table. " + 
+            "Specifying this and param-ranges will only cluster " +
+            "triggers that fall  within the parameter range. Not " + 
+            "specifying will cause all triggers in the database to " +
+            "be clustered together."
+             )
+    parser.add_option( "", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
         help = 
-         '''Requires --param-name. Specify the parameter ranges 
-            to cluster triggers in. A '(' or ')' implies an open
-            boundary, a '[' or ']' a closed boundary. To specify
-            multiple ranges, separate each range by a ';'. Any 
-            coincidences that fall outside of the specified 
-            ranges will be deleted.
-         ''' )
-  parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
-        metavar = " [COINC_TYPE1 + COINC_TYPE2 in INSTRUMENTS_ON1];[ALL in INSTRUMENTS_ON2]; etc.",
+            "Requires --param-name. Specify the parameter ranges " +
+            "to cluster triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'. Any " +
+            "coincidences that fall outside of the union of all " +
+            "the specified ranges will be deleted." 
+            )
+    parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
+            "[ALL in INSTRUMENTS_ON2]; etc.",
         help = 
-         '''Exclude coincident types in specified detector times, 
-            e.g., '[H2,L1 in H1,H2,L1]'. Some rules:             
-            * Coinc-types and detector time must be separated by 
-            an ' in '. When specifying a coinc_type or detector    
-            time, detectors and/or ifos must be separated by 
-            commas, e.g. 'H1,L1' not 'H1L1'.                     
-            * To specify multiple coinc-types in one type of time,
-            separate each coinc-type by a '+', e.g., 
-            '[H1,H2 + H2,L1 in H1,H2,L1]'.                        
-            * To exclude all coincs in a specified detector time 
-            or specific coinc-type in all times, use 'ALL'. E.g.,
-            to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' 
-            or to exclude all H2,L1 time use '[ALL in H2,L1]'.   
-            * To specify multiple exclusions, separate each 
-            bracket by a ';'.                              
-            * Order of the instruments nor case of the letters 
-            matter. So if your pinky is broken and you're      
-            dyslexic you can type '[h2,h1 in all]' without a 
-            problem.
-         ''' )
-  parser.add_option( "", "--vacuum", action = "store_true", default = False,
+            "Exclude coincident types in specified detector times, " + 
+            "e.g., '[H2,L1 in H1,H2,L1]'. Some rules: " +             
+                "* Coinc-types and detector time must be separated by " + 
+                "an ' in '. When specifying a coinc_type or detector " +
+                "time, detectors and/or ifos must be separated by " +
+                "commas, e.g. 'H1,L1' not 'H1L1'. " + 
+                "* To specify multiple coinc-types in one type of time, " +
+                "separate each coinc-type by a '+', e.g., " +
+                "'[H1,H2 + H2,L1 in H1,H2,L1]'. " +
+                "* To exclude all coincs in a specified detector time " +
+                "or specific coinc-type in all times, use 'ALL'. E.g., " +
+                "to exclude all H1,H2 triggers, use '[H1,H2 in ALL]' " +
+                "or to exclude all H2,L1 time use '[ALL in H2,L1]'. " +
+                "* To specify multiple exclusions, separate each " +
+                "bracket by a ';'. " +
+                "* Order of the instruments nor case of the letters " +
+                "matter. So if your pinky is broken and you're " +
+                "dyslexic you can type '[h2,h1 in all]' without a " +
+                "problem. " 
+            )
+    parser.add_option( "", "--include-only-coincs", action = "store", type = "string", default = None,
+        metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
+            "[ALL in INSTRUMENTS_ON2]; etc.",
+        help =
+            "Opposite of --exclude-coincs: only the specified coincs " +
+            "will be clusterd (all other coincs will be deleted " +
+            "from the output database). To avoid confusing overlaps, " +
+            "cannot specify both --exclude-coincs and --include-only-coincs." 
+            )
+    parser.add_option( "", "--vacuum", action = "store_true", default = False,
         help = 
-         '''If turned on, will vacuum the database before saving.
-            This cleans any fragmentation and removes empty space
-            left behind by all the DELETEs, making the output 
-            database smaller and more efficient.                  
-            WARNING: Since this requires rebuilding the entire
-            database, this can take awhile for larger files.
-         ''' )
-
-  # following are options specific to this program
-  parser.add_option( "", "--cluster-window", action = "store", 
-        type = "float", default = 0,
-        help = '''Required. Time window, in ms, to cluster triggers in.''')
-  parser.add_option( "", "--ranking-stat", action = "store",
-        type = "string", default = None,
+            "If turned on, will vacuum the database before saving. " +
+            "This cleans any fragmentation and removes empty space " +
+            "left behind by all the DELETEs, making the output " +
+            "database smaller and more efficient. " +
+            "WARNING: Since this requires rebuilding the entire " +
+            "database, this can take awhile for larger files." 
+            )
+    # following are options specific to this program
+    parser.add_option( "", "--cluster-window", action = "store", type = "float", default = 0,
+        help =
+            "Required. Time window, in ms, to cluster triggers in."
+            )
+    parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
         help = 
-         '''Requried. The statistic to cluster on. Can be any 
-            statistic in the coinc_inspiral table.
-         ''' )
-  parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
-        metavar = "ASC or DESC",
+            "Requried. The statistic to cluster on. Can be any " +
+            "statistic in the coinc_inspiral table."
+            )
+    parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
+        metavar = "MAX or MIN",
         help = 
-        '''Requried. Options are ASC or DESC. 
-           This specifies whether to rank triggers by ascending (ASC) or 
-           descending (DESC) stat value. Use ASC if clustering on stats in
-           which smaller is better (e.g., chisq, far). Otherwise, use DESC.
-        ''' )
+            "Requried. Options are MAX or MIN. " + 
+            "This specifies whether to cluster triggers by maximum (MAX) or " +
+            "minimum (MIN) stat value. Use MIN if clustering on stats in " +
+            "which smaller is better (e.g., chisq, far). Otherwise, use MAX. "
+            )
 
+    (options, args) = parser.parse_args()
 
-  (options, args) = parser.parse_args()
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+    if not options.output:
+        raise ValueError, "No output specified."
+    if not options.temp_space:
+        raise ValueError, "--temp-space is a required argument."
+    if not options.cluster_window:
+        raise ValueError, "No cluster window specified."
+    if not options.ranking_stat:
+        raise ValueError, "No ranking stat specified."
+    if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
+        raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
+    if options.param_name and not options.param_ranges:
+        raise ValueError, "param-name requires param-ranges"
+    if options.param_ranges and not options.param_name:
+        raise ValueError, "param-ranges requires param-name"
+    if options.exclude_coincs and options.include_only_coincs:
+        raise ValueError, "Cannot specify both --exclude-coincs and --include-only-coincs."
 
-  # check for required options and for self-consistency
-  if not options.input:
-    raise ValueError, "No input specified."
-  if not options.output:
-    raise ValueError, "No output specified."
-  if not options.temp_space:
-    raise ValueError, "--temp-space is a required argument."
-  if not options.cluster_window:
-    raise ValueError, "No cluster window specified."
-  if not options.ranking_stat:
-    raise ValueError, "No ranking stat specified."
-  if not (options.rank_by.upper() == 'ASC' or options.rank_by.upper() == 'DESC'):
-    raise ValueError, "--rank-by must be specified and set to either ASC or DESC."
-  if options.param_name and not options.param_ranges:
-    raise ValueError, "param-name requires param-ranges"
-  if options.param_ranges and not options.param_name:
-    raise ValueError, "param-ranges requires param-name"
-
-  return options, sys.argv[1:]
+    return options, sys.argv[1:]
 
 
 # =============================================================================
@@ -179,111 +189,9 @@ def parse_command_line():
 #                       Function Definitions
 #
 # =============================================================================
-
-  
-
-def cluster_coincs( connection, experiment_summ_id, coinc_inspiral_ifos,
-        window, ranking_stat, rank_by, param_filter = None, verbose = False ):
-  """
-  Clusters coincs of a specific type within a given window size. Clustering
-  can be done on any coincident stat.
-  @connection: DBTables connection to a database
-  @experiment_summ_id: experiment_summ_id of instruments that want to cluster
-  @coinc_inspiral_ifos: ifos that took part in the coincidence (in the
-   'ifos' column of the coinc_inspiral table) 
-  @window: size of window, in ns, to use
-  @ranking_stat: any coincident statistic in the coinc_inspiral table
-  @rank_by: must be either 'ASC' or 'DESC'. If ASC, will cluster on coincs 
-   with the smallest ranking_stat value (use for stats in which smaller 
-   is better, e.g., if clustering on chisq). If DESC, will cluster on coincs
-   with the largest ranking_stat value.
-  @param_filter: Use if only want to cluster triggers within a certain range. 
-   Must be a string having the appropiate syntax to be put in a SQLite WHERE clause; 
-   e.g., 'coinc_inspiral.mchirp >= 2.0 AND mchirp < 8.0'. If no filter specified, 
-   all triggers will be clustered together.
-  """
-
-  #
-  #  Cluster Loop Intialization
-  # 
-
-  # check ranking
-  if not (rank_by == 'ASC' or rank_by == 'DESC'):
-    raise ValueError, "rank_by must be either 'ASC' or 'DESC'"
-  
-  # contruct filter to apply clustering to
-  if param_filter:
-    param_filter = ' '.join([ 'AND', param_filter ])
-  else:
-    param_filter = ''
-
-  in_this_filter = ' '.join([  'experiment_map.experiment_summ_id ==', experiment_summ_id,
-     'AND coinc_inspiral.ifos ==', coinc_inspiral_ifos, param_filter ])
-
-  # Set end_time string: Since the end time of the coincidence (in ns) is the end_time*10e9 +
-  # end_time_ns, saving having to write this over and over again by just
-  # defining following end_time string
-  end_time = '( coinc_inspiral.end_time * 1e9 + coinc_inspiral.end_time_ns )'
-
-  # join experiment tables to coinc_inspiral table via join_conditions
-  join_conditions = sqlutils.join_experiment_tables_to_coinc_inspiral()
-
-  # Get time of first trigger
-  sqlquery = ' '.join([
-      'SELECT MIN', end_time,
-      'FROM coinc_inspiral', join_conditions,
-      'WHERE', in_this_filter ])
-  time = connection.cursor().execute( sqlquery ).fetchone()[0]
-  prev_time = time
-  
-  if verbose:
-    print >> sys.stderr, "Clustering triggers where %s" % in_this_filter
-
-  #
-  #       Cluster loop
-  #
-  while time is not None:
-    # find max snr within prev_time and time + window
-    sqlquery = ' '.join([ 
-        'SELECT', end_time, ',', ranking_stat,
-        'FROM coinc_inspiral', join_conditions,
-        'WHERE', in_this_filter,
-        'AND', end_time, '>=', `time`, 
-        'AND', end_time, '<', '(', `time`, '+', `window`, ')',
-        'ORDER BY', ranking_stat, rank_by, 'LIMIT 1' ])
-    (this_time, this_stat) = connection.cursor().execute( sqlquery ).fetchone()
-    # if time = this_time, there is nothing louder within the window;
-    # delete all other triggers between prev_time (exclusive) and time +
-    # window (inclusive) 
-    if time == this_time:
-      time = this_time + window
-      sqlquery = ' '.join([
-          'DELETE',
-          'FROM coinc_inspiral',
-          'WHERE coinc_inspiral.coinc_event_id IN (',
-            'SELECT coinc_inspiral.coinc_event_id',
-            'FROM coinc_inspiral', join_conditions,
-            'WHERE', in_this_filter,
-              'AND', ranking_stat, '<', `this_stat`,
-              'AND', end_time, '>', `prev_time`,
-              'AND', end_time, '<=', `time`, ')' ])
-      connection.cursor().execute( sqlquery )
-      connection.commit()
-      prev_time = this_time
-      # increment time to next trigger's end_time (if there are no triggers
-      # left, as happens at the end of the database, will return time = None)
-      sqlquery = ' '.join([
-          'SELECT MIN', end_time,
-          'FROM coinc_inspiral', join_conditions,
-          'WHERE', in_this_filter,
-             'AND', end_time, '>', `prev_time` ])
-      time = connection.cursor().execute( sqlquery ).fetchone()[0]
-    else: # increment time to loudest trigger in window
-      time = this_time
-
-  if verbose:
-    print >> sys.stderr, "done."
-
+    
+def end_time_in_ns( end_time, end_time_ns ):
+    return end_time*1e9 + end_time_ns
 
 
 # =============================================================================
@@ -296,51 +204,64 @@ def cluster_coincs( connection, experiment_summ_id, coinc_inspiral_ifos,
 #       Generic Initilization
 #
 
-#TODO: Add entries to process and process_params tables for this program.
-
 opts, args = parse_command_line()
 
 # get input database filename
 filename = opts.input
 if not os.path.isfile( filename ):
-  raise ValueError, "The input file, %s, cannot be found." % filename
-
-# Get param and param-ranges if specified
-if opts.param_name:
-  param_filters = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name, 
-    opts.param_ranges, verbose = opts.verbose ).get_param_filters()
-else:
-  param_filters = ['']
-
-# Get exclude_coincs list if specified
-if opts.exclude_coincs:
-  exclude_coinc_filters = sqlutils.parse_exclude_coincs( opts.exclude_coincs, verbose =
-  opts.verbose )
-else:
-  exclude_coinc_filters = []
+    raise ValueError, "The input file, %s, cannot be found." % filename
 
 # Setup working databases and connections
-if opts.verbose: print >> sys.stdout, "Setting up temp. database..."
+if opts.verbose: 
+    print >> sys.stderr, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
-        filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
-# Set JOIN conditions
-join_conditions = sqlutils.join_experiment_tables_to_coinc_inspiral() 
+# Add program to process and process params table
+
+# FIXME: remove the following two lines once boolean type
+# has been properly handled
+from glue.ligolw import types as ligolwtypes
+ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
+
+# create an xmldoc representation of the database for writing the
+# process and process-params
+xmldoc = dbtables.get_xml(connection)
+# Add entries to process and process_params tables for this program
+proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_cluster_coincs', opts.__dict__)
+
+# Get param and param-ranges if specified
+if opts.param_name:
+    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name, 
+      opts.param_ranges, verbose = opts.verbose )
+    param_name = param_parser.get_param_name()
+    param_filters = param_parser.get_param_filters()
+else:
+    param_filters = None
+
+# Get exclude_coincs list if specified
+if opts.exclude_coincs:
+    exclude_coinc_filters = sqlutils.parse_coinc_options( opts.exclude_coincs, 
+        verbose = opts.verbose ).get_coinc_filters()
+else:
+    exclude_coinc_filters = None
+
+# Get include_coincs list if specified
+if opts.include_only_coincs:
+    include_coinc_filters = sqlutils.parse_coinc_options( opts.include_only_coincs, 
+        verbose = opts.verbose ).get_coinc_filters()
+else:
+    include_coinc_filters = None
+
 
 # Clear coinc_inspiral table of triggers outside of interested ranges
-# This must be done by first applying exclude-coincs, then by removing
-# triggers outside of the param-ranges
-sqlutils.del_rows_from_table( connection, 'coinc_inspiral', 'coinc_event_id', join_conditions, 
-  del_filters = exclude_coinc_filters, verbose = opts.verbose )
-sqlutils.del_rows_from_table( connection, 'coinc_inspiral', 'coinc_event_id', join_conditions, 
-  save_filters = param_filters, verbose = opts.verbose )
-
-
-# Get experiment_summ_ids that have coincs in them 
-sqlquery = 'SELECT DISTINCT experiment_summ_id FROM experiment_map'
-experiment_summ_ids = connection.cursor().execute( sqlquery ).fetchall()
+if param_filters or exclude_coinc_filters or include_coinc_filters:
+    sqlutils.apply_inclusion_rules_to_coinc_inspiral( connection, 
+        exclude_coincs = exclude_coinc_filters,
+        include_coincs = include_coinc_filters, 
+        param_filters = param_filters, verbose = opts.verbose )
 
 #
 #         Program-specific Initialization
@@ -349,60 +270,100 @@ experiment_summ_ids = connection.cursor().execute( sqlquery ).fetchall()
 # Get cluster stat
 ranking_stat = '.'.join([ 'coinc_inspiral', opts.ranking_stat ])
 
+# determine how to rank
+if opts.rank_by.strip().upper == "MAX":
+    rank_by = ">"
+elif opts.rank_by.strip().upper == "MIN":
+    rank_by = "<"
+
 # Get cluster window; convert from ms to ns
 window = opts.cluster_window * 1e6
 
-#
-#       Loop over experiments slides 
-#
+# sqlitize param_parser.group_by_param_range()
+if opts.param_name:
+    connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
+    param_grouping = ''.join([ 'group_by_param(', param_name, ')' ])
+    param_col =  param_name.split('.')[1] + ', '
+else:
+    param_grouping = '0'
+    param_col = ''
 
-for esid in experiment_summ_ids:
-  esid = ''.join([ '"', esid[0], '"' ])
-
-  # Get coinc ifo types
-  sqlquery = ' '.join([ 
-        'SELECT DISTINCT coinc_inspiral.ifos',
-        'FROM coinc_inspiral', join_conditions,
-        'WHERE experiment_summary.experiment_summ_id ==', esid ])
-  coinc_types = connection.cursor().execute( sqlquery ).fetchall()
-  # if no coinc_types, pass this instrument_set
-  if not coinc_types:
-    continue
-  coinc_types = [ coinc_type[0] for coinc_type in coinc_types ]
-
-  #loop over all coinc_types in this instrument set
-  for coinc_ifos in coinc_types:
-    coinc_ifos = ''.join([ '"', coinc_ifos, '"' ])
-    
-    # loop over all the parameter ranges that are specified (if none,
-    # param_filters loop will only run once)
-    for param_filter in param_filters:
-
-      #
-      #        Cluster
-      #
-
-      cluster_coincs( connection, esid, coinc_ifos, 
-        window, ranking_stat, opts.rank_by, param_filter = param_filter, verbose = opts.verbose )
+# sqlitize end_time calc
+connection.create_function("end_time_in_ns", 2, end_time_in_ns)
 
 #
-#       Clean up
-#
+#         Cluster
+# 
+
+if opts.verbose:
+    print >> sys.stderr, "Clustering triggers..."
+
+# Create a temporary scratch table that only includes the info we need;
+# we'll do all the clustering in this table, then delete everything 
+# in the coinc_inspiral table that does not have an coinc_event_id that's in it
+sqlscript = ''.join(["""
+    CREATE TEMP TABLE clustered AS
+        SELECT 
+            experiment_map.experiment_summ_id AS esid,
+            experiment_map.coinc_event_id AS ceid,
+            coinc_inspiral.ifos AS ifos,
+            end_time_in_ns( coinc_inspiral.end_time, coinc_inspiral.end_time_ns ) AS end_time,
+            """,
+            param_grouping, ' AS param_grouping, ',
+            ranking_stat, ' AS ranking_stat', """
+        FROM
+            coinc_inspiral
+        JOIN 
+            experiment_map 
+        ON
+            experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id;
+    CREATE INDEX cl_sipt_index ON clustered (esid, ifos, param_grouping, end_time);
+    DELETE 
+    FROM 
+        coinc_inspiral
+    WHERE coinc_event_id IN (
+        SELECT 
+            ceid
+        FROM clustered AS deltrigs
+        WHERE EXISTS (
+            SELECT *
+            FROM
+                clustered AS reftrigs
+            WHERE
+                reftrigs.esid == deltrigs.esid
+                AND reftrigs.ifos == deltrigs.ifos
+                AND reftrigs.param_grouping == deltrigs.param_grouping
+                AND reftrigs.ranking_stat """, rank_by, """ deltrigs.ranking_stat
+                AND reftrigs.end_time > ( deltrigs.end_time - """, `window`,""" )
+                AND reftrigs.end_time <= ( deltrigs.end_time + """, `window`,""" )
+            LIMIT 1)
+        );"""])
+
+if opts.debug:
+    import time
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().executescript( sqlscript )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
 
 # Remove triggers from other tables that no longer have coincidences in the
 # coinc_inspiral table
 sqlutils.clean_inspiral_tables( connection, verbose = opts.verbose )
 
 # Update number of events
-# TODO
+sqlutils.update_experiment_summ_nevents( connection, verbose = opts.verbose )
 
 # Vacuum database if desired
 if opts.vacuum:
-  if opts.verbose:
-    print >> sys.stderr, "Vacuuming database..."
-  connection.cursor().execute( 'VACUUM' )
-  if opts.verbose:
-    print >> sys.stderr, "done."
+    if opts.verbose:
+        print >> sys.stderr, "Vacuuming database..."
+    connection.cursor().execute( 'VACUUM' )
+    if opts.verbose:
+        print >> sys.stderr, "done."
 
 #
 #       Save and Exit
@@ -410,9 +371,11 @@ if opts.vacuum:
 
 # TODO: set outfile name rather than user inputed name
 
+connection.commit()
+
 # write xml file if desired
 if opts.write_xml_file:
-  extract(connection, opts.write_xml_file, verbose = opts.verbose)
+    extract(connection, opts.write_xml_file, verbose = opts.verbose)
 
 connection.close()
 
@@ -420,6 +383,8 @@ connection.close()
 dbtables.put_connection_filename(opts.output, working_filename, verbose = opts.verbose)
 
 if opts.verbose: 
-  print >> sys.stdout, "Finished!"
+    print >> sys.stdout, "Finished!"
 
+# set process end time
+process.set_process_end_time(proc_id)
 sys.exit(0)

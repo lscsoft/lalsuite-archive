@@ -171,6 +171,7 @@ FromPyType = {
 	buffer: u"blob",
 	str: u"lstring",
 	unicode: u"lstring",
+	bool: u"int_4s",
 	int: u"int_4s",
 	long: u"int_8s",
 	float: u"real_8"

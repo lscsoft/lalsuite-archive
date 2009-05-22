@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
@@ -353,7 +353,10 @@ else:
     page.add_plot(plot.fig, "condense_pdf-"+opts.analyze)
 
     plot = pop_stat.create_hist_plot(10,[2.5, 10.0])
-    page.add_plot(plot.fig, "condense_hist-"+opts.analyze)    
+    page.add_plot(plot.fig, "condense_hist10-"+opts.analyze)
+
+    plot = pop_stat.create_hist_plot(8,[2.5, 10.0])
+    page.add_plot(plot.fig, "condense_hist8-"+opts.analyze)
 
     # write out the data for later usage
     f = open('wmu_data.pickle', 'w')

@@ -312,7 +312,10 @@ setup(
                 os.path.join("bin", "pylal_plot_inspiral_skymap"),
                 os.path.join("bin", "plotskypoints"),
                 os.path.join("bin", "upper_limit_results"),
-                os.path.join("bin", "pylal_expose")		
+                os.path.join("bin", "pylal_expose"),
+                os.path.join("bin", "ligolw_cbc_printlc"),
+                os.path.join("bin", "ligolw_cbc_cluster_coincs"),
+                os.path.join("bin", "ligolw_cbc_cfar")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
