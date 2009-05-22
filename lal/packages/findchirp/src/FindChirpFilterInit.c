@@ -630,7 +630,7 @@ LALFindChirpFilterInit (
         for( j = 0; j < i; ++j )
         {
           LALCDestroyVector( status->statusPtr, 
-													                 &( outputPtr->qtildeVecACTD[i] ) );
+		&( outputPtr->qtildeVecACTD[i] ) );
           CHECKSTATUSPTR( status );
         }
         LALFree( outputPtr->qtildeVecACTD );
