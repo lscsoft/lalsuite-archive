@@ -164,7 +164,7 @@ LALFindChirpACTDTemplate(
   ppnParams.d = 1.0;
   ppnParams.fStartIn = params->fLow;
   ppnParams.fStopIn = - 1.0 /
-                    (6.0 * sqrt(6.0) * LAL_PI * ppnParams.mTot * LAL_MTSUN_SI);
+              (6.0 * sqrt(6.0) * LAL_PI * ppnParams.mTot_real8 * LAL_MTSUN_SI);
 
    /* PPN parameter. */
    ppnParams.ppn = NULL;
@@ -182,13 +182,11 @@ LALFindChirpACTDTemplate(
   ppnParams.ampOrder = 1;
 
   /* XXX Uncomment below for extra testing XXX */  
-  /*
   fprintf( stderr, "   tmplt->mass1         = %f\n", tmplt->mass1);
   fprintf( stderr, "   tmplt->mass2         = %f\n", tmplt->mass2);
   fprintf( stderr, "   ppnParams.deltaT     = %e\n", ppnParams.deltaT ); 
   fprintf( stderr, "   ppnParams.mTot_real8 = %e\n", ppnParams.mTot_real8 ); 
   fprintf( stderr, "   ppnParams.eta_real8  = %e\n", ppnParams.eta_real8 ); 
-  fprintf( stderr, "   ppnParams.d          = %e\n", ppnParams.d ); 
   fprintf( stderr, "   ppnParams.fStartIn   = %e\n", ppnParams.fStartIn ); 
   fprintf( stderr, "   ppnParams.fStopIn    = %e\n", ppnParams.fStopIn ); 
   fprintf( stderr, "   ppnParams.inc        = %e\n", ppnParams.inc ); 
@@ -198,7 +196,7 @@ LALFindChirpACTDTemplate(
     fprintf( stderr, "   ppnParams.ppn->data[%d] = %e\n", i, 
                                     ppnParams.ppn->data[i] );
   }
-  */  
+    
   /*   XXX Uncomment above for extra testing XXX */ 
 
 

@@ -291,6 +291,11 @@ main (INT4 argc, CHAR **argv )
     /* --- generate the signal waveform --- */
     LAL_CALL(BankEfficiencyGenerateInputData(&status, 
         &signal, &randIn, userParam), &status);
+
+fprintf( stderr, " signal - mass 1 = %e\n", userParam.m1 );
+fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
+
+
     
     /* --- populate the main structure of the overlap ---*/
     overlapin.signal = signal;
@@ -314,6 +319,7 @@ main (INT4 argc, CHAR **argv )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
+        fprintf(stdout,"%e\n", overlapin.signal.data[i] );
       }
 
       /* Groan! Incompatible types to copy the memory, will have to 
@@ -610,6 +616,7 @@ main (INT4 argc, CHAR **argv )
                 
             fflush(stderr);
             }
+            return 0;
             
             if (overlapOutputThisTemplate.rhoMax > simulation.bestSNR)
             {              
@@ -2312,8 +2319,16 @@ void BankEfficiencyGenerateInputData(
         randIn->param.mass1 = 11; /*dummy but valid values overwritten later*/
         randIn->param.mass1 = 11;
 
-        LALRandomInspiralSignal(status->statusPtr, signal, randIn);
-        CHECKSTATUSPTR(status); 
+        if( userParam.template == AmpCorPPN )
+        {
+          LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+          CHECKSTATUSPTR(status); 
+        }
+        else
+        {
+          LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+          CHECKSTATUSPTR(status); 
+        }
         randIn->param.massChoice = temp;
       } 
     
@@ -2353,8 +2368,16 @@ void BankEfficiencyGenerateInputData(
       }
                   
       /*Here, we  randomize the masses*/  
-      LALRandomInspiralSignal(status->statusPtr, signal, randIn);
-      CHECKSTATUSPTR(status);          
+        if( userParam.template == AmpCorPPN )
+        {
+          LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+          CHECKSTATUSPTR(status); 
+        }
+        else
+        {
+          LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+          CHECKSTATUSPTR(status); 
+        }
     }
   }
 
@@ -2366,8 +2389,16 @@ void BankEfficiencyGenerateInputData(
   if (randIn->type == 1)
   {
     randIn->param.massChoice = m1Andm2;
-    LALRandomInspiralSignal(status->statusPtr, signal, randIn);
-    CHECKSTATUSPTR(status);
+    if( userParam.template == AmpCorPPN )
+    {
+      LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+      CHECKSTATUSPTR(status); 
+    }
+    else
+    {
+      LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+      CHECKSTATUSPTR(status); 
+    }
   }    
        
   /* --- print the signal waveform --- */   
