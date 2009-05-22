@@ -8,6 +8,7 @@
 # =============================================================================
 #
 
+
 from optparse import OptionParser
 try:
     import sqlite3
@@ -23,12 +24,10 @@ from glue.ligolw import dbtables
 from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
-
-PROGRAM_NAME = sys.argv[0].replace('./', '')
 usage = \
 '''
-Clusters coincident trigges in a database and writes result out
-to a new database.
+Calculates uncombined and combined false alarm rates (FAR) in units of yr^(-1).
+Writes results out to a new database.
 '''
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
@@ -83,20 +82,22 @@ def parse_command_line():
         metavar = "PARAMETER", 
         help = 
             "Can be any parameter in the coinc_inspiral table. " + 
-            "Specifying this and param-ranges will only cluster " +
-            "triggers that fall  within the parameter range. Not " + 
-            "specifying will cause all triggers in the database to " +
-            "be clustered together."
+            "Specifying this and param-ranges defines the categories " +
+            "which the uncombined_fars are calculated in and are " +
+            "combined over in the combined far calculation. " +
+            "If not specified, triggers will not be binned when calculating " +
+            "the uncombined FAR and so the uncombined FAR will be the same as " +
+            "the combined FAR."
              )
     parser.add_option( "", "--param-ranges", action = "store", default = None,
         metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
         help = 
             "Requires --param-name. Specify the parameter ranges " +
-            "to cluster triggers in. A '(' or ')' implies an open " +
+            "to bin the triggers in. A '(' or ')' implies an open " +
             "boundary, a '[' or ']' a closed boundary. To specify " +
             "multiple ranges, separate each range by a ';'. Any " +
             "coincidences that fall outside of the union of all " +
-            "the specified ranges will be deleted." 
+            "specified ranges will be deleted." 
             )
     parser.add_option( "", "--exclude-coincs", action = "store", type = "string", default = None,
         metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
@@ -126,9 +127,9 @@ def parse_command_line():
         metavar = " [COINC_INSTRUMENTS1 + COINC_INSTRUMENTS2 in INSTRUMENTS_ON1];" +
             "[ALL in INSTRUMENTS_ON2]; etc.",
         help =
-            "Opposite of --exclude-coincs: only the specified coincs " +
-            "will be clusterd (all other coincs will be deleted " +
-            "from the output database). To avoid confusing overlaps, " +
+            "Opposite of --exclude-coincs: fars will be calculated " +
+            "for the specified coinc types only (all other coincs will be " +
+            "deleted from the output database). To avoid confusing overlaps, " +
             "cannot specify both --exclude-coincs and --include-only-coincs." 
             )
     parser.add_option( "", "--vacuum", action = "store_true", default = False,
@@ -141,43 +142,48 @@ def parse_command_line():
             "database, this can take awhile for larger files." 
             )
     # following are options specific to this program
-    parser.add_option( "", "--cluster-window", action = "store", type = "float", default = 0,
-        help =
-            "Required. Time window, in ms, to cluster triggers in."
-            )
     parser.add_option( "", "--ranking-stat", action = "store", type = "string", default = None,
-        help = 
-            "Requried. The statistic to cluster on. Can be any " +
-            "statistic in the coinc_inspiral table."
+        help =
+            "Required. The stat to use to rank triggers for calculating " +
+            "the false alarm rate. Can be any column in the coinc_inspiral table." 
             )
     parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
         metavar = "MAX or MIN",
         help = 
-            "Requried. Options are MAX or MIN. " + 
-            "This specifies whether to cluster triggers by maximum (MAX) or " +
-            "minimum (MIN) stat value. Use MIN if clustering on stats in " +
-            "which smaller is better (e.g., chisq, far). Otherwise, use MAX. "
+            "Requried. Options are MAX or MIN. " +
+            "This specifies whether to rank triggers by ascending (MAX) or " +
+            "descending (MIN) stat value." 
             )
-
+    parser.add_option( "", "--combine-fars", action = "store", type = "string", default = None, 
+        metavar = "across_all, across_param_only",
+        help = 
+            "Required. Tell cfar what categories to combine uncombined fars across. " +
+            "Options are across_all or across_param_only. " +
+            "If across_all, will combine FARs across both coinc-types and parameter grouping. " +
+            "If across_param_only, will only combine FARs across the parameter grouping." 
+            )
+  
     (options, args) = parser.parse_args()
-
+  
     # check for required options and for self-consistency
     if not options.input:
         raise ValueError, "No input specified."
     if not options.output:
         raise ValueError, "No output specified."
     if not options.temp_space:
-        raise ValueError, "--temp-space is a required argument."
-    if not options.cluster_window:
-        raise ValueError, "No cluster window specified."
+        raise ValueError, "--temp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
-    if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
+    if not (options.rank_by.upper() == 'MAX' or options.rank_by.upper() == 'MIN'):
         raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
     if options.param_name and not options.param_ranges:
         raise ValueError, "param-name requires param-ranges"
     if options.param_ranges and not options.param_name:
         raise ValueError, "param-ranges requires param-name"
+    if not options.combine_fars:
+        raise ValueError, "combine_fars is a requried argument."
+    if not (options.combine_fars == 'across_all' or options.combine_fars == 'across_param_only'):
+        raise ValueError, "combine-fars must be set to either across_all or across_param_only"
     if options.exclude_coincs and options.include_only_coincs:
         raise ValueError, "Cannot specify both --exclude-coincs and --include-only-coincs."
 
@@ -189,10 +195,14 @@ def parse_command_line():
 #                       Function Definitions
 #
 # =============================================================================
-    
-def end_time_in_ns( end_time, end_time_ns ):
-    return end_time*1e9 + end_time_ns
 
+def convert_to_yrs( duration ):
+    """
+    Uses sqlutils.convert_duration to automatically convert the frg_durs
+    to years. 
+    """
+    return sqlutils.convert_duration( duration, 'yr' )
+                   
 
 # =============================================================================
 #
@@ -213,7 +223,7 @@ if not os.path.isfile( filename ):
 
 # Setup working databases and connections
 if opts.verbose: 
-    print >> sys.stderr, "Setting up temp. database..."
+    print >> sys.stdout, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
     filename, tmp_path = opts.temp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
@@ -230,7 +240,7 @@ ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 # process and process-params
 xmldoc = dbtables.get_xml(connection)
 # Add entries to process and process_params tables for this program
-proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_cluster_coincs', opts.__dict__)
+proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_cfar', opts.__dict__)
 
 # Get param and param-ranges if specified
 if opts.param_name:
@@ -255,7 +265,6 @@ if opts.include_only_coincs:
 else:
     include_coinc_filters = None
 
-
 # Clear coinc_inspiral table of triggers outside of interested ranges
 if param_filters or exclude_coinc_filters or include_coinc_filters:
     sqlutils.apply_inclusion_rules_to_coinc_inspiral( connection, 
@@ -267,80 +276,186 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 #         Program-specific Initialization
 # 
 
-# Get cluster stat
-ranking_stat = '.'.join([ 'coinc_inspiral', opts.ranking_stat ])
+# Get ranking stat
+ranking_stat =  opts.ranking_stat
+if opts.rank_by.strip().upper() == 'MAX':
+    rank_by = 'MAX'
+elif opts.rank_by.strip().upper() == 'MIN':
+    rank_by = 'MIN'
+else:
+    raise ValueError, "rank_by must be set to either MAX or MIN (received %s)" % str(rank_by)
 
-# determine how to rank
-if opts.rank_by.strip().upper == "MAX":
-    rank_by = ">"
-elif opts.rank_by.strip().upper == "MIN":
-    rank_by = "<"
-
-# Get cluster window; convert from ms to ns
-window = opts.cluster_window * 1e6
+# sqlitize convert_to_yrs
+connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
 # sqlitize param_parser.group_by_param_range()
 if opts.param_name:
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
     param_grouping = ''.join([ 'group_by_param(', param_name, ')' ])
-    param_col =  param_name.split('.')[1] + ', '
 else:
     param_grouping = '0'
-    param_col = ''
-
-# sqlitize end_time calc
-connection.create_function("end_time_in_ns", 2, end_time_in_ns)
 
 #
-#         Cluster
-# 
-
+# Collect information about the background 
+#
 if opts.verbose:
-    print >> sys.stderr, "Clustering triggers..."
+    print >> sys.stderr, "Getting background statistics..."
 
-# Create a temporary scratch table that only includes the info we need;
-# we'll do all the clustering in this table, then delete everything 
-# in the coinc_inspiral table that does not have an coinc_event_id that's in it
-sqlscript = ''.join(["""
-    CREATE TEMP TABLE clustered AS
-        SELECT 
-            experiment_map.experiment_summ_id AS esid,
-            experiment_map.coinc_event_id AS ceid,
-            coinc_inspiral.ifos AS ifos,
-            end_time_in_ns( coinc_inspiral.end_time, coinc_inspiral.end_time_ns ) AS end_time,
-            """,
-            param_grouping, ' AS param_grouping, ',
-            ranking_stat, ' AS ranking_stat', """
-        FROM
-            coinc_inspiral
-        JOIN 
-            experiment_map 
-        ON
-            experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id;
-    CREATE INDEX cl_sipt_index ON clustered (esid, ifos, param_grouping, end_time);
-    DELETE 
+# initialize Summaries class, call background
+background = sqlutils.Summaries()
+
+# get all the durations from the experiment summary table
+sqlquery = ''.join(["""
+    SELECT
+        experiment_summary.experiment_id,
+        experiment_summary.experiment_summ_id,
+        convert_to_yrs(experiment_summary.duration)
+    FROM
+        experiment_summary"""])
+for eid, esid, duration in connection.cursor().execute( sqlquery ):
+    background.append_duration(eid, esid, duration)
+
+# get all the triggers
+sqlquery = ''.join([ """
+    SELECT 
+        experiment_summary.experiment_id,
+        experiment_summary.experiment_summ_id,
+        experiment_summary.zero_lag,
+        coinc_inspiral.ifos,
+        """,
+        param_grouping, """,
+        coinc_inspiral.""", ranking_stat,"""
     FROM 
         coinc_inspiral
-    WHERE coinc_event_id IN (
-        SELECT 
-            ceid
-        FROM clustered AS deltrigs
-        WHERE EXISTS (
-            SELECT *
-            FROM
-                clustered AS reftrigs
-            WHERE
-                reftrigs.esid == deltrigs.esid
-                AND reftrigs.ifos == deltrigs.ifos
-                AND reftrigs.param_grouping == deltrigs.param_grouping
-                AND reftrigs.ranking_stat """, rank_by, """ deltrigs.ranking_stat
-                AND reftrigs.end_time > ( deltrigs.end_time - """, `window`,""" )
-                AND reftrigs.end_time <= ( deltrigs.end_time + """, `window`,""" )
-            LIMIT 1)
-        );"""])
+    JOIN 
+        experiment_summary, experiment_map ON (
+            experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+            AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
+    WHERE 
+        experiment_summary.simulation == 0"""])
 
 if opts.debug:
     import time
+    print >> sys.stderr, sqlquery
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+for eid, esid, zero_lag, ifos, param_group, stat in connection.cursor().execute(sqlquery):
+    background.add_to_bkgstats(eid, esid, ifos, param_group, stat)
+    background.append_duration(eid, esid, duration)
+    if zero_lag == 1:
+        background.append_zero_lag_id( eid, esid )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+# sort the background lists
+background.sort_bkgstats()
+background.add_zero_lag_to_frgstats_and_sort()
+
+# calculate the background duration for each experiment_summary_id 
+background.calc_bkg_durs()
+
+if rank_by == "MIN":
+    connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
+else:
+    connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
+
+
+#
+#     Calculate uncombined FAR
+#
+
+if opts.verbose:
+    print >> sys.stderr, "Calculating uncombined FAR..."
+# populate uncombined far of foreground table
+sqlquery = ''.join(["""
+    UPDATE
+        coinc_inspiral
+    SET
+        false_alarm_rate = (
+            SELECT
+                calc_ufar(
+                    experiment_summary.experiment_id,
+                    experiment_summary.experiment_summ_id,
+                    coinc_inspiral.ifos,
+                    """, param_grouping, """,
+                    coinc_inspiral.""", ranking_stat, """
+                    ) 
+            FROM experiment_summary, experiment_map
+            WHERE
+                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
+if opts.debug:
+    print >> sys.stderr, sqlquery
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().execute(sqlquery)
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
+#
+#   Calculate combined FAR
+#
+
+if opts.verbose:
+    print >> sys.stderr, "Calculating combined FAR..."
+
+# sqlitize functions
+connection.create_function('calc_cfar', 3, background.calc_cfar)
+
+# to calculate the max_bkg_fars in each category, we will 
+# use calc_ufar by passing it a 0; for this to work, however,
+# calc_ufar must be the by_max version, so if MIN, reset to max
+if rank_by == "MIN":
+    connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
+
+#
+# Run the sqlite script to calculate combined far. This works in
+# 3 steps:
+#   1. Create a temporary table called max_bkg_fars. This stores
+#      the max_bkg_fars for every category for each experiment_summ_id.
+#   2. Get max_bkg_fars for each experiment_summ_id: 
+#      this is the same things as the far calculated above, 
+#      just that the numerator are ALL the triggers in the
+#      background for that category.
+#   3. Calculate the combined FAR:
+#      This applies the algorithim in calc_cfar to each uncombined_far
+#      in the coinc_inspiral table using the max_bkg_fars calculated in 2.
+#
+sqlscript = ''.join(["""
+    CREATE TEMP TABLE max_bkg_fars AS
+        SELECT DISTINCT 
+            experiment_summary.experiment_id AS experiment_id,
+            experiment_summary.experiment_summ_id AS experiment_summ_id,
+            coinc_inspiral.ifos AS ifos,
+            """,
+            param_grouping, """ AS param_group,
+            NULL AS max_bkg_far
+        FROM 
+            coinc_inspiral
+        JOIN 
+            experiment_summary, experiment_map ON (
+                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
+        WHERE 
+            experiment_summary.simulation == 0;
+    UPDATE 
+        max_bkg_fars
+    SET 
+        max_bkg_far = (
+            calc_ufar(
+                    max_bkg_fars.experiment_id,
+                    max_bkg_fars.experiment_summ_id,
+                    max_bkg_fars.ifos,
+                    max_bkg_fars.param_group,
+                    0
+                    )
+            );
+   CREATE INDEX mbf_es_index ON max_bkg_fars (experiment_summ_id);"""])
+
+if opts.debug:
     print >> sys.stderr, sqlscript
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
@@ -349,13 +464,58 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+# get the max bkg fars for each experiment summary
+sqlquery = """
+    SELECT
+        experiment_summ_id,
+        ifos,
+        max_bkg_far
+    FROM
+        max_bkg_fars"""
 
-# Remove triggers from other tables that no longer have coincidences in the
-# coinc_inspiral table
-sqlutils.clean_inspiral_tables( connection, verbose = opts.verbose )
+if opts.debug:
+    print >> sys.stderr, sqlquery
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-# Update number of events
-sqlutils.update_experiment_summ_nevents( connection, verbose = opts.verbose )
+for esid, ifos, mbf in connection.cursor().execute(sqlquery):
+    if opts.combine_fars == "across_all":
+        ifos = "ALL_IFOS"
+    background.append_max_bkg_far(esid, ifos, mbf)
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+background.sort_max_bkg_fars()
+
+if opts.combine_fars == "across_all":
+    ifos_group = '"ALL_IFOS",'
+else:
+    ifos_group = "coinc_inspiral.ifos,"
+sqlquery = ''.join(["""
+   UPDATE 
+       coinc_inspiral
+   SET 
+       combined_far = (
+           SELECT 
+               calc_cfar( 
+                    experiment_map.experiment_summ_id,
+                    """, ifos_group,
+                    """
+                    coinc_inspiral.uncombined_far )
+            FROM 
+                experiment_map
+            WHERE
+                experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
+            )"""])
+
+if opts.debug:
+    print >> sys.stderr, sqlquery
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().execute( sqlquery )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # Vacuum database if desired
 if opts.vacuum:
@@ -388,3 +548,4 @@ if opts.verbose:
 # set process end time
 process.set_process_end_time(proc_id)
 sys.exit(0)
+

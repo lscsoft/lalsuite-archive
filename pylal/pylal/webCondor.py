@@ -47,7 +47,7 @@ class webTheJob:
   def __init__(self):
     pass
 
-  def setupJobWeb(self, name, tag_base=None):
+  def setupJobWeb(self, name, tag_base=None, cp=None):
     # Give this job a name.  Then make directories for the log files and such
     # This name is important since these directories will be included in
     # the web tree.
@@ -66,6 +66,12 @@ class webTheJob:
     self.outputPath = os.getcwd() + '/' + name + '/'
     self.set_stdout_file(self.outputPath+'/logs/'+name+'-$(macroid).out')
     self.set_stderr_file(self.outputPath+'/logs/'+name+'-$(macroid).err')
+    if cp:
+      if cp.has_section("condor-memory-requirement") and \
+      		cp.has_option("condor-memory-requirement",name):
+        requirement = cp.getint("condor-memory-requirement",name)
+        self.add_condor_cmd("Requirements", \
+		"(Memory > " + str(requirement) + ")")
 
 class webTheNode:
   """

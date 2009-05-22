@@ -172,6 +172,14 @@ def parse_command_line():
   parser.add_option( "", "--datatype", action = "store", type = "string",
         default = None, metavar = " GLOB_SLIDE",
         help = "Needed for followup, presumably 'PLAYGROUND' or 'FULL_DATA' " )
+  parser.add_option("","--followup-sned",action="store",\
+        type="string", default=None, metavar=" PATH",\
+        help="specify path to the sned-executable, use for spinning injections")
+  parser.add_option("","--followup-tag",action="store",\
+        type="string", default=None, metavar=" STRING",\
+        help="select an injection run using tag")
+
+
    
   (options,args) = parser.parse_args()
 
