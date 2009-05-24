@@ -223,6 +223,18 @@ main (INT4 argc, CHAR **argv )
   /* --- Create the PSD noise ----------------------------------------------- */
   LAL_CALL(BankEfficiencyCreatePsd(&status, &coarseBankIn, &randIn, userParam), 
        &status);
+  /* AmpCorPPN filtering uses a different psd */
+  if( userParam.template == AmpCorPPN )
+  {
+    for( i = 0; i < randIn.psd.length; ++i )
+    {
+      ampCorDataSegVec->data->spec->data->data[i] = 
+        randIn.psd.data[i] *= 9.0e46;
+      ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
+      ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
+    }      
+
+  }
  
   /* --- Create the template bank ------------------------------------------- */
   LAL_CALL(BankEfficiencyCreateTemplateBank(&status, &coarseBankIn,
@@ -292,8 +304,8 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL(BankEfficiencyGenerateInputData(&status, 
         &signal, &randIn, userParam), &status);
 
-fprintf( stderr, " signal - mass 1 = %e\n", userParam.m1 );
-fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
+fprintf( stderr, " signal - mass 1 = %e\n", randIn.param.mass1 );
+fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
 
 
     
@@ -305,12 +317,10 @@ fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
-      INT4 diff = ampCorDataSegVec->data->chan->data->length
-                                     - overlapin.signal.length;
 
-      for( i = ampCorDataSegVec->data->chan->data->length-1; i >=0; --i )
+      for( i = 0; i < ampCorDataSegVec->data->chan->data->length; ++i )
       {
-        if( i > diff )
+        if( i < signal.length )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 
             1.0e20 * overlapin.signal.data[i];
@@ -319,18 +329,20 @@ fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
         {
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
-        fprintf(stdout,"%e\n", overlapin.signal.data[i] );
+      }
+      if( 1 )
+      {
+        FILE *fp =NULL;
+        fp = fopen( "tddata.dat", "w" );
+
+        for( i = 0; i < ampCorDataSegVec->data->chan->data->length; ++i )
+        {
+          fprintf(fp,"%e\n",
+                  ampCorDataSegVec->data->chan->data->data[i] );      
+        }
+        fclose( fp );
       }
 
-      /* Groan! Incompatible types to copy the memory, will have to 
-         fill each element individually. */
-      for( i = 0; i < randIn.psd.length; ++i )
-      {
-        ampCorDataSegVec->data->spec->data->data[i] = 
-          randIn.psd.data[i] * 9.0e46;
-        ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
-        ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
-      }      
 
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
@@ -357,7 +369,7 @@ fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
         }
       }
 
-      invRootData = pow( norm, 0.5 );  
+      invRootData = pow( norm, -0.5 );  
 
       for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
       {
@@ -616,8 +628,8 @@ fprintf( stderr, " signal - mass 2 = %e\n", userParam.m1 );
                 
             fflush(stderr);
             }
-            return 0;
-            
+
+          
             if (overlapOutputThisTemplate.rhoMax > simulation.bestSNR)
             {              
               simulation.bestSNR  = overlapOutputThisTemplate.rhoMax;

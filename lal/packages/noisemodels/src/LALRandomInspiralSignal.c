@@ -40,6 +40,8 @@ in the time domain. In the case of signal only it simply does not
 compute the FFT. In the case of noise or noise and signal
 it takes an inverse FFT after colouring the data.
 
+This `sister' function mimicks the filterin used in \texttt{lalapps_inspiral}.
+
 \subsubsection*{Prototypes}
 \vspace{0.1in}
 \input{LALRandomInspiralSignalCP}
@@ -728,6 +730,11 @@ void LALRandomInspiralSignal
     RETURN(status);
 }
 
+
+/***********************************************
+  TimeDomain() - sister of the above function
+ ***********************************************/
+
 void LALRandomInspiralSignalTimeDomain 
 (
  LALStatus              *status, 
@@ -740,13 +747,23 @@ void LALRandomInspiralSignalTimeDomain
     INT4                    iMax;    /* temporary index    */
     UINT4                   indice;
     REAL8                   epsilon1, epsilon2, norm;
-    REAL4Vector             noisy, buff;
-    AddVectorsIn            addIn;
+
+    REAL4Vector             buff;
+
+    REAL4FFTPlan            *invPlan = NULL;
+    REAL4FFTPlan            *fwdPlan = NULL;
+    REAL4Vector             *ntilde_re = NULL;
+    REAL4Vector             *ntilde_im = NULL;
+    COMPLEX8Vector          *ntilde = NULL;
+    COMPLEX8Vector          *stilde = NULL;
+
+    INT4                    tLength;
+    INT4                    fLength;
+    INT4                    k;
+
     INT4                    valid;
     static RandomParams     *randomparams;
-    InspiralWaveNormaliseIn normin;
 
-fprintf(stderr,"In LALRandomInspiralSignalTimeDomain\n");
 
     INITSTATUS (status, "LALRandomInspiralSignalTimeDomain", LALRANDOMINSPIRALSIGNALC);
     ATTATCHSTATUSPTR(status);
@@ -757,18 +774,39 @@ fprintf(stderr,"In LALRandomInspiralSignalTimeDomain\n");
     ASSERT (randIn->MMax > 2*randIn->mMin, status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
     ASSERT (randIn->type >= 0, status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
     ASSERT (randIn->type <= 2, status, LALNOISEMODELSH_ESIZE, LALNOISEMODELSH_MSGESIZE);
-fprintf(stderr," ---   Done Asserts\n");
+
+    tLength = signal->length;
+    fLength = signal->length / 2 + 1;
 
     buff.length = signal->length;
-    if (!(buff.data = (REAL4*) LALCalloc(buff.length, sizeof(REAL4)) )) {
+    if (!(buff.data = (REAL4*) LALCalloc(buff.length, sizeof(REAL4)) )) 
+    {
         ABORT (status, LALNOISEMODELSH_EMEM, LALNOISEMODELSH_MSGEMEM);
     }
-    
+ 
 
     /* Use the seed to initialize random(). */
     srandom(randIn->useed);
     /* use the random number so generated as the next seed */
     randIn->useed = random();
+
+    /* If we are making noise allocate memory now */
+    if( randIn->type > 0 )
+    {
+        LALSCreateVector( status->statusPtr, &ntilde_re, fLength );
+        CHECKSTATUSPTR(status);
+        LALSCreateVector( status->statusPtr, &ntilde_im, fLength );
+        CHECKSTATUSPTR(status);
+        LALCCreateVector( status->statusPtr, &ntilde, fLength );
+        CHECKSTATUSPTR(status);
+
+        if( randIn->type == 2 )
+        {
+            LALCCreateVector( status->statusPtr, &stilde, fLength );
+            CHECKSTATUSPTR(status);
+        }
+    }
+
 
     /* we need random parameters only if we need to generate a signal (i.e. type 0/2) */
     if (randIn->type==0 || randIn->type==2)
@@ -960,7 +998,6 @@ fprintf(stderr," ---   Done Asserts\n");
                     break; 
             }
 
-fprintf(stderr," ---   Sky Positions\n");
 
             /* Validate the random parameters generated above */
             switch (randIn->param.massChoice) 
@@ -1079,11 +1116,12 @@ fprintf(stderr," ---   Sky Positions\n");
 
 
     /* set up the structure for normalising the signal */
-    normin.psd          = &(randIn->psd);
+/* 
+   normin.psd          = &(randIn->psd);
     normin.df           = randIn->param.tSampling / (REAL8) signal->length;
     normin.fCutoff      = randIn->param.fCutoff;
     normin.samplingRate = randIn->param.tSampling;
-
+*/
     switch (randIn->type) 
     {
         case 0:
@@ -1117,17 +1155,16 @@ fprintf(stderr," ---   Sky Positions\n");
                 if (randIn->param.approximant == SpinTaylor)
                 {
                     randIn->param.fFinal=0; 
-                    GenerateTimeDomainWaveformForInjection (status->statusPtr, &buff, &randIn->param);
+                    GenerateTimeDomainWaveformForInjection (status->statusPtr, signal, &randIn->param);
                     CHECKSTATUSPTR(status);
                 }
                 else
                 {
                     /* force to compute fFinal is it really necessary  ? */ 
                     randIn->param.fFinal=0; 
-                    LALInspiralWave(status->statusPtr, &buff, &randIn->param);
+                    LALInspiralWave(status->statusPtr, signal, &randIn->param);
                     CHECKSTATUSPTR(status);
                 }
-fprintf(stderr," ---   Made waveform\n");
 
             } 
 
@@ -1151,122 +1188,116 @@ fprintf(stderr," ---   Made waveform\n");
             break;
 
         case 1:
-            /* 
-             * next deal with the noise only case:
-             */
-            /*
-                Old method of generating Gaussian noise
-                LALGaussianNoise(status->statusPtr, &buff, &randIn->useed);
-                */
-            /*LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);*/
+
             LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
             CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, &buff, randomparams);
+            LALNormalDeviates(status->statusPtr, ntilde_re, randomparams);
+            CHECKSTATUSPTR(status);
+            LALNormalDeviates(status->statusPtr, ntilde_im, randomparams);
             CHECKSTATUSPTR(status);
             LALDestroyRandomParams(status->statusPtr, &randomparams);
             CHECKSTATUSPTR(status);
-            LALREAL4VectorFFT(status->statusPtr, signal, &buff, randIn->fwdp);
+
+            for( k=0; k < fLength; ++k )
+            {
+              REAL4 factor;
+            
+              factor = sqrt( (REAL4)(tLength) / 4.0 * (REAL4)(randIn->param.tSampling) )
+                       * randIn->psd.data[k] * 9.0e-46;
+
+              ntilde->data[k].re = ntilde_re->data[k] * factor;
+              ntilde->data[k].im = ntilde_im->data[k] * factor;
+            }
+            /* set DC and nyquist = 0.0 */
+            ntilde->data[0].re = ntilde->data[fLength-1].re = 0.0;
+            ntilde->data[0].im = ntilde->data[fLength-1].im = 0.0;
+
+            LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
             CHECKSTATUSPTR(status);
-            LALColoredNoise(status->statusPtr, signal, randIn->psd);
+            LALReverseRealFFT( status->statusPtr, signal, ntilde, invPlan );
+            CHECKSTATUSPTR(status);
+      
+            LALSDestroyVector( status->statusPtr, &ntilde_re );
+            CHECKSTATUSPTR(status);
+            LALSDestroyVector( status->statusPtr, &ntilde_im );
+            CHECKSTATUSPTR(status);
+            LALCDestroyVector( status->statusPtr, &ntilde );
             CHECKSTATUSPTR(status);
 
-            /* multiply the noise vector by the correct normalisation factor */
-            {
-                double a2 = randIn->NoiseAmp * sqrt (randIn->param.tSampling)/2.L; 
-                UINT4 i;
-                for (i=0; i<signal->length; i++) signal->data[i] *= a2;
-            }
             break;
 
         default:
             /* 
-             * finally deal with the noise+signal only case:
+             * finally deal with the noise+signal case:
              */
-            noisy.length = signal->length;
-            if (!(noisy.data = (REAL4*) LALMalloc(sizeof(REAL4)*noisy.length))) 
-            {
-                if (buff.data != NULL) LALFree(buff.data);
-                buff.data = NULL;
-                ABORT (status, LALNOISEMODELSH_EMEM, LALNOISEMODELSH_MSGEMEM);
-            }
-            /*LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);*/
-            LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
-            CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, &buff, randomparams);
-            CHECKSTATUSPTR(status);
-            LALDestroyRandomParams(status->statusPtr, &randomparams);
-            CHECKSTATUSPTR(status);
-            LALREAL4VectorFFT(status->statusPtr, &noisy, &buff, randIn->fwdp);
-            CHECKSTATUSPTR(status);
-            LALColoredNoise(status->statusPtr, &noisy, randIn->psd);
-            CHECKSTATUSPTR(status);
+              LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
+              CHECKSTATUSPTR(status);
+              LALNormalDeviates(status->statusPtr, ntilde_re, randomparams);
+              CHECKSTATUSPTR(status);
+              LALNormalDeviates(status->statusPtr, ntilde_im, randomparams);
+              CHECKSTATUSPTR(status);
+              LALDestroyRandomParams(status->statusPtr, &randomparams);
+              CHECKSTATUSPTR(status);
+       
+             if (randIn->param.approximant == SpinTaylor)
+              {
+                  randIn->param.fFinal=0; 
+                  GenerateTimeDomainWaveformForInjection (status->statusPtr, &buff, &randIn->param);
+                  CHECKSTATUSPTR(status);
+              }
+              else
+              {
+                    /* force to compute fFinal is it really necessary  ? */ 
+                    randIn->param.fFinal=0; 
+                    LALInspiralWave(status->statusPtr, &buff, &randIn->param);
+                    CHECKSTATUSPTR(status);
+              }
+            
+              fwdPlan = XLALCreateForwardREAL4FFTPlan( fLength, 0 );
+              CHECKSTATUSPTR(status);
 
-            if (randIn->param.approximant == BCV ||
-                    randIn->param.approximant == BCVSpin  ||
-                    randIn->param.approximant == TaylorF1 ||
-                    randIn->param.approximant == TaylorF2 ||
-                    randIn->param.approximant == PadeF1)
-            {
-                LALInspiralWave(status->statusPtr, &buff, &randIn->param);
-                CHECKSTATUSPTR(status);
-            }
-            else
-            {
-                LALInspiralWave(status->statusPtr, signal, &randIn->param);
-                CHECKSTATUSPTR(status);
-                
+             /* Add signal to noise in Freq domain */ 
+             LALForwardREAL4FFT( status->statusPtr, stilde, &buff, fwdPlan ); 
 
-                /* Now convert from time domain signal(t) ---> frequency
-                 * domain waveform buff(f) i.e signal(t) -> buff(f)*/
-                LALREAL4VectorFFT(status->statusPtr, &buff, signal, randIn->fwdp);
-                CHECKSTATUSPTR(status);
+              for( k=0; k < fLength; ++k )
+              {
+                  REAL4 factor;
+            
+                  factor = sqrt( (REAL4)(tLength) / 4.0 * (REAL4)(randIn->param.tSampling) )
+                          * randIn->psd.data[k] * 9.0e-46;
 
-            }
+                  ntilde->data[k].re = ntilde_re->data[k] * factor;
+                  ntilde->data[k].im = ntilde_im->data[k] * factor;
+    
+                  ntilde->data[k].re += stilde->data[k].re;
+                  ntilde->data[k].im += stilde->data[k].im;
+              }
 
-            /* we might want to know where is the signal injected*/
-            maxTemp  = 0; 
-            iMax     = 0;
-            for ( indice = 0 ; indice< signal->length; indice++)
-            {
-                if (fabs(signal->data[indice]) > maxTemp){
-                    iMax = indice;
-                    maxTemp = fabs(signal->data[indice]);
-                }
-            }
-            randIn->coalescenceTime = iMax;
+              /* set DC and nyquist = 0.0 */
+              ntilde->data[0].re = ntilde->data[fLength-1].re = 0.0;
+              ntilde->data[0].im = ntilde->data[fLength-1].im = 0.0;
 
-            normin.fCutoff = randIn->param.fFinal;
-            LALInspiralWaveNormaliseLSO(status->statusPtr, &buff, &norm, &normin);
-            CHECKSTATUSPTR(status);
+              LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
+              CHECKSTATUSPTR(status);
+              LALReverseRealFFT( status->statusPtr, signal, ntilde, invPlan );
+              CHECKSTATUSPTR(status);
+      
+              LALSDestroyVector( status->statusPtr, &ntilde_re );
+              CHECKSTATUSPTR(status);
+              LALSDestroyVector( status->statusPtr, &ntilde_im );
+              CHECKSTATUSPTR(status);
+              LALCDestroyVector( status->statusPtr, &ntilde );
+              CHECKSTATUSPTR(status);
+              LALCDestroyVector( status->statusPtr, &stilde );
+              CHECKSTATUSPTR(status);
 
-            addIn.v1 = &buff;
-            addIn.a1 = randIn->SignalAmp;
-            addIn.v2 = &noisy;
-            /* After experimenting we found that the following factor SamplingRate*sqrt(2)
-             * is needed for noise amplitude to get the output of the signalless correlation
-             * equal to unity; the proof of this is still needed 
-             */
-            addIn.a2 = randIn->NoiseAmp * sqrt (randIn->param.tSampling)/2.L; 
-            LALAddVectors(status->statusPtr, signal, addIn);
-            CHECKSTATUSPTR(status);
-            if (noisy.data != NULL) LALFree(noisy.data);
-            break;
     }
 
-    /* Hash out signal for all frequencies less than or equal to the 
-     * lower cut-off frequency.
-     */
 
-fprintf(stderr," ---   should be here 1\n");
 
     if (buff.data != NULL) LALFree(buff.data);
-fprintf(stderr," ---   should be here 2\n");
-
     DETATCHSTATUSPTR(status);
-fprintf(stderr," ---   should be here 3\n");
     RETURN(status);
-fprintf(stderr," ---   should be here 4\n");
-fprintf(stderr,"Leaving LALRandomInspiralSignalTimeDomain\n");
 } 
 
 /*----------- Functions static within this file -------------------*/
