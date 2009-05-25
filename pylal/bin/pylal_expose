@@ -87,6 +87,8 @@ def parse_args():
     parser.add_option("--reject-grb", type="string",default = "",\
                       help="Comma-seperated list"\
                       " of GRBs to be rejected.")
+    parser.add_option("--reject-empty", action="store_true", default=False,
+        help="reject empty trials in both on/off-source")
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
     parser.add_option("--m2-max", type="float", help="maximum m2 value")
@@ -228,8 +230,8 @@ pop_stat.finalize()
 for pop_inst in pop_m2.values():
     pop_inst.finalize()
 
-page.write("Number of offsource trials used: %d" % pop_stat.n_off)
-page.write("Number of GRB data used: %d" % pop_stat.n_grb)
+page.write("Number of offsource trials total: %d" % pop_stat.n_off)
+page.write("Number of GRB data total: %d" % pop_stat.n_grb)
 
 # create overview plots (for the condense case)
 plot = pop_stat.check_off_distribution_lik()
@@ -249,7 +251,7 @@ if opts.analyze=='test':
         dummy_lik = []
         dummy_ifar = []
         for i in range(5000):
-            pop_stat.select_onsource(type)
+            pop_stat.select_onsource(type, reject_empty = opts.reject_empty)
             z_lik, z_ifar = pop_stat.compute_wmu()
 
             dummy_lik.append(z_lik)
@@ -289,7 +291,7 @@ if opts.analyze=='test':
     plt.legend(('random','single','max'))
     page.add_plot(plt.gcf(), "test-ifar")    
     
-else:
+else:    
 
     # prepare arrays to hold the data
     z_by_m2 = numpy.zeros(opts.m2_nbins, float)
@@ -301,7 +303,8 @@ else:
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
         pop_m2[mass_bin].set_stat('lik')
-        pop_m2[mass_bin].select_onsource(opts.analyze)
+        pop_m2[mass_bin].select_onsource(opts.analyze, reject_empty =\
+                                         opts.reject_empty)
         z_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
         p_by_m2[index_m2] = pop_m2[mass_bin].p_one_sided
 
@@ -311,10 +314,14 @@ else:
         plot = pop_m2[mass_bin].create_plot_qq()
         page.add_plot(plot.fig, "qq-"+mass_bin)
 
+
     # select either a fake trial or the box
     pop_stat.set_stat('lik')
-    pop_stat.select_onsource(opts.analyze)
+    pop_stat.select_onsource(opts.analyze, reject_empty = opts.reject_empty)
     z_lik = pop_stat.compute_wmu()
+
+    page.write("Number of offsource trials used: %d" % len(pop_stat.on_list))
+    page.write("Number of GRB data used: %d" % len(pop_stat.off_list))
 
     plot = pop_stat.create_plot_hist()
     page.add_plot(plot.fig, "histCondense")
@@ -329,7 +336,6 @@ else:
                (z_lik, 100.0*pop_stat.p_one_sided)
     page.write(text)
 
-    
     # create the final plot
     plt.clf()
     plt.plot(m2_bins.centres(), z_by_m2, 'r-', linewidth = 3)
