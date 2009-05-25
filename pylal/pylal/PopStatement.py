@@ -196,8 +196,8 @@ class PopStatement(object):
         count_louder = (sample >= value).sum(axis=0)
 
         count_louder = max(count_louder, 1)
-        return n_sample/count_louder  
-
+        return n_sample/count_louder
+   
     # -------------------------------------------------
     def check_off_distribution(self, pop_min, pop_max, far = False):
 
@@ -266,7 +266,7 @@ class PopStatement(object):
         self.stat = stat
 
     # -------------------------------------------------
-    def select_onsource(self, type):
+    def select_onsource(self, type, reject_empty = False):
         """
         Selecting fake trials from the set of offsource
         trials for each GRB. 
@@ -330,7 +330,28 @@ class PopStatement(object):
 
             # fill the data to be used for the test
             self.on_list.append(value)
-            self.off_list.extend(data_list.off_by_trial) 
+            self.off_list.extend(data_list.off_by_trial)
+
+        # convert to arrays
+        self.on_list = np.asarray(self.on_list)
+        self.off_list = np.asarray(self.off_list)
+
+        # remove empty trials from the 
+        if reject_empty:
+            self.on_list = self.remove_empty_trials(self.on_list)
+            self.off_list = self.remove_empty_trials(self.off_list)
+
+        # adjust the number
+        self.n_grb = len(self.on_list)
+
+    # -------------------------------------------------
+    def remove_empty_trials(self, data):
+        """
+        Function to remove any infinite value from a given
+        list of data.
+        """
+        inf_ind = np.isinf(data)
+        return data[~inf_ind]
 
     # -------------------------------------------------
     def mannwhitney_u(self, x, y):
@@ -376,6 +397,7 @@ class PopStatement(object):
         Computes the WMU z-score for the both cases
         using likelihood and the IFAR
         """
+
         # compute the z-value
         z_value = self.mannwhitney_u_zscore(self.on_list, self.off_list)
 
@@ -449,11 +471,13 @@ class PopStatement(object):
         # create the cumulative data set
         self.off_list.sort()
         on_data = np.asarray(self.on_list)
+        off_data = np.asarray(self.off_list)
+
         y_on = []
         y_off = []
         x_onoff = []
         counter = 0
-        for value in self.off_list[::-1]:
+        for value in off_data[::-1]:
             counter += 1
             x_onoff.append(value)
             y_off.append(counter)
@@ -466,13 +490,9 @@ class PopStatement(object):
         inf_ind = np.isinf(x_onoff)
         x_onoff[inf_ind] = 0.0
 
-        # errors on the background counting?
-        #y_err = np.asarray([np.sqrt(n) for n in y_off])
-        
         # scale the values correspondingly
         scale = y_on.max()/y_off.max()
         y_off_scale = y_off*scale
-        #y_err_scale = y_err*scale
 
         # create the plot
         plot = plotutils.SimplePlot(r"Likelihood", r"Cumulative sum",\
@@ -481,8 +501,6 @@ class PopStatement(object):
                          linewidth = 2, label = 'off-source')
         plot.add_content(x_onoff, y_on, color = 'b',\
                          linewidth = 3, label = 'on-source')
-        ## for x, y, err in zip(x_onoff, y_off_scale, y_err_scale):
-##             plot.ax.plot([x,x],[y-err, y+err], 'g')
             
         plot.finalize()
         
@@ -500,19 +518,14 @@ class PopStatement(object):
         Create a pdf plot of the used data.
         """
     
-        # get the data and sort them
-        data_off = self.off_list
-        data_on = self.on_list
-        data_off.sort(reverse=True)
-        data_on.sort(reverse=True)
+        # get the data and sort them in reverse order
+        data_off = np.sort(self.off_list)[::-1]
+        data_on = np.sort(self.on_list)[::-1]
 
-        # transform to array and remove infinities
-        data_off = np.asarray(data_off)
-        data_on = np.asarray(data_on)                
-        inf_ind = np.isinf(data_on)
-        data_on[inf_ind] = 0.0
-        inf_ind = np.isinf(data_off)
-        data_off[inf_ind] = 0.0
+        # remove infinities
+        data_on = self.remove_empty_trials(data_on)
+        data_off = self.remove_empty_trials(data_off)
+        n_grb = len(data_on)
 
         # prepare lists
         pdf_x = []
@@ -535,7 +548,7 @@ class PopStatement(object):
 
                 # compute the values to be stored
                 sum_scale = sum_off/self.n_off
-                y = 1.0/self.n_grb
+                y = 1.0/n_grb
                 r = y-sum_scale
                 
                 # store these values in the lists
@@ -545,7 +558,7 @@ class PopStatement(object):
                 pdf_on_r.append(r)
                 
                 # check breaking condition
-                if index==self.n_grb-1:
+                if index==n_grb-1:
                     break
 
                 # reset the sum and increase the index                
@@ -567,7 +580,6 @@ class PopStatement(object):
         plot.add_content(pdf_x, pdf_on_y, color = 'b', marker = 'o',\
                          markersize = 10.0, label = 'on-source')
         plot.finalize()
-        #plot.ax.axis([2, 6.0, 0.0, 0.25])
 
         return plot
     
