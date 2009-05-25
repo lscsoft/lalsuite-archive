@@ -616,7 +616,7 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(tag_base)
+    self.setupJobWeb(tag_base,None,cp)
     self.setup_checkForDir()
 
   def setup_checkForDir(self):
@@ -1471,6 +1471,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("debug-level","33")
       self.add_var_opt("write-cohsnr","")
       self.add_var_opt("write-cohnullstat","")
+      self.add_var_opt("write-h1h2nullstat","")
       self.add_var_opt("write-cohh1h2snr","")
       #self.add_var_opt("verbose","")
       self.set_bank(bankFile)
