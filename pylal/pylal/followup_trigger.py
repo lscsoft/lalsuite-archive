@@ -95,6 +95,20 @@ class FollowupTrigger:
     pylab.rcParams.update({'text.usetex': False})
 
     # Check all the required options
+    if not hasattr(opts, 'followup_exttrig'):
+      # default: this is a regular search, not a exttrig search
+      opts.followup_exttrig = False
+    if not hasattr(opts, 'followup_time_window'):
+      # default: set the time window for the timeseries to 10 seconds
+      opts.followup_time_window = 10.0
+    if not hasattr(opts, 'followup_tag'):
+      # default: don't specify a followup-tag
+      opts.followup_tag = None
+    if not hasattr(opts, 'followup_sned'):
+      # default: do not incorporate the updating of effective distances
+      #          with lalapps_sned
+      opts.followup_sned = None
+
     option_list = ['verbose','followup_exttrig','output_path',\
                    'followup_time_window','prefix',\
                    'suffix','figure_resolution','user_tag',\
