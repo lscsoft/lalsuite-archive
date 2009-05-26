@@ -92,7 +92,7 @@ class SnglInspiral(xlaltools.SnglInspiralTable):
 		)
 
 # FIXME:  can't use C row class until event_ids don't have bazillions of
-# digits because Macs blow.  can't have 64-bit python a Mac.  nope.
+# digits because Macs blow.  can't have 64-bit python on a Mac.  nope.
 #lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = SnglInspiral
 
 
