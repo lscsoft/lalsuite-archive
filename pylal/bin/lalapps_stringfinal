@@ -59,6 +59,16 @@ from pylal import SnglBurstUtils
 from pylal.date import LIGOTimeGPS
 
 
+SnglBurstUtils.matplotlib.rcParams.update({
+	"font.size": 10.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0
+})
+
+
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
@@ -175,7 +185,7 @@ class TimeSlideBin(object):
 
 class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 	def __init__(self, instrument, amplitude_factor):
-		SnglBurstUtils.BurstPlot.__init__(self, r"%s Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))" % instrument, "Coincident Event Rate (Hz)")
+		SnglBurstUtils.BurstPlot.__init__(self, r"%s Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))" % instrument, "Coincident Event Rate (Hz)", width = 108.0)
 		self.instrument = instrument
 		self.amplitude_factor = amplitude_factor
 		self.time_slide_bins = {}
@@ -184,6 +194,7 @@ class RateVsAmplitude(SnglBurstUtils.BurstPlot):
 		self.foreground_time = 0.0
 		self.background_time = 0.0
 		self.axes.loglog()
+		self.axes.set_position([0.125, 0.15, 0.83, 0.75])
 
 	def add_contents(self, contents):
 		zero_lag_time_slides, background_time_slides = SnglBurstUtils.get_time_slides(contents.connection)
@@ -441,7 +452,7 @@ def render_data_from_bins(dump_file, axes, efficiency, cal_uncertainty, filter_w
 
 class Efficiency(SnglBurstUtils.BurstPlot):
 	def __init__(self, instruments, loudest_survivor, cal_uncertainty, amplitude_factor, filter_width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency")
+		SnglBurstUtils.BurstPlot.__init__(self, r"Injection Amplitude (\(\mathrm{s}^{-\frac{1}{3}}\))", "Detection Efficiency", width = 108.0)
 		self.axes.set_title(r"Detection Efficiency vs.\ Amplitude")
 		self.instruments = instruments
 		[(self.loudest_survivor_inst, self.loudest_survivor_ampl)] = loudest_survivor.items()
@@ -452,6 +463,7 @@ class Efficiency(SnglBurstUtils.BurstPlot):
 		self.found_above_loudest = []
 		self.all = []
 		self.axes.semilogx()
+		self.axes.set_position([0.10, 0.150, 0.86, 0.77])
 
 		# set desired yticks
 		self.axes.set_yticks((0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0))
@@ -527,8 +539,9 @@ FROM
 		# add a legend to the axes
 		self.axes.legend((line1, line2), (r"All recovered injections", r"\noindent Injections recovered with\\\(A > %s\,\mathrm{s}^{-\frac{1}{3}}\) in %s" % (SnglBurstUtils.latexnumber("%.2g" % self.loudest_survivor_ampl), self.loudest_survivor_inst)), loc = "lower right")
 
-		# adjust vertical limits
-		self.axes.set_ylim([0, 1])
+		# adjust limits
+		self.axes.set_xlim([4e-21, 1e-17])
+		self.axes.set_ylim([0.0, 1.0])
 
 
 #
