@@ -35,6 +35,8 @@ __title__ = "GRB likelihood diagnostics"
 
 import cPickle as pickle
 import optparse
+import os.path as op
+import shutil
 import sys
 
 import numpy
@@ -53,6 +55,7 @@ from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import plotutils
 from pylal import rate
+from pylal import SnglInspiralUtils
 from pylal import viz
 
 # override pylab defaults, optimizing for web presentation
@@ -267,6 +270,7 @@ if opts.verbose:
     print "Computation complete.  Writing summary page and plots..."
 
 relic_onsource_xml = opts.relic_onsource.replace(".pickle", ".xml")
+shutil.copy(relic_onsource_xml, op.join(opts.output_path, relic_onsource_xml))
 html_footer += "Loudest on-source coincidences [<a href=\"" \
     + relic_onsource_xml + "\">XML</a>]:<br><br>\n"
 
@@ -282,7 +286,14 @@ else:
 
     # parse coincs
     coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
-    onsource_doc = utils.load_filename(relic_onsource_xml)
+    # XXX: For S5 LIGO-only searches, we have int_8s event_id columns.
+    # For S5 LIGO-Virgo and later searches, we have ilwd:char event_id columns.
+    try:
+        onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+            [relic_onsource_xml])
+    except ligolw.ElementError:
+        onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+            [relic_onsource_xml], old_document=True)
     onsource_trigs = table.get_table(onsource_doc,
         lsctables.SnglInspiralTable.tableName)
     onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,

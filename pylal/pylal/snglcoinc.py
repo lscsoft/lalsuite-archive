@@ -45,66 +45,11 @@ from glue import iterutils
 from glue.ligolw import table
 from glue.ligolw import lsctables
 from pylal import llwapp
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
-
-
-#
-# =============================================================================
-#
-#                             Command Line Helpers
-#
-# =============================================================================
-#
-
-
-def parse_thresholds(thresholdstrings):
-	"""
-	Turn a list of strings of the form
-	inst1,inst2=threshold1[,threshold2,...] into a dictionary with
-	(inst1, inst2) 2-tuples as keys and the values being the thresholds
-	parsed into lists of strings split on the "," character.
-
-	For each pair of instruments present among the input strings, the
-	two possible orders are considered independent:  the input strings
-	are allowed to contain one set of thresholds for (inst1, inst2),
-	and a different set of thresholds for (inst2, inst1).  Be aware
-	that no input checking is done to ensure the user has not provided
-	duplicate, incompatible, thresholds.  This is considered the
-	responsibility of the application program to verify.
-
-	The output dictionary contains threshold sets for both instrument
-	orders.  If, for some pair of instruments, the input strings
-	specified thresholds for only one of the two possible orders, the
-	thresholds for the other order are copied from the one that was
-	provided.
-
-	Whitespace is removed from the start and end of all strings.
-
-	A typical use for this function is in parsing command line
-	arguments or configuration file entries.
-
-	Example:
-
-	>>> from pylal.snglcoinc import parse_thresholds
-	>>> parse_thresholds(["H1,H2=X=0.1,Y=100", "H1,L1=X=.2,Y=100"])
-	{('H1', 'H2'): ['X=0.1', 'Y=100'], ('H1', 'L1'): ['X=.2', 'Y=100'], ('H2', 'H1'): ['X=0.1', 'Y=100'], ('L1', 'H1'): ['X=.2', 'Y=100']}
-	"""
-	thresholds = {}
-	for pair, delta in [s.split("=", 1) for s in thresholdstrings]:
-		try:
-			A, B = [s.strip() for s in pair.split(",")]
-		except Exception:
-			raise ValueError, "cannot parse instruments '%s'" % pair
-		thresholds[(A, B)] = [s.strip() for s in delta.split(",")]
-	for (A, B), value in thresholds.items():
-		if (B, A) not in thresholds:
-			thresholds[(B, A)] = value
-	return thresholds
 
 
 #
@@ -147,7 +92,7 @@ def time_slide_consideration_order(time_slide_table):
 	instruments = sorted(set(time_slide_table.getColumnByName("instrument")))
 
 	#
-	# group into pairs:  first pair, second pair, ...
+	# group into pairs:  (first, second), (second, third), ...
 	#
 
 	instruments = tuple(zip(instruments[1:], instruments[:-1]))
@@ -160,17 +105,17 @@ def time_slide_consideration_order(time_slide_table):
 
 	#
 	# order IDs by number of participating instruments then by
-	# inter-instrument deltas, then by ID string
+	# inter-instrument deltas, then by ID
 	#
 
-	def deltas(offset_vector, instruments):
+	def deltas(offset_vector):
 		for a, b in instruments:
 			try:
-				yield offset_vector[a] - offset_vector[b]
+				yield offset_vector[b] - offset_vector[a]
 			except KeyError:
 				yield None
 
-	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a], instruments)), tuple(deltas(offsets[b], instruments))) or cmp(a, b))
+	return sorted(offsets.keys(), lambda a, b: cmp(len(offsets[a]), len(offsets[b])) or cmp(tuple(deltas(offsets[a])), tuple(deltas(offsets[b]))) or cmp(a, b))
 
 
 #
@@ -193,10 +138,10 @@ class CoincTables(object):
 		# coinc_definer_rows dictionary  should have the search,
 		# search_coinc_type, and description attributes set as
 		# default attributes.
-		self.coinc_def_ids = dict([
+		self.coinc_def_ids = dict(
 			(key, llwapp.get_coinc_def_id(xmldoc, coinc_def.search, coinc_def.search_coinc_type, create_new = True, description = coinc_def.description))
 			for key, coinc_def in coinc_definer_rows.items()
-		])
+		)
 
 		# find the coinc table or create one if not found
 		try:
@@ -231,7 +176,7 @@ class CoincTables(object):
 		and adds the events as a new coincidence to the coinc_event
 		and coinc_map tables.
 		"""
-		coinc = lsctables.Coinc()
+		coinc = self.coinctable.RowType()
 		coinc.process_id = process_id
 		coinc.coinc_def_id = self.coinc_def_ids[coinc_def_id_key]
 		coinc.coinc_event_id = self.coinctable.get_next_id()
@@ -241,7 +186,7 @@ class CoincTables(object):
 		coinc.likelihood = None
 		self.coinctable.append(coinc)
 		for event in events:
-			coincmap = lsctables.CoincMap()
+			coincmap = self.coincmaptable.RowType()
 			coincmap.coinc_event_id = coinc.coinc_event_id
 			coincmap.table_name = event.event_id.table_name
 			coincmap.event_id = event.event_id
@@ -280,14 +225,14 @@ def coincident_process_ids(xmldoc, max_segment_gap, program):
 	seglistdict = search_summ_table.get_out_segmentlistdict(proc_ids).coalesce().protract(max_segment_gap / 2)
 	avail_instruments = set(seglistdict.keys())
 
-	# determine which time slides are possible given the instruments in
+	# determine what time slides are possible given the instruments in
 	# the search summary table
 	timeslides = [offset_vector for offset_vector in table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict().values() if set(offset_vector.keys()).issubset(avail_instruments)]
 
 	# determine the coincident segments for each instrument
 	seglistdict = llwapp.get_coincident_segmentlistdict(seglistdict, timeslides)
 
-	# find the IDs of the processes which contributed to the coincident
+	# find the IDs of the processes that contributed to the coincident
 	# segments
 	coinc_proc_ids = set()
 	for row in search_summ_table:
@@ -318,7 +263,7 @@ class EventList(list):
 	unless you know what you're doing.
 	"""
 	def __init__(self, instrument):
-		self.offset = LIGOTimeGPS(0)
+		self.offset = lsctables.LIGOTimeGPS(0)
 		self.instrument = instrument
 
 	def make_index(self):
@@ -354,7 +299,7 @@ class EventList(list):
 		# LIGOTimeGPS objects are exact, so by recording the offset
 		# as a LIGOTimeGPS it should be possible to return the
 		# events to exactly their original times before exiting.
-		offset = LIGOTimeGPS(offset)
+		offset = lsctables.LIGOTimeGPS(offset)
 
 		# check for no-op
 		if offset != self.offset:
@@ -518,4 +463,3 @@ def CoincidentNTuples(eventlists, comparefunc, instruments, thresholds, verbose 
 				yield head + tail
 	if verbose:
 		print >>sys.stderr, "\t100.0%"
-
