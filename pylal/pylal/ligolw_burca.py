@@ -102,9 +102,9 @@ def append_process(xmldoc, **kwargs):
 	if "force" in kwargs and kwargs["force"]:
 		params += [(u"--force", None, None)]
 	if kwargs["coincidence_algorithm"] in ("stringcusp",):
-		for key, value in kwargs["thresholds"].iteritems():
-			if key[0] < key[1]:
-				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (key[0], key[1], ",".join(map(str, value))))]
+		for (a, b), value in kwargs["thresholds"].items():
+			if a < b:
+				params += [(u"--thresholds", u"lstring", u"%s,%s=%s" % (a, b, ",".join(map(str, value))))]
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
