@@ -211,6 +211,8 @@ for entry in missed_cache:
   page.h2(ifos)
   page.ul()
   missed_inj= SimInspiralUtils.ReadSimInspiralFromFiles([entry.path()])
+  if missed_inj is None:
+    continue
 
   single_found = {}
   single_found_times = {}
