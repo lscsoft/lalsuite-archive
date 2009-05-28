@@ -121,21 +121,21 @@ def getQualityTable(backEndName="tracksearch"):
       #
       #Structure ["tag",TGNarrayIndex]
       propertiesToKeep=[
-          ["pp",1],
-          ["y",2],
-          ["b",3],
-          ["d",4],
-          ["a",5],
-          ["r",6],
-          ["rr",7],
-          ["w",8],
-          ["e",9],
-          ["ww",10],
-          ["ee",11]
+          ["pp",0],
+          ["y",1],
+          ["b",2],
+          ["d",3],
+          ["a",4],
+          ["r",5],
+          ["rr",6],
+          ["w",7],
+          ["e",8],
+          ["ww",9],
+          ["ee",10]
           ]
       propertiesHandDefined=[
-          ["ht","Time symmetry",12],
-          ["hf","Freq symmetry",13]
+          ["ht","Time symmetry",11],
+          ["hf","Freq symmetry",12]
           ]
       #Create a 3 list with text labels and array locations!
       finalPropertyList=[]
@@ -208,7 +208,7 @@ class plotTGN:
     self.defaultY=newY
   #End setYQuantity
 
-  def createFigure(self):
+  def createFigure(self,filename=None):
     """
     This function provides an interface to python plotting that
     will plot a TGN or thread of TGNs given to the plotTGN class.
@@ -220,10 +220,14 @@ class plotTGN:
         self.__primativePlotTGNs__()
     if self.isThread:
         self.__primativePlotThread__()
-    pylab.show()
+    if filename == None:
+      pylab.show()
+    else:
+      pylab.savefig(filename)
+      pylab.close()
   #End createFigure()
 
-  def createReportFigures(self):
+  def createReportFigures(self,filename=None):
     """
     This function creates a single plot with subplot of all know
     properties plotted against each other to see if there are 
@@ -231,6 +235,9 @@ class plotTGN:
     """
     if self.tgnList == None:
       raise autotrackError("Figure creation requested, no TGNs defined.")
+    figureCount=0
+    if filename != None:
+      [file,ext]=os.path.splitext(filename)
     #Get property list
     shortName=[element[0] for element in getQualityTable()]
     plotCount=shortName.__len__()*shortName.__len__()
@@ -241,16 +248,22 @@ class plotTGN:
     if int(shortName.__len__()).__mod__(countRowImages) > 0:
       countColImages=countColImages+1
     for myXAxis in shortName:
-      pylab.figure()
+      myHandle=pylab.figure()
       countImage=1
       for myYAxis in shortName:
-        self.setXQuantity(myXAxis)
-        self.setYQuantity(myYAxis)
-        pylab.subplot(countRowImages,countColImages,countImage)
-        countImage=countImage+1
-        self.__primativePlotTGNs__(True)
-    print "HI"
-    pylab.show()
+        if myXAxis != myYAxis:
+          self.setXQuantity(myXAxis)
+          self.setYQuantity(myYAxis)
+          pylab.subplot(countRowImages,countColImages,countImage)
+          countImage=countImage+1
+          self.__primativePlotTGNs__(True)
+      if filename != None:
+        newFilename="%s_%s%s"%(file,str(figureCount).zfill(3),ext)
+        pylab.savefig(newFilename,dpi=160)
+        pylab.close()
+      figureCount=figureCount+1
+    if filename == None:
+      pylab.show()
   #End createReportFigures()
 
   def __getIndexAndLabels__(self):
@@ -602,21 +615,33 @@ class TGN:
           return bool(True)
       return bool(False)
 
-  def checkOverlap(self,TGN,boundSize=0.5):
+  def checkOverlap(self,TGN,boundSize=0.5,mutual=bool(True)):
       """
       Check to see if SELF neighborhood overlaps with other input
       TGN class.  We define them as over lapping if they are
       withing boundSize stddevs of the center of SELF compared
-      to the center of argument TGN.
+      to the center of argument TGN. The last optional argument
+      dictates that given the bound vector of both TGNs they should be
+      able to 'walk' into each other not just A into B but that B must
+      also be able to step into the neighborhood of B.
       """
-      stepVector=boundSize*numpy.array(self.getBoundVector()).__abs__()
+      stepVectorSelf=boundSize*numpy.array(self.getBoundVector()).__abs__()
+      stepVectorTGN=boundSize*numpy.array(TGN.getBoundVector()).__abs__()
       diffVector=numpy.array(
           self.getCenterVector()
           -TGN.getCenterVector()).__abs__()
-      if numpy.array(diffVector<=stepVector).all():
+      if mutual:
+        if numpy.array(diffVector<=stepVectorSelf).all()\
+                         and\
+           numpy.array(diffVector<=stepVectorTGN).all():
           return bool(True)
-      else:
+        else:
           return bool(False)
+      else:
+        if numpy.array(diffVector<=stepVectorSelf).all():
+            return bool(True)
+        else:
+            return bool(False)
       #End checkOverlap
 
   def getSeparation(self,TGN):
@@ -634,6 +659,21 @@ class TGN:
       return mag
   #End getSeperation
 
+  def spatialAxisMinMax(self,TGN):
+    """
+    Return the index returned by getCenterVector for self the spatial
+    axis with the smallest difference between self.getCenterVector and
+    TGN.getCenterVector 
+    returns a tuple of two indices {minAxisIndex,maxAxisIndex}
+    """
+    diffVector=numpy.array(
+      self.getCenterVector()
+      -TGN.getCenterVector()).__abs__()
+    smallIndex=diffVector.argmin()
+    largeIndex=diffVector.argmax()
+    return (smallIndex,largeIndex)
+  #End spatialAxisMinMax()
+
   def nearestTGNid(self,TGNList,boundSize=0.5):
       """
       wrapper
@@ -646,7 +686,8 @@ class TGN:
       """
       Takes a list of TGNs and compares it to self
       to determine which is the closest one, this ideally
-      is the same group and we can associate the group IDs.
+      is the same group and we can associate the group IDs. If method
+      does not find TGN it returns a NONE value.
       """
       if type(list())!=type(TGNList):
           raise autotrackError("Type of input to method nearestTGNid is wrong!")
@@ -668,7 +709,7 @@ class TGN:
               if nhd.getID() == findID:
                   foundTGN=nhd
       else:
-          foundTGN=TGN()
+          foundTGN=None
       return foundTGN
     #End nearestTGN
 #End class TGN
