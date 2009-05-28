@@ -184,7 +184,7 @@ def injMassCut (coinc_table, m_low, m_high):
   tmpTable.sngl_table = lsctables.New(lsctables.SnglInspiralTable)
   for entry in coinc_table:
     sim = getattr(entry, 'sim')
-    event_id = getattr(entry, 'event_id')
+    event_id = int(getattr(entry, 'event_id'))
     mass1 = getattr(sim, 'mass1')
     mass2 = getattr(sim, 'mass2')
     if opts.population_type == "componentmass":
@@ -194,7 +194,7 @@ def injMassCut (coinc_table, m_low, m_high):
     if (mass > m_low) and (mass < m_high):
       tmpTable.append(entry)
       for trig in coinc_table.sngl_table:
-        if trig.event_id == event_id:
+        if int(trig.event_id) == event_id:
           tmpTable.sngl_table.append(trig)
   return tmpTable
 

@@ -1332,7 +1332,7 @@ class CoincInspiralTable(table.Table):
 	how_to_index = {
 		"ci_cei_index": ("coinc_event_id",)
 	}
-	interncolumns = ("coinc_event_id",)
+	interncolumns = ("coinc_event_id", "ifos")
 
 
 class CoincInspiral(object):

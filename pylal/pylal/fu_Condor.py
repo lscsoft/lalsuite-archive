@@ -616,7 +616,7 @@ class qscanJob(pipeline.CondorDAGJob, webTheJob):
     self.__executable = string.strip(cp.get('condor','qscan'))
     self.__universe = "vanilla"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
-    self.setupJobWeb(tag_base)
+    self.setupJobWeb(tag_base,None,cp)
     self.setup_checkForDir()
 
   def setup_checkForDir(self):
@@ -1462,6 +1462,9 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("low-frequency-cutoff",string.strip(cp.get('chia','low-frequency-cutoff')))
       self.add_var_opt("sample-rate",string.strip(cp.get('chia','sample-rate')))
       self.add_var_opt("cohsnr-threshold",string.strip(cp.get('chia','cohsnr-threshold')))
+      self.add_var_opt("ra-step",string.strip(cp.get('chia','ra-step')))
+      self.add_var_opt("dec-step",string.strip(cp.get('chia','dec-step')))
+      self.add_var_opt("numCohTrigs",string.strip(cp.get('chia','numCohTrigs')))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
@@ -1471,6 +1474,7 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("debug-level","33")
       self.add_var_opt("write-cohsnr","")
       self.add_var_opt("write-cohnullstat","")
+      self.add_var_opt("write-h1h2nullstat","")
       self.add_var_opt("write-cohh1h2snr","")
       #self.add_var_opt("verbose","")
       self.set_bank(bankFile)
@@ -1515,6 +1519,73 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.invalidate()
       print "couldn't add coherent-inspiral job for " + str(trig.eventID)
 
+########## CLUSTER coherent triggers ##########################################
+###############################################################################
+    
+##############################################################################
+# jobs class for clustering coherent triggers
+
+class followUpCohireJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  A clustering job for coherent inspiral triggers
+  """
+  def __init__(self, options, cp, tag_base='COHIRE'):
+    """
+    """
+    self.__prog__ = 'followUpCohireJob'
+    self.__executable = string.strip(cp.get('condor','cohire'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__prog__,tag_base)
+
+
+##############################################################################
+# node class for clustering coherent triggers 
+
+class followUpCohireNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a cohire (coherent trigger clustering) job
+  """
+  def __init__(self,job,chiaXmlFilePath,trig,chiaNode,dag,page,opts):
+    """
+    job = A CondorDAGJob that can run an instance of COHIRE clustering
+    """
+    self.friendlyName = 'Produce xml file of clustered coherent triggers'
+    if 1: #try:
+      pipeline.CondorDAGNode.__init__(self,job)
+      self.output_file_name = ""
+      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      self.add_var_opt("input",inputFileName)
+      self.add_var_opt("data-type","all_data")
+      self.add_var_opt("output",outputXmlFile)
+      self.add_var_opt("summary-file",summaryFileName)
+      self.add_var_opt("cluster-algorithm","snr")
+      self.add_var_opt("sort-triggers","")
+      self.add_var_opt("snr-threshold",5.0)
+      self.add_var_opt("cluster-time",4000)
+      self.id = job.name + '-' + str(trig.statValue) + '-' + str(trig.eventID)
+      self.setupNodeWeb(job,False,None,None,None,dag.cache)
+      skipParams = ['enable-output','output-path']
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name.lower())
+
+      #try: 
+      if chiaNode.validNode: self.add_parent(chiaNode)
+      #except: pass
+      if opts.plot_chia:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+    #except: 
+    #  self.invalidate()
+    #  print "couldn't add cohire clustering job for event " + str(trig.eventID)
+
+###############################################################################
+
 ########## PLOT Coherent search and null statistics TIME SERIES ###############
 ###############################################################################
 
@@ -1542,17 +1613,19 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotChia followup job
   """
-  def __init__(self,job,chiaXmlFilePath,trig,chiaNode,dag,page,opts):
+  def __init__(self,job,chiaXmlFilePath,trig,cohireNode,dag,page,opts,cp):
     """
-    job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
+    job = A CondorDAGJob that can run an instance of plotChiaJob followup.
     """
     self.friendlyName = 'Plot CHIA time-series'
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-CHIA_1-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
-      #self.add_var_opt("gps",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]+1))
+      self.add_var_opt("sample-rate",string.strip(cp.get('chia','sample-rate')))
       self.add_var_opt("user-tag",str(trig.eventID))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       self.add_var_opt("ifo-times",trig.ifoTag)
@@ -1563,7 +1636,7 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
         self.set_category(job.name.lower())
 
       #try: 
-      if chiaNode.validNode: self.add_parent(chiaNode)
+      if cohireNode.validNode: self.add_parent(cohireNode)
       #except: pass
       if opts.plot_chia:
         dag.addNode(self,self.friendlyName)
@@ -1572,6 +1645,11 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
     except: 
       self.invalidate()
       print "couldn't add chia plotting job for event " + str(trig.eventID)
+
+  def append_insp_node(self,inspNode,ifo):
+    fileName = str(inspNode.output_file_name)
+    self.add_var_arg("--"+ifo+"-framefile "+str(fileName.replace(".xml",".gwf").strip(".gz")))
+    if inspNode.validNode: self.add_parent(inspNode)
 
 ###############################################################################
 

@@ -67,7 +67,7 @@ def simpleEThinca(trigger1, trigger2):
   
 def convert_to_polar_coord(x, y):  
   r_rms = ((x**2 + y**2)/2.0)**(0.5)
-  phi = numpy.arctan(float(y)/float(x))
+  phi = numpy.arctan2(float(y),float(x))
   return r_rms, phi
 
 def convert_to_spherical_coord(x, y, z):
@@ -88,14 +88,7 @@ def convert_to_spherical_coord(x, y, z):
      theta = cmath.pi/2.0
    else:
      theta = numpy.arctan((x_new**2 + y_new**2)**(0.5)/float(z_new))
-   if (x_new == 0.0) and (y_new >  0.0):
-     phi = cmath.pi/2.0
-   elif (x_new == 0.0) and (y_new < 0.0):
-     phi = -1.0*cmath.pi/2.0
-   elif (x_new == 0.0) and (y_new == 0.0):
-     phi = 0.0
-   else:
-     phi = numpy.arctan(float(y_new)/float(x_new))
+   phi = numpy.arctan2(float(y_new),float(x_new))
    return r_rms, theta, phi
 
 def frac_error_sq(candidate, trigger):
