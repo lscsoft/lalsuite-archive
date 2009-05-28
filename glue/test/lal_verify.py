@@ -1,3 +1,5 @@
+import random
+import sys
 from glue.lal import *
 import unittest
 
@@ -5,6 +7,11 @@ import unittest
 #
 # Define the components of the test suite.
 #
+
+
+def randomLIGOTimeGPS():
+	return LIGOTimeGPS(random.randint(-100000000, +100000000), random.randint(0, 999999999))
+
 
 class test_LIGOTimeGPS(unittest.TestCase):
 	def test__init__(self):
@@ -69,6 +76,48 @@ class test_LIGOTimeGPS(unittest.TestCase):
 
 	def test__mod__(self):
 		self.assertEqual(LIGOTimeGPS(3), LIGOTimeGPS(13) % 5.0)
+
+	def test_pylal_comparison(self):
+		try:
+			from pylal.xlal.date import LIGOTimeGPS as pylalLIGOTimeGPS
+		except ImportError:
+			print >>sys.stderr, "pylal not available:  skipping test"
+			return
+
+		operators = {
+			"add": (LIGOTimeGPS.__add__, pylalLIGOTimeGPS.__add__),
+			"sub": (LIGOTimeGPS.__sub__, pylalLIGOTimeGPS.__sub__)
+		}
+
+		for i in xrange(1000000):
+			key = random.choice(operators.keys())
+			op, pylalop = operators[key]
+			arg1 = randomLIGOTimeGPS()
+			arg2 = randomLIGOTimeGPS()
+			try:
+				self.assertEqual(op(arg1, arg2), pylalop(pylalLIGOTimeGPS(arg1), pylalLIGOTimeGPS(arg2)))
+			except AssertionError, s:
+				raise AssertionError, "%s(%s, %s) comparison failed: %s" % (key, str(arg1), str(arg2), str(s))
+
+		# FIXME:  the next tests don't pass due to round-off
+		# discrepancies;  re-enable when they can pass
+		return
+
+		operators = {
+			"mul": (LIGOTimeGPS.__mul__, pylalLIGOTimeGPS.__mul__),
+			"div": (LIGOTimeGPS.__div__, pylalLIGOTimeGPS.__div__),
+			"mod": (LIGOTimeGPS.__mod__, pylalLIGOTimeGPS.__mod__)
+		}
+
+		for i in xrange(1000000):
+			key = random.choice(operators.keys())
+			op, pylalop = operators[key]
+			arg1 = randomLIGOTimeGPS()
+			arg2 = random.random()
+			try:
+				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 1e-8, True)
+			except AssertionError, s:
+				raise AssertionError, "%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2)))
 
 
 #
