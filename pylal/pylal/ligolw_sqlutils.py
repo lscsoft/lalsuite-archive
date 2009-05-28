@@ -499,7 +499,9 @@ class Summaries:
         """
         for params in self.frgstats:
             eid, esid = params[0], params[1]
-            if (eid,esid) not in self.zero_lag_ids:
+            # following checks that this eid and esid are not zero lag and that
+            # there are foreground triggers
+            if (eid,esid) not in self.zero_lag_ids and (eid, self.zero_lag_ids[eid], params[2], params[3]) in self.frgstats:
                 self.frgstats[ params ] = self.frgstats[ params ] + self.frgstats[ (eid, self.zero_lag_ids[eid], params[2], params[3])]
             self.frgstats[params].sort()
 
