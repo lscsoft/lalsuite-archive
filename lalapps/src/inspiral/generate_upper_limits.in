@@ -127,7 +127,7 @@ def create_injcut_job(dagman,injInputFile,output,massChars):
 
 def create_injcut_subfile(cp,executable,logPath,priority,type):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = standard \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --injection-file $(macroinjfile) '
   if type == 'gaussian' or type == 'component':
@@ -175,7 +175,7 @@ def create_inspinj_job(dagman,massChars,mass,sourceFile,type):
 
 def create_inspinj_subfile(cp,executable,logPath,priority,type):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = standard \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --source-file ../$(macrosourcefile) '
   if type =='gaussian':
@@ -225,7 +225,7 @@ def create_coirefm_job(dagman,injFile,inputFiles,foundOutput,missedOutput,\
 
 def create_coirefm_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = standard \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --glob $(macroglob) '
   subFile += '--output $(macrooutput) '
@@ -291,7 +291,7 @@ def create_numgalaxies_job(dagman, inputZeroFiles,inputSlideFiles,\
 
 def create_numgalaxies_subfile(cp,executable,logPath,priority,type,userTag):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = vanilla \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --zero-glob $(macrozerofiles) '
   subFile += '--found-glob $(macrofoundinj) '
@@ -344,7 +344,7 @@ def create_computeposterior_job(dagman, sourceChars,outputDir,\
 
 def create_computeposterior_subfile(cp,executable,logPath,priority,userTag):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = vanilla \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --galaxies-file $(macronumgalinput) '
   subFile += '--time-analyzed-file $(macrotimeanalyzed) '
@@ -379,7 +379,7 @@ def create_plotulvsmass_job(dagman,computepostglob,massRegion,figureName,\
 
 def create_plotulvsmass_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = vanilla \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = '
   subFile += '--computepost-glob $(macrocomputeglob) '
@@ -422,7 +422,7 @@ def create_combineposterior_job(dagman,posteriorFiles,
 
 def create_combineposterior_subfile(cp,executable,logPath,priority):
   logFile = ''.join([random.choice('ABCDEFGHIJKLMNOPQR') for x in xrange(8)])
-  subFile = 'universe = vanilla \n'
+  subFile = 'universe = local \n'
   subFile += 'executable = ' + executable + ' \n'
   subFile += 'arguments = --figure-name $(macrofigurename) '
   subFile += '--min-mass $(macrominmass) '
