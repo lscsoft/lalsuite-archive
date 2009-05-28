@@ -305,7 +305,7 @@ def split_segment_ids(segment_ids):
 
 
 
-def find_segments(doc, key):
+def find_segments(doc, key, use_segment_table = True):
     key_pieces = key.split(':')
     while len(key_pieces) < 3:
         key_pieces.append('*')
@@ -318,8 +318,12 @@ def find_segments(doc, key):
     seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
 
     # Find all segments belonging to those definers
-    seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
-    seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+    if use_segment_table:
+        seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
+        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+    else:
+        seg_sum_table = table.get_table(doc, lsctables.SegmentSumTable.tableName)
+        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_sum_table)
 
     # Combine into a segmentlist
     ret = glue.segments.segmentlist(map(lambda x: glue.segments.segment(x.start_time, x.end_time), seg_entries))
@@ -368,4 +372,22 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
 
         segtable.append(segment)
 
+
+def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
+    try:
+        seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+    except:
+        seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "end_time", "comment"])
+        xmldoc.childNodes[0].appendChild(seg_sum_table)
+
+    for seg in sgmtlist:
+        segment_sum                = lsctables.SegmentSum()
+        segment_sum.process_id     = proc_id
+        segment_sum.segment_def_id = seg_def_id
+        segment_sum.segment_sum_id = seg_sum_table.get_next_id()
+        segment_sum.start_time     = seg[0]
+        segment_sum.end_time       = seg[1]
+        segment_sum.comment        = ''
+
+        seg_sum_table.append(segment_sum)
 
