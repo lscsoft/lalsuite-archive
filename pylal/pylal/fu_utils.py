@@ -42,7 +42,7 @@ matplotlib.use('Agg')
 import operator
 from UserDict import UserDict
 
-from pylab import *
+#from pylab import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
