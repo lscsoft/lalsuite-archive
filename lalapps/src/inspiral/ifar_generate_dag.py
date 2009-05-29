@@ -147,5 +147,5 @@ while dagstatus==1:
 
 subprocess.call(["lalapps_generate_upper_limits -f upper_limit.ini"],shell=True)
 
-subprocess.call(["condor_submit_dag upper_limit.dag"],shell=True)
+subprocess.call(["condor_submit_dag -maxjobs 1 upper_limit.dag"],shell=True)
 
