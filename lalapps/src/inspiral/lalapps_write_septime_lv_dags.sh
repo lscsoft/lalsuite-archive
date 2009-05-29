@@ -27,10 +27,16 @@ echo
 
 # These shouldn't need changing
 
-h1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-h2_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-l1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-v1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/V1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+h1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'h1_veto_file' | awk '{print $3}'`
+h2_veto_file=`cat write_ifar_scripts_lv.ini | grep 'h2_veto_file' | awk '{print $3}'`
+l1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'l1_veto_file' | awk '{print $3}'`
+v1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'v1_veto_file' | awk '{print $3}'`
+
+#h1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#h2_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#l1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#v1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/V1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+
 # don't touch anything below here
 ################################################################################
 
