@@ -66,7 +66,7 @@ def calculate_ifar(coincs, slide_stats, slide_time):
 	if index == 0:
 	  fan = float(N_total_slides)
 	elif index == N_total_slides:
-	  fan = 0.5
+	  fan = 0.0
 	else:
 	  fan = float(N_total_slides - index)
 
@@ -74,13 +74,13 @@ def calculate_ifar(coincs, slide_stats, slide_time):
 	far = (fan * 31536000.0) / float(slide_time)
 
 	# take the inverse
-	ifar = 1.0 / far
+	#ifar = 1.0 / far
 	
 	ifos, ifolist = coinc.get_ifos()
 	
 	for ifo in ifolist:
 	  sngl_trig = getattr(coinc, ifo)
-	  sngl_trig.alpha = ifar
+	  sngl_trig.alpha = far
 	  output_sngls.append(sngl_trig)
 
   
@@ -160,7 +160,7 @@ def parse_command_line():
   
   parser.add_option("-P","--output-path",action="store",\
       type="string",default=None,  metavar="PATH",\
-      help="path where the figures would be stored")
+      help="path where output (uncombined) files will be written to")
 	  
   parser.add_option("","--combine-output", action="store", type="string",\
       default="", help=" combine all triggers into a single file with a name specified by this option." )
@@ -437,9 +437,10 @@ if opts.combine_output:
 		combined_xmldoc.childNodes[0].childNodes[i] = combined_search_summary_table
 	  
   
-  combined_output_file = open(opts.combine_output, "w")
-  combined_xmldoc.write(combined_output_file)
-  combined_output_file.close()
+  #combined_output_file = open(opts.combine_output, "w")
+  #combined_xmldoc.write(combined_output_file)
+  #combined_output_file.close()
+  utils.write_filename(combined_xmldoc, opts.combine_output, gz=True)
   
   
   
