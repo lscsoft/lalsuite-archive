@@ -209,19 +209,20 @@ if  not len(events_files) > 0:
 if opts.ignore_IFO_times:
 
   ifo_times_to_ignore = opts.ignore_IFO_times.split(",")
+  
+  if not opts.skip_timeslides:
+	# time slides
+	# Assumes that ifo time is the first thing in the file name
+	new_slidesfiles = []
+	for file in slidesfiles:
+	  tmpifotime=file.split("/")[-1].split("_")[0]
+	  tmpifotype=file.split("/")[-1].split("_")[1].split("-")[0]
+	  category="_".join([tmpifotype,tmpifotime])
+	  if not (category in ifo_times_to_ignore):
+		new_slidesfiles.append(file)
 
-  # time slides
-  # Assumes that ifo time is the first thing in the file name
-  new_slidesfiles = []
-  for file in slidesfiles:
-    tmpifotime=file.split("/")[-1].split("_")[0]
-    tmpifotype=file.split("/")[-1].split("_")[1].split("-")[0]
-    category="_".join([tmpifotype,tmpifotime])
-    if not (category in ifo_times_to_ignore):
-      new_slidesfiles.append(file)
-
-  slidesfiles = []
-  slidesfiles = new_slidesfiles
+	slidesfiles = []
+	slidesfiles = new_slidesfiles
 
   # zero lag
   # Assumes that ifo time is the first thing in the file name

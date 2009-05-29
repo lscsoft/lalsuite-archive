@@ -21,6 +21,8 @@ condor_priority=`cat write_ifar_scripts_lv.ini | grep 'condor_priority' | awk '{
 
 hipe_cache=`cat write_ifar_scripts_lv.ini | grep 'hipe_cache' | awk '{print $3}'`
 
+ignore_ifos=`cat write_ifar_scripts_lv.ini | grep 'ignore_ifos' | awk '{print $3}'`
+
 #Print options out to screen for verification
 echo "Options used are:"
 echo "  month_gps_time = ${month_gps_time}"
@@ -35,10 +37,15 @@ echo
 
 # These shouldn't need changing
 
-h1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-h2_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-l1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
-v1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/V1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+h1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'h1_veto_file' | awk '{print $3}'`
+h2_veto_file=`cat write_ifar_scripts_lv.ini | grep 'h2_veto_file' | awk '{print $3}'`
+l1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'l1_veto_file' | awk '{print $3}'`
+v1_veto_file=`cat write_ifar_scripts_lv.ini | grep 'v1_veto_file' | awk '{print $3}'`
+
+#h1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#h2_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/H2-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#l1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/L1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
+#v1_veto_file='/scratch2/jclayton/runlvtag5/thirdstage/866088014-868721414/segments/V1-COMBINED_'${cat}'_VETO_SEGS-'${month_gps_time}'-'${month_duration}'.txt'
 
 # MAKE THE findEfficiencyFactors SUB FILE
 ################################################################################
@@ -94,7 +101,7 @@ fi >  findLoudestEvents.sub
 if [ 1 ]; then
   echo "universe = local"
   echo "executable = ${search_summary_path}"
-  echo "arguments = --slides-glob \$(macroslideglob) --zero-lag-glob \$(macrozerolag) --statistic lvS5stat --num-events 20 --save-background-stats --output-background-file \$(macropickle) --num-slides 50 --output-path \$(macrooutput) --enable-output  --no-bg-zero-lag-glob \$(macronobg) --make-effective-likelihood-histogram --plot-slides --plot-mchirp-vs-effective-snr --plot-mchirp-vs-stat --plot-ifar --septime-files \$(macroseptimefiles) --efactors-file \$(efactorsfile) --plot-efactors --h1-triggers --h2-triggers --l1-triggers --v1-triggers --verbose --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1"
+  echo "arguments = --slides-glob \$(macroslideglob) --zero-lag-glob \$(macrozerolag) --statistic lvS5stat --num-events 20 --save-background-stats --output-background-file \$(macropickle) --num-slides 50 --output-path \$(macrooutput) --enable-output  --no-bg-zero-lag-glob \$(macronobg) --make-effective-likelihood-histogram --plot-slides --plot-mchirp-vs-effective-snr --plot-mchirp-vs-stat --plot-ifar --septime-files \$(macroseptimefiles) --efactors-file \$(efactorsfile) --plot-efactors --h1-triggers --h2-triggers --l1-triggers --v1-triggers --verbose --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/search_summary-\$(cluster)-\$(process).err"
@@ -110,7 +117,7 @@ fi >  search_summary.sub
 if [ 1 ]; then
   echo "universe = local"
   echo "executable = ${sumtimes_path}"
-  echo "arguments = --input-glob \$(macroinputglob) --output-file corse_all_data_files/exclude_play/H1H2L1V1_H1H2L1V1-CORSE_EXCLUDE_PLAY_mchirp_2_8_CAT_3-${month_gps_time}-${month_duration}.txt"
+  echo "arguments = --input-glob \$(macroinputglob) --output-file corse_all_data_files/exclude_play/H1H2L1V1_H1H2L1V1-CORSE_EXCLUDE_PLAY_mchirp_2_8_CAT_3-${month_gps_time}-${month_duration}.txt --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/sumtimes-\$(cluster)-\$(process).err"
@@ -126,7 +133,7 @@ fi >  sumtimes.sub
 if [ 1 ]; then
   echo "universe = local"
   echo "executable = ${calculatefar_path}"
-  echo "arguments = --slides-glob \$(macroslideglob) --events-glob \$(macroeventglob) --statistic \$(macrostat) --save-background-stats --output-background-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles)"
+  echo "arguments = --slides-glob \$(macroslideglob) --events-glob \$(macroeventglob) --statistic \$(macrostat) --save-background-stats --output-background-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles) --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/calculatefar-\$(cluster)-\$(process).err"
@@ -140,7 +147,7 @@ fi >  calculatefar_zerolag.sub
 ##############################################################################
 if [ 1 ]; then  echo "universe = local"
   echo "executable = ${calculatefar_path}"
-  echo "arguments = --events-glob \$(macroeventglob) --statistic \$(macrostat) --skip-timeslides --background-stats-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles)"
+  echo "arguments = --events-glob \$(macroeventglob) --statistic \$(macrostat) --skip-timeslides --background-stats-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles) --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/calculatefar-\$(cluster)-\$(process).err"
@@ -156,7 +163,7 @@ fi >  calculatefar_slides.sub
 if [ 1 ]; then
   echo "universe = local"
   echo "executable = ${calculatefar_path}"
-  echo "arguments = --events-glob \$(macroeventglob) --statistic \$(macrostat) --skip-timeslides --background-stats-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles) --ensure-search-summary-table-uniqueness"
+  echo "arguments = --events-glob \$(macroeventglob) --statistic \$(macrostat) --skip-timeslides --background-stats-file \$(macrobgfile) --verbose --output-path \$(macrooutputpath) --combine-output \$(macrocombineoutput) --num-slides 50 --septime-files \$(macroseptimefiles) --ensure-search-summary-table-uniqueness --ignore-IFO-times H1H2_H1H2,H1H2_H1H2L1,H1H2_H1H2V1,H1H2_H1H2L1V1,H2L1_H1H2L1,H2L1_H1H2L1V1,H2V1_H1H2V1,H2V1_H1H2L1V1,H2L1V1_H1H2L1V1${ignore_ifos}"
   echo "getenv = True"
   echo "log = " `mktemp -p ${log_path}`
   echo "error = logs/calculatefar-\$(cluster)-\$(process).err"
