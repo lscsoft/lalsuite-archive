@@ -102,8 +102,8 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 		Py_INCREF(rowdumper->delimiter);
 	else
 		rowdumper->delimiter = PyUnicode_FromUnicode(&default_delimiter, 1);
-	rowdumper->attributes = _build_attributes(rowdumper->attributes);
-	rowdumper->formats = _build_formats(rowdumper->formats);
+	rowdumper->attributes = llwtokenizer_build_attributes(rowdumper->attributes);
+	rowdumper->formats = llwtokenizer_build_formats(rowdumper->formats);
 	if(!rowdumper->delimiter || !rowdumper->attributes || !rowdumper->formats)
 		/* memory clean-up happens in __del__() */
 		return -1;
