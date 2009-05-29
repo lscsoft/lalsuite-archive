@@ -1564,7 +1564,7 @@ LALInspiralDistanceCutCleaning(
     CoincInspiralTable        **coincInspiral,
     InspiralAccuracyList       *accuracyParams,
     REAL4			snrThreshold,
-    SummValueTable            **summValueList,
+    SummValueTable             *summValueList,
     LALSegList                 *vetoSegsH1, 
     LALSegList                 *vetoSegsH2
     )
