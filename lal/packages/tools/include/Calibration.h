@@ -327,6 +327,10 @@ void LALGetFactors(
     StrainIn               *input
     );
 
+int XLALFIRFilter(
+    REAL8TimeSeries        *tseries,
+    REAL8IIRFilter         *FIR
+    );
 
 void LALMakeFIRLP(LALStatus *status, 
 		  REAL8IIRFilter *G, 
