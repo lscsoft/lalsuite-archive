@@ -1221,8 +1221,10 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of an mcmc followup job
   """
-  def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
-    try:
+  #def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
+  def __init__(self, followupmcmcJob, procParams, trig, randomseed, cp, opts, dag, ifo=None):
+    if 1:
+    #try:
       time_margin = string.strip(cp.get('followup-mcmc','prior-coal-time-marg'))
       iterations = string.strip(cp.get('followup-mcmc','iterations'))
       tbefore = string.strip(cp.get('followup-mcmc','tbefore'))
@@ -1234,61 +1236,93 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.friendlyName = 'MCMC followup'
       pipeline.CondorDAGNode.__init__(self,followupmcmcJob)
-      for row in procParams:
-        param = row.param.strip("-")
-        value = row.value
-        if param == 'frame-cache': cacheFile = value
-        if param == 'channel-name': channel = value
-        if param == 'gps-end-time': chunk_end = value
-        if param == 'gps-start-time': chunk_start = value
+
+      if ifo:
+        IFOs = [ifo]
+      else:
+        IFOs = trig.ifolist_in_coinc
+
+      cacheFiles = ""
+      channelNames = ""
+      chunk_end_list = {}
+      chunk_start_list = {}
+      ifoName = ""
+      for itf in IFOs:
+        ifoName += itf
+        for row in procParams[itf]:
+          param = row.param.strip("-")
+          value = row.value
+          if param == 'frame-cache': cacheFile = value
+          if param == 'channel-name': channel = value
+          if param == 'gps-end-time': chunk_end = value
+          if param == 'gps-start-time': chunk_start = value
+        cacheFiles += cacheFile + ","
+        channelNames += channel + ","
+        chunk_end_list[itf] = chunk_end
+        chunk_start_list[itf] = chunk_start
+
+      maxSNR = 0
+      maxIFO = ""
+      for trigger in trig.coincs:
+        snr = trigger.snr
+        if snr > maxSNR:
+          maxSNR = snr
+          maxIFO = trigger.ifo
+      trig_tempo = getattr(trig.coincs,maxIFO)
+      triggerRef = copy.deepcopy(trig_tempo)
 
       self.add_var_opt("template",string.strip(cp.get('followup-mcmc','template')))
       self.add_var_opt("iterations",iterations)
       self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
-      self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[ifo])
+      self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[maxIFO])
       self.add_var_opt("tbefore",tbefore)
       self.add_var_opt("tafter",tafter)
 
-      tmin = trig.gpsTime[ifo] - float(time_margin)
-      tmax = trig.gpsTime[ifo] + float(time_margin)
+      tmin = trig.gpsTime[maxIFO] - float(time_margin)
+      tmax = trig.gpsTime[maxIFO] + float(time_margin)
       self.add_var_opt("priorparameters","[" + massmin + "," + massmax + "," + str(tmin) + "," + str(tmax) + "," + dist90 + "," + dist10 + "]")
 
-      param_mchirp = getattr(trig.coincs,ifo).mchirp
-      param_eta = getattr(trig.coincs,ifo).eta
-      param_distance = getattr(trig.coincs,ifo).eff_distance
-      self.add_var_opt("guess","[" + str(param_mchirp) + "," + str(param_eta) + "," + str(trig.gpsTime[ifo]) + "," + str(param_distance) + "]")
-      self.add_var_opt("fixed","[altitude=0,azimuth=0,inclination=0,polarisation=0]")
+      param_mchirp = triggerRef.mchirp
+      param_eta = triggerRef.eta
+      param_distance = triggerRef.eff_distance
+      self.add_var_opt("guess","[" + str(param_mchirp) + "," + str(param_eta) + "," + str(trig.gpsTime[maxIFO]) + "," + str(param_distance) + "]")
+      #self.add_var_opt("fixed","[altitude=0,azimuth=0,inclination=0,polarisation=0]")
 
-      self.add_var_opt("readdata","")
+      #self.add_var_opt("readdata","")
 
       ########################################################################
       # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
       # THE MCMC CODE SHOULD TAKE THE SAME PSD AS LALAPPS_INSPIRAL.
       ########################################################################
 
-      self.add_var_opt("cachefiledata",cacheFile)
-      self.add_var_opt("cachefilenoise",cacheFile)
+      #self.add_var_opt("cachefiledata",cacheFile)
+      #self.add_var_opt("cachefilenoise",cacheFile)
+      self.add_var_opt("cachefile","["+cacheFiles.strip(",")+"]")
+      self.add_var_opt("filechannel","["+channelNames.strip(",")+"]")
 
-      self.add_var_opt("filechannel",channel)
+      psdEstimateStart = ""
+      psdEstimateEnd = ""
+      for itf in IFOs:
+        datainchunk_before = int(trig.gpsTime[maxIFO]) - 75 - 64 - int(chunk_start_list[itf])
+        datainchunk_after = int(chunk_end_list[itf]) - 64 - int(trig.gpsTime[maxIFO]) - 32
+        if datainchunk_after > datainchunk_before:
+          psdEstimateStart += str(int(trig.gpsTime[maxIFO]) + 32) + ","
+          psdEstimateEnd += str(int(chunk_end_list[itf]) - 64) + ","
+        else:
+          psdEstimateStart += str(int(chunk_start_list[itf]) + 64) + ","
+          psdEstimateEnd += str(int(trig.gpsTime[maxIFO]) - 75) + ","
 
-      datainchunk_before = int(trig.gpsTime[ifo]) - 75 - 64 - int(chunk_start)
-
-      datainchunk_after = int(chunk_end) - 64 - int(trig.gpsTime[ifo]) - 32
-      if datainchunk_after > datainchunk_before:
-        self.add_var_opt("psdestimatestart",int(trig.gpsTime[ifo]) + 32)
-        self.add_var_opt("psdestimateend",int(chunk_end) - 64)
-      else:
-        self.add_var_opt("psdestimatestart",int(chunk_start) + 64)
-        self.add_var_opt("psdestimateend",int(trig.gpsTime[ifo]) - 75)
+      self.add_var_opt("psdestimatestart","["+psdEstimateStart.strip(",")+"]")
+      self.add_var_opt("psdestimateend","["+psdEstimateEnd.strip(",")+"]")
 
       self.add_var_opt("importanceresample",10000)
 
-      self.id = followupmcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
-      outputName = followupmcmcJob.name+'/'+self.id+'.txt'
-      self.outputCache = ifo + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '\n'
+      self.id = followupmcmcJob.name + '-' + ifoName + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
+      outputName = followupmcmcJob.name+'/'+self.id
+      self.outputCache = ifoName + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '.csv\n'
 
       self.setupNodeWeb(followupmcmcJob,False,None,None,None,dag.cache)
-      self.add_var_opt("logfilename",outputName)
+      self.add_var_opt("outfilename",outputName)
 
       if not opts.disable_dag_categories:
         self.set_category(followupmcmcJob.name.lower())
@@ -1298,9 +1332,10 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
         self.validate()
       else: self.invalidate()
 
-    except:
+    else:
+    #except:
       self.invalidate()
-      print "couldn't add followupmcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      print "couldn't add followupmcmc job for " + str(ifoName) + "@ "+ str(trig.gpsTime[maxIFO])
 
 ###############################################################################
 
@@ -1366,7 +1401,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       # get the list of MCMC .txt files to be used as input
       mcmcfilelist = ""
       for mcmcId in mcmcIdList:
-        mcmcfilelist += mcmcId.split('-')[0]+'/' + mcmcId + '.txt,' # here we assume that the directory name is mcmcId.split('-')[0]
+        mcmcfilelist += mcmcId.split('-')[0]+'/' + mcmcId + '.csv,' # here we assume that the directory name is mcmcId.split('-')[0]
       self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
 
       self.id = plotmcmcjob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
