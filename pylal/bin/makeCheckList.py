@@ -210,6 +210,7 @@ framecheck = []
 chia = []
 skymap = []
 singlemcmc = []
+coherentmcmc = []
 fu_triggers = []
 
 # prepare strings containing information on Nelson's DQ investigations
@@ -281,7 +282,7 @@ for ifo_index,ifo in enumerate(ifolist):
   if os.access("plotmcmcJob",os.F_OK):
     filesInDir = os.listdir("plotmcmcJob")
     for element in filesInDir:
-      if fnmatch.fnmatch(element, "*" + ifo + "*" + opts.trigger_id):
+      if fnmatch.fnmatch(element, "*" + ifo + "-*" + opts.trigger_id):
         singlemcmc.append("../plotmcmcJob/" + element)
         break
       else: pass
@@ -313,6 +314,16 @@ try:
   ifolist.index("H2")
   coherent_qscan.append("../h1h2QeventJob/qevent/H1H2/" + gpstime0)
 except: pass
+
+# links to coherent MCMC
+if os.access("plotmcmcJob",os.F_OK):
+  filesInDir = os.listdir("plotmcmcJob")
+  for element in filesInDir:
+    if fnmatch.fnmatch(element, "*" + opts.ifolist_in_coinc + "-*" + opts.trigger_id):
+      coherentmcmc.append("../plotmcmcJob/" + element)
+      break
+    else: pass
+
 
 # link to inspiral coherent followups
 coherentInspiralFile = getFileMatchingTrigger("plotChiaJob",opts.ifo_times+"_"+opts.trigger_id)
@@ -736,7 +747,12 @@ page.td()
 singlemcmcLinks = "Single MCMC:"
 for j,ifo in enumerate(ifolist):
   singlemcmcLinks += " <a href=\"" + singlemcmc[j] + "\">" + ifo + "</a>"
-page.td(singlemcmcLinks)
+if coherentmcmc:
+  coherentmcmcLink = "<br><br>Coherent MCMC:"
+  coherentmcmcLink += " <a href=\"" + coherentmcmc[0] + "\">" + opts.ifolist_in_coinc + "</a>"
+else:
+  coherentmcmcLink = ""
+page.td(singlemcmcLinks+coherentmcmcLink)
 page.td()
 page.tr.close()
 
