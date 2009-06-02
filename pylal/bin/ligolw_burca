@@ -54,6 +54,51 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+def parse_thresholdstrings(thresholdstrings):
+	"""
+	Turn a list of strings of the form
+	inst1,inst2=threshold1[,threshold2,...] into a dictionary with
+	(inst1, inst2) 2-tuples as keys and the values being the thresholds
+	parsed into lists of strings split on the "," character.
+
+	For each pair of instruments present among the input strings, the
+	two possible orders are considered independent:  the input strings
+	are allowed to contain one set of thresholds for (inst1, inst2),
+	and a different set of thresholds for (inst2, inst1).  Be aware
+	that no input checking is done to ensure the user has not provided
+	duplicate, incompatible, thresholds.  This is considered the
+	responsibility of the application program to verify.
+
+	The output dictionary contains threshold sets for both instrument
+	orders.  If, for some pair of instruments, the input strings
+	specified thresholds for only one of the two possible orders, the
+	thresholds for the other order are copied from the one that was
+	provided.
+
+	Whitespace is removed from the start and end of all strings.
+
+	A typical use for this function is in parsing command line
+	arguments or configuration file entries.
+
+	Example:
+
+	>>> from pylal.snglcoinc import parse_thresholds
+	>>> parse_thresholds(["H1,H2=X=0.1,Y=100", "H1,L1=X=.2,Y=100"])
+	{('H1', 'H2'): ['X=0.1', 'Y=100'], ('H1', 'L1'): ['X=.2', 'Y=100'], ('H2', 'H1'): ['X=0.1', 'Y=100'], ('L1', 'H1'): ['X=.2', 'Y=100']}
+	"""
+	thresholds = {}
+	for pair, delta in [s.split("=", 1) for s in thresholdstrings]:
+		try:
+			A, B = [s.strip() for s in pair.split(",")]
+		except Exception:
+			raise ValueError, "cannot parse instruments '%s'" % pair
+		thresholds[(A, B)] = [s.strip() for s in delta.split(",")]
+	for (A, B), value in thresholds.items():
+		if (B, A) not in thresholds:
+			thresholds[(B, A)] = value
+	return thresholds
+
+
 def parse_thresholds(options):
 	#
 	# parse --thresholds options into a dictionary of instrument pairs
@@ -61,7 +106,7 @@ def parse_thresholds(options):
 	#
 
 	try:
-		thresholds = snglcoinc.parse_thresholds(options.thresholds)
+		thresholds = parse_thresholdstrings(options.thresholds)
 	except Exception, e:
 		raise ValueError, "error parsing --thresholds: %s" % str(e)
 

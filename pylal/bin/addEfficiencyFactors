@@ -122,8 +122,8 @@ if not opts.skip_injections:
   # loop over injection directories
   for (inj_dir, value) in cp.items("injections"):
   
-	# create directory for zero-lag likelihood files
-	try: os.mkdir(inj_dir)
+	# create directory for injections likelihood files
+	try: os.mkdir(inj_dir.upper())
 	except: pass
 	
 	InspiralUtils.message(opts, "Injections from " + inj_dir + "directory ...")
@@ -225,7 +225,7 @@ if not opts.skip_injections:
 
 					
 	  # open the output file for writing
-	  output_file_name = inj_dir + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
+	  output_file_name = inj_dir.upper() + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
 	  output_file =  open(output_file_name, "w")
 	
 	  # create xml doc
@@ -949,10 +949,10 @@ if not opts.skip_exclude_playground:
   zero_lag_glob = cp.get('exclude-playground-data', 'zero-lag-glob')
   zero_lag_files = glob.glob(zero_lag_glob)
 
-  try: os.mkdir("CAT_3/" + "exclude_playground")
+  try: os.mkdir("CAT_3/" + "exclude_play")
   except: pass
 
-  zero_lag_output_dir = "CAT_3/" + "exclude_playground"
+  zero_lag_output_dir = "CAT_3/" + "exclude_play"
 
 
   InspiralUtils.message(opts,"zero-lag exclude-playground files ...")

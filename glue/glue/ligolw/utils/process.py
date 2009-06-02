@@ -172,7 +172,15 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 	the process table.
 	"""
 	process = append_process(xmldoc, program = program, **kwargs)
-	append_process_params(xmldoc, process, ((key, ligolwtypes.FromPyType[type(value)], value) for key, value in paramdict.items() if value))
+
+	def params(paramdict):
+		for name, value in paramdict.items():
+			if value is True or value is False:
+				yield (name, None, None)
+			elif value is not None:
+				yield (name, ligolwtypes.FromPyType[type(value)], value)
+
+	append_process_params(xmldoc, process, params(paramdict))
 	return process
 
 

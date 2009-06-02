@@ -51,7 +51,7 @@
  */
 
 
-PyObject *_build_attributes(PyObject *sequence)
+PyObject *llwtokenizer_build_attributes(PyObject *sequence)
 {
 	PyObject *result;
 	int i;
@@ -91,7 +91,7 @@ PyObject *_build_attributes(PyObject *sequence)
  */
 
 
-PyObject *_build_formats(PyObject *sequence)
+PyObject *llwtokenizer_build_formats(PyObject *sequence)
 {
 	return PySequence_Tuple(sequence);
 }

@@ -35,6 +35,11 @@ from glue.ligolw.utils import ligolw_add
 from glue import iterutils
 from glue import segments
 
+try:
+  all
+except NameError:
+  from glue.iterutils import all
+
 #
 # =============================================================================
 #
@@ -288,10 +293,11 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   if on_instruments & off_instruments:
     raise ValueError, "on_instruments and off_instruments not disjoint"
 
-  # performance aid:  only need to retain offsets for instruments appearing
-  # in the veto segment lists.  instruments not appearing in the veto
-  # segments are assumed to be always on
+  # instruments that are not vetoed are assumed to be on
   on_instruments &= set(vetoseglistdict.keys())
+
+  # performance aid:  only need offsets for instruments whose state is
+  # important
   all_instruments = on_instruments | off_instruments
   offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
 
@@ -299,7 +305,7 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # interest
   for offsetvector in offsetvectors:
     if not set(offsetvector.keys()).issuperset(all_instruments):
-      raise ValueError, "incomplete offset vector %s" % repr(offsetvector)
+      raise ValueError, "incomplete offset vector %s;  missing instrument(s) %s" % (repr(offsetvector), ", ".join(all_instruments - set(offsetvector.keys())))
 
   # the livetime is trivial if an instrument that must be off is never
   # vetoed
@@ -312,14 +318,6 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   vetoseglistdict = segments.segmentlistdict((key, segments.segmentlist(seg for seg in seglist if coalesced_rings.intersects_segment(seg))) for key, seglist in vetoseglistdict.items() if key in all_instruments)
 
   # tot up the time when exactly the instruments that must be on are on
-  #
-  # slidvetoes = times when instruments are vetoed,
-  # slidvetoes.union(on_instruments) = times when an instrument that must be
-  # on is vetoed
-  #
-  # ~slidvetoes = times when instruments are not vetoed,
-  # (~slidvetoes).union(off_instruments) = times when an instrument that must
-  # be off is not vetoed
   live_time = 0.0
   for ring in rings:
     # don't do this in loops
@@ -330,9 +328,23 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
     # here first
     clipped_vetoseglistdict = segments.segmentlistdict((key, seglist & ring) for key, seglist in vetoseglistdict.items())
 
+    # performance aid:  if an instrument that must be vetoed is never
+    # vetoed in this ring, the livetime is zero
+    if not all(clipped_vetoseglistdict[key] for key in off_instruments):
+      continue
+
     # iterate over offset vectors
     for offsetvector in offsetvectors:
+      # apply the offset vector to the vetoes, wrapping around the ring
       slidvetoes = slideSegListDictOnRing(ring[0], clipped_vetoseglistdict, offsetvector)
+
+      # slidvetoes = times when instruments are vetoed,
+      # slidvetoes.union(on_instruments) = times when an instrument that
+      # must be on is vetoed
+      #
+      # ~slidvetoes = times when instruments are not vetoed,
+      # (~slidvetoes).union(off_instruments) = times when an instrument
+      # that must be off is not vetoed
       live_time += float(abs(ring - slidvetoes.union(on_instruments) - (~slidvetoes).union(off_instruments)))
 
   # done

@@ -44,7 +44,7 @@ from glue.ligolw import dbtables
 from glue.ligolw import utils
 from pylal import rate
 from pylal import db_thinca_rings
-from pylal.xlal.date import LIGOTimeGPS
+from pylal.date import LIGOTimeGPS
 
 
 lsctables.LIGOTimeGPS = LIGOTimeGPS
