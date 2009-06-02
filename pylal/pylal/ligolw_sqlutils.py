@@ -388,6 +388,8 @@ def convert_duration( duration, convert_to ):
             This is the Julian year, which is the
             accepted astronomical year
     """
+    if not duration:
+        return 0. 
     if convert_to == 's':
         return duration / 1.
     elif convert_to == 'min':
@@ -501,7 +503,7 @@ class Summaries:
             eid, esid = params[0], params[1]
             # following checks that this eid and esid are not zero lag and that
             # there are foreground triggers
-            if (eid,esid) not in self.zero_lag_ids and (eid, self.zero_lag_ids[eid], params[2], params[3]) in self.frgstats:
+            if (eid, esid) not in self.zero_lag_ids.items() and (eid, self.zero_lag_ids[eid], params[2], params[3]) in self.frgstats:
                 self.frgstats[ params ] = self.frgstats[ params ] + self.frgstats[ (eid, self.zero_lag_ids[eid], params[2], params[3])]
             self.frgstats[params].sort()
 
@@ -519,7 +521,13 @@ class Summaries:
         """
         for eid in self.frg_durs:
             for esid in self.frg_durs[eid]:
-                self.bkg_durs[esid] = sum(self.frg_durs[eid].values()) - self.frg_durs[eid][esid]
+                # if zero_lag this_frg_dur should just be the zero_lag duration
+                if esid == self.zero_lag_ids[eid]:
+                    this_frg_dur = self.frg_durs[eid][esid]
+                # if not zero_lag, this_frg_dur should be this slide's durtion + the zero_lag duration
+                else:
+                    this_frg_dur = self.frg_durs[eid][esid] + self.frg_durs[eid][self.zero_lag_ids[eid]]
+                self.bkg_durs[esid] = sum(self.frg_durs[eid].values()) - this_frg_dur
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -574,7 +582,7 @@ class Summaries:
         return ( \
             bisect.bisect_right(self.bkgstats[(eid, ifos, param_group)], stat) \
             - \
-            bisect.bisect_right(self.frgstats[(esid, ifos, param_group)], stat) \
+            bisect.bisect_right(self.frgstats[(eid, esid, ifos, param_group)], stat) \
             ) / self.bkg_durs[esid]
 
     def calc_cfar( self, esid, ifo_group, ufar ):
