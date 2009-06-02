@@ -304,23 +304,28 @@ if opts.verbose:
 # initialize Summaries class, call background
 background = sqlutils.Summaries()
 
-# get all the durations from the experiment summary table
+# get information about all rows in the experiment summary table
 sqlquery = ''.join(["""
     SELECT
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        convert_to_yrs(experiment_summary.duration)
+        convert_to_yrs(experiment_summary.duration),
+        experiment_summary.zero_lag
     FROM
         experiment_summary"""])
-for eid, esid, duration in connection.cursor().execute( sqlquery ):
+for eid, esid, duration, zero_lag in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
+    if zero_lag == 1:
+        background.append_zero_lag_id( eid, esid )
 
-# get all the triggers
+# calculate the background duration for each experiment_summary_id 
+background.calc_bkg_durs()
+
+# get all the non-injection triggers
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        experiment_summary.zero_lag,
         coinc_inspiral.ifos,
         """,
         param_grouping, """,
@@ -339,11 +344,8 @@ if opts.debug:
     print >> sys.stderr, sqlquery
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-for eid, esid, zero_lag, ifos, param_group, stat in connection.cursor().execute(sqlquery):
+for eid, esid, ifos, param_group, stat in connection.cursor().execute(sqlquery):
     background.add_to_bkgstats(eid, esid, ifos, param_group, stat)
-    background.append_duration(eid, esid, duration)
-    if zero_lag == 1:
-        background.append_zero_lag_id( eid, esid )
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
@@ -351,9 +353,6 @@ if opts.debug:
 # sort the background lists
 background.sort_bkgstats()
 background.add_zero_lag_to_frgstats_and_sort()
-
-# calculate the background duration for each experiment_summary_id 
-background.calc_bkg_durs()
 
 if rank_by == "MIN":
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
@@ -367,7 +366,7 @@ else:
 
 if opts.verbose:
     print >> sys.stderr, "Calculating uncombined FAR..."
-# populate uncombined far of foreground table
+# calculate the uncombined far for each trigger and store in coinc_inspiral table
 sqlquery = ''.join(["""
     UPDATE
         coinc_inspiral
@@ -381,9 +380,11 @@ sqlquery = ''.join(["""
                     """, param_grouping, """,
                     coinc_inspiral.""", ranking_stat, """
                     ) 
-            FROM experiment_summary, experiment_map
+            FROM 
+                experiment_summary, experiment_map
             WHERE
-                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                experiment_summary.simulation == 0
+                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 if opts.debug:
     print >> sys.stderr, sqlquery
@@ -501,12 +502,13 @@ sqlquery = ''.join(["""
                     experiment_map.experiment_summ_id,
                     """, ifos_group,
                     """
-                    coinc_inspiral.uncombined_far )
+                    coinc_inspiral.false_alarm_rate )
             FROM 
-                experiment_map
+                experiment_summary, experiment_map
             WHERE
-                experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
-            )"""])
+                experiment_summary.simulation == 0
+                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 
 if opts.debug:
     print >> sys.stderr, sqlquery
