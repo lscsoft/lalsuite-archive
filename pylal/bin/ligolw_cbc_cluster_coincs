@@ -24,7 +24,6 @@ from glue.ligolw.utils import process
 from glue.ligolw.utils.ligolw_sqlite import extract
 
 
-PROGRAM_NAME = sys.argv[0].replace('./', '')
 usage = \
 '''
 Clusters coincident trigges in a database and writes result out
@@ -271,9 +270,9 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 ranking_stat = '.'.join([ 'coinc_inspiral', opts.ranking_stat ])
 
 # determine how to rank
-if opts.rank_by.strip().upper == "MAX":
+if opts.rank_by.strip().upper() == "MAX":
     rank_by = ">"
-elif opts.rank_by.strip().upper == "MIN":
+elif opts.rank_by.strip().upper() == "MIN":
     rank_by = "<"
 
 # Get cluster window; convert from ms to ns
