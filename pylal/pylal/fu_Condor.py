@@ -652,9 +652,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     pipeline.CondorDAGNode.__init__(self,job)
     if name.split('-')[0]=='background':
-      self.add_var_arg('scanlite')
-    else:
       self.add_var_arg('scan')
+    else:
+      self.add_var_arg('scan -r')
     qscanConfig = string.strip(cp.get("followup-"+name, ifo + 'config-file'))
     self.add_var_arg("-c "+qscanConfig)
     self.add_var_arg("-f "+qcache)
@@ -671,7 +671,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
         print >> sys.stderr, 'path '+output+' is not writable'
         sys.exit(1)
 
-    self.add_var_arg("-o "+output)
+    self.add_var_arg("-o "+output+"/"+repr(time))
     self.add_var_arg(repr(time))
 
     self.set_pre_script(job.name + "/checkForDir.sh %s %s" \
@@ -983,7 +983,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventConfig = string.strip(cp.get("followup-"+name, ifoString + '-config-file'))
     self.add_var_arg('-p '+qeventConfig)
     self.add_file_arg('-f '+qeventcache)
-    self.add_var_arg('-o '+output)
+    self.add_var_arg('-o '+output+'/'+repr(times[ifoList[0]]))
     self.add_var_arg(repr(times[ifoList[0]]))
     eventDuration = string.strip(cp.get("followup-"+name, 'duration'))
     self.add_var_arg(eventDuration)
