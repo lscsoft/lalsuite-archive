@@ -197,7 +197,6 @@ setup(
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
     os.path.join('bin','ligolw_glitch_page.py'),
-    os.path.join('bin','ligolw_dqactive'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
     os.path.join('bin','ligolw_segment_diff'),
