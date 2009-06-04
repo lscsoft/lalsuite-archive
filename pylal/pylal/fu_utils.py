@@ -42,7 +42,6 @@ matplotlib.use('Agg')
 import operator
 from UserDict import UserDict
 
-#from pylab import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -56,6 +55,8 @@ from glue.lal import *
 from glue import lal
 from glue import markup
 from lalapps import inspiralutils
+from glue           import LDBDClient
+from glue.segmentdb import query_engine
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -1862,6 +1863,119 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
   print >>ff, chiaFileName
 
   return maxIFO
+
+class followupDQV:
+  """
+  This class is intended to provide a mechanism to access DQ segment
+  information and veto segment information put into the segment
+  database.  This class will replace the previously defined class of
+  followupdqdb.
+  """
+  def __init__(self,LDBDServerURL=None,quiet=bool(False)):
+    """
+    This class setups of for connecting to a LDBD server specified at
+    command line to do segment queries as part of the follow up
+    pipeline.  The LDBD URL should be in the following form
+    ldbd://myserver.domain.name:808080
+    """
+    self.triggerTime=int(-1)
+    self.serverURL="ldbd://metaserver.phy.syr.edu:30015"
+    self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+    if LDBDServerURL==None:
+      sys.stderr.write("Warning no LDBD Server URL specified \
+defaulting to %s"%(self.serverURL))
+    else:
+      self.serverURL=LDBDServerURL
+      if self.serverURL[len('ldbd://'):].__contains__(':'):
+        self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+      else:
+        self.serverName=self.serverURL[len('ldbd://'):]
+    self.resultList=list()
+    self.segmentsActiveString = "SELECT \
+    segment_definer.ifos,segment_definer.name,\
+segment_definer.version,segment.start_time,\
+segment.end_time FROM segment,segment_definer \
+WHERE segment_definer.segment_def_id = \
+segment.segment_def_id AND \
+segment_definer.version >= %s AND \
+NOT (segment.start_time > %s OR %s > \
+segment.end_time)"
+
+  #End __init__()
+  
+  def fetchInformation(self,triggerTime=None,window=600,version=99):
+    """
+    This method is responsible for queries to the data server.  The
+    results of the query become an internal list that can be converted
+    into an HTML table.  The arguments allow you to query with trigger
+    time of interest and to change the window with each call if
+    desired. The version argument will fetch segments with that
+    version or higher.
+    """
+    if triggerTime==int(-1):
+      os.stdout.write("Specify trigger time please.\n")
+      return
+    else:
+      self.triggerTime = int(triggerTime)
+    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
+    connection=None
+    try:
+      connection =\
+    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
+    except Exception, errMsg:
+      sys.stderr.write("Error connection to %s at port %s\n"\
+                       %(self.serverName,self.serverPort))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.resultList=list()
+      return
+    try:
+      engine=query_engine.LdbdQueryEngine(connection)
+      gpsEnd=int(triggerTime)+int(window)
+      gpsStart=int(triggerTime)-int(window)
+      sqlString=self.segmentsActiveString%(version,gpsEnd,gpsStart)
+      queryResult=engine.query(sqlString)
+      self.resultList=queryResult
+    except Exception, errMsg:
+      sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
+      sys.stderr.write("Error message seen: %s\n"%(errMsg))
+      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+      return
+    engine.close()
+  #End method fetchInformation()
+  
+  def generateHTMLTable(self):
+    """
+    Return a HTML table already formatted using the module MARKUP to
+    keep the HTML tags complient.  This method does nothing but return
+    the result of the last call to self.fetchInformation()
+    """
+    if self.triggerTime==int(-1):
+      return ""
+    myColor="grey"
+    rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+    tableString=""
+    tableString+="<table bgcolor=grey border=1px>"
+    tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
+    for ifo,name,version,start,stop in self.resultList:
+      offset1=start-self.triggerTime
+      offset2=stop-self.triggerTime
+      size=int(stop-start)
+      if (offset1>=0) and (offset2>=0):
+        myColor="green"
+      if (offset1<=0) and (offset2<=0):
+        myColor="yellow"
+      if (offset1<=0) and (offset2>=0):
+        myColor="red"
+      if name.lower().__contains__('science'):
+        myColor="skyblue"
+      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+    tableString+="</table>"
+    return tableString
+  #End method getHTMLTable()
+#End class followupDQV
 
 ######################################################################
 #New Class Definition for determining DQ segments active for a given
