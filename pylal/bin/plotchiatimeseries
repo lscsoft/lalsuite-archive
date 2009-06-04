@@ -62,8 +62,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     else:
       eventID = ''
 
-    print >> sys.stdout, "Frame file name for H2  "
-    print >> sys.stdout, "Frame file name is  " + opts.H2_framefile
+    #print >> sys.stdout, "Frame file name for H2  "
+    #print >> sys.stdout, "Frame file name is  " + opts.H2_framefile
             
     gpsStart = int(opts.gps_start_time)
     gpsEnd = int(opts.gps_end_time)
