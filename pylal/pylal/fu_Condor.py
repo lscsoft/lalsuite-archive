@@ -111,9 +111,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.add_var_opt("write-snrsq","")
         self.add_var_opt("write-chisq","")
         self.add_var_opt("write-spectrum","")
-        self.add_var_opt("write-cdata","")
         self.add_var_opt("write-template","")
-      elif type == "chia":
+      if type == "chia" or type == "notrig" or type == "coh":
         self.add_var_opt("write-cdata","")
 
       if injFile: 
