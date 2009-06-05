@@ -1766,8 +1766,6 @@ class ratioTest:
       #We mean 1-expcdf(abs(SNR),MU) which is 
       #exp(-SNR/mu)
       myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
-      #Remove following Line
-      ##myOutputJUNK=numpy.exp(-numpy.fabs(numpy.log(myRatio))*LV)
       return myOutput
     return float(-94)
   #End testRatio()
@@ -1974,7 +1972,7 @@ segment.end_time)"
       tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
-  #End method getHTMLTable()
+  #End method generateHTMLTable()
 #End class followupDQV
 
 ######################################################################
