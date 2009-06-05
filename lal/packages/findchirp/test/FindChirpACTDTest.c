@@ -68,24 +68,24 @@ static void print_usage( void );
 
 static void print_usage()
 {
-  fprintf( stderr, " --help                     : Print this message! \n");
-  fprintf( stderr, " --overlap                  : Normalises input data \n");
-  fprintf( stderr, " --signal                   : Replaces data with signal\n");
-  fprintf( stderr, " --dynrange DYNRANGE        : set the dynamic range \n");
-  fprintf( stderr, " --flatpsd                  : Use flat psd \n");
-  fprintf( stderr, " --dominant                 : Inject only the domintnat harmonic \n");
-  fprintf( stderr, " --h-plus                   : inject only h+\n");
-  fprintf( stderr, " --enable-output            : Print output files \n");
-  fprintf( stderr, " --tmplt-masses MASS1 MASS2 : Specify template masses \n");
-  fprintf( stderr, " --sgnl-masses MASS1 MASS2  : Specify signal masses \n");
-  fprintf( stderr, " --iota IOTA                : Specify Inclination \n");
-  fprintf( stderr, " --phiC PHIC                : Specify coalescence phase \n");
-  fprintf( stderr, " --phi PHI                  : Specify sky angle phi \n");
-  fprintf( stderr, " --theta THETA              : Specify sky angle theta \n");
-  fprintf( stderr, " --psi PSI                  : Specify polarisation psi \n");
-  fprintf( stderr, " --dist DIST                : Specify signal distance \n");
-  fprintf( stderr, " --amp-order AMP            : Specify signal amplitude order \n");
-  fprintf( stderr, " --phase-order ORDER        : Specify signal phase order \n\n\n");
+  fprintf( stderr, " --help               : Print this message! \n");
+  fprintf( stderr, " --overlap            : Normalises input data \n");
+  fprintf( stderr, " --signal             : Replaces data with signal\n");
+  fprintf( stderr, " --dynrange DYNRANGE  : set the dynamic range \n");
+  fprintf( stderr, " --flatpsd            : Use flat psd \n");
+  fprintf( stderr, " --dominant           : Inject only domintnat harmonic \n");
+  fprintf( stderr, " --h-plus             : inject only h+\n");
+  fprintf( stderr, " --enable-output      : Print output files \n");
+  fprintf( stderr, " --tmplt-masses M1 M2 : Specify template masses \n");
+  fprintf( stderr, " --sgnl-masses M1 M2  : Specify signal masses \n");
+  fprintf( stderr, " --iota IOTA          : Specify signal iota \n");
+  fprintf( stderr, " --phiC PHIC          : Specify signal coa phase \n");
+  fprintf( stderr, " --phi PHI            : Specify sky angle phi \n");
+  fprintf( stderr, " --theta THETA        : Specify sky angle theta \n");
+  fprintf( stderr, " --psi PSI            : Specify polarisation psi \n");
+  fprintf( stderr, " --dist DIST          : Specify signal distance \n");
+  fprintf( stderr, " --amp-order AMP      : Specify signal amplitude order \n");
+  fprintf( stderr, " --phase-order ORDER  : Specify signal phase order \n\n\n");
   return;
 }                   
 
@@ -447,9 +447,9 @@ int main( int argc, char **argv )
     params.mTot_real8 = sigMass1 + sigMass2;
     params.eta_real8 = sigMass1*sigMass2/( params.mTot_real8*params.mTot_real8);
     params.inc = inc;
-    params.phi = phi;
+    params.phi = phiC;
     params.psi = psi;
-    params.d = 1.0;
+    params.d = dist;
     params.fStartIn = fmin;
     params.fStopIn = - 1.0 / 
                      ( 6.0 * sqrt(6.0) * LAL_PI * 
@@ -468,20 +468,22 @@ int main( int argc, char **argv )
       params.ppn->data[i] = 1.0;
    
     memset( &waveform, 0, sizeof( CoherentGW ) );
-/*
-    fprintf( stderr, " params.deltaT   = %e\n", params.deltaT );
-    fprintf( stderr, " params.mTot     = %e\n", params.mTot );
-    fprintf( stderr, " params.eta      = %e\n", params.eta );
+
+    fprintf( stderr, "\n params.deltaT   = %e\n", params.deltaT );
+    fprintf( stderr, " params.mTot_r8  = %e\n", params.mTot_real8 );
+    fprintf( stderr, " params.eta_r8   = %e\n", params.eta_real8 );
     fprintf( stderr, " params.d        = %e\n", params.d );
     fprintf( stderr, " params.fStartIn = %e\n", params.fStartIn );
     fprintf( stderr, " params.fStopIn  = %e\n", params.fStopIn );
     fprintf( stderr, " params.inc      = %e\n", params.inc );     
+    fprintf( stderr, " params.psi      = %e\n", params.psi );     
+    fprintf( stderr, " params.phiC      = %e\n", params.phi );     
     fprintf( stderr, " params.amporder = %d\n", params.ampOrder );
     for( i = 0; i < order + 1; ++i )
     {
       fprintf( stderr, " params.ppn->data[%d] = %e\n", i, params.ppn->data[i]);
     }
-*/
+
     /* Generate Signal */
     LALGeneratePPNAmpCorInspiral( &status, &waveform, &params );
 
@@ -597,7 +599,7 @@ int main( int argc, char **argv )
   mytmplt.startTime       = 0.;
   mytmplt.startPhase      = 0.;
   mytmplt.tSampling       = 1.0 / fcSegVec->data->deltaT;
-  mytmplt.fLower          = fcSegVec->data->fLow;
+  mytmplt.fLower          = fmin;
   mytmplt.fCutoff         = fmax;
   mytmplt.signalAmplitude = 1;
   mytmplt.nStartPad       = 0;
@@ -621,9 +623,8 @@ int main( int argc, char **argv )
 
 
   tmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
-
-  tmpltParams->bandPassTmplt = 0;
-
+  tmpltParams->bandPassTmplt = 1;
+ 
   fprintf( stderr, "Testing ACTDTemplate...                 " );
 
   LALFindChirpACTDTemplate( &status, filterInput->fcTmplt, &mytmplt, 
@@ -695,15 +696,7 @@ int main( int argc, char **argv )
   if ( overlap == 1 )
   {
     REAL4 invRootData;
-    REAL4 norm = 0.0, normTest;
-    COMPLEX8Vector normTestVector;
-    COMPLEX8Vector normTestVector2;
-    
-    normTestVector.length = fcSegVec->data->data->data->length;
-    normTestVector.data = fcSegVec->data->data->data->data;
-    normTestVector2.length = fcSegVec->data->data->data->length;
-    normTestVector2.data = filterInput->fcTmplt->ACTDtilde->data +
-                              (numPoints/2+1);
+    REAL4 norm = 0.0;
 
     memset( fcSegVec->data->segNorm->data, 0,
       fcSegVec->data->segNorm->length * sizeof(REAL4) );
@@ -733,17 +726,7 @@ int main( int argc, char **argv )
                                                             / (REAL4)numPoints;
       }
     }
-
-    normTest = norm;
-
-    /*
-    normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
-                                              &normTestVector,
-                                              dataParams->wtildeVec->data, 
-                                              fmin,
-                                              fcSegVec->data->data->deltaF );
-    */
-    invRootData = pow( normTest, -0.5 );
+    invRootData = pow( norm, -0.5 );
 
     for ( j = 0;  j < fcSegVec->data->data->data->length; ++j )
     {
@@ -751,26 +734,6 @@ int main( int argc, char **argv )
       fcSegVec->data->data->data->data[j].im *= invRootData;
     }
     fprintf( stderr, "         Done!\n");
-
-
-/*
-    fprintf( stderr, "   normTest  = %1.3e\n", normTest );
-    normTest = XLALFindChirpACTDInnerProduct( &normTestVector, 
-                                              &normTestVector,
-                                              dataParams->wtildeVec->data, 
-                                              fmin,
-                                              dt, numPoints );
-
-    fprintf( stderr, "   < data, data>  = %1.3e\n", normTest );
-    normTest = XLALFindChirpACTDInnerProduct( &normTestVector,
-                                              &normTestVector2,
-                                              dataParams->wtildeVec->data,
-                                              fmin,
-                                              dt, numPoints );
-
-    fprintf( stderr, "   < H2, data >   = %1.3e\n", normTest );
-
-    fprintf( stderr, "                                              Done!\n" ); */
   }
 
 

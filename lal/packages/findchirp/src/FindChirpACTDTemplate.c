@@ -187,12 +187,11 @@ LALFindChirpACTDTemplate(
   ppnParams.ampOrder = ( UINT4 )( NACTDVECS - 2 );
 
   /* XXX Uncomment below for extra testing XXX */  
-  fprintf( stderr, " \n tmplt->mass1         = %f\n", tmplt->mass1);
-  fprintf( stderr, " tmplt->mass2         = %f\n", tmplt->mass2);
-/*
+  fprintf( stderr, "\n   tmplt->mass1         = %f\n", tmplt->mass1);
+  fprintf( stderr, "   tmplt->mass2         = %f\n", tmplt->mass2);
   fprintf( stderr, "   ppnParams.deltaT     = %e\n", ppnParams.deltaT ); 
-  fprintf( stderr, "   ppnParams.mTot_real8 = %e\n", ppnParams.mTot_real8 ); 
-  fprintf( stderr, "   ppnParams.eta_real8  = %e\n", ppnParams.eta_real8 ); 
+  fprintf( stderr, "   ppnParams.mTot_real8 = %0.16e\n", ppnParams.mTot_real8 ); 
+  fprintf( stderr, "   ppnParams.eta_real8  = %0.16e\n", ppnParams.eta_real8 ); 
   fprintf( stderr, "   ppnParams.fStartIn   = %e\n", ppnParams.fStartIn ); 
   fprintf( stderr, "   ppnParams.fStopIn    = %e\n", ppnParams.fStopIn ); 
   fprintf( stderr, "   ppnParams.inc        = %e\n", ppnParams.inc ); 
@@ -202,7 +201,7 @@ LALFindChirpACTDTemplate(
     fprintf( stderr, "   ppnParams.ppn->data[%d] = %e\n", i, 
                                     ppnParams.ppn->data[i] );
   }
-*/    
+    
   /*   XXX Uncomment above for extra testing XXX */ 
 
 
@@ -355,17 +354,19 @@ LALFindChirpACTDTemplate(
         bpVector.data   = tmpACTDVec->data;
       }
       
-     /* Adjust frequencies according to the harmonic */
-      bpfLow = 0.98 * tmplt->fLower ;
-      bpfFinal = 1.02 * tmplt->fFinal * ( ( REAL4 )( i ) + 1. ) / 2.;
 
-     /* If the harmonic is not in our bandwidth we mega band pass it */
-     if( bpfLow >= bpfFinal )
-     {
+      /* If the harmonic is not in our bandwidth we mega band pass it */
+      if( bpfLow >= bpfFinal )
+      {
         bpfLow = 0.98 * tmplt->fLower;
         bpfFinal = 1.02* ( tmplt->fLower + 1. );
-     }
-
+      }
+      else
+      {
+        /* Adjust frequencies according to the harmonic */
+        bpfLow = 0.98 * tmplt->fLower ;
+        bpfFinal = 1.02 * tmplt->fFinal * ( ( REAL4 )( i ) + 1. ) / 2.;
+      }
 
       if ( XLALBandPassInspiralTemplate( &bpVector, bpfLow,
                    tmplt->fFinal, sampleRate ) == XLAL_FAILURE )

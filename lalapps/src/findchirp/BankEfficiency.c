@@ -149,7 +149,7 @@ main (INT4 argc, CHAR **argv )
   LAL_CALL(BankEfficiencyGetMaximumSize(&status, 
       randIn, coarseBankIn, userParam, &(signal.length)), 
       &status);  
-       
+   fprintf(stderr,"length = %d\n", signal.length); 
   /* --- Set size of the other vectors --- */
   randIn.psd.length     = signal.length/2 + 1; 
   correlation.length    = signal.length;
@@ -210,6 +210,8 @@ main (INT4 argc, CHAR **argv )
 
     ampCorTmpltParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
     ampCorTmpltParams->fLow = randIn.param.fLower; 
+    ampCorTmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
+    ampCorTmpltParams->bandPassTmplt = 1;
  
     ampCorFilterParams->deltaT = 1.0 /( REAL4 )( randIn.param.tSampling );
     ampCorFilterParams->rhosqThresh = 1e-6;
@@ -304,8 +306,8 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL(BankEfficiencyGenerateInputData(&status, 
         &signal, &randIn, userParam), &status);
 
-fprintf( stderr, " signal - mass 1 = %e\n", randIn.param.mass1 );
-fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
+fprintf( stderr, " signal - mass 1 = %0.16e\n", randIn.param.mass1 );
+fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
 
 
     
@@ -317,32 +319,20 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
+  
 
       for( i = 0; i < ampCorDataSegVec->data->chan->data->length; ++i )
       {
         if( i < signal.length )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 
-            1.0e20 * overlapin.signal.data[i];
+            overlapin.signal.data[i];
         }
         else
         {
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
-      if( 1 )
-      {
-        FILE *fp =NULL;
-        fp = fopen( "tddata.dat", "w" );
-
-        for( i = 0; i < ampCorDataSegVec->data->chan->data->length; ++i )
-        {
-          fprintf(fp,"%e\n",
-                  ampCorDataSegVec->data->chan->data->data[i] );      
-        }
-        fclose( fp );
-      }
-
 
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
@@ -351,6 +341,9 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
       ampCorFilterInput->segment = ampCorFreqSegVec->data;
       
       /* We need to normalise the data here */
+      memset( ampCorFreqSegVec->data->segNorm->data, 0,
+              ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
+
       for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
       {
         REAL4 power;
@@ -364,11 +357,10 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
                    ampCorFreqSegVec->data->data->data->data[i].im;
     
           norm += 4.0 * power * ampCorFilterParams->deltaT 
-                  / (REAL4)(overlapin.signal.length)
+                  / (REAL4)(ampCorDataSegVec->data->chan->data->length)
                   / ampCorDataParams->wtildeVec->data[i].re;
         }
       }
-
       invRootData = pow( norm, -0.5 );  
 
       for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
@@ -549,7 +541,8 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
           { 
             if( userParam.template == AmpCorPPN )
             {
-              REAL4 max;
+              REAL8 max = 0.0;
+              UINT4 bin;
               SnglInspiralTable *event = NULL;
  
               LAL_CALL( LALFindChirpACTDTemplate( 
@@ -574,26 +567,30 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
               {
                 FILE *fp =NULL;
                 fp = fopen( "rhosq.dat", "w" );
-                max = 0.0;
-                for( i = 1; 
-                    i < ampCorFilterParams->rhosqVec->data->length; ++i )
+
+                for( i = 0; i < ampCorFilterParams->rhosqVec->data->length; ++i )
                 {
                   fprintf(fp,"%e\n",
-                     ampCorFilterParams->rhosqVec->data->data[i] );
-      
-                if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
-                  {
-                    max = ampCorFilterParams->rhosqVec->data->data[i];
-                  }
+                  ampCorFilterParams->rhosqVec->data->data[i] );      
                 }
                 fclose( fp );
               }
-              /* We need to fill these */
 
-              overlapOutputThisTemplate.rhoMax       = max;
+              for( i = 1; 
+                    i < ampCorFilterParams->rhosqVec->data->length; ++i )
+              {
+                if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
+                {
+                  max = ampCorFilterParams->rhosqVec->data->data[i];
+                  bin = i;
+                }
+              }
+
+              /* We need to fill these */
+              overlapOutputThisTemplate.rhoMax       = pow( max, 0.5 );
+              overlapOutputThisTemplate.rhoBin       = bin;
              /* 
               overlapOutputThisTemplate->phase        = overlapout.phase;
-              overlapOutputThisTemplate->rhoBin       = overlapout.bin;
               overlapOutputThisTemplate->freq         = overlapin->param.fFinal;
               overlapOutputThisTemplate->snrAtCoaTime = 
                                                     correlation->data[startPad];
@@ -627,6 +624,7 @@ fprintf( stderr, " signal - mass 2 = %e\n", randIn.param.mass2 );
                 simulation.eMatch,simulation.SNRMax);
                 
             fflush(stderr);
+              /*return;*/
             }
 
           
@@ -2216,8 +2214,8 @@ void BankEfficiencyGenerateInputData(
   /* randomize the input start time */ 
   if (randnStartPad==1)
   {
-    randIn->param.nStartPad = (int)( (float)rand() / 
-        (float)RAND_MAX*signal->length/2);
+    randIn->param.nStartPad = 
+          (int)((float)rand() / (float)RAND_MAX*signal->length/2);
   }
   
   trial = 0 ;

@@ -377,14 +377,14 @@ LALInspiralAmplitudeCorrectedWaveEngine(
    REAL8 fFac = 0; /* SI normalization for f and t */
    REAL8 f2aFac = 0;/* factor multiplying f in amplitude function */
    REAL8 apFac = 0, acFac = 0;/* extra factor in plus and cross amplitudes */
- 
    REAL4 hPlus, hCross;
-   double fPlus, fCross; 
+
+   /* For f+ and fx */
+   LALDetector  det;
+   InterferometerNumber ifoNumber = LAL_IFO_H1;
+   double fPlus, fCross, tdelay, gmst;
+   LIGOTimeGPS  time;
   
-  /* LALDetector det;
-   InterferometerNumber ifoNumber = LAL_UNKNOWN_IFO;
-   REAL4 longitude,latitude,polarization,gmst;
-*/
    INITSTATUS(status, "LALInspiralAmplitudeCorrectedWaveEngine", LALINSPIRALAMPLITUDECORRECTEDWAVEENGINEC);
    ATTATCHSTATUSPTR(status);
 
@@ -395,18 +395,7 @@ LALInspiralAmplitudeCorrectedWaveEngine(
    ASSERT (params->tSampling > 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
 
 
-   /* First, we compute the fplus and fcross*/
-/*   memset( &det, 0, sizeof(LALDetector));
-   ifoNumber = XLALIFONumber("H1");
-   XLALReturnDetector(&det, ifoNumber);
-   longitude = 0.4;
-   latitude = 0.4;
-   gmst = 0.4;
-   XLALComputeDetAMResponse(&fPlus, &fCross, det.response, longitude, latitude, params->polarisationAngle, gmst);
-  */
-  /* For  overhead injection, we just need to compute these 2 expresions for fplus and fcross */
-  fPlus = cos(2.*params->polarisationAngle);
-  fCross = sin(2.*params->polarisationAngle);
+ 
 
    dt = 1./params->tSampling;
 
@@ -430,16 +419,17 @@ LALInspiralAmplitudeCorrectedWaveEngine(
    }
    
    /* this parameters are not used in GeneratePPNAmp*/
-   ppnParams.position.latitude = ppnParams.position.longitude = 0.;
+   ppnParams.position.latitude = params->sourceTheta;
+   ppnParams.position.longitude = params->sourcePhi;
    ppnParams.position.system = COORDINATESYSTEM_EQUATORIAL;
-   ppnParams.psi = 0.0;
+   ppnParams.psi = params->polarisationAngle;
    ppnParams.lengthIn = 0.0;
 
    /* The following fields are used by GeneratePPNAmpCor function */
    /* Variable Parameters */
    ppnParams.mTot_real8 = mTot;
    ppnParams.eta_real8 = etab;
-   ppnParams.d = LAL_PC_SI*1.0e3;
+   ppnParams.d = 1.0;
    ppnParams.inc = params->inclination;
    /* GeneratePPN does not set the starting phase.*/
    ppnParams.phi = params->startPhase;
@@ -457,7 +447,25 @@ LALInspiralAmplitudeCorrectedWaveEngine(
      ppnParams.ppn->data[i] = 1.0;
 	ppnParams.fStopIn = 0;
 	ppnParams.deltaT = dt;
+ 
+  /* Time we computed fplus and fcross */
+  memset( &det, 0, sizeof(LALDetector));
+  ifoNumber = XLALIFONumber("H1");
+  time.gpsSeconds = 841000000;
+  time.gpsNanoSeconds = 000000000;
+  XLALReturnDetector(&det, ifoNumber);
+  gmst = XLALGreenwichMeanSiderealTime( &time );
+  XLALComputeDetAMResponse( &fPlus, &fCross, det.response,
+                             ppnParams.position.longitude,
+                             ppnParams.position.latitude,
+                             ppnParams.psi,
+                             gmst );
+  tdelay = XLALTimeDelayFromEarthCenter( det.location,
+            ppnParams.position.longitude,
+            ppnParams.position.latitude,
+            &time );
 	
+
 
    count = 0;
    if (signal2) {
@@ -467,6 +475,22 @@ tion, that value must be zero*/
    else if (signal1) {
      count = params->nStartPad;
    }
+
+    fprintf( stderr, " params.deltaT   = %e\n", ppnParams.deltaT );
+    fprintf( stderr, " params.mTot_r8  = %e\n", ppnParams.mTot_real8 );
+    fprintf( stderr, " params.eta_r8   = %e\n", ppnParams.eta_real8 );
+    fprintf( stderr, " params.d        = %e\n", ppnParams.d );
+    fprintf( stderr, " params.fStartIn = %e\n", ppnParams.fStartIn );
+    fprintf( stderr, " params.fStopIn  = %e\n", ppnParams.fStopIn );
+    fprintf( stderr, " params.inc      = %e\n", ppnParams.inc );
+    fprintf( stderr, " params.psi      = %e\n", ppnParams.psi );
+    fprintf( stderr, " params.phiC     = %e\n", ppnParams.phi );
+    fprintf( stderr, " params.amporder = %d\n", ppnParams.ampOrder );
+    for( i = 0; i < params->order + 1; ++i )
+    {
+      fprintf( stderr, " params.ppn->data[%d] = %e\n", i, ppnParams.ppn->data[i]);
+    }
+
 
    memset( &waveform, 0, sizeof(CoherentGW) );
    LALGeneratePPNAmpCorInspiral( status->statusPtr, &waveform, &ppnParams );
