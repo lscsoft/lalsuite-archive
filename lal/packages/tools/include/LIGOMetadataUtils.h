@@ -1533,6 +1533,12 @@ XLALReturnSimRingdownEndTime (
     CHAR             *ifo
     );
 
+INT8
+XLALReturnSimRingdownStartTime (
+    SimRingdownTable *event,
+    CHAR             *ifo
+    );
+
 int
 XLALSnglSimRingdownTest (
     SimRingdownTable  **simHead,
