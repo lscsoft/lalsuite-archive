@@ -17,17 +17,19 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #
-# Preamble
+# =============================================================================
 #
+#                                   Preamble
+#
+# =============================================================================
+#
+
 
 """
 This module contains bits and pieces of use when interacting with LAL and
 LAL-derived code (eg. LALApps programs)
 """
 
-__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
 
 import fnmatch
 import math
@@ -37,12 +39,28 @@ import re
 import sys
 import urlparse
 
+
 from glue import segments
 
 
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
 #
-# High precision time object
+# =============================================================================
 #
+#                          High precision time object
+#
+# =============================================================================
+#
+
+
+#
+# Python version in case LAL isn't available
+#
+
 
 class LIGOTimeGPS(object):
 	"""
@@ -368,8 +386,18 @@ class LIGOTimeGPS(object):
 
 
 #
-# LAL cache file manipulation
+# =============================================================================
 #
+#                         LAL Cache File Manipulation
+#
+# =============================================================================
+#
+
+
+#
+# Representation of a line in a LAL cache file
+#
+
 
 class CacheEntry(object):
 	"""
@@ -517,6 +545,11 @@ class CacheEntry(object):
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
 	from_T050017 = classmethod(from_T050017)
+
+
+#
+# An object representing a LAL cache file
+#
 
 
 class Cache(list):
