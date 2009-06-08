@@ -38,7 +38,7 @@ from glue import segments
 try:
   all
 except NameError:
-  from iterutils import all
+  from glue.iterutils import all
 
 #
 # =============================================================================

@@ -222,7 +222,7 @@ def build_time_clause(table, times):
     that restricts a search to the given ranges"""
 
     subclauses = map(lambda x: 'NOT (%d > %s.end_time OR %s.start_time > %d)' % (x[0], table, table, x[1]), times)
-    return " OR ".join(subclauses)
+    return '( ' + " OR ".join(subclauses) + ' )'
 
 
 def build_segment_clause(clauses):
