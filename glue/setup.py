@@ -202,6 +202,7 @@ setup(
     os.path.join('bin','ligolw_segment_diff'),
     os.path.join('bin','ligolw_segment_union'),
     os.path.join('bin','ligolw_segment_query'),
+    os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
