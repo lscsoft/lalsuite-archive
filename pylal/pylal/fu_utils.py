@@ -766,11 +766,11 @@ def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
     return None
   ifo=ifo.strip()
   queryString="SELECT \
-    segment_definer.ifos,segment_definer.name,\
-segment_definer.version,segment.start_time,\
+segment.start_time,\
 segment.end_time FROM segment,segment_definer \
 WHERE segment_definer.segment_def_id = \
-segment.segment_def_id AND \
+segment.segment_def_id AND 
+segment_definer.name = Science \
 segment_definer.ifos = %s AND \
 NOT (segment.start_time > %s OR %s > \
 segment.end_time)"
@@ -780,9 +780,9 @@ segment.end_time)"
     serverPort="30015"
     serverName=serverURL[len('ldbd://'):]
   try:
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
+    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
     connection=\
-    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
+    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
   except Exception, errMsg:
     sys.stderr.write("Error connection to %s at port %s\n"\
                      %(serverName,serverPort))
@@ -793,7 +793,7 @@ segment.end_time)"
     sqlString=queryString%(ifo,gpsStart,gpsStop)
     queryResult=engine.query(sqlString)
   except Exception, errMsg:
-    sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+    sys.stderr.write("Query failed %s port %s\n"%(serverName,serverPort))
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(errMsg))
     sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
