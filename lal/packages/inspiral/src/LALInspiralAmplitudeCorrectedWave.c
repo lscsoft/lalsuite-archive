@@ -476,21 +476,6 @@ tion, that value must be zero*/
      count = params->nStartPad;
    }
 
-    fprintf( stderr, " params.deltaT   = %e\n", ppnParams.deltaT );
-    fprintf( stderr, " params.mTot_r8  = %e\n", ppnParams.mTot_real8 );
-    fprintf( stderr, " params.eta_r8   = %e\n", ppnParams.eta_real8 );
-    fprintf( stderr, " params.d        = %e\n", ppnParams.d );
-    fprintf( stderr, " params.fStartIn = %e\n", ppnParams.fStartIn );
-    fprintf( stderr, " params.fStopIn  = %e\n", ppnParams.fStopIn );
-    fprintf( stderr, " params.inc      = %e\n", ppnParams.inc );
-    fprintf( stderr, " params.psi      = %e\n", ppnParams.psi );
-    fprintf( stderr, " params.phiC     = %e\n", ppnParams.phi );
-    fprintf( stderr, " params.amporder = %d\n", ppnParams.ampOrder );
-    for( i = 0; i < params->order + 1; ++i )
-    {
-      fprintf( stderr, " params.ppn->data[%d] = %e\n", i, ppnParams.ppn->data[i]);
-    }
-
 
    memset( &waveform, 0, sizeof(CoherentGW) );
    LALGeneratePPNAmpCorInspiral( status->statusPtr, &waveform, &ppnParams );

@@ -273,7 +273,6 @@ LALFindChirpSPData (
     {
       if ( spec[k] == 0 || isnan( spec[k] ) )
       { 
-        fprintf(stderr," spec[%d] = %e\n", k, spec[k] );
         ABORT( status, FINDCHIRPSPH_EDIVZ, FINDCHIRPSPH_MSGEDIVZ );
       }
       wtilde[k].re = 1.0 / spec[k];

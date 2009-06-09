@@ -187,6 +187,7 @@ LALFindChirpACTDTemplate(
   ppnParams.ampOrder = ( UINT4 )( NACTDVECS - 2 );
 
   /* XXX Uncomment below for extra testing XXX */  
+  /*
   fprintf( stderr, "\n   tmplt->mass1         = %f\n", tmplt->mass1);
   fprintf( stderr, "   tmplt->mass2         = %f\n", tmplt->mass2);
   fprintf( stderr, "   ppnParams.deltaT     = %e\n", ppnParams.deltaT ); 
@@ -201,7 +202,7 @@ LALFindChirpACTDTemplate(
     fprintf( stderr, "   ppnParams.ppn->data[%d] = %e\n", i, 
                                     ppnParams.ppn->data[i] );
   }
-    
+  */  
   /*   XXX Uncomment above for extra testing XXX */ 
 
 

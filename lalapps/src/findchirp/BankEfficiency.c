@@ -120,8 +120,11 @@ main (INT4 argc, CHAR **argv )
   BankEfficiencyUpdateParams(&coarseBankIn, &randIn, &userParam);
   
   /* eccentric bank initialisation */
-  BankEfficiencyEccentricBankInit(&userParam);
-  
+  if (userParam.template == Eccentricity)
+  {
+    BankEfficiencyEccentricBankInit(&userParam);
+  }
+
   /* --- Init a random structure using the user seed --- */  
   randParams = XLALCreateRandomParams(randIn.useed );
   
@@ -149,7 +152,6 @@ main (INT4 argc, CHAR **argv )
   LAL_CALL(BankEfficiencyGetMaximumSize(&status, 
       randIn, coarseBankIn, userParam, &(signal.length)), 
       &status);  
-   fprintf(stderr,"length = %d\n", signal.length); 
   /* --- Set size of the other vectors --- */
   randIn.psd.length     = signal.length/2 + 1; 
   correlation.length    = signal.length;
@@ -211,7 +213,7 @@ main (INT4 argc, CHAR **argv )
     ampCorTmpltParams->deltaT = 1.0 / ( REAL4 )( randIn.param.tSampling );
     ampCorTmpltParams->fLow = randIn.param.fLower; 
     ampCorTmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
-    ampCorTmpltParams->bandPassTmplt = 1;
+    ampCorTmpltParams->bandPassTmplt = 0;
  
     ampCorFilterParams->deltaT = 1.0 /( REAL4 )( randIn.param.tSampling );
     ampCorFilterParams->rhosqThresh = 1e-6;
@@ -305,11 +307,6 @@ main (INT4 argc, CHAR **argv )
     /* --- generate the signal waveform --- */
     LAL_CALL(BankEfficiencyGenerateInputData(&status, 
         &signal, &randIn, userParam), &status);
-
-fprintf( stderr, " signal - mass 1 = %0.16e\n", randIn.param.mass1 );
-fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
-
-
     
     /* --- populate the main structure of the overlap ---*/
     overlapin.signal = signal;
@@ -563,22 +560,10 @@ fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
                           ampCorFilterInput,
                           ampCorFilterParams ), &status );
 
-              if( 1 )
-              {
-                FILE *fp =NULL;
-                fp = fopen( "rhosq.dat", "w" );
-
-                for( i = 0; i < ampCorFilterParams->rhosqVec->data->length; ++i )
-                {
-                  fprintf(fp,"%e\n",
-                  ampCorFilterParams->rhosqVec->data->data[i] );      
-                }
-                fclose( fp );
-              }
-
               for( i = 1; 
                     i < ampCorFilterParams->rhosqVec->data->length; ++i )
               {
+                correlation.data[i] = ampCorFilterParams->rhosqVec->data->data[i];
                 if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
                 {
                   max = ampCorFilterParams->rhosqVec->data->data[i];
@@ -586,15 +571,13 @@ fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
                 }
               }
 
-              /* We need to fill these */
+
               overlapOutputThisTemplate.rhoMax       = pow( max, 0.5 );
               overlapOutputThisTemplate.rhoBin       = bin;
-             /* 
-              overlapOutputThisTemplate->phase        = overlapout.phase;
-              overlapOutputThisTemplate->freq         = overlapin->param.fFinal;
-              overlapOutputThisTemplate->snrAtCoaTime = 
-                                                    correlation->data[startPad];
-              */
+              /* Dummy numbers below */ 
+              overlapOutputThisTemplate.phase        = 0.0;
+              overlapOutputThisTemplate.freq         = overlapin.param.fFinal;
+              overlapOutputThisTemplate.snrAtCoaTime = 0.0; 
             }  
             else
             {       
@@ -624,7 +607,6 @@ fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
                 simulation.eMatch,simulation.SNRMax);
                 
             fflush(stderr);
-              /*return;*/
             }
 
           
@@ -713,7 +695,7 @@ fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
   
   /* --- destroy the plans, correlation and signal --- */
   
-  /*XLALDestroyRandomParams(randParams );*/
+  XLALDestroyRandomParams(randParams );
   
   if (userParam.template == BCV)
   {
@@ -730,6 +712,24 @@ fprintf( stderr, " signal - mass 2 = %0.16e\n", randIn.param.mass2 );
       LALFree(bankefficiencyBCV.FilterBCV2.data);
       LALFree(bankefficiencyBCV.FilterBCV1.data);
     }
+  }
+  
+  if( userParam.template == AmpCorPPN )
+  {
+    LALDestroyFindChirpSegmentVector( &status, &ampCorFreqSegVec );
+    LALDestroyDataSegmentVector( &status, &ampCorDataSegVec );
+
+    LALDestroyFindChirpInput( &status, &ampCorFilterInput );
+
+    LALFindChirpChisqVetoFinalize( &status, 
+                                   ampCorFilterParams->chisqParams,
+                                   ampCorInitParams.numChisqBins );
+
+    LALFindChirpFilterFinalize( &status, &ampCorFilterParams );
+    LALFindChirpTemplateFinalize( &status, &ampCorTmpltParams );
+    LALFindChirpDataFinalize( &status, &ampCorDataParams );
+
+
   }
   
   LALFree(randIn.psd.data);
@@ -4592,7 +4592,10 @@ void BankEfficiencyInitMyBank(
   mybank->approximant = userParam.template;
   if ( vrbflg )
   {
-    fprintf(stdout, "done. Using %d layers of eccenticity.\n", eccentricBins);
+    if( userParam.template == Eccentricity )
+    {
+      fprintf(stdout, "done. Using %d layers of eccenticity.\n", eccentricBins);
+    }
     fprintf(stdout, "The new bank size is Got %d templates\n", *sizeBank ); 
     fflush(stdout);
   }

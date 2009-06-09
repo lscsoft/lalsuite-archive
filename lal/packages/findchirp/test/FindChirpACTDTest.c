@@ -119,6 +119,7 @@ int main( int argc, char **argv )
 
   const UINT4 numSegments  = 1;
   UINT4 numPoints          = 262144;
+/*  UINT4 numPoints          = 306720;*/
   const UINT4 numChisqBins = 8;
   const UINT4 invSpecTrunc = 0;
   REAL4 srate              = SRATE;   /* Hz */
@@ -468,7 +469,7 @@ int main( int argc, char **argv )
       params.ppn->data[i] = 1.0;
    
     memset( &waveform, 0, sizeof( CoherentGW ) );
-
+/*
     fprintf( stderr, "\n params.deltaT   = %e\n", params.deltaT );
     fprintf( stderr, " params.mTot_r8  = %e\n", params.mTot_real8 );
     fprintf( stderr, " params.eta_r8   = %e\n", params.eta_real8 );
@@ -483,7 +484,7 @@ int main( int argc, char **argv )
     {
       fprintf( stderr, " params.ppn->data[%d] = %e\n", i, params.ppn->data[i]);
     }
-
+*/
     /* Generate Signal */
     LALGeneratePPNAmpCorInspiral( &status, &waveform, &params );
 
@@ -519,6 +520,7 @@ int main( int argc, char **argv )
       }
       /* Taper waveform */
       XLALInspiralWaveTaper( hoft->data, INSPIRAL_TAPER_STARTEND );
+      
     }
 
 
@@ -980,7 +982,7 @@ int MakeData(
   dataSegVec->data->chan->epoch.gpsSeconds     = 0;
   dataSegVec->data->chan->epoch.gpsNanoSeconds = 0;
 
-  fs = fmin;
+  fs = 0.9*fmin;
 
   for ( k = 0; k < nspec; ++k )
   {
