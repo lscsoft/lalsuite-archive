@@ -24,7 +24,7 @@ from distutils.command import install
 from distutils.command import sdist
 from distutils import log
 
-ver = "1.18"
+ver = "1.19"
 
 def remove_root(path,root):
   if root:
@@ -180,9 +180,6 @@ setup(
   ],
   scripts = [
     os.path.join('bin','LSCdataFind'),
-    os.path.join('bin','LSCsegFind'),
-    os.path.join('bin','LSCsegFindDev'),
-    os.path.join('bin','LSCfileAdd'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
@@ -206,10 +203,7 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
-    os.path.join('sbin','segpagegen'),
-    os.path.join('sbin','segdb_coalesce'),
-    os.path.join('sbin','publishstatefromfile'),
-    os.path.join('sbin','bulkpublishstate'), ],
+    os.path.join('sbin','segdb_coalesce'), ],
   data_files = [
     (
       'etc',
@@ -218,14 +212,8 @@ setup(
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
-        os.path.join('etc','lscsegfindserver.ini'),
-        os.path.join('etc','lscsegfindserverdev.ini'),
-        os.path.join('etc','segpagegen.ini'),
-        os.path.join('etc','segpagegen_S5.ini'),
-        os.path.join('etc','segpagegen_A5.ini'),
-        os.path.join('etc','segpagegen_S5.sh'),
-        os.path.join('etc','segpagegen_A5.sh'),
         os.path.join('etc','ldbdserver.ini'),
+        os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw_dtd.txt')
       ]
     )

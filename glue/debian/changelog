@@ -1,3 +1,9 @@
+python-glue (1.19) unstable; urgency=low
+
+  * Initial release of 1.19
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 09 Jun 2009 16:50:00 -0500
+
 python-glue (1.18-6lscsoft3) unstable; urgency=low
 
   * CFLAGS fix
