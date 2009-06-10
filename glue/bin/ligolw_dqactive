@@ -81,6 +81,7 @@ def parse_command_line():
     # Major modes
     parser.add_option("-i", "--ifo",        metavar = "ifo",       help = "Abbreviation for IFO of interest")
     parser.add_option("-t", "--time-file",  metavar = "time-file", help = "File of gps times, one per line")
+    parser.add_option("-s", "--segment",    metavar = "segment-url", help = "URL of segment database or DMT files")
     parser.add_option("-d", "--input-dir",  metavar = "input-dir", help = "Location of DMT files")
 
 
@@ -108,15 +109,15 @@ def parse_command_line():
 
 
 
-    if not options.input_dir:
-        print >>sys.stderr, "input-dir is required"
+    if not (options.input_dir or options.segment):
+        print >>sys.stderr, "One of [input-dir|segment] is required"
         sys.exit(1)
 
-    if not os.path.exists(options.input_dir):
+    if options.input_dir and not os.path.exists(options.input_dir):
         print >>sys.stderr, "input_dir %s does not exist" % options.input_dir
         sys.exit(1)
 
-    if not os.path.isdir(options.input_dir):
+    if options.input_dir and not os.path.isdir(options.input_dir):
         print >>sys.stderr, "input_dir %s exists but is not a directory" % options.input_dir
         sys.exit(1)
 
@@ -139,9 +140,14 @@ if __name__ == '__main__':
 
     f = open(options.time_file)
 
+    if options.input_dir:
+        segment = 'file://' + options.input_dir
+    else:
+        segment = options.segment
+
     for tme in f:
         tme  = tme[:-1]
-        pipe = os.popen('ligolw_dq_query --segment=file://%s --active --include-segments=%s %s | ligolw_print -t segment_definer -c name' % (options.input_dir, options.ifo, tme))
+        pipe = os.popen('ligolw_dq_query --segment=%s --active --include-segments=%s %s | ligolw_print -t segment_definer -c name' % (segment, options.ifo, tme))
 
         print tme,
 

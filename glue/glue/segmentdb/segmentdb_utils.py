@@ -165,7 +165,13 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
     """
     
     if write_segments:
-        new_seg_def_id = add_to_segment_definer(doc, proc_id, ifo, 'result', 0)
+        all_ifos = {}
+
+        for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
+            all_ifos[ifo] = True
+
+
+        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(all_ifos.keys()), 'result', 0)
         add_to_segment_summary(doc, proc_id, new_seg_def_id, [[gps_start_time, gps_end_time]])
 
     result = glue.segments.segmentlist([])
