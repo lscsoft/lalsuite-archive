@@ -180,6 +180,7 @@ setup(
   ],
   scripts = [
     os.path.join('bin','LSCdataFind'),
+    os.path.join('bin','LSCdataFindcheck'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
