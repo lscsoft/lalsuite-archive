@@ -743,6 +743,85 @@ def getstatistic(stat, bla, blb):
   statistic=CoincInspiralUtils.coincStatistic( newstat, bla, blb )
   return statistic
 
+##############################################################################
+# function to query segment server looking for science segments
+##############################################################################
+def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
+               ifo=None,
+               gpsStart=None,
+               gpsStop=None,
+               cut=bool(False)):
+  """
+  This method is designed to query the server specified by SERVERURL.
+  The method will return the segments that are between and overlaping
+  with the variable gpsStart and gpsStop.  If the flag cut is
+  specified to be True then the returned lists will be cut so that the
+  times are between gpsStart and gpsStop inclusive.  In addition to
+  these required arguments you must also specify in a text string the
+  IFO of interest.  Valid entries are L1 H1 V1 , but only one IFO at a
+  time can be specified.  You can call this method by specifying
+  specific keyswords ifo,gpsStart,gpsStop,cut,serverURL.  For example
+  to call using no segment cuts and the default URL try:
+  x=getSciSegs(gpsStart=987654321,gpsStop=876543210)
+  A query failure will give an error but no records found for the
+  options specified will return an empty list.
+  """
+  if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
+    os.stderr.write("Invalid arguments given to getSciSegs.\n")
+    return None
+  ifo=ifo.strip()
+  queryString="""SELECT \
+segment.start_time,\
+segment.end_time FROM segment,segment_definer \
+WHERE segment_definer.segment_def_id = \
+segment.segment_def_id AND \
+segment_definer.name = 'Science' AND \
+segment_definer.ifos = '%s' AND \
+NOT (segment.start_time > %s OR %s > \
+segment.end_time)"""
+  try:
+    serverName,serverPort=serverURL[len('ldbd://'):].split(':')
+  except:
+    serverPort="30015"
+    serverName=serverURL[len('ldbd://'):]
+  try:
+    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
+    connection=\
+    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
+  except Exception, errMsg:
+    sys.stderr.write("Error connection to %s at port %s\n"\
+                     %(serverName,serverPort))
+    sys.stderr.write("Error Message :\t %s \n"%(errMsg))
+    return None
+  try:
+    engine=query_engine.LdbdQueryEngine(connection)
+    sqlString=queryString%(ifo,gpsStart,gpsStop)
+    queryResult=engine.query(sqlString)
+  except Exception, errMsg:
+    print type(errMsg),errMsg
+    sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
+    sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
+    sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
+    sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+    return
+  engine.close()
+  queryResult.sort()
+  if cut:
+    newList=list()
+    for seg in queryResult:
+      newStart=seg[0]
+      newStop=seg[1]
+      if seg[0]<gpsStart:
+        newStart=gpsStart
+      if seg[1]>gpsStop:
+        newStop=gpsStop
+      newList.append((newStart,newStop))
+    return newList
+  else:
+    return queryResult
+  return None
+#End getSciSegs()
+#
 
 #############################################################################
 # Follow up list class definition
@@ -1936,7 +2015,7 @@ segment.end_time)"
     except Exception, errMsg:
       sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
-      sys.stderr.write("Error message seen: %s\n"%(errMsg))
+      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
       return
     engine.close()
