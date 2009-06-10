@@ -1,0 +1,188 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2006  Kipp C. Cannon
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+"""
+This utility checks that the output of LSCdataFind spans a given segment,
+and optionally that the files are accessible.
+"""
+
+
+from optparse import OptionParser
+import os
+import sys
+
+
+from glue.lal import CacheEntry
+from glue.lal import LIGOTimeGPS
+from glue import segments
+from glue import segmentsUtils
+
+
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__date__ = "$Date$"[7:-2]
+__version__ = "$Revision$"[11:-2]
+
+
+#
+# =============================================================================
+#
+#                                Error Messages
+#
+# =============================================================================
+#
+
+
+def write_error_lines(lines):
+	for line in lines:
+		print >>sys.stderr, "LSCdataFindcheck: error:", line
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(version = "%prog CVS $Id$")
+	parser.add_option("--segwizard-segments", metavar = "filename", help = "Read segments to check from the named segwizard-format text file.")
+	parser.add_option("--gps-start-time", metavar = "seconds", help = "Check a single segment starting at this time (must also set --gps-end-time).")
+	parser.add_option("--gps-end-time", metavar = "seconds", help = "Check a single segment ending at this time (must also set --gps-start-time).")
+	parser.add_option("--gps-segment-list", metavar = "start:end[,start:end]...", help = "Check this list of segments.")
+	parser.add_option("--dagman-return", metavar = "value", default = 0, help = "Set $RETURN value from dagman.")
+	parser.add_option("--stat", action = "store_true", default = False, help = "Test that files exist and are accessible.")
+	parser.add_option("-v", "--verbose", action = "store_true", default = False, help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	if options.dagman_return:
+		options.dagman_return = int(options.dagman_return)
+
+	if len(tuple(option for option in (options.segwizard_segments, options.gps_segment_list, options.gps_start_time) if bool(option))) != 1:
+		raise ValueError, "must supply exactly one of --segwizard-segments, or --gps-segment-list, or both --gps-start-time and --gps-end-time"
+	if bool(options.gps_start_time) ^ bool(options.gps_end_time):
+		raise ValueError, "cannot set only one of --gps-start-time and --gps-end-time"
+
+	if options.segwizard_segments:
+		options.segs = segmentsUtils.fromsegwizard(file(options.segwizard_segments), coltype = LIGOTimeGPS).coalesce()
+	elif options.gps_segment_list:
+		options.segs = segmentsUtils.from_range_strings(options.gps_segment_list.split(","), boundtype = LIGOTimeGPS)
+	elif options.gps_start_time and options.gps_end_time:
+		options.segs = segments.segmentlist([segments.segment(LIGOTimeGPS(options.gps_start_time), LIGOTimeGPS(options.gps_end_time))])
+	else:
+		# should not get here
+		raise ValueError, "oops, script error: please report to author"
+
+	return options, (filenames or [None])
+
+
+try:
+	options, filenames = parse_command_line()
+except ValueError, e:
+	write_error_lines([str(e)])
+	sys.exit(1)
+
+
+#
+# =============================================================================
+#
+#                                Dagman Helper
+#
+# =============================================================================
+#
+
+
+#
+# The idea here is that LSCdataFindcheck is designed to be added as a post
+# script on an LSCdataFind DAG node in a Condor dagman application.  To
+# support this usage, it's necessary for the post script to propogate any
+# error codes the LSCdataFind reports, and so this program has the
+# --dagman-return command line option.  In a Condor .dag file, the post
+# script's command line options should include "--dagman-return $RETURN".
+# dagman will replace "$RETURN" with the ASCII representation of the
+# LSCdataFind's return code, which this program then returns as its result.
+#
+
+
+if options.dagman_return:
+	write_error_lines(["dag job execution failed"])
+	sys.exit(options.dagman_return)
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# loop over LAL cache files
+#
+
+
+for filename in filenames:
+	#
+	# parse file into a list of CacheEntry objects
+	#
+
+	if filename is not None:
+		cache = [CacheEntry(line) for line in file(filename)]
+	else:
+		cache = [CacheEntry(line) for line in sys.stdin]
+
+	#
+	# check that the cache spans the requested segment(s)
+	#
+
+	seglist = segments.segmentlist([c.segment for c in cache]).coalesce()
+	if options.segs - seglist:
+		write_error_lines(["%s does not span:" % (filename or "stdin"), options.segs, "missing:", options.segs - seglist])
+		sys.exit(1)
+
+	#
+	# check that the files spanning the desired segment(s) are
+	# accessible.  only local files that intersect the requested
+	# segmentlist are tested
+	#
+
+	if options.stat:
+		badpaths = [c.path() for c in cache if options.segs.intersects_segment(c.segment) and c.host().lower() in ("", "localhost") and not os.access(c.path(), os.R_OK)]
+		if badpaths:
+			write_error_lines(["%s lists inaccessible files:" % (filename or "stdin"), badpaths])
+			sys.exit(1)
+
+#
+# all OK
+#
+
+sys.exit(0)
