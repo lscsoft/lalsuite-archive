@@ -1832,7 +1832,7 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
     """
     self.__prog__ = 'CHECKLIST'
     self.__executable = string.strip(cp.get('condor','makechecklist'))
-    self.__universe = "vanilla"
+    self.__universe = "local"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.setupJobWeb(self.__prog__)
