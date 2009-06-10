@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.20"
+ver = "1.21"
 
 def remove_root(path,root):
   if root:
@@ -197,6 +197,7 @@ setup(
   scripts = [
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','LSCdataFindcheck'),
+    os.path.join('bin','ligo_data_find'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
