@@ -478,7 +478,7 @@ WHERE
 						# outside plot range
 						pass
 				coinc_dt += dt * burst.ms_snr
-			coinc_dt /= sum([burst.ms_snr for burst in bursts])
+			coinc_dt /= sum(burst.ms_snr for burst in bursts)
 			try:
 				self.coinc_offsets[coinc_dt,] += 1.0
 			except IndexError:
@@ -548,7 +548,7 @@ WHERE
 						# outside plot range
 						pass
 			# snr-weighted mean of peak frequencies
-			coinc_freq = sum([burst.peak_frequency * burst.ms_snr for burst in bursts]) / sum([burst.ms_snr for burst in bursts])
+			coinc_freq = sum(burst.peak_frequency * burst.ms_snr for burst in bursts) / sum(burst.ms_snr for burst in bursts)
 			df = math.log(coinc_freq / sim_frequency, 10)
 			try:
 				self.coinc_offsets[df,] += 1.0

@@ -1,7 +1,7 @@
 PyLAL: Python LAL.
 
-PyLAL is a collection of utilities for plotting the output files from LSC
-analysis pipelines.
+PyLAL is a collection of utilities for plotting the output files from
+LSC analysis pipelines.
 
 This README file explains how to build and install PyLAL.
 
@@ -9,47 +9,48 @@ This README file explains how to build and install PyLAL.
 
 0. Prerequisites
 
-PyLAL needs matplotlib and numpy to provide plotting and good
-scientific data manipulation.  The LIGO lightweight reading stuff
-requires LAL, Metaio and Python.  Plotting also requires a latex distribution
-(tetex is standard on many platforms).    These packages should be available
-at
+PyLAL needs matplotlib and numpy to provide plotting and good scientific
+data manipulation.  The LIGO lightweight reading stuff requires LAL,
+Metaio and Python.  Plotting also requires a latex distribution
+(tetex is standard on many platforms). These packages should be
+available at
 
   http://www.lsc-group.phys.uwm.edu/daswg/download/repositories.html
 
-Note: matplotlib and numpy are now part of the standard LSCSOFT stack (at
-least for FC4) and can be obtained using:
+Note: matplotlib and numpy are now part of the standard LSCSOFT stack
+(at least for FC4) and can be obtained using:
 
   yum groupinstall "LSCSOFT"
 
-However, there is a small bug in the matplotlib rpm which can be fixed by
-finding the .matplotlibrc file by typing:
+However, there is a small bug in the matplotlib rpm which can be fixed
+by finding the .matplotlibrc file by typing:
 
   locate .matplotlibrc
 
 then opening the file and replacing the line
-   "numerix      : Numeric" 
+   "numerix      : Numeric"
 by "numerix      : numpy"
 
 ------------------------------------------------------------------------------
 
 1. Determine your Python version
 
-Python version 2.3 or greater is required to install PyLAL. Type:
+Python version 2.4 or greater is required to install PyLAL. Type:
 
   python -V
 
-to determine the version of python installed on your machine. For example:
+to determine the version of python installed on your machine. For
+example:
 
   nvf@dirac:~$ python -V
   Python 2.4.4
 
-If you do not have version 2.3 or greater installed, contact your system
+If you do not have version 2.4 or greater installed, contact your system
 administrator for help installing Python.
 
-Set the environment variable PYTHON to be the name of your python version 2
-executable. For example if your executable is named python, bash or sh users
-should type:
+Set the environment variable PYTHON to be the name of your python
+version 2 executable. For example if your executable is named python,
+bash or sh users should type:
 
   export PYTHON=python
 
@@ -68,20 +69,26 @@ and csh users should type:
 
 ------------------------------------------------------------------------------
 
-2. Get PyLAL from CVS
+2. Get PyLAL from Git
 
-First choose a directory in which to install the PyLAL sources. In this
-example, we install the sources into ${HOME}/src. If you decide to
-install somewhere else, change ${HOME}/src to the directory you have
-chosen. Change anonymous in the cvs checkout below to your lscsoft CVS
-user name, if you have one. Type:
+PyLAL is part of the LALSuite Git repository. First choose a directory
+in which to install the PyLAL sources. In this example, we install the
+sources into ${HOME}/src. If you decide to install somewhere else,
+change ${HOME}/src to the directory you have chosen. Change
+albert.einstein in the git clone below to your ligo.org kerberos
+principle, if you have one. Type:
 
   mkdir -p ${HOME}/src
   cd ${HOME}/src
-  cvs -d :pserver:anonymous@gravity.phys.uwm.edu:2402/usr/local/cvs/lscsoft checkout pylal
+  git clone git+ssh://albert.einstein@ligo-vcs.phys.uwm.edu/usr/local/git/lalsuite.git
 
-This will create a directory ${HOME}/src/pylal containing the
-PyLAL sources.
+If you do not have a ligo.org kerberos principle you can get the source
+code anonymously using:
+
+  git clone git://ligo-vcs.phys.uwm.edu/lalsuite.git
+
+This will create a directory ${HOME}/src/lalsuite containing the
+LALSuite sources.
 
 
 ------------------------------------------------------------------------------
@@ -100,9 +107,10 @@ and csh users should type:
 
   setenv PYLAL_LOCATION /opt/pylal
 
-Assuming you have installed the pylal sources in ${HOME}/src/pylal, type:
+Assuming you have installed the pylal sources in
+${HOME}/src/lalsuite/pylal, type:
 
-  cd ${HOME}/src/pylal
+  cd ${HOME}/src/lalsuite/pylal
 
 Then type:
 
@@ -133,7 +141,7 @@ If you are a csh user, edit your .login file and add the lines (changing
   endif
 
 Now log out and log back in to ensure that all environment variables
-have been updated. 
+have been updated.
 
 You may now use PyLAL! Please report any problems via the Gnats
 database linked from the PyLAL home page.

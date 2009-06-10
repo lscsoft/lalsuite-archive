@@ -1,2 +1,6 @@
+*.pyc
+MANIFEST
 build
+dist
 etc/glue-user-env.*sh
+glue/git_version.py

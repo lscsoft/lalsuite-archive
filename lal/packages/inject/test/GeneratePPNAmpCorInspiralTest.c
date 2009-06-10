@@ -60,7 +60,7 @@ GeneratePPNAmpCorInspiralTest [-m m1 m2] [-r dist] [-i inc phii psi] [-f fmin fm
 #include <lal/SimulateCoherentGW.h>
 #include <lal/GeneratePPNInspiral.h>
 
-/* headers from SimulateCoherentGW.c */ 
+/* headers from SimulateCoherentGW.c */
 #include <lal/LALError.h>
 #include <lal/DetectorSite.h>
 #include <lal/DetResponse.h>
@@ -442,7 +442,7 @@ main(int argc, char **argv)
   detector.response[0][2] = detector.response[2][0] = 0.;
   detector.response[1][2] = detector.response[2][1] = 0.;
   detector.type = LALDETECTORTYPE_ABSENT;
-  
+
   pulsar.equatorialCoords.longitude = 0.; /* RA */
   pulsar.equatorialCoords.latitude  = 0.; /* Dec */
   pulsar.equatorialCoords.system    = COORDINATESYSTEM_EQUATORIAL;
@@ -455,7 +455,7 @@ main(int argc, char **argv)
   plus_series.data = NULL;
   cross_series.data = NULL;
   scalar_series.data = NULL;
-  
+
   am_response_series.pPlus   = &(plus_series);
   am_response_series.pCross  = &(cross_series);
   am_response_series.pScalar = &(scalar_series);
@@ -463,7 +463,7 @@ main(int argc, char **argv)
   LALSCreateVector(&stat, &(am_response_series.pPlus->data), 1);
   LALSCreateVector(&stat, &(am_response_series.pCross->data), 1);
   LALSCreateVector(&stat, &(am_response_series.pScalar->data), 1);
-  
+
   time_info.epoch.gpsSeconds     = 61094;
   time_info.epoch.gpsNanoSeconds = 640000000;
   time_info.deltaT               = dt;
@@ -474,15 +474,15 @@ main(int argc, char **argv)
                                 &am_response_series,
                                 &det_and_pulsar,
                                 &time_info);
- 
+
   for ( i = 0; i < waveform.h->data->length; i++)
   {
     hoft->data[i] = waveform.h->data->data[2*i]*am_response_series.pPlus->data->data[i] +
                    waveform.h->data->data[2*i+1]*am_response_series.pCross->data->data[i];
-  }	
+  }
 
   /* Taper hoft */
-  if( taper > 0 ) 
+  if( taper > 0 )
     LALInspiralWaveTaper(&stat, hoft, 3);
 
   if( fftout )
@@ -490,21 +490,21 @@ main(int argc, char **argv)
     LALSCreateVector( &stat, &ht.data, waveform.h->data->length );
     LALCCreateVector( &stat, &Hf.data, waveform.h->data->length / 2 + 1 );
     LALCreateForwardRealFFTPlan( &stat, &fwdRealPlan, waveform.h->data->length, 0 );
-  
+
     ht.f0 = 0;
     ht.deltaT = dt;
     for( i = 0; i < waveform.h->data->length ; i++)
       ht.data->data[i] = hoft->data[i];
-    
+
     LALTimeFreqRealFFT( &stat, &Hf, &ht, fwdRealPlan );
 
     if( ( fourier = fopen(fftout, "w")) == NULL)
       fourier = fopen("fftout", "w");
 
-    for(i = 0; i < waveform.h->data->length/ 2 + 1; i++, f+=Hf.deltaF) 
-      fprintf(fourier," %f %1.6e %1.6e\n", f, Hf.data->data[i].re, Hf.data->data[i].im);	  
+    for(i = 0; i < waveform.h->data->length/ 2 + 1; i++, f+=Hf.deltaF)
+      fprintf(fourier," %f %1.6e %1.6e\n", f, Hf.data->data[i].re, Hf.data->data[i].im);
     fclose(fourier);
-    
+
 		LALDestroyRealFFTPlan( &stat, &fwdRealPlan );
     LALCDestroyVector( &stat, &Hf.data );
     LALSDestroyVector( &stat, &ht.data );
@@ -519,7 +519,7 @@ main(int argc, char **argv)
   LALSnprintf( message, MSGLENGTH,
 	       "Waveform ends %.3f cycles before coalescence",
 	       -waveform.phi->data->data[waveform.phi->data->length-1]
-	       / (REAL4)( LAL_TWOPI ) ); 
+	       / (REAL4)( LAL_TWOPI ) );
   {
     INT4 code = sprintf( message,
 			 "Waveform ends %.3f cycles before coalescence",
@@ -552,10 +552,9 @@ main(int argc, char **argv)
 
     /* t phi f h+ hx ht  */
     for ( i = 0; i < waveform.h->data->length; i++, t += dt )
-      fprintf( fp, "%1.6e %1.6e %1.6e \n", 
-      waveform.a->data->data[3*i],
-      waveform.a->data->data[3*i+1],
-		  waveform.a->data->data[3*i+2]
+      fprintf( fp, "%1.6e %1.6e\n", 
+      waveform.h->data->data[2*i],
+		  waveform.h->data->data[2*i+1]
       );
 /*      fprintf( fp, "%f %.3e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e %1.6e \n", t,
                   waveform.phi->data->data[i],
@@ -567,6 +566,7 @@ main(int argc, char **argv)
 		  waveform.h->data->data[2*i+1],
 		  hoft->data[i]);
 */    
+
     fclose( fp );
   }
 

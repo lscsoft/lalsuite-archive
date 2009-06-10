@@ -231,6 +231,7 @@ setup(
 		os.path.join("bin", "plotburstrate"),
 		os.path.join("bin", "plotchannel"),
 		os.path.join("bin", "plotcohsnr"),
+		os.path.join("bin", "plotcoincmissed"),
 		os.path.join("bin", "plotchiatimeseries"),
 		os.path.join("bin", "plotdetresponse"),
 		os.path.join("bin", "plotgrbl"),
@@ -283,6 +284,7 @@ setup(
 		os.path.join("bin", "inspiral_likelihood"),
 		os.path.join("bin", "lalapps_excesspowerfinal"),
 		os.path.join("bin", "lalapps_ll2cache"),
+		os.path.join("bin", "lalapps_newcorse"),
 		os.path.join("bin", "lalapps_path2cache"),
 		os.path.join("bin", "lalapps_stringfinal"),
 		os.path.join("bin", "ligolw_binjfind"),
@@ -292,6 +294,7 @@ setup(
 		os.path.join("bin", "ligolw_burca_tailor"),
 		os.path.join("bin", "ligolw_cafe"),
 		os.path.join("bin", "ligolw_conv_inspid"),
+		os.path.join("bin", "ligolw_inspinjfind"),
 		os.path.join("bin", "ligolw_segments"),
 		os.path.join("bin", "ligolw_sschunk"),
 		os.path.join("bin", "ligolw_sicluster"),
@@ -308,7 +311,11 @@ setup(
 		os.path.join("bin", "KW_veto_qscanSetup"),
                 os.path.join("bin", "pylal_plot_inspiral_skymap"),
                 os.path.join("bin", "plotskypoints"),
-                os.path.join("bin", "upper_limit_results")
+                os.path.join("bin", "upper_limit_results"),
+                os.path.join("bin", "pylal_expose"),
+                os.path.join("bin", "ligolw_cbc_printlc"),
+                os.path.join("bin", "ligolw_cbc_cluster_coincs"),
+                os.path.join("bin", "ligolw_cbc_cfar")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

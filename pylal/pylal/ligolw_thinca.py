@@ -55,15 +55,70 @@ __date__ = "$Date$"[7:-2]
 #
 
 
+#
+# Use C row types for coinc_event_map and sngl_inspiral tables
+#
+
+
 lsctables.CoincMapTable.RowType = lsctables.CoincMap = xlaltools.CoincMap
+
+class SnglInspiral(xlaltools.SnglInspiralTable):
+	__slots__ = ()
+
+	def get_end(self):
+		return LIGOTimeGPS(self.end_time, self.end_time_ns)
+
+	def set_end(self, gps):
+		self.end_time, self.end_time_ns = gps.seconds, gps.nanoseconds
+
+	def get_id_parts(self):
+		int_event_id = int(self.event_id)
+		a = int_event_id // 1000000000
+		slidenum = (int_event_id % 1000000000) // 100000
+		b = int_event_id % 100000
+		return int(a), int(slidenum), int(b)
+
+	def get_effective_snr(self, fac):
+		return self.snr/ (1 + self.snr**2/fac)**(0.25)/(self.chisq/(2*self.chisq_dof - 2) )**(0.25)
+
+	def __eq__(self, other):
+		return not (
+			cmp(self.ifo, other.ifo) or
+			cmp(self.end_time, other.end_time) or
+			cmp(self.end_time_ns, other.end_time_ns) or
+			cmp(self.mass1, other.mass1) or
+			cmp(self.mass2, other.mass2) or
+			cmp(self.search, other.search)
+		)
+
+# FIXME:  can't use C row class until event_ids don't have bazillions of
+# digits because Macs blow.  can't have 64-bit python on a Mac.  nope.
+#lsctables.SnglInspiralTable.RowType = lsctables.SnglInspiral = SnglInspiral
+
+
+#
+# Use C LIGOTimeGPS type
+#
+
+
 lsctables.LIGOTimeGPS = LIGOTimeGPS
+
+
+#
+# Allow bisection searches by GPS time to find ranges of triggers quickly
+#
 
 
 def sngl_inspiral___cmp__(self, other):
 	# compare self's end time to the LIGOTimeGPS instance other
 	return cmp(self.end_time, other.seconds) or cmp(self.end_time_ns, other.nanoseconds)
 
-lsctables.SnglInspiral.__cmp__ = sngl_inspiral___cmp__
+SnglInspiral.__cmp__ = sngl_inspiral___cmp__
+
+
+#
+# Use C segments module
+#
 
 
 def use___segments(modulename):
@@ -142,13 +197,14 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 			self.coinc_inspiral_table = lsctables.table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName)
 		except ValueError:
 			self.coinc_inspiral_table = lsctables.New(lsctables.CoincInspiralTable)
+			xmldoc.childNodes[0].appendChild(self.coinc_inspiral_table)
 
-	def append_coinc(self, process_id, time_slide_id, coinc_instruments, events):
+	def append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events, effective_snr_factor):
 		#
 		# populate the coinc_event and coinc_event_map tables
 		#
 
-		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_instruments, events)
+		coinc = snglcoinc.CoincTables.append_coinc(self, process_id, time_slide_id, coinc_def_id_key, events)
 
 		#
 		# populate the coinc_inspiral table:
@@ -156,7 +212,8 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 		# - end_time is the end time of the first trigger in
 		#   alphabetical order by instrument (!?) time-shifted
 		#   according to the coinc's offset vector
-		# - mchirp is average of mchirps
+		# - mass is average of total masses (appropriate for
+		#   high-mass search)
 		# - snr is root-sum-square of SNRs
 		# - false-alarm rate is blank
 		#
@@ -165,10 +222,11 @@ class InspiralCoincTables(snglcoinc.CoincTables):
 
 		coinc_inspiral = self.coinc_inspiral_table.RowType()
 		coinc_inspiral.coinc_event_id = coinc.coinc_event_id
-		coinc_inspiral.mchirp = sum(event.mchirp for event in events) / len(events)
-		coinc_inspiral.snr = math.sqrt(sum(event.snr**2 for event in events))
+		coinc_inspiral.mass = sum(event.mass1 + event.mass2 for event in events) / len(events)
+		coinc_inspiral.snr = math.sqrt(sum(event.get_effective_snr(fac = effective_snr_factor)**2 for event in events))
 		coinc_inspiral.false_alarm_rate = None
 		coinc_inspiral.set_end(events[0].get_end())
+		coinc_inspiral.set_ifos(event.ifo for event in events)
 		self.coinc_inspiral_table.append(coinc_inspiral)
 
 		return coinc
@@ -296,6 +354,7 @@ def ligolw_thinca(
 	thresholds,
 	ntuple_comparefunc = lambda events: False,
 	get_max_segment_gap = lambda xmldoc, thresholds: float("inf"),
+	effective_snr_factor = 250.0,
 	verbose = False
 ):
 	#
@@ -361,8 +420,7 @@ def ligolw_thinca(
 			print >>sys.stderr, "\tsearching ..."
 		for ntuple in snglcoinc.CoincidentNTuples(eventlists, event_comparefunc, offset_instruments, thresholds, verbose = verbose):
 			if not ntuple_comparefunc(ntuple):
-				# pass None for the coinc type key
-				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple)
+				coinc_tables.append_coinc(process_id, time_slide_id, None, ntuple, effective_snr_factor)
 
 	#
 	# remove time offsets from events

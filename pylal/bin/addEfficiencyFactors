@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
+
 __author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 __name__="addEfficiencyFactor"
 __Id__ = "$Id$"
-
 
 #loading standard modules
 from optparse import *
@@ -60,19 +60,18 @@ def parse_command_line():
       help="skip  time slides")	  
 	  
   parser.add_option("", "--skip-injections",action="store_true", default=False,\
-      help="skip injections")	
-	    	  
-  parser.add_option("", "--data-type", action="store", type="string",\
-     help="set the data type, possible values playground-only, all-data")
-	 
-	 
+      help="skip injections")
+	  
+  parser.add_option("", "--skip-exclude-playground",action="store_true", default=False,\
+      help="skip exclude-playground")
+	  
+  parser.add_option("", "--skip-all-data",action="store_true", default=False,\
+      help="skip all-data")
+	    	  	 
   parser.add_option("", "--ignore-efficiency-factors",action="store_true", default=False,\
       help="set all efficiency factors to unity")	
 	 
-  # options for output	  
-  parser.add_option("","--output-file",action="store",type="string",\
-      default="stat", help="output file to store accumulated statistics" )
-	  
+  # options for output	  	  
   parser.add_option("","--verbose", action="store_true",\
       default=False, help="print information" )
 	  
@@ -123,8 +122,8 @@ if not opts.skip_injections:
   # loop over injection directories
   for (inj_dir, value) in cp.items("injections"):
   
-	# create directory for zero-lag likelihood files
-	try: os.mkdir(inj_dir)
+	# create directory for injections likelihood files
+	try: os.mkdir(inj_dir.upper())
 	except: pass
 	
 	InspiralUtils.message(opts, "Injections from " + inj_dir + "directory ...")
@@ -226,7 +225,7 @@ if not opts.skip_injections:
 
 					
 	  # open the output file for writing
-	  output_file_name = inj_dir + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
+	  output_file_name = inj_dir.upper() + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
 	  output_file =  open(output_file_name, "w")
 	
 	  # create xml doc
@@ -630,7 +629,7 @@ if not opts.skip_timeslides:
 # correcting zero-lag all data corse files 
 ########################################################################################################	
 
-if opts.data_type == "all-data":
+if not opts.skip_all_data:
 
   # zero-lag
   zero_lag_files = []
@@ -940,6 +939,317 @@ if opts.data_type == "all-data":
 	InspiralUtils.message(opts,"all-data slides are Done.")	  
 		  
 		
+# correcting zero-lag exclude playground corse files 
+########################################################################################################	
+
+if not opts.skip_exclude_playground:
+
+  # zero-lag
+  zero_lag_files = []
+  zero_lag_glob = cp.get('exclude-playground-data', 'zero-lag-glob')
+  zero_lag_files = glob.glob(zero_lag_glob)
+
+  try: os.mkdir("CAT_3/" + "exclude_play")
+  except: pass
+
+  zero_lag_output_dir = "CAT_3/" + "exclude_play"
+
+
+  InspiralUtils.message(opts,"zero-lag exclude-playground files ...")
+
+  for file in zero_lag_files:
+	
+	# loading xml document
+	tmp_doc = utils.load_filename(file, gz=True, verbose=opts.verbose)
+
+	ProcessTable = tmp_doc.childNodes[0].childNodes[0]
+	ProcessParamsTable = tmp_doc.childNodes[0].childNodes[1]
+	SearchSummaryTable = tmp_doc.childNodes[0].childNodes[2]
+	SummValueTable = tmp_doc.childNodes[0].childNodes[3]
+	
+	if len(tmp_doc.childNodes[0].childNodes) > 4:
+	  # read in  zero-lag triggers 
+	  Triggers = tmp_doc.childNodes[0].childNodes[4]
+	else:
+	  Triggers = None
+	  
+	# determine ifo type and time of the triggers from the name of the file
+	# first strip-off the path of the file's name
+	file_name = file.split("/")[-1]
+
+	if Triggers:
+	  
+	  # next get the ifo string
+	  ifo_string = file_name.split("-")[0]
+	  
+	  # get ifo type and ifo time
+	  ifo_type = ifo_string.split("_")[1]
+	  ifo_time = ifo_string.split("_")[0]
+	  
+	  # construct ifo key
+	  ifo_key = ifo_type + "_" + ifo_time
+	  
+	  # get mchirp bin
+	  for bin in mchirp_bins:
+		if re.search(("mchirp_" + bin), file_name):
+		  mchirp_bin = bin
+
+	  
+	  # geting the zero-lag and time slides times from the corresponding  time file
+	  zero_lag_time = 0.0
+	  slide_time = 0.0
+	  
+	  # open the time file
+	  timefile = open(time_files_dir + "/" + ifo_time + "_V3_CAT_3.txt",'r')
+	  
+	  # read it in line by line
+	  line_index = 0
+	  for line in timefile:
+		line = line.split()
+		line_index += 1
+		if line_index ==1 :
+		  zero_lag_time = float(line[1])
+		else:
+		  slide_time += float(line[1]) 
+	  
+	  # prepare Efactor
+	  Efactor = EFactors[ifo_key]
+	  
+	  #Calculating statistic for coincidences
+	  statistic = CoincInspiralUtils.coincStatistic("effective_snr") 
+	  coinc_triggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+	  
+	  no_background_Triggers = lsctables.New(lsctables.SnglInspiralTable)
+	  new_Triggers = lsctables.New(lsctables.SnglInspiralTable)
+	  
+	  for coinc in coinc_triggers:
+		ifos, ifolist = coinc.get_ifos()
+		for ifo in ifolist:
+		  trigger = getattr(coinc, ifo)
+		  FAR = trigger.alpha
+		  
+		  if FAR != 0.0:
+			trigger.beta = numpy.log( (Efactor / FAR) + 1)
+		  else:
+			copy_trigger = copy.copy(trigger)
+			copy_trigger.beta = Efactor
+			no_background_Triggers.append(copy_trigger)
+	  
+			# we need to extrapolate
+			if extrapolation_method == 'constant':
+			  L_eff_ext = numpy.log(((Efactor * 2.0 * slide_time) / zero_lag_time )  + 1.0)
+			elif extrapolation_method == 'exponent':
+			  rho_0 = Loudest_stats[ifo_key + "_" + mchirp_bin]
+			  rho = coinc.stat
+			  L_eff_ext = numpy.log(((Efactor * slide_time * numpy.exp(rho - rho_0)) / zero_lag_time) + 1.0 )
+			elif extrapolation_method == 'two-sigma':
+			  rho = coinc.stat
+			  if rho > two_sigma_stat[ifo_time]:
+				L_eff_ext = rho
+			  else:
+				L_eff_ext = numpy.log(((Efactor * 2.0 * slide_time) / zero_lag_time )  + 1.0)
+			trigger.beta = L_eff_ext
+		  new_Triggers.append(trigger)
+
+		  
+	# open the output file for writing
+	output_file_name = zero_lag_output_dir + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
+	output_file =  open(output_file_name, "w")
+	
+	# create xml doc
+	output_doc = ligolw.Document()
+	
+	#create LIGO_LW element
+	output_ligo_lw = ligolw.LIGO_LW()
+	
+	#append it to xml doc
+	output_doc.appendChild(output_ligo_lw)
+
+	#adding Process table
+	output_doc.childNodes[0].appendChild(ProcessTable)
+	
+	#adding ProcessParams table
+	output_doc.childNodes[0].appendChild(ProcessParamsTable)	
+	
+	#adding SearchSummary Table
+	output_doc.childNodes[0].appendChild(SearchSummaryTable)
+	
+	#adding SummValue Table
+	output_doc.childNodes[0].appendChild(SummValueTable)
+	
+	if Triggers:
+	  #adding updated SnglInspiral table
+	  output_doc.childNodes[0].appendChild(new_Triggers)
+	
+	#writing xml doc to the output file
+	output_doc.write(output_file)
+	output_file.close()
+	
+
+  # open the no-background-candidates output file for writing
+  no_background_candidates_file_name = cp.get('exclude-playground-data', 'no-background-candidates')
+  no_background_output_file =  open(zero_lag_output_dir + "/" + no_background_candidates_file_name, "w")
+	
+  # create xml doc
+  no_background_output_doc = ligolw.Document()
+	
+  #create LIGO_LW element
+  no_background_output_ligo_lw = ligolw.LIGO_LW()
+	
+  #append it to xml doc
+  no_background_output_doc.appendChild(no_background_output_ligo_lw)
+
+  #adding updated SnglInspiral table
+  no_background_output_doc.childNodes[0].appendChild(no_background_Triggers)
+  
+  #writing xml doc to the output file
+  no_background_output_doc.write(no_background_output_file)
+  no_background_output_file.close()
+
+
+	
+  InspiralUtils.message(opts,"exclude-playground zero-lag is Done.")	  
+		
+	
+	
+
+
+  # correcting time slides exclude-playground corse files 
+  ########################################################################################################	
+  if not opts.skip_timeslides:
+	slides_files = []
+	slides_glob = cp.get('exclude-playground-data', 'slides-glob')
+	slides_files = glob.glob(slides_glob)
+	
+	InspiralUtils.message(opts,"time slides exclude-playground  files ...")
+	
+	# set time slides directory to be the same as zero-lag directory
+	time_slides_output_dir = zero_lag_output_dir
+	
+	for file in slides_files:
+	
+	  # loading xml document
+	  tmp_doc = utils.load_filename(file, gz=True, verbose=opts.verbose)
+	  
+	  ProcessTable = tmp_doc.childNodes[0].childNodes[0]
+	  ProcessParamsTable = tmp_doc.childNodes[0].childNodes[1]
+	  SearchSummaryTable = tmp_doc.childNodes[0].childNodes[2]
+	  SummValueTable = tmp_doc.childNodes[0].childNodes[3]
+	  	  
+	  # read in time slides triggers 
+	  if len(tmp_doc.childNodes[0].childNodes) > 4:
+		Triggers = tmp_doc.childNodes[0].childNodes[4]
+	  else:
+		Triggers = None
+		
+	  # strip-off the path of the file's name
+	  file_name = file.split("/")[-1]
+
+	  if Triggers:
+		# determine ifo type and time of the triggers from the name of the file
+		
+		# get the ifo string
+		ifo_string = file_name.split("-")[0]
+		
+		# get ifo type and ifo time
+		ifo_type = ifo_string.split("_")[1]
+		ifo_time = ifo_string.split("_")[0]
+		
+		# construct ifo key
+		ifo_key = ifo_type + "_" + ifo_time
+		
+		# get mchirp bin
+		for bin in mchirp_bins:
+		  if re.search(("mchirp_" + bin), file_name):
+			mchirp_bin = bin
+
+		
+		# geting the zero-lag and time slides times from the corresponding  time file
+		zero_lag_time = 0.0
+		slide_time = 0.0
+		
+		# open the time file
+		timefile = open(time_files_dir + "/" + ifo_time + "_V3_CAT_3.txt",'r')
+		
+		# read it in line by line
+		line_index = 0
+		for line in timefile:
+		  line = line.split()
+		  line_index += 1
+		  if line_index ==1 :
+			zero_lag_time = float(line[1])
+		  else:
+			slide_time += float(line[1])
+		
+		# prepare Efactor
+		Efactor = EFactors[ifo_key]
+		
+		#Calculating statistic for coincidences
+		statistic = CoincInspiralUtils.coincStatistic("effective_snr") 
+		coinc_triggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+		
+		new_Triggers = lsctables.New(lsctables.SnglInspiralTable)
+		for coinc in coinc_triggers:
+		  ifos, ifolist = coinc.get_ifos()
+		  for ifo in ifolist:
+			trigger = getattr(coinc, ifo)
+			FAR = trigger.alpha
+			
+			if FAR != 0.0:
+			  trigger.beta = numpy.log( (Efactor / FAR) + 1)
+			else:
+			  # we need to extrapolate
+			  if extrapolation_method == 'constant':
+				L_eff_ext = numpy.log(((Efactor * 2.0 * slide_time) / zero_lag_time )  + 1.0)
+			  elif extrapolation_method == 'exponent':
+				rho_0 = Loudest_stats[ifo_key + "_" + mchirp_bin]
+				rho = coinc.stat
+				L_eff_ext = numpy.log(((Efactor * slide_time * numpy.exp(rho - rho_0)) / zero_lag_time) + 1.0 )
+			  elif extrapolation_method == 'two-sigma':
+				rho = coinc.stat
+				if rho > two_sigma_stat[ifo_time]:
+				  L_eff_ext = rho
+				else:
+				  L_eff_ext = numpy.log(((Efactor * 2.0 * slide_time) / zero_lag_time )  + 1.0)
+			  trigger.beta = L_eff_ext
+			new_Triggers.append(trigger)
+
+
+	  # open the output file for writing
+	  output_file_name = time_slides_output_dir + "/" + file_name.replace("CORSE", "LIKELIHOOD").replace(".xml.gz", ".xml")
+	  output_file =  open(output_file_name, "w")
+	
+	  # create xml doc
+	  output_doc = ligolw.Document()
+	
+	  #create LIGO_LW element
+	  output_ligo_lw = ligolw.LIGO_LW()
+	
+	  #append it to xml doc
+	  output_doc.appendChild(output_ligo_lw)
+
+	  #adding Process table
+	  output_doc.childNodes[0].appendChild(ProcessTable)
+	
+	  #adding ProcessParams table
+	  output_doc.childNodes[0].appendChild(ProcessParamsTable)	
+	  
+	  #adding SearchSummary Table
+	  output_doc.childNodes[0].appendChild(SearchSummaryTable)
+	  
+	  #adding SummValue Table
+	  output_doc.childNodes[0].appendChild(SummValueTable)
+	  
+	  if Triggers:
+		#adding updated SnglInspiral table
+		output_doc.childNodes[0].appendChild(new_Triggers)
+	  
+	  #writing xml doc to the output file
+	  output_doc.write(output_file)
+	  output_file.close()
+
+		  
+	InspiralUtils.message(opts,"exclude-playground slides are Done.")	  
 	
   
 

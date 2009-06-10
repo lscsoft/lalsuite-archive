@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 EXTRA_DIST = doc.mk dvi.mk include.mk main.tex.in \
-             lal.m4 lallibtool.m4 lalam15patch.m4 pkg.m4 \
+             lal.m4 lallibtool.m4 pkg.m4 \
              capture-uninstall.sh
 
 CLEANFILES = uninstall-lal.sh lal-user-env.sh lal-user-env.csh
@@ -10,6 +10,7 @@ sysconf_DATA = lal-user-env.sh lal-user-env.csh
 BUILT_SOURCES = lal-user-env.sh lal-user-env.csh
 
 pkginclude_HEADERS = lalGitID.h
+all-local: include-link
 lalGitID.h: gitID
 
 install-exec-local: uninstall-lal-sh-target
@@ -20,7 +21,7 @@ uninstall-lal-sh-target:
 	top_builddir=$(top_builddir) ; export top_builddir ; \
         $(SHELL) $(srcdir)/capture-uninstall.sh uninstall-lal.sh
 
-lal-user-env.sh:
+lal-user-env.sh: Makefile
 	@echo "creating $@" ;\
 	echo "# Source this file to access LAL" >$@ ;\
 	echo "LAL_PREFIX=\"$(prefix)\"" >>$@ ;\
@@ -32,7 +33,7 @@ lal-user-env.sh:
 	echo "PKG_CONFIG_PATH=\"$(libdir)/pkgconfig:\$${PKG_CONFIG_PATH}\"" >>$@ ;\
 	echo "export PATH MANPATH LD_LIBRARY_PATH DYLD_LIBRARY_PATH PKG_CONFIG_PATH" >>$@
 
-lal-user-env.csh:
+lal-user-env.csh: Makefile
 	@echo "creating $@" ;\
 	echo "# Source this file to access LAL" >$@ ;\
 	echo "setenv LAL_PREFIX \"$(prefix)\"" >>$@ ;\
@@ -63,3 +64,5 @@ gitID:
 	if test -f $(top_srcdir)/misc/generateGitID.sh; then \
 	$(SHELL) $(top_srcdir)/misc/generateGitID.sh $(top_srcdir) lal; \
 	fi
+
+@INCLUDEMKFILE@

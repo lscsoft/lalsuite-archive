@@ -40,7 +40,6 @@ from glue.ligolw.utils import process as ligolw_process
 from pylal import ligolw_thinca
 from pylal import llwapp
 from pylal import snglcoinc
-from pylal.date import LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -54,14 +53,6 @@ __date__ = "$Date$"[7:-2]
 
 
 lsctables.table.RowBuilder = lsctables.table.InterningRowBuilder
-
-
-#
-# Don't use the Python kludged sngl_inspiral ID class.
-#
-
-
-ligolw_thinca.lsctables.ilwd.ilwdchar_class_cache.clear()
 
 
 #
@@ -82,7 +73,8 @@ def parse_command_line():
 	parser.add_option("-c", "--comment", metavar = "text", help = "Set comment string in process table (default = None).")
 	parser.add_option("-f", "--force", action = "store_true", help = "Process document even if it has already been processed.")
 	parser.add_option("-p", "--program", metavar = "name", default = "inspiral", help = "Set the name of the program that generated the events as it appears in the process table.  The program name is used to extract live time information from the search summary tables in the input files.  Default = \"inspiral\"")
-	parser.add_option("-t", "--e-thinca-parameter", metavar = "value", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold.")
+	parser.add_option("-t", "--e-thinca-parameter", metavar = "float", type = "float", help = "Set the ellipsoidal coincidence algorithm's threshold (required).")
+	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
@@ -187,6 +179,7 @@ for n, filename in enumerate(filenames):
 		coinc_definer_row = ligolw_thinca.InspiralCoincDef,
 		event_comparefunc = ligolw_thinca.inspiral_coinc_compare,
 		thresholds = options.e_thinca_parameter,
+		effective_snr_factor = options.effective_snr_factor,
 		verbose = options.verbose
 	)
 

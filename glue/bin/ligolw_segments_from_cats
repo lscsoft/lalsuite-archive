@@ -44,8 +44,9 @@ except ImportError:
 
 import sys
 import os
+import pwd
 import glob
-
+import tempfile
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -55,17 +56,26 @@ from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
 
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
-from glue import LDBDClient
-from glue import gsiserverutils
+try:
+   from glue import LDBDClient
+   from glue import gsiserverutils
+   have_ldbdc = True
+except:
+   have_ldbdc = False
+
 from glue.ligolw.utils import process
 
-import StringIO
+import re
+import urllib
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
-
+try:
+        USER_NAME = os.getlogin()
+except:
+        USER_NAME = pwd.getpwuid(os.getuid())[0]
 
 
 __author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
@@ -98,14 +108,47 @@ def parse_command_line():
     parser.add_option("-o", "--output-dir",   metavar = "output_dir",   default = '.',          help = "Directory to write output (default=cwd).")
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
                       
-    parser.add_option("-t", "--segment",      metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",    metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
-    options, others = parser.parse_args()
+    parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
+    parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
+    # Time options
+    parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
+    parser.add_option("-e", "--gps-end-time",   metavar = "gps_end_time", help = "End of GPS time range")
+
+    options, others = parser.parse_args()
+
     if not options.veto_file:
         raise ValueError, "missing required argument --veto-file"
-    
+   
+    # User must specify how to treat the categories
+    if not (options.cumulative_categories or options.separate_categories) or (options.cumulative_categories and options.separate_categories):
+        print >>sys.stderr, "Must provide one of --cumulative-categories | --separate-categories"
+        sys.exit(-1)
+
+    tmp_dir = None
+
+    # If the veto file is a URL, load it
+    loaded_file = None
+
+    if options.veto_file.find(':') != -1:
+        tmp_dir = tempfile.mkdtemp()
+        inurl   = urllib.urlopen(options.veto_file)
+
+        # Grab the part of the name after the last slash
+        pos     = options.veto_file[::-1].find('/')
+        fname   = (pos > -1) and options.veto_file[ -1 * pos:] or "veto_definer.xml" 
+
+        loaded_file = tmp_dir + "/" + fname
+
+        outfile = open(loaded_file, 'w')
+        for l in inurl:
+            print >>outfile, l,
+
+        inurl.close()
+        outfile.close()
 
     # Make sure we have required arguments
     database_location = None
@@ -114,26 +157,48 @@ def parse_command_line():
     # Make sure we know who to contact for data
     # (This is redundant with ligolw_segment_query, maybe move to
     # query_engine)
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
-            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment_url)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
-    elif options.dmt_files:
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
+    elif options.dmt_file:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
+            raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
+        if os.environ['DMT_SEGMENT_LOCATION'][len('file://')]!='/':
+           raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
         file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
     else:
-        raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
+        raise ValueError( "One of [ --segment_url | --database | --dmt-file ] must be provided" )
 
 
-    return options, database_location, file_location
+    if not options.gps_start_time:
+        raise ValueError( "missing required argument --gps-start-time" )
+    
+    if not options.gps_end_time:
+        raise ValueError( "missing required argument --gps-end-time" )
+
+        
+    return options, database_location, file_location, loaded_file
 
 
 
@@ -146,34 +211,31 @@ def parse_command_line():
 # =============================================================================
 #
 
-def register_to_sqlite():
-    """Register ourselves as a process and segment_definer"""
+#
+# Do to some sort of version skew in sqlite at LHO dbtables.get_column_info
+# doesn't work if and only if a new table has been created, which we do
+# in order to make the segment_backup table.  This method is a replcement
+# that works in this case.
+# TODO: once the environment is fixed, remove this.
+#
+def kludge_get_column_info(connection, table_name):
+    """
+    Return an in order list of (name, type) tuples describing the
+    columns in the given table.
+    """
+    statement = None
 
-    doc = ligolw.Document()
-    doc.appendChild(ligolw.LIGO_LW())
-    proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
+    table_name_str = str(table_name)
 
-    seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-    doc.childNodes[0].appendChild(seg_def_table)
+    for name,sql in connection.cursor().execute("SELECT name, sql FROM sqlite_master WHERE type == 'table'"):
+        if str(name) == table_name_str:
+            statement = sql
 
-    seg_def_id                     = seg_def_table.get_next_id()
-    segment_definer                = lsctables.SegmentDef()
-    segment_definer.process_id     = proc_id
-    segment_definer.segment_def_id = seg_def_id
-    segment_definer.ifos           = ''
-    segment_definer.name           = "ligolw_segments_from_cats"
-    segment_definer.version        = 0
-    segment_definer.comment        = ''
+    coldefs = re.match(dbtables._sql_create_table_pattern, statement).groupdict()["coldefs"]
+    return [(coldef.groupdict()["name"], coldef.groupdict()["type"]) for coldef in re.finditer(dbtables._sql_coldef_pattern, coldefs) if coldef.groupdict()["name"].upper() not in ("PRIMARY", "UNIQUE", "CHECK")]
 
-    seg_def_table.append(segment_definer)
 
-    fake_file1 = StringIO.StringIO()
-    doc.write(fake_file1)
 
-    fake_file2 = StringIO.StringIO(fake_file1.getvalue())
-    utils.load_fileobj(fake_file2, False, doc)
-
-    return proc_id, seg_def_id
 
 #
 # =============================================================================
@@ -185,7 +247,7 @@ def register_to_sqlite():
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
@@ -232,214 +294,106 @@ if __name__ == '__main__':
     from glue.ligolw import types as ligolwtypes
     ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 
-    options, db_location, file_location = parse_command_line()    
+    dbtables.get_column_info = kludge_get_column_info
 
-    # 1. Load the veto file into sqlite
-    # TODO: This should have a better name that includes the
-    # start and end times
-    
-    temp_db    = options.output_dir + '/temp.db'
-    target     = dbtables.get_connection_filename(temp_db, None, True, False)
-    connection = ligolw_sqlite.setup(target)
+    options, db_location, file_location, loaded_file = parse_command_line()    
+
+    # 1. Load the veto file into sqlite    
+    handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
+    target          = dbtables.get_connection_filename(temp_db, None, True, False)
+    veto_connection = ligolw_sqlite.setup(target)
 
     # Create an engine to query veto information
-    veto_query_engine = query_engine.SqliteQueryEngine(connection)
-    xml_files         = [options.veto_file]
+    veto_query_engine = query_engine.SqliteQueryEngine(veto_connection)
+    xml_files         = [loaded_file or options.veto_file]
 
     # 2. If we're working with DMT files load them into sqlite as well
-    if file_location:
-        glob_pattern = file_location
+    min_start_time = int(options.gps_start_time)
+    max_end_time   = int(options.gps_end_time)
     
-        if not glob_pattern.endswith('/'):
-            glob_pattern += '/'
-
-        glob_pattern += options.glob_pattern
-
-        xml_files += glob.glob(glob_pattern)
-
-
-    ligolw_sqlite.insert(connection, xml_files)
-
-    process_id, segment_def_id = register_to_sqlite()
-
-
     if file_location:
-        #
-        # Back up the segment table
-        #
-        cursor            = connection.cursor()
-        cursor.execute("select sql from SQLITE_MASTER where name='segment'")
-        seg_table_sql     = str(cursor.fetchone()[0])
-        seg_bak_table_sql = seg_table_sql.replace('TABLE segment','TABLE segment_bak')
-        cursor.execute(seg_bak_table_sql)
-        cursor.execute('insert into segment_bak select * from segment')
-        connection.commit()
-        cursor.close()
-
+        xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
         segment_query_engine = veto_query_engine
-        table_name           = 'segment_bak'
     else:
-        connection           = setup_database(db_location)
-        segment_query_engine = query_engine.LdbdQueryEngine(connection)
+        if ( have_ldbdc is True ):
+            segment_connection   = setup_database(db_location)
+            segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
+        else:
+            print >> sys.stderr, "Error: Could not import LDBDClient. Check that LDG is properly installed"
 
-        # Create empty segment, segment definer, segment summary tables in the sqlite DB
-        doc = ligolw.Document()
-        doc.appendChild(ligolw.LIGO_LW())
-        seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-        doc.childNodes[0].appendChild(seg_def_table)
+    ligolw_sqlite.insert(veto_connection, xml_files)
 
-        segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
-        doc.childNodes[0].appendChild(segtable)
-
-        seg_sum_table = lsctables.New(lsctables.SegmentSumTable)
-        doc.childNodes[0].appendChild(seg_sum_table)
-
-        fake_file1 = StringIO.StringIO()
-        doc.write(fake_file1)
-        fake_file2 = StringIO.StringIO(fake_file1.getvalue())
-        utils.load_fileobj(fake_file2, False, doc)
-    
-        table_name           = 'segment'
-
-
-    # Get start and end times for file names
-    min_start_time, max_end_time = segment_query_engine.query("select min(start_time), max(end_time) from segment").next()
-
+    cli_interval = glue.segments.segmentlist([glue.segments.segment(int(options.gps_start_time), int(options.gps_end_time))])
+            
     #
     # Get the set of veto categories and ifos for which we have segments 
     #
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
-    ifos       = [row[0] for row in segment_query_engine.query("select distinct(ifo) from veto_definer")]
+    ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
+
+    if options.cumulative_categories:
+        category_selection_operator = ' <= '
+    else:
+        category_selection_operator = ' = '
 
     for ifo, category_num in [(i,c) for i in ifos for c in categories]:
+        vetoed_segs = glue.segments.segmentlist([])
+            
         # Start a new document
-        xmldoc = ligolw.Document()
-        xmldoc.appendChild(ligolw.LIGO_LW())
+        doc = ligolw.Document()
+        doc.appendChild(ligolw.LIGO_LW())
 
-        # Update the IFOs for the segment definer
-        cursor = connection.cursor()
-        cursor.execute("""UPDATE segment_definer SET ifos=? WHERE name = ?""", (ifo, PROGRAM_NAME))
-        connection.commit()
-        cursor.close()
-        
-        #
-        # Get the set of vetos
-        #
-        cursor = connection.cursor()
-        cursor.execute("""SELECT * FROM veto_definer WHERE ifo = ? AND category <= ?""", (ifo, category_num))
+        # Register ourselves
+        proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
 
-        #
-        # Clear out the segments table
-        #
-        cursor = connection.cursor()
-        cursor.execute("DELETE FROM segment")
-        connection.commit()
-        cursor.close()
-
-        # If everything were in the same database we could do a join like
-        # thus:
-        # cursor.execute("""
-        #      SELECT segment_bak.start_time, segment_bak.end_time, veto_definer.start_time, veto_definer.end_time, veto_definer.start_pad, veto_definer.end_pad
-        #      FROM segment_bak, segment_definer, veto_definer 
-        #      WHERE segment_bak.segment_def_id = segment_definer.segment_def_id
-        #        AND segment_definer.ifos = veto_definer.ifo
-        #        AND veto_definer.ifo  = ?
-        #        AND veto_definer.name = segment_definer.name
-        #        AND veto_definer.version = segment_definer.version
-        #       AND veto_definer.category <= ? """,(ifo, category_num))
-        #
-        # but since the segments may be coming from LDBD and the vetos from
-        # the local database we need to do a bit more work.
+        # Keep the veto_definer for tracking purposes
+        doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])
 
         # loop over select of name, version where ifo=current ifo and category <= current category
-        cursor = connection.cursor()
+        cursor = veto_connection.cursor()
         cursor.execute("""SELECT name, version, start_time, end_time, start_pad, end_pad
                           FROM veto_definer
-                          WHERE ifo = '%s' AND category <= %s""" % (ifo, category_num))
-        
-        disjoint_segments = glue.segments.segmentlist([])
+                          WHERE ifo = '%s' AND category %s %s""" % (ifo, category_selection_operator, category_num))
         
         for name, version, veto_start_time, veto_end_time, start_pad, end_pad in cursor:
-            veto_interval = glue.segments.segment(veto_start_time, veto_end_time)
-       
-            params = {'table_name':table_name, 'name':name, 'ifo':ifo, 'version':version, 'veto_start_time':veto_start_time, 'veto_end_time':veto_end_time}
-
             if veto_end_time == 0:
-                time_clause = ' AND %(veto_start_time)s BETWEEN %(table_name)s.start_time AND %(table_name)s.end_time ' % params
-            else:
-                time_clause = ' AND NOT(%(table_name)s.start_time > %(veto_end_time)s OR %(veto_start_time)s > %(table_name)s.end_time) ' % params
-
-            params['time_clause'] = time_clause
-
-
-            rows2 = segment_query_engine.query("""
-            SELECT %(table_name)s.start_time, %(table_name)s.end_time
-             FROM %(table_name)s, segment_definer
-             WHERE %(table_name)s.segment_def_id = segment_definer.segment_def_id
-               AND segment_definer.ifos = '%(ifo)s'
-               AND segment_definer.name = '%(name)s'
-               %(time_clause)s
-               AND segment_definer.version = '%(version)s'""" % params)
-        
-            for seg_start_time, seg_end_time in rows2:
-                if seg_end_time == 0:
-                    seg_end_time = glue.segments.infinity()
-
-                if veto_end_time == 0:
-                    veto_end_time = glue.segments.infinity()
-                    
-                seg_interval  = glue.segments.segment(seg_start_time, seg_end_time)
-
-                # Add the padding
-                seg_interval = glue.segments.segment(seg_interval[0] - start_pad, seg_interval[1] + end_pad)
-
-                disjoint_segments |= glue.segments.segmentlist([seg_interval])
+                veto_end_time = glue.segments.infinity()
                 
-        cursor.close()
-        disjoint_segments.coalesce()
-            
-        segment_id = 0
-        
-        for seg in disjoint_segments:
-            cursor.execute("""insert into segment(segment_id, start_time, end_time, segment_def_id, process_id) values(?, ?, ?, ?, ?)""",
-                           ('segment:segment_id:%d' % segment_id, seg[0], seg[1], str(segment_def_id), str(process_id)))
-            segment_id += 1
-            
-        connection.commit()
-            
+            search_interval  = glue.segments.segmentlist([glue.segments.segment(veto_start_time, veto_end_time)])
+            search_interval &= cli_interval
+            search_interval.coalesce()
 
-        #
-        # Update the summary table
-        #
-        cursor.execute("DELETE FROM segment_summary")
-        cursor.execute("""INSERT INTO segment_summary(segment_sum_id,start_time, end_time, segment_def_id, process_id) VALUES('segment_summary:segment_sum_id:0',?,?,?,?)""",
-                       (min_start_time, max_end_time, str(segment_def_id), str(process_id)))
-        connection.commit()
+            # There may be no overlap between the veto time and the time we're looking at
+            if len(search_interval):
+                vetoed_segs |= segmentdb_utils.run_query_segments(doc, proc_id, segment_query_engine,
+                                               search_interval[0][0], search_interval[0][1],
+                                               '%s:%s:%d' % (ifo, name, version),
+                                               write_segments = False, start_pad = start_pad, end_pad = end_pad)
+
+        vetoed_segs.coalesce()
+
+        # Add the result type to the segment definer table
+        seg_name   = 'VETO_CAT%d%s' % (category_num, options.cumulative_categories and '_CUMULATIVE' or '')
+        seg_def_id = segmentdb_utils.add_to_segment_definer(doc, proc_id, ifo, seg_name, 1)
+
+        # and segment summary
+        segmentdb_utils.add_to_segment_summary(doc, proc_id, seg_def_id, [[min_start_time, max_end_time]])
+
+        # and store the segments
+        segmentdb_utils.add_to_segment(doc, proc_id, seg_def_id, vetoed_segs)
             
-        #
         # Dump to XML
-        #
-        output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.xml.gz" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
-        ligolw_sqlite.extract(connection, output_name, table_names = ['process','process_params', 'segment_definer','veto_definer','segment','segment_summary'] )
+        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+        utils.write_filename(doc, output_name)
 
-        #
-        # Dump to text
-        #
-        # output_name = "%s/%s-VETOTIME_CAT%d_%d_%d.txt" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
-        # f_out       = open(output_name,'w')
-        # cursor      = connection.cursor()
-        # cursor.execute("select start_time, end_time from segment")
-        # rowcount    = 1
-        # for row in cursor:
-        #     print >>f_out, '%d\t%d\t%d\t%d' % (rowcount, row[0], row[1], (row[1] - row[0]))
-        #     rowcount += 1
-        # f_out.close()
-        # cursor.close()
-
-
-    #
     # Clean up
-    #
+    if loaded_file:
+        os.remove(loaded_file)
+        pos   = loaded_file[::-1].find('/') + 1
+        os.rmdir(loaded_file[:-1 * pos])
+
+
     if not options.keep_db:
         os.remove(temp_db)
 

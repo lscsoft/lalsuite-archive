@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+#!/usr/local/bin/python
 #
-# Copyright (C) 2008  Nickolas Fotopoulos
+# Copyright (C) 2008  Nickolas Fotopoulos and Alexander Dietz
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -26,116 +26,44 @@ set of loudest statistics from background trials.
 
 from __future__ import division
 
-__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
+__author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>, Alexander Dietz alexander.dietz@lapp.in2p3.fr"
 __prog__ = "pylal_expose"
 __title__ = "External Trigger Population Search"
 
-import sys
-import copy
-import glob
-import optparse
 import random
+import optparse
 import cPickle as pickle
-itertools = __import__("itertools")
                        
 import numpy 
-from scipy import stats
 import pylab as plt
-plt.rc('text', usetex=True)
+#plt.rc('text', usetex=True)
 
 
-from glue import iterutils
 from pylal import InspiralUtils
-from pylal import grbsummary
-from pylal import plotutils
 from pylal import rate
 from pylal import git_version
-import PopStatement
+from pylal import PopStatement
+from pylal import plotutils
 
 #
 # Functions
 #
 
-def extract_grb_name(file):
+def create_hist(data):
     """
-    Extracting the GRB name from a pickle file.
+    Create a histogram of the data
     """
-    parts = file.split('_')
-    for part in parts:
-        if 'GRB' in part:
-            return part[3:]
+    nbins = 30
+    val_min = min(data)-1.0
+    val_max = max(data)+1.0
+    bins = rate.LinearBins(val_min, val_max, nbins)
+    px = bins.lower()
 
-    return None
-            
-def extract_grb_names(filelist):
-    """
-    Given a list of pickle filenames, this function
-    extracts the GRB names from the files.
-    """
-    grb_list = set()
-    for file in filelist:
-        grb_list.add(extract_grb_name(file))
-
-    return grb_list
-    
-def find_file(filelist, grb_name):
-    for file in filelist:
-        id = file.split('_')[3][3:]
-        if grb_name == id:
-            return file
-
-    raise ValueError, "GRB %s not found in filelist" % grb_name
-
-def load_grb_table(filename_grb, files_onsource, files_offsource,\
-                    redshift_rejection = True):
-    """
-    Loads the GRB table from the given filename
-    but selects only the GRB's that are listed in the
-    grb_list and which are available; rejecting any GRB with a
-    redshift measurement if the flag is set to True.
-    """
-
-    ## FIXME
-    # this is a list of short GRB's being analyzed with redshift measurement,
-    # which is not part of the usual GRB.xml file. This should be updated instead,
-    # but we don't have a xml editor.
-    additional_GRB_with_redshift = ['061217','070429B']
-    
-    if len(files_onsource)!=len(files_offsource):
-        raise ValueError, "The number of onsource files and offsource files"\
-              " is different. They should be the same!"
-
-    list_onsource = extract_grb_names(files_onsource)
-    list_offsource = extract_grb_names(files_offsource)
-    if list_onsource!=list_offsource:
-        raise ValueError, "The onsource files do not match the offsource files!"
-    list_grbs = list_onsource
-    
-    # read all the GRBs
-    ext_trigs = grbsummary.load_external_triggers(filename_grb)
-
-    temp_trigs = []
-    new_files_onsource = []
-    new_files_offsource = []
-
-    # main loop over all GRB's
-    for grb in ext_trigs:
-        
-        if grb.event_number_grb in list_grbs:
-            if redshift_rejection and (grb.event_z>0 or \
-                                       grb.event_number_grb in additional_GRB_with_redshift):
-                print >>sys.stderr, "GRB %s has a redshift measurement: "\
-                      "rejected." % grb.event_number_grb
-            else:
-                temp_trigs.append(grb)
-                new_files_onsource.append(find_file(files_onsource, grb.event_number_grb))
-                new_files_offsource.append(find_file(files_offsource, grb.event_number_grb))                
-                print >>sys.stderr, "GRB %s has been added to the analysis list " %\
-                      grb.event_number_grb
-                
-    return list_grbs, temp_trigs, new_files_onsource,  new_files_offsource
-    
-
+    # create the histogram and fill it
+    hist = numpy.zeros(nbins)
+    for value in data:
+        hist[bins[value]] += 1
+    return px, hist
     
 def parse_args():
     """
@@ -144,23 +72,23 @@ def parse_args():
     parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # inputs
-    parser.add_option("--onsource-glob", help="glob matching pickle files " \
-        "containing the loudest on-source coincidences")
-    parser.add_option("--offsource-glob", help="glob matching pickle files " \
-        "containing the loudest off-source coincidences")
-    parser.add_option("--grb-xml", default = "listGRB.xml", \
-                      help="xml file containing the GRB data.")
+    parser.add_option("--data-path", help="path to the data pickle files")   
     parser.add_option("--grb-pickle", default = "list_grb.pickle", \
                       help="pickle file containing the GRB data.")
 
     parser.add_option("--analyze", type="string",help="Specifies what to "\
                       "analyze. Possible values: {box,test}.")
-    parser.add_option("--number", type="int",help="The number of onsource trials "\
-                      "to be selected. Default = 22.",default=22)
     parser.add_option("--reject-redshift-grb", action="store_true",
                       help="Enables any GRB with a redshift value to be rejected. "\
                       "Not recommended.", default=False)
-    
+    parser.add_option("--reject-no-candidate", action="store_true",
+                      help="Rejects any GRB which does not have any candidate"\
+                      " for the population statement.", default=False)
+    parser.add_option("--reject-grb", type="string",default = "",\
+                      help="Comma-seperated list"\
+                      " of GRBs to be rejected.")
+    parser.add_option("--reject-empty", action="store_true", default=False,
+        help="reject empty trials in both on/off-source")
     
     parser.add_option("--m2-min", type="float", help="minimum m2 value")
     parser.add_option("--m2-max", type="float", help="maximum m2 value")
@@ -192,14 +120,9 @@ def parse_args():
     if options.ifo_tag is not None:
         options.ifo_times = options.ifo_tag
 
-    for opt in ("onsource_glob", "offsource_glob"):
+    for opt in ["data_path"]:
         if getattr(options, opt) is None:
             raise ValueError,  "--%s is required" % opt.replace("_", "-")
-
-    check_list = ['box','test','random','single','max']
-    if options.analyze not in check_list:
-        raise ValueError,  "Option '--analyze' must take one of the "\
-              "following options: %s"% check_list
 
 
     # Default hack: Not nice, but FIXME, i.e. load the grbUL pickle file!!
@@ -211,6 +134,21 @@ def parse_args():
     return options, arguments
 
 
+def add_sigma_levels(plot):
+
+    # arbitrary numbers found to be about accurate
+    # see code qqtest.py
+    shift_vector = [0.045, 0.11, 0.18]
+    shift_color = ['#CCCCCC','#999999','#555555']
+    
+    x = numpy.arange(0.0, 1.0, 0.01)
+    for shift, col in zip(shift_vector, shift_color):
+        y = x+shift
+        
+        plot.ax.plot(x,y, color=col)
+        
+    return plot
+
 #########################################################
 ####################  MAIN  ############################
 #########################################################
@@ -219,57 +157,35 @@ def parse_args():
 # initialization
 #
 opts, args = parse_args()
-InspiralUtils.initialise(opts, __prog__, git_version.verbose_msg)
-html_footer = ""
-fnameList = []
-tagList = []
-print "The following output has been created with pylal_expose"\
-      " version ", git_version.verbose_msg
-
-
-#
-# Read input and select GRB data
-#
-
-# get the list of files
-files_onsource = glob.glob(opts.onsource_glob)
-files_offsource = glob.glob(opts.offsource_glob)
-if len(files_onsource)!=len(files_offsource):
-    print >> sys.stderr, "Length of the two globs are not equal. "\
-          "Probable one or more files are missing?"
-    sys.exit(1)
-
-
-# select the GRB's to be used
-list_grbs, ext_trigs, files_onsource,  files_offsource =\
-           load_grb_table(opts.grb_xml, files_onsource, files_offsource,\
-                          redshift_rejection = opts.reject_redshift_grb)
-number_grb = len(ext_trigs)
-print "Number of GRB's used: ", number_grb
+page = InspiralUtils.InspiralPage(opts)
 
 
 # create the PopStatement instances which are used to handle the
 # population statement calculations
 grb_data = pickle.load(file(opts.grb_pickle))
 pop_stat = PopStatement.PopStatement(grb_data,'condensed')
-
+list_reject_grb = opts.reject_grb.split(",")
 
 # create the PopStatement instances for the m2-bin analysis
 pop_m2 = {}
-dm = (opts.m2_max - opts.m2_min) / opts.m2_nbins
-m2_edges = opts.m2_min + numpy.arange(opts.m2_nbins + 1, dtype=float) * dm
-for m2_low, m2_high in zip(m2_edges[:-1], m2_edges[1:]):
+m2_bins = rate.LinearBins(opts.m2_min, opts.m2_max, opts.m2_nbins )
+for m2_low, m2_high in zip(m2_bins.lower(), m2_bins.upper()):
     mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
     pop_m2[mass_bin] = PopStatement.PopStatement(grb_data, mass_bin)
 
 
-for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsource)):
-    
-    # make the double check of the detection statistic
-    words = file_on.split('_')
-    grb_name = words[3][3:]
+# loop over each GRB in the list (22 of them)
+list_grb = grb_data.keys()
+list_grb.sort()
+for grb_name in list_grb:
 
-    
+    file_on = opts.data_path+\
+              "/pylal_grblikelihood_onsource_GRB%s_OPENBOX.pickle"%grb_name
+    file_off = opts.data_path+\
+               "/pylal_grblikelihood_offsource_GRB%s_OPENBOX.pickle"%grb_name
+    file_inj = opts.data_path+\
+               "/pylal_grblikelihood_injections_GRB%s_OPENBOX.pickle"%grb_name
+ 
     # read the data from the files
     dummy, dummy, dummy, onsource_L_by_m2, log_sum_L =\
            pickle.load(open(file_on))
@@ -278,70 +194,74 @@ for index_grb, (file_on, file_off) in enumerate(zip(files_onsource, files_offsou
            pickle.load(open(file_off))
     n_trials = offsource_L_by_trial_m2.shape[0]
 
-    for index_m2, (m2_low, m2_high) in \
-        enumerate(zip(m2_edges[:-1], m2_edges[1:])):
-        
-        mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-        pop_m2[mass_bin].add_background_by_trial(grb_name, offsource_L_by_trial_m2[index_m2])
-        pop_m2[mass_bin].add_foreground(grb_name, onsource_L_by_m2[index_m2])
-        
-        
+    dummy, dummy, injections_L_by_trial_m2, inj_log_sum_L_by_trial =\
+                pickle.load(open(file_inj))
+
+
     # double check the detection statistic
     count_louder = (off_log_sum_L_by_trial > log_sum_L).sum(axis=0)
     stat = count_louder/n_trials
-    print "GRB%s p(c|0)= %f " %(grb_name, stat)
-        
+    text = "GRB%s p(c|0)= %.1f %% | log(L) = %.2f" % (grb_name, 100.0*stat, log_sum_L)
+    if log_sum_L == -numpy.infty:
+        text+= "(no candidate)"    
+    page.write(text)
+
+    if (opts.reject_no_candidate and log_sum_L == -numpy.infty) \
+           or grb_name in list_reject_grb:
+        print "This GRB will not be used for the final population statement"
+        continue
+
+    # add data to the m2-pop statement instances
+    for index_m2, (m2_low, m2_high) in \
+        enumerate(zip(m2_bins.lower(), m2_bins.upper())):             
+        mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
+
+        pop_m2[mass_bin].add_data(grb_name, \
+                                  injections_L_by_trial_m2[:,index_m2],\
+                                  offsource_L_by_trial_m2[:,index_m2], \
+                                  onsource_L_by_m2[index_m2])
 
     # populate the popStatement instance with real background/onsource
-    pop_stat.add_background_by_trial(grb_name, off_log_sum_L_by_trial)
-    pop_stat.add_foreground(grb_name, log_sum_L)
-
+    pop_stat.add_data(grb_name, inj_log_sum_L_by_trial, \
+                      off_log_sum_L_by_trial,log_sum_L) 
 
 # finalize the sampling
-
+pop_stat.finalize()
 for pop_inst in pop_m2.values():
     pop_inst.finalize()
-pop_stat.finalize()
+
+page.write("Number of offsource trials total: %d" % pop_stat.n_off)
+page.write("Number of GRB data total: %d" % pop_stat.n_grb)
 
 # create overview plots (for the condense case)
 plot = pop_stat.check_off_distribution_lik()
-fname = InspiralUtils.set_figure_name(opts, "check_off_distribution-lik")
-fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-fnameList.append(fname)
-tagList.append(fname)
+page.add_plot(plot.fig, "check_off_distribution-lik")
 
 plot = pop_stat.check_off_distribution_far()
-fname = InspiralUtils.set_figure_name(opts, "check_off_distribution-far")
-fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-fnameList.append(fname)
-tagList.append(fname)
+page.add_plot(plot.fig, "check_off_distribution-far")
 
-
-
-# create the output and the html file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-                                                    fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-
+# decide what to do: a general test or choose an onsource
 if opts.analyze=='test':
     vec_lik = {}
     vec_ifar = {}
     
-    for type in ['random','single','max']:
+    for type in ['random']:
         print "Samples drawn from ", type
         
         dummy_lik = []
         dummy_ifar = []
         for i in range(5000):
-            pop_stat.select_onsource(type)
-            z_lik, z_ifar = pop_stat.compute_wmu()        
+            pop_stat.select_onsource(type, reject_empty = opts.reject_empty)
+            z_lik, z_ifar = pop_stat.compute_wmu()
+
             dummy_lik.append(z_lik)
             dummy_ifar.append(z_ifar)
+            
+        pickle.dump(dummy_lik, open('expose_random_z.pickle','w'))
+        sys.exit(0)
 
         vec_lik[type]=dummy_lik
-        vec_ifar[type]=dummy_ifar    
+        vec_ifar[type]=dummy_ifar
 
     a1, a2 = create_hist(vec_lik['random'])
     b1, b2 = create_hist(vec_lik['single'])
@@ -355,11 +275,8 @@ if opts.analyze=='test':
     plt.xlabel('sigma')
     plt.ylabel('number')
     plt.legend(('random','single','max'))
-    fname = InspiralUtils.set_figure_name(opts, "test-lik")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(fname)
-    
+    page.add_plot(plt.gcf(), "test-lik")
+        
     a1, a2 = create_hist(vec_ifar['random'])
     b1, b2 = create_hist(vec_ifar['single'])
     c1, c2 = create_hist(vec_ifar['max'])     
@@ -372,35 +289,86 @@ if opts.analyze=='test':
     plt.xlabel('sigma')
     plt.ylabel('number')
     plt.legend(('random','single','max'))
-    fname = InspiralUtils.set_figure_name(opts, "test-ifar")
-    fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
-    fnameList.append(fname)
-    tagList.append(fname)
+    page.add_plot(plt.gcf(), "test-ifar")    
     
-else:
+else:    
 
-    
-    pop_stat.select_onsource(opts.analyze)
-    z_lik, z_ifar = pop_stat.compute_wmu()
-    
-    z_lik_by_m2 = numpy.zeros(len(m2_edges), float)
-    z_ifar_by_m2 = numpy.zeros(len(m2_edges), float)    
+    # prepare arrays to hold the data
+    z_by_m2 = numpy.zeros(opts.m2_nbins, float)
+    p_by_m2 = numpy.zeros(opts.m2_nbins, float)
+
+    # analyse each of the m2 pop instances
     for index_m2, (m2_low, m2_high) in \
-            enumerate(zip(m2_edges[:-1], m2_edges[1:])):
+            enumerate(zip(m2_bins.lower(), m2_bins.upper())):
                 
         mass_bin = "%.1f-%.1f" % (m2_low, m2_high)
-        pop_m2[mass_bin].select_onsource(opts.analyze)
-        z_lik_by_m2[index_m2], z_ifar_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
+        pop_m2[mass_bin].set_stat('lik')
+        pop_m2[mass_bin].select_onsource(opts.analyze, reject_empty =\
+                                         opts.reject_empty)
+        z_by_m2[index_m2] = pop_m2[mass_bin].compute_wmu()
+        p_by_m2[index_m2] = pop_m2[mass_bin].p_one_sided
 
-    print "The result of the analysis for the condense statement is: %.2f (LIK)  %.2f (IFAR)" %\
-          (z_lik, z_ifar)
-    print "Here are the m2-binned results: "
-    print z_lik_by_m2
-    print z_ifar_by_m2
+        # create the plots
+        plot = pop_m2[mass_bin].create_plot_hist()
+        page.add_plot(plot.fig, "hist-"+mass_bin)
+        plot = pop_m2[mass_bin].create_plot_qq()
+        page.add_plot(plot.fig, "qq-"+mass_bin)
 
-        
-# create the output and the html file
-if opts.enable_output:
-    html_filename = InspiralUtils.write_html_output(opts, sys.argv[1:],
-          fnameList, tagList, comment=html_footer)
-    InspiralUtils.write_cache_output(opts, html_filename, fnameList)
+
+    # select either a fake trial or the box
+    pop_stat.set_stat('lik')
+    pop_stat.select_onsource(opts.analyze, reject_empty = opts.reject_empty)
+    z_lik = pop_stat.compute_wmu()
+
+    page.write("Number of offsource trials used: %d" % len(pop_stat.on_list))
+    page.write("Number of GRB data used: %d" % len(pop_stat.off_list))
+
+    plot = pop_stat.create_plot_hist()
+    page.add_plot(plot.fig, "histCondense")
+    plot = pop_stat.create_plot_qq()
+    plot = add_sigma_levels(plot)
+    plot.ax.axis([0.0, 1.0, 0.1, 1.0])
+    page.add_plot(plot.fig, "qqCondense")
+
+    # write the basic result to the output and to the web page
+    text = "The result of the analysis for the condense statement is: "+\
+               "%.2f sigma (i.e. %.2f Percent )" %\
+               (z_lik, 100.0*pop_stat.p_one_sided)
+    page.write(text)
+
+    # create the final plot
+    plt.clf()
+    plt.plot(m2_bins.centres(), z_by_m2, 'r-', linewidth = 3)
+    plt.grid(True)
+    plt.xlabel('m2')
+    plt.ylabel('sigma')
+    page.add_plot(plt.gcf(), "condense_sigma-"+opts.analyze)
+
+    plt.clf()
+    plt.plot(m2_bins.centres(), p_by_m2, 'r-', linewidth = 3)
+    plt.grid(True)
+    plt.xlabel('m2')
+    plt.ylabel('p (one sided)')
+    page.add_plot(plt.gcf(), "condense_prob-"+opts.analyze)
+
+
+    plot = pop_stat.create_cdf_plot()
+    page.add_plot(plot.fig, "condense_cdf-"+opts.analyze)
+
+    plot = pop_stat.create_pdf_plot()
+    page.add_plot(plot.fig, "condense_pdf-"+opts.analyze)
+
+    plot = pop_stat.create_hist_plot(10,[2.5, 10.0])
+    page.add_plot(plot.fig, "condense_hist10-"+opts.analyze)
+
+    plot = pop_stat.create_hist_plot(8,[2.5, 10.0])
+    page.add_plot(plot.fig, "condense_hist8-"+opts.analyze)
+
+    # write out the data for later usage
+    f = open('wmu_data.pickle', 'w')
+    pickle.dump([pop_stat.on_list, pop_stat.off_list],f)
+
+
+  
+# create the html page    
+page.write_page()

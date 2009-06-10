@@ -34,11 +34,9 @@ except ImportError:
 import sys
 
 
-from glue.lal import CacheEntry
 from glue.ligolw import ligolw
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue.ligolw.utils import ligolw_add
 
 
 # so they can be inserted into a database
@@ -50,7 +48,7 @@ dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
 dbtables.lsctables.SnglInspiralTable.next_id = dbtables.lsctables.SnglInspiralID(0)
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -98,11 +96,11 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 		# input)
 		if verbose:
 			print >>sys.stderr, "%d/%d:" % (n + 1, len(urls)),
-		doc = utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"))
+		xmldoc = utils.load_url(url, verbose = verbose, gz = (url or "stdin").endswith(".gz"))
 
 		# update references to row IDs
 		if not preserve_ids:
-			table_elems = doc.getElementsByTagName(ligolw.Table.tagName)
+			table_elems = xmldoc.getElementsByTagName(ligolw.Table.tagName)
 			for i, tbl in enumerate(table_elems):
 				if verbose:
 					print >>sys.stderr, "updating IDs: %d%%\r" % (100 * i / len(table_elems)),
@@ -114,7 +112,7 @@ def insert(connection, urls, preserve_ids = False, verbose = False):
 			dbtables.idmap_reset(connection)
 
 		# delete cursors
-		doc.unlink()
+		xmldoc.unlink()
 	connection.commit()
 
 	dbtables.build_indexes(connection, verbose)

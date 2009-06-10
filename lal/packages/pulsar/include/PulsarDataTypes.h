@@ -49,7 +49,7 @@ extern "C" {
 NRCSID( PULSARDATATYPESH, "$Id$");
 
 /** maximal number of spin-parameters (Freq + spindowns) we can handle */
-#define PULSAR_MAX_SPINS	4    
+#define PULSAR_MAX_SPINS	7
 
 /** Type defining the orbital parameters of a binary pulsar */
 typedef struct {
@@ -68,6 +68,16 @@ typedef struct {
   REAL8 phi0;	/**< initial signal-phase (at some reference time) */
 } PulsarAmplitudeParams;
 
+/** Struct for 'canonical' coordinates in amplitude-params space A^mu = {A1, A2, A3, A4} */
+typedef struct {
+  REAL8 A1;
+  REAL8 A2;
+  REAL8 A3;
+  REAL8 A4;
+} PulsarAmplitudeVect;
+
+
+/** Typedef for fixed-size array holding GW frequency and derivatives fk = d^k Freq/dt^k|(tau_ref) */
 typedef REAL8 PulsarSpins[PULSAR_MAX_SPINS];
 
 /** Contains a "spin-range", ie spins \f$f^{(k)}\f$ and corresponding bands \f$\Delta f^{(k)}\f$

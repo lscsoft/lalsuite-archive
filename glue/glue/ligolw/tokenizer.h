@@ -48,5 +48,5 @@ extern PyTypeObject ligolw_RowDumper_Type;
  * Functions
  */
 
-PyObject *_build_attributes(PyObject *sequence);
-PyObject *_build_formats(PyObject *sequence);
+PyObject *llwtokenizer_build_attributes(PyObject *sequence);
+PyObject *llwtokenizer_build_formats(PyObject *sequence);

@@ -17,18 +17,43 @@ if version_info < (2, 4):
   print >> sys.stderr, "Glue requires at least version 2.4"
   sys.exit(1)
 
+from misc import determine_git_version
 from distutils.core import setup, Extension
+from distutils.command import build_py
 from distutils.command import install
 from distutils.command import sdist
 from distutils import log
 
-ver = "1.18"
+ver = "1.19"
 
 def remove_root(path,root):
   if root:
     return os.path.normpath(path).replace(os.path.normpath(root),"")
   else:
     return os.path.normpath(path)
+class glue_build_py(build_py.build_py):
+  def run(self):
+    # create the git_version module
+    if determine_git_version.in_git_repository():
+      try:
+        log.info("generating glue/git_version.py")
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+    elif os.path.exists("glue/git_version.py"):
+      # We're probably being built from a release tarball; don't overwrite
+      log.info("not in git checkout; using existing glue/git_version.py")
+    else:
+      log.info("not in git checkout; writing empty glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_empty_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+
+    # resume normal build procedure
+    build_py.build_py.run(self)
 
 class glue_install(install.install):
   def run(self):
@@ -91,6 +116,22 @@ class glue_sdist(sdist.sdist):
       except:
         pass
 
+    # create the git_version module
+    if determine_git_version.in_git_repository():
+      log.info("generating glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+    else:
+      log.info("not in git checkout; writing empty glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_empty_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+
     # now run sdist
     sdist.sdist.run(self)
 
@@ -103,7 +144,11 @@ setup(
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
   packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb' ],
-  cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
+  cmdclass = {
+    'build_py' : glue_build_py,
+    'install' : glue_install,
+    'sdist' : glue_sdist
+  },
   ext_modules = [
     Extension(
       "glue.ligolw.tokenizer",
@@ -135,9 +180,6 @@ setup(
   ],
   scripts = [
     os.path.join('bin','LSCdataFind'),
-    os.path.join('bin','LSCsegFind'),
-    os.path.join('bin','LSCsegFindDev'),
-    os.path.join('bin','LSCfileAdd'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
@@ -151,14 +193,17 @@ setup(
     os.path.join('bin','ligolw_print'),
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
-    os.path.join('bin','ligolw_dqactive'),
+    os.path.join('bin','ligolw_cbc_glitch_page'),
     os.path.join('bin','ligolw_segment_insert'),
+    os.path.join('bin','ligolw_segment_intersect'),
+    os.path.join('bin','ligolw_segment_diff'),
+    os.path.join('bin','ligolw_segment_union'),
     os.path.join('bin','ligolw_segment_query'),
+    os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
+    os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
-    os.path.join('sbin','segpagegen'),
-    os.path.join('sbin','publishstatefromfile'),
-    os.path.join('sbin','bulkpublishstate'), ],
+    os.path.join('sbin','segdb_coalesce'), ],
   data_files = [
     (
       'etc',
@@ -167,14 +212,8 @@ setup(
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
-        os.path.join('etc','lscsegfindserver.ini'),
-        os.path.join('etc','lscsegfindserverdev.ini'),
-        os.path.join('etc','segpagegen.ini'),
-        os.path.join('etc','segpagegen_S5.ini'),
-        os.path.join('etc','segpagegen_A5.ini'),
-        os.path.join('etc','segpagegen_S5.sh'),
-        os.path.join('etc','segpagegen_A5.sh'),
         os.path.join('etc','ldbdserver.ini'),
+        os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw_dtd.txt')
       ]
     )

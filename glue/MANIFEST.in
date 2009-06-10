@@ -1,6 +1,7 @@
 include LICENSE README MANIFEST.in
 include glue/ligolw/*.c
 include glue/ligolw/*.h
+include misc/*.py
 include src/conf/db2/*
 include src/conf/q_replication/*
 include src/conf/mysql/*

@@ -172,7 +172,7 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
     data_opts = 'ligo-data'
     try: 
       type = cp.get('input','ligo-type')
-      if (type == 'RDS_R_L4') or ('RDS_C' in type):
+      if (type == 'RDS_R_L4') or ('RDS_C' in type) or ('DMT_C' in type):
         type = ifo_name + '_' + type
     except: type = None
     channel = cp.get('input','ligo-channel')
@@ -225,7 +225,18 @@ def analyze_ifo(ifo_name,ifo_data,ifo_to_do,tmplt_job,insp_job,df_job,\
               if not opts.disable_dag_priorities:
                 df.set_priority(100)
               df.set_observatory(ifo_name[0])
-              df.set_start(seg.start())
+              # add a padding time to the start of the datafind call (but don't change datafind output name)
+              if ifo_name == 'G1':
+                dfsect = 'geo-data'
+              elif ifo_name == 'V1':
+                dfsect = 'virgo-data'
+              else:
+                dfsect = 'ligo-data'
+              if cp.has_option(dfsect,ifo_name.lower() + '-datafind-start-padding'):
+                padding=cp.get(dfsect,ifo_name.lower()+'-datafind-start-padding')
+              else:
+                padding=0.
+              df.set_start(seg.start(),padding)
               df.set_end(seg.end())
               seg.set_df_node(df)
               if type: df.set_type(type)
@@ -2041,21 +2052,22 @@ for ifo in ifo_list:
 ##############################################################################
 # Step 5: Run inca in single ifo mode on the single ifo triggers.
 
-print "setting up jobs to inca single IFO data...",
-sys.stdout.flush()
+if not opts.ringdown:
+  print "setting up jobs to inca single IFO data...",
+  sys.stdout.flush()
 
-single_coinc_nodes = {}
-for ifo in ifo_list:
-  single_coinc_nodes[ifo] = []
-  single_coinc_nodes[ifo] = single_coinc(chunks_analyzed[ifo],ifo,
-     analyzed_data[ifo],single_inca_job,dag,usertag)
+  single_coinc_nodes = {}
+  for ifo in ifo_list:
+    single_coinc_nodes[ifo] = []
+    single_coinc_nodes[ifo] = single_coinc(chunks_analyzed[ifo],ifo,
+       analyzed_data[ifo],single_inca_job,dag,usertag)
    
-  # Step 5S: Run sire on the single ifo triggers
-  sire_segments_individually(single_coinc_nodes[ifo], sire_job, dag, 
-      opts.coire_coincidence, opts.coincidence, ifo,
-      inj_file=inj_file, usertag=usertag, ifotag="FIRST", inspinjNode = inspinj)
+    # Step 5S: Run sire on the single ifo triggers
+    sire_segments_individually(single_coinc_nodes[ifo], sire_job, dag, 
+        opts.coire_coincidence, opts.coincidence, ifo,
+        inj_file=inj_file, usertag=usertag, ifotag="FIRST", inspinjNode = inspinj)
 
-print "done"
+  print "done"
   
  
 ##############################################################################

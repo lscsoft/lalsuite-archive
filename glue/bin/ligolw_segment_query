@@ -33,8 +33,7 @@ This provides the means to answer several questions posed against either the
 segment database or a collection of DMT XML files:
 
   * What DQ flags exist in the database? ligolw_segment_query --show-types
-  * When was a given flag inserted? ligolw_segment_query --query-types
-  * When was a given DQ flag deÞed? ligolw_segment_query --query-types 
+  * When was a given DQ flag defined? ligolw_segment_query --query-types 
   * When was a given flag active? ligolw_segment_query --query-segments
 """
 
@@ -49,9 +48,12 @@ except ImportError:
 
 import sys
 import os
+import pwd
 import glob
 import time
 import socket
+import tempfile
+import urllib
 
 from glue import LDBDClient
 from glue import gsiserverutils
@@ -66,6 +68,7 @@ from glue.ligolw import utils
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw.utils import process
 from glue.segmentdb import query_engine
+from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -73,8 +76,10 @@ from glue.ligolw import dbtables
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
-
+try:
+        USER_NAME = os.getlogin()
+except:
+        USER_NAME = pwd.getpwuid(os.getuid())[0]
 
 
 __author__  = "Larne Pekowsky <lppekows@physics.syr.edu>, Ping Wei <piwei@syr.edu>"
@@ -98,7 +103,7 @@ def parse_command_line():
 
     parser = OptionParser(
         version     = "%prog CVS $Header$",
-        usage       = "%prog [ --version | --ping | --show-types | --query-types | --query-segments ]  [ --segment | --database | --dmt-file ] options ",
+        usage       = "%prog [ --version | --ping | --show-types | --query-types | --query-segments ]  [ --segment | --database | --dmt-files ] options ",
         description = "Performs a number of queries against either a set of DMT files or a segment database"
 	)
 
@@ -115,15 +120,15 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify a prefix 'ldbd://' in front of the actual url where the segment database locates. For example, '--segment-url=ldbd://nldas.ligo-wa.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used. ")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION, for example, 'DMT_SEGMENT_LOCATION=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
 
 
     # Other options
-    parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:SCIENCE:1,H1:INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
+    parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
 
-    parser.add_option("-b", "--exclude-segments", metavar = "exclude_segments", help = "This option has to be used in conjunction with --include-segment-types --exclude-segment-types subtracts the union of unwanted segments from the specified types from the results of --include-segment-types. If version information is not provided, --exclude-segment-types subtracts the union of segments from the latest version of the specified segment types. For example, --include-segment-types H1:SCIENCE:1,H1:INJECTION:2 --exclude-segment-types H1:WIND:1,H1:NOT_LOCKED:2,H2:NOT_LOCKED:2 will subtract the union of segments which H1 is in version 1 WIND and H1,H2 is version 2 NOT_LOCKED from the result of --include-segment-types H1:SCIENCE:1,H1:INJECTION:2")
+    parser.add_option("-b", "--exclude-segments", metavar = "exclude_segments", help = "This option has to be used in conjunction with --include-segment-types --exclude-segment-types subtracts the union of unwanted segments from the specified types from the results of --include-segment-types. If version information is not provided, --exclude-segment-types subtracts the union of segments from the latest version of the specified segment types. For example, --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2 --exclude-segment-types H1:DMT-WIND:1,H1:DMT-NOT_LOCKED:2,H2:DMT-NOT_LOCKED:2 will subtract the union of segments which H1 is in version 1 WIND and H1,H2 is version 2 NOT_LOCKED from the result of --include-segment-types H1:DMT-SCIENCE:1,H1:DMT-INJECTION:2")
 
 
     parser.add_option("-S", "--strict-off", metavar = "use_strict", action = "store_true", help = "The default behavior is to truncate segments so that returned segments are entirely in the interval [gps-start-time, gps-end-time).  However if this option is given, the entire non-truncated segment is returned if any part of it overlaps the interval.")
@@ -147,29 +152,42 @@ def parse_command_line():
     file_location     = None
 
     # Make sure we know who to contact for data
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
-            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment_url)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
         if 'DMT_SEGMENT_LOCATION' not in os.environ:
             raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
         file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
     else:
-        raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
+        raise ValueError( "One of [ --segment-url | --database | --dmt-files ] must be provided" )
         
 
     # Unless we're pinging, make sure we have start and end times
     if options.ping:
         if not database_location:
-            raise ValueError("--ping requires [ --segment ldbd:... | --database ]")
+            raise ValueError("--ping requires [ --segment-url ldbd:... | --database ]")
     else:
         if not options.gps_start_time:
             raise ValueError( "missing required argument --gps-start-time" )
@@ -192,18 +210,6 @@ def parse_command_line():
 #
 # =============================================================================
 #
-
-
-def file_filter(file_name, start_time, end_time):
-    """Given a filename of the form /root_path/H-DQ_Segments-time-16.xml and start and end
-    times returns true if the file falls into the time interval."""
-    
-    pieces    = file_name.split('-')
-    file_time = int(pieces[-2])
-
-    return file_time >= (start_time-16) and file_time <= (end_time+16)
-
-
 def split_segment_ids(segment_ids):
     """Given an array of strings of the form ifo:name and
     ifo:name:version, returns an array of tuples of the form (ifo,
@@ -241,82 +247,99 @@ def seg_spec_to_sql(spec):
     return sql
 
 
-def build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
+
+def build_segment_list_old(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version = None):
     """
     Resolves an ifo, segment_name, version number (which may be *) into segments.  If version number is
     provided the query is straightforward, if not we do the following:
 
-    1. Create a time mask that initially spans the whole range from gps_start to gps_end
-    2. Select all the segment definer times and segment times that match ifo:segment_name
-    3. In reverse order of version number:
-       apply the mask to the segments of the current version
-       add the result to an accumulator
-       remove the segment_definer of the current version from the mask
+    1. Retrieve the max version of the requested segment type 
+    2. Select all the segments of the max version for the given segment type
+    3. Retreive the max summary end time of the max version for the given segment type
+    4. Select all version 1 segments after the max summary end_time of the max version for the given segment type
+    5. Combine the segments of the max version and the ongoing vesion 1
+
     """
     result = glue.segments.segmentlist([])
 
     # Do we have a version number?
     if version is not None:
         # We can't use queries paramaterized with ? since the ldbd protocol doesn't support it...
-        rows = engine.query("""
-          SELECT segment.start_time, segment.end_time, segment_definer.version
-          FROM segment, segment_definer
-          WHERE segment.segment_def_id = segment_definer.segment_def_id
-          AND   segment_definer.ifos = '%s'
-          AND   segment_definer.name = '%s'
-          AND   segment_definer.version = %s
-          AND NOT (%s > segment.end_time OR segment.start_time > %s)
-        """ % (ifo, segment_name, version, gps_start_time, gps_end_time))
+        # AND segment.segment_def_cdb = segment_definer.creator_db
+        sql = "SELECT segment.start_time, segment.end_time, segment_definer.version "
+        sql += "FROM segment, segment_definer "
+        sql += "WHERE segment.segment_def_id = segment_definer.segment_def_id "
+        if (options.segment_url and options.segment_url.startswith('ldbd://')) or options.database:
+           sql += "AND segment.segment_def_cdb = segment_definer.creator_db "
+        sql += "AND   segment_definer.ifos = '%s' " % ifo
+        sql += "AND   segment_definer.name = '%s' " % segment_name
+        sql += "AND   segment_definer.version = %s " % version
+        sql += "AND NOT (%s > segment.end_time OR segment.start_time > %s)" % (gps_start_time, gps_end_time)
+
+        rows = engine.query(sql)
 
         for start_time, end_time, version in rows:
             result |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
 
         engine.close()
     else:
-        # Find all versions, segments and segment summaries
-        rows = engine.query("""
-            SELECT segment_definer.version,
-                   segment_summary.start_time, segment_summary.end_time,
-                   segment.start_time, segment.end_time
-            FROM segment_summary, segment_definer, segment
-            WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
-            AND   segment.segment_def_id = segment_definer.segment_def_id
-            AND   segment_definer.ifos = '%s'
-            AND   segment_definer.name = '%s'
-            AND NOT (%s > segment_summary.end_time OR segment_summary.start_time > %s)
-        """ % (ifo, segment_name, gps_start_time, gps_end_time))
-
-        # Group them by version
-        segment_sum_map = {}
-        segment_map     = {}
-
-        for version, sum_start_time, sum_end_time, seg_start_time, seg_end_time in rows:
-            if version not in segment_sum_map:
-                segment_sum_map[version] = glue.segments.segmentlist([])
-
-            if version not in segment_map:
-                segment_map[version] = glue.segments.segmentlist([])
-
-            segment_sum_map[version] |= glue.segments.segmentlist([glue.segments.segment(sum_start_time, sum_end_time)])
-            segment_map[version]     |= glue.segments.segmentlist([glue.segments.segment(seg_start_time, seg_end_time)])
+        # retrieve a union of the max version and the ongoing version 1
+        # 1. retrieve the max version of the requested segment type, and its segments
+        max_ver = int(engine.query("""SELECT max(version) FROM segment_definer 
+          WHERE segment_definer.ifos = '%s'
+          AND segment_definer.name = '%s' 
+        """ % (ifo, segment_name))[0][0])
 
 
-        # Initially our mask is the whole range
-        mask = glue.segments.segmentlist([glue.segments.segment(gps_start_time, gps_end_time)])
+        sql = "SELECT segment.start_time, segment.end_time, segment_definer.version "
+        sql += " FROM segment, segment_definer "
+        sql += "WHERE segment.segment_def_id = segment_definer.segment_def_id "
+        if (options.segment_url and options.segment_url.startswith('ldbd://')) or options.database:
+           sql += "AND segment.segment_def_cdb = segment_definer.creator_db "
+        sql += "AND   segment_definer.ifos = '%s' " % ifo
+        sql += "AND   segment_definer.name = '%s' " % segment_name
+        sql += "AND   segment_definer.version = %d " % max_ver
+        sql += "AND NOT (%s > segment.end_time OR segment.start_time > %s)" % (gps_start_time, gps_end_time)
+        
+        rows = engine.query(sql)
+     
 
-        # Now go through versions in decending order...
-        for version in sorted(segment_sum_map.keys(), lambda x,y: cmp(y,x)):
-            # To add = apply mask to segments
-            segments_in_mask = segment_map[version] & mask
+        # 2. retreive the max summary end time of the max version of the requested segment type
 
-            # add segments to cum. result
-            result |= segments_in_mask
+        sql = "SELECT max(segment_summary.end_time) "
+        sql += "FROM segment_summary, segment_definer "
+        sql += "WHERE segment_summary.segment_def_id = segment_definer.segment_def_id "
+        if (options.segment_url and options.segment_url.startswith('ldbd://')) or options.database:
+           sql += "AND segment_summary.segment_def_cdb = segment_definer.creator_db "
+        sql += "AND segment_definer.name= '%s' " % segment_name
+        sql += "AND segment_definer.ifos = '%s' " % ifo
+        sql += "AND segment_definer.version = %d " % max_ver
 
-            # subtract segment_summary from mask
-            mask -= segment_sum_map[version]
+
+        max_ver_endtime = int(engine.query(sql)[0][0]) 
+
+        # retreive version 1 segments after the max_ver_endtime
+        sql = "SELECT segment.start_time, segment.end_time, 1 "
+        sql += "FROM segment, segment_definer, segment_summary "
+        sql += "WHERE segment.segment_def_id = segment_definer.segment_def_id "
+        if (options.segment_url and options.segment_url.startswith('ldbd://')) or options.database:
+           sql += "AND segment.segment_def_cdb = segment_definer.creator_db "
+        sql += "AND segment_summary.segment_def_id = segment_definer.segment_def_id "
+        if (options.segment_url and options.segment_url.startswith('ldbd://')) or options.database:
+           sql += "AND segment_summary.segment_def_cdb = segment_definer.creator_db "
+        sql += "AND segment_definer.version = 1 "
+        sql += "AND segment_definer.ifos = '%s' " % ifo
+        sql += "AND segment_definer.name = '%s' " % segment_name
+        sql += "AND segment_summary.start_time >= %d " % max_ver_endtime
+        sql += "AND NOT (%s > segment.end_time OR segment.start_time > %s) " % (gps_start_time, gps_end_time)
+
+        rows += engine.query(sql)
+
+        for start_time, end_time, version in rows:
+            result |= glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
+        engine.close()
 
     result.coalesce()
-
     return result
 
 
@@ -364,16 +387,16 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
     resulttable = lsctables.New(ShowTypesResultTable)
     doc.childNodes[0].appendChild(resulttable)
     
-    rows = engine.query("""
-          SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
+    sql = """SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
                  (CASE WHEN segment_definer.comment IS NULL THEN '-' WHEN segment_definer.comment IS NOT NULL THEN segment_definer.comment END),
                  segment_summary.start_time, segment_summary.end_time,
                  (CASE WHEN segment_summary.comment IS NULL THEN '-' WHEN segment_summary.comment IS NOT NULL THEN segment_summary.comment END)
           FROM  segment_definer, segment_summary
           WHERE segment_definer.segment_def_id = segment_summary.segment_def_id
-          AND   (segment_summary.start_time BETWEEN %d AND %d  OR  segment_summary.end_time BETWEEN %d AND %d )
-          """ % (gps_start_time, gps_end_time, gps_start_time, gps_end_time))
+          AND   NOT (segment_summary.start_time > %d OR %d > segment_summary.end_time)
+          """ % (gps_end_time, gps_start_time)
 
+    rows = engine.query(sql)
 
     seg_dict = {}
 
@@ -386,7 +409,6 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
         seg_dict[key].append(glue.segments.segment(segment_summary_start_time, segment_summary_end_time))
 
     for key, value in seg_dict.iteritems():
-        print value
         segmentlist = glue.segments.segmentlist(value)
         segmentlist.coalesce()
 
@@ -402,62 +424,6 @@ def run_show_types(doc, connection, engine, gps_start_time, gps_end_time, includ
 
 
     
-def run_query_segments(doc, proc_id, connection, engine, gps_start_time, gps_end_time, included_segments_string, excluded_segments_string):
-    """Runs a segment query.
-    connection: an object that represents a connection to the back end (ldbd handle or sqlite connection)
-    segment_resolver: the function to call to get segments for a single ifo:name or ifo:name:version specification
-    gps_start_time: gps start time
-    gps_end_time: gps end time
-    included_segments_string: comma-separated list of segment specifications to include
-    excluded_segments_string: comma-separated list of segment specifications to exclude
-    """
-    
-    included_segments = glue.segments.segmentlist([])
-    excluded_segments = glue.segments.segmentlist([])
-
-    for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
-        included_segments |= build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version)
-
-    # Excluded segments are not required
-    if excluded_segments_string:
-        for ifo, segment_name, version in split_segment_ids(excluded_segments_string.split(',')):
-            excluded_segments |= build_segment_list(connection, engine, gps_start_time, gps_end_time, ifo, segment_name, version)
-
-
-    result = included_segments - excluded_segments
-    result.coalesce()
-    
-    # Add ourselves as a segment definer
-    seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-    doc.childNodes[0].appendChild(seg_def_table)
-
-    seg_def_id                     = seg_def_table.get_next_id()
-    segment_definer                = lsctables.SegmentDef()
-    segment_definer.process_id     = proc_id
-    segment_definer.segment_def_id = seg_def_id
-    segment_definer.ifos           = split_segment_ids(included_segments_string.split(','))[0][0]
-    segment_definer.name           = "ligolw_segment_query"
-    segment_definer.version        = 0
-    segment_definer.comment        = ''
-
-    seg_def_table.append(segment_definer)
-
-
-    # Add the segments
-    segtable = lsctables.New(lsctables.SegmentTable, columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
-    doc.childNodes[0].appendChild(segtable)
-
-    for seg in result:
-        segment                = lsctables.Segment()
-        segment.process_id     = proc_id
-        segment.segment_def_id = seg_def_id
-        segment.segment_id     = segtable.get_next_id()
-        segment.start_time     = seg[0]
-        segment.end_time       = seg[1]
-
-        segtable.append(segment)
-
-    return result
 
 
 
@@ -465,8 +431,7 @@ def run_query_segments(doc, proc_id, connection, engine, gps_start_time, gps_end
 def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_time, included_segments):
     query_segment = glue.segments.segmentlist([glue.segments.segment(gps_start_time, gps_end_time)])
 
-    sql = """
-    SELECT segment_definer.ifos, segment_definer.name,segment_definer.version,
+    sql = """SELECT segment_definer.ifos, segment_definer.name,segment_definer.version,
            (CASE WHEN segment_definer.comment IS NULL THEN '-' WHEN segment_definer.comment IS NOT NULL THEN segment_definer.comment END),
            segment_summary.start_time, segment_summary.end_time,
            (CASE WHEN segment_summary.comment IS NULL THEN '-' WHEN segment_summary.comment IS NOT NULL THEN segment_summary.comment END)
@@ -542,7 +507,7 @@ def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_ti
 
 
 def setup_database(host_and_port):
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
@@ -585,22 +550,18 @@ def ping_server(client):
 
 
 def setup_files(dir_name, gps_start_time, gps_end_time):
-    # extract directory from URL
-    glob_pattern = dir_name + '/*.xml'
-
     # Filter out the ones that are outside our time range
-    xml_files = filter(lambda x: file_filter(x, gps_start_time, gps_end_time), glob.glob(glob_pattern))
+    xml_files = segmentdb_utils.get_all_files_in_range(dir_name, gps_start_time, gps_end_time)
 
-    # TODO: This should have a better name that includes the
-    # start and end times
-    temp_db      = 'temp.db'
+    handle, temp_db  = tempfile.mkstemp(suffix='.sqlite')
+    os.close(handle)
 
     target     = dbtables.get_connection_filename(temp_db, None, True, False)
     connection = ligolw_sqlite.setup(target)
 
     ligolw_sqlite.insert(connection, xml_files) # [temp_xml])
 
-    return connection
+    return temp_db, connection
     
 
 
@@ -614,13 +575,6 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 #
 
 if __name__ == '__main__':
-    # Add boolean as a type to ligolwtypes, so that we can put boolean arguments
-    # into the process_params table
-
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
-
-
     # We don't accept nanosecond resolution
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']
@@ -646,7 +600,7 @@ if __name__ == '__main__':
         connection = setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
-        connection = setup_files(file_location, gps_start_time, gps_end_time)
+        temp_db, connection = setup_files(file_location, gps_start_time, gps_end_time)
         engine     = query_engine.SqliteQueryEngine(connection)
         temp_files = True
 
@@ -657,18 +611,18 @@ if __name__ == '__main__':
         
 
     if options.query_segments:
-       run_query_segments(doc, process_id, connection, engine, gps_start_time, gps_end_time,
-                          options.include_segments,options.exclude_segments)
+        segmentdb_utils.run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time,
+                           options.include_segments,options.exclude_segments)
 
 
     if options.query_types:
-       run_query_types(doc, process_id, connection, engine, gps_start_time, gps_end_time, options.include_segments)
+        run_query_types(doc, process_id, connection, engine, gps_start_time, gps_end_time, options.include_segments)
 
 
     utils.write_filename(doc, options.output_file)
 
     # Clean up
     if temp_files:
-        os.remove('temp.db')
+        os.remove(temp_db)
 
 

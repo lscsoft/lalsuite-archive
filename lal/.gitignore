@@ -8,9 +8,7 @@
 .deps
 .dvi-dep
 .libs
-/README.install
-/acinclude.m4
-/aclocal.m4
+aclocal.m4
 Makefile
 Makefile.in
 autom4te.cache/
@@ -41,9 +39,14 @@ include/config.h.in
 include/lal/*.h
 include/lal/stamp-h2
 include/stamp-h1
+lal-*.tar.gz
 lal-config
 lal.spec
+lib/.vcsinfo
 lib/LALBuildDate.c
+lib/LALVCSInfo.h
+lib/git_info.sed
+lib/git_version
 lib/lal-version
 libtool
 misc/__lalGitID.h
@@ -111,6 +114,7 @@ packages/fft/test/TimeFreqFFTTest
 packages/findchirp/test/FindChirpBCVSpinTest
 packages/findchirp/test/FindChirpTDTest
 packages/framedata/src/FrameSeries.c
+packages/framedata/test/AggregationCacheTest
 packages/framedata/test/AggregationTest
 packages/framedata/test/FrameCacheTest
 packages/framedata/test/FrameStreamTest
@@ -121,6 +125,10 @@ packages/framedata/test/ReadGEOData
 packages/framedata/test/ReadLHOData
 packages/framedata/test/catalog
 packages/framedata/test/catalog.test
+packages/framedata/test/dq_vector.dat
+packages/framedata/test/series.dat
+packages/framedata/test/series_dq.dat
+packages/framedata/test/state_vector.dat
 packages/hello/test/LALHelloTest
 packages/houghpulsar/test/OutHistogram.asc
 packages/houghpulsar/test/OutHough.asc

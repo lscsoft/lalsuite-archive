@@ -165,10 +165,15 @@ def gridsky(resolution):
   return points
 
 #grid a small portion of the sky
-def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
+def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
-  box_err = pi*sqrt(2.0)*coarse_res/180.0
+  epsilon = pi*sqrt(2.0)*coarse_res/180.0
+  #divide the sphere into up to four grids to do thing the right way
+  #each element of the following will be a list of [min,max] pairs
+  lat_grids = []
+  lon_grids = []
+
 #  latmin += pi/2 - box_err
 #  latmax += pi/2 + box_err
 #  lonmin -= box_err
@@ -191,47 +196,103 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
 #      points.append(numpy.asarray([latitude-pi/2,longitude]))
 #    latitude += ds
 #    longitude = lonmin
+  #make latitude run from 0 to pi, to avoid gridding problems at the equator
+  latmin += 0.5*pi
+  latmax += 0.5*pi
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  if wrap_lat: #latdiff > 0.5*pi :
+    lat_grids.append([latmax-epsilon,pi])
+    lat_grids.append([0,latmin+epsilon])
+  else:
+    if (latmin - epsilon > 0) and (latmax + epsilon < pi):
+      lat_grids.append([latmin-epsilon,latmax+epsilon])
+    elif (latmin - epsilon < 0) and (latmax + epsilon > pi):
+      lat_grids.append([0,pi])
+    elif latmin - epsilon < 0 :
+      lat_grids.append([0,latmax+epsilon])
+      lat_grids.append([pi+latmin-epsilon,pi])
+    elif latmax + epsilon > pi:
+      lat_grids.append([latmin-epsilon,pi])
+      lat_grids.append([0,latmax+epsilon-pi])
+    else:
+      raise ValueError, "this should never happen"#, latmin, latmax
+  if wrap_lon:#londiff > pi:
+    lon_grids.append([lonmax-epsilon,2*pi])
+    lon_grids.append([0,lonmin+epsilon])
+  else:
+    if (lonmin - epsilon > 0) and (lonmax + epsilon < 2*pi):
+      lon_grids.append([lonmin-epsilon,lonmax+epsilon])
+    elif (lonmin - epsilon < 0) and (lonmax + epsilon > 2*pi):
+      lon_grids.append([0,2*pi])
+    elif lonmin - epsilon < 0:
+      lon_grids.append([0,lonmax+epsilon])
+      lon_grids.append([2*pi+lonmin-epsilon,2*pi])
+    elif lonmax + epsilon > 2*pi:
+      lon_grids.append([lonmin-epsilon,2*pi])
+      lon_grids.append([0,lonmax+epsilon-2*pi])
+    else:
+      raise ValueError, "this should never happen"#, lonmin, lonmax
+
+  for latgrid in lat_grids:
+    for longrid in lon_grids:
+
+      latitude = latgrid[0]
+      longitude = longrid[0]
+
+      points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      while latitude <= latgrid[1]:
+        latitude += ds
+        longitude = longrid[0]
+        points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+        while longitude <= longrid[1]:
+          longitude += ds / abs(sin(latitude))
+          points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      
 
   #deal with periodic grid issues by always starting at (0,0) and then translating back to the original position
-  latdiff = latmax - latmin + 2*box_err
-  londiff = lonmax - lonmin + 2*box_err
-  if abs(latdiff) > 0.5*pi :
-    lat_displacement = latmax
-    trans_latmax =periodic(-latdiff,pi) 
-  else:
-    lat_displacement = latmin
-    trans_latmax = latdiff
-  if abs(londiff) > pi:
-    lon_displacement = lonmax
-    trans_lonmax = periodic(-londiff,2*pi)
-  else:
-    lon_displacement = lonmin
-    trans_lonmax = londiff
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  #if latdiff > 0.5*pi :
+  #  d_lat = latmax - epsilon
+  #  grid_latmax = periodic(2*epsilon-latdiff,0,pi)
+  #else:
+  #  d_lat = latmin - epsilon
+  #  grid_latmax = latdiff + 2*epsilon
+  #if londiff > pi:
+  #  d_lon = lonmax - epsilon
+  #  grid_lonmax = periodic(2*epsilon-londiff,0,2*pi)
+  #else:
+  #  d_lon = lonmin - epsilon
+  #  grid_lonmax = londiff + 2*epsilon
 
-  latitude = 0
-  longitude = 0
-  points = [numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)])] 
-  while latitude <= trans_latmax:
-    latitude += ds
-    longitude = 0
-    points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
-    while longitude <= trans_lonmax:
-      longitude += ds / abs(sin(latitude))
-      points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
+  #latitude = 0
+  #longitude = 0
+  #points = [numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)])] 
+  #while latitude <= grid_latmax:
+  #  latitude += ds
+  #  longitude = 0
+  #  points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
+  #  while longitude <= grid_lonmax:
+  #    longitude += ds / abs(sin(latitude))
+  #    points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
 
   print "latmin", latmin
   print "latmax", latmax
   print "lonmin", lonmin
   print "lonmax", lonmax
+  print "wrap lat", wrap_lat
+  print "wrap_lon", wrap_lon
   print "######"
 
+  #print points
   return points
 
 #enforce periodic boundary conditions on things
 #this helps avoid ambiguities in gridding and convex hull finding that arise when working on the surface of the 2-sphere
-#assumes things are periodic between 0 and xmax
-def periodic(x,xmax):
-  if x < 0:
+
+def periodic(x,xmin,xmax):
+  if x < xmin:
     return x + xmax
   if x >= xmax:
     return x - xmax
@@ -501,10 +562,10 @@ def parse_command_line():
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
   parser.add_option("-D","--Deffcut",action="store_true",\
       default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
-  parser.add_option("-r","--use_reference_time",action="store_true",\
-                    default=False, help="use time at reference frequency instead of end time" )
-  parser.add_option("-f","--reference_frequency",action="store",type="float",\
-                    default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
+  #parser.add_option("-r","--use-reference-time",action="store_true",\
+  #                  default=False, help="use time at reference frequency instead of end time" )
+  parser.add_option("-f","--reference-frequency",action="store",type="float",\
+                    default=0, metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
   #this one doesn't work generally yet because of issues with keys from google, etc.
   parser.add_option("--enable-google-sky-output", action="store_true", default=False, help="enable google sky output")
   parser.add_option("--google-map-key", metavar="KEY",
@@ -518,6 +579,11 @@ def parse_command_line():
   parser.add_option("--user-tag", help="a tag to label your plots")
   parser.add_option("--output-path", help="root of the HTML output")
   parser.add_option("--enable-output", action="store_true", default=False, help="enable plots and HTML output")
+  parser.add_option("--write-summary-plots", action="store_true", default=False, \
+                    help="write the summary plots to an HTML page (for injection runs)")
+  parser.add_option("--write-inj-data", action="store_true", default=False, \
+                    help="create a file with data from injections")
+  
   #parser.add_option("--html-for-cbcweb", action="store_true", \
   #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
@@ -581,6 +647,7 @@ slidefiles = []
 coincfiles = []
 offsourcefiles = []
 
+
 if opts.glob is not None:
   allfiles = []
   for gl in opts.glob.split(" "):
@@ -598,8 +665,9 @@ if opts.glob is not None:
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "No files match your description."
-    sys.exit(0) 
-         
+    sys.exit(0)
+
+  
 #####################################################################
 # read in coinc triggers
 
@@ -613,7 +681,7 @@ ninj = 0
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = None,
+                                           mangle_event_id = True,
                                            verbose=None)
   inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
   
@@ -669,6 +737,9 @@ if opts.plotgalaxies:
 #if opts.plotgalaxies:
 #  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
 #  dmax = sphdist((0,0), (pt_step,pt_step))
+
+if opts.write_inj_data:
+  inj_data = ""
  
 for coinc in coincTriggers:
 
@@ -711,9 +782,12 @@ for coinc in coincTriggers:
     if opts.plotpoints:
       figure()
       
-  asnrH1.append(getattr(coinc,"H1").snr)
-  asnrL1.append(getattr(coinc,"L1").snr)
-  asnrV1.append(getattr(coinc,"V1").snr)
+  H1snr = getattr(coinc,"H1").snr
+  L1snr = getattr(coinc,"L1").snr
+  V1snr = getattr(coinc,"V1").snr
+  asnrH1.append(H1snr)
+  asnrL1.append(L1snr)
+  asnrV1.append(V1snr)
 
 
   #remove H2 if it's there
@@ -738,7 +812,7 @@ for coinc in coincTriggers:
   # parameters from the injection
   injlong = getattr(coinc,"sim").longitude
   injlat = getattr(coinc,"sim").latitude
-  if opts.use_reference_time:
+  if opts.reference_frequency:
     injdelta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,injlong,injlat,ifo_list,\
                                        ifo_coincs,detector_locations)
   else:
@@ -786,7 +860,7 @@ for coinc in coincTriggers:
     latitude = point[0]
     longitude = point[1]
 
-    if opts.use_reference_time:
+    if opts.reference_frequency:
       delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
                                       ifo_coincs,detector_locations)
     else:
@@ -867,7 +941,9 @@ for coinc in coincTriggers:
   #[pt[0] for pt in coarse_confidence[:10]]
   coarse_hs_clusters = find_clusters(coarse_hotspots,dmax)
 
-  adelta_comb_stat_coarse.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/coarse_confidence[0][1])
+  Linj = (injdelta_t_rms/time_threshold+injdelta_D_rms)
+  Linj_coarse_norm = Linj/coarse_confidence[0][1]
+  adelta_comb_stat_coarse.append(Linj_coarse_norm)
   
   #list to hold each cluster and its confidence values
   final_confidences = []
@@ -886,7 +962,24 @@ for coinc in coincTriggers:
     lonmin = min(lons)
     lonmax = max(lons)
 
-    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax)
+
+    #if latmax-latmin > pi or lonmin-lonmax > pi/2 check to see whether
+    #grids are oriented to wrap around the short (wrap_x = 1) or long (wrap_x = 0) way
+    wrap_lat = 0
+    wrap_lon = 0
+
+    if (latmax - latmin > 0.5*pi) or (lonmax-lonmin > pi):
+      for pt in cluster:
+        if not (latmax >= pt[0] >= latmin):
+          wrap_lat = 1
+          print "latwrap point", pt[0]
+        if not (lonmax >= pt[1] >= lonmin):
+          wrap_lon = 1
+          print "lonwrap point", pt[1]
+        if (wrap_lat == 1) and (wrap_lon == 1):
+          break
+
+    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon)
 
     fine_confidence = []
   
@@ -894,7 +987,7 @@ for coinc in coincTriggers:
       latitude = point[0]
       longitude = point[1]
 
-      if opts.use_reference_time:
+      if opts.reference_frequency:
         delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
                                               ifo_coincs,detector_locations)
       else:
@@ -921,8 +1014,10 @@ for coinc in coincTriggers:
     plot(asarray([fine_confidence[0][0][1]]), asarray([fine_confidence[0][0][0]]),'rs')
 
   best_confidence = fine_confidence[0][1]
+
+  Linj_fine_norm = Linj/best_confidence
   
-  adelta_comb_stat.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/best_confidence)
+  adelta_comb_stat.append(Linj_fine_norm)
 
   narrowcount = 0.0
   widecount = 0.0 
@@ -944,7 +1039,8 @@ for coinc in coincTriggers:
         best_points.append(pt)
 
   apoints.append(narrowcount)
-  asnr.append(coinc.stat)
+  combsnr = coinc.stat
+  asnr.append(combsnr)
   if (opts.plotpoints or opts.enable_output):
     axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
     annotate_plot("Right Ascension (radians)", "Declination (radians)",\
@@ -1008,7 +1104,7 @@ for coinc in coincTriggers:
     agalpoints.append(total_num_gals)
 
   #if opts.plotpoints:
-  if opts.enable_output:
+  if opts.enable_output and opts.plotpoints:
 
     # plot the spot with the most galaxies as purple
     #if opts.plotgalaxies:
@@ -1098,42 +1194,184 @@ for coinc in coincTriggers:
         opts.google_map_key)
       write_file(gsky_root_dir, start_time + '_plotskypoints_summary.html',
                  gsky_summary)
+      
+  if opts.write_inj_data:
+    if not opts.plotgalaxies:
+      total_num_gals = 'NA'
+    inj_data += str(combsnr) + '\t' + str(H1snr) + '\t' + str(L1snr) + '\t' + str(V1snr) + '\t'  \
+                + str(injdelta_t_rms) + '\t' + str(injdelta_D_rms) + '\t' + str(Linj) + '\t' \
+                + str(Linj_coarse_norm) + '\t' + str(Linj_fine_norm) + '\t' \
+                + str(widecount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(narrowcount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(total_num_gals) + '\n' 
+
+if opts.enable_output and opts.write_summary_plots:
+  InspiralUtils.initialise(opts, __prog__, __version__)
+  html_footer = ""
+  fnameList = []
+  tagList = []
+
+if not opts.show_plot:
+  close()
 
 figure()
 plot(asarray(asnr), asarray(adelta_t),'ro') 
 annotate_plot(r"$\rho$", "$\Delta t_{rms}$ (sec)","Timing accuracy")
+if opts.write_summary_plots:
+  text = "Timing Accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "timing_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnr), asarray(adelta_D),'ro') 
 annotate_plot(r"$\rho$", "$\Delta D_{rms}$ ","$D_{eff}$ measure  accuracy")
+if opts.write_summary_plots:
+  text = "D_eff measure accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "D_eff_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
+figure()
+hist(asarray(adelta_t),bins=20)
+annotate_plot("number of signals", "timing", ("timing accuracy histogram"))
+if opts.write_summary_plots:
+  text = "Timing Accuracy Histogram"
+  fname = InspiralUtils.set_figure_name(opts, "timing_accuracy_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
+figure()
+hist(asarray(adelta_D),bins=20)
+annotate_plot("number of signals", "Deff measure accuracy", ("$D_{eff}$ measure accuracy histogram"))
+if opts.write_summary_plots:
+  text = "D_eff Accuracy Histogram"
+  fname = InspiralUtils.set_figure_name(opts, "D_eff_accuracy_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 plot(asarray(asnr), asarray(adelta_comb_stat),'ro') 
-annotate_plot(r"$\rho$", "Confidence","Confidence Accuracy")
+annotate_plot(r"$\rho$", "Confidence","L Accuracy")
+if opts.write_summary_plots:
+  text = "L Accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "L_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 hist(asarray(adelta_comb_stat),bins=20)
-annotate_plot("normalized confidence on the fine grid", "number of signals in bin", ("confidence histogram for the fine grid"))
+annotate_plot("normalized L on the fine grid", "number of signals in bin", ("L histogram for the fine grid"))
+if opts.write_summary_plots:
+  text = "L histogram (fine grid)"
+  fname = InspiralUtils.set_figure_name(opts, "L_histogram_fine_grid")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 hist(asarray(adelta_comb_stat_coarse),bins=20)
-annotate_plot("normalized confidence on the coarse grid ", "number of signals in bin", ("confidence histogram for the coarse grid"))
+annotate_plot("normalized L on the coarse grid ", "number of signals in bin", ("L histogram for the coarse grid"))
+if opts.write_summary_plots:
+  text = "L histogram (coarse grid)"
+  fname = InspiralUtils.set_figure_name(opts, "L_histogram_coarse_grid")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
-plot(asarray(asnr), asarray(apoints),'bo') 
+plot(asarray(asnr), asarray(apoints),'bo')
+hlines(average(asarray(apoints)),0, max(asnr))
+vlines(average(asnr),0,max(apoints))
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of combined snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs combined snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_combined_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 plot(asarray(asnrH1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of H1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs H1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_H1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnrL1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of L1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs L1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_L1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnrV1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of V1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs V1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_V1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 hist(asarray(apoints),bins=500)
 annotate_plot("No. of Pointings","No. of signals in bin", ("Histogram of Pointings"))
+if opts.write_summary_plots:
+  text = "Histogram od pointings"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
 
 if opts.plotgalaxies:
   figure()
   plot(asarray(asnr), asarray(agalpoints), 'go')
   annotate_plot(r"$\rho_{\rm eff}$", "No. of Galaxies", ("Number of Galaxies"))
+  if opts.write_summary_plots:
+    text = "Number of galaxies"
+    fname = InspiralUtils.set_figure_name(opts, "number_galaxies")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 meaninjdelta_t_rms = meaninjdelta_t_rms/ninj
 meanpointings_narrow = meanpointings_narrow/ninj
@@ -1142,6 +1380,20 @@ print "Number of injections", ninj
 print "Mean timing accuracy %f" % meaninjdelta_t_rms
 print "Mean pointings (narrow) %f" % meanpointings_narrow
 print "Mean pointings (wide) %f" % meanpointings_wide
+
+
+if opts.write_summary_plots:
+  html_footer += "Number of injections " + str(ninj) + "<br>"
+  html_footer += "Mean timing accuracy " + str(meaninjdelta_t_rms) + "<br>"
+#  html_footer += "Mean pointings (narrow) " + str(meanpointings_narrow) + "<br>"
+#  html_footer += "Mean pointings (wide) " + str(meanpointings_wide) + "<br>"
+  html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
+                                                fnameList, tagList, comment=html_footer, cbcweb=False)
+if opts.write_inj_data:
+  if opts.output_path:
+    write_file(opts.output_path, "plotskypoints_inj_data.dat", inj_data)
+  else:
+    write_file(os.curdir, "plotskypoints_inj_data.dat", inj_data)
 
 #############################################################################
 # Generate HTML and cache file

@@ -17,30 +17,50 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #
-# Preamble
+# =============================================================================
 #
+#                                   Preamble
+#
+# =============================================================================
+#
+
 
 """
 This module contains bits and pieces of use when interacting with LAL and
 LAL-derived code (eg. LALApps programs)
 """
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
-__date__ = "$Date$"
-__version__ = "$Revision$"
 
 import fnmatch
-import re
-import urlparse
+import math
 import operator
 import os
+import re
 import sys
+import urlparse
+
+
 from glue import segments
 
 
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
 #
-# High precision time object
+# =============================================================================
 #
+#                          High precision time object
+#
+# =============================================================================
+#
+
+
+#
+# Python version in case LAL isn't available
+#
+
 
 class LIGOTimeGPS(object):
 	"""
@@ -57,23 +77,6 @@ class LIGOTimeGPS(object):
 	"""
 
 	# basic class methods
-
-	def __atoparts(self, s):
-		"""
-		Internal routine for ASCII string conversion.  Users should
-		call LIGOTimeGPS() to perform this function.
-		"""
-		parts = (s.strip() + ".0").split(".")[:2]
-		parts[1] = parts[1][:9]
-		parts[1] += "000000000"[:9-len(parts[1])]
-		try:
-			parts = map(int, parts)
-		except:
-			raise TypeError, "Cannot convert \"%s\" to a LIGOTimeGPS" % s
-		if s[0] == "-":
-			parts[0] -= 1
-			parts[1] = 1000000000 - parts[1]
-		return parts
 
 	def __init__(self, seconds, nanoseconds = 0):
 		"""
@@ -96,14 +99,30 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.2, 300000000)
 		LIGOTimeGPS(100, 500000000)
 		"""
-		if type(nanoseconds) == str:
-			nanoseconds = float(nanoseconds)
-		elif not type(nanoseconds) in [float, int, long]:
-			raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
-		if type(seconds) not in [float, int, long]:
-			if type(seconds) == str:
-				[seconds, self.nanoseconds] = self.__atoparts(seconds)
-				nanoseconds += self.nanoseconds
+		if type(nanoseconds) not in (float, int, long):
+			try:
+				nanoseconds = float(nanoseconds)
+			except:
+				raise TypeError, nanoseconds
+		if type(seconds) is float:
+			seconds, ns = divmod(seconds, 1)
+			seconds = int(seconds)
+			nanoseconds += ns * 1e9
+		elif type(seconds) not in (int, long):
+			if type(seconds) in (str, unicode):
+				try:
+					if "." in seconds:
+						seconds, ns = seconds.split(".")
+						ns = float("." + ns) * 1e9
+					else:
+						ns = 0
+					seconds = int(seconds)
+				except:
+					raise TypeError, "invalid literal for LIGOTimeGPS(): %s" % seconds
+				if seconds < 0 and ns:
+					seconds -= 1
+					ns = 1e9 - ns
+				nanoseconds += ns
 			else:
 				try:
 					# handle LIGOTimeGPS(x) where x is an
@@ -112,26 +131,26 @@ class LIGOTimeGPS(object):
 					nanoseconds += seconds.nanoseconds
 					seconds = seconds.seconds
 				except:
-					raise TypeError, "Cannot convert \"%s\" to LIGOTimeGPS" % repr(seconds)
-		frac_seconds = round(seconds % 1 * 1000000000)
-		if seconds < 0 and frac_seconds:
-			seconds -= 1
-		(self.seconds, self.nanoseconds) = map(int, divmod(frac_seconds + nanoseconds, 1000000000))
-		self.seconds += int(seconds)
+					raise TypeError, seconds
+		self.__seconds = seconds + int(nanoseconds // 1000000000)
+		self.__nanoseconds = int(nanoseconds % 1000000000)
+
+	seconds = property(lambda self: self.__seconds)
+	nanoseconds = property(lambda self: self.__nanoseconds)
 
 	def __repr__(self):
-		return "LIGOTimeGPS(%d, %u)" % (self.seconds, self.nanoseconds)
+		return "LIGOTimeGPS(%d, %u)" % (self.__seconds, self.__nanoseconds)
 	
 	def __str__(self):
 		"""
 		Return an ASCII string representation of a LIGOTimeGPS.
 		"""
-		if (self.seconds >= 0) or (self.nanoseconds == 0):
-			s = "%d.%09u" % (self.seconds, self.nanoseconds)
-		elif (self.seconds < -1):
-			s = "%d.%09u" % (self.seconds + 1, 1000000000 - self.nanoseconds)
+		if (self.__seconds >= 0) or (self.__nanoseconds == 0):
+			s = "%d.%09u" % (self.__seconds, self.__nanoseconds)
+		elif self.__seconds < -1:
+			s = "%d.%09u" % (self.__seconds + 1, 1000000000 - self.__nanoseconds)
 		else:
-			s = "-0.%09u" % (1000000000 - self.nanoseconds)
+			s = "-0.%09u" % (1000000000 - self.__nanoseconds)
 		return s.rstrip("0").rstrip(".")
 
 	# type conversion
@@ -145,7 +164,7 @@ class LIGOTimeGPS(object):
 		>>> float(LIGOTimeGPS(100.5))
 		100.5
 		"""
-		return self.seconds + self.nanoseconds * 1e-9
+		return self.__seconds + self.__nanoseconds * 1e-9
 
 	def __int__(self):
 		"""
@@ -156,7 +175,7 @@ class LIGOTimeGPS(object):
 		>>> int(LIGOTimeGPS(100.5))
 		100
 		"""
-		return self.seconds
+		return self.__seconds
 
 	def __long__(self):
 		"""
@@ -167,7 +186,7 @@ class LIGOTimeGPS(object):
 		>>> long(LIGOTimeGPS(100.5))
 		100L
 		"""
-		return long(self.seconds)
+		return long(self.__seconds)
 
 	def ns(self):
 		"""
@@ -178,9 +197,12 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5).ns()
 		100500000000L
 		"""
-		return self.seconds * 1000000000L + self.nanoseconds
+		return self.__seconds * 1000000000L + self.__nanoseconds
 
 	# comparison
+
+	def __hash__(self):
+		return self.__seconds ^ self.__nanoseconds
 
 	def __cmp__(self, other):
 		"""
@@ -200,9 +222,9 @@ class LIGOTimeGPS(object):
 		if not type(other) == LIGOTimeGPS:
 			try:
 				other = LIGOTimeGPS(other)
-			except:
+			except TypeError:
 				return NotImplemented
-		return cmp((self.seconds, self.nanoseconds), (other.seconds, other.nanoseconds))
+		return cmp(self.__seconds, other.seconds) or cmp(self.__nanoseconds, other.nanoseconds)
 
 	def __nonzero__(self):
 		"""
@@ -213,7 +235,7 @@ class LIGOTimeGPS(object):
 		>>> bool(LIGOTimeGPS(100.5))
 		True
 		"""
-		return self.seconds or self.nanoseconds
+		return self.__seconds or self.__nanoseconds
 
 	# arithmetic
 
@@ -234,7 +256,7 @@ class LIGOTimeGPS(object):
 		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
-		return LIGOTimeGPS(self.seconds + other.seconds, self.nanoseconds + other.nanoseconds)
+		return LIGOTimeGPS(self.__seconds + other.seconds, self.__nanoseconds + other.nanoseconds)
 
 	# addition is commutative.
 	__radd__ = __add__
@@ -256,7 +278,7 @@ class LIGOTimeGPS(object):
 		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
-		return LIGOTimeGPS(self.seconds - other.seconds, self.nanoseconds - other.nanoseconds)
+		return LIGOTimeGPS(self.__seconds - other.seconds, self.__nanoseconds - other.nanoseconds)
 
 	def __rsub__(self, other):
 		"""
@@ -264,7 +286,7 @@ class LIGOTimeGPS(object):
 		"""
 		if not type(other) == LIGOTimeGPS:
 			other = LIGOTimeGPS(other)
-		return LIGOTimeGPS(other.seconds - self.seconds, other.nanoseconds - self.nanoseconds)
+		return LIGOTimeGPS(other.seconds - self.__seconds, other.nanoseconds - self.__nanoseconds)
 
 	def __mul__(self, other):
 		"""
@@ -275,7 +297,45 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) * 2
 		LIGOTimeGPS(201, 0)
 		"""
-		return LIGOTimeGPS(self.seconds * other, self.nanoseconds * other)
+		nlo = self.__nanoseconds % 2**15
+		nhi = self.__nanoseconds - nlo
+		slo = self.__seconds % 2**26
+		shi = self.__seconds - slo
+		olo = other % 2**(int(math.log(other, 2)) - 26)
+		ohi = other - olo
+		product = LIGOTimeGPS(0)
+
+		addend = nlo * olo * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = (nlo * ohi + nhi * olo) * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = nhi * ohi * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = slo * olo
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = slo * ohi + shi * olo
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = shi * ohi
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		return product
 
 	# multiplication is commutative
 	__rmul__ = __mul__
@@ -289,7 +349,15 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) / 2
 		LIGOTimeGPS(50, 250000000)
 		"""
-		return LIGOTimeGPS(0, self.ns() / other)
+		quotient = LIGOTimeGPS(float(self) / other)
+		n = 0
+		while n < 100:
+			residual = float(self - quotient * other) / other
+			quotient += residual
+			if abs(residual) <= 0.5e-9:
+				break
+			n += 1
+		return quotient
 
 	def __mod__(self, other):
 		"""
@@ -300,7 +368,8 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) % 3
 		LIGOTimeGPS(1, 500000000)
 		"""
-		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
+		quotient = int(self / other)
+		return self - quotient * other
 
 	# unary arithmetic
 
@@ -311,12 +380,24 @@ class LIGOTimeGPS(object):
 		return LIGOTimeGPS(0, -self.ns())
 
 	def __abs__(self):
-		return LIGOTimeGPS(0, abs(self.ns()))
+		if self.__seconds >= 0:
+			return self
+		return -self
 
 
 #
-# LAL cache file manipulation
+# =============================================================================
 #
+#                         LAL Cache File Manipulation
+#
+# =============================================================================
+#
+
+
+#
+# Representation of a line in a LAL cache file
+#
+
 
 class CacheEntry(object):
 	"""
@@ -464,6 +545,11 @@ class CacheEntry(object):
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
 	from_T050017 = classmethod(from_T050017)
+
+
+#
+# An object representing a LAL cache file
+#
 
 
 class Cache(list):

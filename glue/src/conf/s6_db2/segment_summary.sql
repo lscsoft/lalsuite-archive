@@ -40,8 +40,12 @@ CONSTRAINT seg_sum_pk
 DATA CAPTURE CHANGES
 ;
 
--- ???What index to create???
--- Create an index based on time
--- CREATE INDEX segment_ind_time ON segment_summary(start_time,end_time)
--- ;
+CREATE INDEX segsumm_ind_time ON segment_summary(start_time,end_time)
+;
+CREATE INDEX segsumm_ind_stime ON segment_summary(start_time)
+;
+CREATE INDEX segsumm_ind_etime ON segment_summary(end_time)
+;
+CREATE INDEX segsumm_dind ON segment_summary(segment_def_cdb,segment_def_id)
+;
 

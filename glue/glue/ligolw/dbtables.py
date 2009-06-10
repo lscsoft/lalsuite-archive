@@ -55,7 +55,7 @@ import types as ligolwtypes
 from glue import segments
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -335,7 +335,7 @@ def get_xml(connection, table_names = None):
 
 	if table_names is None:
 		table_names = get_table_names(connection)
-		
+
 	for table_name in table_names:
 		# build the table document tree.  copied from
 		# lsctables.New()
@@ -343,7 +343,7 @@ def get_xml(connection, table_names = None):
 			cls = TableByName[table_name]
 		except KeyError:
 			cls = DBTable
-		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}))
+		table_elem = cls(AttributesImpl({u"Name": u"%s:table" % table_name}), connection = connection)
 		for column_name, column_type in get_column_info(connection, table_elem.dbtablename):
 			if table_elem.validcolumns is not None:
 				# use the pre-defined column type
@@ -429,7 +429,7 @@ class DBTable(table.Table):
 
 	connection = None
 
-	def __new__(cls, *args):
+	def __new__(cls, *args, **kwargs):
 		# does this class already have table-specific metadata?
 		if not hasattr(cls, "tableName"):
 			# no, try to retrieve it from lsctables
@@ -466,14 +466,19 @@ class DBTable(table.Table):
 				cls = CustomDBTable
 		return table.Table.__new__(cls, *args)
 
-	def __init__(self, *args):
+	def __init__(self, *args, **kwargs):
+		# chain to parent class
 		table.Table.__init__(self, *args)
 
 		# save the stripped name
 		self.dbtablename = table.StripTableName(self.getAttribute(u"Name"))
 
-		# convert class attribute to an instance attribute
-		self.connection = self.connection
+		# replace connection class attribute with an instance
+		# attribute
+		if "connection" in kwargs:
+			self.connection = kwargs.pop("connection")
+		else:
+			self.connection = self.connection
 
 		# pre-allocate a cursor for internal queries
 		self.cursor = self.connection.cursor()
@@ -797,6 +802,7 @@ def build_indexes(connection, verbose = False):
 				print >>sys.stderr, "indexing %s table ..." % table_name
 			for index_name, cols in how_to_index.iteritems():
 				cursor.execute("CREATE INDEX IF NOT EXISTS %s ON %s (%s)" % (index_name, table_name, ",".join(cols)))
+	connection.commit()
 
 
 #
