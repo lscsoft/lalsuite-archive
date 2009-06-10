@@ -479,7 +479,7 @@ tion, that value must be zero*/
 
    memset( &waveform, 0, sizeof(CoherentGW) );
    LALGeneratePPNAmpCorInspiral( status->statusPtr, &waveform, &ppnParams );
-
+   CHECKSTATUSPTR( status );
 
 
 

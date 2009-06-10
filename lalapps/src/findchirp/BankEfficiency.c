@@ -2240,7 +2240,6 @@ void BankEfficiencyGenerateInputData(
   INITSTATUS( status, "BankEfficiencyGenerateInputData", BANKEFFICIENCYC );
   ATTATCHSTATUSPTR( status );
   
-  if(vrbflg) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
   /* randomize the input start time */
   if (randnStartPad==1)
   {
@@ -2419,6 +2418,7 @@ void BankEfficiencyGenerateInputData(
           CHECKSTATUSPTR(status); 
         }
     }
+    if(vrbflg) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
   }
 
 
@@ -4327,7 +4327,7 @@ void BankEfficiencyCreateTemplateBank(
     coarseBankIn->order = 4;
   }
 
-  if (userParam.BankFromFile)
+  if (0)
   {
     BankEfficiencyReadBankFromFile (status->statusPtr, tmpltHead,
       sizeBank, coarseBankIn, userParam);
