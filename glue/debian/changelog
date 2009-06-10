@@ -1,3 +1,11 @@
+python-glue (1.20) unstable; urgency=low
+
+  * Initial release of 1.20
+  * Fixed clean to remove all pyc files
+  * Include debian files in tar ball
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 10 Jun 2009 11:20:00 -0500
+
 python-glue (1.19) unstable; urgency=low
 
   * Initial release of 1.19
