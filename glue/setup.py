@@ -22,6 +22,7 @@ from distutils.core import setup, Extension
 from distutils.command import build_py
 from distutils.command import install
 from distutils.command import sdist
+from distutils.command import clean
 from distutils import log
 
 ver = "1.19"
@@ -106,6 +107,20 @@ class glue_install(install.install):
     # now run the installer
     install.install.run(self)
 
+class glue_clean(clean.clean):
+  def finalize_options (self):
+    clean.clean.finalize_options(self)
+    self.clean_files = [ 'misc/__init__.pyc', 'misc/determine_git_version.pyc' ]
+
+  def run(self):
+    clean.clean.run(self)
+    for f in self.clean_files:
+      self.announce('removing ' + f)
+      try:
+        os.unlink(f)
+      except:
+        log.warn("'%s' does not exist -- can't clean it" % f)
+
 class glue_sdist(sdist.sdist):
   def run(self):
     # remove the automatically generated user env scripts
@@ -147,6 +162,7 @@ setup(
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
+    'clean' : glue_clean,
     'sdist' : glue_sdist
   },
   ext_modules = [
