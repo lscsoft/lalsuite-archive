@@ -22,9 +22,10 @@ from distutils.core import setup, Extension
 from distutils.command import build_py
 from distutils.command import install
 from distutils.command import sdist
+from distutils.command import clean
 from distutils import log
 
-ver = "1.18"
+ver = "1.20"
 
 def remove_root(path,root):
   if root:
@@ -106,6 +107,20 @@ class glue_install(install.install):
     # now run the installer
     install.install.run(self)
 
+class glue_clean(clean.clean):
+  def finalize_options (self):
+    clean.clean.finalize_options(self)
+    self.clean_files = [ 'misc/__init__.pyc', 'misc/determine_git_version.pyc' ]
+
+  def run(self):
+    clean.clean.run(self)
+    for f in self.clean_files:
+      self.announce('removing ' + f)
+      try:
+        os.unlink(f)
+      except:
+        log.warn("'%s' does not exist -- can't clean it" % f)
+
 class glue_sdist(sdist.sdist):
   def run(self):
     # remove the automatically generated user env scripts
@@ -147,6 +162,7 @@ setup(
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
+    'clean' : glue_clean,
     'sdist' : glue_sdist
   },
   ext_modules = [
@@ -180,9 +196,7 @@ setup(
   ],
   scripts = [
     os.path.join('bin','LSCdataFind'),
-    os.path.join('bin','LSCsegFind'),
-    os.path.join('bin','LSCsegFindDev'),
-    os.path.join('bin','LSCfileAdd'),
+    os.path.join('bin','LSCdataFindcheck'),
     os.path.join('bin','lars'),
     os.path.join('bin','lars_add'),
     os.path.join('bin','lars_search'),
@@ -196,19 +210,17 @@ setup(
     os.path.join('bin','ligolw_print'),
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
-    os.path.join('bin','ligolw_glitch_page.py'),
+    os.path.join('bin','ligolw_cbc_glitch_page'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
     os.path.join('bin','ligolw_segment_diff'),
     os.path.join('bin','ligolw_segment_union'),
     os.path.join('bin','ligolw_segment_query'),
+    os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
-    os.path.join('sbin','segpagegen'),
-    os.path.join('sbin','segdb_coalesce'),
-    os.path.join('sbin','publishstatefromfile'),
-    os.path.join('sbin','bulkpublishstate'), ],
+    os.path.join('sbin','segdb_coalesce'), ],
   data_files = [
     (
       'etc',
@@ -217,14 +229,8 @@ setup(
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
-        os.path.join('etc','lscsegfindserver.ini'),
-        os.path.join('etc','lscsegfindserverdev.ini'),
-        os.path.join('etc','segpagegen.ini'),
-        os.path.join('etc','segpagegen_S5.ini'),
-        os.path.join('etc','segpagegen_A5.ini'),
-        os.path.join('etc','segpagegen_S5.sh'),
-        os.path.join('etc','segpagegen_A5.sh'),
         os.path.join('etc','ldbdserver.ini'),
+        os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw_dtd.txt')
       ]
     )
