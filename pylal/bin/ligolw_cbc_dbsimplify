@@ -1,0 +1,359 @@
+#!/usr/bin/env python
+
+# ============================================================================
+#
+#                               Preamble
+#
+# ============================================================================
+
+
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__prog__ = "ligolw_cbc_dbsimplify"
+__Id__ = "$Id$"
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw.utils import process
+
+usage = """
+Cleans and simplifies a database by removing redundant ids.
+"""
+
+# ============================================================================
+#
+#                               Set Options
+#
+# ============================================================================
+
+def parse_command_line():
+    """
+    Parser function dedicated
+    """
+
+    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+        help =
+            "Input database to read. Can only input one at a time."
+            )
+    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help =
+            "Location of local disk on which to do work. This is optional; " +
+            "it is only used to enhance performance in a networked " +
+            "environment. "
+            )
+    parser.add_option( "", "--vacuum", action = "store_true", default = False,
+        help = 
+            "If turned on, will vacuum the database before saving. " +
+            "This cleans any fragmentation and removes empty space " +
+            "left behind by all the DELETEs, making the output " +
+            "database smaller and more efficient. " +
+            "WARNING: Since this requires rebuilding the entire " +
+            "database, this can take awhile for larger files." 
+            )
+
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help =
+            "Print progress information"
+           )
+    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+        help =
+            "Print SQLite queries used and the approximate time taken to run each one." )
+
+    (options, args) = parser.parse_args()
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+
+    return options, sys.argv[1:]
+
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+
+opts, args = parse_command_line()
+
+# get input database filename
+filename = opts.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if opts.verbose: 
+    print >> sys.stdout, "Creating a database connection..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+
+# Add program to process and process params table
+
+# FIXME: remove the following two lines once boolean type
+# has been properly handled
+from glue.ligolw import types as ligolwtypes
+ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
+
+xmldoc = dbtables.get_xml(connection)
+proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__)
+
+if opts.verbose:
+    print >> sys.stdout, "Cleaning up coinc_definer and time_slide table..."
+
+sqlscript = """
+--
+-- coinc_definer clean up
+--
+
+
+CREATE TABLE _idmap_ AS
+    SELECT
+        old_definer.coinc_def_id AS old,
+        MIN(new_definer.coinc_def_id) AS new
+    FROM
+        coinc_definer AS old_definer
+        JOIN coinc_definer AS new_definer ON (
+            new_definer.search == old_definer.search
+            AND new_definer.search_coinc_type == old_definer.search_coinc_type
+        )
+    GROUP BY
+        old_definer.coinc_def_id;
+
+CREATE INDEX idm_o_index ON _idmap_ (old);
+UPDATE coinc_event SET coinc_def_id = (SELECT new FROM _idmap_ WHERE old == coinc_def_id);
+DROP INDEX idm_o_index;
+
+DELETE FROM coinc_definer WHERE coinc_def_id IN (SELECT old FROM _idmap_ WHERE old != new);
+
+DROP TABLE _idmap_;
+
+
+--
+-- time_slide clean up
+--
+
+CREATE TEMPORARY TABLE time_slide_ids AS SELECT DISTINCT time_slide_id AS time_slide_id FROM time_slide;
+CREATE INDEX ts_io_index ON time_slide (instrument, offset);
+CREATE INDEX tsi_index ON time_slide_ids (time_slide_id);
+CREATE TABLE _idmap_ AS
+    SELECT
+        old_ids.time_slide_id AS old,
+        (
+            SELECT
+                MIN(new_ids.time_slide_id)
+            FROM
+                time_slide_ids AS new_ids
+            WHERE
+                NOT EXISTS (
+                    SELECT
+                        *
+                    FROM
+                        time_slide AS alink
+                        JOIN time_slide AS blink
+                    WHERE
+                        alink.time_slide_id == old_ids.time_slide_id
+                        AND blink.time_slide_id == new_ids.time_slide_id
+                        AND blink.instrument == alink.instrument
+                        AND blink.offset != alink.offset
+                )
+        ) AS new
+    FROM
+        time_slide_ids AS old_ids;
+DROP INDEX tsi_index;
+DROP INDEX ts_io_index;
+DROP TABLE time_slide_ids;
+
+CREATE INDEX idm_o_index ON _idmap_ (old);
+UPDATE coinc_event SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
+UPDATE experiment_summary SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
+DROP INDEX idm_o_index;
+
+DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_ WHERE old != new);
+
+DROP TABLE _idmap_;
+"""
+if opts.debug:
+    import time
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().executescript( sqlscript )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+sqlscript = """
+--
+-- Experiment Tables clean up
+--
+
+-- experiment table clean up:
+-- create map table to map experiment_ids that are to be kept
+-- to experiment ids that are to be discarded, in the same manner
+-- as done above
+CREATE INDEX e_sgitlc_index ON experiment (search, search_group, instruments, gps_start_time, gps_end_time, lars_id, comments);
+CREATE TEMP TABLE eidmap AS
+    SELECT
+        old_exp.experiment_id AS old_eid,
+        MIN(new_exp.experiment_id) AS new_eid
+    FROM
+        experiment AS old_exp
+        JOIN experiment AS new_exp ON (
+            new_exp.search == old_exp.search
+            AND new_exp.search_group == old_exp.search_group
+            AND new_exp.instruments == old_exp.instruments
+            AND new_exp.gps_start_time == old_exp.gps_start_time
+            AND new_exp.gps_end_time == old_exp.gps_end_time
+                        AND ( new_exp.lars_id == old_exp.lars_id
+                              OR (new_exp.lars_id IS NULL AND old_exp.lars_id IS NULL) )
+                        AND ( new_exp.comments == old_exp.comments
+                              OR (new_exp.comments IS NULL AND old_exp.comments IS NULL) )
+        )
+    GROUP BY
+        old_exp.experiment_id;
+DROP INDEX e_sgitlc_index;
+-- delete the old ids from the experiment table
+DELETE FROM experiment WHERE experiment_id IN (SELECT old_eid FROM eidmap WHERE old_eid != new_eid);
+
+-- update the experiment_ids in the experiment summary table
+CREATE INDEX em_old_index ON eidmap (old_eid);
+UPDATE experiment_summary
+    SET experiment_id = (
+        SELECT new_eid 
+        FROM eidmap
+        WHERE experiment_summary.experiment_id == old_eid );
+
+-- experiment summary clean up
+CREATE INDEX es_etd_index ON experiment_summary (experiment_id, time_slide_id, datatype);
+
+-- create a table to store the distinct experiment_summaries
+CREATE TEMP TABLE distinct_experiments (experiment_summ_id, experiment_id, time_slide_id, datatype);
+INSERT INTO distinct_experiments (experiment_id, time_slide_id, datatype) 
+    SELECT DISTINCT
+            experiment_summary.experiment_id,
+            experiment_summary.time_slide_id,
+            experiment_summary.datatype
+    FROM    
+        experiment_summary;
+CREATE INDEX de_etd_index ON distinct_experiments (experiment_id, time_slide_id, datatype);
+
+-- get one unique experiment_summ_id for each row in distinct_experiments
+UPDATE
+    distinct_experiments
+SET
+    experiment_summ_id = (
+        SELECT
+            experiment_summ_id
+        FROM
+            experiment_summary
+        WHERE 
+            experiment_summary.experiment_id == distinct_experiments.experiment_id
+            AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
+            AND experiment_summary.datatype == distinct_experiments.datatype );
+
+-- create an table to map esids to be deleted to esids to be saved
+CREATE TEMP TABLE esidmap AS
+    SELECT
+        experiment_summary.experiment_summ_id AS old_esid,
+        distinct_experiments.experiment_summ_id AS new_esid
+    FROM
+        experiment_summary
+    JOIN distinct_experiments ON (
+        experiment_summary.experiment_id == distinct_experiments.experiment_id
+        AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
+        AND experiment_summary.datatype == distinct_experiments.datatype );
+CREATE INDEX esm_new_index ON esidmap (new_esid);
+CREATE INDEX esm_old_index ON esidmap (old_esid);
+
+-- sum durations and nevents
+CREATE TEMP TABLE sum_dur_nevents AS
+    SELECT esidmap.new_esid AS esid, 
+    SUM(experiment_summary.duration) AS sum_dur, 
+    SUM(experiment_summary.nevents) AS sum_nevents
+    FROM esidmap
+    JOIN experiment_summary ON (esidmap.old_esid == experiment_summary.experiment_summ_id)
+    GROUP BY esid;
+CREATE INDEX sdn_esid_index ON sum_dur_nevents (esid);
+
+-- delete the old ids from the experiment_summary table
+DELETE FROM experiment_summary WHERE experiment_summ_id IN (SELECT old_esid FROM esidmap WHERE old_esid != new_esid);
+
+-- update the durations and the nevents
+UPDATE experiment_summary
+SET duration = (
+        SELECT sum_dur
+        FROM sum_dur_nevents
+        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id ),
+    nevents = (
+        SELECT sum_nevents
+        FROM sum_dur_nevents
+        WHERE sum_dur_nevents.esid == experiment_summary.experiment_summ_id );
+
+-- update the experiment_map table
+UPDATE experiment_map
+SET experiment_summ_id = (
+    SELECT new_esid FROM esidmap
+    WHERE experiment_map.experiment_summ_id == old_esid );
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().executescript( sqlscript )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+#FIXME: this should be set by lsctables.py
+
+sqlscript = """
+CREATE INDEX em_esi_index ON experiment_map (experiment_summ_id);
+CREATE INDEX em_cei_index ON experiment_map (coinc_event_id);
+"""
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().executescript( sqlscript )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+
+# Vacuum database if desired
+if opts.vacuum:
+    if opts.verbose:
+        print >> sys.stderr, "Vacuuming database..."
+    connection.cursor().execute( 'VACUUM' )
+
+#
+#       Save and Exit
+#
+
+connection.commit()
+connection.close()
+
+# write output database
+dbtables.put_connection_filename(filename, working_filename, verbose = opts.verbose)
+
+if opts.verbose: 
+    print >> sys.stdout, "Finished!"
+
+# set process end time
+process.set_process_end_time(proc_id)
+sys.exit(0)
+
