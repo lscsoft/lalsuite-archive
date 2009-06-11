@@ -25,10 +25,10 @@ from glue.ligolw.utils.ligolw_sqlite import extract
 
 
 usage = \
-'''
+"""
 Clusters coincident trigges in a database and writes result out
 to a new database.
-'''
+"""
 
 __author__ = "Collin Capano <cdcapano@physics.syr.edu>"
 __date__ = "$Date$" 
@@ -299,7 +299,22 @@ if opts.verbose:
 
 # Create a temporary scratch table that only includes the info we need;
 # we'll do all the clustering in this table, then delete everything 
-# in the coinc_inspiral table that does not have an coinc_event_id that's in it
+# in the experiment_map table who's esids qualify.
+# Next, we'll delete triggers in the coinc_inspiral table who no longer
+# have coinc_event_ids in the experiment_map table. We do it this way because
+# zero-lag coincs will be mapped to both all_data and either exclude_play or playground
+# esids (i.e. one coinc event will be mapped to two different esids in two different
+# rows in the experiment_map table); however, it may happen that while a coinc would
+# be deleted in all_data, it would not be deleted in exclude_play or playground.
+
+# Also, a note about the WHERE clause below:
+# You would expect to be able to do:
+# WHERE coinc_event_id, experiment_summ_id IN (
+#   SELECT ceid, esid
+#   FROM clustered AS deltrigs .... )
+# and you could, if this was db2. Unfortunately, SQLite doesn't appear to
+# let you compare multiple values  using the IN statement, so we hack around this by
+# constructing a string from the two values and comparing the strings.
 sqlscript = ''.join(["""
     CREATE TEMP TABLE clustered AS
         SELECT 
@@ -308,8 +323,9 @@ sqlscript = ''.join(["""
             coinc_inspiral.ifos AS ifos,
             end_time_in_ns( coinc_inspiral.end_time, coinc_inspiral.end_time_ns ) AS end_time,
             """,
-            param_grouping, ' AS param_grouping, ',
-            ranking_stat, ' AS ranking_stat', """
+            param_grouping, """ AS param_grouping, 
+            """,
+            ranking_stat, """ AS ranking_stat
         FROM
             coinc_inspiral
         JOIN 
@@ -319,10 +335,10 @@ sqlscript = ''.join(["""
     CREATE INDEX cl_sipt_index ON clustered (esid, ifos, param_grouping, end_time);
     DELETE 
     FROM 
-        coinc_inspiral
-    WHERE coinc_event_id IN (
+        experiment_map
+    WHERE (cast(coinc_event_id AS char) || "," || cast(experiment_summ_id AS char)) IN (
         SELECT 
-            ceid
+            (cast(ceid AS char) || "," || cast(esid AS char)) 
         FROM clustered AS deltrigs
         WHERE EXISTS (
             SELECT *
@@ -348,9 +364,32 @@ connection.cursor().executescript( sqlscript )
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
+sqlscript = ''.join(["""
+    -- delete triggers from the coinc_inspiral table
+    DELETE
+    FROM
+        coinc_inspiral
+    WHERE 
+        coinc_event_id NOT IN (
+            SELECT
+                coinc_event_id
+            FROM
+                experiment_map
+        );"""])
+
+if opts.debug:
+    print >> sys.stderr, sqlscript
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
+connection.cursor().executescript( sqlscript )
+
+if opts.debug:
+    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
+
 
 # Remove triggers from other tables that no longer have coincidences in the
 # coinc_inspiral table
+# FIXME: checking the experiment_map table should be changed as it's redundant
 sqlutils.clean_inspiral_tables( connection, verbose = opts.verbose )
 
 # Update number of events
