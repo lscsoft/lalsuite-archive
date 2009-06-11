@@ -293,6 +293,31 @@ LALGeneratePPNAmpCorInspiral(
    * CHECK INPUT PARAMETERS                                          *
    *******************************************************************/
 
+  /* XXX Uncomment below to check input parameters XXX */
+  /*
+  fprintf(stderr," params->psi \t\t= %e\n", params->psi );
+  fprintf(stderr," params->mTot \t\t= %e\n", params->mTot );
+  fprintf(stderr," params->mTot_real8 \t= %e\n", params->mTot_real8 );
+  fprintf(stderr," params->eta \t\t= %e\n", params->eta );
+  fprintf(stderr," params->eta_real8 \t= %e\n", params->eta_real8 );
+  fprintf(stderr," params->d \t\t= %e\n", params->d );
+  fprintf(stderr," params->inc \t\t= %e\n", params->inc );
+  fprintf(stderr," params->phi \t\t= %e\n", params->phi );
+  fprintf(stderr," params->deltaT \t= %e\n", params->deltaT );
+  fprintf(stderr," params->fStartIn \t= %e\n", params->fStartIn );
+  fprintf(stderr," params->fStopIn \t= %e\n", params->fStopIn );
+  fprintf(stderr," params->fStart \t= %e\n", params->fStart );
+  fprintf(stderr," params->fStop \t\t= %e\n", params->fStop );
+  fprintf(stderr," params->lengthIn \t= %d\n", params->lengthIn );
+  fprintf(stderr," params->length \t= %d\n", params->length );
+  fprintf(stderr," params->ampOrder \t= %d\n", params->ampOrder );
+  fprintf(stderr," params->tc \t\t= %e\n", params->tc );
+  for( i = 0; i < params->ppn->length; ++i )
+    fprintf(stderr," params->ppn[%d] \t= %e\n", i, params->ppn->data[i] );
+  */
+  /* XXX Uncomment above to check input parameters XXX */
+
+
   /* Dumb initialization to shut gcc up. */
   head = here = NULL;
   b0 = b1 = b2 = b3 = b4 = b5 = b6 = b7 = 0.0;
