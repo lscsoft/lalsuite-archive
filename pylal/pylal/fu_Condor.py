@@ -731,6 +731,67 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
 
 ##############################################################################
+# class for remote qscan jobs
+
+class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A remote qscan job
+  """
+  def __init__(self, opts, cp, tag_base='REMOTESCAN'):
+    """
+    """
+    if not os.path.exists(tag_base):
+       os.mkdir(tag_base)
+    self.setup_executable(tag_base)
+    self.__executable = tag_base + '/remote_scan_wrapper.sh'
+    self.__universe = "scheduler"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(tag_base,None)
+
+  def setup_executable(self,tag_base):
+    starter_script = open(tag_base + '/remote_scan_wrapper.sh','w')
+    starter_script.write("""#!/bin/bash
+    source $1
+    $2 --gps-time $3 --config-file $4 --qscan-type $5 --remote-output $6 --remote-receiver $7
+    """)
+    starter_script.close()
+    os.chmod(tag_base + '/remote_scan_wrapper.sh',0755)
+
+
+##############################################################################
+# class for remote qscan Node
+
+class remoteQscanFgNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a remote qscan job
+  """
+  def __init__(self,job,time,cp,ifo,name,opts,dag,qscanCommand):
+    """
+    job = A CondorDAGJob that can run an instance of remote qscan.
+    """
+    self.friendlyName = name
+    self.id = ifo + '-' + name + '-' + repr(time)
+
+    pipeline.CondorDAGNode.__init__(self,job)
+
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","virgo-env-path")))
+    self.add_var_arg(string.strip(cp.get("condor","submit_remote_scan")))
+    self.add_var_arg(repr(time))
+    self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"config-file")))
+    self.add_var_arg("_".join(name.split("-")[1:len(name.split("-"))]))
+    self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"output")))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-server")))
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name.lower())
+
+    if eval('opts.' + qscanCommand):
+        dag.addNode(self,self.friendlyName)
+        self.validNode = True
+    else: self.validNode = False
+
+
+##############################################################################
 # distributeQscanJob class: the job
 
 class distributeQscanJob(pipeline.CondorDAGJob, webTheJob):

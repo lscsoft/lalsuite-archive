@@ -45,8 +45,6 @@ parser.add_option("","--remote-receiver",action="store",type="string",\
 #parser.add_option("-r","--local-receiver",action="store",type="string",\
 #    metavar=" STRING",help="name of the local omega receiver")
 
-parser.add_option("-e","--executable-path",action="store",type="string",\
-    metavar=" PATH",help="path to the OmegaD executables")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -65,13 +63,21 @@ if opts.version:
 uuid_temp = subprocess.Popen("uuidgen",stdout=subprocess.PIPE).communicate()[0]
 uuid = uuid_temp.strip().replace("-","")
 
+# Build a "UNAME"
+system_name = subprocess.Popen("uname",stdout=subprocess.PIPE).communicate()[0]
+hardware_platform = subprocess.Popen("uname -i",shell=True,stdout=subprocess.PIPE).communicate()[0]
+uname = system_name.strip() + "-" + hardware_platform.strip()
+
+# Get the "OMEGADROOT"
+omegadroot = subprocess.Popen("echo $OMEGADROOT",shell=True,stdout=subprocess.PIPE).communicate()[0]
+
+
 # Prepare the arguments to submit the scan
 omegaSenderArg = "OmegaSender_" + uuid + " " + opts.remote_receiver + " CBC " + opts.qscan_type + " " + opts.gps_time + " " + opts.config_file + " " + opts.remote_output
 
 # Prepare the executables 
-omegadsend = opts.executable_path + "/OmegaDSend.exe"
-omegadreceive = opts.executable_path + "/OmegaDReceive.exe"
-
+omegadsend = omegadroot.strip() + "/" + uname + "/OmegaDSend.exe"
+omegadreceive = omegadroot.strip() + "/" + uname + "/OmegaDReceive.exe"
 
 # source to the correct environment
 #source_env = subprocess.call("source /archive/home/romain/virgoApp/dot_bash.sh", shell=True)
