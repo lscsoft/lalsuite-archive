@@ -562,6 +562,18 @@ extern "C" {
             );
 
     /* <lalLaTeX>
+       \newpage\input{LALRandomInspiralSignalTimeDomain
+       </lalLaTeX>  */
+
+    void 
+            LALRandomInspiralSignalTimeDomain
+            (
+             LALStatus *status, 
+             REAL4Vector *signalvec,
+             RandomInspiralSignalIn *randIn
+            );
+
+    /* <lalLaTeX>
        \newpage\input{LALColoredNoiseC}
        </lalLaTeX>  */
 
