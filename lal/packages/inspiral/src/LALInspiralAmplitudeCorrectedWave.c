@@ -116,18 +116,21 @@ LALInspiralAmplitudeCorrectedWave(
 
    INT4 count;
 
-   INITSTATUS(status, "LALInspiralAmplitudeCorrectedWave",LALINSPIRALAMPLITUDECORRECTEDWAVEC);
+   INITSTATUS(status, "LALInspiralAmplitudeCorrectedWave",
+                       LALINSPIRALAMPLITUDECORRECTEDWAVEC);
    ATTATCHSTATUSPTR(status);
 
    ASSERT(signalvec, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
    ASSERT(signalvec->data, status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
 
    /* Initially the waveform is empty*/
-   memset(signalvec->data, 0, signalvec->length*sizeof(REAL4));
+   memset(signalvec->data, 0.0, signalvec->length*sizeof(REAL4));
 
    /*Call the engine function*/
-   LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, signalvec, NULL, NULL, NULL, NULL, &count, params);
+   LALInspiralAmplitudeCorrectedWaveEngine(status->statusPtr, 
+              signalvec, NULL, NULL, NULL, NULL, &count, params);
    CHECKSTATUSPTR(status);
+
 
    DETATCHSTATUSPTR(status);
    RETURN (status);
@@ -348,8 +351,8 @@ LALInspiralAmplitudeCorrectedWaveForInjection(
 }
 
 /*
- *  Engine function for use by other LALInspiralAmplitudeCorrectedWave* functions
- *  Craig Robinson April 2005
+ *  Engine function for use by other LALInspiralAmplitudeCorrectedWave
+ *  functions Craig Robinson April 2005
  */
 
 NRCSID (LALINSPIRALAMPLITUDECORRECTEDWAVEENGINEC, "$Id$");
@@ -365,91 +368,77 @@ LALInspiralAmplitudeCorrectedWaveEngine(
 		INT4             *countback,
 		InspiralTemplate *params)
 {
-   PPNParamStruc ppnParams;
-   CoherentGW 	waveform;
-   INT4 i, count;
-   REAL8 dt;
-   REAL8 mTot = 0;
-   REAL8 unitHz = 0;
-   REAL8 mu = 0;
-   REAL8 cosI = 0;/* cosine of system inclination */
-   REAL8 etab = 0;
-   REAL8 fFac = 0; /* SI normalization for f and t */
-   REAL8 f2aFac = 0;/* factor multiplying f in amplitude function */
-   REAL8 apFac = 0, acFac = 0;/* extra factor in plus and cross amplitudes */
-   REAL4 hPlus, hCross;
+  PPNParamStruc ppnParams;
+  CoherentGW 	waveform;
+  INT4 i, count;
+  REAL8 dt;
+  REAL8 mTot = 0;
+  REAL8 unitHz = 0;
+  REAL8 etab = 0;
+  REAL4 hPlus, hCross;
 
-   /* For f+ and fx */
-   LALDetector  det;
-   InterferometerNumber ifoNumber = LAL_IFO_H1;
-   double fPlus, fCross, tdelay, gmst;
-   LIGOTimeGPS  time;
+  /* For f+ and fx */
+  LALDetector  det;
+  InterferometerNumber ifoNumber = LAL_IFO_H1;
+  double fPlus, fCross, tdelay, gmst;
+  LIGOTimeGPS  time;
   
-   INITSTATUS(status, "LALInspiralAmplitudeCorrectedWaveEngine", LALINSPIRALAMPLITUDECORRECTEDWAVEENGINEC);
-   ATTATCHSTATUSPTR(status);
+  INITSTATUS(status, "LALInspiralAmplitudeCorrectedWaveEngine", 
+                      LALINSPIRALAMPLITUDECORRECTEDWAVEENGINEC);
+  ATTATCHSTATUSPTR(status);
 
-   ASSERT (params,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
-   ASSERT (params->nStartPad >= 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
-   ASSERT (params->nEndPad >= 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
-   ASSERT (params->fLower > 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
-   ASSERT (params->tSampling > 0, status, LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+  ASSERT (params,  status, LALINSPIRALH_ENULL, LALINSPIRALH_MSGENULL);
+  ASSERT (params->nStartPad >= 0, status, 
+                LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+  ASSERT (params->nEndPad >= 0, status, 
+                LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+  ASSERT (params->fLower > 0, status, 
+                LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
+  ASSERT (params->tSampling > 0, status, 
+                LALINSPIRALH_ESIZE, LALINSPIRALH_MSGESIZE);
 
 
- 
+  dt = 1./params->tSampling;
 
-   dt = 1./params->tSampling;
+  /* some values to be used to compute h(t)*/
+  {
+    mTot   = params->mass1 + params->mass2;
+    etab   = params->mass1 * params->mass2;
+    etab  /= mTot;
+    etab  /= mTot;
+    unitHz = mTot *LAL_MTSUN_SI*(REAL8)LAL_PI;
+    params->nStartPad = 0;
+  }
 
-   /* some values to be used to compute h(t)*/
-   {
-      mTot   = params->mass1 + params->mass2;
-      etab   = params->mass1 * params->mass2;
-      etab  /= mTot;
-      etab  /= mTot;
-      unitHz = mTot *LAL_MTSUN_SI*(REAL8)LAL_PI;
-      /*cosI and the following parameters are probably useless. apFac and acFac
-       * are computed within GeneratePPNAmpCor*/
-      cosI   = cos( params->inclination );
-      mu     = etab * mTot;
-      fFac   = 1.0 / ( 4.0*LAL_TWOPI*LAL_MTSUN_SI*mTot );
-      f2aFac = LAL_PI*LAL_MTSUN_SI*mTot*fFac;
-      apFac  = acFac = -2.0 * mu * LAL_MRSUN_SI/params->distance;
-      apFac *= 1.0 + cosI*cosI;
-      acFac *= 2.0*cosI;
-      params->nStartPad = 0;
-   }
+  /* These parameters are not used **within** GeneratePPNAmpCorInspiral */
+  ppnParams.position.latitude = params->sourceTheta;
+  ppnParams.position.longitude = params->sourcePhi;
+  ppnParams.position.system = COORDINATESYSTEM_EQUATORIAL;
+  ppnParams.psi = params->polarisationAngle;
+  ppnParams.lengthIn = 0.0;
 
-   /* this parameters are not used in GeneratePPNAmp*/
-   ppnParams.position.latitude = params->sourceTheta;
-   ppnParams.position.longitude = params->sourcePhi;
-   ppnParams.position.system = COORDINATESYSTEM_EQUATORIAL;
-   ppnParams.psi = params->polarisationAngle;
-   ppnParams.lengthIn = 0.0;
-
-   /* The following fields are used by GeneratePPNAmpCor function */
-   /* Variable Parameters */
-   ppnParams.mTot_real8 = mTot;
-   ppnParams.eta_real8 = etab;
-   ppnParams.d = 1.0;
-   ppnParams.inc = params->inclination;
-   /* GeneratePPN does not set the starting phase.*/
-   ppnParams.phi = params->startPhase;
-   ppnParams.fStartIn = params->fLower;
-   /* set to zero so that GeneratePPNAmp recomputes the flso*/
-   ppnParams.fStopIn = 0.;
-   ppnParams.ppn = NULL;
-   ppnParams.ampOrder = params->ampOrder;
-   /* set ther PN order of the flux */
-   LALSCreateVector( status->statusPtr, &(ppnParams.ppn), params->order + 1 );
-   ppnParams.ppn->data[0] = 1.0;
-   if ( params->order > 0 )
-     ppnParams.ppn->data[1] = 0.0;
-   for ( i = 2; i <= (INT4)( params->order ); i++ )
-     ppnParams.ppn->data[i] = 1.0;
-	ppnParams.fStopIn = 0;
+  /* The following fields are used in GeneratePPNAmpCorInspiral function */
+  /* Variable Parameters */
+  ppnParams.mTot_real8 = mTot;
+  ppnParams.eta_real8 = etab;
+  ppnParams.d = params->distance;
+  ppnParams.inc = params->inclination;
+  ppnParams.phi = params->startPhase;
+  ppnParams.fStartIn = params->fLower;
+  ppnParams.fStopIn = - params->fLower;
+  ppnParams.ampOrder = params->ampOrder;
 	ppnParams.deltaT = dt;
+  /* set ther PN order of the flux */
+  ppnParams.ppn = NULL;
+  LALSCreateVector( status->statusPtr, &(ppnParams.ppn), params->order + 1 );
+  ppnParams.ppn->data[0] = 1.0;
+  ppnParams.ppn->data[1] = 0.0;
+  for ( i = 2; i <= (INT4)( params->order ); i++ )
+  {
+    ppnParams.ppn->data[i] = 1.0;
+  }
  
   /* Time we computed fplus and fcross */
-  memset( &det, 0, sizeof(LALDetector));
   ifoNumber = XLALIFONumber("H1");
   time.gpsSeconds = 841000000;
   time.gpsNanoSeconds = 000000000;
@@ -464,104 +453,94 @@ LALInspiralAmplitudeCorrectedWaveEngine(
             ppnParams.position.longitude,
             ppnParams.position.latitude,
             &time );
-	
 
 
-   count = 0;
-   if (signalvec2) {
-   params->nStartPad = 0;
-   } /* for template genera  memset( &waveform, 0, sizeof(CoherentGW) );
-tion, that value must be zero*/
-   else if (signalvec1) {
-     count = params->nStartPad;
-   }
+  count = 0;
+  if (signalvec2) 
+  {
+    /* for template generation, that value must be zero*/
+    params->nStartPad = 0;
+  } 
+  else if (signalvec1)
+  {
+    count = params->nStartPad;
+  }
+
+  memset( &waveform, 0, sizeof(CoherentGW) );
+  LALGeneratePPNAmpCorInspiral( status->statusPtr, &waveform, &ppnParams );
+  CHECKSTATUSPTR( status );
 
 
-   memset( &waveform, 0, sizeof(CoherentGW) );
-   LALGeneratePPNAmpCorInspiral( status->statusPtr, &waveform, &ppnParams );
-   CHECKSTATUSPTR( status );
 
-
-
-
-   count = 0;
+  count = 0;
   for (i=0;i<(INT4)waveform.h->data->length; i++)
   {
-	   /* Non-injection case */
-      if (signalvec1)
-      {
-         /* For amplitude corrected waveforms, we do not want only h+ or only hx but F+h+ + FxHx*/
-         hPlus  = (REAL4) waveform.h->data->data[2*i];
-         hCross = (REAL4) waveform.h->data->data[2*i+1];
-         *(signalvec1->data + count) = fPlus * hPlus + fCross * hCross;
-         /* todo: add an Abort if signalvec2<>0*/
-	 if (signalvec2)
-	 {
-         *(signalvec2->data + count) = (REAL4) waveform.h->data->data[2*i+1];
-	 }
-      }
+	  /* Non-injection case */
+    if (signalvec1)
+    {
+      /* For amplitude corrected waveforms, we do not want only h+ or only hx but F+h+ + FxHx*/
+      hPlus  = (REAL4) waveform.h->data->data[2*i];
+      hCross = (REAL4) waveform.h->data->data[2*i+1];
+      *(signalvec1->data + count) = fPlus * hPlus + fCross * hCross;
 
-      /* Injection case */
-      else if (a)
-      {
-          #if 0
-          omega = v*v*v;
-          ff->data[count]       = (REAL4)(omega/unitHz);
-          f2a                   = pow (f2aFac * omega, 2./3.);
-          /* waveform->a does not exist. Only waveform->h is populated within
-          GeneratePPNAmpCorr function.
-          */
-          a->data[2*count]      = (REAL4) waveform.a->data->data[count];
-          a->data[2*count+1]    = (REAL4) waveform.a->data->data[count];
-          phi->data[count]      = (REAL8) waveform.phi->data->data[count];
-          #endif
-      }
-
+      /* todo: add an Abort if signalvec2<>0*/
+	    if (signalvec2)
+	    {
+        *(signalvec2->data + count) = (REAL4) waveform.h->data->data[2*i+1];
+	    }
+    }
  		count++;
-   }
+  }
 
+  params->tC = count*dt;
+  params->tC = 0.0;
 
-   params->tC = count*dt;
+  /* The final frequency needs to take into account the amplitude corrected order */
+  params->fFinal = waveform.f->data->data[count-1];
 
-   /* The final frequency needs to take into account the amplitude corrected order */
-   params->fFinal = waveform.f->data->data[count-1] * (params->ampOrder+2.)/2.;
+  *countback = count;
 
-
-   *countback = count;
 
 	/* destroy the waveform signal */
-   if ( waveform.a ){
-     LALSDestroyVectorSequence( status->statusPtr, &(waveform.a->data) );
-     CHECKSTATUSPTR( status );
-     LALFree( waveform.a );
-   }
-   if ( waveform.shift )
-    {
-      LALSDestroyVector( status->statusPtr, &(waveform.shift->data) );
-      CHECKSTATUSPTR( status );
-      LALFree( waveform.shift );
-    }
+  if ( waveform.a )
+  {
+    LALSDestroyVectorSequence( status->statusPtr, &(waveform.a->data) );
+    CHECKSTATUSPTR( status );
+    LALFree( waveform.a );
+  }
 
-    if ( waveform.f ){
+  if ( waveform.shift )
+  {
+    LALSDestroyVector( status->statusPtr, &(waveform.shift->data) );
+    CHECKSTATUSPTR( status );
+    LALFree( waveform.shift );
+  }
+
+  if ( waveform.f )
+  {
     LALSDestroyVector( status->statusPtr, &(waveform.f->data) );
     CHECKSTATUSPTR( status );
-      LALFree( waveform.f );
-    }
+    LALFree( waveform.f );
+  }
 
-    if ( waveform.phi ){
+  if ( waveform.phi )
+  {
     LALDDestroyVector( status->statusPtr, &(waveform.phi->data) );
     CHECKSTATUSPTR( status );
-      LALFree( waveform.phi );
-    }
+    LALFree( waveform.phi );
+  }
 
-   if ( waveform.h ){
+  if ( waveform.h )
+  {
     LALSDestroyVectorSequence( status->statusPtr, &(waveform.h->data) );
     CHECKSTATUSPTR( status );
     LALFree( waveform.h );
-    }
+  }
+
+  LALFree( ppnParams.ppn );
 
 
-   DETATCHSTATUSPTR(status);
-   RETURN (status);
+  DETATCHSTATUSPTR(status);
+  RETURN (status);
 
 }

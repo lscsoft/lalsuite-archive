@@ -2407,17 +2407,18 @@ void BankEfficiencyGenerateInputData(
       }
                   
       /*Here, we  randomize the masses*/  
-        if( userParam.template == AmpCorPPN )
-        {
-          LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
-          CHECKSTATUSPTR(status); 
-        }
-        else
-        {
-          LALRandomInspiralSignal(status->statusPtr, signal, randIn);
-          CHECKSTATUSPTR(status); 
-        }
+      if( userParam.template == AmpCorPPN )
+      {
+        LALRandomInspiralSignalTimeDomain(status->statusPtr, signal, randIn);
+        CHECKSTATUSPTR(status); 
+      }
+      else
+      {
+        LALRandomInspiralSignal(status->statusPtr, signal, randIn);
+        CHECKSTATUSPTR(status); 
+      }
     }
+
     if(vrbflg) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
   }
 
