@@ -125,21 +125,13 @@ def parse_command_line():
 #
 
 if __name__ == '__main__':
-    # Munge the table definitions for S5 triggers -- these may
-    # not be needed for E14 and beyond.
-
     # Settings - disable nanoseconds
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']
-    # del lsctables.ProcessTable.validcolumns['domain']
-    # del lsctables.ProcessTable.validcolumns['jobid']
-    # del lsctables.ProcessTable.validcolumns['is_online']
-    del lsctables.SummValueTable.validcolumns['summ_value_id']
-    del lsctables.SummValueTable.constraints
-    del lsctables.SummValueTable.next_id
 
-
-    lsctables.SnglInspiralTable.validcolumns['event_id'] = 'int_8s'
+    # Fd2XMLIOServer populates the event_id early, but ihope leaves 
+    # it as 0 initially.  Turnning off the unique constraint allows
+    # us to load both.
     del lsctables.SnglInspiralTable.constraints
     del lsctables.SnglInspiralTable.next_id
 
