@@ -68,9 +68,6 @@ import tempfile
 import urllib
 import pwd
 
-from glue import LDBDClient
-from glue import gsiserverutils
-
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -414,7 +411,16 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 
 
-def setup_database(host_and_port):
+def setup_database(host_and_port,ldbdc_error):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -424,9 +430,8 @@ def setup_database(host_and_port):
         host, portString = host_and_port.split(':')
         port = int(portString)
 
-
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-
+    
     # open connection to LDBD Server
     client = None
 
@@ -438,7 +443,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
+        sys.exit(1)
 
     return client
 

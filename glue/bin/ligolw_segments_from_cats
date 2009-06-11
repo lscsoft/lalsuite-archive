@@ -58,13 +58,6 @@ from glue.ligolw import dbtables
 from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
-try:
-   from glue import LDBDClient
-   from glue import gsiserverutils
-   have_ldbdc = True
-except:
-   have_ldbdc = False
-
 from glue.ligolw.utils import process
 
 import re
@@ -249,6 +242,15 @@ def kludge_get_column_info(connection, table_name):
 
 
 def setup_database(host_and_port):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -257,7 +259,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -272,7 +273,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
+        sys.exit(1)
 
     return client
 
@@ -318,11 +319,8 @@ if __name__ == '__main__':
         xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
         segment_query_engine = veto_query_engine
     else:
-        if ( have_ldbdc is True ):
-            segment_connection   = setup_database(db_location)
-            segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
-        else:
-            print >> sys.stderr, "Error: Could not import LDBDClient. Check that LDG is properly installed"
+        segment_connection   = setup_database(db_location)
+        segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
