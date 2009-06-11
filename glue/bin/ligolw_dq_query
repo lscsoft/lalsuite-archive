@@ -132,7 +132,7 @@ def parse_command_line():
     # Data location options
     parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
     # Other options
@@ -184,9 +184,13 @@ def parse_command_line():
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
         database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
         

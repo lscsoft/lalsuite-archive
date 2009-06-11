@@ -110,7 +110,7 @@ def parse_command_line():
                       
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
-    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
     parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
     parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
@@ -182,11 +182,13 @@ def parse_command_line():
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_file:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
-        if os.environ['DMT_SEGMENT_LOCATION'][len('file://')]!='/':
-           raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-file specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment_url | --database | --dmt-file ] must be provided" )
 

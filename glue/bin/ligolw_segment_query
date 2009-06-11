@@ -122,7 +122,7 @@ def parse_command_line():
     # Data location options
     parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify a prefix 'ldbd://' in front of the actual url where the segment database locates. For example, '--segment-url=ldbd://nldas.ligo-wa.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used. ")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION, for example, 'DMT_SEGMENT_LOCATION=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ, for example, 'ONLINEDQ=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
 
 
     # Other options
@@ -177,9 +177,12 @@ def parse_command_line():
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment-url | --database | --dmt-files ] must be provided" )
         
