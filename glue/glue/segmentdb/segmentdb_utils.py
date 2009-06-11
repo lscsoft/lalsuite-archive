@@ -49,6 +49,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-64) and file_time <= (endtime+64):
                 ret.append(os.path.join(dirname,filename))
+        else:
+            # Keep recursing, we may be looking at directories of
+            # ifos, each of which has directories with times
+            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
 
     return ret
 
