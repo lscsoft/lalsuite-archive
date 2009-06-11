@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+
+__prog__ = "submit_remote_scan"
+__Id__ = "$Id$"
+__title__ = "script to submit remote qscans via Cm messages"
+__author__ = "Romain Gouaty"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+import os
+import sys
+import commands
+import subprocess
+import time
+from optparse import *
+
+sys.path.append('@PYTHONLIBDIR@')
+
+usage = """ %prog [options]
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-v","--version",action="store_true",default=False,\
+    help="display version information and exit")
+
+parser.add_option("-g","--gps-time",action="store",type="string",\
+    metavar=" GPS",help="GPS time to be used for the scan")
+
+parser.add_option("-f","--config-file",action="store",type="string",\
+    metavar=" PATH2FILE",help="Path to qscan configuration file")
+
+parser.add_option("-t","--qscan-type",action="store",type="string",\
+    metavar=" TYPE",help="qscan type")
+
+parser.add_option("-o","--remote-output",action="store",type="string",\
+    metavar=" PATH",help="output path for the remote scan")
+
+#parser.add_option("-s","--sender",action="store",type="string",\
+#    metavar=" STRING",help="name of the omega sender")
+
+parser.add_option("","--remote-receiver",action="store",type="string",\
+    metavar=" STRING",default="Omega",help="name of the remote omega receiver")
+
+#parser.add_option("-r","--local-receiver",action="store",type="string",\
+#    metavar=" STRING",help="name of the local omega receiver")
+
+parser.add_option("-e","--executable-path",action="store",type="string",\
+    metavar=" PATH",help="path to the OmegaD executables")
+
+command_line = sys.argv[1:]
+(opts,args) = parser.parse_args()
+
+#################################
+# if --version flagged
+if opts.version:
+  print "$Id$"
+  sys.exit(0)
+
+
+#################################
+# Main program
+
+# Get a universal unique identifyer
+uuid_temp = subprocess.Popen("uuidgen",stdout=subprocess.PIPE).communicate()[0]
+uuid = uuid_temp.strip().replace("-","")
+
+# Prepare the arguments to submit the scan
+omegaSenderArg = "OmegaSender_" + uuid + " " + opts.remote_receiver + " CBC " + opts.qscan_type + " " + opts.gps_time + " " + opts.config_file + " " + opts.remote_output
+
+# Prepare the executables 
+omegadsend = opts.executable_path + "/OmegaDSend.exe"
+omegadreceive = opts.executable_path + "/OmegaDReceive.exe"
+
+
+# source to the correct environment
+#source_env = subprocess.call("source /archive/home/romain/virgoApp/dot_bash.sh", shell=True)
+#if source_env != 0:
+#  print >> sys.stderr, "cm environment could not be sourced"
+#  sys.exit(1)
+
+#ip_info = subprocess.Popen("/sbin/ifconfig", shell=True, stdout=subprocess.PIPE).communicate()[0]
+#print >> sys.stderr, ip_info
+
+#cm_names = subprocess.Popen("/archive/home/romain/virgoApp/Cm/v8r4/Linux-x86_64/cm.exe names", shell=True, stdout=subprocess.PIPE).communicate()[0]
+#print >> sys.stdout, "\"cm names\" returns: " + cm_names
+
+
+print >> sys.stdout, "Running command: " + omegadreceive + " OmegaReceiver_" + uuid + " ./"
+
+# Be ready to receive a message back from Cascina
+print >> sys.stdout, "starting local receiver..."
+receiver = subprocess.Popen(omegadreceive + " OmegaReceiver_" + uuid + " ./", shell=True)
+
+# Wait for 10 seconds before launching the Omega sender
+time.sleep(10)
+
+# Send a Cm message to Cascina
+sender = subprocess.call(omegadsend + " " + omegaSenderArg, shell=True)
+if sender != 0:
+  print >> sys.stderr, "OmegaDSend returned an error when run with these arguments: " + omegaSenderArg
+  sys.exit(1)
+else:
+  print >> sys.stdout, "The following Cm message has been sent to Cascina: " + "OmegaDSend " + omegaSenderArg
+
+# Wait for the receiver to finish and check for the result
+receiver_result = os.waitpid(receiver.pid, 0)
+#print receiver_result
+if receiver_result[1] != 0:
+  print >> sys.stderr, "OmegaDReceive command failed: OmegaReceiver_" + uuid
+  sys.exit(1)
+else:
+  print >> sys.stdout, "OmegaDReceive finished succesfully: OmegaReceiver_" + uuid
+
+
