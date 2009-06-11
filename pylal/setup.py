@@ -316,6 +316,7 @@ setup(
                 os.path.join("bin", "ligolw_cbc_printlc"),
                 os.path.join("bin", "ligolw_cbc_cluster_coincs"),
                 os.path.join("bin", "ligolw_cbc_cfar")
+                os.path.join("bin", "extractCommand")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),
