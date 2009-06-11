@@ -310,13 +310,15 @@ sqlquery = ''.join(["""
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
         convert_to_yrs(experiment_summary.duration),
-        experiment_summary.zero_lag
+        experiment_summary.datatype
     FROM
-        experiment_summary"""])
-for eid, esid, duration, zero_lag in connection.cursor().execute( sqlquery ):
+        experiment_summary
+    WHERE
+        experiment_summary.datatype != "simulation" """])
+for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
-    if zero_lag == 1:
-        background.append_zero_lag_id( eid, esid )
+    if datatype != "slide":
+        background.append_zero_lag_id( eid, esid, datatype )
 
 # calculate the background duration for each experiment_summary_id 
 background.calc_bkg_durs()
@@ -337,7 +339,7 @@ sqlquery = ''.join([ """
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
     WHERE 
-        experiment_summary.simulation == 0"""])
+        experiment_summary.datatype != "simulation" """])
 
 if opts.debug:
     import time
@@ -345,14 +347,13 @@ if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 for eid, esid, ifos, param_group, stat in connection.cursor().execute(sqlquery):
-    background.add_to_bkgstats(eid, esid, ifos, param_group, stat)
+    background.add_to_bkg_stats(eid, esid, ifos, param_group, stat)
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # sort the background lists
-background.sort_bkgstats()
-background.add_zero_lag_to_frgstats_and_sort()
+background.sort_bkg_stats()
 
 if rank_by == "MIN":
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
@@ -383,7 +384,7 @@ sqlquery = ''.join(["""
             FROM 
                 experiment_summary, experiment_map
             WHERE
-                experiment_summary.simulation == 0
+                experiment_summary.datatype != "simulation"
                 AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 if opts.debug:
@@ -441,7 +442,7 @@ sqlscript = ''.join(["""
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
         WHERE 
-            experiment_summary.simulation == 0;
+            experiment_summary.datatype != "simulation";
     UPDATE 
         max_bkg_fars
     SET 
@@ -506,7 +507,7 @@ sqlquery = ''.join(["""
             FROM 
                 experiment_summary, experiment_map
             WHERE
-                experiment_summary.simulation == 0
+                experiment_summary.datatype != "simulation"
                 AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 
