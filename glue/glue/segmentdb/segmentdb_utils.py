@@ -35,7 +35,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
 
     # Maybe the user just wants one file...
     if os.path.isfile(dirname):
-        return [dirname]
+        if re.match('.*-[0-9]*-[0-9]*\.xml', dirname):
+            return [dirname]
+        else:
+            return ret
 
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
