@@ -13,7 +13,7 @@ Group:		Development/Libraries
 Source:		%{name}-%{version}.tar.gz
 Url:		http://www.lsc-group.phys.uwm.edu/daswg/projects/glue.html
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-Requires:	python
+Requires:	python python-cjson m2crypto
 BuildRequires:  python-devel
 Prefix:         %{_prefix}
 
