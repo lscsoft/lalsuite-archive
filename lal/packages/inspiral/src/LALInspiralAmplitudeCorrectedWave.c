@@ -416,6 +416,11 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   ppnParams.position.system = COORDINATESYSTEM_EQUATORIAL;
   ppnParams.psi = params->polarisationAngle;
   ppnParams.lengthIn = 0.0;
+  /*
+  fprintf(stderr,"ppnParams.position.latitude = %e\n",params->sourceTheta);
+  fprintf(stderr,"ppnParams.position.longitude = %e\n", params->sourcePhi);
+  fprintf(stderr,"ppnParams.psi = %e\n", params->polarisationAngle);
+  */
 
   /* The following fields are used in GeneratePPNAmpCorInspiral function */
   /* Variable Parameters */
@@ -441,9 +446,10 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   }
  
   /* Time we computed fplus and fcross */
-  ifoNumber = XLALIFONumber("H1");
+  ifoNumber = LAL_IFO_H1;
   time.gpsSeconds = 841000000;
   time.gpsNanoSeconds = 000000000;
+
   XLALReturnDetector(&det, ifoNumber);
   gmst = XLALGreenwichMeanSiderealTime( &time );
   XLALComputeDetAMResponse( &fPlus, &fCross, det.response,
@@ -451,11 +457,6 @@ LALInspiralAmplitudeCorrectedWaveEngine(
                              ppnParams.position.latitude,
                              ppnParams.psi,
                              gmst );
-  tdelay = XLALTimeDelayFromEarthCenter( det.location,
-            ppnParams.position.longitude,
-            ppnParams.position.latitude,
-            &time );
-
 
   count = 0;
   if (signalvec2) 
@@ -483,7 +484,7 @@ LALInspiralAmplitudeCorrectedWaveEngine(
       /* For amplitude corrected waveforms, we do not want only h+ or only hx but F+h+ + FxHx*/
       hPlus  = (REAL4) waveform.h->data->data[2*i];
       hCross = (REAL4) waveform.h->data->data[2*i+1];
-      signalvec1->data[i + count] = fPlus * hPlus + fCross * hCross;
+      *(signalvec1->data + count) = fPlus * hPlus + fCross * hCross;
 
       /* todo: add an Abort if signalvec2<>0*/
 	    if (signalvec2)
