@@ -421,11 +421,13 @@ LALInspiralAmplitudeCorrectedWaveEngine(
   /* Variable Parameters */
   ppnParams.mTot_real8 = mTot;
   ppnParams.eta_real8 = etab;
+  ppnParams.mTot = (REAL4)(mTot);
+  ppnParams.eta = (REAL4)(etab);
   ppnParams.d = params->distance;
   ppnParams.inc = params->inclination;
   ppnParams.phi = params->startPhase;
   ppnParams.fStartIn = params->fLower;
-  ppnParams.fStopIn = - params->fLower;
+  ppnParams.fStopIn = 0.0;
   ppnParams.ampOrder = params->ampOrder;
 	ppnParams.deltaT = dt;
   /* set ther PN order of the flux */
@@ -481,7 +483,7 @@ LALInspiralAmplitudeCorrectedWaveEngine(
       /* For amplitude corrected waveforms, we do not want only h+ or only hx but F+h+ + FxHx*/
       hPlus  = (REAL4) waveform.h->data->data[2*i];
       hCross = (REAL4) waveform.h->data->data[2*i+1];
-      *(signalvec1->data + count) = fPlus * hPlus + fCross * hCross;
+      signalvec1->data[i + count] = fPlus * hPlus + fCross * hCross;
 
       /* todo: add an Abort if signalvec2<>0*/
 	    if (signalvec2)
@@ -537,7 +539,8 @@ LALInspiralAmplitudeCorrectedWaveEngine(
     LALFree( waveform.h );
   }
 
-  LALFree( ppnParams.ppn );
+  LALSDestroyVector( status->statusPtr, &(ppnParams.ppn) );
+  CHECKSTATUSPTR( status );
 
 
   DETATCHSTATUSPTR(status);
