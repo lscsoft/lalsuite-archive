@@ -41,7 +41,7 @@ foreach $file (@files)
     close(IN);
 
     $_ = $file;
-    s/.in//;
+    s/\.in$//;
     $outfile = $_;
 
     open(OUT,">$outfile");
