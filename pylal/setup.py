@@ -216,6 +216,7 @@ setup(
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
                 os.path.join("bin", "distrib_fu_qscan_results.py"),
+                os.path.join("bin", "submit_remote_scan.py"),
                 os.path.join("bin", "exttrig_likelihood_pipe"),
                 os.path.join("bin", "fup_triggers.py"),
 		os.path.join("bin", "grbSelect"),
