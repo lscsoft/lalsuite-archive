@@ -8,6 +8,8 @@ __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
 import os
+import tarfile
+import shutil
 import sys
 import commands
 import subprocess
@@ -33,7 +35,7 @@ parser.add_option("-f","--config-file",action="store",type="string",\
 parser.add_option("-t","--qscan-type",action="store",type="string",\
     metavar=" TYPE",help="qscan type")
 
-parser.add_option("-o","--remote-output",action="store",type="string",\
+parser.add_option("","--remote-output",action="store",type="string",\
     metavar=" PATH",help="output path for the remote scan")
 
 #parser.add_option("-s","--sender",action="store",type="string",\
@@ -45,6 +47,9 @@ parser.add_option("","--remote-receiver",action="store",type="string",\
 #parser.add_option("-r","--local-receiver",action="store",type="string",\
 #    metavar=" STRING",help="name of the local omega receiver")
 
+parser.add_option("-o","--output-path",action="store",type="string",\
+    default="", metavar=" PATH",\
+    help="path where the results will be stored")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -99,7 +104,7 @@ print >> sys.stdout, "starting local receiver..."
 receiver = subprocess.Popen(omegadreceive + " OmegaReceiver_" + uuid + " ./", shell=True)
 
 # Wait for 10 seconds before launching the Omega sender
-time.sleep(10)
+#time.sleep(10)
 
 # Send a Cm message to Cascina
 sender = subprocess.call(omegadsend + " " + omegaSenderArg, shell=True)
@@ -118,4 +123,32 @@ if receiver_result[1] != 0:
 else:
   print >> sys.stdout, "OmegaDReceive finished succesfully: OmegaReceiver_" + uuid
 
+# Untar the result 
+result_output_file = "omegaOut_" + uuid + ".tar.gz"
+if os.path.exists(result_output_file):
+  if tarfile.is_tarfile(result_output_file):
+    tar = tarfile.open(result_output_file,"r:gz")
+    file_list = tar.getnames()
+    for file in file_list:
+      tar.extract(file)
+    tar.close()
+    os.remove(result_output_file)
+  else:
+    print >> sys.stderr, "File " + result_output_file + " is not a valid tar file!!"
+    sys.exit(1)
+else:
+  print >> sys.stderr, "File " + result_output_file + " could not be found!!"
+  sys.exit(1)
+
+# Move the result to the outputpath
+result_directory = "scanResults_" + uuid
+if not os.path.exists(result_directory):
+  print >> sys.stderr, "Directory " + result_directory + " could not be found!!"
+  sys.exit(1)
+else:
+  if os.path.exists(opts.output_path):
+    print >> sys.stdout, "Cleaning directory " + opts.output_path + "..."
+    shutil.rmtree(opts.output_path)
+  print >> sys.stdout, "moving results to " + opts.output_path + "..."
+  shutil.move(result_directory,opts.output_path)  
 

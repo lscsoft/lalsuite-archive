@@ -752,7 +752,7 @@ class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
     starter_script = open(tag_base + '/remote_scan_wrapper.sh','w')
     starter_script.write("""#!/bin/bash
     source $1
-    $2 --gps-time $3 --config-file $4 --qscan-type $5 --remote-output $6 --remote-receiver $7
+    $2 --gps-time $3 --config-file $4 --qscan-type $5 --remote-output $6 --remote-receiver $7 --output-path $8
     """)
     starter_script.close()
     os.chmod(tag_base + '/remote_scan_wrapper.sh',0755)
@@ -771,24 +771,28 @@ class remoteQscanFgNode(pipeline.CondorDAGNode,webTheNode):
     """
     self.friendlyName = name
     self.id = ifo + '-' + name + '-' + repr(time)
-
     pipeline.CondorDAGNode.__init__(self,job)
+    self.add_macro("macroid", self.id)
+    self.jobName = job.name
 
     self.add_var_arg(string.strip(cp.get("followup-remote-scan","virgo-env-path")))
     self.add_var_arg(string.strip(cp.get("condor","submit_remote_scan")))
     self.add_var_arg(repr(time))
     self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"config-file")))
     self.add_var_arg("_".join(name.split("-")[1:len(name.split("-"))]))
-    self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"output")))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-output")))
     self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-server")))
+
+    outputdir = 'QSCAN' + '/' + name + '/' + ifo + '/' + repr(time)
+    self.add_var_arg(outputdir)
 
     if not opts.disable_dag_categories:
       self.set_category(job.name.lower())
 
     if eval('opts.' + qscanCommand):
-        dag.addNode(self,self.friendlyName)
-        self.validNode = True
-    else: self.validNode = False
+        dag.addNode(self,"Remote " + self.friendlyName)
+        self.validate()
+    else: self.invalidate()
 
 
 ##############################################################################
@@ -923,11 +927,17 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       
       # add the parents to this node
       for node in dag.get_nodes():
-        # if node distributeQscanNode is valid and remote if is analysed,
+        # if node distributeQscanNode is valid and if remote ifo is analysed,
         # add distributeQscanNode as parent
         if isinstance(node,distributeQscanNode):
           if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
             if node.validNode:
+              self.add_parent(node)
+        # if node remoteQscanFgNode is valid and if remote ifo is analysed,
+        # add remoteQscanFgNode as parent
+        if isinstance(node,remoteQscanFgNode):
+          if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
+            if node.friendlyName == name and node.validNode:
               self.add_parent(node)
         # add all qscan nodes of the same type as parents
         if isinstance(node,qscanNode): 
@@ -1944,7 +1954,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.set_category(job.name.lower())
 
     for node in dag.get_nodes():
-      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode):
+      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode) or isinstance(node,remoteQscanFgNode):
         for gps in gpsList.strip(",").split(","):
           if gps in node.id and node.validNode:
             self.add_parent(node)
