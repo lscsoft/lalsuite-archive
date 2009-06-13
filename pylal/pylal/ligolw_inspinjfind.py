@@ -220,8 +220,8 @@ class DocContents(object):
 
  		# FIXME I'll just make the windows one second
 
-                self.inspiral_end_time_window = 9.0
-                self.coinc_end_time_window = 9.0
+                self.inspiral_end_time_window = 1.0
+                self.coinc_end_time_window = 1.0
 
 
 	def inspirals_near_endtime(self, t):

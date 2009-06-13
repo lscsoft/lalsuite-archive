@@ -134,8 +134,8 @@ class parse_param_ranges:
             lowerparam = str( range[0][1] )
             upperbndry = range[1][0]
             upperparam = str( range[1][1] )
-            self.param_filters.append( ' '.join([ self.param, lowerbndry, lowerparam, 
-              'AND', self.param, upperbndry, upperparam ]) )
+            self.param_filters.append( ' '.join([ '(', self.param, lowerbndry, lowerparam, 
+              'AND', self.param, upperbndry, upperparam, ')' ]) )
 
         return self.param_filters
 
@@ -285,18 +285,18 @@ class parse_coinc_options:
                     this_coincfilter = ' '.join([ this_coincfilter, 'AND (' ])
                     for coinc_instruments in self.coinc_types[ instruments_on ]:
                         this_coincfilter = ''.join([ this_coincfilter,
-                            'coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                            ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                     # strip the last 'OR' and replace with a ')' to close out the coinc_instruments
                     this_coincfilter = this_coincfilter.rstrip('OR') + ')'
             # if instruments_on is 'ALL', just add what coincs to filter
             elif instruments_on == 'ALL' and 'ALL' not in self.coinc_types[ instruments_on ]:
                 for coinc_instruments in self.coinc_types[ instruments_on ]:
                     this_coincfilter = ''.join([ this_coincfilter,
-                        'coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
+                        ' coinc_inspiral.ifos == "', ifos_from_instrument_set(coinc_instruments), '"', ' OR' ])
                 # strip the last 'OR'
                 this_coincfilter = this_coincfilter.rstrip('OR')
 
-            self.coinc_filters.append(this_coincfilter)
+            self.coinc_filters.append( ''.join([ '(', this_coincfilter, ')' ]) )
 
         return self.coinc_filters
             
@@ -388,6 +388,8 @@ def convert_duration( duration, convert_to ):
             This is the Julian year, which is the
             accepted astronomical year
     """
+    if not duration:
+        return 0. 
     if convert_to == 's':
         return duration / 1.
     elif convert_to == 'min':
@@ -420,13 +422,13 @@ class Summaries:
     database for making calculation of uncombined fars and combined fars quick 
     and efficient.
     
-    bkgstats groups triggers by experiment_id, ifos, and param_group 
+    bkg_stats groups triggers by experiment_id, ifos, and param_group 
     (param_group is an arbitrary integer representing the param bin, e.g., 
     mchirp [2,8), to which a trigger belongs; if no binning is done, then 
     it is 0 for all triggers). It stores ALL the triggers in all the time 
     slides and zero-lag within that group.
 
-    frgstats groups triggers by experiment_id, experiment_summ_id, ifos, and 
+    sngl_slide_stats groups triggers by experiment_id, experiment_summ_id, ifos, and 
     param_group. It therefore groups all triggers within each time slide 
     separately. If the time-slide is not zero-lag, zero-lag triggers are also 
     added (see calc_ufar below for reasoning).
@@ -456,52 +458,47 @@ class Summaries:
     coinc. trigger we are considering and there will only be 3 max_bkg_fars 
     stored for that entry.
 
-    zero_lag_ids stores the esid of the zero-lag slide for an experiment; 
-    it therefore is keyed by experiment_ids.
+    zero_lag_ids stores the esid and datatype (all_data, playground, or exclude_play)
+    of the zero-lag slide for an experiment:
+        zero_lag_ids[ experiment_id ][ datatype ] = experiment_summ_id
     """
     def __init__(self):
-        self.bkgstats = {}
-        self.frgstats = {}
+        self.bkg_stats = {}
+        self.sngl_slide_stats = {}
         self.frg_durs = {}
         self.bkg_durs = {}
         self.max_bkg_fars = {}
         self.zero_lag_ids = {}
 
-    def add_to_bkgstats(self, experiment_id, experiment_summ_id, ifos, param_group, stat):
+    def add_to_bkg_stats(self, experiment_id, experiment_summ_id, ifos, param_group, stat):
         """
-        Adds a stat to bkgstats and frgstats. What stat is added is determined on the command
+        Adds a stat to bkg_stats and sngl_slide_stats. What stat is added is determined on the command
         line by the ranking-stat option.
         """
-        if (experiment_id, ifos, param_group) not in self.bkgstats:
-            self.bkgstats[(experiment_id, ifos, param_group)] = []
-        self.bkgstats[(experiment_id, ifos, param_group)].append( stat )
-        if (experiment_id, experiment_summ_id, ifos, param_group) not in self.frgstats:
-            self.frgstats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
-        self.frgstats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
+        if experiment_summ_id in self.zero_lag_ids[experiment_id].values():
+            self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+        else:
+            if (experiment_id, ifos, param_group) not in self.bkg_stats:
+                self.bkg_stats[(experiment_id, ifos, param_group)] = []
+            if (experiment_id, experiment_summ_id, ifos, param_group) not in self.sngl_slide_stats:
+                self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)] = []
+            self.bkg_stats[(experiment_id, ifos, param_group)].append( stat )
+            self.sngl_slide_stats[(experiment_id, experiment_summ_id, ifos, param_group)].append(stat)
 
-    def sort_bkgstats(self):
+    def sort_bkg_stats(self):
         """
-        Sorts each list in bkgstats from smallest to largest value.
+        Sorts each list in bkg_stats and sngl_slide_stats from smallest to largest value.
         """
-        for thislist in self.bkgstats.values():
+        for thislist in self.bkg_stats.values():
+            thislist.sort()
+        for thislist in self.sngl_slide_stats.values():
             thislist.sort()
 
-    def append_zero_lag_id(self, experiment_id, zero_lag_esid):
+    def append_zero_lag_id(self, experiment_id, zero_lag_esid, datatype):
         """
         Adds a zero_lag_id to the zero_lag_ids dictionary.
         """
-        self.zero_lag_ids[experiment_id] = zero_lag_esid
-
-    def add_zero_lag_to_frgstats_and_sort( self ):
-        """
-        Adds the zero_lag triggers to every entry in frgstats except for
-        the zero-lag entry. Then sorts the concatenated lists.
-        """
-        for params in self.frgstats:
-            eid, esid = params[0], params[1]
-            if (eid,esid) not in self.zero_lag_ids:
-                self.frgstats[ params ] = self.frgstats[ params ] + self.frgstats[ (eid, self.zero_lag_ids[eid], params[2], params[3])]
-            self.frgstats[params].sort()
+        self.zero_lag_ids[experiment_id] = dict({ datatype: zero_lag_esid })
 
     def append_duration(self, experiment_id, experiment_summ_id, duration):
         """
@@ -516,8 +513,8 @@ class Summaries:
         Sums the background durs for each time-slide (experiment_summ_id).
         """
         for eid in self.frg_durs:
-            for esid in self.frg_durs[eid]:
-                self.bkg_durs[esid] = sum(self.frg_durs[eid].values()) - self.frg_durs[eid][esid]
+            for this_esid in self.frg_durs[eid]:
+                self.bkg_durs[this_esid] = sum([self.frg_durs[eid][bkg_esid] for bkg_esid in self.frg_durs[eid].keys() if bkg_esid != this_esid and bkg_esid not in self.zero_lag_ids[eid].values()])
 
     def append_max_bkg_far(self, experiment_summ_id, ifo_group, max_bkg_far):
         """
@@ -544,22 +541,22 @@ class Summaries:
         a stat value greater than or equal to the trigger's stat value and 
         dividing by the background duration for that slide.
         To do this quickly, bisect.bisect_left is used (see python 
-        documentation for more info) on the bkgstats list. Since bkgstats 
+        documentation for more info) on the bkg_stats list. Since bkg_stats 
         contains all the triggers in all the slides -- including zero-lag -- 
         for some experiment_id, this will result in counting both the zero-lag 
         triggers and the triggers that are in the same slide (given by the esid)
         as the trigger we are considering. To correct for this, the trigger's 
-        place in the frgstats list is subtracted from  this value (this is why 
-        zero-lag triggers are added to all the frgstats except for the zero-lag). 
+        place in the sngl_slide_stats list is subtracted from  this value (this is why 
+        zero-lag triggers are added to all the sngl_slide_stats except for the zero-lag). 
         Thus, the "background" considered for some trigger are all the triggers 
         sharing the same experiment_id, excluding zero-lag triggers and triggers
         in the same time-slide as the trigger. This means that uncombined far
         for non-zero-lag triggers will use one less time slide than zero-lag triggers.
         """
         return (\
-            ( len(self.bkgstats[(eid, ifos, param_group)]) - bisect.bisect_left(self.bkgstats[(eid, ifos, param_group)], stat) ) \
+            ( len(self.bkg_stats[(eid, ifos, param_group)]) - bisect.bisect_left(self.bkg_stats[(eid, ifos, param_group)], stat) ) \
             - \
-            ( len(self.frgstats[(eid, esid, ifos, param_group)]) - bisect.bisect_left(self.frgstats[(eid, esid, ifos, param_group)], stat) ) \
+            ( len(self.sngl_slide_stats[(eid, esid, ifos, param_group)]) - bisect.bisect_left(self.sngl_slide_stats[(eid, esid, ifos, param_group)], stat) ) \
             ) / self.bkg_durs[esid]
 
     def calc_ufar_by_min(self, eid, esid, ifos, param_group, stat):
@@ -570,9 +567,9 @@ class Summaries:
         len(list) - bisect.bisect_left).
         """
         return ( \
-            bisect.bisect_right(self.bkgstats[(eid, ifos, param_group)], stat) \
+            bisect.bisect_right(self.bkg_stats[(eid, ifos, param_group)], stat) \
             - \
-            bisect.bisect_right(self.frgstats[(esid, ifos, param_group)], stat) \
+            bisect.bisect_right(self.sngl_slide_stats[(eid, esid, ifos, param_group)], stat) \
             ) / self.bkg_durs[esid]
 
     def calc_cfar( self, esid, ifo_group, ufar ):
@@ -638,13 +635,13 @@ def join_experiment_tables_to_coinc_inspiral():
     the only table listed in the FROM statement is the coinc_inspiral).
     """
 
-    join_conditions = ' '.join([ 
-          'JOIN experiment, experiment_summary, experiment_map',
-          'ON experiment.experiment_id == experiment_summary.experiment_id',
-              'AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id',
-              'AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id' ])
-
-    return join_conditions
+    return """ 
+    JOIN
+        experiment, experiment_summary, experiment_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )"""
 
 
 def apply_inclusion_rules_to_coinc_inspiral( connection, exclude_coincs = None, include_coincs = None, 

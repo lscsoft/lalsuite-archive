@@ -248,7 +248,6 @@ static PyObject *pylal_LIGOTimeGPS___long__(PyObject *self)
 static PyObject *pylal_LIGOTimeGPS___mod__(PyObject *self, PyObject *other)
 {
 	LIGOTimeGPS gps;
-	/* FIXME:  what about type(other) == LIGOTimeGPS */
 	const double other_double = PyFloat_AsDouble(other);
 
 	if(PyErr_Occurred())

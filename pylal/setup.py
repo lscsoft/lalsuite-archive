@@ -216,6 +216,7 @@ setup(
 	scripts = [
 		os.path.join("bin", "analyseQscan.py"),
                 os.path.join("bin", "distrib_fu_qscan_results.py"),
+                os.path.join("bin", "submit_remote_scan.py"),
                 os.path.join("bin", "exttrig_likelihood_pipe"),
                 os.path.join("bin", "fup_triggers.py"),
 		os.path.join("bin", "grbSelect"),
@@ -315,7 +316,8 @@ setup(
                 os.path.join("bin", "pylal_expose"),
                 os.path.join("bin", "ligolw_cbc_printlc"),
                 os.path.join("bin", "ligolw_cbc_cluster_coincs"),
-                os.path.join("bin", "ligolw_cbc_cfar")
+                os.path.join("bin", "ligolw_cbc_cfar"),
+                os.path.join("bin", "extractCommand")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

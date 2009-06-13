@@ -68,9 +68,6 @@ import tempfile
 import urllib
 import pwd
 
-from glue import LDBDClient
-from glue import gsiserverutils
-
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -132,7 +129,7 @@ def parse_command_line():
     # Data location options
     parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
     # Other options
@@ -184,9 +181,13 @@ def parse_command_line():
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
         database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
         
@@ -222,7 +223,7 @@ def build_time_clause(table, times):
     that restricts a search to the given ranges"""
 
     subclauses = map(lambda x: 'NOT (%d > %s.end_time OR %s.start_time > %d)' % (x[0], table, table, x[1]), times)
-    return " OR ".join(subclauses)
+    return '( ' + " OR ".join(subclauses) + ' )'
 
 
 def build_segment_clause(clauses):
@@ -410,7 +411,16 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 
 
-def setup_database(host_and_port):
+def setup_database(host_and_port,ldbdc_error):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -420,9 +430,8 @@ def setup_database(host_and_port):
         host, portString = host_and_port.split(':')
         port = int(portString)
 
-
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-
+    
     # open connection to LDBD Server
     client = None
 
@@ -434,7 +443,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
+        sys.exit(1)
 
     return client
 

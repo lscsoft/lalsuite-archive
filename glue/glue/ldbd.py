@@ -62,16 +62,14 @@ class LIGOLWStream(csv.Dialect):
 csv.register_dialect("LIGOLWStream",LIGOLWStream)
 
 
-class LIGOLwParseError(Exception):
+class LIGOLwParseError(exceptions.Exception):
   """Error parsing LIGO lightweight XML file"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
-class LIGOLwDBError(Exception):
+class LIGOLwDBError(exceptions.Exception):
   """Error interacting with database"""
-  def __init__(self,args=None):
-    self.args = args
+  pass
 
 
 class Xlator(dict):

@@ -1,0 +1,909 @@
+#!/usr/bin/env python
+
+"""
+Client for querying a LDRDataFindServer to find 
+files used for gravitational wave data analysis.
+
+$Id$
+
+This program is part of the Grid LSC User Environment (GLUE)
+
+GLUE is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program.  If not, see <http://www.gnu.org/licenses/>.
+"""
+
+__version__ = '$Revision$'[11:-2]
+
+import sys
+import os
+import getopt
+import re
+import popen2
+import exceptions
+import httplib
+import urlparse
+import time
+import calendar
+
+try:
+    import M2Crypto
+    import cjson
+except ImportError, e:
+    print >> sys.stderr, """
+ligo_data_find requires the M2Crypto and cjson
+modules.
+
+On CentOS 5 and other RHEL based platforms
+these packages are available from the EPEL
+repository by doing
+
+yum install m2crypto
+yum install python-cjson
+
+For Debian Lenny these packages are available
+by doing
+
+apt-get install python-m2crypto
+apt-get install python-cjson
+
+Mac OS X users can find these packages in
+MacPorts.
+
+%s
+""" % e
+    sys.exit(1)
+
+try:
+        from glue.lal import LIGOTimeGPS
+except ImportError, e:
+        print >> sys.stderr, """
+Error: unable to import modules from GLUE.
+
+Check that GLUE is correctly installed and in your PYTHONPATH.
+
+%s
+""" % e
+        sys.exit(1)
+
+
+def usage():
+        """
+        Print a usage message to stderr.
+        """
+        msg = """\
+NAME
+        ligo_data_find
+
+SYNOPSIS
+        ligo_data_find --server=NAME:PORT --observatory=NAME --type=NAME 
+               --gps-start-time=GPS --gps-end-time=GPS [ --lal-cache ] 
+               [ --url-type=SCHEME ]  [ --match=EXPRESSION ]
+               [ --names-only ] [--show-times] [ --version ]
+               [ --no-proxy ]
+
+        ligo_data_find --server=NAME:PORT --filename
+
+        ligo_data_find --server=NAME:PORT --show-observatories
+
+        ligo_data_find --server=NAME:PORT --show-types
+ 
+        ligo_data_find --server=NAME:PORT --show-times --type foo --observatory bar
+
+        ligo_data_find --server=NAME:PORT --ping
+
+        ligo_data_find --server=NAME:PORT --help
+
+DESCRIPTION
+        Query a LDRDataFindServer to obtain physical filenames 
+        or URLs for data files from a certain instrument and of 
+        a particular frame type within a GPS range.
+
+        -v, --version
+                Print version information for ligo_data_find client
+
+        -o, --observatory    
+                observatory(ies) that generated frame file 
+                Use --show-observatories to see what is available
+
+        -t, --type  
+                type of frame file 
+                Use --show-types to see what is available
+
+        -s, --gps-start-time 
+                start of GPS time range
+
+        -e, --gps-end-time   
+                end of GPS time range
+
+        -r, --server
+                hostname and optional port of server to query, in the form
+                host:port
+
+        -l, --lal-cache
+                format output for use as a LAL cache file
+
+        -m, --match
+                return only results that match a regular expression
+
+        -n, --names-only
+                return only the names of files with particular values for
+                instrument, type, start, and end rather than full URLs
+
+        -P, --no-proxy
+                attempt to authenticate without a grid proxy.
+
+        -u, --url-type
+                return only URLs with particular scheme or head such as
+                'file' or 'gsiftp'
+
+        -w, --show-observatories
+                list available observatory data
+
+        -y, --show-types
+                list available types
+
+        -a, --show-times
+        list gps-second segments for all data of type specified.
+        Must be used with --type foo and --observatory bar, where foo 
+                is a frame type and bar is an observatory. Optionally
+        Supports one or both of --gps-start-time and
+        --gps-end-time to restrict returned time ranges.
+
+        -p, --ping
+                ping the LDRDataFind server
+
+        -f, --filename
+                return URL(s) for a particular file
+
+        -h, --help  
+                show this usage message
+
+ENVIRONMENT
+
+        LSC_DATAFIND_SERVER can be set to avoid having to use the 
+        --server option on the command line. 
+
+        LSC_DATAFIND_URL_TYPE can be set to avoid having to use the
+        --url-type option on the command line.
+
+        LSC_DATAFIND_MATCH can be set to avoid having to use the
+        --match option on the command line. 
+
+EXAMPLE
+
+$ ligo_data_find --server=dataserver.phys.uwm.edu --observatory=H 
+--type=RDS_R_L3 --gps-start-time=714024240 --gps-end-time=714024340 --url-type=file 
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024224-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024240-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024256-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024272-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024288-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024304-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024320-16.gwf
+file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024336-16.gwf
+\
+"""
+        print >>sys.stderr, msg
+
+def main():
+    """
+    """
+
+    # grab command line options
+    shortop = "vt:s:e:wyaphlr:f:u:m:o:nPdO:"
+    longop = [
+              "version",
+              "help", 
+              "show-observatories",
+              "show-types",
+              "observatory=",
+              "gps-start-time=",
+              "gps-end-time=",
+              "type=",
+              "ping",
+              "server=",
+              "lal-cache",
+              "filename=",
+              "url-type=",
+              "match=",
+              "names-only",
+              "show-times",
+              "no-proxy",
+              "disable-host-auth",
+              "output-file=",
+              ]
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+    except getopt.GetoptError:
+            print >>sys.stderr, "Error parsing command line"
+            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            sys.exit(1)
+
+    # defaults
+    hostPortString = None
+    port = None
+    lalcache = False
+    noproxy = False # i.e., use proxy by default
+    namesOnly = False
+    output_file = sys.stdout
+
+    clientMethodArgDict = {
+            'observatory': None,
+            'end': None,
+            'start': None,
+            'type': None,
+            'times': None,
+            'filename': None,
+            'urlType': None,
+            'match': None,
+            }
+
+    # default method 
+    clientMethod = 'findFrameURLs'
+
+    # environment variables override defaults but not
+    # command line options
+    if os.environ.has_key('LSC_DATAFIND_SERVER'): 
+        hostPortString = os.environ['LSC_DATAFIND_SERVER']
+    if os.environ.has_key('LSC_DATAFIND_URL_TYPE'): 
+        clientMethodArgDict['urlType'] = os.environ['LSC_DATAFIND_URL_TYPE'] 
+    if os.environ.has_key('LSC_DATAFIND_MATCH'):
+        clientMethodArgDict['match'] = os.environ['LSC_DATAFIND_MATCH']
+
+    for o, a in opts:
+            if o in ("-h", "--help"):
+                    usage()
+                    sys.exit(0)
+            elif o in ("-v", "--version"):
+                    print 'ligo_data_find client version', __version__
+                    sys.exit(0)
+            elif o in ("-p", "--ping"):
+                    clientMethod = 'ping'
+            elif o in ("-w", "--show-observatories"):
+                    clientMethod = 'showObservatories'
+            elif o in ("-y", "--show-types"):
+                    clientMethod = 'showTypes'
+            elif o in ("-o", "--observatory"):
+                    clientMethodArgDict['observatory'] = a
+            elif o in ("-s", "--gps-start-time"):
+                    clientMethodArgDict['start'] = str(LIGOTimeGPS(a).seconds)
+            elif o in ("-e", "--gps-end-time"):
+                    a = LIGOTimeGPS(a)
+                    if a.nanoseconds:
+                            clientMethodArgDict['end'] = str(a.seconds + 1)
+                    else:
+                            clientMethodArgDict['end'] = str(a.seconds)
+            elif o in ("-t", "--type"):
+                    clientMethodArgDict['type'] = a
+            elif o in ("-l", "--lal-cache"):
+                    lalcache = True
+            elif o in ("-f", "--filename"):
+                    clientMethodArgDict['filename'] = a
+                    clientMethod = 'singleFrameFind'
+            elif o in ("-r", "--server"):
+                    hostPortString = a
+            elif o in ("-u", "--url-type"):
+                    pat = re.compile("rl-type")
+                    m = pat.match(a)
+                    if m:
+                            print >>sys.stderr, "The correct option is --url-type"
+                            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+                            sys.exit(1)
+                    clientMethodArgDict['urlType'] = a
+            elif o in ("-m", "--match"):
+                    clientMethodArgDict['match'] = a
+            elif o in ("-n", "--names-only"):
+                    namesOnly = True
+            elif o in ("-a","--show-times"):
+                    clientMethodArgDict['show-times'] = True
+                    clientMethod = 'showTimes'
+            elif o in ("-P","--no-proxy"):
+                    noproxy = True
+            elif o in ("-O", "--output-file"):
+                    output_file = open(a, "w")
+
+    if not clientMethod:
+            print >>sys.stderr, "Bad combination or missing options"
+            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            sys.exit(1)
+
+    # determine server and port
+    if not hostPortString:
+            print >>sys.stderr, "No LDRDataFindServer specified"
+            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            sys.exit(1)
+
+    if hostPortString.find(':') < 0:
+            # no port specified
+            host = hostPortString
+    else:
+            # server and port specified
+            host, portString = hostPortString.split(':')
+            port = int(portString)
+
+    clientMethodArgDict['host'] = host
+    clientMethodArgDict['port'] = port
+    clientMethodArgDict['output_file'] = output_file
+    clientMethodArgDict['namesOnly'] = namesOnly
+    clientMethodArgDict['lalcache'] = lalcache
+
+    # find credential
+    certFile, keyFile = (None, None)
+    if not noproxy:
+       certFile, keyFile = findCredential() 
+
+    clientMethodArgDict['certFile'] = certFile
+    clientMethodArgDict['keyFile'] = keyFile
+
+    # execute the query and print the result
+    try:
+        if clientMethod == 'findFrameURLs':
+            findFrameURLs(clientMethodArgDict)
+        elif clientMethod == 'showObservatories':
+            showObservatories(clientMethodArgDict)
+        elif clientMethod == 'showTypes':
+            showTypes(clientMethodArgDict)
+        elif clientMethod == 'showTimes':
+            showTimes(clientMethodArgDict)
+        elif clientMethod == 'singleFrameFind':
+            singleFrameFind(clientMethodArgDict)
+        elif clientMethod == 'ping':
+            ping(clientMethodArgDict)
+
+    except Exception, e:
+            print >>sys.stderr, "Error querying LDRDataFindServer: %s" % str(e)
+            print >>sys.stderr, "Enter 'ligo_data_find --help' for usage"
+            sys.exit(1)
+
+    output_file.close()
+    sys.exit(0)
+
+def findCredential():
+    """
+    Follow the usual path that GSI libraries would
+    follow to find a valid proxy credential but
+    also allow an end entity certificate to be used
+    along with an unencrypted private key if they
+    are pointed to by X509_USER_CERT and X509_USER_KEY
+    since we expect this will be the output from
+    the eventual ligo-login wrapper around
+    kinit and then myproxy-login.
+    """
+
+    # use X509_USER_PROXY from environment if set
+    if os.environ.has_key('X509_USER_PROXY'):
+        filePath = os.environ['X509_USER_PROXY']
+        if validateProxy(filePath):
+            return filePath, filePath
+        else:
+            RFCproxyUsage()
+            sys.exit(1)
+
+    # use X509_USER_CERT and X509_USER_KEY if set
+    if os.environ.has_key('X509_USER_CERT'):
+        if os.environ.has_key('X509_USER_KEY'):
+            certFile = os.environ['X509_USER_CERT']
+            keyFile = os.environ['X509_USER_KEY']
+
+    # search for proxy file on disk
+    uid = os.getuid()
+    path = "/tmp/x509up_u%d" % uid
+
+    if os.access(path, os.R_OK):
+        if validateProxy(path):
+            return path, path
+        else:
+            RFCproxyUsage()
+            sys.exit(1)
+
+    # if we get here could not find a credential
+    RFCproxyUsage()
+    sys.exit(1)
+
+def validateProxy(path):
+    """
+    Test that the proxy certificate is RFC 3820
+    compliant and that it is valid for at least
+    the next 15 minutes.
+    """
+
+    # load the proxy from path
+    try:
+        proxy = M2Crypto.X509.load_cert(path)
+    except Exception:
+        msg = "Unable to load proxy from path %s : %s" % (path, e)
+
+    # make sure the proxy is RFC 3820 compliant
+    try:
+        proxy.get_ext("proxyCertInfo")
+    except LookupError:
+        RFCproxyUsage()
+        sys.exit(1)
+
+    # attempt to make sure the proxy is still good for more than 15 minutes
+    try:
+        expireASN1 = proxy.get_not_after().__str__()
+        expireGMT  = time.strptime(expireASN1, "%b %d %H:%M:%S %Y %Z")
+        expireUTC  = calendar.timegm(expireGMT)
+        now = int(time.time())
+        secondsLeft = expireUTC - now
+    except Exception, e:
+        # problem getting or parsing time so just let the client
+        # continue and pass the issue along to the server
+        secondsLeft = 3600
+
+    if secondsLeft <= 0:
+        msg = """\
+Your proxy certificate is expired.
+
+Please generate a new proxy certificate and
+try again.
+"""
+        print >>sys.stderr, msg
+        sys.exit(1)
+
+    if secondsLeft < (60 * 15):
+        msg = """\
+Your proxy certificate expires in less than
+15 minutes.
+
+Please generate a new proxy certificate and
+try again.
+"""
+        print >>sys.stderr, msg
+        sys.exit(1)
+
+    # return True to indicate validated proxy
+    return True
+
+def RFCproxyUsage():
+    """
+    Print a simple error message about not finding
+    a RFC 3820 compliant proxy certificate.
+    """
+    msg = """\
+Could not find a RFC 3820 compliant proxy credential.
+Please run 'grid-proxy-init -rfc' and try again.
+"""
+
+    print >>sys.stderr, msg
+
+def ping(args):
+    """
+    Ping the server to test authentication, authorization,
+    and that the server is up.
+    """
+    host      = args['host']
+    port      = args['port']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    output_file = args['output_file']
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # A ping is just a simple data find query with 
+    # method HEAD instead of GET so any reasonable input
+    # will work fine since an actual query is not done
+    url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s" % ('H', 'R', '1', '2')
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("HEAD", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK the ping was good
+    print >>output_file, "LDRDataFindServer at %s is alive" % server
+
+def findFrameURLs(args):
+    """
+    Given observatory, type, start, and end along
+    with possibly a URL type and a regular expression
+    match query the server to find the list of
+    URLs.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    site      = args['observatory']
+    frameType = args['type']
+    gpsStart  = args['start']
+    gpsEnd    = args['end']
+
+    urlType   = args['urlType']
+    match     = args['match']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    namesOnly   = args['namesOnly']
+    lalcache    = args['lalcache']
+    output_file = args['output_file']
+
+    if not site or not frameType or not gpsStart or not gpsEnd:
+        msg = """\
+Bad combination of command line arguments:
+--observatory --type --gps-start-time --gps-end-time must all
+be present when searching for groups of files
+"""
+        raise RuntimeError(msg)
+        
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # construct the URL for a simple data find query
+    url = "/LDR/services/data/v1/gwf/%s/%s/%s,%s" % (site, frameType, gpsStart, gpsEnd)
+
+    # if a URL type is specified append it to the path
+    if urlType:
+        url += "/%s" % urlType
+
+    # request JSON output
+    url += ".json"
+
+    # append a regex if input
+    if match:
+        url += "?match=%s" % match
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the URLs
+    body = response.read()
+
+    # decode the JSON
+    urlList = cjson.decode(body)
+
+    if len(urlList) == 0:
+        print >>sys.stderr, "No files found!"
+        return
+
+    elif namesOnly:
+        lfns = parseLFNs(urlList)
+        for lfn in lfns:
+            print >>output_file, "%s" % lfn
+
+    elif lalcache:
+        for pfn in urlList:
+            lfn = os.path.basename(pfn)
+            head, ext = os.path.splitext(lfn)
+            a, b, c, d = head.split('-') 
+            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    else:
+        for pfn in urlList:
+            print >>output_file, "%s" % pfn
+
+def parseLFNs(urlList):
+    """
+    Parse the file names from a list of URLs
+    and return the sorted list.
+    """
+
+    # use a dictionary because there may be more than
+    # one URL per LFN
+    lfnDict = {}
+
+    for url in urlList:
+        path = urlparse.urlparse(url)[2]
+        lfn = os.path.split(path)[1]
+        lfnDict[lfn] = 1
+
+    lfns = lfnDict.keys()
+    lfns.sort()
+
+    return lfns
+
+def showObservatories(args):
+    """
+    Query server for list of available
+    observatories.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    output_file = args['output_file']
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # construct the URL 
+    url = "/LDR/services/data/v1/gwf.json" 
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the list
+    body = response.read()
+
+    # decode the JSON
+    siteList = cjson.decode(body)
+
+    for site in siteList:
+        print >>output_file, site
+
+def showTypes(args):
+    """
+    Query server for list of available frame types.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    output_file = args['output_file']
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # construct the URL 
+    url = "/LDR/services/data/v1/gwf/all.json" 
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the list
+    body = response.read()
+
+    # decode the JSON
+    frameTypes = cjson.decode(body)
+
+    for type in frameTypes:
+        print >>output_file, type
+
+def showTimes(args):
+    """
+    Given observatory, type, and possible start and end 
+    query the server to find the list of segments.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    site      = args['observatory']
+    frameType = args['type']
+    gpsStart  = args['start']
+    gpsEnd    = args['end']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    output_file = args['output_file']
+
+    if not site or not frameType:
+        msg = """\
+Bad combination of command line arguments:
+--observatory --type must both be present when searching 
+for segments. 
+
+Additionally you may specificy a beginning and end time 
+range using --gps-start-time and --gps-end-time,
+or just a beginning or just an end time.
+"""
+        raise RuntimeError(msg)
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # the URL depends on whether gpsStart and gpsEnd are present
+    if gpsStart and gpsEnd:
+        url = "/LDR/services/data/v1/gwf/%s/%s/segments/%s,%s.json" % (site, frameType, gpsStart, gpsEnd)
+    else:
+        url = "/LDR/services/data/v1/gwf/%s/%s/segments.json" % (site, frameType)
+        
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the URLs
+    body = response.read()
+
+    # decode the JSON
+    segmentList = cjson.decode(body)
+
+    if len(segmentList) == 0:
+        print >>sys.stderr, "No segments found!"
+        return
+
+    for s in segmentList:
+        print >>output_file, "%d %d" % tuple(s)
+
+def singleFrameFind(args):
+    """
+    Query for the URLs for a single file.
+    """
+
+    host      = args['host']
+    port      = args['port']
+
+    filename  = args['filename']
+
+    certFile  = args['certFile']
+    keyFile   = args['keyFile']
+
+    lalcache    = args['lalcache']
+    output_file = args['output_file']
+    namesOnly   = args['namesOnly']
+
+    if port:
+        server = "%s:%d" % (host, port)
+    else:
+        server = host
+
+    # parse file name for site, frame type
+    try:
+        site, frameType, dummy1, dummy2 = filename.split("-")
+    except Exception, e:
+        msg = "Error parsing filename %s: %s" % (filename, e)
+        raise RuntimeError(msg)
+
+    # construct the URL for finding a single file
+    url = "/LDR/services/data/v1/gwf/%s/%s/%s.json" % (site, frameType, filename)
+
+    # if we have a credential then use it when setting up the connection
+    if certFile and keyFile:
+        h = httplib.HTTPSConnection(server, key_file = keyFile, cert_file = certFile)
+    else:
+        h = httplib.HTTPSConnection(server)
+
+    # query the server
+    try:
+        h.request("GET", url)
+        response = h.getresponse()
+    except Exception, e:
+        msg = "Unable to query server %s: %s\n\nPerhaps you need a valid proxy credential?\n" % (server, e)
+        raise RuntimeError, msg
+
+    # the server did respond to check the status
+    if response.status != 200:
+        msg = "Server returned code %d: %s" % (response.status, response.reason)
+        body = response.read()
+        msg += body
+        raise RuntimeError, msg
+
+    # since status is 200 OK read the URLs
+    body = response.read()
+
+    # decode the JSON
+    urlList = cjson.decode(body)
+
+    if len(urlList) == 0:
+        print >>sys.stderr, "No files found!"
+        return
+
+    elif namesOnly:
+        lfns = parseLFNs(urlList)
+        for lfn in lfns:
+            print >>output_file, "%s" % lfn
+
+    elif lalcache:
+        for pfn in urlList:
+            lfn = os.path.basename(pfn)
+            head, ext = os.path.splitext(lfn)
+            a, b, c, d = head.split('-') 
+            print >>output_file, "%s %s %s %s %s" % (a, b, c, d, pfn)
+
+    else:
+        for pfn in urlList:
+            print >>output_file, "%s" % pfn
+
+if __name__ == '__main__':
+    main()

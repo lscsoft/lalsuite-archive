@@ -35,7 +35,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
 
     # Maybe the user just wants one file...
     if os.path.isfile(dirname):
-        return [dirname]
+        if re.match('.*-[0-9]*-[0-9]*\.xml', dirname):
+            return [dirname]
+        else:
+            return ret
 
     first_four_start = starttime / 100000
     first_four_end   = endtime   / 100000
@@ -49,6 +52,10 @@ def get_all_files_in_range(dirname, starttime, endtime):
             file_time = int(filename.split('-')[-2])
             if file_time >= (starttime-64) and file_time <= (endtime+64):
                 ret.append(os.path.join(dirname,filename))
+        else:
+            # Keep recursing, we may be looking at directories of
+            # ifos, each of which has directories with times
+            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
 
     return ret
 
@@ -164,124 +171,45 @@ def run_query_segments(doc, proc_id, engine, gps_start_time, gps_end_time, inclu
     sever invocations (as segments_from_cats does).
     """
     
-    # Find or create the tables we'll need
-    try:
-        seg_def_table  = table.get_table(doc, lsctables.SegmentDefTable.tableName)
-        new_seg_def_id = seg_def_table[0].segment_def_id       
-    except ValueError:
-        seg_def_table = lsctables.New(lsctables.SegmentDefTable,
-                                      columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
-        doc.childNodes[0].appendChild(seg_def_table)
+    if write_segments:
+        all_ifos = {}
 
-        # Add ourselves as a segment definer
-        new_seg_def_id                 = seg_def_table.get_next_id()
-        segment_definer                = lsctables.SegmentDef()
-        segment_definer.process_id     = proc_id
-        segment_definer.segment_def_id = new_seg_def_id
-        segment_definer.ifos           = split_segment_ids(included_segments_string.split(','))[0][0]
-        segment_definer.name           = "result"
-        segment_definer.version        = 0
-        segment_definer.comment        = ''
-        
-        seg_def_table.append(segment_definer)
-
-    try:
-        seg_sum_table = table.get_table(doc, lsctables.SegmentSumTable.tableName)
-    except:
-        seg_sum_table = lsctables.New(lsctables.SegmentSumTable,
-                                      columns = ['process_id','segment_def_id','segment_sum_id','start_time', 'end_time'])
-        doc.childNodes[0].appendChild(seg_sum_table)
-
-        # with a segment summary spanning the interval from the command line
-        segment_summary                = lsctables.SegmentSumTable()
-        segment_summary.process_id     = proc_id
-        segment_summary.segment_def_id = new_seg_def_id
-        segment_summary.segment_sum_id = seg_sum_table.get_next_id()
-        segment_summary.start_time     = gps_start_time
-        segment_summary.end_time       = gps_end_time
-        
-        seg_sum_table.append(segment_summary)
+        for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
+            all_ifos[ifo] = True
 
 
-    try:
-        segtable = table.get_table(doc, lsctables.SegmentTable.tableName)
-    except:
-        segtable = lsctables.New(lsctables.SegmentTable,
-                                 columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
-        doc.childNodes[0].appendChild(segtable)
+        new_seg_def_id = add_to_segment_definer(doc, proc_id, ''.join(all_ifos.keys()), 'result', 0)
+        add_to_segment_summary(doc, proc_id, new_seg_def_id, [[gps_start_time, gps_end_time]])
 
-
-    included_segments = glue.segments.segmentlist([])
-    excluded_segments = glue.segments.segmentlist([])
-
+    result = glue.segments.segmentlist([])
 
     for ifo, segment_name, version in split_segment_ids(included_segments_string.split(',')):
         sum_segments, seg_segments = build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version, start_pad, end_pad)
+        seg_def_id                 = add_to_segment_definer(doc, proc_id, ifo, segment_name, version)
 
-        seg_def_id                     = seg_def_table.get_next_id()
-        segment_definer                = lsctables.SegmentDef()
-        segment_definer.process_id     = proc_id
-        segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifo
-        segment_definer.name           = segment_name
-        segment_definer.version        = version
-        segment_definer.comment        = ''
-
-        seg_def_table.append(segment_definer)
-
-        # Add segment summary entries
-        for sum_segment in sum_segments:
-            segment_summary                = lsctables.SegmentSumTable()
-            segment_summary.process_id     = proc_id
-            segment_summary.segment_def_id = seg_def_id
-            segment_summary.segment_sum_id = seg_sum_table.get_next_id()
-            segment_summary.start_time     = sum_segment[0]
-            segment_summary.end_time       = sum_segment[1]
-
-            seg_sum_table.append(segment_summary)
+        add_to_segment_summary(doc, proc_id, seg_def_id, sum_segments)
 
         # and accumulate segments 
-        included_segments |= seg_segments
+        result |= seg_segments
 
     # Excluded segments are not required
     if excluded_segments_string:
+        excluded_segments = glue.segments.segmentlist([])
+
         for ifo, segment_name, version in split_segment_ids(excluded_segments_string.split(',')):
             sum_segments, seg_segments = build_segment_list(engine, gps_start_time, gps_end_time, ifo, segment_name, version)
             excluded_segments |= seg_segments
 
+        result = result - excluded_segments
 
-    result = included_segments - excluded_segments
     result.coalesce()
     
     # Add the segments
     if write_segments:
-        write_segments_to_xml(doc, proc_id, result)
+        add_to_segment(doc, proc_id, new_seg_def_id, result)
 
     return result
 
-
-def write_segments_to_xml(doc, proc_id, result):
-    """Write out the segments in result to the doc"""
-    
-    seg_def_table  = table.get_table(doc, lsctables.SegmentDefTable.tableName)
-    new_seg_def_id = seg_def_table[0].segment_def_id       
-
-    try:
-        segtable = table.get_table(doc, lsctables.SegmentTable.tableName)
-    except:
-        segtable = lsctables.New(lsctables.SegmentTable,
-                                 columns = ["process_id", "segment_def_id", "segment_id", "start_time", "end_time"])
-        doc.childNodes[0].appendChild(segtable)
-
-    for seg in result:
-        segment                = lsctables.Segment()
-        segment.process_id     = proc_id
-        segment.segment_def_id = new_seg_def_id
-        segment.segment_id     = segtable.get_next_id()
-        segment.start_time     = seg[0]
-        segment.end_time       = seg[1]
-
-        segtable.append(segment)
 
 
 def split_segment_ids(segment_ids):
@@ -305,7 +233,7 @@ def split_segment_ids(segment_ids):
 
 
 
-def find_segments(doc, key):
+def find_segments(doc, key, use_segment_table = True):
     key_pieces = key.split(':')
     while len(key_pieces) < 3:
         key_pieces.append('*')
@@ -318,8 +246,12 @@ def find_segments(doc, key):
     seg_def_ids   = map(lambda x: str(x.segment_def_id), seg_defs)
 
     # Find all segments belonging to those definers
-    seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
-    seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+    if use_segment_table:
+        seg_table     = table.get_table(doc, lsctables.SegmentTable.tableName)
+        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_table)
+    else:
+        seg_sum_table = table.get_table(doc, lsctables.SegmentSumTable.tableName)
+        seg_entries   = filter(lambda x: str(x.segment_def_id) in seg_def_ids, seg_sum_table)
 
     # Combine into a segmentlist
     ret = glue.segments.segmentlist(map(lambda x: glue.segments.segment(x.start_time, x.end_time), seg_entries))
@@ -368,4 +300,22 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
 
         segtable.append(segment)
 
+
+def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
+    try:
+        seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
+    except:
+        seg_sum_table = lsctables.New(lsctables.SegmentSumTable, columns = ["process_id", "segment_def_id", "segment_sum_id", "start_time", "end_time", "comment"])
+        xmldoc.childNodes[0].appendChild(seg_sum_table)
+
+    for seg in sgmtlist:
+        segment_sum                = lsctables.SegmentSum()
+        segment_sum.process_id     = proc_id
+        segment_sum.segment_def_id = seg_def_id
+        segment_sum.segment_sum_id = seg_sum_table.get_next_id()
+        segment_sum.start_time     = seg[0]
+        segment_sum.end_time       = seg[1]
+        segment_sum.comment        = ''
+
+        seg_sum_table.append(segment_sum)
 

@@ -62,7 +62,7 @@ def parse_command_line():
         help =
             "Writes output to specified xml file. Warning: for larger databases, this can take awhile."
             )
-    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help = 
             "Requried. Location of local disk on which to do work. " +
@@ -170,8 +170,8 @@ def parse_command_line():
         raise ValueError, "No input specified."
     if not options.output:
         raise ValueError, "No output specified."
-    if not options.temp_space:
-        raise ValueError, "--temp-space is a requred argument."
+    if not options.tmp_space:
+        raise ValueError, "--tmp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
     if not (options.rank_by.upper() == 'MAX' or options.rank_by.upper() == 'MIN'):
@@ -225,7 +225,7 @@ if not os.path.isfile( filename ):
 if opts.verbose: 
     print >> sys.stdout, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
@@ -304,23 +304,30 @@ if opts.verbose:
 # initialize Summaries class, call background
 background = sqlutils.Summaries()
 
-# get all the durations from the experiment summary table
+# get information about all rows in the experiment summary table
 sqlquery = ''.join(["""
     SELECT
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        convert_to_yrs(experiment_summary.duration)
+        convert_to_yrs(experiment_summary.duration),
+        experiment_summary.datatype
     FROM
-        experiment_summary"""])
-for eid, esid, duration in connection.cursor().execute( sqlquery ):
+        experiment_summary
+    WHERE
+        experiment_summary.datatype != "simulation" """])
+for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
     background.append_duration(eid, esid, duration)
+    if datatype != "slide":
+        background.append_zero_lag_id( eid, esid, datatype )
 
-# get all the triggers
+# calculate the background duration for each experiment_summary_id 
+background.calc_bkg_durs()
+
+# get all the non-injection triggers
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        experiment_summary.zero_lag,
         coinc_inspiral.ifos,
         """,
         param_grouping, """,
@@ -332,28 +339,21 @@ sqlquery = ''.join([ """
             experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
             AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)
     WHERE 
-        experiment_summary.simulation == 0"""])
+        experiment_summary.datatype != "simulation" """])
 
 if opts.debug:
     import time
     print >> sys.stderr, sqlquery
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-for eid, esid, zero_lag, ifos, param_group, stat in connection.cursor().execute(sqlquery):
-    background.add_to_bkgstats(eid, esid, ifos, param_group, stat)
-    background.append_duration(eid, esid, duration)
-    if zero_lag == 1:
-        background.append_zero_lag_id( eid, esid )
+for eid, esid, ifos, param_group, stat in connection.cursor().execute(sqlquery):
+    background.add_to_bkg_stats(eid, esid, ifos, param_group, stat)
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # sort the background lists
-background.sort_bkgstats()
-background.add_zero_lag_to_frgstats_and_sort()
-
-# calculate the background duration for each experiment_summary_id 
-background.calc_bkg_durs()
+background.sort_bkg_stats()
 
 if rank_by == "MIN":
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_min)
@@ -367,7 +367,7 @@ else:
 
 if opts.verbose:
     print >> sys.stderr, "Calculating uncombined FAR..."
-# populate uncombined far of foreground table
+# calculate the uncombined far for each trigger and store in coinc_inspiral table
 sqlquery = ''.join(["""
     UPDATE
         coinc_inspiral
@@ -381,9 +381,11 @@ sqlquery = ''.join(["""
                     """, param_grouping, """,
                     coinc_inspiral.""", ranking_stat, """
                     ) 
-            FROM experiment_summary, experiment_map
+            FROM 
+                experiment_summary, experiment_map
             WHERE
-                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                experiment_summary.datatype != "simulation"
+                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 if opts.debug:
     print >> sys.stderr, sqlquery
@@ -440,7 +442,7 @@ sqlscript = ''.join(["""
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
         WHERE 
-            experiment_summary.simulation == 0;
+            experiment_summary.datatype != "simulation";
     UPDATE 
         max_bkg_fars
     SET 
@@ -501,12 +503,13 @@ sqlquery = ''.join(["""
                     experiment_map.experiment_summ_id,
                     """, ifos_group,
                     """
-                    coinc_inspiral.uncombined_far )
+                    coinc_inspiral.false_alarm_rate )
             FROM 
-                experiment_map
+                experiment_summary, experiment_map
             WHERE
-                experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id
-            )"""])
+                experiment_summary.datatype != "simulation"
+                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
 
 if opts.debug:
     print >> sys.stderr, sqlquery

@@ -58,13 +58,6 @@ from glue.ligolw import dbtables
 from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
-try:
-   from glue import LDBDClient
-   from glue import gsiserverutils
-   have_ldbdc = True
-except:
-   have_ldbdc = False
-
 from glue.ligolw.utils import process
 
 import re
@@ -110,7 +103,7 @@ def parse_command_line():
                       
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
-    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
     parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
     parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
@@ -131,6 +124,8 @@ def parse_command_line():
     tmp_dir = None
 
     # If the veto file is a URL, load it
+    loaded_file = None
+
     if options.veto_file.find(':') != -1:
         tmp_dir = tempfile.mkdtemp()
         inurl   = urllib.urlopen(options.veto_file)
@@ -139,9 +134,9 @@ def parse_command_line():
         pos     = options.veto_file[::-1].find('/')
         fname   = (pos > -1) and options.veto_file[ -1 * pos:] or "veto_definer.xml" 
 
-        options.veto_file = tmp_dir + "/" + fname
+        loaded_file = tmp_dir + "/" + fname
 
-        outfile = open(options.veto_file, 'w')
+        outfile = open(loaded_file, 'w')
         for l in inurl:
             print >>outfile, l,
 
@@ -180,11 +175,13 @@ def parse_command_line():
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_file:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
-        if os.environ['DMT_SEGMENT_LOCATION'][len('file://')]!='/':
-           raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-file specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment_url | --database | --dmt-file ] must be provided" )
 
@@ -196,7 +193,7 @@ def parse_command_line():
         raise ValueError( "missing required argument --gps-end-time" )
 
         
-    return options, database_location, file_location
+    return options, database_location, file_location, loaded_file
 
 
 
@@ -245,6 +242,15 @@ def kludge_get_column_info(connection, table_name):
 
 
 def setup_database(host_and_port):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -253,7 +259,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -268,7 +273,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
+        sys.exit(1)
 
     return client
 
@@ -294,7 +299,7 @@ if __name__ == '__main__':
 
     dbtables.get_column_info = kludge_get_column_info
 
-    options, db_location, file_location = parse_command_line()    
+    options, db_location, file_location, loaded_file = parse_command_line()    
 
     # 1. Load the veto file into sqlite    
     handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
@@ -304,7 +309,7 @@ if __name__ == '__main__':
 
     # Create an engine to query veto information
     veto_query_engine = query_engine.SqliteQueryEngine(veto_connection)
-    xml_files         = [options.veto_file]
+    xml_files         = [loaded_file or options.veto_file]
 
     # 2. If we're working with DMT files load them into sqlite as well
     min_start_time = int(options.gps_start_time)
@@ -314,11 +319,8 @@ if __name__ == '__main__':
         xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
         segment_query_engine = veto_query_engine
     else:
-        if ( have_ldbdc is True ):
-            segment_connection   = setup_database(db_location)
-            segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
-        else:
-            print >> sys.stderr, "Error: Could not import LDBDClient. Check that LDG is properly installed"
+        segment_connection   = setup_database(db_location)
+        segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
@@ -371,34 +373,27 @@ if __name__ == '__main__':
 
         vetoed_segs.coalesce()
 
-        # Find or create the segment definer table
-        tmp = filter(lambda x: type(x) == lsctables.SegmentDefTable, doc.childNodes[0].childNodes)
+        # Add the result type to the segment definer table
+        seg_name   = 'VETO_CAT%d%s' % (category_num, options.cumulative_categories and '_CUMULATIVE' or '')
+        seg_def_id = segmentdb_utils.add_to_segment_definer(doc, proc_id, ifo, seg_name, 1)
 
-        if len(tmp) > 0:
-            seg_def_table = tmp[0]
-        else:
-            seg_def_table = lsctables.New(lsctables.SegmentDefTable, columns = ["process_id", "segment_def_id", "ifos", "name", "version", "comment"])
+        # and segment summary
+        segmentdb_utils.add_to_segment_summary(doc, proc_id, seg_def_id, [[min_start_time, max_end_time]])
 
-            doc.childNodes[0].appendChild(seg_def_table)
-            seg_def_id                     = seg_def_table.get_next_id()
-            segment_definer                = lsctables.SegmentDef()
-            segment_definer.process_id     = proc_id
-            segment_definer.segment_def_id = seg_def_id
-            segment_definer.ifos           = ifo
-            segment_definer.name           = "VETOED_SEGMENTS"
-            segment_definer.version        = 1
-            segment_definer.comment        = ''
-
-            seg_def_table.append(segment_definer)
-
-        # And store the segments
-        segmentdb_utils.write_segments_to_xml(doc, proc_id, vetoed_segs)
+        # and store the segments
+        segmentdb_utils.add_to_segment(doc, proc_id, seg_def_id, vetoed_segs)
             
         # Dump to XML
         output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
         utils.write_filename(doc, output_name)
 
     # Clean up
+    if loaded_file:
+        os.remove(loaded_file)
+        pos   = loaded_file[::-1].find('/') + 1
+        os.rmdir(loaded_file[:-1 * pos])
+
+
     if not options.keep_db:
         os.remove(temp_db)
 

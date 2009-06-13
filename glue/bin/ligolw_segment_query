@@ -55,9 +55,6 @@ import socket
 import tempfile
 import urllib
 
-from glue import LDBDClient
-from glue import gsiserverutils
-
 import glue.segments
 
 from glue.ligolw import ligolw
@@ -122,7 +119,7 @@ def parse_command_line():
     # Data location options
     parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL. Users have to specify a prefix 'ldbd://' in front of the actual url where the segment database locates. For example, '--segment-url=ldbd://nldas.ligo-wa.caltech.edu:30015'. Port number is optional, if not present, the default port 30015 will be used. ")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER. For example, 'S6_SEGMENT_SERVER=ldbd://nldas.ligo-wa.caltech.edu'")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION, for example, 'DMT_SEGMENT_LOCATION=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ, for example, 'ONLINEDQ=file:///path_to_dmt'. 'file://' is the prefix, the acutal directory to DMT xml files starts with '/'.")
 
 
     # Other options
@@ -177,9 +174,12 @@ def parse_command_line():
             raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment-url | --database | --dmt-files ] must be provided" )
         
@@ -507,6 +507,15 @@ def run_query_types(doc, proc_id, connection, engine, gps_start_time, gps_end_ti
 
 
 def setup_database(host_and_port):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -515,7 +524,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -575,13 +583,6 @@ def setup_files(dir_name, gps_start_time, gps_end_time):
 #
 
 if __name__ == '__main__':
-    # Add boolean as a type to ligolwtypes, so that we can put boolean arguments
-    # into the process_params table
-
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
-
-
     # We don't accept nanosecond resolution
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']

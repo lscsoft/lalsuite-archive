@@ -1,0 +1,7 @@
+db2 connect to seg6_lho;
+db2 -tf process.sql;
+db2 -tf process_params.sql;
+db2 -tf segment_definer.sql;
+db2 -tf segment_summary.sql;
+db2 -tf segment.sql;
+

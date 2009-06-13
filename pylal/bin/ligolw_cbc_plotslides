@@ -1,0 +1,491 @@
+#!/usr/bin/python
+
+
+# ============================================================================
+#
+#                               Preamble
+#
+# ============================================================================
+
+
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__version__ = "$Revision$"
+__date__ = "$Date$"
+__prog__ = "ligolw_cbc_plotslides"
+__Id__ = "$Id$"
+usage = """
+Plots number of events and durations for each slide in each
+experiment time in a database.
+"""
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys, os
+
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+
+from pylal import InspiralUtils
+
+
+# ============================================================================
+#
+#                               Set Options
+#
+# ============================================================================
+
+def parse_command_line():
+    """
+    Parser function dedicated
+    """
+
+    parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
+    # following are related to file input and output naming
+    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+        help = 
+            "Input database to read. Can only input one at a time."
+        )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help = 
+            "Location of local disk on which to do work. This is optional; " +
+            "it is only used to enhance performance in a networked " +
+            "environment. "
+        )
+    parser.add_option( "-P", "--output-path", action = "store", type = "string", \
+        default = "", metavar = "PATH", \
+        help = 
+            "path where the figures should be stored" 
+        )
+    parser.add_option( "-O", "--enable-output", action = "store_true", \
+        default =  False, metavar = "OUTPUT", \
+        help = 
+            "enable the generation of html and cache documents" 
+        )
+    parser.add_option( "-p", "--plot-playground-only", action = "store_true",
+        default = False,
+        help =
+            "Plot only playground data. Use if plotting un-opened box."
+        )
+    parser.add_option( "-u", "--user-tag", action = "store", type = "string",
+        default = None, metavar = "USERTAG",
+        help =
+            "Add a tag in the name of the figures"
+        )
+    parser.add_option( "-s", "--show-plot", action = "store_true", default = False, \
+        help = 
+            "display the plots on the terminal" 
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False, \
+        help = 
+            "print information to stdout" 
+        )
+
+    (options,args) = parser.parse_args()
+
+    #check if required options specified and for self-consistency
+    if not options.input:
+        raise ValueError, "--input must be specified"
+    if not options.output_path:
+        raise ValueError, "--output-path must be specified"
+
+    return options, sys.argv[1:]
+            
+
+
+# ============================================================================
+#
+#                                 Main
+#
+# ============================================================================
+
+#
+#   Generic Initialization
+#
+
+# parse command line
+opts, args = parse_command_line()
+
+# get input database filename
+filename = opts.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if opts.verbose: 
+    print >> sys.stdout, "Creating a database connection..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+
+#
+#   Plotting Initialization
+#
+
+# Change to Agg back-end if show() will not be called 
+# thus avoiding display problem
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use('Agg')
+from pylab import *
+from pylal import viz
+from numpy import histogram
+rc('text', usetex=True)
+
+if opts.user_tag and opts.plot_playground_only:
+    opts.user_tag = '_'.join([ 'PLAYGROUND_ONLY', opts.user_tag ])
+if opts.user_tag and not opts.plot_playground_only:
+    opts.user_tag = '_'.join([ 'FULL_DATA', opts.user_tag ])
+if not opts.user_tag and opts.plot_playground_only:
+    opts.user_tag = 'PLAYGROUND_ONLY'
+if not opts.user_tag and not opts.plot_playground_only:
+    opts.user_tag = 'FULL_DATA'
+
+#
+#   Program-specific Initialization
+#
+
+# Get all the experiment_ids
+sqlquery = """
+    SELECT
+        experiment.experiment_id,
+        experiment.gps_start_time,
+        experiment.gps_end_time,
+        experiment.instruments
+    FROM
+        experiment
+    """
+experiment_ids = {}
+for this_eid, gps_start_time, gps_end_time, on_instruments in connection.cursor().execute(sqlquery):
+    on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+    # get all the summary information for this experiment
+    if opts.verbose:
+        print >> sys.stdout, "Creating plots for %s time..." % ''.join(sorted(on_instruments))
+        print >> sys.stdout, "\tcollecting durations, total nevents..."
+    slide_numbers = {}
+    prev_slide_id = None
+    slide_num = 0
+    datatypes = {}
+    durations = {}
+    tot_events = {}
+    sqlquery = ''.join(["""
+        SELECT
+            experiment_summary.experiment_summ_id,
+            experiment_summary.time_slide_id,
+            experiment_summary.duration,
+            experiment_summary.nevents,
+            experiment_summary.datatype
+        FROM
+            experiment_summary
+        JOIN
+            time_slide ON (
+                time_slide.time_slide_id == experiment_summary.time_slide_id )
+        WHERE
+            experiment_summary.datatype != "simulation"
+            AND experiment_summary.experiment_id == """, '"', this_eid, '"', """
+        GROUP BY 
+            time_slide.time_slide_id, experiment_summary.datatype
+        ORDER BY 
+            SUM(time_slide.offset) ASC"""])
+    for esid, slide_id, duration, tot_nevents, datatype in connection.cursor().execute(sqlquery):
+        if prev_slide_id != slide_id:
+            slide_num += 1
+            prev_slide_id = slide_id
+        slide_numbers[ esid ] = slide_num
+        datatypes[ esid ] = datatype
+        durations[ esid ] = duration
+        if datatype == 'all_data':
+            zero_lag_slide_num = slide_numbers[esid]
+        # if plotting playground_only, don't store tot_events
+        if opts.plot_playground_only and (datatype == "all_data" or datatype == "exclude_play"):
+            continue
+        tot_events[ esid ] = tot_nevents
+    
+    # get number of events for each coinc type
+    if opts.verbose:
+        print >> sys.stdout, "\tcollecting number of events per coincident ifo..."
+    # if plotting playground only, turn on playground filter
+    if opts.plot_playground_only:
+        playground_filter = """
+            AND ( experiment_summary.datatype == "playground"
+                OR experiment_summary.datatype == "slide" )
+            """
+    else:
+        playground_filter = ''
+    coinc_ifos = {}
+    sqlquery = ''.join(["""
+        SELECT
+            experiment_summary.experiment_summ_id,
+            experiment_summary.datatype,
+            coinc_inspiral.ifos,
+            COUNT(experiment_map.coinc_event_id)
+        FROM
+            experiment_summary
+        JOIN
+            coinc_inspiral, experiment_map ON (
+                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
+        WHERE
+            experiment_summary.datatype != "simulation"
+            AND experiment_summary.experiment_id == """, '"', this_eid, '"',
+            playground_filter, """ 
+        GROUP BY
+            experiment_summary.experiment_summ_id, experiment_summary.datatype, coinc_inspiral.ifos"""])
+    for esid, datatype, ifo_set, ifos_nevents in connection.cursor().execute(sqlquery):
+        ifo_set = lsctables.instrument_set_from_ifos(ifo_set)
+        if frozenset(ifo_set) not in coinc_ifos:
+            coinc_ifos[frozenset(ifo_set)] = {}
+        coinc_ifos[frozenset(ifo_set)][ esid ] = ifos_nevents
+
+    # remap slide_numbers so that zero_lag esids have slide_num 0
+    # also plug in any missing data in coinc_ifos; this can happen
+    # if there are no events of particular ifo_type in a slide 
+    for esid in slide_numbers:
+        slide_numbers[esid] = slide_numbers[esid] - zero_lag_slide_num
+        for ifo_set in coinc_ifos:
+            if esid not in coinc_ifos[ifo_set]:
+                coinc_ifos[ifo_set][esid] = 0
+
+    min_slide_num = min(slide_numbers.values())
+    max_slide_num = max(slide_numbers.values())
+
+    #
+    #   Plotting
+    #
+    if opts.verbose:
+        print >> sys.stdout, "\tcreating plot figures..."
+
+    # set InspiralUtils options for file and plot naming
+    opts.gps_start_time = gps_start_time
+    opts.gps_end_time = gps_end_time
+    opts.ifo_times = ''.join(sorted(on_instruments))
+    opts.ifo_tag = ''
+    InspiralUtilsOpts = InspiralUtils.initialise( opts, __prog__, __version__ )
+
+    fnameList = []
+    tagList = []
+    figure_numbers = []
+    fig_num = 0
+
+    #
+    # plot durations
+    #
+    fig_num += 1
+    figure_numbers.append(fig_num)
+    figure(fig_num)
+    for esid, slide_num in slide_numbers.items():
+        if datatypes[ esid ] == 'slide':
+            bar(left = slide_num, height = durations[ esid ],
+                width = 1, color = 'gray',
+                align = 'center')
+        if datatypes[ esid ] == 'all_data':
+            bar(left = slide_num, height = durations[ esid ],
+                width = 1, color = 'b',
+                align = 'center')
+    # set labels
+    xlabel( r"Slide number", size='x-large')
+    ylabel( r"All-Data Durations (s)", size='x-large' )
+    # set limits
+    xlim(min_slide_num - 1, max_slide_num + 1)
+    if durations.values():
+        ymax = max(durations.values())
+    ylim(0, ymax + .1*ymax)
+    # Make the plot figure
+    if opts.enable_output:
+        name = "slide_durations"
+        fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+        InspiralUtils.savefig_pylal( filename = fname )
+        fnameList.append(fname)
+        tagList.append(name)
+
+    #
+    # plot total number of events
+    #
+    if not opts.plot_playground_only:
+        fig_num += 1
+        figure_numbers.append(fig_num)
+        figure(fig_num)
+        for esid, slide_num in slide_numbers.items():
+            if datatypes[ esid ] == 'slide':
+                bar(left = slide_num, height = tot_events[ esid ],
+                    width = 1, color = 'gray',
+                    align = 'center')
+            if datatypes[ esid ] == 'all_data':
+                bar(left = slide_num, height = tot_events[ esid ],
+                    width = 1, color = 'b',
+                    align = 'center')
+        # set labels
+        xlabel( r"Slide number", size='x-large')
+        ylabel( r"Total Number of Coinc. Events", size='x-large' )
+        # set limits
+        xlim(min_slide_num - 1, max_slide_num + 1)
+        if tot_events.values():
+            ymax = max(tot_events.values())
+        ylim(0, ymax + .1*ymax)
+        # Make the plot figure
+        if opts.enable_output:
+            name = "total_nevents"
+            fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+            InspiralUtils.savefig_pylal( filename = fname )
+            fnameList.append(fname)
+            tagList.append(name)
+        
+    #
+    # plot total rates
+    #
+    if opts.plot_playground_only:
+        rate_fig_nums = dict({ 'playground': figure_numbers[-1] + 1 })
+    else:
+        rate_fig_nums = dict({ 'all_data': figure_numbers[-1] + 1, 'playground': figure_numbers[-1] + 2, 
+            'exclude_play': figure_numbers[-1] + 1 })
+    figure_numbers += rate_fig_nums.values()
+    figure_numbers.sort()
+    ymax = 0.
+    for esid, slide_num in slide_numbers.items():
+        # if plotting playground only, skip if not playground
+        if opts.plot_playground_only and (datatypes[ esid ] == 'all_data' or datatypes[ esid ] == 'exclude_play'):
+            continue
+        tot_rate = float(tot_events[ esid ])/float(durations[ esid ])
+        if tot_rate > ymax:
+            ymax = tot_rate
+        if datatypes[ esid ] == 'slide':
+            for fig_num in rate_fig_nums.values():
+                figure(fig_num)
+                bar(left = slide_num, height = tot_rate,
+                    width = 1, color = 'gray',
+                    align = 'center')
+        else:
+            figure(rate_fig_nums[ datatypes[ esid ] ])
+            bar(left = slide_num, height = tot_rate,
+                width = 1, color = 'b',
+                align = 'center')
+    for datatype, fig_num in rate_fig_nums.items():
+        figure(fig_num)
+        # set labels
+        xlabel( r"Slide number", size='x-large')
+        ylbl = '-'.join(datatype.split("_"))
+        ylabel( ylbl + " Total Rates (Hz)", size='x-large' )
+        # set limits
+        xlim(min_slide_num - 1, max_slide_num + 1)
+        ylim(0, ymax + .1*ymax)
+        # Make the plot figure
+        if opts.enable_output:
+            name = datatype + "_tot_rates"
+            fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+            InspiralUtils.savefig_pylal( filename = fname )
+            fnameList.append(fname)
+            tagList.append(name)
+
+    #
+    #   Plot nevents and rates for individual coinc types
+    #
+    for ifo_set in coinc_ifos:
+        fig_num = figure_numbers[-1] + 1
+        figure_numbers.append(fig_num)
+        figure(fig_num)
+        #
+        # plot nevents
+        #
+        if not opts.plot_playground_only:
+            for esid, slide_num in slide_numbers.items():
+                if datatypes[ esid ] == 'slide':
+                    bar(left = slide_num, height = coinc_ifos[ ifo_set ][ esid ],
+                        width = 1, color = 'gray',
+                        align = 'center')
+                if datatypes[ esid ] == 'all_data':
+                    bar(left = slide_num, height = coinc_ifos[ ifo_set ][ esid ],
+                        width = 1, color = InspiralUtils.get_coinc_ifo_colors(ifo_set),
+                        align = 'center')
+                # set labels
+                xlabel( r"Slide number", size='x-large')
+                ylbl = ' '.join(["Nuber of ", ''.join(sorted(ifo_set)), "coinc. events" ])
+                ylabel( ylbl, size='x-large' )
+                # set limits
+                xlim(min_slide_num - 1, max_slide_num + 1)
+                if coinc_ifos[ ifo_set ].values():
+                    ymax = max(coinc_ifos[ ifo_set ].values())
+                ylim(0, ymax + .1*ymax)
+            # Make the plot figure
+            if opts.enable_output:
+                name = '_'.join([ ''.join(sorted(ifo_set)), "nevents" ])
+                fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+                InspiralUtils.savefig_pylal( filename = fname )
+                fnameList.append(fname)
+                tagList.append(name)
+        #
+        # plot rates
+        #
+        if opts.plot_playground_only:
+            rate_fig_nums = dict({ 'playground': figure_numbers[-1] + 1 })
+        else:
+            rate_fig_nums = dict({ 'all_data': figure_numbers[-1] + 1, 'playground': figure_numbers[-1] + 2, 
+                'exclude_play': figure_numbers[-1] + 1 })
+        figure_numbers += rate_fig_nums.values()
+        figure_numbers.sort()
+        ymax = 0.
+        for esid, slide_num in slide_numbers.items():
+            # if plotting playground only, skip if not playground
+            if opts.plot_playground_only and (datatypes[ esid ] == 'all_data' or datatypes[ esid ] == 'exclude_play'):
+                continue
+            ifo_rate = float(coinc_ifos[ ifo_set ][ esid ])/float(durations[ esid ])
+            if ifo_rate > ymax:
+                ymax = ifo_rate
+            if datatypes[ esid ] == 'slide':
+                for fig_num in rate_fig_nums.values():
+                    figure(fig_num)
+                    bar(left = slide_num, height = ifo_rate,
+                        width = 1, color = 'gray',
+                        align = 'center')
+            else:
+                figure(rate_fig_nums[ datatypes[ esid ] ])
+                bar(left = slide_num, height = ifo_rate,
+                    width = 1, color = InspiralUtils.get_coinc_ifo_colors(ifo_set),
+                    align = 'center')
+        for datatype, fig_num in rate_fig_nums.items():
+            figure(fig_num)
+            # set labels
+            xlabel( r"Slide number", size='x-large')
+            ylbl = ' '.join([ ''.join(sorted(ifo_set)), '-'.join(datatype.split("_")), "rates (Hz)" ])
+            ylabel( ylbl, size='x-large' )
+            # set limits
+            xlim(min_slide_num - 1, max_slide_num + 1)
+            ylim(0, ymax + .1*ymax)
+            # Make the plot figure
+            if opts.enable_output:
+                name = '_'.join([ ''.join(sorted(ifo_set)), datatype, "rates" ])
+                fname = InspiralUtils.set_figure_name(InspiralUtilsOpts, name)
+                InspiralUtils.savefig_pylal( filename = fname )
+                fnameList.append(fname)
+                tagList.append(name)
+
+
+    #
+    #   Write the cache file
+    #
+    if opts.enable_output:
+        if opts.verbose:
+            print >> sys.stdout, "\twriting html file and cache..."
+        html_filename = InspiralUtils.write_html_output( InspiralUtilsOpts, args, fnameList, tagList )
+        InspiralUtils.write_cache_output( InspiralUtilsOpts, html_filename, fnameList )
+
+    #
+    #   Show plots if desired
+    #
+    if opts.show_plot:
+        show()
+
+    # close the figure number for next experiment
+    for fig_num in figure_numbers:
+        close(fig_num)
+
+#
+#   Finshed cycling over experiments; exit
+#
+if opts.verbose:
+    print >> sys.stdout, "Finished!"
+sys.exit(0)

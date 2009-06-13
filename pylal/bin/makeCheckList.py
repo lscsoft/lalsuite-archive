@@ -117,6 +117,12 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
 
+parser.add_option("-X","--data-quality-url",action="store",type="string",\
+                  metavar="URL",default=None, dest="defaultldbd",\
+                  help="Using this argument specify a URL the LDBD \
+server that you want to query DQ Veto segment information from for\
+example ldbd://metaserver.phy.syr.edu:30015")
+
 parser.add_option("-Q","--data-quality-database",action="store",type="string",\
     metavar=" PATH2FILE",default=None, dest="defaultSQL",\
     help="This is the disk location of\
@@ -210,6 +216,7 @@ framecheck = []
 chia = []
 skymap = []
 singlemcmc = []
+coherentmcmc = []
 fu_triggers = []
 
 # prepare strings containing information on Nelson's DQ investigations
@@ -281,7 +288,7 @@ for ifo_index,ifo in enumerate(ifolist):
   if os.access("plotmcmcJob",os.F_OK):
     filesInDir = os.listdir("plotmcmcJob")
     for element in filesInDir:
-      if fnmatch.fnmatch(element, "*" + ifo + "*" + opts.trigger_id):
+      if fnmatch.fnmatch(element, "*" + ifo + "-*" + opts.trigger_id):
         singlemcmc.append("../plotmcmcJob/" + element)
         break
       else: pass
@@ -313,6 +320,16 @@ try:
   ifolist.index("H2")
   coherent_qscan.append("../h1h2QeventJob/qevent/H1H2/" + gpstime0)
 except: pass
+
+# links to coherent MCMC
+if os.access("plotmcmcJob",os.F_OK):
+  filesInDir = os.listdir("plotmcmcJob")
+  for element in filesInDir:
+    if fnmatch.fnmatch(element, "*" + opts.ifolist_in_coinc + "-*" + opts.trigger_id):
+      coherentmcmc.append("../plotmcmcJob/" + element)
+      break
+    else: pass
+
 
 # link to inspiral coherent followups
 coherentInspiralFile = getFileMatchingTrigger("plotChiaJob",opts.ifo_times+"_"+opts.trigger_id)
@@ -385,59 +402,71 @@ page.tr()
 page.td("#1 DQ flags")
 page.td("Can the data quality flags coincident with this candidate be safely disregarded ?")
 page.td()
-#Create database object without initialization
-#Assume there is a parser option setting the variable below?
-preBuiltDB=opts.defaultSQL
-if opts.defaultSQL == None:
-  preBuiltDB=""
-if os.path.isfile(preBuiltDB):
-  checklistDB=fu_utils.followupdqdb(True)
-  checklistDB.setDB(preBuiltDB)
+#Only use the SQL file way of selecting DQ IFF ini
+#code called with flag --data-quality-database
+if opts.defaultSQL != None:
+  #Create database object without initialization
+  #Assume there is a parser option setting the variable below?
+  preBuiltDB=opts.defaultSQL
+  if opts.defaultSQL == None:
+    preBuiltDB=""
+  if os.path.isfile(preBuiltDB):
+    checklistDB=fu_utils.followupdqdb(True)
+    checklistDB.setDB(preBuiltDB)
+  else:
+    checklistDB=fu_utils.followupdqdb()
+  results=dict()
+  results=checklistDB.queryDB(int(float(gpstime0)),600)
+  checklistDB.close()
+  htmlStart="<table bgcolor=grey border=1px><tr><th>IFO</th><th>Flag</th><th>Start(s)</th><th>Offset(s)</th><th>Stop(s)</th><th>Offset(s)</th></tr>"
+  htmlRows=list()
+  htmlRowsVeto=list()
+  htmlStop="</table>"
+  trigGPS=float(gpstime0)
+  for ifo in checklistDB.ifoList:
+    for segment in results[ifo]:
+      token=segment
+      if token.__len__() >= 5:
+        rowText="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%i</td><td>%i</td><td>%i</td><td>%i</td></tr>"
+        if ((token[2]-trigGPS)<0 and (token[3]-trigGPS)<0):
+          mycolor="yellow"
+        elif ((token[2]-trigGPS)>0 and (token[3]-trigGPS)>0):
+          mycolor="green"
+        else:
+          mycolor="red"
+        if token[0].split("_")[0] != "VETO":
+          htmlRows.append(rowText%(mycolor,ifo,\
+                                   token[0],\
+                                   token[2],\
+                                   token[2]-trigGPS,\
+                                   token[3],\
+                                   token[3]-trigGPS))
+        else:
+          htmlRowsVeto.append(rowText%(mycolor,ifo,\
+                                   token[0],\
+                                   token[2],\
+                                   token[2]-trigGPS,\
+                                   token[3],\
+                                   token[3]-trigGPS))
+  htmlMiddle=""
+  for row in htmlRows:
+    htmlMiddle="%s %s"%(htmlMiddle,row)
+  dqTable=htmlStart+htmlMiddle+htmlStop
+  htmlMiddleVeto=""
+  for row in htmlRowsVeto:
+    htmlMiddleVeto="%s %s"%(htmlMiddleVeto,row)
+  vetoTable=htmlStart+htmlMiddleVeto+htmlStop
 else:
-  checklistDB=fu_utils.followupdqdb()
-results=dict()
-results=checklistDB.queryDB(int(float(gpstime0)),600)
-checklistDB.close()
-htmlStart="<table bgcolor=grey border=1px><tr><th>IFO</th><th>Flag</th><th>Start(s)</th><th>Offset(s)</th><th>Stop(s)</th><th>Offset(s)</th></tr>"
-htmlRows=list()
-htmlRowsVeto=list()
-htmlStop="</table>"
-trigGPS=float(gpstime0)
-for ifo in checklistDB.ifoList:
-  for segment in results[ifo]:
-    token=segment
-    if token.__len__() >= 5:
-      rowText="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%i</td><td>%i</td><td>%i</td><td>%i</td></tr>"
-      if ((token[2]-trigGPS)<0 and (token[3]-trigGPS)<0):
-        mycolor="yellow"
-      elif ((token[2]-trigGPS)>0 and (token[3]-trigGPS)>0):
-        mycolor="green"
-      else:
-        mycolor="red"
-      if token[0].split("_")[0] != "VETO":
-        htmlRows.append(rowText%(mycolor,ifo,\
-                                 token[0],\
-                                 token[2],\
-                                 token[2]-trigGPS,\
-                                 token[3],\
-                                 token[3]-trigGPS))
-      else:
-        htmlRowsVeto.append(rowText%(mycolor,ifo,\
-                                 token[0],\
-                                 token[2],\
-                                 token[2]-trigGPS,\
-                                 token[3],\
-                                 token[3]-trigGPS))
-htmlMiddle=""
-for row in htmlRows:
-  htmlMiddle="%s %s"%(htmlMiddle,row)
-dqTable=htmlStart+htmlMiddle+htmlStop
-
-htmlMiddleVeto=""
-for row in htmlRowsVeto:
-  htmlMiddleVeto="%s %s"%(htmlMiddleVeto,row)
-vetoTable=htmlStart+htmlMiddleVeto+htmlStop
-
+  dqTable=""
+  vetoTable=""
+  
+if opts.defaultldbd != None:
+  defaultServer="ldbd://metaserver.phy.syr.edu:30015"
+  windowSize=int(600)
+  versionNumber=int(1)
+  x=followupDQV(defaultServer)
+  x.fetchInformation(float(gpstime0),windowSize,versionNumber)
+  dqTable=x.generateHTMLTable()
 #
 # Insert the new text string of a table using markup.py functions
 page.td(dqTable)
@@ -736,7 +765,12 @@ page.td()
 singlemcmcLinks = "Single MCMC:"
 for j,ifo in enumerate(ifolist):
   singlemcmcLinks += " <a href=\"" + singlemcmc[j] + "\">" + ifo + "</a>"
-page.td(singlemcmcLinks)
+if coherentmcmc:
+  coherentmcmcLink = "<br><br>Coherent MCMC:"
+  coherentmcmcLink += " <a href=\"" + coherentmcmc[0] + "\">" + opts.ifolist_in_coinc + "</a>"
+else:
+  coherentmcmcLink = ""
+page.td(singlemcmcLinks+coherentmcmcLink)
 page.td()
 page.tr.close()
 

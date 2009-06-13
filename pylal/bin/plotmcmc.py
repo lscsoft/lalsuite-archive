@@ -124,7 +124,7 @@ file.write("source(\"" + opts.plot_routine + "\")\n\n")
 file.write("# load the data written in the MCMC txt file\n")
 inputlist = opts.mcmc_file.split(',')
 for k,inputfile in enumerate(inputlist):
-  file.write("input" + str(k+1) + " <- read.table(\"" + inputfile + "\",header=TRUE)\n")
+  file.write("input" + str(k+1) + " <- read.csv(\"" + inputfile + "\",header=TRUE)\n")
 
 file.write("\n# keep only the tens of seconds for the GPS time. This will allow to display the decimal part of the gps time with a precision of 1.e-5 seconds.\n")
 nb_chain = len(inputlist)

@@ -111,9 +111,8 @@ class followUpInspNode(inspiral.InspiralNode,webTheNode):
         self.add_var_opt("write-snrsq","")
         self.add_var_opt("write-chisq","")
         self.add_var_opt("write-spectrum","")
-        self.add_var_opt("write-cdata","")
         self.add_var_opt("write-template","")
-      elif type == "chia":
+      if type == "chia" or type == "notrig" or type == "coh":
         self.add_var_opt("write-cdata","")
 
       if injFile: 
@@ -653,9 +652,9 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
 
     pipeline.CondorDAGNode.__init__(self,job)
     if name.split('-')[0]=='background':
-      self.add_var_arg('scanlite')
-    else:
       self.add_var_arg('scan')
+    else:
+      self.add_var_arg('scan -r')
     qscanConfig = string.strip(cp.get("followup-"+name, ifo + 'config-file'))
     self.add_var_arg("-c "+qscanConfig)
     self.add_var_arg("-f "+qcache)
@@ -672,7 +671,7 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
         print >> sys.stderr, 'path '+output+' is not writable'
         sys.exit(1)
 
-    self.add_var_arg("-o "+output)
+    self.add_var_arg("-o "+output+"/"+repr(time))
     self.add_var_arg(repr(time))
 
     self.set_pre_script(job.name + "/checkForDir.sh %s %s" \
@@ -729,6 +728,71 @@ class qscanNode(pipeline.CondorDAGNode,webTheNode):
  #   except: 
  #     self.validNode = False
  #     print >> sys.stderr, "could not set up the qscan job for " + self.id
+
+
+##############################################################################
+# class for remote qscan jobs
+
+class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A remote qscan job
+  """
+  def __init__(self, opts, cp, tag_base='REMOTESCAN'):
+    """
+    """
+    if not os.path.exists(tag_base):
+       os.mkdir(tag_base)
+    self.setup_executable(tag_base)
+    self.__executable = tag_base + '/remote_scan_wrapper.sh'
+    self.__universe = "scheduler"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(tag_base,None)
+
+  def setup_executable(self,tag_base):
+    starter_script = open(tag_base + '/remote_scan_wrapper.sh','w')
+    starter_script.write("""#!/bin/bash
+    source $1
+    $2 --gps-time $3 --config-file $4 --qscan-type $5 --remote-output $6 --remote-receiver $7 --output-path $8
+    """)
+    starter_script.close()
+    os.chmod(tag_base + '/remote_scan_wrapper.sh',0755)
+
+
+##############################################################################
+# class for remote qscan Node
+
+class remoteQscanFgNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a remote qscan job
+  """
+  def __init__(self,job,time,cp,ifo,name,opts,dag,qscanCommand):
+    """
+    job = A CondorDAGJob that can run an instance of remote qscan.
+    """
+    self.friendlyName = name
+    self.id = ifo + '-' + name + '-' + repr(time)
+    pipeline.CondorDAGNode.__init__(self,job)
+    self.add_macro("macroid", self.id)
+    self.jobName = job.name
+
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","virgo-env-path")))
+    self.add_var_arg(string.strip(cp.get("condor","submit_remote_scan")))
+    self.add_var_arg(repr(time))
+    self.add_var_arg(string.strip(cp.get("followup-"+name,ifo+"config-file")))
+    self.add_var_arg("_".join(name.split("-")[1:len(name.split("-"))]))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-output")))
+    self.add_var_arg(string.strip(cp.get("followup-remote-scan","remote-server")))
+
+    outputdir = 'QSCAN' + '/' + name + '/' + ifo + '/' + repr(time)
+    self.add_var_arg(outputdir)
+
+    if not opts.disable_dag_categories:
+      self.set_category(job.name.lower())
+
+    if eval('opts.' + qscanCommand):
+        dag.addNode(self,"Remote " + self.friendlyName)
+        self.validate()
+    else: self.invalidate()
 
 
 ##############################################################################
@@ -863,11 +927,17 @@ class analyseQscanNode(pipeline.CondorDAGNode,webTheNode):
       
       # add the parents to this node
       for node in dag.get_nodes():
-        # if node distributeQscanNode is valid and remote if is analysed,
+        # if node distributeQscanNode is valid and if remote ifo is analysed,
         # add distributeQscanNode as parent
         if isinstance(node,distributeQscanNode):
           if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
             if node.validNode:
+              self.add_parent(node)
+        # if node remoteQscanFgNode is valid and if remote ifo is analysed,
+        # add remoteQscanFgNode as parent
+        if isinstance(node,remoteQscanFgNode):
+          if cp.has_option("followup-"+name,"remote-ifo") and cp.get("followup-"+name,"remote-ifo")==ifo:
+            if node.friendlyName == name and node.validNode:
               self.add_parent(node)
         # add all qscan nodes of the same type as parents
         if isinstance(node,qscanNode): 
@@ -984,7 +1054,7 @@ class h1h2QeventNode(pipeline.CondorDAGNode,webTheNode):
     qeventConfig = string.strip(cp.get("followup-"+name, ifoString + '-config-file'))
     self.add_var_arg('-p '+qeventConfig)
     self.add_file_arg('-f '+qeventcache)
-    self.add_var_arg('-o '+output)
+    self.add_var_arg('-o '+output+'/'+repr(times[ifoList[0]]))
     self.add_var_arg(repr(times[ifoList[0]]))
     eventDuration = string.strip(cp.get("followup-"+name, 'duration'))
     self.add_var_arg(eventDuration)
@@ -1141,11 +1211,12 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
   Runs an instance of the model selection followup job
   """
   def __init__(self,followupoddsJob,procParamsTable,trig,randomseed,cp,opts,dag):
-    #try
-    if 1:
+    try:
       IFOs = trig.ifolist_in_coinc
       time_prior = string.strip(cp.get('followup-odds','time_prior'))
-      Nlive = string.strip(cp.get('followup-odds','live_points'))
+      #Nlive = string.strip(cp.get('followup-odds','live-points'))
+      Nlive = string.strip(cp.get('followup-odds','min-live'))
+      Nmcmc = string.strip(cp.get('followup-odds','Nmcmc'))
       srate = string.strip(cp.get('followup-odds','sample_rate'))
       Approximant = string.strip(cp.get('followup-odds','approximant'))
       self.friendlyName = 'Odds followup job'
@@ -1175,7 +1246,8 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.add_var_opt("Mmin",2.8)
       self.add_var_opt("Mmax",30)
       self.add_var_opt("srate",srate)
-#      self.add_var_opt("verbose",'')
+      self.add_var_opt("seed",randomseed[0])
+      #self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
       self.id = followupoddsJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.outputCache = trig.ifos + ' ' + followupoddsJob.name + ' ' +\
                          self.id.split('-')[-1]+' '+outputname+'\n'
@@ -1191,14 +1263,78 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
         self.validate()
       else: self.invalidate()
 
-#    except:
-    else:
+    except:
       self.invalidate()
       print "Couldn't add followupOdds job for " + str(trig.gpsTime[ifo])
   
 
-            
-      
+###########################################################################
+
+class followupOddsPostJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  The post-processing of odds jobs
+  """
+  def __init__(self,options,cp,tag_base='FOLLOWUPODDSPOST'):
+    """
+    """
+    self.__prog__='followupOddsPostJob'
+    self.__executable=string.strip(cp.get('condor','oddsPostScript'))
+    self.__universe="vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(self.__prog__,tag_base)
+
+
+##############################################################################
+
+class followupOddsPostNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs the post-processing script
+  """
+  def __init__(self,oddsPostJob,procParams,trig,oddsjoblist,cp,opts,dag):
+    try:
+      self.friendlyName = 'Odds plotting job'
+      pipeline.CondorDAGNode.__init__(self,oddsPostJob)
+
+      # get the list of odds .txt files to be used as input
+      oddsfilelist = ''
+      for oddsjobId in oddsjoblist:
+        oddsfilelist += oddsjobId.split('-')[0]+'/' + oddsjobId + '.txt,' # here we assume that the directory name is mcmcId.split('-')[0]
+        self.add_var_opt("data",oddsfilelist.strip(','))
+
+      # Get the number of live points in each run
+      Nlive = string.strip(cp.get('followup-odds','min-live'))
+      self.add_var_opt("Nlive",Nlive)
+
+      if cp.has_option('followup-odds','web') and string.strip(cp.get('followup-odds','web')):
+        outputpath = string.strip(cp.get('followup-odds','web'))
+      else:
+        outputpath = oddsPostJob.name
+
+      self.id = oddsPostJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+
+      #output_page = self.id
+      self.outputCache = self.id.replace('-',' ') + " " + os.path.abspath(outputpath) + "/" + self.id + "\n"
+
+      self.setupNodeWeb(oddsPostJob,False,dag.webPage.lastSection.lastSub,None,None,dag.cache)
+ 
+      # only add a parent if it exists
+      for node in dag.get_nodes():
+        if isinstance(node,followupoddsNode):
+          if not node.id.find(trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID)) == -1:
+            try:
+              if node.validNode: self.add_parent(node)
+            except: pass
+
+      if opts.odds:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else:
+        self.invalidate()
+
+    except:
+      self.invalidate()
+      print "couldn't add odds post job for " + str(trig.ifos) + "@ "+ str(trig.gpsTime[trig.ifolist_in_coinc[-1]])
+
 
 ##############################################################################
 
@@ -1221,7 +1357,9 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of an mcmc followup job
   """
-  def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
+  #def __init__(self, followupmcmcJob, procParams, ifo, trig, randomseed, cp,opts,dag):
+  def __init__(self, followupmcmcJob, procParams, trig, randomseed, cp, opts, dag, ifo=None):
+
     try:
       time_margin = string.strip(cp.get('followup-mcmc','prior-coal-time-marg'))
       iterations = string.strip(cp.get('followup-mcmc','iterations'))
@@ -1234,61 +1372,97 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
       self.friendlyName = 'MCMC followup'
       pipeline.CondorDAGNode.__init__(self,followupmcmcJob)
-      for row in procParams:
-        param = row.param.strip("-")
-        value = row.value
-        if param == 'frame-cache': cacheFile = value
-        if param == 'channel-name': channel = value
-        if param == 'gps-end-time': chunk_end = value
-        if param == 'gps-start-time': chunk_start = value
 
+      if ifo:
+        IFOs = [ifo]
+        self.ifonames = ifo
+      else:
+        IFOs = trig.ifolist_in_coinc
+        self.ifonames = trig.ifos
+
+      cacheFiles = ""
+      channelNames = ""
+      chunk_end_list = {}
+      chunk_start_list = {}
+      for itf in IFOs:
+        for row in procParams[itf]:
+          param = row.param.strip("-")
+          value = row.value
+          if param == 'frame-cache': cacheFile = value
+          if param == 'channel-name': channel = value
+          if param == 'gps-end-time': chunk_end = value
+          if param == 'gps-start-time': chunk_start = value
+        cacheFiles += cacheFile + ","
+        channelNames += channel + ","
+        chunk_end_list[itf] = chunk_end
+        chunk_start_list[itf] = chunk_start
+
+      if len(IFOs) > 1:
+        maxSNR = 0
+        maxIFO = ""
+        for trigger in trig.coincs:
+          snr = trigger.snr
+          if snr > maxSNR:
+            maxSNR = snr
+            maxIFO = trigger.ifo
+      else:
+        maxIFO = IFOs[0]
+      trig_tempo = getattr(trig.coincs,maxIFO)
+      triggerRef = copy.deepcopy(trig_tempo)
+      self.ifoRef = maxIFO
+        
       self.add_var_opt("template",string.strip(cp.get('followup-mcmc','template')))
       self.add_var_opt("iterations",iterations)
       self.add_var_opt("randomseed","[" + randomseed[0] + "," + randomseed[1] + "]")
-      self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[ifo])
+      self.add_var_opt("tcenter","%0.3f"%trig.gpsTime[maxIFO])
       self.add_var_opt("tbefore",tbefore)
       self.add_var_opt("tafter",tafter)
 
-      tmin = trig.gpsTime[ifo] - float(time_margin)
-      tmax = trig.gpsTime[ifo] + float(time_margin)
+      tmin = trig.gpsTime[maxIFO] - float(time_margin)
+      tmax = trig.gpsTime[maxIFO] + float(time_margin)
       self.add_var_opt("priorparameters","[" + massmin + "," + massmax + "," + str(tmin) + "," + str(tmax) + "," + dist90 + "," + dist10 + "]")
 
-      param_mchirp = getattr(trig.coincs,ifo).mchirp
-      param_eta = getattr(trig.coincs,ifo).eta
-      param_distance = getattr(trig.coincs,ifo).eff_distance
-      self.add_var_opt("guess","[" + str(param_mchirp) + "," + str(param_eta) + "," + str(trig.gpsTime[ifo]) + "," + str(param_distance) + "]")
-      self.add_var_opt("fixed","[altitude=0,azimuth=0,inclination=0,polarisation=0]")
+      param_mchirp = triggerRef.mchirp
+      param_eta = triggerRef.eta
+      param_distance = triggerRef.eff_distance
+      self.add_var_opt("guess","[" + str(param_mchirp) + "," + str(param_eta) + "," + str(trig.gpsTime[maxIFO]) + "," + str(param_distance) + "]")
+      #self.add_var_opt("fixed","[altitude=0,azimuth=0,inclination=0,polarisation=0]")
 
-      self.add_var_opt("readdata","")
+      #self.add_var_opt("readdata","")
 
       ########################################################################
       # GET THE FRAME FILE INFO - THIS NEEDS TO BE CHANGED !!!
       # THE MCMC CODE SHOULD TAKE THE SAME PSD AS LALAPPS_INSPIRAL.
       ########################################################################
 
-      self.add_var_opt("cachefiledata",cacheFile)
-      self.add_var_opt("cachefilenoise",cacheFile)
+      #self.add_var_opt("cachefiledata",cacheFile)
+      #self.add_var_opt("cachefilenoise",cacheFile)
+      self.add_var_opt("cachefile","["+cacheFiles.strip(",")+"]")
+      self.add_var_opt("filechannel","["+channelNames.strip(",")+"]")
 
-      self.add_var_opt("filechannel",channel)
+      psdEstimateStart = ""
+      psdEstimateEnd = ""
+      for itf in IFOs:
+        datainchunk_before = int(trig.gpsTime[maxIFO]) - 75 - 64 - int(chunk_start_list[itf])
+        datainchunk_after = int(chunk_end_list[itf]) - 64 - int(trig.gpsTime[maxIFO]) - 32
+        if datainchunk_after > datainchunk_before:
+          psdEstimateStart += str(int(trig.gpsTime[maxIFO]) + 32) + ","
+          psdEstimateEnd += str(int(chunk_end_list[itf]) - 64) + ","
+        else:
+          psdEstimateStart += str(int(chunk_start_list[itf]) + 64) + ","
+          psdEstimateEnd += str(int(trig.gpsTime[maxIFO]) - 75) + ","
 
-      datainchunk_before = int(trig.gpsTime[ifo]) - 75 - 64 - int(chunk_start)
-
-      datainchunk_after = int(chunk_end) - 64 - int(trig.gpsTime[ifo]) - 32
-      if datainchunk_after > datainchunk_before:
-        self.add_var_opt("psdestimatestart",int(trig.gpsTime[ifo]) + 32)
-        self.add_var_opt("psdestimateend",int(chunk_end) - 64)
-      else:
-        self.add_var_opt("psdestimatestart",int(chunk_start) + 64)
-        self.add_var_opt("psdestimateend",int(trig.gpsTime[ifo]) - 75)
+      self.add_var_opt("psdestimatestart","["+psdEstimateStart.strip(",")+"]")
+      self.add_var_opt("psdestimateend","["+psdEstimateEnd.strip(",")+"]")
 
       self.add_var_opt("importanceresample",10000)
 
-      self.id = followupmcmcJob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
-      outputName = followupmcmcJob.name+'/'+self.id+'.txt'
-      self.outputCache = ifo + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '\n'
+      self.id = followupmcmcJob.name + '-' + self.ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + randomseed[0] + '_' + randomseed[1]
+      outputName = followupmcmcJob.name+'/'+self.id
+      self.outputCache = self.ifonames + ' ' + followupmcmcJob.name + ' ' + self.id.split('-')[-1] + ' ' + outputName + '.csv\n'
 
       self.setupNodeWeb(followupmcmcJob,False,None,None,None,dag.cache)
-      self.add_var_opt("logfilename",outputName)
+      self.add_var_opt("outfilename",outputName)
 
       if not opts.disable_dag_categories:
         self.set_category(followupmcmcJob.name.lower())
@@ -1300,7 +1474,68 @@ class followupmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
     except:
       self.invalidate()
-      print "couldn't add followupmcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      print "couldn't add followupmcmc job for " + self.ifonames + "@ "+ str(trig.gpsTime[maxIFO])
+
+##############################################################################
+
+class followupspinmcmcJob(pipeline.CondorDAGJob, webTheJob):
+  """
+  A spinning MCMC job
+  """
+  def __init__(self, options, cp, tag_base='FOLLOWUPSPINMCMC'):
+    """
+    """
+    self.__prog__ = 'followupspinmcmcJob'
+    self.__executable = string.strip(cp.get('condor','followupspinspiral'))
+    self.__universe = "standard"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.setupJobWeb(self.__prog__,tag_base)
+
+
+###############################################################################
+
+class followupspinmcmcNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of spinning mcmc followup job
+  """
+  def __init__(self, followupspinmcmcJob, procParams, trig, cp, opts, dag, chain_number):
+
+    try:
+
+      self.friendlyName = 'SPIN MCMC followup'
+      pipeline.CondorDAGNode.__init__(self,followupspinmcmcJob)
+
+      IFOs = trig.ifolist_in_coinc
+
+      maxSNR = 0
+      maxIFO = ""
+      for trigger in trig.coincs:
+        snr = trigger.snr
+        if snr > maxSNR:
+          maxSNR = snr
+          maxIFO = trigger.ifo
+      trig_tempo = getattr(trig.coincs,maxIFO)
+      triggerRef = copy.deepcopy(trig_tempo)
+      self.ifoRef = maxIFO
+
+      #self.add_var_opt("gps-time", str(trig.gpsTime[maxIFO]))
+      self.add_var_arg(string.strip(cp.get("followup-spin-mcmc","input_file")))
+
+      self.id = followupspinmcmcJob.name + '-' + trig.ifos + '-' + str(trig.statValue) + '_' + str(trig.eventID) + '_' + str(chain_number)
+
+      self.setupNodeWeb(followupspinmcmcJob,False,None,None,None,dag.cache)
+
+      if not opts.disable_dag_categories:
+        self.set_category(followupspinmcmcJob.name.lower())
+
+      if opts.spin_mcmc:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+
+    except:
+      self.invalidate()
+      print "couldn't add followupspinmcmc job for " + trig.ifos + "@ "+ str(trig.gpsTime[maxIFO])
 
 ###############################################################################
 
@@ -1323,7 +1558,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of  plotmcmc job
   """
-  def __init__(self, plotmcmcjob, ifo, trig, mcmcIdList, cp,opts,dag):
+  def __init__(self, plotmcmcjob, trig, mcmcIdList, cp, opts, dag, ifo, ifonames):
 
     try:
       self.friendlyName = 'plot MCMC'
@@ -1366,10 +1601,10 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       # get the list of MCMC .txt files to be used as input
       mcmcfilelist = ""
       for mcmcId in mcmcIdList:
-        mcmcfilelist += mcmcId.split('-')[0]+'/' + mcmcId + '.txt,' # here we assume that the directory name is mcmcId.split('-')[0]
+        mcmcfilelist += mcmcId.split('-')[0]+'/' + mcmcId + '.csv,' # here we assume that the directory name is mcmcId.split('-')[0]
       self.add_var_opt("mcmc-file",mcmcfilelist.strip(','))
 
-      self.id = plotmcmcjob.name + '-' + ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)
+      self.id = plotmcmcjob.name + '-' + ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID)
       self.add_var_opt("identity",self.id)
 
       if cp.has_option('followup-plotmcmc', 'output') and string.strip(cp.get('followup-plotmcmc', 'output')):
@@ -1402,7 +1637,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
       # only add a parent if it exists
       for node in dag.get_nodes():
         if isinstance(node,followupmcmcNode):
-          if not node.id.find(ifo + '-' + str(trig.statValue) + '_' + str(trig.eventID)) == -1:
+          if not node.id.find(ifonames + '-' + str(trig.statValue) + '_' + str(trig.eventID)) == -1:
             try:
               if node.validNode: self.add_parent(node)
             except: pass
@@ -1415,7 +1650,7 @@ class plotmcmcNode(pipeline.CondorDAGNode,webTheNode):
 
     except:
       self.invalidate()
-      print "couldn't add plot mcmc job for " + str(ifo) + "@ "+ str(trig.gpsTime[ifo])
+      print "couldn't add plot mcmc job for " + ifonames + "@ "+ str(trig.gpsTime[ifo])
 
 
 #### A CLASS TO DO FOLLOWUP COHERENT INSPIRAL JOBS ############################
@@ -1462,6 +1697,9 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.add_var_opt("low-frequency-cutoff",string.strip(cp.get('chia','low-frequency-cutoff')))
       self.add_var_opt("sample-rate",string.strip(cp.get('chia','sample-rate')))
       self.add_var_opt("cohsnr-threshold",string.strip(cp.get('chia','cohsnr-threshold')))
+      self.add_var_opt("ra-step",string.strip(cp.get('chia','ra-step')))
+      self.add_var_opt("dec-step",string.strip(cp.get('chia','dec-step')))
+      self.add_var_opt("numCohTrigs",string.strip(cp.get('chia','numCohTrigs')))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       # required by followUpChiaPlotNode
       bankFile = 'trigTemplateBank/' + trig.ifoTag + '-COHBANK_FOLLOWUP_' + str(trig.eventID) + '-' + str(int(trig.gpsTime[trig.ifolist_in_coinc[0]])) + '-2048.xml.gz'
@@ -1516,6 +1754,73 @@ lalapps_coherent_inspiral --segment-length 1048576 --dynamic-range-exponent 6.90
       self.invalidate()
       print "couldn't add coherent-inspiral job for " + str(trig.eventID)
 
+########## CLUSTER coherent triggers ##########################################
+###############################################################################
+    
+##############################################################################
+# jobs class for clustering coherent triggers
+
+class followUpCohireJob(pipeline.CondorDAGJob,webTheJob):
+  """
+  A clustering job for coherent inspiral triggers
+  """
+  def __init__(self, options, cp, tag_base='COHIRE'):
+    """
+    """
+    self.__prog__ = 'followUpCohireJob'
+    self.__executable = string.strip(cp.get('condor','cohire'))
+    self.__universe = "vanilla"
+    pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
+    self.add_condor_cmd('getenv','True')
+    self.setupJobWeb(self.__prog__,tag_base)
+
+
+##############################################################################
+# node class for clustering coherent triggers 
+
+class followUpCohireNode(pipeline.CondorDAGNode,webTheNode):
+  """
+  Runs an instance of a cohire (coherent trigger clustering) job
+  """
+  def __init__(self,job,chiaXmlFilePath,trig,chiaNode,dag,page,opts):
+    """
+    job = A CondorDAGJob that can run an instance of COHIRE clustering
+    """
+    self.friendlyName = 'Produce xml file of clustered coherent triggers'
+    if 1: #try:
+      pipeline.CondorDAGNode.__init__(self,job)
+      self.output_file_name = ""
+      inputFileName = 'trigTemplateBank/' + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      outputXmlFile = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      summaryFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE_SUMMARY-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.txt'
+      self.add_var_opt("input",inputFileName)
+      self.add_var_opt("data-type","all_data")
+      self.add_var_opt("output",outputXmlFile)
+      self.add_var_opt("summary-file",summaryFileName)
+      self.add_var_opt("cluster-algorithm","snr")
+      self.add_var_opt("sort-triggers","")
+      self.add_var_opt("snr-threshold",5.0)
+      self.add_var_opt("cluster-time",4000)
+      self.id = job.name + '-' + str(trig.statValue) + '-' + str(trig.eventID)
+      self.setupNodeWeb(job,False,None,None,None,dag.cache)
+      skipParams = ['enable-output','output-path']
+
+      if not opts.disable_dag_categories:
+        self.set_category(job.name.lower())
+
+      #try: 
+      if chiaNode.validNode: self.add_parent(chiaNode)
+      #except: pass
+      if opts.plot_chia:
+        dag.addNode(self,self.friendlyName)
+        self.validate()
+      else: self.invalidate()
+    #except: 
+    #  self.invalidate()
+    #  print "couldn't add cohire clustering job for event " + str(trig.eventID)
+
+###############################################################################
+
 ########## PLOT Coherent search and null statistics TIME SERIES ###############
 ###############################################################################
 
@@ -1543,17 +1848,19 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
   """
   Runs an instance of a plotChia followup job
   """
-  def __init__(self,job,chiaXmlFilePath,trig,chiaNode,dag,page,opts):
+  def __init__(self,job,chiaXmlFilePath,trig,cohireNode,dag,page,opts,cp):
     """
-    job = A CondorDAGJob that can run an instance of plotSNRCHISQ followup.
+    job = A CondorDAGJob that can run an instance of plotChiaJob followup.
     """
     self.friendlyName = 'Plot CHIA time-series'
     try:
       pipeline.CondorDAGNode.__init__(self,job)
       self.output_file_name = ""
-      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-CHIA_1-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
+      chiaXmlFileName = chiaXmlFilePath + trig.ifoTag + '-COHIRE-'+ str(int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1)) + '-2.xml.gz'
       self.add_var_opt("chiaXmlFile",chiaXmlFileName)
-      #self.add_var_opt("gps",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      self.add_var_opt("gps-start-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]-1))
+      self.add_var_opt("gps-end-time",int(trig.gpsTime[trig.ifolist_in_coinc[0]]+1))
+      self.add_var_opt("sample-rate",string.strip(cp.get('chia','sample-rate')))
       self.add_var_opt("user-tag",str(trig.eventID))
       self.add_var_opt("ifo-tag",trig.ifoTag)
       self.add_var_opt("ifo-times",trig.ifoTag)
@@ -1564,7 +1871,7 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
         self.set_category(job.name.lower())
 
       #try: 
-      if chiaNode.validNode: self.add_parent(chiaNode)
+      if cohireNode.validNode: self.add_parent(cohireNode)
       #except: pass
       if opts.plot_chia:
         dag.addNode(self,self.friendlyName)
@@ -1573,6 +1880,11 @@ class plotChiaNode(pipeline.CondorDAGNode,webTheNode):
     except: 
       self.invalidate()
       print "couldn't add chia plotting job for event " + str(trig.eventID)
+
+  def append_insp_node(self,inspNode,ifo):
+    fileName = str(inspNode.output_file_name)
+    self.add_var_arg("--"+ifo+"-framefile "+str(fileName.replace(".xml",".gwf").strip(".gz")))
+    if inspNode.validNode: self.add_parent(inspNode)
 
 ###############################################################################
 
@@ -1591,7 +1903,7 @@ class makeCheckListJob(pipeline.CondorDAGJob,webTheJob):
     """
     self.__prog__ = 'CHECKLIST'
     self.__executable = string.strip(cp.get('condor','makechecklist'))
-    self.__universe = "vanilla"
+    self.__universe = "local"
     pipeline.CondorDAGJob.__init__(self,self.__universe,self.__executable)
     self.add_condor_cmd('getenv','True')
     self.setupJobWeb(self.__prog__)
@@ -1624,6 +1936,8 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
     self.add_var_opt("ifo-tag",trig.ifoTag)
     if cp.has_option("followup-dq","input-sql"):
       self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
+    elif cp.has_option("followup-dq","server-url"):
+      self.add_var_opt("data-quality-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
 
@@ -1640,7 +1954,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.set_category(job.name.lower())
 
     for node in dag.get_nodes():
-      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode):
+      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode) or isinstance(node,remoteQscanFgNode):
         for gps in gpsList.strip(",").split(","):
           if gps in node.id and node.validNode:
             self.add_parent(node)
