@@ -221,6 +221,7 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
+    os.path.join('sbin','ligolw_publish_dqxml'),
     os.path.join('sbin','segdb_coalesce'), ],
   data_files = [
     (

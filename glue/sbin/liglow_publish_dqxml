@@ -1,0 +1,221 @@
+#!/usr/bin/python
+#
+# xml dq publishing script for virgo (or other) dq xml files
+#
+# $Id$
+#
+# Copyright (C) 2009 Duncan Brown
+# 
+# This is part of the Grid LSC User Environment (GLUE)
+# 
+# GLUE is free software: you can redistribute it and/or modify it under the
+# terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+# 
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+# more details.
+# 
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+
+import sys
+import os
+import getopt
+import re
+import exceptions
+import re
+import time
+import glob
+import logging
+import logging.handlers
+
+try:
+  from glue import LDBDClient
+  from glue import gsiserverutils
+  from glue import lal
+  from glue import segments
+  from glue import gpstime
+  from glue.segmentdb import segmentdb_utils
+except ImportError, e:
+  print >> sys.stderr, """
+Error: unable to import modules from glue.
+
+Check that glue is correctly installed and in your PYTHONPATH.
+
+%s
+""" % e
+  sys.exit(1)
+
+
+def usage():
+  msg = """\
+Usage: dmtdq_seg_insert [OPTIONS]
+
+  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
+  -d, --spool-directory   location of spool directory
+  -D, --input-directory   location of directory containing files to publish
+  -l, --log-file          path to the publishing log file
+  -p, --ping              ping the server
+  -h, --help              print this message
+
+\
+"""
+  print msg
+
+def help():
+  usage()
+  sys.exit(0)
+
+shortop = "r:d:D:l:ph"
+longop = [
+  "server=",
+  "spool-directory=",
+  "input-directory=",
+  "log-file=",
+  "ping",
+  "help"
+  ]
+
+try:
+  opts, args = getopt.getopt(sys.argv[1:], shortop, longop)
+except getopt.GetoptError:
+  usage()
+  sys.exit(1)
+
+# defaults
+hostPortString = None
+port = 30020
+spool_directory = None
+input_directory = None
+ping = None
+
+# environment variables override defaults but not
+# command line options
+try:
+  hostPortString = os.environ['LDBD_SERVER']
+except:
+  pass
+
+for o, a in opts:
+  if o in ("-h", "--help"):
+    help()
+  elif o in ("-r", "--server"):
+    hostPortString = a
+  elif o in ("-d", "--spool-directory"):
+    spool_directory = a
+  elif o in ("-D", "--input-directory"):
+    input_directory = a
+  elif o in ("-l", "--log-file"):
+    log_file = a
+  elif o in ("-p", "--ping"):
+    ping = 1
+
+# determine server and port
+if not hostPortString:
+  print >>sys.stderr, "No server specified"
+  print >>sys.stderr, "Run 'ligolw_publish_dqxml --help' for usage"
+  sys.exit(1)
+
+if hostPortString.find(':') < 0:
+  # no port specified
+  host = hostPortString
+else:
+  # server and port specified
+  host, portString = hostPortString.split(':')
+  port = int(portString)
+identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
+
+if not ping and (not spool_directory or not input_directory or not log_file):
+  print >>sys.stderr, \
+    "Error: --spool-directory, --input-directory and --log-file must be specified\n"
+  print >>sys.stderr, "Run 'ligolw_publish_dqxml --help' for usage"
+  sys.exit(1)
+
+lock_file = os.path.join(spool_directory,'publish_dqxml.lock')
+if os.access(lock_file,os.F_OK):
+  print >>sys.stderr, "Error: lock file exists: %s" % lock_file
+  sys.exit(1)
+else:
+  fp = open(lock_file, "w")
+  fp.write("lock")
+  fp.close()
+
+# set up logging
+logger = logging.getLogger('ligolw_publish_dqxml')
+handler = logging.handlers.RotatingFileHandler(log_file, 'a', 1048576, 5)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(eval("logging." + log_level))
+logger.info("ligolw_publish_dqxml starting")
+logger.info("server = " + hostPortString)
+logger.info("input directory = " + input_directory)
+logger.info("spool directory = " + spool_directory)
+
+try:
+  if ping:
+    # ping the server and print the response
+    myClient = LDBDClient.LDBDClient(host, port, identity)
+    msg = myClient.ping()
+    logger.info(msg)
+    sys.exit(0)
+
+  # figure out which files need to be published
+  latest_gps_file = os.path.join(spool_directory,'latest')
+  latest_gps_fp = open(latest_gps_file)
+  latest_gps = int(latest_gps_fp.read().strip())
+  latest_gps_fp.close()
+  current_gps = gpstime.GpsSecondsFromPyUTC(time.time())
+  publish_interval = segments.segment(latest_gps,current_gps)
+  logger.info("creating symlinks for [%d,%d)" % latest_gps,current_gps)
+
+  xml_files = segmentdb_utils.get_all_files_in_range(
+    input_directory,latest_gps,current_gps)
+  xml_file_cache = lal.Cache.from_urls(xml_files)
+  publish_cache = xml_file_cache.sieve(segment=publish_interval)
+  publish_cache.sort()
+
+  # create symbolic links in the spool directory
+  for xml_file in publish_cache:
+    src_file = xml_file.path()
+    dest_file = os.path.join(spool_directory,os.path.basename(xml_file.path()))
+    os.symlink(src_file,dest_file)
+    logger.debug("created symlinks %s -> %s" % (src_file,dest_file))
+
+  # update the latest file in the spool directory
+  latest_gps = xml_file.segment[1].seconds
+  latest_gps_fp = open(latest_gps_file,"w")
+  latest_gps_fp.write(str(latest_gps))
+  latest_gps_fp.close()
+  logger.debug("updated latest time to %d" % latest_gps)
+  
+  # go through all the symlinks and insert them
+  infiles = glob.glob(os.path.join(spool_directory,'*.xml'))
+
+  logger.info("publishing segments")
+
+  for infile in infiles:
+    # open the input file and send it to the server
+    fh = open(infile,'r')
+    xmltext = fh.read()
+    logger.debug("publishing %s" % infile)
+    myClient = LDBDClient.LDBDClient(host, port, identity)
+    myClient.insertdmt(xmltext)
+    del xmltext
+    fh.close()
+    os.unlink(infile)
+    logger.debug("unlinked %s" % infile)
+
+  logger.info("publishing complete")
+
+except Exception, e:
+  print >>sys.stderr, "Error inserting segments: %s" % str(e)
+  os.unlink(lock_file)
+  sys.exit(1)
+
+logger.info("ligolw_publish_dqxml complete")
+os.unlink(lock_file)
+sys.exit(0)
