@@ -58,6 +58,7 @@ Usage: dmtdq_seg_insert [OPTIONS]
   -d, --spool-directory   location of spool directory
   -D, --input-directory   location of directory containing files to publish
   -l, --log-file          path to the publishing log file
+  -L, --log-level         python logging level (e.g. INFO, DEBUG)
   -p, --ping              ping the server
   -h, --help              print this message
 
@@ -69,12 +70,13 @@ def help():
   usage()
   sys.exit(0)
 
-shortop = "r:d:D:l:ph"
+shortop = "r:d:D:l:L:ph"
 longop = [
   "server=",
   "spool-directory=",
   "input-directory=",
   "log-file=",
+  "log-level=",
   "ping",
   "help"
   ]
@@ -90,6 +92,8 @@ hostPortString = None
 port = 30020
 spool_directory = None
 input_directory = None
+log_file = None
+log_level = None
 ping = None
 
 # environment variables override defaults but not
@@ -110,6 +114,8 @@ for o, a in opts:
     input_directory = a
   elif o in ("-l", "--log-file"):
     log_file = a
+  elif o in ("-L", "--log-level"):
+    log_level = a
   elif o in ("-p", "--ping"):
     ping = 1
 
@@ -128,9 +134,10 @@ else:
   port = int(portString)
 identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
-if not ping and (not spool_directory or not input_directory or not log_file):
-  print >>sys.stderr, \
-    "Error: --spool-directory, --input-directory and --log-file must be specified\n"
+if not ping and \
+  (not spool_directory or not input_directory or not log_file or not log_level):
+  print >>sys.stderr, "Error: --spool-directory, --input-directory,"
+  print >>sys.stderr, "--log-file and --log-level must be specified\n"
   print >>sys.stderr, "Run 'ligolw_publish_dqxml --help' for usage"
   sys.exit(1)
 
@@ -154,6 +161,7 @@ logger.info("ligolw_publish_dqxml starting")
 logger.info("server = " + hostPortString)
 logger.info("input directory = " + input_directory)
 logger.info("spool directory = " + spool_directory)
+logger.info("log level = " + log_level)
 
 try:
   if ping:
