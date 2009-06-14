@@ -107,7 +107,7 @@ $error = 0;
       }
 
    // validate start and stop time
-    if($gpsstart>$gpsstop)
+    if($startgps>$stopgps)
       {
          $error = $error + 1;
          echo "<p>Start time = <font color='red'>Start time must be earlier than stop time</font><p/>";
@@ -171,9 +171,10 @@ $error = 0;
          echo '</center></p>';
      }
  
-
-require './scripts/footer.php'; 
-
 ?>
+
+
+
+<?php require './scripts/footer.php'; ?>
 </body>
 </html>
