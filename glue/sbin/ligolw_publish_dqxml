@@ -189,6 +189,11 @@ try:
   publish_cache = xml_file_cache.sieve(segment=publish_interval)
   publish_cache.sort()
 
+  if len(publish_cache) is 0:
+    logger.info("no new files to publish, exiting")
+    os.unlink(lock_file)
+    sys.exit(0)
+
   # create symbolic links in the spool directory
   for xml_file in publish_cache:
     src_file = xml_file.path()
@@ -228,6 +233,6 @@ except Exception, e:
   os.unlink(lock_file)
   sys.exit(1)
 
-logger.info("ligolw_publish_dqxml complete")
+logger.info("ligolw_publish_dqxml complete, exiting")
 os.unlink(lock_file)
 sys.exit(0)
