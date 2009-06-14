@@ -30,13 +30,16 @@ require './scripts/header.php';
       fwrite($fh, $flagData); 
 
       // insert xml file to the database
-      $com = "/bin/env PATH=/usr1/ldbd/glue/bin:/usr1/ldbd/ldg-4.7/ant/bin:/usr1/ldbd/ldg-4.7/glite/sbin:/usr1/ldbd/ldg-4.7/glite/bin:/usr1/ldbd/ldg-4.7/pegasus/bin:/usr1/ldbd/ldg-4.7/edg/sbin:/usr1/ldbd/ldg-4.7/pyglobus-url-copy/bin:/usr1/ldbd/ldg-4.7/jdk1.5/bin:/usr1/ldbd/ldg-4.7/condor/sbin:/usr1/ldbd/ldg-4.7/condor/bin:/usr1/ldbd/ldg-4.7/wget/bin:/usr1/ldbd/ldg-4.7/logrotate/sbin:/usr1/ldbd/ldg-4.7/gpt/sbin:/usr1/ldbd/ldg-4.7/globus/bin:/usr1/ldbd/ldg-4.7/globus/sbin:/usr1/ldbd/pacman-3.26/bin:/usr1/ldbd/ldg-4.7/vdt/sbin:/usr1/ldbd/ldg-4.7/vdt/bin:/usr1/ldbd/ldg-4.7/ldg-client/bin LD_LIBRARY_PATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/ldg-4.7/tclglobus/lib:/usr1/ldbd/ldg-4.7/glite/lib64:/usr1/ldbd/ldg-4.7/glite/lib:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/server:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/client:/usr1/ldbd/ldg-4.7/berkeley-db/lib:/usr1/ldbd/ldg-4.7/expat/lib:/usr1/ldbd/ldg-4.7/globus/lib PYTHONPATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/glue/lib/python2.4/site-packages:/usr1/ldbd/ldg-4.7/globus/lib64/python X509_USER_CERT=/etc/pki/tls/certs/ldbdcert.pem X509_USER_KEY=/etc/pki/tls/certs/ldbdkey.pem dmtdq_seg_insert --server=segdb.ligo.caltech.edu:30020 --file ".$flagFile;
+      $com = "/bin/env PATH=/usr1/ldbd/glue/bin:/usr1/ldbd/ldg-4.7/ant/bin:/usr1/ldbd/ldg-4.7/glite/sbin:/usr1/ldbd/ldg-4.7/glite/bin:/usr1/ldbd/ldg-4.7/pegasus/bin:/usr1/ldbd/ldg-4.7/edg/sbin:/usr1/ldbd/ldg-4.7/pyglobus-url-copy/bin:/usr1/ldbd/ldg-4.7/jdk1.5/bin:/usr1/ldbd/ldg-4.7/condor/sbin:/usr1/ldbd/ldg-4.7/condor/bin:/usr1/ldbd/ldg-4.7/wget/bin:/usr1/ldbd/ldg-4.7/logrotate/sbin:/usr1/ldbd/ldg-4.7/gpt/sbin:/usr1/ldbd/ldg-4.7/globus/bin:/usr1/ldbd/ldg-4.7/globus/sbin:/usr1/ldbd/pacman-3.26/bin:/usr1/ldbd/ldg-4.7/vdt/sbin:/usr1/ldbd/ldg-4.7/vdt/bin:/usr1/ldbd/ldg-4.7/ldg-client/bin LD_LIBRARY_PATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/ldg-4.7/tclglobus/lib:/usr1/ldbd/ldg-4.7/glite/lib64:/usr1/ldbd/ldg-4.7/glite/lib:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/server:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/client:/usr1/ldbd/ldg-4.7/berkeley-db/lib:/usr1/ldbd/ldg-4.7/expat/lib:/usr1/ldbd/ldg-4.7/globus/lib PYTHONPATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/glue/lib/python2.4/site-packages:/usr1/ldbd/ldg-4.7/globus/lib64/python X509_USER_CERT=/etc/pki/tls/certs/ldbdcert.pem X509_USER_KEY=/etc/pki/tls/certs/ldbdkey.pem dmtdq_seg_insert --server=segdb.ligo.caltech.edu:30020 --file ".$flagFile . " 2>&1";
       exec($com, $output, $returnval);
       if($returnval==0) {
         echo "<h3><center>Flag Submitted</center></h3>";
       }
       else {
         echo "<h3><font color='blue'><center>Submit failed!</font></center></h3>";
+        echo "<tt>\n";
+        echo join('',$output);
+        echo "</tt>\n";
       }
 }
 
