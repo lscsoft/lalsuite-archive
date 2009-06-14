@@ -121,13 +121,12 @@ $error = 0;
 
    // validate elog url
     $url = $_POST['url'];
-    if(strpos($url,'http')!=0)
+    if(strpos($url,'http') !== 0)
       {
          $error = $error + 1;
          echo "<p>Elog url = <font color='red'>Please make sure your url is in correct format</font><p/>";
       }
-    elseif(strlen($url)!=0 && strpos($url,'http')==0)
-    //else
+    if(strpos($url,'http') === 0)
       {
          $url=htmlspecialchars($_POST['url']);
          echo "<p>Please click on this <a href='$url' get='_blank'>link</a> to verify the elog url (opens in new window).</p>";
