@@ -403,20 +403,26 @@ class CondorJob:
       subfile.write('transfer_input_files = $(macroinput)\n')
 
     if self.__options.keys() or self.__short_options.keys() or self.__arguments:
-      subfile.write( 'arguments =' )
+      subfile.write( 'arguments = "' )
       for c in self.__options.keys():
         if self.__options[c]:
+          if ' ' in self.__options[c] and '$(macro' not in self.__options[c]:
+            # option has space, add single quotes around it
+            self.__options[c] = ''.join([ "'", self.__options[c], "'" ])
           subfile.write( ' --' + c + ' ' + self.__options[c] )
         else:
           subfile.write( ' --' + c )
       for c in self.__short_options.keys():
         if self.__short_options[c]:
+          if ' ' in self.__short_options[c] and '$(macro' not in self.__short_options[c]:
+            # option has space, add single quotes around it
+            self.__short_options[c] = ''.join([ "'", self.__short_options[c], "'" ])
           subfile.write( ' -' + c + ' ' + self.__short_options[c] )
         else:
           subfile.write( ' -' + c )
       for c in self.__arguments:
         subfile.write( ' ' + c )
-      subfile.write( '\n' )
+      subfile.write( ' "\n' )
 
     for cmd in self.__condor_cmds.keys():
       subfile.write( cmd + " = " + self.__condor_cmds[cmd] + '\n' )
@@ -2921,3 +2927,151 @@ class NoopNode(CondorDAGNode, AnalysisNode):
     self.__insert = None
     self.__pfn = None
     self.__query = None
+
+
+class SqliteJob(CondorDAGJob, AnalysisJob):
+  """
+  A cbc sqlite job adds to CondorDAGJob and AnalysisJob features common to jobs
+  which read or write to a sqlite database. Of note, the universe is always set to
+  local regardless of what's in the cp file, the extension is set
+  to None so that it may be set by individual SqliteNodes, log files do not 
+  have macrogpsstarttime and endtime in them, and get_env is set to True.
+  """
+  def __init__(self, cp, sections, exec_name, dax = False):
+    """
+    @cp: a ConfigParser object from which options are read
+    @sections: list of sections in cp to get added options
+    @exec_name: the name of the sql executable
+    """
+    self.__exec_name = exec_name
+    executable = cp.get('condor', exec_name)
+    universe = 'local'
+    CondorDAGJob.__init__(self, universe, executable)
+    AnalysisJob.__init__(self, cp, dax)
+
+    for sec in sections:
+      if cp.has_section(sec):
+        self.add_ini_opts(cp, sec)
+      else:
+        print >> sys.stderr, "warning: config file is missing section [" + sec + "]"
+
+    self.add_condor_cmd('getenv', 'True')
+    self.set_stdout_file('logs/' + exec_name + '-$(cluster)-$(process).out')
+    self.set_stderr_file('logs/' + exec_name + '-$(cluster)-$(process).err')
+
+  def set_exec_name(self, exec_name):
+    """
+    Set the exec_name name
+    """
+    self.__exec_name = exec_name
+
+  def get_exec_name(self):
+    """
+    Get the exec_name name
+    """
+    return self.__exec_name
+
+
+class SqliteNode(CondorDAGNode, AnalysisNode):
+  """
+  A cbc sqlite node adds to the standard AnalysisNode features common to nodes
+  which read or write to a sqlite database. Specifically, it adds the set_tmp_space_path
+  and set_database methods.
+  """
+  def __init__(self, job):
+    """
+    @job: an Sqlite job
+    """
+    CondorDAGNode.__init__(self, job)
+    AnalysisNode.__init__(self)
+    self.__tmp_space = None
+    self.__database = None
+
+  def set_tmp_space(self, tmp_space):
+    """
+    Sets temp-space path. This should be on a local disk.
+    """
+    self.add_var_opt('tmp-space', tmp_space)
+    self.__tmp_space = tmp_space
+
+  def get_tmp_space(self):
+    """
+    Gets tmp-space path.
+    """
+    return self.__tmp_space
+
+  def set_database(self, database):
+    """
+    Sets database option.
+    """
+    self.add_file_opt('database', database)
+    self.__database = database
+    
+  def get_database(self):
+    """
+    Gets database option.
+    """
+    return self.__database
+
+
+class LigolwSqliteJob(SqliteJob):
+  """
+  A LigolwSqlite job. The static options are read from the
+  section [ligolw_sqlite] in the ini file.
+  """
+  def __init__(self, cp, dax = False):
+    """
+    @cp: ConfigParser object from which options are read.
+    """
+    exec_name = 'ligolw_sqlite'
+    sections = ['ligolw_sqlite']
+    SqliteJob.__init__(self, cp, sections, exec_name, dax)
+
+
+class LigolwSqliteNode(SqliteNode):
+  """
+  A LigolwSqlite node.
+  """
+  def __init__(self, job):
+    """
+    @job: a LigolwSqliteJob
+    """
+    SqliteNode.__init__(self, job)
+    self.__input_cache = None
+    self.__xml_output = None
+
+  def set_input_cache(self, input_cache):
+    """
+    Sets input cache.
+    """
+    self.add_file_opt('input-cache', input_cache)
+    self.__input_cache = input_cache
+
+  def get_input_cache(self):
+    """
+    Gets input cache.
+    """
+    return self.__input_cache
+
+  def set_xml_output(self, xml_file):
+    """
+    Tell ligolw_sqlite to dump the contents of the database to a file.
+    """
+    if self.__database is None:
+      raise ValueError, "no database specified"
+    self.add_file_opt('extract', xml_file)
+    self.__xml_output = xml_file
+
+  def get_output(self):
+    """
+    Override standard get_output to return xml-file if xml-file is specified.
+    Otherwise, will return database.
+    """
+    if self.__xml_file:
+      return self.__xml_file
+    elif self.__database:
+      return self.__database
+    else:
+      raise ValueError, "no output xml file or database specified"
+
+
