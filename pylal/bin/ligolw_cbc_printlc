@@ -54,7 +54,7 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time." 
             )
-    parser.add_option( "-t", "--temp-space", action = "store", type = "string",
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string",
         default = None, metavar = "path",
         help = 
             "Location of local disk on which to do work. " +
@@ -217,11 +217,11 @@ if opts.include_only_coincs:
 
 # Setup working databases and connections
 
-if opts.verbose and opts.temp_space: 
+if opts.verbose and opts.tmp_space: 
     print >> sys.stdout, "Setting up temp. database..."
 
 working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
@@ -279,11 +279,11 @@ for row in info:
 # close connection and exit
 connection.close()
 # discard the working_filename; if a temporary database was not
-# created in temp_space (opts.tmp_space), this will do nothing. If a temporary database
+# created in tmp_space (opts.tmp_space), this will do nothing. If a temporary database
 # was created, however, this will delete it. (see dbtables.py for more info)
 dbtables.discard_connection_filename( filename, working_filename, verbose = opts.verbose)
 
-if opts.verbose and opts.temp_space:
+if opts.verbose and opts.tmp_space:
     print >> sys.stdout, "Finshed!"
 
 sys.exit(0)

@@ -113,6 +113,7 @@ def parse_command_line():
 	parser.add_option("--time-slide-file", metavar = "filename", help = "Thinca output file containing time slide triggers.")
 	parser.add_option("--ihope-cache", metavar = "filename", help = "Get thinca files from this ihope cache.")
 	parser.add_option("--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Example H1,H2,L1.  If not provided, attempts will be made to deduce the instrument list either from --??-slide command line options in the process_params table or from the contents of the ifos column in the search_summary table.")
+	parser.add_option("--output-prefix", metavar = "string", help = "Set the prefix string for output filenames (required). Output filenames are constructed automatically, and are of the form \"PREFIX_blah_blah_blah.xml.gz\". Hint: can include a path.")
 	parser.add_option("--veto-segments", metavar = "filename", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", metavar = "string", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
@@ -227,6 +228,8 @@ def set_process_params(xmldoc, process, options):
 		params.append((u"--veto-segments-name", u"lstring", options.veto_segments_name))
 	if options.effective_snr_factor:
 		params.append((u"--effective-snr-factor", u"lstring", options.effective_snr_factor))
+	if options.output_prefix:
+		params.append((u"--output-prefix", u"lstring", options.output_prefix))
 
 	ligolw_process.append_process_params(xmldoc, process, params)
 
@@ -1534,6 +1537,10 @@ if options.veto_segments:
 
 
 for (tag, veto_category), url_pairs in url_categories.items():
+	if options.output_prefix:
+		output_template = "%s%s%s_%%0%dd.xml.gz" % (options.output_prefix, tag and ("_%s" % tag) or "", veto_category and ("_CAT_%s" % veto_category) or "", int(math.floor(math.log10(len(url_pairs) or 1) + 1)))
+	else:
+		output_template = None
 	for n, url_pair in enumerate(url_pairs):
 		lsctables.SnglInspiralTable.next_id = None
 		xmldoc = ligolw_add.ligolw_add(ligolw.Document(), [url for url in url_pair if url], verbose = options.verbose)
@@ -1584,6 +1591,9 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		llwapp.set_process_end_time(process)
 
 		# construct the output filename from the zero lag file being processed
-		zero_lag_filename = os.path.basename(url_pair[0])
-		output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
+		if output_template:
+			output = output_template % n
+		else:
+			zero_lag_filename = os.path.basename(url_pair[0])
+			output = re.sub('THINCA','THINCA_TO_COINC',zero_lag_filename)
 		utils.write_filename(xmldoc, output, verbose = options.verbose, gz = (output or "stdout").endswith(".gz"))
