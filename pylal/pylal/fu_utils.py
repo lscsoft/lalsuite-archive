@@ -448,15 +448,15 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
       if not len(rangeString) == 0:
         epochStart = rangeString.split(',')[0]
         epochEnd = rangeString.split(',')[1]
-        opts.gps_start_time = int(epochStart)
-        opts.gps_end_time = int(epochEnd)
-        opts.use_available_data = False
-        opts.run_data_quality = False
+        #opts.gps_start_time = int(epochStart)
+        #opts.gps_end_time = int(epochEnd)
+        #opts.use_available_data = False
+        #opts.run_data_quality = False
         # overwrite the ini file if the field "analyze" in section [segments] exist...
-        cp.set("segments", "analyze", "Science")
+        #cp.set("segments", "analyze", "Science")
 
-        inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
-        segmentListFile = segFile[ifo]
+        #inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
+        #segmentListFile = segFile[ifo]
 
       # Use the segment list if provided, and generate a list of random times
       if not len(segmentListFile) == 0:
@@ -777,8 +777,8 @@ WHERE segment_definer.segment_def_id = \
 segment.segment_def_id AND \
 segment_definer.name = 'Science' AND \
 segment_definer.ifos = '%s' AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"""
+(segment.end_time > %s AND %s > \
+segment.start_time)"""
   try:
     serverName,serverPort=serverURL[len('ldbd://'):].split(':')
   except:
