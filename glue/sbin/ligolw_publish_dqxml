@@ -169,6 +169,9 @@ try:
     myClient = LDBDClient.LDBDClient(host, port, identity)
     msg = myClient.ping()
     logger.info(msg)
+    print msg
+    logger.info("ligolw_publish_dqxml complete")
+    os.unlink(lock_file)
     sys.exit(0)
 
   # figure out which files need to be published
@@ -178,7 +181,7 @@ try:
   latest_gps_fp.close()
   current_gps = gpstime.GpsSecondsFromPyUTC(time.time())
   publish_interval = segments.segment(latest_gps,current_gps)
-  logger.info("creating symlinks for [%d,%d)" % latest_gps,current_gps)
+  logger.info("creating symlinks for [%d,%d)" % (latest_gps,current_gps))
 
   xml_files = segmentdb_utils.get_all_files_in_range(
     input_directory,latest_gps,current_gps)
@@ -220,6 +223,7 @@ try:
   logger.info("publishing complete")
 
 except Exception, e:
+  logger.error(str(e))
   print >>sys.stderr, "Error inserting segments: %s" % str(e)
   os.unlink(lock_file)
   sys.exit(1)
