@@ -174,7 +174,7 @@ def parse_command_line():
         raise ValueError, "--tmp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
-    if not (options.rank_by.upper() == 'MAX' or options.rank_by.upper() == 'MIN'):
+    if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
         raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
     if options.param_name and not options.param_ranges:
         raise ValueError, "param-name requires param-ranges"
@@ -277,13 +277,9 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # Get ranking stat
-ranking_stat =  opts.ranking_stat
-if opts.rank_by.strip().upper() == 'MAX':
-    rank_by = 'MAX'
-elif opts.rank_by.strip().upper() == 'MIN':
-    rank_by = 'MIN'
-else:
-    raise ValueError, "rank_by must be set to either MAX or MIN (received %s)" % str(rank_by)
+if " " in opts.ranking_stat.strip():
+  raise ValueError, "ranking-stat must not contain spaces"
+ranking_stat =  opts.ranking_stat.strip()
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )

@@ -90,7 +90,7 @@ class parse_param_ranges:
                 lowerbndry = '>'
                 lowerparam = float( lowerparam.lstrip('(') )
             else:
-                raise ValueError, "Parameter range %s not formatted correctly!" % this_range
+                raise ValueError, "Parameter range %s not formatted correctly" % this_range
   
             # get upper-bound (similar to lower bound method)
             upperparam = this_range.split(',')[1].strip()
@@ -101,7 +101,7 @@ class parse_param_ranges:
                 upperbndry = '<'
                 upperparam = float( upperparam.rstrip(')') )
             else:
-                raise ValueError, "Parameter range %s not formatted correctly!" % this_range
+                raise ValueError, "Parameter range %s not formatted correctly" % this_range
 
             # add param to filters
             self.param_ranges.append( ( (lowerbndry, lowerparam), (upperbndry, upperparam) ))
@@ -424,22 +424,22 @@ class Summaries:
     
     bkg_stats groups triggers by experiment_id, ifos, and param_group 
     (param_group is an arbitrary integer representing the param bin, e.g., 
-    mchirp [2,8), to which a trigger belongs; if no binning is done, then 
+    mchirp [3.48,7.4), to which a trigger belongs; if no binning is done, then
     it is 0 for all triggers). It stores ALL the triggers in all the time 
-    slides and zero-lag within that group.
+    slides (except zero-lag) within that group.
 
     sngl_slide_stats groups triggers by experiment_id, experiment_summ_id, ifos, and 
     param_group. It therefore groups all triggers within each time slide 
-    separately. If the time-slide is not zero-lag, zero-lag triggers are also 
-    added (see calc_ufar below for reasoning).
+    separately. It is used to subtract triggers within the same slide when calculating
+    uncombined fars for the background. Therefore, it only stores slide triggers;
+    for any zero-lag datatype sngl_slide_stats is just an empty list.
 
     frg_durs stores the duration for each experiment_summ_id. It's keys are 
     [experiment_id][experimen_summ_id].
 
     bkg_durs stores the background duration for each time-slide and zero-lag, 
-    i.e., for each experiment_summ_id. This is the sum of all the frg_durs 
-    sharing the same experiment_id - the duration of the zero-lag and the 
-    given experiment_summ_id.
+    i.e., for each experiment_summ_id. This is the sum of all other slide
+    datatypes sharing the same experiment_id except for the given slide. 
 
     max_bkg_fars stores the maximum background fars of all the categories 
     within each time slide. It's keys are (experiment_summ_id, ifo_group). 
@@ -448,7 +448,7 @@ class Summaries:
     If opts.combine_fars is set to across_all a category is defined by the 
     param bin in which a trigger exists and the ifos that took part in the 
     trigger. So, if there are three param bins and we've excluded H2,L1 triggers 
-    in H1,H2,L1 time, then there are 6 categories for H1,H2,L1 time: three
+    in H1,H2,L1 time, then there are 6 categories for H1,H2,L1 time: three param
     bins each for H1,L1 and H1,H2,L1 coincident triggrs. Thus, ifo_group will 
     be set to "ALL_IFOS" and there will be 6 max_bkg_fars stored for each 
     experiment_summ_id in triple time.
@@ -542,16 +542,15 @@ class Summaries:
         dividing by the background duration for that slide.
         To do this quickly, bisect.bisect_left is used (see python 
         documentation for more info) on the bkg_stats list. Since bkg_stats 
-        contains all the triggers in all the slides -- including zero-lag -- 
-        for some experiment_id, this will result in counting both the zero-lag 
-        triggers and the triggers that are in the same slide (given by the esid)
-        as the trigger we are considering. To correct for this, the trigger's 
-        place in the sngl_slide_stats list is subtracted from  this value (this is why 
-        zero-lag triggers are added to all the sngl_slide_stats except for the zero-lag). 
-        Thus, the "background" considered for some trigger are all the triggers 
-        sharing the same experiment_id, excluding zero-lag triggers and triggers
-        in the same time-slide as the trigger. This means that uncombined far
-        for non-zero-lag triggers will use one less time slide than zero-lag triggers.
+        contains all the triggers in all the slides for some experiment_id,
+        this will result in counting the triggers that are in the same slide
+        (given by the esid) as the trigger we are considering (except for zero-lag).
+        To correct for this, the trigger's place in it's sngl_slide_stats list is
+        subtracted from this value. The "background" considered for some trigger is
+        therefore all the triggers sharing the same experiment_id, excluding
+        zero-lag triggers and triggers in the same time-slide as the trigger. This
+        means that uncombined far for non-zero-lag triggers will use one less time
+        slide than zero-lag triggers.
         """
         return (\
             ( len(self.bkg_stats[(eid, ifos, param_group)]) - bisect.bisect_left(self.bkg_stats[(eid, ifos, param_group)], stat) ) \
@@ -562,7 +561,7 @@ class Summaries:
     def calc_ufar_by_min(self, eid, esid, ifos, param_group, stat):
         """
         Same as calc_ufar_by_max, except that the uncombined far is calculated
-        by counting background triggers that  have a stat value less than or 
+        by counting background triggers that have a stat value less than or 
         equal to the given stat. (Done by using bisect.bisect_right as opposed to 
         len(list) - bisect.bisect_left).
         """
