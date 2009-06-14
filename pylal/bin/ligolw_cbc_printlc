@@ -128,11 +128,11 @@ def parse_command_line():
             "in the coinc_inspiral table)." 
             )
     parser.add_option( "", "--rank-by", action = "store", type = "string", default = None, 
-        metavar = "ASC or DESC",
+        metavar = "MAX or MIN",
         help = 
-            "Requried. Options are ASC or DESC. " +
-            "This specifies whether to rank triggers by ascending (ASC) or " +
-            "descending (DESC) stat value." 
+            "Requried. Options are MAX or MIN. " +
+            "This specifies whether to rank triggers by maximum or " +
+            "minimum stat value." 
             )
     parser.add_option( "", "--limit", action = "store", type = "int", default = 10,
         help =
@@ -153,8 +153,8 @@ def parse_command_line():
         raise ValueError, "No input specified."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
-    if not (options.rank_by.upper() == 'ASC' or options.rank_by.upper() == 'DESC'):
-        raise ValueError, "--rank-by must be specified and set to either ASC or DESC."
+    if not (options.rank_by.strip().upper() == 'MIN' or options.rank_by.strip().upper() == 'MAX'):
+        raise ValueError, "--rank-by must be specified and set to either MIN or MAX."
     if options.exclude_coincs and options.include_only_coincs:
         raise ValueError, "Cannot specify both --exclude-coincs and --include-only-coincs."
     if options.datatype.strip().lower() not in lsctables.ExperimentSummaryTable.datatypes:
@@ -162,7 +162,7 @@ def parse_command_line():
     if not (options.convert_durations.strip().lower() == "s" or options.convert_durations.strip().lower() == "min" or 
         options.convert_durations.strip().lower() == "hr" or options.convert_durations.strip().lower() == "d" or
         options.convert_durations.strip().lower() == "yr"):
-        raise ValueError, "--convert-duration must be either 's', 'min', 'hr', 'd', or 'yr'"
+        raise ValueError, "--convert-duration must be either s, min, hr, d, or yr"
 
 
     return options, sys.argv[1:]
@@ -180,6 +180,26 @@ filename = opts.input
 if not os.path.isfile( filename ):
     raise ValueError, "The input file, %s, cannot be found." % filename
 
+# Setup working databases and connections
+if opts.verbose and opts.tmp_space: 
+    print >> sys.stdout, "Setting up temp. database..."
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+
+# Get ranking stat and append coinc_inspiral table name
+if " " in opts.ranking_stat.strip():
+  raise ValueError, "ranking-stat must not contain spaces"
+ranking_stat =  '.'.join([ 'coinc_inspiral', opts.ranking_stat.strip() ])
+
+# Get rank_by
+if opts.rank_by.strip().upper() == "MIN":
+  rank_by = 'ASC'
+else:
+  rank_by = 'DESC'
+
+#
 #
 #   Set filter
 #
@@ -214,23 +234,6 @@ if opts.include_only_coincs:
     # add to in_this_filter
     in_this_filter = ''.join([ in_this_filter, '\n\tAND (\n\t\t', include_coinc_filters, '\n\t)' ])
 
-
-# Setup working databases and connections
-
-if opts.verbose and opts.tmp_space: 
-    print >> sys.stdout, "Setting up temp. database..."
-
-working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
-connection = sqlite3.connect( working_filename )
-dbtables.DBTable_set_connection( connection )
-
-# join experiment tables to coinc_inspiral table
-join_conditions = sqlutils.join_experiment_tables_to_coinc_inspiral()
-
-# append coinc_inpsiral table name to ranking stat
-opts.ranking_stat = '.'.join([ 'coinc_inspiral', opts.ranking_stat ])
-
 # establish what units will be converting duration to; this has to be done
 # by defining a function which calls sqlutils.convert_duration with the desired
 # conversion. This function is then sqlitized so that it just takes one argument,
@@ -242,18 +245,24 @@ def convert_duration( duration ):
 connection.create_function( 'convert_duration', 1, convert_duration )
     
 # Set up sqlquery
-sqlquery = ' '.join([ """
+sqlquery = ''.join([ """
     SELECT
         experiment.instruments,
         convert_duration(experiment_summary.duration),
         coinc_inspiral.*
     FROM
-        coinc_inspiral""",
-    join_conditions, """
+        coinc_inspiral
+    JOIN
+        experiment, experiment_summary, experiment_map 
+    ON ( 
+        experiment.experiment_id == experiment_summary.experiment_id
+        AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
+        AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
     WHERE 
         """, in_this_filter, """
-    ORDER BY\n\t""", opts.ranking_stat, opts.rank_by.upper(), """
-    LIMIT""", str(opts.limit) ])
+    ORDER BY
+        """, ranking_stat, ' ',  rank_by, """
+    LIMIT """, str(opts.limit) ])
 
 if opts.verbose:
     print >> sys.stdout, "Sqlite query is:"
