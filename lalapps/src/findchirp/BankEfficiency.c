@@ -149,9 +149,15 @@ main (INT4 argc, CHAR **argv )
 
   /* --- Allocate memory -------------------------------------------------- */
   /* --- First, estimate the size of the signal --- */
+  if( userParam.template == AmpCorPPN )
+  {
+    coarseBankIn.ampOrder = 1;
+  }
   LAL_CALL(BankEfficiencyGetMaximumSize(&status,
       randIn, coarseBankIn, userParam, &(signal.length)),
       &status);
+
+  fprintf(stderr,"\nlength = %d\n",signal.length);
 
   /* --- Set size of the other vectors --- */
   randIn.psd.length     = signal.length/2 + 1;
@@ -231,7 +237,7 @@ main (INT4 argc, CHAR **argv )
   /* AmpCorPPN filtering uses a different psd structure */
   if( userParam.template == AmpCorPPN )
   {
-    for( i = 0; i < randIn.psd.length; ++i )
+    for( i = 0; i < (INT4)randIn.psd.length; ++i )
     {
       ampCorDataSegVec->data->spec->data->data[i] = 
         randIn.psd.data[i] *= 9.0e46;
@@ -309,6 +315,7 @@ main (INT4 argc, CHAR **argv )
     LAL_CALL(BankEfficiencyGenerateInputData(&status,
         &signal, &randIn, userParam), &status);
 
+
     /* --- populate the main structure of the overlap ---*/
     overlapin.signal = signal;
 
@@ -319,9 +326,9 @@ main (INT4 argc, CHAR **argv )
       REAL4 norm = 0.0;
   
 
-      for( i = 0; i < ampCorDataSegVec->data->chan->data->length; ++i )
+      for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
       {
-        if( i < signal.length )
+        if( i < (INT4)signal.length )
         {
           ampCorDataSegVec->data->chan->data->data[i] = 
             overlapin.signal.data[i];
@@ -342,7 +349,7 @@ main (INT4 argc, CHAR **argv )
       memset( ampCorFreqSegVec->data->segNorm->data, 0,
               ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
 
-      for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
+      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
       {
         REAL4 power;
         
@@ -361,7 +368,7 @@ main (INT4 argc, CHAR **argv )
       }
       invRootData = pow( norm, -0.5 );  
 
-      for( i = 0; i < ampCorFreqSegVec->data->data->data->length-1; ++i )
+      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
       {
         ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
         ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
@@ -864,7 +871,7 @@ void BankEfficiencyPrintResults(
   RandomInspiralSignalIn   randIn,
   BankEfficiencySimulation simulation)
 {
-  FILE *fs;
+/*  FILE *fs; */
   fprintf(stdout,
   "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
       result.mass1_trigger, result.mass2_trigger,
@@ -2096,7 +2103,18 @@ void BankEfficiencyGetMaximumSize(
   /* ideally this should be implemented within lal.*/
   if( randIn.param.approximant  == AmpCorPPN || userParam.template == AmpCorPPN)
   {
-    *length *= pow(1./(1.+randIn.param.ampOrder/2.), -8./3.);
+    INT4 ampOrder;
+
+    if( randIn.param.ampOrder < coarseBankIn.ampOrder )
+    {
+      ampOrder = coarseBankIn.ampOrder;
+    }
+    else
+    {
+      ampOrder = randIn.param.ampOrder;
+    }
+
+    *length *= (INT4)( pow(1./(1.+ampOrder/2.), -8./3.) );
   }
 
   /* if --num-seconds is provided, we want a specified length of data.
