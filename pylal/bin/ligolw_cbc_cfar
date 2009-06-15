@@ -58,10 +58,6 @@ def parse_command_line():
         help = 
             "Name of output database to save to."
             )
-    parser.add_option( "-x", "--write-xml-file", action = "store", type = "string", default = None,
-        help =
-            "Writes output to specified xml file. Warning: for larger databases, this can take awhile."
-            )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help = 
@@ -74,7 +70,7 @@ def parse_command_line():
         help = 
             "Print progress information"
            )
-    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+    parser.add_option( "-D", "--debug", action = "store_true", default = False,
         help =
             "Print SQLite queries used and the approximate time taken to run each one." )
     # following are generic inspiral_sql options
@@ -528,14 +524,7 @@ if opts.vacuum:
 #       Save and Exit
 #
 
-# TODO: set outfile name rather than user inputed name
-
 connection.commit()
-
-# write xml file if desired
-if opts.write_xml_file:
-    extract(connection, opts.write_xml_file, verbose = opts.verbose)
-
 connection.close()
 
 # write output database
