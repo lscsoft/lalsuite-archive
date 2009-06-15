@@ -310,6 +310,17 @@ static int pylal_LIGOTimeGPS___nonzero__(PyObject *self)
 }
 
 
+static PyObject *pylal_LIGOTimeGPS_ns(PyObject *self)
+{
+	LIGOTimeGPS gps;
+
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyLong_FromLong(XLALGPSToINT8NS(&gps));
+}
+
+
 static PyObject *pylal_LIGOTimeGPS___pos__(PyObject *self)
 {
 	LIGOTimeGPS gps;
@@ -470,6 +481,7 @@ static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
 
 
 static struct PyMethodDef pylal_LIGOTimeGPS_methods[] = {
+	{"ns", pylal_LIGOTimeGPS_ns, METH_NOARGS, NULL},
 	{"__reduce__", pylal_LIGOTimeGPS___reduce__, METH_NOARGS, NULL},
 	{NULL,}
 };
