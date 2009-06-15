@@ -43,9 +43,9 @@ def parse_command_line():
 
     parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
     # following are related to file input and output naming
-    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+    parser.add_option( "-d", "--database", action = "store", type = "string", default = None,
         help =
-            "Input database to read. Can only input one at a time."
+            "Database to update. Must already exist."
             )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
@@ -68,7 +68,7 @@ def parse_command_line():
         help =
             "Print progress information"
            )
-    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+    parser.add_option( "-D", "--debug", action = "store_true", default = False,
         help =
             "Print SQLite queries used and the approximate time taken to run each one." )
 
@@ -89,7 +89,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 
 # get input database filename
-filename = opts.input
+filename = opts.database
 if not os.path.isfile( filename ):
     raise ValueError, "The input file, %s, cannot be found." % filename
 
