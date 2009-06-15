@@ -1950,12 +1950,8 @@ int main( int argc, char *argv[] )
       case EOB:
       case EOBNR:
       case FindChirpPTF:
-<<<<<<< HEAD:lalapps/src/inspiral/inspiral.c
       case AmpCorPPN:
         if ( vrbflg ) 
-=======
-        if ( vrbflg )
->>>>>>> local_master:lalapps/src/inspiral/inspiral.c
           fprintf( stdout, "findchirp conditioning data for TD or PTF\n" );
         LAL_CALL( LALFindChirpTDData( &status, fcSegVec, dataSegVec,
               fcDataParams ), &status );
