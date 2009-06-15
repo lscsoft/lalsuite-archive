@@ -81,7 +81,7 @@ def parse_command_line():
         help = 
             "Input database to read. Can only input one at a time."
         )
-    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help = 
             "Location of local disk on which to do work. This is optional; " +
@@ -245,7 +245,7 @@ if not os.path.isfile( filename ):
 if opts.verbose: 
     print >> sys.stdout, "Creating a database connection..."
 working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
@@ -559,7 +559,11 @@ if opts.plot_combined:
 
 # Cycle over experiment_ids, creating a new page of plots for each
 # experiment
-opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper()])
+if opts.user_tag:
+    opts.user_tag = '_'.join([ opts.user_tag, plot_datatype.upper()])
+else:
+    opts.user_tag = plot_datatype.upper()
+
 for (eid, exp_start_time, exp_end_time, on_inst) in experiment_ids:
 
     if opts.verbose:
@@ -894,7 +898,7 @@ for (eid, exp_start_time, exp_end_time, on_inst) in experiment_ids:
                             label = lbl )
                     # if any FARs were zero, stick an arrow on their marker
                     if (eid, zero_esid, ifo_group) in comb_zero_cumnum:
-                        xval = 1. / (min_bkg_ufar[ zero_esid ] * num_comb_categories[(zero_esid,ifo_group)])
+                        xval = 1. / (min_bkg_ufar[ zero_esid ] * num_comb_cats[(eid, zero_esid,ifo_group)])
                         yval = comb_zero_cumnum[ (eid, zero_esid, ifo_group) ]
                         text( xval, yval, '$\Rightarrow$', ha = 'left', va = 'center', 
                             color = 'k', label='_nolegend_' )

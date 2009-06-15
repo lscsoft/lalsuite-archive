@@ -212,6 +212,7 @@ setup(
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
     os.path.join('bin','ligolw_cbc_glitch_page'),
+    os.path.join('bin','ligolw_cbc_hardware_inj_page'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
     os.path.join('bin','ligolw_segment_diff'),
@@ -221,6 +222,7 @@ setup(
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
     os.path.join('sbin','ldbdd'),
+    os.path.join('sbin','ligolw_publish_dqxml'),
     os.path.join('sbin','segdb_coalesce'), ],
   data_files = [
     (

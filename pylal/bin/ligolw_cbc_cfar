@@ -62,7 +62,7 @@ def parse_command_line():
         help =
             "Writes output to specified xml file. Warning: for larger databases, this can take awhile."
             )
-    parser.add_option( "-t", "--temp-space", action = "store", type = "string", default = None,
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
         help = 
             "Requried. Location of local disk on which to do work. " +
@@ -170,11 +170,11 @@ def parse_command_line():
         raise ValueError, "No input specified."
     if not options.output:
         raise ValueError, "No output specified."
-    if not options.temp_space:
-        raise ValueError, "--temp-space is a requred argument."
+    if not options.tmp_space:
+        raise ValueError, "--tmp-space is a requred argument."
     if not options.ranking_stat:
         raise ValueError, "No ranking stat specified."
-    if not (options.rank_by.upper() == 'MAX' or options.rank_by.upper() == 'MIN'):
+    if not (options.rank_by.strip().upper() == 'MAX' or options.rank_by.strip().upper() == 'MIN'):
         raise ValueError, "--rank-by must be specified and set to either MAX or MIN."
     if options.param_name and not options.param_ranges:
         raise ValueError, "param-name requires param-ranges"
@@ -225,7 +225,7 @@ if not os.path.isfile( filename ):
 if opts.verbose: 
     print >> sys.stdout, "Setting up temp. database..."
 working_filename = dbtables.get_connection_filename( 
-    filename, tmp_path = opts.temp_space, verbose = opts.verbose )
+    filename, tmp_path = opts.tmp_space, verbose = opts.verbose )
 connection = sqlite3.connect( working_filename )
 dbtables.DBTable_set_connection( connection )
 
@@ -277,13 +277,9 @@ if param_filters or exclude_coinc_filters or include_coinc_filters:
 # 
 
 # Get ranking stat
-ranking_stat =  opts.ranking_stat
-if opts.rank_by.strip().upper() == 'MAX':
-    rank_by = 'MAX'
-elif opts.rank_by.strip().upper() == 'MIN':
-    rank_by = 'MIN'
-else:
-    raise ValueError, "rank_by must be set to either MAX or MIN (received %s)" % str(rank_by)
+if " " in opts.ranking_stat.strip():
+  raise ValueError, "ranking-stat must not contain spaces"
+ranking_stat =  opts.ranking_stat.strip()
 
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )

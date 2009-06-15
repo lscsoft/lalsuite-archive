@@ -34,6 +34,7 @@ import numpy
 import cPickle
 import gzip
 from scipy import interpolate
+import math
 
 from optparse import *
 from types import *
@@ -426,6 +427,7 @@ def getForegroundTimes(cp,opts,ifo):
 def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     times = []
     fileName = ''
+    segmentListLength = 0
   
     if cp.has_option('followup-background-qscan-times',ifo+'range'):
       rangeString = string.strip(cp.get('followup-background-qscan-times',ifo+'range'))
@@ -445,24 +447,34 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     else:
 
       # Generate the list of science segments (excluding cat 1 vetoes) if a time range is provided in the ini file
-      if not len(rangeString) == 0:
+      if rangeString:
         epochStart = rangeString.split(',')[0]
         epochEnd = rangeString.split(',')[1]
-        opts.gps_start_time = int(epochStart)
-        opts.gps_end_time = int(epochEnd)
-        opts.use_available_data = False
-        opts.run_data_quality = False
+        #opts.gps_start_time = int(epochStart)
+        #opts.gps_end_time = int(epochEnd)
+        #opts.use_available_data = False
+        #opts.run_data_quality = False
         # overwrite the ini file if the field "analyze" in section [segments] exist...
-        cp.set("segments", "analyze", "Science")
+        #cp.set("segments", "analyze", "Science")
 
-        inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
-        segmentListFile = segFile[ifo]
+        #inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
+        #segmentListFile = segFile[ifo]
 
       # Use the segment list if provided, and generate a list of random times
-      if not len(segmentListFile) == 0:
+      if rangeString or segmentListFile:
         segmentList = pipeline.ScienceData()
         segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
-        segmentList.read(segmentListFile,segmentMin)
+        if segmentListFile:
+          segmentList.read(segmentListFile,segmentMin)
+        elif rangeString:
+          segmentListTempo = getSciSegs(string.strip(cp.get('followup-dq','server-url')),ifo,int(epochStart),int(epochEnd),True)
+          seg_index = 0
+          for segment in segmentListTempo:
+            if int(math.floor(segment[1])-math.ceil(segment[0])) >= segmentMin:
+              segmentList.append_from_tuple(tuple([seg_index,segment[0],segment[1],segment[1]-segment[0]]))
+              seg_index += 1
+            else: continue
+
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -489,7 +501,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         saveRandomTimes(timeList,fileName)
 
       # Use the time-list file if provided
-      if len(segmentListFile) == 0 and not len(timeListFile) == 0:
+      if segmentListLength == 0 and not len(timeListFile) == 0:
         timeList = listFromFile(timeListFile)
         fileName = timeListFile
         if not timeList:
@@ -777,8 +789,8 @@ WHERE segment_definer.segment_def_id = \
 segment.segment_def_id AND \
 segment_definer.name = 'Science' AND \
 segment_definer.ifos = '%s' AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"""
+(segment.end_time > %s AND %s > \
+segment.start_time)"""
   try:
     serverName,serverPort=serverURL[len('ldbd://'):].split(':')
   except:

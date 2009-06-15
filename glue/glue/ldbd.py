@@ -517,6 +517,7 @@ class LIGOMetadata:
       raise LIGOLwDBError, 'attempt to convert empty table to xml'
     ligolw = """\
 <?xml version='1.0' encoding='utf-8' ?>
+<?xml-stylesheet type="text/xsl" href="ligolw.xsl"?>
 <!DOCTYPE LIGO_LW SYSTEM "http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt">
 <LIGO_LW>
 """
