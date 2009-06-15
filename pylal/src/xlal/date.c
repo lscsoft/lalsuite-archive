@@ -154,7 +154,7 @@ static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 	if(!pyobject_to_ligotimegps(other, &other_gps))
 		return NULL;
 
-	XLALINT8NSToGPS(&self_gps, XLALGPSToINT8NS(&self_gps) + XLALGPSToINT8NS(&other_gps));
+	XLALGPSAddGPS(&self_gps, &other_gps);
 
 	return pylal_LIGOTimeGPS_New(self_gps);
 }
