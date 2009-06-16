@@ -131,7 +131,9 @@ def timeindays(col_data ):
     - S3:         [751658413, 757699213]
     - S4:         [793130413, 795679213]
     - S5:         [815119213, 875232014]
-  @param col_data: array containing times
+    - E13:        [924606015, 924865215]
+    - E14:        [928875615, 929134815]
+  @param col_data: array containing times in GPS seconds
   """
   lvtimes = [700000000, 700086400]
   v1times = [811132263, 811143059]
@@ -140,6 +142,7 @@ def timeindays(col_data ):
   s4times = [793130413, 795679213]
   s5times = [815119213, 875232014]
   e13times = [924606015, 924865215]
+  e14times = [928875615, 929134815]
 
   if len(col_data) == 0: return col_data
 
@@ -157,6 +160,8 @@ def timeindays(col_data ):
     start = v1times[0]
   elif col_data[0] > e13times[0] and col_data[0] < e13times[1]:
     start = e13times[0]
+  elif col_data[0] > e14times[0] and col_data[0] < e14times[1]:
+    start = e14times[0]
   else:
     print >> sys.stderr, "events not from a known science run"
     sys.exit(1)
