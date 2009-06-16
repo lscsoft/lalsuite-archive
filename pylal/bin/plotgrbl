@@ -797,15 +797,14 @@ text = "ln P(c|0) vs rho for each mc bin for m2 = " \
     + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat for some }m_2\ "\
-    r"(%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
+    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
 trace_inj_ind = m2_bin_by_inj == trace_m2_bin
 for mc_ind, mc_range in enumerate(mc_ranges):
     plot.add_content(inj_loudest_by_inj_mc[trace_inj_ind, mc_ind],
     inj_log_pc0_by_trial_mc[trace_inj_ind, mc_ind], marker=".",
         linestyle="None",
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=3)
+plot.finalize(loc=1)
 
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
