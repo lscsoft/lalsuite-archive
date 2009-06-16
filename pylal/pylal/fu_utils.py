@@ -808,7 +808,7 @@ segment.end_time)"""
     return None
   try:
     engine=query_engine.LdbdQueryEngine(connection)
-    sqlString=queryString%(ifo,segName,gpsStop,gpsStart)
+    sqlString=queryString%(segName,ifo,gpsStop,gpsStart)
     queryResult=engine.query(sqlString)
   except Exception, errMsg:
     print type(errMsg),errMsg
