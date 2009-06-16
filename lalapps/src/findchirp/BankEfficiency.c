@@ -157,8 +157,6 @@ main (INT4 argc, CHAR **argv )
       randIn, coarseBankIn, userParam, &(signal.length)),
       &status);
 
-  fprintf(stderr,"\nlength = %d\n",signal.length);
-
   /* --- Set size of the other vectors --- */
   randIn.psd.length     = signal.length/2 + 1;
   correlation.length    = signal.length;
@@ -2791,6 +2789,7 @@ void BankEfficiencyInitInspiralCoarseBankIn(
   coarseBankIn->numFcutTemplates = 5;
   coarseBankIn->approximant      = EOB;
   coarseBankIn->order            = LAL_PNORDER_TWO;
+  coarseBankIn->ampOrder         = 0;
   coarseBankIn->LowGM            = 3;
   coarseBankIn->insidePolygon    = 1;
   coarseBankIn->HighGM           = 6;
