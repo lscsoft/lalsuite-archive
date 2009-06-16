@@ -484,9 +484,11 @@ if not opts.show_plot:
 text = "ln L(c(mc)|h(m2))"
 
 # get likelihoods at extrapolation points
-# XXX: 0.1 is a magic number; we start extrapolating at p(c|0) = 0.1
-extrap_ind = offsource_loudest_by_trial_mc.argsort(axis=0)\
-    [-int(0.1 * num_offsource_trials), ...]
+# XXX: 0.3 is a magic number; we start extrapolating at p(c|0) = 0.3
+num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc > 0).sum(axis=0)
+extrap_ind = \
+    [offsource_loudest_by_trial_mc.argsort(axis=0)[-int(0.3 * N), i] \
+     for i,N in enumerate(num_nonempty_offsource_trials)]
 extrap_snr_by_mc = \
     offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
 
