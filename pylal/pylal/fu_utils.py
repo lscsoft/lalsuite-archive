@@ -762,7 +762,8 @@ def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
                ifo=None,
                gpsStart=None,
                gpsStop=None,
-               cut=bool(False)):
+               cut=bool(False),
+               segName="Science"):
   """
   This method is designed to query the server specified by SERVERURL.
   The method will return the segments that are between and overlaping
@@ -787,7 +788,7 @@ segment.start_time,\
 segment.end_time FROM segment,segment_definer \
 WHERE segment_definer.segment_def_id = \
 segment.segment_def_id AND \
-segment_definer.name = 'Science' AND \
+segment_definer.name = '%s' AND \
 segment_definer.ifos = '%s' AND \
 NOT (segment.start_time > %s OR %s > \
 segment.end_time)"""
@@ -807,7 +808,7 @@ segment.end_time)"""
     return None
   try:
     engine=query_engine.LdbdQueryEngine(connection)
-    sqlString=queryString%(ifo,gpsStop,gpsStart)
+    sqlString=queryString%(ifo,segName,gpsStop,gpsStart)
     queryResult=engine.query(sqlString)
   except Exception, errMsg:
     print type(errMsg),errMsg
