@@ -763,7 +763,7 @@ def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
                gpsStart=None,
                gpsStop=None,
                cut=bool(False),
-               segName="Science"):
+               segName="DMT-SCIENCE"):
   """
   This method is designed to query the server specified by SERVERURL.
   The method will return the segments that are between and overlaping
