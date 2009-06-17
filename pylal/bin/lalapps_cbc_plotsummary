@@ -242,6 +242,19 @@ AS
 		JOIN coinc_inspiral ON (
 			coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
 		)
+	WHERE
+		coinc_inspiral.combined_far == (
+			SELECT
+				MIN(matching_coinc_inspirals.combined_far)
+			FROM
+				coinc_event_map AS c
+				JOIN coinc_inspiral AS matching_coinc_inspirals ON (
+					c.table_name == 'coinc_event'
+					AND c.event_id == matching_coinc_inspirals.coinc_event_id
+				)
+			WHERE
+				c.coinc_event_id == a.coinc_event_id
+		)
 	""")
 
 
@@ -282,21 +295,10 @@ SELECT
 			sim_coinc_map
 		WHERE
 			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
-			--AND sim_coinc_map.on_instruments == ?
-			AND sim_coinc_map.false_alarm_rate == (
-				SELECT
-					MIN(a.false_alarm_rate)
-				FROM
-					sim_coinc_map AS a
-				WHERE
-					a.simulation_id == sim_coinc_map.simulation_id
-					--AND a.on_instruments == sim_coinc_map.on_instruments
-			)
 	)
 FROM
 	sim_inspiral
 			"""):
-				#""", (dbtables.lsctables.ifos_from_instrument_set(self.on_instruments),)):
 				sim = contents.sim_inspiral_table._row_from_cols(values)
 				if sim.get_end() in zero_lag_segments:
 					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
@@ -339,7 +341,78 @@ FROM
 #
 # =============================================================================
 #
-#                                     Plot
+#                          Mchirp Parameter Accuracy
+#
+# =============================================================================
+#
+
+
+class MChirpAccuracy(object):
+	class MissedFoundbyMchirp(BasePlot):
+		def __init__(self, on_instruments):
+			BasePlot.__init__(self, r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
+			self.on_instruments = on_instruments
+			self.found_in = {}
+
+		def add_contents(self, contents):
+  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sim_inspiral.*,
+	(
+		SELECT
+			sim_coinc_map.participating_instruments
+		FROM
+			sim_coinc_map
+		WHERE
+			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+FROM
+	sim_inspiral
+			"""):
+				sim = contents.sim_inspiral_table._row_from_cols(values)
+				if sim.get_end() in zero_lag_segments:
+					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
+					if participating_instruments is not None:
+						participating_instruments = frozenset(participating_instruments)
+					try:
+						self.found_in[participating_instruments].append(sim)
+					except KeyError:
+						self.found_in[participating_instruments] = [sim]
+
+		def finish(self):
+  			legend = []
+			missed = self.found_in.pop(None, [])
+			for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
+				legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
+				self.axes.semilogy([sim.mchirp for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+			if missed:
+				legend.append("Missed")
+				self.axes.semilogy([sim.mchirp for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+			self.axes.legend(legend)
+			self.axes.set_title(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)))
+			return [self.fig]
+
+	def __init__(self):
+		self.plots = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for on_instruments in contents.on_instruments_combos:
+			if on_instruments not in self.plots:
+				self.plots[on_instruments] = MissedFoundbyMchirpPlots.MissedFoundbyMchirp(on_instruments)
+			self.plots[on_instruments].add_contents(contents)
+
+	def finish(self):
+		return [fig for plot in self.plots.values() for fig in plot.finish()]
+
+
+#
+# =============================================================================
+#
+#                                     Main
 #
 # =============================================================================
 #
