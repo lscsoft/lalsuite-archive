@@ -229,6 +229,11 @@ on_ifar = 1 / (get_min_fap(onsource_loudest_by_mc) or 1e-5)
 off_ifar = 1 / offsource_fap_by_trial
 inj_ifar = 1 / inj_fap_by_trial
 
+# get unextrapolated p(c|0) for a plot
+inj_fap_by_trial_mc = \
+    numpy.asarray(map(get_fap, inj_loudest_by_inj_mc))
+
+
 ##############################################################################
 # Compute P(L > L_obs | 0)
 if opts.verbose:
@@ -798,11 +803,26 @@ text = "ln P(c|0) vs rho for each mc bin for m2 = " \
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
     r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
-for mc_ind, mc_range in enumerate(mc_ranges):
-    plot.add_content(inj_loudest_by_inj_mc[:, mc_ind],
-    inj_log_pc0_by_trial_mc[:, mc_ind], marker=".",
-        linestyle="None",
+
+# add unextrapolated p(c|0) to the right of the extrapolation points
+extrap_trials_by_inj_mc = \
+  (inj_loudest_by_inj_mc > extrap_snr_by_mc[None, :]) & \
+  (inj_fap_by_trial_mc > 0)
+for (mc_range, inj_loudest_by_inj, inj_fap_by_trial, extrap_trials_by_inj, \
+     inj_log_pc0_by_trial, color) \
+    in zip(mc_ranges, inj_loudest_by_inj_mc.T, inj_fap_by_trial_mc.T,
+           extrap_trials_by_inj_mc.T, inj_log_pc0_by_trial_mc.T,
+           plotutils.default_colors()):
+    # unextrapolated
+    plot.add_content(inj_loudest_by_inj[extrap_trials_by_inj],
+        numpy.log(inj_fap_by_trial[extrap_trials_by_inj]), marker="^",
+        markersize=4, markeredgewidth=1, markerfacecolor=color,
+        linestyle="None", markeredgecolor="k")
+    # extrapolated
+    plot.add_content(inj_loudest_by_inj, inj_log_pc0_by_trial,
+        marker=".", linestyle="None", color=color,
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
+
 plot.finalize(loc=1)
 
 # add SNRs at which we begin extrapolating
@@ -811,15 +831,15 @@ for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
-
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
+
 # save a zoomed version, too
-plot.ax.set_xlim((4, 10))
-plot.ax.set_ylim((-3, 0.2))
+plot.ax.set_xlim((4, 16))
+plot.ax.set_ylim((-6, 0.2))
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
