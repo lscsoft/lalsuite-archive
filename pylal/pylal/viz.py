@@ -96,8 +96,7 @@ def readcolfrom2tables(table1, table2, col_name ):
   """
   
   if len(table1) != len(table2):
-    print >>sys.stderr, "number of events in table1 and table2 must be equal"
-    sys.exit(1)
+    raise ValueError, "number of events in table1 and table2 must be equal"
  
   if len(table1):
     if ("ifo" in table1.validcolumns.keys()):
@@ -158,8 +157,7 @@ def timeindays(col_data ):
   elif col_data[0] > e13times[0] and col_data[0] < e13times[1]:
     start = e13times[0]
   else:
-    print >> sys.stderr, "events not from a known science run"
-    sys.exit(1)
+    raise ValueError, "events not from a known science run"
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
