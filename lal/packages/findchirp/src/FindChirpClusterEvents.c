@@ -83,7 +83,7 @@ LALFindChirpClusterEvents (
   REAL4                 chisqThreshFac = 0;
   UINT4                 numChisqBins = 0;
   COMPLEX8             *q = NULL;
-  COMPLEX8Vector       **qVecACTD = NULL;
+  REAL4Vector          **qVecACTD = NULL;
   COMPLEX8Vector       **qtildeVecACTD = NULL;
   SnglInspiralTable    *thisEvent = NULL;
   CHAR                  searchName[LIGOMETA_SEARCH_MAX];
@@ -221,10 +221,9 @@ LALFindChirpClusterEvents (
     {
       INT4 k;
       modqsq = 0;
-      for ( k = 0; k < NACTDVECS; k++ )
+      for ( k = 0; k < NACTDTILDEVECS; k++ )
       {
-        q = qVecACTD[k]->data;
-        modqsq += q[j].re * q[j].re + q[j].im * q[j].im;
+        modqsq += qVecACTD[k]->data[j] * qVecACTD[k]->data[j];
       }
     }
     else

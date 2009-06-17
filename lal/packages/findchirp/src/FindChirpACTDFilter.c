@@ -68,9 +68,9 @@ LALFindChirpACTDFilterSegment (
   REAL4                 modqsqThresh;
   BOOLEAN               haveEvent     = 0;
   COMPLEX8Vector      **qtilde;
-  COMPLEX8Vector      **q;
+  REAL4Vector         **q;
   COMPLEX8             *inputData     = NULL;
-  COMPLEX8Vector        tmpltSignal[NACTDVECS];
+  COMPLEX8Vector        tmpltSignal[NACTDTILDEVECS];
   SnglInspiralTable    *thisEvent     = NULL;
 
   INITSTATUS( status, "LALFindChirpACTDFilter", FINDCHIRPACTDFILTERC );
@@ -102,7 +102,7 @@ LALFindChirpACTDFilterSegment (
       FINDCHIRPH_ECHIT, FINDCHIRPH_MSGECHIT );
 
   /* check that the fft plan exists */
-  ASSERT( params->invPlan, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
+  ASSERT( params->invPlanACTD, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
 
   /* check that the workspace vectors exist */
   ASSERT( params->qVecACTD, status, FINDCHIRPH_ENULL, FINDCHIRPH_MSGENULL );
@@ -177,11 +177,11 @@ LALFindChirpACTDFilterSegment (
   qtilde = params->qtildeVecACTD;
   q      = params->qVecACTD;
 
-  for( i = 0; i < NACTDVECS; ++i )
+  for( i = 0; i < NACTDTILDEVECS; ++i )
   {
     /* filter */
-	  memset( qtilde[i]->data, 0, numPoints * sizeof( COMPLEX8 ) );
-    memset( q[i]->data, 0, numPoints * sizeof( COMPLEX8 ) );
+	  memset( qtilde[i]->data, 0, qtilde[i]->length * sizeof( COMPLEX8 ) );
+    memset( q[i]->data, 0, numPoints * sizeof( REAL4 ) );
 
 		/* template */
     tmpltSignal[i].length = tmpltLength;
@@ -266,7 +266,7 @@ LALFindChirpACTDFilterSegment (
     REAL4 r = inputData[k].re;
     REAL4 s = inputData[k].im;
 
-    for( i = 0; i < NACTDVECS; ++i )
+    for( i = 0; i < NACTDTILDEVECS; ++i )
     {    
       REAL4 x = tmpltSignal[i].data[k].re;
       REAL4 y = 0 - tmpltSignal[i].data[k].im; /* NB: Complex conj. */
@@ -276,10 +276,12 @@ LALFindChirpACTDFilterSegment (
   }
 
   /* inverse fft to get q */
-  for( i = 0; i < NACTDVECS; ++i )
+  for( i = 0; i < NACTDTILDEVECS; ++i )
   {
-    LALCOMPLEX8VectorFFT( status->statusPtr, q[i], qtilde[i], params->invPlan );
-    CHECKSTATUSPTR( status );
+    if ( XLALREAL4ReverseFFT( q[i], qtilde[i], params->invPlanACTD ) == XLAL_FAILURE )
+    {
+      ABORTXLAL( status );
+    }
   }
   
 
@@ -300,8 +302,8 @@ LALFindChirpACTDFilterSegment (
 
 
   /* normalisation */
-  normFac = 4.0 * deltaT / (REAL4)(numPoints);
-	normFacSq = pow( normFac, 2.0 );
+  normFac = 2.0 * deltaT / (REAL4)(numPoints);
+	normFacSq = normFac * normFac;
 
 	/* normalised snr threhold */
 /*
@@ -321,11 +323,10 @@ LALFindChirpACTDFilterSegment (
     {
       REAL4 rhoSq = 0.0;
       
-      for( i = 0; i < NACTDVECS; ++i )
+      for( i = 0; i < NACTDTILDEVECS; ++i )
       {
-        rhoSq += q[i]->data[j].re * q[i]->data[j].re;
-        rhoSq += q[i]->data[j].im * q[i]->data[j].im;
-			}
+        rhoSq += q[i]->data[j] * q[i]->data[j];
+      }
 
       params->rhosqVec->data->data[j] = rhoSq * normFacSq ;
     }

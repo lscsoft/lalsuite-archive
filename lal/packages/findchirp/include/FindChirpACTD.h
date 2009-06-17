@@ -63,6 +63,7 @@ Define number of vectors, 6 for 0.5PN.
 </lalLaTeX>
 #endif
 #define NACTDVECS (3)
+#define NACTDTILDEVECS (6)
 
 #if 0
 <lalLaTeX>
