@@ -8,7 +8,6 @@ nodist_liblal_la_SOURCES = LALBuildDate.c
 liblal_la_DEPENDENCIES = \
 	$(top_builddir)/packages/std/src/libstd.la \
 	$(top_builddir)/packages/tools/src/libtools.la \
-	$(top_builddir)/packages/sample/src/libsample.la \
 	$(top_builddir)/packages/factories/src/libfactories.la \
 	$(top_builddir)/packages/vectorops/src/libvectorops.la \
 	$(top_builddir)/packages/utilities/src/libutilities.la \
