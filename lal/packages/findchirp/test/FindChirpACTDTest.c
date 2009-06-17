@@ -603,7 +603,7 @@ int main( int argc, char **argv )
 
 
   tmpltParams->taperTmplt = INSPIRAL_TAPER_STARTEND;
-  tmpltParams->bandPassTmplt = 1;
+  tmpltParams->bandPassTmplt = 0;
  
   fprintf( stderr, "Testing ACTDTemplate...                 " );
 
