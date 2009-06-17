@@ -330,8 +330,8 @@ LALFindChirpACTDTemplate(
     if ( params->bandPassTmplt )
     {
       REAL4Vector bpVector; /*Used to save time */
-      REAL4 bpfLow;
-      REAL4 bpfFinal;
+      REAL4 bpfLow = 0.0;
+      REAL4 bpfFinal = 0.0;
 
       /* We want to shift the template to the middle of the vector so */
       /* that band-passing will work properly */
@@ -465,33 +465,26 @@ LALFindChirpACTDNormalize(
     )
 /* </lalVerbatim> */
 {
-  UINT4          i, j, k;
-  UINT4          numPoints;
-  UINT4          numTDPoints;
-  REAL8          deltaT; 
-  COMPLEX8Vector ACTDtilde[NACTDTILDEVECS];
+  UINT4           i, j, k;
+  UINT4           numPoints;
+  UINT4           numTDPoints;
+  REAL8           deltaT; 
+  COMPLEX8Vector  ACTDtilde[NACTDTILDEVECS];
   COMPLEX8Vector *tmpVec[NACTDTILDEVECS];
-  COMPLEX8      *wtilde;
+  COMPLEX8       *wtilde;
+  REAL4           norm;
 
   /* gsl variables */
   gsl_matrix *innerProd = NULL;
   gsl_matrix *eigenVect = NULL;
   gsl_vector *eigenVal  = NULL;
 
-  //gsl_matrix *transpose = NULL;
-  //gsl_matrix *output    = NULL;
+  /*
+  gsl_matrix *transpose = NULL;
+  gsl_matrix *output    = NULL;
+  */
   gsl_eigen_symmv_workspace *workspace = NULL;
 
-#if 0 
-  /* Inner Products */
-  /* Dominant 2nd Harmonic */
-  REAL4   H2H2;
-  /* 1st Harmonic */
-  REAL4   H1H1, h1H2;
-  /* 3rd Harmonic */
-  REAL4   H3H3, h3H1, h3H2;
-#endif
-  REAL4   norm;
 
   INITSTATUS( status, "LALFindChirpACTDNormalize", FINDCHIRPACTDTEMPLATEC );
 
@@ -530,8 +523,10 @@ LALFindChirpACTDNormalize(
 
   innerProd = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
   eigenVect = gsl_matrix_alloc( NACTDTILDEVECS, NACTDTILDEVECS );
-  //transpose = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
-  //output    = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
+  /*
+  transpose = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
+  output    = gsl_matrix_alloc( 2 * NACTDVECS, 2 * NACTDVECS );
+  */
   eigenVal  = gsl_vector_alloc( NACTDTILDEVECS );
   workspace = gsl_eigen_symmv_alloc( NACTDTILDEVECS );
 
@@ -541,31 +536,53 @@ LALFindChirpACTDNormalize(
     ACTDtilde[i].data  = fcTmplt->ACTDtilde->data + (i * numPoints );
   }
 
+  /* Norm the templates before we start */
+  for( i = 0; i < NACTDTILDEVECS; ++i ) 
+  {
+    norm =  XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[i],
+                wtilde, tmpltParams->fLow, deltaT, numTDPoints );
+    norm = sqrt(norm);
+
+    for (k = 0; k < numPoints; k++)
+    {
+      ACTDtilde[i].data[k].re /= norm;
+      ACTDtilde[i].data[k].im /= norm;
+    }
+  }
+
   /* Fill the inner product matrix */
   for ( i = 0; i < NACTDVECS; i++ )
   {
     for ( k = i; k < NACTDVECS; k++ )
     {
    
-      gsl_matrix_set( innerProd, i, k, XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
-                            wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i+NACTDVECS, k, XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k],
+      gsl_matrix_set( innerProd, i, k, 
+                   XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i, k+NACTDVECS, XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k+NACTDVECS],
+      gsl_matrix_set( innerProd, i+NACTDVECS, k, 
+         XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
-      gsl_matrix_set( innerProd, i+NACTDVECS, k+NACTDVECS, XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], &ACTDtilde[k+NACTDVECS],
+      gsl_matrix_set( innerProd, i, k+NACTDVECS, 
+         XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k+NACTDVECS],
+                             wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
+      gsl_matrix_set( innerProd, i+NACTDVECS, k+NACTDVECS,
+                        XLALFindChirpACTDInnerProduct( &ACTDtilde[i+NACTDVECS], 
+                                                       &ACTDtilde[k+NACTDVECS],
                              wtilde, tmpltParams->fLow, deltaT, numTDPoints ));
 
       gsl_matrix_set( innerProd, k, i, gsl_matrix_get( innerProd, i, k ));
-      gsl_matrix_set( innerProd, k, i+NACTDVECS, gsl_matrix_get( innerProd, i+NACTDVECS, k ));
-      gsl_matrix_set( innerProd, k+NACTDVECS, i, gsl_matrix_get( innerProd, i, k+NACTDVECS ));
-      gsl_matrix_set( innerProd, k+NACTDVECS, i+NACTDVECS, gsl_matrix_get( innerProd, i+NACTDVECS, k+NACTDVECS ));
-   
+      gsl_matrix_set( innerProd, k, i+NACTDVECS, 
+                                  gsl_matrix_get( innerProd, i+NACTDVECS, k ));
+      gsl_matrix_set( innerProd, k+NACTDVECS, i, 
+                                  gsl_matrix_get( innerProd, i, k+NACTDVECS ));
+      gsl_matrix_set( innerProd, k+NACTDVECS, i+NACTDVECS, 
+                        gsl_matrix_get( innerProd, i+NACTDVECS, k+NACTDVECS ));
     }
   }
 
-  /* UNCOMMENT BELOW TO SEE INNER PRODUCT MATRIX */
-/*  printf("\n");
+  /* XXX UNCOMMENT BELOW TO SEE INNER PRODUCT MATRIX XXX */
+  /*  
+  printf("\n");
   for ( i = 0; i < 2 * NACTDVECS; i++ )
   {
     for ( k = 0; k < 2 * NACTDVECS; k++ )
@@ -573,13 +590,16 @@ LALFindChirpACTDNormalize(
       printf("\t%e", gsl_matrix_get( innerProd, i, k ) );
     }
     printf("\n");
-  }*/
+  }
+  */
+  /* XXX UNCOMMENT ABOVE TO SEE INNER PRODUCT MATRIX XXX */
 
   /* Diagonalize the matrix */
   gsl_eigen_symmv( innerProd, eigenVal, eigenVect, workspace );
 
-  /* UNCOMMENT BELOW TO SEE EIGENVALUES/VECTORS */
-/*  printf( "EigenValues:\n");
+  /* XXX UNCOMMENT BELOW TO SEE EIGENVALUES/VECTORS XXX */
+  /*
+  printf( "EigenValues:\n");
   for ( i = 0; i < 2 * NACTDVECS; i++ )
   {
     printf("\t%e", gsl_vector_get( eigenVal, i ));
@@ -593,13 +613,16 @@ LALFindChirpACTDNormalize(
       printf("\t%e", gsl_matrix_get( eigenVect, i, k ) );
     }
     printf("\n");
-  }*/
+  }
+  */
+  /* XXX UNCOMMENT ABOVE TO SEE EIGENVALUES/VECTORS XXX */
 
 #if 0
   /* Take transpose and check it is the inverse */
   gsl_matrix_transpose_memcpy( transpose, eigenVect );
 
-  gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1.0, transpose, eigenVect, 0.0, output );
+  gsl_blas_dgemm( CblasNoTrans, CblasNoTrans, 1.0, 
+                  transpose, eigenVect, 0.0, output );
 
   printf("\nA^TA:\n");
   for ( i = 0; i < 2 * NACTDVECS; i++ )
@@ -626,8 +649,10 @@ LALFindChirpACTDNormalize(
     {
       for ( k = 0; k < numPoints; k++ )
       {
-        tmpVec[i]->data[k].re += gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].re;
-        tmpVec[i]->data[k].im += gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].im;
+        tmpVec[i]->data[k].re += 
+                    gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].re;
+        tmpVec[i]->data[k].im += 
+                    gsl_matrix_get( eigenVect, j, i) * ACTDtilde[j].data[k].im;
       }
     }
   }
@@ -638,76 +663,15 @@ LALFindChirpACTDNormalize(
     memcpy( ACTDtilde[i].data, tmpVec[i]->data, numPoints * sizeof( COMPLEX8 ));
     XLALDestroyCOMPLEX8Vector( tmpVec[i] );
     norm = sqrt( gsl_vector_get( eigenVal, i ) );
-      for ( k = 0; k < numPoints; k++ )
-      {
-        ACTDtilde[i].data[k].re /= norm;
-        ACTDtilde[i].data[k].im /= norm;
-      }
+    for ( k = 0; k < numPoints; k++ )
+    {
+      ACTDtilde[i].data[k].re /= norm;
+      ACTDtilde[i].data[k].im /= norm;
+    }
   }
 
-  
-#if 0
-  /* OLD CODE */
-  /* 
-   * Start with dominant harmonic. 
-   * Calculate H2 
-   */
-  H2H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[1], 
-                             wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  norm = pow( H2H2, -0.5 );
-  for( k = 1; k < numPoints; ++k )
-  {
-    ACTDtilde[1].data[k].re *= norm; 
-    ACTDtilde[1].data[k].im *= norm; 
-  }
-
-
-  /* 
-   * Calculate H1 
-   */
-  h1H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[0],
-                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  for( k = 1; k < numPoints; ++k )
-  {
-    ACTDtilde[0].data[k].re -=  h1H2 * ACTDtilde[1].data[k].re;
-    ACTDtilde[0].data[k].im -=  h1H2 * ACTDtilde[1].data[k].im;
-  }
-  H1H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[0], &ACTDtilde[0],
-                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-
-  norm = pow( H1H1, -0.5 );
-  for( k = 1; k < numPoints; ++k )
-  {
-    ACTDtilde[0].data[k].re *=  norm;                  
-    ACTDtilde[0].data[k].im *=  norm;                  
-  }
-
+  /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
   /*
-   * Calculate H3
-   */
-  h3H1 = XLALFindChirpACTDInnerProduct( &ACTDtilde[0], &ACTDtilde[2],
-                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  h3H2 = XLALFindChirpACTDInnerProduct( &ACTDtilde[1], &ACTDtilde[2],
-                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  for( k = 1; k < numPoints; ++k )
-  {
-    ACTDtilde[2].data[k].re -=  h3H1 * ACTDtilde[0].data[k].re; 
-    ACTDtilde[2].data[k].re -=  h3H2 * ACTDtilde[1].data[k].re; 
-    ACTDtilde[2].data[k].im -=  h3H1 * ACTDtilde[0].data[k].im;
-    ACTDtilde[2].data[k].im -=  h3H2 * ACTDtilde[1].data[k].im; 
-  }
-  H3H3 = XLALFindChirpACTDInnerProduct( &ACTDtilde[2], &ACTDtilde[2],
-                              wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-  norm = pow( H3H3, -0.5 );
-  for( k = 1; k < numPoints; ++k )
-  {
-    ACTDtilde[2].data[k].re *=  norm;                  
-    ACTDtilde[2].data[k].im *=  norm;                  
-  }
-#endif
-
- /* XXX UNCOMMENT BELOW TO TEST ORTHONORMALISATION XXX */
-
   printf( " NORMALIZATION TEST:\n\n" );
   for ( i = 0; i < NACTDTILDEVECS; i++ )
   {
@@ -715,11 +679,11 @@ LALFindChirpACTDNormalize(
     {
       norm = XLALFindChirpACTDInnerProduct( &ACTDtilde[i], &ACTDtilde[k],
                               wtilde, tmpltParams->fLow, deltaT, numTDPoints );
-      printf( "\tH%dH%d = %.4f", i, k, norm );
+      printf( "H%dH%d=%.4f ", i, k, fabs(norm) );
     }
     printf("\n");
   }
-
+  */
   /* XXX UNCOMMENT ABOVE TO TEST ORTHONORMALIZATION XXX */
 
   /* Since the template is now properly normalized, set norm to 1.0 */
@@ -753,7 +717,7 @@ REAL4  XLALFindChirpACTDInnerProduct(
 
   deltaF = 1.0 / ((REAL4)numPoints * deltaT);
 
-  for( k = 1; k < a->length; ++k )
+  for( k = 1; k < (INT4)a->length; ++k )
   {
     if(  k * deltaF  >= flower )
     {

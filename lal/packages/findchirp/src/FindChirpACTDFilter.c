@@ -65,13 +65,15 @@ LALFindChirpACTDFilterSegment (
   REAL8                 deltaF;
   REAL4                 normFac;
   REAL4                 normFacSq;
-  REAL4                 modqsqThresh;
-  BOOLEAN               haveEvent     = 0;
   COMPLEX8Vector      **qtilde;
   REAL4Vector         **q;
   COMPLEX8             *inputData     = NULL;
   COMPLEX8Vector        tmpltSignal[NACTDTILDEVECS];
+  /*
   SnglInspiralTable    *thisEvent     = NULL;
+  REAL4                 modqsqThresh;
+  BOOLEAN               haveEvent     = 0;
+  */
 
   INITSTATUS( status, "LALFindChirpACTDFilter", FINDCHIRPACTDFILTERC );
   ATTATCHSTATUSPTR( status );
