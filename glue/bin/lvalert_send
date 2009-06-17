@@ -1,0 +1,184 @@
+#!/usr/bin/python
+# $Id: xsend.py,v 1.8 2006/10/06 12:30:42 normanr Exp $
+import sys
+import os
+import datetime
+import time
+import select
+import logging
+import libxml2
+from optparse import *
+
+from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
+from pyxmpp.jabber.all import Client
+from pyxmpp.jabber.simple import send_message
+
+from glue.lvalert import pubsub
+
+"""
+A tool to publish an event to a pubsub node 
+"""
+
+__version__ = "$Revision: 1.53 $"
+__date__ = "$Date: 2008/08/08 15:54:23 $"
+__name__ = "gwvoevent"
+__Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
+__title__ = "Gravitational-wave event feeder"
+
+
+#################################################################
+# help message
+usage = """\
+%prog [options]
+-----------------------------------------------------------------
+
+  A tool to publish to the pubsub service at jabber.phys.uwm.edu.
+  This server is configured to use kerberos for authentication. To use
+  it you need to create a kerberos tickey by calling
+
+  kinit first.last@LIGO.ORG
+
+  and typing your password. Before using this program to publish to a
+  node, the node should be created with psadmin.py and/or configured
+  to allow you to publish to it. 
+
+  You can publish information containted in the file stuff.xml by
+  doing:
+
+  %prog --username patrick.brady --server jabber.phys.uwm.edu --node\
+     small_steps --publish stuff.xml
+
+  When an event is published to a node, it will be sent to all
+  subscribers who are logged in.
+
+  The owner (person who creates the node by default) can delete and
+  publish information to the node. Others can subscribe. There are two
+  example programs called listen.py and publish.py which provide ways
+  to listen for content on the node and to publish information to the
+  node respectively.
+
+"""
+
+#################################################################
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name:  $\n")
+
+  #username and password
+  parser.add_option("-a","--username",action="store",type="string",\
+      default="", help="the username of the publisher or listener" )
+  parser.add_option("-b","--password",action="store",type="string",\
+      default="", help="the password of the publisher or listener" )
+  parser.add_option("-s","--server",action="store",type="string",\
+      default="jabber.phys.uwm.edu", help="the pubsub server" )
+
+  # access information about root nodes
+  parser.add_option("-n","--node",action="store",type="string",\
+      default=None, help="name of the node on the pubsub server" )
+  parser.add_option("-p","--publish",action="store",type="string",\
+      default=None, help="name of the file with the event" )
+
+  # debugging options
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False, help="be verbose as you process the request" )
+  parser.add_option("-g","--debug",action="store_true",\
+      default=False, help="should  print out lots of information" )
+  
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+  
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+class MyClient(Client):
+    def __init__(self, jid, password):
+        # if bare JID is provided add a resource -- it is required
+        if not jid.resource:
+            jid=JID(jid.node, jid.domain, "PubsubBot")
+
+        # we require a TLS connection
+        t=TLSSettings(require=True,verify_peer=False)
+
+        # setup client with provided connection information
+        # and identity data
+        Client.__init__(self, jid, password, \
+            auth_methods=["sasl:GSSAPI","sasl:PLAIN"], tls_settings=t)
+
+    def stream_state_changed(self,state,arg):
+        """This one is called when the state of stream connecting the component
+        to a server changes. This will usually be used to let the user
+        know what is going on."""
+        if opts.verbose:
+            print "*** State changed: %s %r ***" % (state,arg)
+        else:
+            pass
+
+    def session_started(self):
+        self.stream.send(Presence())
+        if opts.publish:
+            self.stream.set_response_handlers(pspl, \
+                pspl.generic_result,pspl.create_error,\
+                pspl.create_timeout)
+        print datetime.datetime.now().ctime()
+        self.stream.send(pspl)
+
+    def idle(self):
+        if self.stream and self.session_established:
+            print "disconnecting"
+            self.disconnect()
+        if opts.verbose:
+            print "idle"
+        time.sleep(4)
+
+    def post_disconnect(self):
+        print "Disconnected"
+        raise Disconnected
+
+# add a logger so that we can see what's going
+if opts.debug:
+    logger=logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+
+# debug the memore
+libxml2.debugMemory(1)
+
+# set up the stream
+myjid=JID(opts.username+"@"+opts.server+"/Home")
+s=MyClient(jid=myjid,password=opts.password)
+
+if opts.verbose:
+    print "connecting..."
+s.connect()
+
+if opts.publish:
+    if opts.verbose:
+        print "build pubsub stanza..."
+    eventfile = open(opts.publish)
+    voevent = eventfile.read()
+    eventfile.close()
+else:
+    print "You must supply a file to publish"
+    sys.exit(0)
+
+recpt=JID("pubsub."+opts.server)
+pspl=pubsub.PubSub(from_jid = myjid, to_jid = recpt, stream = s,\
+stanza_type="get")
+pspl.publish(voevent,opts.node)
+
+if opts.verbose:
+    print "sending message..."
+try:
+    s.loop(1)
+except KeyboardInterrupt:
+    print u"disconnecting..."
+    s.disconnect()
+
+# vi: sts=4 et sw=4

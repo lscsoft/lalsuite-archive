@@ -1,0 +1,199 @@
+#!/usr/bin/python
+# $Id: xsend.py,v 1.8 2006/10/06 12:30:42 normanr Exp $
+import sys
+import os
+import datetime
+import time
+import select
+import logging
+import libxml2
+from optparse import *
+
+from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
+from pyxmpp.jabber.all import Client
+from pyxmpp.jabber.simple import send_message
+from pyxmpp.interface import implements
+from pyxmpp.interfaces import *
+from glue.lvalert import pubsub
+
+"""
+A tool to listen for events on a pubsub node 
+"""
+
+__version__ = "$Revision: 1.53 $"
+__date__ = "$Date: 2008/08/08 15:54:23 $"
+__name__ = "gwvoevent"
+__Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
+__title__ = "Gravitational-wave event feeder"
+
+
+#################################################################
+# help message
+usage = """\
+%prog [options]
+-----------------------------------------------------------------
+
+  A tool to listen to the pubsub service at jabber.phys.uwm.edu.
+  This server is configured to use kerberos for authentication. To use
+  it you need to create a kerberos tickey by calling
+
+  kinit first.last@LIGO.ORG
+
+  and typing your password. Before using this program to listen to a
+  node, you must subscribe to the node using psadmin.py. Then you will
+  receive any events that are published to that node by doing:
+
+  %prog --username patrick.brady --server jabber.phys.uwm.edu --node small_steps
+
+  When an event is publsihed to this node, it will be echoed to the
+  window where this listener is running. 
+
+  The owner (person who creates the node by default) can delete and
+  publish information to the node. Others can subscribe. There are two
+  example programs called listen.py and publish.py which provide ways
+  to listen for content on the node and to publish information to the
+  node respectively.
+
+"""
+
+#################################################################
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name:  $\n")
+
+  #username and password
+  parser.add_option("-a","--username",action="store",type="string",\
+      default="", help="the username of the publisher or listener" )
+  parser.add_option("-b","--password",action="store",type="string",\
+      default="", help="the password of the publisher or listener" )
+  parser.add_option("-s","--server",action="store",type="string",\
+      default="jabber.phys.uwm.edu", help="the pubsub server" )
+
+  parser.add_option("-S","--show",action="store_true",\
+      default=False, help="print the payload to stdout" )
+
+  parser.add_option("-n","--node",action="store",type="string",\
+      default=None, help="name of the node on the pubsub server" )
+
+  # debugging options
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False, help="be verbose as you process the request" )
+  parser.add_option("-g","--debug",action="store_true",\
+      default=False, help="should  print out lots of information" )
+  
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+  
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+class VOEventHandler(object):
+    """Provides the actual 'echo' functionality.
+
+    Handlers for presence and message stanzas are implemented here.
+    """
+
+    implements(IMessageHandlersProvider)
+    
+    def __init__(self, client):
+        """Just remember who created this."""
+        self.client = client
+    
+    def get_message_handlers(self):
+        """Return list of (message_type, message_handler) tuples.
+
+        The handlers returned will be called when matching message is received
+        in a client session."""
+        return [
+            (None, self.message),
+            ]
+
+    def message(self,stanza):
+        """Message handler for the component.
+
+        Echoes the message back if its type is not 'error' or
+        'headline', also sets own presence status to the message body. Please
+        note that all message types but 'error' will be passed to the handler
+        for 'normal' message unless some dedicated handler process them.
+
+        :returns: `True` to indicate, that the stanza should not be processed
+        any further."""
+        e=self.get_entry(stanza)
+        if e:
+            print "Payload received at %s" % (datetime.datetime.now().ctime())
+            if opts.show:
+                print u'%s' % (e,),
+        return True
+
+    def get_entry(self,stanza):
+        c = stanza.xmlnode.children
+        while c:
+            try:
+                if c.name=="event":
+                    return c.getContent()
+            except libxml2.treeError:
+                pass
+            c = c.next
+        return None
+
+class MyClient(Client):
+    def __init__(self, jid, password):
+        # if bare JID is provided add a resource -- it is required
+        if not jid.resource:
+            jid=JID(jid.node, jid.domain, "PubsubBot")
+
+        # we require a TLS connection
+        t=TLSSettings(require=True,verify_peer=False)
+
+        # setup client with provided connection information
+        # and identity data
+        Client.__init__(self, jid, password, \
+            auth_methods=["sasl:GSSAPI","sasl:PLAIN"], tls_settings=t,keepalive=30)
+
+        # add the separate components
+        self.interface_providers = [
+            VOEventHandler(self),
+            ]
+
+    def stream_state_changed(self,state,arg):
+        """This one is called when the state of stream connecting the
+        component to a server changes. This will usually be used to
+        let the user know what is going on."""
+        if opts.verbose:
+            print "*** State changed: %s %r ***" % (state,arg)
+        else:
+            pass
+
+# add a logger so that we can see what's going
+if opts.debug:
+    logger=logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+
+# debug the memory
+libxml2.debugMemory(1)
+
+# set up the stream
+myjid=JID(opts.username+"@"+opts.server+"/Home")
+s=MyClient(myjid,opts.password)
+
+if opts.verbose:
+    print "connecting..."
+s.connect()
+
+if opts.verbose:
+    print "listening for message..."
+try:
+    s.loop(1)
+except KeyboardInterrupt:
+    print u"disconnecting..."
+    s.disconnect()
+
+# vi: sts=4 et sw=4
