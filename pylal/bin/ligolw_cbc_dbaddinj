@@ -70,8 +70,8 @@ def parse_command_line():
 
     (options, args) = parser.parse_args()
     # check for required options and for self-consistency
-    if not options.input:
-        raise ValueError, "No input specified."
+    if not options.database:
+        raise ValueError, "No database specified."
 
     return options, sys.argv[1:]
 
