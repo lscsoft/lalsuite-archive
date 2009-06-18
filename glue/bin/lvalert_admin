@@ -163,15 +163,15 @@ class MyClient(Client):
             self.stream.set_response_handlers(pspl, \
                 pspl.get_nodes_result,pspl.create_error,\
                 pspl.create_timeout)
-        if opts.create_node:
+        if opts.create:
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.create_error,\
                 pspl.create_timeout)
-        if opts.delete_node:
+        if opts.delete:
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.generic_error,\
                 pspl.generic_timeout)
-        if opts.subscribe_node:
+        if opts.subscribe:
             self.stream.set_response_handlers(pspl, \
                 pspl.subscribe_result,pspl.subscribe_error,\
                 pspl.subscribe_timeout)
@@ -187,10 +187,10 @@ class MyClient(Client):
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.generic_error,\
                 pspl.generic_timeout)
-        if opts.unsubscribe_node:
+        if opts.unsubscribe:
             self.stream.set_response_handlers(pspl, \
-                pspl.generic_result,pspl.subscribe_error,\
-                pspl.subscribe_timeout)
+                pspl.generic_result,pspl.generic_error,\
+                pspl.generic_timeout)
         if opts.subscriptions:
             self.stream.set_response_handlers(pspl, \
                 pspl.subscriptions_result,pspl.subscribe_error,\
@@ -236,15 +236,15 @@ stanza_type="get")
 if opts.get_nodes:
     print "Getting nodes"
     pspl.get_nodes()
-elif opts.create_node:
-    print "Creating node " + opts.create_node
-    pspl.create_node(opts.create_node)
-elif opts.delete_node:
-    pspl.delete_node(opts.delete_node)
-elif opts.subscribe_node:
-    pspl.subscribe(myjid,opts.subscribe_node)
-elif opts.unsubscribe_node:
-    pspl.unsubscribe(myjid,opts.unsubscribe_node,opts.unsubscribe_subid)
+elif opts.create:
+    print "Creating node " + opts.node
+    pspl.create_node(opts.node)
+elif opts.delete:
+    pspl.delete_node(opts.node)
+elif opts.subscribe:
+    pspl.subscribe(myjid,opts.node)
+elif opts.unsubscribe:
+    pspl.unsubscribe(myjid,opts.node,opts.unsubscribe_subid)
 elif opts.subscriptions:
     pspl.subscriptions(myjid)
 elif opts.affiliations:
@@ -257,8 +257,6 @@ elif opts.delete_publisher:
     publisher_jid = opts.delete_publisher.split('@')[0]
     publisher_jid=JID(publisher_jid+"@"+opts.server+"/Home")
     pspl.publisher(publisher_jid,opts.node,"none")
-elif opts.add_publisher:
-    pass
 else:
     pspl.get_nodes()
 

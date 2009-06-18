@@ -22,9 +22,9 @@ A tool to listen for events on a pubsub node
 
 __version__ = "$Revision: 1.53 $"
 __date__ = "$Date: 2008/08/08 15:54:23 $"
-__name__ = "gwvoevent"
+__name__ = "lvalert_listen"
 __Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
-__title__ = "Gravitational-wave event feeder"
+__title__ = "LIGO-Virgo Alert Administration"
 
 
 #################################################################
@@ -33,26 +33,40 @@ usage = """\
 %prog [options]
 -----------------------------------------------------------------
 
-  A tool to listen to the pubsub service at jabber.phys.uwm.edu.
-  This server is configured to use kerberos for authentication. To use
-  it you need to create a kerberos tickey by calling
+  A tool to listen to the pubsub service of openfire at
+  lvalert.phys.uwm.edu. LSC-Virgo members can activate their accounts 
+  on this server by completing the form at
+  
+    https://www.lsc-group.phys.uwm.edu/cgi-bin/jabber-acct.cgi 
 
-  kinit first.last@LIGO.ORG
+  and typing your password.
 
-  and typing your password. Before using this program to listen to a
-  node, you must subscribe to the node using psadmin.py. Then you will
-  receive any events that are published to that node by doing:
+  Before using this program to listen to a node, you must subscribe to
+  the node using lvalert_admin. Then you will receive any events that are
+  published to that node by doing:
 
-  %prog --username patrick.brady --server jabber.phys.uwm.edu --node small_steps
+  %prog --username albert.einstein --password secret
 
-  When an event is publsihed to this node, it will be echoed to the
-  window where this listener is running. 
+  When an event is published to the node, a message will be printed to
+  the window where the listener is running. To see the event, run
+
+  %prog --username albert.einstein --password secret --show
 
   The owner (person who creates the node by default) can delete and
-  publish information to the node. Others can subscribe. There are two
-  example programs called listen.py and publish.py which provide ways
-  to listen for content on the node and to publish information to the
-  node respectively.
+  publish information to the node. The owner can also add other
+  publishers to the node. Configuration and management of nodes and
+  subscriptions are handled with lvalert_admin. 
+  
+  Others can subscribe to any existing node. Run 
+
+  lvalert_admin --help
+
+  to find out how to manage your subscriptions. 
+
+  COMING SOON:  the next version of lvalert_listen will take a
+  configuration file which specifies actions to take when an alert is
+  received from a given node. This should allow automation of
+  downstream tasks by scientists in response to the alert.
 
 """
 

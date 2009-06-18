@@ -16,14 +16,14 @@ from pyxmpp.jabber.simple import send_message
 from glue.lvalert import pubsub
 
 """
-A tool to publish an event to a pubsub node 
+A tool to send an event to a pubsub node 
 """
 
 __version__ = "$Revision: 1.53 $"
 __date__ = "$Date: 2008/08/08 15:54:23 $"
-__name__ = "gwvoevent"
+__name__ = "lvalert_send"
 __Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
-__title__ = "Gravitational-wave event feeder"
+__title__ = "LIGO-Virgo Alert Sender"
 
 
 #################################################################
@@ -32,30 +32,34 @@ usage = """\
 %prog [options]
 -----------------------------------------------------------------
 
-  A tool to publish to the pubsub service at jabber.phys.uwm.edu.
-  This server is configured to use kerberos for authentication. To use
-  it you need to create a kerberos tickey by calling
+  A tool to send to the pubsub service at lvalert.phys.uwm.edu.
+  LSC-Virgo members can activate their accounts on this server by
+  completing the form at
+  
+    https://www.lsc-group.phys.uwm.edu/cgi-bin/jabber-acct.cgi 
 
-  kinit first.last@LIGO.ORG
+  and setting a password.  Before using this program to send to a
+  node, the node should be created with lvalert_admin and/or
+  configured to allow you to send to it. 
 
-  and typing your password. Before using this program to publish to a
-  node, the node should be created with psadmin.py and/or configured
-  to allow you to publish to it. 
-
-  You can publish information containted in the file stuff.xml by
+  You can send information containted in the file stuff.xml by
   doing:
 
-  %prog --username patrick.brady --server jabber.phys.uwm.edu --node\
-     small_steps --publish stuff.xml
+  %prog --username albert.einstein --password secret --node small_steps --file stuff.xml
 
-  When an event is published to a node, it will be sent to all
-  subscribers who are logged in.
+  When an stuff.xml is sent to a node by a publisher, it will be sent
+  to all subscribers who are logged in.
 
   The owner (person who creates the node by default) can delete and
-  publish information to the node. Others can subscribe. There are two
-  example programs called listen.py and publish.py which provide ways
-  to listen for content on the node and to publish information to the
-  node respectively.
+  publish information to the node. The owner can also add other
+  publishers to the node. Configuration and management of nodes is
+  handled with lvalert_admin. 
+  
+  Others can subscribe any existing node. Run 
+
+  lvalert_admin --help
+
+  to find out how to manage your subscriptions. 
 
 """
 
@@ -75,12 +79,12 @@ def parse_command_line():
   parser.add_option("-b","--password",action="store",type="string",\
       default="", help="the password of the publisher or listener" )
   parser.add_option("-s","--server",action="store",type="string",\
-      default="jabber.phys.uwm.edu", help="the pubsub server" )
+      default="lvalert.phys.uwm.edu", help="the pubsub server" )
 
   # access information about root nodes
   parser.add_option("-n","--node",action="store",type="string",\
       default=None, help="name of the node on the pubsub server" )
-  parser.add_option("-p","--publish",action="store",type="string",\
+  parser.add_option("-p","--file",action="store",type="string",\
       default=None, help="name of the file with the event" )
 
   # debugging options
@@ -90,6 +94,17 @@ def parse_command_line():
       default=False, help="should  print out lots of information" )
   
   (options,args) = parser.parse_args()
+
+  if not options.username:
+    raise ValueError, "--username is required"
+
+  if not options.node:
+    raise ValueError, "--node is required"
+
+  if not options.file:
+    raise ValueError, "--file is required"
+
+
 
   return options, sys.argv[1:]
   
@@ -122,7 +137,7 @@ class MyClient(Client):
 
     def session_started(self):
         self.stream.send(Presence())
-        if opts.publish:
+        if opts.file:
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.create_error,\
                 pspl.create_timeout)
@@ -158,14 +173,14 @@ if opts.verbose:
     print "connecting..."
 s.connect()
 
-if opts.publish:
+if opts.file:
     if opts.verbose:
         print "build pubsub stanza..."
-    eventfile = open(opts.publish)
+    eventfile = open(opts.file)
     voevent = eventfile.read()
     eventfile.close()
 else:
-    print "You must supply a file to publish"
+    print "You must supply a file to send"
     sys.exit(0)
 
 recpt=JID("pubsub."+opts.server)
