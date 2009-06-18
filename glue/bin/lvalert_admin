@@ -22,9 +22,9 @@ A tool to administer the pubsub service of openfire
 
 __version__ = "$Revision: 1.53 $"
 __date__ = "$Date: 2008/08/08 15:54:23 $"
-__name__ = "gwvoevent"
+__name__ = "lvalert_admin"
 __Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
-__title__ = "Gravitational-wave event feeder"
+__title__ = "LIGO-Virgo Alert Administration"
 
 
 #################################################################
@@ -33,32 +33,43 @@ usage = """\
 %prog [options]
 ------------------------------------------------------------------------------
   A tool to administer the pubsub service of openfire at
-  jabber.phys.uwm.edu. This server is configured to use kerberos for
-  authentication. To use it you need to create a kerberos tickey by
-  calling
-
-  kinit first.last@LIGO.ORG
+  lvalert.phys.uwm.edu. LSC-Virgo members can activate their accounts 
+  on this server by completing the form at
+  
+    https://www.lsc-group.phys.uwm.edu/cgi-bin/jabber-acct.cgi 
 
   and typing your password. Then you can use this program to do the
   following things:
 
   1.  create a pubsub node called small_steps
 
-  %prog --username patrick.brady --server jabber.phys.uwm.edu --create-node small_steps
+  %prog --username albert.einstein --password secret --create --node small_steps
 
   2.  delete a pubsub node called small_steps
 
-  %prog --username patrick.brady --server jabber.phys.uwm.edu --delete-node small_steps
+  %prog --username albert.einstein --password secret --delete --node small_steps
 
-  4.  subscribe to a pubsub node called small_steps
+  4.  subscribe to a pubsub node called lvalert_test
 
-  %prog --username patrick.brady --server jabber.phys.uwm.edu --subscribe-node small_steps
+  %prog --username albert.einstein --password secret --subscribe --node lvalert_test
 
   The owner (person who creates the node by default) can delete and
-  publish information to the node. Others can subscribe. There are two
-  example programs called listen.py and publish.py which provide ways
-  to listen for content on the node and to publish information to the
-  node respectively.
+  publish information to the node. The owner can also add other
+  publishers to the node using the command
+  
+  %prog --username albert.einstein --password secret --add-publisher patrick.brady --node small_steps
+  
+  Others can subscribe. To see a list of available nodes:
+  
+  %prog --username albert.einstein --password secret --get-nodes 
+
+  To see the nodes to which you are subscribed:
+
+  %prog --username albert.einstein --password secret --subscriptions
+  
+  There are two programs called lvalert_listen and lvalert_send which
+  provide ways to listen for content on the node and to publish
+  information to the node respectively.
 
 """
 
@@ -78,17 +89,17 @@ def parse_command_line():
   parser.add_option("-b","--password",action="store",type="string",\
       default="", help="the password of the publisher or listener" )
   parser.add_option("-c","--server",action="store",type="string",\
-      default="jabber.phys.uwm.edu", help="the pubsub server" )
+      default="lvalert.phys.uwm.edu", help="the pubsub server" )
 
   # access information about root nodes
-  parser.add_option("-d","--create-node",action="store",type="string",\
-      default=None, help="name of the node to create" )
-  parser.add_option("-e","--delete-node",action="store",type="string",\
-      default=None, help="name of the node to delete" )
-  parser.add_option("-f","--subscribe-node",action="store",type="string",\
-      default=None, help="name of the node to subscribe" )
-  parser.add_option("-g","--unsubscribe-node",action="store",type="string",\
-      default=None, help="name of the node to unsubscribe" )
+  parser.add_option("-d","--create",action="store_true",\
+      default=False, help="create a new pubsub node" )
+  parser.add_option("-e","--delete",action="store_true",\
+      default=False, help="delete a new pubsub node" )
+  parser.add_option("-f","--subscribe",action="store_true",\
+      default=False, help="subscribe to a new pubsub node" )
+  parser.add_option("-g","--unsubscribe",action="store_true",\
+      default=False, help="unsubscribe from a new pubsub node" )
   parser.add_option("-n","--unsubscribe-subid",action="store",type="string",\
       default=None, help="subid of subscription obtained by running subscriptions" )
   parser.add_option("-i","--subscriptions",action="store_true",\
@@ -114,8 +125,8 @@ def parse_command_line():
   if not options.username:
     raise ValueError, "--username must be provided"
 
-  if (options.add_publisher or options.delete_publisher) and not options.node:
-    raise ValueError, "--node must be provided along with --add-publisher or --delete-publisher"
+  if (options.add_publisher or options.create or options.delete or options.subscribe or options.unsubscribe or options.delete_publisher) and not options.node:
+    raise ValueError, "--node must be provided"
 
   return options, sys.argv[1:]
   
