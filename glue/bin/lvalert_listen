@@ -86,7 +86,7 @@ def parse_command_line():
   parser.add_option("-b","--password",action="store",type="string",\
       default="", help="the password of the publisher or listener" )
   parser.add_option("-s","--server",action="store",type="string",\
-      default="jabber.phys.uwm.edu", help="the pubsub server" )
+      default="lvalert.phys.uwm.edu", help="the pubsub server" )
 
   parser.add_option("-S","--show",action="store_true",\
       default=False, help="print the payload to stdout" )
@@ -108,10 +108,8 @@ def parse_command_line():
 # -- get command line arguments
 opts, args = parse_command_line()
 
-class VOEventHandler(object):
-    """Provides the actual 'echo' functionality.
-
-    Handlers for presence and message stanzas are implemented here.
+class LVAlertHandler(object):
+    """Provides the actions taken when an event arrives.
     """
 
     implements(IMessageHandlersProvider)
@@ -132,10 +130,9 @@ class VOEventHandler(object):
     def message(self,stanza):
         """Message handler for the component.
 
-        Echoes the message back if its type is not 'error' or
-        'headline', also sets own presence status to the message body. Please
-        note that all message types but 'error' will be passed to the handler
-        for 'normal' message unless some dedicated handler process them.
+        Prints a message with the time an alert is received. If the
+        --show option is set, then it will also print the contents of
+        the alert.
 
         :returns: `True` to indicate, that the stanza should not be processed
         any further."""
@@ -161,7 +158,7 @@ class MyClient(Client):
     def __init__(self, jid, password):
         # if bare JID is provided add a resource -- it is required
         if not jid.resource:
-            jid=JID(jid.node, jid.domain, "PubsubBot")
+            jid=JID(jid.node, jid.domain, "LVAlert")
 
         # we require a TLS connection
         t=TLSSettings(require=True,verify_peer=False)
@@ -173,7 +170,7 @@ class MyClient(Client):
 
         # add the separate components
         self.interface_providers = [
-            VOEventHandler(self),
+            LVAlertHandler(self),
             ]
 
     def stream_state_changed(self,state,arg):
