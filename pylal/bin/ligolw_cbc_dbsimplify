@@ -213,7 +213,8 @@ CREATE TEMP TABLE eidmap AS
     FROM
         experiment AS old_exp
         JOIN experiment AS new_exp ON (
-            new_exp.search == old_exp.search
+            (new_exp.search == old_exp.search
+              OR new_exp.search IS NULL AND old_exp.search IS NULL)
             AND new_exp.search_group == old_exp.search_group
             AND new_exp.instruments == old_exp.instruments
             AND new_exp.gps_start_time == old_exp.gps_start_time
