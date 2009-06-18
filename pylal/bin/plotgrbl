@@ -893,7 +893,8 @@ if not opts.show_plot:
 text = "p(observation|h(m2, D)) after 90% MC errors"
 
 num_sigmas = stats.norm.ppf(0.9)
-MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
+MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) \
+                      / (num_sims_by_m2_D + 1e-10))
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(" + observation + r"\,|\,h(m_2, D)) "
