@@ -116,7 +116,7 @@ class test_LIGOTimeGPS(unittest.TestCase):
 			try:
 				# FIXME:  max allowed discrepancy should be
 				# smaller
-				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 2e-8, True)
+				self.assertEqual(abs(op(arg1, arg2) - pylalop(pylalLIGOTimeGPS(arg1), arg2)) < 3e-8, True)
 			except AssertionError, s:
 				raise AssertionError, "%s(%s, %s) comparison failed: %s != %s" % (key, str(arg1), "%.17g" % arg2, str(op(arg1, arg2)), str(pylalop(pylalLIGOTimeGPS(arg1), arg2)))
 
