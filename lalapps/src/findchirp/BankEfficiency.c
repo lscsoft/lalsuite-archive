@@ -834,16 +834,18 @@ void BankEfficiencyGetResult(
   {
     LALInspiralParameterCalc( status->statusPtr,  &trigger );
     CHECKSTATUSPTR(status);
-    result->psi0_inject  = 0.;
-    result->psi3_inject  = 0.;
-    result->psi0_trigger = 0.;
-    result->psi3_trigger = 0.;
-    result->tau0_trigger = trigger.t0;
-    result->tau3_trigger = trigger.t3;
-    result->tau0_inject  = injected.t0;
-    result->tau3_inject  = injected.t3;
+    result->psi0_inject   = 0.;
+    result->psi3_inject   = 0.;
+    result->psi0_trigger  = 0.;
+    result->psi3_trigger  = 0.;
+    result->mass1_trigger = trigger.mass1;
+    result->mass2_trigger = trigger.mass2;
+    result->tau0_trigger  = trigger.t0;
+    result->tau3_trigger  = trigger.t3;
+    result->tau0_inject   = injected.t0;
+    result->tau3_inject   = injected.t3;
     result->polarisationAngle  = injected.polarisationAngle;
-    result->inclination  = injected.inclination;
+    result->inclination   = injected.inclination;
   }
 
   result->mass1_inject = injected.mass1;
@@ -1879,8 +1881,8 @@ void BankEfficiencyPrintResultsXml(
 
   /* --- print the results of one simulation into the xml file --- */
   fprintf(xmlStream.fp->fp,BANKEFFICIENCY_PARAMS_ROW,
-    trigger.psi0_trigger,
-    trigger.psi3_trigger,
+    trigger.mass1_trigger,
+    trigger.mass2_trigger,
     randIn.param.psi0,
     randIn.param.psi3,
     trigger.tau0_trigger,
@@ -3847,9 +3849,10 @@ void BankEfficiencyAscii2Xml(void)
 
   ResultIn trigger;
 
-  REAL4 tau0, tau3, tau0I, tau3I, psi0, psi3,phaseI, ecc, eccI,eccI_fl;
-  REAL4 polarisation,inclination;
-  REAL4 bestEMatch;
+  REAL4 tau0 = 0.0, tau3 = 0.0, tau0I = 0.0, tau3I = 0.0;
+  REAL4 psi0 = 0.0, psi3 = 0.0, phaseI = 0.0, ecc = 0.0, eccI = 0.0,eccI_fl = 0.0;
+  REAL4 polarisation = 0.0, inclination = 0.0;
+  REAL4 bestEMatch = 0.0;
 
   FILE *input1;
   FILE *input2;
@@ -3999,6 +4002,9 @@ void BankEfficiencyAscii2Xml(void)
   fprintf(stderr,"reading the ascii file -- and saving xml file");
   while   ((fgets(sbuf, 2048, input1))!= NULL)
   {
+   /* We use a temporarily restricted output. */
+   /* When full output reinstated , restore the line below */
+   /*
     sscanf(sbuf,BANKEFFICIENCY_PARAMS_ROW_SPACE,
         &trigger.mass1_trigger, &trigger.mass2_trigger,
     &psi0, &psi3,  &tau0, &tau3, &tau0I, &tau3I, &ecc,&eccI,&eccI_fl,
@@ -4006,11 +4012,16 @@ void BankEfficiencyAscii2Xml(void)
     &trigger.mass1_inject, &trigger.mass2_inject,&inclination,&polarisation,
     &phaseI, &trigger.rho_final, &trigger.snrAtCoaTime, &trigger.phase,
     &trigger.alphaF, &trigger.bin, &nStartPad, &trigger.nfast, &nfast_max,
-    &bestEMatch);
+    &bestEMatch);*/
+
+    sscanf(sbuf,"%f %f %f %f %f %f %f %d", &trigger.mass1_trigger, &trigger.mass2_trigger,
+      &trigger.mass1_inject, &trigger.mass2_inject, &trigger.fend_trigger, &trigger.fend_inject,
+      &trigger.rho_final, &trigger.bin );
+
 
 
     fprintf(output, BANKEFFICIENCY_PARAMS_ROW,
-        trigger.psi0_trigger, trigger.psi3_trigger,
+        trigger.mass1_trigger, trigger.mass2_trigger,
         psi0, psi3, tau0, tau3, tau0I, tau3I,ecc,eccI,eccI_fl,
         trigger.fend_trigger, trigger.fend_inject,
         trigger.mass1_inject, trigger.mass2_inject,inclination, polarisation,
