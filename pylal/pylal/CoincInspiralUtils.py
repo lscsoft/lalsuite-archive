@@ -533,8 +533,7 @@ class coincInspiralTable:
     self.sim_table = sim_inspiral
     # check that the number of sims matches the number of coincs:
     if len(self) != len(sim_inspiral):
-      print >> sys.stderr, "Number of injections doesn't match number of coincs"
-      sys.exit(1)
+      raise ValueError, "Number of injections doesn't match number of coincs"
 
     for i in range(len(self)):
       self[i].add_sim(sim_inspiral[i])
