@@ -95,11 +95,14 @@ def parse_command_line():
       default=False, help="return a list of subscriptions" )
   parser.add_option("-j","--add-publisher",action="store",type="string",\
       default=None, help="jabber id of person allowed to publish to node" )
-  parser.add_option("-k","--get-node-config",action="store",type="string",\
-      default=None, help="name of the node to get config" )
-
   parser.add_option("-m","--get-nodes",action="store_true",\
       default=False, help="get the list of existing nodes" )
+  parser.add_option("-o","--affiliations",action="store",type="string",\
+      default=None, help="get the list of affiliations to a node" )
+  parser.add_option("-p","--delete-publisher",action="store",type="string",\
+      default=None, help="jid of publisher to delete from a node" )
+  parser.add_option("-q","--node",action="store",type="string",\
+      default=None, help="name of node" )
   # debugging options
   parser.add_option("-l","--debug",action="store_true",\
       default=False, help="should  print out lots of information" )
@@ -110,6 +113,9 @@ def parse_command_line():
 
   if not options.username:
     raise ValueError, "--username must be provided"
+
+  if (options.add_publisher or options.delete_publisher) and not options.node:
+    raise ValueError, "--node must be provided along with --add-publisher or --delete-publisher"
 
   return options, sys.argv[1:]
   
@@ -150,10 +156,26 @@ class MyClient(Client):
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.create_error,\
                 pspl.create_timeout)
+        if opts.delete_node:
+            self.stream.set_response_handlers(pspl, \
+                pspl.generic_result,pspl.generic_error,\
+                pspl.generic_timeout)
         if opts.subscribe_node:
             self.stream.set_response_handlers(pspl, \
                 pspl.subscribe_result,pspl.subscribe_error,\
                 pspl.subscribe_timeout)
+        if opts.affiliations:
+            self.stream.set_response_handlers(pspl, \
+                pspl.affiliations_result,pspl.generic_error,\
+                pspl.generic_timeout)
+        if opts.add_publisher:
+            self.stream.set_response_handlers(pspl, \
+                pspl.generic_result,pspl.generic_error,\
+                pspl.generic_timeout)
+        if opts.delete_publisher:
+            self.stream.set_response_handlers(pspl, \
+                pspl.generic_result,pspl.generic_error,\
+                pspl.generic_timeout)
         if opts.unsubscribe_node:
             self.stream.set_response_handlers(pspl, \
                 pspl.generic_result,pspl.subscribe_error,\
@@ -214,6 +236,16 @@ elif opts.unsubscribe_node:
     pspl.unsubscribe(myjid,opts.unsubscribe_node,opts.unsubscribe_subid)
 elif opts.subscriptions:
     pspl.subscriptions(myjid)
+elif opts.affiliations:
+    pspl.affiliations(myjid,opts.affiliations)
+elif opts.add_publisher:
+    publisher_jid = opts.add_publisher.split('@')[0]
+    publisher_jid=JID(publisher_jid+"@"+opts.server+"/Home")
+    pspl.publisher(publisher_jid,opts.node,"publisher")
+elif opts.delete_publisher:
+    publisher_jid = opts.delete_publisher.split('@')[0]
+    publisher_jid=JID(publisher_jid+"@"+opts.server+"/Home")
+    pspl.publisher(publisher_jid,opts.node,"none")
 elif opts.add_publisher:
     pass
 else:

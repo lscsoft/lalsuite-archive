@@ -41,34 +41,6 @@ PUBSUB_NS = 'http://jabber.org/protocol/pubsub'
 PUBSUB_OWNER_NS = 'http://jabber.org/protocol/pubsub#owner'
 PUBSUB_NODE_CONFIG_NS = 'http://jabber.org/protocol/pubsub#node_config'
 
-message_types=("normal","chat","headline","error","groupchat")
-
-
-class AffiliationItem(StanzaPayloadObject):
-	"""
-	Affiliation item
-
-	Represents part of affiliations listing
-	"""
-
-	xml_element_name = None
-	xml_element_namespace = None
-
-
-
-class Affiliation:
-	def __init__(self,xml):
-		self.xml = xml
-
-class Subscription:
-	def __init__(self,xml):
-		self.xml = xml
-
-class PubSubNode:
-    	def __init__(self,pubsub,node_name):
-        	self.pubsub = pubsub
-        	self.name = node_name
-
 class PubSub(Iq):
     xml_element_name = "pubsub"
     xml_element_namespace = PUBSUB_NS
@@ -177,6 +149,30 @@ class PubSub(Iq):
                 c.prop("subscription"), c.prop("subid") )
             c = c.next
 
+    def publisher(self,jid,node_name,affiliation):
+        ps = self.new_pubsub(ns_uri=PUBSUB_OWNER_NS)
+        c = ps.add_new_content(None,"affiliations")
+        c.newProp("node",node_name)
+        c = c.newChild(None,"affiliation",None)
+        c.newProp("jid",jid.bare().as_utf8())
+        c.newProp("affiliation",affiliation)
+        self.add_content(ps.xmlnode)
+        self.set_type("set")
+
+    def affiliations(self,jid,node_name):
+        ps = self.new_pubsub(ns_uri=PUBSUB_OWNER_NS)
+        c = ps.add_new_content(None,"affiliations")
+        c.newProp("node",node_name)
+        self.add_content(ps.xmlnode)
+        self.set_type("get")
+
+    def affiliations_result(self,cresult):
+        c = cresult.xmlnode.children.children.children
+        while c:
+            print "Affiliation: %s [ %s ]" % ( c.prop("jid"),\
+                c.prop("affiliation"))
+            c = c.next
+
     def subscribe(self,jid,node_name):
         ps = self.new_pubsub(ns_uri=PUBSUB_NS)
         c = ps.add_new_content(None,"subscribe")
@@ -210,12 +206,12 @@ class PubSub(Iq):
         :raise FatalClientError:"""
         raise FatalClientError("Error while trying to subscribe to node")
 
-    def config_timeout(self):
+    def generic_timeout(self):
         """Process session request time out.  
         :raise FatalClientError:"""
-        raise FatalClientError("Timeout while tryin to configure node")
+        raise FatalClientError("Timeout while tryin to perform action")
 
-    def config_error(self,iq):
+    def generic_error(self,iq):
         """Process session request failure.
         :Parameters:
             - `iq`: IQ error stanza received as result of the session request.
@@ -226,30 +222,6 @@ class PubSub(Iq):
         err=iq.get_error()
         msg=err.get_message()
         raise FatalClientError("Failed to establish a session: "+msg)
-
-    def config_result(self, _unused):
-        """Process session request success.
-
-        :Parameters:
-            - `_unused`: IQ result stanza received in reply to the session request.
-        :Types:
-            - `_unused`: `pyxmpp.Iq`"""
-
-        c = _unused.xmlnode.children
-        c = c.children
-        node_name=c.prop("node")
-        c = c.children
-        while c:
-            try:
-                if c.name=="x":
-                    f = Form(c)
-            except libxml2.treeError:
-                pass
-            c = c.next
-        tl = f["pubsub#owner"].value
-        tl.append(JID("patrick@naoise.phys.uwm.edu"))
-        f["pubsub#owner"].value = tl
-        f.make_submit()
 
 class PubSubMessage(Stanza):
     """Wraper object for <message /> stanzas."""
