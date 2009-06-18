@@ -165,7 +165,7 @@ if __name__ == '__main__':
     xml_files  = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
 
     # Add in the veto files
-    veto_files = map(lambda x: options.veto_dir + '/' + x, filter(lambda x: x.endswith('.xml'), os.listdir(options.veto_dir)))
+    veto_files = [options.veto_dir + '/' + fname for fname in os.listdir(options.veto_dir) if fname.endswith('.xml')]
 
     # 1. Load the files into sqlite. 
     handle, temp_db = tempfile.mkstemp(suffix='.sqlite')
