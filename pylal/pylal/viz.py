@@ -1216,24 +1216,19 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
       missedVal = log10(missedVal)
 
     if len(foundVal):
-      bins = numpy.linspace(min(foundVal), max(foundVal), nbins + 1,
-                            endpoint=True)
-      step = bins[1] - bins[0]
+      step = (max(foundVal) - min(foundVal)) /nbins
+      bins = arange(min(foundVal),max(foundVal)+step, step )
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
         plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
-      bins = numpy.linspace(min(missedVal), max(missedVal), nbins + 1,
-                            endpoint=True)
-      step = bins[1] - bins[0]
+      step = (max(missedVal) - min(missedVal)) /nbins
+      bins = arange(min(missedVal),max(missedVal)+step, step )
       plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
         plotbins = bins[0:-1] + missedVal[0]/4.0
-    num_found, _ = numpy.histogram(foundVal, bins, new=True)
-    num_missed, _ = numpy.histogram(missedVal, bins, new=True)
-
     fig_num = gcf().number
     figure(fig_num)
     num_found = array(num_found,'d')
