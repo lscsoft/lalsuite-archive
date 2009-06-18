@@ -536,7 +536,7 @@ class ExperimentTable(table.Table):
 		"experiment_id": "ilwd:char",
 		"search_group": "lstring",
 		"search": "lstring",
-		"lars_id": "ilwd:char",
+		"lars_id": "lstring",
 		"instruments": "lstring",
 		"gps_start_time": "int_4s",
 		"gps_end_time": "int_4s",
