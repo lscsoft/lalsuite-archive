@@ -27,22 +27,35 @@
 
 
 import math
-import numpy
+import matplotlib
+matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0,
+	"figure.dpi": 600,
+	"savefig.dpi": 600,
+	"text.usetex": True	# render all text with TeX
+})
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+#from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
 from optparse import OptionParser
 try:
 	import sqlite3
 except ImportError:
 	# pre 2.5.x
 	from pysqlite2 import dbapi2 as sqlite3
+import re
 import sys
 
 
-from glue import lal
 from glue import segments
+from glue.ligolw import table
 from glue.ligolw import dbtables
-from glue.ligolw import utils
-from pylal import rate
-from pylal import SnglBurstUtils
+from pylal import db_thinca_rings
 from pylal.date import LIGOTimeGPS
 
 
@@ -65,26 +78,20 @@ __date__ = "$Date$"[7:-2]
 
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
-	parser.add_option("--made-only", action = "store_true", default = False, help = "Plot only injections that were made.")
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
-	parser.add_option("-f", "--format", metavar = "format", action = "append", default = ["png", "pdf"], help = "Set the output image format.  Can be given multiple times (default = \"png\" and \"pdf\")")
-	parser.add_option("--input-cache", metavar = "filename", action = "append", default = [], help = "Get list of trigger files from this LAL cache file.")
+	parser.add_option("-f", "--format", metavar = "format", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\" and \"pdf\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number (default = make all plots).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
-	if options.plot is None:
-		options.plot = range(10)	# FIXME:  set to number of plots
-	else:
+	if options.plot is not None:
 		options.plot = map(int, options.plot)
+	if not options.format:
+		options.format = ["png", "pdf"]
 
 	filenames = filenames or []
-	for cache in options.input_cache:
-		if options.verbose:
-			print >>sys.stderr, "reading '%s' ..." % cache
-		filenames += [lal.CacheEntry(line).path() for line in file(cache)]
 
 	return options, filenames
 
@@ -92,597 +99,323 @@ def parse_command_line():
 #
 # =============================================================================
 #
-#                              Frequency vs. Time
+#                                   Database
 #
 # =============================================================================
 #
 
 
-class FreqVsTime(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "GPS Time (s)", "Frequency (Hz)")
-		self.axes.semilogy()
-		self.instrument = instrument
-		self.num_injections = 0
-		self.injected_x = []
-		self.injected_y = []
-		self.missed_x = []
-		self.missed_y = []
-		self.seglist = segments.segmentlist()
+class CoincDatabase(object):
+	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+		"""
+		Compute and record some summary information about the
+		database.
+		"""
 
-	def add_contents(self, contents):
-		self.seglist |= contents.seglists[self.instrument]
-		for values in contents.connection.cursor().execute("""
-SELECT
-	*,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			sim_burst_map
-			JOIN sngl_burst ON (
-				sngl_burst.event_id == sim_burst_map.event_id
-			)
-		WHERE
-			sim_burst_map.simulation_id == sim_burst.simulation_id
-			AND sngl_burst.ifo == ?
-	)
-FROM
-	sim_burst
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			found = values[-1]
-			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
-				self.num_injections += 1
-				peak = float(SimBurstUtils.time_at_instrument(sim, self.instrument))
-				self.injected_x.append(peak)
-				self.injected_y.append(sim.frequency)
-				if not found:
-					self.missed_x.append(peak)
-					self.missed_y.append(sim.frequency)
+		self.connection = connection
+		self.xmldoc = dbtables.get_xml(connection)
 
-	def finish(self):
-		self.axes.plot(self.injected_x, self.injected_y, "k+")
-		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "rx")
-		for seg in ~self.seglist & segments.segmentlist([segments.segment(self.axes.get_xlim())]):
-			self.axes.axvspan(float(seg[0]), float(seg[1]), facecolor = "k", alpha = 0.2)
-		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
-		self.axes.set_title("Injection Locations\n(%d Injections)" % self.num_injections)
+		cursor = connection.cursor()
 
+		# find the tables
+		try:
+			self.sngl_inspiral_table = table.get_table(self.xmldoc, dbtables.lsctables.SnglInspiralTable.tableName)
+		except ValueError:
+			self.sngl_inspiral_table = None
+		try:
+			self.sim_inspiral_table = table.get_table(self.xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+		except ValueError:
+			self.sim_inspiral_table = None
+		try:
+			self.coinc_def_table = table.get_table(self.xmldoc, dbtables.lsctables.CoincDefTable.tableName)
+			self.coinc_table = table.get_table(self.xmldoc, dbtables.lsctables.CoincTable.tableName)
+			self.time_slide_table = table.get_table(self.xmldoc, dbtables.lsctables.TimeSlideTable.tableName)
+		except ValueError:
+			self.coinc_def_table = None
+			self.coinc_table = None
+			self.time_slide_table = None
+		try:
+			self.coinc_inspiral_table = table.get_table(self.xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+		except ValueError:
+			self.coinc_inspiral_table = None
 
-#
-# =============================================================================
-#
-#                           Amplitude vs. Frequency
-#
-# =============================================================================
-#
+		# get the segment lists
+		self.seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program)
+		self.instruments = set(self.seglists.keys())
+		if veto_segments_name is not None:
+			self.veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+		else:
+			self.veto_segments = segments.segmentlistdict()
+		self.seglists -= self.veto_segments
 
-
-class HrssVsFreqScatter(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, "Frequency (Hz)", amplitude_lbl)
-		self.axes.loglog()
-		self.instrument = instrument
-		self.amplitude_func = amplitude_func
-		self.amplitude_lbl = amplitude_lbl
-		self.num_injections = 0
-		self.injected_x = []
-		self.injected_y = []
-		self.missed_x = []
-		self.missed_y = []
-
-	def add_contents(self, contents):
-		for values in contents.connection.cursor().execute("""
-SELECT
-	*,
-	EXISTS (
-		SELECT
-			*
-		FROM
-			sim_burst_map
-			JOIN sngl_burst ON (
-				sngl_burst.event_id == sim_burst_map.event_id
-			)
-		WHERE
-			sim_burst_map.simulation_id == sim_burst.simulation_id
-			AND sngl_burst.ifo == ?
-	)
-FROM
-	sim_burst
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			found = values[-1]
-			if SimBurstUtils.injection_was_made(sim, contents.seglists, (self.instrument,)):
-				self.num_injections += 1
-				amplitude = self.amplitude_func(sim, self.instrument)
-				self.injected_x.append(sim.frequency)
-				self.injected_y.append(amplitude)
-				if not found:
-					self.missed_x.append(sim.frequency)
-					self.missed_y.append(amplitude)
-
-	def finish(self):
-		self.axes.plot(self.injected_x, self.injected_y, "k+")
-		if not options.made_only:
-			self.axes.plot(self.missed_x, self.missed_y, "rx")
-		self.axes.set_xlim([min(self.injected_x), max(self.injected_x)])
-		self.axes.set_ylim([min(self.injected_y), max(self.injected_y)])
-		self.axes.set_title("Injection " + self.amplitude_lbl + " vs. Frequency\n(%d Injections)" % self.num_injections)
-
-
-#
-# =============================================================================
-#
-#                           Trigger Count Histogram
-#
-# =============================================================================
-#
-
-
-class TriggerCountHistogram(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument):
-		SnglBurstUtils.BurstPlot.__init__(self, "Number of Triggers Coincident with Injection", "Count")
-		self.axes.semilogy()
-		self.instrument = instrument
-		self.found = 0
-		self.bins = []
-
-	def add_contents(self, contents):
-		for nevents, in contents.connection.cursor().execute("""
-SELECT
-	nevents
-FROM
-	coinc_event
-WHERE
-	coinc_def_id == ?
-		""", (contents.sb_definer_id,)):
-			self.found += 1
-			while nevents + 1 >= len(self.bins):
-				self.bins.append(0)
-			self.bins[nevents] += 1
-
-	def finish(self):
-		self.axes.plot(range(len(self.bins)), self.bins, "ko-")
-		self.axes.set_title("Triggers per Found Injection\n(%d Found Injections)" % self.found)
-
-
-#
-# =============================================================================
-#
-#                         Recovered vs. Injected h_rss
-#
-# =============================================================================
-#
-
-
-class RecoveredVsInjectedhrss(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"Injected " + amplitude_lbl, r"Recovered $h_{\mathrm{rss}}$")
-		self.axes.loglog()
-		self.fig.set_size_inches(8, 8)
-		self.instrument = instrument
-		self.amplitude_func = amplitude_func
-		self.amplitude_lbl = amplitude_lbl
-		self.matches = 0
-		self.x = []
-		self.y = []
-		self.c = []
-
-	def add_contents(self, contents):
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	sngl_burst.peak_frequency,
-	sngl_burst.ms_hrss
-FROM
-	sim_burst
-	JOIN sim_burst_map ON (
-		sim_burst_map.simulation_id == sim_burst.simulation_id
-	)
-	JOIN sngl_burst ON (
-		sngl_burst.event_id == sim_burst_map.event_id
-	)
-WHERE
-	sngl_burst.ifo == ?
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			freq_rec, hrss_rec = values[-2:]
-			self.matches += 1
-			self.x.append(self.amplitude_func(sim, self.instrument))
-			self.y.append(hrss_rec)
-			self.c.append(math.log(freq_rec))
-
-	def finish(self):
-		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
-		#xmin, xmax = self.axes.get_xlim()
-		#ymin, ymax = self.axes.get_ylim()
-		xmin, xmax = min(self.x), max(self.x)
-		ymin, ymax = min(self.y), max(self.y)
-		xmin = ymin = min(xmin, ymin)
-		xmax = ymax = max(xmax, ymax)
-		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
-		self.axes.set_xlim([xmin, xmax])
-		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered $h_{\mathrm{rss}}$ vs.\ Injected " + self.amplitude_lbl + " (%d Events Matching Injections)" % self.matches)
-
-
-class RecoveredPerInjectedhrssVsFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected "+ amplitude_lbl)
-		self.axes.loglog()
-		self.fig.set_size_inches(8, 8)
-		self.instrument = instrument
-		self.amplitude_func = amplitude_func
-		self.amplitude_lbl = amplitude_lbl
-		self.matches = 0
-		self.x = []
-		self.y = []
-		self.c = []
-
-	def add_contents(self, contents):
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	sngl_burst.peak_frequency,
-	sngl_burst.ms_hrss
-FROM
-	sim_burst
-	JOIN sim_burst_map ON (
-		sim_burst_map.simulation_id == sim_burst.simulation_id
-	)
-	JOIN sngl_burst ON (
-		sngl_burst.event_id == sim_burst_map.event_id
-	)
-WHERE
-	sngl_burst.ifo == ?
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			freq_rec, hrss_rec = values[-2:]
-			self.matches += 1
-			self.x.append(sim.frequency)
-			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
-			self.c.append(math.log(freq_rec))
-
-	def finish(self):
-		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
-		self.axes.set_xlim([min(self.x), max(self.x)])
-		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Frequency (%d Events Matching Injections)" % self.matches)
-
-
-class RecoveredPerInjectedhrssVsBandwidth(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_func, amplitude_lbl):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$\Delta f_{\mathrm{recovered}}$ (Hz)", r"Recovered $h_{\mathrm{rss}}$ / Injected " + amplitude_lbl)
-		self.axes.loglog()
-		self.fig.set_size_inches(8, 8)
-		self.instrument = instrument
-		self.amplitude_func = amplitude_func
-		self.amplitude_lbl = amplitude_lbl
-		self.matches = 0
-		self.x = []
-		self.y = []
-		self.c = []
-
-	def add_contents(self, contents):
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	sngl_burst.bandwidth,
-	sngl_burst.peak_frequency,
-	sngl_burst.ms_hrss
-FROM
-	sim_burst
-	JOIN sim_burst_map ON (
-		sim_burst_map.simulation_id == sim_burst.simulation_id
-	)
-	JOIN sngl_burst ON (
-		sngl_burst.event_id == sim_burst_map.event_id
-	)
-WHERE
-	sngl_burst.ifo == ?
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			bandwidth, freq_rec, hrss_rec = values[-3:]
-			self.matches += 1
-			self.x.append(bandwidth)
-			self.y.append(hrss_rec / self.amplitude_func(sim, self.instrument))
-			self.c.append(math.log(freq_rec))
-
-	def finish(self):
-		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
-		self.axes.set_xlim([min(self.x), max(self.x)])
-		self.axes.set_ylim([min(self.y), max(self.y)])
-		self.axes.set_title(r"Ratio of Recovered $h_{\mathrm{rss}}$ to Injected " + self.amplitude_lbl + r" vs.\ Recovered Bandwidth (%d Events Matching Injections)" % self.matches)
-
-
-#
-# =============================================================================
-#
-#                            Recovered Time Offset
-#
-# =============================================================================
-#
-
-
-class RecoveredTimeOffset(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$t_{\mathrm{recovered}} - t_{\mathrm{injected}}$ (s)", "Triggers per Unit Offset")
-		self.axes.semilogy()
-		self.instrument = instrument
-		self.found = 0
-		# 21 bins per filter width
-		bins = int(float(abs(interval)) / width) * 21
-		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
-		self.offsets = rate.BinnedArray(binning)
-		self.coinc_offsets = rate.BinnedArray(binning)
-
-	def add_contents(self, contents):
-		# this outer loop assumes each injection can only be found
-		# in at most one coinc, otherwise the "found" count is
-		# wrong.
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	coinc_event.coinc_event_id
-FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sim_burst ON (
-		coinc_event_map.table_name == 'sim_burst'
-		AND coinc_event_map.event_id == sim_burst.simulation_id
-	)
-WHERE
-	coinc_def_id == ?
-		""", (contents.sb_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			coinc_event_id = values[-1]
-			sim_peak = SimBurstUtils.time_at_instrument(sim, self.instrument)
-			self.found += 1
-			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
-			coinc_dt = 0
-			for burst in bursts:
-				dt = float(burst.get_peak() - sim_peak)
-				if burst.ifo == self.instrument:
-					try:
-						self.offsets[dt,] += 1.0
-					except IndexError:
-						# outside plot range
-						pass
-				coinc_dt += dt * burst.ms_snr
-			coinc_dt /= sum(burst.ms_snr for burst in bursts)
+		# determine a few coinc_definer IDs
+		# FIXME:  don't hard-code the numbers
+		if self.coinc_def_table is not None:
 			try:
-				self.coinc_offsets[coinc_dt,] += 1.0
-			except IndexError:
-				# outside plot range
-				pass
-
-	def finish(self):
-		self.axes.set_title("Trigger Peak Time - Injection Peak Time\n(%d Found Injections)" % self.found)
-		# 21 bins per filter width
-		filter = rate.gaussian_window(21)
-		rate.to_moving_mean_density(self.offsets, filter)
-		rate.to_moving_mean_density(self.coinc_offsets, filter)
-		self.axes.plot(self.offsets.centres()[0], self.offsets.array, "k")
-		self.axes.plot(self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
-		self.axes.legend(["%s residuals" % self.instrument, "SNR-weighted mean of residuals in all instruments"], loc = "lower right")
-
-
-#
-# =============================================================================
-#
-#                          Recovered Frequency Offset
-#
-# =============================================================================
-#
-
-
-class RecoveredFrequencyOffset(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, interval, width):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{recovered}} / f_{\mathrm{injected}}$", "Event Number Density")
-		self.axes.loglog()
-		self.instrument = instrument
-		self.found = 0
-		# 21 bins per filter width
-		bins = int(float(abs(interval)) / width) * 21
-		binning = rate.NDBins((rate.LinearBins(interval[0], interval[1], bins),))
-		self.offsets = rate.BinnedArray(binning)
-		self.coinc_offsets = rate.BinnedArray(binning)
-
-	def add_contents(self, contents):
-		# this outer loop assumes each injection can only be found
-		# in at most one coinc, otherwise the "found" count is
-		# wrong.
-		for coinc_event_id, sim_frequency in contents.connection.cursor().execute("""
-SELECT
-	coinc_event.coinc_event_id,
-	sim_burst.frequency
-FROM
-	coinc_event
-	JOIN coinc_event_map ON (
-		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
-	)
-	JOIN sim_burst ON (
-		coinc_event_map.table_name == 'sim_burst'
-		AND sim_burst.simulation_id == coinc_event_map.event_id
-	)
-WHERE
-	coinc_event.coinc_def_id == ?
-		""", (contents.sb_definer_id,)):
-			self.found += 1
-			bursts = tuple(SnglBurstUtils.coinc_sngl_bursts(contents, coinc_event_id))
-			for burst in bursts:
-				if burst.ifo == self.instrument:
-					df = math.log(burst.peak_frequency / sim_frequency, 10)
-					try:
-						self.offsets[df,] += 1.0
-					except IndexError:
-						# outside plot range
-						pass
-			# snr-weighted mean of peak frequencies
-			coinc_freq = sum(burst.peak_frequency * burst.ms_snr for burst in bursts) / sum(burst.ms_snr for burst in bursts)
-			df = math.log(coinc_freq / sim_frequency, 10)
+				self.ii_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 0, create_new = False)
+			except KeyError:
+				self.ii_definer_id = None
 			try:
-				self.coinc_offsets[df,] += 1.0
-			except IndexError:
-				# outside plot range
-				pass
+				self.si_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 1, create_new = False)
+			except KeyError:
+				self.si_definer_id = None
+			try:
+				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 2, create_new = False)
+			except KeyError:
+				self.sc_definer_id = None
+		else:
+			self.ii_definer_id = None
+			self.si_definer_id = None
+			self.sc_definer_id = None
+
+		# retrieve the distinct on and participating instruments
+		self.on_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?", (self.ii_definer_id,))]
+
+		# verbosity
+		if verbose:
+			print >>sys.stderr, "database stats:"
+			print >>sys.stderr, "\tinstrument combinations: %s" % ", ".join(sorted("+".join(sorted(on_instruments)) for on_instruments in self.on_instruments_combos))
+			if self.sngl_inspiral_table is not None:
+				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
+			if self.sim_inspiral_table is not None:
+				print >>sys.stderr, "\tinjections: %d" % len(self.sim_inspiral_table)
+			if self.time_slide_table is not None:
+				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
+			if self.coinc_def_table is not None:
+				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+					print >>sys.stderr, "\t%s: %d" % (description, n)
+
+
+#
+# =============================================================================
+#
+#                                    Plots
+#
+# =============================================================================
+#
+
+
+class BasePlot(object):
+	def __init__(self, x_label, y_label, width = 165.0):
+		"""
+		width is in mm
+		"""
+		self.fig = figure.Figure()
+		FigureCanvas(self.fig)
+		# width mm wide, golden ratio high
+		self.fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
+		self.axes = self.fig.gca()
+		self.axes.grid(True)
+		self.axes.set_xlabel(x_label)
+		self.axes.set_ylabel(y_label)
+
+	def add_contents(self, doc):
+		raise NotImplementedError
 
 	def finish(self):
-		self.axes.set_title("Trigger Peak Frequency / Injection Centre Frequency\n(%d Found Injections)" % self.found)
-		# 21 bins per filter width
-		filter = rate.gaussian_window(21)
-		rate.to_moving_mean_density(self.offsets, filter)
-		rate.to_moving_mean_density(self.coinc_offsets, filter)
-		self.axes.plot(10**self.offsets.centres()[0], self.offsets.array, "k")
-		self.axes.plot(10**self.coinc_offsets.centres()[0], self.coinc_offsets.array, "r")
-		self.axes.legend(["%s triggers" % self.instrument, "SNR-weighted mean of all matching triggers"], loc = "lower right")
-		ymin, ymax = self.axes.get_ylim()
-		if ymax / ymin > 1e6:
-			ymin = ymax / 1e6
-			self.axes.set_ylim((ymin, ymax))
+		return [self.fig]
+
+
+def create_sim_coinc_view(connection):
+	connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_coinc_map
+AS
+	SELECT
+		sim_inspiral.simulation_id AS simulation_id,
+		coinc_inspiral.ifos AS participating_instruments,
+		coinc_event.instruments AS on_instruments,
+		coinc_inspiral.combined_far AS false_alarm_rate
+	FROM
+		sim_inspiral
+		JOIN coinc_event_map AS a ON (
+			a.table_name == 'sim_inspiral'
+			AND a.event_id == sim_inspiral.simulation_id
+		)
+		JOIN coinc_event_map AS b ON (
+			b.coinc_event_id == a.coinc_event_id
+		)
+		JOIN coinc_event ON (
+			b.table_name == 'coinc_event'
+			AND b.event_id == coinc_event.coinc_event_id
+		)
+		JOIN coinc_inspiral ON (
+			coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+		)
+	WHERE
+		coinc_inspiral.combined_far == (
+			SELECT
+				MIN(matching_coinc_inspirals.combined_far)
+			FROM
+				coinc_event_map AS c
+				JOIN coinc_inspiral AS matching_coinc_inspirals ON (
+					c.table_name == 'coinc_event'
+					AND c.event_id == matching_coinc_inspirals.coinc_event_id
+				)
+			WHERE
+				c.coinc_event_id == a.coinc_event_id
+		)
+	""")
 
 
 #
 # =============================================================================
 #
-#                       Recovered vs. Injected Frequency
+#                              Missed/Found Plot
 #
 # =============================================================================
 #
 
 
-class RecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instrument, amplitude_func):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
-		self.axes.loglog()
-		self.fig.set_size_inches(8, 8)
-		self.instrument = instrument
-		self.amplitude_func = amplitude_func
-		self.matches = 0
-		self.x = []
-		self.y = []
-		self.c = []
+def sim_effective_distance(sim, instrument):
+	return {
+		"H1": sim.eff_dist_h,
+		"H2": sim.eff_dist_h,
+		"L1": sim.eff_dist_l,
+		"V1": sim.eff_dist_v
+	}[instrument]
+
+
+class MissedFoundbyMchirpPlots(object):
+	class MissedFoundbyMchirp(BasePlot):
+		def __init__(self, on_instruments):
+			BasePlot.__init__(self, r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
+			self.on_instruments = on_instruments
+			self.found_in = {}
+
+		def add_contents(self, contents):
+  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sim_inspiral.*,
+	(
+		SELECT
+			sim_coinc_map.participating_instruments
+		FROM
+			sim_coinc_map
+		WHERE
+			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+FROM
+	sim_inspiral
+			"""):
+				sim = contents.sim_inspiral_table._row_from_cols(values)
+				if sim.get_end() in zero_lag_segments:
+					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
+					if participating_instruments is not None:
+						participating_instruments = frozenset(participating_instruments)
+					try:
+						self.found_in[participating_instruments].append(sim)
+					except KeyError:
+						self.found_in[participating_instruments] = [sim]
+
+		def finish(self):
+  			legend = []
+			missed = self.found_in.pop(None, [])
+			for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
+				legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
+				self.axes.semilogy([sim.mchirp for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+			if missed:
+				legend.append("Missed")
+				self.axes.semilogy([sim.mchirp for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+			self.axes.legend(legend)
+			self.axes.set_title(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)))
+			return [self.fig]
+
+	def __init__(self):
+		self.plots = {}
 
 	def add_contents(self, contents):
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	sngl_burst.peak_frequency,
-	sngl_burst.ms_hrss
-FROM
-	sim_burst
-	JOIN sim_burst_map ON (
-		sim_burst_map.simulation_id == sim_burst.simulation_id
-	)
-	JOIN sngl_burst ON (
-		sngl_burst.event_id == sim_burst_map.event_id
-	)
-WHERE
-	sngl_burst.ifo == ?
-		""", (self.instrument,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			freq_rec, hrss_rec = values[-2:]
-			self.matches += 1
-			self.x.append(sim.frequency)
-			self.y.append(freq_rec)
-			self.c.append(math.log(hrss_rec / self.amplitude_func(sim, self.instrument)))
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for on_instruments in contents.on_instruments_combos:
+			if on_instruments not in self.plots:
+				self.plots[on_instruments] = MissedFoundbyMchirpPlots.MissedFoundbyMchirp(on_instruments)
+			self.plots[on_instruments].add_contents(contents)
 
 	def finish(self):
-		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
-		xmin, xmax = min(self.x), max(self.x)
-		ymin, ymax = min(self.y), max(self.y)
-		xmin = ymin = min(xmin, ymin)
-		xmax = ymax = max(xmax, ymax)
-		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
-		self.axes.set_xlim([xmin, xmax])
-		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
+		return [fig for plot in self.plots.values() for fig in plot.finish()]
 
 
-class CoincRecoveredVsInjectedFreq(SnglBurstUtils.BurstPlot):
-	def __init__(self, instruments):
-		SnglBurstUtils.BurstPlot.__init__(self, r"$f_{\mathrm{injected}}$ (Hz)", r"$f_{\mathrm{recovered}}$ (Hz)")
-		self.axes.loglog()
-		self.fig.set_size_inches(8, 8)
-		self.instruments = set(instruments)
-		self.matches = 0
-		self.x = []
-		self.y = []
-		self.c = []
+#
+# =============================================================================
+#
+#                          Mchirp Parameter Accuracy
+#
+# =============================================================================
+#
+
+
+class MChirpAccuracy(object):
+	class MissedFoundbyMchirp(BasePlot):
+		def __init__(self, on_instruments):
+			BasePlot.__init__(self, r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
+			self.on_instruments = on_instruments
+			self.found_in = {}
+
+		def add_contents(self, contents):
+  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sim_inspiral.*,
+	(
+		SELECT
+			sim_coinc_map.participating_instruments
+		FROM
+			sim_coinc_map
+		WHERE
+			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+FROM
+	sim_inspiral
+			"""):
+				sim = contents.sim_inspiral_table._row_from_cols(values)
+				if sim.get_end() in zero_lag_segments:
+					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
+					if participating_instruments is not None:
+						participating_instruments = frozenset(participating_instruments)
+					try:
+						self.found_in[participating_instruments].append(sim)
+					except KeyError:
+						self.found_in[participating_instruments] = [sim]
+
+		def finish(self):
+  			legend = []
+			missed = self.found_in.pop(None, [])
+			for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
+				legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
+				self.axes.semilogy([sim.mchirp for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+			if missed:
+				legend.append("Missed")
+				self.axes.semilogy([sim.mchirp for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+			self.axes.legend(legend)
+			self.axes.set_title(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)))
+			return [self.fig]
+
+	def __init__(self):
+		self.plots = {}
 
 	def add_contents(self, contents):
-		# FIXME: this query doesn't check for the correct
-		# instruments (should be done via coinc_def_id)
-		for values in contents.connection.cursor().execute("""
-SELECT
-	sim_burst.*,
-	multi_burst.central_freq,
-	multi_burst.amplitude
-FROM
-	sim_burst
-	JOIN sim_coinc_map ON (
-		sim_coinc_map.simulation_id == sim_burst.simulation_id
-	)
-	JOIN coinc_event AS sim_coinc_event ON (
-		sim_coinc_event.coinc_event_id == sim_coinc_map.coinc_event_id
-	)
-	JOIN multi_burst ON (
-		multi_burst.coinc_event_id == sim_coinc_map.event_id
-	)
-WHERE
-	sim_coinc_event.coinc_def_id == ?
-		""", (contents.sce_definer_id,)):
-			sim = contents.sim_burst_table._row_from_cols(values)
-			freq_rec, hrss_rec = values[-2:]
-			self.matches += 1
-			self.x.append(sim.frequency)
-			self.y.append(freq_rec)
-			self.c.append(math.log(hrss_rec / sim.hrss))
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for on_instruments in contents.on_instruments_combos:
+			if on_instruments not in self.plots:
+				self.plots[on_instruments] = MissedFoundbyMchirpPlots.MissedFoundbyMchirp(on_instruments)
+			self.plots[on_instruments].add_contents(contents)
 
 	def finish(self):
-		self.axes.scatter(self.x, self.y, c = self.c, s = 16)
-		xmin, xmax = min(self.x), max(self.x)
-		ymin, ymax = min(self.y), max(self.y)
-		xmin = ymin = min(xmin, ymin)
-		xmax = ymax = max(xmax, ymax)
-		self.axes.plot([xmin, xmax], [ymin, ymax], "k-")
-		self.axes.set_xlim([xmin, xmax])
-		self.axes.set_ylim([ymin, ymax])
-		self.axes.set_title(r"Recovered Frequency vs.\ Injected Frequency (%d Events Matching Injections)" % self.matches)
+		return [fig for plot in self.plots.values() for fig in plot.finish()]
 
 
 #
 # =============================================================================
 #
-#                                     Plot
+#                                     Main
 #
 # =============================================================================
 #
-
-
-#
-# How to create new plots
-#
-
-
-def new_plots(instrument, plots):
-	l = (
-		FreqVsTime(instrument),
-		HrssVsFreqScatter(instrument, amplitude_func, amplitude_lbl),
-		SimBurstUtils.Efficiency_hrss_vs_freq((instrument,), amplitude_func, amplitude_lbl, 0.1),
-		TriggerCountHistogram(instrument),
-		RecoveredVsInjectedhrss(instrument, amplitude_func, amplitude_lbl),
-		RecoveredPerInjectedhrssVsFreq(instrument, amplitude_func, amplitude_lbl),
-		RecoveredPerInjectedhrssVsBandwidth(instrument, amplitude_func, amplitude_lbl),
-		RecoveredTimeOffset(instrument, segments.segment(-0.03, +0.03), 0.00015),
-		RecoveredFrequencyOffset(instrument, segments.segment(-1.0, +1.0), .002),
-		RecoveredVsInjectedFreq(instrument, amplitude_func)
-	)
-	return [l[i] for i in plots]
 
 
 #
@@ -698,87 +431,52 @@ options, filenames = parse_command_line()
 #
 
 
-plots = {}
+def new_plots(plots = None):
+	l = (
+		MissedFoundbyMchirpPlots(),
+	)
+	if plots is None:
+		plots = range(len(l))
+	return [l[i] for i in plots]
 
-for n, filename in enumerate(utils.sort_files_by_size(filenames, options.verbose, reverse = True)):
+plots = new_plots(options.plot)
+if options.plot is None:
+	options.plot = range(len(plots))
+
+
+for n, filename in enumerate(filenames):
 	if options.verbose:
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	database = SnglBurstUtils.CoincDatabase(connection, options.live_time_program, verbose = options.verbose)	# FIXME:  replace w/ something for inspirals
-	if options.plot:
-		if database.coinc_table is not None:
-			database.connection.cursor().execute("""
-CREATE TEMPORARY VIEW
-	sim_burst_map
-AS
-	SELECT
-		a.event_id AS simulation_id,
-		a.coinc_event_id AS coinc_event_id,
-		b.event_id AS event_id
-	FROM
-		coinc_event_map AS a
-		JOIN coinc_event_map AS b ON (
-			a.table_name == 'sim_burst'
-			AND b.table_name == 'sngl_burst'
-			AND b.coinc_event_id == a.coinc_event_id
-		)
-			""")
-		for instrument in database.instruments:
-			if instrument not in plots:
-				plots[instrument] = new_plots(instrument, options.amplitude_func, options.amplitude_lbl, options.plot)
-			for n, plot in zip(options.plot, plots[instrument]):
-				if options.verbose:
-					print >>sys.stderr, "adding to %s plot %d ..." % (instrument, n)
-				plot.add_contents(database)
-	if options.coinc_plot:
-		database.connection.cursor().execute("""
-CREATE TEMPORARY VIEW
-	sim_coinc_map
-AS
-	SELECT
-		a.event_id AS simulation_id,
-		a.coinc_event_id AS coinc_event_id,
-		b.event_id AS event_id
-	FROM
-		coinc_event_map AS a
-		JOIN coinc_event_map AS b ON (
-			a.table_name == 'sim_burst'
-			AND b.table_name == 'coinc_event'
-			AND b.coinc_event_id == a.coinc_event_id
-		)
-		""")
-		for n, plot in enumerate(coincplots):
+	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
+	if contents.sim_inspiral_table is not None:
+		create_sim_coinc_view(connection)
+		for n, plot in zip(options.plot, plots):
 			if options.verbose:
-				print >>sys.stderr, "adding to coinc plot %d ..." % options.coinc_plot[n]
-			plot.add_contents(database)
-	connection.close()
+				print >>sys.stderr, "adding to plot %d ..." % n
+			plot.add_contents(contents)
+	elif options.verbose:
+		print >>sys.stderr, "No injections, skipping ..."
+	#connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
 #
-# finish and write regular plots, deleting them as we go to save memory
+# Finish and write plots, deleting them as we go to save memory
 #
 
 
-for instrument in plots:
-	n = 0
-	format = "%%s%s_%%0%dd.%%s" % (instrument, int(math.log10(max(options.plot) or 1)) + 1)
-	while len(plots[instrument]):
-		plot = plots[instrument].pop(0)
-		if options.verbose:
-			print >>sys.stderr, "finishing %s plot %d ..." % (instrument, options.plot[n])
-		try:
-			plot.finish()
-			fig = plot.fig
-		except ValueError, e:
-			print >>sys.stderr, "can't finish %s plot %d: %s" % (instrument, options.plot[n], str(e))
-		else:
-			for format in options.format:
-				filename = format % (options.base, options.plot[n], options.format)
-				if options.verbose:
-					print >>sys.stderr, "writing %s ..." % filename
-				fig.savefig(filename)
-		n += 1
+n = 0
+filename_template = "%%s%%0%dd%%s.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
+while len(plots):
+	if options.verbose:
+		print >>sys.stderr, "finishing plot %d ..." % options.plot[n]
+	for nfig, fig in enumerate(plots.pop(0).finish()):
+		for format in options.format:
+			filename = filename_template % (options.base, options.plot[n], "abcdefghijklmnopqrstuvwxyz"[nfig], format)
+			if options.verbose:
+				print >>sys.stderr, "writing %s ..." % filename
+			fig.savefig(filename)
+	n += 1
 
