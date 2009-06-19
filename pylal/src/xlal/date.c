@@ -154,7 +154,7 @@ static PyObject *pylal_LIGOTimeGPS___add__(PyObject *self, PyObject *other)
 	if(!pyobject_to_ligotimegps(other, &other_gps))
 		return NULL;
 
-	XLALINT8NSToGPS(&self_gps, XLALGPSToINT8NS(&self_gps) + XLALGPSToINT8NS(&other_gps));
+	XLALGPSAddGPS(&self_gps, &other_gps);
 
 	return pylal_LIGOTimeGPS_New(self_gps);
 }
@@ -307,6 +307,17 @@ static int pylal_LIGOTimeGPS___nonzero__(PyObject *self)
 		return -1;
 
 	return gps.gpsSeconds || gps.gpsNanoSeconds;
+}
+
+
+static PyObject *pylal_LIGOTimeGPS_ns(PyObject *self)
+{
+	LIGOTimeGPS gps;
+
+	if(!pyobject_to_ligotimegps(self, &gps))
+		return NULL;
+
+	return PyLong_FromLong(XLALGPSToINT8NS(&gps));
 }
 
 
@@ -470,6 +481,7 @@ static PyNumberMethods pylal_LIGOTimeGPS_as_number = {
 
 
 static struct PyMethodDef pylal_LIGOTimeGPS_methods[] = {
+	{"ns", pylal_LIGOTimeGPS_ns, METH_NOARGS, NULL},
 	{"__reduce__", pylal_LIGOTimeGPS___reduce__, METH_NOARGS, NULL},
 	{NULL,}
 };

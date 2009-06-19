@@ -44,25 +44,6 @@ example:
 If you do not have version 2.4 or greater installed, contact your system
 administrator for help installing Python.
 
-Set the environment variable PYTHON to be the name of your python
-version 2 executable. For example if your executable is named python,
-bash or sh users should type:
-
-  export PYTHON=python
-
-and csh users should type:
-
-  setenv PYTHON python
-
-If your executable is named python2, bash or sh users should type:
-
-  export PYTHON=python2
-
-and csh users should type:
-
-  setenv PYTHON python2
-
-
 ------------------------------------------------------------------------------
 
 2. Get Glue from Git

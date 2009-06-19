@@ -25,6 +25,7 @@ import datetime
 import hashlib
 import os
 import sys
+import time
 
 itertools = __import__("itertools")
 
@@ -138,14 +139,14 @@ class DAGManLog(object):
         if grep_key in line: # we have a match
           tup = line.split()
           node_id = tup[node_id_col]
-          ts = datetime.datetime.strptime(\
+          ts = datetime.datetime(*time.strptime(\
             year + "/" + tup[0] + " " + tup[1],
-            "%Y/%m/%d %H:%M:%S")
+            "%Y/%m/%d %H:%M:%S")[:6])
           # if ts is before log file creation, must increment year
           if ts < start:
             year = str(start.year + 1)
-            ts = datetime.datetime.strptime(year + "/" + tup[0] + " " + tup[1],
-                "%Y/%m/%d %H:%M:%S")
+            ts = datetime.datetime(*time.strptime(year + "/" + tup[0] + " "\
+                + tup[1], "%Y/%m/%d %H:%M:%S")[:6])
           if state_id == STATE_TERMINATED:
               line = dagman_out_iter.next() # job status on next line
               dagman_out_hash.update(line)
