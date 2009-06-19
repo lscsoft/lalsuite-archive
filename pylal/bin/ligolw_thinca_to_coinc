@@ -1485,11 +1485,11 @@ def compute_durations( xmldoc, veto_segments, verbose = False):
 		# if zero-lag, use the apprpiate ring summaries depending on whether the row is
 		# all_data, playground, or exclude_play
 		if row.datatype == 'playground':
-			row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, playground_segments, veto_segments, [time_slide_dict[row.time_slide_id]] )
+			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, playground_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
 		elif row.datatype == 'exclude_play':
-			row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, exclude_play_segments, veto_segments, [time_slide_dict[row.time_slide_id]] )
+			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, exclude_play_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
 		else: # is all_data or slide, use rings
-			row.duration = SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] )
+			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] ))
 
 	
 

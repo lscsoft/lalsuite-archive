@@ -160,6 +160,6 @@ def get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = Fal
       on_instruments = frozenset(on_instruments)
       if on_instruments not in livetimes:
         livetimes[on_instruments] = 0
-      livetimes[on_instruments] += SnglInspiralUtils.compute_thinca_livetime(on_instruments, available_instruments - on_instruments, rings, veto_segments, offset_vectors)
+      livetimes[on_instruments] += sum(SnglInspiralUtils.compute_thinca_livetime(on_instruments, available_instruments - on_instruments, rings, veto_segments, offset_vectors))
   return livetimes
 
