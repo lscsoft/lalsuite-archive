@@ -73,9 +73,9 @@ require './scripts/header.php';
 "    <Column Name='process:process_id' Type='ilwd:char'/>\n".
 "    <Column Name='process:ifos' Type='lstring'/>\n".
 "    <Stream Name='process:table' Type='Local' Delimiter=','>\n".
-'    "SciMon_insert"'.','.
+'    "submitflag.php"'.','.
 ' "1.0"'.','.
-' "/lalsuite/glue/php/SciMon_insert"'.','.
+' "/lalsuite/glue/php/submitflag.php"'.','.
 '"'.$_POST[comment].'" ,'.
 '"'.$node.'"'.','.
 '"'.$_POST[user].'"'.','.
