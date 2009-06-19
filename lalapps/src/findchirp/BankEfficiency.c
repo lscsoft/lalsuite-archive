@@ -109,18 +109,18 @@ main (INT4 argc, CHAR **argv )
   lal_errhandler = LAL_ERR_EXIT;
   lalDebugLevel = 0;
   memset( &templateBank, 0, sizeof( MetadataTable ) );
-	memset( &randIn, 0, sizeof( RandomInspiralSignalIn ) );
+  memset( &randIn, 0, sizeof( RandomInspiralSignalIn ) );
   memset( &signal, 0, sizeof( REAL4Vector ) );
-	memset( &mybank, 0, sizeof( Mybank ) );
-	memset( &insptmplt, 0, sizeof( InspiralTemplate ) );
-	memset( &coarseBankIn, 0, sizeof( InspiralCoarseBankIn ) );
+  memset( &mybank, 0, sizeof( Mybank ) );
+  memset( &insptmplt, 0, sizeof( InspiralTemplate ) );
+  memset( &coarseBankIn, 0, sizeof( InspiralCoarseBankIn ) );
   memset( &correlation, 0, sizeof( REAL4Vector ) );
-	memset( &bankefficiencyBCV, 0, sizeof( BankEfficiencyBCV ) );
-	memset( &overlapin, 0, sizeof( InspiralWaveOverlapIn ) );
-	memset( &ampCorInitParams, 0, sizeof( FindChirpInitParams ) );
-	memset( &overlapOutputThisTemplate, 0, sizeof( OverlapOutputIn ) );
-	memset( &overlapOutputBestTemplate, 0, sizeof( OverlapOutputIn ) );
-	memset( &simulation, 0, sizeof( BankEfficiencySimulation ) );
+  memset( &bankefficiencyBCV, 0, sizeof( BankEfficiencyBCV ) );
+  memset( &overlapin, 0, sizeof( InspiralWaveOverlapIn ) );
+  memset( &ampCorInitParams, 0, sizeof( FindChirpInitParams ) );
+  memset( &overlapOutputThisTemplate, 0, sizeof( OverlapOutputIn ) );
+  memset( &overlapOutputBestTemplate, 0, sizeof( OverlapOutputIn ) );
+  memset( &simulation, 0, sizeof( BankEfficiencySimulation ) );
 
   /* --- Initialization of structures related to all the user parameters --- */
   BankEfficiencyParametersInitialization(&coarseBankIn, &randIn, &userParam);
@@ -614,7 +614,7 @@ main (INT4 argc, CHAR **argv )
             overlapOutputThisTemplate.templateNumber = thisTemplateIndex;
 
 /*
-	    fprintf(stderr, "%d\n", thisTemplateIndex);
+      fprintf(stderr, "%d\n", thisTemplateIndex);
 */
             /* we compute the averaged ambiguity function a t=ta and
              * the averaged maximizaed ambiguity function over time*/
@@ -631,7 +631,7 @@ main (INT4 argc, CHAR **argv )
             {
               fprintf(stderr, "snr=%f m1T=%f m2T=%f m1S=%f m2S=%f SigPad=%d Maxbin=%d\n",
                 overlapOutputThisTemplate.rhoMax, insptmplt.mass1,
-		            insptmplt.mass2, randIn.param.mass1, randIn.param.mass2,
+                insptmplt.mass2, randIn.param.mass1, randIn.param.mass2,
                 randIn.param.nStartPad, overlapOutputThisTemplate.rhoBin);
 
             fflush(stderr);
@@ -1988,13 +1988,13 @@ BankEfficiencyPrintProtoXml(
   if (strcmp(CVS_REVISION_C, "$Revi" "sion$"))
   {
   XLALPopulateProcessTable(templateBank.processTable, \
-	PROGRAM_NAME, CVS_REVISION_C, CVS_SOURCE_C, CVS_DATE_C, 0);
+  PROGRAM_NAME, CVS_REVISION_C, CVS_SOURCE_C, CVS_DATE_C, 0);
   }
   else
   {
     XLALPopulateProcessTable(templateBank.processTable, \
       PROGRAM_NAME, lalappsGitCommitID, lalappsGitGitStatus, \
-	  lalappsGitCommitDate, 0);
+    lalappsGitCommitDate, 0);
   }
 
   this_proc_param = processParamsTable.processParamsTable =
@@ -2094,7 +2094,7 @@ void BankEfficiencyGetMaximumSize(
 
   if (userParam.tau0 != -1)
   {
-  	params.t0 = userParam.tau0;
+    params.t0 = userParam.tau0;
     params.t3 = userParam.tau3;
     params.massChoice = t03;
     params.fLower = randIn.param.fLower;
@@ -2149,8 +2149,8 @@ void BankEfficiencyGetMaximumSize(
 
   if (userParam.increaseVector>1)
   {
-  	userParam.numSeconds *= userParam.increaseVector;
-  	*length *= userParam.increaseVector;
+    userParam.numSeconds *= userParam.increaseVector;
+    *length *= userParam.increaseVector;
   }
 
   DETATCHSTATUSPTR( status );
@@ -2699,9 +2699,9 @@ void BankEfficiencyBankPrintXML(
   }
   else
   {
-		XLALPopulateProcessTable(proctable.processTable, \
-    		PROGRAM_NAME, lalappsGitCommitID, lalappsGitGitStatus, \
-     l		alappsGitCommitDate, 0);
+    XLALPopulateProcessTable(proctable.processTable, \
+          PROGRAM_NAME, lalappsGitCommitID, lalappsGitGitStatus, \
+           lalappsGitCommitDate, 0);
   }
 
   this_proc_param = processParamsTable.processParamsTable =
@@ -3691,8 +3691,8 @@ void BankEfficiencyUpdateParams(
 
  if (userParam->tau0 != -1 && userParam->tau3 != -1)
  {
- 	randIn->t0Min = userParam->tau0/1.1;
- 	randIn->t0Max = userParam->tau0 *1.1;
+   randIn->t0Min = userParam->tau0/1.1;
+   randIn->t0Max = userParam->tau0 *1.1;
    if (userParam->psi0 != -1 ||userParam->psi3 != -1
        || userParam->m1 != -1 || userParam->m2 != -1)
    {
@@ -4372,9 +4372,9 @@ void BankEfficiencyCreateTemplateBank(
    * template bank whatever the template/signal order are.
    * */
 
-	/* ---  keep track of the order --- */
+  /* ---  keep track of the order --- */
   if (coarseBankIn->order != LAL_PNORDER_TWO)
-	{
+  {
     coarseBankIn->order = LAL_PNORDER_TWO;
   }
 
@@ -4392,7 +4392,7 @@ void BankEfficiencyCreateTemplateBank(
   else
   {
     /* call to the standard LAL template bank */
-		LALInspiralBankGeneration(status->statusPtr,
+    LALInspiralBankGeneration(status->statusPtr,
         coarseBankIn, tmpltHead, sizeBank);
   }
   fprintf(stdout, "Number of templates=%d\n", *sizeBank);
@@ -4402,7 +4402,7 @@ void BankEfficiencyCreateTemplateBank(
 
   /* --- sanity check --- */
   if ( *sizeBank )
-	{
+  {
     templateBank->snglInspiralTable = *tmpltHead;
   }
   else
@@ -4726,8 +4726,8 @@ UserParametersIn *userParam)
   }
   else
   {
-  	/* otherwise, only 1 bin is required, so let us return something large ---*/
-  	userParam->eccentricBank.step = 2*(userParam->eccentricBank.max -
+    /* otherwise, only 1 bin is required, so let us return something large ---*/
+    userParam->eccentricBank.step = 2*(userParam->eccentricBank.max -
         userParam->eccentricBank.min);
   }
 
