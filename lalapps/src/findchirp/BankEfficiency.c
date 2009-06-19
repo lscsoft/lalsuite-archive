@@ -4387,7 +4387,6 @@ void BankEfficiencyCreateTemplateBank(
   {
     BankEfficiencyInspiralBankGeneration(status->statusPtr,
         coarseBankIn, tmpltHead, sizeBank, userParam);
-    fprintf(stderr, "Number of templates=%d\n", *sizeBank);
   }
   else
   {
@@ -4395,7 +4394,6 @@ void BankEfficiencyCreateTemplateBank(
     LALInspiralBankGeneration(status->statusPtr,
         coarseBankIn, tmpltHead, sizeBank);
   }
-  fprintf(stdout, "Number of templates=%d\n", *sizeBank);
   /* --- get back the order ---*/
   coarseBankIn->order = temp_order;  
 
