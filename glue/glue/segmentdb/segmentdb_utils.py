@@ -125,6 +125,8 @@ def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_na
     sql += "FROM segment_definer, segment_summary "
     sql += "WHERE segment_summary.segment_def_id = segment_definer.segment_def_id "
     sql += "AND   segment_definer.ifos = '%s' " % ifo
+    if engine.__class__ == query_engine.LdbdQueryEngine:
+       sql += "AND segment_summary.segment_def_cdb = segment_definer.creator_db "
     sql += "AND   segment_definer.name = '%s' " % segment_name
     sql += "AND   segment_definer.version = %s " % version
     sql += "AND NOT (%s > segment_summary.end_time OR segment_summary.start_time > %s)" % (gps_start_time, gps_end_time)
