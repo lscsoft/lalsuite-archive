@@ -396,7 +396,7 @@ void BankEfficiencyBankPrintAscii(
 
 
 void BankEfficiencyBankPrintXML(
-  MetadataTable          templateBank,
+  MetadataTable          *templateBank,
   InspiralCoarseBankIn   coarseBankIn,
   RandomInspiralSignalIn randIn,
   UserParametersIn       userParam);
