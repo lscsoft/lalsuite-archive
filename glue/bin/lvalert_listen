@@ -87,6 +87,8 @@ def parse_command_line():
       default="", help="the password of the publisher or listener" )
   parser.add_option("-s","--server",action="store",type="string",\
       default="lvalert.phys.uwm.edu", help="the pubsub server" )
+  parser.add_option("-r","--resource",action="store",type="string",\
+      default="listener", help="resource to use in JID" )
 
   parser.add_option("-S","--show",action="store_true",\
       default=False, help="print the payload to stdout" )
@@ -158,7 +160,7 @@ class MyClient(Client):
     def __init__(self, jid, password):
         # if bare JID is provided add a resource -- it is required
         if not jid.resource:
-            jid=JID(jid.node, jid.domain, "LVAlert")
+            jid=JID(jid.node, jid.domain, "listener")
 
         # we require a TLS connection
         t=TLSSettings(require=True,verify_peer=False)
@@ -192,7 +194,7 @@ if opts.debug:
 libxml2.debugMemory(1)
 
 # set up the stream
-myjid=JID(opts.username+"@"+opts.server+"/Home")
+myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
 s=MyClient(myjid,opts.password)
 
 if opts.verbose:
