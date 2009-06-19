@@ -111,7 +111,6 @@ const char frgetvectdocstring[] =
 static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     
     FrFile *iFile;
-    FrameH *frame=NULL;
     FrVect *vect;
     int verbose, i, nDim;
     long nData;
@@ -182,7 +181,6 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     if(verbose > 0) FrVectDump(vect, stdout, verbose);
     if(vect == NULL){
         sprintf(msg, "In file %s, vector not found: %s", filename, channel);
-        if (frame != NULL) FrameFree(frame);
         FrFileIEnd(iFile);
         PyErr_SetString(PyExc_KeyError, msg);
         return NULL;
@@ -260,11 +258,7 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         for(i=0; i<2*nData; i++) {data_float64[i] = vect->dataD[i];}}
     else{
         sprintf(msg, "Unrecognized vect->type (= %d)\n", vect->type);
-        if (frame != NULL) {
-            FrameFree(frame);
-        } else {
-            FrVectFree(vect);
-        }
+        FrVectFree(vect);
         FrFileIEnd(iFile);
         PyErr_SetString(PyExc_TypeError, msg);
         return NULL;
@@ -289,12 +283,8 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     // output6 = unitY as a string
     out6 = PyString_FromString(vect->unitY);
     /*------------- clean up -----------------------------*/
-    
-    if (frame != NULL) {
-        FrameFree(frame);
-    } else {
-        FrVectFree(vect);
-    }
+
+    FrVectFree(vect);
     FrFileIEnd(iFile);
     return Py_BuildValue("(NNNNNN)",out1,out2,out3,out4,out5, out6);
 };
