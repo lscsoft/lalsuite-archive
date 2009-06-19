@@ -18,10 +18,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import sys
 import os
 import re
 
 import glue.segments
+from glue import gsiserverutils
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
@@ -62,9 +64,9 @@ def get_all_files_in_range(dirname, starttime, endtime):
 
 
 def setup_database(host_and_port):
-    """Opens a connection to a LDBD Server"""
-    global PROGRAM_NAME
+    from glue import LDBDClient
 
+    """Opens a connection to a LDBD Server"""
     port = 30020
     
     if host_and_port.find(':') < 0:
@@ -73,7 +75,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -87,7 +88,7 @@ def setup_database(host_and_port):
               "Unable to connect to LDBD Server %s:%d" % (host, port)
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
+            print >>sys.stderr, "Run with --help' for usage"
         sys.exit(-1)
 
     return client
