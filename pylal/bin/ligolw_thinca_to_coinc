@@ -117,6 +117,8 @@ def parse_command_line():
 	parser.add_option("--veto-segments", metavar = "filename", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
 	parser.add_option("--veto-segments-name", metavar = "string", help = "Set the name of the veto segments to use from the XML document.")
 	parser.add_option("--effective-snr-factor", metavar = "float", type = "float", default = 250.0, help = "Set the effective SNR factor (default = 250.0).")
+	parser.add_option("--lars-id", metavar = "string", type = "string", default = None, help = "Set the lars_id for this experiment in the experiment table (optional).")
+	parser.add_option("--search", metavar = "string", type = "string", default = None, help = "Set the search, e.g., 'low_mass', for this experiment in the experiment table (optional).")
 	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the thinca-files being used. Required.")
 	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the thinca-files being used. Required.")
 	parser.add_option("--compute-durations", action = "store_true", help = "Turning on will cause thinca_to_coinc to compute all_data durations for each slide in the experiment_summary table. For zero-lag, playground and exclude_play durations will also be calculated. If veto-segments are specified, will apply veto segments when calculating.")
@@ -1556,13 +1558,10 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		populate_thinca_time_slide_table(xmldoc, process, instruments = options.instruments, verbose = options.verbose)
 
 		# set variables for experiment tables
-		#FIXME: should search_group and search be command line set? comments?
+		#FIXME: should search_group be command line set? comments?
 		search_group = "cbc"
-		search = "inspiral"
-
-		#FIXME: Need to come up with a method to get the appropiate lars_id when
-		# it becomes available
-		lars_id = None
+		search = options.search
+		lars_id = options.lars_id
 
 		# write the experiment_tables 
 		generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)

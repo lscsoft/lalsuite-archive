@@ -315,9 +315,13 @@ setup(
                 os.path.join("bin", "plotskypoints"),
                 os.path.join("bin", "upper_limit_results"),
                 os.path.join("bin", "pylal_expose"),
+                os.path.join("bin", "ligolw_cbc_dbsimplify"),
+                os.path.join("bin", "ligolw_cbc_dbaddinj"),
                 os.path.join("bin", "ligolw_cbc_printlc"),
                 os.path.join("bin", "ligolw_cbc_cluster_coincs"),
                 os.path.join("bin", "ligolw_cbc_cfar"),
+                os.path.join("bin", "ligolw_cbc_plotslides"),
+                os.path.join("bin", "ligolw_cbc_plotifar"),
                 os.path.join("bin", "extractCommand")
 	],
 	data_files = [ ("etc", [

@@ -189,43 +189,58 @@ class CoincDatabase(object):
 #
 # =============================================================================
 #
-#                                    Plots
+#                                  Utilities
 #
 # =============================================================================
 #
 
 
-class BasePlot(object):
-	def __init__(self, x_label, y_label, width = 165.0):
-		"""
-		width is in mm
-		"""
-		self.fig = figure.Figure()
-		FigureCanvas(self.fig)
-		# width mm wide, golden ratio high
-		self.fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
-		self.axes = self.fig.gca()
-		self.axes.grid(True)
-		self.axes.set_xlabel(x_label)
-		self.axes.set_ylabel(y_label)
+def sim_effective_distance(sim, instrument):
+	return {
+		"H1": sim.eff_dist_h,
+		"H2": sim.eff_dist_h,
+		"L1": sim.eff_dist_l,
+		"V1": sim.eff_dist_v
+	}[instrument]
 
-	def add_contents(self, doc):
-		raise NotImplementedError
 
-	def finish(self):
-		return [self.fig]
+def sim_end_time(sim, instrument):
+	return sim.get_end(instrument[0])
+
+
+def roman(i, arabics = (1000,900,500,400,100,90,50,40,10,9,5,4,1), romans = ("m","cm","d","cd","c","xc","l","xl","x","ix","v","iv","i")):
+	if not arabics:
+		return ""
+	if i < arabics[0]:
+		return roman(i, arabics[1:], romans[1:])
+	return romans[0] + roman(i - arabics[0], arabics, romans)
+
+
+def create_plot(x_label = None, y_label = None, width = 165.0):
+	fig = figure.Figure()
+	FigureCanvas(fig)
+	# width mm wide, golden ratio high
+	fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
+	axes = fig.gca()
+	axes.grid(True)
+	if x_label is not None:
+		axes.set_xlabel(x_label)
+	if y_label is not None:
+		axes.set_ylabel(y_label)
+	return fig, axes
 
 
 def create_sim_coinc_view(connection):
+	"""
+	Construct a sim_inspiral --> best matching coinc_event mapping.
+	"""
 	connection.cursor().execute("""
 CREATE TEMPORARY VIEW
 	sim_coinc_map
 AS
 	SELECT
 		sim_inspiral.simulation_id AS simulation_id,
-		coinc_inspiral.ifos AS participating_instruments,
-		coinc_event.instruments AS on_instruments,
-		coinc_inspiral.combined_far AS false_alarm_rate
+		best_coinc_inspiral.coinc_event_id AS coinc_event_id
 	FROM
 		sim_inspiral
 		JOIN coinc_event_map AS a ON (
@@ -235,15 +250,12 @@ AS
 		JOIN coinc_event_map AS b ON (
 			b.coinc_event_id == a.coinc_event_id
 		)
-		JOIN coinc_event ON (
+		JOIN coinc_inspiral AS best_coinc_inspiral ON (
 			b.table_name == 'coinc_event'
-			AND b.event_id == coinc_event.coinc_event_id
-		)
-		JOIN coinc_inspiral ON (
-			coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+			AND b.event_id == best_coinc_inspiral.coinc_event_id
 		)
 	WHERE
-		coinc_inspiral.combined_far == (
+		best_coinc_inspiral.combined_far == (
 			SELECT
 				MIN(matching_coinc_inspirals.combined_far)
 			FROM
@@ -267,19 +279,9 @@ AS
 #
 
 
-def sim_effective_distance(sim, instrument):
-	return {
-		"H1": sim.eff_dist_h,
-		"H2": sim.eff_dist_h,
-		"L1": sim.eff_dist_l,
-		"V1": sim.eff_dist_v
-	}[instrument]
-
-
-class MissedFoundbyMchirpPlots(object):
-	class MissedFoundbyMchirp(BasePlot):
+class MissedFoundPlots(object):
+	class MissedFound(object):
 		def __init__(self, on_instruments):
-			BasePlot.__init__(self, r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
 			self.on_instruments = on_instruments
 			self.found_in = {}
 
@@ -290,9 +292,12 @@ SELECT
 	sim_inspiral.*,
 	(
 		SELECT
-			sim_coinc_map.participating_instruments
+			coinc_inspiral.ifos
 		FROM
 			sim_coinc_map
+			JOIN coinc_inspiral ON (
+				coinc_inspiral.coinc_event_id == sim_coinc_map.coinc_event_id
+			)
 		WHERE
 			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
 	)
@@ -310,17 +315,22 @@ FROM
 						self.found_in[participating_instruments] = [sim]
 
 		def finish(self):
-  			legend = []
 			missed = self.found_in.pop(None, [])
-			for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
-				legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
-				self.axes.semilogy([sim.mchirp for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
-			if missed:
-				legend.append("Missed")
-				self.axes.semilogy([sim.mchirp for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
-			self.axes.legend(legend)
-			self.axes.set_title(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)))
-			return [self.fig]
+			for title, x_label, x_func in (
+				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp),
+				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end())
+			):
+				fig, axes = create_plot(x_label, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
+	  			legend = []
+				for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
+					legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
+					axes.semilogy([x_func(sim) for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+				if missed:
+					legend.append("Missed")
+					axes.semilogy([x_func(sim) for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+				axes.legend(legend)
+				axes.set_title(title)
+				yield fig
 
 	def __init__(self):
 		self.plots = {}
@@ -331,82 +341,205 @@ FROM
 			return
 		for on_instruments in contents.on_instruments_combos:
 			if on_instruments not in self.plots:
-				self.plots[on_instruments] = MissedFoundbyMchirpPlots.MissedFoundbyMchirp(on_instruments)
+				self.plots[on_instruments] = MissedFoundPlots.MissedFound(on_instruments)
 			self.plots[on_instruments].add_contents(contents)
 
 	def finish(self):
-		return [fig for plot in self.plots.values() for fig in plot.finish()]
+		for plot in self.plots.values():
+			for fig in plot.finish():
+				yield fig
 
 
 #
 # =============================================================================
 #
-#                          Mchirp Parameter Accuracy
+#                              Parameter Accuracy
 #
 # =============================================================================
 #
 
 
-class MChirpAccuracy(object):
-	class MissedFoundbyMchirp(BasePlot):
-		def __init__(self, on_instruments):
-			BasePlot.__init__(self, r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
-			self.on_instruments = on_instruments
-			self.found_in = {}
+class ParameterAccuracyPlots(object):
+	def __init__(self):
+		self.sim_sngl_pairs = {}
 
-		def add_contents(self, contents):
-  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
-			for values in contents.connection.cursor().execute("""
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# not an injections file
+			return
+		for values in contents.connection.cursor().execute("""
 SELECT
 	sim_inspiral.*,
-	(
-		SELECT
-			sim_coinc_map.participating_instruments
-		FROM
-			sim_coinc_map
-		WHERE
-			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
-	)
+	sngl_inspiral.*
 FROM
 	sim_inspiral
-			"""):
-				sim = contents.sim_inspiral_table._row_from_cols(values)
-				if sim.get_end() in zero_lag_segments:
-					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
-					if participating_instruments is not None:
-						participating_instruments = frozenset(participating_instruments)
-					try:
-						self.found_in[participating_instruments].append(sim)
-					except KeyError:
-						self.found_in[participating_instruments] = [sim]
+	JOIN sim_coinc_map ON (
+		sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+		"""):
+			sim = contents.sim_inspiral_table._row_from_cols(values)
+			sngl = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sim_inspiral_table.columnnames):])
+			try:
+				self.sim_sngl_pairs[(sim.waveform, sngl.ifo)].append((sim, sngl))
+			except KeyError:
+				self.sim_sngl_pairs[(sim.waveform, sngl.ifo)] = [(sim, sngl)]
 
-		def finish(self):
-  			legend = []
-			missed = self.found_in.pop(None, [])
-			for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
-				legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
-				self.axes.semilogy([sim.mchirp for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
-			if missed:
-				legend.append("Missed")
-				self.axes.semilogy([sim.mchirp for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
-			self.axes.legend(legend)
-			self.axes.set_title(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)))
-			return [self.fig]
+	def finish(self):
+		for (waveform, instrument), pairs in self.sim_sngl_pairs.items():
+			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)")
+			axes.set_title(r"Absolute $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.mchirp for sim, sngl in pairs], [sngl.mchirp - sim.mchirp for sim, sngl in pairs], "kx")
+			yield fig
 
+			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"(Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$) / Injected $M_{\mathrm{chirp}}$")
+			axes.set_title(r"Fractional $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.mchirp for sim, sngl in pairs], [(sngl.mchirp - sim.mchirp) / sim.mchirp for sim, sngl in pairs], "kx")
+			yield fig
+
+			fig, axes = create_plot(r"Injected $\eta$", r"Recovered $\eta$ - Injected $\eta$")
+			axes.set_title(r"Absolute $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.eta for sim, sngl in pairs], [sngl.eta - sim.eta for sim, sngl in pairs], "kx")
+			yield fig
+
+			fig, axes = create_plot(r"Injected $\eta$", r"(Recovered $\eta$ - Injected $\eta$) / Injected $\eta$")
+			axes.set_title(r"Fractional $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.eta for sim, sngl in pairs], [(sngl.eta - sim.eta) / sim.eta for sim, sngl in pairs], "kx")
+			yield fig
+
+			fig, axes = create_plot(r"Injection End Time (GPS s)", r"Recovered End Time - Injection End Time (s)")
+			axes.set_title(r"End Time Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim_end_time(sim, instrument) for sim, sngl in pairs], [sngl.get_end() - sim_end_time(sim, instrument) for sim, sngl in pairs], "kx")
+			yield fig
+
+			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
+			axes.set_title(r"Fractional Effective Distance Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.semilogx([sim_effective_distance(sim, instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim_effective_distance(sim, instrument)) / sim_effective_distance(sim, instrument) for sim, sngl in pairs], "kx")
+			yield fig
+
+
+#
+# =============================================================================
+#
+#                          Background vs. Injections
+#
+# =============================================================================
+#
+
+
+class BackgroundVsInjectionPlots(object):
 	def __init__(self):
-		self.plots = {}
+		self.zerolag_snr = {}
+		self.zerolag_chi2 = {}
+		self.zerolag_r2 = {}
+		self.background_snr = {}
+		self.background_chi2 = {}
+		self.background_r2 = {}
+		self.injections_snr = {}
+		self.injections_chi2 = {}
+		self.injections_r2 = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table is None:
-			# no injections
-			return
-		for on_instruments in contents.on_instruments_combos:
-			if on_instruments not in self.plots:
-				self.plots[on_instruments] = MissedFoundbyMchirpPlots.MissedFoundbyMchirp(on_instruments)
-			self.plots[on_instruments].add_contents(contents)
+			# non-injections file
+			for instrument, snr, chi2, r2, background in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral.ifo,
+	sngl_inspiral.snr,
+	sngl_inspiral.chisq,
+	-- FIXME
+	0,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_event
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+			""", (contents.ii_definer_id,)):
+				if background:
+					try:
+						self.background_snr[instrument].append(snr)
+						self.background_chi2[instrument].append(chi2)
+						self.background_r2[instrument].append(r2)
+					except KeyError:
+						self.background_snr[instrument] = [snr]
+						self.background_chi2[instrument] = [chi2]
+						self.background_r2[instrument] = [r2]
+				else:
+					try:
+						self.zerolag_snr[instrument].append(snr)
+						self.zerolag_chi2[instrument].append(chi2)
+						self.zerolag_r2[instrument].append(r2)
+					except KeyError:
+						self.zerolag_snr[instrument] = [snr]
+						self.zerolag_chi2[instrument] = [chi2]
+						self.zerolag_r2[instrument] = [r2]
+		else:
+			# injections file
+			for instrument, snr, chi2, r2 in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral.ifo,
+	sngl_inspiral.snr,
+	sngl_inspiral.chisq,
+	-- FIXME
+	0
+FROM
+	sim_coinc_map
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+			"""):
+				try:
+					self.injections_snr[instrument].append(snr)
+					self.injections_chi2[instrument].append(chi2)
+					self.injections_r2[instrument].append(r2)
+				except KeyError:
+					self.injections_snr[instrument] = [snr]
+					self.injections_chi2[instrument] = [chi2]
+					self.injections_r2[instrument] = [r2]
 
 	def finish(self):
-		return [fig for plot in self.plots.values() for fig in plot.finish()]
+		for instrument in self.background_snr:
+			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
+			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.background_snr[instrument], self.background_chi2[instrument], "kx")
+			axes.loglog(self.injections_snr[instrument], self.injections_chi2[instrument], "rx")
+			#axes.loglog(self.zerolag_snr[instrument], self.zerolag_chi2[instrument], "bx")
+			axes.legend(("Background", "Injections"))
+			yield fig
+
+			# FIXME: uncomment when r2 extraction is fixed
+			#fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
+			#axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
+			#axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
+			#axes.loglog(self.injections_snr[instrument], self.injections_r2[instrument], "rx")
+			#axes.loglog(self.zerolag_snr[instrument], self.zerolag_r2[instrument], "bx")
+			#axes.legend(("Background", "Injections"))
+			#yield fig
 
 
 #
@@ -433,7 +566,9 @@ options, filenames = parse_command_line()
 
 def new_plots(plots = None):
 	l = (
-		MissedFoundbyMchirpPlots(),
+		MissedFoundPlots(),
+		ParameterAccuracyPlots(),
+		BackgroundVsInjectionPlots()
 	)
 	if plots is None:
 		plots = range(len(l))
@@ -452,12 +587,11 @@ for n, filename in enumerate(filenames):
 	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
-		for n, plot in zip(options.plot, plots):
-			if options.verbose:
-				print >>sys.stderr, "adding to plot %d ..." % n
-			plot.add_contents(contents)
-	elif options.verbose:
-		print >>sys.stderr, "No injections, skipping ..."
+	for n, plot in zip(options.plot, plots):
+		if options.verbose:
+			print >>sys.stderr, "adding to plot %d ..." % n
+		plot.add_contents(contents)
+	# FIXME:  why does this crash?
 	#connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
@@ -468,13 +602,11 @@ for n, filename in enumerate(filenames):
 
 
 n = 0
-filename_template = "%%s%%0%dd%%s.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
+filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
 while len(plots):
-	if options.verbose:
-		print >>sys.stderr, "finishing plot %d ..." % options.plot[n]
 	for nfig, fig in enumerate(plots.pop(0).finish()):
 		for format in options.format:
-			filename = filename_template % (options.base, options.plot[n], "abcdefghijklmnopqrstuvwxyz"[nfig], format)
+			filename = filename_template % (options.base, options.plot[n], roman(nfig + 1), format)
 			if options.verbose:
 				print >>sys.stderr, "writing %s ..." % filename
 			fig.savefig(filename)

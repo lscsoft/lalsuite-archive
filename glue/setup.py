@@ -158,7 +158,7 @@ setup(
   description = "Grid LSC User Engine",
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
-  packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb' ],
+  packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.lvalert', 'glue.segmentdb' ],
   cmdclass = {
     'build_py' : glue_build_py,
     'install' : glue_install,
@@ -221,6 +221,9 @@ setup(
     os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dqactive'),
+    os.path.join('bin','lvalert_admin'),
+    os.path.join('bin','lvalert_send'),
+    os.path.join('bin','lvalert_listen'),
     os.path.join('sbin','ldbdd'),
     os.path.join('sbin','ligolw_publish_dqxml'),
     os.path.join('sbin','segdb_coalesce'), ],
