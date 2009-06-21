@@ -18,10 +18,12 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import sys
 import os
 import re
 
 import glue.segments
+from glue import gsiserverutils
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
@@ -62,9 +64,9 @@ def get_all_files_in_range(dirname, starttime, endtime):
 
 
 def setup_database(host_and_port):
-    """Opens a connection to a LDBD Server"""
-    global PROGRAM_NAME
+    from glue import LDBDClient
 
+    """Opens a connection to a LDBD Server"""
     port = 30020
     
     if host_and_port.find(':') < 0:
@@ -73,7 +75,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -87,7 +88,7 @@ def setup_database(host_and_port):
               "Unable to connect to LDBD Server %s:%d" % (host, port)
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
+            print >>sys.stderr, "Run with --help' for usage"
         sys.exit(-1)
 
     return client
@@ -125,6 +126,8 @@ def build_segment_list_one(engine, gps_start_time, gps_end_time, ifo, segment_na
     sql += "FROM segment_definer, segment_summary "
     sql += "WHERE segment_summary.segment_def_id = segment_definer.segment_def_id "
     sql += "AND   segment_definer.ifos = '%s' " % ifo
+    if engine.__class__ == query_engine.LdbdQueryEngine:
+       sql += "AND segment_summary.segment_def_cdb = segment_definer.creator_db "
     sql += "AND   segment_definer.name = '%s' " % segment_name
     sql += "AND   segment_definer.version = %s " % version
     sql += "AND NOT (%s > segment_summary.end_time OR segment_summary.start_time > %s)" % (gps_start_time, gps_end_time)
