@@ -277,6 +277,11 @@ if " " in opts.ranking_stat.strip():
   raise ValueError, "ranking-stat must not contain spaces"
 ranking_stat =  opts.ranking_stat.strip()
 
+if opts.rank_by.strip().upper() == 'MAX':
+    rank_by = 'MAX'
+else:
+    rank_by = 'MIN'
+
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
