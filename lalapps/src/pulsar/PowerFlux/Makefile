@@ -1,9 +1,9 @@
 PACKAGE=\"powerflux\"
-VERSION=1.4.32-64
+VERSION=1.4.33-64
 LALROOT=./../../../../
 LALROOT=/opt/lscsoft/lal/
 LALINCLUDE=-I$(LALROOT)/include/
-LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm
+LALLDFLAGS=-L$(LALROOT)/lib -L$(LALROOT)/support-lib -llalsupport -llal -lm -lz
 LDFLAGS=$(LALLDFLAGS) -L. -lpng
 #OPTFLAGS=-O2 -funroll-loops 
 OPTFLAGS=-O6 -mmmx -msse -mcpu=i686
