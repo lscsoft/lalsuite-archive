@@ -99,6 +99,13 @@ SKY_GRID *patch_grid=NULL;
 
 char *output_dir;
 
+/* Give up and add this so compilation works on Ubuntu */
+void __stack_chk_fail(void)
+{
+fprintf(stderr, "stack-protector: Stack is corrupted\n");
+exit(-1);
+}
+
 
 void *do_alloc(long a, long b)
 {
