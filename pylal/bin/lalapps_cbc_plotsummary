@@ -417,7 +417,7 @@ FROM
 #
 # =============================================================================
 #
-#                          Background vs. Injections
+#               Background vs. Injections --- Single Instrument
 #
 # =============================================================================
 #
@@ -533,6 +533,105 @@ FROM
 #
 # =============================================================================
 #
+#               Background vs. Injections --- Multi Instrument
+#
+# =============================================================================
+#
+
+
+class BackgroundVsInjectionPlotsMulti(object):
+	def __init__(self, snrfactor):
+		self.snrfactor = snrfactor
+		self.instruments = ("H1", "L1")
+		self.background_snreff = {}
+		self.injections_snreff = {}
+		self.zerolag_snreff = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# non-injections file
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral_x.*,
+	sngl_inspiral_y.*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_event
+	JOIN coinc_event_map AS coinc_event_map_x ON (
+		coinc_event_map_x.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_x ON (
+		coinc_event_map_x.table_name == 'sngl_inspiral'
+		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
+		AND sngl_inspiral_x.ifo == ?
+	)
+	JOIN coinc_event_map AS coinc_event_map_y ON (
+		coinc_event_map_y.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_y ON (
+		coinc_event_map_y.table_name == 'sngl_inspiral'
+		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
+		AND sngl_inspiral_y.ifo == ?
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+			""", (self.instruments[0], self.instruments[1], contents.ii_definer_id)):
+				x = contents.sngl_inspiral_table._row_from_cols(values)
+				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				if values[-1]:
+					self.background_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+				else:
+					self.zerolag_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+		else:
+			# injections file
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral_x.*,
+	sngl_inspiral_y.*
+FROM
+	sim_coinc_map
+	JOIN coinc_event_map AS coinc_event_map_x ON (
+		coinc_event_map_x.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_x ON (
+		coinc_event_map_x.table_name == 'sngl_inspiral'
+		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
+		AND sngl_inspiral_x.ifo = ?
+	)
+	JOIN coinc_event_map AS coinc_event_map_y ON (
+		coinc_event_map_y.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_y ON (
+		coinc_event_map_y.table_name == 'sngl_inspiral'
+		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
+		AND sngl_inspiral_y.ifo = ?
+	)
+			""", (self.instruments[0], self.instruments[1])):
+				x = contents.sngl_inspiral_table._row_from_cols(values)
+				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				self.injections_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+
+	def finish(self):
+		fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[0], r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[1])
+		axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (self.instruments[1], self.instruments[0], self.snrfactor))
+		axes.loglog([x for x, y in self.injections_snreff[self.instruments]], [y for x, y in self.injections_snreff[self.instruments]], "rx")
+		axes.loglog([x for x, y in self.background_snreff[self.instruments]], [y for x, y in self.background_snreff[self.instruments]], "kx")
+		axes.loglog([x for x, y in self.zerolag_snreff[self.instruments]], [y for x, y in self.zerolag_snreff[self.instruments]], "bx")
+		axes.legend(("Injections", "Background", "Zero lag"))
+		yield fig
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -556,7 +655,8 @@ def new_plots(plots = None):
 	l = (
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
-		BackgroundVsInjectionPlots()
+		BackgroundVsInjectionPlots(),
+		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0)
 	)
 	if plots is None:
 		plots = range(len(l))
