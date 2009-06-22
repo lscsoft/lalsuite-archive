@@ -194,15 +194,6 @@ class CoincDatabase(object):
 #
 
 
-def sim_effective_distance(sim, instrument):
-	return {
-		"H1": sim.eff_dist_h,
-		"H2": sim.eff_dist_h,
-		"L1": sim.eff_dist_l,
-		"V1": sim.eff_dist_v
-	}[instrument]
-
-
 def sim_end_time(sim, instrument):
 	return sim.get_end(instrument[0])
 
@@ -323,10 +314,10 @@ FROM
 	  			legend = []
 				for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
 					legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
-					axes.semilogy([x_func(sim) for sim in sims], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in sims], ".")
+					axes.semilogy([x_func(sim) for sim in sims], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in sims], ".")
 				if missed:
 					legend.append("Missed")
-					axes.semilogy([x_func(sim) for sim in missed], [max(sim_effective_distance(sim, instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+					axes.semilogy([x_func(sim) for sim in missed], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in missed], "k.")
 				axes.legend(legend)
 				axes.set_title(title)
 				yield fig
@@ -419,7 +410,7 @@ FROM
 
 			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
 			axes.set_title(r"Fractional Effective Distance Accuracy in %s (%s Injections)" % (instrument, waveform))
-			axes.semilogx([sim_effective_distance(sim, instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim_effective_distance(sim, instrument)) / sim_effective_distance(sim, instrument) for sim, sngl in pairs], "kx")
+			axes.semilogx([sim.get_eff_dist(instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim.get_eff_dist(instrument)) / sim.get_eff_dist(instrument) for sim, sngl in pairs], "kx")
 			yield fig
 
 
@@ -479,27 +470,15 @@ WHERE
 	coinc_event.coinc_def_id == ?
 			""", (contents.ii_definer_id,)):
 				if background:
-					try:
-						self.background_snr[instrument].append(snr)
-						self.background_chi2[instrument].append(chi2)
-						self.background_r2[instrument].append(r2)
-						self.background_bankveto[instrument].append(bankveto)
-					except KeyError:
-						self.background_snr[instrument] = [snr]
-						self.background_chi2[instrument] = [chi2]
-						self.background_r2[instrument] = [r2]
-						self.background_bankveto[instrument] = [bankveto]
+					self.background_snr.setdefault(instrument, []).append(snr)
+					self.background_chi2.setdefault(instrument, []).append(chi2)
+					self.background_r2.setdefault(instrument, []).append(r2)
+					self.background_bankveto.setdefault(instrument, []).append(bankveto)
 				else:
-					try:
-						self.zerolag_snr[instrument].append(snr)
-						self.zerolag_chi2[instrument].append(chi2)
-						self.zerolag_r2[instrument].append(r2)
-						self.zerolag_bankveto[instrument].append(bankveto)
-					except KeyError:
-						self.zerolag_snr[instrument] = [snr]
-						self.zerolag_chi2[instrument] = [chi2]
-						self.zerolag_r2[instrument] = [r2]
-						self.zerolag_bankveto[instrument] = [bankveto]
+					self.zerolag_snr.setdefault(instrument, []).append(snr)
+					self.zerolag_chi2.setdefault(instrument, []).append(chi2)
+					self.zerolag_r2.setdefault(instrument, []).append(r2)
+					self.zerolag_bankveto.setdefault(instrument, []).append(bankveto)
 		else:
 			# injections file
 			for instrument, snr, chi2, r2, bankveto in contents.connection.cursor().execute("""
@@ -519,16 +498,10 @@ FROM
 		AND coinc_event_map.event_id == sngl_inspiral.event_id
 	)
 			"""):
-				try:
-					self.injections_snr[instrument].append(snr)
-					self.injections_chi2[instrument].append(chi2)
-					self.injections_r2[instrument].append(r2)
-					self.injections_bankveto[instrument].append(bankveto)
-				except KeyError:
-					self.injections_snr[instrument] = [snr]
-					self.injections_chi2[instrument] = [chi2]
-					self.injections_r2[instrument] = [r2]
-					self.injections_bankveto[instrument] = [bankveto]
+				self.injections_snr.setdefault(instrument, []).append(snr)
+				self.injections_chi2.setdefault(instrument, []).append(chi2)
+				self.injections_r2.setdefault(instrument, []).append(r2)
+				self.injections_bankveto.setdefault(instrument, []).append(bankveto)
 
 	def finish(self):
 		for instrument in self.background_snr:
@@ -626,4 +599,3 @@ while len(plots):
 				print >>sys.stderr, "writing %s ..." % filename
 			fig.savefig(filename)
 	n += 1
-
