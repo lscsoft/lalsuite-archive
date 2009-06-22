@@ -106,7 +106,7 @@ def parse_command_line():
         help = 
             "print information to stdout" 
         )
-    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+    parser.add_option( "-D", "--debug", action = "store_true", default = False,
         help =
             "Print SQLite queries used and the approximate time taken to run each one." 
         )

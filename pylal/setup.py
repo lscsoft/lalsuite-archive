@@ -22,9 +22,8 @@ class PkgConfig(object):
 		self.libdirs = map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split())
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
 
-
-full_lal_pkg_config = PkgConfig("lal lalframe")
 lal_pkg_config = PkgConfig("lal")
+lalframe_pkg_config = PkgConfig("lalframe")
 
 def remove_root(path, root):
 	if root:
@@ -159,10 +158,10 @@ setup(
 		Extension(
 			"pylal.Fr",
 			["src/Fr.c"],
-			include_dirs = full_lal_pkg_config.incdirs + [numpy_get_include()],
-			libraries = full_lal_pkg_config.libs,
-			library_dirs = full_lal_pkg_config.libdirs,
-			runtime_library_dirs = full_lal_pkg_config.libdirs
+			include_dirs = lalframe_pkg_config.incdirs + [numpy_get_include()],
+			libraries = lalframe_pkg_config.libs,
+			library_dirs = lalframe_pkg_config.libdirs,
+			runtime_library_dirs = lalframe_pkg_config.libdirs
 		),
 		Extension(
 			"pylal.tools",
@@ -315,9 +314,13 @@ setup(
                 os.path.join("bin", "plotskypoints"),
                 os.path.join("bin", "upper_limit_results"),
                 os.path.join("bin", "pylal_expose"),
+                os.path.join("bin", "ligolw_cbc_dbsimplify"),
+                os.path.join("bin", "ligolw_cbc_dbaddinj"),
                 os.path.join("bin", "ligolw_cbc_printlc"),
                 os.path.join("bin", "ligolw_cbc_cluster_coincs"),
                 os.path.join("bin", "ligolw_cbc_cfar"),
+                os.path.join("bin", "ligolw_cbc_plotslides"),
+                os.path.join("bin", "ligolw_cbc_plotifar"),
                 os.path.join("bin", "extractCommand")
 	],
 	data_files = [ ("etc", [

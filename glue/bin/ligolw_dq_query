@@ -410,44 +410,6 @@ def run_defined(doc, process_id, engine, include_segments, times):
 # =============================================================================
 #
 
-
-def setup_database(host_and_port,ldbdc_error):
-    try:
-        from glue import LDBDClient
-        from glue import gsiserverutils
-    except Exception, e:
-        print >>sys.stderr, "Unable to import LDBDClient module from glue"
-        print >>sys.stderr, "Got the following error : " + str(e)
-        print >>sys.stderr, "Check that LDG is properly installed"
-        sys.exit(1)
-
-    port = 30015
-    
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-    
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(1)
-
-    return client
-
-
 def ping_server(client):
     print client.ping()
     return 0
@@ -504,7 +466,7 @@ if __name__ == '__main__':
 
     # Ping the database and exit if requested
     if options.ping:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         sys.exit( ping_server(connection) )
 
     start_pad = 0
@@ -526,7 +488,7 @@ if __name__ == '__main__':
     temp_files = False
 
     if database_location:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
         temp_db, connection = setup_files(file_location, options, times)

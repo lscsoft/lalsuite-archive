@@ -43,9 +43,9 @@ def parse_command_line():
 
     parser = OptionParser( usage = usage, version = "%prog CVS $Id$ " )
     # following are related to file input and output naming
-    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+    parser.add_option( "-d", "--database", action = "store", type = "string", default = None,
         help =
-            "Input database to read. Can only input one at a time."
+            "Database to update. Must already exist."
             )
     parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
         metavar = "PATH",
@@ -68,14 +68,14 @@ def parse_command_line():
         help =
             "Print progress information"
            )
-    parser.add_option( "-d", "--debug", action = "store_true", default = False,
+    parser.add_option( "-D", "--debug", action = "store_true", default = False,
         help =
             "Print SQLite queries used and the approximate time taken to run each one." )
 
     (options, args) = parser.parse_args()
     # check for required options and for self-consistency
-    if not options.input:
-        raise ValueError, "No input specified."
+    if not options.database:
+        raise ValueError, "No database specified."
 
     return options, sys.argv[1:]
 
@@ -89,7 +89,7 @@ def parse_command_line():
 opts, args = parse_command_line()
 
 # get input database filename
-filename = opts.input
+filename = opts.database
 if not os.path.isfile( filename ):
     raise ValueError, "The input file, %s, cannot be found." % filename
 
@@ -213,7 +213,8 @@ CREATE TEMP TABLE eidmap AS
     FROM
         experiment AS old_exp
         JOIN experiment AS new_exp ON (
-            new_exp.search == old_exp.search
+            (new_exp.search == old_exp.search
+              OR new_exp.search IS NULL AND old_exp.search IS NULL)
             AND new_exp.search_group == old_exp.search_group
             AND new_exp.instruments == old_exp.instruments
             AND new_exp.gps_start_time == old_exp.gps_start_time
@@ -238,18 +239,20 @@ UPDATE experiment_summary
         WHERE experiment_summary.experiment_id == old_eid );
 
 -- experiment summary clean up
-CREATE INDEX es_etd_index ON experiment_summary (experiment_id, time_slide_id, datatype);
+CREATE INDEX es_etvds_index ON experiment_summary (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
 
 -- create a table to store the distinct experiment_summaries
-CREATE TEMP TABLE distinct_experiments (experiment_summ_id, experiment_id, time_slide_id, datatype);
-INSERT INTO distinct_experiments (experiment_id, time_slide_id, datatype) 
+CREATE TEMP TABLE distinct_experiments (experiment_summ_id, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
+INSERT INTO distinct_experiments (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id) 
     SELECT DISTINCT
             experiment_summary.experiment_id,
             experiment_summary.time_slide_id,
-            experiment_summary.datatype
+            experiment_summary.veto_def_name,
+            experiment_summary.datatype,
+            experiment_summary.sim_proc_id
     FROM    
         experiment_summary;
-CREATE INDEX de_etd_index ON distinct_experiments (experiment_id, time_slide_id, datatype);
+CREATE INDEX de_etvds_index ON distinct_experiments (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id);
 
 -- get one unique experiment_summ_id for each row in distinct_experiments
 UPDATE
@@ -263,7 +266,12 @@ SET
         WHERE 
             experiment_summary.experiment_id == distinct_experiments.experiment_id
             AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
-            AND experiment_summary.datatype == distinct_experiments.datatype );
+            AND experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+            AND experiment_summary.datatype == distinct_experiments.datatype
+            AND (
+              experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
+              OR (
+                experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
 
 -- create an table to map esids to be deleted to esids to be saved
 CREATE TEMP TABLE esidmap AS
@@ -275,7 +283,12 @@ CREATE TEMP TABLE esidmap AS
     JOIN distinct_experiments ON (
         experiment_summary.experiment_id == distinct_experiments.experiment_id
         AND experiment_summary.time_slide_id == distinct_experiments.time_slide_id
-        AND experiment_summary.datatype == distinct_experiments.datatype );
+        AND experiment_summary.veto_def_name == distinct_experiments.veto_def_name
+        AND experiment_summary.datatype == distinct_experiments.datatype
+        AND (
+          experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
+          OR (
+            experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
 CREATE INDEX esm_new_index ON esidmap (new_esid);
 CREATE INDEX esm_old_index ON esidmap (old_esid);
 
