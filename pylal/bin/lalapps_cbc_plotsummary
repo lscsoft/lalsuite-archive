@@ -546,6 +546,9 @@ class BackgroundVsInjectionPlotsMulti(object):
 		self.background_snreff = {}
 		self.injections_snreff = {}
 		self.zerolag_snreff = {}
+		self.background_deff = {}
+		self.injections_deff = {}
+		self.zerolag_deff = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table is None:
@@ -588,8 +591,10 @@ WHERE
 				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				if values[-1]:
 					self.background_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.background_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
 				else:
 					self.zerolag_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.zerolag_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
 		else:
 			# injections file
 			for values in contents.connection.cursor().execute("""
@@ -618,6 +623,7 @@ FROM
 				x = contents.sngl_inspiral_table._row_from_cols(values)
 				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
 				self.injections_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+				self.injections_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
 
 	def finish(self):
 		fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[0], r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[1])
@@ -625,6 +631,14 @@ FROM
 		axes.loglog([x for x, y in self.injections_snreff[self.instruments]], [y for x, y in self.injections_snreff[self.instruments]], "rx")
 		axes.loglog([x for x, y in self.background_snreff[self.instruments]], [y for x, y in self.background_snreff[self.instruments]], "kx")
 		axes.loglog([x for x, y in self.zerolag_snreff[self.instruments]], [y for x, y in self.zerolag_snreff[self.instruments]], "bx")
+		axes.legend(("Injections", "Background", "Zero lag"))
+		yield fig
+
+		fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % self.instruments[0], r"$D_{\mathrm{eff}}$ in %s" % self.instruments[1])
+		axes.set_title(r"Effective Distance in %s vs.\ %s" % (self.instruments[1], self.instruments[0]))
+		axes.loglog([x for x, y in self.injections_deff[self.instruments]], [y for x, y in self.injections_deff[self.instruments]], "rx")
+		axes.loglog([x for x, y in self.background_deff[self.instruments]], [y for x, y in self.background_deff[self.instruments]], "kx")
+		axes.loglog([x for x, y in self.zerolag_deff[self.instruments]], [y for x, y in self.zerolag_deff[self.instruments]], "bx")
 		axes.legend(("Injections", "Background", "Zero lag"))
 		yield fig
 
