@@ -438,23 +438,26 @@ class BackgroundVsInjectionPlots(object):
 		self.zerolag_snr = {}
 		self.zerolag_chi2 = {}
 		self.zerolag_r2 = {}
+		self.zerolag_bankveto = {}
 		self.background_snr = {}
 		self.background_chi2 = {}
 		self.background_r2 = {}
+		self.background_bankveto = {}
 		self.injections_snr = {}
 		self.injections_chi2 = {}
 		self.injections_r2 = {}
+		self.injections_bankveto = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table is None:
 			# non-injections file
-			for instrument, snr, chi2, r2, background in contents.connection.cursor().execute("""
+			for instrument, snr, chi2, r2, bankveto, background in contents.connection.cursor().execute("""
 SELECT
 	sngl_inspiral.ifo,
 	sngl_inspiral.snr,
 	sngl_inspiral.chisq,
-	-- FIXME
-	0,
+	sngl_inspiral.rsqveto_duration,
+	sngl_inspiral.bank_chisq / bank_chisq_dof,
 	EXISTS (
 		SELECT
 			*
@@ -481,28 +484,32 @@ WHERE
 						self.background_snr[instrument].append(snr)
 						self.background_chi2[instrument].append(chi2)
 						self.background_r2[instrument].append(r2)
+						self.background_bankveto[instrument].append(bankveto)
 					except KeyError:
 						self.background_snr[instrument] = [snr]
 						self.background_chi2[instrument] = [chi2]
 						self.background_r2[instrument] = [r2]
+						self.background_bankveto[instrument] = [bankveto]
 				else:
 					try:
 						self.zerolag_snr[instrument].append(snr)
 						self.zerolag_chi2[instrument].append(chi2)
 						self.zerolag_r2[instrument].append(r2)
+						self.zerolag_bankveto[instrument].append(bankveto)
 					except KeyError:
 						self.zerolag_snr[instrument] = [snr]
 						self.zerolag_chi2[instrument] = [chi2]
 						self.zerolag_r2[instrument] = [r2]
+						self.zerolag_bankveto[instrument] = [bankveto]
 		else:
 			# injections file
-			for instrument, snr, chi2, r2 in contents.connection.cursor().execute("""
+			for instrument, snr, chi2, r2, bankveto in contents.connection.cursor().execute("""
 SELECT
 	sngl_inspiral.ifo,
 	sngl_inspiral.snr,
 	sngl_inspiral.chisq,
-	-- FIXME
-	0
+	sngl_inspiral.rsqveto_duration,
+	sngl_inspiral.bank_chisq / bank_chisq_dof
 FROM
 	sim_coinc_map
 	JOIN coinc_event_map ON (
@@ -517,10 +524,12 @@ FROM
 					self.injections_snr[instrument].append(snr)
 					self.injections_chi2[instrument].append(chi2)
 					self.injections_r2[instrument].append(r2)
+					self.injections_bankveto[instrument].append(bankveto)
 				except KeyError:
 					self.injections_snr[instrument] = [snr]
 					self.injections_chi2[instrument] = [chi2]
 					self.injections_r2[instrument] = [r2]
+					self.injections_bankveto[instrument] = [bankveto]
 
 	def finish(self):
 		for instrument in self.background_snr:
@@ -528,18 +537,25 @@ FROM
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
 			axes.loglog(self.background_snr[instrument], self.background_chi2[instrument], "kx")
 			axes.loglog(self.injections_snr[instrument], self.injections_chi2[instrument], "rx")
-			#axes.loglog(self.zerolag_snr[instrument], self.zerolag_chi2[instrument], "bx")
+			axes.loglog(self.zerolag_snr[instrument], self.zerolag_chi2[instrument], "bx")
 			axes.legend(("Background", "Injections"))
 			yield fig
 
-			# FIXME: uncomment when r2 extraction is fixed
-			#fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
-			#axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
-			#axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
-			#axes.loglog(self.injections_snr[instrument], self.injections_r2[instrument], "rx")
-			#axes.loglog(self.zerolag_snr[instrument], self.zerolag_r2[instrument], "bx")
-			#axes.legend(("Background", "Injections"))
-			#yield fig
+			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
+			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
+			axes.loglog(self.injections_snr[instrument], self.injections_r2[instrument], "rx")
+			axes.loglog(self.zerolag_snr[instrument], self.zerolag_r2[instrument], "bx")
+			axes.legend(("Background", "Injections"))
+			yield fig
+
+			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
+			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.background_snr[instrument], self.background_bankveto[instrument], "kx")
+			axes.loglog(self.injections_snr[instrument], self.injections_bankveto[instrument], "rx")
+			axes.loglog(self.zerolag_snr[instrument], self.zerolag_bankveto[instrument], "bx")
+			axes.legend(("Background", "Injections"))
+			yield fig
 
 
 #
