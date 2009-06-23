@@ -54,7 +54,7 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
     injRank = injection(RAbin, DECbin, Z)
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
   print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
-  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank
+  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
   ofile.close() 
   pylab.xlim((min(RA),max(RA)))
   pylab.ylim((min(DEC),max(DEC)))
