@@ -3,210 +3,103 @@
 __prog__ = "plot_inspiral_skymap"
 __version__ = "$Revision$"
 
-from math import *
-from numpy import *
+
 import matplotlib
 matplotlib.use('Agg')
 import pylab
-import sys
+import math
+from pylal import rate
+import numpy
 from optparse import *
 from pylal import webUtils
 from pylal import InspiralUtils
-import operator
-import gzip
+import sys
 
-def sinc(x):
-  if x !=0:
-    return sin(pi*x)/pi/x 
-  else: return 1.0
+def get_2d_RA_DEC_bins(RAbins=1024, DECbins=512, minRA=0, maxRA=2.0 * math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0):
+  """
+  Given the component mass range low, high of the search it will
+  return 2D bins with size bins in each direction
+  """
+  RAbin = rate.LinearBins(minRA, maxRA, RAbins)
+  DECbin = rate.LinearBins(minDEC, maxDEC, DECbins)
+  twoDRADECBin = rate.NDBins( (RAbin, DECbin) )
+  return RAbin, DECbin, twoDRADECBin
 
-def nearestneighbor(RAint,DECint,colorMat,ra_dec_tuple):
-  ravec = [-1,0,1]
-  decvec = [-1,0,1]
-  distvec = []
-  pairVec = []
-  RAval = ra_dec_tuple[0]*RAint/2.0/pi
-  DECval =  ra_dec_tuple[1]*DECint/pi + pi/2.0
+def injection(RAbin, DECbin, probs, injRA=1, injDEC=1):
+  RAix = RAbin[injRA]
+  DECix = DECbin[injDEC]
+  prob = probs[RAix, DECix]
+  ix_above_prob = (probs>prob).nonzero()
+  # FIXME Check that this is correct, use cos when dec convention changes
+  RAint = RAbin.delta * numpy.ones(len(ix_above_prob[1]))
+  DECint = DECbin.delta * numpy.ones(len(ix_above_prob[0]))
+  sinTerm = numpy.sin(DECbin.centres()[ix_above_prob[0]])
   
-  for i in ravec:
-    for j in decvec:
-      RAdist = RAval+i*2.0*pi/RAint - floor(RAval)
-      DECdist = DECval+j*pi/RAint - floor(DECval)
-      distvec.append(RAdist**2+DECdist**2)
-      pairVec.append([i,j])
-  minIndex = distvec.index(min(distvec))
-  RAindex = floor(RAval) + pairVec[minIndex][0]
-  DECindex = floor(DECval) + pairVec[minIndex][1]
-  return RAindex,DECindex
+  return (RAint * DECint * sinTerm).sum()
 
-def interpRADEC(RAint,DECint,colorMat,ra_dec_tuple):
-  ravec = [-1,0,1]
-  decvec = [-1,0,1]
-  distvec = []
-  sincVec = []
-  # Assume the pixel is centered
-  RAval = ra_dec_tuple[0]*float(RAint)/2.0/pi + pi/RAint
-  DECval =  (ra_dec_tuple[1]+pi/2.0)*float(DECint)/pi + pi/2.0/DECint 
-  RAindex = floor(RAval)
-  DECindex = floor(DECval)
-  for i in ravec:
-    for j in decvec:
-      RAdist = RAval - RAindex + i*2.0*pi/RAint
-      DECdist = DECval - DECindex + j*pi/DECint
-      sincVec.append(ra_dec_tuple[2]*sinc(RAdist)*sinc(DECdist)*sinc(RAdist/3)*sinc(DECdist/3))
-      if (RAindex+i) >=0 and (RAindex+i) < RAint and (DECindex+j) >=0 and (DECindex+j) < DECint:
-        colorMat[RAindex+i][DECindex+j] += sincVec[-1]
-      else:
-        pass #print (RAindex+i), (DECindex+j)
-      
+def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None):
 
-  
-
-
-def skymapbin(RAint,DECint,colorMat,ra_dec_tuple):
-  #RAindex = floor( ra_dec_tuple[0]*float(RAint)/2.0/pi + pi/RAint)
-  #DECindex = floor((ra_dec_tuple[1]+pi/2.0)*float(DECint)/pi + pi/2.0/DECint)
-  #RAindex = ceil(ra_dec_tuple[0]*RAint/2/pi)
-  #DECindex = ceil(ra_dec_tuple[1]*DECint/pi + pi/2)
-  #RAindex,DECindex = nearestneighbor(RAint,DECint,colorMat,ra_dec_tuple)
-  #print RAindex,DECindex
-  #if (RAindex) >=0 and (RAindex) < RAint and (DECindex) >=0 and (DECindex) < DECint:
-    #if colorMat[RAindex][DECindex] != 0: print "adding twice"
-    #colorMat[RAindex][DECindex] = ra_dec_tuple[2]
-  interpRADEC(RAint,DECint,colorMat,ra_dec_tuple)
-
-
-def RA_DEC_PROB_tuple(file,RAint,DECint,colorMat, divisorMat = None):
-  outfile = gzip.open(file,"r")
-  outlist = []
-  for line in outfile.readlines():
-    ra = float(line.split()[0])
-    dec = float(line.split()[1])
-    prob = float(line.split()[2])
-    ra_dec_tuple = tuple((ra,dec,prob)) 
-    outlist.append(ra_dec_tuple)
-    skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
-  outfile.close()
-  return outlist
-
-
-def areaRank(rdtup, injRA, injDEC, RAint, DECint):
-  colorMat = zeros((RAint,DECint),dtype='float64')
-  #ra_dec_tuple = (injRA, injDEC, 1.0)
-  #skymapbin(RAint,DECint,colorMat,ra_dec_tuple)
-  rdtup.sort(key=operator.itemgetter(2),reverse=True)
-  A = 0
-  for t in rdtup:
-    A += 2*pi/RAint * pi/DECint * cos(t[1])
-    if (injRA-t[0])**2 < (2*pi/RAint)**2 and (injDEC-t[1])**2 < (2*pi/DECint)**2:
-      break
-  return A / (4*pi)
-
-
-#def plotSkyMap(file,RAint,DECint,dir,figname,injRA,injDEC,stat):
-def plotSkyMap(file,RAint,DECint,figname,injRA,injDEC,stat):
-  colorMat = zeros((RAint,DECint),dtype='float64')
-  #divisorMat = ones((RAint,DECint),dtype='float64')*1e-16
-  map = RA_DEC_PROB_tuple(file,RAint,DECint,colorMat)
-  map.sort(key=operator.itemgetter(2),reverse=True)
-  #print areaRank(map, injRA, injDEC, RAint, DECint)
-  RAvec = linspace(0,2*pi,RAint)
-  DECvec = linspace(-pi/2,pi/2,DECint)
-  X,Y = pylab.meshgrid(RAvec,DECvec)
+  M = pylab.load(map_data_file)
+  RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
+  maxIX = PROB.argmax()
+  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=min(RA), maxRA=max(RA), minDEC = min(DEC), maxDEC = max(DEC))
+  Z = pylab.griddata(RA, DEC, PROB, RAbin.centres(), DECbin.centres())
   pylab.figure(1)
-#cmap=pylab.cm.get_cmap(name='Blues')
-  pylab.pcolor(X,Y,colorMat.transpose(),shading='flat')
-#  print(size(RAvec))
-#  print(size(DECvec))
-#  print(size(colorMat))
-#  pylab.scatter(RAvec,DECvec,colorMat)
+  pylab.contourf(RAbin.centres(), DECbin.centres(), Z, 250)
+  #pylab.colorbar()
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
-  #pylab.title('Inspiral sky location probability')
-  pylab.colorbar()
-  #ofile = open(dir + '/' + figname + '.txt','w')
   ofile = open(figname.replace(".png",".txt"),'w')
   if injRA and injDEC:
+    injRank = injection(RAbin, DECbin, Z)
     pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
-    print >>ofile, '#value', 'RA', 'DEC', 'injRA', 'injDEC', 'degError', 'areaRank', 'stat'
-    print >>ofile, map[0][2], map[0][0], map[0][1], injRA, injDEC, ((float(map[0][0]) - float(injRA))**2 + (float(map[0][1]) - float(injDEC))**2)**0.5 / 3.14159 * 180.0, areaRank(map, injRA, injDEC, RAint, DECint), stat
-  ofile.close()
-  pylab.xlim((0,2*pi))
-  pylab.ylim((-pi/2,pi/2))
-  #pylab.savefig(dir + '/'+ figname)
-  #thumb = 'thumb-'+figname
-  #pylab.savefig(dir + '/'+ thumb,dpi=20)
+  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
+  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank
+  ofile.close() 
+  pylab.xlim((min(RA),max(RA)))
+  pylab.ylim((min(DEC),max(DEC)))
+  pylab.gca().set_aspect(1)
   InspiralUtils.savefig_pylal(figname)
   pylab.close()
-
-
 
 # MAIN PROGRAM
 
 
 usage = """ %prog [options]
 """
-
 parser = OptionParser( usage )
-
 parser.add_option("-v","--version",action="store_true",default=False,\
     help="display version information and exit")
-
 parser.add_option("-f","--map-data-file",action="store",type="string",\
     metavar=" FILE",help="use map file FILE")
-
-#parser.add_option("-e","--event-id",action="store",type="string",\
-#    metavar=" ID",help="The id of the event (should be unique)")
-
 parser.add_option("-r","--ra-res",action="store",type="int",\
     metavar=" RA_RES",help="use gps time GPS")
-
 parser.add_option("-d","--dec-res",action="store",type="int",\
     metavar=" DEC_RES",help="use DEC_RES pixels to display declination")
-
 parser.add_option("-o","--output-path",action="store",type="string",\
     default="", metavar=" PATH",\
     help="path where the figures would be stored")
-
 parser.add_option("-O","--enable-output",action="store_true",\
     default="false",  metavar="OUTPUT",\
     help="enable the generation of the html and cache documents")
-
 parser.add_option("-T","--user-tag", action="store",type="string", \
     default=None, metavar=" USERTAG",help="user tag for the output file name")
-
 parser.add_option("","--ifo-times",action="store",\
     type="string", default=None, metavar=" IFOTIMES",\
     help="provide ifo times for naming figure")
-
 parser.add_option("","--ifo-tag",action="store",\
     type="string",  metavar=" IFOTAG",\
     help="ifo tag gives the information about ifo times and stage")
-
 parser.add_option("","--gps-start-time", action="store",type="float", \
     metavar=" GPSSTARTTIME",help="gps start time (for naming figure and \
     output files)")
-
 parser.add_option("","--gps-end-time", action="store",type="float", \
     metavar=" GPSENDTIME",help="gps end time (for naming figure and \
     output files)")
-
-#parser.add_option("-O","--page-rel-path",action="store",type="string",\
-#    metavar=" PATH",help="use output path relative to page")
-
-#parser.add_option("-c","--output-web-file", action="store",type="string", \
-#    metavar=" XML",help="file to append html tables to")
-
-#parser.add_option("-p","--page",action="store",type="string",\
-#    default="investigations/s5/people/followups/",metavar=" PAGE",\
-#    help="web page path (default 'investigations/s5/people/followups/'")
-
 parser.add_option("-R","--injection-right-ascension",action="store",type="float",\
     metavar=" RA_INJ",help="injection has right asencion RA_INJ")
-
 parser.add_option("-D","--injection-declination",action="store",type="float",\
     metavar=" DEC_INJ",help="injection has declination DEC_INJ")
-
 parser.add_option("-S","--stat-value",action="store",type="float",default=0.0,\
     metavar=" STAT",help="injection has found stat value STAT")
 
@@ -221,13 +114,8 @@ opts = InspiralUtils.initialise(opts, __prog__, __version__)
 fnameList = []
 tagList = []
 
-#webPage = webUtils.WebPage("Inspiral Source Localization for " + opts.event_id,opts.output_web_file,opts.page+"/"+opts.page_rel_path+"/")
-#talkBack = webUtils.talkBack(opts.output_web_file)
-
-#figname = 'inspiral_sky_map_'+ opts.event_id
 figname = InspiralUtils.set_figure_name(opts,"skylocation")
 
-#plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,opts.page_rel_path,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
 plotSkyMap(opts.map_data_file,opts.ra_res,opts.dec_res,figname,opts.injection_right_ascension,opts.injection_declination, opts.stat_value)
 
 fnameList.append(figname)
@@ -237,9 +125,3 @@ if opts.enable_output:
   html_filename = InspiralUtils.write_html_output(opts, args, fnameList, \
     tagList)
   InspiralUtils.write_cache_output(opts, html_filename, fnameList)
-
-#webPage.appendSection("Sky Map of Inspiral Event")
-#webPage.lastSection.image(figname+'.png',opts.page+'/'+opts.page_rel_path+'/'+figname+'.png')
-#talkBack.addSummaryPlot(opts.page_rel_path+'/'+figname,'Inspiral Sky Map')
-#webPage.cleanWrite('IUL')
-#talkBack.write()
