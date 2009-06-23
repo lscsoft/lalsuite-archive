@@ -74,7 +74,7 @@ def parse_command_line():
 	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
 	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"oninstruments\"}", help = "Select the event categorization algorithm.  Required.")
 	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
-	parser.add_option("--rank-by", metavar = "{\"rhoeff\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
+	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
@@ -85,15 +85,15 @@ def parse_command_line():
 
 	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "oninstruments"):
 		raise ValueError, "missing or unrecognized --categories option"
-	if options.rank_by not in ("rhoeff", "uncombined-ifar", "likelihood"):
+	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
 		raise ValueError, "missing or unrecognized --rank-by option"
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
-		if options.rank_by != "rhoeff":
-			raise ValueError, "must rank by \"rhoeff\" if category algorithm is \"mchirp-ifos-oninstruments\" or \"mtotal-ifos-oninstruments\""
+		if options.rank_by != "snr":
+			raise ValueError, "must rank by \"snr\" if category algorithm is \"mchirp-ifos-oninstruments\" or \"mtotal-ifos-oninstruments\""
 		options.populate_column = "false_alarm_rate"
 	else:
-		if options.rank_by == "rhoeff":
+		if options.rank_by == "snr":
 			raise ValueError, "must rank by \"uncombined-ifar\" or \"likelihood\" if category algorithm is \"oninstruments\""
 		options.populate_column = "combined_far"
 
@@ -108,7 +108,6 @@ def parse_command_line():
 		if len(options.mass_bins) < 2:
 			raise ValueError, "must set at least two mass bin boundaries (i.e., define at least one mass bin)"
 		options.mass_bins = rate.IrregularBins(options.mass_bins)
-
 
 	#
 	# other
@@ -136,29 +135,36 @@ def parse_command_line():
 class Summaries(object):
 	def __init__(self, category_algorithm, rank_by, mass_bins = None):
 		if category_algorithm == "mchirp-ifos-oninstruments":
-			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, mass_bins[mchirp])
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
 		elif category_algorithm == "mtotal-ifos-oninstruments":
-			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, mass_bins[mtotal])
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
 		elif cateogry_algorithm == "oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
 		else:
 			raise ValueError, category_algorithm
 
-		if rank_by == "rhoeff":
-			self.reputation_func = lambda self, rhoeff, uncombined_ifar, likelihood: rhoeff
+		if rank_by == "snr":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
 		elif rank_by == "uncombined-ifar":
-			self.reputation_func = lambda self, rhoeff, uncombined_ifar, likelihood: uncombined_ifar
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: uncombined_ifar
 		elif rank_by == "likelihood":
-			self.reputation_func = lambda self, rhoeff, uncombined_ifar, likelihood: likelihood
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
 
+		self.mass_bins = mass_bins
 		self.reputations = {}
 		self.cached_livetime = {}
 
-	def add_livetime(self, connection, veto_segments, live_time_program, verbose = False):
+	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+		if veto_segments_name is not None:
+			if verbose:
+				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
+			veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+		else:
+			veto_segments = segments.segmentlistdict()
 		if verbose:
-			print >>sys.stderr, "computing livetimes:",
+			print >>sys.stderr, "\tcomputing livetimes:",
 		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
@@ -168,27 +174,18 @@ class Summaries(object):
 		if verbose:
 			print >>sys.stderr
 
-	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, rhoeff, uncombined_ifar, likelihood):
-		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
-		reputation = self.reputation_func(rhoeff, uncombined_ifar, likelihood)
-		try:
-			self.reputations[category].append(reputation)
-		except KeyError:
-			self.reputations[category] = [reputation]
+	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 
 	def index(self, stat):
 		for reputations in self.reputations.values():
 			reputations.sort()
 
-	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, rhoeff, uncombined_ifar, likelihood):
-		category = self.category_func(on_instruments, participating_instruments, mchirp, mtotal)
-		reputation = self.reputation_func(rhoeff, uncombined_ifar, likelihood)
-		# use .setdefault() to trap case of coinc in category that
-		# has no background events.
-		reputations = self.reputations.setdefault(category, [])
+	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
 		# len(x) - bisect.bisect_left(x, reputation) = (# of
 		# elements in list >= reputation)
-		return (len(reputations) - bisect.bisect_left(reputations, reputation)) / self.cached_livetime[on_instruments]
+		return (len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))) / self.cached_livetime[on_instruments]
 
 
 #
@@ -213,7 +210,7 @@ options, filenames = parse_command_line()
 #
 
 
-background = Summaries()
+background = Summaries(options.categories, options.rank_by, mass_bins = options.mass_bins)
 
 
 #
@@ -244,7 +241,7 @@ for n, filename in enumerate(filenames):
 
 	if "sim_inspiral" in dbtables.get_table_names(connection):
 		if options.verbose:
-			print >>sys.stderr, "database contains sim_inspiral table, skipping ..."
+			print >>sys.stderr, "\tdatabase contains sim_inspiral table, skipping ..."
 
 		#
 		# close the database
@@ -255,27 +252,18 @@ for n, filename in enumerate(filenames):
 		continue
 
 	#
-	# retrieve the veto segments
-	#
-
-	if options.veto_segments_name is not None:
-		if options.verbose:
-			print >>sys.stderr, "retrieving veto segments \"%s\" ..." % options.veto_segments_name
-		veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
-	else:
-		veto_segments = segments.segmentlistdict()
-
-	#
 	# compute and record background livetime
 	#
 
-	background.add_livetime(connection, veto_segments, options.live_time_program, verbose = options.verbose)
+	background.add_livetime(connection, options.live_time_program, veto_segments_name = options.veto_segments_name, verbose = options.verbose)
 
 	#
 	# count background coincs
 	#
 
-	for on_instruments, participating_instruments, mchirp, mtotal, rhoeff, uncombined_ifar, likelihood in connection.cursor().execute("""
+	if options.verbose:
+		print >>sys.stderr, "\tcollecting background statistics ..."
+	for on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood in connection.cursor().execute("""
 SELECT
 	coinc_event.instruments,
 	coinc_inspiral.ifos,
@@ -302,7 +290,7 @@ WHERE
 			AND time_slide.offset != 0
 	)
 	"""):
-		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, rhoeff, uncombined_ifar, likelihood)
+		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood)
 
 	#
 	# close the database
@@ -312,16 +300,12 @@ WHERE
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
+background.index(stat)
+
+
 #
 # iterate over database files assigning false-alarm rates to coincs
 #
-
-
-if options.verbose:
-	print >>sys.stderr, "calculating and recording false alarm rates ..."
-
-
-background.index(stat)
 
 
 for n, filename in enumerate(filenames):
@@ -344,6 +328,8 @@ for n, filename in enumerate(filenames):
 	# count background coincs by type and mass bin
 	#
 
+	if options.verbose:
+		print >>sys.stderr, "\tcalculating and recording false alarm rates ..."
 	connection.cursor().execute("""
 UPDATE
 	coinc_inspiral
