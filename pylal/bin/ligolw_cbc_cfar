@@ -26,7 +26,8 @@ from glue.ligolw.utils.ligolw_sqlite import extract
 
 usage = \
 '''
-Calculates uncombined and combined false alarm rates (FAR) in units of yr^(-1).
+Calculates false alarm rates (FAR) in units of yr^(-1) and stores to
+specified output_column.
 Writes results out to a new database.
 '''
 
@@ -150,13 +151,13 @@ def parse_command_line():
             "This specifies whether to rank triggers by ascending (MAX) or " +
             "descending (MIN) stat value." 
             )
-    parser.add_option( "", "--combine-fars", action = "store", type = "string", default = None, 
-        metavar = "across_all, across_param_only",
+    parser.add_option( "", "--output-column", action = "store", type = "string", default = None, 
         help = 
-            "Required. Tell cfar what categories to combine uncombined fars across. " +
-            "Options are across_all or across_param_only. " +
-            "If across_all, will combine FARs across both coinc-types and parameter grouping. " +
-            "If across_param_only, will only combine FARs across the parameter grouping." 
+          "Required. Column in the coinc_inspiral table to store output to."
+            )
+    parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
+        help = 
+          "Turning on will cause triggers to be grouped by ifos when calculating."
             )
   
     (options, args) = parser.parse_args()
@@ -176,10 +177,10 @@ def parse_command_line():
         raise ValueError, "param-name requires param-ranges"
     if options.param_ranges and not options.param_name:
         raise ValueError, "param-ranges requires param-name"
-    if not options.combine_fars:
-        raise ValueError, "combine_fars is a requried argument."
-    if not (options.combine_fars == 'across_all' or options.combine_fars == 'across_param_only'):
-        raise ValueError, "combine-fars must be set to either across_all or across_param_only"
+    if not options.output_column:
+        raise ValueError, "output_column is a required argument"
+    if ' ' in options.output_column.strip():
+        raise ValueError, "output_column cannot have spaces in it"
     if options.exclude_coincs and options.include_only_coincs:
         raise ValueError, "Cannot specify both --exclude-coincs and --include-only-coincs."
 
@@ -320,12 +321,19 @@ for eid, esid, duration, datatype in connection.cursor().execute( sqlquery ):
 # calculate the background duration for each experiment_summary_id 
 background.calc_bkg_durs()
 
+# get desired ifo grouping
+if opts.group_by_ifos:
+  ifo_grouping = 'coinc_inspiral.ifos'
+else:
+  ifo_grouping = '"ALL_IFOS"'
+
 # get all the non-injection triggers
 sqlquery = ''.join([ """
     SELECT 
         experiment_summary.experiment_id,
         experiment_summary.experiment_summ_id,
-        coinc_inspiral.ifos,
+        """,
+        ifo_grouping, """,
         """,
         param_grouping, """,
         coinc_inspiral.""", ranking_stat,"""
@@ -357,24 +365,26 @@ if rank_by == "MIN":
 else:
     connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
 
+output_column = opts.output_column.strip().lower()
+
 
 #
-#     Calculate uncombined FAR
+#     Calculate FAR
 #
 
 if opts.verbose:
-    print >> sys.stderr, "Calculating uncombined FAR..."
+    print >> sys.stderr, "Calculating FAR..."
 # calculate the uncombined far for each trigger and store in coinc_inspiral table
 sqlquery = ''.join(["""
     UPDATE
         coinc_inspiral
     SET
-        false_alarm_rate = (
+        """, output_column, """ = (
             SELECT
                 calc_ufar(
                     experiment_summary.experiment_id,
                     experiment_summary.experiment_summ_id,
-                    coinc_inspiral.ifos,
+                    """, ifo_grouping, """,
                     """, param_grouping, """,
                     coinc_inspiral.""", ranking_stat, """
                     ) 
@@ -393,89 +403,6 @@ connection.cursor().execute(sqlquery)
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-
-#
-#   Calculate combined FAR
-#
-
-if opts.verbose:
-    print >> sys.stderr, "Calculating combined FAR..."
-
-# cycle over all esids in this category for this experiment and calculate
-# max_bkg_far for each
-sqlquery = ''.join(["""
-     SELECT DISTINCT
-        experiment_summary.experiment_id,
-        coinc_inspiral.ifos,
-        """, param_grouping, """
-        FROM 
-            coinc_inspiral
-        JOIN 
-            experiment_summary, experiment_map ON (
-                experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
-        WHERE 
-            experiment_summary.datatype == "slide"
-        """])
-
-if opts.debug:
-    print >> sys.stderr, sqlquery
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-for eid, ifos, param_group in connection.cursor().execute(sqlquery):
-    tot_num = len( background.bkg_stats[(eid, ifos, param_group)] )
-    if opts.combine_fars == 'across_all':
-        ifo_group = 'ALL_IFOS'
-    else:
-        ifo_group = ifos
-    for esid in background.frg_durs[eid]:
-        this_num = tot_num
-        # remove the number of triggers in the same esid
-        if (eid, esid, ifos, param_group) in background.sngl_slide_stats:
-            this_num = this_num - len( background.sngl_slide_stats[(eid, esid, ifos, param_group)] )
-        background.append_max_bkg_far( esid, ifo_group, this_num / background.bkg_durs[esid] )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-background.sort_max_bkg_fars()
-
-# sqlitize cfar function
-connection.create_function('calc_cfar', 3, background.calc_cfar)
-
-# set ifos_group to figure out what to combine across
-if opts.combine_fars == "across_all":
-    ifos_group = '"ALL_IFOS",'
-else:
-    ifos_group = "coinc_inspiral.ifos,"
-
-# calculate combined far and update the combined_far column
-sqlquery = ''.join(["""
-   UPDATE 
-       coinc_inspiral
-   SET 
-       combined_far = (
-           SELECT 
-               calc_cfar( 
-                    experiment_map.experiment_summ_id,
-                    """, ifos_group,
-                    """
-                    coinc_inspiral.false_alarm_rate )
-            FROM 
-                experiment_summary, experiment_map
-            WHERE
-                experiment_summary.datatype != "simulation"
-                AND experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
-                AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id)"""])
-
-if opts.debug:
-    print >> sys.stderr, sqlquery
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().execute( sqlquery )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 # Vacuum database if desired
 if opts.vacuum:
