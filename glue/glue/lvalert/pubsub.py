@@ -25,6 +25,64 @@ __revision__="$Id: message.py 651 2006-08-27 19:26:45Z jajcus $"
 __docformat__="restructuredtext en"
 
 import libxml2
+
+## Needed because openfire has a minor bug associated with results
+## being ignored in the handshake stage. There is a one line fix
+## in this overloaded class.
+import pyxmpp.stanzaprocessor
+from pyxmpp.stanzaprocessor import StanzaProcessor as LVAlertSP
+
+class LVAlertStanzaProcessor(LVAlertSP):
+    def process_stanza(self,stanza):
+        """Process stanza received from the stream.
+
+        First "fix" the stanza with `self.fix_in_stanza()`,
+        then pass it to `self.route_stanza()` if it is not directed
+        to `self.me` and `self.process_all_stanzas` is not True. Otherwise
+        stanza is passwd to `self.process_iq()`, `self.process_message()`
+        or `self.process_presence()` appropriately.
+
+        :Parameters:
+            - `stanza`: the stanza received.
+
+        :returns: `True` when stanza was handled
+        """
+
+        # PRB changes start
+        self.fix_in_stanza(stanza)
+        to=stanza.get_to()
+        type=stanza.get_type()
+
+        if not self.process_all_stanzas and to and to!=self.me and to.bare()!=self.me.bare() and type!="result":
+            return self.route_stanza(stanza)
+        # PRB changes end
+
+        try:
+            if stanza.stanza_type=="iq":
+                if self.process_iq(stanza):
+                    return True
+            elif stanza.stanza_type=="message":
+                if self.process_message(stanza):
+                    return True
+            elif stanza.stanza_type=="presence":
+                if self.process_presence(stanza):
+                    return True
+        except ProtocolError, e:
+            typ = stanza.get_type()
+            if typ != 'error' and (typ != 'result' or stanza.stanza_type != 'iq'):
+                r = stanza.make_error_response(e.xmpp_name)
+                self.send(r)
+                e.log_reported()
+            else:
+                e.log_ignored()
+
+        self.__logger.debug("Unhandled %r stanza: %r" % (stanza.stanza_type,stanza.serialize()))
+        return False
+
+pyxmpp.stanzaprocessor.StanzaProcessor = LVAlertStanzaProcessor
+
+## end of overload class for openfire "bug"
+
 from pyxmpp.stanza import Stanza
 from pyxmpp.utils import to_utf8,from_utf8
 from pyxmpp.xmlextra import common_ns

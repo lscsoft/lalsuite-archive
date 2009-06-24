@@ -41,7 +41,7 @@ require './scripts/header.php';
         <option value="SCI-OTHER_ELOG (Other problem described in elog entry)">SCI-OTHER_ELOG (Other problem described in elog entry)</option>
     </select>
          <p>If you do not see an appropriate flag, please choose SCI-OTHER_ELOG and contact <a href="mailto:detchar@relativity.phys.lsu.edu">the detchar group</a> to suggest a new flag name.
-         <p>Brief description (max 256 characters): <textarea rows="3" cols="60" name="comment" /></textarea></p>
+         <p>Brief description (max 255 characters): <textarea rows="3" cols="60" name="comment" /></textarea></p>
  	 <p><input type="radio" checked="checked" name="starttimevsgps" value="time">
   	    Start time: <select name="startmonth"><?php require './scripts/form_month_list.php' ?></select>
                      <select name="startday"><?php require './scripts/form_day_list.php' ?></select>
