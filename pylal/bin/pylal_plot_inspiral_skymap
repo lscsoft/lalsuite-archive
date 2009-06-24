@@ -31,11 +31,9 @@ def injection(RAbin, DECbin, probs, injRA=1, injDEC=1):
   prob = probs[RAix, DECix]
   ix_above_prob = (probs>prob).nonzero()
   # FIXME Check that this is correct, use cos when dec convention changes
-  RAint = RAbin.delta * numpy.ones(len(ix_above_prob[1]))
-  DECint = DECbin.delta * numpy.ones(len(ix_above_prob[0]))
-  sinTerm = numpy.cos(DECbin.centres()[ix_above_prob[0]])
-  
-  return (RAint * DECint * sinTerm).sum() / (4.0 * math.pi)
+  DEC = numpy.outer(DECbin.centres(), numpy.ones(len(RAbin.centres())))
+  Area = numpy.ones(probs.shape) * RAbin.delta * DECbin.delta * numpy.cos(DEC)
+  return Area[ix_above_prob].sum() / Area.sum() # should be 4 pi
 
 def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None):
 
