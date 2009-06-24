@@ -29,7 +29,7 @@ def injection(RAbin, DECbin, probs, injRA=1, injDEC=1):
   RAix = RAbin[injRA]
   DECix = DECbin[injDEC]
   prob = probs[RAix, DECix]
-  ix_above_prob = (probs>prob).nonzero()
+  ix_above_prob = (probs>=prob).nonzero()
   # FIXME Check that this is correct, use cos when dec convention changes
   DEC = numpy.outer(DECbin.centres(), numpy.ones(len(RAbin.centres())))
   Area = numpy.ones(probs.shape) * RAbin.delta * DECbin.delta * numpy.cos(DEC)
