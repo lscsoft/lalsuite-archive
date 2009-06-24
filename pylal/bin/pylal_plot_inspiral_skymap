@@ -43,7 +43,10 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   M = pylab.load(map_data_file)
   RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
   maxIX = PROB.argmax()
-  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=min(RA), maxRA=max(RA), minDEC = min(DEC), maxDEC = max(DEC))
+
+  # FIXME compute bin boundaries?
+  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=0.0, maxRA=2.0*math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0)
+
   Xi = RAbin.centres()
   Yi = DECbin.centres()
   #FIXME Z has the RA and DEC reversed from what you might expect
