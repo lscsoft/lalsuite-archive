@@ -213,17 +213,14 @@ if __name__ == '__main__':
 
     for seg_def_id, ifo, name in veto_groups:
         cursor.execute('DELETE FROM %s' % table_name)
-        cursor.execute('INSERT INTO %s SELECT * FROM %s_backup' % (table_name, table_name))
+        cursor.execute("INSERT INTO %s SELECT * FROM %s_backup WHERE ifo='%s'" % (table_name, table_name, ifo))
 
         # Delete any triggers whose end time falls within a vetoed segment
-        subquery  = "SELECT %s.end_time FROM %s, segment WHERE segment.segment_def_id='%s' "
-        subquery += " AND %s.ifo = '%s' " % (table_name,ifo)
-        subquery += " AND %s.end_time BETWEEN segment.start_time AND segment.end_time"
-        subquery  = subquery % (table_name, table_name, seg_def_id, table_name)
+        subquery  = "SELECT %s.end_time FROM %s, segment WHERE segment.segment_def_id='%s' " % (table_name, table_name, seg_def_id)
+        subquery += " AND %s.end_time BETWEEN segment.start_time AND segment.end_time" % (table_name)
 
         sql =  'DELETE FROM ' + table_name
-        sql += " WHERE %s.ifo = '%s' " % (table_name,ifo)
-        sql += ' AND end_time %s IN ' % (options.exclude_veto and '' or 'NOT')
+        sql += ' WHERE end_time %s IN ' % (options.exclude_veto and ' ' or 'NOT')
         sql += ' (%s)' % subquery
 
         cursor.execute(sql)
