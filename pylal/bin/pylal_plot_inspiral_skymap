@@ -22,17 +22,20 @@ def get_2d_RA_DEC_bins(RAbins=1024, DECbins=512, minRA=0, maxRA=2.0 * math.pi, m
   """
   RAbin = rate.LinearBins(minRA, maxRA, RAbins)
   DECbin = rate.LinearBins(minDEC, maxDEC, DECbins)
-  twoDRADECBin = rate.NDBins( (RAbin, DECbin) )
+  twoDRADECBin = rate.NDBins( (DECbin, RAbin) )
   return RAbin, DECbin, twoDRADECBin
 
-def injection(RAbin, DECbin, probs, injRA=1, injDEC=1):
+def injection(RAbin, DECbin, probs, injRA, injDEC):
   RAix = RAbin[injRA]
   DECix = DECbin[injDEC]
-  prob = probs[RAix, DECix]
+  prob = probs[DECix, RAix]
   ix_above_prob = (probs>=prob).nonzero()
+  ix_below_prob = (probs<=prob).nonzero()
+  
   # FIXME Check that this is correct, use cos when dec convention changes
   DEC = numpy.outer(DECbin.centres(), numpy.ones(len(RAbin.centres())))
   Area = numpy.ones(probs.shape) * RAbin.delta * DECbin.delta * numpy.cos(DEC)
+  print Area[ix_above_prob].sum(), Area[ix_below_prob].sum()
   return Area[ix_above_prob].sum() / Area.sum() # should be 4 pi
 
 def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None):
@@ -41,7 +44,10 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
   maxIX = PROB.argmax()
   RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=min(RA), maxRA=max(RA), minDEC = min(DEC), maxDEC = max(DEC))
-  Z = pylab.griddata(RA, DEC, PROB, RAbin.centres(), DECbin.centres())
+  Xi = RAbin.centres()
+  Yi = DECbin.centres()
+  #FIXME Z has the RA and DEC reversed from what you might expect
+  Z = pylab.griddata(RA, DEC, PROB, Xi, Yi)
   pylab.figure(1)
 
   pylab.subplot(2,1,1)
@@ -64,9 +70,8 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   pylab.gca().set_aspect(1)
   pylab.subplots_adjust(wspace=0.0,hspace=0.0)
 
-
   ofile = open(figname.replace(".png",".txt"),'w')
-  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z)
+  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
   print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
   print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
   ofile.close()
