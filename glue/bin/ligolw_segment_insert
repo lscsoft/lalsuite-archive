@@ -61,32 +61,29 @@ USER_NAME    = os.getlogin()
 def parse_command_line():
   parser = OptionParser()
   
-  try:
-    hostPortString = os.environ['LDBD_SERVER']
-  except:
-    pass
-  
   parser.add_option("-p", "--ping", action = "store_true", default = None, help = "Ping the target server")
-  parser.add_option("-s", "--server", action = "store", metavar = "hostPortString", default = None, \
-                    help = "Connect to ldbd on HOST:PORT (default port 30020)")
-  parser.add_option("-j", "--identity", action = "store", metavar = "identity", default = None, \
-                    help = "The subject line of the server's service certificate")
+  parser.add_option("-s", "--server", action = "store", metavar = "HOST:PORT", default = None, \
+                    help = "Connect to ldbd on HOST:PORT (default port 30015)")
+  parser.add_option("-o", "--output", action = "store", metavar = "FILE", default = None, \
+                    help = "Write segments to FILE rather than the segment database")
+  parser.add_option("-j", "--identity", action = "store", metavar = "IDENTITY", default = None, \
+                    help = "Set the subject line of the server's service certificate to IDENTITY")
   parser.add_option("-I", "--insert", action = "store_true", default = 0, help = "Insert segments to the segment database")
   parser.add_option("-A", "--append", action = "store_true", default = 0, help = "Append segments to an existing segment type")
-  parser.add_option("-i", "--ifos", action = "store", metavar = "ifos", default = None, \
-                    help = "The interferometers to which this segment type applies")
-  parser.add_option("-n", "--name", action = "store", metavar = "name", default = None, \
-                    help = "The name of the segment type (e.g. DMT-BADMONTH)")
-  parser.add_option("-v", "--version", action = "store", metavar = "version", default = None, \
-                    help = "The numeric version of this segment type")
-  parser.add_option("-e", "--explain", action = "store", metavar = "explain", default = None, \
-                    help = "A string explaining WHAT this segment type means. Required when --Insert/-I is specified.")
-  parser.add_option("-c", "--comment", action = "store", metavar = "comment", default = None, \
-                    help = "A string explaining WHY this segment type was inserted")
-  parser.add_option("-S", "--summary-file", action = "store", metavar = "sumfile", default = None, \
-                    help = "A file containing the validity intervals of this segment type FOR THE WHOLE RUN")
-  parser.add_option("-G", "--segment-file", action = "store", metavar = "segfile", default = None, \
-                    help = "A file containing the gps start and stop times of active segments FOR THE WHOLE RUN")
+  parser.add_option("-i", "--ifos", action = "store", metavar = "IFOS", default = None, \
+                    help = "Set the segment interferometer to IFOS (e.g. H1)")
+  parser.add_option("-n", "--name", action = "store", metavar = "NAME", default = None, \
+                    help = "Set the name of the segment to NAME (e.g. DMT-BADMONTH)")
+  parser.add_option("-v", "--version", action = "store", metavar = "VERSION", default = None, \
+                    help = "Set the numeric version of the segment to VERSION (e.g. 1)")
+  parser.add_option("-e", "--explain", action = "store", metavar = "COMMENT", default = None, \
+                    help = "Set the segment_definer:comment to COMMENT. This should explaining WHAT this flag mean (e.g. \"Light dip 10%\"). Required when --Insert/-I is specified.")
+  parser.add_option("-c", "--comment", action = "store", metavar = "COMMENT", default = None, \
+                    help = "Set the segment_summary:comment to COMMENT. This should explaining WHY these segments were inserted (e.g. \"Created from hveto results\")")
+  parser.add_option("-S", "--summary-file", action = "store", metavar = "FILE", default = None, \
+                    help = "Read the segment_summary rows from FILE. This should be a file containing the gps start and end times that the flag was defined (i.e. the union of on and off)")
+  parser.add_option("-G", "--segment-file", action = "store", metavar = "FILE", default = None, \
+                    help = "Read the segment rows from FILE. This should containin the gps start and end times when the flag was active")
   
   
   return parser.parse_args()
@@ -97,7 +94,7 @@ if options.server:
   if options.server.find(':') < 0:
   # no port specified
     host = options.server 
-    port = 30020
+    port = 30015
   else:
     # server and port specified
     host, portString = options.server.split(':')
@@ -241,7 +238,7 @@ else:
   fh = open(options.summary_file, 'r')
   line_no = 1
   for line in fh.readlines():
-    sum_line = line.strip().split(",")
+    sum_line = line.strip().split(" ")
     current_time = str(gpstime.GpsSecondsFromPyUTC(time.time()))
 
     # make sure interval start time is less than and not equal to end time
@@ -274,7 +271,7 @@ else:
   fh = open(options.segment_file, 'r')
   line_no = 1
   for line in fh.readlines():
-    seg_line = line.strip().split(",")
+    seg_line = line.strip().split(" ")
     this_seg = segments.segment(int(seg_line[0]),int(seg_line[1])) 
     # make sure segment start_time is less than end_time:
     if seg_line[0]>=seg_line[1]:
@@ -363,10 +360,15 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
 
     fake_file = StringIO.StringIO()
     doc.write(fake_file)
-    if not myClient:
-      myClient = LDBDClient.LDBDClient(host, port, identity)
-    myClient.insert(fake_file.getvalue())
 
+    if options.output:
+      fp = open(options.output,"w")
+      fp.write(fake_file.getvalue())
+      fp.close()
+    else:
+      if not myClient:
+        myClient = LDBDClient.LDBDClient(host, port, identity)
+      myClient.insert(fake_file.getvalue())
      
   #######################################################################################
   #                            Process APPEND
@@ -488,7 +490,7 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
       os.path.basename(sys.argv[0]), 
       "lstring",
       str(val),
-      str(key)
+      "--" + str(key).replace('_','-')
     ])) 
 
     process_params_dict = {
@@ -586,7 +588,11 @@ Please correct your version number.""" % (options.ifos,options.name,max_version)
     segment_md.table['segment_summary']=segment_summary_dict
 
 
-    if True:
+    if options.output:
+      fp = open(options.output,"w")
+      fp.write(segment_md.xml())
+      fp.close()
+    else:
       if not myClient:
         myClient = LDBDClient.LDBDClient(host, port, identity)
       myClient.insert(segment_md.xml())
