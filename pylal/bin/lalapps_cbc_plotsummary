@@ -206,11 +206,15 @@ def roman(i, arabics = (1000,900,500,400,100,90,50,40,10,9,5,4,1), romans = ("m"
 	return romans[0] + roman(i - arabics[0], arabics, romans)
 
 
-def create_plot(x_label = None, y_label = None, width = 165.0):
+#
+# width is in mm, default aspect ratio is the golden ratio
+#
+
+
+def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
 	fig = figure.Figure()
 	FigureCanvas(fig)
-	# width mm wide, golden ratio high
-	fig.set_size_inches(width / 25.4, width / 25.4 / ((1 + math.sqrt(5)) / 2))
+	fig.set_size_inches(width / 25.4, width / 25.4 / aspect)
 	axes = fig.gca()
 	axes.grid(True)
 	if x_label is not None:
@@ -507,26 +511,26 @@ FROM
 		for instrument in self.background_snr:
 			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.background_snr[instrument], self.background_chi2[instrument], "kx")
 			axes.loglog(self.injections_snr[instrument], self.injections_chi2[instrument], "rx")
+			axes.loglog(self.background_snr[instrument], self.background_chi2[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_chi2[instrument], "bx")
-			axes.legend(("Background", "Injections"))
+			axes.legend(("Injections", "Background", "Zero Lag"), loc = "upper left")
 			yield fig
 
 			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
 			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
 			axes.loglog(self.injections_snr[instrument], self.injections_r2[instrument], "rx")
+			axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_r2[instrument], "bx")
-			axes.legend(("Background", "Injections"))
+			axes.legend(("Injections", "Background", "Zero Lag"), loc = "lower right")
 			yield fig
 
 			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
 			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
-			axes.loglog(self.background_snr[instrument], self.background_bankveto[instrument], "kx")
 			axes.loglog(self.injections_snr[instrument], self.injections_bankveto[instrument], "rx")
+			axes.loglog(self.background_snr[instrument], self.background_bankveto[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_bankveto[instrument], "bx")
-			axes.legend(("Background", "Injections"))
+			axes.legend(("Injections", "Background", "Zero Lag"), loc = "upper left")
 			yield fig
 
 
@@ -540,15 +544,18 @@ FROM
 
 
 class BackgroundVsInjectionPlotsMulti(object):
+	class Points(object):
+		def __init__(self):
+			self.background_snreff = []
+			self.injections_snreff = []
+			self.zerolag_snreff = []
+			self.background_deff = []
+			self.injections_deff = []
+			self.zerolag_deff = []
+
 	def __init__(self, snrfactor):
 		self.snrfactor = snrfactor
-		self.instruments = ("H1", "L1")
-		self.background_snreff = {}
-		self.injections_snreff = {}
-		self.zerolag_snreff = {}
-		self.background_deff = {}
-		self.injections_deff = {}
-		self.zerolag_deff = {}
+		self.points = {}
 
 	def add_contents(self, contents):
 		if contents.sim_inspiral_table is None:
@@ -574,7 +581,6 @@ FROM
 	JOIN sngl_inspiral AS sngl_inspiral_x ON (
 		coinc_event_map_x.table_name == 'sngl_inspiral'
 		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
-		AND sngl_inspiral_x.ifo == ?
 	)
 	JOIN coinc_event_map AS coinc_event_map_y ON (
 		coinc_event_map_y.coinc_event_id == coinc_event.coinc_event_id
@@ -582,19 +588,22 @@ FROM
 	JOIN sngl_inspiral AS sngl_inspiral_y ON (
 		coinc_event_map_y.table_name == 'sngl_inspiral'
 		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
-		AND sngl_inspiral_y.ifo == ?
 	)
 WHERE
 	coinc_event.coinc_def_id == ?
-			""", (self.instruments[0], self.instruments[1], contents.ii_definer_id)):
+	AND sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
+			""", (contents.ii_definer_id,)):
 				x = contents.sngl_inspiral_table._row_from_cols(values)
 				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				instrument_pair = (x.ifo, y.ifo)
+				if instrument_pair not in self.points:
+					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
 				if values[-1]:
-					self.background_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
-					self.background_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
+					self.points[instrument_pair].background_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.points[instrument_pair].background_deff.append((x.eff_distance, y.eff_distance))
 				else:
-					self.zerolag_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
-					self.zerolag_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
+					self.points[instrument_pair].zerolag_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.points[instrument_pair].zerolag_deff.append((x.eff_distance, y.eff_distance))
 		else:
 			# injections file
 			for values in contents.connection.cursor().execute("""
@@ -609,7 +618,6 @@ FROM
 	JOIN sngl_inspiral AS sngl_inspiral_x ON (
 		coinc_event_map_x.table_name == 'sngl_inspiral'
 		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
-		AND sngl_inspiral_x.ifo = ?
 	)
 	JOIN coinc_event_map AS coinc_event_map_y ON (
 		coinc_event_map_y.coinc_event_id == sim_coinc_map.coinc_event_id
@@ -617,30 +625,35 @@ FROM
 	JOIN sngl_inspiral AS sngl_inspiral_y ON (
 		coinc_event_map_y.table_name == 'sngl_inspiral'
 		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
-		AND sngl_inspiral_y.ifo = ?
 	)
-			""", (self.instruments[0], self.instruments[1])):
+WHERE
+	sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
+			"""):
 				x = contents.sngl_inspiral_table._row_from_cols(values)
 				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
-				self.injections_snreff.setdefault(self.instruments, []).append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
-				self.injections_deff.setdefault(self.instruments, []).append((x.eff_distance, y.eff_distance))
+				instrument_pair = (x.ifo, y.ifo)
+				if instrument_pair not in self.points:
+					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
+				self.points[instrument_pair].injections_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+				self.points[instrument_pair].injections_deff.append((x.eff_distance, y.eff_distance))
 
 	def finish(self):
-		fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[0], r"$\rho_{\mathrm{eff}}$ in %s" % self.instruments[1])
-		axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (self.instruments[1], self.instruments[0], self.snrfactor))
-		axes.loglog([x for x, y in self.injections_snreff[self.instruments]], [y for x, y in self.injections_snreff[self.instruments]], "rx")
-		axes.loglog([x for x, y in self.background_snreff[self.instruments]], [y for x, y in self.background_snreff[self.instruments]], "kx")
-		axes.loglog([x for x, y in self.zerolag_snreff[self.instruments]], [y for x, y in self.zerolag_snreff[self.instruments]], "bx")
-		axes.legend(("Injections", "Background", "Zero lag"))
-		yield fig
+		for (x_instrument, y_instrument), points in self.points.items():
+			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (y_instrument, x_instrument, self.snrfactor))
+			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
+			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
+			axes.loglog([x for x, y in points.zerolag_snreff], [y for x, y in points.zerolag_snreff], "bx")
+			axes.legend(("Injections", "Background", "Zero lag"), loc = "lower right")
+			yield fig
 
-		fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % self.instruments[0], r"$D_{\mathrm{eff}}$ in %s" % self.instruments[1])
-		axes.set_title(r"Effective Distance in %s vs.\ %s" % (self.instruments[1], self.instruments[0]))
-		axes.loglog([x for x, y in self.injections_deff[self.instruments]], [y for x, y in self.injections_deff[self.instruments]], "rx")
-		axes.loglog([x for x, y in self.background_deff[self.instruments]], [y for x, y in self.background_deff[self.instruments]], "kx")
-		axes.loglog([x for x, y in self.zerolag_deff[self.instruments]], [y for x, y in self.zerolag_deff[self.instruments]], "bx")
-		axes.legend(("Injections", "Background", "Zero lag"))
-		yield fig
+			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective Distance in %s vs.\ %s" % (y_instrument, x_instrument))
+			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
+			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
+			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
+			axes.legend(("Injections", "Background", "Zero lag"), loc = "upper right")
+			yield fig
 
 
 #
