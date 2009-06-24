@@ -63,7 +63,7 @@ foreach $file (@files)
             s/ELSE 1/ELSE $number/;
             print OUT $_;
         }
-        elsif($line =~ m/connect/ && $line =~ m/seg_/)
+        elsif(($line =~ m/connect/ || $line =~ m/update/) && $line =~ m/seg_/)
         {
             $_ = $line;
             s/seg_lho/seg_$this/;
