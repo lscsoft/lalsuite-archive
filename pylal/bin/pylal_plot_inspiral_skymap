@@ -43,20 +43,35 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=min(RA), maxRA=max(RA), minDEC = min(DEC), maxDEC = max(DEC))
   Z = pylab.griddata(RA, DEC, PROB, RAbin.centres(), DECbin.centres())
   pylab.figure(1)
+
+  pylab.subplot(2,1,1)
   pylab.contourf(RAbin.centres(), DECbin.centres(), Z, 250)
-  #pylab.colorbar()
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
-  ofile = open(figname.replace(".png",".txt"),'w')
-  if injRA and injDEC:
-    injRank = injection(RAbin, DECbin, Z)
-    pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
-  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
-  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
-  ofile.close() 
+  if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
   pylab.xlim((min(RA),max(RA)))
   pylab.ylim((min(DEC),max(DEC)))
   pylab.gca().set_aspect(1)
+  pylab.subplots_adjust(wspace=0.0,hspace=0.0)
+
+  pylab.subplot(2,1,2)
+  pylab.contourf(RAbin.centres(), DECbin.centres(), numpy.exp(Z), 250)
+  pylab.xlabel('RA')
+  pylab.ylabel('DEC')
+  if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
+  pylab.xlim((min(RA),max(RA)))
+  pylab.ylim((min(DEC),max(DEC)))
+  pylab.gca().set_aspect(1)
+  pylab.subplots_adjust(wspace=0.0,hspace=0.0)
+
+
+  ofile = open(figname.replace(".png",".txt"),'w')
+  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z)
+  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
+  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
+  ofile.close()
+
+  # Save and close we are done
   InspiralUtils.savefig_pylal(figname)
   pylab.close()
 
