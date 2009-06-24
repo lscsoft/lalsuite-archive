@@ -31,7 +31,7 @@ if(!$number)
 
 print "Setting creator_db to $table{$this}\n";
 
-@files=glob("*.sql.in");
+@files=glob("*.sql.in *.sh.in");
 map(chomp,@files);
 
 foreach $file (@files)
@@ -63,10 +63,10 @@ foreach $file (@files)
             s/ELSE 1/ELSE $number/;
             print OUT $_;
         }
-        elsif($line =~ m/connect/ && $line =~ m/seg6/)
+        elsif($line =~ m/connect/ && $line =~ m/seg_/)
         {
             $_ = $line;
-            s/seg6_lho/seg6_$this/;
+            s/seg_lho/seg_$this/;
             print OUT $_;
         }
 	else
