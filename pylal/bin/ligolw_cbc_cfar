@@ -157,7 +157,8 @@ def parse_command_line():
             )
     parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
         help = 
-          "Turning on will cause triggers to be grouped by ifos when calculating."
+          "Turning on will cause triggers to be grouped by coincident ifos when " +
+          "calculating FARs."
             )
   
     (options, args) = parser.parse_args()
