@@ -536,7 +536,7 @@ class ExperimentTable(table.Table):
 		"experiment_id": "ilwd:char",
 		"search_group": "lstring",
 		"search": "lstring",
-		"lars_id": "ilwd:char",
+		"lars_id": "lstring",
 		"instruments": "lstring",
 		"gps_start_time": "int_4s",
 		"gps_end_time": "int_4s",
@@ -1695,21 +1695,21 @@ class SimInspiralTable(table.Table):
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end(site)
-			if time not in seglist:
-				keep.append(row)
+		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_end(self,site = None):
-		if not site:
+	def get_end(self, site = None):
+		if site is None:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self,site.lower() + '_end_time'), getattr(self,site.lower() + '_end_time_ns'))
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
+
+	def get_eff_dist(self, instrument):
+		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
 
 SimInspiralTable.RowType = SimInspiral

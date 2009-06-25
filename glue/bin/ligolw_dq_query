@@ -127,7 +127,7 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
     parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
@@ -156,19 +156,19 @@ def parse_command_line():
     file_location     = None
 
     # Make sure we know who to contact for data
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
             tmp_dir = tempfile.mkdtemp()
         
             # Grab the part of the name after the last slash
-            pos     = options.segment[::-1].find('/')
-            fname   = (pos > -1) and options.segment[ -1 * pos:] or "dmt.xml" 
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
 
-            inurl   = urllib.urlopen(options.segment)
+            inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
                 print >>outfile, l,
@@ -363,7 +363,7 @@ def run_active(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -394,7 +394,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -409,44 +409,6 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 # =============================================================================
 #
-
-
-def setup_database(host_and_port,ldbdc_error):
-    try:
-        from glue import LDBDClient
-        from glue import gsiserverutils
-    except Exception, e:
-        print >>sys.stderr, "Unable to import LDBDClient module from glue"
-        print >>sys.stderr, "Got the following error : " + str(e)
-        print >>sys.stderr, "Check that LDG is properly installed"
-        sys.exit(1)
-
-    port = 30015
-    
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-    
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(1)
-
-    return client
-
 
 def ping_server(client):
     print client.ping()
@@ -504,7 +466,7 @@ if __name__ == '__main__':
 
     # Ping the database and exit if requested
     if options.ping:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         sys.exit( ping_server(connection) )
 
     start_pad = 0
@@ -526,7 +488,7 @@ if __name__ == '__main__':
     temp_files = False
 
     if database_location:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
         temp_db, connection = setup_files(file_location, options, times)

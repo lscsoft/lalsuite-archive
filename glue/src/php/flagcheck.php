@@ -94,11 +94,12 @@ require './scripts/time_conv_functions.php';
 <?php
 $error = 0;
     // validate comment file
-    $comment=$_POST['comment'];
-    if(strlen($comment)==0 || strlen($comment)>256)
+    $comment = $_POST['comment'];
+
+    if(strlen($comment)==0 || strlen($comment)>255)
       {
          $error = $error + 1;
-         echo "<p>Short description = <font color='red'>Comment is required, and allow max 256 characters</font></p>";
+         echo "<p>Short description = <font color='red'>Comment is required, and length must not exceed 255 characters</font></p>";
       }
     else
       {
@@ -110,7 +111,7 @@ $error = 0;
     if($startgps>=$stopgps)
       {
          $error = $error + 1;
-         echo "<p>Start time = <font color='red'>Start time must be earlier than and not equal to the stop time</font><p/>";
+         echo "<p>Start time = <font color='red'>Start time must be earlier than stop time</font><p/>";
       }
     else
       {
@@ -123,8 +124,7 @@ $error = 0;
     $url = $_POST['url'];
     if(strpos($url,'http') !== 0)
       {
-         $error = $error + 1;
-         echo "<p>Elog url = <font color='red'>Please make sure your url is in correct format</font><p/>";
+         echo "<p>Elog url = <font color='red'>Warning: no elog entry specified. Please give an elog URL, if possible.</font><p/>";
       }
     if(strpos($url,'http') === 0)
       {
@@ -132,7 +132,6 @@ $error = 0;
          echo "<p>Please click on this <a href='$url' get='_blank'>link</a> to verify the elog url (opens in new window).</p>";
       }
    
-    // validate user
     // validate username
     $user = htmlspecialchars($_POST['user']);
     if(strlen($user)==0 || strpos($user,'.')==FALSE || strpos($user, '@')==TRUE)
@@ -145,31 +144,34 @@ $error = 0;
         echo "User Name = $user";
       }
 
-
-    if($error!=0)
+?>
+<p><center>
+<form action="submitflag.php" method="post">
+<input type="hidden" name="site" value="<?php echo $site; ?>">
+<input type="hidden" name="flag" value="<?php echo $flag; ?>">
+<input type="hidden" name="comment" value="<?php echo $comment; ?>">
+<input type="hidden" name="starttime" value="<?php echo $starttime; ?>">
+<input type="hidden" name="startgps" value="<?php echo $startgps; ?>">
+<input type="hidden" name="stoptime" value="<?php echo $stoptime; ?>">
+<input type="hidden" name="stopgps" value="<?php echo $stopgps; ?>">
+<input type="hidden" name="url" value="<?php echo $url; ?>">
+<input type="hidden" name="user" value="<?php echo $user; ?>">
+<?php
+if($error!=0)
       {
          echo "<p><center>";
          echo '<input type ="button" value="Back" onclick="history.back()">';
-      }
-    else
-      {
-         echo "<p><center>";
-         echo '<form action="submitflag.php" method="post">';
-         echo '<input type="hidden" name="site" value='.$site.">";
-         echo '<input type="hidden" name="flag" value='.$flag.">";
-         echo '<input type="hidden" name="comment" value='.$comment.">";
-         echo '<input type="hidden" name="starttime" value='.$starttime.">";
-         echo '<input type="hidden" name="startgps" value='.$startgps.">";
-         echo '<input type="hidden" name="stoptime" value='.$stoptime.">";
-         echo '<input type="hidden" name="stopgps" value='.$stopgps.">";
-         echo '<input type="hidden" name="url" value='.$url.">";
-         echo '<input type="hidden" name="user" value='.$user.">";
-         echo '<input type ="button" value="Back" onclick="history.back()">';
-         echo '<input type="submit" value="Write Flag to Database">';
          echo '</form>';
          echo '</center></p>';
-     }
- 
+      }
+else
+    {
+        echo "<p><center></>";
+        echo '<input type ="button" value="Back" onclick="history.back()">';
+        echo '<input type="submit" value="Write Flag to Database">';
+        echo '</form>';
+        echo '</center></p>';
+    }
 ?>
 
 

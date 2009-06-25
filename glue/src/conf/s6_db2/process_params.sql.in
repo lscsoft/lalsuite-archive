@@ -34,8 +34,8 @@ CREATE TABLE process_params
 --------------------- primary key 3 -------------------
       param              VARCHAR(32) NOT NULL,
 
-      type               VARCHAR(16) NOT NULL,
-      value              VARCHAR(1024) NOT NULL,
+      type               VARCHAR(16),
+      value              VARCHAR(1024),
       
 -- Insertion time (automatically assigned by the database)
       insertion_time     TIMESTAMP WITH DEFAULT CURRENT TIMESTAMP,

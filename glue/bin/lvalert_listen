@@ -1,0 +1,215 @@
+#!/usr/bin/python
+# $Id: xsend.py,v 1.8 2006/10/06 12:30:42 normanr Exp $
+import sys
+import os
+import datetime
+import time
+import select
+import logging
+import libxml2
+from optparse import *
+
+# pubsub import must come first because it overloads part of the
+# StanzaProcessor class
+from glue.lvalert import pubsub
+
+from pyxmpp.all import JID,Iq,Presence,Message,StreamError,TLSSettings
+from pyxmpp.jabber.all import Client
+from pyxmpp.jabber.simple import send_message
+from pyxmpp.interface import implements
+from pyxmpp.interfaces import *
+
+"""
+A tool to listen for events on a pubsub node 
+"""
+
+__version__ = "$Revision: 1.53 $"
+__date__ = "$Date: 2008/08/08 15:54:23 $"
+__name__ = "lvalert_listen"
+__Id__ = "$Id: plotinspiral,v 1.53 2008/08/08 15:54:23 nvf Exp $"
+__title__ = "LIGO-Virgo Alert Administration"
+
+
+#################################################################
+# help message
+usage = """\
+%prog [options]
+-----------------------------------------------------------------
+
+  A tool to listen to the pubsub service of openfire at
+  lvalert.phys.uwm.edu. LSC-Virgo members can activate their accounts 
+  on this server by completing the form at
+  
+    https://www.lsc-group.phys.uwm.edu/cgi-bin/jabber-acct.cgi 
+
+  and typing your password.
+
+  Before using this program to listen to a node, you must subscribe to
+  the node using lvalert_admin. Then you will receive any events that are
+  published to that node by doing:
+
+  %prog --username albert.einstein --password secret
+
+  When an event is published to the node, a message will be printed to
+  the window where the listener is running. To see the event, run
+
+  %prog --username albert.einstein --password secret --show
+
+  The owner (person who creates the node by default) can delete and
+  publish information to the node. The owner can also add other
+  publishers to the node. Configuration and management of nodes and
+  subscriptions are handled with lvalert_admin. 
+  
+  Others can subscribe to any existing node. Run 
+
+  lvalert_admin --help
+
+  to find out how to manage your subscriptions. 
+
+  COMING SOON:  the next version of lvalert_listen will take a
+  configuration file which specifies actions to take when an alert is
+  received from a given node. This should allow automation of
+  downstream tasks by scientists in response to the alert.
+
+"""
+
+#################################################################
+def parse_command_line():
+  """
+  Parser function dedicated
+  """
+  parser = OptionParser( usage=usage, \
+      version= "%prog CVS\n" +
+      "$Id$\n" +
+      "$Name:  $\n")
+
+  #username and password
+  parser.add_option("-a","--username",action="store",type="string",\
+      default="", help="the username of the publisher or listener" )
+  parser.add_option("-b","--password",action="store",type="string",\
+      default="", help="the password of the publisher or listener" )
+  parser.add_option("-s","--server",action="store",type="string",\
+      default="lvalert.phys.uwm.edu", help="the pubsub server" )
+  parser.add_option("-r","--resource",action="store",type="string",\
+      default="listener", help="resource to use in JID" )
+
+  parser.add_option("-S","--show",action="store_true",\
+      default=False, help="print the payload to stdout" )
+
+  parser.add_option("-n","--node",action="store",type="string",\
+      default=None, help="name of the node on the pubsub server" )
+
+  # debugging options
+  parser.add_option("-v","--verbose",action="store_true",\
+      default=False, help="be verbose as you process the request" )
+  parser.add_option("-g","--debug",action="store_true",\
+      default=False, help="should  print out lots of information" )
+  
+  (options,args) = parser.parse_args()
+
+  return options, sys.argv[1:]
+  
+# ============================================================================
+# -- get command line arguments
+opts, args = parse_command_line()
+
+class LVAlertHandler(object):
+    """Provides the actions taken when an event arrives.
+    """
+
+    implements(IMessageHandlersProvider)
+    
+    def __init__(self, client):
+        """Just remember who created this."""
+        self.client = client
+    
+    def get_message_handlers(self):
+        """Return list of (message_type, message_handler) tuples.
+
+        The handlers returned will be called when matching message is received
+        in a client session."""
+        return [
+            (None, self.message),
+            ]
+
+    def message(self,stanza):
+        """Message handler for the component.
+
+        Prints a message with the time an alert is received. If the
+        --show option is set, then it will also print the contents of
+        the alert.
+
+        :returns: `True` to indicate, that the stanza should not be processed
+        any further."""
+        e=self.get_entry(stanza)
+        if e:
+            print "Payload received at %s" % (datetime.datetime.now().ctime())
+            if opts.show:
+                print u'%s' % (e,),
+        return True
+
+    def get_entry(self,stanza):
+        c = stanza.xmlnode.children
+        while c:
+            try:
+                if c.name=="event":
+                    return c.getContent()
+            except libxml2.treeError:
+                pass
+            c = c.next
+        return None
+
+class MyClient(Client):
+    def __init__(self, jid, password):
+        # if bare JID is provided add a resource -- it is required
+        if not jid.resource:
+            jid=JID(jid.node, jid.domain, "listener")
+
+        # we require a TLS connection
+        t=TLSSettings(require=True,verify_peer=False)
+
+        # setup client with provided connection information
+        # and identity data
+        Client.__init__(self, jid, password, \
+            auth_methods=["sasl:GSSAPI","sasl:PLAIN"], tls_settings=t,keepalive=30)
+
+        # add the separate components
+        self.interface_providers = [
+            LVAlertHandler(self),
+            ]
+
+    def stream_state_changed(self,state,arg):
+        """This one is called when the state of stream connecting the
+        component to a server changes. This will usually be used to
+        let the user know what is going on."""
+        if opts.verbose:
+            print "*** State changed: %s %r ***" % (state,arg)
+        else:
+            pass
+
+# add a logger so that we can see what's going
+if opts.debug:
+    logger=logging.getLogger()
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+
+# debug the memory
+libxml2.debugMemory(1)
+
+# set up the stream
+myjid=JID(opts.username+"@"+opts.server+"/"+opts.resource)
+s=MyClient(myjid,opts.password)
+
+if opts.verbose:
+    print "connecting..."
+s.connect()
+
+if opts.verbose:
+    print "listening for message..."
+try:
+    s.loop(1)
+except KeyboardInterrupt:
+    print u"disconnecting..."
+    s.disconnect()
+
+# vi: sts=4 et sw=4
