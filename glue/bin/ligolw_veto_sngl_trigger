@@ -46,6 +46,7 @@ import sys
 import os
 import pwd
 import tempfile
+import re
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -56,6 +57,8 @@ from glue.ligolw import dbtables
 from glue.segmentdb import segmentdb_utils
 
 from glue.ligolw.utils import process
+
+import glue.ligolw.types as ligolwtypes
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -136,7 +139,6 @@ def get_output_name(ifo, category, gps_start_time, gps_end_time, output_dir, isC
 
 
 
-
 #
 # =============================================================================
 #
@@ -172,58 +174,66 @@ if __name__ == '__main__':
     os.close(handle)
     target          = dbtables.get_connection_filename(temp_db, None, True, False)
     connection      = ligolw_sqlite.setup(target)
+    cursor          = connection.cursor()
 
     ligolw_sqlite.insert(connection, xml_files + veto_files)
 
     table_name = 'sngl_' + options.type
 
+    # Make sure the table exists
+    theClass  = lsctables.TableByName[table_name]
+    statement = "CREATE TABLE IF NOT EXISTS " + table_name + " (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+
+    cursor.execute(statement)
+
     # The trigger files may not lie exactly on the start/end
     # boundaries we specified, delete anything outside this range
-    connection.cursor().execute('DELETE FROM %s WHERE end_time < %d OR end_time > %d' % (table_name, gps_start_time, gps_end_time))
+    cursor.execute('DELETE FROM %s WHERE end_time < %d OR end_time > %d' % (table_name, gps_start_time, gps_end_time))
 
     # Backup the sngl_ table
-    sql = connection.cursor().execute("SELECT sql FROM sqlite_master WHERE name='%s'" % table_name).fetchone()[0]
-
+    sql = cursor.execute("SELECT sql FROM sqlite_master WHERE name='%s'" % table_name).fetchone()[0]
     pos = sql.index(table_name) + len(table_name)
     sql = sql[0:pos] + '_backup' + sql[pos:]
 
-    connection.cursor().execute(sql)
-    connection.cursor().execute('INSERT INTO %s_backup SELECT * FROM %s' % (table_name, table_name))
+    cursor.execute(sql)
+    cursor.execute('INSERT INTO %s_backup SELECT * FROM %s' % (table_name, table_name))
+
+
+    # Determine which tables we're outputting
+    output_tables = []
+    for name in ['process','process_params',table_name,'search_summary','summ_value']:
+        count = int(cursor.execute("select count(*) from sqlite_master where name='%s'" % name).fetchone()[0])
+        if count:
+            output_tables.append(name)
 
     # Create a vetoed file for each (ifo, category, {separate, cummulative})
     veto_groups = []
-    for seg_def_id, ifo, name in connection.cursor().execute("SELECT segment_def_id, ifos, name FROM segment_definer WHERE name LIKE '%CAT%'"):
+    for seg_def_id, ifo, name in cursor.execute("SELECT segment_def_id, ifos, name FROM segment_definer WHERE name LIKE '%CAT%'"):
         veto_groups.append( (seg_def_id, ifo, name) )
 
-    for veto_group in veto_groups:
-        # Do we have triggers from this IFO?
-        count = connection.cursor().execute("SELECT count(*) FROM %s_backup WHERE ifo='%s'" % (table_name, veto_group[1])).fetchone()[0]
-
-        if count == 0:
-            continue
-
-        connection.cursor().execute('DELETE FROM %s' % table_name)
-        connection.cursor().execute('INSERT INTO %s SELECT * FROM %s_backup' % (table_name, table_name))
+    for seg_def_id, ifo, name in veto_groups:
+        cursor.execute('DELETE FROM %s' % table_name)
+        cursor.execute("INSERT INTO %s SELECT * FROM %s_backup WHERE ifo='%s'" % (table_name, table_name, ifo))
 
         # Delete any triggers whose end time falls within a vetoed segment
-        subquery  = "SELECT %s.end_time FROM %s, segment WHERE segment.segment_def_id='%s' "
-        subquery += " AND %s.end_time BETWEEN segment.start_time AND segment.end_time"
-        subquery  = subquery % (table_name, table_name, veto_group[0], table_name)
+        subquery  = "SELECT %s.end_time FROM %s, segment WHERE segment.segment_def_id='%s' " % (table_name, table_name, seg_def_id)
+        subquery += " AND %s.end_time BETWEEN segment.start_time AND segment.end_time" % (table_name)
 
         sql =  'DELETE FROM ' + table_name
-        sql += ' WHERE end_time %s IN ' % (options.exclude_veto and "NOT" or '')
+        sql += ' WHERE end_time %s IN ' % (options.exclude_veto and ' ' or 'NOT')
         sql += ' (%s)' % subquery
 
-        connection.cursor().execute(sql)
+        cursor.execute(sql)
 
         # Write out
-        outname = get_output_name(veto_group[1],
-                                  int(veto_group[2][len('VETO_CAT'):len('VETO_CAT')+1]),
+        outname = get_output_name(ifo,
+                                  int(name[len('VETO_CAT'):len('VETO_CAT')+1]),
                                   gps_start_time, gps_end_time,
                                   options.output_dir or '.', 
-                                  veto_group[2].find('CUMULATIVE') > -1)
+                                  name.find('CUMULATIVE') > -1)
 
-        ligolw_sqlite.extract(connection, outname, table_names=['process','process_params',table_name,'search_summary','summ_value'])
+        ligolw_sqlite.extract(connection, outname, table_names=output_tables)
+
 
     # Clean up
     os.remove(temp_db)

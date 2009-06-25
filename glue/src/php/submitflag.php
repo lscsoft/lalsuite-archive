@@ -33,7 +33,9 @@ require './scripts/header.php';
       $com = "/bin/env PATH=/usr1/ldbd/glue/bin:/usr1/ldbd/ldg-4.7/ant/bin:/usr1/ldbd/ldg-4.7/glite/sbin:/usr1/ldbd/ldg-4.7/glite/bin:/usr1/ldbd/ldg-4.7/pegasus/bin:/usr1/ldbd/ldg-4.7/edg/sbin:/usr1/ldbd/ldg-4.7/pyglobus-url-copy/bin:/usr1/ldbd/ldg-4.7/jdk1.5/bin:/usr1/ldbd/ldg-4.7/condor/sbin:/usr1/ldbd/ldg-4.7/condor/bin:/usr1/ldbd/ldg-4.7/wget/bin:/usr1/ldbd/ldg-4.7/logrotate/sbin:/usr1/ldbd/ldg-4.7/gpt/sbin:/usr1/ldbd/ldg-4.7/globus/bin:/usr1/ldbd/ldg-4.7/globus/sbin:/usr1/ldbd/pacman-3.26/bin:/usr1/ldbd/ldg-4.7/vdt/sbin:/usr1/ldbd/ldg-4.7/vdt/bin:/usr1/ldbd/ldg-4.7/ldg-client/bin LD_LIBRARY_PATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/ldg-4.7/tclglobus/lib:/usr1/ldbd/ldg-4.7/glite/lib64:/usr1/ldbd/ldg-4.7/glite/lib:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/server:/usr1/ldbd/ldg-4.7/jdk1.5/jre/lib/i386/client:/usr1/ldbd/ldg-4.7/berkeley-db/lib:/usr1/ldbd/ldg-4.7/expat/lib:/usr1/ldbd/ldg-4.7/globus/lib PYTHONPATH=/usr1/ldbd/glue/lib64/python2.4/site-packages:/usr1/ldbd/glue/lib/python2.4/site-packages:/usr1/ldbd/ldg-4.7/globus/lib64/python X509_USER_CERT=/etc/pki/tls/certs/ldbdcert.pem X509_USER_KEY=/etc/pki/tls/certs/ldbdkey.pem dmtdq_seg_insert --server=segdb.ligo.caltech.edu:30020 --file ".$flagFile . " 2>&1";
       exec($com, $output, $returnval);
       if($returnval==0) {
+        fwrite($fh, $flagData);
         echo "<h3><center>Flag Submitted</center></h3>";
+        echo '<center>You can check your flag in the <a href="http://metaserver.phy.syr.edu/flagentry/listflags.php">list of all flags in the database.</a></center>';
       }
       else {
         echo "<h3><font color='blue'><center>Submit failed!</font></center></h3>";
@@ -59,6 +61,7 @@ require './scripts/header.php';
    $pid = getmypid();
    $node = gethostbyaddr(getenv('REMOTE_ADDR'));
 
+   $brief_desc = htmlspecialchars($_POST[comment]);
 
    $process ="  <Table Name='process:table'>\n".
 "    <Column Name='process:program' Type='lstring'/>\n".
@@ -76,7 +79,7 @@ require './scripts/header.php';
 '    "submitflag.php"'.','.
 ' "1.0"'.','.
 ' "/lalsuite/glue/php/submitflag.php"'.','.
-'"'.$_POST[comment].'" ,'.
+'"'.$_POST[comment].'"'.','.
 '"'.$node.'"'.','.
 '"'.$_POST[user].'"'.','.
 " $pid".','.
@@ -87,6 +90,7 @@ require './scripts/header.php';
 '    </Stream>'."\n".
 '  </Table>'."\n";
 //'"'.$_POST[comment].'"'.','.
+//'"'.$brief_desc.'"'.','.
 
   $segment_definer = " <Table Name='segment_definer:table'>\n".
 "   <Column Name='segment_definer:process_id' Type='ilwd:char'/>\n".
@@ -141,7 +145,6 @@ $segment_summary = " <Table Name='segment_summary:table'>\n".
 
 $flagData = $process.$segment_definer.$segment.$segment_summary;
 addFlag($filename, $flagData);
-
 ?>
     <p>
      <center><input type="button" value="Enter Another Flag" onclick="history.go(-2)"></center>
