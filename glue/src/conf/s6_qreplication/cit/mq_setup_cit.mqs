@@ -25,7 +25,7 @@ define qremote('ASN.QM3_TO_QM2.DATAQ') rname('ASN.QM3_TO_QM2.DATAQ') rqmname('QM
 
 * 5. Receive Queues:
 define qlocal('ASN.QM1_TO_QM3.DATAQ')
-define qlocal('ASN.QM2_TO_QM2.DATAQ')
+define qlocal('ASN.QM2_TO_QM3.DATAQ')
 
 * 6. Create the remote queue definition that points to the source
 * admin queues
