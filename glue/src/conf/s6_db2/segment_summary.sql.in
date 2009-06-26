@@ -46,6 +46,6 @@ CREATE INDEX segsumm_ind_stime ON segment_summary(start_time)
 ;
 CREATE INDEX segsumm_ind_etime ON segment_summary(end_time)
 ;
-CREATE INDEX segsumm_dind ON segment_summary(segment_def_cdb,segment_def_id)
+CREATE INDEX segsumm_dind ON segment_summary(segment_def_cdb,segment_def_id) CLUSTER
 ;
 
