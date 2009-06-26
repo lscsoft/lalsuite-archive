@@ -5,12 +5,12 @@
 """This script test ligolw_segment_query and ligolw_segments_from_cats:
 
 For ligolw_segment_query, the test runs against E13 data at the time of writing.
-1. run test query "ligolw_segments_from_cats --segment-url=ldbd://metaserver.phy.syr.edu:30025 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=/H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories"
+1. run test query "ligolw_segments_from_cats --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=/H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories"
 2. get segment start_time, end_time out from the result test_ligolw_segment_query.xml and put them in a temp time file "segScript"
 3. diff segScript against the validated correct results in the "correct_ligolw_segment_query_results.txt" 
 
 For ligolw_segments_from_cats, the test runs against E13 data at the time of writing
-1. run test query "ligolw_segments_from_cats --segment-url=ldbd://metaserver.phy.syr.edu:30025 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=/H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories". This command returns 8 xml files.
+1. run test query "ligolw_segments_from_cats --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=/H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories". This command returns 8 xml files.
 2. loop in the 12 xml files to get segment start_time and end_time and put them in a temp time file, for example, result_H1CAT1
 3. in the loop, diff the temp time file against its correspond validated results in, for example, H1CAT1 
 """
@@ -27,7 +27,7 @@ import os
 print "Testing ligolw_segment_query against E13 data..."
 
 # run the testing ligolw_segment_query command and generate the result xml file
-com = "ligolw_segment_query --segment-url=ldbd://metaserver.phy.syr.edu:30025 --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE --exclude-segments H1:DMT-BADGAMMA --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
+com = "ligolw_segment_query --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE --exclude-segments H1:DMT-BADGAMMA --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
 a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass
@@ -56,7 +56,7 @@ print "Testing ligolw_segments_from_cats against E13 data..."
 print "        It may take a while ..."
 
 # run ligolw_segments_from_cats and get 12 result files back
-com = "ligolw_segments_from_cats --segment-url=ldbd://metaserver.phy.syr.edu:30025 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories"
+com = "ligolw_segments_from_cats --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821634 --gps-end-time 924828992 --veto-file=H1H2-CBC_E13_ONLINE-923682800-2419200.xml --separate-categories"
 a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass
