@@ -303,8 +303,9 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
 
   # performance aid:  don't need veto segment lists for instruments whose
-  # state is unimportant
-  #vetoseglistdict = segments.segmentlistdict((key, value) for key, value in vetoseglistdict.items() if key in all_instruments)
+  # state is unimportant, nor veto segments that don't intersect the rings
+  coalesced_rings = segments.segmentlist(rings).coalesce()
+  vetoseglistdict = segments.segmentlistdict((key, segments.segmentlist(seg for seg in seglist if coalesced_rings.intersects_segment(seg))) for key, seglist in vetoseglistdict.items() if key in all_instruments)
 
   # tot up the time when exactly the instruments that must be on are on
   #
