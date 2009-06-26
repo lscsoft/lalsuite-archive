@@ -110,8 +110,6 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
     segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
     rings = segments.segmentlist(iterutils.flatten(segDict.values()))
     rings.sort()
-    # FIXME:  remove with thinca's ring boundary bug is fixed
-    rings = segments.segmentlist(segments.segment(ring[0], ring[1] + 1e-9) for ring in rings)
 
     # perform the veto
     if vetoFile is not None:
