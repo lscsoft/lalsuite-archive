@@ -277,6 +277,11 @@ if " " in opts.ranking_stat.strip():
   raise ValueError, "ranking-stat must not contain spaces"
 ranking_stat =  opts.ranking_stat.strip()
 
+if opts.rank_by.strip().upper() == 'MAX':
+    rank_by = 'MAX'
+else:
+    rank_by = 'MIN'
+
 # sqlitize convert_to_yrs
 connection.create_function( 'convert_to_yrs', 1, convert_to_yrs )
 
@@ -396,37 +401,13 @@ if opts.debug:
 if opts.verbose:
     print >> sys.stderr, "Calculating combined FAR..."
 
-# sqlitize functions
-connection.create_function('calc_cfar', 3, background.calc_cfar)
-
-# to calculate the max_bkg_fars in each category, we will 
-# use calc_ufar by passing it a 0; for this to work, however,
-# calc_ufar must be the by_max version, so if MIN, reset to max
-if rank_by == "MIN":
-    connection.create_function("calc_ufar", 5, background.calc_ufar_by_max)
-
-#
-# Run the sqlite script to calculate combined far. This works in
-# 3 steps:
-#   1. Create a temporary table called max_bkg_fars. This stores
-#      the max_bkg_fars for every category for each experiment_summ_id.
-#   2. Get max_bkg_fars for each experiment_summ_id: 
-#      this is the same things as the far calculated above, 
-#      just that the numerator are ALL the triggers in the
-#      background for that category.
-#   3. Calculate the combined FAR:
-#      This applies the algorithim in calc_cfar to each uncombined_far
-#      in the coinc_inspiral table using the max_bkg_fars calculated in 2.
-#
-sqlscript = ''.join(["""
-    CREATE TEMP TABLE max_bkg_fars AS
-        SELECT DISTINCT 
-            experiment_summary.experiment_id AS experiment_id,
-            experiment_summary.experiment_summ_id AS experiment_summ_id,
-            coinc_inspiral.ifos AS ifos,
-            """,
-            param_grouping, """ AS param_group,
-            NULL AS max_bkg_far
+# cycle over all esids in this category for this experiment and calculate
+# max_bkg_far for each
+sqlquery = ''.join(["""
+     SELECT DISTINCT
+        experiment_summary.experiment_id,
+        coinc_inspiral.ifos,
+        """, param_grouping, """
         FROM 
             coinc_inspiral
         JOIN 
@@ -434,57 +415,41 @@ sqlscript = ''.join(["""
                 experiment_summary.experiment_summ_id == experiment_map.experiment_summ_id
                 AND experiment_map.coinc_event_id == coinc_inspiral.coinc_event_id )
         WHERE 
-            experiment_summary.datatype != "simulation";
-    UPDATE 
-        max_bkg_fars
-    SET 
-        max_bkg_far = (
-            calc_ufar(
-                    max_bkg_fars.experiment_id,
-                    max_bkg_fars.experiment_summ_id,
-                    max_bkg_fars.ifos,
-                    max_bkg_fars.param_group,
-                    0
-                    )
-            );
-   CREATE INDEX mbf_es_index ON max_bkg_fars (experiment_summ_id);"""])
-
-if opts.debug:
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().executescript( sqlscript )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-# get the max bkg fars for each experiment summary
-sqlquery = """
-    SELECT
-        experiment_summ_id,
-        ifos,
-        max_bkg_far
-    FROM
-        max_bkg_fars"""
+            experiment_summary.datatype == "slide"
+        """])
 
 if opts.debug:
     print >> sys.stderr, sqlquery
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
-for esid, ifos, mbf in connection.cursor().execute(sqlquery):
-    if opts.combine_fars == "across_all":
-        ifos = "ALL_IFOS"
-    background.append_max_bkg_far(esid, ifos, mbf)
+for eid, ifos, param_group in connection.cursor().execute(sqlquery):
+    tot_num = len( background.bkg_stats[(eid, ifos, param_group)] )
+    if opts.combine_fars == 'across_all':
+        ifo_group = 'ALL_IFOS'
+    else:
+        ifo_group = ifos
+    for esid in background.frg_durs[eid]:
+        this_num = tot_num
+        # remove the number of triggers in the same esid
+        if (eid, esid, ifos, param_group) in background.sngl_slide_stats:
+            this_num = this_num - len( background.sngl_slide_stats[(eid, esid, ifos, param_group)] )
+        background.append_max_bkg_far( esid, ifo_group, this_num / background.bkg_durs[esid] )
 
 if opts.debug:
     print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
 
 background.sort_max_bkg_fars()
 
+# sqlitize cfar function
+connection.create_function('calc_cfar', 3, background.calc_cfar)
+
+# set ifos_group to figure out what to combine across
 if opts.combine_fars == "across_all":
     ifos_group = '"ALL_IFOS",'
 else:
     ifos_group = "coinc_inspiral.ifos,"
+
+# calculate combined far and update the combined_far column
 sqlquery = ''.join(["""
    UPDATE 
        coinc_inspiral

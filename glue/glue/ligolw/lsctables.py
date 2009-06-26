@@ -1706,7 +1706,7 @@ class SimInspiral(object):
 		if site is None:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%_end_time_ns" % site.lower()))
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
 
 	def get_eff_dist(self, instrument):
 		return getattr(self, "eff_dist_%s" % instrument[0].lower())
