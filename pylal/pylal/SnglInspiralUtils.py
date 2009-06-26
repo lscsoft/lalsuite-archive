@@ -290,7 +290,6 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # in the veto segment lists.  instruments not appearing in the veto
   # segments are assumed to be always on
   on_instruments &= set(vetoseglistdict.keys())
-  off_instruments &= set(vetoseglistdict.keys())
   all_instruments = on_instruments | off_instruments
   offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
 
@@ -299,6 +298,11 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   for offsetvector in offsetvectors:
     if not set(offsetvector.keys()).issuperset(all_instruments):
       raise ValueError, "incomplete offset vector %s" % repr(offsetvector)
+
+  # the livetime is trivial if an instrument that must be off is never
+  # vetoed
+  if not set(vetoseglistdict.keys()).issuperset(off_instruments):
+    return 0.0
 
   # performance aid:  don't need veto segment lists for instruments whose
   # state is unimportant, nor veto segments that don't intersect the rings
