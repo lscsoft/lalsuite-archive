@@ -299,6 +299,11 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   all_instruments = on_instruments | off_instruments
   offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
 
+  # performance aid:  if there are no offset vectors to consider, the
+  # livetime is trivial
+  if not offsetvectors:
+  	return []
+
   # check that each offset vector provides values for all instruments of
   # interest
   for offsetvector in offsetvectors:
