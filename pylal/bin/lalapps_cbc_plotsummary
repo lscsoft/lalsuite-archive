@@ -52,6 +52,7 @@ import sys
 
 
 from glue import segments
+from glue import segmentsUtils
 from glue.ligolw import table
 from glue.ligolw import dbtables
 from pylal import db_thinca_rings
@@ -140,6 +141,7 @@ class CoincDatabase(object):
 
 		# get the segment lists
 		self.seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program)
+		self.playground_segs = segmentsUtils.S2playground(self.seglists.extent_all())
 		self.instruments = set(self.seglists.keys())
 		if veto_segments_name is not None:
 			self.veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
@@ -170,6 +172,21 @@ class CoincDatabase(object):
 		# retrieve the distinct on and participating instruments
 		self.on_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?", (self.ii_definer_id,))]
 
+		# Get the live time
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+		self.background_livetime = {}
+		for on_instruments in self.on_instruments_combos:
+			selected_segs = self.seglists.intersection(on_instruments) - self.seglists.union(self.instruments - on_instruments)
+			self.playground_livetime[on_instruments] = self.playground_livetime.get(on_instruments, 0.0) + float(abs(selected_segs & self.playground_segs))
+			self.nonplayground_livetime[on_instruments] = self.nonplayground_livetime.get(on_instruments, 0.0) + float(abs(selected_segs - self.playground_segs))
+
+		# Now for the backtround livetime
+		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+			#FIXME This is taking the sum, we have to work out how to store all the timeslide livetimes separately and have this work across multiple DBs
+			self.background_livetime[on_instruments] = self.background_livetime.get(on_instruments, 0.0) + livetime
+		
+
 		# verbosity
 		if verbose:
 			print >>sys.stderr, "database stats:"
@@ -183,6 +200,11 @@ class CoincDatabase(object):
 			if self.coinc_def_table is not None:
 				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
+			for on_instruments in self.on_instruments_combos:
+				print >>sys.stderr, "\tplayground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.playground_livetime[on_instruments]
+				print >>sys.stderr, "\tnonplayground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.nonplayground_livetime[on_instruments]
+				print >>sys.stderr, "\tbackground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.background_livetime[on_instruments]
+
 
 
 #
