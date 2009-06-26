@@ -17,7 +17,9 @@ if version_info < (2, 4):
   print >> sys.stderr, "Glue requires at least version 2.4"
   sys.exit(1)
 
+from misc import determine_git_version
 from distutils.core import setup, Extension
+from distutils.command import build_py
 from distutils.command import install
 from distutils.command import sdist
 from distutils import log
@@ -29,6 +31,29 @@ def remove_root(path,root):
     return os.path.normpath(path).replace(os.path.normpath(root),"")
   else:
     return os.path.normpath(path)
+class glue_build_py(build_py.build_py):
+  def run(self):
+    # create the git_version module
+    if determine_git_version.in_git_repository():
+      try:
+        log.info("generating glue/git_version.py")
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+    elif os.path.exists("glue/git_version.py"):
+      # We're probably being built from a release tarball; don't overwrite
+      log.info("not in git checkout; using existing glue/git_version.py")
+    else:
+      log.info("not in git checkout; writing empty glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_empty_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+
+    # resume normal build procedure
+    build_py.build_py.run(self)
 
 class glue_install(install.install):
   def run(self):
@@ -91,6 +116,22 @@ class glue_sdist(sdist.sdist):
       except:
         pass
 
+    # create the git_version module
+    if determine_git_version.in_git_repository():
+      log.info("generating glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+    else:
+      log.info("not in git checkout; writing empty glue/git_version.py")
+      try:
+        git_version_fileobj = open("glue/git_version.py", "w")
+        determine_git_version.write_empty_git_version(git_version_fileobj)
+      finally:
+        git_version_fileobj.close()
+
     # now run sdist
     sdist.sdist.run(self)
 
@@ -103,7 +144,11 @@ setup(
   url = "http://www.lsc-group.phys.uwm.edu/daswg/",
   license = 'See file LICENSE',
   packages = [ 'glue', 'glue.lars', 'glue.lars.cli', 'glue.lars.util', 'glue.ligolw', 'glue.ligolw.utils', 'glue.segmentdb' ],
-  cmdclass = { 'install' : glue_install, 'sdist' : glue_sdist },
+  cmdclass = {
+    'build_py' : glue_build_py,
+    'install' : glue_install,
+    'sdist' : glue_sdist
+  },
   ext_modules = [
     Extension(
       "glue.ligolw.tokenizer",
