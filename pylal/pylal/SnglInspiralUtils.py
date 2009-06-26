@@ -232,12 +232,9 @@ def slideSegListDictOnRing(ring, seglistdict, shifts):
   # make a copy, and extract the segments that are in the ring.
   seglistdict = seglistdict & ring
 
-  # normalize the shift vector.  after this all the shifts are non-negative
-  # and less than the duration of the ring.
-  shifts = dict((instrument, shift % ring_duration) for instrument, shift in shifts.items())
-
-  # apply the shift vector.
-  seglistdict.offsets.update(shifts)
+  # apply the shift vector.  the shift vector is first normalized so that
+  # all the shifts are non-negative and less than the duration of the ring.
+  seglistdict.offsets.update(dict((instrument, shift % ring_duration) for instrument, shift in shifts.items()))
 
   # split the result into the pieces that are still in the ring, and the
   # pieces that have fallen off the edge.  both retain the shift vector in
@@ -286,8 +283,8 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   off_instruments = set(off_instruments)
   offsetvectors = tuple(offsetvectors)
 
-  # check that the on and off instruments are disjoint, and that the offset
-  # vector provides values for all instruments of interest
+  # check that the on and off instruments are disjoint, and that each
+  # offset vector provides values for all instruments of interest
   if on_instruments & off_instruments:
     raise ValueError, "on_instruments and off_instruments not disjoint"
   for offsetvector in offsetvectors:
@@ -318,9 +315,18 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # be off is not vetoed
   live_time = 0.0
   for ring in rings:
+    # don't do this in loops
+    ring = segments.segmentlist([ring])
+
+    # performance aid:  this is done in the loop, inside
+    # slideSegListDictOnRing(), but we can make that go faster by doing it
+    # here first
+    clipped_vetoseglistdict = segments.segmentlistdict((key, seglist & ring) for key, seglist in vetoseglistdict.items())
+
+    # iterate over offset vectors
     for offsetvector in offsetvectors:
-      slidvetoes = slideSegListDictOnRing(ring, vetoseglistdict, offsetvector)
-      live_time += float(abs(segments.segmentlist([ring]) - slidvetoes.union(on_instruments) - (~slidvetoes).union(off_instruments)))
+      slidvetoes = slideSegListDictOnRing(ring[0], clipped_vetoseglistdict, offsetvector)
+      live_time += float(abs(ring - slidvetoes.union(on_instruments) - (~slidvetoes).union(off_instruments)))
 
   # done
   return live_time
