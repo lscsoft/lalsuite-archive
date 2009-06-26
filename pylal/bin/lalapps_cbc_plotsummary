@@ -508,6 +508,19 @@ FROM
 				self.injections_bankveto.setdefault(instrument, []).append(bankveto)
 
 	def finish(self):
+		for instrument in set(self.injections_snr.keys()) | set(self.background_snr.keys()):
+			self.injections_snr.setdefault(instrument, [])
+			self.injections_chi2.setdefault(instrument, [])
+			self.injections_r2.setdefault(instrument, [])
+			self.injections_bankveto.setdefault(instrument, [])
+			self.background_snr.setdefault(instrument, [])
+			self.background_chi2.setdefault(instrument, [])
+			self.background_r2.setdefault(instrument, [])
+			self.background_bankveto.setdefault(instrument, [])
+			self.zerolag_snr.setdefault(instrument, [])
+			self.zerolag_chi2.setdefault(instrument, [])
+			self.zerolag_r2.setdefault(instrument, [])
+			self.zerolag_bankveto.setdefault(instrument, [])
 		for instrument in self.background_snr:
 			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
