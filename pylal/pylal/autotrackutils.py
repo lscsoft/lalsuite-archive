@@ -454,7 +454,7 @@ class TGN:
       mCol=mData.__len__()
       sCol=bData.__len__()
       if (mData.__len__()) != (bData.__len__()):
-          raise autotrackDefineMismatch("Array lengths %i:%i"%(mData.__len__(),bData.__len__()))
+          raise autotrackDefineMismatchError("Array lengths %i vs %i"%(mData.__len__(),bData.__len__()))
       self.colCount=mCol
       #Break off first few elements before creating arrays
       mID=mData.pop(0)
