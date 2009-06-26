@@ -89,6 +89,7 @@ class CondorJob:
     self.__condor_cmds = {}
     self.__notification = None
     self.__log_file = None
+    self.__in_file = None
     self.__err_file = None
     self.__out_file = None
     self.__sub_file_path = None
@@ -313,6 +314,19 @@ class CondorJob:
     """
     self.__log_file = path
 
+  def set_stdin_file(self, path):
+    """
+    Set the file from which Condor directs the stdin of the job.
+    @param path: path to stdin file.
+    """
+    self.__in_file = path
+
+  def get_stdin_file(self):
+    """
+    Get the file from which Condor directs the stdin of the job.
+    """
+    return self.__in_file
+
   def set_stderr_file(self, path):
     """
     Set the file to which Condor directs the stderr of the job.
@@ -428,6 +442,8 @@ class CondorJob:
       subfile.write( cmd + " = " + self.__condor_cmds[cmd] + '\n' )
 
     subfile.write( 'log = ' + self.__log_file + '\n' )
+    if self.__in_file is not None:
+      subfile.write( 'input = ' + self.__in_file + '\n' )
     subfile.write( 'error = ' + self.__err_file + '\n' )
     subfile.write( 'output = ' + self.__out_file + '\n' )
     if self.__notification:
