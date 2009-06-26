@@ -1,3 +1,9 @@
+python-glue (1.24-1) unstable; urgency=low
+
+  * Initial release of 1.24
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 24 Jun 2009 18:55:00 -0500
+
 python-glue (1.23-1) unstable; urgency=low
 
   * Initial release of 1.23
