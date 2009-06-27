@@ -177,11 +177,12 @@ try:
       logger.debug("inserting %s" % infile)
       myClient = LDBDClient.LDBDClient(host, port, identity)
       result = myClient.insertdmt(xmltext)
-      logger.debug(str(result))
       del xmltext
     except KeyboardInterrupt:
       logger.info("caught keyboard interrupt")
-      published_segments |= segments.segmentlist([f.segment])
+      if result:
+        logger.debug("published segment %s" % str(f.segment))
+        published_segments |= segments.segmentlist([f.segment])
       die_now = True
     except Exception, e:
       logger.error("failed to publish %s (%s)" % (infile, str(e)))
