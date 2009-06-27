@@ -151,8 +151,8 @@ try:
       xmltext = fh.read()
       fh.close()
       logger.debug("inserting %s" % infile)
-      #myClient = LDBDClient.LDBDClient(host, port, identity)
-      #myClient.insertdmt(xmltext)
+      myClient = LDBDClient.LDBDClient(host, port, identity)
+      myClient.insertdmt(xmltext)
       del xmltext
     except Exception, e:
       logger.error("failed to publish %s (%s)" % (infile, str(e)))
