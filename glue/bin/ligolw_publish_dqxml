@@ -165,6 +165,7 @@ try:
 
   # publish the files and add them to the list of published segments
   for f in pending_files:
+    result = None
     if die_now:
       break
     infile = f.path()
@@ -175,7 +176,8 @@ try:
       fh.close()
       logger.debug("inserting %s" % infile)
       myClient = LDBDClient.LDBDClient(host, port, identity)
-      myClient.insertdmt(xmltext)
+      result = myClient.insertdmt(xmltext)
+      logger.debug(str(result))
       del xmltext
     except KeyboardInterrupt:
       logger.info("caught keyboard interrupt")
