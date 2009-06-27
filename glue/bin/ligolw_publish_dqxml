@@ -184,12 +184,13 @@ try:
     except Exception, e:
       logger.error("failed to publish %s (%s)" % (infile, str(e)))
     else:
+      logger.debug("published segment %s" % str(f.segment))
       published_segments |= segments.segmentlist([f.segment])
 
   excl_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","EXCLUDE",0)
   pub_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,"P1","PUBLISHED",0)
-  segmentdb_utils.add_to_segment(outdoc,proc_id,excl_def_id,published_segments)
-  segmentdb_utils.add_to_segment(outdoc,proc_id,pub_def_id,exclude_segments)
+  segmentdb_utils.add_to_segment(outdoc,proc_id,excl_def_id,exclude_segments)
+  segmentdb_utils.add_to_segment(outdoc,proc_id,pub_def_id,published_segments)
   logger.debug("published segments = %s" % str(published_segments))
   logger.debug("excluded segments = %s" % str(exclude_segments))
 
