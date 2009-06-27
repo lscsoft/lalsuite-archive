@@ -29,6 +29,7 @@
 
 
 import bisect
+from new import instancemethod
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -142,6 +143,7 @@ class Summaries(object):
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
 		else:
 			raise ValueError, category_algorithm
+		self.category_func = instancemethod(self.category_func, self, self.__class__)
 
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
@@ -151,6 +153,7 @@ class Summaries(object):
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
+		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
 		self.mass_bins = mass_bins
 		self.reputations = {}

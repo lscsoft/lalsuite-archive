@@ -79,7 +79,7 @@ __date__ = "$Date$"[7:-2]
 def parse_command_line():
 	parser = OptionParser(version="%prog CVS $Id$")
 	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
-	parser.add_option("-f", "--format", metavar = "format", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\" and \"pdf\")")
+	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
 	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
 	parser.add_option("--plot", metavar = "number", action = "append", default = None, help = "Generate the given plot number (default = make all plots).")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
@@ -172,25 +172,26 @@ class CoincDatabase(object):
 		# retrieve the distinct on and participating instruments
 		self.on_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?", (self.ii_definer_id,))]
 
-		# Get the live time
+		# get the live time
+		if verbose:
+			print >>sys.stderr, "calculating livetimes: ",
+		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
+		if verbose:
+			print >>sys.stderr
 		self.playground_livetime = {}
 		self.nonplayground_livetime = {}
-		self.background_livetime = {}
 		for on_instruments in self.on_instruments_combos:
 			selected_segs = self.seglists.intersection(on_instruments) - self.seglists.union(self.instruments - on_instruments)
-			self.playground_livetime[on_instruments] = self.playground_livetime.get(on_instruments, 0.0) + float(abs(selected_segs & self.playground_segs))
-			self.nonplayground_livetime[on_instruments] = self.nonplayground_livetime.get(on_instruments, 0.0) + float(abs(selected_segs - self.playground_segs))
-
-		# Now for the backtround livetime
-		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
-			#FIXME This is taking the sum, we have to work out how to store all the timeslide livetimes separately and have this work across multiple DBs
-			self.background_livetime[on_instruments] = self.background_livetime.get(on_instruments, 0.0) + livetime
-		
+			self.playground_livetime[on_instruments] = float(abs(selected_segs & self.playground_segs))
+			self.nonplayground_livetime[on_instruments] = float(abs(selected_segs - self.playground_segs))
 
 		# verbosity
 		if verbose:
 			print >>sys.stderr, "database stats:"
-			print >>sys.stderr, "\tinstrument combinations: %s" % ", ".join(sorted("+".join(sorted(on_instruments)) for on_instruments in self.on_instruments_combos))
+			for on_instruments in self.on_instruments_combos:
+				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
+				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.background_livetime[on_instruments])
 			if self.sngl_inspiral_table is not None:
 				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
 			if self.sim_inspiral_table is not None:
@@ -200,10 +201,6 @@ class CoincDatabase(object):
 			if self.coinc_def_table is not None:
 				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
 					print >>sys.stderr, "\t%s: %d" % (description, n)
-			for on_instruments in self.on_instruments_combos:
-				print >>sys.stderr, "\tplayground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.playground_livetime[on_instruments]
-				print >>sys.stderr, "\tnonplayground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.nonplayground_livetime[on_instruments]
-				print >>sys.stderr, "\tbackground livetime for " + "+".join(sorted(on_instruments)) + ": %f" % self.background_livetime[on_instruments]
 
 
 
@@ -332,9 +329,9 @@ FROM
 
 		def finish(self):
 			missed = self.found_in.pop(None, [])
-			for title, x_label, x_func in (
-				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp),
-				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end())
+			for title, x_label, x_func, filename_fragment in (
+				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp, "deff_vs_mchirp"),
+				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end(), "deff_vs_t")
 			):
 				fig, axes = create_plot(x_label, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
 	  			legend = []
@@ -346,7 +343,7 @@ FROM
 					axes.semilogy([x_func(sim) for sim in missed], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in missed], "k.")
 				axes.legend(legend)
 				axes.set_title(title)
-				yield fig
+				yield fig, filename_fragment
 
 	def __init__(self):
 		self.plots = {}
@@ -361,9 +358,9 @@ FROM
 			self.plots[on_instruments].add_contents(contents)
 
 	def finish(self):
-		for plot in self.plots.values():
-			for fig in plot.finish():
-				yield fig
+		for on_instruments, plot in self.plots.items():
+			for fig, filename_fragment in plot.finish():
+				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments)))
 
 
 #
@@ -412,32 +409,32 @@ FROM
 			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)")
 			axes.set_title(r"Absolute $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.mchirp for sim, sngl in pairs], [sngl.mchirp - sim.mchirp for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "mchirp_acc_abs_%s" % instrument
 
 			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"(Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$) / Injected $M_{\mathrm{chirp}}$")
 			axes.set_title(r"Fractional $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.mchirp for sim, sngl in pairs], [(sngl.mchirp - sim.mchirp) / sim.mchirp for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "mchirp_acc_frac_%s" % instrument
 
 			fig, axes = create_plot(r"Injected $\eta$", r"Recovered $\eta$ - Injected $\eta$")
 			axes.set_title(r"Absolute $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.eta for sim, sngl in pairs], [sngl.eta - sim.eta for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "eta_acc_abs_%s" % instrument
 
 			fig, axes = create_plot(r"Injected $\eta$", r"(Recovered $\eta$ - Injected $\eta$) / Injected $\eta$")
 			axes.set_title(r"Fractional $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.eta for sim, sngl in pairs], [(sngl.eta - sim.eta) / sim.eta for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "eta_acc_frac_%s" % instrument
 
 			fig, axes = create_plot(r"Injection End Time (GPS s)", r"Recovered End Time - Injection End Time (s)")
 			axes.set_title(r"End Time Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim_end_time(sim, instrument) for sim, sngl in pairs], [sngl.get_end() - sim_end_time(sim, instrument) for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "t_acc_%s" % instrument
 
 			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
 			axes.set_title(r"Fractional Effective Distance Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.semilogx([sim.get_eff_dist(instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim.get_eff_dist(instrument)) / sim.get_eff_dist(instrument) for sim, sngl in pairs], "kx")
-			yield fig
+			yield fig, "deff_acc_frac_%s" % instrument
 
 
 #
@@ -530,6 +527,19 @@ FROM
 				self.injections_bankveto.setdefault(instrument, []).append(bankveto)
 
 	def finish(self):
+		for instrument in set(self.injections_snr.keys()) | set(self.background_snr.keys()):
+			self.injections_snr.setdefault(instrument, [])
+			self.injections_chi2.setdefault(instrument, [])
+			self.injections_r2.setdefault(instrument, [])
+			self.injections_bankveto.setdefault(instrument, [])
+			self.background_snr.setdefault(instrument, [])
+			self.background_chi2.setdefault(instrument, [])
+			self.background_r2.setdefault(instrument, [])
+			self.background_bankveto.setdefault(instrument, [])
+			self.zerolag_snr.setdefault(instrument, [])
+			self.zerolag_chi2.setdefault(instrument, [])
+			self.zerolag_r2.setdefault(instrument, [])
+			self.zerolag_bankveto.setdefault(instrument, [])
 		for instrument in self.background_snr:
 			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
 			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
@@ -537,7 +547,7 @@ FROM
 			axes.loglog(self.background_snr[instrument], self.background_chi2[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_chi2[instrument], "bx")
 			axes.legend(("Injections", "Background", "Zero Lag"), loc = "upper left")
-			yield fig
+			yield fig, "chi2_vs_rho_%s" % instrument
 
 			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
 			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
@@ -545,7 +555,7 @@ FROM
 			axes.loglog(self.background_snr[instrument], self.background_r2[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_r2[instrument], "bx")
 			axes.legend(("Injections", "Background", "Zero Lag"), loc = "lower right")
-			yield fig
+			yield fig, "r2_vs_rho_%s" % instrument
 
 			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
 			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
@@ -553,7 +563,7 @@ FROM
 			axes.loglog(self.background_snr[instrument], self.background_bankveto[instrument], "kx")
 			axes.loglog(self.zerolag_snr[instrument], self.zerolag_bankveto[instrument], "bx")
 			axes.legend(("Injections", "Background", "Zero Lag"), loc = "upper left")
-			yield fig
+			yield fig, "bankchi2_vs_rho_%s" % instrument
 
 
 #
@@ -667,7 +677,7 @@ WHERE
 			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
 			axes.loglog([x for x, y in points.zerolag_snreff], [y for x, y in points.zerolag_snreff], "bx")
 			axes.legend(("Injections", "Background", "Zero lag"), loc = "lower right")
-			yield fig
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument)
 
 			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
 			axes.set_title(r"Effective Distance in %s vs.\ %s" % (y_instrument, x_instrument))
@@ -675,7 +685,7 @@ WHERE
 			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
 			axes.loglog([x for x, y in points.zerolag_deff], [y for x, y in points.zerolag_deff], "bx")
 			axes.legend(("Injections", "Background", "Zero lag"), loc = "upper right")
-			yield fig
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument)
 
 
 #
@@ -726,7 +736,7 @@ for n, filename in enumerate(filenames):
 		create_sim_coinc_view(connection)
 	for n, plot in zip(options.plot, plots):
 		if options.verbose:
-			print >>sys.stderr, "adding to plot %d ..." % n
+			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(contents)
 	# FIXME:  why does this crash?
 	#connection.close()
@@ -741,9 +751,9 @@ for n, filename in enumerate(filenames):
 n = 0
 filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot) or 1)) + 1)
 while len(plots):
-	for nfig, fig in enumerate(plots.pop(0).finish()):
+	for nfig, (fig, filename_fragment) in enumerate(plots.pop(0).finish()):
 		for format in options.format:
-			filename = filename_template % (options.base, options.plot[n], roman(nfig + 1), format)
+			filename = filename_template % (options.base, options.plot[n], filename_fragment, format)
 			if options.verbose:
 				print >>sys.stderr, "writing %s ..." % filename
 			fig.savefig(filename)

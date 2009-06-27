@@ -45,9 +45,12 @@ except ImportError:
 import sys
 import os
 import pwd
-import glob
 import tempfile
+import operator
 import glue.segments
+
+import time
+from glue import gpstime
 
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
@@ -96,7 +99,6 @@ def parse_command_line():
         description = "Reads one or more segment files and a veto file and generates files of veto segments"        
 	)
     
-    parser.add_option("-g", "--glob-pattern", metavar = "glob_pattern", default = '*.xml', help = "Glob pattern for segment XML files (default=*.xml).")
     parser.add_option("-v", "--veto-file",    metavar = "veto_file",    help = "veto XML file (required).")
     parser.add_option("-o", "--output-dir",   metavar = "output_dir",   default = '.',          help = "Directory to write output (default=cwd).")
     parser.add_option("-k", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
@@ -232,50 +234,6 @@ def kludge_get_column_info(connection, table_name):
 
 
 
-#
-# =============================================================================
-#
-#                                 Database/ldbd routines
-#
-# =============================================================================
-#
-
-
-def setup_database(host_and_port):
-    try:
-        from glue import LDBDClient
-        from glue import gsiserverutils
-    except Exception, e:
-        print >>sys.stderr, "Unable to import LDBDClient module from glue"
-        print >>sys.stderr, "Got the following error : " + str(e)
-        print >>sys.stderr, "Check that LDG is properly installed"
-        sys.exit(1)
-
-    port = 30015
-    
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(1)
-
-    return client
 
 #
 # =============================================================================
@@ -293,13 +251,11 @@ if __name__ == '__main__':
     del lsctables.ProcessTable.validcolumns['jobid']
     del lsctables.ProcessTable.validcolumns['is_online']
 
-    # And set up for boolean arguments
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
-
     dbtables.get_column_info = kludge_get_column_info
 
     options, db_location, file_location, loaded_file = parse_command_line()    
+
+    now = gpstime.GpsSecondsFromPyUTC(time.time())
 
     # 1. Load the veto file into sqlite    
     handle, temp_db    = tempfile.mkstemp(suffix='.sqlite')
@@ -319,7 +275,7 @@ if __name__ == '__main__':
         xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
         segment_query_engine = veto_query_engine
     else:
-        segment_connection   = setup_database(db_location)
+        segment_connection   = segmentdb_utils.setup_database(db_location)
         segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
     ligolw_sqlite.insert(veto_connection, xml_files)
@@ -332,60 +288,62 @@ if __name__ == '__main__':
     categories = [row[0] for row in veto_query_engine.query("select distinct(category) from veto_definer")]
     ifos       = [row[0] for row in veto_query_engine.query("select distinct(ifo) from veto_definer")]
 
-    if options.cumulative_categories:
-        category_selection_operator = ' <= '
-    else:
-        category_selection_operator = ' = '
+    category_selection_operator = options.cumulative_categories and ' <= ' or ' = '
 
-    for ifo, category_num in [(i,c) for i in ifos for c in categories]:
-        vetoed_segs = glue.segments.segmentlist([])
+    for ifo in ifos:
+        for category_num in categories:
+            # Start a new document
+            doc = ligolw.Document()
+            doc.appendChild(ligolw.LIGO_LW())
+
+            # Register ourselves
+            proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
+
+            # Keep the veto_definer for tracking purposes
+            doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])
+
+            # loop over select of name, version where ifo=current ifo and category <= current category
+            cursor = veto_connection.cursor()
+            sql = """SELECT ifo, name, version, start_time, end_time, start_pad, end_pad
+                       FROM veto_definer
+                      WHERE ifo = '%s' AND category %s %s""" % (ifo, category_selection_operator, category_num)
+
+            segdefs = []
+            for ifo, name, version, start_time, end_time, start_pad, end_pad in cursor.execute(sql):
+                if end_time == 0:
+                    end_time = now
+
+                veto_interval  = glue.segments.segmentlist([glue.segments.segment(start_time, end_time)])
+                veto_interval &= cli_interval
+                veto_interval.coalesce()
+
+                if len(veto_interval) > 0:
+                    segdefs.append( (ifo, name, version, veto_interval[0][0], veto_interval[0][1], start_pad, end_pad) )
+
+
+            vetoed_segments   = segmentdb_utils.query_segments(segment_query_engine, 'segment', segdefs)
+            segment_summaries = segmentdb_utils.query_segments(segment_query_engine, 'segment_summary', segdefs)
+
+            # We could write out everything we found.  This might help tracking down why a time
+            # or trigger was vetoed.
+            # segmentdb_utils.add_segment_info(doc, proc_id, segdefs, vetoed_segments, segment_summaries)
+
+            # Form the result
+            vetoed_segments = reduce(operator.or_, vetoed_segments).coalesce()
+
+            # Add the result type to the segment definer table
+            seg_name   = 'VETO_CAT%d%s' % (category_num, options.cumulative_categories and '_CUMULATIVE' or '')
+            seg_def_id = segmentdb_utils.add_to_segment_definer(doc, proc_id, ifo, seg_name, 1)
+
+            # and segment summary
+            segmentdb_utils.add_to_segment_summary(doc, proc_id, seg_def_id, [[min_start_time, max_end_time]])
+
+            # and store the segments
+            segmentdb_utils.add_to_segment(doc, proc_id, seg_def_id, vetoed_segments)
             
-        # Start a new document
-        doc = ligolw.Document()
-        doc.appendChild(ligolw.LIGO_LW())
-
-        # Register ourselves
-        proc_id = process.register_to_xmldoc(doc, PROGRAM_NAME, options.__dict__).process_id
-
-        # Keep the veto_definer for tracking purposes
-        doc.childNodes[0].appendChild(dbtables.get_xml(veto_connection, ['veto_definer']).childNodes[0])
-
-        # loop over select of name, version where ifo=current ifo and category <= current category
-        cursor = veto_connection.cursor()
-        cursor.execute("""SELECT name, version, start_time, end_time, start_pad, end_pad
-                          FROM veto_definer
-                          WHERE ifo = '%s' AND category %s %s""" % (ifo, category_selection_operator, category_num))
-        
-        for name, version, veto_start_time, veto_end_time, start_pad, end_pad in cursor:
-            if veto_end_time == 0:
-                veto_end_time = glue.segments.infinity()
-                
-            search_interval  = glue.segments.segmentlist([glue.segments.segment(veto_start_time, veto_end_time)])
-            search_interval &= cli_interval
-            search_interval.coalesce()
-
-            # There may be no overlap between the veto time and the time we're looking at
-            if len(search_interval):
-                vetoed_segs |= segmentdb_utils.run_query_segments(doc, proc_id, segment_query_engine,
-                                               search_interval[0][0], search_interval[0][1],
-                                               '%s:%s:%d' % (ifo, name, version),
-                                               write_segments = False, start_pad = start_pad, end_pad = end_pad)
-
-        vetoed_segs.coalesce()
-
-        # Add the result type to the segment definer table
-        seg_name   = 'VETO_CAT%d%s' % (category_num, options.cumulative_categories and '_CUMULATIVE' or '')
-        seg_def_id = segmentdb_utils.add_to_segment_definer(doc, proc_id, ifo, seg_name, 1)
-
-        # and segment summary
-        segmentdb_utils.add_to_segment_summary(doc, proc_id, seg_def_id, [[min_start_time, max_end_time]])
-
-        # and store the segments
-        segmentdb_utils.add_to_segment(doc, proc_id, seg_def_id, vetoed_segs)
-            
-        # Dump to XML
-        output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
-        utils.write_filename(doc, output_name)
+            # Dump to XML
+            output_name = "%s/%s-VETOTIME_CAT%d-%d-%d.xml" % (options.output_dir, ifo, category_num, min_start_time, (max_end_time - min_start_time))
+            utils.write_filename(doc, output_name)
 
     # Clean up
     if loaded_file:
