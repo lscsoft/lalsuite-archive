@@ -25,6 +25,7 @@ import sys
 import os
 import re
 import exceptions
+import signal
 import re
 import time
 import glob
@@ -46,6 +47,19 @@ from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
 
 from glue.segmentdb import segmentdb_utils
+
+# try and exit gracefully on a term signal
+die_now = False
+
+def SIGTERMhandler(signum, frame):
+  global die_now
+  try:
+    logger.info("caught SIGTERM")
+  except:
+    pass
+  die_now = True
+
+signal.signal(signal.SIGTERM, SIGTERMhandler)
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
@@ -120,11 +134,11 @@ try:
   logger.addHandler(handler)
   logger.setLevel(eval("logging." + options.log_level))
   logger.info("ligolw_publish_dqxml starting")
-  logger.info("server = " + options.server)
-  logger.info("spool directory = " + options.spool_directory)
-  logger.info("input directory = " + options.input_directory)
-  logger.info("log file = " + options.log_file)
-  logger.info("log level = " + options.log_level)
+  logger.debug("server = " + options.server)
+  logger.debug("spool directory = " + options.spool_directory)
+  logger.debug("input directory = " + options.input_directory)
+  logger.debug("log file = " + options.log_file)
+  logger.debug("log level = " + options.log_level)
 
   # read in the published file and get the published segment list
   state_file = os.path.join(options.spool_directory,"published.xml")
@@ -144,6 +158,8 @@ try:
 
   # publish the files and add them to the list of published segments
   for f in pending_files:
+    if die_now:
+      break
     infile = f.path()
     try:
       logger.debug("reading %s" % infile)
@@ -154,6 +170,10 @@ try:
       myClient = LDBDClient.LDBDClient(host, port, identity)
       myClient.insertdmt(xmltext)
       del xmltext
+    except KeyboardInterrupt:
+      logger.info("caught keyboard interrupt")
+      published_segments |= segments.segmentlist([f.segment])
+      die_now = True
     except Exception, e:
       logger.error("failed to publish %s (%s)" % (infile, str(e)))
     else:
