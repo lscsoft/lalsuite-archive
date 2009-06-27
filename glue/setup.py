@@ -212,7 +212,6 @@ setup(
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
     os.path.join('bin','ligolw_cbc_glitch_page'),
-    os.path.join('bin','ligolw_cbc_hardware_inj_page'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
     os.path.join('bin','ligolw_segment_diff'),
