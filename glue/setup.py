@@ -223,9 +223,9 @@ setup(
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
-    os.path.join('sbin','ldbdd'),
-    os.path.join('sbin','ligolw_publish_dqxml'),
-    os.path.join('sbin','segdb_coalesce'), ],
+    os.path.join('bin','ldbdd'),
+    os.path.join('bin','ligolw_publish_dqxml'),
+    os.path.join('bin','segdb_coalesce'), ],
   data_files = [
     (
       'etc',
