@@ -64,7 +64,7 @@ parser = OptionParser(
   usage   = "%prog [OPTIONS]",
   description = "Publishes XML files into the segment database")
 
-parser.add_option("-r", "--server" metavar = "HOST:PORT", help = "connect to ldbd on HOST:PORT (default port 30020)")
+parser.add_option("-r", "--server", metavar = "HOST:PORT", help = "connect to ldbd on HOST:PORT (default port 30020)")
 parser.add_option("-d", "--spool-directory", metavar = "DIR", help = "use DIR as spool directory")
 parser.add_option("-D", "--input-directory", metavar = "DIR", help = "look for input files in DIR")
 parser.add_option("-l", "--log-file", metavar = "FILE", help = "use FILE as log file")
@@ -114,7 +114,7 @@ try:
 
   # set up logging
   logger = logging.getLogger('ligolw_publish_dqxml')
-  handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1048576, 5)
+  handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1024 * 1048576, 5)
   formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
   handler.setFormatter(formatter)
   logger.addHandler(handler)
@@ -140,7 +140,7 @@ try:
   pending_files = lal.Cache()
   for s in pending_segments:
     pending_files += lal.Cache.from_urls(segmentdb_utils.get_all_files_in_range(options.input_directory,s[0],s[1]),coltype=int).sieve(segment=s)
-  pending_files.sort(reverse=True)
+  pending_files.sort()
 
   # publish the files and add them to the list of published segments
   for f in pending_files:
