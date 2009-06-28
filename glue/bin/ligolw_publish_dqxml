@@ -133,7 +133,7 @@ try:
 
   # set up logging
   logger = logging.getLogger('ligolw_publish_dqxml')
-  handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1024 * 1048576, 5)
+  handler = logging.handlers.RotatingFileHandler(options.log_file, 'a', 1048576, 5)
   formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
   handler.setFormatter(formatter)
   logger.addHandler(handler)
