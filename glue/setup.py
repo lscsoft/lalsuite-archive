@@ -195,6 +195,7 @@ setup(
     )
   ],
   scripts = [
+    os.path.join('bin','gracedb'),
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','LSCdataFindcheck'),
     os.path.join('bin','ligo_data_find'),
