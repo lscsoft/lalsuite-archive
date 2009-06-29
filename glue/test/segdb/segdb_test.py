@@ -21,13 +21,41 @@ import commands
 import sys
 import os
 
+
 #--------------------------------------------------------------------------------
-#    Test ligolw_segment_query
+#    Test ligolw_segment_query without explicit versions
 #--------------------------------------------------------------------------------
-print "Testing ligolw_segment_query against E13 data..."
+print "Testing ligolw_segment_query against E13 data (without versions)..."
 
 # run the testing ligolw_segment_query command and generate the result xml file
 com = "ligolw_segment_query --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE --exclude-segments H1:DMT-BADGAMMA --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
+a = commands.getstatusoutput(com)
+if a[0] == 0:
+  pass
+else:
+  print "Error executing command to generate result xml file"
+  sys.exit(1)
+
+
+# diff result file from ligolw_segment_query and from database
+com = 'diff correct_ligolw_segment_query_results.txt segScript'
+a = commands.getstatusoutput(com)
+if a[0] == 0:
+  print "Test pass"
+  print
+else:
+  print "Test fail"
+  print a[1]
+
+os.remove('segScript')
+
+#--------------------------------------------------------------------------------
+#    Test ligolw_segment_query with explicit versions
+#--------------------------------------------------------------------------------
+print "Testing ligolw_segment_query against E13 data (with versions)..."
+
+# run the testing ligolw_segment_query command and generate the result xml file
+com = "ligolw_segment_query --segment-url=ldbd://segdb.ligo.caltech.edu:30015 --gps-start-time 924821632 --gps-end-time 924921632 --include-segments H1:DMT-SCIENCE:1 --exclude-segments H1:DMT-BADGAMMA:1 --query-segments | ligolw_print -t segment -c start_time -c end_time -d ' ' > segScript"
 a = commands.getstatusoutput(com)
 if a[0] == 0:
   pass

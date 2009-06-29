@@ -91,11 +91,11 @@ def parse_command_line():
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
 		if options.rank_by != "snr":
-			raise ValueError, "must rank by \"snr\" if category algorithm is \"mchirp-ifos-oninstruments\" or \"mtotal-ifos-oninstruments\""
+			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "false_alarm_rate"
 	else:
 		if options.rank_by == "snr":
-			raise ValueError, "must rank by \"uncombined-ifar\" or \"likelihood\" if category algorithm is \"oninstruments\""
+			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "combined_far"
 
 	#
@@ -139,7 +139,7 @@ class Summaries(object):
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
 		elif category_algorithm == "mtotal-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
-		elif cateogry_algorithm == "oninstruments":
+		elif category_algorithm == "oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
 		else:
 			raise ValueError, category_algorithm
@@ -180,7 +180,7 @@ class Summaries(object):
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 
-	def index(self, stat):
+	def index(self):
 		for reputations in self.reputations.values():
 			reputations.sort()
 
@@ -303,7 +303,7 @@ WHERE
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
-background.index(stat)
+background.index()
 
 
 #

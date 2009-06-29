@@ -80,7 +80,7 @@ try:
     from httplib import HTTPS
 except ImportError:
     print "SSL is not available.  If you are on a Mac, with MacPorts,"
-    print "please install py25-socket-ssl."
+    print "please update your ports tree and upgrade any outdated ports."
     sys.exit(1)
 
 class MyTransport(Transport):
