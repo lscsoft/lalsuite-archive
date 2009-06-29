@@ -742,9 +742,10 @@ for (eid, exp_start_time, exp_end_time, on_inst) in experiment_ids:
             lgnd = dict([ [ifos, InspiralUtils.get_coinc_ifo_colors(ifos)] \
                 for (esid, ifos) in background.max_bkg_fars if esid == zero_esid])
             # if any ifos are in the foreground but not in the background, add those also
-            for (ifos, param_group) in uncombined_fars[eid][zero_esid]:
-                if ifos not in lgnd:
-                    lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
+            if zero_esid in uncombined_fars[eid]:
+                for (ifos, param_group) in uncombined_fars[eid][zero_esid]:
+                    if ifos not in lgnd:
+                        lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
             # add the ifo colors to the legend
             for ifos, ifos_color  in lgnd.items():
                 loglog( [xdum,xdum], [ydum,ydum],
