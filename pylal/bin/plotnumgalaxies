@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 
-# $Id$
+# $Id: plotnumgalaxies,v 1.92.2.10 2009/03/27 20:44:40 sfairhur Exp $
 __author__ = "Stephen Fairhurst <fairhurst_s@ligo.caltech.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"[7:-2]
+__version__ = "$Revision: 1.92.2.10 $"[11:-2]
+__date__ = "$Date: 2009/03/27 20:44:40 $"[7:-2]
 	
 import sys
 import os
@@ -184,7 +184,7 @@ def injMassCut (coinc_table, m_low, m_high):
   tmpTable.sngl_table = lsctables.New(lsctables.SnglInspiralTable)
   for entry in coinc_table:
     sim = getattr(entry, 'sim')
-    event_id = getattr(entry, 'event_id')
+    event_id = int(getattr(entry, 'event_id'))
     mass1 = getattr(sim, 'mass1')
     mass2 = getattr(sim, 'mass2')
     if opts.population_type == "componentmass":
@@ -194,7 +194,7 @@ def injMassCut (coinc_table, m_low, m_high):
     if (mass > m_low) and (mass < m_high):
       tmpTable.append(entry)
       for trig in coinc_table.sngl_table:
-        if trig.event_id == event_id:
+        if int(trig.event_id) == event_id:
           tmpTable.sngl_table.append(trig)
   return tmpTable
 
@@ -244,7 +244,16 @@ def readFiles(fileGlob,statistic=None,dcCalErrorVal=None):
         coincInspiralTable.add_sim_inspirals(simInspiralTable) 
       if coincs: coincs.extend(coincInspiralTable)
       else: coincs = coincInspiralTable
-  return sims,coincs
+
+    max_dist = None
+    try: 
+      ppTable = table.get_table(doc, lsctables.ProcessParamsTable.tableName)
+      for row in ppTable:
+        if row.param=="--max-distance":
+          max_dist = float(row.value)
+    except: max_dist = None
+
+  return sims,coincs, max_dist
 
 ##############################################################################
 # Function to read in the source file and return a sorted list of its
@@ -260,21 +269,23 @@ def read_source_file( source_file ):
   f.close()
 
   sourceList = {}
-  sourceList["MW"] = {"luminosity": 0.0, "delta_d": 0.0,\
+  sourceList["MW"] = {"luminosity": 0.0, "distance": 0, "delta_d": 0.0,\
                       "delta_m":opts.mw_mag_error}
   for line in lines:
     if line[0] != '#':
       b  = string.split(line)
       
       if opts.distance_error and opts.magnitude_error:
-        c = {"luminosity": float(b[4]) , "delta_d": float(b[6]), \
-             "delta_m": float(b[7])}
+        c = {"luminosity": float(b[4]), "distance": float(b[3]), \
+            "delta_d": float(b[6]), "delta_m": float(b[7])}
       elif opts.distance_error:
-        c = {"luminosity": float(b[4]) , "delta_d": float(b[6])}
+        c = {"luminosity": float(b[4]), "distance": float(b[3]), \
+            "delta_d": float(b[6])}
       elif opts.magnitude_error:
-        c = {"luminosity": float(b[4]) , "delta_m": float(b[7])}
+        c = {"luminosity": float(b[4]), "distance": float(b[3]), \
+            "delta_m": float(b[7])}
       else:
-        c = {"luminosity": float(b[4])}   
+        c = {"luminosity": float(b[4]), "distance": float(b[3])}   
       sourceList[b[0]] = c
 
   return sourceList
@@ -363,7 +374,7 @@ class slideZeroData:
 
   def add_slide_data (self, slideGlob):
     # read in triggers, get slide loudest
-    nosims,slideCoinc = readFiles(slideGlob,self.statistic)
+    nosims,slideCoinc,md = readFiles(slideGlob,self.statistic)
     numSlides = self.num_slides
     slideNum = range(1 , numSlides + 1)
     slideNum.extend(range(-numSlides, 0))
@@ -395,7 +406,7 @@ class slideZeroData:
     """
     add zero lag data 
     """
-    nosims,zeroCoinc = readFiles(zeroGlob,self.statistic)
+    nosims,zeroCoinc,md = readFiles(zeroGlob,self.statistic)
     if self.statistic.name == 'far':
       try: stat = min(zeroCoinc.getstat())
       except: stat = 100.0
@@ -550,15 +561,18 @@ class astroData:
   """
   def __init__(self, astroGlob, sourceFile, figName, distErrorType = None, \
       magErrorType = None):
-    self.astro_inj,nocoincs = readFiles(astroGlob)
+    self.astro_inj,nocoincs, self.max_dist = readFiles(astroGlob)
     self.astro_inj_precut = self.astro_inj
     self.source_list = read_source_file(sourceFile)
     if distErrorType or magErrorType: 
       self.source_list = add_actual_error(self.source_list,distErrorType,\
           magErrorType)
     self.fig_name = figName
-    self.max_luminosity = 0
+    self.max_luminosity = 0.
+    self.total_luminosity = 0.
     for galaxy, params in self.source_list.iteritems():
+      if self.max_dist is not None and params["distance"] < self.max_dist:
+        self.total_luminosity += params["luminosity"]
       if params["luminosity"] > self.max_luminosity:
         self.max_galaxy = galaxy
         self.max_luminosity = params["luminosity"]
@@ -573,6 +587,8 @@ class astroData:
     self.mw_sources = \
         self.astro_inj.getColumnByName('source').count('MW') 
     self.astro_normalization = self.max_luminosity/self.max_sources
+    self.total_sources = len(self.astro_inj)
+    self.total_normalization = self.total_luminosity/self.total_sources
 
   def mass_cut(self,mlow,mhigh):
     """
@@ -631,9 +647,9 @@ class astroData:
         elif error=="Magnitude":
           lum.append( 10**(self.source_list[name]['actual_delta_m']/2.5) )
       return (histng(self.get_values(column,error),edges,lum) * \
-              self.astro_normalization)
+              self.total_normalization)
     else:
-      return (histng(self.get_values(column),edges) * self.astro_normalization)
+      return (histng(self.get_values(column),edges) * self.total_normalization)
 
   def hist_2d_ng(self,col1,edges1,col2,edges2,error=None):
     """
@@ -649,11 +665,11 @@ class astroData:
           lum.append( 10**(self.source_list[name]['actual_delta_m']/2.5) )
       return (square(self.get_values(col1,error), edges1, \
                      self.get_values(col2,error), edges2, lum) *\
-                     self.astro_normalization)
+                     self.total_normalization)
     else:
       return (square(self.get_values(col1),edges1, \
                      self.get_values(col2),edges2) * \
-                     self.astro_normalization)
+                     self.total_normalization)
 
   def print_distance_ng(self, column, edges):
     """
@@ -770,9 +786,9 @@ class injData:
   """
   def __init__(self,foundGlob, missedGlob, statistic, dcCalErrorVal, figName):
     self.statistic = statistic.name
-    self.found_precut,self.coincs_precut = readFiles(foundGlob,statistic,
+    self.found_precut,self.coincs_precut,md = readFiles(foundGlob,statistic,
         dcCalErrorVal=dcCalErrorVal)
-    self.missed_precut,self.nocoincs_precut = readFiles(missedGlob,
+    self.missed_precut,self.nocoincs_precut,md = readFiles(missedGlob,
         dcCalErrorVal=dcCalErrorVal)
     #self.missed = lsctables.New(lsctables.SimInspiralTable)
     #self.missed.extend(self.missed_precut) 
@@ -1575,7 +1591,7 @@ plotnumgalaxies [options]
 """
 
 ##############################################################################
-parser = OptionParser( usage=usage, version= "%prog CVS $Id$")
+parser = OptionParser( usage=usage, version= "%prog CVS $Id: plotnumgalaxies,v 1.92.2.10 2009/03/27 20:44:40 sfairhur Exp $")
 
 # used letters: 
 # abcdefghijklmnopqrstuvwxyz
@@ -1988,6 +2004,7 @@ if astroPlots:
     print 'The Galaxy having Maximum Luminosity is ' + \
         injAstro.astro.max_galaxy 
 
+
   if opts.segment_file:
     print 'Number of Sources in ' + injAstro.astro.max_galaxy + \
           ' before segment selection = %d' % + injAstro.astro.max_sources
@@ -1997,12 +2014,18 @@ if astroPlots:
   if opts.verbose:
     print 'The number of Sources in ' + injAstro.astro.max_galaxy + ' = %d' \
           % injAstro.astro.max_sources
+    print 'The total luminosity = %.2f' % injAstro.astro.total_luminosity
+    print 'The number of Sources  = %d' % injAstro.astro.total_sources
+    print 'Normalization (L10 per source) from most luminous galaxy = ' + \
+        str(injAstro.astro.astro_normalization)
+    print 'Normalization (L10 per source) from all galaxies = ' + \
+        str(injAstro.astro.total_normalization)
     print 'The number of Sources in the Milky Way = %d' % \
         injAstro.astro.mw_sources
-    print 'The inferred Milky Way luminosity (from the data just above) is = %.2f' % \
-        (injAstro.astro.mw_sources * injAstro.astro.max_luminosity / \
-        injAstro.astro.max_sources)
-
+    print 'The inferred Milky Way luminosity (using most luminous galaxy) is = %.2f' % \
+        (injAstro.astro.mw_sources * injAstro.astro.astro_normalization)
+    print 'The inferred Milky Way luminosity (using all galaxy) is = %.2f' % \
+        (injAstro.astro.mw_sources * injAstro.astro.total_normalization)
 
 if injPlots:
   if opts.verbose:

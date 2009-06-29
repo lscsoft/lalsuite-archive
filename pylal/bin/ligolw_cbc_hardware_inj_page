@@ -1,0 +1,244 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2009  Steve Fairhurst, based on glitch-page.sh by Duncan
+# Brown, ligolw_glitch_page.py by Larne Pekowsky
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+#
+
+from optparse import OptionParser
+import sys
+import os
+import subprocess
+
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from glue import segments
+from glue import segmentsUtils
+
+# =============================================================================
+
+def readInjLog(fname):
+    """
+    read the injection log, and keep those rows corresponding to
+    successful injections
+    """
+    f = open(fname,'r')
+    injections = f.readlines()
+    f.close()
+    injections.pop(0)
+    inj_times = []
+    for line in injections:
+        details = line.strip().split('\t')
+        if details[3].strip() == 'Successful':
+            # injection performed successfully, so we want to record it
+            inj_times.append(int(details[0]))
+    return inj_times
+
+# =============================================================================
+
+def list_results(ifo, time, segment_url, filenames, successful_inj):
+    """
+    Generate HTML for each MBTA trigger in the given ifo 'close to'
+    the given time 
+    """
+    dq_flags = ''
+    flags    = {}
+
+    # Check whether the injection was performed
+    if (successful_inj.has_key(ifo) ) and (successful_inj[ifo] is not None):
+        if time not in successful_inj[ifo]:
+            print '  <tr valign="top" bgcolor="ddffdd"><td>%s</td><td colspan="10">Injection Not Performed</td><td></td></tr>' % ifo
+            return
+
+    # Get associated DQ flags
+    if segment_url:
+        pipe = os.popen('ligolw_dq_query --segment=%s --include-segments %s --in-segments-only --report %d' % (segment_url, ifo, time))
+    else:
+        pipe = []
+
+    for line in pipe:
+        flag, beforet, timet, aftert = filter(lambda x: x != '', line.split())
+    
+        ifo, name, version = flag.split(':')
+        flags[name] = (beforet, timet, aftert)
+
+    if not pipe == []:
+        pipe.close()
+    
+    ifo_status = ''
+
+    # Handle the ones that sould be displayed in bold without
+    # DMT- 
+    for flag_name in ['Light','Up','Calibrated','Science','Injection']:
+        flag = 'DMT-' + flag_name.upper()
+
+        if flag in flags:
+            ifo_status += flag_name + ','
+            del flags[flag]
+
+    if len(ifo_status) > 0:
+        ifo_status = ifo_status[:-1]
+
+
+    flags[ifo_status] = True
+
+
+    for name, value in flags.items():
+        if not name.startswith('DMT'):
+            dq_flags += '<b>%s</b><br>' % name
+        else:
+            dq_flags += '%s %s %s<br>' % (name, value[0], value[2])
+
+
+    # Decide on the xml files to read
+    xml_files = []
+    
+    for fname in filenames:
+        tm, dur = fname.split('-')[-2:]
+        tm      = int(tm)
+        dur     = int(dur[:-4])
+
+        if time >= tm and time <= (tm + dur) and ifo in fname:
+            xml_files.append(fname)
+
+    # read triggers
+    if not xml_files:
+        print '  <tr valign="top" bgcolor="ff9900"><td>%s</td><td colspan="10">Not Analyzed</td><td>%s</td></tr>' % (ifo, dq_flags)
+        return
+
+    triggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(xml_files)
+    if triggers: 
+        # keep those which are near the time
+        inj_time = segments.segment(time - 0.1, time + 0.1)
+        triggers = triggers.vetoed(inj_time)
+        triggers = triggers.ifocut(ifo)
+    if triggers and len(triggers):
+        for trig in triggers:
+            if ifo[0] == "H":
+                print '    <td>%s</td><td>%.3f</td><td></td><td></td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td></td><td>%.2f</td><td>%s</td>' % (ifo, trig.get_end(), trig.mass1, trig.mass2, trig.mchirp, trig.eff_distance, trig.snr, dq_flags)
+            print '  </tr>'
+            if ifo[0] == "L":
+                print '    <td>%s</td><td></td><td>%.3f</td><td></td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td>%.2f</td><td></td><td>%.2f</td><td>%s</td>' % (ifo, trig.get_end(), trig.mass1, trig.mass2, trig.mchirp, trig.eff_distance, trig.snr, dq_flags)
+            print '  </tr>'
+            if ifo[0] == "V":
+                print '    <td>%s</td><td></td><td></td><td>%.3f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td></td><td></td>%.2f<td>%.2f</td><td>%s</td>' % (ifo, trig.get_end(), trig.mass1, trig.mass2, trig.mchirp, trig.eff_distance, trig.snr, dq_flags)
+            print '  </tr>'
+
+    else:
+        print '  <tr valign="top" bgcolor="ff3333"><td>%s</td><td colspan="10">Not Found</td><td>%s</td></tr>' % (ifo, dq_flags)
+
+    return
+
+# =============================================================================
+
+usage = """ %prog [options]
+Program to parse the inspiral injection log
+"""
+
+parser = OptionParser( usage )
+
+parser.add_option("-t","--gps-start-time",action="store",type="int",\
+    default=924600000, metavar="START",
+    help="start of GPS time range (default = 924600000)" )
+
+parser.add_option("-e","--gps-end-time",action="store",type="int",\
+    default=999999999, metavar="END",
+    help="end of GPS time range (default = 999999999)")
+
+parser.add_option("-i","--h1-injections",action="store_true",\
+    default=False, help="look at H1 injections")
+
+parser.add_option("-l","--l1-injections",action="store_true",\
+    default=False, help="look at L1 injections")
+
+parser.add_option("-v","--v1-injections",action="store_true",\
+    default=False, help="look at V1 injections")
+
+parser.add_option("-x","--source-xml",action="store",type="string",\
+    metavar="IN_XML", help="input xml file of injections" )
+
+parser.add_option("-s", "--segment", metavar = "segment_url", \
+    help = "URL pointing to segment DB.  If empty DQ flags will not be retrieved.")
+
+opts, filenames  = parser.parse_args()
+
+# =============================================================================
+ifos = []
+hwinj_done = {}
+if opts.h1_injections:
+    ifos.append("H1")
+
+if opts.l1_injections:
+    ifos.append("L1")
+
+if opts.v1_injections:
+    ifos.append("V1")
+
+if ifos == []:
+    print >>sys.stderr, "Must specify an ifo"
+    sys.exit(1)
+
+# =============================================================================
+# Work out times of injections
+hwinj_done = {}
+
+for ifo in ifos:
+    if ifo == "V1":
+        # Don't yet have Virgo info in seg database
+        hwinj_done["V1"] = None
+    else:
+      out_xml = "-".join([ifo,"inj_times.xml"])
+      out_txt = "-".join([ifo,"inj_times.txt"])
+      retcode = subprocess.call(["ligolw_segment_query", "--database", \
+          "--query-segments", "--gps-start-time", str(opts.gps_start_time), \
+          "--gps-end-time", str(opts.gps_end_time), \
+          "--output-file", out_xml, \
+          "--include-segments", ":".join([ifo,"DMT-INJECTION_INSPIRAL"]), \
+          "--segment-url", "ldbd://segdb.ligo.caltech.edu"] )
+      if retcode != 0:
+          print >>sys.stderr, "Segment call failed."
+      x = subprocess.Popen(["ligolw_print", "-t", "segment", "-c", "start_time",
+          "-c", "end_time", "-d" " ", out_xml], stdout=subprocess.PIPE)
+      retcode = x.wait()
+      if retcode != 0:
+          print >>sys.stderr, "Segment call failed."
+
+      hwinj_done[ifo] = segmentsUtils.fromsegwizard(x.stdout.readlines())
+
+# =============================================================================
+# Read in the injections
+injections = SimInspiralUtils.ReadSimInspiralFromFiles([opts.source_xml])
+ 
+for inj in injections:
+
+    print '<table>'
+    print '  <tr bgcolor="#9999ff"><th>ifo</th><th>H End Time</th><th>L End Time</th><th>V End Time</th><th>Mass 1</th><th>Mass 2</th><th>Chirp Mass</th><th>H Eff Dist</th><th>L Eff Dist</th><th>V Eff Dist</th><th>snr</th><th>DQ flags</th>'
+    print '  <tr valign="top" bgcolor="ffdddd">'
+    print '    <td></td><td>%.3f</td><td>%.3f</td><td>%.3f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td></td><td></td>' %  \
+    (inj.get_end("H"), inj.get_end("L"), inj.get_end("V"), 
+    inj.mass1, inj.mass2, inj.mchirp, inj.eff_dist_h, inj.eff_dist_l, 
+    inj.eff_dist_v) 
+    print '  </tr>'
+
+    for ifo in ifos:
+        list_results(ifo, inj.get_end(ifo[0]), opts.segment, filenames,\
+            hwinj_done)
+    
+    print '</table>'
+    print '<p>'
+    sys.stdout.flush()
+
+

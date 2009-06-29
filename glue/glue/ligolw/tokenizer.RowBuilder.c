@@ -118,7 +118,7 @@ static int __init__(PyObject *self, PyObject *args, PyObject *kwds)
 
 	Py_INCREF(rowbuilder->rowtype);
 
-	rowbuilder->attributes = _build_attributes(rowbuilder->attributes);
+	rowbuilder->attributes = llwtokenizer_build_attributes(rowbuilder->attributes);
 	if(rowbuilder->interns)
 		rowbuilder->interns = PySequence_Tuple(rowbuilder->interns);
 	else

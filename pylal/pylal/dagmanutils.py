@@ -23,7 +23,9 @@ except ImportError:
 
 import datetime
 import hashlib
+import os
 import sys
+import time
 
 itertools = __import__("itertools")
 
@@ -120,6 +122,14 @@ class DAGManLog(object):
     """
     c = self.conn.cursor()
 
+    # try to infer year from dagman.out, else use current year.
+    if hasattr(dagman_out_fileobj, "name"):
+        start = datetime.datetime.fromtimestamp(\
+            os.path.getctime(dagman_out_fileobj.name))
+    else:
+        start = datetime.datetime.now()
+    year = str(start.year)
+
     dagman_out_hash = hashlib.md5()
     dagman_out_iter = iter(dagman_out_fileobj)
     for line in dagman_out_iter:
@@ -129,8 +139,14 @@ class DAGManLog(object):
         if grep_key in line: # we have a match
           tup = line.split()
           node_id = tup[node_id_col]
-          ts = datetime.datetime.strptime(tup[0] + " " + tup[1],
-             "%m/%d %H:%M:%S")
+          ts = datetime.datetime(*time.strptime(\
+            year + "/" + tup[0] + " " + tup[1],
+            "%Y/%m/%d %H:%M:%S")[:6])
+          # if ts is before log file creation, must increment year
+          if ts < start:
+            year = str(start.year + 1)
+            ts = datetime.datetime(*time.strptime(year + "/" + tup[0] + " "\
+                + tup[1], "%Y/%m/%d %H:%M:%S")[:6])
           if state_id == STATE_TERMINATED:
               line = dagman_out_iter.next() # job status on next line
               dagman_out_hash.update(line)
@@ -181,11 +197,8 @@ class DAGManLog(object):
 
     for node_id in durations:
       # find starts and stops
-      starts = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id=?", (node_id, STATE_RUNNING))
-      stops = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id<>?", (node_id, STATE_RUNNING))
-
-      # discard the initial idle queueing
-      stops.fetchone()
+      starts = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id=? ORDER BY ts", (node_id, STATE_RUNNING))
+      stops = c.execute("SELECT ts FROM transitions WHERE node_id=? AND state_id NOT IN (?, ?) ORDER BY ts LIMIT -1 OFFSET 1", (node_id, STATE_RUNNING, STATE_NOT_YET_RUN))
 
       # do the work; NB: Condor only has second precision at the moment.
       for (start,), (stop,) in itertools.izip(starts, stops):

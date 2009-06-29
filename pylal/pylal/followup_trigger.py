@@ -95,9 +95,24 @@ class FollowupTrigger:
     pylab.rcParams.update({'text.usetex': False})
 
     # Check all the required options
+    if not hasattr(opts, 'followup_exttrig'):
+      # default: this is a regular search, not a exttrig search
+      opts.followup_exttrig = False
+    if not hasattr(opts, 'followup_time_window'):
+      # default: set the time window for the timeseries to 10 seconds
+      opts.followup_time_window = 10.0
+    if not hasattr(opts, 'followup_tag'):
+      # default: don't specify a followup-tag
+      opts.followup_tag = None
+    if not hasattr(opts, 'followup_sned'):
+      # default: do not incorporate the updating of effective distances
+      #          with lalapps_sned
+      opts.followup_sned = None
+
     option_list = ['verbose','followup_exttrig','output_path',\
                    'followup_time_window','prefix',\
-                   'suffix','figure_resolution','user_tag']
+                   'suffix','figure_resolution','user_tag',\
+                   'followup_tag','followup_sned']
     for option in option_list:
       if not hasattr(opts, option):
         raise "Error: The following parameter is required in the "\
@@ -730,8 +745,8 @@ class FollowupTrigger:
     self.fill_table( page, ['mass2', '%.2f'% inj.mass2] )
     self.fill_table( page, ['mtotal', '%.2f' % (inj.mass1+inj.mass2)] )
     self.fill_table( page, ['mchirp', '%.2f' % (inj.mchirp)] )
-    self.fill_table( page, ['end_time', inj.geocent_end_time] )
-    self.fill_table( page, ['end_time_ns', inj.geocent_end_time_ns] )    
+    self.fill_table( page, ['end_time', '%010d' % inj.geocent_end_time] )
+    self.fill_table( page, ['end_time_ns', '%09d' %inj.geocent_end_time_ns] )    
     self.fill_table( page, ['distance', '%.1f' % inj.distance] )
     for ifo_id in ['h','l','v','g']:
       if self.sned:
@@ -764,8 +779,8 @@ class FollowupTrigger:
     self.fill_table(page, ['mass2', '%.2f'% trig.mass2] )
     self.fill_table(page, ['mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
     self.fill_table(page, ['mchirp', '%.2f' % (trig.mchirp)] )
-    self.fill_table(page, ['end_time', trig.end_time] )
-    self.fill_table(page, ['end_time_ns', trig.end_time_ns] )    
+    self.fill_table(page, ['end_time', '%010d' % trig.end_time] )
+    self.fill_table(page, ['end_time_ns', '%09d' % trig.end_time_ns] )    
     self.fill_table(page, ['snr', trig.snr])
     self.fill_table(page, ['chisq', trig.chisq])
     self.fill_table(page, ['eff_snr', self.get_effective_snr(trig)])
@@ -806,8 +821,8 @@ class FollowupTrigger:
         self.fill_table( page, ['Mass2', '%.2f'% trig.mass2] )
         self.fill_table( page, ['Mtotal', '%.2f' % (trig.mass1+trig.mass2)] )
         self.fill_table( page, ['Mchirp', '%.2f' % (trig.mchirp)] )
-        self.fill_table( page, ['end_time', trig.end_time] )
-        self.fill_table( page, ['end_time_ns', trig.end_time_ns] )    
+        self.fill_table( page, ['end_time', '%010d' % trig.end_time] )
+        self.fill_table( page, ['end_time_ns', '%09d' % trig.end_time_ns] )    
         self.fill_table( page, ['eff_distance', '%.1f' % trig.eff_distance] )
         page.add('</table></td>')                
 

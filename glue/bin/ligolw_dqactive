@@ -29,45 +29,34 @@
 
 
 """
-Takes one or more segment XML files and file of GPS times, and prints a list of
-DQ flags active at each of those times.
+Displays the set of flags active at a give time or times, in a convinent
+ascii form.
+
+All the heavy lifting is done by ligolw_dq_query --segment, this just 
+processes the arguments and output.
 """
 
-
 from optparse import OptionParser
-
-try:
-    import sqlite3
-except ImportError:
-    # pre 2.5.x
-    from pysqlite2 import dbapi2 as sqlite3
 
 import sys
 import os
 import glob
-
-import glue.segments
-
-from glue.ligolw.utils import ligolw_add
-from glue.ligolw import ligolw
-from glue.ligolw import lsctables
-from glue.ligolw import utils
-
-
-from glue.ligolw.utils import ligolw_sqlite
-from glue.ligolw import dbtables
+import time
+import socket
+import tempfile
+import urllib
+import pwd
 
 
 PROGRAM_NAME = sys.argv[0].replace('./','')
 PROGRAM_PID  = os.getpid()
-USER_NAME    = os.getlogin()
+USER_NAME    = pwd.getpwuid(os.getuid())[0]
 
 
 
-__author__ = "Larne Pekowsky <lppekows@physics.syr.edu>"
-__date__ = "$Date$"[7:-2]
+__author__  = "Larne Pekowsky <lppekows@physics.syr.edu>"
+__date__    = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
-
 
 #
 # =============================================================================
@@ -84,26 +73,54 @@ def parse_command_line():
     """
 
     parser = OptionParser(
-        version = "%prog CVS $Header$",
-        usage   = "%prog -v|--veto-file filename [options]",
-        description = "Reads one or more segment files and a veto file and generates files of veto segments"        
+        version     = "%prog CVS $Header$",
+        usage       = "%prog --ifo ifo --time-file timefile --input-dir dir",
+        description = "Prints a list of the flags that were active at each of the specified times"
 	)
-    
-    parser.add_option("-i", "--input-dir",    metavar = "input_dir",    default = '.',      help = "Directory containing segment XML files (default=cwd).")
-    parser.add_option("-m", "--temp-dir",     metavar = "temp_dir",     default = '/tmp',   help = "Directory for temporary files (default=/tmp).")
-    parser.add_option("-g", "--glob-pattern", metavar = "glob_pattern", default = '*.xml', help = "Glob pattern for segment XML files (define=*,xml).")
-    parser.add_option("-o", "--ifo",          metavar = "ifo",          help = "IFO to look at (required).")
-    parser.add_option("-t", "--time-file",    metavar = "time_file",    help = "File containing GPS times of interest (one per line) (required).")
-    parser.add_option("-x", "--keep-xml",     metavar = "keep_xml",     action  = "store_true", help = "Keep temporary XML file.")
-    parser.add_option("-d", "--keep-db",      metavar = "keep_db",      action  = "store_true", help = "Keep sqlite database.")
-                      
+
+    # Major modes
+    parser.add_option("-i", "--ifo",        metavar = "ifo",       help = "Abbreviation for IFO of interest")
+    parser.add_option("-t", "--time-file",  metavar = "time-file", help = "File of gps times, one per line")
+    parser.add_option("-s", "--segment",    metavar = "segment-url", help = "URL of segment database or DMT files")
+    parser.add_option("-d", "--input-dir",  metavar = "input-dir", help = "Location of DMT files")
+
+
     options, others = parser.parse_args()
-    
+
+
     if not options.ifo:
-        raise ValueError, "missing required argument --ifo"
+        print >>sys.stderr, "ifo is required"
+        sys.exit(1)
+
+
 
     if not options.time_file:
-        raise ValueError, "missing required argument --time-file"
+        print >>sys.stderr, "time-file is required"
+        sys.exit(1)
+
+    if not os.path.exists(options.time_file):
+        print >>sys.stderr, "time-file %s does not exist" % options.time_file
+        sys.exit(1)
+
+    if not os.path.isfile(options.time_file):
+        print >>sys.stderr, "time-file %s exists but is not a file" % options.time_file
+        sys.exit(1)
+
+
+
+
+    if not (options.input_dir or options.segment):
+        print >>sys.stderr, "One of [input-dir|segment] is required"
+        sys.exit(1)
+
+    if options.input_dir and not os.path.exists(options.input_dir):
+        print >>sys.stderr, "input_dir %s does not exist" % options.input_dir
+        sys.exit(1)
+
+    if options.input_dir and not os.path.isdir(options.input_dir):
+        print >>sys.stderr, "input_dir %s exists but is not a directory" % options.input_dir
+        sys.exit(1)
+
 
     return options
 
@@ -119,50 +136,27 @@ def parse_command_line():
 #
 
 if __name__ == '__main__':
-    options      = parse_command_line()    
+    options = parse_command_line()    
 
-    # TODO: These should have better names that include the
-    # start and end times
-    temp_db      = options.temp_dir + '/temp.db'
-    glob_pattern = options.input_dir
-    
-    if not glob_pattern.endswith('/'):
-        glob_pattern += '/'
+    f = open(options.time_file)
 
-    glob_pattern += options.glob_pattern
+    if options.input_dir:
+        segment = 'file://' + options.input_dir
+    else:
+        segment = options.segment
 
-    xml_files  = glob.glob(glob_pattern)
-    target     = dbtables.get_connection_filename(temp_db, None, True, False)
-    connection = ligolw_sqlite.setup(target)
+    for tme in f:
+        tme  = tme[:-1]
+        pipe = os.popen('ligolw_dq_query --segment=%s --active --include-segments=%s %s | ligolw_print -t segment_definer -c name' % (segment, options.ifo, tme))
 
-    ligolw_sqlite.insert(connection, xml_files)
+        print tme,
 
-    cursor = connection.cursor()
-    f      = open(options.time_file)
+        for name in pipe:
+            print '\t', name[:-1],
 
-    for line in f:
-        if line.startswith('#') or len(line.strip(' \t\n\r')) == 0 :
-            continue
-
-        gps_time = int(line)
-
-        print gps_time,
-        
-        cursor.execute("""
-             SELECT DISTINCT(segment_definer.name)
-             FROM segment, segment_definer
-             WHERE segment.segment_def_id = segment_definer.segment_def_id
-               AND segment_definer.ifos = ?
-               AND ? BETWEEN segment.start_time AND segment.end_time
-               """,(options.ifo, gps_time))
-
-        for row in cursor:
-            print ( '\t%s' % row[0] ),
+        pipe.close()
 
         print
 
+    f.close()
 
-    if not options.keep_db:
-        os.remove(temp_db)
-
-        

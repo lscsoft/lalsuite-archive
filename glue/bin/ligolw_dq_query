@@ -65,10 +65,8 @@ import glob
 import time
 import socket
 import tempfile
+import urllib
 import pwd
-
-from glue import LDBDClient
-from glue import gsiserverutils
 
 import glue.segments
 
@@ -129,16 +127,18 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
-    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
     # Other options
     parser.add_option("-a", "--include-segments", metavar = "include_segments", help = "This option expects a comma separated list of a colon separated sublist of interferometer, segment type, and version. The union of segments from all types and versions specified is returned. Use --show-types to see what types are available.   For example: --include-segment-types H1:SCIENCE:1,H1:INJECTION:2 will return the segments for which H1 is in either SCIENCE version 1 or INJECTION version 2 mode. If version information is not provided, the union of the segments of the latest version of requested segment type(s) will be returned.")
 
     parser.add_option("-o", "--output-file",   metavar = "output_file", help = "File to which output should be written.  Defaults to stdout.")
-    
+   
+    parser.add_option("-i", "--in-segments-only", action = "store_true", help = "If set, report will only return segments that given times were within") 
+
     options, times = parser.parse_args()
 
     # Make sure we have exactly one thing to do
@@ -156,21 +156,38 @@ def parse_command_line():
     file_location     = None
 
     # Make sure we know who to contact for data
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
-            raise ValueError( "Segment URL %s must start with ldbd: or file:" % (options.segment) )
+            tmp_dir = tempfile.mkdtemp()
+        
+            # Grab the part of the name after the last slash
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
+
+            inurl   = urllib.urlopen(options.segment_url)
+            outfile = open(tmp_dir + "/" + fname, 'w')
+            for l in inurl:
+                print >>outfile, l,
+
+            inurl.close()
+            outfile.close()
+            file_location = tmp_dir
     elif options.database:
         if 'LSC_SEGFIND_SERVER' not in os.environ:
             raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
         database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-files specified but DMT_SEGMENT_LOCATION not set" )
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment | --database | --dmt-file ] must be provided" )
         
@@ -206,7 +223,7 @@ def build_time_clause(table, times):
     that restricts a search to the given ranges"""
 
     subclauses = map(lambda x: 'NOT (%d > %s.end_time OR %s.start_time > %d)' % (x[0], table, table, x[1]), times)
-    return " OR ".join(subclauses)
+    return '( ' + " OR ".join(subclauses) + ' )'
 
 
 def build_segment_clause(clauses):
@@ -229,7 +246,8 @@ def build_segment_clause(clauses):
     return " OR ".join(subclauses)
 
 
-
+def get_full_name(ifo, name, version):
+    return '%s:%s:%d' % (ifo.strip(), name.strip(), version)
 
 #
 # =============================================================================
@@ -239,8 +257,7 @@ def build_segment_clause(clauses):
 # =============================================================================
 #
 
-
-def run_report(doc, process_id, engine, include_segments, times):
+def run_report(doc, process_id, engine, include_segments, times, in_segments_only):
     all_keys       = {}
     max_start      = {}
     max_end        = {}
@@ -267,86 +284,52 @@ def run_report(doc, process_id, engine, include_segments, times):
     # of time per-query
     #
     for tm in map(lambda x: int(x[0]), times):
-       # The last start time before the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.start_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.start_time < %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
+        # hams!
+        # Segments we are in the midsts of
+        rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version,
+             segment.start_time, segment.end_time
+             FROM segment_definer, segment
+             WHERE segment_definer.segment_def_id = segment.segment_def_id
+             AND %d BETWEEN segment.start_time AND segment.end_time
+             %s """ % (tm, segment_clause)) 
+
+        in_times = {}
+        for ifo, name, version, start_time, end_time in rows:
+            full_name = get_full_name(ifo, name, version)
+            in_times[full_name] = [start_time, end_time]
+            print '%-45s[%d %d %d)' % (full_name, start_time, tm, end_time)
+
+        if not in_segments_only:
+            # Segments we are between. Latest end time before of interest.
+            out_times = {}
+
+            rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
+                FROM segment_definer, segment
+                WHERE segment_definer.segment_def_id = segment.segment_def_id
+                AND segment.end_time < %d %s
+                GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
            
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            max_start[key] = row[3]
-
-       # The last end time before the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MAX(segment.end_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.end_time < %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
            
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            max_end[key] = row[3]
+            for ifo, name, version, end_time in rows:
+                full_name = get_full_name(ifo, name, version)
+                out_times[full_name] = ['%d)' % end_time, '[now']
 
-       # The next start time after the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.start_time > %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
-           
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            min_start[key] = row[3]
+            # The next start time after the time of interest
+            rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.start_time)
+                FROM segment_definer, segment
+                WHERE segment_definer.segment_def_id = segment.segment_def_id
+                AND segment.start_time > %d %s
+                GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm, segment_clause))
 
-       # The next end time after the time of interest
-       rows = engine.query("""SELECT segment_definer.ifos, segment_definer.name, segment_definer.version, MIN(segment.end_time)
-           FROM segment_definer, segment
-           WHERE segment_definer.segment_def_id = segment.segment_def_id
-           AND   segment.end_time > %d %s
-           GROUP BY segment_definer.ifos, segment_definer.name, segment_definer.version""" % (tm,segment_clause))
-           
-       for row in rows:
-            key = (row[0].strip(), row[1], row[2], tm)
-            all_keys[key]  = True
-            min_end[key]   = row[3]
+            for ifo, name, version, start_time in rows:
+                full_name = get_full_name(ifo, name, version)
+                value = full_name in out_times and [out_times[full_name][0], '[%s' % start_time] or ['never)', '[%s' % start_time]
+                out_times[full_name] = value
 
-
-    infinity = float('inf')
-
-    for key in all_keys:
-        ifo, name, version, tm = key
-
-        max_start_val = (key in max_start) and max_start[key] or 0         # last start before t.o.i
-        max_end_val   = (key in max_end)   and max_end[key]   or 0         # last end before t.o.i
-        min_start_val = (key in min_start) and min_start[key] or infinity  # next start after t.o.i
-        min_end_val   = (key in min_end)   and min_end[key]   or infinity  # next end after t.o.i
-
-        # are we in an active segment?  We are if the last end is before the last start.
-        if max_start_val > max_end_val:
-            prefix  = '[%d' % max_start_val
-            if min_end_val == infinity:
-                postfix = 'now)'
-            else:
-                postfix = '%d)' % min_end_val 
-        else:
-            prefix  = '%d)' % max_end_val
-            if min_start_val == infinity:
-                postfix = '[now'
-            else:
-                postfix = '[%d' % min_start_val 
-
-        value = '%s:%s:%s' % (ifo, name, version)
-
-        if len(value) < 40:
-            value += '                                        '[len(value):]
-
-        print '%s%15s\t%15d\t%15s' % (value, prefix, tm, postfix)
-
+            for key in out_times:
+                if key not in in_times:
+                    value = out_times[key]
+                    print '%-45s%s %d %s' % (key, value[0], tm, value[1])
 
 
 def run_active(doc, process_id, engine, include_segments, times):
@@ -380,7 +363,7 @@ def run_active(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -411,7 +394,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -426,36 +409,6 @@ def run_defined(doc, process_id, engine, include_segments, times):
 #
 # =============================================================================
 #
-
-
-def setup_database(host_and_port):
-    port = 30015
-    
-    if host_and_port.find(':') < 0:
-        host = host_and_port
-    else:
-        # server and port specified
-        host, portString = host_and_port.split(':')
-        port = int(portString)
-
-
-    identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
-
-    # open connection to LDBD Server
-    client = None
-
-    try:
-        client = LDBDClient.LDBDClient(host, port, identity)
-    except Exception, e:
-        print >>sys.stderr, \
-              "Unable to connect to LDBD Server %s:%d" % (host, port)
-        if gsiserverutils.checkCredentials():
-            print >>sys.stderr, "Got the following error : " + str(e)
-            print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
-
-    return client
-
 
 def ping_server(client):
     print client.ping()
@@ -513,7 +466,7 @@ if __name__ == '__main__':
 
     # Ping the database and exit if requested
     if options.ping:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         sys.exit( ping_server(connection) )
 
     start_pad = 0
@@ -535,7 +488,7 @@ if __name__ == '__main__':
     temp_files = False
 
     if database_location:
-        connection = setup_database(database_location)
+        connection = segmentdb_utils.setup_database(database_location)
         engine     = query_engine.LdbdQueryEngine(connection)
     else:
         temp_db, connection = setup_files(file_location, options, times)
@@ -552,7 +505,7 @@ if __name__ == '__main__':
        utils.write_filename(doc, options.output_file)
 
     if options.report:
-       run_report(doc, process_id, engine, options.include_segments, times)
+       run_report(doc, process_id, engine, options.include_segments, times, options.in_segments_only)
 
 
     # Clean up

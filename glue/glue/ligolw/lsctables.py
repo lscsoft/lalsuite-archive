@@ -139,10 +139,10 @@ def HasNonLSCTables(elem):
 def instrument_set_from_ifos(ifos):
 	"""
 	Convenience function for parsing the values stored in the "ifos"
-	columns found in many tables.  This function is mostly for internal
-	use by the .get_ifos() methods of the corresponding row classes.
-	The mapping from input to output is as follows (rules are applied
-	in order):
+	and "instruments" columns found in many tables.  This function is
+	mostly for internal use by the .get_ifos() and .get_instruments()
+	methods of the corresponding row classes.  The mapping from input
+	to output is as follows (rules are applied in order):
 
 	input is None --> output is None
 
@@ -152,7 +152,7 @@ def instrument_set_from_ifos(ifos):
 	input contains "+" --> output is set of strings split on "," with
 	leading and trailing whitespace stripped from each piece
 
-	after stripping input of leading and trailing whitespace,
+	else, after stripping input of leading and trailing whitespace,
 
 	input has an even length greater than two --> output is set of
 	two-character pieces
@@ -160,14 +160,22 @@ def instrument_set_from_ifos(ifos):
 	input is a non-empty string --> output is a set containing input as
 	single value
 
-	otherwise --> output is an empty set.
+	else output is an empty set.
+
+	NOTE:  the complexity of this algorithm is a consequence of there
+	being several conventions in use for encoding a set of instruments
+	into one of these columns;  it has been proposed that L.L.W.
+	documents standardize on the comma-delimited variant of the
+	encodings recognized by this function, and for this reason the
+	inverse function, ifos_from_instrument_set(), implements that
+	encoding only.
 	"""
 	if ifos is None:
 		return None
-	if "," in ifos:
-		return set(map(unicode.strip, ifos.split(",")))
-	if "+" in ifos:
-		return set(map(unicode.strip, ifos.split("+")))
+	if u"," in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u","))
+	if u"+" in ifos:
+		return set(ifo.strip() for ifo in ifos.split(u"+"))
 	ifos = ifos.strip()
 	if len(ifos) > 2 and not len(ifos) % 2:
 		# if ifos is a string with an even number of characters
@@ -195,9 +203,9 @@ def ifos_from_instrument_set(instruments):
 	if instruments is None:
 		return None
 	instruments = sorted(instrument.strip() for instrument in instruments)
-	if any(map(lambda instrument: "," in instrument or "+" in instrument, instruments)):
+	if any(map(lambda instrument: u"," in instrument or u"+" in instrument, instruments)):
 		raise ValueError, instruments
-	return ",".join(instruments)
+	return u",".join(instruments)
 
 
 #
@@ -314,8 +322,13 @@ class ProcessParamsTable(table.Table):
 		"type": "lstring",
 		"value": "lstring"
 	}
-	# FIXME: these constraints break ID remapping in the DB backend
+	# FIXME: these constraints break ID remapping in the DB backend.
+	# an index is used instead.  switch back to the constraints when I
+	# can figure out how not to break remapping.
 	#constraints = "PRIMARY KEY (process_id, param)"
+	how_to_index = {
+		"pp_pip_index": ("process_id", "param"),
+	}
 
 	def append(self, row):
 		if row.type is not None and row.type not in ligolwtypes.Types:
@@ -523,7 +536,7 @@ class ExperimentTable(table.Table):
 		"experiment_id": "ilwd:char",
 		"search_group": "lstring",
 		"search": "lstring",
-		"lars_id": "ilwd:char",
+		"lars_id": "lstring",
 		"instruments": "lstring",
 		"gps_start_time": "int_4s",
 		"gps_end_time": "int_4s",
@@ -641,52 +654,57 @@ class ExperimentSummaryTable(table.Table):
 	validcolumns = {
 		"experiment_summ_id": "ilwd:char",
 		"experiment_id": "ilwd:char",
-		"veto_def_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"zero_lag": "int",
-		"simulation": "int",
+		"veto_def_name": "lstring",
+		"datatype": "lstring",
+		"sim_proc_id": "ilwd:char",
 		"duration": "int_4s",
 		"nevents": "int_4u"
 	}
 	constraints = "PRIMARY KEY (experiment_summ_id)"
 	how_to_index = {
 		"es_ei_index": ("experiment_id",),
+		"es_dt_index": ("datatype",)
 	}
 	next_id = ExpSummID(0)
 
+	datatypes = ['slide', 'all_data', 'playground', 'exclude_play', 'simulation']
+		
+
 	def as_id_dict(self):
 		"""
-		Return table as a dictionary mapping experiment_id, time_slide_id
-		and veto_def_id to the expr_summ_id.
+		Return table as a dictionary mapping experiment_id, time_slide_id,
+		veto_def_name, and sim_proc_id (if it exists) to the expr_summ_id.
 		"""
 		d = {}
 		for row in self:
 			if row.experiment_id not in d:
 				d[row.experiment_id] = {}
-			if (row.time_slide_id, row.veto_def_id, row.simulation) in d[row.experiment_id]:
+			if (row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) in d[row.experiment_id]:
 				# entry already exists, raise error
 				raise KeyError, "Duplicate entries in experiment_summary table" 
-			d[row.experiment_id][(row.time_slide_id, row.veto_def_id, row.simulation)] = row.experiment_summ_id
+			d[row.experiment_id][(row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id)] = row.experiment_summ_id
 
 		return d
 
-	def get_expr_summ_id(self, experiment_id, veto_def_id, time_slide_id, simulation = False):
+	def get_expr_summ_id(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None):
 		"""
 		Return the expr_summ_id for the row in the table whose experiment_id, 
-		time_slide_id, and veto_def_id match the given. If simulation
-		set to true, will retrieve injection run.
+		time_slide_id, veto_def_name, and datatype match the given. If sim_proc_id,
+		will retrieve the injection run matching that sim_proc_id.
 		If a matching row is not found, returns None.
 		"""
+
 		# look for the ID
 		for row in self:
-			if (row.experiment_id, row.veto_def_id, row.time_slide_id, row.simulation) == (experiment_id, veto_def_id, time_slide_id, int(simulation)):
+			if (row.experiment_id, row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) == (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id):
 				# found it
 				return row.experiment_summ_id
 
 		# if get to here, experiment not found in table
 		return None
 
-	def write_experiment_summ(self, experiment_id, veto_def_id, time_slide_id, zero_lag = False, simulation = False ):
+	def write_experiment_summ(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None ):
 		"""
 		Writes a single entry to the experiment_summ table. This can be used
 		for either injections or non-injection experiments. However, it is
@@ -695,36 +713,57 @@ class ExperimentSummaryTable(table.Table):
 		ensure that an entry gets written for every time-slide performed.
 		"""
 		# check if entry alredy exists; if so, return value
-		check_id = self.get_expr_summ_id(experiment_id, veto_def_id, time_slide_id, simulation)
+		check_id = self.get_expr_summ_id(experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = sim_proc_id)
 		if check_id:
 			return check_id
 
 		row = self.RowType()
 		row.experiment_summ_id = self.get_next_id()
 		row.experiment_id = experiment_id
-		row.veto_def_id = veto_def_id
 		row.time_slide_id = time_slide_id
-		row.zero_lag = zero_lag
-		row.simulation = simulation
+		row.veto_def_name = veto_def_name
+		row.datatype = datatype
+		row.sim_proc_id = sim_proc_id
 		row.nevents = None
 		row.duration = None
 		self.append(row)
 		
 		return row.experiment_summ_id
 
-	def write_experiment_summ_set(self, experiment_id, veto_def_id, time_slide_dict, return_dict = False):
+	def write_non_injection_summary(self, experiment_id, time_slide_dict, veto_def_name, write_all_data = True, write_playground = True, write_exclude_play = True, return_dict = False):
 		"""
 		Method for writing a new set of non-injection experiments to the experiment
 		summary table. This ensures that for every entry in the 
 		experiment table, an entry for every slide is added to
 		the experiment_summ table, rather than just an entry for slides that
-		have events in them. 
+		have events in them. Default is to write a 3 rows for zero-lag: one for
+		all_data, playground, and exclude_play. (If all of these are set to false,
+		will only slide rows.)
 		
-		Note: Simulation is hard-coded to False because time-slides
+		Note: sim_proc_id is hard-coded to None because time-slides
 		are not performed with injections.
+
+		@experiment_id: the experiment_id for this experiment_summary set
+		@time_slide_dict: the time_slide table as a dictionary; used to figure out
+			what is zero-lag and what is slide
+		@veto_def_name: the name of the vetoes applied
+		@write_all_data: if set to True, writes a zero-lag row who's datatype column
+			is set to 'all_data'
+		@write_playground: same, but datatype is 'playground'
+		@write_exclude_play: same, but datatype is 'exclude_play'
+		@return_dict: if set to true, returns an id_dict of the table
 		"""
 		for slide_id in time_slide_dict:
-			self.write_experiment_summ( experiment_id, veto_def_id, slide_id, zero_lag = not any( time_slide_dict[slide_id].values() ), simulation = False )
+			# check if it's zero_lag or not
+			if not any( time_slide_dict[slide_id].values() ):
+				if write_all_data:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'all_data', sim_proc_id = None )
+				if write_playground:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'playground', sim_proc_id = None )
+				if write_exclude_play:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'exclude_play', sim_proc_id = None )
+			else:
+				self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'slide', sim_proc_id = None )
 
 		if return_dict:
 			return self.as_id_dict()
@@ -1306,8 +1345,10 @@ class CoincInspiralTable(table.Table):
 		"end_time": "int_4s",
 		"end_time_ns": "int_4s",
 		"mass": "real_8",
+		"mchirp": "real_8",
 		"snr": "real_8",
-		"false_alarm_rate": "real_8"
+		"false_alarm_rate": "real_8",
+		"combined_far": "real_8"
 	}
 	# FIXME:  like some other tables here, this table should have the
 	# constraint that the coinc_event_id column is a primary key.  this
@@ -1317,7 +1358,7 @@ class CoincInspiralTable(table.Table):
 	how_to_index = {
 		"ci_cei_index": ("coinc_event_id",)
 	}
-	interncolumns = ("coinc_event_id",)
+	interncolumns = ("coinc_event_id", "ifos")
 
 
 class CoincInspiral(object):
@@ -1654,21 +1695,21 @@ class SimInspiralTable(table.Table):
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end(site)
-			if time not in seglist:
-				keep.append(row)
+		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_end(self,site = None):
-		if not site:
+	def get_end(self, site = None):
+		if site is None:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self,site.lower() + '_end_time'), getattr(self,site.lower() + '_end_time_ns'))
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
+
+	def get_eff_dist(self, instrument):
+		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
 
 SimInspiralTable.RowType = SimInspiral
@@ -2538,6 +2579,37 @@ LIGOLWMonTable.RowType = LIGOLWMon
 #
 # =============================================================================
 #
+#                            veto_definer:table
+#
+# =============================================================================
+#
+
+
+class VetoDefTable(table.Table):
+	tableName = "veto_definer:table"
+	validcolumns = {
+		"process_id": "ilwd:char",
+		"ifo": "lstring",
+		"name": "lstring",
+		"version": "int_4s",
+		"category": "int_4s",
+		"start_time": "int_4s",
+		"end_time": "int_4s",
+		"start_pad": "int_4s",
+		"end_pad": "int_4s",
+		"comment": "lstring"
+	}
+	interncolumns = ("process_id","ifo")
+
+
+class VetoDef(object):
+	__slots__ = VetoDefTable.validcolumns.keys()
+
+VetoDefTable.RowType = VetoDef
+
+#
+# =============================================================================
+#
 #                                Table Metadata
 #
 # =============================================================================
@@ -2580,7 +2652,8 @@ TableByName = {
 	table.StripTableName(CoincTable.tableName): CoincTable,
 	table.StripTableName(CoincMapTable.tableName): CoincMapTable,
 	table.StripTableName(DQSpecListTable.tableName): DQSpecListTable,
-	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable
+	table.StripTableName(LIGOLWMonTable.tableName): LIGOLWMonTable,
+	table.StripTableName(VetoDefTable.tableName): VetoDefTable
 }
 
 

@@ -30,6 +30,12 @@ import fileinput
 import linecache
 import string
 import random
+import numpy
+import cPickle
+import gzip
+from scipy import interpolate
+import math
+
 from optparse import *
 from types import *
 import matplotlib
@@ -37,7 +43,6 @@ matplotlib.use('Agg')
 import operator
 from UserDict import UserDict
 
-from pylab import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -51,6 +56,8 @@ from glue.lal import *
 from glue import lal
 from glue import markup
 from lalapps import inspiralutils
+from glue           import LDBDClient
+from glue.segmentdb import query_engine
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
 class getCache(UserDict):
@@ -420,6 +427,7 @@ def getForegroundTimes(cp,opts,ifo):
 def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     times = []
     fileName = ''
+    segmentListLength = 0
   
     if cp.has_option('followup-background-qscan-times',ifo+'range'):
       rangeString = string.strip(cp.get('followup-background-qscan-times',ifo+'range'))
@@ -439,24 +447,34 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
     else:
 
       # Generate the list of science segments (excluding cat 1 vetoes) if a time range is provided in the ini file
-      if not len(rangeString) == 0:
+      if rangeString:
         epochStart = rangeString.split(',')[0]
         epochEnd = rangeString.split(',')[1]
-        opts.gps_start_time = int(epochStart)
-        opts.gps_end_time = int(epochEnd)
-        opts.use_available_data = False
-        opts.run_data_quality = False
+        #opts.gps_start_time = int(epochStart)
+        #opts.gps_end_time = int(epochEnd)
+        #opts.use_available_data = False
+        #opts.run_data_quality = False
         # overwrite the ini file if the field "analyze" in section [segments] exist...
-        cp.set("segments", "analyze", "Science")
+        #cp.set("segments", "analyze", "Science")
 
-        inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
-        segmentListFile = segFile[ifo]
+        #inspiralutils.findSegmentsToAnalyze(cp,opts,ifo,dq_url_pattern,segFile)
+        #segmentListFile = segFile[ifo]
 
       # Use the segment list if provided, and generate a list of random times
-      if not len(segmentListFile) == 0:
+      if rangeString or segmentListFile:
         segmentList = pipeline.ScienceData()
         segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
-        segmentList.read(segmentListFile,segmentMin)
+        if segmentListFile:
+          segmentList.read(segmentListFile,segmentMin)
+        elif rangeString:
+          segmentListTempo = getSciSegs(string.strip(cp.get('followup-dq','server-url')),ifo,int(epochStart),int(epochEnd),True)
+          seg_index = 0
+          for segment in segmentListTempo:
+            if int(math.floor(segment[1])-math.ceil(segment[0])) >= segmentMin:
+              segmentList.append_from_tuple(tuple([seg_index,segment[0],segment[1],segment[1]-segment[0]]))
+              seg_index += 1
+            else: continue
+
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -483,7 +501,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         saveRandomTimes(timeList,fileName)
 
       # Use the time-list file if provided
-      if len(segmentListFile) == 0 and not len(timeListFile) == 0:
+      if segmentListLength == 0 and not len(timeListFile) == 0:
         timeList = listFromFile(timeListFile)
         fileName = timeListFile
         if not timeList:
@@ -737,6 +755,86 @@ def getstatistic(stat, bla, blb):
   statistic=CoincInspiralUtils.coincStatistic( newstat, bla, blb )
   return statistic
 
+##############################################################################
+# function to query segment server looking for science segments
+##############################################################################
+def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
+               ifo=None,
+               gpsStart=None,
+               gpsStop=None,
+               cut=bool(False),
+               segName="DMT-SCIENCE"):
+  """
+  This method is designed to query the server specified by SERVERURL.
+  The method will return the segments that are between and overlaping
+  with the variable gpsStart and gpsStop.  If the flag cut is
+  specified to be True then the returned lists will be cut so that the
+  times are between gpsStart and gpsStop inclusive.  In addition to
+  these required arguments you must also specify in a text string the
+  IFO of interest.  Valid entries are L1 H1 V1 , but only one IFO at a
+  time can be specified.  You can call this method by specifying
+  specific keyswords ifo,gpsStart,gpsStop,cut,serverURL.  For example
+  to call using no segment cuts and the default URL try:
+  x=getSciSegs(gpsStart=987654321,gpsStop=876543210)
+  A query failure will give an error but no records found for the
+  options specified will return an empty list.
+  """
+  if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
+    sys.stderr.write("Invalid arguments given to getSciSegs.\n")
+    return None
+  ifo=ifo.strip()
+  queryString="""SELECT \
+segment.start_time,\
+segment.end_time FROM segment,segment_definer \
+WHERE segment_definer.segment_def_id = \
+segment.segment_def_id AND \
+segment_definer.name = '%s' AND \
+segment_definer.ifos = '%s' AND \
+NOT (segment.start_time > %s OR %s > \
+segment.end_time)"""
+  try:
+    serverName,serverPort=serverURL[len('ldbd://'):].split(':')
+  except:
+    serverPort="30015"
+    serverName=serverURL[len('ldbd://'):]
+  try:
+    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
+    connection=\
+    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
+  except Exception, errMsg:
+    sys.stderr.write("Error connection to %s at port %s\n"\
+                     %(serverName,serverPort))
+    sys.stderr.write("Error Message :\t %s \n"%(errMsg))
+    return None
+  try:
+    engine=query_engine.LdbdQueryEngine(connection)
+    sqlString=queryString%(segName,ifo,gpsStop,gpsStart)
+    queryResult=engine.query(sqlString)
+  except Exception, errMsg:
+    print type(errMsg),errMsg
+    sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
+    sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
+    sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
+    sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+    return
+  engine.close()
+  queryResult.sort()
+  if cut:
+    newList=list()
+    for seg in queryResult:
+      newStart=seg[0]
+      newStop=seg[1]
+      if int(newStart)<int(gpsStart):
+        newStart=gpsStart
+      if int(newStop)>int(gpsStop):
+        newStop=gpsStop
+      newList.append((newStart,newStop))
+    return newList
+  else:
+    return queryResult
+  return None
+#End getSciSegs()
+#
 
 #############################################################################
 # Follow up list class definition
@@ -1500,6 +1598,272 @@ class nVeto:
 #End nVeto() Class Definition
 ############################################################
 
+#############################################################################
+#Class to integrated SNR Ratio Testing into CBC follow up
+#Amber Stuver and Cristina V. Torres
+#Thu-Apr-23-2009:200904231541 
+#############################################################################
+# RATIO TEST CLASS
+class ratioTest:
+  """
+  Apply the SNR ratio test to a signal coincident at two
+  interferometers.  This test uses the time of flight and SNR
+  strengths measured at two seperate sites to determine if the ratio
+  of observed signal strengths is physically possible.  If the ratio
+  is phyiscally possible but unlikely the result of this test is a
+  probability that the seen SNR ratio for a given time of flight is
+  physically possible.
+  Contacts: Cristina Valeria Torres and Amber Stuver
+  """
+  def __init__(self):
+    """
+    This checks for information required to conduct this test.  The
+    initialization of this class requires the user to input a pointer
+    to the pickle file that holds all the necessary data to perform
+    this test.  If no pickle file is specified then the class object
+    looks for the pickle file at a predetermined http server and
+    attempts to download that file into the home directory of the user
+    invoking this class.
+    """
+    self.pickleLoaded=bool(False)
+    self.pickleURL="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/ratioTest.pickle"
+    self.picklePath=os.path.normpath(os.getenv("HOME")+"/")
+    self.pickleName="ratioTest.pickle"
+    self.localPickle=os.path.normpath(self.picklePath+self.pickleName)
+    self.ifoLambda={
+      'LHO':{'LHO':None,'LLO':float(0.726479)},
+      'LLO':{'LHO':float(0.726479),'LLO':None},
+      'VIRGO':{'LHO':float(1.1066),'LLO':float(1.0753)},
+      'GEO':{'LHO':float(1.0602),'LLO':float(1.1291)},
+      'TAMA':{'LHO':float(1.1089),'LLO':float(1.1221)}
+      }
+    self.urlPattern=str("https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/ratioMinMax_%s_%s_hires.jpg")
+    self.ifoURL={
+      'LHO':{'LHO':None,'LLO':self.urlPattern%("LHO","LLO")},
+      'LLO':{'LHO':self.urlPattern%("LHO","LLO"),'LLO':None},
+      'VIRGO':{'LHO':self.urlPattern%("LHO","VIRGO"),'LLO':self.urlPattern%("LLO","VIRGO")},
+      'GEO':{'LHO':self.urlPattern%("LHO","GEO"),'LLO':self.urlPattern%("LLO","GEO")},
+      'TAMA':{'LHO':self.urlPattern%("LHO","TAMA"),'LLO':self.urlPattern%("LLO","TAMA")}
+      }
+
+    self.pickleData=dict()
+  #End __init__()
+
+  def __loadPickle__(self,path2Pickle=None):
+    """
+    The code required to download the pickle from a specified location
+    and install the pickle into the default location for use.  This
+    method is only called if the class can not find the pickle requred
+    to run.  If we pass it a alternative complete path it tries to load it from
+    there.  
+    """
+    if path2Pickle==None:
+      path2Pickle=self.localPickle
+    else:
+      self.localPickle=path2Pickle
+    self.__openPickle__()
+    if not self.pickleLoaded:
+      print "In future we will try to fetch a web posted pickle!\n"
+      print "URL of pickle is %s\n"%self.pickleURL
+      print "Download and install this pickle by hand.\n"
+  #End __loadPickle__():
+
+  def __openPickle__(self):
+    """
+    This method opens the pre-existing pickle file and assigns the
+    information in this pickle file into variables already declared in
+    the __init__() method of this class object.  
+    """
+    #Load pickle of this structure
+    try:
+      inputFP=gzip.open(self.localPickle,'rb')
+      self.pickleData=cPickle.load(inputFP)
+      inputFP.close()
+      self.pickleLoaded=bool(True)
+    except:
+      self.pickleLoaded=bool(False)
+  #End __openPickle__(self):
+
+  def __createPickle__(self):
+    """
+    This method is used to create the needed pickle file locally from
+    input text files.  This is a hard wired method that should likely
+    never need to be invoked by anyone other than the authors of this
+    class.
+    PICKLE FORMAT for inBound determination
+    X={'ifo1':{'ifo2':[list(t),list(min Ratio),list(max Ratio)]},
+    ...
+    }
+    """
+    detectorPairs={
+      'LHO_GEO':'LHO_GEO_ratio.txt',
+      'LHO_LLO':'LHO_LLO_ratio.txt',
+      'LHO_TAMA':'LHO_TAMA_ratio.txt',
+      'LHO_VIRGO':'LHO_VIRGO_ratio.txt',
+      'LLO_GEO':'LLO_GEO_ratio.txt',
+      'LLO_TAMA':'LLO_TAMA_ratio.txt',
+      'LLO_VIRGO':'LLO_VIRGO_ratio.txt'
+      }
+    for key in detectorPairs.keys():
+      #Load a single file.
+      tVector=list()
+      minRVector=list()
+      maxRVector=list()
+      (ifo1Name,ifo2Name)=str(key).strip().split("_")
+      fp=open(detectorPairs[key],"r")
+      rawData=fp.readlines()
+      #print "IFO1: %s \t  IFO2: %s"%(ifo1Name,ifo2Name)
+      for row in rawData:
+        (a,b,c)=row.split()
+        tVector.append(float(a))
+        minRVector.append(float(b))
+        maxRVector.append(float(c))
+      if not self.pickleData.has_key(ifo1Name):
+        self.pickleData[ifo1Name]=dict()
+      self.pickleData[ifo1Name][ifo2Name]=[tVector,minRVector,maxRVector]
+      if not self.pickleData.has_key(ifo2Name):
+        self.pickleData[ifo2Name]=dict()
+      self.pickleData[ifo2Name][ifo1Name]=[tVector,minRVector,maxRVector]
+    #Save pickle of this structure
+    outputFP=gzip.open(self.pickleName,'wb')
+    cPickle.dump(self.pickleData,outputFP,2)
+    outputFP.close()
+  #End __createPickle__()
+
+  def mapToObservatory(self,ifo=None):
+    """
+    Expects H1, V1 etc and maps it to LHO VIRGO etc.
+    """
+    obsMap={}
+    obsMap["L1"]="LLO"
+    obsMap["H1"]="LHO"
+    obsMap["H2"]="LHO"
+    obsMap["V1"]="VIRGO"
+    obsMap["G1"]="GEO"
+    obsMap["T1"]="TAMA"
+    if ifo != None:
+      try:
+        return obsMap[ifo.upper()]
+      except:
+        return None
+    return None
+  #End mapToObservatory()
+
+  def findURL(self,ifo1=None,ifo2=None):
+    """
+    Manipulates the keys as needed determine URL of relative figure from
+    self.ifoURL for given detector pair. This returns a URL that
+    can be used to point to a precomposed plot.
+    """
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    firstKeyElements=self.ifoURL.keys()
+    if firstKeyElements.__contains__(ifo1):
+      firstKey=ifo1
+      secondKey=ifo2
+    else:
+      firstKey=ifo2
+      secondKey=ifo1
+    try:
+      output=str(self.ifoURL[firstKey][secondKey])
+      return output
+    except:
+      return None
+    #End findURL()
+    
+  def fetchLambda(self,ifo1=None,ifo2=None):
+    """
+    Manipulates the keys as needed to load values from self.ifoLambda
+    properly.
+    """
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    firstKeyElements=self.ifoLambda.keys()
+    if firstKeyElements.__contains__(ifo1):
+      firstKey=ifo1
+      secondKey=ifo2
+    else:
+      firstKey=ifo2
+      secondKey=ifo1
+    try:
+      output=self.ifoLambda[firstKey][secondKey]
+      return output
+    except:
+      return None
+    #End fetchLambda()
+  
+  def setPickleLocation(self,newSpot=None):
+    """
+    Resets the location of the pickle file to some place that is non
+    standard.
+    """
+    if newSpot==None:
+      return
+    else:
+      #Break path up and store parts and entire piece
+      self.picklePath=os.path.dirname(newSpot)
+      self.pickleName=os.path.basename(newSpot)
+      self.localPickle=newSpot
+    return
+  #End setPickleLocation()
+
+  def testRatio(self,ifo1="NULL",ifo2="NULL",timeOfFlight=float(1.0),\
+                  myRatio=None):
+    """
+    A call to this method performs the check using information about
+    the IFOs and the time of flight.  A float is returned by the
+    method.  It contains the probablity that this SNR ratio give a
+    particular time of flight is physically probably. If an error is
+    encountered method returns possible values of -98,-97,-96,-95,-94.
+    Err Codes:
+    -99 : ifo1 == ifo2
+    -98 : Pickle file not loaded
+    -97 : IFO \lambda not found
+    -96 : Specified Time Delay unphysical t > abs(t_max)
+    -95 : Interpolation function call failure
+    -94 : TOF not found!
+    -93 : Unknown problem
+    """
+    if (ifo1=="NULL") or (ifo2=="NULL") or (myRatio == None) or (myRatio==0):
+      return -99
+    if not self.pickleLoaded:
+      self.__loadPickle__()
+    if not self.pickleLoaded:
+      return(-98)
+    ifo1=ifo1.strip().upper()
+    ifo2=ifo2.strip().upper()
+    LV=None
+    LV=self.fetchLambda(ifo1,ifo2)
+    if LV == None and ifo1 != ifo2:
+      return float(-97)
+    #Check bound set ratio TO 1 return
+    #Extract 3 data vectors
+    (t,minR,maxR)=self.pickleData[ifo1][ifo2]
+    if not(min(t)<=timeOfFlight<=max(t)):
+      print min(t),timeOfFlight,max(t)
+      return float(0)
+    rPrimeFunc=interpolate.interp1d(t,[minR,maxR],kind='linear')
+    (newMinR,newMaxR)=rPrimeFunc(timeOfFlight)
+    if (newMinR.__len__() > 1 or newMaxR.__len__() > 1):
+      return float(-95)
+    else:
+      newMinR=newMinR[0]
+      newMaxR=newMaxR[0]
+    if (newMinR<=myRatio<=newMaxR):
+      return float(1.0)
+    else:
+      myOutput=float(0.0)
+      #P(ln(SNR)) = 1-exp(-|ln(SNR)|*0.726479)
+      #This above expression from Amber's webpage a tad misleading
+      #We mean 1-expcdf(abs(SNR),MU) which is 
+      #exp(-SNR/mu)
+      myOutput=numpy.exp(-numpy.fabs(numpy.log(myRatio)*LV))
+      return myOutput
+    return float(-94)
+  #End testRatio()
+# End Class ratioTest()
+#############################################################################
+
 
 #############################################################################
 # Function to generate a coherentbank xml file
@@ -1580,7 +1944,128 @@ def generateCohbankXMLfile(ckey,triggerTime,ifoTag,ifolist_in_coinc,search,outpu
     fileName = outputPath + '/' + fileName
   utils.write_filename(xmldoc, fileName, verbose = False, gz = True)
 
+  #Also write input file for clustering code "cohire"
+  chiaFileName = 'followUpChiaJob/' + ifoTag + '-CHIA_1-' + str(int(triggerTime)-1) + "-2.xml.gz"
+  cohireInputFile = ifoTag + '-COHIRE-' + str(int(triggerTime)-1) + "-2.txt"
+  if outputPath:
+    cohireInputFile = outputPath + '/' + cohireInputFile
+  ff = open(cohireInputFile,'w')
+  print >>ff, chiaFileName
+
   return maxIFO
+
+class followupDQV:
+  """
+  This class is intended to provide a mechanism to access DQ segment
+  information and veto segment information put into the segment
+  database.  This class will replace the previously defined class of
+  followupdqdb.
+  """
+  def __init__(self,LDBDServerURL=None,quiet=bool(False)):
+    """
+    This class setups of for connecting to a LDBD server specified at
+    command line to do segment queries as part of the follow up
+    pipeline.  The LDBD URL should be in the following form
+    ldbd://myserver.domain.name:808080
+    """
+    self.triggerTime=int(-1)
+    self.serverURL="ldbd://metaserver.phy.syr.edu:30015"
+    self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+    if LDBDServerURL==None:
+      sys.stderr.write("Warning no LDBD Server URL specified \
+defaulting to %s"%(self.serverURL))
+    else:
+      self.serverURL=LDBDServerURL
+      if self.serverURL[len('ldbd://'):].__contains__(':'):
+        self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+      else:
+        self.serverName=self.serverURL[len('ldbd://'):]
+    self.resultList=list()
+    self.segmentsActiveString = "SELECT \
+    segment_definer.ifos,segment_definer.name,\
+segment_definer.version,segment.start_time,\
+segment.end_time FROM segment,segment_definer \
+WHERE segment_definer.segment_def_id = \
+segment.segment_def_id AND \
+segment_definer.version >= %s AND \
+NOT (segment.start_time > %s OR %s > \
+segment.end_time)"
+
+  #End __init__()
+  
+  def fetchInformation(self,triggerTime=None,window=600,version=99):
+    """
+    This method is responsible for queries to the data server.  The
+    results of the query become an internal list that can be converted
+    into an HTML table.  The arguments allow you to query with trigger
+    time of interest and to change the window with each call if
+    desired. The version argument will fetch segments with that
+    version or higher.
+    """
+    if triggerTime==int(-1):
+      os.stdout.write("Specify trigger time please.\n")
+      return
+    else:
+      self.triggerTime = int(triggerTime)
+    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
+    connection=None
+    try:
+      connection =\
+    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
+    except Exception, errMsg:
+      sys.stderr.write("Error connection to %s at port %s\n"\
+                       %(self.serverName,self.serverPort))
+      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+      self.resultList=list()
+      return
+    try:
+      engine=query_engine.LdbdQueryEngine(connection)
+      gpsEnd=int(triggerTime)+int(window)
+      gpsStart=int(triggerTime)-int(window)
+      sqlString=self.segmentsActiveString%(version,gpsEnd,gpsStart)
+      queryResult=engine.query(sqlString)
+      self.resultList=queryResult
+    except Exception, errMsg:
+      sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+      sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
+      sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
+      sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+      return
+    engine.close()
+  #End method fetchInformation()
+  
+  def generateHTMLTable(self):
+    """
+    Return a HTML table already formatted using the module MARKUP to
+    keep the HTML tags complient.  This method does nothing but return
+    the result of the last call to self.fetchInformation()
+    """
+    if self.triggerTime==int(-1):
+      return ""
+    myColor="grey"
+    rowString="<tr bgcolor=%s><td>%s</td><td>%s</td><td>%s</td>\
+<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+    tableString=""
+    tableString+="<table bgcolor=grey border=1px>"
+    tableString+="<tr><th>IFO</th><th>Flag</th><th>Ver</th>\
+<th>Start</th><th>Offset</th><th>Stop</th><th>Offset</th><th>Size</th></tr>"
+    for ifo,name,version,start,stop in self.resultList:
+      offset1=start-self.triggerTime
+      offset2=stop-self.triggerTime
+      size=int(stop-start)
+      if (offset1>=0) and (offset2>=0):
+        myColor="green"
+      if (offset1<=0) and (offset2<=0):
+        myColor="yellow"
+      if (offset1<=0) and (offset2>=0):
+        myColor="red"
+      if name.lower().__contains__('science'):
+        myColor="skyblue"
+      tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
+    tableString+="</table>"
+    return tableString
+  #End method generateHTMLTable()
+#End class followupDQV
 
 ######################################################################
 #New Class Definition for determining DQ segments active for a given
@@ -1612,7 +2097,7 @@ class followupdqdb:
         self.pathPattern="%s/%s/dq_segments.txt"
         self.sqlFile="/followupDQ.sqlite"
         self.sqlPath=self.myHome+"/"
-        self.ifoList=["L1","H1","H2"]
+        self.ifoList=["L1","H1","H2","V1"]
         self.dbFiles=[]
         for ifo in self.ifoList:
             thisFile=self.pathPattern%(self.myHome,ifo)
