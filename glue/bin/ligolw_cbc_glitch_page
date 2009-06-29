@@ -112,7 +112,7 @@ def generate_html(outf, triggers, colors):
         for res in trig[1:-1]:
             print >>outf, '    <td>%s</td>' % res
         
-        print >>outf, '    <td><a href="omega/%s/index.html"</td>' % (trig[1])
+        print >>outf, '    <td><a href="omega/%s/index.html">&Omega; scan</a></td>' % (trig[1])
 
         print >>outf, '    <td>'
         for name, value in trig[-1].items():
