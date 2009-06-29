@@ -21,6 +21,7 @@ except ImportError:
     from pysqlite2 import dbapi2 as sqlite3
 import sys
 import os
+import urllib2
 
 from glue.ligolw.utils import ligolw_sqlite
 from glue.ligolw import dbtables
@@ -90,8 +91,7 @@ if not os.path.isfile( filename ):
     raise ValueError, "The input database, %s, cannot be found." % filename
 
 # get Injection file
-injection_file = os.path.abspath(opts.injection_file)
-if not os.path.isfile( injection_file ):
+if not ( os.path.isfile( injection_file ) or urllib2.urlopen( injection_file ) ):
     raise ValueError, "The injection file, %s, cannot be found." % injection_file
 
 # Setup working databases and connections
