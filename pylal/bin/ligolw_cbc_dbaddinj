@@ -91,8 +91,8 @@ if not os.path.isfile( filename ):
     raise ValueError, "The input database, %s, cannot be found." % filename
 
 # get Injection file
-if not ( os.path.isfile( injection_file ) or urllib2.urlopen( injection_file ) ):
-    raise ValueError, "The injection file, %s, cannot be found." % injection_file
+if not ( os.path.isfile( opts.injection_file ) or urllib2.urlopen( opts.injection_file ) ):
+    raise ValueError, "The injection file, %s, cannot be found." % opts.injection_file
 
 # Setup working databases and connections
 if opts.verbose: 
@@ -118,7 +118,7 @@ proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbaddinj', opts.__dict_
 if opts.verbose:
     print >> sys.stderr, "Adding the injection file to the database..."
 
-ligolw_sqlite.insert(connection, [injection_file], preserve_ids = False, verbose = opts.verbose)
+ligolw_sqlite.insert(connection, [opts.injection_file], preserve_ids = False, verbose = opts.verbose)
 
 #
 #   Update any simulation rows in the experiment_summary table who's sim_proc_id is None

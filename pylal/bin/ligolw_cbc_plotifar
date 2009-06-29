@@ -301,7 +301,7 @@ if opts.param_name:
         opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.param.split('.')[1]
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
-    param_grouping = ''.join([ 'group_by_param(', binning_param, ')' ])
+    param_grouping = ''.join([ 'group_by_param(', param_parser.param, ')' ])
     for (n, (low, high)), marker, linestyle in zip( enumerate(param_parser.param_ranges), trigsymbols, linestyles ):
         if low[0] == '>=':
             lowbnd = '['
