@@ -153,7 +153,7 @@ def query_segments(engine, table, segdefs):
     for segdef in segdefs:
         ifo, name, version, start_time, end_time, start_pad, end_pad = segdef
 
-        matches = lambda row: row[0].strip() == ifo and row[1] == name and row[2] == version
+        matches = lambda row: row[0].strip() == ifo and row[1] == name and int(row[2]) == int(version)
 
         result  = segmentlist( [segment(row[3] + start_pad, row[4] + end_pad) for row in rows if matches(row)] )
         result &= segmentlist([segment(start_time, end_time)])
