@@ -17,30 +17,50 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 #
-# Preamble
+# =============================================================================
 #
+#                                   Preamble
+#
+# =============================================================================
+#
+
 
 """
 This module contains bits and pieces of use when interacting with LAL and
 LAL-derived code (eg. LALApps programs)
 """
 
+
+import fnmatch
+import math
+import operator
+import os
+import re
+import sys
+import urlparse
+
+
+from glue import segments
+
+
 __author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"
 __version__ = "$Revision$"
 
-import fnmatch
-import re
-import urlparse
-import operator
-import os
-import sys
-from glue import segments
+
+#
+# =============================================================================
+#
+#                          High precision time object
+#
+# =============================================================================
+#
 
 
 #
-# High precision time object
+# Python version in case LAL isn't available
 #
+
 
 class LIGOTimeGPS(object):
 	"""
@@ -277,7 +297,45 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) * 2
 		LIGOTimeGPS(201, 0)
 		"""
-		return LIGOTimeGPS(self.__seconds * other, self.__nanoseconds * other)
+		nlo = self.__nanoseconds % 2**15
+		nhi = self.__nanoseconds - nlo
+		slo = self.__seconds % 2**26
+		shi = self.__seconds - slo
+		olo = other % 2**(int(math.log(other, 2)) - 26)
+		ohi = other - olo
+		product = LIGOTimeGPS(0)
+
+		addend = nlo * olo * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = (nlo * ohi + nhi * olo) * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = nhi * ohi * 1e-9
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = slo * olo
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = slo * ohi + shi * olo
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		addend = shi * ohi
+		gps_addend = LIGOTimeGPS(addend)
+		addend -= float(gps_addend)
+		product += gps_addend
+
+		return product
 
 	# multiplication is commutative
 	__rmul__ = __mul__
@@ -291,7 +349,15 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) / 2
 		LIGOTimeGPS(50, 250000000)
 		"""
-		return LIGOTimeGPS(self.__seconds / other, self.__nanoseconds / other)
+		quotient = LIGOTimeGPS(float(self) / other)
+		n = 0
+		while n < 100:
+			residual = float(self - quotient * other) / other
+			quotient += residual
+			if abs(residual) <= 0.5e-9:
+				break
+			n += 1
+		return quotient
 
 	def __mod__(self, other):
 		"""
@@ -302,7 +368,8 @@ class LIGOTimeGPS(object):
 		>>> LIGOTimeGPS(100.5) % 3
 		LIGOTimeGPS(1, 500000000)
 		"""
-		return LIGOTimeGPS(0, self.ns() % (other * 1000000000L))
+		quotient = int(self / other)
+		return self - quotient * other
 
 	# unary arithmetic
 
@@ -319,8 +386,18 @@ class LIGOTimeGPS(object):
 
 
 #
-# LAL cache file manipulation
+# =============================================================================
 #
+#                         LAL Cache File Manipulation
+#
+# =============================================================================
+#
+
+
+#
+# Representation of a line in a LAL cache file
+#
+
 
 class CacheEntry(object):
 	"""
@@ -468,6 +545,11 @@ class CacheEntry(object):
 			segment = segments.segment(coltype(start), coltype(start) + coltype(duration))
 		return cls(observatory, description, segment, url)
 	from_T050017 = classmethod(from_T050017)
+
+
+#
+# An object representing a LAL cache file
+#
 
 
 class Cache(list):

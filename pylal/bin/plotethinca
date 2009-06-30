@@ -728,7 +728,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     if coincTriggersList:
       xVals = [[x.stat for x in coincs] for coincs in [coincs_list[ifos_index]]]
       y_list, x_list = zip(*[histogram(xVal, bins=opts.num_bins,
-          range=[0, stat_max]) for xVal in xVals])
+          range=[0, stat_max]) for xVal in xVals], new=False)
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*stat_max/opts.num_bins  # Introduce some stagger
@@ -741,7 +741,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
       hold(True)
       xSlideVals = [[x.stat for x in slides] for slides in [slides_list[ifos_index]]]
       y_list, x_list = zip(*[histogram(xSlideVal, bins=opts.num_bins,
-          range=[0, stat_max]) for xSlideVal in xSlideVals])
+          range=[0, stat_max]) for xSlideVal in xSlideVals], new=False)
       if not coincTriggersList:
         n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_slide_list):
@@ -780,7 +780,8 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
 
     if slideTriggersList:
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,
-          range=[0, ep_max]) for eps in [ethinca_slides_list[ifos_index]]])
+          range=[0, ep_max]) for eps in [ethinca_slides_list[ifos_index]]],
+          new=False)
       if coincTriggersList:
         thisNumInjections = len(ethinca_list[ifos_index])
         normalization = opts.injection_window*thisNumInjections/ \
@@ -800,7 +801,7 @@ for ifos,ifos_index in zip(list(iterutils.choices(opts.ifo_list, 2)), range(0,nC
     if coincTriggersList:
       hold(True)
       y_list, x_list = zip(*[histogram(eps, bins=opts.num_bins,\
-          range=[0, ep_max]) for eps in [ethinca_list[ifos_index]]])
+          range=[0, ep_max]) for eps in [ethinca_list[ifos_index]]], new=False)
       n = len(x_list)
       for i, x, y, color in zip(range(n), x_list, y_list, color_list):
         x += 0.1*i*ep_max/opts.num_bins  # Introduce some stagger

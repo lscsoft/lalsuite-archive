@@ -42,7 +42,7 @@ def parse_command_line():
 
   parser.add_option("-s", "--gps-start-time", metavar = "gps_start_time", help = "Start of GPS time range")
   parser.add_option("-e", "--gps-end-time", metavar = "gps_end_time", help = "End of GPS time range")
-  parser.add_option("-d", "--database-name", metavar = "database_name", help = "name of the database. Currently segdb_coalesce only take seg6_lho and seg6_llo")
+  parser.add_option("-d", "--database-name", metavar = "database_name", help = "name of the database you run coalescing on. Currently segdb_coalesce only supports seg6_lho, seg6_llo and seg6_cit")
 
   opts, others = parser.parse_args()
 
@@ -58,46 +58,52 @@ if not options.gps_end_time:
    print "Error: --gps-end-time is required"
    sys.exit(1)
 if not options.database_name:
-   print "Error: --database-name is required"
+   print "Error: --database-name is required, please specify one of [seg6_lho | seg6_llo | seg6_cit ]"
    sys.exit(1)
-#================================================================================
-#                 Set up connection to the database
-#================================================================================
-database = options.database_name 
-dbconn = DB2.connect(dsn=database, uid='', pwd='')
-curs = dbconn.cursor()
 
-current_time = gpstime.GpsSecondsFromPyUTC(time.time())
 
-#================================================================================
-#                 Get time range to move on
-#================================================================================A
+# Set up connection to the database
+database = options.database_name
+try:
+  dbconn = DB2.connect(dsn=database, uid='', pwd='')
+  curs = dbconn.cursor()
+except Exception, e:
+  print e
+  sys.exit(1)
+
+# Get coalesce time range
 st = int(options.gps_start_time)
 et = int(options.gps_end_time)
+
 #================================================================================
-#                 Process process table
+#                 Insert a new row in the process table
 #================================================================================
+# get current_time for later use
+current_time = gpstime.GpsSecondsFromPyUTC(time.time())
+
+
 # prepare values for the new row to be inserted into the process table
 program = sys.argv[0].replace('./','')
 node = socket.gethostname()
 username = os.getlogin()
 unix_procid = os.getpid()
-start_time = current_time 
+start_time = current_time
 end_time = None
 jobid = 0
 domain = 'coalesce_local'
 
 sql = "select hex(GENERATE_UNIQUE()) from sysibm.sysdummy1"
 curs.execute(sql)
-process_id = 'x' + '\'' + curs.fetchall()[0][0] + '\''
+hex_procid = curs.fetchone()[0]
+process_id = 'x' + '\'' + hex_procid + '\''
 
 if database == 'seg6_lho':
   process_creator_db = 1
 elif database == 'seg6_llo':
   process_creator_db = 2
-else:
-  database = 'seg6_lho'
-  process_creator_db = 1  # this line is for testing purpose, will go away 
+elif database == 'seg6_cit':
+  process_creator_db = 3
+
 
 # insert new row into process table
 sql = "INSERT INTO process "
@@ -106,86 +112,171 @@ sql += "VALUES ('%s', 0, '%s', '%s', %d, %d, %d, '%s',%s, %d)" % (program, node,
 curs.execute(sql)
 curs.execute("commit")
 
+# get the BLOB process_id for later reference
+sql = "SELECT BLOB(process_id) from process where hex(process_id)='%s' " % hex_procid
+curs.execute(sql)
+blob_procid = curs.fetchone()[0]
+
 
 #========================================================================
-# loop in the tables to fetch, coalesce and delete segments
+# fetch, coalesce and delete segments and summarys
 #========================================================================
-for table in ['segment_summary', 'segment']: 
-  # find unique segment types
-  sql = "SELECT distinct hex(%s.segment_def_id), %s.segment_def_cdb from %s, segment_definer " % (table,table,table)
-  sql += "WHERE %s.segment_def_id = segment_definer.segment_def_id " % table
-  sql += "AND %s.segment_def_cdb = segment_definer.creator_db " % table
-  sql += "AND start_time <= %d " % et
-  sql += "AND end_time >= %d " % st
-  
-  if database == "seg6_lho":
-    sql += "AND segment_definer.ifos = 'H1' or segment_definer.ifos = 'H2' "
-  if database == "seg6_llo":
-    sql += "AND segment_definer.ifos = 'L1' " 
-  print sql
+# create the tmp segment table with primary ids to delete
+try:
+  curs.execute("CREATE TABLE tmp_co_seg (prim_id CHAR(13) FOR BIT DATA NOT NULL PRIMARY KEY);")
+  curs.execute("CREATE INDEX tmp_co_seg_in on tmp_co_seg(prim_id)")
+  curs.execute("commit")
+except:
+  # if table already exist, delete its content
+  curs.execute("delete from tmp_co_seg")
+  curs.execute("commit")
+
+# create the tmp summary table with primary ids to delete 
+try:
+  curs.execute("CREATE TABLE tmp_co_sum (prim_id CHAR(13) FOR BIT DATA NOT NULL PRIMARY KEY);")
+  curs.execute("CREATE INDEX tmp_co_sum_in on tmp_co_sum(prim_id)")
+  curs.execute("commit")
+except:
+  # if table already exist, delete its content
+  curs.execute("delete from tmp_co_sum")
+  curs.execute("commit")
+
+# find unique segment types exist in the database within the time range specified by user
+sql = "SELECT distinct hex(segment_def_id) from segment_summary " 
+sql += "WHERE creator_db = %d " % process_creator_db
+sql += "AND start_time <= %d " % et
+sql += "AND end_time >= %d " % st
+
+curs.execute(sql)
+def_ids = curs.fetchall()
+
+
+# loop in the segment types to fetch, coalesce, insert and delete
+for d in def_ids:
+  # get the BLOB segment_def_id for later use 
+  sql = "SELECT BLOB(segment_def_id), ifos, name " 
+  sql += "FROM segment_definer " 
+  sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
+  sql += "AND creator_db = %d " % process_creator_db
 
   curs.execute(sql)
-  defs = curs.fetchall()
-  
-  segs = segments.segmentlist()
+  result = curs.fetchone()
+  blob_defid = result[0]
+  ifos = result[1].strip() 
+  name = result[2]
 
-  for d in defs:
-    # convert primary keys of segment_definer for later use
-    segment_def_id = 'x' + '\'' + d[0] +'\''
-    segment_def_cdb = d[1]
+  # get the segment start_time, end_time to coalesce, and according primary key to delete
+  sql = "SELECT start_time, end_time, BLOB(segment_id) FROM segment "
+  sql += "WHERE hex(segment_def_id) = '%s' and segment_def_cdb = %d " % (d[0], process_creator_db)
+  sql += "AND start_time <= %d " % et
+  sql += "AND end_time >= %d " % st
+  sql +=" ORDER BY start_time "
 
-    # for each kind of DQ flag, find start and end time and its primary key tuple
-    if table=='segment_summary':
-      sql = "SELECT start_time, end_time, hex(segment_sum_id), creator_db FROM segment_summary " 
-    elif table=='segment':
-      sql = "SELECT start_time, end_time, hex(segment_id), creator_db FROM segment " 
-    sql += "WHERE hex(segment_def_id) = '%s' " % d[0]
-    sql += "AND segment_def_cdb = %d " % d[1]
-    sql += "AND start_time <= %d " % et
-    sql += "And end_time >= %d " % st
-    curs.execute(sql)
-    times = curs.fetchall()
+  print "Retrieving start_time and end_time to coalesce for %s, %s ..." %(ifos, name)
+  curs.execute(sql)
+  seg_bf_cos = curs.fetchall()   # get the segments to coalesce
 
-
-    # coalesce the retrieved segments
-    for t in times:
-      time = segments.segment(int(t[0]),int(t[1]))
-      segs.append(time)
-    segs.coalesce()
-
+  # get the summary start_time, end_time to coalesce, and according primary key to delete
+  sql = "SELECT start_time, end_time, BLOB(segment_sum_id) "
+  sql += "FROM segment_summary "
+  sql += "WHERE hex(segment_def_id) = '%s' and segment_def_cdb = %d " % (d[0], process_creator_db)
+  sql += "AND start_time <= %d " % et
+  sql += "AND end_time >= %d " % st
+  sql +=" ORDER BY start_time "
+   
+  curs.execute(sql)
+  sum_bf_cos = curs.fetchall()   # get the summarys to coalesce
 
 
-    #---------------------------------------------------------------------------------
-    # insert coalesced segments back in to the database
-    for seg in segs:
-      sql = "INSERT INTO %s " % table
-      if table == 'segment_summary':
-        sql += "(segment_sum_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
-      if table == 'segment':
-        sql += "(segment_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
-      sql += "VALUES (GENERATE_UNIQUE(), %d, %d, %d, %s, %d, %s) " % (process_creator_db,seg[0],seg[1], segment_def_id, segment_def_cdb, process_id)
-      curs.execute(sql)
-      curs.execute("commit")
+  # coalesce the segments and summarys, populate the tmp tables with the primary ids to delete
+  print "Coalescing segments ... "
+  seg_ids_to_delete = []
+  sum_ids_to_delete = []
+  segs = segments.segmentlist([]) 
+  sums = segments.segmentlist([]) 
+  for bf in seg_bf_cos:
+    seg = segments.segment(int(bf[0]), int(bf[1]))
+    segs.append(seg) 
+    seg_ids_to_delete.append(bf[2])
+
+  for bf in sum_bf_cos:
+    sum = segments.segment(int(bf[0]), int(bf[1]))
+    sums.append(sum) 
+    sum_ids_to_delete.append(bf[2])
+
+  segs.coalesce()
+  sums.coalesce()
+
+  # populate the tmp tables with primary ids to delete
+  sql = "INSERT INTO tmp_co_seg VALUES(?) "
+  curs.executemany(sql, seg_ids_to_delete)
+  curs.execute("commit")
+
+  sql = "INSERT INTO tmp_co_sum VALUES(?) "
+  curs.executemany(sql, sum_ids_to_delete)
+  curs.execute("commit")
 
 
-    #---------------------------------------------------------------------------------
-    # delete the uncoalesced segments for each type found:
-    for t in times:
-      sql = "DELETE FROM %s " % table
-      if table == 'segment_summary':
-        sql += "WHERE hex(segment_sum_id) = '%s' " % t[2] 
-      elif table == 'segment':
-        sql += "WHERE hex(segment_id) = '%s' " % t[2] 
-      sql += "AND creator_db = %d " % t[3] 
-      curs.execute(sql)
-      curs.execute("commit")
+
+  # insert coalesced segments back in to the database  
+  print "Inserting coalesced segments back in ... "
+
+  # insert coalesced segs into segment table
+  insert_list = []
+  for s in segs:
+    # generate unique id for insertion
+    curs.execute("VALUES BLOB(GENERATE_UNIQUE())")
+    prim_id = curs.fetchone()[0]
+
+    # generate a list of values to insert using executemany()
+    insert_list.append((prim_id, process_creator_db, s[0], s[1], blob_defid, process_creator_db, blob_procid))
+
+  sql = "INSERT INTO segment "
+  sql += "(segment_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
+  sql += "VALUES (?,?,?,?,?,?,?) "
+  curs.executemany(sql, insert_list)
+  curs.execute("commit")
 
 
-# update end_time in the process table
-sql = "UPDATE process SET end_time = %d " % current_time 
-sql += "WHERE process_id = %s " % process_id
-sql += "AND creator_db = %d " % process_creator_db
-curs.execute(sql)
+  # insert coalesced sums into segment_summary table
+  insert_list = []
+  for s in sums:
+    # generate unique id for insertion
+    curs.execute("VALUES BLOB(GENERATE_UNIQUE())")
+    prim_id = curs.fetchone()[0]
+
+    # generate a list of values to insert using executemany()
+    insert_list.append((prim_id, process_creator_db, s[0], s[1], blob_defid, process_creator_db, blob_procid))
+
+  sql = "INSERT INTO segment_summary "
+  sql += "(segment_sum_id, creator_db, start_time, end_time, segment_def_id, segment_def_cdb, process_id) "
+  sql += "VALUES (?,?,?,?,?,?,?) "
+  curs.executemany(sql, insert_list)
+  curs.execute("commit")
+
+
+  # delete un-coalesced segments
+  print "deleting un-coalesced segemnts ... "
+  print
+  sql = "DELETE FROM segment "
+  sql += "WHERE segment_id in (SELECT * FROM tmp_co_seg ORDER BY prim_id)"
+  curs.execute(sql)
+  curs.execute("commit")
+
+  sql = "DELETE FROM segment_summary "
+  sql += "WHERE segment_sum_id in (SELECT * FROM tmp_co_sum ORDER BY prim_id)"
+  sql += "AND segment_def_cdb = %d " % process_creator_db
+  curs.execute(sql)
+  curs.execute("commit")
+
+  # empty the tmp table for the next segment type
+  curs.execute("DELETE FROM tmp_co_seg")
+  curs.execute("DELETE FROM tmp_co_sum")
+  curs.execute("commit")
+
+
+curs.execute("drop table tmp_co_seg")
+curs.execute("drop table tmp_co_sum")
 curs.execute("commit")
-
+curs.close()
 sys.exit(0)

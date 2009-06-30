@@ -23,7 +23,6 @@ function setup() {
         // go to the table
         window.location = '#' + $(this).html();
         
-        
         var table = $("div.table a[name='" + $(this).html() +"']").parents('div.table').find('table.content');
         table.toggle(100);
         
@@ -57,12 +56,12 @@ function parseToken(ret) {
     ret = ret.replace('\\,',',');
 
     // add hyperlinks for selected filetypes
-    if(ret.match(/.*\.(txt|png|gz)/i)) {
+    if(ret.match(/^.*\.(xml|txt|png|gz)$/i)) {
         ret = '<a href="' + ret + '" target="_blank">' + ret + '</a>';
     }
     
     // normalize zeros
-    if(ret.match(/0\.0*/) || ret.match(/0\.0*e0+/i)) {
+    if(ret.match(/^0\.0*$/) || ret.match(/^0\.0*e\+?0+$/i)) {
         ret = '0';
     }
     
@@ -79,7 +78,7 @@ function parseTables() {
         
         var tokenizer = new $.tokenizer([
             // may not handle some special cases with escaped commas or quotes
-            /\s*"(.+?)",/,  /([^\s].*?),/,  /\s*"(.+?)"/,   /([^\s].*)/
+            /\s*"(.*?)",/,  /([^\s].*?),/,  /\s*"(.*?)"/,   /([^\s].*)/
             ],function(text,isToken,regex) {
                 if(isToken) {
                     var token = text.replace(regex,'$1');

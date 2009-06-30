@@ -58,13 +58,6 @@ from glue.ligolw import dbtables
 from glue.segmentdb import query_engine
 from glue.segmentdb import segmentdb_utils
 
-try:
-   from glue import LDBDClient
-   from glue import gsiserverutils
-   have_ldbdc = True
-except:
-   have_ldbdc = False
-
 from glue.ligolw.utils import process
 
 import re
@@ -110,7 +103,7 @@ def parse_command_line():
                       
     parser.add_option("-t", "--segment-url",  metavar = "segment_url", help = "Segment URL")
     parser.add_option("-d", "--database",     metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
-    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable DMT_SEGMENT_LOCATION")
+    parser.add_option("-f", "--dmt-file",     metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
     parser.add_option("-c", "--cumulative-categories",   action = "store_true", help = "If set the category N files will contain all segments in categories <= N")
     parser.add_option("-p", "--separate-categories",     action = "store_true", help = "If set the category N files will contain only category N")
     
@@ -182,11 +175,13 @@ def parse_command_line():
             raise ValueError( "--database specified by S6_SEGMENT_SERVER not set" )
         database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_file:
-        if 'DMT_SEGMENT_LOCATION' not in os.environ:
-            raise ValueError( "--dmt-file specified but DMT_SEGMENT_LOCATION not set" )
-        if os.environ['DMT_SEGMENT_LOCATION'][len('file://')]!='/':
-           raise ValueError( "Wrong '--dmt-file' format. 'file://' is the prefix, actual path starts with '/'. Correct format should be file:///path_to_dir") 
-        file_location = os.environ['DMT_SEGMENT_LOCATION'][len('file://'):]
+        if 'ONLINEDQ' not in os.environ:
+            raise ValueError( "--dmt-file specified but ONLINEDQ not set" )
+
+        tmp = os.environ['ONLINEDQ']
+        if tmp.startswith('file://'):
+            tmp = tmp[len('file://'):]
+        file_location = tmp
     else:
         raise ValueError( "One of [ --segment_url | --database | --dmt-file ] must be provided" )
 
@@ -247,6 +242,15 @@ def kludge_get_column_info(connection, table_name):
 
 
 def setup_database(host_and_port):
+    try:
+        from glue import LDBDClient
+        from glue import gsiserverutils
+    except Exception, e:
+        print >>sys.stderr, "Unable to import LDBDClient module from glue"
+        print >>sys.stderr, "Got the following error : " + str(e)
+        print >>sys.stderr, "Check that LDG is properly installed"
+        sys.exit(1)
+
     port = 30015
     
     if host_and_port.find(':') < 0:
@@ -255,7 +259,6 @@ def setup_database(host_and_port):
         # server and port specified
         host, portString = host_and_port.split(':')
         port = int(portString)
-
 
     identity = "/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s" % host
 
@@ -270,7 +273,7 @@ def setup_database(host_and_port):
         if gsiserverutils.checkCredentials():
             print >>sys.stderr, "Got the following error : " + str(e)
             print >>sys.stderr, "Enter '%s --help' for usage" % PROGRAM_NAME
-        sys.exit(-1)
+        sys.exit(1)
 
     return client
 
@@ -316,11 +319,8 @@ if __name__ == '__main__':
         xml_files += segmentdb_utils.get_all_files_in_range(file_location, min_start_time, max_end_time)
         segment_query_engine = veto_query_engine
     else:
-        if ( have_ldbdc is True ):
-            segment_connection   = setup_database(db_location)
-            segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
-        else:
-            print >> sys.stderr, "Error: Could not import LDBDClient. Check that LDG is properly installed"
+        segment_connection   = setup_database(db_location)
+        segment_query_engine = query_engine.LdbdQueryEngine(segment_connection)
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
