@@ -179,7 +179,10 @@ def expand_version_number(engine, segdef):
     sql += "AND   segment_definer.name = '%s' " % name
 
     rows    = engine.query(sql)
-    version = len(rows[0]) and rows[0][0] or 1
+    try:
+        version = len(rows[0]) and rows[0][0] or 1
+    except:
+        version = None
 
     results = []
 
@@ -303,7 +306,8 @@ def add_segment_info(doc, proc_id, segdefs, segments, segment_summaries):
 
         add_to_segment_summary(doc, proc_id, seg_def_id, segment_summaries[i])
 
-        add_to_segment(doc, proc_id, seg_def_id, segments[i])
+        if segments:
+            add_to_segment(doc, proc_id, seg_def_id, segments[i])
 
 #
 # =============================================================================

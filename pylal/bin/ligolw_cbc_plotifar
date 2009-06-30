@@ -121,6 +121,24 @@ def parse_command_line():
             "If this is specified, will have the world famous " +
             "lightning-bolt plots."
         ) 
+    parser.add_option( "", "--param-name", action = "store", default = None,
+        metavar = "PARAMETER", 
+        help = 
+            "Can be any parameter in the coinc_inspiral table. " + 
+            "Specifying this and param-ranges defines the bins " +
+            "which the uncombined_fars are calculated will be " +
+            "plotted in. The bins should be the same as " +
+            "whatever was used when calculating the uncombined false " +
+            "alarm rate."
+             )
+    parser.add_option( "", "--param-ranges", action = "store", default = None,
+        metavar = " [ LOW1, HIGH1 ); ( LOW2, HIGH2]; etc.",
+        help = 
+            "Requires --param-name. Specify the parameter ranges " +
+            "to bin the triggers in. A '(' or ')' implies an open " +
+            "boundary, a '[' or ']' a closed boundary. To specify " +
+            "multiple ranges, separate each range by a ';'."
+            )
     #FIXME: should these be changed to units of IFAR?
     parser.add_option( "", "--x-min", action = "store", type = "float",
         default = None, metavar = "",
@@ -172,15 +190,19 @@ def parse_command_line():
         help = 
             "make an uncombined plot of however many categories there are" 
         )
+    parser.add_option( "", "--plot-combined", action = "store_true", default = False,
+        help = "Plot combined IFARs on a cumulative histogram." 
+        )
+    parser.add_option( "", "--group-by-ifos", action = "store_true", default = False, 
+        help = 
+          "Turning on will cause triggers to be grouped by coincident ifos when plotting " +
+          "combined FAR."
+            )
     parser.add_option( "", "--datatype", action = "store", type = "string",
         default = None, metavar = "all_data, playground, or exclude_play",
         help = 
             "Requried. Can either be 'all_data', 'playground', or 'exclude_play'. " +
             "Specifies what type of zero-lag data to plot." 
-        )
-    # FIXME: Possible to do IFAN? 
-    parser.add_option( "", "--plot-combined", action = "store_true", default = False,
-        help = "Plot combined IFARs on a cumulative histogram." 
         )
     # The following are needed to run followup_missed.py
     # FIXME: these won't work with new sqlite infrastructure
@@ -267,50 +289,6 @@ rc('text', usetex=True)
 #   Program-specific Initialization
 #
 
-#
-# Get param bins for uncombined plot from options given to the last
-# run of ligolw_cbc_cfar on the database
-#
-if opts.verbose:
-    print >> sys.stdout, "Getting param bins from last run ligolw_cbc_cfar..."
-# get the process id of the last run cfar
-sqlquery = """
-    SELECT
-        process_id
-    FROM
-        process
-    WHERE
-        program == "ligolw_cbc_cfar"
-    ORDER BY
-        start_time
-    DESC
-    LIMIT 1
-    """
-cfar_procid = connection.cursor().execute(sqlquery).fetchone()[0]
-if not cfar_procid:
-    raise ValueError, "ligolw_cbc_cfar not found in process table."
-# get the options given to this run of cfar
-sqlquery = """
-    SELECT
-        param, value
-    FROM
-        process_params
-    WHERE
-        process_id == ?
-    """
-binning_param = None
-for param, value in connection.cursor().execute(sqlquery, (cfar_procid,)):
-    if param == 'param_name':
-        binning_param = value
-    if param == 'param_ranges':
-        binning_ranges = value
-    if param == 'ranking_stat':
-        ranking_stat = value.strip()
-    if param == 'rank_by':
-        rank_by = value.strip().upper()
-    if param == 'combine_fars':
-        category_def = value.strip().lower()
-
 # Get param and param-ranges if specified, and set ranges (for legend), symbols, and 
 # linestyles for plotting based on param_ranges. This plotting info is stored to the
 # param_ranges_legend, which has the following form:
@@ -318,12 +296,12 @@ for param, value in connection.cursor().execute(sqlquery, (cfar_procid,)):
 param_ranges_legend = {}
 trigsymbols = itertools.cycle(( '^', 'o', 's' ))
 linestyles = itertools.cycle(( ':', '-.', '--' ))
-if binning_param:
-    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', binning_param, 
-        binning_ranges, verbose = opts.verbose )
+if opts.param_name:
+    param_parser = sqlutils.parse_param_ranges( 'coinc_inspiral', opts.param_name,
+        opts.param_ranges, verbose = opts.verbose )
     param_name = param_parser.param.split('.')[1]
     connection.create_function("group_by_param", 1, param_parser.group_by_param_range)
-    param_grouping = ''.join([ 'group_by_param(', binning_param, ')' ])
+    param_grouping = ''.join([ 'group_by_param(', param_parser.param, ')' ])
     for (n, (low, high)), marker, linestyle in zip( enumerate(param_parser.param_ranges), trigsymbols, linestyles ):
         if low[0] == '>=':
             lowbnd = '['
@@ -342,8 +320,6 @@ if binning_param:
             linestyle
 
 else:
-    if opts.verbose:
-        print >> sys.stdout, "No binning was done."
     param_grouping = '0'
     param_name = 'No binning'
     param_ranges_legend[(param_name, 0 )] = {}
@@ -454,7 +430,7 @@ for eid, exp_start_time, exp_end_time, on_inst, esid, ufar, cfar, ifos, param_gr
         uncombined_fars[ eid ][ esid ][ (ifos, param_group) ] = []
     uncombined_fars[ eid ][ esid ][ (ifos, param_group) ].append(ufar)
     # store combined_fars
-    if category_def == 'across_all':
+    if not opts.group_by_ifos:
         ifo_group = 'ALL_IFOS'
     else:
         ifo_group = ifos
@@ -543,14 +519,14 @@ if opts.plot_combined:
                 cfarlist.sort()
                 combined_cumnum[ (eid, esid, ifo_group) ] = \
                     [ bisect.bisect_right(cfarlist, cfar) for cfar in cfarlist ]
-            for n, cfar in enumerate( cfarlist ):
-                if cfar != 0.:
-                    break
-                comb_zero_cumnum[ (eid, esid, ifo_group) ] = n + 1
-                cfarlist[n] = min_bkg_ufar[esid] * num_comb_cats[(eid, esid, ifo_group)]
-            cfarlist.sort(reverse = True)
-            combined_fars[ eid ][ esid ][ ifo_group ] = array( cfarlist ) 
-            combined_cumnum[ (eid, esid, ifo_group) ].sort(reverse = True)
+                for n, cfar in enumerate( cfarlist ):
+                    if cfar != 0.:
+                        break
+                    comb_zero_cumnum[ (eid, esid, ifo_group) ] = n + 1
+                    cfarlist[n] = min_bkg_ufar[esid] * num_comb_cats[(eid, esid, ifo_group)]
+                cfarlist.sort(reverse = True)
+                combined_fars[ eid ][ esid ][ ifo_group ] = array( cfarlist ) 
+                combined_cumnum[ (eid, esid, ifo_group) ].sort(reverse = True)
 
         
 #
@@ -766,9 +742,10 @@ for (eid, exp_start_time, exp_end_time, on_inst) in experiment_ids:
             lgnd = dict([ [ifos, InspiralUtils.get_coinc_ifo_colors(ifos)] \
                 for (esid, ifos) in background.max_bkg_fars if esid == zero_esid])
             # if any ifos are in the foreground but not in the background, add those also
-            for (ifos, param_group) in uncombined_fars[eid][zero_esid]:
-                if ifos not in lgnd:
-                    lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
+            if zero_esid in uncombined_fars[eid]:
+                for (ifos, param_group) in uncombined_fars[eid][zero_esid]:
+                    if ifos not in lgnd:
+                        lgnd[ ifos ] = InspiralUtils.get_coinc_ifo_colors(ifos)
             # add the ifo colors to the legend
             for ifos, ifos_color  in lgnd.items():
                 loglog( [xdum,xdum], [ydum,ydum],

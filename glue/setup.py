@@ -228,16 +228,18 @@ setup(
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','segdb_coalesce'), ],
   data_files = [
-    (
-      'etc',
-      [
-        os.path.join('etc','ldg-sites.xml'),
+    ( 'etc',
+      [ os.path.join('etc','ldg-sites.xml'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
-        os.path.join('etc','ligolw_dtd.txt')
+        os.path.join('etc','ligolw_dtd.txt') ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert' ),
+      [
+        os.path.join('src', 'php', 'seginsert','index.php')
       ]
     )
   ]
