@@ -405,10 +405,10 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
     found_segments = reduce(operator.or_, found_segments).coalesce()
 
     # We could also do:
-    # segment_summaries = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
+    segment_summaries = segmentdb_utils.query_segments(engine, 'segment_summary', segdefs)
 
     # And we could write out everything we found
-    # segmentdb_utils.add_segment_info(doc, process_id, segdefs, found_segments, segment_summaries)
+    segmentdb_utils.add_segment_info(doc, process_id, segdefs, None, segment_summaries)
 
 
     # Do the same for excluded
