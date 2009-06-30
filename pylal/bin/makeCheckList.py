@@ -815,10 +815,17 @@ page.tr.close()
 
 page.table.close()
 page.h2()
+<<<<<<< HEAD:pylal/bin/makeCheckList.py
+page.add("Follow up documentation")
+=======
 page.add("Miscellaneous Information")
+>>>>>>> master:pylal/bin/makeCheckList.py
 page.h2.close()
+<<<<<<< HEAD:pylal/bin/makeCheckList.py
+=======
 timeString=str(time.gmtime()[0:6]).replace(" ","").replace(",","-")
 page.add("Checklist compiled:%s <br>\n"%(timeString))
+>>>>>>> master:pylal/bin/makeCheckList.py
 page.add("<a\
  href=\"https://ldas-jobs.ligo.caltech.edu/~ctorres/followUpLivingDoc_LAST.pdf\">Living\
  follow up document</a>")
