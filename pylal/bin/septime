@@ -33,6 +33,7 @@ from pylal import date
 import matplotlib
 matplotlib.use('Agg')
 from pylab import *
+import copy
 rc('text', usetex=True)
 
 ##############################################################################
