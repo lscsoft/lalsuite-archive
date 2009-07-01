@@ -3,7 +3,7 @@
 header("Content-type: text/xml");
 $com = "ldbdc --query \"select segment_definer.ifos,segment_definer.name,segment_summary.start_time,segment_summary.end_time,process.username as scimon,process.comment as scimon_comment, segment_summary.comment as elog_url from segment_summary,process,segment_definer where segment_definer.segment_def_id = segment_summary.segment_def_id and segment_summary.segment_def_cdb = segment_definer.creator_db and process.process_id = segment_summary.process_id and process.creator_db = segment_summary.creator_db and segment_definer.name like 'SCI-%ELOG' order by segment_definer.ifos,segment_definer.name,segment_summary.start_time\" 2>&1";
 
-$ldbdcpath = getenv('LDBDCPATH');
+$gluepath = getenv('GLUEPATH');
 $pythonpath = getenv('PYTHONPATH');
 $ldlibpath = getenv('LD_LIBRARY_PATH');
 $ldbdserver = getenv('LDBD_SERVER');
@@ -17,7 +17,7 @@ putenv("X509_USER_CERT=" . $x509_cert);
 putenv("X509_USER_KEY=" . $x509_key);
 
 // run the command
-$com = $ldbdcpath . '/' . $com;
+$com = $gluepath . '/' . $com;
 exec($com, $output, $returnval);
 
 // check the return code
