@@ -390,16 +390,23 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
     for included in include_segments.split(','):
         spec = included.split(':')
 
-        if len(spec) < 2:
+        if len(spec) < 2 or len(spec) > 3:
             print >>sys.stderr, "Included segements must be of the form ifo:name:version or ifo:name:*"
             sys.exit(1)
 
         ifo     = spec[0]
         name    = spec[1]
-        version = len(spec) > 2 and spec[2] or '*'
+        if len(spec) is 3:
+            version = int(spec[2])
+            if version < 1:
+                print >>sys.stderr, "Segment version numbers must be greater than zero"
+                sys.exit(1)
+        else:
+            version = '*'
 
         segdefs += segmentdb_utils.expand_version_number(engine, (ifo, name, version, gps_start_time, gps_end_time, 0, 0) )
 
+    print segdefs
 
     found_segments = segmentdb_utils.query_segments(engine, 'segment', segdefs)
     found_segments = reduce(operator.or_, found_segments).coalesce()

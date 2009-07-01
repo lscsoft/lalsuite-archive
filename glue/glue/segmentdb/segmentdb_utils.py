@@ -78,7 +78,7 @@ def setup_database(host_and_port):
     from glue import LDBDClient
 
     """Opens a connection to a LDBD Server"""
-    port = 30020
+    port = 30015
     
     if host_and_port.find(':') < 0:
         host = host_and_port
