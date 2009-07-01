@@ -587,6 +587,22 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
+###this is a hack!!!  only leave this here until lvalert tables go in
+###some more central place
+
+class LVAlertTable(table.Table):
+  tableName = "LVAlert:table"
+  validcolumns = {
+    "file": "lstring",
+    "uid": "lstring"
+    }
+    
+class LVAlertRow(object):
+  __slots__ = LVAlertTable.validcolumns.keys()
+  
+LVAlertTable.RowType = LVAlertRow
+
+
 ##############################################################################
 #
 #          i/o and related functions
@@ -905,7 +921,7 @@ def parse_command_line():
   parser.add_option("-o","--output",action="store",type="string",default=None,\
                     help="name of the xml file to store output in")
   parser.add_option("-N","--online-input",action="store",type="string",default=None,\
-                    help="online input filename")
+                    help="name of LVAlert xml file")
   parser.add_option("-j","--inj-output",action="store",type="string",default=None,\
                     help="name of the xml file to store injection data in")
   parser.add_option("-k","--sky-data",action="store",type="string",default=None,\
@@ -974,14 +990,21 @@ if opts.glob is not None:
     sys.exit(0)
 
 if opts.online_input:
-  online_file = open(opts.online_input)
-  for line in iter(online_file):
-    if 'file' in line:
-      full_path = line.split(':')[-1].strip()
-      coincfiles.append(full_path)
-      general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
-    if 'uid' in line:
-      uid = line.split(':')[-1]
+  doc = utils.load_filename(opts.online_input)
+  lvatable = tab.get_table(doc, LVAlertTable.tableName)
+  full_path = lvatable[0].file
+  coincfiles.append(full_path)
+  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
+  uid = lvatable[0].uid
+
+#  online_file = open(opts.online_input)
+#  for line in iter(online_file):
+#    if 'file' in line:
+#      full_path = line.split(':')[-1].strip()
+#      coincfiles.append(full_path)
+#      general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
+#    if 'uid' in line:
+#      uid = line.split(':')[-1]
         
 
 inspTriggers = None
@@ -1021,7 +1044,7 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 if opts.output:
   bname = opts.output[:-4]
 if opts.online_input:
-  bname = 'LVALERT_'+uid
+  bname = 'SKYPOINTS_ONLINE_'+uid
   output_files = []
   
 #create the xml output and initiate the tables
