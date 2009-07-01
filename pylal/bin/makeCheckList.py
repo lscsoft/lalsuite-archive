@@ -247,7 +247,7 @@ for ifo_index,ifo in enumerate(ifolist):
   else:
     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
   if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
-    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/seismic_qscan" + gpstime)
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/seismic_qscan/" + gpstime)
   else:
     seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
