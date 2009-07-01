@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.24"
+ver = "1.25"
 
 def remove_root(path,root):
   if root:
@@ -220,7 +220,7 @@ setup(
     os.path.join('bin','ligolw_segment_query'),
     os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
-    os.path.join('bin','ligolw_dqactive'),
+    os.path.join('bin','ligolw_dq_active'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
@@ -237,9 +237,38 @@ setup(
         os.path.join('etc','ldbduser.ini'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
+    ( os.path.join( 'etc', 'httpd', 'conf.d' ),
+      [
+        os.path.join('etc', 'segdb.conf')
+      ]
+    ),
     ( os.path.join( 'var', 'php', 'seginsert' ),
       [
-        os.path.join('src', 'php', 'seginsert','index.php')
+        os.path.join('src', 'php', 'seginsert','index.php'),
+        os.path.join('src', 'php', 'seginsert','flagcheck.php'),
+        os.path.join('src', 'php', 'seginsert','ligolw.xsl'),
+        os.path.join('src', 'php', 'seginsert','listflags.php'),
+        os.path.join('src', 'php', 'seginsert','submitflag.php')
+      ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert', 'img' ),
+      [
+        os.path.join('src', 'php', 'seginsert','img','LIGOLogo.gif'),
+        os.path.join('src', 'php', 'seginsert','img','brace.gif'),
+        os.path.join('src', 'php', 'seginsert','img','lsc.gif'),
+        os.path.join('src', 'php', 'seginsert','img','plus.gif')
+      ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert', 'scripts' ),
+      [
+        os.path.join('src', 'php', 'seginsert','scripts','footer.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_day_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_month_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_year_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','header.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','style.css'),
+        os.path.join('src', 'php', 'seginsert','scripts','styletitle.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','time_conv_functions.php')
       ]
     )
   ]
