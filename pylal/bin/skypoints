@@ -990,7 +990,10 @@ if opts.glob is not None:
     sys.exit(0)
 
 if opts.online_input:
-  doc = utils.load_filename(opts.online_input)
+  if opts.online_input == '-':
+    doc = utils.load_fileobj(sys.stdin)[0] 
+  else:
+    doc = utils.load_filename(opts.online_input)
   lvatable = tab.get_table(doc, LVAlertTable.tableName)
   full_path = lvatable[0].file
   coincfiles.append(full_path)
