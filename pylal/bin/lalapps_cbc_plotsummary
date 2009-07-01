@@ -704,6 +704,10 @@ def sigma_region(mean, nsigma):
 
 
 def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
+	if not (len(zerolag_stats) or len(background_stats)):
+		# no data
+		return None, None
+
 	zerolag_stats.sort(reverse = True)
 	background_stats.sort(reverse = True)
 
@@ -713,16 +717,13 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = numpy.array(zerolag_stats, dtype = "double")
 	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
 
-	minX, maxX = min(x), max(x)
-	minN, maxN = min(N), max(N)
-
 	N = numpy.arange(len(background_stats), dtype = "double") + 1.0
 	N *= zerolag_to_background_livetime_ratio
 	x = numpy.array(background_stats, dtype = "double")
 	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
 
-	minX, maxX = min(minX, min(x)), max(maxX, max(x))
-	minN, maxN = min(minN, min(N)), max(maxN, max(N))
+	minX, maxX = min(zerolag_stats + background_stats), max(zerolag_stats + background_stats)
+	minN, maxN = min(1, zerolag_to_background_livetime_ratio), max(len(zerolag_stats), len(background_stats) * zerolag_to_background_livetime_ratio)
 
 	x = x.repeat(2)[1:]
 	x = numpy.concatenate((x, x[::-1]))
@@ -809,24 +810,28 @@ FROM
 	def finish(self):
 		for on_instruments in self.background_ifar:
 			fig, axes = create_farplot( self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
-			axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
-			axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
-			yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
+			if fig is not None:
+				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+				yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
 
 			fig, axes = create_farplot(self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
-			axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
-			axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
-			yield fig, "nonplayground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
+			if fig is not None:
+				axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+				yield fig, "nonplayground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
 
 			fig, axes = create_farplot(self.playground_snr[on_instruments], self.background_snr[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
-			axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
-			axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
-			yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
+			if fig is not None:
+				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+				yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
 
 			fig, axes = create_farplot(self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
-			axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
-			axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
-			yield fig, "nonplayground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
+			if fig is not None:
+				axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+				yield fig, "nonplayground_count_vs_snr_%s" % "".join(sorted(on_instruments)), True
 
 
 #
