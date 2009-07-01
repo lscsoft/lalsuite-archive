@@ -19,7 +19,7 @@ require './scripts/header.php';
       // Store file contents in an array
       // Open file for output
       if(($fh = fopen($flagFile, 'w+')) == FALSE){
-         die('Failed to open file for writing!');
+         die('Failed to open ' . $flagFile . ' for writing!');
       }
       $flagData = "<?xml version='1.0'?>\n".
                   "<!DOCTYPE LIGO_LW SYSTEM 'http://ldas-sw.ligo.caltech.edu/doc/ligolwAPI/html/ligolw_dtd.txt'>\n".
@@ -68,7 +68,8 @@ require './scripts/header.php';
 
    // construct result filename
    $duration = (int)$_POST['stopgps'] - (int)$_POST['startgps'];
-   $filename = "data/".$_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
+   $flagdatadir = getenv('SEGMENT_DATA_DIR');
+   $filename = $flagdatadir."/".$_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
 
    // construct username
    $split_username = explode("@",$_POST[user]);
