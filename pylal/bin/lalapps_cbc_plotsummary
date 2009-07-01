@@ -42,6 +42,7 @@ matplotlib.rcParams.update({
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 #from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
+import numpy
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -174,7 +175,7 @@ class CoincDatabase(object):
 
 		# get the live time
 		if verbose:
-			print >>sys.stderr, "calculating livetimes: ",
+			print >>sys.stderr, "calculating background livetimes: ",
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
 		if verbose:
 			print >>sys.stderr
@@ -281,6 +282,15 @@ AS
 				c.coinc_event_id == a.coinc_event_id
 		)
 	""")
+
+
+def create_is_playground_func(connection, playground_segs):
+	"""
+	Construct the is_playground() SQL function.
+	"""
+	def is_playground(seconds, nanoseconds, playground_segs = playground_segs):
+		return LIGOTimeGPS(seconds, nanoseconds) in playground_segs
+	connection.create_function("is_playground", 2, is_playground)
 
 
 #
@@ -683,6 +693,145 @@ WHERE
 #
 # =============================================================================
 #
+#                           Rate vs. Threshold Plots
+#
+# =============================================================================
+#
+
+
+def sigma_region(mean, nsigma):
+	return numpy.concatenate((mean - nsigma * numpy.sqrt(mean), (mean + nsigma * numpy.sqrt(mean))[::-1]))
+
+
+def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
+	zerolag_stats.sort(reverse = True)
+	background_stats.sort(reverse = True)
+
+	fig, axes = create_plot(None, r"Number of Events")
+
+	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
+	x = numpy.array(zerolag_stats, dtype = "double")
+	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+
+	minX, maxX = min(x), max(x)
+	minN, maxN = min(N), max(N)
+
+	N = numpy.arange(len(background_stats), dtype = "double") + 1.0
+	N *= zerolag_to_background_livetime_ratio
+	x = numpy.array(background_stats, dtype = "double")
+	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
+
+	minX, maxX = min(minX, min(x)), max(maxX, max(x))
+	minN, maxN = min(minN, min(N)), max(maxN, max(N))
+
+	x = x.repeat(2)[1:]
+	x = numpy.concatenate((x, x[::-1]))
+	N = N.repeat(2)[:-1]
+	axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
+	axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
+	axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
+
+	axes.set_xlim(minX, maxX)
+	axes.set_ylim(minN, maxN)
+
+	axes.legend(("Zero-Lag", "Expected Background, N", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+
+	return fig, axes
+
+
+class RateVsThreshold(object):
+	def __init__(self):
+		self.background_livetime = {}
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+		self.background_ifar = {}
+		self.playground_ifar = {}
+		self.nonplayground_ifar = {}
+		self.background_snr = {}
+		self.playground_snr = {}
+		self.nonplayground_snr = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is not None:
+			# skip injection documents
+			return
+
+		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.background_livetime.setdefault(on_instruments, 0.0)
+			self.playground_livetime.setdefault(on_instruments, 0.0)
+			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
+			self.background_ifar.setdefault(on_instruments, [])
+			self.playground_ifar.setdefault(on_instruments, [])
+			self.nonplayground_ifar.setdefault(on_instruments, [])
+			self.background_snr.setdefault(on_instruments, [])
+			self.playground_snr.setdefault(on_instruments, [])
+			self.nonplayground_snr.setdefault(on_instruments, [])
+
+		for on_instruments, livetime in contents.background_livetime.items():
+			self.background_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.nonplayground_livetime[on_instruments] += livetime
+
+		for on_instruments, ifar, snr, is_playground, is_background in connection.cursor().execute("""
+SELECT
+	coinc_event.instruments,
+	1.0 / coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns),
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+		"""):
+			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
+			if is_background:
+				self.background_ifar[on_instruments].append(ifar)
+				self.background_snr[on_instruments].append(snr)
+			elif is_playground:
+				self.playground_ifar[on_instruments].append(ifar)
+				self.playground_snr[on_instruments].append(snr)
+			else:
+				self.nonplayground_ifar[on_instruments].append(ifar)
+				self.nonplayground_snr[on_instruments].append(snr)
+
+	def finish(self):
+		for on_instruments in self.background_ifar:
+			fig, axes = create_farplot( self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+			axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+			yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
+
+			fig, axes = create_farplot(self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+			axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+			yield fig, "nonplayground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
+
+			fig, axes = create_farplot(self.playground_snr[on_instruments], self.background_snr[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+			axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+			yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
+
+			fig, axes = create_farplot(self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			axes.set_title(r"Non-playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+			axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+			yield fig, "nonplayground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
+
+
+#
+# =============================================================================
+#
 #                                     Main
 #
 # =============================================================================
@@ -707,7 +856,8 @@ def new_plots(plots = None):
 		MissedFoundPlots(),
 		ParameterAccuracyPlots(),
 		BackgroundVsInjectionPlots(),
-		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0)
+		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
+		RateVsThreshold()
 	)
 	if plots is None:
 		plots = range(len(l))
@@ -726,6 +876,7 @@ for n, filename in enumerate(filenames):
 	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
 	if contents.sim_inspiral_table is not None:
 		create_sim_coinc_view(connection)
+	create_is_playground_func(connection, contents.playground_segs)
 	for n, plot in zip(options.plot_group, plots):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
