@@ -15,6 +15,7 @@ require './scripts/header.php';
 <hr>
 <h3>Insert new flag</h3>
      <form action="flagcheck.php" method="post">
+        <input type="reset"/ value="Clear insert form">
         <p>Affected Detector: <select name="site">
                     <option value="H1">H1</option>
 	            <option value="L1">L1</option>
@@ -93,7 +94,7 @@ require './scripts/header.php';
 
         <p>Elog URL with detailed description of problem:<input type="text" size=67 name="url" ></p>
 	<p>Enter your @LIGO.ORG User Name (e.g albert.einstein):<input type="text" size=50 name="user"></p>
- 	<p><input type="reset"/><input type="submit" /></p>
+ 	<p><input type="submit" value="Submit flag to database"/></p>
      </form>
 
 <?php require './scripts/footer.php'; ?>

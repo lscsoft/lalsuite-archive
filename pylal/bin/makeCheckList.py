@@ -243,11 +243,11 @@ for ifo_index,ifo in enumerate(ifolist):
   # links to qscans
   hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime)
   if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime)
+    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime)
   else:
     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
   if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
-    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/" + gpstime)
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/seismic_qscan/" + gpstime)
   else:
     seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
@@ -303,7 +303,7 @@ for j in range(0,len(opts.ifo_times)-1,2):
      # links to qscans
      hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
      if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime0)
+       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime0)
      else:
        rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
