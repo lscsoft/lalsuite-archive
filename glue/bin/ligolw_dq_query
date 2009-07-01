@@ -128,7 +128,7 @@ def parse_command_line():
 
     # Data location options
     parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
     parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
@@ -177,9 +177,9 @@ def parse_command_line():
             outfile.close()
             file_location = tmp_dir
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
