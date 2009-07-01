@@ -1043,7 +1043,9 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
     magic_number = float(string.strip(cp.get('followup-triggers','eff-snr-denom-fac')))
   else:
     magic_number = None
-  if seglistname: seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+  if seglistname: 
+    seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+    seglist.coalesce()
   else: seglist = []
   if seglist: print "WARNING: restricting triggers to specified segment list"
 

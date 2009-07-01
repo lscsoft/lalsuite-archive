@@ -297,7 +297,14 @@ if __name__ == '__main__':
             known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
 
         if omega_ok:
-            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, options.omega_frame_dir, options.omega_out_dir, end_time, end_time ))
+            # The frames may live in a directory with subdirectories by time.  If the given directory
+            # contains a '%d' populate it with the first 4 digits of the time.
+            full_path = options.omega_frame_dir
+
+            if full_path.find('%d') != -1:
+                full_path = full_path % (end_time / 10000)
+
+            os.system("nohup condor_run ~omega/opt/omega/bin/wpipeline scan -r -c %s -f %s -o %s/%d  %d < /dev/null &>/dev/null &" % ( options.omega_conf, full_path, options.omega_out_dir, end_time, end_time ))
 
         # Print no more than the top ten known and unknown triggers
         # (the ranking is done by the 'ODRER BY snr DESC' in the query above)
