@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.24"
+ver = "1.25"
 
 def remove_root(path,root):
   if root:
