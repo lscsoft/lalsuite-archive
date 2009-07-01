@@ -132,26 +132,20 @@ def parse_command_line():
 		if options.verbose:
 			print >>sys.stderr, "reading %s ..." % options.ihope_cache
 		# find second thinca cache entries
-		pattern = re.compile("THINCA(_SLIDE)?_SECOND_[^_]+_(?P<tag>.+)_CAT_(?P<cat>[\d]+)_VETO")
+		pattern = re.compile(r"THINCA(?P<slide>(_SLIDE)?)_SECOND_[^_]+_(((?P<taga>.+)_CAT_(?P<cat>[\d]+)_VETO)|(?P<tagb>.+))\Z")
 		zero_lag_urls = {}
 		slide_urls = {}
 		for c in map(lal.CacheEntry, file(options.ihope_cache)):
 			category = pattern.match(c.description)
 			if category is None:
 				continue
-			category = category.groups()
-			if category[0] is None:
+			category = category.groupdict()
+			if category["slide"] == "":
 				# zero-lag URL
-				try:
-					zero_lag_urls[category[1:]].append(c)
-				except KeyError:
-					zero_lag_urls[category[1:]] = [c]
+				zero_lag_urls.setdefault((category["taga"] or category["tagb"], category["cat"] or "1"), []).append(c)
 			else:
 				# slide URL
-				try:
-					slide_urls[category[1:]].append(c)
-				except KeyError:
-					slide_urls[category[1:]] = [c]
+				slide_urls.setdefault((category["taga"] or category["tagb"], category["cat"] or "1"), []).append(c)
 		# extract URLs.  sorting cache entries puts them in time
 		# order
 		zero_lag_urls = dict((key, [c.url for c in sorted(cache)]) for key, cache in zero_lag_urls.items())
