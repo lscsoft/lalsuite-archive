@@ -12,6 +12,7 @@ typeCodeMap = {
         "Q"        : "Q",
         "X"        : "X",
         "CWB"      : "CWB",
+        "MBTAOnline": "MBTA",
 }
 validTypes = typeCodeMap.keys()
 
