@@ -596,7 +596,10 @@ class followupDataFindNode(pipeline.LSCDataFindNode,webTheNode):
     if cp.has_option("followup-"+type, ifo + '_type'): 
       self.set_type( cp.get("followup-"+type, ifo + '_type' ))
     else:
-      self.set_type( cp.get("followup-"+type, 'type' ))
+      if not( cp.has_option("followup-"+type,"remote-ifo") and \
+      cp.get("followup-"+type,"remote-ifo")==ifo ):
+        self.set_type( cp.get("followup-"+type, 'type' ))
+      else: self.set_type("dummy")
     lalCache = self.get_output()
     qCache = lalCache.rstrip("cache") + "qcache"
     self.set_post_script(job.name + "/cacheconv.sh $RETURN %s %s" %(lalCache,qCache) )

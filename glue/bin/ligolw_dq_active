@@ -32,7 +32,7 @@
 Displays the set of flags active at a give time or times, in a convinent
 ascii form.
 
-All the heavy lifting is done by ligolw_dq_query --segment, this just 
+All the heavy lifting is done by ligolw_dq_query --segment-url, this just 
 processes the arguments and output.
 """
 
@@ -81,7 +81,7 @@ def parse_command_line():
     # Major modes
     parser.add_option("-i", "--ifo",        metavar = "ifo",       help = "Abbreviation for IFO of interest")
     parser.add_option("-t", "--time-file",  metavar = "time-file", help = "File of gps times, one per line")
-    parser.add_option("-s", "--segment",    metavar = "segment-url", help = "URL of segment database or DMT files")
+    parser.add_option("-s", "--segment-url", metavar = "segment-url", help = "URL of segment database or DMT files")
     parser.add_option("-d", "--input-dir",  metavar = "input-dir", help = "Location of DMT files")
 
 

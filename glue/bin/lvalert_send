@@ -177,10 +177,14 @@ if opts.verbose:
     print "connecting..."
 s.connect()
 
+
 if opts.file:
     if opts.verbose:
         print "build pubsub stanza..."
-    eventfile = open(opts.file)
+    if opts.file == '-':
+        eventfile = sys.stdin
+    else:
+        eventfile = open(opts.file)
     voevent = eventfile.read()
     eventfile.close()
 else:
