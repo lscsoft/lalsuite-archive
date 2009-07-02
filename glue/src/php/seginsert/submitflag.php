@@ -69,7 +69,12 @@ require './scripts/header.php';
    // construct result filename
    $duration = (int)$_POST['stopgps'] - (int)$_POST['startgps'];
    $flagdatadir = getenv('SEGMENT_DATA_DIR');
-   $filename = $flagdatadir."/".$_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
+   $filename = $_POST['site']."-"."SCIMON_DQ_".$name."-".$_POST['startgps']."-".$duration.".xml";
+   if(eregi('/',$filename))
+     {
+       die("Error: attempt to insert a slash into DQ filename: request denied");
+     }
+   $filename = $flagdatadir."/".$filename;
 
    // construct username
    $split_username = explode("@",$_POST[user]);
