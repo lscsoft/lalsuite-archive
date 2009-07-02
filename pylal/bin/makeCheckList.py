@@ -525,8 +525,8 @@ for j,ifo in enumerate(ifolist):
   gpstime = opts.trigger_gps.split(",")[j].strip()
   hoftQscanLinks += " <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>"
   hoftQscanLinks += " <a href=\"" + analyse_hoft_qscan[j] + "\"> Background information for " + ifo + "</a>"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
 i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
@@ -535,8 +535,8 @@ for k in range(0,len(opts.ifo_times)-1,2):
   if not ifolist.count(ifo):
     i=i+1
     hoftQscanLinks += " <a href=\"" + hoft_qscan[i + len(ifolist) - 1] + "\">" + ifo + "</a><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
 page.td(hoftQscanLinks)
 page.td()
 page.tr.close()
