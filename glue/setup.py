@@ -235,6 +235,8 @@ setup(
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
+        os.path.join('etc','ligolw.xsl'),
+        os.path.join('etc','ligolw.js'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),
