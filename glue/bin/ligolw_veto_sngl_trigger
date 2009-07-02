@@ -47,7 +47,10 @@ import os
 import pwd
 import tempfile
 import re
+import time
+import datetime
 
+from glue import gpstime
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -194,6 +197,16 @@ if __name__ == '__main__':
     # Find trigger files
     trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
     
+    # If there are no files in the time range then there's nothing to do
+    if not trigger_files:
+        if options.timestamp_file:
+            f = open(options.timestamp_file, 'w')
+            print >>f,  gps_end_time
+            f.close()
+
+        sys.exit(0)
+
+
     # Due to latency issues the last available time may not be the last time we asked for.
     # Find the real end time from the file names
     trigger_files.sort()
