@@ -995,7 +995,7 @@ if opts.online_input:
   else:
     doc = utils.load_filename(opts.online_input)
   lvatable = tab.get_table(doc, LVAlertTable.tableName)
-  full_path = lvatable[0].file
+  machine, full_path = lvatable[0].file.split(':')
   coincfiles.append(full_path)
   general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
   uid = lvatable[0].uid
