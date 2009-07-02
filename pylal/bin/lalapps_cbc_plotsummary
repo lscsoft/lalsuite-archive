@@ -766,7 +766,7 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	axes.set_xlim(minX, maxX)
 	axes.set_ylim(minN, maxN)
 
-	axes.legend(("Zero-lag", "Expected Background, N", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+	axes.legend(("Zero-lag", "Expected Background, $N$", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
 
 	return fig, axes
 
