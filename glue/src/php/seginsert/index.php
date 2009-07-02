@@ -93,7 +93,7 @@ require './scripts/header.php';
        </p>
 
         <p>Elog URL with detailed description of problem:<input type="text" size=67 name="url" ></p>
-	<p>Enter your @LIGO.ORG User Name (e.g albert.einstein):<input type="text" size=50 name="user"></p>
+	<p>Enter your @LIGO.ORG User Name (e.g albert.einstein):<input type="text" size=50 name="user" value="<?=$_SERVER['REMOTE_USER']?>"></p>
  	<p><input type="submit" value="Submit flag to database"/></p>
      </form>
 

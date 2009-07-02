@@ -1974,14 +1974,18 @@ class followupDQV:
     self.serverURL="ldbd://metaserver.phy.syr.edu:30015"
     self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
+      envServer=None
+      envServer=os.getenv('S6_SEGMENT_SERVER')
+      if envServer!=None:
+        self.serverURL=envServer
       sys.stderr.write("Warning no LDBD Server URL specified \
 defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
-      if self.serverURL[len('ldbd://'):].__contains__(':'):
-        self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
-      else:
-        self.serverName=self.serverURL[len('ldbd://'):]
+    if self.serverURL[len('ldbd://'):].__contains__(':'):
+      self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+    else:
+      self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
     self.segmentsActiveString = "SELECT \
     segment_definer.ifos,segment_definer.name,\
@@ -1989,7 +1993,8 @@ segment_definer.version,segment.start_time,\
 segment.end_time FROM segment,segment_definer \
 WHERE segment_definer.segment_def_id = \
 segment.segment_def_id AND \
-segment_definer.version >= %s AND \
+segment.segment_def_cdb = segment_definer.creator_db \
+AND segment_definer.version >= %s AND \
 NOT (segment.start_time > %s OR %s > \
 segment.end_time)"
 
@@ -2035,6 +2040,13 @@ segment.end_time)"
       return
     engine.close()
   #End method fetchInformation()
+
+  def generateResultList(self):
+    """
+    Simple calling function to create a list object of the results.
+    """
+    return self.resultList
+  #End generateResultList
   
   def generateHTMLTable(self):
     """

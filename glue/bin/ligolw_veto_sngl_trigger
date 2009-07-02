@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # $Id$
 #
@@ -47,7 +47,10 @@ import os
 import pwd
 import tempfile
 import re
+import time
+import datetime
 
+from glue import gpstime
 from glue.ligolw import ligolw
 from glue.ligolw import lsctables
 from glue.ligolw import utils
@@ -99,27 +102,39 @@ def parse_command_line():
         description = "Reads one or more segment files and a veto file and generates files of veto segments"        
 	)
     
-    parser.add_option("-v", "--veto-dir",     metavar = "veto_dir",     help = "Directory with veto files")
     parser.add_option("-r", "--trigger-dir",  metavar = "trigger_dir",  help = "Top-level directory with trigger files")
     parser.add_option("-t", "--type",         metavar = "type",         help = "type of trigger [burst|inspiral]")
-    parser.add_option("-i", "--include-veto",  action="store_true",     help = "Only return triggers that are inside vetoed times") 
-    parser.add_option("-e", "--exclude-veto",  action="store_true",     help = "Only return triggers that are outside vetoed times")
+    parser.add_option("-i","--ifos",          metavar = "ifos",         help = "IFOs to process")
+    parser.add_option("-c","--categories",    metavar="categories",     help = "Categories to process")
+
+    parser.add_option("-n", "--include-veto",  action="store_true",     help = "Only return triggers that are inside vetoed times") 
+    parser.add_option("-x", "--exclude-veto",  action="store_true",     help = "Only return triggers that are outside vetoed times")
     parser.add_option("-o", "--output-dir",    metavar = "output_dir",  help = "Directory to write output XML (default cwd)")
+    parser.add_option("-q", "--dq-dir",        metavar = "dq_dir",      help = "Top-level directory with DQ files")
 
-    parser.add_option("-b", "--gps-start-time",  metavar="gps_start_time", help = "Start time for triggers")
-    parser.add_option("-n", "--gps-end-time",    metavar="gps_end_time",   help = "End time for triggers")
+    parser.add_option("-s", "--gps-start-time",  metavar="gps_start_time", help = "Start time for triggers")
+    parser.add_option("-e", "--gps-end-time",    metavar="gps_end_time",   help = "End time for triggers")
 
+    parser.add_option("-p", "--separate",        metavar="separate",    action="store_true", help="Do separate categories")
+    parser.add_option("-m", "--cumulative",      metavar="cumulative",  action="store_true",  help="Do cumulative categories")
+
+
+    parser.add_option("-v","--veto-file",      metavar="veto_file",      help = "Veto definer file")
+    parser.add_option("-f","--timestamp-file", metavar="timestamp_file", help = "File holding gps start time")
 
     options, others = parser.parse_args()
 
-    require(options.veto_dir, "missing required argument --veto-dir")
+    require(options.veto_file, "missing required argument --veto-dir")
     require(options.trigger_dir, "missing required argument --trigger-dir")
+    require(options.dq_dir, "missing required argument --dq-dir")
     require(options.type, "missing required argument --type [burst|inspiral]")
     require(options.type in ['burst', 'inspiral'], "type must be one of [burst|inspiral]")
     require(options.include_veto or options.exclude_veto, "missing required argument, either --include-veto or --exclude-veto")
 
-    require(options.gps_start_time, "missing required argument --gps-start-time")
-    require(options.gps_end_time, "missing required argument --gps-end-time")
+    require(options.separate or options.cumulative, "missing required argument, at least one of --separate or --cumulative")
+
+    require(options.timestamp_file or (options.gps_start_time and options.gps_end_time), 
+            "missing required argument, either --timestamp-file or  --gps-start-time and --gps-end-time")
 
     return options
 
@@ -160,23 +175,68 @@ if __name__ == '__main__':
 
     options = parse_command_line()    
 
-    gps_start_time  = int(options.gps_start_time)
-    gps_end_time    = int(options.gps_end_time)
+    # Run up to now or the user-provided time
+    if options.gps_end_time:
+        gps_end_time = int(options.gps_end_time)
+    else:
+        gps_end_time = gpstime.GpsSecondsFromPyUTC(time.time())
+
+    # Find the last time we ran (in principle we could get this from the time
+    # stamp on the HTML file, but we should allow for the possibility that 
+    # someone might hand-edit that file)
+    if options.gps_start_time:
+        gps_start_time = int(options.gps_start_time)
+    elif os.path.exists(options.timestamp_file):
+        f = open(options.timestamp_file)
+        gps_start_time = int(f.next())
+        f.close()
+    else:
+        # Looks like we've never run before, start a day ago
+        gps_start_time = gps_end_time - (60 * 60 * 24)
 
     # Find trigger files
-    xml_files  = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
+    trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
+    
+    # If there are no files in the time range then there's nothing to do
+    if not trigger_files:
+        if options.timestamp_file:
+            f = open(options.timestamp_file, 'w')
+            print >>f,  gps_end_time
+            f.close()
 
-    # Add in the veto files
-    veto_files = [options.veto_dir + '/' + fname for fname in os.listdir(options.veto_dir) if fname.endswith('.xml')]
+        sys.exit(0)
+
+
+    # Due to latency issues the last available time may not be the last time we asked for.
+    # Find the real end time from the file names
+    trigger_files.sort()
+
+    m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[-1])
+    last_trigger_time = int(m.group(1)) + int(m.group(2))
+
+    # Likewise the DQ files
+    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, gps_start_time, gps_end_time)
+
+    m  = re.match('.*-([0-9]+)-([0-9]+).xml',dq_files[-1])
+    last_dq_time = int(m.group(1)) + int(m.group(2))
+
+    # We should only run up to the earlier of the times available
+    # to ensure we have both DQ and triggers
+    gps_end_time = min(last_trigger_time, last_dq_time)
+
+    # Build the full list of XML files to load, includiing the veto_definer file
+    xml_files = trigger_files + [options.veto_file] + dq_files
+
 
     # 1. Load the files into sqlite. 
     handle, temp_db = tempfile.mkstemp(suffix='.sqlite')
     os.close(handle)
+    
     target          = dbtables.get_connection_filename(temp_db, None, True, False)
     connection      = ligolw_sqlite.setup(target)
     cursor          = connection.cursor()
 
-    ligolw_sqlite.insert(connection, xml_files + veto_files)
+    ligolw_sqlite.insert(connection, xml_files)
 
     table_name = 'sngl_' + options.type
 
@@ -206,34 +266,56 @@ if __name__ == '__main__':
         if count:
             output_tables.append(name)
 
-    # Create a vetoed file for each (ifo, category, {separate, cummulative})
-    veto_groups = []
-    for seg_def_id, ifo, name in cursor.execute("SELECT segment_def_id, ifos, name FROM segment_definer WHERE name LIKE '%CAT%'"):
-        veto_groups.append( (seg_def_id, ifo, name) )
+    ops = []
+    if options.separate:
+        ops.append(' = ')
+    if options.cumulative:
+        ops.append(' <= ')
 
-    for seg_def_id, ifo, name in veto_groups:
-        cursor.execute('DELETE FROM %s' % table_name)
-        cursor.execute("INSERT INTO %s SELECT * FROM %s_backup WHERE ifo='%s'" % (table_name, table_name, ifo))
+    for op in ops:
+        for ifo in options.ifos.split(','):
+            for category in map(int, options.categories.split(',')):
+                cursor.execute('DELETE FROM %s' % table_name)
+                cursor.execute("INSERT INTO %s SELECT * FROM %s_backup WHERE ifo='%s'" % (table_name, table_name, ifo))
 
-        # Delete any triggers whose end time falls within a vetoed segment
-        subquery  = "SELECT %s.end_time FROM %s, segment WHERE segment.segment_def_id='%s' " % (table_name, table_name, seg_def_id)
-        subquery += " AND %s.end_time BETWEEN segment.start_time AND segment.end_time" % (table_name)
+                # Delete any triggers whose end time falls within a vetoed segment
+                subquery  = "SELECT %s.end_time FROM %s, segment, segment_definer, veto_definer " % (table_name, table_name)
+                subquery += "   WHERE segment_definer.segment_def_id = segment.segment_def_id "
+                subquery += "     AND segment_definer.name = veto_definer.name "
+                subquery += "     AND segment_definer.ifos = veto_definer.ifo "
+                subquery += "     AND segment_definer.version = veto_definer.version "
+                subquery += "     AND veto_definer.category %s %d " % (op, category)
+                subquery += "     AND veto_definer.ifo = '%s'"      % (ifo)
+                subquery += "     AND %s.end_time BETWEEN segment.start_time AND segment.end_time" % (table_name)
 
-        sql =  'DELETE FROM ' + table_name
-        sql += ' WHERE end_time %s IN ' % (options.exclude_veto and ' ' or 'NOT')
-        sql += ' (%s)' % subquery
 
-        cursor.execute(sql)
+                sql =  'DELETE FROM ' + table_name
+                sql += ' WHERE end_time %s IN ' % (options.exclude_veto and ' ' or 'NOT')
+                sql += ' (%s)' % subquery
 
-        # Write out
-        outname = get_output_name(ifo,
-                                  int(name[len('VETO_CAT'):len('VETO_CAT')+1]),
-                                  gps_start_time, gps_end_time,
-                                  options.output_dir or '.', 
-                                  name.find('CUMULATIVE') > -1)
+                cursor.execute(sql)
 
-        ligolw_sqlite.extract(connection, outname, table_names=output_tables)
+                # Write out
+                base_dir   = options.output_dir or '.'
+                ext        = op == ' <= ' and '_CUMULATIVE' or ''
+                first_four = gps_start_time / 100000
+                outdir     = "%s/%s-CAT%d%s/%s-CAT%d%s-%d" % (base_dir, ifo, category, ext, ifo, category, ext, first_four)
 
+                try:
+                    os.makedirs(outdir)
+                except:
+                    pass
+
+                outname = "%s/%s-CAT%d%s-%d-%d.xml" % (outdir, ifo, category, ext, gps_start_time, (gps_end_time - gps_start_time))
+
+                ligolw_sqlite.extract(connection, outname, table_names=output_tables)
+
+
+    # If we started from a timestamp file, update it
+    if options.timestamp_file:
+        f = open(options.timestamp_file, 'w')
+        print >>f,  gps_end_time
+        f.close()
 
     # Clean up
     os.remove(temp_db)
