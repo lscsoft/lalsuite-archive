@@ -806,7 +806,7 @@ def get_playground_segments(all_data_segments):
 
 def check_for_thinca_id_overflow(event):
 	a, b, c = event.get_id_parts()
-	if a < 100000000 and c == 99999:
+	if a >= 100000000 and c == 99999:
 		raise ValueError, "found sngl_inspiral with ID ending in 99999 (\"%s\"):  overflow occured in lalapps_thinca's ID assignment, time slide indexes are corrupted" % str(event.event_id)
 
 
