@@ -840,17 +840,17 @@ FROM
 
 	def finish(self):
 		for on_instruments in self.background_ifar:
-			fig, axes = create_farplot( self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
 				yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
 
-			fig, axes = create_farplot(self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_ifar[on_instruments] + self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
-				yield fig, "nonplayground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
 
 			fig, axes = create_farplot(self.playground_snr[on_instruments], self.background_snr[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
 			if fig is not None:
@@ -858,11 +858,11 @@ FROM
 				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
 				yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
 
-			fig, axes = create_farplot(self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_snr[on_instruments] + self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
-				yield fig, "nonplayground_count_vs_snr_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
 
 
 #
