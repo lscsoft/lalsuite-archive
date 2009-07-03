@@ -248,7 +248,7 @@ if __name__ == '__main__':
 
     # The trigger files may not lie exactly on the start/end
     # boundaries we specified, delete anything outside this range
-    cursor.execute('DELETE FROM %s WHERE end_time < %d OR end_time > %d' % (table_name, gps_start_time, gps_end_time))
+    cursor.execute('DELETE FROM %s WHERE end_time < %d OR end_time >= %d' % (table_name, gps_start_time, gps_end_time))
 
     # Backup the sngl_ table
     sql = cursor.execute("SELECT sql FROM sqlite_master WHERE name='%s'" % table_name).fetchone()[0]
