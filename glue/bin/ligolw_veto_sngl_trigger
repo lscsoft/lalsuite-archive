@@ -197,8 +197,11 @@ if __name__ == '__main__':
     # Find trigger files
     trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
     
+    # and dq files
+    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, gps_start_time, gps_end_time)
+
     # If there are no files in the time range then there's nothing to do
-    if not trigger_files:
+    if not (trigger_files and dq_files):
         if options.timestamp_file:
             f = open(options.timestamp_file, 'w')
             print >>f,  gps_end_time
@@ -207,28 +210,25 @@ if __name__ == '__main__':
         sys.exit(0)
 
 
-    # Due to latency issues the last available time may not be the last time we asked for.
-    # Find the real end time from the file names
+    # Due to latency issues the last available time may not be the last 
+    # time we asked for.  Find the real end time from the file names
     trigger_files.sort()
 
     m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[-1])
     last_trigger_time = int(m.group(1)) + int(m.group(2))
-
-    # Likewise the DQ files
-    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, gps_start_time, gps_end_time)
 
     m  = re.match('.*-([0-9]+)-([0-9]+).xml',dq_files[-1])
     last_dq_time = int(m.group(1)) + int(m.group(2))
 
     # We should only run up to the earlier of the times available
     # to ensure we have both DQ and triggers
-    gps_end_time = min(last_trigger_time, last_dq_time)
+    gps_end_time = min(gps_end_time, last_trigger_time, last_dq_time)
 
     # Build the full list of XML files to load, includiing the veto_definer file
     xml_files = trigger_files + [options.veto_file] + dq_files
 
 
-    # 1. Load the files into sqlite. 
+    # Load the files into sqlite. 
     handle, temp_db = tempfile.mkstemp(suffix='.sqlite')
     os.close(handle)
     
