@@ -121,7 +121,7 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
 
-parser.add_option("-X","--data-quality-url",action="store",type="string",\
+parser.add_option("-X","--segment-url",action="store",type="string",\
                   metavar="URL",default=None, dest="defaultldbd",\
                   help="Using this argument specify a URL the LDBD \
 server that you want to query DQ Veto segment information from for\
@@ -468,8 +468,14 @@ else:
   dqTable=""
   vetoTable=""
   
-if opts.defaultldbd != None:
-  defaultServer="ldbd://metaserver.phy.syr.edu:30015"
+#Always run if the dqTable is empty, this means we did not use
+#--data-quality-database option to populate our DQ trigger table.
+#
+if dqTable=="":
+  if opts.defaultldbd != None:
+    defaultServer=opts.defaultldbd
+  else:
+    defaultServer=None
   windowSize=int(600)
   versionNumber=int(1)
   x=followupDQV(defaultServer)

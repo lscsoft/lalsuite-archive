@@ -1940,7 +1940,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
     if cp.has_option("followup-dq","input-sql"):
       self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
     elif cp.has_option("followup-dq","server-url"):
-      self.add_var_opt("data-quality-url",cp.get("followup-dq","server-url"))
+      self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
 
