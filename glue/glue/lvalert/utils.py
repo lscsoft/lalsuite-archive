@@ -75,7 +75,7 @@ def get_LVAdata_from_stdin(std_in):
 
   return host, full_path, general_dir, uid
 
-def get_LVAdata_from_file(file):
+def get_LVAdata_from_file(filename):
   """
   this function takes the name of an xml file containing a single LVAlertTable
   and it returns:
@@ -85,20 +85,20 @@ def get_LVAdata_from_file(file):
                be written to
   uid: the gracedb unique id associated with the event in the LVAlertTable
   """
-  doc = utils.load_filename(opts.online_input)
+  doc = utils.load_filename(filename)
   lvatable = table.get_table(doc, LVAlertTable.tableName)
   lvatable = table.get_table(doc, LVAlertTable.tableName)
   host, full_path, general_dir = _parse_file_url(lvatable[0].file)
   uid = lvatable[0].uid
 
-  return machine, full_path, general_dir, uid
+  return host, full_path, general_dir, uid
 
 
 #the following is meant as a template for small jobs
 #notes:
-#   *we only use the vanilla universe which is appropriate for python
+#   * we only use the vanilla universe which is appropriate for python
 #    jobs and things not condor-compiled
-#   *it only works for single-process jobs anything more complicated will
+#   * it only works for single-process jobs; anything more complicated will
 #    require a dag
 condor_sub_template = \
                     """

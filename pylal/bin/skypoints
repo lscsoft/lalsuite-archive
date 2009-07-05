@@ -997,6 +997,7 @@ if opts.online_input:
   else:
     host, full_path, general_dir, uid = \
           lvautils.get_LVAdata_from_file(opts.online_input)
+  coincfiles.append(full_path)
 #  online_file = open(opts.online_input)
 #  for line in iter(online_file):
 #    if 'file' in line:
