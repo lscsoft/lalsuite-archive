@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.25"
+ver = "1.26"
 
 def remove_root(path,root):
   if root:
@@ -235,6 +235,8 @@ setup(
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
+        os.path.join('etc','ligolw.xsl'),
+        os.path.join('etc','ligolw.js'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),

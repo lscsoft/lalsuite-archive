@@ -83,6 +83,10 @@ parser.add_option("","--trigger-gps",action="store",type="string",\
 coincidence is found. The gps times must be separated by a coma, for example \
 trigger-gps=\"860308882.71533203,860308882.74438477\"")
 
+parser.add_option("","--hoft-channel-ref",action="store",type="string",\
+    metavar=" STRING",default="DMT-STRAIN,h_16384Hz",help="this indicates"\
+    " the hoft channel name used by LIGO and Virgo ifos")
+
 parser.add_option("","--ifolist-in-coinc",action="store",type="string",\
     metavar=" STRING",help="string cointaing the ifo names found in coincidence, for example: \"H1H2L1\"")
 
@@ -117,7 +121,7 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
 
-parser.add_option("-X","--data-quality-url",action="store",type="string",\
+parser.add_option("-X","--segment-url",action="store",type="string",\
                   metavar="URL",default=None, dest="defaultldbd",\
                   help="Using this argument specify a URL the LDBD \
 server that you want to query DQ Veto segment information from for\
@@ -218,6 +222,10 @@ skymap = []
 singlemcmc = []
 coherentmcmc = []
 fu_triggers = []
+
+# get channel name for hoft data
+LIGO_channel = opts.hoft_channel_ref.split(",")[0].strip()
+Virgo_channel = opts.hoft_channel_ref.split(",")[1].strip()
 
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
@@ -460,8 +468,14 @@ else:
   dqTable=""
   vetoTable=""
   
-if opts.defaultldbd != None:
-  defaultServer="ldbd://metaserver.phy.syr.edu:30015"
+#Always run if the dqTable is empty, this means we did not use
+#--data-quality-database option to populate our DQ trigger table.
+#
+if dqTable=="":
+  if opts.defaultldbd != None:
+    defaultServer=opts.defaultldbd
+  else:
+    defaultServer=None
   windowSize=int(600)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
@@ -512,19 +526,23 @@ page.td("Do the Qscan figures show what we would expect for a gravitational-wave
 page.td()
 hoftQscanLinks = "h(t) Qscans:<br>"
 for j,ifo in enumerate(ifolist):
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   gpstime = opts.trigger_gps.split(",")[j].strip()
   hoftQscanLinks += " <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>"
   hoftQscanLinks += " <a href=\"" + analyse_hoft_qscan[j] + "\"> Background information for " + ifo + "</a>"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
 i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   if not ifolist.count(ifo):
     i=i+1
     hoftQscanLinks += " <a href=\"" + hoft_qscan[i + len(ifolist) - 1] + "\">" + ifo + "</a><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
 page.td(hoftQscanLinks)
 page.td()
 page.tr.close()
