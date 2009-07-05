@@ -2,8 +2,10 @@
 
 import sys
 import os
+import urlparse
 from optparse import *
 from subprocess import Popen,PIPE
+
 
 from glue.ligolw import ligolw
 from glue.ligolw import table
@@ -19,7 +21,7 @@ from glue.ligolw import utils
 class LVAlertTable(table.Table):
   """
   for reference, file is written as
-  machine:full/path/to/file.ext
+  file://host/path_to_file/file
   and uid is the unique id assigned by gracedb
   """
   tableName = "LVAlert:table"
@@ -39,10 +41,28 @@ LVAlertTable.RowType = LVAlertRow
 #
 ##############################################################################
 
+def _parse_file_url(file_url):
+  """
+  simple function to parse the file urls of the form:
+  file://host_name/path_to_file/file
+  where path_to_file is assumed to be the /private subdir of a gracedb entry
+  returns:
+  host: host_name in the above example
+  full_path: path_to_file/file in the above example
+  general_dir: the /general subdir of the gracedb entry (where data not
+  produced by the event supplier should be placed)
+  """
+  parsed = urlparse.urlparse(file_url)
+  host = parsed[1]
+  full_path = parsed[2]
+  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0], \
+                             'general')
+  return host, full_path, general_dir
+
 def get_LVAdata_from_stdin(std_in):
   """
   this function takes an LVAlertTable from sys.stdin and it returns:
-  machine: the machine the payload file was created on
+  host: the machine the payload file was created on
   full_path: the full path to (and including) the payload file
   general_dir: the directory in gracedb that the output of your code should
                be written to
@@ -50,17 +70,16 @@ def get_LVAdata_from_stdin(std_in):
   """
   doc = utils.load_fileobj(std_in)[0]
   lvatable = table.get_table(doc, LVAlertTable.tableName)
-  machine, full_path = lvatable[0].file.split(':')
-  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
+  host, full_path, general_dir = _parse_file_url(lvatable[0].file)
   uid = lvatable[0].uid
 
-  return machine, full_path, general_dir, uid
+  return host, full_path, general_dir, uid
 
 def get_LVAdata_from_file(file):
   """
   this function takes the name of an xml file containing a single LVAlertTable
   and it returns:
-  machine: the machine the payload file was created on
+  host: the machine the payload file was created on
   full_path: the full path to (and including) the payload file
   general_dir: the directory in gracedb that the output of your code should
                be written to
@@ -68,18 +87,22 @@ def get_LVAdata_from_file(file):
   """
   doc = utils.load_filename(opts.online_input)
   lvatable = table.get_table(doc, LVAlertTable.tableName)
-  machine, full_path = lvatable[0].file.split(':')
-  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
+  lvatable = table.get_table(doc, LVAlertTable.tableName)
+  host, full_path, general_dir = _parse_file_url(lvatable[0].file)
   uid = lvatable[0].uid
 
   return machine, full_path, general_dir, uid
 
 
-#this stuff works for single-process jobs
-#anything more complicated will require a dag
+#the following is meant as a template for small jobs
+#notes:
+#   *we only use the vanilla universe which is appropriate for python
+#    jobs and things not condor-compiled
+#   *it only works for single-process jobs anything more complicated will
+#    require a dag
 condor_sub_template = \
                     """
-                    universe = standard
+                    universe = vanilla
                     executable = macroexecutible
                     arguments = macroargs
                     log = macrolog
@@ -90,10 +113,10 @@ condor_sub_template = \
                     queue
                     """
 
-def write_condor_sub(uid, executible, args, logdir):
+def write_condor_sub(executible, args, logdir, uid):
   """
   write a simple condor submission file
-  uid: unique id (probably from gracedb)
+  uid: unique id used in naming the files (to avoid conflicts)
   executible: the name of the executible file
   args: a list of arguments to executible
   logdir: directory to keep log files

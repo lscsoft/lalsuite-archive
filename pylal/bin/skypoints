@@ -31,6 +31,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 import glue.iterutils
+from glue.lvalert import utils as lvautils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
@@ -991,15 +992,11 @@ if opts.glob is not None:
 
 if opts.online_input:
   if opts.online_input == '-':
-    doc = utils.load_fileobj(sys.stdin)[0] 
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_stdin(sys.stdin) 
   else:
-    doc = utils.load_filename(opts.online_input)
-  lvatable = tab.get_table(doc, LVAlertTable.tableName)
-  machine, full_path = lvatable[0].file.split(':')
-  coincfiles.append(full_path)
-  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
-  uid = lvatable[0].uid
-
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_file(opts.online_input)
 #  online_file = open(opts.online_input)
 #  for line in iter(online_file):
 #    if 'file' in line:
