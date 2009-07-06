@@ -93,6 +93,23 @@ def get_LVAdata_from_file(filename):
 
   return host, full_path, general_dir, uid
 
+def write_LVAlertTable(filename, file_url, uid):
+  """
+  create filename.xml which contains an LVAlert Table
+  with file_url and  uid
+  """
+  xmldoc = ligolw.Document()
+  xmldoc.appendChild(ligolw.LIGO_LW())
+  lvalerttable = lsctables.New(LVAlertTable)
+  row = lvalerttable.RowType()
+  row.file = file_url
+  row.uid = uid
+  lvalerttable.append(row)
+  xmldoc.childNodes[0].appendChild(lvalerttable)
+  output_file = open(filename+'.xml', 'w')
+  xmldoc.write(output_file)
+  output_file.close()
+
 
 #the following is meant as a template for small jobs
 #notes:
@@ -112,7 +129,6 @@ condor_sub_template = \
                     notification = never
                     queue
                     """
-
 def write_condor_sub(executible, args, logdir, uid):
   """
   write a simple condor submission file
@@ -122,13 +138,11 @@ def write_condor_sub(executible, args, logdir, uid):
   logdir: directory to keep log files
   returns the name of the file
   """
-  subfile = condor_sub_template
-  subfile.replace('macroexecutible', executible)
-  subfile.replace('macroargs', args)
-  subfile.replace('macrolog', os.join(logdir,str(uid)+'.log'))
-  subfile.replace('macroerr', os.join(logdir,str(uid)+'.err'))
-  subfile.replace('macroout', os.join(logdir,str(uid)+'.out'))
-
+  subfile = condor_sub_template.replace('macroexecutible', executible)\
+            .replace('macroargs', args)\
+            .replace('macrolog', os.path.join(logdir,str(uid)+'.log'))\
+            .replace('macroerr', os.path.join(logdir,str(uid)+'.err'))\
+            .replace('macroout', os.path.join(logdir,str(uid)+'.out'))
   fname = str(uid) + '.sub'
   f = open(fname,'w')
   f.write(subfile)
