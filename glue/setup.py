@@ -221,6 +221,7 @@ setup(
     os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dq_active'),
+    os.path.join('bin','ligolw_dq_active_cats'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
