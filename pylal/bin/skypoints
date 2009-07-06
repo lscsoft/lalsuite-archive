@@ -31,6 +31,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 import glue.iterutils
+from glue.lvalert import utils as lvautils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
@@ -984,31 +985,19 @@ if opts.glob is not None:
       else:
         coincfiles.append(file)
 
-  # check if the file lists are not empty
-  if not (coincfiles or slidefiles):
-    print >>sys.stdout, "No files match your description."
-    sys.exit(0)
-
 if opts.online_input:
   if opts.online_input == '-':
-    doc = utils.load_fileobj(sys.stdin)[0] 
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_stdin(sys.stdin) 
   else:
-    doc = utils.load_filename(opts.online_input)
-  lvatable = tab.get_table(doc, LVAlertTable.tableName)
-  full_path = lvatable[0].file
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_file(opts.online_input)
   coincfiles.append(full_path)
-  general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
-  uid = lvatable[0].uid
-
-#  online_file = open(opts.online_input)
-#  for line in iter(online_file):
-#    if 'file' in line:
-#      full_path = line.split(':')[-1].strip()
-#      coincfiles.append(full_path)
-#      general_dir = os.path.join(os.path.split(os.path.split(full_path)[0])[0],'general')
-#    if 'uid' in line:
-#      uid = line.split(':')[-1]
-        
+  
+# check if the file lists are not empty
+if not (coincfiles or slidefiles):
+  print >>sys.stdout, "No files match your description."
+  sys.exit(0)
 
 inspTriggers = None
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
@@ -1047,7 +1036,7 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 if opts.output:
   bname = opts.output[:-4]
 if opts.online_input:
-  bname = 'SKYPOINTS_ONLINE_'+uid
+  bname = general_dir + '/SKYPOINTS_ONLINE_' + uid
   output_files = []
   
 #create the xml output and initiate the tables
@@ -1145,9 +1134,9 @@ output_file = open(output_fname, 'w')
 xmldoc.write(output_file)
 output_file.close()
 
-if opts.online_input:
-  for file in output_files:
-    shutil.copy(file,general_dir)
+#if opts.online_input:
+#  for file in output_files:
+#    shutil.copy(file,general_dir)
  
 if opts.show_plot:
   show()
