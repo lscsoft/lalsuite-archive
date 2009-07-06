@@ -175,6 +175,7 @@ class CoincDatabase(object):
 		if verbose:
 			print >>sys.stderr, "calculating background livetimes: ",
 		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
+		self.background_livetime = dict((key, sum(value)) for key, value in self.background_livetime.items())
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
