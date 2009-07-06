@@ -229,6 +229,11 @@ on_ifar = 1 / (get_min_fap(onsource_loudest_by_mc) or 1e-5)
 off_ifar = 1 / offsource_fap_by_trial
 inj_ifar = 1 / inj_fap_by_trial
 
+# get unextrapolated p(c|0) for a plot
+inj_fap_by_trial_mc = \
+    numpy.asarray(map(get_fap, inj_loudest_by_inj_mc))
+
+
 ##############################################################################
 # Compute P(L > L_obs | 0)
 if opts.verbose:
@@ -484,9 +489,11 @@ if not opts.show_plot:
 text = "ln L(c(mc)|h(m2))"
 
 # get likelihoods at extrapolation points
-# XXX: 0.1 is a magic number; we start extrapolating at p(c|0) = 0.1
-extrap_ind = offsource_loudest_by_trial_mc.argsort(axis=0)\
-    [-int(0.1 * num_offsource_trials), ...]
+# XXX: 0.3 is a magic number; we start extrapolating at p(c|0) = 0.3
+num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc > 0).sum(axis=0)
+extrap_ind = \
+    [offsource_loudest_by_trial_mc.argsort(axis=0)[-int(0.3 * N), i] \
+     for i,N in enumerate(num_nonempty_offsource_trials)]
 extrap_snr_by_mc = \
     offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
 
@@ -795,15 +802,28 @@ text = "ln P(c|0) vs rho for each mc bin for m2 = " \
     + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat for some }m_2\ "\
-    r"(%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
-trace_inj_ind = m2_bin_by_inj == trace_m2_bin
-for mc_ind, mc_range in enumerate(mc_ranges):
-    plot.add_content(inj_loudest_by_inj_mc[trace_inj_ind, mc_ind],
-    inj_log_pc0_by_trial_mc[trace_inj_ind, mc_ind], marker=".",
-        linestyle="None",
+    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
+
+# add unextrapolated p(c|0) to the right of the extrapolation points
+extrap_trials_by_inj_mc = \
+  (inj_loudest_by_inj_mc > extrap_snr_by_mc[None, :]) & \
+  (inj_fap_by_trial_mc > 0)
+for (mc_range, inj_loudest_by_inj, inj_fap_by_trial, extrap_trials_by_inj, \
+     inj_log_pc0_by_trial, color) \
+    in zip(mc_ranges, inj_loudest_by_inj_mc.T, inj_fap_by_trial_mc.T,
+           extrap_trials_by_inj_mc.T, inj_log_pc0_by_trial_mc.T,
+           plotutils.default_colors()):
+    # unextrapolated
+    plot.add_content(inj_loudest_by_inj[extrap_trials_by_inj],
+        numpy.log(inj_fap_by_trial[extrap_trials_by_inj]), marker="^",
+        markersize=4, markeredgewidth=1, markerfacecolor=color,
+        linestyle="None", markeredgecolor="k")
+    # extrapolated
+    plot.add_content(inj_loudest_by_inj, inj_log_pc0_by_trial,
+        marker=".", linestyle="None", color=color,
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=3)
+
+plot.finalize(loc=1)
 
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
@@ -811,15 +831,15 @@ for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
-
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
+
 # save a zoomed version, too
-plot.ax.set_xlim((4, 10))
-plot.ax.set_ylim((-3, 0.2))
+plot.ax.set_xlim((4, 16))
+plot.ax.set_ylim((-6, 0.2))
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
@@ -873,7 +893,8 @@ if not opts.show_plot:
 text = "p(observation|h(m2, D)) after 90% MC errors"
 
 num_sigmas = stats.norm.ppf(0.9)
-MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
+MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) \
+                      / (num_sims_by_m2_D + 1e-10))
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(" + observation + r"\,|\,h(m_2, D)) "

@@ -754,8 +754,17 @@ class remoteQscanJob(pipeline.CondorDAGJob, webTheJob):
   def setup_executable(self,tag_base):
     starter_script = open(tag_base + '/remote_scan_wrapper.sh','w')
     starter_script.write("""#!/bin/bash
-    source $1
-    $2 --gps-time $3 --config-file $4 --qscan-type $5 --remote-output $6 --remote-receiver $7 --output-path $8
+    dotbashrc=$1
+    executable=$2
+    gpstime=$3
+    configfile=$4
+    qscantype=$5
+    remoteoutput=$6
+    remotereceiver=$7
+    outputpath=$8
+    shift 8
+    source $dotbashrc
+    $executable --gps-time $gpstime --config-file $configfile --qscan-type $qscantype --remote-output $remoteoutput --remote-receiver $remotereceiver --output-path $outputpath
     """)
     starter_script.close()
     os.chmod(tag_base + '/remote_scan_wrapper.sh',0755)
@@ -1940,7 +1949,7 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
     if cp.has_option("followup-dq","input-sql"):
       self.add_var_opt("data-quality-database",cp.get("followup-dq","input-sql"))
     elif cp.has_option("followup-dq","server-url"):
-      self.add_var_opt("data-quality-url",cp.get("followup-dq","server-url"))
+      self.add_var_opt("segment-url",cp.get("followup-dq","server-url"))
     if cp.has_option("followup-ratiotest","input-pickle"):
       self.add_var_opt("SNR-ratio-test",cp.get("followup-ratiotest","input-pickle"))
 

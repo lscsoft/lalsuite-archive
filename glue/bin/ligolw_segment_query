@@ -406,8 +406,6 @@ def run_query_segments(doc, process_id, engine, gps_start_time, gps_end_time, in
 
         segdefs += segmentdb_utils.expand_version_number(engine, (ifo, name, version, gps_start_time, gps_end_time, 0, 0) )
 
-    print segdefs
-
     found_segments = segmentdb_utils.query_segments(engine, 'segment', segdefs)
     found_segments = reduce(operator.or_, found_segments).coalesce()
 
