@@ -24,9 +24,9 @@ from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
 cp = None
 
 template_trigger_hipe = "./lalapps_trigger_hipe"\
-  " --h1-segments %s" \
-  " --l1-segments %s" \
-  " --v1-segments %s" \
+  " --h1-segments H1-science.txt" \
+  " --l1-segments L1-science.txt" \
+  " --v1-segments V1-science.txt" \
   " --list %s" \
   " --grb %s --onsource-left 5" \
   " --onsource-right 1 --config-file %s" \
@@ -284,9 +284,8 @@ class ExttrigDag(object):
     system_call(cmd)
 
     # copy some basic files into this directory
-    cmd = 'cp %s/*.txt %s/; cp %s/*.ini %s/' % \
-          (self.input_dir, self.analysis_dir, \
-           self.input_dir, self.analysis_dir)
+    cmd = 'cp %s/*.ini %s/' % \
+         (self.input_dir, self.analysis_dir)
     system_call(cmd)
     cmd = 'cp %s %s/' % (self.trigger_file, self.analysis_dir)
     system_call(cmd)
@@ -320,16 +319,16 @@ class ExttrigDag(object):
     system_call(cmd)
 
 
+    # copy the segment files
+    cmd = 'cp %s/*-science.txt %s' % (self.main_dir, self.analysis_dir)
+    system_call(cmd)
+
     #
     # make the call to trigger_hipe
     #
-    h1_segfile = cp.get('data','h1_segments')
-    l1_segfile = cp.get('data','l1_segments')
-    v1_segfile = cp.get('data','v1_segments')
     cmd = 'cd %s;' % self.analysis_dir
     cmd += template_trigger_hipe % \
-           (h1_segfile, l1_segfile, v1_segfile,\
-            self.trigger_file, self.name, self.ini_file, self.condor_log_path)
+           (self.trigger_file, self.name, self.ini_file, self.condor_log_path)
     system_call(cmd)
 
 
@@ -500,8 +499,6 @@ class ExttrigDag(object):
       segs = table.get_table(doc, "segment")
       seglist = segments.segmentlist(segments.segment(s.start_time, s.end_time) for s in segs)
       segmentsUtils.tosegwizard(file(segtxtfile, 'w'), seglist, header = True)
-    sys.exit(0)
-
   
   # -----------------------------------------------------
   def get_segment_info(self,plot_segments_file = None):
@@ -511,7 +508,7 @@ class ExttrigDag(object):
 
     # get the segment dicts
     for ifo in ["H1", "L1", "V1"]:
-      ifo_segfile = cp.get('paths','cvs')+'/'+cp.get('data',ifo.lower()+'_segments')
+      ifo_segfile = '%s/%s-science.txt' % (self.main_dir, ifo)
       if ifo_segfile is not None:
         tmplist = segmentsUtils.fromsegwizard(open(ifo_segfile))
         segdict[ifo] = segments.segmentlist([s for s in tmplist \
