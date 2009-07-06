@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 
 from pylal import git_version
-from pylal import pylal_exttrig_utils as peu
+from pylal import pylal_exttrig_llutils as peu
 
 
 ###################################################
