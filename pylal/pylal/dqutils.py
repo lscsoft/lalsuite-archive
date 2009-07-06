@@ -128,6 +128,7 @@ def apply_veto_windows(seg_dict, veto_window_dict):
             continue
         segs = segmentlist([segment(s[0]+window[0], s[1]+window[1]) 
                 for s in seg_dict[v99_flag]])
+        segs.coalesce()
         veto_dict[flag] = segs
 
     return veto_dict

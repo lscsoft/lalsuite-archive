@@ -28,7 +28,8 @@
 #
 
 
-import itertools
+import bisect
+from new import instancemethod
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -38,17 +39,16 @@ except ImportError:
 import sys
 
 
-from glue import iterutils
 from glue import segments
 from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw import utils
-from glue.ligolw.utils import segments as ligolw_segments
-from pylal import ligolw_thinca
-from pylal import ligolw_tisi
-from pylal import llwapp
 from pylal import rate
-from pylal import SnglInspiralUtils
+from pylal import db_thinca_rings
+from pylal.date import LIGOTimeGPS
+
+
+lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
 __author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
@@ -71,33 +71,44 @@ def parse_command_line():
 		usage = "%prog [options] [file ...]",
 		description = "%prog does blah blah blah."
 	)
-	parser.add_option("-i", "--instruments", metavar = "name[,name,...]", help = "Set the list of instruments.  Example H1,H2,L1.  Required.")
-	parser.add_option("-b", "--mass-bins", metavar = "m0,m1[,m2,...]", help = "Set the boundaries of the mass bins.  The lowest and highest bounds must be explicitly listed.  Example 0,5,inf.  Required.")
 	parser.add_option("-p", "--live-time-program", metavar = "name", help = "Set the name of the program whose entries in the search_summary table will set the search live time.  Required.")
-	parser.add_option("--veto-segments", help = "Load veto segments from this XML document.  See ligolw_segments for information on constructing such a document.")
-	parser.add_option("--veto-segments-name", help = "Set the name of the veto segments to use from the XML document.")
+	parser.add_option("--veto-segments-name", help = "Set the name of the segments to extract from the segment tables and use as the veto list.")
+	parser.add_option("--categories", metavar = "{\"mchirp-ifos-oninstruments\",\"mtotal-ifos-oninstruments\",\"oninstruments\"}", help = "Select the event categorization algorithm.  Required.")
+	parser.add_option("-b", "--mass-bins", metavar = "mass,mass[,mass,...]", help = "Set the boundaries of the mass bins in solar masses.  The lowest and highest bounds must be explicitly listed.  Example \"0,5,inf\".  Required if mass-based categorization algorithm has been selected.")
+	parser.add_option("--rank-by", metavar = "{\"snr\",\"uncombined-ifar\",\"likelihood\"}", help = "Select the event ranking method.  Required.")
 	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, filenames = parser.parse_args()
 
 	#
-	# parse the instruments
+	# categories and ranking
 	#
 
-	if options.instruments is None:
-		raise ValueError, "required option -i or --instruments missing"
-	options.instruments = set(options.instruments.split(","))
+	if options.categories not in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments", "oninstruments"):
+		raise ValueError, "missing or unrecognized --categories option"
+	if options.rank_by not in ("snr", "uncombined-ifar", "likelihood"):
+		raise ValueError, "missing or unrecognized --rank-by option"
+
+	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
+		if options.rank_by != "snr":
+			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
+		options.populate_column = "false_alarm_rate"
+	else:
+		if options.rank_by == "snr":
+			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
+		options.populate_column = "combined_far"
 
 	#
 	# parse mass bins
 	#
 
-	if options.mass_bins is None:
-		raise ValueError, "missing required option -b or --mass-bins"
-	options.mass_bins = sorted(map(float, options.mass_bins.split(",")))
-	if len(options.mass_bins) < 2:
-		raise ValueError, "must supply at least two mass bin boundaries"
-	options.mass_bins = rate.IrregularBins(options.mass_bins)
+	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
+		if options.mass_bins is None:
+			raise ValueError, "--mass-bins required with category algorithm \"%s\"" % options.categories
+		options.mass_bins = sorted(map(float, options.mass_bins.split(",")))
+		if len(options.mass_bins) < 2:
+			raise ValueError, "must set at least two mass bin boundaries (i.e., define at least one mass bin)"
+		options.mass_bins = rate.IrregularBins(options.mass_bins)
 
 	#
 	# other
@@ -105,8 +116,6 @@ def parse_command_line():
 
 	if options.live_time_program is None:
 		raise ValueError, "missing required option -p or --live-time-program"
-	if options.veto_segments and not options.veto_segments_name:
-		raise ValueError, "must specify --veto-segments-name if --veto-sements is specified"
 
 	#
 	# done
@@ -125,75 +134,61 @@ def parse_command_line():
 
 
 class Summaries(object):
-	def __init__(self, instruments, mass_bins, vetosegments):
+	def __init__(self, category_algorithm, rank_by, mass_bins = None):
+		if category_algorithm == "mchirp-ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
+		elif category_algorithm == "mtotal-ifos-oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
+		elif category_algorithm == "oninstruments":
+			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
+		else:
+			raise ValueError, category_algorithm
+		self.category_func = instancemethod(self.category_func, self, self.__class__)
+
+		if rank_by == "snr":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
+		elif rank_by == "uncombined-ifar":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: uncombined_ifar
+		elif rank_by == "likelihood":
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
+		else:
+			raise ValueError, rank_by
+		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
+
 		self.mass_bins = mass_bins
-		self.vetosegments = vetosegments
-
-		#
-		# put the instruments in alphabetical order so that the
-		# instrument combinations generated by choices() below come
-		# out with the instruments sorted
-		#
-
-		self.instruments = sorted(instruments)
-
-		#
-		# iterate over instrument combinations creating bins for
-		# the different categories of coinc.  each choice of
-		# instruments that were on and instruments that
-		# participated defines a unique coinc category
-		#
-
-		self.snrs = {}
-		for on_instruments in (combo for m in range(2, len(self.instruments) + 1) for combo in iterutils.choices(self.instruments, m)):
-			for participating_instruments in (combo for m in range(2, len(on_instruments) + 1) for combo in iterutils.choices(on_instruments, m)):
-				self.snrs[(",".join(on_instruments), ",".join(participating_instruments))] = tuple(list() for n in range(len(mass_bins)))
-
-		#
-		# initialize the live-time book-keeping
-		#
-
-		self.rings = segments.segmentlist()
-		self.offset_vectors = {}
+		self.reputations = {}
 		self.cached_livetime = {}
 
-	def add_rings(self, rings):
-		self.rings.extend(rings)
-		self.rings.sort()
-		# FIXME: use any() built-in when Python 2.5 is required
-		if iterutils.any(a.intersects(b) for a, b in itertools.izip(self.rings[:-1], self.rings[1:])):
-			raise ValueError, "found non-disjoint rings %s and %s" % (repr(a), repr(b))
+	def add_livetime(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+		if veto_segments_name is not None:
+			if verbose:
+				print >>sys.stderr, "\tretrieving veto segments \"%s\" ..." % veto_segments_name
+			veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+		else:
+			veto_segments = segments.segmentlistdict()
+		if verbose:
+			print >>sys.stderr, "\tcomputing livetimes:",
+		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
+			try:
+				self.cached_livetime[on_instruments] += livetime
+			except KeyError:
+				self.cached_livetime[on_instruments] = livetime
+		if verbose:
+			print >>sys.stderr
 
-	def set_offset_vectors(self, offset_vectors):
-		self.offset_vectors = offset_vectors
+	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 
-	def livetime(self, on_instruments, offsetvector):
-		on_instruments = set(on_instruments.split(","))
-		return SnglInspiralUtils.compute_thinca_livetime(on_instruments, set(self.instruments) - on_instruments, self.rings, self.vetosegments, offsetvector)
+	def index(self):
+		for reputations in self.reputations.values():
+			reputations.sort()
 
-	def add_coinc(self, on_instruments, participating_instruments, mchirp, snr):
-		self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]].append(snr)
-
-	def count(self, on_instruments, participating_instruments, mchirp, snr):
-		"""
-		Return the number of coincs in the category defined by
-		(on_instruments, participating_instruments) that are in the
-		mass bin corresponding to mchirp and have a combined SNR
-		greater than or equal to snr.  The on_ and
-		participating_instruments are strings containing the
-		instruments in alphabetical order separated by commas
-		"""
-		snrs = self.snrs[(on_instruments, participating_instruments)][self.mass_bins[mchirp]]
-		return len([x for x in snrs if x >= snr])
-
-	def rate(self, time_slide_id, on_instruments, participating_instruments, mchirp, snr):
-		try:
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)]
-		except KeyError:
-			# FIXME:  calculate and store the background
-			# livetime for this category
-			livetime = self.cached_livetime[(on_instruments, participating_instruments)] = self.livetime(on_instruments, self.offset_vectors[time_slide_id])
-		return self.count(on_instruments, participating_instruments, mchirp, snr) / livetime
+	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
+		# len(x) - bisect.bisect_left(x, reputation) = (# of
+		# elements in list >= reputation)
+		return (len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))) / self.cached_livetime[on_instruments]
 
 
 #
@@ -212,21 +207,13 @@ class Summaries(object):
 
 options, filenames = parse_command_line()
 
-if options.veto_segments:
-	dbtables.ligolwtypes.ToPyType["ilwd:char"] = unicode
-	connection = sqlite3.connect(":memory:")
-	dbtables.DBTable_set_connection(connection)
-	options.veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
-	connection.close()
-	dbtables.DBTable_set_connection(None)
-
 
 #
 # initialize book-keeping
 #
 
 
-background = Summaries(options.instruments, options.mass_bins, options.veto_segments)
+background = Summaries(options.categories, options.rank_by, mass_bins = options.mass_bins)
 
 
 #
@@ -247,27 +234,48 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	xmldoc = dbtables.get_xml(connection)
 
 	#
-	# retrieve and store the ring boundaries.  all segments from all
-	# segment lists in the search summary table are collected into a
-	# single list and uniqueified with set().
+	# if the database contains a sim_inspiral table then it is assumed
+	# to represent an injection run.  its rings must not added to the
+	# livetime, and it cannot provide background coincs, so it is just
+	# skipped altogether in this first pass.
 	#
 
-	background.add_rings(set(seg for segs in llwapp.segmentlistdict_fromsearchsummary(xmldoc, options.live_time_program).values() for seg in segs))
+	if "sim_inspiral" in dbtables.get_table_names(connection):
+		if options.verbose:
+			print >>sys.stderr, "\tdatabase contains sim_inspiral table, skipping ..."
+
+		#
+		# close the database
+		#
+
+		connection.close()
+		dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+		continue
 
 	#
-	# count background coincs by type and mass bin
+	# compute and record background livetime
 	#
 
-	for on_instruments, participating_instruments, mchirp, snr in connection.cursor().execute("""
+	background.add_livetime(connection, options.live_time_program, veto_segments_name = options.veto_segments_name, verbose = options.verbose)
+
+	#
+	# count background coincs
+	#
+
+	if options.verbose:
+		print >>sys.stderr, "\tcollecting background statistics ..."
+	for on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood in connection.cursor().execute("""
 SELECT
 	coinc_event.instruments,
 	coinc_inspiral.ifos,
 	coinc_inspiral.mchirp,
-	coinc_inspiral.snr
+	coinc_inspiral.mass,
+	coinc_inspiral.snr,
+	-- uncombined inverse false alarm rate
+	1.0 / coinc_inspiral.false_alarm_rate,
+	coinc_event.likelihood
 FROM
 	coinc_event
 	JOIN coinc_inspiral ON (
@@ -285,12 +293,7 @@ WHERE
 			AND time_slide.offset != 0
 	)
 	"""):
-		#
-		# add the coinc's SNR to the list of SNRs for the
-		# appropriate coinc type
-		#
-
-		background.add_coinc(on_instruments, participating_instruments, mchirp, snr)
+		background.add_coinc(on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood)
 
 	#
 	# close the database
@@ -300,13 +303,12 @@ WHERE
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
+background.index()
+
+
 #
 # iterate over database files assigning false-alarm rates to coincs
 #
-
-
-if options.verbose:
-	print >>sys.stderr, "calculating and recording false alarm rates ..."
 
 
 for n, filename in enumerate(filenames):
@@ -318,48 +320,40 @@ for n, filename in enumerate(filenames):
 		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
 	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
 	connection = sqlite3.connect(working_filename)
-	dbtables.DBTable_set_connection(connection)
-	xmldoc = dbtables.get_xml(connection)
 
 	#
 	# prepare the database
 	#
 
-	connection.create_function("background_count", 4, background.count)
-	connection.create_function("background_rate", 5, background.rate)
-
-	#
-	# retrieve the time slide vectors used in this document
-	#
-
-	background.set_offset_vectors(lsctables.table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict())
+	connection.create_function("background_rate", 7, background.rate)
 
 	#
 	# count background coincs by type and mass bin
 	#
 
+	if options.verbose:
+		print >>sys.stderr, "\tcalculating and recording false alarm rates ..."
 	connection.cursor().execute("""
 UPDATE
 	coinc_inspiral
 SET
-	false_alarm_rate = (
+	%s = (
 		SELECT
 			background_rate(
-				coinc_event.time_slide_id,
 				coinc_event.instruments,
 				coinc_inspiral.ifos,
 				coinc_inspiral.mchirp,
-				coinc_inspiral.snr
+				coinc_inspiral.mass,
+				coinc_inspiral.snr,
+				1.0 / coinc_inspiral.false_alarm_rate,
+				coinc_event.likelihood
 			)
 		FROM
 			coinc_event
-			JOIN coinc_definer ON (
-				coinc_definer.coinc_def_id == coinc_event.coinc_def_id
-			)
 		WHERE
 			coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
 	)
-	""")
+	""" % options.populate_column)
 	connection.commit()
 
 	#

@@ -132,7 +132,7 @@ for ifo in ifo_list:
 ########################
 # read in the segment and veto files
 xmldoc = utils.load_filename(opts.veto_file, gz=opts.veto_file.endswith("gz"))
-vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, name="vetoes")
+vetoes = ligolw_segments.segmenttable_get_by_name(xmldoc, "vetoes")
 vetoes.coalesce()
 
 segs = segments.segmentlistdict()
@@ -172,7 +172,7 @@ for slide in slide_num:
         thisSlideSeg &= slidVetoes.\
             intersection(ifos - set(coinc))
 
-      analyzedTimes[slide][coinc] += thisSlideSeg.duration()
+      analyzedTimes[slide][coinc] += abs(thisSlideSeg)
 
   for coinc in ifo_coincs:
     print types[coinc],analyzedTimes[slide][coinc]

@@ -1,0 +1,939 @@
+#!/usr/bin/python
+#
+# Copyright (C) 2009  Kipp Cannon, Chad Hanna
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 2 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+
+import math
+import matplotlib
+matplotlib.rcParams.update({
+	"font.size": 8.0,
+	"axes.titlesize": 10.0,
+	"axes.labelsize": 10.0,
+	"xtick.labelsize": 8.0,
+	"ytick.labelsize": 8.0,
+	"legend.fontsize": 8.0,
+	"figure.dpi": 600,
+	"savefig.dpi": 600,
+	"text.usetex": True	# render all text with TeX
+})
+from matplotlib import figure
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+#from matplotlib.backends.backend_pdf import FigureCanvasPdf as FigureCanvas
+import numpy
+from optparse import OptionParser
+try:
+	import sqlite3
+except ImportError:
+	# pre 2.5.x
+	from pysqlite2 import dbapi2 as sqlite3
+import sys
+
+
+from glue import segments
+from glue import segmentsUtils
+from glue.ligolw import table
+from glue.ligolw import dbtables
+from pylal import db_thinca_rings
+from pylal.date import LIGOTimeGPS
+
+
+dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
+
+
+__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>, Chad Hanna <channa@ligo.caltech.edu>"
+__version__ = "$Revision$"[11:-2]
+__date__ = "$Date$"[7:-2]
+
+
+#
+# =============================================================================
+#
+#                                 Command Line
+#
+# =============================================================================
+#
+
+
+def parse_command_line():
+	parser = OptionParser(version="%prog CVS $Id$")
+	parser.add_option("-b", "--base", metavar = "base", default = "cbc_plotsummary_", help = "Set the prefix for output filenames (default = \"cbc_plotsummary_\")")
+	parser.add_option("-f", "--format", metavar = "{\"png\",\"pdf\",\"svg\",\"eps\",...}", action = "append", default = [], help = "Set the output image format.  Can be given multiple times (default = \"png\")")
+	parser.add_option("-l", "--live-time-program", metavar = "program", default = "thinca", help = "Set the name, as it appears in the process table, of the program whose search summary entries define the search live time (default = \"thinca\").")
+	parser.add_option("--plot-group", metavar = "number", action = "append", default = None, help = "Generate the given plot group.  Can be given multiple times (default = make all plot groups).")
+	parser.add_option("-t", "--tmp-space", metavar = "path", help = "Path to a directory suitable for use as a work area while manipulating the database file.  The database file will be worked on in this directory, and then moved to the final location when complete.  This option is intended to improve performance when running in a networked environment, where there might be a local disk with higher bandwidth than is available to the filesystem on which the final output will reside.")
+	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
+	options, filenames = parser.parse_args()
+
+	if options.plot_group is not None:
+		options.plot_group = map(int, options.plot_group)
+	if not options.format:
+		options.format = ["png"]
+
+	return options, (filenames or [])
+
+
+#
+# =============================================================================
+#
+#                                   Database
+#
+# =============================================================================
+#
+
+
+class CoincDatabase(object):
+	def __init__(self, connection, live_time_program, veto_segments_name = None, verbose = False):
+		"""
+		Compute and record some summary information about the
+		database.
+		"""
+
+		self.connection = connection
+		xmldoc = dbtables.get_xml(connection)
+
+		cursor = connection.cursor()
+
+		# find the tables
+		try:
+			self.sngl_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SnglInspiralTable.tableName)
+		except ValueError:
+			self.sngl_inspiral_table = None
+		try:
+			self.sim_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.SimInspiralTable.tableName)
+		except ValueError:
+			self.sim_inspiral_table = None
+		try:
+			self.coinc_def_table = table.get_table(xmldoc, dbtables.lsctables.CoincDefTable.tableName)
+			self.coinc_table = table.get_table(xmldoc, dbtables.lsctables.CoincTable.tableName)
+			self.time_slide_table = table.get_table(xmldoc, dbtables.lsctables.TimeSlideTable.tableName)
+		except ValueError:
+			self.coinc_def_table = None
+			self.coinc_table = None
+			self.time_slide_table = None
+		try:
+			self.coinc_inspiral_table = table.get_table(xmldoc, dbtables.lsctables.CoincInspiralTable.tableName)
+		except ValueError:
+			self.coinc_inspiral_table = None
+
+		# determine a few coinc_definer IDs
+		# FIXME:  don't hard-code the numbers
+		if self.coinc_def_table is not None:
+			try:
+				self.ii_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 0, create_new = False)
+			except KeyError:
+				self.ii_definer_id = None
+			try:
+				self.si_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 1, create_new = False)
+			except KeyError:
+				self.si_definer_id = None
+			try:
+				self.sc_definer_id = self.coinc_def_table.get_coinc_def_id("inspiral", 2, create_new = False)
+			except KeyError:
+				self.sc_definer_id = None
+		else:
+			self.ii_definer_id = None
+			self.si_definer_id = None
+			self.sc_definer_id = None
+
+		# retrieve the distinct on and participating instruments
+		self.on_instruments_combos = [frozenset(dbtables.lsctables.instrument_set_from_ifos(x)) for x, in cursor.execute("SELECT DISTINCT(instruments) FROM coinc_event WHERE coinc_def_id == ?", (self.ii_definer_id,))]
+
+		# get the segment lists
+		self.seglists = db_thinca_rings.get_thinca_zero_lag_segments(connection, program_name = live_time_program)
+		self.playground_segs = segmentsUtils.S2playground(self.seglists.extent_all())
+		self.instruments = set(self.seglists)
+		if veto_segments_name is not None:
+			self.veto_segments = db_thinca_rings.get_veto_segments(connection, veto_segments_name)
+		else:
+			self.veto_segments = segments.segmentlistdict()
+		self.seglists -= self.veto_segments
+
+		# get the live time
+		if verbose:
+			print >>sys.stderr, "calculating background livetimes: ",
+		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
+		if verbose:
+			print >>sys.stderr
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+		for on_instruments in self.on_instruments_combos:
+			selected_segs = self.seglists.intersection(on_instruments) - self.seglists.union(self.instruments - on_instruments)
+			self.playground_livetime[on_instruments] = float(abs(selected_segs & self.playground_segs))
+			self.nonplayground_livetime[on_instruments] = float(abs(selected_segs - self.playground_segs))
+
+		# verbosity
+		if verbose:
+			print >>sys.stderr, "database overview:"
+			for on_instruments in self.on_instruments_combos:
+				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
+				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.background_livetime[on_instruments])
+			if self.sngl_inspiral_table is not None:
+				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
+			if self.sim_inspiral_table is not None:
+				print >>sys.stderr, "\tinjections: %d" % len(self.sim_inspiral_table)
+			if self.time_slide_table is not None:
+				print >>sys.stderr, "\ttime slides: %d" % cursor.execute("SELECT COUNT(DISTINCT(time_slide_id)) FROM time_slide").fetchone()[0]
+			if self.coinc_def_table is not None:
+				for description, n in cursor.execute("SELECT description, COUNT(*) FROM coinc_definer NATURAL JOIN coinc_event GROUP BY coinc_def_id"):
+					print >>sys.stderr, "\t%s: %d" % (description, n)
+
+
+
+#
+# =============================================================================
+#
+#                                  Utilities
+#
+# =============================================================================
+#
+
+
+def sim_end_time(sim, instrument):
+	return sim.get_end(instrument[0])
+
+
+def roman(i, arabics = (1000,900,500,400,100,90,50,40,10,9,5,4,1), romans = ("m","cm","d","cd","c","xc","l","xl","x","ix","v","iv","i")):
+	if not arabics:
+		return ""
+	if i < arabics[0]:
+		return roman(i, arabics[1:], romans[1:])
+	return romans[0] + roman(i - arabics[0], arabics, romans)
+
+
+#
+# width is in mm, default aspect ratio is the golden ratio
+#
+
+
+def create_plot(x_label = None, y_label = None, width = 165.0, aspect = (1 + math.sqrt(5)) / 2):
+	fig = figure.Figure()
+	FigureCanvas(fig)
+	fig.set_size_inches(width / 25.4, width / 25.4 / aspect)
+	axes = fig.gca()
+	axes.grid(True)
+	if x_label is not None:
+		axes.set_xlabel(x_label)
+	if y_label is not None:
+		axes.set_ylabel(y_label)
+	return fig, axes
+
+
+def create_sim_coinc_view(connection):
+	"""
+	Construct a sim_inspiral --> best matching coinc_event mapping.
+	"""
+	connection.cursor().execute("""
+CREATE TEMPORARY VIEW
+	sim_coinc_map
+AS
+	SELECT
+		sim_inspiral.simulation_id AS simulation_id,
+		best_coinc_inspiral.coinc_event_id AS coinc_event_id
+	FROM
+		sim_inspiral
+		JOIN coinc_event_map AS a ON (
+			a.table_name == 'sim_inspiral'
+			AND a.event_id == sim_inspiral.simulation_id
+		)
+		JOIN coinc_event_map AS b ON (
+			b.coinc_event_id == a.coinc_event_id
+		)
+		JOIN coinc_inspiral AS best_coinc_inspiral ON (
+			b.table_name == 'coinc_event'
+			AND b.event_id == best_coinc_inspiral.coinc_event_id
+		)
+	WHERE
+		best_coinc_inspiral.combined_far == (
+			SELECT
+				MIN(matching_coinc_inspirals.combined_far)
+			FROM
+				coinc_event_map AS c
+				JOIN coinc_inspiral AS matching_coinc_inspirals ON (
+					c.table_name == 'coinc_event'
+					AND c.event_id == matching_coinc_inspirals.coinc_event_id
+				)
+			WHERE
+				c.coinc_event_id == a.coinc_event_id
+		)
+	""")
+
+
+def create_is_playground_func(connection, playground_segs):
+	"""
+	Construct the is_playground() SQL function.
+	"""
+	connection.create_function("is_playground", 2, lambda seconds, nanoseconds: LIGOTimeGPS(seconds, nanoseconds) in playground_segs)
+
+
+#
+# =============================================================================
+#
+#                              Missed/Found Plot
+#
+# =============================================================================
+#
+
+
+class MissedFoundPlots(object):
+	class MissedFound(object):
+		def __init__(self, on_instruments):
+			self.on_instruments = on_instruments
+			self.found_in = {}
+
+		def add_contents(self, contents):
+  			zero_lag_segments = contents.seglists.intersection(self.on_instruments) - contents.seglists.union(contents.instruments - self.on_instruments)
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sim_inspiral.*,
+	(
+		SELECT
+			coinc_inspiral.ifos
+		FROM
+			sim_coinc_map
+			JOIN coinc_inspiral ON (
+				coinc_inspiral.coinc_event_id == sim_coinc_map.coinc_event_id
+			)
+		WHERE
+			sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+FROM
+	sim_inspiral
+			"""):
+				sim = contents.sim_inspiral_table._row_from_cols(values)
+				if sim.get_end() in zero_lag_segments:
+					participating_instruments = dbtables.lsctables.instrument_set_from_ifos(values[-1])
+					if participating_instruments is not None:
+						participating_instruments = frozenset(participating_instruments)
+					try:
+						self.found_in[participating_instruments].append(sim)
+					except KeyError:
+						self.found_in[participating_instruments] = [sim]
+
+		def finish(self):
+			missed = self.found_in.pop(None, [])
+			for title, x_label, x_func, filename_fragment in (
+				(r"Effective Distance vs.\ Chirp Mass (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"$M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", lambda sim: sim.mchirp, "deff_vs_mchirp"),
+				(r"Effective Distance vs.\ Time (With %s Operating)" % ", ".join(sorted(self.on_instruments)), r"GPS Time (s)", lambda sim: sim.get_end(), "deff_vs_t")
+			):
+				fig, axes = create_plot(x_label, r"$\max_{\{\mathrm{on\ instruments}\}} D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)")
+	  			legend = []
+				for participating_instruments, sims in sorted(self.found_in.items(), key = (lambda x: dbtables.lsctables.ifos_from_instrument_set(x[0]))):
+					legend.append("Found in %s" % ", ".join(sorted(participating_instruments)))
+					axes.semilogy([x_func(sim) for sim in sims], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in sims], ".")
+				if missed:
+					legend.append("Missed")
+					axes.semilogy([x_func(sim) for sim in missed], [max(sim.get_eff_dist(instrument) for instrument in self.on_instruments) for sim in missed], "k.")
+				axes.legend(legend)
+				axes.set_title(title)
+				yield fig, filename_fragment, False
+
+	def __init__(self):
+		self.plots = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# no injections
+			return
+		for on_instruments in contents.on_instruments_combos:
+			if on_instruments not in self.plots:
+				self.plots[on_instruments] = MissedFoundPlots.MissedFound(on_instruments)
+			self.plots[on_instruments].add_contents(contents)
+
+	def finish(self):
+		for on_instruments, plot in self.plots.items():
+			for fig, filename_fragment, open_box in plot.finish():
+				yield fig, "%s_%s" % (filename_fragment, "".join(sorted(on_instruments))), open_box
+
+
+#
+# =============================================================================
+#
+#                              Parameter Accuracy
+#
+# =============================================================================
+#
+
+
+class ParameterAccuracyPlots(object):
+	def __init__(self):
+		self.sim_sngl_pairs = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# not an injections file
+			return
+		for values in contents.connection.cursor().execute("""
+SELECT
+	sim_inspiral.*,
+	sngl_inspiral.*
+FROM
+	sim_inspiral
+	JOIN sim_coinc_map ON (
+		sim_coinc_map.simulation_id == sim_inspiral.simulation_id
+	)
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+		"""):
+			sim = contents.sim_inspiral_table._row_from_cols(values)
+			sngl = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sim_inspiral_table.columnnames):])
+			self.sim_sngl_pairs.setdefault((sim.waveform, sngl.ifo), []).append((sim, sngl))
+
+	def finish(self):
+		for (waveform, instrument), pairs in self.sim_sngl_pairs.items():
+			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)")
+			axes.set_title(r"Absolute $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.mchirp for sim, sngl in pairs], [sngl.mchirp - sim.mchirp for sim, sngl in pairs], "kx")
+			yield fig, "mchirp_acc_abs_%s" % instrument, False
+
+			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"(Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$) / Injected $M_{\mathrm{chirp}}$")
+			axes.set_title(r"Fractional $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.mchirp for sim, sngl in pairs], [(sngl.mchirp - sim.mchirp) / sim.mchirp for sim, sngl in pairs], "kx")
+			yield fig, "mchirp_acc_frac_%s" % instrument, False
+
+			fig, axes = create_plot(r"Injected $\eta$", r"Recovered $\eta$ - Injected $\eta$")
+			axes.set_title(r"Absolute $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.eta for sim, sngl in pairs], [sngl.eta - sim.eta for sim, sngl in pairs], "kx")
+			yield fig, "eta_acc_abs_%s" % instrument, False
+
+			fig, axes = create_plot(r"Injected $\eta$", r"(Recovered $\eta$ - Injected $\eta$) / Injected $\eta$")
+			axes.set_title(r"Fractional $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim.eta for sim, sngl in pairs], [(sngl.eta - sim.eta) / sim.eta for sim, sngl in pairs], "kx")
+			yield fig, "eta_acc_frac_%s" % instrument, False
+
+			fig, axes = create_plot(r"Injection End Time (GPS s)", r"Recovered End Time - Injection End Time (s)")
+			axes.set_title(r"End Time Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.plot([sim_end_time(sim, instrument) for sim, sngl in pairs], [sngl.get_end() - sim_end_time(sim, instrument) for sim, sngl in pairs], "kx")
+			yield fig, "t_acc_%s" % instrument, False
+
+			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
+			axes.set_title(r"Fractional Effective Distance Accuracy in %s (%s Injections)" % (instrument, waveform))
+			axes.semilogx([sim.get_eff_dist(instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim.get_eff_dist(instrument)) / sim.get_eff_dist(instrument) for sim, sngl in pairs], "kx")
+			yield fig, "deff_acc_frac_%s" % instrument, False
+
+
+#
+# =============================================================================
+#
+#               Background vs. Injections --- Single Instrument
+#
+# =============================================================================
+#
+
+
+class BackgroundVsInjectionPlots(object):
+	class Points(object):
+		def __init__(self):
+			self.snr = []
+			self.chi2 = []
+			self.r2 = []
+			self.bankveto = []
+
+	def __init__(self):
+		self.injections = {}
+		self.background = {}
+		self.playground = {}
+		self.nonplayground = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# non-injections file
+			for instrument, snr, chi2, r2, bankveto, is_background, is_playground in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral.ifo,
+	sngl_inspiral.snr,
+	sngl_inspiral.chisq,
+	sngl_inspiral.rsqveto_duration,
+	sngl_inspiral.bank_chisq / bank_chisq_dof,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	),
+	is_playground(sngl_inspiral.end_time, sngl_inspiral.end_time_ns)
+FROM
+	coinc_event
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+			""", (contents.ii_definer_id,)):
+				if is_background:
+					if instrument not in self.background:
+						self.background[instrument] = BackgroundVsInjectionPlots.Points()
+					self.background[instrument].snr.append(snr)
+					self.background[instrument].chi2.append(chi2)
+					self.background[instrument].r2.append(r2)
+					self.background[instrument].bankveto.append(bankveto)
+				elif is_playground:
+					if instrument not in self.playground:
+						self.playground[instrument] = BackgroundVsInjectionPlots.Points()
+					self.playground[instrument].snr.append(snr)
+					self.playground[instrument].chi2.append(chi2)
+					self.playground[instrument].r2.append(r2)
+					self.playground[instrument].bankveto.append(bankveto)
+				else:
+					if instrument not in self.nonplayground:
+						self.nonplayground[instrument] = BackgroundVsInjectionPlots.Points()
+					self.nonplayground[instrument].snr.append(snr)
+					self.nonplayground[instrument].chi2.append(chi2)
+					self.nonplayground[instrument].r2.append(r2)
+					self.nonplayground[instrument].bankveto.append(bankveto)
+		else:
+			# injections file
+			for instrument, snr, chi2, r2, bankveto in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral.ifo,
+	sngl_inspiral.snr,
+	sngl_inspiral.chisq,
+	sngl_inspiral.rsqveto_duration,
+	sngl_inspiral.bank_chisq / bank_chisq_dof
+FROM
+	sim_coinc_map
+	JOIN coinc_event_map ON (
+		coinc_event_map.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral ON (
+		coinc_event_map.table_name == 'sngl_inspiral'
+		AND coinc_event_map.event_id == sngl_inspiral.event_id
+	)
+			"""):
+				if instrument not in self.injections:
+					self.injections[instrument] = BackgroundVsInjectionPlots.Points()
+				self.injections[instrument].snr.append(snr)
+				self.injections[instrument].chi2.append(chi2)
+				self.injections[instrument].r2.append(r2)
+				self.injections[instrument].bankveto.append(bankveto)
+
+	def finish(self):
+		for instrument in set(self.injections) | set(self.background) | set(self.playground) | set(self.nonplayground):
+			self.injections.setdefault(instrument, BackgroundVsInjectionPlots.Points())
+			self.background.setdefault(instrument, BackgroundVsInjectionPlots.Points())
+			self.playground.setdefault(instrument, BackgroundVsInjectionPlots.Points())
+			self.nonplayground.setdefault(instrument, BackgroundVsInjectionPlots.Points())
+		for instrument in self.background:
+			fig, axes = create_plot(r"$\rho$", r"$\chi^{2}$")
+			axes.set_title(r"$\chi^{2}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].chi2, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].chi2, "kx")
+			axes.loglog(self.playground[instrument].snr, self.playground[instrument].chi2, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag (Playground)"), loc = "upper left")
+			yield fig, "playground_chi2_vs_rho_%s" % instrument, False
+			axes.loglog(self.nonplayground[instrument].snr, self.nonplayground[instrument].chi2, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
+			yield fig, "chi2_vs_rho_%s" % instrument, True
+
+			fig, axes = create_plot(r"$\rho$", r"$r^{2}$")
+			axes.set_title(r"$r^{2}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].r2, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].r2, "kx")
+			axes.loglog(self.playground[instrument].snr, self.playground[instrument].r2, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag (Playground)"), loc = "lower right")
+			yield fig, "playground_r2_vs_rho_%s" % instrument, False
+			axes.loglog(self.nonplayground[instrument].snr, self.nonplayground[instrument].r2, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
+			yield fig, "r2_vs_rho_%s" % instrument, True
+
+			fig, axes = create_plot(r"$\rho$", r"Bank $\chi^{2} / \mathrm{DOF}$")
+			axes.set_title(r"Bank $\chi^{2} / \mathrm{DOF}$ vs.\ $\rho$ in %s" % instrument)
+			axes.loglog(self.injections[instrument].snr, self.injections[instrument].bankveto, "rx")
+			axes.loglog(self.background[instrument].snr, self.background[instrument].bankveto, "kx")
+			axes.loglog(self.playground[instrument].snr, self.playground[instrument].bankveto, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag (Playground)"), loc = "upper left")
+			yield fig, "playground_bankchi2_vs_rho_%s" % instrument, False
+			axes.loglog(self.nonplayground[instrument].snr, self.nonplayground[instrument].bankveto, "bx")
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper left")
+			yield fig, "bankchi2_vs_rho_%s" % instrument, True
+
+
+#
+# =============================================================================
+#
+#               Background vs. Injections --- Multi Instrument
+#
+# =============================================================================
+#
+
+
+class BackgroundVsInjectionPlotsMulti(object):
+	class Points(object):
+		def __init__(self):
+			self.background_snreff = []
+			self.injections_snreff = []
+			self.playground_snreff = []
+			self.nonplayground_snreff = []
+			self.background_deff = []
+			self.injections_deff = []
+			self.playground_deff = []
+			self.nonplayground_deff = []
+
+	def __init__(self, snrfactor):
+		self.snrfactor = snrfactor
+		self.points = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is None:
+			# non-injections file
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral_x.*,
+	sngl_inspiral_y.*,
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	),
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns)
+FROM
+	coinc_event
+	JOIN coinc_event_map AS coinc_event_map_x ON (
+		coinc_event_map_x.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_x ON (
+		coinc_event_map_x.table_name == 'sngl_inspiral'
+		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
+	)
+	JOIN coinc_event_map AS coinc_event_map_y ON (
+		coinc_event_map_y.coinc_event_id == coinc_event.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_y ON (
+		coinc_event_map_y.table_name == 'sngl_inspiral'
+		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
+	)
+	JOIN coinc_inspiral ON (
+		coinc_inspiral.coinc_event_id == coinc_event.coinc_event_id
+	)
+WHERE
+	coinc_event.coinc_def_id == ?
+	AND sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
+			""", (contents.ii_definer_id,)):
+				x = contents.sngl_inspiral_table._row_from_cols(values)
+				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				is_background, is_playground = values[-2:]
+				instrument_pair = (x.ifo, y.ifo)
+				if instrument_pair not in self.points:
+					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
+				if is_background:
+					self.points[instrument_pair].background_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.points[instrument_pair].background_deff.append((x.eff_distance, y.eff_distance))
+				elif is_playground:
+					self.points[instrument_pair].playground_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.points[instrument_pair].playground_deff.append((x.eff_distance, y.eff_distance))
+				else:
+					self.points[instrument_pair].nonplayground_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+					self.points[instrument_pair].nonplayground_deff.append((x.eff_distance, y.eff_distance))
+		else:
+			# injections file
+			for values in contents.connection.cursor().execute("""
+SELECT
+	sngl_inspiral_x.*,
+	sngl_inspiral_y.*
+FROM
+	sim_coinc_map
+	JOIN coinc_event_map AS coinc_event_map_x ON (
+		coinc_event_map_x.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_x ON (
+		coinc_event_map_x.table_name == 'sngl_inspiral'
+		AND coinc_event_map_x.event_id == sngl_inspiral_x.event_id
+	)
+	JOIN coinc_event_map AS coinc_event_map_y ON (
+		coinc_event_map_y.coinc_event_id == sim_coinc_map.coinc_event_id
+	)
+	JOIN sngl_inspiral AS sngl_inspiral_y ON (
+		coinc_event_map_y.table_name == 'sngl_inspiral'
+		AND coinc_event_map_y.event_id == sngl_inspiral_y.event_id
+	)
+WHERE
+	sngl_inspiral_x.ifo > sngl_inspiral_y.ifo
+			"""):
+				x = contents.sngl_inspiral_table._row_from_cols(values)
+				y = contents.sngl_inspiral_table._row_from_cols(values[len(contents.sngl_inspiral_table.columnnames):])
+				instrument_pair = (x.ifo, y.ifo)
+				if instrument_pair not in self.points:
+					self.points[instrument_pair] = BackgroundVsInjectionPlotsMulti.Points()
+				self.points[instrument_pair].injections_snreff.append((x.get_effective_snr(fac = self.snrfactor), y.get_effective_snr(fac = self.snrfactor)))
+				self.points[instrument_pair].injections_deff.append((x.eff_distance, y.eff_distance))
+
+	def finish(self):
+		for (x_instrument, y_instrument), points in self.points.items():
+			fig, axes = create_plot(r"$\rho_{\mathrm{eff}}$ in %s" % x_instrument, r"$\rho_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective SNR in %s vs.\ %s (SNR Factor = %g)" % (y_instrument, x_instrument, self.snrfactor))
+			axes.loglog([x for x, y in points.injections_snreff], [y for x, y in points.injections_snreff], "rx")
+			axes.loglog([x for x, y in points.background_snreff], [y for x, y in points.background_snreff], "kx")
+			axes.loglog([x for x, y in points.playground_snreff], [y for x, y in points.playground_snreff], "bx")
+			axes.legend(("Injections", "Background", "Zero-lag (Playground)"), loc = "lower right")
+			yield fig, "playground_rho_%s_vs_%s" % (y_instrument, x_instrument), False
+			axes.loglog([x for x, y in points.nonplayground_snreff], [y for x, y in points.nonplayground_snreff], "bx")
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "lower right")
+			yield fig, "rho_%s_vs_%s" % (y_instrument, x_instrument), False
+
+			fig, axes = create_plot(r"$D_{\mathrm{eff}}$ in %s" % x_instrument, r"$D_{\mathrm{eff}}$ in %s" % y_instrument, aspect = 1.0)
+			axes.set_title(r"Effective Distance in %s vs.\ %s" % (y_instrument, x_instrument))
+			axes.loglog([x for x, y in points.injections_deff], [y for x, y in points.injections_deff], "rx")
+			axes.loglog([x for x, y in points.background_deff], [y for x, y in points.background_deff], "kx")
+			axes.loglog([x for x, y in points.playground_deff], [y for x, y in points.playground_deff], "bx")
+			axes.legend(("Injections", "Background", "Zero-lag (Playground)"), loc = "upper right")
+			yield fig, "playground_deff_%s_vs_%s" % (y_instrument, x_instrument), False
+			axes.loglog([x for x, y in points.nonplayground_deff], [y for x, y in points.nonplayground_deff], "bx")
+			axes.legend(("Injections", "Background", "Zero-lag"), loc = "upper right")
+			yield fig, "deff_%s_vs_%s" % (y_instrument, x_instrument), False
+
+
+#
+# =============================================================================
+#
+#                           Rate vs. Threshold Plots
+#
+# =============================================================================
+#
+
+
+def sigma_region(mean, nsigma):
+	return numpy.concatenate((mean - nsigma * numpy.sqrt(mean), (mean + nsigma * numpy.sqrt(mean))[::-1]))
+
+
+def create_farplot(zerolag_stats, background_stats, zerolag_to_background_livetime_ratio):
+	if not (len(zerolag_stats) or len(background_stats)):
+		# no data
+		return None, None
+
+	zerolag_stats.sort(reverse = True)
+	background_stats.sort(reverse = True)
+
+	fig, axes = create_plot(None, r"Number of Events")
+
+	N = numpy.arange(len(zerolag_stats), dtype = "double") + 1.0
+	x = numpy.array(zerolag_stats, dtype = "double")
+	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
+
+	N = numpy.arange(len(background_stats), dtype = "double") + 1.0
+	N *= zerolag_to_background_livetime_ratio
+	x = numpy.array(background_stats, dtype = "double")
+	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
+
+	minX, maxX = min(zerolag_stats + background_stats), max(zerolag_stats + background_stats)
+	minN, maxN = min(1, zerolag_to_background_livetime_ratio), max(len(zerolag_stats), len(background_stats) * zerolag_to_background_livetime_ratio)
+
+	x = x.repeat(2)[1:]
+	x = numpy.concatenate((x, x[::-1]))
+	N = N.repeat(2)[:-1]
+	axes.fill(x, sigma_region(N, 3.0).clip(minN, maxN), alpha=0.25, facecolor=[0.75, 0.75, 0.75])
+	axes.fill(x, sigma_region(N, 2.0).clip(minN, maxN), alpha=0.25, facecolor=[0.5, 0.5, 0.5])
+	axes.fill(x, sigma_region(N, 1.0).clip(minN, maxN), alpha=0.25, facecolor=[0.25, 0.25, 0.25])
+
+	axes.set_xlim(minX, maxX)
+	axes.set_ylim(minN, maxN)
+
+	axes.legend(("Zero-lag", "Expected Background, $N$", r"$\pm 3\sqrt{N}$", r"$\pm 2\sqrt{N}$","$\pm\sqrt{N}$"), loc="lower left")
+
+	return fig, axes
+
+
+class RateVsThreshold(object):
+	def __init__(self):
+		self.background_livetime = {}
+		self.playground_livetime = {}
+		self.nonplayground_livetime = {}
+		self.background_ifar = {}
+		self.playground_ifar = {}
+		self.nonplayground_ifar = {}
+		self.background_snr = {}
+		self.playground_snr = {}
+		self.nonplayground_snr = {}
+
+	def add_contents(self, contents):
+		if contents.sim_inspiral_table is not None:
+			# skip injection documents
+			return
+
+		for on_instruments in set(contents.background_livetime) | set(contents.playground_livetime) | set(contents.nonplayground_livetime):
+			self.background_livetime.setdefault(on_instruments, 0.0)
+			self.playground_livetime.setdefault(on_instruments, 0.0)
+			self.nonplayground_livetime.setdefault(on_instruments, 0.0)
+			self.background_ifar.setdefault(on_instruments, [])
+			self.playground_ifar.setdefault(on_instruments, [])
+			self.nonplayground_ifar.setdefault(on_instruments, [])
+			self.background_snr.setdefault(on_instruments, [])
+			self.playground_snr.setdefault(on_instruments, [])
+			self.nonplayground_snr.setdefault(on_instruments, [])
+
+		for on_instruments, livetime in contents.background_livetime.items():
+			self.background_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.playground_livetime.items():
+			self.playground_livetime[on_instruments] += livetime
+		for on_instruments, livetime in contents.nonplayground_livetime.items():
+			self.nonplayground_livetime[on_instruments] += livetime
+
+		for on_instruments, ifar, snr, is_playground, is_background in connection.cursor().execute("""
+SELECT
+	coinc_event.instruments,
+	1.0 / coinc_inspiral.combined_far,
+	coinc_inspiral.snr,
+	is_playground(coinc_inspiral.end_time, coinc_inspiral.end_time_ns),
+	EXISTS (
+		SELECT
+			*
+		FROM
+			time_slide
+		WHERE
+			time_slide.time_slide_id == coinc_event.time_slide_id
+			AND time_slide.offset != 0
+	)
+FROM
+	coinc_inspiral
+	JOIN coinc_event ON (
+		coinc_event.coinc_event_id == coinc_inspiral.coinc_event_id
+	)
+		"""):
+			on_instruments = frozenset(dbtables.lsctables.instrument_set_from_ifos(on_instruments))
+			if is_background:
+				self.background_ifar[on_instruments].append(ifar)
+				self.background_snr[on_instruments].append(snr)
+			elif is_playground:
+				self.playground_ifar[on_instruments].append(ifar)
+				self.playground_snr[on_instruments].append(snr)
+			else:
+				self.nonplayground_ifar[on_instruments].append(ifar)
+				self.nonplayground_snr[on_instruments].append(snr)
+
+	def finish(self):
+		for on_instruments in self.background_ifar:
+			fig, axes = create_farplot(self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			if fig is not None:
+				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+				yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
+
+			fig, axes = create_farplot(self.playground_ifar[on_instruments] + self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
+			if fig is not None:
+				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
+				yield fig, "count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
+
+			fig, axes = create_farplot(self.playground_snr[on_instruments], self.background_snr[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			if fig is not None:
+				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+				yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
+
+			fig, axes = create_farplot(self.playground_snr[on_instruments] + self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
+			if fig is not None:
+				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
+				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
+				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
+
+
+#
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+#
+
+
+#
+# Parse command line
+#
+
+
+options, filenames = parse_command_line()
+
+
+#
+# Process files
+#
+
+
+def new_plots(plots = None):
+	l = (
+		MissedFoundPlots(),
+		ParameterAccuracyPlots(),
+		BackgroundVsInjectionPlots(),
+		BackgroundVsInjectionPlotsMulti(snrfactor = 50.0),
+		RateVsThreshold()
+	)
+	if plots is None:
+		plots = range(len(l))
+	return [l[i] for i in plots]
+
+plots = new_plots(options.plot_group)
+if options.plot_group is None:
+	options.plot_group = range(len(plots))
+
+
+for n, filename in enumerate(filenames):
+	if options.verbose:
+		print >>sys.stderr, "%d/%d: %s" % (n + 1, len(filenames), filename)
+	working_filename = dbtables.get_connection_filename(filename, tmp_path = options.tmp_space, verbose = options.verbose)
+	connection = sqlite3.connect(working_filename)
+	contents = CoincDatabase(connection, options.live_time_program, veto_segments_name = "vetoes", verbose = options.verbose)
+	if contents.sim_inspiral_table is not None:
+		create_sim_coinc_view(connection)
+	create_is_playground_func(connection, contents.playground_segs)
+	for n, plot in zip(options.plot_group, plots):
+		if options.verbose:
+			print >>sys.stderr, "adding to plot group %d ..." % n
+		plot.add_contents(contents)
+	# FIXME:  why does this crash?
+	#connection.close()
+	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
+
+
+#
+# Finish and write plots, deleting them as we go to save memory
+#
+
+
+n = 0
+filename_template = "%%s%%0%dd_%%s.%%s" % (int(math.log10(max(options.plot_group) or 1)) + 1)
+while len(plots):
+	for fig, filename_fragment, is_open_box in plots.pop(0).finish():
+		for format in options.format:
+			filename = filename_template % (options.base, options.plot_group[n], filename_fragment, format)
+			if options.verbose:
+				print >>sys.stderr, "writing %s ..." % filename
+			fig.savefig(filename)
+	n += 1

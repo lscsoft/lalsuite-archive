@@ -30,6 +30,7 @@ from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
+from glue.ligolw.utils import process as ligolw_process
 from pylal import llwapp
 from pylal.date import LIGOTimeGPS
 from pylal import SnglInspiralUtils
@@ -78,16 +79,16 @@ def append_process(doc, **kwargs):
     cvs_repository = "lscsoft", cvs_entry_time = __date__, 
     comment = kwargs["comment"])
 
-  llwapp.append_process_params(doc, process, 
+  ligolw_process.append_process_params(doc, process, 
     [("--cluster-window", "lstring", kwargs["cluster_window"])])
   if kwargs["snr_threshold"] > 0:
-    llwapp.append_process_params(doc, process, 
+    ligolw_process.append_process_params(doc, process, 
       [("--snr-threshold", "lstring", kwargs["snr_threshold"])])
   if kwargs["sort_descending_snr"]:
-    llwapp.append_process_params(doc, process, 
+    ligolw_process.append_process_params(doc, process, 
       [("--sort-descending-snr", "lstring", " ")])
   if kwargs["sort_ascending_snr"]:
-    llwapp.append_process_params(doc, process, 
+    ligolw_process.append_process_params(doc, process, 
       [("--sort-ascending-snr", "lstring", " ")])
 
   return process

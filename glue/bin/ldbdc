@@ -2,7 +2,7 @@
 #
 # lightweight database dumper client
 #
-# $Id$
+# $Id: ldbdc,v 1.29 2007/11/06 15:55:17 duncan Exp $
 #
 # Copyright (C) 2003 Duncan Brown
 # 
@@ -46,7 +46,7 @@ def usage():
   msg = """\
 Usage: ldbdc.py [OPTIONS]
 
-  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30020)
+  -r, --server HOST:PORT  connect to ldbd on HOST:PORT (default port 30015)
   -j, --identity SUBJECT  the subject of the servers service certififcate
   -i, --insert LIGOLW     insert LIGO lightweight file LIGOLW
   -f, --pfn PFNLIST       a comma separated list of PFNs to insert
@@ -87,7 +87,7 @@ except getopt.GetoptError:
 
 # defaults
 hostPortString = None
-port = 30020
+port = 30015
 identity = None
 infile = None
 pfnlist = None

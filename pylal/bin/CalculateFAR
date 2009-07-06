@@ -1,0 +1,457 @@
+#!/usr/bin/python
+__author__ = "Ruslan Vaulin <vaulin@gravity.phys.uwm.edu>"
+__version__ = "$Revision: 1.7 $"[11:-2]
+__date__ = "$Date: 2009/03/18 22:18:59 $"[7:-2]
+__prog__="CalculateFAR"
+__Id__ = "$Id: CalculateFAR,v 1.7 2009/03/18 22:18:59 jclayton Exp $"
+
+#loading standard modules
+from optparse import *
+import glob
+import sys
+import os
+import cPickle
+
+#loading modules used for input/output of data 
+from glue import lal
+from glue.ligolw import lsctables
+from glue.ligolw import table
+from glue.ligolw import utils
+from glue.ligolw import ligolw
+from glue.ligolw.utils import ligolw_add
+
+from pylal import CoincInspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import SimInspiralUtils
+from pylal import InspiralUtils
+
+from scipy import *
+import numpy
+
+######################################################################################################
+# Functions
+#####################################################################################################
+
+
+
+def calculate_ifar(coincs, slide_stats, slide_time):
+  """
+  Function to calculate ifar  for coincident triggers and save it in the alpha column of sngl_inspiral table which is returned.
+  @param coincs: CoincInspiral Table
+  @param slide_stats: dictionary of time slide statistic
+  @param slide_time: duration of slides
+  """
+  
+  
+  output_sngls =  lsctables.New(lsctables.SnglInspiralTable) 
+  
+  # get all background stats
+  all_slide_stats = numpy.zeros(1)
+
+  for key in slide_stats.keys():
+    all_slide_stats = numpy.concatenate((all_slide_stats, slide_stats[key]))
+
+  # get rid of zero
+  all_slide_stats = numpy.trim_zeros(all_slide_stats)
+
+  # sort it
+  all_slide_stats.sort()
+
+  # calculate total number of background events
+  N_total_slides = len(all_slide_stats)
+
+  # calculate ifar for zero lag
+  for coinc in coincs:
+	index = numpy.searchsorted(all_slide_stats, coinc.stat)
+	if index == 0:
+	  fan = float(N_total_slides)
+	elif index == N_total_slides:
+	  fan = 0.0
+	else:
+	  fan = float(N_total_slides - index)
+
+	# divide by duration of slides and normalize it to 1 year
+	far = (fan * 31536000.0) / float(slide_time)
+
+	# take the inverse
+	#ifar = 1.0 / far
+	
+	ifos, ifolist = coinc.get_ifos()
+	
+	for ifo in ifolist:
+	  sngl_trig = getattr(coinc, ifo)
+	  sngl_trig.alpha = far
+	  output_sngls.append(sngl_trig)
+
+  
+  return output_sngls
+    
+
+
+################################################################################
+# Main program
+################################################################################
+usage= """
+usage: %prog [options]
+
+This code calculates false alarm rate (FAR) in untis [number of events per year] for  coincident events in the input file and saves its inverse in alpha column of sngl_inspiral table.
+"""
+###############################################################################
+# Options to read in Input
+###############################################################################
+def parse_command_line():
+
+  """
+  Parser function dedicated
+  """
+
+  parser = OptionParser( usage=usage, version="%prog CVS $Id: inspiral_search_summary,v 1.7 2009/03/18 22:18:59 jclayton Exp $ " )
+
+  parser.add_option("","--slides-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB time slides files to read" )
+	
+  parser.add_option("","--events-glob",action="store",type="string",\
+      default=None, metavar=" GLOB",help="GLOB for files containg events for which FAR needs to be calculated " )
+	
+  parser.add_option("","--input-cache-file",action="store",type="string",\
+      default=None, metavar="CACHEFILE",help="name of the cache file including the path" )
+
+  parser.add_option("","--slides-pattern",\
+      default="", metavar="SLIDESPATTERN", help="the time slides files pattern the cache file, specified by --input-cache-file option, will be seived with.")
+	
+  parser.add_option("","--events-pattern",\
+      default="", metavar="EVENTSPATTERN", help="the  events files' pattern the cache file, specified by --input-cache-file option, will be seived with.")
+
+  parser.add_option("","--statistic",action="store",default='snr',\
+      type="string",\
+      help="choice of statistic used in building coinc table, valid arguments are: snr (DEFAULT), snr_over_chi, s3_snr_chi_stat, effective_snr, bitten_l, bitten_lsq, ifar")
+	  
+  parser.add_option("","--num-slides", action="store",type="int",\
+      default = 0, metavar="numslides", help="number of time slides performed, must match the corresponding parameter from the .ini file of the search" )
+	  
+  parser.add_option("","--septime-files",action="store",type="string",\
+      default=None,help="GLOB septime files" )
+	  	    	
+  parser.add_option("", "--save-background-stats",action="store_true", default=False,\
+      help="save statistics of background events into a file")
+	  
+  parser.add_option("","--output-background-file", action="store",type="string",\
+      default = None, help="output file for statistics of background events" )
+
+  parser.add_option("", "--skip-timeslides",action="store_true", default=False,\
+      help="skip time slides, use background-stats-file instead.")
+	  
+  parser.add_option("","--background-stats-file", action="store",type="string",\
+      default = None, help="file with statistics of background events " )
+	  
+  parser.add_option("","--ensure-search-summary-table-uniqueness", action="store_true",\
+      default=False, help="ensure that combined search_summary table contain only unique elements. This option is designed for LV S5 search, may not needed and/or noit work for others" )
+	
+  parser.add_option("","--verbose", action="store_true",\
+      default=False, help="print information" )
+
+  parser.add_option("-u","--user-tag",action="store",type="string",\
+      default=None, metavar=" USERTAG",\
+      help="The user tag used in the name of the figures" )
+
+  parser.add_option("","--ignore-IFO-times",action="store",type="string",\
+      default='', metavar=" USERTAG",\
+      help="comma separated list of IFOTYPE_IFOTIME that should not be included in efficiency calculation e.g. H1H2_H1H2,H2L1_H1H2L1. This option will work only with s5 LV search files that are named IFOTIME_IFOTYPE-*xml" )
+  
+  parser.add_option("-P","--output-path",action="store",\
+      type="string",default=None,  metavar="PATH",\
+      help="path where output (uncombined) files will be written to")
+	  
+  parser.add_option("","--combine-output", action="store", type="string",\
+      default="", help=" combine all triggers into a single file with a name specified by this option." )
+
+  (opts,args) = parser.parse_args()
+
+
+  return opts, sys.argv[1:]
+#####################################################################
+opts, args = parse_command_line()
+
+
+
+#Calculating statistic for coincidences
+statistic = CoincInspiralUtils.coincStatistic(opts.statistic) 
+
+
+# contsructing lists of data files containing time slides and zero-lag triggers respectively
+########################################################################################################	
+
+if opts.input_cache_file:
+  InspiralUtils.message(opts, "Reading input-cache-file ...")
+  slidesfiles = []
+  events_files = []
+  SnglInspiralCache = lal.Cache.fromfile(open(opts.input_cache_file))
+  if not opts.skip_timeslides:
+	slidesfiles = SnglInspiralCache.sieve(description = opts.slides_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+  events_files = SnglInspiralCache.sieve(description = opts.zero_lag_pattern, exact_match=True).checkfilesexist()[0].pfnlist()
+else:
+  slidesfiles = []
+  events_files = []
+  if not opts.skip_timeslides:
+	slidesfiles = glob.glob(opts.slides_glob)
+  events_files = glob.glob(opts.events_glob)
+  
+# check if file lists are not empty
+if not opts.skip_timeslides:
+  if not len(slidesfiles) > 0:
+	print >>sys.stderr, "List of time slides files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
+	sys.exit(1)
+if  not len(events_files) > 0:
+  print >>sys.stderr, "List of events files is empty: your sieve (glob) pattern may be wrong or files do not exist in the location given by the cache file"
+  sys.exit(1)
+
+# get rid of certain IFO times if necessary
+if opts.ignore_IFO_times:
+
+  ifo_times_to_ignore = opts.ignore_IFO_times.split(",")
+
+  # time slides
+  # Assumes that ifo time is the first thing in the file name
+  new_slidesfiles = []
+  for file in slidesfiles:
+    tmpifotime=file.split("/")[-1].split("_")[0]
+    tmpifotype=file.split("/")[-1].split("_")[1].split("-")[0]
+    category="_".join([tmpifotype,tmpifotime])
+    if not (category in ifo_times_to_ignore):
+      new_slidesfiles.append(file)
+
+  slidesfiles = []
+  slidesfiles = new_slidesfiles
+
+  # zero lag
+  # Assumes that ifo time is the first thing in the file name
+  new_events_files = []
+  for file in events_files:
+    tmpifotime=file.split("/")[-1].split("_")[0]
+    tmpifotype=file.split("/")[-1].split("_")[1].split("-")[0]
+    category="_".join([tmpifotype,tmpifotime])
+    if not (category in ifo_times_to_ignore):
+      new_events_files.append(file)
+
+  events_files = []
+  events_files = new_events_files 
+
+
+
+#Constructing  background
+########################################################################################################################
+
+
+if not opts.skip_timeslides:
+
+  # Read in time slides and accumulate background
+
+  InspiralUtils.message(opts, "Reading time slides...")
+	
+  # define dictionary to hold stats for each time slide
+  all_stats_dic = {}
+  for slide in range(1, opts.num_slides + 1):
+		all_stats_dic[slide] = numpy.zeros(1)
+		all_stats_dic[-slide] = numpy.zeros(1)
+	
+
+  for file in slidesfiles:
+  
+	# read in time slides triggers 
+	slidesTriggers = None
+	InspiralUtils.message(opts," reading in " + file)
+	slidesTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles([file], non_lsc_tables_ok=True)
+	InspiralUtils.message(opts,"reconstructing coincs ...")
+	# construct the time slides coincs
+	slidesCoincTriggers = CoincInspiralUtils.coincInspiralTable(slidesTriggers, statistic)
+
+
+	for slide in range(1, opts.num_slides + 1):
+	
+	  forward_slide_coincs = slidesCoincTriggers.getslide(slide)
+	  all_stats_dic[slide] = numpy.concatenate((all_stats_dic[slide], forward_slide_coincs.getstat()))
+	  
+	  backward_slide_coincs = slidesCoincTriggers.getslide(-slide)
+	  all_stats_dic[-slide] = numpy.concatenate((all_stats_dic[-slide], backward_slide_coincs.getstat()))
+
+	  # end of the loop over slides
+	
+  # get rid of zeros
+  for key in all_stats_dic.keys():
+        all_stats_dic[key] = numpy.trim_zeros(all_stats_dic[key])
+
+
+  if opts.save_background_stats:
+  
+	InspiralUtils.message(opts,"saving background stats into a file ...")
+	
+	#open output file
+	file = open(opts.output_background_file, "w")
+
+	#saving max_stat_array
+	cPickle.dump(all_stats_dic, file)
+
+	#close file
+	file.close()
+
+  InspiralUtils.message(opts, "Done." )
+else:
+  InspiralUtils.message(opts, "Skiping time slides...")
+  InspiralUtils.message(opts, "using background from " + str(opts.background_stats_file))
+  
+  # open file
+  background_stats_file = open(opts.background_stats_file, "rb")
+  
+  # get max_stat_array
+  all_stats_dic = cPickle.load(background_stats_file)
+
+
+# Calculating FAR
+#########################################################################################################################
+
+# glob for septime files
+septime_files = glob.glob(opts.septime_files)
+
+total_slide_time = 0
+
+for septime_file in septime_files:
+  # open file
+  timefile = open(septime_file, 'r')
+  slide_time = 0
+  # read it in line by line
+  line_index = 0
+  for line in timefile:
+	line = line.split()
+	line_index += 1
+	if line_index ==1 :
+	  zero_lag_time = float(line[1])
+	else:
+	  slide_time += float(line[1])
+
+  #close file
+  timefile.close()
+
+  # increment total slide time
+  total_slide_time += slide_time
+
+
+
+InspiralUtils.message(opts,"Reading zero-lag files ...")
+
+output_files = []
+if opts.ensure_search_summary_table_uniqueness:
+  search_summary_tables = {}
+
+# create directory for output files
+output_dir = opts.output_path.split("/")[0]
+try: os.mkdir(output_dir)
+except: pass
+
+for dir in opts.output_path.split("/")[1:]:
+  output_dir = output_dir + "/" + dir
+  try: os.mkdir(output_dir)
+  except: pass
+
+for file in events_files:
+  
+  if file.split(".")[-1] == "gz":
+	# loading xml document
+	tmp_doc = utils.load_filename(file, gz=True, verbose=opts.verbose)
+  else:
+	tmp_doc = utils.load_filename(file, verbose=opts.verbose)
+
+  # keep one and only one search summary table per ifo time 
+  # if --ensure_search_summary_table_iniqueness was given
+  if opts.ensure_search_summary_table_uniqueness:
+	search_summary_table = table.getTablesByName(tmp_doc, "search_summary")[0]
+	ifo_time = search_summary_table[0].ifos
+	if not ifo_time in search_summary_tables.keys():
+	  search_summary_tables[ifo_time] = search_summary_table
+	  
+  # read in sngl inspiral table
+  if table.StripTableName(tmp_doc.childNodes[0].childNodes[-1].getAttribute("Name")) == "sngl_inspiral":
+	Triggers = tmp_doc.childNodes[0].childNodes[-1]
+  else:
+    Triggers = None
+  
+  if Triggers:
+	# construct coincidence 
+	CoincTriggers = CoincInspiralUtils.coincInspiralTable(Triggers, statistic)
+	
+	# calculate inverse FAR and save it in alpha column
+	sngl_inspiral_table = calculate_ifar(CoincTriggers, all_stats_dic, total_slide_time)
+  
+  # open the output file for writing
+  output_file_name = opts.output_path + "/" + file.split("/")[-1]
+  output_file =  open(output_file_name, "w")
+
+  # create xml doc
+  output_doc = ligolw.Document()
+
+  #create LIGO_LW element
+  output_ligo_lw = ligolw.LIGO_LW()
+
+  #append it to xml doc
+  output_doc.appendChild(output_ligo_lw)
+  
+  if Triggers:
+	# adding tables, all except sngl_inspiral one.
+	for child in tmp_doc.childNodes[0].childNodes[:-1]:
+	  output_doc.childNodes[0].appendChild(child)
+	
+	#adding updated SnglInspiral table
+	output_doc.childNodes[0].appendChild(sngl_inspiral_table)
+  else:
+	# adding tables
+	for child in tmp_doc.childNodes[0].childNodes:
+	  output_doc.childNodes[0].appendChild(child)
+
+  
+  #writing xml doc to the output file
+  output_doc.write(output_file)
+  output_file.close()
+  output_files.append(output_file_name)
+
+
+if opts.combine_output:
+  combined_output_dir = opts.combine_output.split("/")[0]
+  try: os.mkdir(combined_output_dir)
+  except: pass
+
+  for dir in opts.combine_output.split("/")[1:-1]:
+	combined_output_dir = combined_output_dir + "/" + dir
+	try: os.mkdir(combined_output_dir)
+	except: pass
+
+
+  combined_xmldoc = ligolw_add.ligolw_add(ligolw.Document(), output_files, non_lsc_tables_ok=True,  verbose=True)
+  
+  if opts.ensure_search_summary_table_uniqueness:
+	combined_search_summary_table = lsctables.New(lsctables.SearchSummaryTable)
+	for key in search_summary_tables.keys():
+	  for row in search_summary_tables[key]:
+		combined_search_summary_table.append(row)
+		
+	for (i, child) in enumerate(combined_xmldoc.childNodes[0].childNodes):
+	  if table.StripTableName(child.getAttribute("Name")) == "search_summary":
+		combined_xmldoc.childNodes[0].childNodes[i] = combined_search_summary_table
+	  
+  
+  #combined_output_file = open(opts.combine_output, "w")
+  #combined_xmldoc.write(combined_output_file)
+  #combined_output_file.close()
+  utils.write_filename(combined_xmldoc, opts.combine_output, gz=True)
+  
+  
+  
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+

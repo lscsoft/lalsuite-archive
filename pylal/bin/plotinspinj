@@ -431,6 +431,10 @@ def parse_command_line():
       "argument should be the cvs directory where the html file will be put "\
       "Example: --html-for-cbcweb protected/projects/s5/yourprojectdir")
 
+  parser.add_option("", "--old-document",action="store_true",\
+      default=False,help="this option turns on mangling. you are only "\
+      "supposed to use it if you are handling old documents")
+
   (options,args) = parser.parse_args()
 
   # test the input options
@@ -485,7 +489,7 @@ if opts.veto_file:
 
 lsctables.SnglInspiralTable.loadcolumns = ['mchirp', 'eta', 'end_time', 'end_time_ns', 'ifo',  'snr', 'eff_distance', 'process_id', 'event_id']
 trigs = SnglInspiralUtils.ReadSnglInspiralFromFiles(injFiles, verbose=opts.verbose,\
-          mangle_event_id = True)
+          mangle_event_id = True, old_document=opts.old_document)
 
 sims = SimInspiralUtils.ReadSimInspiralFromFiles(injFiles)
 
@@ -794,7 +798,7 @@ if opts.hist_ethinca:
   ep_max = max([max(eps) for eps in ethinca_list])
   hists = {}
   for ifo in ifos:
-    hists[ifo] = histogram(eps, bins=opts.nbins, range=[0, ep_max])
+    hists[ifo] = histogram(eps, bins=opts.nbins, range=[0, ep_max], new=False)
   # y_list, x_list = zip(*[histogram(eps, bins=opts.nbins, range=[0, ep_max]) \
   #                        for eps in ethinca_list])
   

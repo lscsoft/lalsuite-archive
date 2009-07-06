@@ -6,7 +6,7 @@ import glue.lars
 
 from glue.lars.cli import commands
 
-import sys
+import sys, os
 
 try:
     cmd = sys.argv[1]
@@ -17,5 +17,41 @@ if cmd in commands:
     commands[cmd].run(sys.argv[2:])
 else:
     command_names = " | ".join([name for name in commands.keys()])
-    print "Usage: %s (%s) [options] [args]" % (sys.argv[0], command_names)
+    print "Usage: %s (%s) [options] [args]" % \
+        (os.path.basename(sys.argv[0]), command_names) + """
+
+    For help on individual lars functions:
+
+        lars [function] --help
+
+    e.g: lars reserve --help
+
+    Basic usage of Lars consists of reserving an id, followed by the
+    publication of an analysis.
+
+        cd /path/to/your/analysis
+        lars reserve
+
+    retrieves a reservation id and creates a small file, 'lars.ini',
+    in your analysis directory.  Once a reservation is made, you may
+    publish your analysis:
+
+        cd /path/to/your/analysis
+        lars publish CACHEFILENAME
+
+    This will extract GPS time and IFO information from your cachefile.
+    This information, along with the location of your analysis directory
+    will be published to the lars database.
+
+    A NOTE ON AUTHENTICATION
+
+    The Lars command line tool uses Globus proxies for authentication.
+    Your proxy must be an RFC compliant proxy, which is obtained either
+    from a very new version of grid-proxy-init, or by doing:
+
+        grid-proxy-init -rfc
+
+    The Globus utility, grid-proxy-info will tell you whether your
+    proxy is compliant or not.  "Pre-RFC" proxies are NOT compliant.
+"""
     sys.exit(1)

@@ -29,7 +29,6 @@ from pylab import *
 # sys.path.append('/archive/home/channa/opt/glue/lib64/python2.4/site-packages')
 from pylal import viz
 from pylal import Fr
-from pylal.fu_utils import *
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import ligolw
@@ -40,6 +39,7 @@ from pylal import CoincInspiralUtils
 from pylal import InspiralUtils
 from pylal import MultiInspiralUtils
 #from pylal import webUtils
+from pylal import git_version
 from glue import markup
 from glue import pipeline
 from glue import lal
@@ -49,44 +49,24 @@ sys.path.append('@PYTHONLIBDIR@')
 
 rc('text', usetex=False)
 
-def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInspiralTable,user_tag=None):
+def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInspiralTable,ifoTag,frameDict,user_tag=None):
  
     ifoH1 = 0
     ifoH2 = 0
     numIfos = 0
     rsqThreshold = 0
-    expectNetCohsnr = 0
-    expectCohH1H2snr = 0
-    expectCohnullstat = 0
-    
 
     if user_tag:
       eventID = user_tag
     else:
       eventID = ''
-        
-    for row in chiaProcParams:
-      if row.param == "--ifo-tag":
-        ifoTag = row.value
-        itfTimeSeries = array(range(0,len(ifoTag)/2-1))
-      if row.param == "--write-cohsnr":
-        expectNetCohsnr = 1
-      if row.param == "--write-cohh1h2snr":
-        expectCohH1H2snr = 1
-      if row.param == "--write-cohnullstat":
-        expectCohnullstat = 1
-      if row.param == "--segment-length":
-        segLen = eval(row.value)
-      if row.param == "--sample-rate":
-        sampleRate = eval(row.value)
-      if row.param == "--gps-start-time":
-        gpsStart = eval(row.value)
-      if row.param == "--gps-end-time":
-        gpsEnd = eval(row.value)
-      if row.param == "--low-frequency-cutoff":
-        flow = eval(row.value)
-      if row.param == "--dynamic-range-exponent":
-        dynRange = eval(row.value)
+
+    #print >> sys.stdout, "Frame file name for H2  "
+    #print >> sys.stdout, "Frame file name is  " + opts.H2_framefile
+            
+    gpsStart = int(opts.gps_start_time)
+    gpsEnd = int(opts.gps_end_time)
+    sampleRate = int(opts.sample_rate)
 
     duration = int(math.ceil(gpsEnd)) - int(gpsStart)
     opts.suffix = "-" + str(int(gpsStart)) + "-" + str(duration)
@@ -102,8 +82,16 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
         maxIndex = row_index
 
     cohSNR = "%0.2f"%maxSNR
-    coh_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
-    cohNullStat = "%0.2f"%coh_null_stat
+    if not (float(multiInspiralTable[maxIndex].null_statistic) == -1.0):
+      h1h2_null_stat = sqrt(float(multiInspiralTable[maxIndex].null_statistic))
+      h1h2NullStat = "%0.5f"%h1h2_null_stat
+    else:
+      h1h2NullStat = "NA"
+    if not (float(multiInspiralTable[maxIndex].tau5) == -1.0):
+      net_null_stat = sqrt(float(multiInspiralTable[maxIndex].tau5))
+      netNullStat = "%0.5f"%net_null_stat
+    else:
+      netNullStat =  "NA"
     eta = "%0.3f"%multiInspiralTable[maxIndex].eta
     mchirp = "%0.3f"%multiInspiralTable[maxIndex].mchirp
     mass1 = "%0.3f"%multiInspiralTable[maxIndex].mass1
@@ -111,6 +99,40 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     end_time = str(multiInspiralTable[maxIndex].end_time)
     end_time_ns = str(multiInspiralTable[maxIndex].end_time_ns)
     gpsTime = repr(float(multiInspiralTable[maxIndex].end_time) + float(multiInspiralTable[maxIndex].end_time_ns)*10**(-9))
+    if not (float(multiInspiralTable[maxIndex].eff_distance) == -1.0):
+      eff_distance = "%0.3f"%multiInspiralTable[maxIndex].eff_distance
+    else:
+      eff_distance =  "NA"
+    ifo1_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo1_eff_distance
+    ifo2_eff_distance = "%0.3f"%multiInspiralTable[maxIndex].ifo2_eff_distance
+    if not (float(multiInspiralTable[maxIndex].tau3) == -1.0):
+      tau3 = "%0.3f"%multiInspiralTable[maxIndex].tau3
+    else:
+      tau3 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].tau4) == -1.0):
+      tau4 = "%0.3f"%multiInspiralTable[maxIndex].tau4
+    else:
+      tau4 =  "NA"
+    if not (float(multiInspiralTable[maxIndex].ligo_axis_dec) == -1001.0):
+      ligo_axis_dec = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_dec
+    else:
+      ligo_axis_dec =  "NA"
+    if not (float(multiInspiralTable[maxIndex].ligo_axis_ra) == -1001.0):
+      ligo_axis_ra = "%0.3f"%multiInspiralTable[maxIndex].ligo_axis_ra
+    else:
+      ligo_axis_ra =  "NA"
+    if not (float(multiInspiralTable[maxIndex].polarization) == -1001.0):
+      polarization = "%0.3f"%multiInspiralTable[maxIndex].polarization
+    else:
+      polarization =  "NA"
+    if not (float(multiInspiralTable[maxIndex].inclination) == -1001.0):
+      inclination = "%0.3f"%multiInspiralTable[maxIndex].inclination
+    else:
+      inclination =  "NA"
+    if not (float(multiInspiralTable[maxIndex].coa_phase) == -1001.0):
+      coa_phase = "%0.3f"%multiInspiralTable[maxIndex].coa_phase
+    else:
+      coa_phase =  "NA"
 
     IfoSNR = {}
     colorCode = {'H1': 'r', 'H2': 'b', 'L1': 'g', 'V1': 'm'}
@@ -119,13 +141,24 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       ifo = ifoTag[j:j+2]
       quadRe = eval("float(multiInspiralTable[maxIndex]." + ifo.lower() + "quad_re)")
       quadIm = eval("float(multiInspiralTable[maxIndex]." + ifo.lower() + "quad_im)")
-      IfoSNR[ifo] = "%0.2f"%(sqrt(quadRe**2 + quadIm**2))
+      IfoSNR[ifo] = "%0.4f"%(sqrt(quadRe**2 + quadIm**2))
       if ifo == 'H1':
         ifoH1 = 1
       elif ifo == 'H2':
         ifoH2 = 1
       numIfos = numIfos + 1
+
+    minSNR = float(IfoSNR[ifoTag[0:2]])
+    minSNRIfo = ifoTag[0:2]
+    for j in range(0,len(ifoTag)-1,2):
+      ifo = ifoTag[j:j+2]
+      if float(IfoSNR[ifo]) < float(minSNR):
+        minSNR = float(IfoSNR[ifo])
+        minSNRIfo = ifo
+
     del multiInspiralTable
+
+    print >> sys.stdout, "Read table entries"
 
     # Between H1 and H2, identify the ifo with the lower SNR 
     if ifoH1 == 1 and ifoH2 ==1:
@@ -137,29 +170,34 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     segLenSec = int((gpsEnd-gpsStart)*0.5)
     timePoints = segLenSec * sampleRate
 
-    if expectNetCohsnr == 1:
-      cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
-      cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
-      cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
+    cohNetSNRFrameName = 'Coherent_SNR_' + str(eventID)
+    cohNetSNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+    cohNetSNR_tuple = Fr.frgetvect(cohNetSNRFrameFile,cohNetSNRFrameName,-1,timePoints,0)
 
     itfCData_time = array(range(0, timePoints)) * cohNetSNR_tuple[3][0]
 
     cohNetSNRSq = cohNetSNR_tuple[0]*cohNetSNR_tuple[0]
     del cohNetSNR_tuple
 
+    expectCohH1H2snr = 0
+
     #Read in the coherent H1H2 SNR data from frame-file
-    if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
+    if ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)      
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
-    elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
+      print >> sys.stdout, "Generate Coherent H1H2 SNR!!" 
+      expectCohH1H2snr = 1 
+    elif ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf' 
       cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
+      expectCohH1H2snr = 1
+      print >> sys.stdout, "Generate Coherent SNR!!"
     else: expectCohH1H2snr = 0
 
     fnameList = []
@@ -177,27 +215,27 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       legendText.append(legendTxt)
     for j in range(0,len(ifoTag)-1,2):
       itf = ifoTag[j:j+2]
-      itfFrameFileArg = '--' + str(itf) + '-framefile'
-      #print >> sys.stdout, "Extracting data from ifo " + str(itf)
-      for row in chiaProcParams:
-        if row.param == str(itfFrameFileArg):
-          itfFrameFile = row.value
+      itfFrameFile = frameDict[itf]
+      print >> sys.stdout, "Extracting data from ifo " + str(itf)
+      #for row in chiaProcParams:
+      #if row.param == str(itfFrameFileArg):
+      if itfFrameFile:
           itfFrameName = str(itf) + ':CBC-CData_' + str(eventID)
-          #print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
-          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
+          print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
+          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName)
           itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
           plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
           del itfCDataModSq
           legendTxt = str(itf) + ' snr-sq'
           legendText.append(legendTxt)
-          #print >> sys.stdout, "plotting itf!!"
+          print >> sys.stdout, "plotting itf!!"
           if itf == 'H1':
             itfCDataH1 = itfCData_tuple[0]
           elif itf == 'H2':
             itfCDataH2 = itfCData_tuple[0]
           del itfCData_tuple
     hold(0)
-    #print >> sys.stdout, "Printing Figure 1!!"
+    print >> sys.stdout, "Printing Figure 1!!"
     #for j in range(0,len(ifoTag)-1,2):
     xlabel('time (s)',size='x-large')
     ylabel(r'statistic',size='x-large')
@@ -209,7 +247,6 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     close(1)
     fnameList.append(figName)
     tagList.append("Plot of Coherent Statistic")
-    #print >> sys.stdout, "Printed Figure 1!!"
 
 
     figure(11)
@@ -226,14 +263,12 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       legendText.append(legendTxt)
     for j in range(0,len(ifoTag)-1,2):
       itf = ifoTag[j:j+2]
-      itfFrameFileArg = '--' + str(itf) + '-framefile'
-      #print >> sys.stdout, "Extracting data from ifo " + str(itf)
-      for row in chiaProcParams:
-        if row.param == str(itfFrameFileArg):
-          itfFrameFile = row.value
+      itfFrameFile = frameDict[itf]
+      print >> sys.stdout, "Extracting data from ifo " + str(itf)
+      if itfFrameFile:
           itfFrameName = str(itf) + ':CBC-CData_' + str(eventID)
-          #print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
-          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
+          print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
+          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName)
           itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
           del itfCData_tuple
           plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
@@ -241,7 +276,6 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
           legendTxt = str(itf) + ' snr-sq'
           legendText.append(legendTxt)
     hold(0)
-    #print >> sys.stdout, "Printing Figure 1!!"
     #for j in range(0,len(ifoTag)-1,2):
     xlim(0.5-0.02, 0.5+0.02)
     xlabel('time (s)',size='x-large')
@@ -254,11 +288,9 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     close(11)
     fnameList.append(figName)
     tagList.append("Plot of Coherent Statistic (zoomed)")
-    #print >> sys.stdout, "Printed Figure 1!!"
 
     if ifoH1 == 1 and ifoH2 == 1:
       figure(2)
-      #print >> sys.stdout, "Setting up Figure 2!!"
       legendText = []
       h1h2PhaseDiffNumer = itfCDataH1.real*itfCDataH2.real + itfCDataH1.imag*itfCDataH2.imag #+ itfImagH1.imag*itfImagH2.imag
       h1h2PhaseDiff = h1h2PhaseDiffNumer / (abs(itfCDataH1)*abs(itfCDataH2))
@@ -285,7 +317,6 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
 
     if ifoH1 == 1 and ifoH2 == 1:
       figure(22)
-      #print >> sys.stdout, "Setting up Figure 22!!"
       legendText = []
       plot(itfCData_time[1:timePoints],h1h2PhaseDiff[1:timePoints],'r')
       del h1h2PhaseDiff
@@ -306,32 +337,34 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
     if expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos > 2:
       cohH1H2SNRFrameName = 'Coherent_H1H2SNR_' + str(eventID)
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_COHSNR_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
-      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
+      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
     elif expectCohH1H2snr == 1 and ifoH1 == 1 and ifoH2 == 1 and numIfos < 3:
       cohH1H2SNRFrameName = 'Coherent_SNR_' + str(eventID)
       cohH1H2SNRFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
-      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName,-1,timePoints,0)
+      cohH1H2SNR_tuple = Fr.frgetvect(cohH1H2SNRFrameFile,cohH1H2SNRFrameName)
       cohH1H2SNRSq = cohH1H2SNR_tuple[0]*cohH1H2SNR_tuple[0]
       del cohH1H2SNR_tuple
     else: expectCohH1H2snr = 0
 
+    expectH1H2Nullstat = 0
     # This assumes that null-stat is for H1-H2 and not a 3-ifo 
     # or 4-ifo one. This is okay for S5 12-18month, but needs to be
     # updated for LV searches
-    if expectCohnullstat == 1 and ifoH1 == 1 and ifoH2 == 1:
-      cohNullStatFrameName = 'Coherent_NullStat_' + str(eventID)
-      cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
-      cohNullStat_tuple = Fr.frgetvect(cohNullStatFrameFile,cohNullStatFrameName,-1,timePoints,0)
-      cohNullStatSq = cohNullStat_tuple[0]
-      del cohNullStat_tuple
-    else: expectCohnullstat = 0
+    if ifoH1 == 1 and ifoH2 == 1:
+      H1H2NullStatFrameName = 'Coherent_H1H2_NullStat_' + str(eventID)
+      H1H2NullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + 'H1H2-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      H1H2NullStat_tuple = Fr.frgetvect(H1H2NullStatFrameFile,H1H2NullStatFrameName)
+      H1H2NullStatSq = H1H2NullStat_tuple[0]
+      del H1H2NullStat_tuple
+      expectH1H2Nullstat = 1
+    else: expectH1H2Nullstat = 0
 
-    if expectCohH1H2snr == 1 and expectCohnullstat == 1:
+    if expectCohH1H2snr == 1 and expectH1H2Nullstat == 1:
       figure(3)  
       legendText = []
-      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      plot(itfCData_time[1:timePoints],H1H2NullStatSq[1:timePoints],'k')
       legendText.append('H1-H2 null-stat-sq')
       hold(1)
       plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c')
@@ -350,11 +383,10 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
 
       figure(33)
       legendText = []
-      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      plot(itfCData_time[1:timePoints],H1H2NullStatSq[1:timePoints],'k')
       legendText.append('H1-H2 null-stat-sq')
       hold(1)
       plot(itfCData_time[1:timePoints],cohH1H2SNRSq[1:timePoints],'c')
-      del cohH1H2SNRSq
       legendText.append('H1-H2 cohsnr-sq')
       hold(0)
       xlim(0.5-0.02, 0.5+0.02)
@@ -365,30 +397,67 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       legend(legendText,loc='upper right')
       figName = InspiralUtils.set_figure_name(opts,'cohsnrh1h2nullZoomed')
       InspiralUtils.savefig_pylal(figName)
-      close(3)
+      close(33)
       fnameList.append(figName)
       tagList.append("Plot of Coherent Search and Null Statistic-squared in H1-H2 (zoomed)")
  
       figure(34)
       legendText = []
-      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      plot(itfCData_time[1:timePoints],H1H2NullStatSq[1:timePoints],'k')
+      del H1H2NullStatSq
       legendText.append('H1-H2 null-stat-sq')
       hold(1)
       itf = ifoWithLowerSNRInH1H2
-      itfFrameFileArg = '--' + str(itf) + '-framefile'
-      #print >> sys.stdout, "Extracting data from ifo " + str(itf)
-      for row in chiaProcParams:
-        if row.param == str(itfFrameFileArg):
-          itfFrameFile = row.value
+      itfFrameFile = frameDict[itf]
+      if itfFrameFile:
           itfFrameName = str(itf) + ':CBC-CData_' + str(eventID)
-          #print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
-          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName,-1,timePoints,0)
+          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName)
           itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
+          del itfCData_tuple
           plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
           del itfCDataModSq
-          legendTxt = str(itf) + ' snr-sq'
+          legendTxt = str(itf) + ' (weaker ifo) snr-sq'
           legendText.append(legendTxt)
-          #print >> sys.stdout, "plotting itf!!"
+      hold(0)
+      xlim(0.5-0.05, 0.5+0.05)
+      xlabel('time (s)',size='x-large')
+      ylabel(r'statistics',size='x-large')
+      grid()
+      title(ifoTag + ' trigger: ' + gpsTime)
+      legend(legendText,loc='upper right')
+      figName = InspiralUtils.set_figure_name(opts,'h1h2nullZoomed'
+)
+      InspiralUtils.savefig_pylal(figName)
+      close(34)
+      fnameList.append(figName)
+      tagList.append("Plot of Null Statistic-squared in H1-H2 and SNR in weaker ifo")
+
+    # Network null-stream versus weakest ifo SNR:
+    if not (ifoH1 == 1 and ifoH2 == 1 and numIfos == 3 ) and not (numIfos < 3):
+      cohNullStatFrameName = 'Coherent_NullStat_' + str(eventID)
+      cohNullStatFrameFile = os.path.dirname(chiaXmlFile) + '/' + ifoTag + '-CHIA_NULL_STAT_1-' + str(gpsStart) + '-' +  str(int(2*segLenSec)) +'.gwf'
+      cohNullStat_tuple = Fr.frgetvect(cohNullStatFrameFile,cohNullStatFrameName)
+      cohNullStatSq = cohNullStat_tuple[0]
+      del cohNullStat_tuple
+      figure(35)
+      legendText = []
+      plot(itfCData_time[1:timePoints],cohNullStatSq[1:timePoints],'k')
+      del cohNullStatSq
+      legendText.append('Network null-stat-sq')
+      hold(1)
+      itf = minSNRIfo
+      itfFrameFile = frameDict[itf] 
+      if itfFrameFile:
+          print >> sys.stdout, "Extracting data from file " + str(itfFrameFile)
+          itfFrameName = str(itf) + ':CBC-CData_' + str(eventID)
+          print >> sys.stdout, "Frame file name is  " + str(itfFrameFile)
+          itfCData_tuple = Fr.frgetvect(itfFrameFile,itfFrameName)
+          itfCDataModSq = abs(itfCData_tuple[0])*abs(itfCData_tuple[0])
+          del itfCData_tuple
+          plot(itfCData_time[1:timePoints],itfCDataModSq[1:timePoints],colorCode[itf])
+          del itfCDataModSq
+          legendTxt = str(itf) + ' (weakest ifo) snr-sq'
+          legendText.append(legendTxt)
       hold(0)
       xlim(0.5-0.05, 0.5+0.05)
       xlabel('time (s)',size='x-large')
@@ -399,7 +468,7 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       figName = InspiralUtils.set_figure_name(opts,'cohnullsnrh1Zoomed'
 )
       InspiralUtils.savefig_pylal(figName)
-      close(3)
+      close(35)
       fnameList.append(figName)
       tagList.append("Plot of Null Statistic-squared in H1-H2 and SNR in weaker ifo")
 
@@ -419,7 +488,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       page.td('<b>end_time</b>')
       page.td('<b>end_time_ns</b>')
       page.td('<b>CohSNR</b>')
-      page.td('<b>CohNullStat</b>')
+      page.td('<b>NetNullStat</b>')
+      page.td('<b>H1H2NullStat</b>')
       for j in range(0,len(ifoTag)-1,2):
         ifo = ifoTag[j:j+2]
         page.td('<b>'+ifo+' snr</b>') 
@@ -432,7 +502,8 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       page.td(end_time)
       page.td(end_time_ns)
       page.td(cohSNR)
-      page.td(cohNullStat)
+      page.td(netNullStat)
+      page.td(h1h2NullStat)
       for j in range(0,len(ifoTag)-1,2):
         ifo = ifoTag[j:j+2]
         page.td(IfoSNR[ifo])
@@ -443,6 +514,38 @@ def plotchiatimeseries(opts,args,outputPath,chiaXmlFile,chiaProcParams,multiInsp
       page.tr.close()
       page.table.close()
       page.hr()
+
+
+      page.hr()
+      page.add('<table bgcolor=yellow border=1px>')
+      page.tr()
+      #page.td('<b>Distance</b>')
+      page.td('<b>Eff. dist. (ifo1)</b>')
+      page.td('<b>Eff. dist. (ifo2)</b>')
+      page.td('<b>Eff. dist. (ifo3)</b>')
+      page.td('<b>Eff. dist. (H1-H2)</b>')
+      page.td('<b>theta</b>')
+      page.td('<b>phi</b>')
+      page.td('<b>Polarization</b>')
+      page.td('<b>Inclination</b>')
+      page.td('<b>Coal. phase</b>')
+      page.tr.close()
+      page.tr()
+      #page.td(eff_distance)
+      page.td(ifo1_eff_distance)
+      page.td(ifo2_eff_distance)
+      page.td(tau3)
+      page.td(tau4)
+      page.td(ligo_axis_dec)
+      page.td(ligo_axis_ra)
+      page.td(polarization)
+      page.td(inclination)
+      page.td(coa_phase)
+      page.tr.close()
+      page.table.close()
+      page.hr()
+
+
 
       for tag,filename in zip(tagList,fnameList):
         fname = "Images/" + os.path.basename(filename)
@@ -481,7 +584,7 @@ parser.add_option("-o","--output-path",action="store",type="string",\
     help="path where the figures would be stored")
 
 parser.add_option("-O","--enable-output",action="store_true",\
-    default="false",  metavar="OUTPUT",\
+    default="false",  metavar=" OUTPUT",\
     help="enable the generation of the html and cache documents")
 
 parser.add_option("-x","--chiaXmlFile", action="store",type="string", \
@@ -498,6 +601,29 @@ parser.add_option("","--ifo-tag",action="store",\
     type="string",  metavar=" IFOTAG",\
     help="ifo tag gives the information about ifo times and stage")
 
+parser.add_option("","--sample-rate",action="store",\
+    type="int",  metavar=" SAMPLE_RATE",\
+    help="sample-rate helps determine the number of time-series points in data")
+
+parser.add_option("","--gps-start-time",action="store",
+    type="int",  metavar="GPSSTARTTIME",
+    help="gps start time (for naming figure and output files")
+
+parser.add_option("","--gps-end-time",action="store",
+    type="int",  metavar=" GPSENDTIME",
+    help="gps end time (for naming figure and output files")
+
+parser.add_option("","--H1-framefile", action="store",type="string", \
+    metavar=" FILE",help="use H1 frame-file")
+
+parser.add_option("","--H2-framefile", action="store",type="string", \
+    metavar=" FILE",help="use H2 frame-file")
+
+parser.add_option("","--L1-framefile", action="store",type="string", \
+    metavar=" FILE",help="use L1 frame-file")
+
+parser.add_option("","--V1-framefile", action="store",type="string", \
+    metavar=" FILE",help="use V1 frame-file")
 
 command_line = sys.argv[1:]
 (opts,args) = parser.parse_args()
@@ -522,7 +648,15 @@ if not opts.chiaXmlFile:
   print >> sys.stderr, "Use --chiaXmlFile XML to specify a file"
   sys.exit(1)
 
-opts = InspiralUtils.initialise(opts, __prog__, __version__)
+if not opts.H1_framefile:
+  h1framefile
+
+frameDict = {'H1': opts.H1_framefile, 'H2': opts.H2_framefile, 'L1': opts.L1_framefile, 'V1': opts.V1_framefile}
+
+#opts = InspiralUtils.initialise(opts, __prog__, __version__)
+opts.prefix = opts.ifo_times + "-" + __prog__ + "_" + opts.ifo_tag + "_" + opts.user_tag
+opts.name = __prog__
+opts.version = git_version.verbose_msg.replace('\n','<br>')
 
 extension = opts.chiaXmlFile.split('.')[-1]
 if extension == 'gz': gz = True
@@ -537,4 +671,4 @@ elif len(multiInspiralTable) > 1:
   print >> sys.sderr, "document should not contain more than 1 multi_inspiral table"
   sys.exit(1)
 else:
-  plotchiatimeseries(opts,args,opts.output_path,opts.chiaXmlFile,proc,multiInspiralTable[0],opts.user_tag)
+  plotchiatimeseries(opts,args,opts.output_path,opts.chiaXmlFile,proc,multiInspiralTable[0],opts.ifo_tag,frameDict,opts.user_tag)

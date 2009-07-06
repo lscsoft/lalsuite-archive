@@ -1,3 +1,53 @@
+python-glue (1.26-1) unstable; urgency=low
+
+  * Initial release of 1.26
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Wed, 2 Jun 2009 13:20:00 -0500
+
+python-glue (1.25-1) unstable; urgency=low
+
+  * Initial release of 1.25
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Wed, 1 Jun 2009 16:22:00 -0500
+
+python-glue (1.24-1) unstable; urgency=low
+
+  * Initial release of 1.24
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 24 Jun 2009 18:55:00 -0500
+
+python-glue (1.23-1) unstable; urgency=low
+
+  * Initial release of 1.23
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 11 Jun 2009 20:50:00 -0500
+
+python-glue (1.22-1) unstable; urgency=low
+
+  * Initial release of 1.22
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 11 Jun 2009 15:50:00 -0500
+
+python-glue (1.21-1) unstable; urgency=low
+
+  * Added ligo_data_find to setup.py
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 10 Jun 2009 13:40:00 -0500
+
+python-glue (1.20-1) unstable; urgency=low
+
+  * Initial release of 1.20
+  * Fixed clean to remove all pyc files
+  * Include debian files in tar ball
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 10 Jun 2009 11:20:00 -0500
+
+python-glue (1.19-1) unstable; urgency=low
+
+  * Initial release of 1.19
+
+ -- Duncan Brown <dabrown@physics.syr.edu>  Tue, 09 Jun 2009 16:50:00 -0500
+
 python-glue (1.18-6lscsoft3) unstable; urgency=low
 
   * CFLAGS fix

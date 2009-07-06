@@ -21,9 +21,6 @@ import random
 import numpy
 numpy.seterr(all="raise")  # throw an exception on any funny business
 
-from pylab import *
-rc('text', usetex=True)
-
 from glue import lal
 from glue import segments
 from glue import segmentsUtils
@@ -36,6 +33,7 @@ from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
 from pylal import date
+from pylal import googlesky
 #from pylal.xlal import date
 from pylal.xlal import tools
 from pylal.xlal import inject
@@ -167,10 +165,15 @@ def gridsky(resolution):
   return points
 
 #grid a small portion of the sky
-def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
+def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon):
   points = []
   ds = pi*sqrt(2.0)*fine_res/180.0
-  box_err = pi*sqrt(2.0)*coarse_res/180.0
+  epsilon = pi*sqrt(2.0)*coarse_res/180.0
+  #divide the sphere into up to four grids to do thing the right way
+  #each element of the following will be a list of [min,max] pairs
+  lat_grids = []
+  lon_grids = []
+
 #  latmin += pi/2 - box_err
 #  latmax += pi/2 + box_err
 #  lonmin -= box_err
@@ -193,47 +196,103 @@ def gridspot(coarse_res,fine_res,latmin,latmax,lonmin,lonmax):
 #      points.append(numpy.asarray([latitude-pi/2,longitude]))
 #    latitude += ds
 #    longitude = lonmin
+  #make latitude run from 0 to pi, to avoid gridding problems at the equator
+  latmin += 0.5*pi
+  latmax += 0.5*pi
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  if wrap_lat: #latdiff > 0.5*pi :
+    lat_grids.append([latmax-epsilon,pi])
+    lat_grids.append([0,latmin+epsilon])
+  else:
+    if (latmin - epsilon > 0) and (latmax + epsilon < pi):
+      lat_grids.append([latmin-epsilon,latmax+epsilon])
+    elif (latmin - epsilon < 0) and (latmax + epsilon > pi):
+      lat_grids.append([0,pi])
+    elif latmin - epsilon < 0 :
+      lat_grids.append([0,latmax+epsilon])
+      lat_grids.append([pi+latmin-epsilon,pi])
+    elif latmax + epsilon > pi:
+      lat_grids.append([latmin-epsilon,pi])
+      lat_grids.append([0,latmax+epsilon-pi])
+    else:
+      raise ValueError, "this should never happen"#, latmin, latmax
+  if wrap_lon:#londiff > pi:
+    lon_grids.append([lonmax-epsilon,2*pi])
+    lon_grids.append([0,lonmin+epsilon])
+  else:
+    if (lonmin - epsilon > 0) and (lonmax + epsilon < 2*pi):
+      lon_grids.append([lonmin-epsilon,lonmax+epsilon])
+    elif (lonmin - epsilon < 0) and (lonmax + epsilon > 2*pi):
+      lon_grids.append([0,2*pi])
+    elif lonmin - epsilon < 0:
+      lon_grids.append([0,lonmax+epsilon])
+      lon_grids.append([2*pi+lonmin-epsilon,2*pi])
+    elif lonmax + epsilon > 2*pi:
+      lon_grids.append([lonmin-epsilon,2*pi])
+      lon_grids.append([0,lonmax+epsilon-2*pi])
+    else:
+      raise ValueError, "this should never happen"#, lonmin, lonmax
+
+  for latgrid in lat_grids:
+    for longrid in lon_grids:
+
+      latitude = latgrid[0]
+      longitude = longrid[0]
+
+      points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      while latitude <= latgrid[1]:
+        latitude += ds
+        longitude = longrid[0]
+        points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+        while longitude <= longrid[1]:
+          longitude += ds / abs(sin(latitude))
+          points.append(numpy.asarray([latitude-0.5*pi,longitude]))
+      
 
   #deal with periodic grid issues by always starting at (0,0) and then translating back to the original position
-  latdiff = latmax - latmin + 2*box_err
-  londiff = lonmax - lonmin + 2*box_err
-  if abs(latdiff) > 0.5*pi :
-    lat_displacement = latmax
-    trans_latmax =periodic(-latdiff,pi) 
-  else:
-    lat_displacement = latmin
-    trans_latmax = latdiff
-  if abs(londiff) > pi:
-    lon_displacement = lonmax
-    trans_lonmax = periodic(-londiff,2*pi)
-  else:
-    lon_displacement = lonmin
-    trans_lonmax = londiff
+  #latdiff = latmax - latmin 
+  #londiff = lonmax - lonmin 
+  #if latdiff > 0.5*pi :
+  #  d_lat = latmax - epsilon
+  #  grid_latmax = periodic(2*epsilon-latdiff,0,pi)
+  #else:
+  #  d_lat = latmin - epsilon
+  #  grid_latmax = latdiff + 2*epsilon
+  #if londiff > pi:
+  #  d_lon = lonmax - epsilon
+  #  grid_lonmax = periodic(2*epsilon-londiff,0,2*pi)
+  #else:
+  #  d_lon = lonmin - epsilon
+  #  grid_lonmax = londiff + 2*epsilon
 
-  latitude = 0
-  longitude = 0
-  points = [numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)])] 
-  while latitude <= trans_latmax:
-    latitude += ds
-    longitude = 0
-    points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
-    while longitude <= trans_lonmax:
-      longitude += ds / abs(sin(latitude))
-      points.append(numpy.asarray([periodic(latitude+lat_displacement,pi),periodic(longitude+lon_displacement,2*pi)]))
+  #latitude = 0
+  #longitude = 0
+  #points = [numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)])] 
+  #while latitude <= grid_latmax:
+  #  latitude += ds
+  #  longitude = 0
+  #  points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
+  #  while longitude <= grid_lonmax:
+  #    longitude += ds / abs(sin(latitude))
+  #    points.append(numpy.asarray([periodic(latitude+d_lat,-0.5*pi,0.5*pi),periodic(longitude+d_lon,0,2*pi)]))
 
   print "latmin", latmin
   print "latmax", latmax
   print "lonmin", lonmin
   print "lonmax", lonmax
+  print "wrap lat", wrap_lat
+  print "wrap_lon", wrap_lon
   print "######"
 
+  #print points
   return points
 
 #enforce periodic boundary conditions on things
 #this helps avoid ambiguities in gridding and convex hull finding that arise when working on the surface of the 2-sphere
-#assumes things are periodic between 0 and xmax
-def periodic(x,xmax):
-  if x < 0:
+
+def periodic(x,xmin,xmax):
+  if x < xmin:
     return x + xmax
   if x >= xmax:
     return x - xmax
@@ -310,12 +369,42 @@ def signal_duration(mass1,mass2,nuStart):
   duration = tau0 + tau1 - tau1p5 + tau2
   return(duration)
 
+
+def mkdirsafe( directory, nag = False ):
+  """
+  Create a directory if it does not already exist.
+  Optionally, nag if it already exists.
+  """
+  try:
+     os.makedirs(directory)
+  except OSError, (errno, strerror):
+    if errno == 17 and nag:
+      raise OSError, "Directory '%s' already exists, all files "\
+            "contained will be included in summary file, "\
+            "although not related to THIS summary!" \
+            " Suggestion: rename directory '%s'." % \
+            (directory, directory)
+    if errno!=17:
+      raise
+
+def write_file(root_dir, filename, content):
+  """
+  Writes a file to disk.
+  @param root_dir: directory where to write the file
+  @param filename: name of the file
+  @param content: contents of the file
+  """
+
+  f = open(root_dir+'/'+filename,'w')
+  f.write(content)
+  f.close()
+
 #stole this stuff from plotgrbl
 #thanks, nick!
 class always_equal(object):
     def __eq__(self, other):
         return True
-      
+
 def make_html_table(two_dim_seq, header_row=None):
     """
     Given a sequence of sequences (2-D array works), make an HTML table out
@@ -336,256 +425,89 @@ def make_html_table(two_dim_seq, header_row=None):
     html.append("</table><br>")
     return "\n".join(html)
 
-#the following stuff is for creating google sky output
-#heavily inspired and borowed from pylal_exttrig_summary
-#start with the pieces of the html template
-#the first piece lays out the basic html file
-#right now this piece has a key from google that only works for http://www.lsc-group.phys.uwm.edu/~larry/
-html_template = """<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN""http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-  <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
-  <title>macrotitle</title>
-  <style type="text/css">
-    #left_content {
-        float: left;
-        width: 20%;
-        background: #fff;
-        border-right: 2px solid #000;
-        border-bottom: 2px solid #000;
-        margin-right: 15px;
-        padding-bottom: 20px;
-    }
-    
-    #map_canvas {
-      width: 78%;
-      height: 96%;
-      overflow: hidden;
-    }
-  </style> 
+#
+# templates with which to fill in our Google Sky page
+#
 
-  <!-- Begin map setup-->
-  <script src="http://maps.l.google.com/maps?file=api&amp;v=2.x&amp;key=ABQIAAAAbTWRfv2rfvKE5o1huKzj2RQWJyssDG6WCnXjieoP-w1ZUqB9ABQU5ccdrutYANVe-cu_MuNxytA-UA" type="text/javascript"></script>
-
-  <script type="text/javascript">
-	var map;
-	var overlay;
-
-        function resize(){  
-	  var frame = document.getElementById("map_canvas");  
-	  var htmlheight = document.body.parentNode.scrollHeight;  
-	  var windowheight = window.innerHeight;  
-	  if ( htmlheight < windowheight ) {
-            document.body.style.height = windowheight + "px"; frame.style.height = windowheight + "px";
-          }  
-	  else {
-            document.body.style.height = htmlheight + "px"; frame.style.height = htmlheight + "px";
-          }  
-        } 
-
-        function initialize() {
-          resize();
-          if (GBrowserIsCompatible()) {
-            map = new GMap2(document.getElementById("map_canvas"), {
-            mapTypes : G_SKY_MAP_TYPES
-            });
-   	    map.setCenter(new GLatLng(0, 0), 3);
-            map.addControl(new GLargeMapControl());
-            map.addControl(new GMapTypeControl());
-            map.enableScrollWheelZoom();
-          }
-        }
-
-        //callback function for centering on and zooming to selected object
-        var zoomToObject = function() {
-   	  map.setCenter(overlay.getDefaultCenter(),3)
-        }
-
-        function load_file(filename) {
-          // load new one and re-center on the object
-          overlay = new GGeoXml(filename, zoomToObject);
-          map.addOverlay(overlay);
-        }
-  </script>
-  <!-- End map setup -->
-  
-</head>
-
-<body onload="initialize()" onunload="GUnload()">
-  <div id="left_content">
-  <h2>Galaxies Within Confidence Region</h2>   
+left_content_template = \
+"""  <h2>Galaxies Within Confidence Region</h2>   
     <form>
-    macrogalaxybuttons
+      macrogalaxybuttons
     </form>
   <hr/>
   <h2>Points With Highest Confidence</h2>
-    <form> 
-    macropointbuttons
+    <form>
+      macropointbuttons
     </form>
-    </div>
-  
-  <div id="map_canvas"></div>
- 
-</body>
-</html>
-"""
+  <hr/>
+    <form>
+      %s
+    </form>""" % googlesky.html_clear_button
 
-#each of the buttons will look like this
-html_button_template = '<input type=\"button\" value=\"macrobuttonlabel\" onclick=\"load_file(\'macrofilename.kml\')\" /><br/>'
-
-
-
-#templates for the kml files
-kml_galaxy_template = """
-<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky">
-<Document>
-  <Placemark>
-    <name>macroname</name>
-    <description>
-      <![CDATA[
-        <p> Position (ra,dec): (macrolon,macrolat)</p>
+galaxy_description_template = \
+"""        <p> Position (ra,dec): (macrolon,macrolat)</p>
         <p> Distance: macrodistance kpc </p>
-        <p> Luminosity: macrolum mwes </p>
-      ]]>
-    </description>
-    <LookAt>
-      <longitude>macrogskylon</longitude>
-      <latitude>macrolat</latitude>
-      <altitude>0</altitude>
-      <range>10000</range>
-      <tilt>0</tilt>
-      <heading>0</heading>
-    </LookAt>
-   
-    <Point>
-      <coordinates>macrogskylon,macrolat,0</coordinates>
-    </Point>
-  </Placemark>
-</Document>
-</kml>
-"""
+        <p> Luminosity: macrolum mwes </p>"""
 
-kml_point_template = """
-<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky">
-<Document>
-  <Placemark>
-    <name>macroname</name>
-    <description>
-      <![CDATA[
-        <p> Position (ra,dec): (macrolon,macrolat)</p>
-        <p> Confidence: macroconfidence</p>
-      ]]>
-    </description>
-    <LookAt>
-      <longitude>macrogskylon</longitude>
-      <latitude>macrolat</latitude>
-      <altitude>0</altitude>
-      <range>10000</range>
-      <tilt>0</tilt>
-      <heading>0</heading>
-    </LookAt>
-   
-    <Point>
-      <coordinates>macrogskylon,macrolat,0</coordinates>
-    </Point>
-  </Placemark>
-</Document>
-</kml>
-"""
+point_description_template = \
+"""        <p> Position (ra,dec): (macrolon,macrolat)</p>
+        <p> Confidence: macroconfidence</p>"""
 
-def mkdirsafe( directory, nag = False ):
-  """
-  Create a directory if it does not already exist.
-  Optionally, nag if it already exists.
-  """
-  try:
-     os.makedirs(directory)
-  except OSError, (errno, strerror):
-    if errno == 17 and nag:
-      raise OSError, "Directory '%s' already exists, all files "\
-            "contained will be included in summary file, "\
-            "although not related to THIS summary!" \
-            " Suggestion: rename directory '%s'." % \
-            (directory, directory)
-    if errno!=17:
-      raise
-    
-def write_file(root_dir, filename, content):
-  """
-  Writes a file to disk.
-  @param root_dir: directory where to write the file
-  @param filename: name of the file
-  @param content: contents of the file
-  """
-  
-  f = open(root_dir+'/'+filename,'w')
-  f.write(content)
-  f.close()
+#
+# KMLDocument subclasses make Google Sky integration easy
+#
 
-def make_galaxy_kml(galaxy):
+class GalaxyKMLDocument(googlesky.KMLDocument):
   """
-  create kml file for a galaxy
+  Represent a KML file for a pylal.galaxyutils.galaxy object.
   """
-  kml = kml_galaxy_template
-  kml = kml.replace('macroname',galaxy.name)
-  kml = kml.replace('macrolon',str(180/pi*galaxy.ra))
-  kml = kml.replace('macrolat',str(180/pi*galaxy.dec))
-  kml = kml.replace('macrodistance',str(galaxy.distance_kpc))
- # kml = kml.replace('macrodisterror',str(galaxy.distance_error))
-  kml = kml.replace('macrolum',str(galaxy.luminosity_mwe))
-  kml = kml.replace('macrogskylon',str(180*(galaxy.ra/pi - 1)))
+  def __init__(self, url, label, galaxy=None, color="yellow"):
+    googlesky.KMLDocument.__init__(self, url, label)
+    if galaxy is not None:
+      self.add_galaxy(galaxy, color)
 
-  return kml
+  def add_galaxy(self, galaxy, color="yellow"):
+    descr_html = galaxy_description_template\
+        .replace("macrolon", str(180 / pi * galaxy.ra))\
+        .replace("macrolat", str(180 / pi * galaxy.dec))\
+        .replace("macrodistance", str(galaxy.distance_kpc))\
+        .replace("macrolum", str(galaxy.luminosity_mwe))
+    self.add_placemark(googlesky.Placemark(id=galaxy.name, name=galaxy.name,
+        description_html=descr_html, fov_rad=None,
+        point_rad=(galaxy.ra, galaxy.dec), point_color_str=color))
 
-def make_pointing_kml(gps_time, rank, lon, lat, confidence):
+class PointingKMLDocument(googlesky.KMLDocument):
   """
-  create kml file for a point of interest
+  Represent a single telescope pointing for a galaxy object.
   """
-  kml = kml_point_template
-  kml = kml.replace('macroname',gps_time + ' number '+rank)
-  kml = kml.replace('macrolon',str(180/pi*lon))
-  kml = kml.replace('macrolat',str(180/pi*lat))
-  kml = kml.replace('macrogskylon',str(180*(lon/pi - 1)))
-  kml = kml.replace('macroconfidence',confidence)
+  def __init__(self, url, label, gps_time, rank, lon, lat, confidence,
+    color="blue"):
+    googlesky.KMLDocument.__init__(self, url, label)
+    self.id = gps_time + "_" + rank
+    self.name = gps_time + ' number ' + rank
+    self.add_pointing(gps_time, rank, lon, lat, confidence, color)
 
-  return kml
+  def add_pointing(self, gps_time, rank, lon, lat, confidence, color="blue"):
+    descr_html = point_description_template\
+        .replace("macrolon", str(lon))\
+        .replace("macrolat", str(lat))\
+        .replace("macroconfidence", str(confidence))
+    self.add_placemark(googlesky.Placemark(id=self.id, name=self.name,
+        description_html=descr_html, fov_rad=None,
+        point_rad=(lon, lat), point_color_str=color))
 
-#right now the buttons are hardcoded to display from anything under
-#http://www.lsc-group.phys.uwm.edu/~larry/
-def make_galaxy_button(gps_time,galaxy):
-  """
-  create button for each galaxy
-  """
-  galaxy_button = html_button_template
-  galaxy_button = galaxy_button.replace('macrobuttonlabel',galaxy.name)
-  galaxy_button = galaxy_button.replace('macrofilename','http://www.lsc-group.phys.uwm.edu/~larry/'+gps_time+'/kml/'+galaxy.name)
-
-  return galaxy_button
-
-def make_pointing_button(gps_time,rank):
-  """
-  create button for each pointing
-  """
-  pointing_button = html_button_template
-  pointing_button = pointing_button.replace('macrobuttonlabel','number '+rank)
-  pointing_button = pointing_button.replace('macrofilename','http://www.lsc-group.phys.uwm.edu/~larry/'+gps_time+'/kml/'+gps_time+'_'+rank)
-
-  return pointing_button
-
-def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons):
+def make_googlesky_summary(gps_time, galaxy_buttons, pointing_buttons, key):
   """
   create google sky summary page
   """
-  html = html_template
-  html = html.replace('macrotitle',gps_time)
-  html = html.replace('macrogalaxybuttons',galaxy_buttons)
-  html = html.replace('macropointbuttons',pointing_buttons)
-
+  left_nav_html = left_content_template\
+    .replace('macrotitle',gps_time)\
+    .replace('macrogalaxybuttons', galaxy_buttons)\
+    .replace('macropointbuttons', pointing_buttons)
+  html = googlesky.html_template\
+    .replace("macrokey", key)\
+    .replace("macroleftcontent", left_nav_html)
   return html
-  
-
-  
-  
 
 # What we want to do:
 # read in the coinc
@@ -640,12 +562,15 @@ def parse_command_line():
       default=None, metavar=" CATALOG_NAME", help="galaxy catalog to use; must be specified if --listgalaxies option is used")
   parser.add_option("-D","--Deffcut",action="store_true",\
       default=False,help="only consider galaxies from here to the minimum effective distance measured. this is a very strong cut!") 
-  parser.add_option("-r","--use_reference_time",action="store_true",\
-                    default=False, help="use time at reference frequency instead of end time" )
-  parser.add_option("-f","--reference_frequency",action="store",type="float",\
-                    default=150., metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
+  #parser.add_option("-r","--use-reference-time",action="store_true",\
+  #                  default=False, help="use time at reference frequency instead of end time" )
+  parser.add_option("-f","--reference-frequency",action="store",type="float",\
+                    default=0, metavar=" REFERENCE_FREQUENCY",help="reference frequency for signal timing" )
   #this one doesn't work generally yet because of issues with keys from google, etc.
   parser.add_option("--enable-google-sky-output", action="store_true", default=False, help="enable google sky output")
+  parser.add_option("--google-map-key", metavar="KEY",
+    help="the Google-issued API key specific to the URL from which your "\
+    "page will be hosted")
 
   # InspiralUtils compatibility
   #parser.add_option("--gps-start-time", type="int", help="GPS start time of data analyzed")
@@ -654,6 +579,11 @@ def parse_command_line():
   parser.add_option("--user-tag", help="a tag to label your plots")
   parser.add_option("--output-path", help="root of the HTML output")
   parser.add_option("--enable-output", action="store_true", default=False, help="enable plots and HTML output")
+  parser.add_option("--write-summary-plots", action="store_true", default=False, \
+                    help="write the summary plots to an HTML page (for injection runs)")
+  parser.add_option("--write-inj-data", action="store_true", default=False, \
+                    help="create a file with data from injections")
+  
   #parser.add_option("--html-for-cbcweb", action="store_true", \
   #                  default=False, help="enable HTML output with the appropriate headers for the CBC website")
   parser.add_option("--show-plot", action="store_true", default=False, \
@@ -662,6 +592,9 @@ def parse_command_line():
 
   (options,args) = parser.parse_args()
 
+  if options.enable_google_sky_output and (options.google_map_key is None):
+    raise ValueError, "if --enable-google-sky-output is specified, require "\
+        "--google-map-key as well."
 
   return options, sys.argv[1:]
 
@@ -670,6 +603,12 @@ def parse_command_line():
 #####################################################################
 # -- get command line arguments
 opts, args = parse_command_line()
+
+if not opts.show_plot:
+  import matplotlib
+  matplotlib.use("Agg")
+from pylab import *
+rc('text', usetex=True)
 
 #####################################################################
 figure_number = 0  # used for the figure label (showplot)
@@ -708,6 +647,7 @@ slidefiles = []
 coincfiles = []
 offsourcefiles = []
 
+
 if opts.glob is not None:
   allfiles = []
   for gl in opts.glob.split(" "):
@@ -725,8 +665,9 @@ if opts.glob is not None:
   # check if the file lists are not empty
   if not (coincfiles or slidefiles):
     print >>sys.stdout, "No files match your description."
-    sys.exit(0) 
-         
+    sys.exit(0)
+
+  
 #####################################################################
 # read in coinc triggers
 
@@ -740,7 +681,7 @@ ninj = 0
 if coincfiles:
   inspTriggers = SnglInspiralUtils.\
                  ReadSnglInspiralFromFiles(coincfiles,
-                                           mangle_event_id = None,
+                                           mangle_event_id = True,
                                            verbose=None)
   inspInj = SimInspiralUtils.ReadSimInspiralFromFiles(coincfiles)
   
@@ -796,6 +737,9 @@ if opts.plotgalaxies:
 #if opts.plotgalaxies:
 #  pt_step = pi*sqrt(2.0)*opts.resolution/180.0
 #  dmax = sphdist((0,0), (pt_step,pt_step))
+
+if opts.write_inj_data:
+  inj_data = ""
  
 for coinc in coincTriggers:
 
@@ -838,9 +782,12 @@ for coinc in coincTriggers:
     if opts.plotpoints:
       figure()
       
-  asnrH1.append(getattr(coinc,"H1").snr)
-  asnrL1.append(getattr(coinc,"L1").snr)
-  asnrV1.append(getattr(coinc,"V1").snr)
+  H1snr = getattr(coinc,"H1").snr
+  L1snr = getattr(coinc,"L1").snr
+  V1snr = getattr(coinc,"V1").snr
+  asnrH1.append(H1snr)
+  asnrL1.append(L1snr)
+  asnrV1.append(V1snr)
 
 
   #remove H2 if it's there
@@ -865,7 +812,7 @@ for coinc in coincTriggers:
   # parameters from the injection
   injlong = getattr(coinc,"sim").longitude
   injlat = getattr(coinc,"sim").latitude
-  if opts.use_reference_time:
+  if opts.reference_frequency:
     injdelta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,injlong,injlat,ifo_list,\
                                        ifo_coincs,detector_locations)
   else:
@@ -913,7 +860,7 @@ for coinc in coincTriggers:
     latitude = point[0]
     longitude = point[1]
 
-    if opts.use_reference_time:
+    if opts.reference_frequency:
       delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
                                       ifo_coincs,detector_locations)
     else:
@@ -994,7 +941,9 @@ for coinc in coincTriggers:
   #[pt[0] for pt in coarse_confidence[:10]]
   coarse_hs_clusters = find_clusters(coarse_hotspots,dmax)
 
-  adelta_comb_stat_coarse.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/coarse_confidence[0][1])
+  Linj = (injdelta_t_rms/time_threshold+injdelta_D_rms)
+  Linj_coarse_norm = Linj/coarse_confidence[0][1]
+  adelta_comb_stat_coarse.append(Linj_coarse_norm)
   
   #list to hold each cluster and its confidence values
   final_confidences = []
@@ -1013,7 +962,24 @@ for coinc in coincTriggers:
     lonmin = min(lons)
     lonmax = max(lons)
 
-    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax)
+
+    #if latmax-latmin > pi or lonmin-lonmax > pi/2 check to see whether
+    #grids are oriented to wrap around the short (wrap_x = 1) or long (wrap_x = 0) way
+    wrap_lat = 0
+    wrap_lon = 0
+
+    if (latmax - latmin > 0.5*pi) or (lonmax-lonmin > pi):
+      for pt in cluster:
+        if not (latmax >= pt[0] >= latmin):
+          wrap_lat = 1
+          print "latwrap point", pt[0]
+        if not (lonmax >= pt[1] >= lonmin):
+          wrap_lon = 1
+          print "lonwrap point", pt[1]
+        if (wrap_lat == 1) and (wrap_lon == 1):
+          break
+
+    finegrid = gridspot(opts.coarse_resolution,opts.fine_resolution,latmin,latmax,lonmin,lonmax,wrap_lat,wrap_lon)
 
     fine_confidence = []
   
@@ -1021,7 +987,7 @@ for coinc in coincTriggers:
       latitude = point[0]
       longitude = point[1]
 
-      if opts.use_reference_time:
+      if opts.reference_frequency:
         delta_t_rms = compute_delta_t_rms_ref(gps,mass1,mass2,ref_freq,longitude,latitude,ifo_list,\
                                               ifo_coincs,detector_locations)
       else:
@@ -1048,8 +1014,10 @@ for coinc in coincTriggers:
     plot(asarray([fine_confidence[0][0][1]]), asarray([fine_confidence[0][0][0]]),'rs')
 
   best_confidence = fine_confidence[0][1]
+
+  Linj_fine_norm = Linj/best_confidence
   
-  adelta_comb_stat.append((injdelta_t_rms/time_threshold+injdelta_D_rms)/best_confidence)
+  adelta_comb_stat.append(Linj_fine_norm)
 
   narrowcount = 0.0
   widecount = 0.0 
@@ -1071,7 +1039,8 @@ for coinc in coincTriggers:
         best_points.append(pt)
 
   apoints.append(narrowcount)
-  asnr.append(coinc.stat)
+  combsnr = coinc.stat
+  asnr.append(combsnr)
   if (opts.plotpoints or opts.enable_output):
     axis(asarray([0.0, 2.0*pi, -pi/2.0, pi/2.0]))
     annotate_plot("Right Ascension (radians)", "Declination (radians)",\
@@ -1135,7 +1104,7 @@ for coinc in coincTriggers:
     agalpoints.append(total_num_gals)
 
   #if opts.plotpoints:
-  if opts.enable_output:
+  if opts.enable_output and opts.plotpoints:
 
     # plot the spot with the most galaxies as purple
     #if opts.plotgalaxies:
@@ -1184,10 +1153,10 @@ for coinc in coincTriggers:
 
     if opts.enable_google_sky_output:
       #now put in a link to the google sky output page
-      html_footer += '\n\n <a href=\"http://www.lsc-group.phys.uwm.edu/~larry/'+str(opts.gps_start_time)+'/'+str(opts.gps_start_time) + \
-                     '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
-    
- 
+      html_footer += '\n\n <a href=\"' + str(opts.gps_start_time) + '/' \
+        + str(opts.gps_start_time) + \
+        '_plotskypoints_summary.html\">Google Sky Summary</a><br><br>\n'
+
     html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
                      [fname], [text], comment=html_footer, cbcweb=False)
     if not opts.show_plot:
@@ -1200,62 +1169,209 @@ for coinc in coincTriggers:
       mkdirsafe(gsky_root_dir)
       mkdirsafe(kml_root_dir)
 
-      galaxy_buttons = ''
-      pointing_buttons = ''
-    
-      if opts.plotgalaxies:
-        for galaxy in galaxies:
-          galaxy_kml = make_galaxy_kml(galaxy)
-          write_file(kml_root_dir,galaxy.name+'.kml',galaxy_kml)
+      galaxy_buttons = []
+      pointing_buttons = []
 
-          galaxy_button = make_galaxy_button(str(opts.gps_start_time),galaxy)
-          galaxy_buttons += galaxy_button +'\n\t'
+      if opts.plotgalaxies:
+        start_time = str(opts.gps_start_time)
+        for galaxy in galaxies:
+          galaxy_kml_url = 'kml/' + galaxy.name + ".kml"
+          galaxy_kml = GalaxyKMLDocument(galaxy_kml_url, galaxy.name, galaxy)
+          write_file(kml_root_dir, galaxy.name + '.kml', str(galaxy_kml))
+          galaxy_buttons.append(galaxy_kml.get_button_html())
 
         for pt in ten_best_pts:
-          pointing_kml = make_pointing_kml(str(opts.gps_start_time),str(pt[0]),pt[1],pt[2],str(pt[3]))
-          write_file(kml_root_dir,str(opts.gps_start_time)+'_'+str(pt[0])+'.kml',pointing_kml)
+          pointing_filename = start_time + "_" + str(pt[0]) + ".kml"
+          pointing_url = 'kml/' + pointing_filename
+          pointing_kml = PointingKMLDocument(pointing_url,
+            "number " + str(pt[0]), start_time, str(pt[0]), pt[1], pt[2],
+            str(pt[3]))
+          write_file(kml_root_dir, pointing_filename, str(pointing_kml))
+          pointing_buttons.append(pointing_kml.get_button_html())
 
-          pointing_button = make_pointing_button(str(opts.gps_start_time),str(pt[0]))
-          pointing_buttons += pointing_button +'\n\t'
+      gsky_summary = make_googlesky_summary(start_time,
+        "\n      ".join(galaxy_buttons), "\n      ".join(pointing_buttons),
+        opts.google_map_key)
+      write_file(gsky_root_dir, start_time + '_plotskypoints_summary.html',
+                 gsky_summary)
+      
+  if opts.write_inj_data:
+    if not opts.plotgalaxies:
+      total_num_gals = 'NA'
+    inj_data += str(combsnr) + '\t' + str(H1snr) + '\t' + str(L1snr) + '\t' + str(V1snr) + '\t'  \
+                + str(injdelta_t_rms) + '\t' + str(injdelta_D_rms) + '\t' + str(Linj) + '\t' \
+                + str(Linj_coarse_norm) + '\t' + str(Linj_fine_norm) + '\t' \
+                + str(widecount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(narrowcount*pi*opts.fine_resolution*opts.fine_resolution) + '\t' \
+                + str(total_num_gals) + '\n' 
 
-      gsky_summary = make_googlesky_summary(str(opts.gps_start_time),galaxy_buttons,pointing_buttons)
-      write_file(gsky_root_dir,str(opts.gps_start_time)+'_plotskypoints_summary.html',gsky_summary)
+if opts.enable_output and opts.write_summary_plots:
+  InspiralUtils.initialise(opts, __prog__, __version__)
+  html_footer = ""
+  fnameList = []
+  tagList = []
+
+if not opts.show_plot:
+  close()
 
 figure()
 plot(asarray(asnr), asarray(adelta_t),'ro') 
 annotate_plot(r"$\rho$", "$\Delta t_{rms}$ (sec)","Timing accuracy")
+if opts.write_summary_plots:
+  text = "Timing Accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "timing_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnr), asarray(adelta_D),'ro') 
 annotate_plot(r"$\rho$", "$\Delta D_{rms}$ ","$D_{eff}$ measure  accuracy")
+if opts.write_summary_plots:
+  text = "D_eff measure accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "D_eff_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
+figure()
+hist(asarray(adelta_t),bins=20)
+annotate_plot("number of signals", "timing", ("timing accuracy histogram"))
+if opts.write_summary_plots:
+  text = "Timing Accuracy Histogram"
+  fname = InspiralUtils.set_figure_name(opts, "timing_accuracy_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
+figure()
+hist(asarray(adelta_D),bins=20)
+annotate_plot("number of signals", "Deff measure accuracy", ("$D_{eff}$ measure accuracy histogram"))
+if opts.write_summary_plots:
+  text = "D_eff Accuracy Histogram"
+  fname = InspiralUtils.set_figure_name(opts, "D_eff_accuracy_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 plot(asarray(asnr), asarray(adelta_comb_stat),'ro') 
-annotate_plot(r"$\rho$", "Confidence","Confidence Accuracy")
+annotate_plot(r"$\rho$", "Confidence","L Accuracy")
+if opts.write_summary_plots:
+  text = "L Accuracy"
+  fname = InspiralUtils.set_figure_name(opts, "L_accuracy")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 hist(asarray(adelta_comb_stat),bins=20)
-annotate_plot("normalized confidence on the fine grid", "number of signals in bin", ("confidence histogram for the fine grid"))
+annotate_plot("normalized L on the fine grid", "number of signals in bin", ("L histogram for the fine grid"))
+if opts.write_summary_plots:
+  text = "L histogram (fine grid)"
+  fname = InspiralUtils.set_figure_name(opts, "L_histogram_fine_grid")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 hist(asarray(adelta_comb_stat_coarse),bins=20)
-annotate_plot("normalized confidence on the coarse grid ", "number of signals in bin", ("confidence histogram for the coarse grid"))
+annotate_plot("normalized L on the coarse grid ", "number of signals in bin", ("L histogram for the coarse grid"))
+if opts.write_summary_plots:
+  text = "L histogram (coarse grid)"
+  fname = InspiralUtils.set_figure_name(opts, "L_histogram_coarse_grid")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
-plot(asarray(asnr), asarray(apoints),'bo') 
+plot(asarray(asnr), asarray(apoints),'bo')
+hlines(average(asarray(apoints)),0, max(asnr))
+vlines(average(asnr),0,max(apoints))
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of combined snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs combined snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_combined_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 plot(asarray(asnrH1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of H1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs H1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_H1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnrL1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of L1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs L1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_L1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+  
 figure()
 plot(asarray(asnrV1), asarray(apoints),'bo') 
 annotate_plot(r"$\rho$", "No. of Pointings",("Pointings with radius %f degrees as a function of V1 snr" % opts.fine_resolution))
+if opts.write_summary_plots:
+  text = "Pointings vs V1 snr"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_vs_V1_snr")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
+
 figure()
 hist(asarray(apoints),bins=500)
 annotate_plot("No. of Pointings","No. of signals in bin", ("Histogram of Pointings"))
+if opts.write_summary_plots:
+  text = "Histogram od pointings"
+  fname = InspiralUtils.set_figure_name(opts, "pointings_histogram")
+  fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+  fnameList.append(fname)
+  tagList.append(text)
+if not opts.show_plot:
+  close()
 
 if opts.plotgalaxies:
   figure()
   plot(asarray(asnr), asarray(agalpoints), 'go')
   annotate_plot(r"$\rho_{\rm eff}$", "No. of Galaxies", ("Number of Galaxies"))
+  if opts.write_summary_plots:
+    text = "Number of galaxies"
+    fname = InspiralUtils.set_figure_name(opts, "number_galaxies")
+    fname_thumb = InspiralUtils.savefig_pylal(filename=fname)
+    fnameList.append(fname)
+    tagList.append(text)
+  if not opts.show_plot:
+    close()
 
 meaninjdelta_t_rms = meaninjdelta_t_rms/ninj
 meanpointings_narrow = meanpointings_narrow/ninj
@@ -1264,6 +1380,20 @@ print "Number of injections", ninj
 print "Mean timing accuracy %f" % meaninjdelta_t_rms
 print "Mean pointings (narrow) %f" % meanpointings_narrow
 print "Mean pointings (wide) %f" % meanpointings_wide
+
+
+if opts.write_summary_plots:
+  html_footer += "Number of injections " + str(ninj) + "<br>"
+  html_footer += "Mean timing accuracy " + str(meaninjdelta_t_rms) + "<br>"
+#  html_footer += "Mean pointings (narrow) " + str(meanpointings_narrow) + "<br>"
+#  html_footer += "Mean pointings (wide) " + str(meanpointings_wide) + "<br>"
+  html_filename=InspiralUtils.write_html_output(opts, sys.argv[1:],\
+                                                fnameList, tagList, comment=html_footer, cbcweb=False)
+if opts.write_inj_data:
+  if opts.output_path:
+    write_file(opts.output_path, "plotskypoints_inj_data.dat", inj_data)
+  else:
+    write_file(os.curdir, "plotskypoints_inj_data.dat", inj_data)
 
 #############################################################################
 # Generate HTML and cache file

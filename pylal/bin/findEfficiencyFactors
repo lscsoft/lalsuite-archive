@@ -170,7 +170,7 @@ if  not len(missed_injfiles) > 0:
 # read in the veto file
 
 xmldoc = utils.load_filename(opts.veto_file, gz=opts.veto_file.endswith("gz"))
-vetoes = glsegments.segmenttable_get_by_name(xmldoc, name="vetoes")
+vetoes = glsegments.segmenttable_get_by_name(xmldoc, "vetoes")
 vetoes.coalesce()
 
 

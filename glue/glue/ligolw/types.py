@@ -72,7 +72,7 @@ import base64
 import ilwd
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __date__ = "$Date$"[7:-2]
 __version__ = "$Revision$"[11:-2]
 
@@ -171,6 +171,7 @@ FromPyType = {
 	buffer: u"blob",
 	str: u"lstring",
 	unicode: u"lstring",
+	bool: u"int_4s",
 	int: u"int_4s",
 	long: u"int_8s",
 	float: u"real_8"

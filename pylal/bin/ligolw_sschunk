@@ -62,13 +62,12 @@ def parse_command_line():
 	parser.add_option("-b", "--base", metavar = "base", default = "sschunk", help = "set base for output files (default = \"sschunk\")")
 	parser.add_option("--cache-comment", metavar = "comment", help = "set comment for cache output")
 	parser.add_option("--cache-instrument", metavar = "instrument", help = "set instrument for cache output")
-	parser.add_option("-d", "--duration", metavar = "seconds", default = 3600, help = "set target duration (default = 3600 s)")
+	parser.add_option("-d", "--duration", metavar = "seconds", default = 3600, type = "int", help = "set target duration (default = 3600 s)")
 	parser.add_option("-r", "--remove-input", action = "store_true", help = "remove input files when done")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "be verbose")
 	parser.add_option("-w", "--write-cache", metavar = "path", help = "write a LAL cache of the output files to path")
 	options, filenames = parser.parse_args()
 
-	options.duration = int(options.duration)
 	if options.write_cache and not (options.cache_comment and options.cache_instrument):
 		raise Exception, "must set both --cache-comment and --cache-instrument when writing a cache file"
 

@@ -39,7 +39,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -57,9 +57,9 @@ class LigolwSegmentList(object):
 	"""
 	A description of a class of segments.
 	"""
-	def __init__(self, active = (), inactive = (), instruments = set(), name = None, comment = None):
+	def __init__(self, active = (), valid = (), instruments = set(), name = None, comment = None):
+		self.valid = segments.segmentlist(valid)
 		self.active = segments.segmentlist(active)
-		self.inactive = segments.segmentlist(inactive)
 		self.instruments = instruments
 		self.name = name
 		self.comment = comment
@@ -72,15 +72,15 @@ class LigolwSegmentList(object):
 		alternate comparison function.  The default is to sort by
 		start time with ties broken by end time.
 		"""
+		self.valid.sort(*args)
 		self.active.sort(*args)
-		self.inactive.sort(*args)
 
 	def coalesce(self):
 		"""
 		Coalesce the internal segment lists.
 		"""
+		self.valid.coalesce()
 		self.active.coalesce()
-		self.inactive.coalesce()
 
 
 #
@@ -108,14 +108,14 @@ class LigolwSegments(object):
 			self.segment_def_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefTable, ("process_id", "segment_def_id", "ifos", "name", "comment")))
 
 		try:
-			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
+			self.segment_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
 		except ValueError:
-			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, ("process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "active")))
+			self.segment_sum_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentSumTable, ("process_id", "segment_sum_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id", "comment")))
 
 		try:
-			self.segment_def_map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
+			self.segment_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
 		except ValueError:
-			self.segment_def_map_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentDefMapTable, ("process_id", "segment_id", "segment_def_id", "seg_def_map_id")))
+			self.segment_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.SegmentTable, ("process_id", "segment_id", "start_time", "start_time_ns", "end_time", "end_time_ns", "segment_def_id")))
 
 		#
 		# Transform segment tables into a collection of
@@ -131,21 +131,14 @@ class LigolwSegments(object):
 			raise ValueError, "duplicate segment_definer IDs detected in segment_definer table"
 		del self.segment_def_table[:]
 
-		# index the segment table
-		index = dict((row.segment_id, row) for row in self.segment_table)
-		if len(index) != len(self.segment_table):
-			raise ValueError, "duplicated segment IDs detected in segment table"
+		# populate LigolwSegmentList objects from segment table and
+		# segment_summary table
+		for row in self.segment_sum_table:
+			self.segment_lists[row.segment_def_id].valid.append(row.get())
+		del self.segment_sum_table[:]
+		for row in self.segment_table:
+			self.segment_lists[row.segment_def_id].active.append(row.get())
 		del self.segment_table[:]
-
-		# populate LigolwSegmentList objects from segment_def_map
-		# table and segment_table index
-		for row in self.segment_def_map_table:
-			segment_row = index[row.segment_id]
-			# As of S6 all segments in the DB are active and there is no 
-			# active flag
-			self.segment_lists[row.segment_def_id].active.append(segment_row.get())
-		del self.segment_def_map_table[:]
-		del index
 
 		# replace segment_lists dictionary with a list because the
 		# segment_definer IDs no longer have any meaning
@@ -155,9 +148,11 @@ class LigolwSegments(object):
 		# Synchronize ID generators
 		#
 
+		# FIXME:  why am I doing this!?  I've just deleted all the
+		# rows.
 		self.segment_def_table.sync_next_id()
 		self.segment_table.sync_next_id()
-		self.segment_def_map_table.sync_next_id()
+		self.segment_sum_table.sync_next_id()
 
 		#
 		# Done
@@ -187,22 +182,22 @@ class LigolwSegments(object):
 	def optimize(self):
 		"""
 		Identifies segment lists that differ only in their
-		instruments --- they have the same active and inactive
+		instruments --- they have the same valid and active
 		segments, the same name and the same comment --- and then
 		deletes all but one of them, leaving just a single list
 		having the union of the instruments.
 		"""
 		self.sort()
 		segment_lists = dict(enumerate(self.segment_lists))
-		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.active == seglist_b.active and seglist_a.inactive == seglist_b.inactive and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment]:
+		for target, source in [(idx_a, idx_b) for (idx_a, seglist_a), (idx_b, seglist_b) in iterutils.choices(segment_lists.items(), 2) if seglist_a.valid == seglist_b.valid and seglist_a.active == seglist_b.active and seglist_a.name == seglist_b.name and seglist_a.comment == seglist_b.comment]:
 			try:
 				segment_lists[target].instruments |= segment_lists.pop(source).instruments
 			except KeyError:
 				pass
-		self.segment_lists = segment_lists.values()
+		self.segment_lists[:] = segment_lists.values()
 
 
-	def finalize(self, process):
+	def finalize(self, process_row):
 		"""
 		Restore the LigolwSegmentList objects to the XML tables in
 		preparation for output.  All segments from all segment
@@ -228,44 +223,44 @@ class LigolwSegments(object):
 		# segment_definer table
 		#
 
-		def time_order_rows(ligolw_segment_list, segment_table, process, segment_def_row):
-			for seg, activity in iterutils.inorder(((seg, True) for seg in ligolw_segment_list.active), ((seg, False) for seg in ligolw_segment_list.inactive)):
-				segment_row = segment_table.RowType()
-				segment_row.set(seg)
-				segment_row.process_id = process.process_id
-				segment_row.segment_id = segment_table.get_next_id()
-				yield segment_row, segment_def_row
+		def row_generator(segs, target_table, process_row, segment_def_row):
+			id_column = target_table.next_id.column_name
+			for seg in segs:
+				row = target_table.RowType()
+				row.set(seg)
+				row.process_id = process_row.process_id
+				setattr(row, id_column, target_table.get_next_id())
+				row.segment_def_id = segment_def_row.segment_def_id
+				if hasattr(row, "comment"):
+					row.comment = None
+				yield row, target_table
 
 		#
 		# populate the segment_definer table from the list of
 		# LigolwSegmentList objects and construct a matching list
-		# of segment row generators
+		# of table row generators
 		#
 
 		row_generators = []
 		for ligolw_segment_list in self.segment_lists:
 			segment_def_row = self.segment_def_table.RowType()
-			segment_def_row.process_id = process.process_id
+			segment_def_row.process_id = process_row.process_id
 			segment_def_row.segment_def_id = self.segment_def_table.get_next_id()
 			segment_def_row.set_ifos(ligolw_segment_list.instruments)
 			segment_def_row.name = ligolw_segment_list.name
 			segment_def_row.comment = ligolw_segment_list.comment
 			self.segment_def_table.append(segment_def_row)
-			row_generators.append(time_order_rows(ligolw_segment_list, self.segment_table, process, segment_def_row))
+
+			row_generators.append(row_generator(ligolw_segment_list.valid, self.segment_sum_table, process_row, segment_def_row))
+			row_generators.append(row_generator(ligolw_segment_list.active, self.segment_table, process_row, segment_def_row))
 
 		#
-		# populate segment and segment_def_map tables by pulling
-		# segment rows from the generators in time order
+		# populate segment and segment_summary tables by pulling
+		# rows from the generators in time order
 		#
 
-		for segment_row, segment_def_row in iterutils.inorder(*row_generators):
-			seg_def_map_row = self.segment_def_map_table.RowType()
-			seg_def_map_row.process_id = process.process_id
-			seg_def_map_row.segment_id = segment_row.segment_id
-			seg_def_map_row.segment_def_id = segment_def_row.segment_def_id
-			seg_def_map_row.seg_def_map_id = self.segment_def_map_table.get_next_id()
-			self.segment_table.append(segment_row)
-			self.segment_def_map_table.append(seg_def_map_row)
+		for row, target_table in iterutils.inorder(*row_generators):
+			target_table.append(row)
 
 		#
 		# empty ourselves to prevent this process from being repeated
@@ -295,17 +290,10 @@ def insert_from_segwizard(ligolw_segments, fileobj, instruments, name, comment):
 	ligolw_segments.segment_lists.append(LigolwSegmentList(active = segmentsUtils.fromsegwizard(fileobj, coltype = LIGOTimeGPS), instruments = instruments, name = name, comment = comment))
 
 
-def segmenttable_get_by_name(xmldoc, name, activity = True):
+def segmenttable_get_by_name(xmldoc, name):
 	"""
-	Retrieve the segments whose name and activity flag match those
-	given.  The result is a segmentlistdict indexed by instrument.  The
-	default is to retrieve "active" segments, but the optional activity
-	argument can be set to False to retrieve inactive segments instead.
-
-	Note that when retrieving "undefined" segments, the response is the
-	list of segments explicitly indicated as undefined in the segment
-	table.  The union of the "active", "inactive", and "undefined"
-	segments need not be [-infinity, +infinity).
+	Retrieve the segments whose name matches those given.  The result
+	is a segmentlistdict indexed by instrument.
 
 	The output of this function is not coalesced, each segmentlist
 	contains the segments as found in the segment table.
@@ -316,7 +304,6 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 
 	def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
 	seg_table = table.get_table(xmldoc, lsctables.SegmentTable.tableName)
-	map_table = table.get_table(xmldoc, lsctables.SegmentDefMapTable.tableName)
 
 	#
 	# segment_def_id --> instrument names mapping but only for
@@ -326,33 +313,18 @@ def segmenttable_get_by_name(xmldoc, name, activity = True):
 	instrument_index = dict((row.segment_def_id, row.get_ifos()) for row in def_table if row.name == name)
 
 	#
-	# segment_id --> segment row mapping
-	#
-
-	segment_index = dict((row.segment_id, row) for row in seg_table)
-	if len(segment_index) != len(seg_table):
-		raise ValueError, "segment table contains non-unique IDs"
-
-	#
 	# populate result segmentlistdict object from segment_def_map table
 	# and index
 	#
 
 	result = segments.segmentlistdict()
 
-	# As of S6 there are only active segments, so if the call is
-	# asking for inactive segments we can immediately return
-
-	if not activity:
-		return result
-
-	for row in map_table:
+	for row in seg_table:
 		try:
 			instruments = instrument_index[row.segment_def_id]
 		except KeyError:
-			# not a segment list we want
+			# not a segment we want
 			continue
-		row = segment_index[row.segment_id]
 		seg = row.get()
 		for instrument in instruments:
 			try:

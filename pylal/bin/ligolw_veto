@@ -308,16 +308,10 @@ for n, filename in enumerate(filenames):
 	dbtables.DBTable_set_connection(connection)
 
 	#
-	# Summarize the database.
-	#
-
-	database = SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose)
-
-	#
 	# Apply vetoes
 	#
 
-	apply_excess_power_veto(database, veto_segs, verbose = options.verbose)
+	apply_excess_power_veto(SnglBurstUtils.CoincDatabase(connection, "lalapps_power", verbose = options.verbose), veto_segs, verbose = options.verbose)
 
 	#
 	# Clean up
@@ -331,7 +325,7 @@ for n, filename in enumerate(filenames):
 			print >>sys.stderr, "vacuuming ..."
 		connection.cursor().execute("VACUUM;")
 	connection.close()
-	del database, connection
+	del connection
 	dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
 	if options.verbose:
 		print >>sys.stderr, "done (%s)." % filename
