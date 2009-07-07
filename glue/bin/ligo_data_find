@@ -178,19 +178,6 @@ ENVIRONMENT
 
         LIGO_DATAFIND_MATCH can be set to avoid having to use the
         --match option on the command line. 
-
-EXAMPLE
-
-$ ligo_data_find --server=dataserver.phys.uwm.edu --observatory=H 
---type=RDS_R_L3 --gps-start-time=714024240 --gps-end-time=714024340 --url-type=file 
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024224-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024240-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024256-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024272-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024288-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024304-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024320-16.gwf
-file://localhost/nfsdata01/S1/RDS_R_L3/H/714023808-714029599/H-RDS_R_L3-714024336-16.gwf
 \
 """
         print >>sys.stderr, msg
