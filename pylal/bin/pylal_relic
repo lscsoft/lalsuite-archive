@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -48,6 +48,32 @@ __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"
 
+
+def get_mean_mchirp_GRB070923(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc.
+    """
+    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
+
+    ifos = ''
+    for ifo in ['H1','L1','V1']:
+      if hasattr(coinc, ifo):
+        ifos += ifo
+    if ifos=='H1L1V1':
+      modified_mean_mchirp = mean_mchirp
+    elif ifos=='H1L1':
+      modified_mean_mchirp = mean_mchirp+20.0
+    elif ifos=='H1V1':
+      modified_mean_mchirp = mean_mchirp+40.0
+    elif ifos=='L1V1':
+      modified_mean_mchirp = mean_mchirp+60.0
+    else:
+      modified_mean_mchirp = -1
+
+    if mean_mchirp<0.86 or mean_mchirp>17.50:
+      modified_mean_mchirp = -1
+
+    return modified_mean_mchirp
 
 #
 # get loudest coincs from each category
@@ -122,7 +148,7 @@ def get_loudest_stats_by_mc(xmldoc, coinc_stat, mc_bins):
     # define bins and keys
     nd_bins = rate.NDBins((mc_bins,))
     stat_func = operator.attrgetter("stat")
-    keys = (grbsummary.get_mean_mchirp,)
+    keys = (get_mean_mchirp_GRB070923,)
 
     # get loudest stat in each bin
     return get_loudest_stats_by_bins(onsource_coincs, stat_func, nd_bins, keys,
@@ -146,7 +172,7 @@ def get_loudest_stats_by_trial_mc(offsource_doc, coinc_stat,
     nd_bins = rate.NDBins((trial_bins, mc_bins))
     stat_func = operator.attrgetter("stat")
     keys = (CoincInspiralUtils.coincInspiralTable.row.get_time,
-            grbsummary.get_mean_mchirp)
+            get_mean_mchirp_GRB070923)
 
     # get loudest stat in each bin
     return get_loudest_stats_by_bins(offsource_coincs, stat_func, nd_bins,
@@ -179,7 +205,7 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
     # find loudest coincs
     # convert time -> trial index -> sim index
     keys = (lambda row: trial_bins[row.get_time()],
-            grbsummary.get_mean_mchirp)
+            get_mean_mchirp_GRB070923)
     sim_bins = DictBins([(trial_ind, i) for i, trial_ind \
                          in enumerate(sim_trials)])
     nd_bins = rate.NDBins((sim_bins, mc_bins))
@@ -190,7 +216,7 @@ def get_loudest_stats_by_inj_mc(inj_doc, coinc_doc, coinc_stat, trial_bins,
     return sims, loudest_by_sim_mc
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # cache input
     parser.add_option("--cache-file", help="LAL-formatted cache file "
