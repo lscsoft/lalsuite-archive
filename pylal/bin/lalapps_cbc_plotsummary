@@ -174,8 +174,8 @@ class CoincDatabase(object):
 		# get the live time
 		if verbose:
 			print >>sys.stderr, "calculating background livetimes: ",
-		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
-		self.background_livetime = dict((key, sum(value)) for key, value in self.background_livetime.items())
+		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
+		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -191,7 +191,7 @@ class CoincDatabase(object):
 			for on_instruments in self.on_instruments_combos:
 				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
 				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
-				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.background_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments]))
 			if self.sngl_inspiral_table is not None:
 				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
 			if self.sim_inspiral_table is not None:
@@ -800,8 +800,8 @@ class RateVsThreshold(object):
 			self.playground_snr.setdefault(on_instruments, [])
 			self.nonplayground_snr.setdefault(on_instruments, [])
 
-		for on_instruments, livetime in contents.background_livetime.items():
-			self.background_livetime[on_instruments] += livetime
+		for on_instruments, livetimes in contents.background_livetime.items():
+			self.background_livetime[on_instruments] += sum(livetimes)
 		for on_instruments, livetime in contents.playground_livetime.items():
 			self.playground_livetime[on_instruments] += livetime
 		for on_instruments, livetime in contents.nonplayground_livetime.items():
