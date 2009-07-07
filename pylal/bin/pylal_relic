@@ -46,6 +46,7 @@ from pylal import grbsummary
 from pylal import llwapp
 from pylal import rate
 from pylal.date import LIGOTimeGPS
+from pylal import git_version
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
 __version__ = "$Revision$"[11:-2]
