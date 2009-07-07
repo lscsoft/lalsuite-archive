@@ -245,7 +245,7 @@ class VerticalBarHistogram(BasicPlot):
             plot_kwargs.setdefault("width", width)
            
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins, normed=normed)
+            y, x = numpy.histogram(data_set, bins=bins, normed=normed, new=False)
 
             # stagger bins for pure aesthetics
             x += 0.1 * i * max_stat / num_bins
@@ -361,7 +361,7 @@ class CumulativeHistogramPlot(BasicPlot):
         for data_set, plot_kwargs in \
             itertools.izip(self.fg_data_sets, self.fg_kwarg_sets):
             # make histogram
-            y, x = numpy.histogram(data_set, bins=bins)
+            y, x = numpy.histogram(data_set, bins=bins, new=False)
             y = y[::-1].cumsum()[::-1]
 
             # plot
@@ -376,7 +376,7 @@ class CumulativeHistogramPlot(BasicPlot):
             sq_hist_sum = numpy.zeros(len(bins), dtype=float)
             for instance in self.bg_data_sets:
                 # make histogram
-                y, x = numpy.histogram(instance, bins=bins)
+                y, x = numpy.histogram(instance, bins=bins, new=False)
                 y = y[::-1].cumsum()[::-1]
                 hist_sum += y
                 sq_hist_sum += y*y

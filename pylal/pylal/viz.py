@@ -1016,14 +1016,14 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 
   # hist of the zero lag:
   if trigs:
-    zero_dist, xbin = numpy.histogram(snr, bins)
+    zero_dist, xbin = numpy.histogram(snr, bins, new=False)
     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
   if slide_trig_list:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
       cum_slide = num_slide[::-1].cumsum()[::-1]
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = numpy.array(cum_dist_slide)
@@ -1141,7 +1141,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
