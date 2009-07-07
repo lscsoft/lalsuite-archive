@@ -1769,11 +1769,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoURL.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=str(self.ifoURL[firstKey][secondKey])
       return output
@@ -1790,11 +1792,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoLambda.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=self.ifoLambda[firstKey][secondKey]
       return output
