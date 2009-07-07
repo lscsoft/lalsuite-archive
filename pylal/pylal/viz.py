@@ -1222,14 +1222,18 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
 
     if len(foundVal):
       step = (max(foundVal) - min(foundVal)) /nbins
-      bins = arange(min(foundVal),max(foundVal), step )
+      bins = arange(min(foundVal),max(foundVal)+step, step )
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
       step = (max(missedVal) - min(missedVal)) /nbins
-      bins = arange(min(missedVal),max(missedVal), step )
+      bins = arange(min(missedVal),max(missedVal)+step, step )
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + missedVal[0]/4.0
     fig_num = gcf().number
     figure(100)
     [num_found,binsf,stuff] = hist(foundVal, bins)
@@ -1245,23 +1249,23 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     if plot_type == 'log':
       bins = 10**bins
       if plot_name:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2, label = plot_name)
       else:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2)
       if errors:
-        errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
+        errorbar(plotbins, eff, error,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth = 2, label = plot_name, \
             fmt = plotsym)
               
     else:
       if errors:
-        errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+        errorbar(plotbins, eff, error, fmt = plotsym, markersize=12,\
             markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
       else:
-        plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        plot(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
 
     xlabel(col_name.replace("_"," "), size='x-large')
