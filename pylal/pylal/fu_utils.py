@@ -1981,7 +1981,7 @@ class followupDQV:
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="ldbd://segdb.ligo.caltech.edu"
+    self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
       envServer=None
