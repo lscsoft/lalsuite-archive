@@ -886,12 +886,14 @@ void BankEfficiencyPrintResults(
 {
 /*  FILE *fs; */
   fprintf(stdout,
-  "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
+  "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
       result.mass1_trigger, result.mass2_trigger,
 /*
       randIn.param.psi0, randIn.param.psi3,
+*/
       result.tau0_trigger, result.tau3_trigger,
       randIn.param.t0, randIn.param.t3,
+/*
       result.eccentricity, randIn.param.eccentricity,randIn.param.alpha1,
 */
       randIn.param.mass1,randIn.param.mass2,
