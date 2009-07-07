@@ -46,6 +46,7 @@ __title__ = "Inspiral Range Plots"
 import sys
 import glob
 from optparse import *
+import numpy
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -131,9 +132,8 @@ def plotinspiralrange_histogram(opts):
     Range = inspiralSumm[ifo].getColumnByName('value').asarray()
     startTimeSec = inspiralSumm[ifo].getColumnByName('start_time').asarray()
     style = colors[ifo]
-    [num[ifo],bins,blah] = hist(Range,bins)
+    num[ifo], bins = numpy.histogram(Range, bins, new=False)
 
-  clf()
   for ifo in inspiralSumm.keys():
     if opts.plot_type == 'log':
       semilogx(bins,num[ifo], colors[ifo], linewidth=2, label=ifo)
