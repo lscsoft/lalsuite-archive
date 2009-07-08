@@ -476,7 +476,7 @@ if dqTable=="":
     defaultServer=opts.defaultldbd
   else:
     defaultServer=None
-  windowSize=int(600)
+  windowSize=int(300)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
@@ -653,26 +653,32 @@ if opts.defaultRatioTestPickle == None:
 ratioTest=fu_utils.ratioTest()
 if os.path.isfile(preBuiltPickle):
   ratioTest.setPickleLocation(preBuiltPickle)
-for index1,ifo1 in enumerate(ifolist):
-  for index2,ifo2 in enumerate(ifolist):
-    ifoA=ratioTest.mapToObservatory(ifo1)
-    ifoB=ratioTest.mapToObservatory(ifo2)
-    if ifoA != ifoB:
-      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
-      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
-      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
-      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
-      try:
-        snrRatio=snrA/snrB
-      except:
-        snrRatio=0
-      gpsDiff=gpsA-gpsB
-      result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
-      pairURL=ratioTest.findURL(ifoA,ifoB)
-      myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
-      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
-          (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
-      resultString="%s %s"%(resultString,myString)
+#Create list of unique IFO pairings
+pairingList=list()
+for A,a in enumerate(ifolist):
+  for B,b in enumerate(ifolist):
+    if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+      pairingList.append([A,a,B,b])
+#Process unique list of IFO pairings
+for index1,ifo1,index2,ifo2 in pairingList:
+  ifoA=ratioTest.mapToObservatory(ifo1)
+  ifoB=ratioTest.mapToObservatory(ifo2)
+  if ifoA != ifoB:
+    gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+    gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+    snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+    snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
+    try:
+      snrRatio=snrA/snrB
+    except:
+      snrRatio=0
+    gpsDiff=gpsA-gpsB
+    result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+    pairURL=ratioTest.findURL(ifoA,ifoB)
+    myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+    myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+        (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+    resultString="%s %s"%(resultString,myString)
 imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
 resultString=" %s </table>"%(resultString)
 ##############
