@@ -476,7 +476,7 @@ if dqTable=="":
     defaultServer=opts.defaultldbd
   else:
     defaultServer=None
-  windowSize=int(600)
+  windowSize=int(300)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)

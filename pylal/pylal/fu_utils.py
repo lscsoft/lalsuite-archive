@@ -2014,7 +2014,7 @@ segment.end_time)"
 
   #End __init__()
   
-  def fetchInformation(self,triggerTime=None,window=600,version=99):
+  def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
