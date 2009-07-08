@@ -174,7 +174,8 @@ class CoincDatabase(object):
 		# get the live time
 		if verbose:
 			print >>sys.stderr, "calculating background livetimes: ",
-		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
+		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
+		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -190,7 +191,7 @@ class CoincDatabase(object):
 			for on_instruments in self.on_instruments_combos:
 				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
 				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
-				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.background_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments]))
 			if self.sngl_inspiral_table is not None:
 				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
 			if self.sim_inspiral_table is not None:
@@ -799,8 +800,8 @@ class RateVsThreshold(object):
 			self.playground_snr.setdefault(on_instruments, [])
 			self.nonplayground_snr.setdefault(on_instruments, [])
 
-		for on_instruments, livetime in contents.background_livetime.items():
-			self.background_livetime[on_instruments] += livetime
+		for on_instruments, livetimes in contents.background_livetime.items():
+			self.background_livetime[on_instruments] += sum(livetimes)
 		for on_instruments, livetime in contents.playground_livetime.items():
 			self.playground_livetime[on_instruments] += livetime
 		for on_instruments, livetime in contents.nonplayground_livetime.items():
@@ -840,17 +841,17 @@ FROM
 
 	def finish(self):
 		for on_instruments in self.background_ifar:
-			fig, axes = create_farplot( self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_ifar[on_instruments], self.background_ifar[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Playground Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
 				yield fig, "playground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), False
 
-			fig, axes = create_farplot(self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_ifar[on_instruments] + self.nonplayground_ifar[on_instruments], self.background_ifar[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"Inverse False-Alarm Rate (s)")
-				yield fig, "nonplayground_count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_ifar_%s" % "".join(sorted(on_instruments)), True
 
 			fig, axes = create_farplot(self.playground_snr[on_instruments], self.background_snr[on_instruments], self.playground_livetime[on_instruments] / self.background_livetime[on_instruments])
 			if fig is not None:
@@ -858,11 +859,11 @@ FROM
 				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
 				yield fig, "playground_count_vs_snr_%s" % "".join(sorted(on_instruments)), False
 
-			fig, axes = create_farplot(self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], self.nonplayground_livetime[on_instruments] / self.background_livetime[on_instruments])
+			fig, axes = create_farplot(self.playground_snr[on_instruments] + self.nonplayground_snr[on_instruments], self.background_snr[on_instruments], (self.playground_livetime[on_instruments] + self.nonplayground_livetime[on_instruments]) / self.background_livetime[on_instruments])
 			if fig is not None:
 				axes.set_title(r"Zero-lag Events Observed Compared to Background (%s Operating)" % (", ".join(sorted(on_instruments))))
 				axes.set_xlabel(r"$\rho_{\mathrm{eff}}$")
-				yield fig, "nonplayground_count_vs_snr_%s" % "".join(sorted(on_instruments)), True
+				yield fig, "count_vs_snr_%s" % "".join(sorted(on_instruments)), True
 
 
 #

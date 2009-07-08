@@ -1,0 +1,503 @@
+#!/usr/bin/python
+"""
+pylal_lotis
+
+Low latency Online Triggered Inspiralsearch Summary
+
+Generate a set of images, numerical results and a
+summary page  for the low latency online
+GRB triggered inspiral search.
+"""
+from __future__ import division
+
+import os
+import sys
+import copy
+import pickle
+import shutil
+import subprocess
+import optparse
+
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from pylal import grbsummary
+from pylal import date
+from pylal import rate
+from pylal import antenna
+from pylal import plotutils
+from pylal import InspiralUtils
+from pylal import SnglInspiralUtils
+from pylal import CoincInspiralUtils
+from pylal import git_version
+
+minimum_mchirp = 0.86
+mchirp_bin_definition = [0.86, 3.48, 7.4, 17.50]
+ifo_list = ['H1','L1','V1']
+fixed_mc_bins = rate.IrregularBins(map(float, mchirp_bin_definition))
+ifos_list = ['H1L1V1', 'H1L1', 'H1V1', 'L1V1']
+
+
+# the html template. File html_template.html
+html_template ='<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"><html lang="en"><head></head><body><div style="text-align: center;"><span style="font-weight: bold;"></span><span style="font-weight: bold;">Low Latency Inspiral search of GRB&nbsp;macrogrbname</span><br></div><div style="text-align: center;"><span style="font-weight: bold;"></span></div><span style="font-weight: bold;"></span><br><table style="text-align: left; width: 50%;" border="0" cellpadding="2" cellspacing="2"><tbody><tr><td><b>Basic information</b><table style="text-align: left;" border="1" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td>GPS</td><td>Date</td><td>RA</td><td>DEC</td></tr><tr><td>macrogps</a></td><td>macrodate</td></td><td>macrora</td><td>macrodec</td></tr></tbody></table></td><td><b>Antenna factors</b><table style="text-align: left; width: 30%;" border="1" cellpadding="2" cellspacing="2" width="400"><tbody><tr><td>H1</td><td>H2</td><td>L1</td><td>G1</td><td>V1</td></tr><tr><td>macrodeth1</td><td>macrodeth2</td><td>macrodetl1</td><td>macrodetg1</td><td>macrodetv1</td></tr></tbody></table></td></tr></tbody></table><br>summary of this GRB <a href="http://grad40.as.utexas.edu/grblog.php?view=burst&amp;GRB=macrogrbname">here</a><br>google sky kml-file <a href="macrokml">here</a><br>onsource loudest triggers <a href="macroxml">here</a><br>segments availability <a href="https://ldas-jobs.ligo.caltech.edu/%7Edietz/pages/s5/GRB/CVS/plotsegments/PLOTSEGMENT_macrogrbname.png">here</a><table style="text-align: left;" border="0" cellpadding="2" cellspacing="2" width="700"><tbody><tr><td><a href="macroplot1link" title="Loudest by Mchirp H1L1V1"><img alt="Loudest by Mchirp H1L1V1" src="macroplot1thumb" border="2" width="300"></a></td><td><a href="macroplot2link" title="Loudest by Mchirp H1L1"><img alt="Loudest by Mchirp H1L1" src="macroplot2thumb" border="2" width="300"></a></td></tr><tr><td><a href="macroplot3link" title="Loudest by Mchirp H1V1"><img alt="Loudest by Mchirp H1V1" src="macroplot3thumb" border="2" width="300"></a></td><td><a href="macroplot4link" title="Loudest by Mchirp L1V1"><img alt="Loudest by Mchirp L1V1" src="macroplot4thumb" border="2" width="300"></a>&nbsp;</td></tr></tbody></table>macrostattable</body></html>'
+
+
+
+
+# the kml template. File kml_template.kml
+kml_template='<kml xmlns="http://www.opengis.net/kml/2.2" hint="target=sky"><Document>  <Style id="macroid">    <BalloonStyle>      <text><center><b>$[name]</b></center><br/>$[description]</text>    </BalloonStyle>  </Style>  <Placemark>    <name>macroid</name>    <description>      <![CDATA[     macrodescription      ]]>    </description>    <LookAt>      <longitude>macrolong</longitude>      <latitude>macrolat</latitude>      <altitude>0</altitude>      <range>500000</range>      <tilt>0</tilt>      <heading>0</heading>    </LookAt>    <styleUrl>#CrabNebula</styleUrl>    <Point>      <coordinates>macrolong,macrolat,0</coordinates>    </Point>  </Placemark></Document></kml>'
+
+
+# --------------------------------
+def mkdirsafe(directory, nag = False):
+  """
+  Create a directory if it does not already exist.
+  Optionally, nag if it already exists.
+  @param directory: name of the directory to be created
+  @param nag: If True, nags if the directory already exist
+  """
+  try:
+     os.makedirs(directory)
+  except OSError, (errno, strerror):
+    if errno == 17 and nag:
+      raise OSError, "Directory '%s' already exists, all files "\
+            "contained will be included in summary file, "\
+            "although not related to THIS summary!" \
+            " Suggestion: rename directory '%s'." % \
+            (directory, directory)
+    if errno!=17:
+      raise
+
+# --------------------------------
+def create_kml(grb_name, right_ascension, declination):
+  """
+  Creates the content of a google-earth kml file.
+  @param grb_name: name of the GRB
+  @param right_ascension: the right ascension of the source, in degree
+  @param declination: the declination of the source, in degree
+  """
+
+  # copy template
+  kml = kml_template
+
+  # replace the contents
+  kml = kml.replace('macroid',grb_name)
+  kml = kml.replace('macrodescription',grb_name)
+  kml = kml.replace('macrolong','%.2f'%(right_ascension-180))
+  kml = kml.replace('macrolat','%.2f'%declination)
+
+  return kml
+
+# --------------------------------
+def create_html(grb_name, opts):
+  """
+  Populates the html template with basic GRB parameters
+  @param grb: grb entry
+  @param grb_name: name of the GRB
+  """
+  month=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug',\
+         'Sep','Oct','Nov','Dec']
+
+  html = html_template
+  
+  ## now take the template and replace all the pieces
+  html = html.replace('macrogrbname',grb_name)
+
+  html = html.replace('macrogps','%s'%opts.gps_trigger_time)
+
+  d = date.XLALGPSToUTC(date.XLALINT8NSToGPS(opts.gps_trigger_time*1.0e+9))
+  date_text = '%s %02d %d %02d:%02d:%02d' %\
+         (month[d[1]-1], d[2], d[0], d[3], d[4], d[5])
+
+  html = html.replace('macrodate',date_text)
+  html = html.replace('macrora','%.2f'%opts.right_ascension)
+  html = html.replace('macrodec','%.2f'%opts.declination)
+
+  return html
+
+# --------------------------------
+def write_file(root_dir, filename, content):
+  """
+  Writes a file to disk.
+  @param root_dir: directory where to write the file
+  @param filename: name of the file
+  @param content: contents of the file
+  """
+  
+  f = open(root_dir+'/'+filename,'w')
+  f.write(content)
+  f.close()
+
+# --------------------------------
+def make_html_table(two_dim_seq, header_row=None):
+    """
+    Given a sequence of sequences (2-D array works), make an HTML table out
+    of it.  If header_row is provided, make it the table header.
+    """
+    
+    class always_equal(object):
+      def __eq__(self, other):
+        return True
+
+    
+    last_len = always_equal()
+    html = ["<table  border=\"1\" cellspacing=\"0\">"]
+    if header_row is not None:
+        html.append("  <tr><th>" + "</th><th>".join(map(str, header_row)) \
+            + "</th></tr>")
+        last_len = len(header_row)
+    for row in two_dim_seq:
+        if len(row) != last_len:
+            raise ValueError, "header and row lengths must all be consistent."
+        last_len = len(row)
+        html.append("  <tr><td>" + "</td><td>".join(map(str, row)) \
+            + "</td></tr>")
+    html.append("</table><br>")
+    return "\n".join(html)
+
+# --------------------------------
+def get_mchirp_and_ifos(bin_lower, bin_upper):
+
+  ifos = ''
+  if bin_upper<20:
+    ifos = 'H1L1V1'
+    sub = 0
+  elif bin_upper<40:
+    ifos = 'H1L1'
+    sub = 20
+  elif bin_upper<60:    
+    ifos = 'H1V1'
+    sub = 40
+  elif bin_upper<80:
+    ifos = 'L1V1'
+    sub = 60
+
+  bin_lower -= sub
+  bin_upper -= sub
+  if bin_lower<0:
+    bin_lower = minimum_mchirp
+    
+  return ifos, bin_lower, bin_upper
+
+# --------------------------------
+def create_mchirp_plot(statistic, mc_bins, ifos, onsource_loudest_by_mc,\
+                       p0_by_mc):
+  """
+  Creates the mchirp plot.
+  """
+  
+  ## mchirp vs loudest stat horizontal bar graph
+  text = "mchirp vs loudest statistic"
+  mc_latex = r"\langle \hat{M}_\mathrm{chirp} \rangle"
+
+  plot = plotutils.NumberVsBinBarPlot(\
+    r"$\rho_\mathrm{eff}$",
+    "$" + mc_latex + "$", "Loudest statistics by template bank mchirp %s"%ifos)
+  plot.add_content(mc_bins, onsource_loudest_by_mc)
+  plot.finalize(orientation="horizontal")
+  
+  # add p(c|0) on top as text
+  for mc, snr, pc0 in \
+          zip(mc_bins.centres(), onsource_loudest_by_mc, p0_by_mc):
+
+    plot.ax.text(snr + 0.2, mc, r"$\mathrm{FAP} = %.3f;\; \rho_\mathrm{eff,comb}=%.2f$" \
+                   % (pc0, snr), verticalalignment="center")
+      
+  if plot.ax.get_xlim()[1] < 20:
+    plot.ax.set_xlim(xmax=20)
+  plot.ax.set_ylim((mc_bins.min, mc_bins.max))
+
+  # add mchirp dividers
+  for divider in mc_bins.boundaries:
+    plot.ax.plot(plot.ax.get_xlim(), (divider, divider),
+                 "k--", label="_nolegend_")
+
+  return plot
+
+# --------------------------------
+def create_snr_plot(statistic, onsource_loudest, offsource_loudest_by_trial, \
+                     bin_lower, bin_upper, ifos):
+  
+  # create the cdf with the FAP data
+  offsource_loudest_by_trial.sort()
+  offsource_loudest = offsource_loudest_by_trial[::-1]
+  n_trials = len(offsource_loudest)
+
+  # compute the cumulative histograms
+  y_off = np.arange(n_trials,dtype=float)
+  y_off /= float(n_trials)
+  x_off = np.asarray(offsource_loudest)
+
+  # create the plot
+  plot = plotutils.SimplePlot(statistic.replace("_", r"\_"), \
+                              "cumulative number",\
+                              "SNR distribution for %s in range [%.1f-%.1f]"%\
+                              (ifos, bin_lower, bin_upper))
+  
+  # Add the entries before and after our real data so that the steps touch the
+  # x and y axes.
+  plot.add_content([x_off[0]] + list(x_off),
+                   [0] + list(y_off), color ='r',
+                   linestyle='steps-post', linewidth=3,
+                   label = 'off-source')
+
+  # plot the onsource value
+  plot.ax.plot((onsource_loudest, onsource_loudest), plot.ax.get_ylim(),
+                 "b--", label="onsource", linewidth = 3)
+  
+  plot.finalize()
+  plot.ax.axis([4.0, 15.0, 0.0, 1.0])
+  return plot
+
+
+# --------------------------------
+def get_options():
+    """
+    Parse user input and return opts.
+    """
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
+    
+    # input data
+    parser.add_option("--onsource-pickle",\
+                      help="specifies the name of the onsource pickle")
+    parser.add_option("--onsource-xml",\
+                      help="specifies the name of the onsource xml")
+    parser.add_option("--offsource-pickle",\
+                      help="specifies the name of the offsource pickle")
+
+    # internal information required to produce the output
+    parser.add_option("--user-tag",default=None, \
+                      help="usertag to label the files")
+    parser.add_option("--ifo-times",action="store",type="string",\
+        default=None, help="specifies the ifo times")
+    parser.add_option("--gps-start-time", type = "int", \
+                      help = "GPS start time")
+    parser.add_option("--gps-end-time", type = "int", \
+                      help = "GPS end time")
+    parser.add_option("--right-ascension", type = "float", \
+                      help = "The right ascension in degree")
+    parser.add_option("--declination", type = "float", \
+                      help = "The declination in degree")
+    parser.add_option("--gps-trigger-time", type = "int", \
+                      help = "GPS trigger time")
+    
+    # verbosity
+    parser.add_option("-v", "--verbose", action="store_true", default=False,
+        help="print additional information during pipeline construction")
+
+    # output parameters
+    parser.add_option("-r", "--root-dir", action="store", \
+        default='public_html', help="path to a temporary directory "\
+        "to put the summary page")
+    parser.add_option("--output-path", default=None,
+        help="path for putting the output files")
+    parser.add_option("-o", "--output-path-html", action="store", default=None,
+        help="path to directory to put the output webpage for publishing")
+    parser.add_option("--enable-output", action="store_true", default=False,
+        help="enables to make output")
+    
+    (opts, args) = parser.parse_args()
+
+    # check if a required option is missed
+    error_if_missing = ["onsource_pickle","onsource_xml","offsource_pickle"]
+    for opt in error_if_missing:
+        if getattr(opts, opt) is None:
+            raise ValueError, "missing required option: --%s" % \
+                  opt.replace("_", "-")
+
+    return opts
+
+##############################################################################
+# Main
+##############################################################################
+
+# get the options
+opts = get_options()
+grb_name = opts.user_tag[3:]
+plots_dir = 'plots'
+page = InspiralUtils.InspiralPage(opts)
+
+
+#
+# read the input-data
+#
+statistic, mc_bins, onsource_loudest_by_mc \
+    = pickle.load(open(opts.onsource_pickle))
+statistic, mc_bins, offsource_loudest_by_trial_mc \
+    = pickle.load(open(opts.offsource_pickle))
+
+
+#
+# Process the input data
+#
+onsource_fap_by_mc = []
+n_trials =offsource_loudest_by_trial_mc.shape[0]
+
+# loop over the mchirp bins
+for onsource_loudest, offsource_loudest_by_trial in \
+    zip(onsource_loudest_by_mc, offsource_loudest_by_trial_mc.transpose()):
+
+  # calculate the FAP and store it 
+  count_louder = (offsource_loudest_by_trial >= onsource_loudest).sum(axis=0)
+  stat = count_louder/n_trials
+  onsource_fap_by_mc.append(stat)
+
+
+#
+# add textual information to the page
+#
+
+# parse the coincidences from the xml file
+coinc_stat = CoincInspiralUtils.coincStatistic(statistic)
+onsource_doc = SnglInspiralUtils.ReadSnglInspiralFromFiles(\
+            [opts.onsource_xml])
+onsource_trigs = table.get_table(onsource_doc,
+                                 lsctables.SnglInspiralTable.tableName)
+onsource_coincs = CoincInspiralUtils.coincInspiralTable(onsource_trigs,
+                                                        coinc_stat)
+if len(onsource_coincs) > len(mc_bins):
+  raise ValueError, "more on-source coincs than mchirp bins"
+
+columns = ["ifos","mc_bin", "event_id"] \
+          + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifo_list] \
+          + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
+             "<em>P</em>(c|0)"]
+rows = []
+for index_ifos, ifos in enumerate(ifos_list):
+  for index_bins, (bin_low, bin_upper) in \
+          enumerate(zip(fixed_mc_bins.lower(), fixed_mc_bins.upper())):
+
+    # retrieve all coincs for this ifo combination
+    ifos_coinc = onsource_coincs.getChirpMass(bin_low, bin_upper)
+
+    # keep only the coinc with the right ifos
+    use_coinc = None
+    for coinc in ifos_coinc:
+      if coinc.get_ifos()[0] == ifos:
+        use_coinc = coinc
+        break
+      
+    row = ["%s"%ifos, "[%.2f, %.2f)" % (bin_low, bin_upper)]
+    if use_coinc:
+      row += [use_coinc.event_id]
+    else:
+      row += ['&mdash']
+
+    if use_coinc:
+      for ifo in ifo_list:
+        try:
+          trig = getattr(use_coinc, ifo)
+          row += ["%.4g"%trig.get_effective_snr()]
+        except:
+          row += ["&mdash"]
+
+      index_pc0 = 3*index_ifos+index_bins
+      pc0 = onsource_fap_by_mc[index_pc0]
+      row += ["%.4g" % use_coinc.stat, "%.4g" % \
+             grbsummary.get_mean_mchirp(use_coinc),"%.4g" % pc0]
+      
+    else:
+      row += ['&mdash','&mdash','&mdash','&mdash','&mdash','&mdash']
+
+    # add this row to the roes
+    rows.append(row)
+
+# add this table to the html file
+statistic_table = make_html_table(rows, columns)
+page.write(statistic_table)
+      
+#
+# Create the two main plots
+#
+
+for index, ifos in enumerate(ifos_list):
+
+  # get the right indices to choose the right data
+  i1 = 3*index
+  i2 = i1+3
+  plot = create_mchirp_plot(statistic, fixed_mc_bins, ifos, \
+                            onsource_loudest_by_mc[i1:i2], \
+                            onsource_fap_by_mc[i1:i2])
+  page.add_plot(plot.fig, 'loudest_statistic_by_mchirp_%s'%ifos)
+
+# somewhat hacky: get the filenames of the first 4 overview plots
+list_overview_plots = copy.deepcopy(page.fname_list)
+
+
+# create three different plots for each mchirp bin
+for onsource_loudest, offsource_loudest_by_trial, \
+        bin_lower_mod, bin_upper_mod  in \
+    zip(onsource_loudest_by_mc, offsource_loudest_by_trial_mc.transpose(),\
+         mc_bins.lower(), mc_bins.upper()):
+
+  # get the real mchirp values and the correct ifos
+  ifos, bin_lower, bin_upper = get_mchirp_and_ifos(\
+    bin_lower_mod, bin_upper_mod)
+
+  # create the plot and add it to the output page
+  plot = create_snr_plot(statistic, onsource_loudest, \
+                         offsource_loudest_by_trial, \
+                         bin_lower, bin_upper, ifos)
+  page.add_plot(plot.fig, 'SNR_distribution_%s_mchirp_%.1f-%.1f'%\
+                (ifos, bin_lower, bin_upper))
+
+page.write_page()
+
+
+########################################################
+
+## create the kml file
+kml = create_kml(grb_name, opts.right_ascension, opts.declination)
+kml_filename = grb_name+'.kml'
+write_file(opts.output_path, kml_filename, kml)
+
+## create the basic html file
+html = create_html(grb_name, opts)
+
+# set the links for the plots
+for index, plots in enumerate(list_overview_plots):
+  filename = 'Images/'+os.path.basename(plots)
+  thumbname = filename.replace('.png','_thumb.png')
+
+  # replace the html tag
+  html = html.replace('macroplot%dlink'%(index+1), filename)
+  html = html.replace('macroplot%dthumb'%(index+1), thumbname)
+
+  
+# populate the antenna factor table
+for ifo in ['H1','H2','L1','G1','V1']:
+  
+  # compute the antenna factor for this time and position on the sky
+  f_plus, f_cross, f_ave, f_q = antenna.response( opts.gps_trigger_time,
+                                                  opts.right_ascension,\
+                                                  opts.declination, \
+                                                  0.0, 0.0, 'degree',
+                                                  ifo )
+  html = html.replace('macrodet%s'%ifo.lower(),'%.2f'%f_q)
+  
+
+# put in some more links and copy needed files
+html = html.replace('macrokml',kml_filename)
+shutil.copy(opts.onsource_xml, opts.output_path)
+html = html.replace('macroxml', opts.onsource_xml)
+html = html.replace('macrostattable', statistic_table)
+
+# put some status information
+text = "<hr>This page has been created at %s\n"%time.asctime(time.localtime())
+text += "Version used: "+ git_version.verbose_msg
+
+# write the html file
+write_file(opts.output_path, 'pylal_lotis_'+grb_name+'.html' , html)
+
+# now copy the files if required
+if opts.output_path_html:
+  mkdirsafe(opts.output_path_html)
+  command = 'cp -r %s/* %s' % (opts.output_path, opts.output_path_html)
+  subprocess.call(command, shell=True)
+
+  
+  
+

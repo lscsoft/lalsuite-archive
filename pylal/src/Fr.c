@@ -1,12 +1,12 @@
 /*
     Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)
     Fr library wrapper
-    
+
     Functions: frgetvect, frputvect
-    
+
     See individual docstrings for more information.
     $Id$
-    
+
     Requires: numpy, FrameL
 */
 
@@ -28,7 +28,7 @@ static PyObject *version;
 static PyObject *author;
 static PyObject *PyExc_FrError;
 
-const char FrDocstring[] = 
+const char FrDocstring[] =
 "    Nickolas Fotopoulos (nvf@gravity.phys.uwm.edu)\n"
 "    Fr library wrapper\n"
 "\n"
@@ -46,9 +46,9 @@ and raise appropriate exceptions. */
 void PyDict_ExtractString(char out[100], PyObject *dict, char *key) {
     char msg[100];
     PyObject *temp;
-    
+
     temp = PyDict_GetItemString(dict, key);
-    
+
     if (temp == NULL) {
         sprintf(msg, "%s not in dict", key);
         PyErr_SetString(PyExc_KeyError, msg);
@@ -66,9 +66,9 @@ double PyDict_ExtractDouble(PyObject *dict, char *key) {
     char msg[100];
     double ret;
     PyObject *temp;
-    
+
     temp = PyDict_GetItemString(dict, key);
-    
+
     if (temp == NULL) {
         sprintf(msg, "%s not in dict", key);
         PyErr_SetString(PyExc_KeyError, msg);
@@ -109,17 +109,16 @@ const char frgetvectdocstring[] =
 "   6) Unit of y-axis as a string\n";
 
 static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
-    
+
     FrFile *iFile;
-    FrameH *frame=NULL;
     FrVect *vect;
     int verbose, i, nDim;
     long nData;
     double start, span;
     char *filename, *channel, msg[200];
-    
+
     npy_intp shape[MAX_VECT_DIMS];
-    
+
     npy_int16 *data_int16;
     npy_int32 *data_int32;
     npy_int64 *data_int64;
@@ -129,45 +128,45 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     npy_uint64 *data_uint64;
     npy_float32 *data_float32;
     npy_float64 *data_float64;
-    
+
     static char *kwlist[] = {"filename", "channel", "start", "span",
                              "verbose", NULL};
-    
+
     PyObject *out1, *out2, *out3, *out4, *out5, *out6;
-    
+
     /*--------------- unpack arguments --------------------*/
     start = -1.;
     span = -1.;
     verbose = 0;
-    
+
     /* The | in the format string indicates the next arguments are
        optional.  They are simply not assigned anything. */
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "ss|ddi", kwlist, 
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "ss|ddi", kwlist,
         &filename, &channel, &start, &span, &verbose)) {
         PyErr_SetNone(PyExc_ValueError);
         return NULL;
     }
-    
+
     FrLibSetLvl(verbose);
-    
+
     /*-------------- open file --------------------------*/
-    
+
     if (verbose > 0) {
         printf("Opening %s for channel %s (start=%.2f, span=%.2f).\n",
             filename, channel, start, span);
     }
-    
+
     iFile = FrFileINew(filename);
     if (iFile == NULL){
         sprintf(msg, "%s", FrErrorGetHistory());
         PyErr_SetString(PyExc_IOError, msg);
         return NULL;
     }
-    
+
     if (verbose > 0){
         printf("Opened %s.\n", filename);
     }
-    
+
     // Start and span auto-detection requires a TOC in the frame file.
     if (start == -1.) {
         start = FrFileITStart(iFile);
@@ -175,32 +174,31 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
     if (span == -1.) {
         span = FrFileITEnd(iFile) - start;
     }
-    
+
     /*-------------- get vector --------------------------*/
     vect = FrFileIGetVect(iFile, channel, start, span);
-    
+
     if(verbose > 0) FrVectDump(vect, stdout, verbose);
     if(vect == NULL){
         sprintf(msg, "In file %s, vector not found: %s", filename, channel);
-        if (frame != NULL) FrameFree(frame);
         FrFileIEnd(iFile);
         PyErr_SetString(PyExc_KeyError, msg);
         return NULL;
     }
-    
+
     if (verbose > 0){
         printf("Extracted channel %s successfully!\n", channel);
     }
-    
+
     nData = vect->nData;
     nDim = vect->nDim;
-    
+
     /*-------- copy data ------*/
-    
+
     for (i=0; i<nDim; i++) {
         shape[i] = (npy_intp)vect->nx[i];
     }
-    
+
     // Both FrVect and Numpy store data in C array order (vs Fortran)
     if(vect->type == FR_VECT_2S){
         out1 = PyArray_SimpleNew(nDim, shape, NPY_INT16);
@@ -260,20 +258,16 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         for(i=0; i<2*nData; i++) {data_float64[i] = vect->dataD[i];}}
     else{
         sprintf(msg, "Unrecognized vect->type (= %d)\n", vect->type);
-        if (frame != NULL) {
-            FrameFree(frame);
-        } else {
-            FrVectFree(vect);
-        }
+        FrVectFree(vect);
         FrFileIEnd(iFile);
         PyErr_SetString(PyExc_TypeError, msg);
         return NULL;
     }
-    
+
     /*------------- other outputs ------------------------*/
     // output2 = gps start time
     out2 = PyFloat_FromDouble(vect->GTime);
-    
+
     // output3 = x-axes start values as a tuple of PyFloats
     // output4 = x-axes spacings as a tuple of PyFloats
     // output5 = x-axes units as a tuple of strings
@@ -285,16 +279,12 @@ static PyObject *frgetvect(PyObject *self, PyObject *args, PyObject *keywds) {
         PyTuple_SetItem(out4, (Py_ssize_t)i, PyFloat_FromDouble(vect->dx[i]));
         PyTuple_SetItem(out5, (Py_ssize_t)i, PyString_FromString(vect->unitX[i]));
     }
-    
+
     // output6 = unitY as a string
     out6 = PyString_FromString(vect->unitY);
     /*------------- clean up -----------------------------*/
-    
-    if (frame != NULL) {
-        FrameFree(frame);
-    } else {
-        FrVectFree(vect);
-    }
+
+    FrVectFree(vect);
     FrFileIEnd(iFile);
     return Py_BuildValue("(NNNNNN)",out1,out2,out3,out4,out5, out6);
 };
@@ -328,12 +318,12 @@ const char frgetvect1ddocstring[] =
 
 static PyObject *frgetvect1d(PyObject *self, PyObject *args, PyObject *keywds) {
     PyObject *out, *temp, *temp2;
-    
+
     out = frgetvect(self, args, keywds);
     if (out == NULL) {
         return NULL;
     }
-    
+
     // Check lengths and unpack outputs 3, 4, and 5.  Be paranoid about
     // output 3 only.
     temp = PyTuple_GetItem(out, (Py_ssize_t) 2);
@@ -346,22 +336,22 @@ static PyObject *frgetvect1d(PyObject *self, PyObject *args, PyObject *keywds) {
     temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
     PyTuple_SetItem(out, (Py_ssize_t) 2, temp2); // Python DECREFs temp and temp2 here
-    
+
     temp = PyTuple_GetItem(out, (Py_ssize_t) 3);
     temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
     PyTuple_SetItem(out, (Py_ssize_t) 3, temp2);
-    
+
     temp = PyTuple_GetItem(out, (Py_ssize_t) 4);
     temp2 = PyTuple_GetItem(temp, (Py_ssize_t) 0);
     Py_INCREF(temp2);
     PyTuple_SetItem(out, (Py_ssize_t) 4, temp2);
-    
+
     if (PyErr_Occurred()) {
         Py_DECREF(out);
         return NULL;
     }
-    
+
     return out;
 }
 
@@ -415,64 +405,64 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
     char channel[100], x_unit[100], y_unit[100], kind[100];
     PyObject *temp;
     char msg[200];
-    
+
     PyObject *channellist, *channellist_iter, *framedict, *array;
     PyArrayIterObject *arrayIter;
     PyArray_Descr *temp_descr;
-    
+
     static char *kwlist[] = {"filename", "channellist", "history", "verbose",
                              NULL};
-    
+
     /*--------------- unpack arguments --------------------*/
     verbose = 0;
-    
+
     /* The | in the format string indicates the next arguments are
        optional.  They are simply not assigned anything. */
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "sO|si", kwlist, 
+    if (!PyArg_ParseTupleAndKeywords(args, keywds, "sO|si", kwlist,
         &filename, &channellist, &history, &verbose)) {
         Py_RETURN_NONE;
     }
-    
+
     FrLibSetLvl(verbose);
-    
+
     if (history == NULL) {
         history = blank;
     }
-    
+
     /*-------- create frames, create vectors, and fill them. ------*/
-    
+
     // Channel-list must be any type of sequence
     if (!PySequence_Check(channellist)) {
         PyErr_SetNone(PyExc_TypeError);
         return NULL;
     }
-    
+
     // Get channel name from first dictionary
     framedict = PySequence_GetItem(channellist, (Py_ssize_t)0);
     if (framedict == NULL) {
         PyErr_SetString(PyExc_ValueError, "channellist is empty!");
         return NULL;
     }
-    
+
     PyDict_ExtractString(channel, framedict, "name");
     Py_XDECREF(framedict);
     if (PyErr_Occurred()) {return NULL;}
-    
+
     if (verbose > 0) {
         printf("Creating frame %s...\n", channel);
     }
-    
+
     frame = FrameNew(channel);
     if (frame == NULL) {
         sprintf(msg, "FrameNew failed (%s)", FrErrorGetHistory());
         PyErr_SetString(PyExc_FrError, msg);
         return NULL;
     }
-    
+
     if (verbose > 0) {
         printf("Now iterating...\n");
     }
-    
+
     // Iterators allow one to deal with non-contiguous arrays
     channellist_iter = PyObject_GetIter(channellist);
     arrayIter = NULL;
@@ -480,49 +470,49 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         if (verbose > 0) {
             printf("In loop...\n");
         }
-        
+
         // Extract quantities from dict -- all borrowed references
         PyDict_ExtractString(channel, framedict, "name");
         CHECK_ERROR;
-        
+
         start = PyDict_ExtractDouble(framedict, "start");
         CHECK_ERROR;
-        
+
         dx = PyDict_ExtractDouble(framedict, "dx");
         CHECK_ERROR;
-        
+
         array = PyDict_GetItemString(framedict, "data");
         if (!PyArray_Check(array)) {
             sprintf(msg, "data is not an array");
             PyErr_SetString(PyExc_TypeError, msg);
         }
         CHECK_ERROR;
-        
+
         nData = PyArray_SIZE(array);
         nBits = PyArray_ITEMSIZE(array);
         arrayType = PyArray_TYPE(array);
-        
+
         // kind, x_unit, y_unit, type, and subType have default values
         temp = PyDict_GetItemString(framedict, "kind");
         if (temp != NULL) {strcpy(kind, PyString_AsString(temp));}
         else {sprintf(kind,"PROC");}
-        
+
         temp = PyDict_GetItemString(framedict, "x_unit");
         if (temp != NULL) {strcpy(x_unit, PyString_AsString(temp));}
         else {sprintf(x_unit, blank);}
-        
+
         temp = PyDict_GetItemString(framedict, "y_unit");
         if (temp != NULL) {strcpy(y_unit, PyString_AsString(temp));}
         else {sprintf(y_unit, blank);}
-        
+
         temp = PyDict_GetItemString(framedict, "type");
         if (temp != NULL) {type = (int)PyInt_AsLong(temp);}
         else {type = 1;}
-        
+
         temp = PyDict_GetItemString(framedict, "subType");
         if (temp != NULL) {subType = (int)PyInt_AsLong(temp);}
         else {subType = 0;}
-        
+
         // check for errors
         CHECK_ERROR;
         if (dx <= 0 || array == NULL || nData==0) {
@@ -535,19 +525,19 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
             PyErr_SetString(PyExc_ValueError, msg);
             return NULL;
         }
-        
-        
+
+
         if (verbose > 0) {
             printf("type = %d, subType = %d, start = %f, dx = %f\n",
                 type, subType, start, dx);
         }
-        
+
         sampleRate = 1./dx;
-        
+
         if (verbose > 0) {
             printf("Now copying data to vector...\n");
         }
-        
+
         // Create empty vector (-typecode ==> empty) with metadata,
         // then copy data to vector
         vect = NULL;
@@ -623,7 +613,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
                 PyArray_ITER_NEXT(arrayIter);}
             Py_XDECREF(temp);}
         else PyErr_SetString(PyExc_TypeError, msg);
-        
+
         if (PyErr_Occurred()) {
             if (vect != NULL) FrVectFree(vect);
             FrameFree(frame);
@@ -632,12 +622,12 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
             Py_XDECREF(arrayIter);
             return NULL;
         }
-        
+
         if (verbose > 0) {
             printf("Done copying...\n");
             FrameDump(frame, stdout, 6);
         }
-        
+
         // Add Fr*Data to frame and attach vector to Fr*Data
         if (strcmp(kind, "PROC")==0) {
             proc = FrProcDataNew(frame, channel, sampleRate, 1, nBits);
@@ -668,22 +658,22 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
             frame->GTimeS = (npy_uint32)start;
             frame->GTimeN = (npy_uint32)((start-(frame->GTimeS))*1e9);
         }
-        
+
         if (verbose > 0) {
             printf("Attached vect to frame.\n");
         }
-        
+
         // Clean up (all python objects in loop should be borrowed references)
         Py_XDECREF(framedict);
         Py_XDECREF(arrayIter);
     } // end iteration over channellist
-    
+
     Py_XDECREF(channellist_iter);
     // At this point, there should be no Python references left!
-    
+
     /*------------- Write file -----------------------------*/
     oFile = FrFileONewH(filename, 1, history); // 1 ==> gzip contents
-    
+
     if (oFile == NULL) {
         sprintf(msg, "%s\n", FrErrorGetHistory());
         PyErr_SetString(PyExc_FrError, msg);
@@ -696,7 +686,7 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
         FrFileOEnd(oFile);
         return NULL;
     }
-    
+
     /* The FrFile owns data and vector memory. Do not free them separately. */
     FrFileOEnd(oFile);
     FrameFree(frame);
@@ -716,15 +706,15 @@ static PyMethodDef FrMethods[] = {
 PyMODINIT_FUNC initFr(void) {
     PyObject *m, *temp;
     m = Py_InitModule3("pylal.Fr", FrMethods, FrDocstring);
-    
+
     import_array();
-    
+
     PyExc_FrError = PyErr_NewException("Fr.FrError", NULL, NULL);
     temp = PyString_FromString("$Revision$");
     version = PySequence_GetSlice(temp, (Py_ssize_t)11, (Py_ssize_t)-2);
     Py_DECREF(temp);
     author = PyString_FromString("Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>");
-    
+
     Py_INCREF(PyExc_FrError);  // Recommended by extending & embedding doc
     PyModule_AddObject(m, "FrError", PyExc_FrError);
     PyModule_AddObject(m, "__author__", author);

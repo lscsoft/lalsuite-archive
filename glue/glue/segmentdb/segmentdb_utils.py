@@ -23,7 +23,6 @@ import os
 import re
 
 from glue.segments import segment, segmentlist
-from glue import gsiserverutils
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
@@ -76,6 +75,7 @@ def get_all_files_in_range(dirname, starttime, endtime):
 
 def setup_database(host_and_port):
     from glue import LDBDClient
+    from glue import gsiserverutils
 
     """Opens a connection to a LDBD Server"""
     port = 30015
