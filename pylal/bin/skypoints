@@ -16,6 +16,7 @@ import re
 import exceptions
 import glob
 from types import *
+import shutil
 
 import random
 
@@ -30,6 +31,7 @@ from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils
 import glue.iterutils
+from glue.lvalert import utils as lvautils
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
 from pylal import InspiralUtils
@@ -586,6 +588,22 @@ class GalaxyRow(object):
 
 GalaxyTable.RowType = GalaxyRow
 
+###this is a hack!!!  only leave this here until lvalert tables go in
+###some more central place
+
+class LVAlertTable(table.Table):
+  tableName = "LVAlert:table"
+  validcolumns = {
+    "file": "lstring",
+    "uid": "lstring"
+    }
+    
+class LVAlertRow(object):
+  __slots__ = LVAlertTable.validcolumns.keys()
+  
+LVAlertTable.RowType = LVAlertRow
+
+
 ##############################################################################
 #
 #          i/o and related functions
@@ -903,7 +921,8 @@ def parse_command_line():
       default=15, metavar=" L_WIDE_THRESH",help="threshold on L for 95% area" )
   parser.add_option("-o","--output",action="store",type="string",default=None,\
                     help="name of the xml file to store output in")
-  parser.add_option("-N","--online-input",action="store",type="string",default=None, help="online input filename")
+  parser.add_option("-N","--online-input",action="store",type="string",default=None,\
+                    help="name of LVAlert xml file")
   parser.add_option("-j","--inj-output",action="store",type="string",default=None,\
                     help="name of the xml file to store injection data in")
   parser.add_option("-k","--sky-data",action="store",type="string",default=None,\
@@ -966,23 +985,19 @@ if opts.glob is not None:
       else:
         coincfiles.append(file)
 
-  # check if the file lists are not empty
-  if not (coincfiles or slidefiles):
-    print >>sys.stdout, "No files match your description."
-    sys.exit(0)
-
-if opts.online_input is not None:
-  with open(opts.online_input) as online_file:
-    for line in online_file:
-      if 'file' in line:
-        trash, full_path = line.split(':')
-        coincfiles.append(full_path)
-        private_dir, f = os.path.split(full_path)
-        temp_dir, trash  = os.path.split(private_dir)
-        general_dir = os.path.join(temp_dir,'general')
-      if 'uid' in line:
-        trash, uid = line.split(':')
-        
+if opts.online_input:
+  if opts.online_input == '-':
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_stdin(sys.stdin) 
+  else:
+    host, full_path, general_dir, uid = \
+          lvautils.get_LVAdata_from_file(opts.online_input)
+  coincfiles.append(full_path)
+  
+# check if the file lists are not empty
+if not (coincfiles or slidefiles):
+  print >>sys.stdout, "No files match your description."
+  sys.exit(0)
 
 inspTriggers = None
 coincTriggers = CoincInspiralUtils.coincInspiralTable()
@@ -1020,6 +1035,9 @@ detector_responses["V1"] = tools.cached_detector["VIRGO"].response
 #set the base filename for everything
 if opts.output:
   bname = opts.output[:-4]
+if opts.online_input:
+  bname = general_dir + '/SKYPOINTS_ONLINE_' + uid
+  output_files = []
   
 #create the xml output and initiate the tables
 xmldoc = ligolw.Document()
@@ -1042,6 +1060,8 @@ for coinc in coincTriggers:
     if opts.plotpoints:
       plot_name = bname + '_' + str(skymap.time)+'.png'
       plot_skypoints(skymap,plot_name,opts.show_plot)
+      if opts.online_input:
+        output_files.append(plot_name)
     else:
       plot_name = ''
 
@@ -1053,6 +1073,8 @@ for coinc in coincTriggers:
     #write the grids
     grid_name = bname + '_' + str(skymap.time)+'.txt.gz'
     write_grids(skymap,grid_name)
+    if opts.online_input:
+      output_files.append(grid_name)
 
     #make plots if they're asked for
    # if opts.plotpoints:
@@ -1073,10 +1095,15 @@ for coinc in coincTriggers:
           galdoc = ligolw.Document()
           galdoc.appendChild(ligolw.LIGO_LW())
           galdoc.childNodes[0].appendChild(galtable)     
-          gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
+          if opts.output:
+            gal_name = opts.output.replace('xml','_'+str(skymap.time)+'_galaxies.xml')
+          if opts.online_input:
+            gal_name = bname + '_'+str(skymap.time)+'_galaxies.xml'
+            output_files.append(gal_name)
           gal_output = open(gal_name, 'w')
           galdoc.write(gal_output)
           gal_output.close
+          
     else:
       gal_name = ''
 
@@ -1098,13 +1125,18 @@ if opts.injection:
 #                                comment = None, domain = "pylal", ifos = "H1L1V1")
 #llwapp.set_process_end_time(process)
 if opts.online_input:
-  output_fname = general_dir + uid
+  output_fname = bname + '.xml'
+  output_files.append(output_fname)
 else:
   output_fname = opts.output
 
 output_file = open(output_fname, 'w')
 xmldoc.write(output_file)
 output_file.close()
+
+#if opts.online_input:
+#  for file in output_files:
+#    shutil.copy(file,general_dir)
  
 if opts.show_plot:
   show()

@@ -57,6 +57,20 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   pylab.contourf(RAbin.centres(), DECbin.centres(), Z, 250)
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
+
+  ofile = open(figname.replace(".png",".txt"),'w')
+  injRank = None
+  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
+  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
+  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
+  ofile.close()
+  
+  #*****************************
+  if injRank: plttxt ="Ra: %.3f DEC: %.3f \ninjRank: %.3e InjRA %.3f InjDEC: %.3f" % (RA[maxIX], DEC[maxIX], injRank, injRA, injDEC)
+  
+  if injRank: injRApylab.title(plttxt) 
+  #*****************************
+
   if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
   pylab.xlim((min(RA),max(RA)))
   pylab.ylim((min(DEC),max(DEC)))
@@ -73,11 +87,7 @@ def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat
   pylab.gca().set_aspect(1)
   pylab.subplots_adjust(wspace=0.0,hspace=0.0)
 
-  ofile = open(figname.replace(".png",".txt"),'w')
-  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
-  print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
-  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
-  ofile.close()
+  
 
   # Save and close we are done
   InspiralUtils.savefig_pylal(figname)

@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.25
+Version:	1.26
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -43,6 +43,7 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitearch}/glue/
 %{_prefix}/bin/
 %{_prefix}/etc/
+%{_prefix}/var/
 
 %changelog
 * Wed Jul 01 2009 Duncan Brown <dabrown@physics.syr.edu>

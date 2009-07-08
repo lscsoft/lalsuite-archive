@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.25"
+ver = "1.26"
 
 def remove_root(path,root):
   if root:
@@ -221,10 +221,11 @@ setup(
     os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
     os.path.join('bin','ligolw_dq_active'),
+    os.path.join('bin','ligolw_dq_active_cats'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
-    os.path.join('bin','ldbdd'),
+       os.path.join('bin','ldbdd'),
     os.path.join('bin','ligolw_publish_dqxml'),
     os.path.join('bin','segdb_coalesce'), ],
   data_files = [
@@ -235,6 +236,8 @@ setup(
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
+        os.path.join('etc','ligolw.xsl'),
+        os.path.join('etc','ligolw.js'),
         os.path.join('etc','ligolw_dtd.txt') ]
     ),
     ( os.path.join( 'etc', 'httpd', 'conf.d' ),
