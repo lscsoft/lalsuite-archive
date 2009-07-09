@@ -275,21 +275,27 @@ Longer strings will be truncated.""" % {
     from optparse import OptionParser
     op = OptionParser(usage=usage)
     op.add_option("-p", "--proxy", dest="proxy",
-                  help="HTTP Proxy Host", metavar="PROXY")
-    op.add_option("-P", "--proxy-port", dest="proxyport",
-                  help="HTTP Proxy Port", metavar="PORT")
+                  help="HTTP Proxy", metavar="PROXY[:PORT]")
     op.add_option("-s", "--service-url", dest="service",
                   default="https://archie.phys.uwm.edu/gracedb/cli",
                   help="GraCEDb Service URL", metavar="URL")
 
     options, args = op.parse_args()
 
-    if options.proxyport:
+    proxy = options.proxy
+    proxyport = None
+    if proxy and proxy.find(':') > 0:
+        try:
+            proxy, proxyport = options.proxy.split(':')
+            proxyport = int(proxyport)
+        except:
+            op.error("Malformed proxy: '%s'" % options.proxy)
+    if proxyport:
         client = Client(options.service,
-                        proxy_host=options.proxy,
-                        proxy_port=options.proxyport)
+                        proxy_host=proxy,
+                        proxy_port=proxyport)
     else:
-        client = Client(options.service, proxy_host=options.proxy)
+        client = Client(options.service, proxy_host=proxy)
 
     if len(args) < 1:
         op.error("not enough arguments")
