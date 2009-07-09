@@ -89,7 +89,7 @@ WHERE
   # remove rings that are exact duplicates on the assumption that there are
   # zero-lag and time-slide thinca jobs represented in the same document
 
-  return segments.segmentlistdict((key, segments.segmentlist(set(value))) for key, value in seglists.items())
+  return segments.segmentlistdict((key, segments.segmentlist(sorted(set(value)))) for key, value in seglists.items())
 
 
 def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
