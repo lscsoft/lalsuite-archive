@@ -96,8 +96,7 @@ def readcolfrom2tables(table1, table2, col_name ):
   """
   
   if len(table1) != len(table2):
-    print >>sys.stderr, "number of events in table1 and table2 must be equal"
-    sys.exit(1)
+    raise ValueError, "number of events in table1 and table2 must be equal"
  
   if len(table1):
     if ("ifo" in table1.validcolumns.keys()):
@@ -131,7 +130,9 @@ def timeindays(col_data ):
     - S3:         [751658413, 757699213]
     - S4:         [793130413, 795679213]
     - S5:         [815119213, 875232014]
-  @param col_data: array containing times
+    - E13:        [924606015, 924865215]
+    - E14:        [928875615, 929134815]
+  @param col_data: array containing times in GPS seconds
   """
   lvtimes = [700000000, 700086400]
   v1times = [811132263, 811143059]
@@ -140,6 +141,7 @@ def timeindays(col_data ):
   s4times = [793130413, 795679213]
   s5times = [815119213, 875232014]
   e13times = [924606015, 924865215]
+  e14times = [928875615, 929134815]
 
   if len(col_data) == 0: return col_data
 
@@ -157,9 +159,10 @@ def timeindays(col_data ):
     start = v1times[0]
   elif col_data[0] > e13times[0] and col_data[0] < e13times[1]:
     start = e13times[0]
+  elif col_data[0] > e14times[0] and col_data[0] < e14times[1]:
+    start = e14times[0]
   else:
-    print >> sys.stderr, "events not from a known science run"
-    sys.exit(1)
+    raise ValueError, "events not from a known science run"
 
   col_data = (col_data - start)/(60 * 60 * 24.0)
 
@@ -1021,14 +1024,14 @@ def cumhiststat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
 
   # hist of the zero lag:
   if trigs:
-    zero_dist, xbin = numpy.histogram(snr, bins)
+    zero_dist, xbin = numpy.histogram(snr, bins, new=False)
     cum_dist_zero = zero_dist[::-1].cumsum()[::-1]
 
   # hist of the slides:
   if slide_trig_list:
     cum_dist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
       cum_slide = num_slide[::-1].cumsum()[::-1]
       cum_dist_slide.append(cum_slide)
     cum_dist_slide = numpy.array(cum_dist_slide)
@@ -1149,7 +1152,7 @@ def histstat(trigs=None, slide_trigs=None,ifolist = None, min_val = None, \
     slide_dist = []
     hist_slide = []
     for slide_snr in slide_snr_list:
-      num_slide, bin = numpy.histogram(slide_snr, bins)
+      num_slide, bin = numpy.histogram(slide_snr, bins, new=False)
       hist_slide.append(num_slide)
     hist_slide = numpy.array(hist_slide)
     slide_mean = hist_slide.mean(axis=0)
@@ -1230,14 +1233,18 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
 
     if len(foundVal):
       step = (max(foundVal) - min(foundVal)) /nbins
-      bins = arange(min(foundVal),max(foundVal), step )
+      bins = arange(min(foundVal),max(foundVal)+step, step )
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([foundVal[0]/2.0, foundVal[0], foundVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + foundVal[0]/4.0
     else:
       step = (max(missedVal) - min(missedVal)) /nbins
-      bins = arange(min(missedVal),max(missedVal), step )
+      bins = arange(min(missedVal),max(missedVal)+step, step )
+      plotbins = bins[0:-1] + step/2.
       if step == 0:
         bins = array([missedVal[0]/2.0, missedVal[0], missedVal[0] * 3.0/2.0])
+        plotbins = bins[0:-1] + missedVal[0]/4.0
     fig_num = gcf().number
     figure(100)
     [num_found,binsf,stuff] = hist(foundVal, bins)
@@ -1253,23 +1260,23 @@ def efficiencyplot(found, missed, col_name, ifo=None, plot_type = 'linear', \
     if plot_type == 'log':
       bins = 10**bins
       if plot_name:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2, label = plot_name)
       else:
-        semilogx(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        semilogx(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=2)
       if errors:
-        errorbar(bins, eff, error,markersize=12, markerfacecolor='None',\
+        errorbar(plotbins, eff, error,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth = 2, label = plot_name, \
             fmt = plotsym)
               
     else:
       if errors:
-        errorbar(bins, eff, error, fmt = plotsym, markersize=12,\
+        errorbar(plotbins, eff, error, fmt = plotsym, markersize=12,\
             markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
       else:
-        plot(bins, eff, plotsym,markersize=12, markerfacecolor='None',\
+        plot(plotbins, eff, plotsym,markersize=12, markerfacecolor='None',\
             markeredgewidth=1, linewidth=1, label = plot_name)
 
     xlabel(col_name.replace("_"," "), size='x-large')

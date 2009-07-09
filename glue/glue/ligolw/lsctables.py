@@ -536,7 +536,7 @@ class ExperimentTable(table.Table):
 		"experiment_id": "ilwd:char",
 		"search_group": "lstring",
 		"search": "lstring",
-		"lars_id": "ilwd:char",
+		"lars_id": "lstring",
 		"instruments": "lstring",
 		"gps_start_time": "int_4s",
 		"gps_end_time": "int_4s",
@@ -654,52 +654,57 @@ class ExperimentSummaryTable(table.Table):
 	validcolumns = {
 		"experiment_summ_id": "ilwd:char",
 		"experiment_id": "ilwd:char",
-		"veto_def_id": "ilwd:char",
 		"time_slide_id": "ilwd:char",
-		"zero_lag": "int",
-		"simulation": "int",
+		"veto_def_name": "lstring",
+		"datatype": "lstring",
+		"sim_proc_id": "ilwd:char",
 		"duration": "int_4s",
 		"nevents": "int_4u"
 	}
 	constraints = "PRIMARY KEY (experiment_summ_id)"
 	how_to_index = {
 		"es_ei_index": ("experiment_id",),
+		"es_dt_index": ("datatype",)
 	}
 	next_id = ExpSummID(0)
 
+	datatypes = ['slide', 'all_data', 'playground', 'exclude_play', 'simulation']
+		
+
 	def as_id_dict(self):
 		"""
-		Return table as a dictionary mapping experiment_id, time_slide_id
-		and veto_def_id to the expr_summ_id.
+		Return table as a dictionary mapping experiment_id, time_slide_id,
+		veto_def_name, and sim_proc_id (if it exists) to the expr_summ_id.
 		"""
 		d = {}
 		for row in self:
 			if row.experiment_id not in d:
 				d[row.experiment_id] = {}
-			if (row.time_slide_id, row.veto_def_id, row.simulation) in d[row.experiment_id]:
+			if (row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) in d[row.experiment_id]:
 				# entry already exists, raise error
 				raise KeyError, "Duplicate entries in experiment_summary table" 
-			d[row.experiment_id][(row.time_slide_id, row.veto_def_id, row.simulation)] = row.experiment_summ_id
+			d[row.experiment_id][(row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id)] = row.experiment_summ_id
 
 		return d
 
-	def get_expr_summ_id(self, experiment_id, veto_def_id, time_slide_id, simulation = False):
+	def get_expr_summ_id(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None):
 		"""
 		Return the expr_summ_id for the row in the table whose experiment_id, 
-		time_slide_id, and veto_def_id match the given. If simulation
-		set to true, will retrieve injection run.
+		time_slide_id, veto_def_name, and datatype match the given. If sim_proc_id,
+		will retrieve the injection run matching that sim_proc_id.
 		If a matching row is not found, returns None.
 		"""
+
 		# look for the ID
 		for row in self:
-			if (row.experiment_id, row.veto_def_id, row.time_slide_id, row.simulation) == (experiment_id, veto_def_id, time_slide_id, int(simulation)):
+			if (row.experiment_id, row.time_slide_id, row.veto_def_name, row.datatype, row.sim_proc_id) == (experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id):
 				# found it
 				return row.experiment_summ_id
 
 		# if get to here, experiment not found in table
 		return None
 
-	def write_experiment_summ(self, experiment_id, veto_def_id, time_slide_id, zero_lag = False, simulation = False ):
+	def write_experiment_summ(self, experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = None ):
 		"""
 		Writes a single entry to the experiment_summ table. This can be used
 		for either injections or non-injection experiments. However, it is
@@ -708,36 +713,57 @@ class ExperimentSummaryTable(table.Table):
 		ensure that an entry gets written for every time-slide performed.
 		"""
 		# check if entry alredy exists; if so, return value
-		check_id = self.get_expr_summ_id(experiment_id, veto_def_id, time_slide_id, simulation)
+		check_id = self.get_expr_summ_id(experiment_id, time_slide_id, veto_def_name, datatype, sim_proc_id = sim_proc_id)
 		if check_id:
 			return check_id
 
 		row = self.RowType()
 		row.experiment_summ_id = self.get_next_id()
 		row.experiment_id = experiment_id
-		row.veto_def_id = veto_def_id
 		row.time_slide_id = time_slide_id
-		row.zero_lag = zero_lag
-		row.simulation = simulation
+		row.veto_def_name = veto_def_name
+		row.datatype = datatype
+		row.sim_proc_id = sim_proc_id
 		row.nevents = None
 		row.duration = None
 		self.append(row)
 		
 		return row.experiment_summ_id
 
-	def write_experiment_summ_set(self, experiment_id, veto_def_id, time_slide_dict, return_dict = False):
+	def write_non_injection_summary(self, experiment_id, time_slide_dict, veto_def_name, write_all_data = True, write_playground = True, write_exclude_play = True, return_dict = False):
 		"""
 		Method for writing a new set of non-injection experiments to the experiment
 		summary table. This ensures that for every entry in the 
 		experiment table, an entry for every slide is added to
 		the experiment_summ table, rather than just an entry for slides that
-		have events in them. 
+		have events in them. Default is to write a 3 rows for zero-lag: one for
+		all_data, playground, and exclude_play. (If all of these are set to false,
+		will only slide rows.)
 		
-		Note: Simulation is hard-coded to False because time-slides
+		Note: sim_proc_id is hard-coded to None because time-slides
 		are not performed with injections.
+
+		@experiment_id: the experiment_id for this experiment_summary set
+		@time_slide_dict: the time_slide table as a dictionary; used to figure out
+			what is zero-lag and what is slide
+		@veto_def_name: the name of the vetoes applied
+		@write_all_data: if set to True, writes a zero-lag row who's datatype column
+			is set to 'all_data'
+		@write_playground: same, but datatype is 'playground'
+		@write_exclude_play: same, but datatype is 'exclude_play'
+		@return_dict: if set to true, returns an id_dict of the table
 		"""
 		for slide_id in time_slide_dict:
-			self.write_experiment_summ( experiment_id, veto_def_id, slide_id, zero_lag = not any( time_slide_dict[slide_id].values() ), simulation = False )
+			# check if it's zero_lag or not
+			if not any( time_slide_dict[slide_id].values() ):
+				if write_all_data:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'all_data', sim_proc_id = None )
+				if write_playground:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'playground', sim_proc_id = None )
+				if write_exclude_play:
+					self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'exclude_play', sim_proc_id = None )
+			else:
+				self.write_experiment_summ( experiment_id, slide_id, veto_def_name, 'slide', sim_proc_id = None )
 
 		if return_dict:
 			return self.as_id_dict()
@@ -1669,21 +1695,21 @@ class SimInspiralTable(table.Table):
 
 	def veto(self,seglist,site=None):
 		keep = table.new_from_template(self)
-		for row in self:
-			time = row.get_end(site)
-			if time not in seglist:
-				keep.append(row)
+		keep.extend(row for row in self if row.get_end(site) not in seglist)
 		return keep
 
 
 class SimInspiral(object):
 	__slots__ = SimInspiralTable.validcolumns.keys()
 
-	def get_end(self,site = None):
-		if not site:
+	def get_end(self, site = None):
+		if site is None:
 			return LIGOTimeGPS(self.geocent_end_time, self.geocent_end_time_ns)
 		else:
-			return LIGOTimeGPS(getattr(self,site.lower() + '_end_time'), getattr(self,site.lower() + '_end_time_ns'))
+			return LIGOTimeGPS(getattr(self, "%s_end_time" % site.lower()), getattr(self, "%s_end_time_ns" % site.lower()))
+
+	def get_eff_dist(self, instrument):
+		return getattr(self, "eff_dist_%s" % instrument[0].lower())
 
 
 SimInspiralTable.RowType = SimInspiral

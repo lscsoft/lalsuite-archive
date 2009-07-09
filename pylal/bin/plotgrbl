@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 #
 # Copyright (C) 2008  Nickolas Fotopoulos
 #
@@ -57,6 +57,7 @@ from pylal import plotutils
 from pylal import rate
 from pylal import SnglInspiralUtils
 from pylal import viz
+from pylal import git_version
 
 # override pylab defaults, optimizing for web presentation
 pylab.rcParams.update({
@@ -76,6 +77,28 @@ trace_m2_bin = 0
 
 # set all empty trials to have likelihoods of -infinity
 GRBL_EMPTY_TRIAL = -numpy.inf
+
+def get_mean_mchirp_GRB070923(coinc):
+    """
+    Return the arithmetic average of the mchirps of all triggers in coinc.
+    """
+    mean_mchirp = sum(t.mchirp for t in coinc) / coinc.numifos
+    ifos = ''
+    for ifo in ['H1','L1','V1']:
+      if hasattr(coinc, ifo):
+        ifos += ifo
+    if ifos=='H1L1V1':
+      modified_mean_mchirp = mean_mchirp
+    elif ifos=='H1L1':
+      modified_mean_mchirp = mean_mchirp+20.0
+    elif ifos=='H1V1':
+      modified_mean_mchirp = mean_mchirp+40.0
+    elif ifos=='L1V1':
+      modified_mean_mchirp = mean_mchirp+60.0
+    else:
+      modified_mean_mchirp = -1
+
+    return modified_mean_mchirp
 
 def get_fap(snr_by_mc):
     """
@@ -122,7 +145,7 @@ def make_html_table(two_dim_seq, header_row=None):
 
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
@@ -229,6 +252,11 @@ on_ifar = 1 / (get_min_fap(onsource_loudest_by_mc) or 1e-5)
 off_ifar = 1 / offsource_fap_by_trial
 inj_ifar = 1 / inj_fap_by_trial
 
+# get unextrapolated p(c|0) for a plot
+inj_fap_by_trial_mc = \
+    numpy.asarray(map(get_fap, inj_loudest_by_inj_mc))
+
+
 ##############################################################################
 # Compute P(L > L_obs | 0)
 if opts.verbose:
@@ -307,32 +335,60 @@ else:
         ifos.update(coinc.get_ifos()[1])
     ifos = list(ifos)
     ifos.sort()
+    all_ifos = ['H1','L1','V1']
     columns = ["mc_bin", "event_id"] \
-        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in ifos] \
+        + ["<em>&rho;</em><sub>eff,%s</sub>" % ifo for ifo in all_ifos] \
         + ["combined <em>&rho;</em><sub>eff</sub>", "mchirp",
         "<em>P</em>(<em>&rho;</em><sub>eff</sub> &gt; <em>&rho;</em>"\
         "<sub>eff,obs</sub> | 0)"]
     rows = []
-    for low, hi, pc0 in \
-        zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc):
+    ## split up the coincs before
+    mchirp_dict = {}
+    for coinc in onsource_coincs:
+      ifo_text = ''
+      mc = get_mean_mchirp_GRB070923(coinc)
+      for ifo in all_ifos:
+        if hasattr(coinc, ifo):
+          ifo_text+=ifo
+
+      index = mc_bins[mc]
+      mchirp_dict[index]=coinc
+
+
+    for index, (low, hi, pc0) in \
+        enumerate(zip(mc_bins.lower(), mc_bins.upper(), raw_pc0_by_mc)):
         row = ["[%.2f, %.2f)" % (low, hi)]
-        mc_coincs = onsource_coincs.getChirpMass(low, hi)
-        if len(mc_coincs) == 0:
+        #mc_coincs = onsource_coincs.getChirpMass(low, hi)
+	try:
+	  mc_coincs = mchirp_dict[index]
+	except:
+	  mc_coincs = None
+
+        if mc_coincs is None:
             row += ["&mdash;"] * (len(columns) - len(row))
-        elif len(mc_coincs) == 1:
-            c = mc_coincs[0]
+        else:
+            c = mc_coincs
             # XXX: hardcoded effective SNR
-            row += [c.event_id] \
-                + ["%.4g" % trig.get_effective_snr() for trig in c] \
+	    text = []
+	    for ifo in all_ifos:
+	      try:
+	        trig = getattr(c,ifo)
+                text+=["%.4g" % trig.get_effective_snr()]
+	      except:
+	        text+=['&mdash;']
+	
+            row += [c.event_id] +text\
                 + ["%.4g" % c.stat, "%.4g" % grbsummary.get_mean_mchirp(c),
                    "%.4g" % pc0]
         rows.append(row)
+ 
     html_footer += make_html_table(rows, columns)
 
     # print per-m2 info
     temp_log_L_by_mc_m2 = log_pch_by_mc_m2 - log_pc0_by_mc[:, None]
     temp_log_L_by_mc_m2[~actual_candidate_mask, :] = 0
     mc_ind_by_m2 = temp_log_L_by_mc_m2.argmax(axis=0)
+
     mc_ranges = zip(mc_bins.lower(), mc_bins.upper())
     m2_ranges = zip(m2_bins.lower(), m2_bins.upper())
     columns = ["m2_bin", "event_id", "ln <em>L</em>(<em>m</em><sub>2</sub>)",
@@ -342,7 +398,9 @@ else:
     for m2_range, mc_ind, log_L, pL0 in zip(m2_ranges, mc_ind_by_m2,
         log_L_by_m2, pL0_by_m2):
         row = ["[%.2f, %.2f)" % m2_range]
-        m2_coincs = onsource_coincs.getChirpMass(*mc_ranges[mc_ind])
+
+        m2_coincs = [mchirp_dict[mc_ind]]
+
         if len(m2_coincs) == 0:
             row.append("&mdash;")
         elif len(m2_coincs) == 1:
@@ -484,9 +542,11 @@ if not opts.show_plot:
 text = "ln L(c(mc)|h(m2))"
 
 # get likelihoods at extrapolation points
-# XXX: 0.1 is a magic number; we start extrapolating at p(c|0) = 0.1
-extrap_ind = offsource_loudest_by_trial_mc.argsort(axis=0)\
-    [-int(0.1 * num_offsource_trials), ...]
+# XXX: 0.3 is a magic number; we start extrapolating at p(c|0) = 0.3
+num_nonempty_offsource_trials = (offsource_loudest_by_trial_mc > 0).sum(axis=0)
+extrap_ind = \
+    [offsource_loudest_by_trial_mc.argsort(axis=0)[-int(0.3 * N), i] \
+     for i,N in enumerate(num_nonempty_offsource_trials)]
 extrap_snr_by_mc = \
     offsource_loudest_by_trial_mc[extrap_ind, range(len(mc_bins))]
 
@@ -795,15 +855,28 @@ text = "ln P(c|0) vs rho for each mc bin for m2 = " \
     + str(m2_bins.centres()[trace_m2_bin])
 
 plot = plotutils.SimplePlot(r"$\rho_\mathrm{eff}$", "",
-    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat for some }m_2\ "\
-    r"(%s\,M_\odot)$" % str(m2_bins.centres()[trace_m2_bin]))
-trace_inj_ind = m2_bin_by_inj == trace_m2_bin
-for mc_ind, mc_range in enumerate(mc_ranges):
-    plot.add_content(inj_loudest_by_inj_mc[trace_inj_ind, mc_ind],
-    inj_log_pc0_by_trial_mc[trace_inj_ind, mc_ind], marker=".",
-        linestyle="None",
+    r"$\ln P(" + c_in_E + r"\,|\,0)\textrm{ vs stat}$")
+
+# add unextrapolated p(c|0) to the right of the extrapolation points
+extrap_trials_by_inj_mc = \
+  (inj_loudest_by_inj_mc > extrap_snr_by_mc[None, :]) & \
+  (inj_fap_by_trial_mc > 0)
+for (mc_range, inj_loudest_by_inj, inj_fap_by_trial, extrap_trials_by_inj, \
+     inj_log_pc0_by_trial, color) \
+    in zip(mc_ranges, inj_loudest_by_inj_mc.T, inj_fap_by_trial_mc.T,
+           extrap_trials_by_inj_mc.T, inj_log_pc0_by_trial_mc.T,
+           plotutils.default_colors()):
+    # unextrapolated
+    plot.add_content(inj_loudest_by_inj[extrap_trials_by_inj],
+        numpy.log(inj_fap_by_trial[extrap_trials_by_inj]), marker="^",
+        markersize=4, markeredgewidth=1, markerfacecolor=color,
+        linestyle="None", markeredgecolor="k")
+    # extrapolated
+    plot.add_content(inj_loudest_by_inj, inj_log_pc0_by_trial,
+        marker=".", linestyle="None", color=color,
         label="$" + mc_latex + r"\in [%4.2f, %4.2f)$" % mc_range)
-plot.finalize(loc=3)
+
+plot.finalize(loc=1)
 
 # add SNRs at which we begin extrapolating
 ylims = tuple(plot.ax.get_ylim())
@@ -811,15 +884,15 @@ for extrap_snr, color in zip(extrap_snr_by_mc, plotutils.default_colors()):
     plot.ax.plot((extrap_snr, extrap_snr), ylims,
         color + "--", label="_nolegend_")
 plot.ax.set_ylim(ylims)
-
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
     fnameList.append(fname)
     tagList.append(text)
+
 # save a zoomed version, too
-plot.ax.set_xlim((4, 10))
-plot.ax.set_ylim((-3, 0.2))
+plot.ax.set_xlim((4, 16))
+plot.ax.set_ylim((-6, 0.2))
 if opts.enable_output:
     fname = InspiralUtils.set_figure_name(opts, "log_pc0_vs_rho_zoom")
     fname_thumb = InspiralUtils.savefig_pylal(fname, fig=plot.fig)
@@ -873,7 +946,8 @@ if not opts.show_plot:
 text = "p(observation|h(m2, D)) after 90% MC errors"
 
 num_sigmas = stats.norm.ppf(0.9)
-MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) / num_sims_by_m2_D)
+MC_sigma = numpy.sqrt(pLh_by_m2_D * (1 - pLh_by_m2_D) \
+                      / (num_sims_by_m2_D + 1e-10))
 
 plot = plotutils.ImagePlot(r"$m_2\ (M_\odot)$", r"$D\ \mathrm{(Mpc)}$",
     r"$P(" + observation + r"\,|\,h(m_2, D)) "

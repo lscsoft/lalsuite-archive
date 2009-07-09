@@ -1,0 +1,239 @@
+#!/usr/bin/env python
+
+import httplib, mimetypes, urllib
+import os, sys
+
+typeCodeMap = {
+        "LowMass" : "LM",
+        "HighMass" : "HM",
+        "GRB"      : "GRB",
+        "Ringdown" : "RD",
+        "Omega"    : "OM",
+        "Q"        : "Q",
+        "X"        : "X",
+        "CWB"      : "CWB",
+        "MBTAOnline": "MBTA",
+}
+validTypes = typeCodeMap.keys()
+
+def post_multipart(h, selector, fields, files):
+    """
+    Post fields and files to an http host as multipart/form-data.
+    fields is a sequence of (name, value) elements for regular form fields.
+    files is a sequence of (name, filename, value) elements for data to be uploaded as files
+    Return the server's response page.
+    """
+    content_type, body = encode_multipart_formdata(fields, files)
+    #h = httplib.HTTP(host)
+    h.putrequest('POST', selector)
+    h.putheader('content-type', content_type)
+    h.putheader('content-length', str(len(body)))
+    h.endheaders()
+    h.send(body)
+    errcode, errmsg, headers = h.getreply()
+    return h.file.read()
+
+def encode_multipart_formdata(fields, files):
+    """
+    fields is a sequence of (name, value) elements for regular form fields.
+    files is a sequence of (name, filename, value) elements for data to be uploaded as files
+    Return (content_type, body) ready for httplib.HTTP instance
+    """
+    BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_$'
+    CRLF = '\r\n'
+    L = []
+    for (key, value) in fields:
+        L.append('--' + BOUNDARY)
+        L.append('Content-Disposition: form-data; name="%s"' % key)
+        L.append('')
+        L.append(value)
+    for (key, filename, value) in files:
+        L.append('--' + BOUNDARY)
+        L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
+        L.append('Content-Type: %s' % get_content_type(filename))
+        L.append('')
+        L.append(value)
+    L.append('--' + BOUNDARY + '--')
+    L.append('')
+    body = CRLF.join(L)
+    content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
+    return content_type, body
+
+def get_content_type(filename):
+    return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+
+
+def checkProxy(fname):
+    """Check to see if this is a pre-RFC proxy.
+       Not sure if this is valid in all cases, but it works at
+       least sometimes and is better than giving the user a
+       "broken pipe" error message.
+
+       Do one of three things:
+
+         (1) If a check cannot be done because the M2Crypto lib is not
+             available, say so.
+
+         (2) If it is a RFC 3820 compliant proxy, say and do nothing.
+
+         (3) Otherwise issue a warning.
+       """
+    try:
+        import M2Crypto
+        cert = M2Crypto.X509.load_cert(fname)
+        try:
+            cert.get_ext('proxyCertInfo')
+        except LookupError:
+            # Really, there shouldn't be an undefined extension.
+            print "Warning: You seem to be using a pre-RFC proxy."
+            print "Try doing grid-proxy-init -rfc"
+    except ImportError:
+        print "Warning: Cannot load M2Crypto.  Not able to check proxy"
+        print "   If you are getting errors, perhaps you are not using"
+        print '   an RFC compliant proxy.  Did you do "grid-proxy-init -rfc"?'
+        print "To enable proxy checking, install m2crypto (CentOS, RedHat),"
+        print "python-m2crypto (Debian) or py25-m2crypto (MacPorts)"
+
+def findUserCredentials(warnOnOldProxy=1):
+
+    proxyFile = os.environ.get('X509_USER_PROXY')
+    certFile = os.environ.get('X509_USER_CERT')
+    keyFile = os.environ.get('X509_USER_KEY')
+
+    if proxyFile:
+        if warnOnOldProxy:
+            checkProxy(proxyFile)
+        return proxyFile, proxyFile
+
+    if certFile and keyFile:
+        return certFile, keyFile
+
+    # Try default proxy
+    proxyFile = os.path.join('/tmp', "x509up_u%d" % os.getuid())
+    if os.path.exists(proxyFile):
+        if warnOnOldProxy:
+            checkProxy(proxyFile)
+        return proxyFile, proxyFile
+
+    # Try default cert/key
+    homeDir = os.environ.get('HOME')
+    certFile = os.path.join(homeDir, '.globus', 'usercert.pem')
+    keyFile = os.path.join(homeDir, '.globus', 'keycert.pem')
+
+    if os.path.exists(certFile) and os.path.exists(keyFile):
+        return certFile, keyFile
+
+def usage(exit=True):
+    prog = os.path.basename(sys.argv[0])
+    print """%(prog)s GROUP TYPE EVENTFILE
+   where GROUP is one of %(groups)s
+         TYPE is one of %(types)s
+         EVENTFILE is file containing event data
+
+%(prog)s ping
+   Test server connection
+
+%(prog)s upload GRACEID FILE [COMMENT]
+   where GRACEID is the id of an existing candidate event in GraCEDb
+         FILE    is the name of the file to upload
+         COMMENT is an optional annotation to enter into the log
+   Upload FILE to the private data area for a candidate event
+
+%(prog)s log GRACEID COMMENT
+   where GRACEID  is the id of an existing candidate event in GraCEDb
+         COMMENT  is text that will be entered into the event's log
+   Enter a comment into the log for a candidate event
+
+Note that comments can only be 200 characters long.
+Longer strings will be truncated.
+
+""" % { 'groups' : 'CBC, Burst, Stochastic, CW',
+        'types'  : ", ".join(validTypes),
+        'prog'   : prog,
+      }
+    if exit:
+        sys.exit(1)
+
+def process(path, **kw):
+    kw['cli'] = 'true'
+    kw = urllib.urlencode(kw)
+    cred = findUserCredentials(warnOnOldProxy=0)
+    if not cred:
+        print "No credentials found"
+        sys.exit(1)
+    cert, key = cred
+    host = "archie.phys.uwm.edu"
+    conn = httplib.HTTPSConnection(host, key_file=key, cert_file=cert)
+    response = conn.request("POST", path, kw, {})
+    return conn.getresponse()
+
+def processUpload(path, fields, files):
+    cred = findUserCredentials(warnOnOldProxy=0)
+    fields += [('cli', 'true')]
+    if not cred:
+        print "No credentials found"
+        sys.exit(1)
+    cert, key = cred
+    host = "archie.phys.uwm.edu"
+    h = httplib.HTTPS(host, key_file=key, cert_file=cert)
+    response = post_multipart(h, path, fields, files)
+    return response
+
+if __name__ == "__main__":
+
+    if len(sys.argv) <= 1:
+        usage()
+    elif sys.argv[1] == 'ping':
+        msg = " ".join(sys.argv[2:]) or "PING"
+        r = process('/gracedb/cli/ping/', ack=msg)
+        print r.read()
+    elif sys.argv[1] == 'upload':
+        if len(sys.argv) < 4:
+            usage()
+        graceid = sys.argv[2]
+        filename = sys.argv[3]
+        if len(sys.argv) >= 5:
+            comment = " ".join(sys.argv[4:])
+        else:
+            comment = ""
+        fields = [ ('graceid', graceid), ('comment', comment) ]
+        files = [ ('upload', filename, open(filename,'r').read()) ]
+        print processUpload('/gracedb/cli/upload', fields, files)
+    elif sys.argv[1] == 'log':
+        if len(sys.argv) < 4:
+            usage()
+        graceid = sys.argv[2]
+        message = " ".join(sys.argv[3:])
+        r = process('/gracedb/cli/log/', graceid=graceid, message=message)
+        print r.read()
+    elif len(sys.argv) != 4:
+        usage(os.path.basename(sys.argv[0]))
+        sys.exit(1)
+    else:
+        group = sys.argv[1]
+        type = sys.argv[2]
+        filename = sys.argv[3]
+
+        if type in typeCodeMap:
+            type = typeCodeMap[type]
+        else:
+            print "Type must be one of: ", ", ".join(typeCodeMap.keys())
+            sys.exit(1)
+
+        fields = [
+                  ('group', group),
+                  ('type', type),
+                 ]
+        files = [('eventFile', filename, open(filename, 'r').read())]
+        response = processUpload('/gracedb/cli/create', fields, files)
+
+        if response:
+            if response.startswith('ERROR'):
+                print response
+                sys.exit(1)
+            else:
+                print "UID: ", response
+                sys.exit(0)
+        else:
+            print "There was a problem.  Did you do grid-proxy-init -rfc?"
+            sys.exit(1)
