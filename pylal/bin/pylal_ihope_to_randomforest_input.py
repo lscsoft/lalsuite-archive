@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright (C) 2009  Chad Hanna, Kari Hodge
+# Copyright (C) 2009  Chad Hanna, Kari Hodge, Anand Sengupta
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -23,15 +23,50 @@ from time import clock,time
 import re
 from numpy import *
 import math
+import copy
 
+from glue import iterutils
 from glue import lal
+from glue import segments
 from glue.ligolw import ligolw
 from glue.ligolw.utils import ligolw_add
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from pylal import CoincInspiralUtils
 from pylal import SnglInspiralUtils
+from pylal import SearchSummaryUtils
+from pylal.tools import XLALCalculateEThincaParameter
 
+def new_coincs_from_coincs(coincTable, coinc_stat):
+  """
+  We not only want to analyze each triple coincident trigger, but also the 3 double coincident
+  triggers that you can make from the triple. Similarly, for the quadruples, we also want the 4 
+  triples and 6 doubles that you can make from the quadruple. However, in order to be able to store
+  these new (sub)coincidences, we have to assign each of them a unique event ID.
+  """
+  newCoincTable = CoincInspiralUtils.coincInspiralTable()
+  id_generator = lsctables.SnglInspiralID_old()
+  for row in coincTable:
+    break_up_coinc(row, newCoincTable, coinc_stat, id_generator)
+  return newCoincTable
+
+def break_up_coinc(coincRow, coincTable, coinc_stat, id_generator):
+  """
+  This is the function that splits up the triples and quadruples into their respective subcoincidences
+  """
+  ifostr,ifolist=coincRow.get_ifos()
+  new_ifos=[ifos for n in range(2, len(ifolist) + 1) for ifos in iterutils.choices(ifolist, n)]
+  n_subcombs=len(new_ifos)
+  for comb in new_ifos:
+    n_ifos_in_comb=len(comb)
+    t=getattr(coincRow,comb[0])
+    event_id=t.event_id
+    new_event_id=id_generator.new(t)
+    myrow=CoincInspiralUtils.coincInspiralTable.row(new_event_id)
+    for ifo in comb:
+      myrow.add_trig(getattr(coincRow,ifo),coinc_stat)
+      myt=getattr(myrow,comb[0])
+    coincTable.append(myrow)
 
 def ifos_to_list(ifos):
   ifofound = []
@@ -44,7 +79,7 @@ def ifos_to_list(ifos):
 
 def coinc_to_info_param(coinc, param):
   if param.strip()[-1] == ')': return str(eval('coinc.'+param))
-  else: return repr(getattr(coinc,param)) 
+  else: return repr(int(getattr(coinc,param)))
 
 def coinc_to_sngl_param_list(coinc, param):
   c_ifos,ifolist=coinc.get_ifos()
@@ -55,6 +90,19 @@ def coinc_to_sngl_param_list(coinc, param):
     if param.strip()[-1] == ')': out.append(str(eval('t.'+param)))
     else: out.append(repr(getattr(t,param)))
   return out
+
+def coinc_to_metric_param(coinc,param):
+  c_ifos,ifolist=coinc.get_ifos()
+  ifolist.sort() # guarantee the order (you must keep ifo combinations in alphabetical order) 
+  out=[]
+  n=len(ifolist)
+  for i in range(n):
+    for j in range(i+1,n):
+      t1=getattr(coinc,ifolist[i])
+      t2=getattr(coinc,ifolist[j])
+      out.append(repr(XLALCalculateEThincaParameter(t1,t2)))
+  return out
+           
 
 def coinc_to_delta_param(coinc, param):
   par = coinc_to_sngl_param_list(coinc, param)
@@ -99,6 +147,8 @@ def parse_coinc(coincs, table, params):
     ifos,ifolist=coinc.get_ifos()
     for p in params["single"]:
       tr.extend( coinc_to_sngl_param_list(coinc, p) )
+    for p in params["metricInfo"]:
+        tr.extend(coinc_to_metric_param(coinc,p))
     for p in params["coincDelta"]:
       # FIXME delta t corrected for time slides is a special case
       if p == 'time':
@@ -128,6 +178,9 @@ def make_table_header(ifos, params):
   tr = []
   for p in params["single"]:
     for ifo in ifolist:
+      tr.append(ifo + p)
+  for p in params["metricInfo"]:
+    for ifo in deltaifolist:
       tr.append(ifo + p)
   for p in params["coincDelta"]:
     for ifo in deltaifolist: 
@@ -174,14 +227,49 @@ def get_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
   if not len(files):
     print >>sys.stderr, "cache contains no files with " + pattern + " description"
     return None
-  if 'INJ' in pattern: mangle = True
-  else: mangle = False
   # extract the coinc table
-  coinc_table = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=mangle, verbose=verb, non_lsc_tables_ok=False)
+  coinc_table = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=False, verbose=verb, non_lsc_tables_ok=False)
   # extract the list of coinc triggers
   return CoincInspiralUtils.coincInspiralTable(coinc_table,coinc_stat)
 
+def get_slide_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
+  full_coinc_table = []
+  cache = cachefile.sieve(description=pattern, exact_match=match)
+  found, missed = cache.checkfilesexist()
+  files = found.pfnlist()
+  if not len(files):
+    print >>sys.stderr, "cache contains no files with " + pattern + " description"
+    return None
+  # split the time slide files into 105 groups to aid with I/O
+  num_files=len(files)
+  print num_files
+  groups_of_files = split_seq(files,105)
+  print groups_of_files
+  for filegroup in groups_of_files:
+    if filegroup:  
+      # extract the coinc table
+      coinc_table = SnglInspiralUtils.ReadSnglInspiralFromFiles(filegroup, mangle_event_id=False, verbose=verb, non_lsc_tables_ok=False)
+      segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(filegroup)
+      rings = segments.segmentlist(iterutils.flatten(segDict.values()))
+      rings.sort()
+      for k,ring in enumerate(rings):
+        rings[k] = segments.segment(rings[k][0], rings[k][1] + 10**(-9))
+      shift_vector = {"H1": 0, "H2": 0, "L1": 5, "V1": 5}
+      SnglInspiralUtils.slideTriggersOnRingWithVector(coinc_table, shift_vector, rings)
+      full_coinc_table.extend(CoincInspiralUtils.coincInspiralTable(coinc_table,coinc_stat))
+  return full_coinc_table
 
+def split_seq(seq,p):
+  newseq = []
+  n = len(seq) / p # min items per subsequence
+  r = len(seq) % p # remaindered items 
+  b,e = 0l,n + min(1,r) # first split
+  for i in range(p):
+    newseq.append(seq[b:e])
+    r = max(0, r-1)
+    b,e = e,e + n + min(1,r) # min(1,r) is always 1 or 0
+  return newseq
+   
 ## MAIN PROGRAM ###
 ###################
 usage="""%prog [options] 
@@ -191,15 +279,15 @@ SprBaggerDecisionTreeApp creates a random forest of bagged decision trees. Each 
 """
 
 __author__ = "Kari Hodge <khodge@ligo.caltech.edu>"
-__version__ = "$Revision$"
-__date__ = "$Date$"
-__Id__ = "$Id$"
+__version__ = "$Revision: 1.1 $"
+__date__ = "$Date: 2009/03/03 22:02:42 $"
+__Id__ = "$Id: pylal_ihope_to_randomforest_input.py,v 1.1 2009/03/03 22:02:42 KariHodge Exp $"
 __prog__ = "pylal_ihope_to_randomforest_input"
 __title__ = "Create input files for random forest from the ihope cache"
 
 
 # parse the options and their arguments that you provide when you run the program
-parser=OptionParser(usage=usage,version="%prog CVS $Id$")
+parser=OptionParser(usage=usage,version="%prog CVS $Id: pylal_ihope_to_randomforest_input.py,v 1.1 2009/03/03 22:02:42 KariHodge Exp $")
 
 parser.add_option("", "--cache-file", default="*ihope.cache",metavar="CACHEFILE", help="cache pointing to files of interest")
 parser.add_option("","--trig-pattern", default="SIRE_SECOND*_PLAYGROUND_CAT_3_VETO", action="store",type="string", metavar="TRIGPTTRN", help="sieve pattern for trig-files" )
@@ -213,6 +301,8 @@ parser.add_option("--verbose",action="store_true",default=True,help="print extra
 (opts,args)=parser.parse_args()
 
 # get tables ready for putting things in
+#instruments = ("H1", "H2", "L1", "V1")
+#ZeroTable = dict(("".join(key), []) for n in range(2, len(instruments + 1)) for key in iterutils.choices(instruments, n))
 ZeroTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 SlideTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
 InjTable = {'H1H2':[],'H1L1':[],'H1V1':[],'H2L1':[],'H2V1':[],'L1V1':[],'H1H2L1':[],'H1L1V1':[],'H2L1V1':[],'H1H2V1':[],'H1H2L1V1':[]}
@@ -223,11 +313,14 @@ cachefile = lal.Cache.fromfile(open(cache_file)).sieve(ifos=opts.ifo_times, exac
 # initialize CoincInspiralUtils, which is going to pull coincidences out of the xml files that you provide as arguments to the options
 coinc_stat=CoincInspiralUtils.coincStatistic(opts.statistic)
 # Read in the files
-SlideCoincs = get_coincs_from_cache(cachefile, opts.slide_pattern, opts.exact_match, opts.verbose, coinc_stat)
+SlideCoincs = get_slide_coincs_from_cache(cachefile, opts.slide_pattern, opts.exact_match, opts.verbose, coinc_stat)
+SlideCoincs = new_coincs_from_coincs(SlideCoincs, coinc_stat)
 ZeroCoincs = get_coincs_from_cache(cachefile, opts.trig_pattern, opts.exact_match, opts.verbose, coinc_stat)
+ZeroCoincs = new_coincs_from_coincs(ZeroCoincs, coinc_stat)
 InjCoincs = get_coincs_from_cache(cachefile, opts.found_pattern, opts.exact_match, opts.verbose, coinc_stat)
+InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
 
-params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()'],"coincRelativeDelta":['mchirp'], "coincDelta":['time'], "coincInfo":['event_id','class']}
+params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['event_id','class']}
 
 if SlideCoincs: parse_coinc(SlideCoincs,SlideTable,params)
 if ZeroCoincs: parse_coinc(ZeroCoincs,ZeroTable,params)
@@ -237,5 +330,5 @@ if InjCoincs: parse_coinc(InjCoincs,InjTable,params)
 merge_table_dict(KnownTable,InjTable)
 merge_table_dict(KnownTable,SlideTable)
 
-table_dict_to_file(KnownTable,params,'Known.pat',{'training':[0,1],'validation':[2]})
-table_dict_to_file(ZeroTable,params,'Unknown.pat',{'testing':[0]})
+table_dict_to_file(KnownTable,params,'Known.pat',{'setA':[0],'setB':[1],'setC':[2],'setD':[3]})
+table_dict_to_file(ZeroTable,params,'Unknown.pat',{'set':[0]})

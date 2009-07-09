@@ -1769,11 +1769,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoURL.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=str(self.ifoURL[firstKey][secondKey])
       return output
@@ -1790,11 +1792,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoLambda.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=self.ifoLambda[firstKey][secondKey]
       return output
@@ -1981,7 +1985,7 @@ class followupDQV:
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="ldbd://segdb.ligo.caltech.edu"
+    self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
       envServer=None
@@ -2010,7 +2014,7 @@ segment.end_time)"
 
   #End __init__()
   
-  def fetchInformation(self,triggerTime=None,window=600,version=99):
+  def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted

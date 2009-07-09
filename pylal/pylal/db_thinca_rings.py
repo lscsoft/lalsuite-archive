@@ -69,7 +69,7 @@ def get_thinca_rings_by_available_instruments(connection, program_name = "thinca
   # extract raw rings indexed by available instrument set
 
   seglists = segments.segmentlistdict()
-  for row in map(lsctables.table.get_table(dbtables.get_xml(connection), lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
+  for row in map(dbtables.table.get_table(dbtables.get_xml(connection), lsctables.SearchSummaryTable.tableName)._row_from_cols, connection.cursor().execute("""
 SELECT
   search_summary.*
 FROM
@@ -89,7 +89,7 @@ WHERE
   # remove rings that are exact duplicates on the assumption that there are
   # zero-lag and time-slide thinca jobs represented in the same document
 
-  return segments.segmentlistdict((key, segments.segmentlist(set(value))) for key, value in seglists.items())
+  return segments.segmentlistdict((key, segments.segmentlist(sorted(set(value)))) for key, value in seglists.items())
 
 
 def get_thinca_zero_lag_segments(connection, program_name = "thinca"):
@@ -147,7 +147,7 @@ def get_background_offset_vectors(connection):
   at the given connection.  Each offset vector is returned as a dictionary
   mapping instrument name to offset.
   """
-  return [offsetvector for offsetvector in lsctables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict().values() if any(offsetvector.values())]
+  return [offsetvector for offsetvector in dbtables.table.get_table(dbtables.get_xml(connection), lsctables.TimeSlideTable.tableName).as_dict().values() if any(offsetvector.values())]
 
 
 def get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = False):
@@ -159,7 +159,8 @@ def get_thinca_livetimes(ring_sets, veto_segments, offset_vectors, verbose = Fal
         print >>sys.stderr, "%s/%s" % (",".join(on_instruments), ",".join(sorted(available_instruments))),
       on_instruments = frozenset(on_instruments)
       if on_instruments not in livetimes:
-        livetimes[on_instruments] = 0
-      livetimes[on_instruments] += sum(SnglInspiralUtils.compute_thinca_livetime(on_instruments, available_instruments - on_instruments, rings, veto_segments, offset_vectors))
+        livetimes[on_instruments] = [0.0] * len(offset_vectors)
+      for i, livetime in enumerate(SnglInspiralUtils.compute_thinca_livetime(on_instruments, available_instruments - on_instruments, rings, veto_segments, offset_vectors)):
+        livetimes[on_instruments][i] += livetime
   return livetimes
 

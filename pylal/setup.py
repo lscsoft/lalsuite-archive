@@ -21,6 +21,7 @@ class PkgConfig(object):
 		self.libs = map(stripfirsttwo, os.popen("pkg-config --libs-only-l %s" % names).read().split())
 		self.libdirs = map(stripfirsttwo, os.popen("pkg-config --libs-only-L %s" % names).read().split())
 		self.incdirs = map(stripfirsttwo, os.popen("pkg-config --cflags-only-I %s" % names).read().split())
+		self.extra_cflags = os.popen("pkg-config --cflags-only-other %s" % names).read().split()
 
 lal_pkg_config = PkgConfig("lal")
 lalframe_pkg_config = PkgConfig("lalframe")
@@ -161,7 +162,8 @@ setup(
 			include_dirs = lalframe_pkg_config.incdirs + [numpy_get_include()],
 			libraries = lalframe_pkg_config.libs,
 			library_dirs = lalframe_pkg_config.libdirs,
-			runtime_library_dirs = lalframe_pkg_config.libdirs
+			runtime_library_dirs = lalframe_pkg_config.libdirs,
+			extra_compile_args = lalframe_pkg_config.extra_cflags
 		),
 		Extension(
 			"pylal.tools",
