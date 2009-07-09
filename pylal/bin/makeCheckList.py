@@ -83,6 +83,10 @@ parser.add_option("","--trigger-gps",action="store",type="string",\
 coincidence is found. The gps times must be separated by a coma, for example \
 trigger-gps=\"860308882.71533203,860308882.74438477\"")
 
+parser.add_option("","--hoft-channel-ref",action="store",type="string",\
+    metavar=" STRING",default="DMT-STRAIN,h_16384Hz",help="this indicates"\
+    " the hoft channel name used by LIGO and Virgo ifos")
+
 parser.add_option("","--ifolist-in-coinc",action="store",type="string",\
     metavar=" STRING",help="string cointaing the ifo names found in coincidence, for example: \"H1H2L1\"")
 
@@ -117,7 +121,7 @@ parser.add_option("-I","--ifar-page",action="store",type="string",\
 parser.add_option("","--ifar-combined-page",action="store",type="string",\
     metavar=" STRING",help="url to the combined ifar plot")
 
-parser.add_option("-X","--data-quality-url",action="store",type="string",\
+parser.add_option("-X","--segment-url",action="store",type="string",\
                   metavar="URL",default=None, dest="defaultldbd",\
                   help="Using this argument specify a URL the LDBD \
 server that you want to query DQ Veto segment information from for\
@@ -219,6 +223,10 @@ singlemcmc = []
 coherentmcmc = []
 fu_triggers = []
 
+# get channel name for hoft data
+LIGO_channel = opts.hoft_channel_ref.split(",")[0].strip()
+Virgo_channel = opts.hoft_channel_ref.split(",")[1].strip()
+
 # prepare strings containing information on Nelson's DQ investigations
 #for ifo in ifoList:
 #  if ifo in trig.ifolist_in_coinc:
@@ -243,11 +251,11 @@ for ifo_index,ifo in enumerate(ifolist):
   # links to qscans
   hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime)
   if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime)
+    rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime)
   else:
     rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime)
   if opts.remote_seismic_qscan_web and ifo == opts.remote_seismic_qscan_web.split(",")[0]:
-    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/" + gpstime)
+    seis_qscan.append(opts.remote_seismic_qscan_web.split(",")[1] + "/seismic_qscan/" + gpstime)
   else:
     seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
@@ -303,7 +311,7 @@ for j in range(0,len(opts.ifo_times)-1,2):
      # links to qscans
      hoft_qscan.append("../QSCAN/foreground-hoft-qscan/" + ifo + "/" + gpstime0)
      if opts.remote_qscan_web and ifo == opts.remote_qscan_web.split(",")[0]:
-       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/" + gpstime0)
+       rds_qscan.append(opts.remote_qscan_web.split(",")[1] + "/qscan/" + gpstime0)
      else:
        rds_qscan.append("../QSCAN/foreground-qscan/" + ifo + "/" + gpstime0)
      # links to snrchisq plots
@@ -460,9 +468,15 @@ else:
   dqTable=""
   vetoTable=""
   
-if opts.defaultldbd != None:
-  defaultServer="ldbd://metaserver.phy.syr.edu:30015"
-  windowSize=int(600)
+#Always run if the dqTable is empty, this means we did not use
+#--data-quality-database option to populate our DQ trigger table.
+#
+if dqTable=="":
+  if opts.defaultldbd != None:
+    defaultServer=opts.defaultldbd
+  else:
+    defaultServer=None
+  windowSize=int(300)
   versionNumber=int(1)
   x=followupDQV(defaultServer)
   x.fetchInformation(float(gpstime0),windowSize,versionNumber)
@@ -512,19 +526,23 @@ page.td("Do the Qscan figures show what we would expect for a gravitational-wave
 page.td()
 hoftQscanLinks = "h(t) Qscans:<br>"
 for j,ifo in enumerate(ifolist):
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   gpstime = opts.trigger_gps.split(",")[j].strip()
   hoftQscanLinks += " <a href=\"" + hoft_qscan[j] + "\">" + ifo + "</a><br>"
   hoftQscanLinks += " <a href=\"" + analyse_hoft_qscan[j] + "\"> Background information for " + ifo + "</a>"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
-  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
+  hoftQscanLinks += " <img src=\"" + hoft_qscan[j] + "/" + gpstime + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\">"
 i=0
 for k in range(0,len(opts.ifo_times)-1,2):
   ifo = opts.ifo_times[k:k+2]
+  if ifo == "V1": strain = Virgo_channel
+  else: strain = LIGO_channel
   if not ifolist.count(ifo):
     i=i+1
     hoftQscanLinks += " <a href=\"" + hoft_qscan[i + len(ifolist) - 1] + "\">" + ifo + "</a><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_1.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
-    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":LSC-STRAIN_16.00_spectrogram_whitened_thumbnail.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_1.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
+    hoftQscanLinks += " <img src=\"" + hoft_qscan[i + len(ifolist) - 1] + "/" + gpstime0 + "_" + ifo + ":" + strain + "_16.00_spectrogram_whitened.thumb.png\" width=\"50%\"><br>"
 page.td(hoftQscanLinks)
 page.td()
 page.tr.close()
@@ -635,26 +653,32 @@ if opts.defaultRatioTestPickle == None:
 ratioTest=fu_utils.ratioTest()
 if os.path.isfile(preBuiltPickle):
   ratioTest.setPickleLocation(preBuiltPickle)
-for index1,ifo1 in enumerate(ifolist):
-  for index2,ifo2 in enumerate(ifolist):
-    ifoA=ratioTest.mapToObservatory(ifo1)
-    ifoB=ratioTest.mapToObservatory(ifo2)
-    if ifoA != ifoB:
-      gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
-      gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
-      snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
-      snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
-      try:
-        snrRatio=snrA/snrB
-      except:
-        snrRatio=0
-      gpsDiff=gpsA-gpsB
-      result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
-      pairURL=ratioTest.findURL(ifoA,ifoB)
-      myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
-      myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
-          (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
-      resultString="%s %s"%(resultString,myString)
+#Create list of unique IFO pairings
+pairingList=list()
+for A,a in enumerate(ifolist):
+  for B,b in enumerate(ifolist):
+    if (A!=B) and not pairingList.__contains__([B,b,A,a]):
+      pairingList.append([A,a,B,b])
+#Process unique list of IFO pairings
+for index1,ifo1,index2,ifo2 in pairingList:
+  ifoA=ratioTest.mapToObservatory(ifo1)
+  ifoB=ratioTest.mapToObservatory(ifo2)
+  if ifoA != ifoB:
+    gpsA=numpy.float64(opts.trigger_gps.split(",")[index1].strip())
+    gpsB=numpy.float64(opts.trigger_gps.split(",")[index2].strip())
+    snrA=float(str(paramTable.getColumnByText(ifo1,9)).strip().strip("<td>").strip("</td>"))
+    snrB=float(paramTable.getColumnByText(ifo2,9).strip().strip("<td>").strip("</td>"))
+    try:
+      snrRatio=snrA/snrB
+    except:
+      snrRatio=0
+    gpsDiff=gpsA-gpsB
+    result=ratioTest.testRatio(ifoA,ifoB,gpsDiff,snrRatio)
+    pairURL=ratioTest.findURL(ifoA,ifoB)
+    myURL=str('<a href="%s"><img height=150px src="%s"></a>'%(pairURL,pairURL))
+    myString="<tr><td>%s:%s</td><td>%2.4f</td><td>%5.2f</td><td>%1.3f</td><td>%s</td></tr>"%\
+        (ifoA,ifoB,gpsDiff,snrRatio,result,myURL)
+    resultString="%s %s"%(resultString,myString)
 imageURL='<a href="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"><img height=200px src="https://ldas-jobs.ligo.caltech.edu/~ctorres/DQstuff/delayRatio_090504.png"></a>'
 resultString=" %s </table>"%(resultString)
 ##############
@@ -815,6 +839,7 @@ page.tr.close()
 
 page.table.close()
 page.h2()
+page.add("Follow up documentation")
 page.add("Miscellaneous Information")
 page.h2.close()
 timeString=str(time.gmtime()[0:6]).replace(" ","").replace(",","-")

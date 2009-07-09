@@ -110,8 +110,6 @@ def ReadSnglInspiralSlidesFromFiles(fileList, shiftVector, vetoFile=None,
     segDict = SearchSummaryUtils.GetSegListFromSearchSummaries(fileList)
     rings = segments.segmentlist(iterutils.flatten(segDict.values()))
     rings.sort()
-    # FIXME:  remove with thinca's ring boundary bug is fixed
-    rings = segments.segmentlist(segments.segment(ring[0], ring[1] + 1e-9) for ring in rings)
 
     # perform the veto
     if vetoFile is not None:
@@ -300,6 +298,11 @@ def compute_thinca_livetime(on_instruments, off_instruments, rings, vetoseglistd
   # important
   all_instruments = on_instruments | off_instruments
   offsetvectors = tuple(dict((key, value) for key, value in offsetvector.items() if key in all_instruments) for offsetvector in offsetvectors)
+
+  # performance aid:  if there are no offset vectors to consider, the
+  # livetime is trivial
+  if not offsetvectors:
+  	return []
 
   # check that each offset vector provides values for all instruments of
   # interest

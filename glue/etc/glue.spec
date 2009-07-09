@@ -6,7 +6,7 @@
 
 Name: 		glue
 Summary:	The Grid LSC User Environment
-Version:	1.23
+Version:	1.26
 Release:	1.lscsoft
 License:	None
 Group:		Development/Libraries
@@ -43,8 +43,15 @@ rm -rf $RPM_BUILD_ROOT
 %{python_sitearch}/glue/
 %{_prefix}/bin/
 %{_prefix}/etc/
+%{_prefix}/var/
 
 %changelog
+* Wed Jul 01 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Pre S6 release of glue
+
+* Wed Jun 24 2009 Duncan Brown <dabrown@physics.syr.edu>
+- Post E14 release of glue
+
 * Tue Jun 11 2009 Duncan Brown <dabrown@physics.syr.edu>
 - Allow segment tools to see multiple ifos
 

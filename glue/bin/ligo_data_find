@@ -425,8 +425,10 @@ def validateProxy(path):
     # load the proxy from path
     try:
         proxy = M2Crypto.X509.load_cert(path)
-    except Exception:
+    except Exception, e:
         msg = "Unable to load proxy from path %s : %s" % (path, e)
+        print >>sys.stderr, msg
+        sys.exit(1)
 
     # make sure the proxy is RFC 3820 compliant
     try:

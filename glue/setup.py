@@ -25,7 +25,7 @@ from distutils.command import sdist
 from distutils.command import clean
 from distutils import log
 
-ver = "1.23"
+ver = "1.26"
 
 def remove_root(path,root):
   if root:
@@ -195,6 +195,7 @@ setup(
     )
   ],
   scripts = [
+    os.path.join('bin','gracedb'),
     os.path.join('bin','LSCdataFind'),
     os.path.join('bin','LSCdataFindcheck'),
     os.path.join('bin','ligo_data_find'),
@@ -212,7 +213,6 @@ setup(
     os.path.join('bin','ligolw_sqlite'),
     os.path.join('bin','ligolw_segments_from_cats'),
     os.path.join('bin','ligolw_cbc_glitch_page'),
-    os.path.join('bin','ligolw_cbc_hardware_inj_page'),
     os.path.join('bin','ligolw_segment_insert'),
     os.path.join('bin','ligolw_segment_intersect'),
     os.path.join('bin','ligolw_segment_diff'),
@@ -220,24 +220,58 @@ setup(
     os.path.join('bin','ligolw_segment_query'),
     os.path.join('bin','ligolw_veto_sngl_trigger'),
     os.path.join('bin','ligolw_dq_query'),
-    os.path.join('bin','ligolw_dqactive'),
+    os.path.join('bin','ligolw_dq_active'),
+    os.path.join('bin','ligolw_dq_active_cats'),
     os.path.join('bin','lvalert_admin'),
     os.path.join('bin','lvalert_send'),
     os.path.join('bin','lvalert_listen'),
-    os.path.join('sbin','ldbdd'),
-    os.path.join('sbin','ligolw_publish_dqxml'),
-    os.path.join('sbin','segdb_coalesce'), ],
+       os.path.join('bin','ldbdd'),
+    os.path.join('bin','ligolw_publish_dqxml'),
+    os.path.join('bin','segdb_coalesce'), ],
   data_files = [
-    (
-      'etc',
-      [
-        os.path.join('etc','ldg-sites.xml'),
+    ( 'etc',
+      [ os.path.join('etc','ldg-sites.xml'),
         os.path.join('etc','pegasus-properties.bundle'),
         os.path.join('etc','glue-user-env.sh'),
         os.path.join('etc','glue-user-env.csh'),
         os.path.join('etc','ldbdserver.ini'),
         os.path.join('etc','ldbduser.ini'),
-        os.path.join('etc','ligolw_dtd.txt')
+        os.path.join('etc','ligolw.xsl'),
+        os.path.join('etc','ligolw.js'),
+        os.path.join('etc','ligolw_dtd.txt') ]
+    ),
+    ( os.path.join( 'etc', 'httpd', 'conf.d' ),
+      [
+        os.path.join('etc', 'segdb.conf')
+      ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert' ),
+      [
+        os.path.join('src', 'php', 'seginsert','index.php'),
+        os.path.join('src', 'php', 'seginsert','flagcheck.php'),
+        os.path.join('src', 'php', 'seginsert','ligolw.xsl'),
+        os.path.join('src', 'php', 'seginsert','listflags.php'),
+        os.path.join('src', 'php', 'seginsert','submitflag.php')
+      ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert', 'img' ),
+      [
+        os.path.join('src', 'php', 'seginsert','img','LIGOLogo.gif'),
+        os.path.join('src', 'php', 'seginsert','img','brace.gif'),
+        os.path.join('src', 'php', 'seginsert','img','lsc.gif'),
+        os.path.join('src', 'php', 'seginsert','img','plus.gif')
+      ]
+    ),
+    ( os.path.join( 'var', 'php', 'seginsert', 'scripts' ),
+      [
+        os.path.join('src', 'php', 'seginsert','scripts','footer.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_day_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_month_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','form_year_list.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','header.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','style.css'),
+        os.path.join('src', 'php', 'seginsert','scripts','styletitle.php'),
+        os.path.join('src', 'php', 'seginsert','scripts','time_conv_functions.php')
       ]
     )
   ]

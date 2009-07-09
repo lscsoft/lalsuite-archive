@@ -175,6 +175,9 @@ def register_to_xmldoc(xmldoc, program, paramdict, **kwargs):
 
 	def params(paramdict):
 		for name, value in paramdict.items():
+			# Change the name back to the form it had on the command line
+			name = '--' + name.replace('_','-')
+
 			if value is True or value is False:
 				yield (name, None, None)
 			elif value is not None:

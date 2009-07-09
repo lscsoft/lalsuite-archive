@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+#
+# ligolw_print_active_cats: print active defined cat vetos for a given time
+#
+# usage: LIGOLW_VETO_FILE=<url> ligolw_print_active_cats <gpstime>
+#
+# Copyright (C) 2009 Josh Smith and Jameson Rollins
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+import sys
+import os
+
+############################################################
+
+# simple failure function
+def failure(error, errnum=1):
+	sys.stderr.write(error)
+	sys.exit(errnum)
+	
+# define function to read ligolw_print output into arrays
+def readpipe(cmd):
+	pipe = os.popen(cmd)
+	out = [];
+	for line in pipe:
+		line = line.rstrip('\n')
+		out.append(line.split(' '))
+	pipe.close()
+	return out
+
+############################################################
+
+# get the veto file from the environment
+VETO_FILE = os.getenv("LIGOLW_VETO_FILE")
+if VETO_FILE == None:
+	failure("LIGOLW_VETO_FILE variable not defined.\n")
+
+# event time is single input argument
+try:
+	time = sys.argv[1]
+except IndexError:
+	failure("Must specify a GPS time.\n")
+
+# retrieve defined vetos
+vetos = readpipe('ligolw_print -t veto_definer -c ifo -c name -c category -d " " %s' % (VETO_FILE))
+# retrieve active vetos for time
+actives = readpipe('ligolw_dq_query --active -f %s | ligolw_print -t segment_definer -c ifos -c name -d " "' % (time))
+
+# compare lists, and output active defined vetos
+for veto in vetos[:]:
+	for active in actives[:]:
+		if veto[:2] == active[:2]:
+			print veto[0], veto[2], veto[1]

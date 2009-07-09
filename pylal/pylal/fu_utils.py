@@ -467,7 +467,8 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          segmentListTempo = getSciSegs(string.strip(cp.get('followup-dq','server-url')),ifo,int(epochStart),int(epochEnd),True)
+          #segmentListTempo = getSciSegs(ifo,int(epochStart),int(epochEnd),True,string.strip(cp.get('followup-dq','server-url')))
+          segmentListTempo = getSciSegs(ifo,int(epochStart),int(epochEnd),True)
           seg_index = 0
           for segment in segmentListTempo:
             if int(math.floor(segment[1])-math.ceil(segment[0])) >= segmentMin:
@@ -758,14 +759,16 @@ def getstatistic(stat, bla, blb):
 ##############################################################################
 # function to query segment server looking for science segments
 ##############################################################################
-def getSciSegs(serverURL="ldbd://metaserver.phy.syr.edu:30015",
-               ifo=None,
+def getSciSegs(ifo=None,
                gpsStart=None,
                gpsStop=None,
                cut=bool(False),
-               segName="Science"):
+               serverURL=None,
+               segName="DMT-SCIENCE"):
   """
-  This method is designed to query the server specified by SERVERURL.
+  This method is designed to query the server specified by SERVERURL
+  if not specified the method will use the environment variable
+  S6_SEGMENT_SERVER to determine who to query.
   The method will return the segments that are between and overlaping
   with the variable gpsStart and gpsStop.  If the flag cut is
   specified to be True then the returned lists will be cut so that the
@@ -792,6 +795,11 @@ segment_definer.name = '%s' AND \
 segment_definer.ifos = '%s' AND \
 NOT (segment.start_time > %s OR %s > \
 segment.end_time)"""
+  #Determine who to query if not specified.
+  if serverURL == None:
+    serverURL=os.getenv('S6_SEGMENT_SERVER')
+    if serverURL == None:
+      serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
     serverName,serverPort=serverURL[len('ldbd://'):].split(':')
   except:
@@ -808,7 +816,7 @@ segment.end_time)"""
     return None
   try:
     engine=query_engine.LdbdQueryEngine(connection)
-    sqlString=queryString%(ifo,segName,gpsStop,gpsStart)
+    sqlString=queryString%(segName,ifo,gpsStop,gpsStart)
     queryResult=engine.query(sqlString)
   except Exception, errMsg:
     print type(errMsg),errMsg
@@ -1043,7 +1051,9 @@ def getfollowuptrigs(cp,numtrigs,trigtype=None,page=None,coincs=None,missed=None
     magic_number = float(string.strip(cp.get('followup-triggers','eff-snr-denom-fac')))
   else:
     magic_number = None
-  if seglistname: seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+  if seglistname: 
+    seglist = segmentsUtils.fromsegwizard(open(seglistname,'r'))
+    seglist.coalesce()
   else: seglist = []
   if seglist: print "WARNING: restricting triggers to specified segment list"
 
@@ -1759,11 +1769,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoURL.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=str(self.ifoURL[firstKey][secondKey])
       return output
@@ -1780,11 +1792,13 @@ class ratioTest:
     ifo2=ifo2.strip().upper()
     firstKeyElements=self.ifoLambda.keys()
     if firstKeyElements.__contains__(ifo1):
-      firstKey=ifo1
-      secondKey=ifo2
-    else:
-      firstKey=ifo2
-      secondKey=ifo1
+      secondKeyElements=self.ifoLambda[ifo1].keys()
+      if secondKeyElements.__contains__(ifo2):
+        firstKey=ifo1
+        secondKey=ifo2
+      else:
+        firstKey=ifo2
+        secondKey=ifo1
     try:
       output=self.ifoLambda[firstKey][secondKey]
       return output
@@ -1965,21 +1979,27 @@ class followupDQV:
     """
     This class setups of for connecting to a LDBD server specified at
     command line to do segment queries as part of the follow up
-    pipeline.  The LDBD URL should be in the following form
+    pipeline.  If the user does not specify the LDBD server to use the
+    method will use the environment variable S6_SEGMENT_SERVER to
+    determine who to query.  The LDBD URL should be in the following form
     ldbd://myserver.domain.name:808080
     """
     self.triggerTime=int(-1)
-    self.serverURL="ldbd://metaserver.phy.syr.edu:30015"
+    self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
     self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
+      envServer=None
+      envServer=os.getenv('S6_SEGMENT_SERVER')
+      if envServer!=None:
+        self.serverURL=envServer
       sys.stderr.write("Warning no LDBD Server URL specified \
 defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
-      if self.serverURL[len('ldbd://'):].__contains__(':'):
-        self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
-      else:
-        self.serverName=self.serverURL[len('ldbd://'):]
+    if self.serverURL[len('ldbd://'):].__contains__(':'):
+      self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
+    else:
+      self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
     self.segmentsActiveString = "SELECT \
     segment_definer.ifos,segment_definer.name,\
@@ -1987,13 +2007,14 @@ segment_definer.version,segment.start_time,\
 segment.end_time FROM segment,segment_definer \
 WHERE segment_definer.segment_def_id = \
 segment.segment_def_id AND \
-segment_definer.version >= %s AND \
+segment.segment_def_cdb = segment_definer.creator_db \
+AND segment_definer.version >= %s AND \
 NOT (segment.start_time > %s OR %s > \
 segment.end_time)"
 
   #End __init__()
   
-  def fetchInformation(self,triggerTime=None,window=600,version=99):
+  def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
     This method is responsible for queries to the data server.  The
     results of the query become an internal list that can be converted
@@ -2033,6 +2054,13 @@ segment.end_time)"
       return
     engine.close()
   #End method fetchInformation()
+
+  def generateResultList(self):
+    """
+    Simple calling function to create a list object of the results.
+    """
+    return self.resultList
+  #End generateResultList
   
   def generateHTMLTable(self):
     """

@@ -127,8 +127,8 @@ def parse_command_line():
 
 
     # Data location options
-    parser.add_option("-t", "--segment",    metavar = "segment_url", help = "Segment URL")
-    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable LSC_SEGFIND_SERVER")
+    parser.add_option("-t", "--segment-url",    metavar = "segment_url", help = "Segment URL")
+    parser.add_option("-d", "--database",   metavar = "use_database", action = "store_true", help = "use database specified by environment variable S6_SEGMENT_SERVER")
     parser.add_option("-f", "--dmt-files",   metavar = "use_files", action = "store_true", help = "use files in directory specified by environment variable ONLINEDQ")
 
 
@@ -156,19 +156,19 @@ def parse_command_line():
     file_location     = None
 
     # Make sure we know who to contact for data
-    if options.segment:
-        if options.segment.startswith('ldbd:'):
-            database_location = options.segment[len('ldbd://'):]
-        elif options.segment.startswith('file:'):
-            file_location = options.segment[len('file://'):]
+    if options.segment_url:
+        if options.segment_url.startswith('ldbd:'):
+            database_location = options.segment_url[len('ldbd://'):]
+        elif options.segment_url.startswith('file:'):
+            file_location = options.segment_url[len('file://'):]
         else:
             tmp_dir = tempfile.mkdtemp()
         
             # Grab the part of the name after the last slash
-            pos     = options.segment[::-1].find('/')
-            fname   = (pos > -1) and options.segment[ -1 * pos:] or "dmt.xml" 
+            pos     = options.segment_url[::-1].find('/')
+            fname   = (pos > -1) and options.segment_url[ -1 * pos:] or "dmt.xml" 
 
-            inurl   = urllib.urlopen(options.segment)
+            inurl   = urllib.urlopen(options.segment_url)
             outfile = open(tmp_dir + "/" + fname, 'w')
             for l in inurl:
                 print >>outfile, l,
@@ -177,9 +177,9 @@ def parse_command_line():
             outfile.close()
             file_location = tmp_dir
     elif options.database:
-        if 'LSC_SEGFIND_SERVER' not in os.environ:
-            raise ValueError( "--database specified but LSC_SEGFIND_SERVER not set" )
-        database_location = os.environ['LSC_SEGFIND_SERVER'][len('ldbd://'):]
+        if 'S6_SEGMENT_SERVER' not in os.environ:
+            raise ValueError( "--database specified but S6_SEGMENT_SERVER not set" )
+        database_location = os.environ['S6_SEGMENT_SERVER'][len('ldbd://'):]
     elif options.dmt_files:
         if 'ONLINEDQ' not in os.environ:
             raise ValueError( "--dmt-files specified but ONLINEDQ not set" )
@@ -363,7 +363,7 @@ def run_active(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment
@@ -394,7 +394,7 @@ def run_defined(doc, process_id, engine, include_segments, times):
         segment_definer                = lsctables.SegmentDef()
         segment_definer.process_id     = process_id
         segment_definer.segment_def_id = seg_def_id
-        segment_definer.ifos           = ifos
+        segment_definer.ifos           = ifos.strip()
         segment_definer.name           = name
         segment_definer.version        = version
         segment_definer.comment        = comment

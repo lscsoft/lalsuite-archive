@@ -29,6 +29,7 @@
 
 
 import bisect
+from new import instancemethod
 from optparse import OptionParser
 try:
 	import sqlite3
@@ -90,11 +91,11 @@ def parse_command_line():
 
 	if options.categories in ("mchirp-ifos-oninstruments", "mtotal-ifos-oninstruments"):
 		if options.rank_by != "snr":
-			raise ValueError, "must rank by \"snr\" if category algorithm is \"mchirp-ifos-oninstruments\" or \"mtotal-ifos-oninstruments\""
+			raise ValueError, "--rank-by must be \"snr\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "false_alarm_rate"
 	else:
 		if options.rank_by == "snr":
-			raise ValueError, "must rank by \"uncombined-ifar\" or \"likelihood\" if category algorithm is \"oninstruments\""
+			raise ValueError, "--rank-by must be \"uncombined-ifar\" or \"likelihood\" if --categories is \"%s\"" % options.categories
 		options.populate_column = "combined_far"
 
 	#
@@ -138,19 +139,23 @@ class Summaries(object):
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mchirp])
 		elif category_algorithm == "mtotal-ifos-oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: (on_instruments, participating_instruments, self.mass_bins[mtotal])
-		elif cateogry_algorithm == "oninstruments":
+		elif category_algorithm == "oninstruments":
 			self.category_func = lambda self, on_instruments, participating_instruments, mchirp, mtotal: on_instruments
 		else:
 			raise ValueError, category_algorithm
+		self.category_func = instancemethod(self.category_func, self, self.__class__)
 
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
 		elif rank_by == "uncombined-ifar":
-			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: uncombined_ifar
+			# cast to float so this does the right thing when
+			# we get "inf" as a string
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)
 		elif rank_by == "likelihood":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
 			raise ValueError, rank_by
+		self.reputation_func = instancemethod(self.reputation_func, self, self.__class__)
 
 		self.mass_bins = mass_bins
 		self.reputations = {}
@@ -165,19 +170,19 @@ class Summaries(object):
 			veto_segments = segments.segmentlistdict()
 		if verbose:
 			print >>sys.stderr, "\tcomputing livetimes:",
-		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
-				self.cached_livetime[on_instruments] += livetime
+				self.cached_livetime[on_instruments] += sum(livetimes)
 			except KeyError:
-				self.cached_livetime[on_instruments] = livetime
+				self.cached_livetime[on_instruments] = sum(livetimes)
 		if verbose:
 			print >>sys.stderr
 
 	def add_coinc(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
 		self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), []).append(self.reputation_func(snr, uncombined_ifar, likelihood))
 
-	def index(self, stat):
+	def index(self):
 		for reputations in self.reputations.values():
 			reputations.sort()
 
@@ -270,8 +275,7 @@ SELECT
 	coinc_inspiral.mchirp,
 	coinc_inspiral.mass,
 	coinc_inspiral.snr,
-	-- uncombined inverse false alarm rate
-	1.0 / coinc_inspiral.false_alarm_rate,
+	CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
 	coinc_event.likelihood
 FROM
 	coinc_event
@@ -300,7 +304,7 @@ WHERE
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 
-background.index(stat)
+background.index()
 
 
 #
@@ -342,7 +346,7 @@ SET
 				coinc_inspiral.mchirp,
 				coinc_inspiral.mass,
 				coinc_inspiral.snr,
-				1.0 / coinc_inspiral.false_alarm_rate,
+				CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
 				coinc_event.likelihood
 			)
 		FROM

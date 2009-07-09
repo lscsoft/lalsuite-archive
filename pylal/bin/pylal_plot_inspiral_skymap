@@ -22,43 +22,74 @@ def get_2d_RA_DEC_bins(RAbins=1024, DECbins=512, minRA=0, maxRA=2.0 * math.pi, m
   """
   RAbin = rate.LinearBins(minRA, maxRA, RAbins)
   DECbin = rate.LinearBins(minDEC, maxDEC, DECbins)
-  twoDRADECBin = rate.NDBins( (RAbin, DECbin) )
+  twoDRADECBin = rate.NDBins( (DECbin, RAbin) )
   return RAbin, DECbin, twoDRADECBin
 
-def injection(RAbin, DECbin, probs, injRA=1, injDEC=1):
+def injection(RAbin, DECbin, probs, injRA, injDEC):
   RAix = RAbin[injRA]
   DECix = DECbin[injDEC]
-  prob = probs[RAix, DECix]
-  ix_above_prob = (probs>prob).nonzero()
-  # FIXME Check that this is correct, use cos when dec convention changes
-  RAint = RAbin.delta * numpy.ones(len(ix_above_prob[1]))
-  DECint = DECbin.delta * numpy.ones(len(ix_above_prob[0]))
-  sinTerm = numpy.cos(DECbin.centres()[ix_above_prob[0]])
+  prob = probs[DECix, RAix]
+  ix_above_prob = (probs>=prob).nonzero()
+  ix_below_prob = (probs<=prob).nonzero()
   
-  return (RAint * DECint * sinTerm).sum() / (4.0 * math.pi)
+  # FIXME Check that this is correct, use cos when dec convention changes
+  DEC = numpy.outer(DECbin.centres(), numpy.ones(len(RAbin.centres())))
+  Area = numpy.ones(probs.shape) * RAbin.delta * DECbin.delta * numpy.cos(DEC)
+  print Area[ix_above_prob].sum(), Area[ix_below_prob].sum()
+  return Area[ix_above_prob].sum() / Area.sum() # should be 4 pi
 
 def plotSkyMap(map_data_file,ra_res,dec_res,figname,injRA=None,injDEC=None, stat_value=None):
 
   M = pylab.load(map_data_file)
   RA = M[:,0]; DEC = M[:,1]; PROB = M[:,2]
   maxIX = PROB.argmax()
-  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=min(RA), maxRA=max(RA), minDEC = min(DEC), maxDEC = max(DEC))
-  Z = pylab.griddata(RA, DEC, PROB, RAbin.centres(), DECbin.centres())
+
+  # FIXME compute bin boundaries?
+  RAbin, DECbin, twoDRADECBin = get_2d_RA_DEC_bins(RAbins=ra_res, DECbins=dec_res, minRA=0.0, maxRA=2.0*math.pi, minDEC = -math.pi/2.0, maxDEC = math.pi/2.0)
+
+  Xi = RAbin.centres()
+  Yi = DECbin.centres()
+  #FIXME Z has the RA and DEC reversed from what you might expect
+  Z = pylab.griddata(RA, DEC, PROB, Xi, Yi)
   pylab.figure(1)
+
+  pylab.subplot(2,1,1)
   pylab.contourf(RAbin.centres(), DECbin.centres(), Z, 250)
-  #pylab.colorbar()
   pylab.xlabel('RA')
   pylab.ylabel('DEC')
+
   ofile = open(figname.replace(".png",".txt"),'w')
-  if injRA and injDEC:
-    injRank = injection(RAbin, DECbin, Z)
-    pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
+  injRank = None
+  if injRA and injDEC: injRank = injection(RAbin, DECbin, Z, injRA, injDEC)
   print >>ofile, '#Prob', 'RA', 'DEC', 'injRA', 'injDEC', 'areaRank', 'stat'
-  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank
-  ofile.close() 
+  print >>ofile,  max(PROB), RA[maxIX], DEC[maxIX], injRA, injDEC, injRank, stat_value
+  ofile.close()
+  
+  #*****************************
+  if injRank: plttxt ="Ra: %.3f DEC: %.3f \ninjRank: %.3e InjRA %.3f InjDEC: %.3f" % (RA[maxIX], DEC[maxIX], injRank, injRA, injDEC)
+  
+  if injRank: injRApylab.title(plttxt) 
+  #*****************************
+
+  if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
   pylab.xlim((min(RA),max(RA)))
   pylab.ylim((min(DEC),max(DEC)))
   pylab.gca().set_aspect(1)
+  pylab.subplots_adjust(wspace=0.0,hspace=0.0)
+
+  pylab.subplot(2,1,2)
+  pylab.contourf(RAbin.centres(), DECbin.centres(), numpy.exp(Z), 250)
+  pylab.xlabel('RA')
+  pylab.ylabel('DEC')
+  if injRA and injDEC: pylab.plot([injRA],[injDEC],'o',markersize=16,markeredgecolor='red',markerfacecolor='None', markeredgewidth=2,antialiased=True)
+  pylab.xlim((min(RA),max(RA)))
+  pylab.ylim((min(DEC),max(DEC)))
+  pylab.gca().set_aspect(1)
+  pylab.subplots_adjust(wspace=0.0,hspace=0.0)
+
+  
+
+  # Save and close we are done
   InspiralUtils.savefig_pylal(figname)
   pylab.close()
 

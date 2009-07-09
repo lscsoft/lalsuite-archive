@@ -100,5 +100,6 @@ CREATE INDEX process_ind_time ON process(username)
 -- Create an index based on ifos
 CREATE INDEX process_ind_ifos ON process(ifos)
 ;
-
-
+-- Create an index based on the dmt query
+CREATE INDEX process_ind_dmt ON process(creator_db,node,program,unix_procid,start_time)
+;
