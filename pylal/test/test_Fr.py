@@ -2,6 +2,7 @@
 
 import unittest
 import numpy
+import os
 
 from pylal import Fr
 
@@ -15,6 +16,7 @@ class test_Fr(unittest.TestCase):
         b = Fr.frgetvect1d("writetest.gwf", "Adc1")
         self.assert_(numpy.alltrue(a[0] == b[0]))
         self.assert_(numpy.alltrue(a[1:] == b[1:]))
+        os.remove("writetest.gwf")
 
     def test_1d_keywords_roundtrip(self):
         """ roundtrip test call with keyword arguments """
@@ -25,6 +27,7 @@ class test_Fr(unittest.TestCase):
         b = Fr.frgetvect1d("writetest.gwf", "Adc1")
         self.assert_(numpy.alltrue(a[0] == b[0]))
         self.assert_(numpy.alltrue(a[1:] == b[1:]))
+        os.remove("writetest.gwf")
 
     def test_1d_two_channels_roundtrip(self):
         """ roundtrip test call with two channels in a frame """
@@ -40,6 +43,7 @@ class test_Fr(unittest.TestCase):
         c = Fr.frgetvect1d("writetest.gwf", "reverse")
         self.assert_(numpy.alltrue(a[0][::-1] == c[0]))
         self.assert_(numpy.alltrue(a[1:] == c[1:]))
+        os.remove("writetest.gwf")
 
     def test_frgetevent_known(self):
         """ test that we can pull the known contents from a test MBTA file """
