@@ -467,15 +467,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          #segmentListTempo = getSciSegs(ifo,int(epochStart),int(epochEnd),True,string.strip(cp.get('followup-dq','server-url')))
-          segmentListTempo = getSciSegs(ifo,int(epochStart),int(epochEnd),True)
-          seg_index = 0
-          for segment in segmentListTempo:
-            if int(math.floor(segment[1])-math.ceil(segment[0])) >= segmentMin:
-              segmentList.append_from_tuple(tuple([seg_index,segment[0],segment[1],segment[1]-segment[0]]))
-              seg_index += 1
-            else: continue
-
+          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -771,7 +763,8 @@ def getSciSegs(ifo=None,
   S6_SEGMENT_SERVER to determine who to query.
   The method will return the segments that are between and overlaping
   with the variable gpsStart and gpsStop.  If the flag cut is
-  specified to be True then the returned lists will be cut so that the
+  specified to be True then the returned science segment list will be
+  cut so that the 
   times are between gpsStart and gpsStop inclusive.  In addition to
   these required arguments you must also specify in a text string the
   IFO of interest.  Valid entries are L1 H1 V1 , but only one IFO at a
@@ -780,7 +773,9 @@ def getSciSegs(ifo=None,
   to call using no segment cuts and the default URL try:
   x=getSciSegs(gpsStart=987654321,gpsStop=876543210)
   A query failure will give an error but no records found for the
-  options specified will return an empty list.
+  options specified will return an empty glue.pipeline.ScienceData()
+  segment list.
+  Returns a data structure of type glue.pipeine.ScienceData()
   """
   if sum([x==None for x in (ifo,gpsStart,gpsStop)])>0:
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
@@ -827,20 +822,21 @@ segment.end_time)"""
     return
   engine.close()
   queryResult.sort()
-  if cut:
-    newList=list()
-    for seg in queryResult:
-      newStart=seg[0]
-      newStop=seg[1]
-      if int(newStart)<int(gpsStart):
-        newStart=gpsStart
-      if int(newStop)>int(gpsStop):
-        newStop=gpsStop
-      newList.append((newStart,newStop))
-    return newList
-  else:
-    return queryResult
-  return None
+  #Take segment information and turn into
+  #ScienceData() object
+  segList=pipeline.ScienceData()
+  #Append the raw data into the ScienceData class()
+  segIndex=0
+  for rawStart,rawStop in queryResult:
+    if cut:
+      if int(rawStart)<int(gpsStart):
+        rawStart=gpsStart
+      if int(rawStop)>int(gpsStop):
+        rawStop=gpsStop
+    segList.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
+    segIndex=+1
+    segList.coalesce()
+  return segList
 #End getSciSegs()
 #
 
@@ -2013,7 +2009,64 @@ NOT (segment.start_time > %s OR %s > \
 segment.end_time)"
 
   #End __init__()
-  
+  def __merge__(self,inputList=None):
+    """
+    Takes an input list of tuples representing start,stop and merges
+    them placing them in time order when returning the coalesced list of
+    tuples.
+    """
+    outputList=list()
+    if type(inputList) != type(list()):
+      sys.stderr.write("Wrong variable type passed as argument in\
+ followupDQV.__merge__()\n")
+      return None
+    if inputList.__len__() < 1:
+      return  inputList
+    inputList.sort()
+    while inputList:
+        segA=inputList.pop()
+        overlap=True
+        #Assume next segment overlaps segA
+        while overlap:
+            #Pop of next segment if available
+            if inputList.__len__() > 0:
+                segB=inputList.pop()
+            else:
+                #No overlap possible no segs left!
+                segB=(-1,-1)
+                overlap=False
+            #Three cases of intersection
+            #Overlap Left
+            if (
+                (segB[0]<= segA[0] <= segB[1])
+                and
+                (segA[1] >= segB[1])
+                ):
+                segA=(segB[0],segA[1])
+            #Overlap Right
+            elif (
+                  (segB[0]<= segA[1] <= segB[1])
+                  and
+                  (segA[1] <= segB[0])
+                 ):
+                segA=(segA[0],segB[1])
+            #Bridge over
+            elif (
+                (segB[0]<=segA[0])
+                and
+                (segB[1]>=segA[1])
+                ):
+                segA=(segB[0],segB[1])
+            else:
+                #Put segment back there was no overlap!
+                if not((-1,-1)==segB):
+                  inputList.append(segB)
+                overlap=False
+        outputList.append(segA)
+        outputList.sort()
+    return outputList
+  #End __merge__() method
+
   def fetchInformation(self,triggerTime=None,window=300,version=99):
     """
     This method is responsible for queries to the data server.  The
@@ -2053,6 +2106,35 @@ segment.end_time)"
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
       return
     engine.close()
+    #Coalesce the segments for each DQ flag
+    #Reparse the information
+    tmpDQSeg=self.resultList
+    newDQSeg=list()
+    if tmpDQSeg.__len__() > 0:
+      #Obtain list of all flags
+      uniqSegmentName=list()
+      for ifo,name,version,start,end in tmpDQSeg:
+        if not uniqSegmentName.__contains__((ifo,name,version)):
+          uniqSegmentName.append((ifo,name,version))
+      #Save textKey for all uniq segments combos
+      for uifo,uname,uversion in uniqSegmentName:
+        segmentIntervals=list()
+        #Extra segments based on uniq textKey
+        for ifo,name,version,start,end in tmpDQSeg:
+          if (uifo,uname,uversion)==(ifo,name,version):
+            segmentIntervals.append((start,end))
+        segmentIntervals.sort()
+        #Coalesce those segments
+        newStyle=bool(True)
+        if newStyle:
+          newSegmentIntervals=self.__merge__(segmentIntervals)
+        else:
+          newSegmentIntervals=segmentIntervals
+        #Write them to the object which we will return
+        for newStart,newStop in newSegmentIntervals:
+          newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+    #Save the final result
+    self.resultList=newDQSeg
   #End method fetchInformation()
 
   def generateResultList(self):
