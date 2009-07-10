@@ -467,7 +467,7 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True)
+          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,"DMT-SCIENCE",segmentMin)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -756,7 +756,8 @@ def getSciSegs(ifo=None,
                gpsStop=None,
                cut=bool(False),
                serverURL=None,
-               segName="DMT-SCIENCE"):
+               segName="DMT-SCIENCE",
+               seglenmin=None):
   """
   This method is designed to query the server specified by SERVERURL
   if not specified the method will use the environment variable
@@ -833,9 +834,10 @@ segment.end_time)"""
         rawStart=gpsStart
       if int(rawStop)>int(gpsStop):
         rawStop=gpsStop
-    segList.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
-    segIndex=+1
-    segList.coalesce()
+    if not seglenmin or rawStop-rawStart >= seglenmin:
+      segList.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
+      segIndex=+1
+      segList.coalesce()
   return segList
 #End getSciSegs()
 #
