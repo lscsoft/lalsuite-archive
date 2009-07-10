@@ -289,7 +289,7 @@ if opts.verbose:
 
 inspTriggers = SnglInspiralUtils.ReadSnglInspiralFromFiles(trigFiles, \
     verbose=opts.verbose)
-if inspTriggers is None:
+if inspTriggers is None or len(inspTriggers)==0:
   err_msg = "There were no inspiral triggers in the files read in," + \
       " no plots generated"
   print >>sys.stderr, err_msg
