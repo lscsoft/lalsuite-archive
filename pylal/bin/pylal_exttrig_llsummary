@@ -17,6 +17,7 @@ import pickle
 import shutil
 import subprocess
 import optparse
+import time
 
 import numpy as np
 import matplotlib
@@ -324,9 +325,9 @@ page = InspiralUtils.InspiralPage(opts)
 #
 # read the input-data
 #
-statistic, mc_bins, onsource_loudest_by_mc \
+statistic, mc_bins, _, _, onsource_loudest_by_mc \
     = pickle.load(open(opts.onsource_pickle))
-statistic, mc_bins, offsource_loudest_by_trial_mc \
+statistic, mc_bins, _, _, offsource_loudest_by_trial_mc \
     = pickle.load(open(opts.offsource_pickle))
 
 
