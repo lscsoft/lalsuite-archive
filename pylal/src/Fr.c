@@ -694,9 +694,12 @@ static PyObject *frputvect(PyObject *self, PyObject *args, PyObject *keywds) {
 };
 
 const char frgeteventdocstring[] =
-"frgetevent"
+"frgetevent(filename, verbose=False)\n"
 "\n"
-"Returns None";
+"Extract the FrEvents from a given frame file.\n"
+"\n"
+"Returns a list of dicts, with each dict representing an FrEvent's fields "
+"and values.\n";
 
 static PyObject *frgetevent(PyObject *self, PyObject *args, PyObject *keywds) {
     FrFile *iFile=NULL;
