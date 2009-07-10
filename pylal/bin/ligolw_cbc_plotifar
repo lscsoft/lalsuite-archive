@@ -479,6 +479,8 @@ min_bkg_ufar = {}
 if opts.verbose:
     print >> sys.stdout, "Calculating maximum background IFARs..."
 for esid, bkg_dur in background.bkg_durs.items():
+    if bkg_dur == 0.:
+        continue
     min_bkg_ufar[esid] = 1./bkg_dur
 
 
