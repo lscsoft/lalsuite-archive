@@ -464,10 +464,11 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
       if rangeString or segmentListFile:
         segmentList = pipeline.ScienceData()
         segmentMin = cp.getint('followup-background-qscan-times','segment-min-len')
+        segmentPading = cp.getint('followup-background-qscan-times','segment-pading')
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,"DMT-SCIENCE",segmentMin)
+          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,"DMT-SCIENCE",segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -757,7 +758,9 @@ def getSciSegs(ifo=None,
                cut=bool(False),
                serverURL=None,
                segName="DMT-SCIENCE",
-               seglenmin=None):
+               seglenmin=None,
+               segpading=0
+):
   """
   This method is designed to query the server specified by SERVERURL
   if not specified the method will use the environment variable
@@ -825,7 +828,7 @@ segment.end_time)"""
   queryResult.sort()
   #Take segment information and turn into
   #ScienceData() object
-  segList=pipeline.ScienceData()
+  segListTemp = pipeline.ScienceData()
   #Append the raw data into the ScienceData class()
   segIndex=0
   for rawStart,rawStop in queryResult:
@@ -834,11 +837,20 @@ segment.end_time)"""
         rawStart=gpsStart
       if int(rawStop)>int(gpsStop):
         rawStop=gpsStop
-    if not seglenmin or rawStop-rawStart >= seglenmin:
-      segList.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
-      segIndex=+1
-      segList.coalesce()
-  return segList
+    segListTemp.append_from_tuple((segIndex,rawStart,rawStop,rawStop-rawStart))
+    segIndex=+1
+    segListTemp.coalesce()
+  if not seglenmin: return segListTemp
+  else:
+    if segpading and 2*segpading >= seglenmin:
+      sys.stderr.write("segpading must be smaller than seglenmin/2\n")
+      sys.exit(1)
+    segList = pipeline.ScienceData()
+    for indice in range(0,segListTemp.__len__()):
+      segTemp = segListTemp.__getitem__(indice)
+      if segTemp.dur() >= seglenmin:
+        segList.append_from_tuple((segTemp.id(),segTemp.start()+segpading,segTemp.end()-segpading,segTemp.dur()-2*segpading))
+    return segList
 #End getSciSegs()
 #
 
