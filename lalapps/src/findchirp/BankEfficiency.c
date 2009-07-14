@@ -252,7 +252,7 @@ main (INT4 argc, CHAR **argv )
     for( i = 0; i < (INT4)randIn.psd.length; ++i )
     {
       ampCorDataSegVec->data->spec->data->data[i] = 
-        randIn.psd.data[i] *= 9.0e46;
+        randIn.psd.data[i] *= 9.0e20;
       ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
       ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
     }      
@@ -349,7 +349,16 @@ main (INT4 argc, CHAR **argv )
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
-
+if( 1 )
+{
+  FILE *fp = NULL;
+  fp = fopen( "TDdata.dat", "w" );
+  for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
+  {
+    fprintf(fp, "%e\n", ampCorDataSegVec->data->chan->data->data[i] );
+  }
+  fclose( fp );
+}
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
                                     &status );
@@ -360,33 +369,36 @@ main (INT4 argc, CHAR **argv )
       memset( ampCorFreqSegVec->data->segNorm->data, 0,
               ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
 
-      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+
+      if( randIn.type == 0 )
       {
-        REAL4 power;
-        
-        if( i * ampCorFreqSegVec->data->data->deltaF 
-                                    >= ampCorDataParams->fLow )
+        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
-          power  = ampCorFreqSegVec->data->data->data->data[i].re *
-                   ampCorFreqSegVec->data->data->data->data[i].re;
-          power += ampCorFreqSegVec->data->data->data->data[i].im *
-                   ampCorFreqSegVec->data->data->data->data[i].im;
-    
-          norm += 4.0 * power * ampCorFilterParams->deltaT 
-                  / (REAL4)(ampCorDataSegVec->data->chan->data->length)
-                  / ampCorDataParams->wtildeVec->data[i].re;
+          REAL4 power;
+        
+          if( i * ampCorFreqSegVec->data->data->deltaF 
+                                      >= ampCorDataParams->fLow )
+          {
+            power  = ampCorFreqSegVec->data->data->data->data[i].re *
+                     ampCorFreqSegVec->data->data->data->data[i].re;
+            power += ampCorFreqSegVec->data->data->data->data[i].im *
+                     ampCorFreqSegVec->data->data->data->data[i].im;
+        
+            norm += 4.0 * power * ampCorFilterParams->deltaT 
+                    / (REAL4)(ampCorDataSegVec->data->chan->data->length)
+                    / ampCorDataParams->wtildeVec->data[i].re;
+          }
         }
-      }
-      invRootData = pow( norm, -0.5 );  
 
-      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
-      {
-        ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
-        ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
-      }
-    
+        invRootData = pow( norm, -0.5 );  
+
+        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        {
+          ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
+          ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
+        }
+      }    
     }
-
        
     /*  --- populate the insptmplt with the signal parameter --- */
     insptmplt = randIn.param; /* set the sampling and other common parameters */
@@ -561,7 +573,7 @@ main (INT4 argc, CHAR **argv )
             if( userParam.template == AmpCorPPN )
             {
               REAL8 max = 0.0;
-              UINT4 bin;
+              UINT4 bin = 0;
               SnglInspiralTable *event = NULL;
  
               LAL_CALL( LALFindChirpACTDTemplate( 
@@ -583,7 +595,7 @@ main (INT4 argc, CHAR **argv )
                           ampCorFilterParams ), &status );
 
               for( i = 1; 
-                    i < ampCorFilterParams->rhosqVec->data->length; ++i )
+                    i < (INT4)ampCorFilterParams->rhosqVec->data->length; ++i )
               {
                 correlation.data[i] = ampCorFilterParams->rhosqVec->data->data[i];
                 if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
@@ -3883,7 +3895,7 @@ void BankEfficiencyAscii2Xml(void)
   SnglInspiralTable     *inputData = NULL;
 
   INT4 numFileTriggers = 0;
-  INT4 nStartPad;
+  INT4 nStartPad = 0;
 
   char sbuf[2048];
   CHAR fname[256]="";
