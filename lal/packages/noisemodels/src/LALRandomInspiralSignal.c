@@ -1248,15 +1248,16 @@ void LALRandomInspiralSignalTimeDomain
                 {
                   power  = stilde->data[k].re * stilde->data[k].re; 
                   power += stilde->data[k].im * stilde->data[k].im; 
-                  norm  += 4.0 * power / randIn->psd.data[k] * dt / tLength;
+                  norm  += power / randIn->psd.data[k];
                 } 
               }
+              norm *= 4.0 * dt / tLength;
               invRoot = pow( norm, -0.5 ); 
 
               denom = pow( 4.0 * dt, -0.5 );
               for( k=0; k < fLength; ++k )
               {
-                REAL4 numer = pow( tLength * randIn->psd.data[k], 0.5 );
+                REAL4 numer = pow( 2.0 * randIn->psd.data[k], 0.5 );
 
                 /* Colour Noise */
                 ntilde_re->data[k] *= numer;
@@ -1271,9 +1272,10 @@ void LALRandomInspiralSignalTimeDomain
                 /* Add signal */
                 ntilde->data[k].re = ntilde_re->data[k] * randIn->NoiseAmp;
                 ntilde->data[k].im = ntilde_im->data[k] * randIn->NoiseAmp;
-/*                ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
+
+                ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
                 ntilde->data[k].im += stilde->data[k].im * randIn->SignalAmp;
- */             }
+              }
 
               /* set DC and nyquist = 0.0 */
               ntilde->data[0].re = 0.0;
@@ -1281,7 +1283,7 @@ void LALRandomInspiralSignalTimeDomain
               ntilde->data[fLength-1].re = 0.0;
               ntilde->data[fLength-1].im = 0.0;
 
-if( 1 )
+if( 0 )
 {
   COMPLEX8Vector *wtilde = NULL;
   REAL4 nn, ns; 
@@ -1301,6 +1303,7 @@ if( 1 )
                                     randIn->param.fLower, dt, tLength )
          );
 
+
   nn = pow( nn, -0.5 );
   ns = pow( ns, -0.5 );
 
@@ -1311,14 +1314,24 @@ if( 1 )
     stilde->data[k].re *= ns;
     stilde->data[k].im *= ns;
   }
+
   fprintf( stderr, " < noise, noise > = %e\n",
-          nn = XLALFindChirpACTDInnerProduct( ntilde, ntilde, wtilde->data, 
+          XLALFindChirpACTDInnerProduct( ntilde, ntilde, wtilde->data, 
                                     randIn->param.fLower, dt, tLength )
          );
   fprintf( stderr, " < signal, signal > = %e\n",
-          ns = XLALFindChirpACTDInnerProduct( stilde, stilde, wtilde->data, 
+          XLALFindChirpACTDInnerProduct( stilde, stilde, wtilde->data, 
                                     randIn->param.fLower, dt, tLength )
          );
+
+  for( k=0; k<fLength; ++k )
+  {
+    ntilde->data[k].re /= nn;
+    ntilde->data[k].im /= nn;
+    stilde->data[k].re /= ns;
+    stilde->data[k].im /= ns;
+  }
+
   for( k=0; k<fLength; ++k )
   {
     ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
