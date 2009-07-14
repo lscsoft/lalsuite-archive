@@ -56,7 +56,7 @@ from glue.lal import *
 from glue import lal
 from glue import markup
 from lalapps import inspiralutils
-from glue           import LDBDClient
+from glue.segmentdb import segmentdb_utils
 from glue.segmentdb import query_engine
 
 ########## CLASS TO WRITE LAL CACHE FROM HIPE OUTPUT #########################
@@ -803,25 +803,20 @@ def getSciSegs(ifo=None,
     if serverURL == None:
       serverURL="ldbd://segdb.ligo.caltech.edu"
   try:
-    serverName,serverPort=serverURL[len('ldbd://'):].split(':')
-  except:
-    serverPort="30015"
-    serverName=serverURL[len('ldbd://'):]
-  try:
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(serverName)
-    connection=\
-    LDBDClient.LDBDClient(serverName,int(serverPort),identity)
+    connection=None
+    serverURL=serverURL.strip("ldbd://")
+    connection=segmentdb_utils.setup_database(serverURL)
   except Exception, errMsg:
-    sys.stderr.write("Error connection to %s at port %s\n"\
-                     %(serverName,serverPort))
+    sys.stderr.write("Error connection to %s\n"\
+                     %(serverURL))
     sys.stderr.write("Error Message :\t %s \n"%(errMsg))
     return None
   try:
-    engine=query_engine.LdbdQueryEngine(connection)
     sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
+    engine=query_engine.LdbdQueryEngine(connection)
     queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
-    sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
+    sys.stderr.write("SciSeg query failed %s\n"%(serverURL))
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
     sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
@@ -1998,7 +1993,6 @@ class followupDQV:
     """
     self.triggerTime=int(-1)
     self.serverURL="ldbd://segdb.ligo.caltech.edu:30015"
-    self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
     if LDBDServerURL==None:
       envServer=None
       envServer=os.getenv('S6_SEGMENT_SERVER')
@@ -2008,10 +2002,6 @@ class followupDQV:
 defaulting to %s"%(self.serverURL))
     else:
       self.serverURL=LDBDServerURL
-    if self.serverURL[len('ldbd://'):].__contains__(':'):
-      self.serverName,self.serverPort=self.serverURL[len('ldbd://'):].split(':')
-    else:
-      self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
     self.dqvQuery= """SELECT \
     segment_definer.ifos, \
@@ -2100,17 +2090,16 @@ defaulting to %s"%(self.serverURL))
       return
     else:
       self.triggerTime = int(triggerTime)
-    identity="/DC=org/DC=doegrids/OU=Services/CN=ldbd/%s"%(self.serverName)
-    connection=None
-    try:
-      connection =\
-    LDBDClient.LDBDClient(self.serverName,int(self.serverPort),identity)
-    except Exception, errMsg:
-      sys.stderr.write("Error connection to %s at port %s\n"\
-                       %(self.serverName,self.serverPort))
-      sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
-      self.resultList=list()
-      return
+      try:
+        connection=None
+        serverURL=self.serverURL.strip("ldbd://")
+        connection=segmentdb_utils.setup_database(serverURL)
+      except Exception, errMsg:
+        sys.stderr.write("Error connection to %s\n"\
+                         %(serverURL))
+        sys.stderr.write("Error Message :\t %s\n"%(str(errMsg)))
+        self.resultList=list()
+        return
     try:
       engine=query_engine.LdbdQueryEngine(connection)
       gpsEnd=int(triggerTime)+int(window)
@@ -2119,7 +2108,7 @@ defaulting to %s"%(self.serverURL))
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
-      sys.stderr.write("Query failed %s port %s\n"%(self.serverName,self.serverPort))
+      sys.stderr.write("Query failed %s \n"%(self.serverURL))
       sys.stdout.write("Error fetching query results at %s.\n"%(triggerTime))
       sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
       sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
