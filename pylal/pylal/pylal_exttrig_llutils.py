@@ -10,15 +10,18 @@ import optparse
 import pickle
 import glob
 
+import matplotlib
+matplotlib.use('Agg')
+
 from glue import segments
 from glue import segmentsUtils
 from glue.ligolw import lsctables
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import utils
-from pylal import git_version
 from pylal.plotsegments import PlotSegmentsPlot
 from pylal.grbsummary import multi_ifo_compute_offsource_segment as micos
+
 
 # the config parser to be used in some of the functions
 cp = None
@@ -35,6 +38,7 @@ template_trigger_hipe = "./lalapps_trigger_hipe"\
   " --num-trials 340 --padding-time 72 --verbose" \
   " --skip-datafind --skip-dataquality"
 
+ifo_list = ['H1','L1','V1']
 
 # -----------------------------------------------------
 def system_call(command):
@@ -270,6 +274,35 @@ class ExttrigDag(object):
     utils.write_filename(xmldoc, self.trigger_file)
 
   # -----------------------------------------------------
+  def run_datafind(self):
+    """
+    Run the datafind command to find the data
+    """ 
+    # create the datafind directory 
+    cache_dir = "%s/GRB%s/datafind/cache" % (self.analysis_dir, self.name)
+    cmd = 'mkdir -p '+cache_dir
+    system_call(cmd)
+
+    executable = self.lalapps_dir+'/bin/lalapps_online_datafind'
+    print self.offsource_segment
+    print executable
+    starttime = self.offsource_segment[0]
+    endtime = self.offsource_segment[1]
+
+    # and run the datafind command for each IFO, putting
+    # the cache files directly into them
+    for ifo in ifo_list:
+      if ifo=='V1':
+        cache_filename = "V-V1_DMT_HREC-%9d-%9d.cache" % (starttime, endtime)
+      else:
+        cache_filename = "%s-DMT_C00_L2-%9d-%9d.cache" %(ifo[0].upper(), starttime, endtime)
+
+      cmd = "%s --ifo %s --gps-start-time %d --gps-end-time %d --output %s/%s" % \
+            (executable, ifo, starttime, endtime, cache_dir, cache_filename)
+      system_call(cmd)
+
+
+  # -----------------------------------------------------
   def prepare_analysis_directory(self, skip_rundag = False):
     #
     # Now create directories and copy a bunch of files
@@ -310,7 +343,7 @@ class ExttrigDag(object):
     (self.lalapps_dir, self.analysis_dir)
     system_call(cmd)
 
-    cmd = 'cd %s/bin; cp LSCdataFind ligolw_add %s' % \
+    cmd = 'cd %s/bin; cp ligo_data_find ligolw_add %s' % \
       (self.glue_dir, self.analysis_dir)
     system_call(cmd)
 
@@ -331,13 +364,15 @@ class ExttrigDag(object):
            (self.trigger_file, self.name, self.ini_file, self.condor_log_path)
     system_call(cmd)
 
+    # TODO HERE
+    self.run_datafind()
 
     # create the datafind directory and copy the cache files to it
-    cmd = 'mkdir -p %s/GRB%s/datafind/cache' % (self.analysis_dir, self.name)
-    system_call(cmd)
-    cmd = 'cp %s/*.cache %s/GRB%s/datafind/cache' % \
-          (self.input_dir, self.analysis_dir, self.name)
-    system_call(cmd)
+    #cmd = 'mkdir -p %s/GRB%s/datafind/cache' % (self.analysis_dir, self.name)
+    #system_call(cmd)
+    #cmd = 'cp %s/*.cache %s/GRB%s/datafind/cache' % \
+    #      (self.input_dir, self.analysis_dir, self.name)
+    #system_call(cmd)
 
     # Prepare the postprocesing directory at this stage
     path = "%s/GRB%s/postprocessing" % (self.analysis_dir, self.name)
@@ -384,7 +419,7 @@ class ExttrigDag(object):
       # send an email about this problem
       subject = 'Problems starting condor DAG'     
       email_msg = 'The condor DAG %s was not started' % self.dag_file
-      email_msg += 'The DAG is located at : %s\n'% self.analysis_path
+      email_msg += 'The DAG is located at : %s\n'% self.analysis_dir
       send_mail(subject, email_msg)  
       
     else:
@@ -533,6 +568,7 @@ class ExttrigDag(object):
                                           min_trials = num_trials, \
                                           symmetric = symmetric)
 
+
     grb_ifolist.sort()
     ifo_times = "".join(grb_ifolist)
 
@@ -542,22 +578,22 @@ class ExttrigDag(object):
       plot_offset = 100
 
       length_off_source = num_trials*(abs(onSourceSegment))
-      offSourceSegment = segments.segment(onSourceSegment[0] - length_off_source,
+      plot_offSourceSegment = segments.segment(onSourceSegment[0] - length_off_source,
                                           onSourceSegment[1] + length_off_source)
 
-      effective_window = segments.segmentlist([offSourceSegment]).\
+      effective_window = segments.segmentlist([plot_offSourceSegment]).\
                          protract(plot_offset)
       effective_segdict = segdict.map(lambda sl: sl & effective_window)
       plot = PlotSegmentsPlot(trigger)
       plot.add_contents(effective_segdict)
-      plot.set_window(offSourceSegment, plot_offset)
+      plot.set_window(plot_offSourceSegment, plot_offset)
       plot.highlight_segment(onSourceSegment)
       plot.finalize()
       plot.ax.set_title('Segments for GRB '+self.name)
       plot.savefig(plot_segments_file)
       plot.close()
 
-    # return the main values from this function
+    # return the main values from this function    
     return offSourceSegment, grb_ifolist
 
 
