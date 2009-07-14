@@ -260,23 +260,11 @@ for ifo_index,ifo in enumerate(ifolist):
     seis_qscan.append("../QSCAN/foreground-seismic-qscan/" + ifo + "/" + gpstime)
 
   # links to analyse qscans
-  analyseSeismicQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_seismic_qscan")
-  if analyseSeismicQscanFile:
-    analyse_seismic_qscan.append(analyseSeismicQscanFile) 
-  else:
-    analyse_seismic_qscan.append("")
+  analyse_seismic_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_seismic_qscan-unspecified-gpstime.html")
 
-  analyseQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_qscan")
-  if analyseQscanFile:
-    analyse_rds_qscan.append(analyseQscanFile)
-  else:
-    analyse_rds_qscan.append("")
+  analyse_rds_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_qscan-unspecified-gpstime.html")
 
-  analyseHoftQscanFile = getFileMatchingTrigger("analyseQscanJob",ifo+"_"+gpstime.replace(".","_")+"_hoft_qscan")
-  if analyseHoftQscanFile:
-    analyse_hoft_qscan.append(analyseHoftQscanFile)
-  else:
-    analyse_hoft_qscan.append("")
+  analyse_hoft_qscan.append("../analyseQscanJob/" + ifo + "-analyseQscan_" + ifo + "_" + gpstime.replace(".","_") + "_hoft_qscan-unspecified-gpstime.html")
 
   # links to snrchisq plots
   snrchisqFile = getFileMatchingTrigger("plotSNRCHISQJob",ifo+"_"+opts.trigger_id)
