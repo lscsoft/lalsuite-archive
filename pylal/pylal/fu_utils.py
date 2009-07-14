@@ -2143,7 +2143,7 @@ defaulting to %s"%(self.serverURL))
           newDQSeg.append([uifo,uname,uversion,newStart,newStop])
         del segmentIntervals
     #Save the final result
-    self.resultList=newDQSeg
+    self.resultList=newDQSeg.sort()
   #End method fetchInformation()
 
   def generateResultList(self):
