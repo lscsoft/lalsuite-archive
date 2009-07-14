@@ -468,7 +468,10 @@ def getQscanBackgroundTimes(cp, opts, ifo, dq_url_pattern, segFile):
         if segmentListFile:
           segmentList.read(segmentListFile,segmentMin)
         elif rangeString:
-          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,"DMT-SCIENCE",segmentMin,segmentPading)
+          segmentString="DMT-SCIENCE"
+          if ifo.lower() == "v1":
+            segmentString="ITF_SCIENCEMODE"
+          segmentList = getSciSegs(ifo,int(epochStart),int(epochEnd),True,None,segmentString,segmentMin,segmentPading)
         segmentListLength = segmentList.__len__()
         segmentListStart = segmentList.__getitem__(0).start()
         segmentListEnd = segmentList.__getitem__(segmentListLength - 1).end()
@@ -785,15 +788,15 @@ def getSciSegs(ifo=None,
     sys.stderr.write("Invalid arguments given to getSciSegs.\n")
     return None
   ifo=ifo.strip()
-  queryString="""SELECT \
-segment.start_time,\
-segment.end_time FROM segment,segment_definer \
-WHERE segment_definer.segment_def_id = \
-segment.segment_def_id AND \
-segment_definer.name = '%s' AND \
-segment_definer.ifos = '%s' AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"""
+  query01 ="""SELECT segment.start_time, \
+  segment.end_time \
+  FROM segment, segment_definer \
+  WHERE \
+  segment.segment_def_id  = segment_definer.segment_def_id AND \
+  segment.segment_def_cdb = segment_definer.creator_db AND \
+  segment_definer.name = '%s' AND \
+  segment_definer.ifos = '%s' AND \
+  NOT (segment.start_time > %s OR  %s > segment.end_time)"""
   #Determine who to query if not specified.
   if serverURL == None:
     serverURL=os.getenv('S6_SEGMENT_SERVER')
@@ -815,14 +818,13 @@ segment.end_time)"""
     return None
   try:
     engine=query_engine.LdbdQueryEngine(connection)
-    sqlString=queryString%(segName,ifo,gpsStop,gpsStart)
-    queryResult=engine.query(sqlString)
+    sqlQuery=query01%(segName,ifo,gpsStop,gpsStart)
+    queryResult=engine.query(sqlQuery)
   except Exception, errMsg:
-    print type(errMsg),errMsg
     sys.stderr.write("SciSeg query failed %s port %s\n"%(serverName,serverPort))
     sys.stdout.write("Error fetching sci segs %s : %s\n"%(gpsStart,gpsStop))
     sys.stderr.write("Error message seen: %s\n"%(str(errMsg)))
-    sys.stderr.write("Query Tried: \n %s \n"%(sqlString))
+    sys.stderr.write("Query Tried: \n %s \n"%(sqlQuery))
     return
   engine.close()
   queryResult.sort()
@@ -2011,16 +2013,19 @@ defaulting to %s"%(self.serverURL))
     else:
       self.serverName=self.serverURL[len('ldbd://'):]
     self.resultList=list()
-    self.segmentsActiveString = "SELECT \
-    segment_definer.ifos,segment_definer.name,\
-segment_definer.version,segment.start_time,\
-segment.end_time FROM segment,segment_definer \
-WHERE segment_definer.segment_def_id = \
-segment.segment_def_id AND \
-segment.segment_def_cdb = segment_definer.creator_db \
-AND segment_definer.version >= %s AND \
-NOT (segment.start_time > %s OR %s > \
-segment.end_time)"
+    self.dqvQuery= """SELECT \
+    segment_definer.ifos, \
+    segment_definer.name, \
+    segment_definer.version, \
+    segment.start_time, \
+    segment.end_time \
+    FROM segment,segment_definer \
+    WHERE \
+    segment_definer.segment_def_id = segment.segment_def_id \
+    AND segment.segment_def_cdb = segment_definer.creator_db \
+    AND segment_definer.version >= %s AND \
+    NOT (segment.start_time > %s OR %s > \
+    segment.end_time)"""
 
   #End __init__()
   def __merge__(self,inputList=None):
@@ -2110,7 +2115,7 @@ segment.end_time)"
       engine=query_engine.LdbdQueryEngine(connection)
       gpsEnd=int(triggerTime)+int(window)
       gpsStart=int(triggerTime)-int(window)
-      sqlString=self.segmentsActiveString%(version,gpsEnd,gpsStart)
+      sqlString=self.dqvQuery%(version,gpsEnd,gpsStart)
       queryResult=engine.query(sqlString)
       self.resultList=queryResult
     except Exception, errMsg:
@@ -2147,6 +2152,7 @@ segment.end_time)"
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
           newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+        del segmentIntervals
     #Save the final result
     self.resultList=newDQSeg
   #End method fetchInformation()
