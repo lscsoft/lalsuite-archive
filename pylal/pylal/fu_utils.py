@@ -2116,19 +2116,18 @@ defaulting to %s"%(self.serverURL))
     engine.close()
     #Coalesce the segments for each DQ flag
     #Reparse the information
-    tmpDQSeg=self.resultList
     newDQSeg=list()
-    if tmpDQSeg.__len__() > 0:
+    if self.resultList.__len__() > 0:
       #Obtain list of all flags
       uniqSegmentName=list()
-      for ifo,name,version,start,end in tmpDQSeg:
+      for ifo,name,version,start,end in self.resultList:
         if not uniqSegmentName.__contains__((ifo,name,version)):
           uniqSegmentName.append((ifo,name,version))
       #Save textKey for all uniq segments combos
       for uifo,uname,uversion in uniqSegmentName:
         segmentIntervals=list()
         #Extra segments based on uniq textKey
-        for ifo,name,version,start,end in tmpDQSeg:
+        for ifo,name,version,start,end in self.resultList:
           if (uifo,uname,uversion)==(ifo,name,version):
             segmentIntervals.append((start,end))
         segmentIntervals.sort()
@@ -2141,9 +2140,9 @@ defaulting to %s"%(self.serverURL))
         #Write them to the object which we will return
         for newStart,newStop in newSegmentIntervals:
           newDQSeg.append([uifo,uname,uversion,newStart,newStop])
+        newDQSeg.sort()
         del segmentIntervals
-    #Save the final result
-    self.resultList=newDQSeg.sort()
+    self.resultList=newDQSeg
   #End method fetchInformation()
 
   def generateResultList(self):
