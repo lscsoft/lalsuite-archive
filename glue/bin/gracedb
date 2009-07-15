@@ -297,10 +297,10 @@ Longer strings will be truncated.""" % {
     proxyport = None
     if proxy and proxy.find(':') > 0:
         try:
-            proxy, proxyport = options.proxy.split(':')
+            proxy, proxyport = proxy.split(':')
             proxyport = int(proxyport)
         except:
-            op.error("Malformed proxy: '%s'" % options.proxy)
+            op.error("Malformed proxy: '%s'" % proxy)
     if proxyport:
         client = Client(service,
                         proxy_host=proxy,
