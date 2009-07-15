@@ -278,6 +278,11 @@ def parse_command_line():
   # test the input options
   if not options.ifo_times:
     raise ValueError, "--ifo-times must be provided"
+ 
+  if 'ALLINJ' in options.user_tag:
+    print >>sys.stderr, "The followup options currently do not work with the"
+    print >>sys.stderr, "ALLINJ plots. They have been disabled."
+    options.do_followup = False
 
   return options, sys.argv[1:]
 
