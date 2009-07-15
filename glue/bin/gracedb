@@ -4,6 +4,8 @@ import httplib, mimetypes, urllib
 import socket
 import os, sys
 
+DEFAULT_SERVICE_URL = "https://archie.phys.uwm.edu/gracedb/cli"
+
 #-----------------------------------------------------------------
 # HTTP/S Proxy classses
 # Taken from: http://code.activestate.com/recipes/456195/
@@ -250,14 +252,14 @@ if __name__ == "__main__":
     usage ="""%%prog [options] GROUP TYPE EVENTFILE
    where GROUP is one of %(groups)s
          TYPE is one of %(types)s
-         EVENTFILE is file containing event data
+         EVENTFILE is file containing event data. '-' indicates stdin.
 
 %%prog [options] ping
    Test server connection
 
 %%prog [options] upload GRACEID FILE [COMMENT]
    where GRACEID is the id of an existing candidate event in GraCEDb
-         FILE    is the name of the file to upload
+         FILE    is the name of the file to upload. '-' indicates stdin.
          COMMENT is an optional annotation to enter into the log
    Upload FILE to the private data area for a candidate event
 
@@ -265,6 +267,10 @@ if __name__ == "__main__":
    where GRACEID  is the id of an existing candidate event in GraCEDb
          COMMENT  is text that will be entered into the event's log
    Enter a comment into the log for a candidate event
+
+Environment Variables (can all be overridden by options):
+    GRACEDB_SERVICE_URL
+    HTTP_PROXY              
 
 Note that comments can only be 200 characters long.
 Longer strings will be truncated.""" % {
@@ -277,12 +283,18 @@ Longer strings will be truncated.""" % {
     op.add_option("-p", "--proxy", dest="proxy",
                   help="HTTP Proxy", metavar="PROXY[:PORT]")
     op.add_option("-s", "--service-url", dest="service",
-                  default="https://archie.phys.uwm.edu/gracedb/cli",
                   help="GraCEDb Service URL", metavar="URL")
+    op.add_option("-f", "--filename", dest="filename",
+                  default="initial.data",
+                  help="If data is read from stdin, use this as the filename.", metavar="NAME")
 
     options, args = op.parse_args()
 
-    proxy = options.proxy
+    proxy = options.proxy or os.environ.get('HTTP_PROXY', None)
+    service = options.service or \
+              os.environ.get('GRACEDB_SERVICE_URL', None) or \
+              DEFAULT_SERVICE_URL
+
     proxyport = None
     if proxy and proxy.find(':') > 0:
         try:
@@ -291,11 +303,11 @@ Longer strings will be truncated.""" % {
         except:
             op.error("Malformed proxy: '%s'" % options.proxy)
     if proxyport:
-        client = Client(options.service,
+        client = Client(service,
                         proxy_host=proxy,
                         proxy_port=proxyport)
     else:
-        client = Client(options.service, proxy_host=proxy)
+        client = Client(service, proxy_host=proxy)
 
     if len(args) < 1:
         op.error("not enough arguments")
@@ -312,7 +324,11 @@ Longer strings will be truncated.""" % {
         else:
             comment = ""
         fields = [ ('graceid', graceid), ('comment', comment) ]
-        files = [ ('upload', filename, open(filename,'r').read()) ]
+        if filename == '-':
+            filename = options.filename
+            files = [ ('upload', filename, sys.stdin.read()) ]
+        else:
+            files = [ ('upload', filename, open(filename,'r').read()) ]
         print client.upload('upload', fields, files)
     elif args[0] == 'log':
         if len(args) < 3:
@@ -335,7 +351,11 @@ Longer strings will be truncated.""" % {
                   ('group', group),
                   ('type', type),
                  ]
-        files = [('eventFile', filename, open(filename, 'r').read())]
+        if filename == '-':
+            filename = options.filename
+            files = [('eventFile', filename, sys.stdin.read())]
+        else:
+            files = [('eventFile', filename, open(filename, 'r').read())]
 
         response = client.upload("create", fields, files)
 
