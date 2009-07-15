@@ -197,11 +197,8 @@ if __name__ == '__main__':
     # Find trigger files
     trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
     
-    # and dq files
-    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, gps_start_time, gps_end_time)
-
     # If there are no files in the time range then there's nothing to do
-    if not (trigger_files and dq_files):
+    if not trigger_files:
         # We don't update the timestamp here.  If we did we would never
         # give data coming in with some latency the chance to catch up.
         sys.exit(0)
@@ -209,10 +206,23 @@ if __name__ == '__main__':
     # Due to latency issues the last available time may not be the last 
     # time we asked for.  Find the real end time from the file names
     trigger_files.sort()
-    dq_files.sort()
+
+    m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[0])
+    first_trigger_time = int(m.group(1)) + int(m.group(2))
 
     m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[-1])
     last_trigger_time = int(m.group(1)) + int(m.group(2))
+
+    # and dq files - we don't need files outside the range of time for
+    # which we have triggers
+    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, first_trigger_time, last_trigger_time)
+
+    # Again, if there are no files there's nothing to do
+    if not dq_files:
+        sys.exit(0)
+
+    # Sort them and look at the last available time
+    dq_files.sort()
 
     m  = re.match('.*-([0-9]+)-([0-9]+).xml',dq_files[-1])
     last_dq_time = int(m.group(1)) + int(m.group(2))
