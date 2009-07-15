@@ -285,7 +285,6 @@ Longer strings will be truncated.""" % {
     op.add_option("-s", "--service-url", dest="service",
                   help="GraCEDb Service URL", metavar="URL")
     op.add_option("-f", "--filename", dest="filename",
-                  default="initial.data",
                   help="If data is read from stdin, use this as the filename.", metavar="NAME")
 
     options, args = op.parse_args()
@@ -325,7 +324,7 @@ Longer strings will be truncated.""" % {
             comment = ""
         fields = [ ('graceid', graceid), ('comment', comment) ]
         if filename == '-':
-            filename = options.filename
+            filename = options.filename or 'uploaded.data'
             files = [ ('upload', filename, sys.stdin.read()) ]
         else:
             files = [ ('upload', filename, open(filename,'r').read()) ]
@@ -352,7 +351,7 @@ Longer strings will be truncated.""" % {
                   ('type', type),
                  ]
         if filename == '-':
-            filename = options.filename
+            filename = options.filename or 'initial.data'
             files = [('eventFile', filename, sys.stdin.read())]
         else:
             files = [('eventFile', filename, open(filename, 'r').read())]
