@@ -296,7 +296,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
         for ifo, name, version, start_time, end_time in rows:
             full_name = get_full_name(ifo, name, version)
             in_times[full_name] = [start_time, end_time]
-            print '%-45s[%d %d %d)' % (full_name, start_time, tm, end_time)
+            print '%-45s [%d %d %d)' % (full_name, start_time, tm, end_time)
 
         if not in_segments_only:
             # Segments we are between. Latest end time before of interest.
@@ -328,7 +328,7 @@ def run_report(doc, process_id, engine, include_segments, times, in_segments_onl
             for key in out_times:
                 if key not in in_times:
                     value = out_times[key]
-                    print '%-45s%s %d %s' % (key, value[0], tm, value[1])
+                    print '%-45s %s %d %s' % (key, value[0], tm, value[1])
 
 
 def run_active(doc, process_id, engine, include_segments, times):
