@@ -438,6 +438,8 @@ def setup_files(dir_name, options, times):
 
     ligolw_sqlite.insert(connection, xml_files)
 
+    segmentdb_utils.ensure_segment_table(connection)
+
     return temp_db, connection
     
 
