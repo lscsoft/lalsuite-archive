@@ -98,7 +98,7 @@ def generate_html(outf, triggers, colors):
     # echo "<p><tt><a href=\"${xmlfile}\">${xmlfile}</a></tt>" >> ${htmlfile}
     print >>outf, '<p>'
     print >>outf, '<table border=1>'
-    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>eff_distance</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
+    print >>outf, '  <tr bgcolor="#9999ff"><th>ifo</th><th>end time UTC</th><th>end_time</th><th>end_time_ns</th><th>snr</th><th>&chi;<sup>2</sup></th><th>eff_distance</th><th>&Omega; scan</th><th>DQ flags</th></tr>'
 
     for count, trig in enumerate(triggers):
         print >>outf, '  <tr valign="top" bgcolor="%s">' % colors[count % 2]
@@ -234,6 +234,7 @@ if __name__ == '__main__':
              sngl_inspiral.end_time,
              sngl_inspiral.end_time_ns,
              sngl_inspiral.snr, 
+             sngl_inspiral.chisq,
              sngl_inspiral.eff_distance
       FROM sngl_inspiral 
       WHERE (cast(sngl_inspiral.end_time as char) || " -- " || cast(sngl_inspiral.snr as char)) IN
@@ -258,7 +259,7 @@ if __name__ == '__main__':
     known_trigs   = []
     unknown_trigs = []
     
-    for ifo, end_time, end_time_ns, snr, e_dist, in rows:
+    for ifo, end_time, end_time_ns, snr, chisq, e_dist in rows:
         trig_time = end_time
         if end_time_ns >= 500000000:
             trig_time += 1
@@ -291,10 +292,10 @@ if __name__ == '__main__':
         if len(flags) == 0:
             if len(unknown_trigs) < ucount:
                 flags[ifo_status] = True
-                unknown_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
+                unknown_trigs.append((ifo, end_time, end_time_ns, snr, chisq, e_dist, flags))
         elif len(known_trigs) < kcount:
             flags[ifo_status] = True
-            known_trigs.append((ifo, end_time, end_time_ns, snr, e_dist, flags))
+            known_trigs.append((ifo, end_time, end_time_ns, snr, chisq, e_dist, flags))
 
         if omega_ok:
             # The frames may live in a directory with subdirectories by time.  If the given directory
