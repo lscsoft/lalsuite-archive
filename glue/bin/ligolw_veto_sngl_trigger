@@ -195,7 +195,7 @@ if __name__ == '__main__':
         gps_start_time = gps_end_time - (60 * 60 * 24)
 
     # Find trigger files
-    trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
+    trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time, pad=0)
     
     # If there are no files in the time range then there's nothing to do
     if not trigger_files:
@@ -338,7 +338,7 @@ if __name__ == '__main__':
     # If we started from a timestamp file, update it
     if options.timestamp_file:
         f = open(options.timestamp_file, 'w')
-        print >>f,  gps_end_time
+        print >>f,  (gps_end_time + 1)
         f.close()
 
     # Clean up

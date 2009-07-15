@@ -39,7 +39,7 @@ from glue.ligolw import types as ligolwtypes
 #
 
 
-def get_all_files_in_range(dirname, starttime, endtime):
+def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     """Returns all files in dirname and all its subdirectories whose
     names indicate that they contain segments in the range starttime
     to endtime"""
@@ -60,15 +60,15 @@ def get_all_files_in_range(dirname, starttime, endtime):
         if re.match('.*-[0-9]{4}$', filename):
             dirtime = int(filename[-4:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
-                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
         elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
             file_time = int(filename.split('-')[-2])
-            if file_time >= (starttime-64) and file_time <= (endtime+64):
+            if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times
-            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
 
     return ret
 
