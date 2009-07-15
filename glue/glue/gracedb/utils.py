@@ -23,7 +23,13 @@ InspiralCoincId = 'coinc_inspiral:coinc_event_id:0'
 #MBTA only sends triples to gracedb at the time being so this list is
 #simply for convenience.  burst and future inspiral searches should
 #construct this list on the fly
-all_detectors = ['H1', 'L1', 'V1']
+H1L1V1_detlist = ['H1', 'L1', 'V1']
+H1L1_detlist = ['H1', 'L1']
+H1V1_detlist = ['H1', 'V1']
+L1V1_detlist = ['L1', 'V1']
+H1_detlist = ['H1']
+L1_detlist = ['L1']
+V1_detlist = ['V1']
 
 #this is the subset of SnglInspiralTable.validcolumn.keys() that
 #are assigned from MBTA coinc triggers
@@ -78,8 +84,7 @@ def write_output_files(root_dir, xmldoc, log_content, \
 def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
                              process_id = 'process:process_id:0', \
                              event_id_dict = insp_event_id_dict, \
-                             coinc_event_id='coinc_inspiral:coinc_event_id:0', \
-                             detectors=all_detectors):
+                             coinc_event_id='coinc_inspiral:coinc_event_id:0'):
   """
   create xml file and populate the SnglInspiral and CoincInspiral tables from a
   coinc .gwf file from MBTA
@@ -96,7 +101,6 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   #initialize xml document
   xmldoc = ligolw.Document()
   xmldoc.appendChild(ligolw.LIGO_LW())
-  detectors.sort()
   #dictionaries to store about individual triggers
   end_time_s = {}
   end_time_ns = {}
@@ -109,18 +113,35 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
 
   #extract the information from the frame file
   events = Fr.frgetevent(MBTA_frame)
+  #get the ifos from the event name
   for event in events:
     if 'MbtaHLV' in event['name']:
-      log_data = event['comment']
-      far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
-             'False Alarm Rate' in line][0]
-      for ifo in detectors:
-        end_time_s[ifo], end_time_ns[ifo] = str(event[ifo+':end_time']).split('.')
-        snr[ifo] = float(event[ifo+':SNR'])
-        mass1[ifo] = float(event[ifo+':mass1'])
-        mass2[ifo] = float(event[ifo+':mass2'])
-        mchirp[ifo], eta[ifo] = compute_mchirp_eta(mass1[ifo],mass2[ifo])
-        Deff[ifo] = float(event[ifo+':eff_distance'])
+      detectors = H1L1V1_detlist
+    elif 'MbtaHL' in event['name']:
+      detectors = H1L1_detlist
+    elif 'MbtaHV' in event['name']:
+      detectors = H1V1_detlist
+    elif 'MbtaH' in event['name']:
+      detectors = H1_detlist
+    elif 'MbtaLV' in event['name']:
+      detectors = L1V1_detlist
+    elif 'MbtaL' in event['name']:
+      detectors = L1_detlist
+    elif 'MbtaV' in event['name']:
+      detectors = V1_detlist
+    else:
+      raise ValueError, "Invalid FrEvent name"
+
+    log_data = event['comment'] + '\n'
+    far = [line.split(':')[1].split()[0] for line in log_data.splitlines() if \
+           'False Alarm Rate' in line][0]
+    for ifo in detectors:
+      end_time_s[ifo], end_time_ns[ifo] = str(event[ifo+':end_time']).split('.')
+      snr[ifo] = float(event[ifo+':SNR'])
+      mass1[ifo] = float(event[ifo+':mass1'])
+      mass2[ifo] = float(event[ifo+':mass2'])
+      mchirp[ifo], eta[ifo] = compute_mchirp_eta(mass1[ifo],mass2[ifo])
+      Deff[ifo] = float(event[ifo+':eff_distance'])
 
   #fill the SnglInspiralTable
   sin_table = lsctables.New(lsctables.SnglInspiralTable)
@@ -154,6 +175,9 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   #090505160219S6PlanningNotebookCoinc_and_Experiment_Tables_ihope_implementation?
   #highlight=%28coinc%29|%28table%29
 
+  if len(detectors) < 2:
+    return xmldoc, log_data, detectors
+  
   cin_table = lsctables.New(lsctables.CoincInspiralTable)
   xmldoc.childNodes[0].appendChild(cin_table)
   row = cin_table.RowType()
@@ -170,51 +194,55 @@ def populate_inspiral_tables(MBTA_frame, set_keys = MBTA_set_keys, \
   row.combined_far = 0
   cin_table.append(row)
 
-  return xmldoc, log_data
+  return xmldoc, log_data, detectors
     
 def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict, CoincDef, \
-                          process_id = 'process:process_id:0', \
+                          detectors, process_id = 'process:process_id:0', \
                           coinc_def_id ='coinc_definer:coinc_def_id:0', \
-                          time_slide_id = None, likelihood = None, nevents = 3, \
-                          detectors = all_detectors):
+                          time_slide_id = None, likelihood = None, \
+                          nevents = 3):
   """
   populate a set of coinc tables
   xmldoc:  xml file to append the tables to
   CoincDef: pre-initialized CoincDef table row
   detectors: detectors participating in the coinc
   """
-  #CoincTable
-  coinc_table = lsctables.New(lsctables.CoincTable)
-  xmldoc.childNodes[0].appendChild(coinc_table)
-  row = coinc_table.RowType()
-  row.process_id = process_id
-  row.coinc_event_id =  coinc_event_id #'coinc_inspiral:coinc_event_id:0'
-  row.coinc_def_id = coinc_def_id
-  row.time_slide_id = time_slide_id
-  row.set_instruments(detectors)
-  row.nevents = nevents
-  row.likelihood = likelihood
-  coinc_table.append(row)
+  #make sure there's actually a coinc there to write
+  if len(detectors) < 2:
+    pass
+  else:
+    #CoincTable
+    coinc_table = lsctables.New(lsctables.CoincTable)
+    xmldoc.childNodes[0].appendChild(coinc_table)
+    row = coinc_table.RowType()
+    row.process_id = process_id
+    row.coinc_event_id =  coinc_event_id #'coinc_inspiral:coinc_event_id:0'
+    row.coinc_def_id = coinc_def_id
+    row.time_slide_id = time_slide_id
+    row.set_instruments(detectors)
+    row.nevents = nevents
+    row.likelihood = likelihood
+    coinc_table.append(row)
 
-  #CoincMapTable
-  coinc_map_table = lsctables.New(lsctables.CoincMapTable)
-  xmldoc.childNodes[0].appendChild(coinc_map_table)
-  for ifo in detectors:
-    row = coinc_map_table.RowType()
-    row.coinc_event_id = coinc_event_id
-    row.table_name = lsctables.SnglInspiralTable.tableName.split(':')[0]
-    row.event_id = event_id_dict[ifo]
-    coinc_map_table.append(row)
+    #CoincMapTable
+    coinc_map_table = lsctables.New(lsctables.CoincMapTable)
+    xmldoc.childNodes[0].appendChild(coinc_map_table)
+    for ifo in detectors:
+      row = coinc_map_table.RowType()
+      row.coinc_event_id = coinc_event_id
+      row.table_name = lsctables.SnglInspiralTable.tableName.split(':')[0]
+      row.event_id = event_id_dict[ifo]
+      coinc_map_table.append(row)
 
-  #CoincDefTable
-  coinc_def_table = lsctables.New(lsctables.CoincDefTable)
-  xmldoc.childNodes[0].appendChild(coinc_def_table)
-  row = coinc_def_table.RowType()
-  row.coinc_def_id = coinc_def_id
-  row.search = CoincDef.search
-  row.search_coinc_type = CoincDef.search_coinc_type
-  row.description = InspiralCoincDef.description
-  coinc_def_table.append(row)
+    #CoincDefTable
+    coinc_def_table = lsctables.New(lsctables.CoincDefTable)
+    xmldoc.childNodes[0].appendChild(coinc_def_table)
+    row = coinc_def_table.RowType()
+    row.coinc_def_id = coinc_def_id
+    row.search = CoincDef.search
+    row.search_coinc_type = CoincDef.search_coinc_type
+    row.description = InspiralCoincDef.description
+    coinc_def_table.append(row)
   
 
 ##############################################################################
@@ -224,8 +252,9 @@ def populate_coinc_tables(xmldoc, coinc_event_id, event_id_dict, CoincDef, \
 ##############################################################################
 
 #populate the tables
-#xmldoc, log_data = populate_inspiral_tables("MbtaFake-930909680-16.gwf")
-#populate_coinc_tables(xmldoc,InspiralCoincId,insp_event_id_dict,InspiralCoincDef)
+#xmldoc, log_data, detectors = populate_inspiral_tables("MbtaFake-930909680-16.gwf")
+#populate_coinc_tables(xmldoc,InspiralCoincId,insp_event_id_dict,\
+#                      InspiralCoincDef,detectors)
 #write the output
 #write_output_files('.', xmldoc, log_data)
 
