@@ -51,7 +51,7 @@ from pylal.date import LIGOTimeGPS
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -148,7 +148,9 @@ class Summaries(object):
 		if rank_by == "snr":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: snr
 		elif rank_by == "uncombined-ifar":
-			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: uncombined_ifar
+			# cast to float so this does the right thing when
+			# we get "inf" as a string
+			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: float(uncombined_ifar)
 		elif rank_by == "likelihood":
 			self.reputation_func = lambda self, snr, uncombined_ifar, likelihood: likelihood
 		else:
@@ -168,12 +170,12 @@ class Summaries(object):
 			veto_segments = segments.segmentlistdict()
 		if verbose:
 			print >>sys.stderr, "\tcomputing livetimes:",
-		for on_instruments, livetime in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
+		for on_instruments, livetimes in db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose).items():
 			on_instruments = lsctables.ifos_from_instrument_set(on_instruments)
 			try:
-				self.cached_livetime[on_instruments] += livetime
+				self.cached_livetime[on_instruments] += sum(livetimes)
 			except KeyError:
-				self.cached_livetime[on_instruments] = livetime
+				self.cached_livetime[on_instruments] = sum(livetimes)
 		if verbose:
 			print >>sys.stderr
 
@@ -273,8 +275,7 @@ SELECT
 	coinc_inspiral.mchirp,
 	coinc_inspiral.mass,
 	coinc_inspiral.snr,
-	-- uncombined inverse false alarm rate
-	1.0 / coinc_inspiral.false_alarm_rate,
+	CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
 	coinc_event.likelihood
 FROM
 	coinc_event
@@ -345,7 +346,7 @@ SET
 				coinc_inspiral.mchirp,
 				coinc_inspiral.mass,
 				coinc_inspiral.snr,
-				1.0 / coinc_inspiral.false_alarm_rate,
+				CASE coinc_inspiral.false_alarm_rate WHEN 0 THEN "inf" ELSE 1.0 / coinc_inspiral.false_alarm_rate END,
 				coinc_event.likelihood
 			)
 		FROM

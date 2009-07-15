@@ -1,7 +1,76 @@
 #!/usr/bin/env python
 
-import httplib, mimetypes
+import httplib, mimetypes, urllib
+import socket
 import os, sys
+
+DEFAULT_SERVICE_URL = "https://archie.phys.uwm.edu/gracedb/cli"
+
+#-----------------------------------------------------------------
+# HTTP/S Proxy classses
+# Taken from: http://code.activestate.com/recipes/456195/
+
+class ProxyHTTPConnection(httplib.HTTPConnection):
+
+    _ports = {'http' : 80, 'https' : 443}
+
+    def request(self, method, url, body=None, headers={}):
+        #request is called before connect, so can interpret url and get
+        #real host/port to be used to make CONNECT request to proxy
+        proto, rest = urllib.splittype(url)
+        if proto is None:
+            raise ValueError, "unknown URL type: %s" % url
+        #get host
+        host, rest = urllib.splithost(rest)
+        #try to get port
+        host, port = urllib.splitport(host)
+        #if port is not defined try to get from proto
+        if port is None:
+            try:
+                port = self._ports[proto]
+            except KeyError:
+                raise ValueError, "unknown protocol for: %s" % url
+        self._real_host = host
+        self._real_port = port
+        httplib.HTTPConnection.request(self, method, url, body, headers)
+        
+
+    def connect(self):
+        httplib.HTTPConnection.connect(self)
+        #send proxy CONNECT request
+        self.send("CONNECT %s:%d HTTP/1.0\r\n\r\n" % (self._real_host, self._real_port))
+        #expect a HTTP/1.0 200 Connection established
+        response = self.response_class(self.sock, strict=self.strict, method=self._method)
+        (version, code, message) = response._read_status()
+        #probably here we can handle auth requests...
+        if code != 200:
+            #proxy returned and error, abort connection, and raise exception
+            self.close()
+            raise socket.error, "Proxy connection failed: %d %s" % (code, message.strip())
+        #eat up header block from proxy....
+        while True:
+            #should not use directly fp probablu
+            line = response.fp.readline()
+            if line == '\r\n': break
+
+
+class ProxyHTTPSConnection(ProxyHTTPConnection):
+    
+    default_port = 443
+
+    def __init__(self, host, port = None, key_file = None, cert_file = None, strict = None):
+        ProxyHTTPConnection.__init__(self, host, port)
+        self.key_file = key_file
+        self.cert_file = cert_file
+    
+    def connect(self):
+        ProxyHTTPConnection.connect(self)
+        #make the sock ssl-aware
+        ssl = socket.ssl(self.sock, self.key_file, self.cert_file)
+        self.sock = httplib.FakeSocket(self.sock, ssl)
+
+#-----------------------------------------------------------------
+# HTTP upload encoding
 
 typeCodeMap = {
         "LowMass" : "LM",
@@ -62,6 +131,8 @@ def encode_multipart_formdata(fields, files):
 def get_content_type(filename):
     return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
 
+#-----------------------------------------------------------------
+# X509 Credentials
 
 def checkProxy(fname):
     """Check to see if this is a pre-RFC proxy.
@@ -123,51 +194,179 @@ def findUserCredentials(warnOnOldProxy=1):
     if os.path.exists(certFile) and os.path.exists(keyFile):
         return certFile, keyFile
 
-def usage(prog):
-    print """%s GROUP TYPE EVENTFILE
-   where GROUP is one of CBC, Burst, Stochastic, CW
-   and   TYPE is one of %s
-   and   EVENTFILE is file containing event data
-""" % (prog, ", ".join(validTypes))
+#-----------------------------------------------------------------
+# Web Service Client
+
+class Client:
+    def __init__(self, url, proxy_host=None, proxy_port=3128):
+        cred = findUserCredentials(warnOnOldProxy=0)
+        if not cred:
+            raise Exception("No credentials found")
+        cert, key = cred
+        if proxy_host:
+            self.conn = ProxyHTTPSConnection(proxy_host, proxy_port,
+                                             key_file=key, cert_file=cert)
+        else:
+            proto, rest = urllib.splittype(url)
+            if proto is None:
+                raise ValueError, "unknown URL type: %s" % url
+            #get host
+            host, rest = urllib.splithost(rest)
+            #try to get port
+            host, port = urllib.splitport(host)
+            port = port or 443
+            self.conn = httplib.HTTPSConnection(host, port,
+                                                key_file=key, cert_file=cert)
+        self.url = url
+
+    def send(self, method, **kw):
+        try:
+            kw['cli'] = 'true'
+            kw = urllib.urlencode(kw)
+            url = "%s/%s" % (self.url, method)
+            self.conn.request("POST", url, kw, {})
+            return self.conn.getresponse().read()
+        except Exception, e:
+            return "ERROR: " + str(e)
+
+    def upload(self, method, fields, files):
+        try:
+            fields += [('cli', 'true')]
+            content_type, body = encode_multipart_formdata(fields, files)
+            headers = {
+                'content-type': content_type,
+                'content-length': str(len(body)),
+            }
+            url = "%s/%s" % (self.url, method)
+            self.conn.request("POST", url, body, headers)
+            response = self.conn.getresponse()
+            return response.read()
+        except Exception, e:
+            return "ERROR: " + str(e)
+
+#-----------------------------------------------------------------
+# Main 
 
 
 if __name__ == "__main__":
+    usage ="""%%prog [options] GROUP TYPE EVENTFILE
+   where GROUP is one of %(groups)s
+         TYPE is one of %(types)s
+         EVENTFILE is file containing event data. '-' indicates stdin.
 
-    if len(sys.argv) != 4:
-        usage(os.path.basename(sys.argv[0]))
-        sys.exit(1)
+%%prog [options] ping
+   Test server connection
 
-    group = sys.argv[1]
-    type = sys.argv[2]
-    filename = sys.argv[3]
+%%prog [options] upload GRACEID FILE [COMMENT]
+   where GRACEID is the id of an existing candidate event in GraCEDb
+         FILE    is the name of the file to upload. '-' indicates stdin.
+         COMMENT is an optional annotation to enter into the log
+   Upload FILE to the private data area for a candidate event
 
-    if type in typeCodeMap:
-        type = typeCodeMap[type]
+%%prog [options] log GRACEID COMMENT
+   where GRACEID  is the id of an existing candidate event in GraCEDb
+         COMMENT  is text that will be entered into the event's log
+   Enter a comment into the log for a candidate event
+
+Environment Variables (can all be overridden by options):
+    GRACEDB_SERVICE_URL
+    HTTP_PROXY              
+
+Note that comments can only be 200 characters long.
+Longer strings will be truncated.""" % {
+        'groups' : 'CBC, Burst, Stochastic, CW',
+        'types'  : ", ".join(validTypes),
+    }
+
+    from optparse import OptionParser
+    op = OptionParser(usage=usage)
+    op.add_option("-p", "--proxy", dest="proxy",
+                  help="HTTP Proxy", metavar="PROXY[:PORT]")
+    op.add_option("-s", "--service-url", dest="service",
+                  help="GraCEDb Service URL", metavar="URL")
+    op.add_option("-f", "--filename", dest="filename",
+                  help="If data is read from stdin, use this as the filename.", metavar="NAME")
+
+    options, args = op.parse_args()
+
+    proxy = options.proxy or os.environ.get('HTTP_PROXY', None)
+    service = options.service or \
+              os.environ.get('GRACEDB_SERVICE_URL', None) or \
+              DEFAULT_SERVICE_URL
+
+    proxyport = None
+    if proxy and proxy.find(':') > 0:
+        try:
+            proxy, proxyport = proxy.split(':')
+            proxyport = int(proxyport)
+        except:
+            op.error("Malformed proxy: '%s'" % proxy)
+    if proxyport:
+        client = Client(service,
+                        proxy_host=proxy,
+                        proxy_port=proxyport)
     else:
-        print "Type must be one of: ", ", ".join(typeCodeMap.keys())
-        sys.exit(1)
+        client = Client(service, proxy_host=proxy)
 
-    cred = findUserCredentials(warnOnOldProxy=0)
-    if not cred:
-        print "No credentials found"
-        sys.exit(1)
-    cert, key = cred
-    host = "archie.phys.uwm.edu"
-    h = httplib.HTTPS(host, key_file=key, cert_file=cert)
-    fields = [('cli', 'true'),
-              ('group', group),
-              ('type', type),
-             ]
-    files = [('eventFile', filename, open(filename, 'r').read())]
-    response = post_multipart(h, '/gracedb/cli/create', fields, files)
-
-    if response:
-        if response.startswith('ERROR'):
-            print response
-            sys.exit(1)
+    if len(args) < 1:
+        op.error("not enough arguments")
+    elif args[0] == 'ping':
+        msg = " ".join(args[1:]) or "PING"
+        print client.send('ping', ack=msg)
+    elif args[0] == 'upload':
+        if len(args) < 3:
+            op.error("not enough arguments for upload")
+        graceid = args[1]
+        filename = args[2]
+        if len(args) >= 4:
+            comment = " ".join(args[3:])
         else:
-            print "UID: ", response
-            sys.exit(0)
+            comment = ""
+        fields = [ ('graceid', graceid), ('comment', comment) ]
+        if filename == '-':
+            filename = options.filename or 'uploaded.data'
+            files = [ ('upload', filename, sys.stdin.read()) ]
+        else:
+            files = [ ('upload', filename, open(filename,'r').read()) ]
+        print client.upload('upload', fields, files)
+    elif args[0] == 'log':
+        if len(args) < 3:
+            op.error("not enough arguments for log")
+        graceid = args[1]
+        message = " ".join(args[2:])
+        print client.send('log', graceid=graceid, message=message)
+    elif len(args) == 3:
+        group = args[0]
+        type = args[1]
+        filename = args[2]
+
+        if type in typeCodeMap:
+            type = typeCodeMap[type]
+        else:
+            print "Type must be one of: ", ", ".join(typeCodeMap.keys())
+            sys.exit(1)
+
+        fields = [
+                  ('group', group),
+                  ('type', type),
+                 ]
+        if filename == '-':
+            filename = options.filename or 'initial.data'
+            files = [('eventFile', filename, sys.stdin.read())]
+        else:
+            files = [('eventFile', filename, open(filename, 'r').read())]
+
+        response = client.upload("create", fields, files)
+
+        if response:
+            if response.startswith('ERROR'):
+                print response
+                sys.exit(1)
+            else:
+                print "UID: ", response
+                sys.exit(0)
+        else:
+            print "There was a problem.  Did you do grid-proxy-init -rfc?"
+            sys.exit(1)
     else:
-        print "There was a problem.  Did you do grid-proxy-init -rfc?"
-        sys.exit(1)
+        op.error("")

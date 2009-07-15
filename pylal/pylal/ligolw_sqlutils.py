@@ -564,7 +564,13 @@ class Summaries:
         by counting background triggers that have a stat value less than or 
         equal to the given stat. (Done by using bisect.bisect_right as opposed to 
         len(list) - bisect.bisect_left).
+        Note: if stat is 0, will just return 0. This is because a 0 when caclulating
+        FARs by minimum value is equivalent to inf. when caclulating FARs by maximum
+        value.
         """
+        if stat == 0.:
+            return stat
+
         return ( \
             bisect.bisect_right(self.bkg_stats[(eid, ifos, param_group)], stat) \
             - \

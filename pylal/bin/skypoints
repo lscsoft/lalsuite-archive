@@ -1134,9 +1134,5 @@ output_file = open(output_fname, 'w')
 xmldoc.write(output_file)
 output_file.close()
 
-#if opts.online_input:
-#  for file in output_files:
-#    shutil.copy(file,general_dir)
- 
 if opts.show_plot:
   show()

@@ -37,7 +37,8 @@ matplotlib.rcParams.update({
 	"legend.fontsize": 8.0,
 	"figure.dpi": 600,
 	"savefig.dpi": 600,
-	"text.usetex": True	# render all text with TeX
+	"text.usetex": True,
+	"path.simplify": True
 })
 from matplotlib import figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
@@ -63,7 +64,7 @@ from pylal.date import LIGOTimeGPS
 dbtables.lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>, Chad Hanna <channa@ligo.caltech.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>, Chad Hanna <channa@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -174,7 +175,8 @@ class CoincDatabase(object):
 		# get the live time
 		if verbose:
 			print >>sys.stderr, "calculating background livetimes: ",
-		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, db_thinca_rings.get_background_offset_vectors(connection), verbose = verbose)
+		self.offset_vectors = db_thinca_rings.get_background_offset_vectors(connection)
+		self.background_livetime = db_thinca_rings.get_thinca_livetimes(db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = live_time_program), self.veto_segments, self.offset_vectors, verbose = verbose)
 		if verbose:
 			print >>sys.stderr
 		self.playground_livetime = {}
@@ -190,7 +192,7 @@ class CoincDatabase(object):
 			for on_instruments in self.on_instruments_combos:
 				print >>sys.stderr, "\tzero-lag playground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.playground_livetime[on_instruments])
 				print >>sys.stderr, "\tzero-lag nonplayground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.nonplayground_livetime[on_instruments])
-				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), self.background_livetime[on_instruments])
+				print >>sys.stderr, "\tbackground livetime for %s: %f s" % ("+".join(sorted(on_instruments)), sum(self.background_livetime[on_instruments]))
 			if self.sngl_inspiral_table is not None:
 				print >>sys.stderr, "\tinspiral events: %d" % len(self.sngl_inspiral_table)
 			if self.sim_inspiral_table is not None:
@@ -412,32 +414,32 @@ FROM
 			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)")
 			axes.set_title(r"Absolute $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.mchirp for sim, sngl in pairs], [sngl.mchirp - sim.mchirp for sim, sngl in pairs], "kx")
-			yield fig, "mchirp_acc_abs_%s" % instrument, False
+			yield fig, "mchirp_acc_abs_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injected $M_{\mathrm{chirp}}$ ($\mathrm{M}_{\odot}$)", r"(Recovered $M_{\mathrm{chirp}}$ - Injected $M_{\mathrm{chirp}}$) / Injected $M_{\mathrm{chirp}}$")
 			axes.set_title(r"Fractional $M_{\mathrm{chirp}}$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.mchirp for sim, sngl in pairs], [(sngl.mchirp - sim.mchirp) / sim.mchirp for sim, sngl in pairs], "kx")
-			yield fig, "mchirp_acc_frac_%s" % instrument, False
+			yield fig, "mchirp_acc_frac_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injected $\eta$", r"Recovered $\eta$ - Injected $\eta$")
 			axes.set_title(r"Absolute $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.eta for sim, sngl in pairs], [sngl.eta - sim.eta for sim, sngl in pairs], "kx")
-			yield fig, "eta_acc_abs_%s" % instrument, False
+			yield fig, "eta_acc_abs_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injected $\eta$", r"(Recovered $\eta$ - Injected $\eta$) / Injected $\eta$")
 			axes.set_title(r"Fractional $\eta$ Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim.eta for sim, sngl in pairs], [(sngl.eta - sim.eta) / sim.eta for sim, sngl in pairs], "kx")
-			yield fig, "eta_acc_frac_%s" % instrument, False
+			yield fig, "eta_acc_frac_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injection End Time (GPS s)", r"Recovered End Time - Injection End Time (s)")
 			axes.set_title(r"End Time Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.plot([sim_end_time(sim, instrument) for sim, sngl in pairs], [sngl.get_end() - sim_end_time(sim, instrument) for sim, sngl in pairs], "kx")
-			yield fig, "t_acc_%s" % instrument, False
+			yield fig, "t_acc_%s_%s" % (waveform, instrument), False
 
 			fig, axes = create_plot(r"Injection $D_{\mathrm{eff}}$ ($\mathrm{Mpc}$)", r"(Recovered $D_{\mathrm{eff}}$ - Injection $D_{\mathrm{eff}}$) / Injection $D_{\mathrm{eff}}$")
 			axes.set_title(r"Fractional Effective Distance Accuracy in %s (%s Injections)" % (instrument, waveform))
 			axes.semilogx([sim.get_eff_dist(instrument) for sim, sngl in pairs], [(sngl.eff_distance - sim.get_eff_dist(instrument)) / sim.get_eff_dist(instrument) for sim, sngl in pairs], "kx")
-			yield fig, "deff_acc_frac_%s" % instrument, False
+			yield fig, "deff_acc_frac_%s_%s" % (waveform, instrument), False
 
 
 #
@@ -748,9 +750,15 @@ def create_farplot(zerolag_stats, background_stats, zerolag_to_background_liveti
 	x = numpy.array(zerolag_stats, dtype = "double")
 	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k', linewidth=2)
 
-	N = numpy.arange(len(background_stats), dtype = "double") + 1.0
-	N *= zerolag_to_background_livetime_ratio
+	# mask to retain the first 10,000 elements, then every 10th until
+	# the 100,000th element, then every 100th after that
+	mask = numpy.arange(len(background_stats))
+	mask = (mask < 10000) | ((mask < 100000) & (mask % 10 == 0)) | (mask % 100 == 0)
+
+	N = (numpy.arange(len(background_stats), dtype = "double") + 1.0) * zerolag_to_background_livetime_ratio
 	x = numpy.array(background_stats, dtype = "double")
+	N = N.compress(mask)
+	x = x.compress(mask)
 	axes.loglog(x.repeat(2)[1:], N.repeat(2)[:-1], 'k--', linewidth=1)
 
 	minX, maxX = min(zerolag_stats + background_stats), max(zerolag_stats + background_stats)
@@ -799,8 +807,8 @@ class RateVsThreshold(object):
 			self.playground_snr.setdefault(on_instruments, [])
 			self.nonplayground_snr.setdefault(on_instruments, [])
 
-		for on_instruments, livetime in contents.background_livetime.items():
-			self.background_livetime[on_instruments] += livetime
+		for on_instruments, livetimes in contents.background_livetime.items():
+			self.background_livetime[on_instruments] += sum(livetimes)
 		for on_instruments, livetime in contents.playground_livetime.items():
 			self.playground_livetime[on_instruments] += livetime
 		for on_instruments, livetime in contents.nonplayground_livetime.items():
@@ -917,8 +925,7 @@ for n, filename in enumerate(filenames):
 		if options.verbose:
 			print >>sys.stderr, "adding to plot group %d ..." % n
 		plot.add_contents(contents)
-	# FIXME:  why does this crash?
-	#connection.close()
+	connection.close()
 	dbtables.discard_connection_filename(filename, working_filename, verbose = options.verbose)
 
 

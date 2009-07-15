@@ -197,25 +197,32 @@ if __name__ == '__main__':
     # Find trigger files
     trigger_files = segmentdb_utils.get_all_files_in_range(options.trigger_dir, gps_start_time, gps_end_time)
     
-    # and dq files
-    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, gps_start_time, gps_end_time)
-
     # If there are no files in the time range then there's nothing to do
-    if not (trigger_files and dq_files):
-        if options.timestamp_file:
-            f = open(options.timestamp_file, 'w')
-            print >>f,  gps_end_time
-            f.close()
-
+    if not trigger_files:
+        # We don't update the timestamp here.  If we did we would never
+        # give data coming in with some latency the chance to catch up.
         sys.exit(0)
-
 
     # Due to latency issues the last available time may not be the last 
     # time we asked for.  Find the real end time from the file names
     trigger_files.sort()
 
+    m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[0])
+    first_trigger_time = int(m.group(1)) + int(m.group(2))
+
     m = re.match('.*-([0-9]+)-([0-9]+).xml',trigger_files[-1])
     last_trigger_time = int(m.group(1)) + int(m.group(2))
+
+    # and dq files - we don't need files outside the range of time for
+    # which we have triggers
+    dq_files = segmentdb_utils.get_all_files_in_range(options.dq_dir, first_trigger_time, last_trigger_time)
+
+    # Again, if there are no files there's nothing to do
+    if not dq_files:
+        sys.exit(0)
+
+    # Sort them and look at the last available time
+    dq_files.sort()
 
     m  = re.match('.*-([0-9]+)-([0-9]+).xml',dq_files[-1])
     last_dq_time = int(m.group(1)) + int(m.group(2))
@@ -223,6 +230,10 @@ if __name__ == '__main__':
     # We should only run up to the earlier of the times available
     # to ensure we have both DQ and triggers
     gps_end_time = min(gps_end_time, last_trigger_time, last_dq_time)
+
+    # If we're looking at less than two seconds of time it's not worth it...
+    if gps_end_time - gps_start_time < 2:
+        sys.exit(0)
 
     # Build the full list of XML files to load, includiing the veto_definer file
     xml_files = trigger_files + [options.veto_file] + dq_files
@@ -240,6 +251,15 @@ if __name__ == '__main__':
 
     table_name = 'sngl_' + options.type
 
+    # Each trigger file and DQ file etc has it's own process and
+    # process param table, which doesn't really give us anything
+    # useful and has a lot of overhead.
+    cursor.execute("DELETE FROM process")
+    cursor.execute("DELETE FROM process_params")
+
+    cursor.execute("INSERT INTO process(process_id, program, ifos) VALUES('process:process_id:0', 'ligolw_veto_sngl_triggers', '%s')" % options.ifos)
+
+
     # Make sure the table exists
     theClass  = lsctables.TableByName[table_name]
     statement = "CREATE TABLE IF NOT EXISTS " + table_name + " (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
@@ -249,6 +269,10 @@ if __name__ == '__main__':
     # The trigger files may not lie exactly on the start/end
     # boundaries we specified, delete anything outside this range
     cursor.execute('DELETE FROM %s WHERE end_time < %d OR end_time >= %d' % (table_name, gps_start_time, gps_end_time))
+
+    # Clean up process_id references
+    cursor.execute("UPDATE %s SET process_id='process:process_id:0'" % table_name)
+    cursor.execute("UPDATE search_summary SET process_id='process:process_id:0'")
 
     # Backup the sngl_ table
     sql = cursor.execute("SELECT sql FROM sqlite_master WHERE name='%s'" % table_name).fetchone()[0]
