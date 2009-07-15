@@ -1966,13 +1966,6 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.set_category(job.name.lower())
 
     for node in dag.get_nodes():
-      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode) or isinstance(node,remoteQscanFgNode):
-        for gps in gpsList.strip(",").split(","):
-          if gps in node.id and node.validNode:
-            self.add_parent(node)
-      if isinstance(node,h1h2QeventNode) and "H1" in trig.ifolist_in_coinc:
-        if str(trig.gpsTime["H1"]) in node.id and node.validNode:
-          self.add_parent(node)
       if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode) or isinstance(node,followupTriggerNode):
         if str(trig.eventID) in node.id and node.validNode:
           self.add_parent(node)
