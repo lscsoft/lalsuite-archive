@@ -149,6 +149,78 @@ def getQualityTable(backEndName="tracksearch"):
   return finalPropertyList
 #End getQualityTable()
 
+def coalescetuplelist(input=list()):
+    """
+    Takes an input list of tuples representing start,stop and merges
+    them placing them in time order when returning the coalesced list of
+    tuples.
+    """
+    outputList=list()
+    if type(inputList) != type(list()):
+      sys.stderr.write("Wrong variable type passed as argument in\
+ autotrackutils.__coalescetuplelist__()\n")
+      return None
+    if inputList.__len__() < 1:
+      return  inputList
+    inputList.sort()
+    while inputList:
+        segA=inputList.pop()
+        overlap=True
+        #Assume next segment overlaps segA
+        while overlap:
+            #Pop of next segment if available
+            if inputList.__len__() > 0:
+                segB=inputList.pop()
+            else:
+                #No overlap possible no segs left!
+                segB=(-1,-1)
+                overlap=False
+            #Three cases of intersection
+            #Overlap Left
+            if (
+                (segB[0]<= segA[0] <= segB[1])
+                and
+                (segA[1] >= segB[1])
+                ):
+                segA=(segB[0],segA[1])
+            #Overlap Right
+            elif (
+                  (segB[0]<= segA[1] <= segB[1])
+                  and
+                  (segA[1] <= segB[0])
+                 ):
+                segA=(segA[0],segB[1])
+            #Bridge over
+            elif (
+                (segB[0]<=segA[0])
+                and
+                (segB[1]>=segA[1])
+                ):
+                segA=(segB[0],segB[1])
+            else:
+                #Put segment back there was no overlap!
+                if not((-1,-1)==segB):
+                  inputList.append(segB)
+                overlap=False
+        outputList.append(segA)
+        outputList.sort()
+    return outputList
+#End def coalescetuplelist(input=list()):
+
+def activeThreadIntervals(tgnList=list(),tgnSize=int(300)):
+  """
+  A simple coalesce feature useful to autotrack to return a list of
+  segments which define intervals that the thread was active.
+  """
+  tupleList=list()
+  for tgn in tgnList:
+    start=float(tgn.getBirthDateText())
+    stop=start+tgnSize
+    tupleList.append((start,stop))
+  activeListofTuples=coalescetuplelist(tupleList)
+  return activeListofTuples
+#End activeThreadIntervals(tgnList=list(),tgnSize=int(300)):
+
 class autotrackError(Exception):
   """
   Generic class raise this flag if we do not have a better
