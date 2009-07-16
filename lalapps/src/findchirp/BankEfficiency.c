@@ -2076,42 +2076,43 @@ void BankEfficiencyGetMaximumSize(
 
   *length = 0;
 
-  /* first the longest signal */
+  /* first the longest template */
   params            = randIn.param;
   params.massChoice = m1Andm2;
   params.mass1 = params.mass2 = coarseBankIn.mMin;
+  /* For ampCorPPN filtering we seem to understimate the length, because
+     of the 'ignore corrupted data' issue with the inspiral pipeline, so we 
+     increase the ampOrder by 2 for length calculation */
+  params.fLower = coarseBankIn.fLower * 2.0 / (REAL4)(coarseBankIn.ampOrder + 2 + 2);
   LAL_CALL(LALInspiralWaveLength(status->statusPtr, length, params),
        status->statusPtr);
 
   /* then the longest signal*/
-  params.mass1 = params.mass2 = randIn.mMin;
-  params.fLower = coarseBankIn.fLower;
-  LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
-           status->statusPtr);
-
-  /* keep longest one */
-  if (maxTmpltLength > *length)
-    *length = maxTmpltLength;
-
+  params.fLower = randIn.param.fLower * 2.0 / (REAL4)(randIn.param.ampOrder + 2);
   /* --m1 --m2 may have been requested. */
   if (userParam.m1 != -1)
   {
     params.mass1 = userParam.m1;
     params.mass2 = userParam.m2;
-    params.fLower = randIn.param.fLower;
     LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
            status->statusPtr);
-    /* keep longest one */
-    if (maxTmpltLength > *length)
-      *length = maxTmpltLength;
   }
+  else
+  {
+    params.mass1 = params.mass2 = randIn.mMin;
+    LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
+             status->statusPtr);
+  }
+
+  /* keep longest one */
+  if (maxTmpltLength > *length)
+    *length = maxTmpltLength;
 
   if (userParam.tau0 != -1)
   {
     params.t0 = userParam.tau0;
     params.t3 = userParam.tau3;
     params.massChoice = t03;
-    params.fLower = randIn.param.fLower;
     LAL_CALL(LALInspiralParameterCalc( status->statusPtr,  &params ),
         status->statusPtr);
 
@@ -2124,24 +2125,6 @@ void BankEfficiencyGetMaximumSize(
       }
   }
 
-
-
-  /* ideally this should be implemented within lal.*/
-  if( randIn.param.approximant  == AmpCorPPN || userParam.template == AmpCorPPN)
-  {
-    INT4 ampOrder;
-
-    if( randIn.param.ampOrder < coarseBankIn.ampOrder )
-    {
-      ampOrder = coarseBankIn.ampOrder;
-    }
-    else
-    {
-      ampOrder = randIn.param.ampOrder;
-    }
-
-    *length *= (INT4)( pow(1./(1.+ampOrder/2.), -8./3.) );
-  }
 
   /* if --num-seconds is provided, we want a specified length of data.
    * Otherwise, we stick to a minimal size given by twice the length of the
