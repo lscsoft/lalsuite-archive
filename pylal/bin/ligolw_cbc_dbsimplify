@@ -294,6 +294,7 @@ CREATE TEMP TABLE esidmap AS
           experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
           OR (
             experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
+DROP INDEX es_etvds_index;
 CREATE INDEX esm_new_index ON esidmap (new_esid);
 CREATE INDEX esm_old_index ON esidmap (old_esid);
 
@@ -342,15 +343,10 @@ sqlscript = """
 CREATE INDEX em_esi_index ON experiment_map (experiment_summ_id);
 CREATE INDEX em_cei_index ON experiment_map (coinc_event_id);
 """
-if opts.debug:
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().executescript( sqlscript )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
+try:
+    connection.cursor().executescript( sqlscript )
+except:
+    pass
 
 # Vacuum database if desired
 if opts.vacuum:
