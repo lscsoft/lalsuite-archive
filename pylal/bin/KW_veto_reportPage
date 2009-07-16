@@ -1,88 +1,102 @@
-#!/usr/bin/env python
+#!/usr/bin/python
+#
+# Copyright (C) 2009  Tomoki Isogai
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 3 of the License, or (at your
+# option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
+# Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
 """
+%prog --result_file=File [options]
+
 Tomoki Isogai (isogait@carleton.edu)
 
-This program creates a report page of all channels analyzed.
+This program creates a report page of all channels analyzed and put link to each channel report page.
+It lists veto candidate channels with the relevant values.
 
-Input:
-    name tag: Name tag for result files
-    result glob: Glob of files for results from KW_veto_calc program
-    critical used percentage: The program recognizes channels above this used
-                              percentage as veto canndidate channels
-    output directory: Output directory for the report page.
-                      CAUTION: for the links to each channel page to work, this 
-                      must be the same output directory for KW_veto_channelPage
-                      program.
-    minimum total KW number: the minimum number of KW triggers to be a veto 
-                             candidate channel
-
-$Id$
+Specify --min_cind_num to get rid of all the channels that don't have enough coincident triggers.
 """
 
+import sys
+import  os
+import time
 import optparse
-import sys, os, time
-import glob
+import re
+
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+
+from glue.segments import segment, segmentlist
+from glue import segmentsUtils
+
+from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
-__date__ = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
+__date__ = "7/10/2009"
+__version__ = "2.0"
 
 def parse_commandline():
     """
     Parse the options given on the command-line.
     """
-    parser = optparse.OptionParser(usage=__doc__,\
-                              version="$Id: KW_veto_reportPage,v 1.00 2008/7/7")
-    parser.add_option("-n","--name_tag", default="",\
-                      help="name tag used")
-    parser.add_option("-r", "--result_glob",\
-                      help="the result file glob from vetoStats")
-    parser.add_option("-c","--critical_usePer", default=50, type="int",
-                      help="the program recognizes channels above this "\
-                           "used percentage as veto candidate channels")
+    parser = optparse.OptionParser(usage=__doc__,version=__version__)
+    parser.add_option("-r", "--result_dir",
+                      help="Directory with result files from KW_veto_calc. Required.")
+    parser.add_option("-m","--min_coinc_num", default=0, type="int",
+                      help="Minimum number of coincident KW triggers to be a veto candidate. (Default: 0)")
     parser.add_option("-o","--out_dir", default=".",
-                      help="output directory")
-    parser.add_option("-m","--min_kw", default=0, type="int",
-                      help="minimum number of total KW triggers to be veto "\
-                           "candidate")
-    parser.add_option("-v", "--verbose", action="store_true",\
-                      default=False, help="run verbosely")
+                      help="Output directory. (Default: current directory)")
+    parser.add_option("-l", "--scratch_dir", default=".",
+                      help="Scratch directory to be used for database engine. Specify local scratch directory for better performance and less fileserver load. (Default: current directory)")
+    parser.add_option("-v", "--verbose", action="store_true",
+                      default=False, help="Run verbosely. (Default: None)")
     
     opts, args = parser.parse_args()
     
     ########################## sanity check ####################################
     
     # check if necessary input exists
-    for o in ("name_tag","result_glob"):
-        if getattr(opts,o) is None:
-            print >>sys.stderr, "Error: --%s is a required parameter"%o
-            sys.exit(1)
+    if opts.result_dir is None:
+      print >> sys.stderr, "Error: --result_dir is a required parameter"
+      sys.exit(1)
     
-    # create necessary directories if not exist
-    baseDir = os.path.join(opts.out_dir,'%s_webpage'%opts.name_tag)
-    if not os.path.exists(baseDir): os.makedirs(baseDir)
         
     ######################### show parameters ##################################
     if opts.verbose:
-        print
-        print "running report_maker..."
-        print
-        print "********************** PARAMETERS ******************************"
-        print 'name tag:'; print opts.name_tag;
-        print 'result file glob:'; print opts.result_glob;
-        print 'critical used percentage:'; print opts.critical_usePer
-        print 'output directory:'; print opts.out_dir
-        print 'minimum total KW triggers'; print opts.min_kw
-        print
+        print >> sys.stderr, ""
+        print >> sys.stderr, "running KW_veto_reportPage..."
+        print >> sys.stderr, "version: %s..."%__version__
+        print >> sys.stderr, ""
+        print >> sys.stderr, "*************** PARAMETERS **********************"
+        for o in opts.__dict__.items():
+          print >> sys.stderr, o[0]+":"
+          print >> sys.stderr, o[1]
+        print >> sys.stderr, ""
     
     return opts
     
-def report_page(channel_info, critical_usePer, min_kw, baseDir, injection_option):
+def report_page():
     """
-    creates index report page
+    creates summary report page
     """
+    injection_option = False
+
     ############################## header ######################################
-    title = "Veto Analysis"
+    title = params['name_tag'].upper()
+
     contents=["""
     <html>
     <head>
@@ -98,105 +112,80 @@ def report_page(channel_info, critical_usePer, min_kw, baseDir, injection_option
     
     ######################### candidate channel table ##########################
     
-    ## make table for those channels that goes above the critical used percentage
+    ## make a table for those channels that go above the critical used percentage and have coincident trigger number above min_coinc_num
     
     # if injection part is on, make one more column to show veto safety info
-    print "injection_option:",injection_option
-    if injection_option:
-        injection_part = "<th>Vetoed Injection / expected Number</th>"
-    else:
-        injection_part = ""
+    print >> sys.stderr, "injection_option:",injection_option
     
     table = ["""
     <big>Veto Candidate Channels</big><br>
     Channels with the used percentage > %d%% and the number of coincident KW triggers >= %d are on this table. <br>
-    Some channels (gravitational channel, ASI, ASQ etc.) are already excluded since they are not safe. <br>
+    Some channels (gravitational channel etc.) are already excluded since they are not safe. <br>
     (A list of all the analyzed channels follows below the table.)
     <br><br>
     <table border="1">
     <tbody>
     <tr>
     <th>Channel</th>
-    <th>At KW significance threshold</th>
+    <th>KW Significance Threshold</th>
     <th>Used Percentage (%%)</th>
     <th>Coincident KW</th>
     <th>Total KW</th>
     <th>Veto Efficiency (%%)</th>
     <th>Dead Time Percentage (%%)</th>
-    <th>Max Used Percentage (%%)</th>
     <th>Used %% / Random Used %%</th>
     <th>Veto Efficiency / Dead Time</th>
-    %s
+    <th>Vetoed Injection / Expected Number</th>
+    <th>Probability</th>
+    <th>Safety</th>
     </tr>
-    """%(critical_usePer,min_kw,injection_part)]
-    
-    all_list=['<big>Channels Analyzed</big>']
+    """%(params['critical_usedPer'],opts.min_coinc_num)]
+    all_list = ['<big>All Channels Analyzed</big>']
+
     for chan in sorted(channel_info.keys()):
-        # derive necessary info
-        candidate = channel_info[chan][0]
-        usePer = channel_info[chan][1]
-        thresh = channel_info[chan][2]
-        coincident = channel_info[chan][3]
-        total = channel_info[chan][4]
-        maxUsePer = channel_info[chan][5]
-        vetoEff = channel_info[chan][6]
-        deadTimePer = channel_info[chan][7]
-        use_random = channel_info[chan][8]
-        veto_DT = channel_info[chan][9]
-        if injection_option:
-            injection_column = "<td>%d / %.4f</td>"%(channel_info[chan][10],\
-                                                     channel_info[chan][11])
-        else:
-            injection_column = ""
-        # get necessary info from key
-        name_parts = chan.split("-")
-        tag=name_parts[0]
-        ifo = name_parts[1]
-        channel = name_parts[2]
-        # for h0 channels, add if this is against H1 or H2 triggers
-        if channel.split("_")[0].lower()=="h0": sub = " (%s)"%ifo
-        else: sub = ""
-        # table
-        # exclude DARMERR, DARMCTRL, ASI, ASQ because we know they are not safe
-        if candidate and total >= min_kw and chan.find("darmerr")==-1 and\
-          chan.find("darmctrl")==-1 and chan.find("asi")==-1 and\
-          chan.find("asq")==-1:
-            table.append("""
+      # derive necessary info
+      filePrefix = channel_info[chan][0]
+      data = channel_info[chan][1]
+      safety = channel_info[chan][2]
+
+      # exclude channels that we know they are not safe
+      if data != None and data[2] >= opts.min_coinc_num and chan.find("DARM_ERR")==-1 and chan.find("DARM_CTRL")==-1 and chan.find("AS_I")==-1 and chan.find("AS_Q")==-1 and chan.find("PR_B1_ACP")==-1:
+        print "working"
+        table.append("""
                 <tr>
-                <td><a href="channel_pages/%s-report_page.html">%s</a>%s</td>
+                <td><a href="channel_pages/%s-report_page.html">%s</a></td>
                 <td>%d</td>
-                <td>%.4f</td>
+                <td>%.2f</td>
                 <td>%d</td>
                 <td>%d</td>
+                <td>%.2f</td>
                 <td>%.4f</td>
-                <td>%.4f</td>
-                <td>%.4f</td>
-                <td>%.4f</td>
-                <td>%.4f</td>
-                %s
+                <td>%.2f</td>
+                <td>%.2f</td>
+                <td>%s</td>
+                <td>%s</td>
+                <td>%s</td>
+                <td>%s</td>
                 </tr>
-                """%(chan,channel.upper(),sub,thresh,usePer,coincident,total,\
-                     vetoEff,deadTimePer,maxUsePer,use_random,veto_DT,\
-                     injection_column))
-            
-        ############################## all channel #############################
+                """%(filePrefix,chan,data[0],data[1],data[2],data[3],
+                     data[5],data[7],data[8],data[9],
+                     safety[0],safety[1],safety[2]))
+
+      ############################## all channel #############################
         
-        # for all the analyzed channels
-        # for candidate channels, comment veto info
-        # for others, comment max used percentage
-        all_list.append('<big><a href="channel_pages/%s-report_page.html">'%chan+\
-                        channel.upper()+"</a>"+sub+"</big>")
-        all_list.append("comments:")
-        if candidate==True:
-            all_list.append("This channel goes over used percentage %d%%"\
-                                                               %critical_usePer)
-            all_list.append("At KW significance threshold %d, "\
-                                                     %(thresh)+\
-                           "used percentage = %f %% "%(usePer)+\
+      # for all the analyzed channels
+      # for candidate channels, comment veto info
+      all_list.append('<big><a href="channel_pages/%s-report_page.html">'\
+      %filePrefix + chan + "</a></big>")
+      all_list.append("comments:")
+      if data != None:
+        all_list.append("This channel goes over used percentage %d%%."%\
+                                                     params['critical_usedPer'])
+        all_list.append("At KW significance threshold %d, "%(data[0])+\
+                           "used percentage = %.2f %% "%(data[1])+\
                            "(Coincident KW events / Total KW events = %d / %d)"\
-                                      %(coincident,total))
-        all_list.append("Max used percentage: %f %%"%maxUsePer)
-        all_list.append("<br>")
+                                      %(data[2],data[3]))
+      all_list.append("<br>")
     table.append("</tbody></table><br><br>")
     
     # add table and list
@@ -208,7 +197,7 @@ def report_page(channel_info, critical_usePer, min_kw, baseDir, injection_option
     curTime=time.strftime('%m-%d-%Y %H:%M:%S',time.localtime())
     contents.append("""
     <small>
-    This page is created by user %s on %s
+    This page was created by user %s on %s
     </small>
     </body>
     </html>
@@ -218,179 +207,60 @@ def report_page(channel_info, critical_usePer, min_kw, baseDir, injection_option
     chan_page = open("%s/index.html"%(baseDir),"w")
     chan_page.write("".join(contents))
     
-def load_info(filename):
-    """
-    Adapted from io.py written by Nickolas Fotopoulos, modified.
-    """
-    if filename == '':
-        raise ValueError, "Empty filename"
-    # get extension
-    ext = os.path.splitext(filename)[-1]
-    
-    # case 1: mat file
-    if ext == '.mat':
-        try:
-            import scipy.io
-        except (ImportError):
-            print >>sys.stderr, "Error: need scipy to read in mat files"
-            sys.exit(1)
-        mat_data=scipy.io.loadmat(filename)
-        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
-                "vetoEff": [], "use_random": [], "eff_DT": []}
-        output["thresh"] = mat_data["thresh"].tolist()
-        output["coinKW"] = mat_data["coinKW"].tolist()
-        output["totalKW"] = mat_data["totalKW"].tolist()
-        output["usePercentage"] = mat_data["usePercentage"].tolist()
-        output["deadTimes"] = mat_data["deadTimes"].tolist()[:-1]
-        output["deadTimePer"] = mat_data["deadTimePer"].tolist()
-        output["vetoedNum"] = mat_data["vetoedNum"].tolist()[:-1]
-        output["vetoEff"] = mat_data["vetoEff"].tolist()
-        output["use_random"] = mat_data["use_random"].tolist()
-        output["eff_DT"] = mat_data["eff_DT"].tolist()
-        # the last element in vetoedNum is actually total triggers number
-        totalTrigNum = mat_data["vetoedNum"].tolist()[-1]
-        # the last element in deadTimes is actually total time
-        totalTime = mat_data["deadTimes"].tolist()[-1]
-        return output
-    
-    ## Set up file_handle:
-    file_handle = file(filename, 'rb')
-    
-    # case 2: txt file
-    if ext == '.txt':
-        output={"thresh": [], "coinKW": [], "totalKW": [], "usePercentage": [],\
-                "deadTimes": [], "deadTimePer": [], "vetoedNum": [],\
-                "vetoEff": [], "use_random": [], "eff_DT": []}
-        lines=file_handle.readlines()
-        totalTrigNum = float(lines[0].split(":")[1].strip())
-        totalTime = float(lines[1].split(":")[1].strip())
-        for line in lines:
-            info=line.strip().split()
-            if info[0][0]!="#" and info[0][0]!="%":
-                output["thresh"].append(float(info[0]))
-                output["coinKW"].append(float(info[1]))
-                output["totalKW"].append(float(info[2]))
-                output["usePercentage"].append(float(info[3]))
-                output["deadTimes"].append(float(info[4]))
-                output["deadTimePer"].append(float(info[5]))
-                output["vetoedNum"].append(float(info[6]))
-                output["vetoEff"].append(float(info[7]))
-                output["use_random"].append(float(info[8]))
-                output["eff_DT"].append(float(info[9]))
-        return output
-    
-    # case 3: pickle file
-    if ext == '.pickle':
-        import cPickle
-        output = cPickle.load(file_handle)
-        totalTrigNum = output["vetoedNum"].pop()
-        totalTime = output["deadTimes"].pop()
-        return output
-    # case 4: unsupported file type
-    else:
-        raise ValueError, "Unrecognized file extension"
 
-def check_candidate(result,critical_usePer):
-    """
-    loop over and see if used percentage gets over a critical used percentage
-    and return values at the critical threshold
-    this function returns 
-    1) boolean if it gets the critical used percentage
-    2) used percentage when it get over the critical used percentage
-    3) threshold when it gets over the critical used percentage
-    4) coincident KW triggers number when it gets over the critical used
-       percentage
-    5) total KW triggers number when it get over the critical used percentage
-    6) max use percentage
-    7) veto efficiency when it gets over the critical used percentage
-    8) dead time percentage when it gets over the critical used percentage
-    if it doesn't get the critical used percentage, returns -1 for 2), 3), 4), 
-    5), 7) and 8)
-    """
-    
-    # initialize as negative values to avoid confusion
-    candidate = False; usePercentage=-1; thresh=-1; coinKW=-1; totalKW=-1
-    vetoEff=-1; deadTimePer=-1; use_random=-1; eff_DT=-1
-    
-    # loop over and check used percentage at each KW significance threshold
-    for i in xrange(len(result["thresh"])):
-        # store info when it gets over the critical used percentage
-        if result["usePercentage"][i] > critical_usePer:
-            candidate = True
-            usePercentage=result["usePercentage"][i]
-            thresh=result["thresh"][i]
-            coinKW=result["coinKW"][i]
-            totalKW=result["totalKW"][i]
-            vetoEff=result["vetoEff"][i]
-            deadTimePer=result["deadTimePer"][i]
-            use_random=result["use_random"][i]
-            eff_DT=result["eff_DT"][i]
-            break
-    maxUsePercentage = max(result["usePercentage"])
-    
-    return [candidate,usePercentage,thresh,coinKW,totalKW,maxUsePercentage,\
-           vetoEff,deadTimePer,use_random,eff_DT]
+# =============================================================================
+#
+#                                  MAIN
+# 
+# =============================================================================
 
-def main(opts):
-    baseDir = os.path.join(opts.out_dir,"%s_webpage"%opts.name_tag)
+# parse commandline
+opts = parse_commandline()
+
+# figure out channels in the result dir and get info
+# make a list of the result files from KW_veto_calc
+files_list = KW_veto_utils.get_result_files(opts.result_dir,opts.verbose)
     
-    # figure out channels in the result glob and get info
-    # make a list of the result files from KW_veto_calc
-    files_list =\
-             [f for f in glob.glob(opts.result_glob) if f.find("veto_data")!=-1]
-    if opts.verbose: print "result files:", files_list
-    if files_list==[]:
-        print >>sys.stderr, "no files found for %s"%opts.result_glob
-        sys.exit(1)
+## figure out which channel gets over a critical used percentage
+channel_info={}
+for chan_file in files_list:    
+  if opts.verbose: 
+    print >> sys.stderr, "gathering infomation from %s..."%(chan_file)
+  try:
+    # retrieve info
+    # store info at the critical threshold for each channel
+    global working_filename
+    cursor, connection, working_filename, params = \
+         KW_veto_utils.load_db(chan_file, opts.scratch_dir, opts.verbose)
+
+    # channel_ifo is a dictionary {channel name: (filePrefix,candidate,safety)}
+    # candidate is a tuple:
+    # (threshold, used percentage, # of coincident KW triggers above the threshold, # of total KW triggers above the threshold, # of vetoed GW triggers, veto efficiency, dead time, dead time percentage, (used percentage) / (random used percentage), (veto efficiency) / (dead time percentage))   
+    # that corresponds to threshold to be used for veto
+    # OR just None for non candidate channel
+    # safety is another tuple:
+    # (vetoed # of HW injection, expectation number of vetoed HW injection, probability that at least N are vetoed given the expectation number, safety using 10^-7 as a threshold on probability)
+    channel_info[params["channel"]] = (params["filePrefix"],KW_veto_utils.get_candidate(cursor,params["critical_usedPer"]),(params['HWInjNvetoed'],params['HWInjNexp'],params['HWInjProbability'],params['safety']))
+ 
+    # create output directory if not exist
+    baseDir = os.path.join(opts.out_dir,'%s_webpage'%params['name_tag'])
+    if not os.path.exists(baseDir):
+      if opts.verbose:
+        print >> sys.stderr, "creating output directory %s..."%baseDir
+      os.makedirs(baseDir)
+
+    connection.close()
+  finally:
+    # erase temporal database
+    if globals().has_key('working_filename'):
+      db = globals()['working_filename']
+      if opts.verbose:
+        print >> sys.stderr, "removing temporary workspace '%s'..." % db
+      os.remove(db)
+
+# make the page
+print len(channel_info)
+report_page()
         
-    # figure out which channel gets over a critical used percentage
-    channel_info={}
-    injection_option=False
-    for chan_file in files_list:
-        
-        # find out channel name from file name
-        name_parts = os.path.splitext(chan_file)[0].split("-")
-        chan_name = name_parts[-3]
-        ifo = name_parts[-4].upper()
-        if opts.verbose: print "gathering infomation for %s..."%(chan_name)
-        # retrieve info
-        result=load_info(chan_file)
-        
-        # store info at the critical threshold for each channel
-        key = "-".join([opts.name_tag,ifo,chan_name])
-        channel_info[key]=check_candidate(result,opts.critical_usePer)
-        
-        # get injection info if exist
-        if channel_info[key][0]: # candidate
-            injection_file = \
-                             os.path.splitext(chan_file)[0].replace(\
-                             'veto_data','injection')+'.txt'
-            print injection_file
-            if os.path.isfile(injection_file):
-                injection=open(injection_file).readlines()
-                injectionNum=injection[0].split(":")[1].split("/")[0]
-                print injection[:3]
-                expectedNum=injection[1].split(":")[1]
-                channel_info[key].append(int(injectionNum))
-                channel_info[key].append(float(expectedNum))
-                injection_option=True
-            else:
-                # set it as -2 to indicate that injection option is off
-                channel_info[key].append(-2)
-                channel_info[key].append(-2)
-        else:
-            # set it as -1 to indicate that this channel is not candidate
-            channel_info[key].append(-1)
-            channel_info[key].append(-1)
-            
-    report_page(channel_info, opts.critical_usePer, opts.min_kw, baseDir,\
-                injection_option)
-            
-    if opts.verbose: print "report_maker done!"
-    
-if __name__=="__main__":
-    # parse commandline
-    opts = parse_commandline()
-    # do the work
-    main(opts)
+if opts.verbose: print >> sys.stderr, "KW_veto_reportPage done!"
+
