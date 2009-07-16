@@ -1,0 +1,209 @@
+#!/usr/bin/env python
+
+#
+# =============================================================================
+#
+#                                   Preamble
+#
+# =============================================================================
+#
+
+from optparse import OptionParser
+try:
+    import sqlite3
+except ImportError:
+    # pre 2.5.x
+    from pysqlite2 import dbapi2 as sqlite3
+import sys
+import os
+
+from glue import segments
+from glue.ligolw import table
+from glue.ligolw import lsctables
+from glue.ligolw import dbtables
+from glue.ligolw import utils
+from glue.ligolw.utils import process
+
+from pylal import db_thinca_rings
+
+
+usage = """
+Computes durations for every row in the experiment_summary table in a
+database and stores them.
+"""
+
+__author__ = "Collin Capano <cdcapano@physics.syr.edu>"
+__date__ = "$Date$"
+__version__ = "$Revision$"
+
+
+# =============================================================================
+#
+#                                   Set Options
+#
+# =============================================================================
+
+
+def parse_command_line():
+    """
+    Parse the command line, return options and check for consistency among the
+    options.
+    """
+    parser = OptionParser( version = "", usage = usage )
+
+    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+        help = 
+            "Input database to read. Can only input one at a time."
+        )
+    parser.add_option( "-t", "--tmp-space", action = "store", type = "string", default = None,
+        metavar = "PATH",
+        help = 
+            "Location of local disk on which to do work. This is optional; " +
+            "it is only used to enhance performance in a networked " +
+            "environment. "
+        )
+    parser.add_option( "", "--veto-segments-name", action = "store", type = "string", default = None,
+        help =
+            "Set the name of the veto segments to use."
+        )
+    parser.add_option( "-v", "--verbose", action = "store_true", default = False,
+        help =
+            "Be verbose."
+        )
+
+    (options, args) = parser.parse_args()
+
+    # check for required options and for self-consistency
+    if not options.input:
+        raise ValueError, "No input specified."
+
+    return options, sys.argv[1:]
+
+# =============================================================================
+#
+#                              Function Definitions
+#
+# =============================================================================
+
+class Durations:
+    """
+    Class to store and retrieve durations.
+    self.durations has the structure:
+    self.durations[time_slide_id][on_instruments]
+    """
+    def __init__( self ):
+        self.durations = {}
+    def append_livetime_dict( self, time_slide_id, livetimedict ):
+        self.durations[time_slide_id] = livetimedict
+    def retrieve_duration( self, time_slide_id, on_instruments ):
+        on_instruments = lsctables.instrument_set_from_ifos(on_instruments)
+        if time_slide_id not in self.durations:
+            return None
+        return self.durations[time_slide_id][frozenset(on_instruments)]
+
+
+# =============================================================================
+#
+#                                     Main
+#
+# =============================================================================
+
+#
+#       Generic Initilization
+#
+
+options, args = parse_command_line()
+
+# get input database filename
+filename = options.input
+if not os.path.isfile( filename ):
+    raise ValueError, "The input file, %s, cannot be found." % filename
+
+# Setup working databases and connections
+if options.verbose: 
+    print >> sys.stdout, "Opening database..."
+
+working_filename = dbtables.get_connection_filename( 
+    filename, tmp_path = options.tmp_space, verbose = options.verbose )
+connection = sqlite3.connect( working_filename )
+dbtables.DBTable_set_connection( connection )
+xmldoc = dbtables.get_xml(connection)
+
+# Add program to process and process params table
+
+# FIXME: remove the following two lines once boolean type
+# has been properly handled
+from glue.ligolw import types as ligolwtypes
+ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
+
+proc_id = process.register_to_xmldoc(xmldoc, 'compute_durations', options.__dict__)
+
+#
+#       Compute Durations
+#
+
+# find the tables we'll need
+time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
+expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
+expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+
+
+# turn the time slide table into a dictionary
+time_slide_dict = time_slide_table.as_dict()
+
+# get the ring_sets
+ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
+
+# get veto_segments
+if options.veto_segments_name is not None:
+    if options.verbose:
+        print >>sys.stderr, "retrieving veto segments \"%s\" ..." % options.veto_segments_name
+    veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
+else:
+    veto_segments = segments.segmentlistdict()
+
+# compute the durations (or livetimes) for every possible instrument combo for every
+# slide in the time-slide table; the resulting durations dictionary has the following form:
+# durations[time_slide_id][on_instruments] = livetime (in seconds)
+if options.verbose:
+    print >> sys.stderr, "Calculating durations for each time slide..."
+
+durations = Durations()
+ii = 0
+for time_slide_id, offset_vector in time_slide_dict.items():
+    this_livetime_dict = db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, [offset_vector], verbose = options.verbose)
+    ii = ii + 1
+    if ii == 1: break
+
+if options.verbose:
+    print >> sys.stderr, "Populating the experiment_summary table..."
+
+connection.create_function("retrieve_duration", 2, durations.retrieve_duration)
+
+# populate the experiment_summary table with the appropiate duration
+connection.cursor().execute("""
+    UPDATE experiment_summary
+    SET duration = (
+        SELECT retrieve_duration(experiment_summary.time_slide_id, experiment.instruments)
+        FROM experiment
+        JOIN experiment_summary ON (
+            experiment.experiment_id == experiment_summary.experiment_id
+            )
+        )""")
+
+
+#
+#       Close database and exit
+#
+
+connection.close()
+dbtables.put_connection_filename(filename, working_filename, verbose = options.verbose)
+
+if options.verbose:
+    print >> sys.stderr, "Finished!"
+
+# set process end time
+process.set_process_end_time(proc_id)
+#sys.exit(0)
+
+
