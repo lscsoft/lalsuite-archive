@@ -280,6 +280,10 @@ if __name__ == '__main__':
 
     ligolw_sqlite.insert(veto_connection, xml_files)
 
+    # If we're working with DMT files make sure we have a segment table
+    if file_location:
+        segmentdb_utils.ensure_segment_table(veto_connection)
+    
     cli_interval = glue.segments.segmentlist([glue.segments.segment(int(options.gps_start_time), int(options.gps_end_time))])
             
     #

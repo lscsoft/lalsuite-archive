@@ -326,7 +326,8 @@ setup(
                 os.path.join("bin", "ligolw_cbc_cfar"),
                 os.path.join("bin", "ligolw_cbc_plotslides"),
                 os.path.join("bin", "ligolw_cbc_plotifar"),
-                os.path.join("bin", "extractCommand")
+                os.path.join("bin", "extractCommand"),
+		os.path.join("bin", "OddsPostProc.py")
 	],
 	data_files = [ ("etc", [
 		os.path.join("etc", "pylal-user-env.sh"),

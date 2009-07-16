@@ -119,10 +119,6 @@ if __name__ == '__main__':
     del lsctables.SegmentTable.validcolumns['start_time_ns']
     del lsctables.SegmentTable.validcolumns['end_time_ns']
 
-    # And set up for boolean arguments
-    from glue.ligolw import types as ligolwtypes
-    ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
-
     options, filenames = parse_command_line()
 
     # Set up the document
