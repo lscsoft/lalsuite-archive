@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
-#from pylal import Fr
+from math import log
+
+from pylal import Fr
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -258,7 +260,7 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   row.start_time = int(st)
   row.start_time_ns = int(st_ns)
   row.duration = None
-  row.confidence = float(omega_data['probSignal'])
+  row.confidence = -log(float(omega_data['probGlitch']))
   row.coinc_event_id = coinc_event_id
   for key in mb_table.validcolumns.keys():
       if key not in set_keys:
