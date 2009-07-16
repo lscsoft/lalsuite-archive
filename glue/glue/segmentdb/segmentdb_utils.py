@@ -26,6 +26,7 @@ from glue.segments import segment, segmentlist
 from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.segmentdb import query_engine
+from glue.ligolw import types as ligolwtypes
 
 
 
@@ -38,7 +39,7 @@ from glue.segmentdb import query_engine
 #
 
 
-def get_all_files_in_range(dirname, starttime, endtime):
+def get_all_files_in_range(dirname, starttime, endtime, pad=64):
     """Returns all files in dirname and all its subdirectories whose
     names indicate that they contain segments in the range starttime
     to endtime"""
@@ -59,15 +60,15 @@ def get_all_files_in_range(dirname, starttime, endtime):
         if re.match('.*-[0-9]{4}$', filename):
             dirtime = int(filename[-4:])
             if dirtime >= first_four_start and dirtime <= first_four_end:
-                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+                ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
         elif re.match('.*-[0-9]*-[0-9]*\.xml', filename):
             file_time = int(filename.split('-')[-2])
-            if file_time >= (starttime-64) and file_time <= (endtime+64):
+            if file_time >= (starttime-pad) and file_time <= (endtime+pad):
                 ret.append(os.path.join(dirname,filename))
         else:
             # Keep recursing, we may be looking at directories of
             # ifos, each of which has directories with times
-            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime)
+            ret += get_all_files_in_range(os.path.join(dirname,filename), starttime, endtime, pad=pad)
 
     return ret
 
@@ -231,6 +232,27 @@ def find_segments(doc, key, use_segment_table = True):
     return ret
 
 #
+# =============================================================================
+#
+#                      General utilities
+#
+# =============================================================================
+#
+def ensure_segment_table(connection):
+    """Ensures that the DB represented by connection posses a segment table.
+    If not, creates one and prints a warning to stderr"""
+
+    count = connection.cursor().execute("SELECT count(*) FROM sqlite_master WHERE name='segment'").fetchone()[0]
+
+    if count == 0:
+        print >>sys.stderr, "WARNING: None of the loaded files contain a segment table"
+        theClass  = lsctables.TableByName['segment']
+        statement = "CREATE TABLE IF NOT EXISTS segment (" + ", ".join(map(lambda key: "%s %s" % (key, ligolwtypes.ToSQLiteType[theClass.validcolumns[key]]), theClass.validcolumns)) + ")"
+
+        connection.cursor().execute(statement)
+
+
+
 # =============================================================================
 #
 #                    Routines to write data to XML documents
