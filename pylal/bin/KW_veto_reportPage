@@ -148,7 +148,7 @@ def report_page():
 
       # exclude channels that we know they are not safe
       if data != None and data[2] >= opts.min_coinc_num and chan.find("DARM_ERR")==-1 and chan.find("DARM_CTRL")==-1 and chan.find("AS_I")==-1 and chan.find("AS_Q")==-1 and chan.find("PR_B1_ACP")==-1:
-        color = safety[3] == "Pass" and "white" or "yellow"
+        color = safety[3] == "Unsafe" and "yellow" or "white"
         table.append("""
                 <tr bgcolor="%s">
                 <td><a href="channel_pages/%s-report_page.html">%s</a></td>
