@@ -27,9 +27,6 @@ http://scipy.org/Cookbook/Indexing
 from __future__ import division
 
 __author__ = "Nickolas Fotopoulos <nvf@gravity.phys.uwm.edu>"
-__version__ = "$Revision$"[11:-2]
-__date__ = "$Date$"
-__Id__ = "$Id$"
 __prog__ = "plotgrbl"
 __title__ = "GRB likelihood diagnostics"
 
@@ -51,6 +48,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import table
 from glue.ligolw import utils
 from pylal import CoincInspiralUtils
+from pylal import git_version
 from pylal import grbsummary
 from pylal import InspiralUtils
 from pylal import plotutils
@@ -122,7 +120,7 @@ def make_html_table(two_dim_seq, header_row=None):
 
 
 def parse_args():
-    parser = optparse.OptionParser(version="%prog CVS $Id$ ")
+    parser = optparse.OptionParser(version=git_version.verbose_msg)
 
     # input
     parser.add_option("--relic-onsource", help="output of pylal_relic "\
