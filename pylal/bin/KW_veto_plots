@@ -63,7 +63,6 @@ from pylab import *
 
 from glue.segments import segment, segmentlist
 
-# from pylal import KW_veto_utils
 from pylal import KW_veto_utils
 
 __author__ = "Tomoki Isogai <isogait@carleton.edu>"
