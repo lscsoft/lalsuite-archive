@@ -42,7 +42,7 @@ from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import segments as ligolw_segments
 from glue.ligolw.utils import process as ligolw_process
-import coalesce_db
+from glue.ligolw.utils import coalesce_db as ligolw_coalesce
 
 from glue.segmentdb import segmentdb_utils
 
@@ -126,7 +126,7 @@ try:
 
   # coalesce the pending range and add them to the list of coalesced range 
   logger.debug("start coalescing")
-  result = coalesce_fun.coalesce_seg(options.database_name,st,et)
+  result = ligolw_coalesce.coalesce_seg(options.database_name,st,et)
   if result==0:
         coalesced_range |= segments.segmentlist([(st,et)])
         logger.info("finished coalescing range [%d,%d)" % (st,et))
