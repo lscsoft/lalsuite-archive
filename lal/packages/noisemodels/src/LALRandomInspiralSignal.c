@@ -1254,10 +1254,10 @@ void LALRandomInspiralSignalTimeDomain
               norm *= 4.0 * dt / tLength;
               invRoot = pow( norm, -0.5 ); 
 
-              denom = pow( 4.0 * dt, -0.5 );
+              denom = pow( dt, -0.5 );
               for( k=0; k < fLength; ++k )
               {
-                REAL4 numer = pow( 2.0 * randIn->psd.data[k], 0.5 );
+                REAL4 numer = pow( 4.0 * randIn->psd.data[k], 0.5 );
 
                 /* Colour Noise */
                 ntilde_re->data[k] *= numer;
@@ -1283,64 +1283,6 @@ void LALRandomInspiralSignalTimeDomain
               ntilde->data[fLength-1].re = 0.0;
               ntilde->data[fLength-1].im = 0.0;
 
-if( 0 )
-{
-  COMPLEX8Vector *wtilde = NULL;
-  REAL4 nn, ns; 
-  LALCCreateVector( status->statusPtr, &wtilde, fLength );
-
-  for( k=0; k<fLength; ++k )
-  {
-    wtilde->data[k].re = 1.0 / randIn->psd.data[k];
-  }
-  fprintf( stderr, "\n\n Nt = %d, dt = %e\n", tLength, dt ); 
-  fprintf( stderr, " < noise, noise > = %e\n",
-          nn = XLALFindChirpACTDInnerProduct( ntilde, ntilde, wtilde->data, 
-                                    randIn->param.fLower, dt, tLength )
-         );
-  fprintf( stderr, " < signal, signal > = %e\n",
-          ns = XLALFindChirpACTDInnerProduct( stilde, stilde, wtilde->data, 
-                                    randIn->param.fLower, dt, tLength )
-         );
-
-
-  nn = pow( nn, -0.5 );
-  ns = pow( ns, -0.5 );
-
-  for( k=0; k<fLength; ++k )
-  {
-    ntilde->data[k].re *= nn;
-    ntilde->data[k].im *= nn;
-    stilde->data[k].re *= ns;
-    stilde->data[k].im *= ns;
-  }
-
-  fprintf( stderr, " < noise, noise > = %e\n",
-          XLALFindChirpACTDInnerProduct( ntilde, ntilde, wtilde->data, 
-                                    randIn->param.fLower, dt, tLength )
-         );
-  fprintf( stderr, " < signal, signal > = %e\n",
-          XLALFindChirpACTDInnerProduct( stilde, stilde, wtilde->data, 
-                                    randIn->param.fLower, dt, tLength )
-         );
-
-  for( k=0; k<fLength; ++k )
-  {
-    ntilde->data[k].re /= nn;
-    ntilde->data[k].im /= nn;
-    stilde->data[k].re /= ns;
-    stilde->data[k].im /= ns;
-  }
-
-  for( k=0; k<fLength; ++k )
-  {
-    ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
-    ntilde->data[k].im += stilde->data[k].im * randIn->SignalAmp;
-  }
-
-
-  LALCDestroyVector( status->statusPtr, &wtilde );
-}
 
               LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
               CHECKSTATUSPTR(status);
