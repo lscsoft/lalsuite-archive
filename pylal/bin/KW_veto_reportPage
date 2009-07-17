@@ -118,6 +118,7 @@ def report_page():
     <big>Veto Candidate Channels</big><br>
     Channels with the used percentage > %d%% and the number of coincident KW triggers >= %d are on this table. <br>
     Some channels (gravitational channel etc.) are already excluded since they are not safe. <br>
+    Channels that didn't pass the safety test are highlighted.<br>
     (A list of all the analyzed channels follows below the table.)
     <br><br>
     <table border="1">
