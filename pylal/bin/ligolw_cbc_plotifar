@@ -368,6 +368,8 @@ sqlquery = """
         OR experiment_summary.datatype == ?
         """
 for eid, on_inst, exp_start_time, exp_end_time, esid, duration, datatype in connection.cursor().execute( sqlquery, (plot_datatype,) ):
+    if duration == 0.:
+        continue
     on_inst = frozenset(lsctables.instrument_set_from_ifos(on_inst))
     if (eid, exp_start_time, exp_end_time, on_inst) not in experiment_ids:
         experiment_ids[ (eid, exp_start_time, exp_end_time, on_inst) ] = {}

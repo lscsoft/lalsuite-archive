@@ -10,7 +10,7 @@ import ConfigParser
 import matplotlib
 matplotlib.use('Agg')
 
-from pylal import git_version
+#from pylal import git_version
 from pylal import pylal_exttrig_llutils as peu
 
 
@@ -115,6 +115,7 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
   off_source, ifo_list = exttrig_dag.get_segment_info(seg_file)
   ifo_times = "".join(ifo_list)
 
+  print "llmonitor: ", off_source
   # decide 
   if len(ifo_list)<2:
     peu.info("GRB%s: insufficient multi-IFO data to construct an "\
@@ -132,19 +133,20 @@ def start_new_analysis(grb_name, grb_ra, grb_dec, grb_time):
     exttrig_dag.update_database_nodata()
   
   else:
+    # run the creation functions
+    exttrig_dag.set_seg_info(off_source, ifo_times)
+    exttrig_dag.create_exttrig_xml_file()
+    exttrig_dag.prepare_analysis_directory()
+    exttrig_dag.check_analysis_directory()
+
     # multiple notifications
     subject = "New GRB found; analysis started "
     email_msg = 'The analysis of GRB%s has started\n' % grb_name
     email_msg += 'The GRB was detected at GPS %s at position (%s/%s)\n' %\
                  (grb_time, grb_ra, grb_dec)
     email_msg += 'The DAG is located at : %s\n'% analysis_path
-    peu.send_mail(subject, email_msg)  
-    
-    # run the creation functions
-    exttrig_dag.set_seg_info(off_source, ifo_times)
-    exttrig_dag.create_exttrig_xml_file()
-    exttrig_dag.prepare_analysis_directory()
-    exttrig_dag.check_analysis_directory()
+    peu.send_mail(subject, email_msg)
+
 
 # -----------------------------------------------------
 def check_gcn(gcn_file, grbs_processed):

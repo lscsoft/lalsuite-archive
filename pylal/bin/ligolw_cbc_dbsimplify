@@ -26,6 +26,8 @@ from glue.ligolw import lsctables
 from glue.ligolw import dbtables
 from glue.ligolw.utils import process
 
+from pylal import ligolw_sqlutils as sqlutils
+
 usage = """
 Cleans and simplifies a database by removing redundant ids.
 """
@@ -111,6 +113,9 @@ ligolwtypes.FromPyType[type(True)] = ligolwtypes.FromPyType[type(8)]
 xmldoc = dbtables.get_xml(connection)
 proc_id = process.register_to_xmldoc(xmldoc, 'ligolw_cbc_dbsimplify', opts.__dict__)
 
+# create needed functions
+connection.create_aggregate("concatenate", 2, sqlutils.aggregate_concatenate)
+
 if opts.verbose:
     print >> sys.stdout, "Cleaning up coinc_definer and time_slide table..."
 
@@ -146,46 +151,46 @@ DROP TABLE _idmap_;
 -- time_slide clean up
 --
 
-CREATE TEMPORARY TABLE time_slide_ids AS SELECT DISTINCT time_slide_id AS time_slide_id FROM time_slide;
 CREATE INDEX ts_io_index ON time_slide (instrument, offset);
-CREATE INDEX tsi_index ON time_slide_ids (time_slide_id);
-CREATE TABLE _idmap_ AS
+CREATE TEMP TABLE all_slides AS
+SELECT
+    time_slide_id AS id,
+	concatenate(instrument, offset) AS slide 
+FROM
+    time_slide
+GROUP BY
+    time_slide_id;
+
+CREATE TEMP TABLE distinct_slides AS
     SELECT
-        old_ids.time_slide_id AS old,
-        (
-            SELECT
-                MIN(new_ids.time_slide_id)
-            FROM
-                time_slide_ids AS new_ids
-            WHERE
-                NOT EXISTS (
-                    SELECT
-                        *
-                    FROM
-                        time_slide AS alink
-                        JOIN time_slide AS blink
-                    WHERE
-                        alink.time_slide_id == old_ids.time_slide_id
-                        AND blink.time_slide_id == new_ids.time_slide_id
-                        AND blink.instrument == alink.instrument
-                        AND blink.offset != alink.offset
-                )
-        ) AS new
+        MIN(id) AS id,
+        slide
     FROM
-        time_slide_ids AS old_ids;
-DROP INDEX tsi_index;
-DROP INDEX ts_io_index;
-DROP TABLE time_slide_ids;
+        all_slides
+    GROUP BY
+        slide;
+
+CREATE TEMP TABLE _idmap_ AS
+    SELECT 
+        distinct_slides.id AS new,
+        all_slides.id AS old
+    FROM
+        all_slides
+    JOIN
+        distinct_slides ON (
+            distinct_slides.slide == all_slides.slide
+            AND distinct_slides.id != all_slides.id
+        );
 
 CREATE INDEX idm_o_index ON _idmap_ (old);
 UPDATE coinc_event SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
 UPDATE experiment_summary SET time_slide_id = (SELECT new FROM _idmap_ WHERE old == time_slide_id);
-DROP INDEX idm_o_index;
 
-DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_ WHERE old != new);
+DELETE FROM time_slide WHERE time_slide_id IN (SELECT old FROM _idmap_);
 
 DROP TABLE _idmap_;
 """
+
 if opts.debug:
     import time
     print >> sys.stderr, sqlscript
@@ -289,6 +294,7 @@ CREATE TEMP TABLE esidmap AS
           experiment_summary.sim_proc_id == distinct_experiments.sim_proc_id
           OR (
             experiment_summary.sim_proc_id IS NULL AND distinct_experiments.sim_proc_id IS NULL )));
+DROP INDEX es_etvds_index;
 CREATE INDEX esm_new_index ON esidmap (new_esid);
 CREATE INDEX esm_old_index ON esidmap (old_esid);
 
@@ -337,15 +343,10 @@ sqlscript = """
 CREATE INDEX em_esi_index ON experiment_map (experiment_summ_id);
 CREATE INDEX em_cei_index ON experiment_map (coinc_event_id);
 """
-if opts.debug:
-    print >> sys.stderr, sqlscript
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
-connection.cursor().executescript( sqlscript )
-
-if opts.debug:
-    print >> sys.stderr, time.localtime()[3], time.localtime()[4], time.localtime()[5]
-
+try:
+    connection.cursor().executescript( sqlscript )
+except:
+    pass
 
 # Vacuum database if desired
 if opts.vacuum:

@@ -62,7 +62,7 @@ from pylal import ligolw_tisi
 from pylal import SnglInspiralUtils
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -1316,28 +1316,26 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		offset_vector = time_slides[coinc_event.time_slide_id]
 
 		#
-		# compare the instruments participating in the coinc to the
-		# instruments named in the time slide vector
+		# retrieve the instruments named in the search summary
+		# table for the ring in which the coinc was found (recorded
+		# earlier)
 		#
 
-		expected_instruments = set(offset_vector)
+		on_instruments = coinc_event.get_instruments()
+
+		#
+		# compare the instruments participating in the coinc to the
+		# instruments for which offsets are available
+		#
+
 		found_instruments = set(event.ifo for event in index[coinc_event.coinc_event_id])
 
-		if found_instruments == expected_instruments:
-			#
-			# all instruments contributed to this coinc:
-			# nothing more to check
-			#
-
-			continue
-
-		if not found_instruments.issubset(expected_instruments):
-			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - expected_instruments), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
+		if not found_instruments.issubset(set(offset_vector)):
+			raise ValueError, "coinc '%s' has instrument(s) %s that are not in time slide vector '%s' (%s)" % (coinc_event.coinc_event_id, ", ".join(found_instruments - set(offset_vector)), coinc_event.time_slide_id, ", ".join(["%s=%g" % item for item in offset_vector.items()]))
 
 		#
-		# if we get here, the time shift vector names instruments
-		# that did not particicpate in the coinc.  check to see
-		# which instruments were on at the time
+		# from the vetoes, check to see which instruments were
+		# *really* on at the time of the coinc
 		#
 
 		#
@@ -1377,7 +1375,7 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 		# least those that participated in the coinc.
 		#
 
-		on_instruments = set(instrument for instrument in offset_vector if instrument not in vetoes or coinc_time not in vetoes[instrument])
+		on_instruments -= set(instrument for instrument, vetosegs in vetoes.items() if coinc_time in vetosegs)
 		coinc_event.set_instruments(on_instruments | found_instruments)
 
 		# the following re-sets the detectors column in the experiment summary table,

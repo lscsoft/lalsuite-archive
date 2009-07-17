@@ -1234,16 +1234,22 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
       self.friendlyName = 'Odds followup job'
       pipeline.CondorDAGNode.__init__(self,followupoddsJob)
       cacheFiles=[]
+      GPSstarts=[]
+      GPSends=[]
       for ifo in IFOs:
         for row in procParamsTable[ifo]:
           param=row.param.strip("-")
           value=row.value
           if param == 'frame-cache': cacheFile=value
-          if param == 'gps-start-time': GPSstart=value
-          if param == 'gps-end-time': GPSend=value
+          if param == 'gps-start-time': GPSstarts.append(float(value))
+          if param == 'gps-end-time': GPSends.append(float(value))
 
         self.add_var_arg("--IFO "+str(ifo))
         self.add_var_arg("--cache " +str(cacheFile))
+      #Check the start and end times are OK
+      
+      GPSstart=str(max(GPSstarts)+64)
+      GPSend=str(min(GPSends)-64)
 
       outputname = followupoddsJob.name + '/'+followupoddsJob.name+'-' \
                    +trig.ifos+'-'+str(trig.statValue)+'_'+str(trig.eventID)+'.dat'
@@ -1270,7 +1276,7 @@ class followupoddsNode(pipeline.CondorDAGNode,webTheNode):
 
       #print "Arguments: " + str(self.get_cmd_line())
 
-      if opts.odds:
+      if opts.odds or float(GPSend)-float(GPSstart)<24:
         dag.addNode(self,self.friendlyName)
         self.validate()
       else: self.invalidate()
@@ -1966,13 +1972,6 @@ class makeCheckListNode(pipeline.CondorDAGNode,webTheNode):
       self.set_category(job.name.lower())
 
     for node in dag.get_nodes():
-      if isinstance(node,qscanNode) or isinstance(node,analyseQscanNode) or isinstance(node,remoteQscanFgNode):
-        for gps in gpsList.strip(",").split(","):
-          if gps in node.id and node.validNode:
-            self.add_parent(node)
-      if isinstance(node,h1h2QeventNode) and "H1" in trig.ifolist_in_coinc:
-        if str(trig.gpsTime["H1"]) in node.id and node.validNode:
-          self.add_parent(node)
       if isinstance(node,IFOstatus_checkNode) or isinstance(node,FrCheckNode) or isinstance(node,plotSNRCHISQNode) or isinstance(node,pylal_skyPlotNode) or isinstance(node,plotChiaNode) or isinstance(node,plotmcmcNode) or isinstance(node,followupTriggerNode):
         if str(trig.eventID) in node.id and node.validNode:
           self.add_parent(node)
