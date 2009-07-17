@@ -113,7 +113,10 @@ def coinc_to_rel_delta_param(coinc, param):
   return list_to_rel_delta(par)
  
 def coinc_to_class_param(coinc):
-  return str(int(bool(coinc._get_slide_num()))) 
+  is_slide = int(bool(coinc._get_slide_num()))
+  is_slide = 1 - is_slide
+  is_slide = int(bool(is_slide))
+  return str(is_slide) 
    
 def list_to_delta(par):
   out = []
@@ -228,7 +231,7 @@ def get_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
     print >>sys.stderr, "cache contains no files with " + pattern + " description"
     return None
   # extract the coinc table
-  coinc_table = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=False, verbose=verb, non_lsc_tables_ok=False)
+  coinc_table = SnglInspiralUtils.ReadSnglInspiralFromFiles(files, mangle_event_id=True, verbose=verb, non_lsc_tables_ok=False)
   # extract the list of coinc triggers
   return CoincInspiralUtils.coincInspiralTable(coinc_table,coinc_stat)
 
@@ -255,8 +258,9 @@ def get_slide_coincs_from_cache(cachefile, pattern, match, verb, coinc_stat):
       for k,ring in enumerate(rings):
         rings[k] = segments.segment(rings[k][0], rings[k][1] + 10**(-9))
       shift_vector = {"H1": 0, "H2": 0, "L1": 5, "V1": 5}
-      SnglInspiralUtils.slideTriggersOnRingWithVector(coinc_table, shift_vector, rings)
-      full_coinc_table.extend(CoincInspiralUtils.coincInspiralTable(coinc_table,coinc_stat))
+      if coinc_table:
+        SnglInspiralUtils.slideTriggersOnRingWithVector(coinc_table, shift_vector, rings)
+        full_coinc_table.extend(CoincInspiralUtils.coincInspiralTable(coinc_table,coinc_stat))
   return full_coinc_table
 
 def split_seq(seq,p):
@@ -320,7 +324,7 @@ ZeroCoincs = new_coincs_from_coincs(ZeroCoincs, coinc_stat)
 InjCoincs = get_coincs_from_cache(cachefile, opts.found_pattern, opts.exact_match, opts.verbose, coinc_stat)
 InjCoincs = new_coincs_from_coincs(InjCoincs,coinc_stat)
 
-params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['event_id','class']}
+params = {"single":['snr','chisq','rsqveto_duration','get_effective_snr()','eff_distance'], "metricInfo":['ethinca'],"coincRelativeDelta":['mchirp','eta'], "coincDelta":['time'], "coincInfo":['event_id','class']}
 
 if SlideCoincs: parse_coinc(SlideCoincs,SlideTable,params)
 if ZeroCoincs: parse_coinc(ZeroCoincs,ZeroTable,params)
