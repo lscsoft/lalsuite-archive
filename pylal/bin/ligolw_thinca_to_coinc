@@ -40,11 +40,11 @@ import re
 import sys
 import os
 try:
-    any
-    all
+	any
+	all
 except NameError:
-    # Python < 2.5
-    from glue.iterutils import any, all
+	# Python < 2.5
+	from glue.iterutils import any, all
 
 from glue import iterutils
 from glue import lal
@@ -561,9 +561,13 @@ def depopulate_time_slide_table(xmldoc, verbose = False):
 #
 
 
-def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = None, verbose = False):
+def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = None, add_inst_subsets = False, verbose = False):
 	"""
-	Populate the experiment table using the given entries.
+	Populate the experiment table using the given entries. If
+	add_inst_subsets is set to True, will write additional
+	entries for every possible sub-combination of the given instrument
+	set. Returns a dictionary of experiment_ids keyed by the instrument
+	set.
 
 	@xmldoc: xmldoc to get/write table to
 	@lars_id: lars_id of the experiment
@@ -572,11 +576,13 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	@expr_start_time: start time of the experiment (not of the file)
 	@expr_end_time: end time of the experiment (not of the file)
 	@comments: any desired comments
+	@add_inst_subsets: will write an entry for every possible subset
+		of @instruments
 	@verbose: be verbose
 	"""
 
 	if verbose:
-		print >> sys.stderr, "Populating the experiment table..."
+		print >> sys.stderr, "populating the Experiment table..."
 
 	# find the experiment table or create one if needed
 	try:
@@ -584,8 +590,20 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	except ValueError:
 		expr_table = xmldoc.childNodes[0].appendChild(lsctables.New(lsctables.ExperimentTable))
 	
-	# write entry to experiment table if it doesn't already exist
-	return expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
+	experiment_ids = {}
+
+	# write entry to the experiment table for the given instruments if it doesn't already exist
+	experiment_ids[instruments] =  expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
+
+	#  add every possible sub-combination of the instrument set if 
+	# they're not already in the table 
+	if add_inst_subsets:
+		for nn in range(2, len(instruments) ):
+			for sub_combo in iterutils.choices( instruments, nn ):
+				if frozenset(sub_combo) not in experiment_ids:
+					experiment_ids[frozenset(sub_combo)] = expr_table.write_new_expr_id(search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments)
+
+	return experiment_ids
 
 
 def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto_def_name, simulation = False, return_dict = False, verbose = False ):
@@ -627,36 +645,27 @@ def populate_experiment_summ_table( xmldoc, experiment_id, time_slide_dict, veto
 		expr_summ_table.write_non_injection_summary( experiment_id, time_slide_dict, veto_def_name, write_all_data = True, write_playground = True, write_exclude_play = True, return_dict = return_dict )
 
 
-def generate_expr_tables_from_time_slide(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, comments = None, simulation = False, verbose = False):
+def generate_experiment_tables(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, comments = None, simulation = False, verbose = False):
 	"""
-	Creates or adds entries to the experiment table and experiment_summ
-	table using the time_slide table.
+	Create or adds entries to the experiment table and experiment_summ
+	table using instruments pulled from the search summary table and
+	offsets pulled from the time_slide table.
 	"""
 
 	if verbose:
-		print >> sys.stderr, "Populating the experiment and experiment_summary tables using the time_slide table..."
+		print >> sys.stderr, "Populating the experiment and experiment_summary tables using search_summary and time_slide tables..."
 
-	# Get the time_slide_table as dict
-	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
+	# Get the instruments that were on
+	thinca_process_ids = get_thinca_process_ids(xmldoc)
+	instruments = get_search_summary_instruments(xmldoc, thinca_process_ids)
+
+	# Populate the experiment table
+	experiment_ids = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, add_inst_subsets = True, verbose = verbose)
 	
-	# Cycle through the time_slide_ids in the time_slide table and populate the
-	# expr table
-	experiment_ids = {}
-	for slide_id in time_slide_dict:
-		# get instrument set
-		instruments = sorted(set(time_slide_dict[ slide_id ]))
+	# Get the time_slide table as dict
+	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 
-		# Add entry to expr_table if instrument set is new
-		if frozenset(instruments) not in experiment_ids:
-			experiment_ids[frozenset(instruments)] = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, verbose = False)
-			# Additionally, add every possible sub-combination of the instrument set if 
-			# they're not already in the table using iterutils.choices
-			for nn in range(2, len(instruments) ):
-				for sub_combo in iterutils.choices( instruments, nn ):
-					if frozenset(sub_combo) not in experiment_ids:
-						experiment_ids[frozenset(sub_combo)] = populate_experiment_table(xmldoc, search_group, search, lars_id, sub_combo, expr_start_time, expr_end_time, comments = comments, verbose = False)
-
-	# Populate experiment_summ_table
+	# Populate the experiment_summary table
 	for instruments in experiment_ids:
 		populate_experiment_summ_table( xmldoc, experiment_ids[instruments], time_slide_dict, veto_def_name, simulation = simulation, return_dict = False, verbose = False )
 
@@ -1069,7 +1078,7 @@ def depopulate_sngl_inspiral(xmldoc, verbose = False):
 #
 
 
-def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, simulation = False, verbose = False):
+def populate_experiment_map(xmldoc, search_group, search, lars_id, veto_def_name, expr_start_time, expr_end_time, simulation = False, verbose = False):
 	from glue.pipeline import s2play as is_in_playground
 
 	#
@@ -1092,7 +1101,9 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	#
 	# Index the coinc_inspiral table as a dictionary
 	#
+
 	coinc_index = dict((row.coinc_event_id, row) for row in table.get_table(xmldoc, lsctables.CoincInspiralTable.tableName))
+
 	#
 	# Get the time_slide_table as dict
 	#
@@ -1100,8 +1111,7 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	time_slide_dict = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName).as_dict()
 
 	#
-	# find the experiment table; for now, assign all coincs to the same
-	# experiment ifo time (this may change later when vetoes are applied)
+	# find the experiment table
 	#
 
 	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
@@ -1111,6 +1121,15 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 	#
 
 	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
+
+	#
+	# Get the on_instruments from the search summary table
+	# for now will assign all coincs to the same experiment ifo time
+	# (this may change later when vetoes are applied)
+	#
+
+	thinca_process_ids = get_thinca_process_ids(xmldoc)
+	instruments = get_search_summary_instruments(xmldoc, thinca_process_ids)
 
 	#
 	# cycle through the coincs in the coinc_inspiral table
@@ -1126,10 +1145,9 @@ def populate_experiment_map(search_group, search, lars_id, veto_def_name, expr_s
 
 		expr_map.coinc_event_id = coinc.coinc_event_id
 
-		# get the (temporary) experiment and experiment_summ_id for this coinc using the
-		# instruments from the time_slide_id
-		instruments = set(time_slide_dict[coinc.time_slide_id])
+		# get the (temporary) experiment and experiment_summ_id for this coinc 
 		expr_id = expr_table.get_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time )
+
 		if simulation:
 			# map to the simulation entry in the experiment_summary table
 			expr_map.experiment_summ_id = expr_summ_table.get_expr_summ_id( expr_id, coinc.time_slide_id,
@@ -1561,13 +1579,13 @@ for (tag, veto_category), url_pairs in url_categories.items():
 		search_group = "cbc"
 
 		# write the experiment_tables 
-		generate_expr_tables_from_time_slide(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)
+		generate_experiment_tables(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, comments = None, simulation = options.simulation, verbose = options.verbose)
 
 		populate_coinc_event_sngls(xmldoc, process, effective_snr_factor = options.effective_snr_factor, verbose = options.verbose)
 
 		depopulate_sngl_inspiral(xmldoc, verbose = options.verbose)
 
-		populate_experiment_map(search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, simulation = options.simulation, verbose = options.verbose)
+		populate_experiment_map(xmldoc, search_group, options.search, options.lars_id, options.veto_segments_name, options.experiment_start_time, options.experiment_end_time, simulation = options.simulation, verbose = options.verbose)
 
 		if options.veto_segments:
 			apply_vetoes(xmldoc, veto_segments, process, verbose = options.verbose)
