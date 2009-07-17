@@ -329,7 +329,6 @@ def calc_stats():
       # get the next trigger
       KW = KWtrigs.fetchone()
 
-    vetoed_segs.coalesce()    
     ## store the result
     deadTime = abs(vetoed_segs) # avoid calculate it again and again 
     # round to 2 decimal points for float values
@@ -404,9 +403,7 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
   else:
     safety = "Unsafe"
 
-  print Nexp, "expectation"
-
-  return cur, Nvetoed, Nexp, prob, safety
+  return cur, Nvetoed, "%.2f"%Nexp, "%.2e"%prob, safety
 
 #==============================================================================
 #
@@ -551,8 +548,8 @@ try: # include in finally cause so that we can erase tmp files in any case
   params.append(("KWtrigsFile",KWtrigsFile))
   params.append(("vetoSegFile",vetoSegFile))
   params.append(("HWInjNvetoed",Nvetoed))
-  params.append(("HWInjNexp","%.2f"%Nexp))
-  params.append(("HWInjProbability","%.2e"%probability))
+  params.append(("HWInjNexp",Nexp))
+  params.append(("HWInjProbability",probability))
   params.append(("safety",safety))
   cursor.execute("create table params (var_name txt, value)")
   cursor.executemany("insert into params values (?,?)", params)
