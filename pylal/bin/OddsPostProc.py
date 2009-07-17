@@ -3,13 +3,14 @@
 #from numpy import *
 import scipy
 import matplotlib 
-matplotlib.use("Agg")
+#matplotlib.use("Agg")
 import sys
 import math
 from pylab import *
 from optparse import OptionParser
 import os
 import numpy
+from time import strftime
 
 parser=OptionParser()
 parser.add_option("-o","--outpath", dest="outpath",help="make page and plots in DIR", metavar="DIR")
@@ -188,10 +189,11 @@ myfig.clear()
 paramnames=('Mchirp (Msun)','eta','geocenter time ISCO','phi_c','Distance (Mpc)','RA (rads)','declination (rads)','psi','iota')
 
 htmlfile=open(outdir+'/posplots.html','w')
-htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>Posterior PDFs</h3>')
+htmlfile.write('<HTML><HEAD><TITLE>Posterior PDFs</TITLE></HEAD><BODY><h3>'+str(means[2])+' inspnest Posterior PDFs</h3>')
 if(Bflag==1): htmlfile.write('<h4>log Bayes Factor: '+str(BayesFactor)+'</h4><br>')
-htmlfile.write('signal evidence: '+str(logZ)+'. Fisher information: '+str(H*1.442)+' bits.<br>')
-htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
+htmlfile.write('signal evidence: '+str(logZ)+'. Information: '+str(H*1.442)+' bits.<br>')
+if(Bflag==1): htmlfile.write('deltaLogLmax: '+str(d[-1,-1]-NoiseZ)+'<br>')
+htmlfile.write('Produced from '+str(size(pos,0))+' posterior samples, in '+str(size(opts.data,0))+' parallel runs. Taken from '+str(len)+' NS samples using '+str(Nlive)+' live points<br>')
 htmlfile.write('<h4>Mean parameter estimates</h4>')
 htmlfile.write('<table border=1><tr>')
 paramline=reduce(lambda a,b:a+'<td>'+b,paramnames)
@@ -212,9 +214,9 @@ for i in [0,1,2,3,4,5,6,7,8]:
     grid()
     xlabel(paramnames[i])
     ylabel('Probability Density')
-    myfig.savefig(outdir+'/'+str(i) + '.png')
-    htmlfile.write('<img src="'+str(i)+'.png">')
+    myfig.savefig(outdir+'/'+paramnames[i]+ '.png')
+    htmlfile.write('<img src="'+paramnames[i]+'.png">')
 
-
+htmlfile.write('<hr><br>Produced using lalapps_inspnest and OddsPostProc.py at '+strftime("%Y-%m-%d %H:%M:%S"))
 htmlfile.write('</BODY></HTML>')
 htmlfile.close()
