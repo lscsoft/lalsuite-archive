@@ -2961,7 +2961,7 @@ class SqliteJob(CondorDAGJob, AnalysisJob):
     """
     self.__exec_name = exec_name
     executable = cp.get('condor', exec_name)
-    universe = 'local'
+    universe = 'vanilla'
     CondorDAGJob.__init__(self, universe, executable)
     AnalysisJob.__init__(self, cp, dax)
 
