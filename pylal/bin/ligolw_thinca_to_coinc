@@ -1529,7 +1529,7 @@ if options.veto_segments:
 		veto_segments = ligolw_segments.segmenttable_get_by_name(utils.load_filename(options.veto_segments, gz = (options.veto_segments or "stdin").endswith(".gz"), verbose = options.verbose), options.veto_segments_name).coalesce()
 	except AttributeError:
 		# will get an AttributeError if using new-format veto segment file because
-		# of new format does not include _ns; if so, remove the _ns columns from the
+		# new format does not include _ns; if so, remove the _ns columns from the
 		# segment table and reset the definitions of lsctables.Segment.get and lsctables.Segment.set
 		from glue.lal import LIGOTimeGPS
 
