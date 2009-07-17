@@ -325,11 +325,11 @@ def calc_stats():
       totalKW_counter += 1
       vetoed_segs.append(KW_veto_utils.get_segment(KW[0],
                            opts.positive_window,opts.negative_window))
-      vetoed_segs.coalesce()
 
       # get the next trigger
       KW = KWtrigs.fetchone()
-    
+
+    vetoed_segs.coalesce()    
     ## store the result
     deadTime = abs(vetoed_segs) # avoid calculate it again and again 
     # round to 2 decimal points for float values
@@ -361,13 +361,14 @@ def calc_stats():
       # it's not interesting once we hit 0 for total KW number, so stop
       break
        
-def get_veto_segs():
+def get_veto_segs(veto_thresh):
   """
   Create a veto segment list with a given KW significance threshold.
   Take an intersection with analyzed segments so that all the veto segments
   stays in analyzed segs.
   """
-  veto_segs = segmentlist([KW_veto_utils.get_segment(t[0], opts.positive_window, opts.negative_window) for t in cursor.execute("select GPSTime from KWtrigs where KWSignificance >= ?",(opts.critical_usedPer,))])
+  veto_times = cursor.execute("select GPSTime from KWtrigs where KWSignificance >= ?",(veto_thresh,))
+  veto_segs = segmentlist([KW_veto_utils.get_segment(t[0], opts.positive_window, opts.negative_window) for t in veto_times])
   return veto_segs.coalesce().__iand__(analyzed_segs)
 
 def injection_check(cur, injection_file, veto_segments, totalTime):
@@ -376,9 +377,8 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
   all_injection_times = [float(time) for time in open(injection_file).readlines() if not time.startswith("#") and time != "/n"]
 
   injection_times = [t for t in all_injection_times if t in analyzed_segs]
+  injection_times.sort()
 
-  #                    if not time.startswith("#") and time.startswith("%")\
-  #                    and not time.startswith("/n")]
   cursor.execute("create table injections (GPSTime float, vetoed txt)")
   Nvetoed = 0
   print injection_times, "times"
@@ -403,6 +403,8 @@ def injection_check(cur, injection_file, veto_segments, totalTime):
     safety = "Pass"
   else:
     safety = "Unsafe"
+
+  print Nexp, "expectation"
 
   return cur, Nvetoed, Nexp, prob, safety
 
@@ -512,7 +514,7 @@ try: # include in finally cause so that we can erase tmp files in any case
       if opts.verbose:
         print >> sys.stderr, "candidate channel!"
         print >> sys.stderr, "creating veto segments..."
-      veto_segments = get_veto_segs()
+      veto_segments = get_veto_segs(candidate_data[0])
       # store in the database
       KW_veto_utils.write_segs_db(cursor,veto_segments,"veto_segments")
       connection.commit()
@@ -549,8 +551,8 @@ try: # include in finally cause so that we can erase tmp files in any case
   params.append(("KWtrigsFile",KWtrigsFile))
   params.append(("vetoSegFile",vetoSegFile))
   params.append(("HWInjNvetoed",Nvetoed))
-  params.append(("HWInjNexp",Nexp))
-  params.append(("HWInjProbability",probability))
+  params.append(("HWInjNexp","%.2f"%Nexp))
+  params.append(("HWInjProbability","%.2e"%probability))
   params.append(("safety",safety))
   cursor.execute("create table params (var_name txt, value)")
   cursor.executemany("insert into params values (?,?)", params)

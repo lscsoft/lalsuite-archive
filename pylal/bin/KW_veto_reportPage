@@ -92,7 +92,6 @@ def report_page():
     """
     creates summary report page
     """
-    injection_option = False
 
     ############################## header ######################################
     title = params['name_tag'].upper()
@@ -114,8 +113,6 @@ def report_page():
     
     ## make a table for those channels that go above the critical used percentage and have coincident trigger number above min_coinc_num
     
-    # if injection part is on, make one more column to show veto safety info
-    print >> sys.stderr, "injection_option:",injection_option
     
     table = ["""
     <big>Veto Candidate Channels</big><br>
@@ -150,9 +147,9 @@ def report_page():
 
       # exclude channels that we know they are not safe
       if data != None and data[2] >= opts.min_coinc_num and chan.find("DARM_ERR")==-1 and chan.find("DARM_CTRL")==-1 and chan.find("AS_I")==-1 and chan.find("AS_Q")==-1 and chan.find("PR_B1_ACP")==-1:
-        print "working"
+        color = safety[3] == "Pass" and "white" or "yellow"
         table.append("""
-                <tr>
+                <tr bgcolor="%s">
                 <td><a href="channel_pages/%s-report_page.html">%s</a></td>
                 <td>%d</td>
                 <td>%.2f</td>
@@ -162,14 +159,13 @@ def report_page():
                 <td>%.4f</td>
                 <td>%.2f</td>
                 <td>%.2f</td>
-                <td>%s</td>
-                <td>%s</td>
+                <td>%s / %s</td>
                 <td>%s</td>
                 <td>%s</td>
                 </tr>
-                """%(filePrefix,chan,data[0],data[1],data[2],data[3],
+                """%(color,filePrefix,chan,data[0],data[1],data[2],data[3],
                      data[5],data[7],data[8],data[9],
-                     safety[0],safety[1],safety[2]))
+                     safety[0],safety[1],safety[2],safety[3]))
 
       ############################## all channel #############################
         
@@ -259,7 +255,6 @@ for chan_file in files_list:
       os.remove(db)
 
 # make the page
-print len(channel_info)
 report_page()
         
 if opts.verbose: print >> sys.stderr, "KW_veto_reportPage done!"
