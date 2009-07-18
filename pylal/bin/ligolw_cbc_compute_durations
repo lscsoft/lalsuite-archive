@@ -51,7 +51,7 @@ def parse_command_line():
     """
     parser = OptionParser( version = "", usage = usage )
 
-    parser.add_option( "-i", "--input", action = "store", type = "string", default = None,
+    parser.add_option( "-d", "--database", action = "store", type = "string", default = None,
         help = 
             "Input database to read. Can only input one at a time."
         )
