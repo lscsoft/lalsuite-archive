@@ -248,6 +248,11 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   log_data = '\n***Omega Online Event***\n'
   for var in omega_vars:
     log_data += var + ': ' + omega_data[var] + '\n'
+  log_data += 'network: '
+  for ifo in detectors:
+    log_data += ifo + ' '
+  log_data += '\n'
+  log_data += 'segment location: ' + segDir + '\n'
   
   #fill the MutliBurstTable
   coinc_event_id = coinc_event_id_base + str(UID)
@@ -315,8 +320,9 @@ def populate_coinc_tables(xmldoc, UID, coinc_event_id_base, event_id_dict,\
         raise ValueError, "Unrecognize CoincDef.search"
       if event_id_dict:
         row.event_id = event_id_dict[ifo]
-      else:
-        row.event_id = event_id_dict
+        coinc_map_table.append(row)
+    if not event_id_dict:
+      row.event_id = event_id_dict
       coinc_map_table.append(row)
 
     #CoincDefTable
