@@ -74,8 +74,8 @@ def parse_command_line():
     (options, args) = parser.parse_args()
 
     # check for required options and for self-consistency
-    if not options.input:
-        raise ValueError, "No input specified."
+    if not options.database:
+        raise ValueError, "No database specified."
 
     return options, sys.argv[1:]
 
@@ -116,9 +116,9 @@ class Durations:
 options, args = parse_command_line()
 
 # get input database filename
-filename = options.input
+filename = options.database
 if not os.path.isfile( filename ):
-    raise ValueError, "The input file, %s, cannot be found." % filename
+    raise ValueError, "The input database, %s, cannot be found." % filename
 
 # Setup working databases and connections
 if options.verbose: 
@@ -211,9 +211,7 @@ sqlquery = """
     SET duration = (
         SELECT retrieve_duration(experiment.instruments, experiment_summary.time_slide_id)
         FROM experiment
-        JOIN experiment_summary ON (
-            experiment.experiment_id == experiment_summary.experiment_id
-            )
+        WHERE experiment.experiment_id == experiment_summary.experiment_id
         )"""
 connection.cursor().execute( sqlquery )
 
