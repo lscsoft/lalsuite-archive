@@ -62,10 +62,6 @@ def parse_command_line():
             "it is only used to enhance performance in a networked " +
             "environment. "
         )
-    parser.add_option( "", "--veto-segments-name", action = "store", type = "string", default = None,
-        help =
-            "Set the name of the veto segments to use."
-        )
     parser.add_option( "-v", "--verbose", action = "store_true", default = False,
         help =
             "Be verbose."
@@ -89,18 +85,18 @@ class Durations:
     """
     Class to store and retrieve durations.
     self.durations has the structure:
-    self.durations[(on_instruments,time_slide_id)]
+    self.durations[(on_instruments,veto_def_name,time_slide_id)]
     """
     def __init__( self ):
         self.durations = {}
-    def map_slides_to_durations( self, time_slide_dict, livetime_dict ):
+    def map_slides_to_durations( self, veto_def_name, time_slide_dict, livetime_dict ):
         for instruments in livetime_dict:
             for slide_id, duration in zip(time_slide_dict.keys(), livetime_dict[instruments]):
-                self.durations[(instruments, slide_id)] = duration
-    def retrieve_duration( self, on_instruments, time_slide_id ):
+                self.durations[(instruments, veto_def_name, slide_id)] = duration
+    def retrieve_duration( self, on_instruments, veto_def_name, time_slide_id ):
         on_instruments = frozenset(lsctables.instrument_set_from_ifos(on_instruments))
-        if (on_instruments, time_slide_id) in self.durations:
-            return self.durations[( on_instruments, time_slide_id )]
+        if (on_instruments, veto_def_name, time_slide_id) in self.durations:
+            return self.durations[( on_instruments, veto_def_name, time_slide_id )]
 
 
 # =============================================================================
@@ -152,15 +148,28 @@ expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.table
 # turn the time slide table into a dictionary
 time_slide_dict = time_slide_table.as_dict()
 
+# initialize duration bank
+dur_bank = Durations()
+
 # get the ring_sets
 ring_sets = db_thinca_rings.get_thinca_rings_by_available_instruments(connection, program_name = "thinca")
 
+if options.verbose:
+    print >> sys.stderr, "Getting all veto categories in the experiment_summary table..."
+
 # get veto_segments
-if options.veto_segments_name is not None:
+sqlquery = """
+    SELECT DISTINCT
+        veto_def_name
+    FROM
+        experiment_summary
+    """
+for veto_def_name in connection.cursor().execute(sqlquery).fetchall():
+    veto_def_name = veto_def_name[0]
     if options.verbose:
-        print >>sys.stderr, "retrieving veto segments \"%s\" ..." % options.veto_segments_name
+        print >>sys.stderr, "\tretrieving veto segments for %s..." % veto_def_name
     try:
-        veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
+        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
     except AttributeError:
         # will get an AttributeError if using newer format veto segment file because
         # the new format does not include _ns; if so, remove the _ns columns from the
@@ -186,32 +195,39 @@ if options.veto_segments_name is not None:
         lsctables.Segment.get = get_segment
         lsctables.Segment.set = set_segment
 
-        veto_segments = db_thinca_rings.get_veto_segments(connection, options.veto_segments_name)
-else:
-    veto_segments = segments.segmentlistdict()
+        veto_segments = db_thinca_rings.get_veto_segments(connection, veto_def_name)
 
-# compute the durations (or livetimes) for every possible instrument combo for every
-# slide in the time-slide table; the resulting durations dictionary has the following form:
-# durations[time_slide_id][on_instruments] = livetime (in seconds)
+    # compute the durations (or livetimes) for every possible instrument combo for every
+    # slide in the time-slide table; the resulting durations dictionary has the following form:
+    # durations[(on_instruments, veto_def_name, time_slide_id)] = livetime (in seconds)
+    if options.verbose:
+        print >> sys.stderr, "\tcalculating durations for:"
+
+    livetime_dict = db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, time_slide_dict.values(), verbose = options.verbose)
+    dur_bank.map_slides_to_durations(veto_def_name, time_slide_dict, livetime_dict)
+
+#
+# finished getting all durations, now populate the experiment_summary table
+# with them
+#
 if options.verbose:
-    print >> sys.stderr, "Calculating durations for each time slide..."
+    print >> sys.stderr, "\nPopulating the experiment_summary table with results..."
 
-dur_bank = Durations()
-livetime_dict = db_thinca_rings.get_thinca_livetimes(ring_sets, veto_segments, time_slide_dict.values(), verbose = options.verbose)
-dur_bank.map_slides_to_durations(time_slide_dict, livetime_dict)
-
-if options.verbose:
-    print >> sys.stderr, "\nPopulating the experiment_summary table..."
-
-connection.create_function("retrieve_duration", 2, dur_bank.retrieve_duration)
+connection.create_function("retrieve_duration", 3, dur_bank.retrieve_duration)
 
 # populate the experiment_summary table with the appropiate duration
 sqlquery = """
     UPDATE experiment_summary
     SET duration = (
-        SELECT retrieve_duration(experiment.instruments, experiment_summary.time_slide_id)
-        FROM experiment
-        WHERE experiment.experiment_id == experiment_summary.experiment_id
+        SELECT retrieve_duration(
+            experiment.instruments,
+            experiment_summary.veto_def_name,
+            experiment_summary.time_slide_id
+            )
+        FROM
+            experiment
+        WHERE
+            experiment.experiment_id == experiment_summary.experiment_id
         )"""
 connection.cursor().execute( sqlquery )
 
