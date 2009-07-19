@@ -2156,8 +2156,12 @@ defaulting to %s"%(self.serverURL))
     """
     Return a HTML table already formatted using the module MARKUP to
     keep the HTML tags complient.  This method does nothing but return
-    the result of the last call to self.fetchInformation()
+    the result of the last call to self.fetchInformation() The flag
+    names associated with LIGO will have links to the channel wiki in
+    them also.
     """
+    ligo=["L1","H1","H2"]
+    channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
     if self.triggerTime==int(-1):
       return ""
     myColor="grey"
@@ -2179,6 +2183,10 @@ defaulting to %s"%(self.serverURL))
         myColor="red"
       if name.lower().__contains__('science'):
         myColor="skyblue"
+      #If NAME is LIGO flag then adjust name txt to be url also
+      if ligo.__contains__(ifo.upper()):
+        url=channelWiki%(name)
+        name="<a href=\"%s\">%s</a>"%(url,name.rstrip().lstrip().upper())
       tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
