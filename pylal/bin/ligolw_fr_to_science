@@ -83,8 +83,8 @@ outdoc.appendChild(ligolw.LIGO_LW())
 proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
 
 # create a science segment definition and a segment_summary entry for this interval
-seg_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,options.ifo,"DMT-SCIENCE",options.segment_version,comment=options.ifo + " Science mode from h(t) DQ flags")
-segmentdb_utils.add_to_segment_summary(outdoc,proc_id,seg_def_id,frame_intervals,comment=options.cache_file)
+seg_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,options.ifo,"DMT-SCIENCE",options.segment_version,comment=options.ifo + " Science mode from RDS h(t) DQ flags")
+segmentdb_utils.add_to_segment_summary(outdoc,proc_id,seg_def_id,frame_intervals,comment=options.type)
 
 # create an empty list of science segments
 science_segments = segments.segmentlist()
@@ -93,7 +93,7 @@ science_segments = segments.segmentlist()
 for frame in frame_files:
 	if options.verbose: print frame.path()
 	state_vec = pylal.Fr.frgetvect(frame.path(), ':'.join([options.ifo,'LSC-DATA_QUALITY_VECTOR']), start=-1, span=-1, verbose=False)
-	start_time = state_vec[0]
+	start_time = state_vec[1]
 	dt = state_vec[3][0]
 	for i in range(len(state_vec[0])):
 		if state_vec[0][i] & 0x1:
