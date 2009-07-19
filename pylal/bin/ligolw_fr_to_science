@@ -24,15 +24,19 @@
 import sys
 import os
 import pwd
+import time
 
 from optparse import OptionParser
 
 import pylal.Fr
 
+from glue import git_version
 from glue import lal
 from glue import segments
+from glue import gpstime
 
 from glue.ligolw import ligolw
+from glue.ligolw import table
 from glue.ligolw import lsctables
 from glue.ligolw import utils as ligolw_utils
 from glue.ligolw.utils import segments as ligolw_segments
@@ -49,8 +53,6 @@ except:
   USER_NAME = pwd.getpwuid(os.getuid())[0]
 
 __author__  = "Duncan Brown <dabrown@physics.syr.edu>"
-__date__    = "$Date$"[7:-2]
-__version__ = "$Revision$"[11:-2]
 
 parser = OptionParser(
   version = "%prog CVS $Header$",
@@ -61,6 +63,7 @@ parser.add_option("-c", "--cache-file", metavar="FILE", help="read input frame n
 parser.add_option("-i", "--ifo", metavar="IFO", help="extract segments for detector IFO" )
 parser.add_option("-t", "--type", metavar="RDS_TYPE", help="extract segments from frame type RDS_TYPE" )
 parser.add_option("-s", "--segment-version", metavar="VERSION", help="create science segments as version number VERSION", type=int )
+parser.add_option("-C", "--comment", metavar="STRING", help="add the optional STRING as the process:comment", default='' )
 parser.add_option("-V", "--verbose", action="store_true", help="print extra debugging information", default=False )
 
 options, filenames = parser.parse_args()
@@ -80,7 +83,7 @@ frame_intervals = frame_files.to_segmentlistdict()[options.ifo[0]]
 # create a blank xml document and add the process id
 outdoc = ligolw.Document()
 outdoc.appendChild(ligolw.LIGO_LW())
-proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__).process_id
+proc_id = ligolw_process.register_to_xmldoc(outdoc, PROGRAM_NAME, options.__dict__, comment=options.comment, ifos=[options.ifo], version=git_version.id, cvs_repository=git_version.branch, cvs_entry_time=git_version.date).process_id
 
 # create a science segment definition and a segment_summary entry for this interval
 seg_def_id = segmentdb_utils.add_to_segment_definer(outdoc,proc_id,options.ifo,"DMT-SCIENCE",options.segment_version,comment=options.ifo + " Science mode from RDS h(t) DQ flags")
@@ -104,6 +107,8 @@ for frame in frame_files:
 segmentdb_utils.add_to_segment(outdoc,proc_id,seg_def_id,science_segments)
 
 # write the xml file to disk
+proctable = table.get_table(outdoc, lsctables.ProcessTable.tableName)
+proctable[0].end_time = gpstime.GpsSecondsFromPyUTC(time.time())
 outname = '-'.join([options.ifo[0],options.type + '_SCIENCE_V' + str(options.segment_version),str(frame_intervals[0][0]),str(frame_intervals[-1][1]-frame_intervals[0][0])]) + '.xml'
 ligolw_utils.write_filename(outdoc,outname)
 
