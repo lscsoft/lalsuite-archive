@@ -1,6 +1,8 @@
 #!/usr/bin/python
 
-#from pylal import Fr
+from math import log
+
+from pylal import Fr
 from glue.ligolw import ligolw
 from glue.ligolw import table
 from glue.ligolw import lsctables
@@ -246,6 +248,11 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   log_data = '\n***Omega Online Event***\n'
   for var in omega_vars:
     log_data += var + ': ' + omega_data[var] + '\n'
+  log_data += 'network: '
+  for ifo in detectors:
+    log_data += ifo + ' '
+  log_data += '\n'
+  log_data += 'segment location: ' + segDir + '\n'
   
   #fill the MutliBurstTable
   coinc_event_id = coinc_event_id_base + str(UID)
@@ -258,7 +265,7 @@ def populate_burst_tables(datafile, UID, set_keys = Omega_set_keys, \
   row.start_time = int(st)
   row.start_time_ns = int(st_ns)
   row.duration = None
-  row.confidence = float(omega_data['probSignal'])
+  row.confidence = -log(float(omega_data['probGlitch']))
   row.coinc_event_id = coinc_event_id
   for key in mb_table.validcolumns.keys():
       if key not in set_keys:
@@ -313,8 +320,9 @@ def populate_coinc_tables(xmldoc, UID, coinc_event_id_base, event_id_dict,\
         raise ValueError, "Unrecognize CoincDef.search"
       if event_id_dict:
         row.event_id = event_id_dict[ifo]
-      else:
-        row.event_id = event_id_dict
+        coinc_map_table.append(row)
+    if not event_id_dict:
+      row.event_id = event_id_dict
       coinc_map_table.append(row)
 
     #CoincDefTable
