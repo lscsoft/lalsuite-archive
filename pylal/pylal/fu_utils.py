@@ -2184,9 +2184,9 @@ defaulting to %s"%(self.serverURL))
       if name.lower().__contains__('science'):
         myColor="skyblue"
       #If NAME is LIGO flag then adjust name txt to be url also
-      if ligo.__contains__(ifo.upper()):
-        url=channelWiki%(name)
-        name="<a href=\"%s\">%s</a>"%(url,name.rstrip().lstrip().upper())
+      if ligo.__contains__(ifo.upper().strip()):
+        url=channelWiki%(name.upper().strip())
+        name="<a href=\"%s\">%s</a>"%(url,name.strip().upper())
       tableString+=rowString%(myColor,ifo,name,version,start,offset1,stop,offset2,size)
     tableString+="</table>"
     return tableString
