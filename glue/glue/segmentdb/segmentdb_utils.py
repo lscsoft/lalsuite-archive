@@ -260,7 +260,7 @@ def ensure_segment_table(connection):
 # =============================================================================
 #
 
-def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
+def add_to_segment_definer(xmldoc, proc_id, ifo, name, version, comment=''):
     try:
         seg_def_table = table.get_table(xmldoc, lsctables.SegmentDefTable.tableName)
     except:
@@ -274,7 +274,7 @@ def add_to_segment_definer(xmldoc, proc_id, ifo, name, version):
     segment_definer.ifos           = ifo
     segment_definer.name           = name
     segment_definer.version        = version
-    segment_definer.comment        = ''
+    segment_definer.comment        = comment
 
     seg_def_table.append(segment_definer)
 
@@ -300,7 +300,7 @@ def add_to_segment(xmldoc, proc_id, seg_def_id, sgmtlist):
         segtable.append(segment)
 
 
-def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
+def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist, comment=''):
     try:
         seg_sum_table = table.get_table(xmldoc, lsctables.SegmentSumTable.tableName)
     except:
@@ -314,7 +314,7 @@ def add_to_segment_summary(xmldoc, proc_id, seg_def_id, sgmtlist):
         segment_sum.segment_sum_id = seg_sum_table.get_next_id()
         segment_sum.start_time     = seg[0]
         segment_sum.end_time       = seg[1]
-        segment_sum.comment        = ''
+        segment_sum.comment        = comment
 
         seg_sum_table.append(segment_sum)
 
