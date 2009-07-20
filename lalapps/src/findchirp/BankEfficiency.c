@@ -335,7 +335,22 @@ main (INT4 argc, CHAR **argv )
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
-  
+
+      if ( ! strcmp( "start", userParam.taperSignal ) ) 
+      {
+        XLALInspiralWaveTaper( &overlapin.signal,
+                               INSPIRAL_TAPER_START );
+      }
+      else if (  ! strcmp( "end", userParam.taperSignal ) )
+      {
+        XLALInspiralWaveTaper( &overlapin.signal,
+                               INSPIRAL_TAPER_END );
+      }
+      else if (  ! strcmp( "startend", userParam.taperSignal ) )
+      {
+        XLALInspiralWaveTaper( &overlapin.signal,
+                               INSPIRAL_TAPER_STARTEND );
+      }
 
       for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
       {
@@ -349,16 +364,8 @@ main (INT4 argc, CHAR **argv )
           ampCorDataSegVec->data->chan->data->data[i] = 0.0;
         }      
       }
-if( 1 )
-{
-  FILE *fp = NULL;
-  fp = fopen( "TDdata.dat", "w" );
-  for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
-  {
-    fprintf(fp, "%e\n", ampCorDataSegVec->data->chan->data->data[i] );
-  }
-  fclose( fp );
-}
+
+
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
                                     &status );
@@ -369,7 +376,7 @@ if( 1 )
       memset( ampCorFreqSegVec->data->segNorm->data, 0,
               ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
 
-
+      /* Only do this in the absence of noise */
       if( randIn.type == 0 )
       {
         for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
@@ -448,7 +455,7 @@ if( 1 )
 
           insptmplt.massChoice = psi0Andpsi3;
           LAL_CALL(LALInspiralParameterCalc(&status, &(insptmplt)),&status);
-          overlapin.param = insptmplt;
+           overlapin.param = insptmplt;
 
           LAL_CALL(LALInspiralParameterCalc( &status,  &(overlapin.param) ),
               &status);
@@ -2921,7 +2928,8 @@ void BankEfficiencyInitUserParametersIn(
   userParam->inputPSD            = NULL;
   userParam->ambiguity           = 0;
   userParam->fastParam1          = 50;
-  sprintf(userParam->tag,"");
+  sprintf(userParam->taperSignal,"none");
+  sprintf(userParam->tag,"-");
 }
 
 
@@ -3395,6 +3403,26 @@ void BankEfficiencyParseParameters(
     }
     else if (!strcmp(argv[i],"--print-prototype")) {
       userParam->printPrototype = 1;
+    }
+    else if (!strcmp(argv[i], "--signal-taper")) {
+      BankEfficiencyParseGetString(argv, &i);
+      if ( ! strcmp( "start", argv[i] ) )
+      {
+        sprintf(userParam->taperSignal, "start");
+      }
+      else if ( ! strcmp( "end", argv[i] ) )
+      {
+        sprintf(userParam->taperSignal, "end");      
+      }
+      else if ( ! strcmp( "startend", argv[i] ) )
+      {
+        sprintf(userParam->taperSignal, "startend");      
+      }
+      else
+      {
+        fprintf( stderr, 
+          "invalid argument to --signal-taper\n (Must be one of start|end|startend)\n");
+      }
     }
     else {
       fprintf(stderr,
