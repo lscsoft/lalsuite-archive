@@ -121,7 +121,6 @@ def parse_command_line():
 	parser.add_option("--search", metavar = "string", type = "string", default = None, help = "Set the search, e.g., 'low_mass', for this experiment in the experiment table (optional).")
 	parser.add_option("--experiment-start-time", type="int", help = "Start time, in gps seconds, of the experiment being performed. This is NOT the start time of the thinca-files being used. Required.")
 	parser.add_option("--experiment-end-time", type="int", help = "End time, in gps seconds, of the experiment being performed. This is NOT the end time of the thinca-files being used. Required.")
-	parser.add_option("--compute-durations", action = "store_true", help = "Turning on will cause thinca_to_coinc to compute all_data durations for each slide in the experiment_summary table. For zero-lag, playground and exclude_play durations will also be calculated. If veto-segments are specified, will apply veto segments when calculating.")
 	parser.add_option("--simulation", action = "store_true", default = False, help = "Turn on if thinca file contains injections. Doing so will causes only zero-lag entries to be written to the experiment_summary table whose datatype is 'simulation'.")
 	parser.add_option("-v", "--verbose", action = "store_true", help = "Be verbose.")
 	options, args = parser.parse_args()
@@ -1444,77 +1443,6 @@ def apply_vetoes(xmldoc, veto_segments, process, verbose = False):
 #
 # =============================================================================
 #
-#                              Compute Durations
-#
-# =============================================================================
-#
-
-
-def compute_durations( xmldoc, veto_segments, verbose = False):
-	"""
-	Computes livetime for each element in the experiment_summary table
-	using SngInspiralUtils.compute_thinca_livetime and writes the result
-	to the duration column.
-	"""
-
-	if options.verbose:
-		print >> sys.stderr, "Computing durations for each experiment in the experiment_summary table..."
-
-	#
-	# find the tables we'll need
-	#
-
-	time_slide_table = table.get_table(xmldoc, lsctables.TimeSlideTable.tableName)
-	expr_table = table.get_table(xmldoc, lsctables.ExperimentTable.tableName)
-	expr_summ_table = table.get_table(xmldoc, lsctables.ExperimentSummaryTable.tableName)
-
-	#
-	# turn the time slide table into a dictionary
-	#
-
-	time_slide_dict = time_slide_table.as_dict()
-
-
-	#
-	# retrieve the ring boundaries
-	#
-
-	# retrieve the all_data rings
-	rings = retrieve_ring_boundaries(xmldoc)
-	# retrieve the playground segments
-	playground_segments = get_playground_segments(rings)
-	# calculate the exclude_play segs using all_data rings and playground_segments
-	exclude_play_segments = rings - playground_segments
-
-	#
-	# performance assist: remove veto segments that don't fall in any
-	# of the rings, then remove veto segment lists that are empty
-	#
-
-	coalesced_rings = segments.segmentlist(rings).coalesce()
-	veto_segments = segments.segmentlistdict((instrument, seglist & coalesced_rings) for (instrument, seglist) in veto_segments.items() if seglist.intersects(coalesced_rings))
-
-	#
-	# cycle through experiments in the experiment_summ table
-	# calculating the duration for each
-	#
-
-	for row in expr_summ_table:
-		on_instruments = lsctables.instrument_set_from_ifos(expr_table.get_row_from_id(row.experiment_id).instruments)
-		off_instruments = set(ifo for ifo in time_slide_dict[ row.time_slide_id ]) - on_instruments
-		# if zero-lag, use the apprpiate ring summaries depending on whether the row is
-		# all_data, playground, or exclude_play
-		if row.datatype == 'playground':
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, playground_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-		elif row.datatype == 'exclude_play':
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, exclude_play_segments, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-		else: # is all_data or slide, use rings
-			row.duration = sum(SnglInspiralUtils.compute_thinca_livetime( on_instruments, off_instruments, rings, veto_segments, [time_slide_dict[row.time_slide_id]] ))
-
-
-#
-# =============================================================================
-#
 #                                     Main
 #
 # =============================================================================
@@ -1593,12 +1521,6 @@ for (tag, veto_category), url_pairs in url_categories.items():
 			print >>sys.stderr, "no vetoes applied"
 
 		depopulate_time_slide_table(xmldoc, verbose = options.verbose)
-
-		if options.compute_durations and not options.veto_segments:
-			# set veto_segments to empty dictionary 
-			veto_segments = {}
-		if options.compute_durations:
-			compute_durations( xmldoc, veto_segments, verbose = options.verbose )
 
 		depopulate_experiment_tables(xmldoc, verbose = options.verbose)
 
