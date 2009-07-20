@@ -319,13 +319,19 @@ LALFindChirpClusterEvents (
                              thisEvent->end_time.gpsSeconds, &bvDOF);
             }
 
-            ccChisq = XLALComputeFullChisq(bankVetoData,input,params,q,
-                subBankIndex, thisEvent->end_time.gpsSeconds, &ccDOF, norm);
-
+            /* TODO: Fix for AmpCor filtering */
+            if ( params->approximant != AmpCorPPN )
+            {
+              printf("Calling cont. chisq.\n"); fflush( stdout );
+              ccChisq = XLALComputeFullChisq(bankVetoData,input,params,q,
+                  subBankIndex, thisEvent->end_time.gpsSeconds, &ccDOF, norm);
+            }
+            printf("Calling store event.\n"); fflush( stdout );
             LALFindChirpStoreEvent(status->statusPtr, input, params,
                 thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
                 searchName );
             CHECKSTATUSPTR( status );
+            printf("Done.\n"); fflush( stdout );            
 
             /* Set bank_chisq and cont_chisq */
             thisEvent->bank_chisq_dof = bvDOF;
@@ -368,14 +374,17 @@ LALFindChirpClusterEvents (
       bvChisq = XLALComputeBankVeto( bankVetoData, subBankIndex,
                              thisEvent->end_time.gpsSeconds, &bvDOF);
     }
-
-    ccChisq = XLALComputeFullChisq(bankVetoData, input,params,q,
+    printf("Calling cont. chisq2.\n"); fflush( stdout );
+    if ( params->approximant != AmpCorPPN )
+    {
+      ccChisq = XLALComputeFullChisq(bankVetoData, input,params,q,
             subBankIndex, thisEvent->end_time.gpsSeconds, &ccDOF, norm);
-
+    }
+    printf("Calling store event2.\n"); fflush( stdout );
     LALFindChirpStoreEvent(status->statusPtr, input, params,
          thisEvent, q, kmax, norm, eventStartIdx, numChisqBins, 
          searchName );
-
+    printf("Done.\n"); fflush(stdout);
     thisEvent->bank_chisq_dof = bvDOF;
     thisEvent->bank_chisq = bvChisq;
     thisEvent->cont_chisq_dof = ccDOF;
@@ -383,7 +392,7 @@ LALFindChirpClusterEvents (
 
     CHECKSTATUSPTR( status );
   }
-
+  printf("Returning...\n"); fflush(stdout);
   /* normal exit */
   DETATCHSTATUSPTR( status );
   RETURN( status );
