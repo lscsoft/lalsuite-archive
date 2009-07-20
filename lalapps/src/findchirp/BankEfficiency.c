@@ -793,6 +793,22 @@ main (INT4 argc, CHAR **argv )
 
   free(mybank.mass1);
   free(mybank.mass2);
+  free(mybank.tau0);
+  free(mybank.tau3);
+  free(mybank.psi0);
+  free(mybank.psi3);
+  free(mybank.alpha);
+  free(mybank.fFinal);
+  free(mybank.index);
+  free(mybank.used);
+  free(mybank.eccentricity);
+  free(mybank.snr);
+  free(mybank.gamma0);
+  free(mybank.gamma1);
+  free(mybank.gamma2);
+  free(mybank.gamma3);
+  free(mybank.gamma4);
+  free(mybank.gamma5);
   /*todo  free other varaible in mybank*/
 
   LALCheckMemoryLeaks();

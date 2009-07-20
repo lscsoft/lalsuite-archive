@@ -73,6 +73,7 @@ LALFindChirpStoreEvent (
   REAL4                      deltaT;
   LALMSTUnitsAndAcc          gmstUnits;
   UINT4			     numPoints;
+  REAL4Vector              **qVecACTD = NULL;
  
   INITSTATUS( status, "LALFindChirpStoreEvent", FINDCHIRPSTOREEVENTC );
   ATTATCHSTATUSPTR( status );
@@ -112,7 +113,14 @@ LALFindChirpStoreEvent (
   /* note: we expect the gps seconds to be set before calling this routine */
   timeIndex = thisEvent->end_time.gpsSeconds;
   deltaT = params->deltaT;
-  numPoints = params->qVec->length;
+  if ( params->approximant == AmpCorPPN )
+  {
+    numPoints = params->qVecACTD[0]->length;
+  }
+  else
+  {
+    numPoints = params->qVec->length;
+  }
 
   /* set the gmst units and strictness */
   gmstUnits.units = MST_HRS;
@@ -140,8 +148,16 @@ LALFindChirpStoreEvent (
   thisEvent->impulse_time = thisEvent->end_time;
 
   /* record the coalescence phase of the chirp */
-  thisEvent->coa_phase = (REAL4)
+  /* TODO fix for ampCor */
+  if ( params->approximant == AmpCorPPN )
+  {
+    thisEvent->coa_phase = 0.0;
+  }
+  else
+  {
+    thisEvent->coa_phase = (REAL4)
       atan2( q[timeIndex].im, q[timeIndex].re );
+  }
 
   /* copy the template into the event */
   thisEvent->mass1   = (REAL4) input->fcTmplt->tmplt.mass1;
