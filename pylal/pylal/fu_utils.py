@@ -2160,7 +2160,7 @@ defaulting to %s"%(self.serverURL))
     names associated with LIGO will have links to the channel wiki in
     them also.
     """
-    ligo=["L1","H1","H2"]
+    ligo=["L1","H1","H2","V1"]
     channelWiki="https://ldas-jobs.ligo.caltech.edu/cgi-bin/chanwiki?%s"
     if self.triggerTime==int(-1):
       return ""
