@@ -181,6 +181,9 @@ LALAddVectors
 #include <lal/GenerateInspiral.h>
 #include <lal/GeneratePPNInspiral.h>
 #include <SkyCoordinates.h>
+#include <lal/FindChirp.h>
+#include <lal/FindChirpTD.h>
+#include <lal/FindChirpACTD.h>
 
 #define random() rand()
 #define srandom( seed ) srand( seed )
@@ -743,10 +746,10 @@ void LALRandomInspiralSignalTimeDomain
  )
 {  /*  </lalVerbatim>  */
 
-    REAL8                   maxTemp; /* temporary variable */
-    INT4                    iMax;    /* temporary index    */
-    UINT4                   indice;
-    REAL8                   epsilon1, epsilon2, norm;
+/*    REAL8                   maxTemp;  temporary variable */
+/*    INT4                    iMax;     temporary index    */
+/*    UINT4                   indice; */
+    REAL8                   epsilon1, epsilon2, norm=0.0;
 
     REAL4Vector             buff;
 
@@ -759,6 +762,10 @@ void LALRandomInspiralSignalTimeDomain
 
     INT4                    tLength;
     INT4                    fLength;
+    REAL8                   df;
+    REAL8                   dt;
+    REAL4                   invRoot;
+    REAL4                   denom;
     INT4                    k;
 
     INT4                    valid;
@@ -777,6 +784,8 @@ void LALRandomInspiralSignalTimeDomain
 
     tLength = signal->length;
     fLength = signal->length / 2 + 1;
+    dt = 1.0 / randIn->param.tSampling;
+    df = randIn->param.tSampling / (REAL8)(tLength) / 2.;
 
     buff.length = signal->length;
     if (!(buff.data = (REAL4*) LALCalloc(buff.length, sizeof(REAL4)) )) 
@@ -1164,8 +1173,13 @@ void LALRandomInspiralSignalTimeDomain
                     randIn->param.fFinal=0; 
                     LALInspiralWave(status->statusPtr, signal, &randIn->param);
                     CHECKSTATUSPTR(status);
-                }
 
+                }
+                /* Taper signal */
+                if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
+                {
+                  XLALInspiralWaveTaper( signal, randIn->taperSignal );
+                }
             } 
 
             /* we might want to know where is the signal injected*/
@@ -1189,41 +1203,8 @@ void LALRandomInspiralSignalTimeDomain
 
         case 1:
 
-            LALCreateRandomParams(status->statusPtr, &randomparams, randIn->useed);
-            CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, ntilde_re, randomparams);
-            CHECKSTATUSPTR(status);
-            LALNormalDeviates(status->statusPtr, ntilde_im, randomparams);
-            CHECKSTATUSPTR(status);
-            LALDestroyRandomParams(status->statusPtr, &randomparams);
-            CHECKSTATUSPTR(status);
-
-            for( k=0; k < fLength; ++k )
-            {
-              REAL4 factor;
-            
-              factor = sqrt( (REAL4)(tLength) / 4.0 * (REAL4)(randIn->param.tSampling) )
-                       * randIn->psd.data[k] * 9.0e-46;
-
-              ntilde->data[k].re = ntilde_re->data[k] * factor;
-              ntilde->data[k].im = ntilde_im->data[k] * factor;
-            }
-            /* set DC and nyquist = 0.0 */
-            ntilde->data[0].re = ntilde->data[fLength-1].re = 0.0;
-            ntilde->data[0].im = ntilde->data[fLength-1].im = 0.0;
-
-            LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
-            CHECKSTATUSPTR(status);
-            LALReverseRealFFT( status->statusPtr, signal, ntilde, invPlan );
-            CHECKSTATUSPTR(status);
-      
-            LALSDestroyVector( status->statusPtr, &ntilde_re );
-            CHECKSTATUSPTR(status);
-            LALSDestroyVector( status->statusPtr, &ntilde_im );
-            CHECKSTATUSPTR(status);
-            LALCDestroyVector( status->statusPtr, &ntilde );
-            CHECKSTATUSPTR(status);
-
+            fprintf( stderr, "ERROR case 1 not ready for ACTD!\n" );
+            return;
             break;
 
         default:
@@ -1252,36 +1233,78 @@ void LALRandomInspiralSignalTimeDomain
                     LALInspiralWave(status->statusPtr, &buff, &randIn->param);
                     CHECKSTATUSPTR(status);
               }
-            
-              fwdPlan = XLALCreateForwardREAL4FFTPlan( fLength, 0 );
+              /* Taper signal */
+              if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
+              {
+                XLALInspiralWaveTaper( &buff, randIn->taperSignal );
+              }
+
+              /* Add signal to noise in Freq domain */ 
+              LALCreateForwardRealFFTPlan( status->statusPtr, &fwdPlan, tLength, 0 );
+              CHECKSTATUSPTR(status);
+              LALForwardRealFFT( status->statusPtr, stilde, &buff, fwdPlan ); 
+              CHECKSTATUSPTR(status);
+              LALDestroyRealFFTPlan( status->statusPtr, &fwdPlan );
               CHECKSTATUSPTR(status);
 
-             /* Add signal to noise in Freq domain */ 
-             LALForwardREAL4FFT( status->statusPtr, stilde, &buff, fwdPlan ); 
+              /* Calculate Signal Norm */
+              for( k=0; k < (INT4)fLength; ++k )
+              {
+                REAL4 power;
 
+                /* Calculate Signal Norm */
+                if( (REAL4)(k) * df > randIn->param.fLower )
+                {
+                  power  = stilde->data[k].re * stilde->data[k].re; 
+                  power += stilde->data[k].im * stilde->data[k].im; 
+                  norm  += power / randIn->psd.data[k];
+                } 
+              }
+              norm *= 4.0 * dt / tLength;
+              invRoot = pow( norm, -0.5 ); 
+
+              denom = pow( dt, -0.5 );
               for( k=0; k < fLength; ++k )
               {
-                  REAL4 factor;
-            
-                  factor = sqrt( (REAL4)(tLength) / 4.0 * (REAL4)(randIn->param.tSampling) )
-                          * randIn->psd.data[k] * 9.0e-46;
+                REAL4 numer = pow( 4.0 * randIn->psd.data[k], 0.5 );
 
-                  ntilde->data[k].re = ntilde_re->data[k] * factor;
-                  ntilde->data[k].im = ntilde_im->data[k] * factor;
-    
-                  ntilde->data[k].re += stilde->data[k].re;
-                  ntilde->data[k].im += stilde->data[k].im;
+                /* Colour Noise */
+                ntilde_re->data[k] *= numer;
+                ntilde_re->data[k] /= denom;
+                ntilde_im->data[k] *= numer;
+                ntilde_im->data[k] /= denom;
+               
+                /* Normalise Signal */
+                stilde->data[k].re *= invRoot;
+                stilde->data[k].im *= invRoot;
+
+                /* Add signal */
+                ntilde->data[k].re = ntilde_re->data[k] * randIn->NoiseAmp;
+                ntilde->data[k].im = ntilde_im->data[k] * randIn->NoiseAmp;
+
+                ntilde->data[k].re += stilde->data[k].re * randIn->SignalAmp;
+                ntilde->data[k].im += stilde->data[k].im * randIn->SignalAmp;
               }
 
               /* set DC and nyquist = 0.0 */
-              ntilde->data[0].re = ntilde->data[fLength-1].re = 0.0;
-              ntilde->data[0].im = ntilde->data[fLength-1].im = 0.0;
+              ntilde->data[0].re = 0.0;
+              ntilde->data[0].im = 0.0;
+              ntilde->data[fLength-1].re = 0.0;
+              ntilde->data[fLength-1].im = 0.0;
+
 
               LALCreateReverseRealFFTPlan( status->statusPtr, &invPlan, tLength, 0 );
               CHECKSTATUSPTR(status);
               LALReverseRealFFT( status->statusPtr, signal, ntilde, invPlan );
               CHECKSTATUSPTR(status);
-      
+              /* Normalise after fft */
+              for( k=0; k < tLength; ++k )
+              {
+                signal->data[k] /= (REAL4)(tLength);
+              }
+
+              LALDestroyRealFFTPlan( status->statusPtr, &invPlan );
+              CHECKSTATUSPTR(status);
               LALSDestroyVector( status->statusPtr, &ntilde_re );
               CHECKSTATUSPTR(status);
               LALSDestroyVector( status->statusPtr, &ntilde_im );
@@ -1505,7 +1528,7 @@ void GenerateTimeDomainWaveformForInjection (
         fc = 0.5*(1 + t*t)*cos(p)*sin(s) + t*sin(p)*cos(s);
 
         phi0 = waveform.phi->data->data[0];
-        for (kk=0; kk < waveform.phi->data->length; kk++) 
+        for (kk=0; kk < (INT4)waveform.phi->data->length; kk++) 
         {
             a1    = waveform.a->data->data[2*kk];
             a2    = waveform.a->data->data[2*kk+1];

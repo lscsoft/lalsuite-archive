@@ -252,7 +252,7 @@ main (INT4 argc, CHAR **argv )
     for( i = 0; i < (INT4)randIn.psd.length; ++i )
     {
       ampCorDataSegVec->data->spec->data->data[i] = 
-        randIn.psd.data[i] *= 9.0e46;
+        randIn.psd.data[i] *= 9.0e20;
       ampCorDataSegVec->data->resp->data->data[i].re = 1.0;
       ampCorDataSegVec->data->resp->data->data[i].im = 0.0;
     }      
@@ -286,6 +286,7 @@ main (INT4 argc, CHAR **argv )
   overlapin.psd         = randIn.psd;
   overlapin.fwdp        = randIn.fwdp = fwdp;
   overlapin.revp        = revp;
+
   overlapin.ifExtOutput = 0;  /* new option from Anand's WaveOverlap */
   overlapin.ifCorrelationOutput = 1; /* output of WaveOverlap is sqrt(x^2+y^2)*/
 
@@ -335,7 +336,6 @@ main (INT4 argc, CHAR **argv )
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
-  
 
       for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
       {
@@ -350,6 +350,7 @@ main (INT4 argc, CHAR **argv )
         }      
       }
 
+
       LAL_CALL( LALFindChirpTDData( &status, ampCorFreqSegVec, 
                                     ampCorDataSegVec, ampCorDataParams ),
                                     &status );
@@ -360,33 +361,36 @@ main (INT4 argc, CHAR **argv )
       memset( ampCorFreqSegVec->data->segNorm->data, 0,
               ampCorFreqSegVec->data->segNorm->length * sizeof( REAL4 ) );
 
-      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+      /* Only do this in the absence of noise */
+      if( randIn.type == 0 )
       {
-        REAL4 power;
-        
-        if( i * ampCorFreqSegVec->data->data->deltaF 
-                                    >= ampCorDataParams->fLow )
+        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
         {
-          power  = ampCorFreqSegVec->data->data->data->data[i].re *
-                   ampCorFreqSegVec->data->data->data->data[i].re;
-          power += ampCorFreqSegVec->data->data->data->data[i].im *
-                   ampCorFreqSegVec->data->data->data->data[i].im;
-    
-          norm += 4.0 * power * ampCorFilterParams->deltaT 
-                  / (REAL4)(ampCorDataSegVec->data->chan->data->length)
-                  / ampCorDataParams->wtildeVec->data[i].re;
+          REAL4 power;
+        
+          if( i * ampCorFreqSegVec->data->data->deltaF 
+                                      >= ampCorDataParams->fLow )
+          {
+            power  = ampCorFreqSegVec->data->data->data->data[i].re *
+                     ampCorFreqSegVec->data->data->data->data[i].re;
+            power += ampCorFreqSegVec->data->data->data->data[i].im *
+                     ampCorFreqSegVec->data->data->data->data[i].im;
+        
+            norm += 4.0 * power * ampCorFilterParams->deltaT 
+                    / (REAL4)(ampCorDataSegVec->data->chan->data->length)
+                    / ampCorDataParams->wtildeVec->data[i].re;
+          }
         }
-      }
-      invRootData = pow( norm, -0.5 );  
 
-      for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
-      {
-        ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
-        ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
-      }
-    
+        invRootData = pow( norm, -0.5 );  
+
+        for( i = 0; i < (INT4)ampCorFreqSegVec->data->data->data->length-1; ++i )
+        {
+          ampCorFreqSegVec->data->data->data->data[i].re *= invRootData;
+          ampCorFreqSegVec->data->data->data->data[i].im *= invRootData;
+        }
+      }    
     }
-
        
     /*  --- populate the insptmplt with the signal parameter --- */
     insptmplt = randIn.param; /* set the sampling and other common parameters */
@@ -436,7 +440,7 @@ main (INT4 argc, CHAR **argv )
 
           insptmplt.massChoice = psi0Andpsi3;
           LAL_CALL(LALInspiralParameterCalc(&status, &(insptmplt)),&status);
-          overlapin.param = insptmplt;
+           overlapin.param = insptmplt;
 
           LAL_CALL(LALInspiralParameterCalc( &status,  &(overlapin.param) ),
               &status);
@@ -561,7 +565,7 @@ main (INT4 argc, CHAR **argv )
             if( userParam.template == AmpCorPPN )
             {
               REAL8 max = 0.0;
-              UINT4 bin;
+              UINT4 bin = 0;
               SnglInspiralTable *event = NULL;
  
               LAL_CALL( LALFindChirpACTDTemplate( 
@@ -583,7 +587,7 @@ main (INT4 argc, CHAR **argv )
                           ampCorFilterParams ), &status );
 
               for( i = 1; 
-                    i < ampCorFilterParams->rhosqVec->data->length; ++i )
+                    i < (INT4)ampCorFilterParams->rhosqVec->data->length; ++i )
               {
                 correlation.data[i] = ampCorFilterParams->rhosqVec->data->data[i];
                 if( ampCorFilterParams->rhosqVec->data->data[i] > max ) 
@@ -774,7 +778,22 @@ main (INT4 argc, CHAR **argv )
 
   free(mybank.mass1);
   free(mybank.mass2);
-  /*todo  free other varaible in mybank*/
+  free(mybank.tau0);
+  free(mybank.tau3);
+  free(mybank.psi0);
+  free(mybank.psi3);
+  free(mybank.alpha);
+  free(mybank.fFinal);
+  free(mybank.index);
+  free(mybank.used);
+  free(mybank.eccentricity);
+  free(mybank.snr);
+  free(mybank.gamma0);
+  free(mybank.gamma1);
+  free(mybank.gamma2);
+  free(mybank.gamma3);
+  free(mybank.gamma4);
+  free(mybank.gamma5);
 
   LALCheckMemoryLeaks();
 
@@ -2091,6 +2110,16 @@ void BankEfficiencyGetMaximumSize(
     LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
              status->statusPtr);
   }
+  else
+  {
+    params.mass1 = params.mass2 = randIn.mMin;
+    LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
+             status->statusPtr);
+  }
+
+  /* keep longest one */
+  if (maxTmpltLength > *length)
+    *length = maxTmpltLength;
 
   /* keep longest one */
   if (maxTmpltLength > *length)
@@ -2853,7 +2882,8 @@ void BankEfficiencyInitRandomInspiralSignalIn(
   randIn->inclinationMax        = LAL_PI;
   randIn->polarisationAngleMin  = 0.;
   randIn->polarisationAngleMax  = LAL_PI;
-  randIn->param.alpha1                = 0; /*used to populate eccentriciyt at freq=fLower*/
+  randIn->param.alpha1          = 0; /*used to populate eccentriciyt at freq=fLower*/
+  randIn->taperSignal           = INSPIRAL_TAPER_NONE;
 }
 
 
@@ -3384,6 +3414,26 @@ void BankEfficiencyParseParameters(
     else if (!strcmp(argv[i],"--print-prototype")) {
       userParam->printPrototype = 1;
     }
+    else if (!strcmp(argv[i], "--signal-taper")) {
+      BankEfficiencyParseGetString(argv, &i);
+      if ( ! strcmp( "start", argv[i] ) )
+      {
+        randIn->taperSignal = INSPIRAL_TAPER_START;      
+      }
+      else if ( ! strcmp( "end", argv[i] ) )
+      {
+        randIn->taperSignal = INSPIRAL_TAPER_END;      
+      }
+      else if ( ! strcmp( "startend", argv[i] ) )
+      {
+        randIn->taperSignal = INSPIRAL_TAPER_STARTEND;      
+      }
+      else
+      {
+        fprintf( stderr, 
+          "invalid argument to --signal-taper\n (Must be one of start|end|startend)\n");
+      }
+    }
     else {
       fprintf(stderr,
           "%s option does not exist. Type --help for options\n", argv[i]);
@@ -3843,6 +3893,7 @@ void BankEfficiencyHelp(void)
   fprintf(stderr, "\t[--print-prototype]\t\t print a prototype to be used by condor script\n");
   fprintf(stderr, "\t[--fast-simulation]\t\t perform fast simulation [None, EMatch,Heuristic1]\n");
   fprintf(stderr, "\t[--fast-param1]\t\t set maximum number of matches to compute without finding a greater match (Heuristic1 method)\n");
+  fprintf(stderr, "\t--signal-taper\t\t time domain only - start|end|startend, for no tapering do not use this option\n");
   exit(1);
 }
 
@@ -3868,7 +3919,7 @@ void BankEfficiencyAscii2Xml(void)
   SnglInspiralTable     *inputData = NULL;
 
   INT4 numFileTriggers = 0;
-  INT4 nStartPad;
+  INT4 nStartPad = 0;
 
   char sbuf[2048];
   CHAR fname[256]="";

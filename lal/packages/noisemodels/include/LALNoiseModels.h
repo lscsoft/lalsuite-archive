@@ -241,6 +241,8 @@ extern "C" {
                 REAL8 polarisationAngleMin, polarisationAngleMax;
                 REAL8 sourceThetaMin, sourceThetaMax, sourcePhiMin, sourcePhiMax;
                 REAL8 inclinationMin, inclinationMax;
+
+                InspiralApplyTaper taperSignal;
             }  
     RandomInspiralSignalIn;
     /*  </lalVerbatim>  */
