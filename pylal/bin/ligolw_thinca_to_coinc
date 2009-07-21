@@ -592,7 +592,7 @@ def populate_experiment_table(xmldoc, search_group, search, lars_id, instruments
 	experiment_ids = {}
 
 	# write entry to the experiment table for the given instruments if it doesn't already exist
-	experiment_ids[instruments] =  expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
+	experiment_ids[frozenset(instruments)] =  expr_table.write_new_expr_id( search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments )
 
 	#  add every possible sub-combination of the instrument set if 
 	# they're not already in the table 
@@ -656,7 +656,7 @@ def generate_experiment_tables(xmldoc, search_group, search, lars_id, veto_def_n
 
 	# Get the instruments that were on
 	thinca_process_ids = get_thinca_process_ids(xmldoc)
-	instruments = get_search_summary_instruments(xmldoc, thinca_process_ids)
+	instruments = set( get_search_summary_instruments(xmldoc, thinca_process_ids) )
 
 	# Populate the experiment table
 	experiment_ids = populate_experiment_table(xmldoc, search_group, search, lars_id, instruments, expr_start_time, expr_end_time, comments = comments, add_inst_subsets = True, verbose = verbose)
