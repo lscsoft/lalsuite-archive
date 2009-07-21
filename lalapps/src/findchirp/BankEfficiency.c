@@ -2110,16 +2110,6 @@ void BankEfficiencyGetMaximumSize(
     LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
              status->statusPtr);
   }
-  else
-  {
-    params.mass1 = params.mass2 = randIn.mMin;
-    LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
-             status->statusPtr);
-  }
-
-  /* keep longest one */
-  if (maxTmpltLength > *length)
-    *length = maxTmpltLength;
 
   /* keep longest one */
   if (maxTmpltLength > *length)
