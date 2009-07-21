@@ -259,7 +259,6 @@ typedef struct{
   EccentricBank eccentricSignal;
   CHAR tag[256];
   INT4 fastParam1;
-  CHAR taperSignal[256];
 }
 UserParametersIn;
 

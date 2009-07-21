@@ -286,6 +286,7 @@ main (INT4 argc, CHAR **argv )
   overlapin.psd         = randIn.psd;
   overlapin.fwdp        = randIn.fwdp = fwdp;
   overlapin.revp        = revp;
+
   overlapin.ifExtOutput = 0;  /* new option from Anand's WaveOverlap */
   overlapin.ifCorrelationOutput = 1; /* output of WaveOverlap is sqrt(x^2+y^2)*/
 
@@ -335,22 +336,6 @@ main (INT4 argc, CHAR **argv )
     {
       REAL4 invRootData;
       REAL4 norm = 0.0;
-
-      if ( ! strcmp( "start", userParam.taperSignal ) ) 
-      {
-        XLALInspiralWaveTaper( &overlapin.signal,
-                               INSPIRAL_TAPER_START );
-      }
-      else if (  ! strcmp( "end", userParam.taperSignal ) )
-      {
-        XLALInspiralWaveTaper( &overlapin.signal,
-                               INSPIRAL_TAPER_END );
-      }
-      else if (  ! strcmp( "startend", userParam.taperSignal ) )
-      {
-        XLALInspiralWaveTaper( &overlapin.signal,
-                               INSPIRAL_TAPER_STARTEND );
-      }
 
       for( i = 0; i < (INT4)ampCorDataSegVec->data->chan->data->length; ++i )
       {
@@ -809,7 +794,6 @@ main (INT4 argc, CHAR **argv )
   free(mybank.gamma3);
   free(mybank.gamma4);
   free(mybank.gamma5);
-  /*todo  free other varaible in mybank*/
 
   LALCheckMemoryLeaks();
 
@@ -2888,7 +2872,8 @@ void BankEfficiencyInitRandomInspiralSignalIn(
   randIn->inclinationMax        = LAL_PI;
   randIn->polarisationAngleMin  = 0.;
   randIn->polarisationAngleMax  = LAL_PI;
-  randIn->param.alpha1                = 0; /*used to populate eccentriciyt at freq=fLower*/
+  randIn->param.alpha1          = 0; /*used to populate eccentriciyt at freq=fLower*/
+  randIn->taperSignal           = INSPIRAL_TAPER_NONE;
 }
 
 
@@ -2944,8 +2929,7 @@ void BankEfficiencyInitUserParametersIn(
   userParam->inputPSD            = NULL;
   userParam->ambiguity           = 0;
   userParam->fastParam1          = 50;
-  sprintf(userParam->taperSignal,"none");
-  sprintf(userParam->tag,"-");
+  sprintf(userParam->tag,"");
 }
 
 
@@ -3424,15 +3408,15 @@ void BankEfficiencyParseParameters(
       BankEfficiencyParseGetString(argv, &i);
       if ( ! strcmp( "start", argv[i] ) )
       {
-        sprintf(userParam->taperSignal, "start");
+        randIn->taperSignal = INSPIRAL_TAPER_START;      
       }
       else if ( ! strcmp( "end", argv[i] ) )
       {
-        sprintf(userParam->taperSignal, "end");      
+        randIn->taperSignal = INSPIRAL_TAPER_END;      
       }
       else if ( ! strcmp( "startend", argv[i] ) )
       {
-        sprintf(userParam->taperSignal, "startend");      
+        randIn->taperSignal = INSPIRAL_TAPER_STARTEND;      
       }
       else
       {
@@ -3899,6 +3883,7 @@ void BankEfficiencyHelp(void)
   fprintf(stderr, "\t[--print-prototype]\t\t print a prototype to be used by condor script\n");
   fprintf(stderr, "\t[--fast-simulation]\t\t perform fast simulation [None, EMatch,Heuristic1]\n");
   fprintf(stderr, "\t[--fast-param1]\t\t set maximum number of matches to compute without finding a greater match (Heuristic1 method)\n");
+  fprintf(stderr, "\t--signal-taper\t\t time domain only - start|end|startend, for no tapering do not use this option\n");
   exit(1);
 }
 

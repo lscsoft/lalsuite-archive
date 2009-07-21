@@ -1173,8 +1173,13 @@ void LALRandomInspiralSignalTimeDomain
                     randIn->param.fFinal=0; 
                     LALInspiralWave(status->statusPtr, signal, &randIn->param);
                     CHECKSTATUSPTR(status);
-                }
 
+                }
+                /* Taper signal */
+                if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
+                {
+                  XLALInspiralWaveTaper( signal, randIn->taperSignal );
+                }
             } 
 
             /* we might want to know where is the signal injected*/
@@ -1228,7 +1233,11 @@ void LALRandomInspiralSignalTimeDomain
                     LALInspiralWave(status->statusPtr, &buff, &randIn->param);
                     CHECKSTATUSPTR(status);
               }
-            
+              /* Taper signal */
+              if( randIn->taperSignal != INSPIRAL_TAPER_NONE )
+              {
+                XLALInspiralWaveTaper( &buff, randIn->taperSignal );
+              }
 
               /* Add signal to noise in Freq domain */ 
               LALCreateForwardRealFFTPlan( status->statusPtr, &fwdPlan, tLength, 0 );
