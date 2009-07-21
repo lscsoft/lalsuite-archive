@@ -309,7 +309,7 @@ main (INT4 argc, CHAR **argv )
   /* --- loop over the number of simulations (ntrials) --- */
   while (++simulation.ntrials <= userParam.ntrials)
   {
-    if (vrbflg){
+    if (vrbflg==0){
       fprintf(stdout,"Simulation number %d/%d\n", 
                       simulation.ntrials, userParam.ntrials);
     }
@@ -479,7 +479,7 @@ main (INT4 argc, CHAR **argv )
         case PadeT1:
         case PadeF1:
         case SpinTaylor:
-          if (vrbflg){
+          if (vrbflg==0){
             fprintf(stderr,"closest template is tau0= %f tau3= %f  index=%d filterintIndex= %d\n",
               mybank.tau0[fast_index], mybank.tau3[fast_index],fast_index,simulation.filteringIndex);
           }
@@ -629,12 +629,12 @@ main (INT4 argc, CHAR **argv )
 
             if (vrbflg)
             {
-              fprintf(stderr, "snr=%f m1T=%f m2T=%f m1S=%f m2S=%f SigPad=%d Maxbin=%d\n",
-                overlapOutputThisTemplate.rhoMax, insptmplt.mass1,
-                insptmplt.mass2, randIn.param.mass1, randIn.param.mass2,
-                randIn.param.nStartPad, overlapOutputThisTemplate.rhoBin);
-
-            fflush(stderr);
+              fprintf(stdout, "%f %f %f %f %f\n",
+                overlapOutputThisTemplate.rhoMax,
+                insptmplt.t0, insptmplt.t3,
+                randIn.param.t0, randIn.param.t3
+								);
+            fflush(stdout);
             }
 
             if (overlapOutputThisTemplate.rhoMax > simulation.bestSNR)
@@ -885,7 +885,7 @@ void BankEfficiencyPrintResults(
   BankEfficiencySimulation simulation)
 {
 /*  FILE *fs; */
-  fprintf(stdout,
+  fprintf(stderr,
   "%8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %8.3f %d\n",
       result.mass1_trigger, result.mass2_trigger,
 /*
@@ -2064,42 +2064,43 @@ void BankEfficiencyGetMaximumSize(
 
   *length = 0;
 
-  /* first the longest signal */
+  /* first the longest template */
   params            = randIn.param;
   params.massChoice = m1Andm2;
   params.mass1 = params.mass2 = coarseBankIn.mMin;
+  /* For ampCorPPN filtering we seem to understimate the length, because
+     of the 'ignore corrupted data' issue with the inspiral pipeline, so we 
+     increase the ampOrder by 2 for length calculation */
+  params.fLower = coarseBankIn.fLower * 2.0 / (REAL4)(coarseBankIn.ampOrder + 2 + 2);
   LAL_CALL(LALInspiralWaveLength(status->statusPtr, length, params),
        status->statusPtr);
 
   /* then the longest signal*/
-  params.mass1 = params.mass2 = randIn.mMin;
-  params.fLower = coarseBankIn.fLower;
-  LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
-           status->statusPtr);
-
-  /* keep longest one */
-  if (maxTmpltLength > *length)
-    *length = maxTmpltLength;
-
+  params.fLower = randIn.param.fLower * 2.0 / (REAL4)(randIn.param.ampOrder + 2);
   /* --m1 --m2 may have been requested. */
   if (userParam.m1 != -1)
   {
     params.mass1 = userParam.m1;
     params.mass2 = userParam.m2;
-    params.fLower = randIn.param.fLower;
     LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
            status->statusPtr);
-    /* keep longest one */
-    if (maxTmpltLength > *length)
-      *length = maxTmpltLength;
   }
+  else
+  {
+    params.mass1 = params.mass2 = randIn.mMin;
+    LAL_CALL(LALInspiralWaveLength(status->statusPtr, &maxTmpltLength, params),
+             status->statusPtr);
+  }
+
+  /* keep longest one */
+  if (maxTmpltLength > *length)
+    *length = maxTmpltLength;
 
   if (userParam.tau0 != -1)
   {
     params.t0 = userParam.tau0;
     params.t3 = userParam.tau3;
     params.massChoice = t03;
-    params.fLower = randIn.param.fLower;
     LAL_CALL(LALInspiralParameterCalc( status->statusPtr,  &params ),
         status->statusPtr);
 
@@ -2112,24 +2113,6 @@ void BankEfficiencyGetMaximumSize(
       }
   }
 
-
-
-  /* ideally this should be implemented within lal.*/
-  if( randIn.param.approximant  == AmpCorPPN || userParam.template == AmpCorPPN)
-  {
-    INT4 ampOrder;
-
-    if( randIn.param.ampOrder < coarseBankIn.ampOrder )
-    {
-      ampOrder = coarseBankIn.ampOrder;
-    }
-    else
-    {
-      ampOrder = randIn.param.ampOrder;
-    }
-
-    *length *= (INT4)( pow(1./(1.+ampOrder/2.), -8./3.) );
-  }
 
   /* if --num-seconds is provided, we want a specified length of data.
    * Otherwise, we stick to a minimal size given by twice the length of the
@@ -2451,7 +2434,7 @@ void BankEfficiencyGenerateInputData(
       }
     }
 
-    if(vrbflg) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
+    if(vrbflg==0) fprintf(stderr, "Signal mass1=%e mass2=%e\n", randIn->param.mass1, randIn->param.mass2);
   }
 
 
@@ -2475,7 +2458,7 @@ void BankEfficiencyGenerateInputData(
   }    
        
   /* --- print the signal waveform --- */   
-  if (vrbflg)
+  if (vrbflg==0)
   {
   BankEfficiencyPrintMessage(" ... done\n");
   BankEfficiencySaveVector(BANKEFFICIENCY_ASCIISIGNAL, *signal,
@@ -4700,7 +4683,7 @@ void BankEfficiencyInitMyBank(
 
   mybank->size = (INT4) (*sizeBank);
   mybank->approximant = userParam.template;
-  if ( vrbflg )
+  if ( vrbflg==0 )
   {
     if( userParam.template == Eccentricity )
     {
@@ -4754,7 +4737,7 @@ void BankEfficiencyPrintAmbiguity(
 
   if (userParam.ambiguity)
   {
-    if (vrbflg)
+    if (vrbflg==0)
     {
       fprintf(stderr,"------->%s\n",userParam.tag);
       sprintf(str, "BankEfficiency-ambiguity_%d_%s.dat",
@@ -4805,7 +4788,7 @@ void BankEfficiencyValidity(
 
 void BankEfficiencyPrintMessage(const char *str)
 {
-  if (vrbflg){
+  if (vrbflg==0){
   fprintf(stdout, "%s",str);fflush(stdout);
   }
 }
