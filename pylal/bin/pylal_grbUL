@@ -437,7 +437,7 @@ if opts.nonuniform_smoothing_L:
 #     are extracted from the search.
 supported_ifos = set(("H1", "H2", "L1", "V1"))
 if opts.ifo_tag is not None:
-    ifos = set(opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag)/2))
+    ifos = set(opts.ifo_tag[2*i:2*i+2] for i in range(len(opts.ifo_tag) // 2))
     if not supported_ifos.issuperset(ifos):
         raise ValueError, "Only %s are valid IFOs in --ifo-tag" % supported_ifos
 else:

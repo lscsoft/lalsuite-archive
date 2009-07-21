@@ -51,7 +51,7 @@ from pylal.date import LIGOTimeGPS
 lsctables.LIGOTimeGPS = LIGOTimeGPS
 
 
-__author__ = "Kipp Cannon <kipp@gravity.phys.uwm.edu>"
+__author__ = "Kipp Cannon <kcannon@ligo.caltech.edu>"
 __version__ = "$Revision$"[11:-2]
 __date__ = "$Date$"[7:-2]
 
@@ -187,10 +187,35 @@ class Summaries(object):
 			reputations.sort()
 
 	def rate(self, on_instruments, participating_instruments, mchirp, mtotal, snr, uncombined_ifar, likelihood):
+		#
+		# retrieve the appropriate reputation list (create an empty
+		# one if there are no reputations for this category)
+		#
+
 		reputations = self.reputations.setdefault(self.category_func(on_instruments, participating_instruments, mchirp, mtotal), [])
-		# len(x) - bisect.bisect_left(x, reputation) = (# of
-		# elements in list >= reputation)
-		return (len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))) / self.cached_livetime[on_instruments]
+
+		#
+		# len(x) - bisect.bisect_left(x, reputation) = number of
+		# elements in list >= reputation
+		#
+
+		n = len(reputations) - bisect.bisect_left(reputations, self.reputation_func(snr, uncombined_ifar, likelihood))
+
+		#
+		# retrieve the livetime
+		#
+
+		t = self.cached_livetime.setdefault(on_instruments, 0.0)
+
+		#
+		# return the rate of events above the given reputation
+		#
+
+		try:
+			return n / t
+		except ZeroDivisionError, e:
+			print >>sys.stderr, "found an event in category %s that has a livetime of 0 s" % repr(self.category_func(on_instruments, participating_instruments, mchirp, mtotal))
+			raise e
 
 
 #
